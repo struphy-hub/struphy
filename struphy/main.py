@@ -73,13 +73,16 @@ for key, val in model.em_fields.items():
     if 'params' not in key:
         key_field = 'feec/' + key
         
+        # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
+        val['obj'].extract_coeffs(update_ghost_regions=False)
+        
         # save numpy array to be updated each time step.
-        if isinstance(val['obj'].vector, StencilVector):    
-            data.add_data({key_field : val['obj'].vector._data})
+        if isinstance(val['obj'].vector_stencil, StencilVector):    
+            data.add_data({key_field : val['obj'].vector_stencil._data})
         else:
             for n in range(3):
                 key_component = key_field + '/' + str(n + 1)
-                data.add_data({key_component : val['obj'].vector[n]._data})
+                data.add_data({key_component : val['obj'].vector_stencil[n]._data})
                 
         # save field meta data
         data.file[key_field].attrs['space_id'] = val['obj'].space_id
@@ -96,13 +99,16 @@ for species, val in model.fluid.items():
         if 'params' not in variable:
             key_field = species_path + variable
             
+            # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
+            subval['obj'].extract_coeffs(update_ghost_regions=False)
+            
             # save numpy array to be updated each time step.
-            if isinstance(subval['obj'].vector, StencilVector):    
-                data.add_data({key_field : subval['obj'].vector._data})
+            if isinstance(subval['obj'].vector_stencil, StencilVector):    
+                data.add_data({key_field : subval['obj'].vector_stencil._data})
             else:
                 for n in range(3):
                     key_component = key_field + '/' + str(n + 1)
-                    data.add_data({key_component : subval['obj'].vector[n]._data})
+                    data.add_data({key_component : subval['obj'].vector_stencil[n]._data})
                     
             # save field meta data
             data.file[key_field].attrs['space_id'] = subval['obj'].space_id
@@ -205,6 +211,18 @@ while True:
     model.update_scalar_quantities(dt*time_steps_done)
     model.update_markers_to_be_saved()
     model.update_distr_function()
+    
+    # extract FEM coefficients
+    for key, val in model.em_fields.items():
+        if 'params' not in key:
+            # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
+            val['obj'].extract_coeffs(update_ghost_regions=False)
+            
+    for species, val in model.fluid.items():
+        for variable, subval in val.items():
+            if 'params' not in variable:
+                # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
+                subval['obj'].extract_coeffs(update_ghost_regions=False)
 
     # save data
     data.save_data()

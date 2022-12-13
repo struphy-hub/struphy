@@ -1,9 +1,10 @@
+import numpy as np
 from numpy import array
 
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 
-import numpy as np
+from struphy.polar.basic import PolarVector
 
 from struphy.propagators.base import Propagator
 from struphy.linear_algebra.schur_solver import SchurSolver
@@ -16,8 +17,6 @@ from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Mul
 from struphy.psydac_api.linear_operators import InverseLinearOperator as Invert
 from struphy.psydac_api import preconditioner
 from struphy.psydac_api.linear_operators import LinOpWithTransp
-
-from struphy.psydac_api.utilities import apply_essential_bc_to_array
 
 
 class StepPushEta( Propagator ):
@@ -118,14 +117,11 @@ class StepPushVxB( Propagator ):
         algo : str
             The used algorithm.
             
-        b : psydac.linalg.block.BlockVector
-            FE coefficients of a dynamical magnetic field (2-form).
-            
-        b_static : psydac.linalg.block.BlockVector (optional)
-            FE coefficients of a static (background) magnetic field (2-form).
+        *b_vectors : psydac.linalg.block.BlockVector | struphy.polar.basic.PolarVector
+            FE coefficients of several magnetic fields (2-form) (typically static and dynamical magnetic field).
     """
     
-    def __init__(self, particles, derham, algo, b, b_static=None):
+    def __init__(self, particles, derham, algo, *b_vectors):
         
         self._particles = particles
         
@@ -136,15 +132,14 @@ class StepPushVxB( Propagator ):
         
         self._pusher = Pusher(derham, particles.domain, kernel_name)
         
-        assert isinstance(b, BlockVector)
+        # magnetic field vectors
+        for b in b_vectors:
+            assert isinstance(b, (BlockVector, PolarVector))
         
-        self._b = b
-        
-        if b_static is None:
-            self._b_static = b.space.zeros()
-        else:
-            assert isinstance(b_static, BlockVector)
-            self._b_static = b_static
+        self._b_vectors = b_vectors
+            
+        # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
+        self._E2T = derham.E['2'].transpose()
         
     @property
     def variables(self):
@@ -152,19 +147,23 @@ class StepPushVxB( Propagator ):
     
     def __call__(self, dt):
         
-        # check if ghost regions are synchronized
-        if not self._b[0].ghost_regions_in_sync: self._b[0].update_ghost_regions()
-        if not self._b[1].ghost_regions_in_sync: self._b[1].update_ghost_regions()
-        if not self._b[2].ghost_regions_in_sync: self._b[2].update_ghost_regions()
-            
-        if not self._b_static[0].ghost_regions_in_sync: self._b_static[0].update_ghost_regions()
-        if not self._b_static[1].ghost_regions_in_sync: self._b_static[1].update_ghost_regions()
-        if not self._b_static[2].ghost_regions_in_sync: self._b_static[2].update_ghost_regions()
+        # sum up total magnetic field
+        b_full = self._b_vectors[0].space.zeros()
         
+        for b in self._b_vectors:
+            b_full += b
+        
+        # extract coefficients to tensor product space
+        b_full = self._E2T.dot(b_full)
+        
+        # update ghost regions because of non-local access in pusher kernel
+        b_full.update_ghost_regions()
+        
+        # call pusher kernel
         self._pusher(self._particles, dt, 
-                     self._b_static[0]._data + self._b[0]._data,
-                     self._b_static[1]._data + self._b[1]._data,
-                     self._b_static[2]._data + self._b[2]._data)
+                     b_full[0]._data,
+                     b_full[1]._data,
+                     b_full[2]._data)
 
 
 class StepPushEtaPC( Propagator ):

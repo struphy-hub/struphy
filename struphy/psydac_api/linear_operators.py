@@ -389,6 +389,14 @@ class IdentityOperator(LinOpWithTransp):
         else:
             assert type(out) == type(v)
             
+            if isinstance(v, StencilVector):
+                out[:] = v[:]
+            elif isinstance(v, BlockVector):
+                for n in range(3):
+                    out[n][:] = v[n][:]
+            else:
+                out.set_vector(v)
+            
         return out
 
     def transpose(self):

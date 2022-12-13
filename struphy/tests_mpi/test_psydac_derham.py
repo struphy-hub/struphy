@@ -54,7 +54,7 @@ def test_psydac_derham(Nel, p, spl_kind):
     ### TEST STENCIL VECTORS ###
     ############################
     # Stencil vectors for Psydac:
-    x0_PSY = StencilVector(derham.V0.vector_space)
+    x0_PSY = StencilVector(derham.Vh['0'])
     print(f'rank {rank} | 0-form StencilVector:')
     print(f'rank {rank} | starts:', x0_PSY.starts)
     print(f'rank {rank} | ends  :', x0_PSY.ends)
@@ -70,7 +70,7 @@ def test_psydac_derham(Nel, p, spl_kind):
            1] = DR_STR.extract_0(x0)[s0[0]: e0[0] + 1, s0[1]: e0[1] + 1, s0[2]: e0[2] + 1]
 
     # Block of StencilVecttors
-    x1_PSY = BlockVector(derham.V1.vector_space)
+    x1_PSY = BlockVector(derham.Vh['1'])
     print(f'rank {rank} | \n1-form StencilVector:')
     print(f'rank {rank} | starts:', [component.starts for component in x1_PSY])
     print(f'rank {rank} | ends  :', [component.ends for component in x1_PSY])
@@ -91,7 +91,7 @@ def test_psydac_derham(Nel, p, spl_kind):
     x1_PSY[2][s13[0]: e13[0] + 1, s13[1]: e13[1] + 1, s13[2]: e13[2] +
               1] = x13[s13[0]: e13[0] + 1, s13[1]: e13[1] + 1, s13[2]: e13[2] + 1]
 
-    x2_PSY = BlockVector(derham.V2.vector_space)
+    x2_PSY = BlockVector(derham.Vh['2'])
     print(f'rank {rank} | \n2-form StencilVector:')
     print(f'rank {rank} | starts:', [component.starts for component in x2_PSY])
     print(f'rank {rank} | ends  :', [component.ends for component in x2_PSY])
@@ -112,7 +112,7 @@ def test_psydac_derham(Nel, p, spl_kind):
     x2_PSY[2][s23[0]: e23[0] + 1, s23[1]: e23[1] + 1, s23[2]: e23[2] +
               1] = x23[s23[0]: e23[0] + 1, s23[1]: e23[1] + 1, s23[2]: e23[2] + 1]
 
-    x3_PSY = StencilVector(derham.V3.vector_space)
+    x3_PSY = StencilVector(derham.Vh['3'])
     print(f'rank {rank} | \n3-form StencilVector:')
     print(f'rank {rank} | starts:', x3_PSY.starts)
     print(f'rank {rank} | ends  :', x3_PSY.ends)
@@ -197,7 +197,7 @@ def test_psydac_derham(Nel, p, spl_kind):
         np.cos(2*np.pi*eta2) + np.exp(np.cos(2*np.pi*eta3))
 
     fh0_STR = PI('0', f)
-    fh0_PSY = derham.P0(f)
+    fh0_PSY = derham.P['0'](f)
 
     if rank == 0:
         print('\nCompare P0:')
@@ -208,7 +208,7 @@ def test_psydac_derham(Nel, p, spl_kind):
     fh12_STR = PI('12', f)
     fh13_STR = PI('13', f)
     fh1_STR = (fh11_STR, fh12_STR, fh13_STR)
-    fh1_PSY = derham.P1((f, f, f))
+    fh1_PSY = derham.P['1']((f, f, f))
 
     if rank == 0:
         print('\nCompare P1:')
@@ -219,7 +219,7 @@ def test_psydac_derham(Nel, p, spl_kind):
     fh22_STR = PI('22', f)
     fh23_STR = PI('23', f)
     fh2_STR = (fh21_STR, fh22_STR, fh23_STR)
-    fh2_PSY = derham.P2((f, f, f))
+    fh2_PSY = derham.P['2']((f, f, f))
 
     if rank == 0:
         print('\nCompare P2:')
@@ -227,7 +227,7 @@ def test_psydac_derham(Nel, p, spl_kind):
     comm.Barrier()
 
     fh3_STR = PI('3', f)
-    fh3_PSY = derham.P3(f)
+    fh3_PSY = derham.P['3'](f)
     
     if rank == 0:
         print('\nCompare P3:')

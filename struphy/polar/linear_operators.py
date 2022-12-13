@@ -155,11 +155,10 @@ class PolarExtractionOperator(LinOpWithTransp):
         
         assert isinstance(blocks, list) or blocks is None
         
-        if blocks is None:
-            self._blocks_ten_to_pol = set_blocks(self.blocks_ten_to_pol_shapes)
-        else:
+        if blocks is not None:
             check_blocks(blocks, self.blocks_ten_to_pol_shapes)
-            self._blocks_ten_to_pol = blocks
+        
+        self._blocks_ten_to_pol = blocks
 
     @property
     def blocks_ten_to_ten_shapes(self):
@@ -176,11 +175,10 @@ class PolarExtractionOperator(LinOpWithTransp):
         
         assert isinstance(blocks, list) or blocks is None
         
-        if blocks is None:
-            self._blocks_ten_to_ten = set_blocks(self.blocks_ten_to_ten_shapes)
-        else:
+        if blocks is not None:
             check_blocks(blocks, self.blocks_ten_to_ten_shapes)
-            self._blocks_ten_to_ten = blocks
+            
+        self._blocks_ten_to_ten = blocks
             
     @property
     def blocks_e3(self):
@@ -217,14 +215,16 @@ class PolarExtractionOperator(LinOpWithTransp):
                         out[n][:] = v.tp[n][:]
             
             # 2. map "first tp ring" to "polar rings" + "first tp ring"
-            dot_parts_of_polar(self.blocks_ten_to_ten, self.blocks_e3, v, out)
+            if self.blocks_ten_to_ten is not None:
+                dot_parts_of_polar(self.blocks_ten_to_ten, self.blocks_e3, v, out)
             
             # 3. map polar coeffs to "polar rings"
-            out2 = v.space.parent_space.zeros()
-            dot_parts_of_polar(self.blocks_ten_to_pol, self.blocks_e3, v, out2)
+            if self.blocks_ten_to_pol is not None:
+                out2 = out.space.zeros()
+                dot_parts_of_polar(self.blocks_ten_to_pol, self.blocks_e3, v, out2)
 
-            # sum up contributions on "polar rings"
-            out += out2
+                # add contributions to "polar rings"
+                out += out2
 
         # "standard" operator (tensor-product vector --> polar vector)
         else:
@@ -239,11 +239,13 @@ class PolarExtractionOperator(LinOpWithTransp):
             # 1. identity operation on outer tp zone
             out.tp = v
             
-            # 2. map from "polar rings" to polar coeffs 
-            dot_inner_tp_rings(self.blocks_ten_to_pol, self.blocks_e3, v, out)
+            # 2. map from "polar rings" to polar coeffs
+            if self.blocks_ten_to_pol is not None:
+                dot_inner_tp_rings(self.blocks_ten_to_pol, self.blocks_e3, v, out)
 
             # 3. map to "polar rings" + "first tp ring" to "first tp ring"
-            dot_inner_tp_rings(self.blocks_ten_to_ten, self.blocks_e3, v, out)
+            if self.blocks_ten_to_ten is not None:
+                dot_inner_tp_rings(self.blocks_ten_to_ten, self.blocks_e3, v, out)
 
         if do_return:
             return out
@@ -260,8 +262,15 @@ class PolarExtractionOperator(LinOpWithTransp):
             V = self.domain
             W = self.codomain
 
-        blocks_ten_to_pol = transpose_block_mat(self.blocks_ten_to_pol)
-        blocks_ten_to_ten = transpose_block_mat(self.blocks_ten_to_ten)
+        if self.blocks_ten_to_pol is not None:
+            blocks_ten_to_pol = transpose_block_mat(self.blocks_ten_to_pol)
+        else:
+            blocks_ten_to_pol = None
+            
+        if self.blocks_ten_to_ten is not None:
+            blocks_ten_to_ten = transpose_block_mat(self.blocks_ten_to_ten)
+        else:
+            blocks_ten_to_ten = None
 
         return PolarExtractionOperator(V, W, blocks_ten_to_pol=blocks_ten_to_pol, blocks_ten_to_ten=blocks_ten_to_ten, transposed=not self.transposed)
 

@@ -35,11 +35,10 @@ class PolarDerhamSpace(VectorSpace):
         self._space_id = space_id
 
         # dimensions of 1d spaces
-        self._n = [space.nbasis for space in derham.V0.spaces]
-        self._d = [space.nbasis for space in derham.V3.spaces]
+        self._n = [space.nbasis for space in derham.Vh_fem['0'].spaces]
+        self._d = [space.nbasis for space in derham.Vh_fem['3'].spaces]
 
-        self._parent_space = getattr(
-            derham, derham.spaces_dict[space_id]).vector_space
+        self._parent_space = derham.Vh[derham.spaces_dict[space_id]]
         
         self._starts = self.parent_space.starts
         self._ends = self._parent_space.ends
@@ -52,7 +51,7 @@ class PolarDerhamSpace(VectorSpace):
                 (self.n[0] - self.n_rings[0])*self.n[1] + self.n_polar[0])*self.n[2]
             self._n2 = (self.n[1],)
             self._n3 = (self.n[2],)
-            self._type_of_basis_3 = (derham.spline_types['V0'][2],)
+            self._type_of_basis_3 = (derham.spline_types['0'][2],)
         elif space_id == 'Hcurl':
             self._n_polar = (0, 2, 3)
             self._n_rings = (1, 2, 2)
@@ -65,9 +64,9 @@ class PolarDerhamSpace(VectorSpace):
             self._dimension = dim1 + dim2 + dim3
             self._n2 = (self.n[1], self.d[1], self.n[1])
             self._n3 = (self.n[2], self.n[2], self.d[2])
-            self._type_of_basis_3 = (derham.spline_types['V1'][0][2],
-                                     derham.spline_types['V1'][1][2],
-                                     derham.spline_types['V1'][2][2])
+            self._type_of_basis_3 = (derham.spline_types['1'][0][2],
+                                     derham.spline_types['1'][1][2],
+                                     derham.spline_types['1'][2][2])
         elif space_id == 'Hdiv':
             self._n_polar = (2, 0, 0)
             self._n_rings = (2, 1, 1)
@@ -80,9 +79,9 @@ class PolarDerhamSpace(VectorSpace):
             self._dimension = dim1 + dim2 + dim3
             self._n2 = (self.d[1], self.n[1], self.d[1])
             self._n3 = (self.d[2], self.d[2], self.n[2])
-            self._type_of_basis_3 = (derham.spline_types['V2'][0][2],
-                                     derham.spline_types['V2'][1][2],
-                                     derham.spline_types['V2'][2][2])
+            self._type_of_basis_3 = (derham.spline_types['2'][0][2],
+                                     derham.spline_types['2'][1][2],
+                                     derham.spline_types['2'][2][2])
         elif space_id == 'L2':
             self._n_polar = (0,)
             self._n_rings = (1,)
@@ -90,7 +89,7 @@ class PolarDerhamSpace(VectorSpace):
                 (self.d[0] - self.n_rings[0])*self.d[1] + self.n_polar[0])*self.d[2]
             self._n2 = (self.d[1],)
             self._n3 = (self.d[2],)
-            self._type_of_basis_3 = (derham.spline_types['V3'][2],)
+            self._type_of_basis_3 = (derham.spline_types['3'][2],)
         elif space_id == 'H1vec':
             self._n_polar = (3, 3, 3)
             self._n_rings = (2, 2, 2)
@@ -98,9 +97,9 @@ class PolarDerhamSpace(VectorSpace):
                 ((self.n[0] - self.n_rings[0])*self.n[1] + self.n_polar[0])*self.n[2]) * 3
             self._n2 = (self.n[1], self.n[1], self.n[1])
             self._n3 = (self.n[2], self.n[2], self.n[2])
-            self._type_of_basis_3 = (derham.spline_types['V0vec'][0][2],
-                                     derham.spline_types['V0vec'][1][2],
-                                     derham.spline_types['V0vec'][2][2])
+            self._type_of_basis_3 = (derham.spline_types['v'][0][2],
+                                     derham.spline_types['v'][1][2],
+                                     derham.spline_types['v'][2][2])
         else:
             raise ValueError('Space not supported.')
 
@@ -208,15 +207,7 @@ class PolarDerhamSpace(VectorSpace):
         """ 
         Creates an element of the vector space filled with zeros.
         """
-        
-        # polar coeffs
-        zeros_pol = [np.zeros((m, n)) for m, n in zip(
-            self.n_polar, self.n3)] 
-        
-        # full tensor product vector
-        zeros_tp = self.parent_space.zeros()
-        
-        return zeros_pol, zeros_tp
+        return PolarVector(self)
 
 
 class PolarVector(Vector):
@@ -239,8 +230,11 @@ class PolarVector(Vector):
         self._space = V
         self._dtype = V.dtype
 
-        # initialize as zero vector
-        self._pol, self._tp = V.zeros()
+        # initialize polar coeffs
+        self._pol = [np.zeros((m, n)) for m, n in zip(V.n_polar, V.n3)] 
+        
+        # full tensor product vector
+        self._tp = V.parent_space.zeros()
 
     @property
     def space(self):
@@ -290,6 +284,12 @@ class PolarVector(Vector):
             raise ValueError('Attribute can only be set with instances of either StencilVector or BlockVector!')
 
         self.set_tp_coeffs_to_zero()
+        
+    @property
+    def ghost_regions_in_sync(self):
+        """ Whether ghost regions of tensor product part are up-to-date.
+        """
+        return self.tp.ghost_regions_in_sync
 
     def dot(self, v):
         """ 
@@ -493,6 +493,19 @@ class PolarVector(Vector):
                 self._pol[n] -= v.pol[n]
                 self._tp[n] -= v.tp[n]
         return self
+    
+    def update_ghost_regions(self, *, direction=None):
+        """
+        Update ghost regions before performing non-local access to vector
+        elements (e.g. in matrix-vector product).
+
+        Parameters
+        ----------
+            direction : int
+                Single direction along which to operate (if not specified, all of them).
+
+        """
+        self._tp.update_ghost_regions(direction=direction)
 
     
 def set_tp_rings_to_zero(v, n_rings):
@@ -505,7 +518,7 @@ def set_tp_rings_to_zero(v, n_rings):
             The vector whose inner rings shall be set to zero.
             
         n_rings : tuple
-            The number of rings that shall be set to zero (has lenght 1 for StencilVector and 3 for BlockVector).
+            The number of rings that shall be set to zero (has length 1 for StencilVector and 3 for BlockVector).
     """
     assert isinstance(n_rings, tuple)
 

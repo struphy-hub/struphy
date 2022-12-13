@@ -29,19 +29,19 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
 
     # derham attributes
     pn = np.array(derham.p)
-    tn1, tn2, tn3 = derham.V0.knots
+    tn1, tn2, tn3 = derham.Vh_fem['0'].knots
     indN = derham.indN
     indD = derham.indD
-    dims0 = derham.V0.vector_space.npts
-    dims1 = [space.vector_space.npts for space in derham.V1.spaces]
-    dims2 = [space.vector_space.npts for space in derham.V2.spaces]
-    dims3 = derham.V3.vector_space.npts
+    dims0 = derham.Vh['0'].npts
+    dims1 = [space.vector_space.npts for space in derham.Vh_fem['1'].spaces]
+    dims2 = [space.vector_space.npts for space in derham.Vh_fem['2'].spaces]
+    dims3 = derham.Vh['3'].npts
 
     # Random spline coeffs_loc
-    x0, x0_psy = cera(derham.V0)
-    x1, x1_psy = cera(derham.V1)
-    x2, x2_psy = cera(derham.V2)
-    x3, x3_psy = cera(derham.V3)
+    x0, x0_psy = cera(derham.Vh_fem['0'])
+    x1, x1_psy = cera(derham.Vh_fem['1'])
+    x2, x2_psy = cera(derham.Vh_fem['2'])
+    x3, x3_psy = cera(derham.Vh_fem['3'])
 
     # Random points in domain of process
     dom = derham.domain_array[rank]
@@ -201,7 +201,7 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(p0.vector, coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.V0.knots[0], derham.V0.knots[1], derham.V0.knots[2],
+    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
                     p[0], p[1], p[2], 
                     derham.indN[0], derham.indN[1], derham.indN[2],
                     coeffs, arr1, arr2, arr3, tmp, 0)
@@ -222,7 +222,7 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(E1.vector[0], coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.V3.knots[0], derham.V0.knots[1], derham.V0.knots[2],
+    evaluate_matrix(derham.Vh_fem['3'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
                     p[0] - 1, p[1], p[2], 
                     derham.indD[0], derham.indN[1], derham.indN[2],
                     coeffs, arr1, arr2, arr3, tmp, 11)
@@ -236,7 +236,7 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(E1.vector[1], coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.V0.knots[0], derham.V3.knots[1], derham.V0.knots[2],
+    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['3'].knots[1], derham.Vh_fem['0'].knots[2],
                     p[0], p[1] - 1, p[2], 
                     derham.indN[0], derham.indD[1], derham.indN[2],
                     coeffs, arr1, arr2, arr3, tmp, 12)
@@ -250,7 +250,7 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(E1.vector[2], coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.V0.knots[0], derham.V0.knots[1], derham.V3.knots[2],
+    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['3'].knots[2],
                     p[0], p[1], p[2] - 1, 
                     derham.indN[0], derham.indN[1], derham.indD[2],
                     coeffs, arr1, arr2, arr3, tmp, 13)
@@ -273,7 +273,7 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(B2.vector[0], coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.V0.knots[0], derham.V3.knots[1], derham.V3.knots[2],
+    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['3'].knots[1], derham.Vh_fem['3'].knots[2],
                     p[0], p[1] - 1, p[2] - 1, 
                     derham.indN[0], derham.indD[1], derham.indD[2],
                     coeffs, arr1, arr2, arr3, tmp, 21)
@@ -287,7 +287,7 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(B2.vector[1], coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.V3.knots[0], derham.V0.knots[1], derham.V3.knots[2],
+    evaluate_matrix(derham.Vh_fem['3'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['3'].knots[2],
                     p[0] - 1, p[1], p[2] - 1, 
                     derham.indD[0], derham.indN[1], derham.indD[2],
                     coeffs, arr1, arr2, arr3, tmp, 22)
@@ -301,7 +301,7 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(B2.vector[2], coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.V3.knots[0], derham.V3.knots[1], derham.V0.knots[2],
+    evaluate_matrix(derham.Vh_fem['3'].knots[0], derham.Vh_fem['3'].knots[1], derham.Vh_fem['0'].knots[2],
                     p[0] - 1, p[1] - 1, p[2], 
                     derham.indD[0], derham.indD[1], derham.indN[2],
                     coeffs, arr1, arr2, arr3, tmp, 23)
@@ -324,7 +324,7 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(n3.vector, coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.V3.knots[0], derham.V3.knots[1], derham.V3.knots[2],
+    evaluate_matrix(derham.Vh_fem['3'].knots[0], derham.Vh_fem['3'].knots[1], derham.Vh_fem['3'].knots[2],
                     p[0] - 1, p[1] - 1, p[2] - 1, 
                     derham.indD[0], derham.indD[1], derham.indD[2],
                     coeffs, arr1, arr2, arr3, tmp, 3)
@@ -345,7 +345,7 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(uv.vector[0], coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.V0.knots[0], derham.V0.knots[1], derham.V0.knots[2],
+    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
                     p[0], p[1], p[2], 
                     derham.indN[0], derham.indN[1], derham.indN[2],
                     coeffs, arr1, arr2, arr3, tmp, 0)
@@ -359,7 +359,7 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(uv.vector[1], coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.V0.knots[0], derham.V0.knots[1], derham.V0.knots[2],
+    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
                     p[0], p[1], p[2], 
                     derham.indN[0], derham.indN[1], derham.indN[2],
                     coeffs, arr1, arr2, arr3, tmp, 0)
@@ -373,7 +373,7 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(uv.vector[2], coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.V0.knots[0], derham.V0.knots[1], derham.V0.knots[2],
+    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
                     p[0], p[1], p[2], 
                     derham.indN[0], derham.indN[1], derham.indN[2],
                     coeffs, arr1, arr2, arr3, tmp, 0)

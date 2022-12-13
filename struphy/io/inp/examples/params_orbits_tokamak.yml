@@ -5,6 +5,7 @@ grid :
       bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
       nq_el    : [6, 6, 6] # quadrature points per grid cell
       nq_pr    : [4, 4, 4] # quadrature points per histopolation cell (for commuting projectors)
+      polar_ck : 1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
            
 time : 
       dt         : 0.2  # time step
@@ -13,11 +14,18 @@ time :
       split_algo : LieTrotter # LieTrotter | Strang
       
 geometry : 
-      type : HollowTorus # mapping F (possible types seen below)  
+      type : PoloidalSplineTorus # mapping F (possible types seen below)  
       HollowTorus :
             a1 : .05 # inner radius
             a2 : 1. # minor radius
             R0 : 4. # major radius
+      PoloidalSplineTorus :
+            a           : 1. # minor radius
+            R0          : 4. # major radius
+            Nel         : [24, 48] # number of grid cells, >p
+            p           : [3, 3] # spline degree, >1
+            spl_kind    : [False, True] # spline type: True=periodic, False=clamped
+            coordinates : straight # poloidal angular coordinate (possible choices: straight or equal arc)
                       
 mhd_equilibrium : 
       type : AdhocTorus # (possible choices seen below)

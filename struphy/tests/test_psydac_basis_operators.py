@@ -62,11 +62,11 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     EQ_MHD = HomogenSlab(mhd_equil_params, domain)
 
     # Psydac spline spaces
-    V0 = DERHAM_PSY.V0
-    V1 = DERHAM_PSY.V1
-    V2 = DERHAM_PSY.V2
-    V3 = DERHAM_PSY.V3
-    V0vec = DERHAM_PSY.V0vec
+    V0 = DERHAM_PSY.Vh_fem['0']
+    V1 = DERHAM_PSY.Vh_fem['1']
+    V2 = DERHAM_PSY.Vh_fem['2']
+    V3 = DERHAM_PSY.Vh_fem['3']
+    V0vec = DERHAM_PSY.Vh_fem['v']
     
     if mpi_rank == 0:
         print(f'Rank {mpi_rank} | type(V0) {type(V0)}')
@@ -77,11 +77,11 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
         print(f'Rank {mpi_rank} | ')
 
     # Psydac projectors
-    P0 = DERHAM_PSY.P0
-    P1 = DERHAM_PSY.P1
-    P2 = DERHAM_PSY.P2
-    P3 = DERHAM_PSY.P3
-    P0vec = DERHAM_PSY.P0vec
+    P0 = DERHAM_PSY.P['0']
+    P1 = DERHAM_PSY.P['1']
+    P2 = DERHAM_PSY.P['2']
+    P3 = DERHAM_PSY.P['3']
+    P0vec = DERHAM_PSY.P['v']
     if mpi_rank == 0:
         print(f'Rank {mpi_rank} | type(P0) {type(P0)}')
         print(f'Rank {mpi_rank} | type(P1) {type(P1)}')

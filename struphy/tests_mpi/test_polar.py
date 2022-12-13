@@ -13,7 +13,7 @@ def test_spaces(Nel, p, spl_kind):
 
     print('polar V0:')
     V = PolarDerhamSpace(derham, 'H1')
-    print('dimensions (parent, polar):', derham.V0.nbasis, V.dimension)
+    print('dimensions (parent, polar):', derham.Vh_fem['0'].nbasis, V.dimension)
     print(V.dtype)
     print(V.zeros(), '\n')
     a = PolarVector(V)
@@ -41,7 +41,7 @@ def test_spaces(Nel, p, spl_kind):
 
     print('polar V1:')
     V = PolarDerhamSpace(derham, 'Hcurl')
-    print('dimensions (parent, polar):', derham.V1.nbasis, V.dimension)
+    print('dimensions (parent, polar):', derham.Vh_fem['1'].nbasis, V.dimension)
     print(V.dtype)
     print(V.zeros(), '\n')
     a = PolarVector(V)
@@ -73,7 +73,7 @@ def test_spaces(Nel, p, spl_kind):
 
     print('polar V2:')
     V = PolarDerhamSpace(derham, 'Hdiv')
-    print('dimensions (parent, polar):', derham.V2.nbasis, V.dimension)
+    print('dimensions (parent, polar):', derham.Vh_fem['2'], V.dimension)
     print(V.dtype)
     print(V.zeros(), '\n')
     a = PolarVector(V)
@@ -105,7 +105,7 @@ def test_spaces(Nel, p, spl_kind):
 
     print('polar V3:')
     V = PolarDerhamSpace(derham, 'L2')
-    print('dimensions (parent, polar):', derham.V3.nbasis, V.dimension)
+    print('dimensions (parent, polar):', derham.Vh_fem['3'], V.dimension)
     print(V.dtype)
     print(V.zeros(), '\n')
     a = PolarVector(V)
@@ -133,7 +133,7 @@ def test_spaces(Nel, p, spl_kind):
 
     print('polar V0vec:')
     V = PolarDerhamSpace(derham, 'H1vec')
-    print('dimensions (parent, polar):', derham.V0vec.nbasis, V.dimension)
+    print('dimensions (parent, polar):', derham.Vh_fem['v'].nbasis, V.dimension)
     print(V.dtype)
     print(V.zeros(), '\n')
     a = PolarVector(V)
@@ -187,12 +187,12 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     rank = comm.Get_rank()
     size = comm.Get_size()
 
-    # create de Rham sequence
-    derham = Derham(Nel, p, spl_kind, comm=comm)
-
     # create control points
     params_map = {'Nel' : Nel[:2], 'p' : p[:2], 'spl_kind' : spl_kind[:2], 'a' : 1., 'R0' : 3.}
     domain = PoloidalSplineCylinder(params_map)
+    
+    # create de Rham sequence
+    derham = Derham(Nel, p, spl_kind, comm=comm, polar_ck=1, domain=domain, with_projectors=False)
 
     # create legacy FEM spaces
     spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
@@ -211,21 +211,16 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     comm.Barrier()
 
     # create polar FEM spaces
-    V0_pol = PolarDerhamSpace(derham, 'H1')
-    V1_pol = PolarDerhamSpace(derham, 'Hcurl')
-    V2_pol = PolarDerhamSpace(derham, 'Hdiv')
-    V3_pol = PolarDerhamSpace(derham, 'L2')
-
-    f0_pol = PolarVector(V0_pol)
-    e1_pol = PolarVector(V1_pol)
-    b2_pol = PolarVector(V2_pol)
-    p3_pol = PolarVector(V3_pol)
+    f0_pol = PolarVector(derham.Vh_pol['0'])
+    e1_pol = PolarVector(derham.Vh_pol['1'])
+    b2_pol = PolarVector(derham.Vh_pol['2'])
+    p3_pol = PolarVector(derham.Vh_pol['3'])
 
     # create pure tensor-product and polar vectors (legacy and distributed)
-    f0_tp_leg, f0_tp = create_equal_random_arrays(derham.V0, flattened=True)
-    e1_tp_leg, e1_tp = create_equal_random_arrays(derham.V1, flattened=True)
-    b2_tp_leg, b2_tp = create_equal_random_arrays(derham.V2, flattened=True)
-    p3_tp_leg, p3_tp = create_equal_random_arrays(derham.V3, flattened=True)
+    f0_tp_leg, f0_tp = create_equal_random_arrays(derham.Vh_fem['0'], flattened=True)
+    e1_tp_leg, e1_tp = create_equal_random_arrays(derham.Vh_fem['1'], flattened=True)
+    b2_tp_leg, b2_tp = create_equal_random_arrays(derham.Vh_fem['2'], flattened=True)
+    p3_tp_leg, p3_tp = create_equal_random_arrays(derham.Vh_fem['3'], flattened=True)
 
     f0_pol.tp = f0_tp
     e1_pol.tp = e1_tp
@@ -243,23 +238,15 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     b2_pol_leg = b2_pol.toarray(True)
     p3_pol_leg = p3_pol.toarray(True)
 
-    # create polar extraction blocks
-    c1_blocks = PolarExtractionBlocksC1(domain, derham)
-
     # ==================== test basis extraction operators ===================
     if rank == 0:
         print('----------- Test basis extraction operators ---------')
     
     # test basis extraction operator
-    E0 = PolarExtractionOperator(derham.V0.vector_space, V0_pol, c1_blocks.e0_blocks_ten_to_pol, c1_blocks.e0_blocks_ten_to_ten)
-    E1 = PolarExtractionOperator(derham.V1.vector_space, V1_pol, c1_blocks.e1_blocks_ten_to_pol, c1_blocks.e1_blocks_ten_to_ten)
-    E2 = PolarExtractionOperator(derham.V2.vector_space, V2_pol, c1_blocks.e2_blocks_ten_to_pol, c1_blocks.e2_blocks_ten_to_ten)
-    E3 = PolarExtractionOperator(derham.V3.vector_space, V3_pol, c1_blocks.e3_blocks_ten_to_pol, c1_blocks.e3_blocks_ten_to_ten)
-    
-    r0_pol = E0.dot(f0_tp)
-    r1_pol = E1.dot(e1_tp)
-    r2_pol = E2.dot(b2_tp)
-    r3_pol = E3.dot(p3_tp)
+    r0_pol = derham.E['0'].dot(f0_tp)
+    r1_pol = derham.E['1'].dot(e1_tp)
+    r2_pol = derham.E['2'].dot(b2_tp)
+    r3_pol = derham.E['3'].dot(p3_tp)
 
     assert np.allclose(r0_pol.toarray(True), space.E0.dot(f0_tp_leg))
     assert np.allclose(r1_pol.toarray(True), space.E1.dot(e1_tp_leg))
@@ -267,10 +254,10 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     assert np.allclose(r3_pol.toarray(True), space.E3.dot(p3_tp_leg))
     
     # test transposed extraction operators
-    E0T = E0.transpose()
-    E1T = E1.transpose()
-    E2T = E2.transpose()
-    E3T = E3.transpose()
+    E0T = derham.E['0'].transpose()
+    E1T = derham.E['1'].transpose()
+    E2T = derham.E['2'].transpose()
+    E3T = derham.E['3'].transpose()
     
     r0 = E0T.dot(f0_pol)
     r1 = E1T.dot(e1_pol)
@@ -292,22 +279,18 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
         print('----------- Test discrete derivatives ---------')
         
     # test discrete derivatives
-    G = PolarLinearOperator(V0_pol, V1_pol, derham.grad, c1_blocks.grad_blocks_pol_to_ten, c1_blocks.grad_blocks_pol_to_pol, c1_blocks.grad_blocks_e3)
-    C = PolarLinearOperator(V1_pol, V2_pol, derham.curl, c1_blocks.curl_blocks_pol_to_ten, c1_blocks.curl_blocks_pol_to_pol, c1_blocks.curl_blocks_e3)
-    D = PolarLinearOperator(V2_pol, V3_pol, derham.div , c1_blocks.div_blocks_pol_to_ten,  c1_blocks.div_blocks_pol_to_pol, c1_blocks.div_blocks_e3)
-    
-    r1_pol = G.dot(f0_pol)
-    r2_pol = C.dot(e1_pol)
-    r3_pol = D.dot(b2_pol)
+    r1_pol = derham.grad.dot(f0_pol)
+    r2_pol = derham.curl.dot(e1_pol)
+    r3_pol = derham.div.dot(b2_pol)
     
     assert np.allclose(r1_pol.toarray(True), space.G.dot(f0_pol_leg))
     assert np.allclose(r2_pol.toarray(True), space.C.dot(e1_pol_leg))
     assert np.allclose(r3_pol.toarray(True), space.D.dot(b2_pol_leg))
     
     # test transposed derivatives
-    GT = G.transpose()
-    CT = C.transpose()
-    DT = D.transpose()
+    GT = derham.grad.transpose()
+    CT = derham.curl.transpose()
+    DT = derham.div.transpose()
     
     r0_pol = GT.dot(e1_pol)
     r1_pol = CT.dot(b2_pol)
@@ -382,9 +365,9 @@ def test_projectors(Nel, p, spl_kind):
     
     # ============ project on V0 =========================
     if rank == 0:
-        r0_pol = derham.P0(fun0, tol=1e-10, verbose=True)
+        r0_pol = derham.P['0'](fun0, tol=1e-10, verbose=True)
     else:
-        r0_pol = derham.P0(fun0, tol=1e-10, verbose=False)
+        r0_pol = derham.P['0'](fun0, tol=1e-10, verbose=False)
         
     r0_pol_leg = space.projectors.pi_0(fun0)
     
@@ -398,9 +381,9 @@ def test_projectors(Nel, p, spl_kind):
         
     # ============ project on V1 =========================
     if rank == 0:
-        r1_pol = derham.P1(fun1, tol=1e-10, verbose=True)
+        r1_pol = derham.P['1'](fun1, tol=1e-10, verbose=True)
     else:
-        r1_pol = derham.P1(fun1, tol=1e-10, verbose=False)
+        r1_pol = derham.P['1'](fun1, tol=1e-10, verbose=False)
         
     r1_pol_leg = space.projectors.pi_1(fun1, with_subs=False)
     
@@ -414,9 +397,9 @@ def test_projectors(Nel, p, spl_kind):
     
     # ============ project on V2 =========================
     if rank == 0:
-        r2_pol = derham.P2(fun2, tol=1e-10, verbose=True)
+        r2_pol = derham.P['2'](fun2, tol=1e-10, verbose=True)
     else:
-        r2_pol = derham.P2(fun2, tol=1e-10, verbose=False)
+        r2_pol = derham.P['2'](fun2, tol=1e-10, verbose=False)
         
     r2_pol_leg = space.projectors.pi_2(fun2, with_subs=False)
     
@@ -430,9 +413,9 @@ def test_projectors(Nel, p, spl_kind):
     
     # ============ project on V3 =========================
     if rank == 0:
-        r3_pol = derham.P3(fun3, tol=1e-10, verbose=True)
+        r3_pol = derham.P['3'](fun3, tol=1e-10, verbose=True)
     else:
-        r3_pol = derham.P3(fun3, tol=1e-10, verbose=False)
+        r3_pol = derham.P['3'](fun3, tol=1e-10, verbose=False)
         
     r3_pol_leg = space.projectors.pi_3(fun3, with_subs=False)
     

@@ -47,10 +47,10 @@ def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
     print(f'type M1: {type(mass.M1)}')
     print(f'shape M1: {mass.M1.shape}')
 
-    v0 = StencilVector(derham.V0.vector_space)
+    v0 = StencilVector(derham.Vh['0'])
     v0._data = np.random.rand(*v0._data.shape)
 
-    v1 = BlockVector(derham.V1.vector_space)
+    v1 = BlockVector(derham.Vh['1'])
     for v1i in v1:
         v1i._data = np.random.rand(*v1i._data.shape)
 

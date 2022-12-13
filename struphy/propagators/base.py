@@ -67,6 +67,14 @@ class Propagator( metaclass=ABCMeta ):
                     diff += [np.max(np.abs(new._data - old._data))]
                     old[:] = new[:]
                     old.update_ghost_regions() # important: sync processes!
+                    
+            elif isinstance(arg, PolarVector):
+                
+                new = arg
+                old = self.variables[i]
+                # TODO: diff for PolarVectors
+                old.set_vector(new)
+                old.update_ghost_regions() # important: sync processes!
 
             else:
                 raise NotImplementedError(f'Update of variable type {type(arg)} not implemented.')

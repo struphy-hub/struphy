@@ -63,31 +63,31 @@ def test_psydac_basics(Nel, p, spl_kind, mapping):
         # for k, v in DR.__dict__.items():
         #     print(k, v)
         print('\n###### Derham space types ######')
-        print(f'type(DR.V0): {type(DR.V0)}')
-        print(f'type(DR.V1): {type(DR.V1)}')
-        print(f'type(DR.V2): {type(DR.V2)}')
-        print(f'type(DR.V3): {type(DR.V3)}\n')
+        #print(f'type(DR.V0): {type(DR.Vh_fem['0'])}')
+        #print(f'type(DR.V1): {type(DR.Vh_fem['1'])}')
+        #print(f'type(DR.V2): {type(DR.Vh_fem['2'])}')
+        #print(f'type(DR.V3): {type(DR.Vh_fem['3'])}\n')
         print('In what follows we look only at V0 (scalar space) and V1 (vector-valued space).\n')
         print('###### DR.V0 attributes ######')
-        for k in dir(DR.V0):
+        for k in dir(DR.Vh_fem['0']):
             if k[0] != '_' and 'preprocess' not in k and 'reduce_' not in k and 'eval_' not in k and 'init_' not in k:
-                print(k, getattr(DR.V0, k))
+                print(k, getattr(DR.Vh_fem['0'], k))
         print('\n###### DR.V1 attributes ######')
-        for k in dir(DR.V1):
+        for k in dir(DR.Vh_fem['1']):
             if k[0] != '_' and k != 'comm' and 'eval_' not in k:
-                print(k, getattr(DR.V1, k))
+                print(k, getattr(DR.Vh_fem['1'], k))
         print('\nThe .spaces attribute of V0 contains three 1d SplineSpace objects, whereas for V1 it contains TensorFemSpace objects (V0 is a TensorFemSpace).')
         print('\n###### DR.V0.vector_space (StencilVectorSpace) attributes (rank 0) ######')
-        for k in dir(DR.V0.vector_space):
+        for k in dir(DR.Vh['0']):
             if k[0] != '_' and 'reduce_' not in k:
-                print(k, getattr(DR.V0.vector_space, k))
+                print(k, getattr(DR.Vh['0'], k))
         print('\n###### DR.V1.vector_space (BlockVectorSpace) attributes (rank 0) ######')
-        for k in dir(DR.V1.vector_space):
+        for k in dir(DR.Vh['1']):
             if k[0] != '_' and 'reduce_' not in k:
-                print(k, getattr(DR.V1.vector_space, k))
+                print(k, getattr(DR.Vh['1'], k))
         print(
             '\n###### DR.V1.spaces[n].vector_space (StencilVectorSpace) attribute comparison (rank 0) ######')
-        for n, space in enumerate(DR.V1.spaces):
+        for n, space in enumerate(DR.Vh_fem['1'].spaces):
             print(
                 f'V1_{n}.vector_space.starts  in eta1: {space.vector_space.starts}')
             print(
@@ -101,22 +101,22 @@ def test_psydac_basics(Nel, p, spl_kind, mapping):
         print('The three components of V1 can have different starts and ends in some direction.')
         print(
             '\n###### DR.V0.spaces[0] (SplineSpace) attributes (rank 0) ######')
-        for k in dir(DR.V0.spaces[0]):
+        for k in dir(DR.Vh_fem['0'].spaces[0]):
             if k[0] != '_' and 'compute_' not in k and 'eval_' not in k and 'init_' not in k:
-                print(k, getattr(DR.V0.spaces[0], k))
+                print(k, getattr(DR.Vh_fem['0'].spaces[0], k))
         print(
             '\n###### DR.V0.spaces[1] (SplineSpace) attributes (rank 0) ######')
-        for k in dir(DR.V0.spaces[1]):
+        for k in dir(DR.Vh_fem['0'].spaces[1]):
             if k[0] != '_' and 'compute_' not in k and 'eval_' not in k and 'init_' not in k:
-                print(k, getattr(DR.V0.spaces[1], k))
+                print(k, getattr(DR.Vh_fem['0'].spaces[1], k))
         print(
             '\n###### DR.V0.spaces[2] (SplineSpace) attributes (rank 0) ######')
-        for k in dir(DR.V0.spaces[2]):
+        for k in dir(DR.Vh_fem['0'].spaces[2]):
             if k[0] != '_' and 'compute_' not in k and 'eval_' not in k and 'init_' not in k:
-                print(k, getattr(DR.V0.spaces[2], k))
+                print(k, getattr(DR.Vh_fem['0'].spaces[2], k))
         print(
             '\n###### DR.V1.spaces[n].spaces (SplineSpaces) attribute comparison (rank 0) ######')
-        for n, space in enumerate(DR.V1.spaces):
+        for n, space in enumerate(DR.Vh_fem['1'].spaces):
             print(f'V1_{n}.degree    in eta1: {space.spaces[0].degree}')
             print(f'V1_{n}.periodic  in eta1: {space.spaces[0].periodic}')
             print(f'V1_{n}.dirichlet in eta1: {space.spaces[0].dirichlet}')
@@ -134,22 +134,22 @@ def test_psydac_basics(Nel, p, spl_kind, mapping):
             print(f'V1_{n}.nbasis    in eta3: {space.spaces[2].nbasis}\n')
 
     # FemFields (distributed)
-    f0 = FemField(DR.V0)
-    f1 = FemField(DR.V1)
+    f0 = FemField(DR.Vh_fem['0'])
+    f1 = FemField(DR.Vh_fem['1'])
 
     # only for M1 Mac users
     PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
 
     # Stencil objects (distributed)
-    x0 = StencilVector(DR.V0.vector_space)
-    A0 = StencilMatrix(DR.V0.vector_space, DR.V0.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
+    x0 = StencilVector(DR.Vh['0'])
+    A0 = StencilMatrix(DR.Vh['0'], DR.Vh['0'], backend=PSYDAC_BACKEND_GPYCCEL)
 
-    x1 = BlockVector(DR.V1.vector_space)
-    A1 = BlockMatrix(DR.V1.vector_space, DR.V1.vector_space)
+    x1 = BlockVector(DR.Vh['1'])
+    A1 = BlockMatrix(DR.Vh['1'], DR.Vh['1'])
 
-    starts = DR.V0.vector_space.starts
-    ends = DR.V0.vector_space.ends
-    pads = DR.V0.vector_space.pads
+    starts = DR.Vh['0'].starts
+    ends = DR.Vh['0'].ends
+    pads = DR.Vh['0'].pads
 
     if rank == 0:
         print(

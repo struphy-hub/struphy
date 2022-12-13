@@ -3,6 +3,7 @@ from mpi4py import MPI
 
 from struphy.models.base import StruphyModel
 from struphy.pic.utilities import eval_field_at_particles
+from struphy.polar.basic import PolarVector
 
 
 #############################
@@ -72,14 +73,19 @@ class LinearMHD( StruphyModel ):
         shearalfven_solver = params['solvers']['solver_1']
         magnetosonic_solver = params['solvers']['solver_2']
 
-        # project magnetic field and pressure
-        self._b_eq = self.derham.P2(
-            [self.mhd_equil.b2_1, self.mhd_equil.b2_2, self.mhd_equil.b2_3])
+        # project background magnetic field and pressure
+        self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1, 
+                                         self.mhd_equil.b2_2, 
+                                         self.mhd_equil.b2_3])
         
-        self._p_eq = self.derham.P3(self.mhd_equil.p3)
+        self._p_eq = self.derham.P['3'](self.mhd_equil.p3)
 
-        self._ones = self.derham.V3.vector_space.zeros()
-        self._ones[:] = 1.
+        self._ones = self._p_eq.space.zeros()
+        
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.
+        else:
+            self._ones[:] = 1.
 
         # Assemble necessary mass matrices
         self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.mhd_equil)
@@ -129,10 +135,10 @@ class LinearMHD( StruphyModel ):
         self._scalar_quantities['en_p_eq'][0] = self._p_eq.dot(
             self._ones)/(5/3 - 1)
         self._scalar_quantities['en_B_eq'][0] = self._b_eq.dot(
-            self._mass_ops.M2.dot(self._b_eq))/2
+            self._mass_ops.M2.dot(self._b_eq, apply_bc=False))/2
 
         self._scalar_quantities['en_B_tot'][0] = (
-            self._b_eq + self._b).dot(self._mass_ops.M2.dot(self._b_eq + self._b))/2
+            self._b_eq + self._b).dot(self._mass_ops.M2.dot(self._b_eq + self._b, apply_bc=False))/2
 
         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_U'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_p'][0]
@@ -257,7 +263,9 @@ class PC_LinearMHD_Vlasov( StruphyModel ):
         print('Coupling parameter nu_h = n_h/n = ' + str(self._nuh) + '\n')
 
         # Project magnetic field
-        self._b_eq = self.derham.P2([self.mhd_equil.b2_1, self.mhd_equil.b2_2, self.mhd_equil.b2_3])
+        self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1, 
+                                         self.mhd_equil.b2_2, 
+                                         self.mhd_equil.b2_3])
 
         # Assemble necessary mass matrices
         self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.mhd_equil)
@@ -396,8 +404,9 @@ class LinearVlasovMaxwell( StruphyModel ):
         self._b_background = self._background_fields[2].vector
 
         # self._b_background[0] =
-        self._b_background = self.derham.P2(
-            [self.mhd_equil.b_x, self.mhd_equil.b_y, self.mhd_equil.b_z])
+        self._b_background = self.derham.P['2']([self.mhd_equil.b_x, 
+                                                 self.mhd_equil.b_y, 
+                                                 self.mhd_equil.b_z])
         # ====================================================================================
 
         # Initialize propagators/integrators used in splitting substeps
@@ -556,13 +565,13 @@ class Vlasov( StruphyModel ):
         print(f'Total number of markers : {ions.n_mks}, shape of markers array on rank {self.derham.comm.Get_rank()} : {ions.markers.shape}')
 
         # project magnetic background
-        self._b = self.derham.P2([self.mhd_equil.b2_1,
-                                  self.mhd_equil.b2_2,
-                                  self.mhd_equil.b2_3])
+        self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
+                                         self.mhd_equil.b2_2,
+                                         self.mhd_equil.b2_3])
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-        self._propagators += [propagators_markers.StepPushVxB(ions, self.derham, ions_params['push_algos']['vxb'], self._b)]
+        self._propagators += [propagators_markers.StepPushVxB(ions, self.derham, ions_params['push_algos']['vxb'], self._b_eq)]
         self._propagators += [propagators_markers.StepPushEta(ions, self.derham, ions_params['push_algos']['eta'], ions_params['markers']['bc_type'])]
 
         # Scalar variables to be saved during simulation
@@ -624,19 +633,19 @@ class DriftKinetic( StruphyModel ):
         epsilon = self.kinetic['ions']['plasma_params']['epsilon']
 
         # project magnetic background
-        b = self.derham.P2([self.mhd_equil.b2_1,
-                            self.mhd_equil.b2_2,
-                            self.mhd_equil.b2_3])
+        b = self.derham.P['2']([self.mhd_equil.b2_1,
+                                self.mhd_equil.b2_2,
+                                self.mhd_equil.b2_3])
 
-        abs_b = self.derham.P0(self.mhd_equil.b0)
+        abs_b = self.derham.P['0'](self.mhd_equil.b0)
 
-        norm_b1 = self.derham.P1([self.mhd_equil.norm_b1_1,
-                                  self.mhd_equil.norm_b1_2,
-                                  self.mhd_equil.norm_b1_3])
+        norm_b1 = self.derham.P['1']([self.mhd_equil.norm_b1_1,
+                                      self.mhd_equil.norm_b1_2,
+                                      self.mhd_equil.norm_b1_3])
 
-        norm_b2 = self.derham.P2([self.mhd_equil.norm_b2_1,
-                                  self.mhd_equil.norm_b2_2,
-                                  self.mhd_equil.norm_b2_3])
+        norm_b2 = self.derham.P['2']([self.mhd_equil.norm_b2_1,
+                                      self.mhd_equil.norm_b2_2,
+                                      self.mhd_equil.norm_b2_3])
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []

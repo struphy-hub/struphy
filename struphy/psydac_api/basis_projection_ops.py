@@ -237,7 +237,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_K0'):
-            self._K0 = BasisProjectionOperator(self.derham.P3, self.derham.V3, self._fun_K0, self.derham.E3, self.derham.B3, transposed=False, polar_shift=self.domain.pole)
+            self._K0 = BasisProjectionOperator(self.derham.P['3'], self.derham.Vh_fem['3'], self._fun_K0, 
+                                               self.derham.E['3'], self.derham.B['3'],
+                                               transposed=False, polar_shift=self.domain.pole)
 
         return self._K0
 
@@ -253,7 +255,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_Q0'):
-            self._Q0 = BasisProjectionOperator(self.derham.P2, self.derham.V0vec, self._fun_Q0, self.derham.E0vec, self.derham.B0vec, transposed=False, polar_shift=self.domain.pole)
+            self._Q0 = BasisProjectionOperator(self.derham.P['2'], self.derham.Vh_fem['v'], self._fun_Q0,
+                                               self.derham.E['v'], self.derham.B['v'],
+                                               transposed=False, polar_shift=self.domain.pole)
 
         return self._Q0
 
@@ -269,7 +273,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_Tv'):
-            self._Tv = BasisProjectionOperator(self.derham.P1, self.derham.V0vec, self._fun_Tv, self.derham.E0vec, self.derham.B0vec, transposed=False, polar_shift=self.domain.pole)
+            self._Tv = BasisProjectionOperator(self.derham.P['1'], self.derham.Vh_fem['v'], self._fun_Tv, 
+                                               self.derham.E['v'], self.derham.B['v'],
+                                               transposed=False, polar_shift=self.domain.pole)
 
         return self._Tv
 
@@ -285,7 +291,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_S0'):
-            self._S0 = BasisProjectionOperator(self.derham.P2, self.derham.V0vec, self._fun_S0, self.derham.E0vec, self.derham.B0vec, transposed=False, polar_shift=self.domain.pole)
+            self._S0 = BasisProjectionOperator(self.derham.P['2'], self.derham.Vh_fem['v'], self._fun_S0,
+                                               self.derham.E['v'], self.derham.B['v'],
+                                               transposed=False, polar_shift=self.domain.pole)
 
         return self._S0
 
@@ -301,7 +309,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_Uv'):
-            self._Uv = BasisProjectionOperator(self.derham.P2, self.derham.V0vec, self._fun_Uv, self.derham.E0vec, self.derham.B0vec, transposed=False, polar_shift=self.domain.pole)
+            self._Uv = BasisProjectionOperator(self.derham.P['2'], self.derham.Vh_fem['v'], self._fun_Uv,
+                                               self.derham.E['v'], self.derham.B['v'],
+                                               transposed=False, polar_shift=self.domain.pole)
             
         return self._Uv
 
@@ -317,7 +327,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_X0'):
-            self._X0 = BasisProjectionOperator(self.derham.P0vec, self.derham.V0vec, self._fun_X0, self.derham.E0vec, self.derham.B0vec, transposed=False, polar_shift=self.domain.pole)
+            self._X0 = BasisProjectionOperator(self.derham.P['v'], self.derham.Vh_fem['v'], self._fun_X0,
+                                               self.derham.E['v'], self.derham.B['v'],
+                                               transposed=False, polar_shift=self.domain.pole)
 
         return self._X0
 
@@ -336,7 +348,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_K1'):
-            self._K1 = BasisProjectionOperator(self.derham.P3, self.derham.V3, self._fun_K1, self.derham.E3, self.derham.B3, transposed=False, polar_shift=self.domain.pole)
+            self._K1 = BasisProjectionOperator(self.derham.P['3'], self.derham.Vh_fem['3'], self._fun_K1,
+                                               self.derham.E['3'], self.derham.B['3'],
+                                               transposed=False, polar_shift=self.domain.pole)
 
         return self._K1
 
@@ -351,7 +365,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_Q1'):
-            self._Q1 = BasisProjectionOperator(self.derham.P2, self.derham.V1, self._fun_Q1, self.derham.E1, self.derham.B1, transposed=False, polar_shift=self.domain.pole)
+            self._Q1 = BasisProjectionOperator(self.derham.P['2'], self.derham.Vh_fem['1'], self._fun_Q1,
+                                               self.derham.E['1'], self.derham.B['1'],
+                                               transposed=False, polar_shift=self.domain.pole)
 
         return self._Q1
 
@@ -366,7 +382,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_W1'):
-            self._W1 = BasisProjectionOperator(self.derham.P1, self.derham.V1, self._fun_W1, self.derham.E1, self.derham.B1, transposed=False, polar_shift=self.domain.pole)
+            self._W1 = BasisProjectionOperator(self.derham.P['1'], self.derham.Vh_fem['1'], self._fun_W1,
+                                               self.derham.E['1'], self.derham.B['1'],
+                                               transposed=False, polar_shift=self.domain.pole)
 
         return self._W1
 
@@ -381,7 +399,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_U1'):
-            self._U1 = BasisProjectionOperator(self.derham.P2, self.derham.V1, self._fun_U1, self.derham.E1, self.derham.B1, transposed=False, polar_shift=self.domain.pole)
+            self._U1 = BasisProjectionOperator(self.derham.P['2'], self.derham.Vh_fem['1'], self._fun_U1,
+                                               self.derham.E['1'], self.derham.B['1'],
+                                               transposed=False, polar_shift=self.domain.pole)
             
         return self._U1
 
@@ -396,7 +416,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_R1'):
-            self._R1 = BasisProjectionOperator(self.derham.P1, self.derham.V2, self._fun_R1, self.derham.E2, self.derham.B2, transposed=False, polar_shift=self.domain.pole)
+            self._R1 = BasisProjectionOperator(self.derham.P['1'], self.derham.Vh_fem['2'], self._fun_R1,
+                                               self.derham.E['2'], self.derham.B['2'],
+                                               transposed=False, polar_shift=self.domain.pole)
 
         return self._R1
 
@@ -411,7 +433,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_S1'):
-            self._S1 = BasisProjectionOperator(self.derham.P2, self.derham.V1, self._fun_S1, self.derham.E1, self.derham.B1, transposed=False, polar_shift=self.domain.pole)
+            self._S1 = BasisProjectionOperator(self.derham.P['2'], self.derham.Vh_fem['1'], self._fun_S1,
+                                               self.derham.E['1'], self.derham.B['1'],
+                                               transposed=False, polar_shift=self.domain.pole)
             
         return self._S1
 
@@ -426,7 +450,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_T1'):
-            self._T1 = BasisProjectionOperator(self.derham.P1, self.derham.V1, self._fun_T1, self.derham.E1, self.derham.B1, transposed=False, polar_shift=self.domain.pole)
+            self._T1 = BasisProjectionOperator(self.derham.P['1'], self.derham.Vh_fem['1'], self._fun_T1,
+                                               self.derham.E['1'], self.derham.B['1'],
+                                               transposed=False, polar_shift=self.domain.pole)
 
         return self._T1
 
@@ -441,7 +467,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_X1'):
-            self._X1 = BasisProjectionOperator(self.derham.P0vec, self.derham.V1, self._fun_X1, self.derham.E1, self.derham.B1, transposed=False, polar_shift=self.domain.pole)
+            self._X1 = BasisProjectionOperator(self.derham.P['v'], self.derham.Vh_fem['1'], self._fun_X1,
+                                               self.derham.E['1'], self.derham.B['1'],
+                                               transposed=False, polar_shift=self.domain.pole)
             
         return self._X1
 
@@ -456,7 +484,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_K10'):
-            self._K10 = BasisProjectionOperator(self.derham.P0, self.derham.V0, self._fun_K10, self.derham.E0, self.derham.B0, transposed=False, polar_shift=self.domain.pole)
+            self._K10 = BasisProjectionOperator(self.derham.P['0'], self.derham.Vh_fem['0'], self._fun_K10,
+                                                self.derham.E['0'], self.derham.B['0'],
+                                                transposed=False, polar_shift=self.domain.pole)
 
         return self._K10
 
@@ -471,7 +501,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_S10'):
-            self._S10 = BasisProjectionOperator(self.derham.P1, self.derham.V1, self._fun_S10, self.derham.E1, self.derham.B1, transposed=False, polar_shift=self.domain.pole)
+            self._S10 = BasisProjectionOperator(self.derham.P['1'], self.derham.Vh_fem['1'], self._fun_S10,
+                                                self.derham.E['1'], self.derham.B['1'],
+                                                transposed=False, polar_shift=self.domain.pole)
 
         return self._S10
 
@@ -490,7 +522,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_K2'):
-            self._K2 = BasisProjectionOperator(self.derham.P3, self.derham.V3, self._fun_K2, self.derham.E3, self.derham.B3, transposed=False, polar_shift=self.domain.pole)
+            self._K2 = BasisProjectionOperator(self.derham.P['3'], self.derham.Vh_fem['3'], self._fun_K2,
+                                               self.derham.E['3'], self.derham.B['3'],
+                                               transposed=False, polar_shift=self.domain.pole)
             
         return self._K2
 
@@ -505,7 +539,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_Q2'):
-            self._Q2 = BasisProjectionOperator(self.derham.P2, self.derham.V2, self._fun_Q2, self.derham.E2, self.derham.B2, transposed=False, polar_shift=self.domain.pole)
+            self._Q2 = BasisProjectionOperator(self.derham.P['2'], self.derham.Vh_fem['2'], self._fun_Q2,
+                                               self.derham.E['2'], self.derham.B['2'],
+                                               transposed=False, polar_shift=self.domain.pole)
 
         return self._Q2
 
@@ -520,7 +556,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_T2'):
-            self._T2 = BasisProjectionOperator(self.derham.P1, self.derham.V2, self._fun_T2, self.derham.E2, self.derham.B2, transposed=False, polar_shift=self.domain.pole)
+            self._T2 = BasisProjectionOperator(self.derham.P['1'], self.derham.Vh_fem['2'], self._fun_T2,
+                                               self.derham.E['2'], self.derham.B['2'],
+                                               transposed=False, polar_shift=self.domain.pole)
 
         return self._T2
 
@@ -535,7 +573,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_R2'):
-            self._R2 = BasisProjectionOperator(self.derham.P2, self.derham.V2, self._fun_R2, self.derham.E2, self.derham.B2, transposed=False, polar_shift=self.domain.pole)
+            self._R2 = BasisProjectionOperator(self.derham.P['2'], self.derham.Vh_fem['2'], self._fun_R2,
+                                               self.derham.E['2'], self.derham.B['2'],
+                                               transposed=False, polar_shift=self.domain.pole)
             
         return self._R2
 
@@ -550,7 +590,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_S2'):
-            self._S2 = BasisProjectionOperator(self.derham.P2, self.derham.V2, self._fun_S2, self.derham.E2, self.derham.B2, transposed=False, polar_shift=self.domain.pole)
+            self._S2 = BasisProjectionOperator(self.derham.P['2'], self.derham.Vh_fem['2'], self._fun_S2,
+                                               self.derham.E['2'], self.derham.B['2'],
+                                               transposed=False, polar_shift=self.domain.pole)
 
         return self._S2
 
@@ -565,7 +607,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_X2'):
-            self._X2 = BasisProjectionOperator(self.derham.P0vec, self.derham.V2, self._fun_X2, self.derham.E2, self.derham.B2, transposed=False, polar_shift=self.domain.pole)
+            self._X2 = BasisProjectionOperator(self.derham.P['v'], self.derham.Vh_fem['2'], self._fun_X2,
+                                               self.derham.E['2'], self.derham.B['2'],
+                                               transposed=False, polar_shift=self.domain.pole)
 
         return self._X2
 
@@ -580,7 +624,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_Y20'):
-            self._Y20 = BasisProjectionOperator(self.derham.P3, self.derham.V0, self._fun_Y20, self.derham.E0, self.derham.B0, transposed=False, polar_shift=self.domain.pole)
+            self._Y20 = BasisProjectionOperator(self.derham.P['3'], self.derham.Vh_fem['0'], self._fun_Y20,
+                                                self.derham.E['0'], self.derham.B['0'],
+                                                transposed=False, polar_shift=self.domain.pole)
 
         return self._Y20
 
@@ -595,7 +641,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_Z20'):
-            self._Z20 = BasisProjectionOperator(self.derham.P1, self.derham.V2, self._fun_Z20, self.derham.E2, self.derham.B2, transposed=False, polar_shift=self.domain.pole)
+            self._Z20 = BasisProjectionOperator(self.derham.P['1'], self.derham.Vh_fem['2'], self._fun_Z20,
+                                                self.derham.E['2'], self.derham.B['2'],
+                                                transposed=False, polar_shift=self.domain.pole)
 
         return self._Z20
 
@@ -610,7 +658,9 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_S20'):
-            self._S20 = BasisProjectionOperator(self.derham.P1, self.derham.V2, self._fun_S20, self.derham.E2, self.derham.B2, transposed=False, polar_shift=self.domain.pole)
+            self._S20 = BasisProjectionOperator(self.derham.P['1'], self.derham.Vh_fem['2'], self._fun_S20,
+                                                self.derham.E['2'], self.derham.B['2'],
+                                                transposed=False, polar_shift=self.domain.pole)
 
         return self._S20
 

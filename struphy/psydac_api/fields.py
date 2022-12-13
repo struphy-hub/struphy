@@ -38,21 +38,18 @@ class Field:
         self._space_id = space_id
         self._derham = derham
 
-        # Initialize field in memory
-        self._space = getattr(derham, derham.spaces_dict[space_id])
+        # initialize field in memory (FEM space, vector and tensor product (stencil) vector)
+        self._space_key = derham.spaces_dict[space_id]
+        self._space = derham.Vh_fem[self._space_key]
         
-        if derham.polar_ck >= 0:
-            
-            self._vector = PolarVector(getattr(derham, derham.spaces_dict[space_id] + '_pol'))
-            
-        else:
-        
-            if self._space_id in {'H1', 'L2'}:
-                self._vector = StencilVector(self._space.vector_space)
-            else:
-                self._vector = BlockVector(self._space.vector_space)
+        self._vector = derham.Vh_pol[self._space_key].zeros()
+                
+        self._vector_stencil = self._space.vector_space.zeros()
+                
+        # transposed basis extraction operator for PolarVector --> Stencil-/BlockVector
+        self._ET = derham.E[self._space_key].transpose()
 
-        # Global indices of each process, and paddings
+        # global indices of each process, and paddings
         if self._space_id in {'H1', 'L2'}:
             self._gl_s = self._space.vector_space.starts
             self._gl_e = self._space.vector_space.ends
@@ -63,6 +60,8 @@ class Field:
             self._pads = [comp.pads   for comp in self._space.vector_space.spaces]
         
         # dimensions in each direction
+        #self._nbasis = derham.nbasis[self._space_key]
+        
         if self._space_id in {'H1', 'L2'}:
             self._nbasis = tuple([space.nbasis for space in self._space.spaces])
         else:
@@ -79,6 +78,12 @@ class Field:
         """ String identifying the continuous space of the field: 'H1', 'Hcurl', 'Hdiv', 'L2' or 'H1vec'.
         """
         return self._space_id
+    
+    @property
+    def space_key(self):
+        """ String identifying the discrete space of the field: '0', '1', '2', '3' or 'v'.
+        """
+        return self._space_key
 
     @property
     def derham(self):
@@ -91,6 +96,12 @@ class Field:
         """ Discrete space of the field, either psydac.fem.tensor.TensorFemSpace or psydac.fem.vector.ProductFemSpace.
         """
         return self._space
+    
+    @property
+    def ET(self):
+        """ Transposed PolarExtractionOperator (or IdentityOperator) for mapping polar coeffs to polar tensor product rings.
+        """
+        return self._ET
 
     @property
     def vector(self):
@@ -123,7 +134,7 @@ class Field:
             self._vector.tp = value.tp
             
         else:
-            raise ValueError('Given vector must be either Stencil-, Block- or PolarVector!')
+            raise ValueError('Given vector must be either Stencil-, Block- or PolarVector!') 
        
     @property
     def starts(self):
@@ -148,7 +159,31 @@ class Field:
         """ Tuple(s) of 1d dimensions for each direction.
         """
         return self._nbasis
-
+    
+    @property
+    def vector_stencil(self):
+        """ Tensor-product Stencil-/BlockVector corresponding to a copy of self.vector in case of Stencil-/Blockvector 
+        
+            OR 
+            
+            the extracted coefficients in case of PolarVector. Call self.extract_coeffs() beforehand.
+        """
+        return self._vector_stencil
+    
+    def extract_coeffs(self, update_ghost_regions=True):
+        """
+        Maps polar coeffs to polar tensor product rings in case of PolarVector (written in-place to self.vector_stencil) and updates ghost regions.
+        
+        Parameters
+        ----------
+            update_ghost_regions : bool
+                If the ghost regions shall be updated (needed in case of non-local acccess, e.g. in field evaluation).
+        """
+        self._ET.dot(self._vector, out=self._vector_stencil)
+        
+        if update_ghost_regions:
+            self._vector_stencil.update_ghost_regions()
+            
     def initialize_coeffs(self, comps, init_params, domain=None):
         """
         Sets the initial conditions for self.vector.
@@ -221,9 +256,8 @@ class Field:
                 fun += [PulledPform(init_coords,
                                           fun_tmp, domain, form_str + '_3')]
                 
-            # get projector, project and set coefficients
-            pro = getattr(self.derham, self.derham.projectors_dict[self.space_id])
-            self.vector = pro(fun)
+            # peform projection
+            self.vector = self.derham.P[self.space_key](fun)
 
         # loading of eigenfunction
         elif init_type[-6:] == 'EigFun':
@@ -244,20 +278,16 @@ class Field:
             # select class
             funs = getattr(analytic, init_type)(fun_params, domain)
             
-            # select function to project
+            # select function and project project
             if hasattr(funs, self.name):
-            
-                fun = getattr(funs, self.name)
+                self.vector = self.derham.P[self.space_key](getattr(funs, self.name))
 
-                # select projector, project function and set coefficients
-                pro = getattr(self.derham, self.derham.projectors_dict[self.space_id])
-                self.vector = pro(fun)
-
-        # apply boundary operator
-        getattr(self.derham, self.derham.boundary_dict[self.space_id]).dot(self._vector, out=self._vector)
+        # apply boundary operator (in-place)
+        self.derham.B[self.space_key].dot(self._vector, out=self._vector)
 
         # update ghost regions
         self._vector.update_ghost_regions()
+
 
     def __call__(self, eta1, eta2, eta3, squeeze_output=False):
         """
@@ -319,28 +349,25 @@ class Field:
         # prepare arrays for AllReduce
         tmp = np.zeros((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
         
-        # apply transposed extraction operator in case of PolarVector!
-        if isinstance(self.vector, PolarVector):
-            vec = getattr(self.derham, self.derham.extraction_dict[self.space_id]).transpose().dot(self.vector)
-        else:
-            vec = self.vector.copy()
-            
-        vec.update_ghost_regions()
+        # extract coefficients and update ghost regions
+        self.extract_coeffs(update_ghost_regions=True)
 
         # call pyccel kernels
-        if isinstance(vec, StencilVector):
+        T1, T2, T3 = self.derham.Vh_fem['0'].knots
+        
+        if isinstance(self._vector_stencil, StencilVector):
 
-            kind = self.derham.spline_types_pyccel[self.derham.spaces_dict[self.space_id]]
+            kind = self.derham.spline_types_pyccel[self.space_key]
+            
+            
             if is_sparse_meshgrid:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
-                eval_3d.eval_spline_mpi_sparse_meshgrid(E1, E2, E3, vec._data, kind, np.array(self.derham.p),
-                                                        self.derham.V0.knots[0], self.derham.V0.knots[1], self.derham.V0.knots[2],
-                                                        np.array(self.starts), tmp)
+                eval_3d.eval_spline_mpi_sparse_meshgrid(E1, E2, E3, self._vector_stencil._data, kind, 
+                                                        np.array(self.derham.p), T1, T2, T3, np.array(self.starts), tmp)
             else:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
-                eval_3d.eval_spline_mpi_matrix(E1, E2, E3, vec._data, kind, np.array(self.derham.p),
-                                               self.derham.V0.knots[0], self.derham.V0.knots[1], self.derham.V0.knots[2],
-                                               np.array(self.starts), tmp)
+                eval_3d.eval_spline_mpi_matrix(E1, E2, E3, self._vector_stencil._data, kind, 
+                                               np.array(self.derham.p), T1, T2, T3, np.array(self.starts), tmp)
 
             if self.derham.comm is not None:
                 self.derham.comm.Allreduce(MPI.IN_PLACE, tmp, op=MPI.SUM)
@@ -357,15 +384,14 @@ class Field:
         else:
 
             values = []
-            for n, kind in enumerate(self.derham.spline_types_pyccel[self.derham.spaces_dict[self.space_id]]):
+            for n, kind in enumerate(self.derham.spline_types_pyccel[self.space_key]):
+                
                 if is_sparse_meshgrid:
-                    eval_3d.eval_spline_mpi_sparse_meshgrid(E1, E2, E3, vec[n]._data, kind, np.array(self.derham.p),
-                                                            self.derham.V0.knots[0], self.derham.V0.knots[1], self.derham.V0.knots[2],
-                                                            np.array(self.starts[n]), tmp)
+                    eval_3d.eval_spline_mpi_sparse_meshgrid(E1, E2, E3, self._vector_stencil[n]._data, kind,
+                                                            np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp)
                 else:
-                    eval_3d.eval_spline_mpi_matrix(E1, E2, E3, vec[n]._data, kind, np.array(self.derham.p),
-                                                   self.derham.V0.knots[0], self.derham.V0.knots[1], self.derham.V0.knots[2],
-                                                   np.array(self.starts[n]), tmp)
+                    eval_3d.eval_spline_mpi_matrix(E1, E2, E3, self._vector_stencil[n]._data, kind, 
+                                                   np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp)
             
                 if self.derham.comm is not None:
                     self.derham.comm.Allreduce(MPI.IN_PLACE, tmp, op=MPI.SUM)

@@ -51,11 +51,11 @@ class PolarExtractionBlocksC1:
         
         self._n0 = cx.shape[0]
         self._n1 = cx.shape[1]
-        self._n2 = derham.nbasis_v0[2]
+        self._n2 = derham.nbasis['0'][2]
         
         self._d0 = self.n0 - 1
         self._d1 = self.n1 - 0
-        self._d2 = derham.nbasis_v3[2]
+        self._d2 = derham.nbasis['3'][2]
         
         self._n_rings = [(2,), (1, 2), (2, 1), (1,)]
         self._n_polar = [(3,), (0, 2), (2, 0), (0,)]
@@ -79,15 +79,14 @@ class PolarExtractionBlocksC1:
         # remove small values
         self._xi_1[abs(self._xi_1) < 1e-14] = 0.
         
+        # dictionary for basis extraction blocks ten_to_pol
+        self._e_ten_to_pol = {}
+        
         # ============= basis extraction operator for discrete 0-forms ================
         
         # first n_rings tp rings --> "polar coeffs"
         e0_blocks_ten_to_pol = np.block([self.xi_0, self.xi_1])
-        self._e0_blocks_ten_to_pol = [[csr(e0_blocks_ten_to_pol)]]
-        
-        # first n_rings + 1 tp rings --> "first tp ring"
-        e0_blocks_ten_to_ten = np.block([0*np.identity(self.n1)]*self.n_rings[0][0] + [np.identity(self.n1)])
-        self._e0_blocks_ten_to_ten = [[csr(e0_blocks_ten_to_ten)]]
+        self._e_ten_to_pol['0'] = [[csr(e0_blocks_ten_to_pol)]]
         
         # ============ basis extraction operator for discrete 1-forms (Hcurl) =========
         
@@ -108,53 +107,40 @@ class PolarExtractionBlocksC1:
             for j in range(1*self.d1, 2*self.d1):
                 e1_22_blocks_ten_to_pol[l, j] = self.xi_1[l + 1, (j - self.d1 + 1)%self.d1] - self.xi_1[l + 1, j - self.d1]
         
-        self._e1_blocks_ten_to_pol = [[csr(e1_11_blocks_ten_to_pol), csr(e1_12_blocks_ten_to_pol), None],
-                                      [csr(e1_21_blocks_ten_to_pol), csr(e1_22_blocks_ten_to_pol), None],
-                                      [None, None, csr(e0_blocks_ten_to_pol)]]
-        
-        # first n_rings + 1 tp rings --> "first tp ring"
-        e1_11_blocks_ten_to_ten = np.block([0*np.identity(self.n1)]*self.n_rings[1][0] + [np.identity(self.n1)])
-        e1_22_blocks_ten_to_ten = np.block([0*np.identity(self.d1)]*self.n_rings[1][1] + [np.identity(self.d1)])
-        
-        e1_12_blocks_ten_to_ten = np.zeros((self.d1, (self.n_rings[1][1] + 1)*self.d1), dtype=float)
-        e1_21_blocks_ten_to_ten = np.zeros((self.n1, (self.n_rings[1][0] + 1)*self.n1), dtype=float)
-        
-        self._e1_blocks_ten_to_ten = [[csr(e1_11_blocks_ten_to_ten), csr(e1_12_blocks_ten_to_ten), None],
-                                      [csr(e1_21_blocks_ten_to_ten), csr(e1_22_blocks_ten_to_ten), None],
-                                      [None, None, csr(e0_blocks_ten_to_ten)]]
+        self._e_ten_to_pol['1'] = [[csr(e1_11_blocks_ten_to_pol), csr(e1_12_blocks_ten_to_pol), None],
+                                          [csr(e1_21_blocks_ten_to_pol), csr(e1_22_blocks_ten_to_pol), None],
+                                          [None, None, csr(e0_blocks_ten_to_pol)]]
         
         # =============== basis extraction operator for discrete 1-forms (Hdiv) =========
         
         # first n_rings tp rings --> "polar coeffs"
         e3_blocks_ten_to_pol = np.zeros((self.n_polar[3][0], self.n_rings[3][0]*self.d1), dtype=float)
         
-        self._e2_blocks_ten_to_pol = [[csr(e1_22_blocks_ten_to_pol), csr(-e1_21_blocks_ten_to_pol), None],
-                                      [csr(e1_12_blocks_ten_to_pol), csr( e1_11_blocks_ten_to_pol), None],
-                                      [None, None, csr(e3_blocks_ten_to_pol)]]
-        
-        # first n_rings + 1 tp rings --> "first tp ring"
-        e3_blocks_ten_to_ten = np.block([0*np.identity(self.d1)]*self.n_rings[3][0] + [np.identity(self.d1)])
-        
-        self._e2_blocks_ten_to_ten = [[csr(e1_22_blocks_ten_to_ten), csr(e1_21_blocks_ten_to_ten), None],
-                                      [csr(e1_12_blocks_ten_to_ten), csr(e1_11_blocks_ten_to_ten), None],
-                                      [None, None, csr(e3_blocks_ten_to_ten)]]
+        self._e_ten_to_pol['2'] = [[csr(e1_22_blocks_ten_to_pol), csr(-e1_21_blocks_ten_to_pol), None],
+                                          [csr(e1_12_blocks_ten_to_pol), csr( e1_11_blocks_ten_to_pol), None],
+                                          [None, None, csr(e3_blocks_ten_to_pol)]]
         
         # ================== basis extraction operator for discrete 2-forms =============
         
         # first n_rings tp rings --> "polar coeffs"
-        self._e3_blocks_ten_to_pol = [[csr(e3_blocks_ten_to_pol)]]
+        self._e_ten_to_pol['3'] = [[csr(e3_blocks_ten_to_pol)]]
         
-        # first n_rings + 1 tp rings --> "first tp ring"
-        self._e3_blocks_ten_to_ten = [[csr(e3_blocks_ten_to_ten)]]
+        # ================ basis extraction operator for discrete vector fields =========
+        
+        self._e_ten_to_pol['v'] = [[csr(e0_blocks_ten_to_pol), None, None],
+                                          [None, csr(e0_blocks_ten_to_pol), None],
+                                          [None, None, csr(e0_blocks_ten_to_pol)]]
         
         
         # ======= projection extraction operator for discrete 0-forms ====================
+        self._p_ten_to_pol = {}
+        self._p_ten_to_ten = {}
         
         # first n_rings tp rings --> "polar coeffs"
         p0_blocks_ten_to_pol = np.zeros((self.n_polar[0][0], self.n_rings[0][0]*self.n1), dtype=float)
         
         # !! NOTE: for odd spline degrees and periodic splines the first Greville point sometimes does NOT start at zero!!
-        if domain.p[1]%2 != 0 and not (abs(derham.V0.spaces[1].interpolation_grid[0]) < 1e-14):
+        if domain.p[1]%2 != 0 and not (abs(derham.Vh_fem['0'].spaces[1].interpolation_grid[0]) < 1e-14):
             p0_blocks_ten_to_pol[0, self.n1 + 3*self.n1//3 - 1] = 1.
             p0_blocks_ten_to_pol[1, self.n1 + 1*self.n1//3 - 1] = 1.
             p0_blocks_ten_to_pol[2, self.n1 + 2*self.n1//3 - 1] = 1.
@@ -163,12 +149,12 @@ class PolarExtractionBlocksC1:
             p0_blocks_ten_to_pol[1, self.n1 + 1*self.n1//3] = 1.
             p0_blocks_ten_to_pol[2, self.n1 + 2*self.n1//3] = 1.
         
-        self._p0_blocks_ten_to_pol = [[csr(p0_blocks_ten_to_pol)]]
+        self._p_ten_to_pol['0'] = [[csr(p0_blocks_ten_to_pol)]]
         
         # first n_rings + 1 tp rings --> "first tp ring"
         p0_blocks_ten_to_ten = np.block([0*np.identity(self.n1)]*self.n_rings[0][0] + [np.identity(self.n1)])
         
-        self._p0_blocks_ten_to_ten = [[csr(p0_blocks_ten_to_ten)]]
+        self._p_ten_to_ten['0'] = [[csr(p0_blocks_ten_to_ten)]]
         
         # =========== projection extraction operator for discrete 1-forms (Hcurl) ========
         
@@ -177,7 +163,7 @@ class PolarExtractionBlocksC1:
         p1_22_blocks_ten_to_pol = np.zeros((self.n_polar[1][1], self.n_rings[1][1]*self.d1), dtype=float)
         
         # !! NOTE: PSYDAC's first integration interval sometimes start at < 0 !!
-        if derham.V3.spaces[1].histopolation_grid[0] < -1e-14:
+        if derham.Vh_fem['3'].spaces[1].histopolation_grid[0] < -1e-14:
             p1_22_blocks_ten_to_pol[0, (self.d1 + 0*self.d1//3 + 1):(self.d1 + 1*self.d1//3 + 1)] = 1.
             p1_22_blocks_ten_to_pol[1, (self.d1 + 0*self.d1//3 + 1):(self.d1 + 1*self.d1//3 + 1)] = 1.
             p1_22_blocks_ten_to_pol[1, (self.d1 + 1*self.d1//3 + 1):(self.d1 + 2*self.d1//3 + 1)] = 1.
@@ -189,16 +175,16 @@ class PolarExtractionBlocksC1:
         p1_12_blocks_ten_to_pol = np.zeros((self.n_polar[1][0], self.n_rings[1][1]*self.d1), dtype=float)
         p1_21_blocks_ten_to_pol = np.zeros((self.n_polar[1][1], self.n_rings[1][0]*self.d1), dtype=float)
         
-        self._p1_blocks_ten_to_pol = [[csr(p1_11_blocks_ten_to_pol), csr(p1_12_blocks_ten_to_pol), None],
-                                      [csr(p1_21_blocks_ten_to_pol), csr(p1_22_blocks_ten_to_pol), None],
-                                      [None, None, csr(p0_blocks_ten_to_pol)]]
+        self._p_ten_to_pol['1'] = [[csr(p1_11_blocks_ten_to_pol), csr(p1_12_blocks_ten_to_pol), None],
+                                          [csr(p1_21_blocks_ten_to_pol), csr(p1_22_blocks_ten_to_pol), None],
+                                          [None, None, csr(p0_blocks_ten_to_pol)]]
         
         
         # first n_rings + 1 tp rings --> "first tp ring"
         p1_11_blocks_ten_to_ten = np.zeros((self.n1, self.n1), dtype=float)
         
         # !! NOTE: for odd spline degrees and periodic splines the first Greville point sometimes does NOT start at zero!!
-        if domain.p[1]%2 != 0 and not (abs(derham.V0.spaces[1].interpolation_grid[0]) < 1e-14):
+        if domain.p[1]%2 != 0 and not (abs(derham.Vh_fem['0'].spaces[1].interpolation_grid[0]) < 1e-14):
             p1_11_blocks_ten_to_ten[:, 3*self.n1//3 - 1] = -np.roll(self.xi_1[0], -1)
             p1_11_blocks_ten_to_ten[:, 1*self.n1//3 - 1] = -np.roll(self.xi_1[1], -1)
             p1_11_blocks_ten_to_ten[:, 2*self.n1//3 - 1] = -np.roll(self.xi_1[2], -1)
@@ -216,18 +202,18 @@ class PolarExtractionBlocksC1:
         p1_12_blocks_ten_to_ten = np.zeros((self.d1, (self.n_rings[1][1] + 1)*self.d1), dtype=float)
         p1_21_blocks_ten_to_ten = np.zeros((self.n1, (self.n_rings[1][0] + 1)*self.n1), dtype=float)
         
-        self._p1_blocks_ten_to_ten = [[csr(p1_11_blocks_ten_to_ten), csr(p1_12_blocks_ten_to_ten), None], 
-                                      [csr(p1_21_blocks_ten_to_ten), csr(p1_22_blocks_ten_to_ten), None],
-                                      [None, None, csr(p0_blocks_ten_to_ten)]]
+        self._p_ten_to_ten['1'] = [[csr(p1_11_blocks_ten_to_ten), csr(p1_12_blocks_ten_to_ten), None], 
+                                   [csr(p1_21_blocks_ten_to_ten), csr(p1_22_blocks_ten_to_ten), None],
+                                   [None, None, csr(p0_blocks_ten_to_ten)]]
         
         # ========== projection extraction operator for discrete 1-forms (Hdiv) ==========
         
         # first n_rings tp rings --> "polar coeffs"
         p3_blocks_ten_to_pol = np.zeros((self.n_polar[3][0], self.n_rings[3][0]*self.d1), dtype=float)
         
-        self._p2_blocks_ten_to_pol = [[csr(p1_22_blocks_ten_to_pol), csr(p1_21_blocks_ten_to_pol), None],
-                                      [csr(p1_12_blocks_ten_to_pol), csr(p1_11_blocks_ten_to_pol), None],
-                                      [None, None, csr(p3_blocks_ten_to_pol)]]
+        self._p_ten_to_pol['2'] = [[csr(p1_22_blocks_ten_to_pol), csr(p1_21_blocks_ten_to_pol), None],
+                                   [csr(p1_12_blocks_ten_to_pol), csr(p1_11_blocks_ten_to_pol), None],
+                                   [None, None, csr(p3_blocks_ten_to_pol)]]
         
         
         # first n_rings + 1 tp rings --> "first tp ring"
@@ -237,7 +223,7 @@ class PolarExtractionBlocksC1:
         a1 = np.diff(self.xi_1[2], append=self.xi_1[2, 0])
         
          # !! NOTE: PSYDAC's first integration interval sometimes start at < 0 !!
-        if derham.V3.spaces[1].histopolation_grid[0] < -1e-14:
+        if derham.Vh_fem['3'].spaces[1].histopolation_grid[0] < -1e-14:
             p3_blocks_ten_to_ten[:, (0*self.n1//3 + 1):(1*self.n1//3 + 1)] = -np.roll(a0, +1)[:, None] - np.roll(a1, +1)[:, None]
             p3_blocks_ten_to_ten[:, (1*self.n1//3 + 1):(2*self.n1//3 + 1)] = -np.roll(a1, +1)[:, None]
         else:
@@ -248,132 +234,142 @@ class PolarExtractionBlocksC1:
         
         p3_blocks_ten_to_ten = np.block([p3_blocks_ten_to_ten, np.identity(self.d1)])
         
-        self._p2_blocks_ten_to_ten = [[csr(p1_22_blocks_ten_to_ten), csr(p1_21_blocks_ten_to_ten), None], 
-                                      [csr(p1_12_blocks_ten_to_ten), csr(p1_11_blocks_ten_to_ten), None],
-                                      [None, None, csr(p3_blocks_ten_to_ten)]]
+        self._p_ten_to_ten['2'] = [[csr(p1_22_blocks_ten_to_ten), csr(p1_21_blocks_ten_to_ten), None], 
+                                   [csr(p1_12_blocks_ten_to_ten), csr(p1_11_blocks_ten_to_ten), None],
+                                   [None, None, csr(p3_blocks_ten_to_ten)]]
         
         # =============== projection extraction operator for discrete 2-forms ============
         
         # first n_rings tp rings --> "polar coeffs"
-        self._p3_blocks_ten_to_pol = [[csr(p3_blocks_ten_to_pol)]]
+        self._p_ten_to_pol['3'] = [[csr(p3_blocks_ten_to_pol)]]
         
         # first n_rings + 1 tp rings --> "first tp ring"
-        self._p3_blocks_ten_to_ten = [[csr(p3_blocks_ten_to_ten)]]
+        self._p_ten_to_ten['3'] = [[csr(p3_blocks_ten_to_ten)]]
+        
+        # ============ projection extraction operator for discrete vector fields =========
+        
+        self._p_ten_to_pol['v'] = [[csr(p0_blocks_ten_to_pol), None, None],
+                                   [None, csr(p0_blocks_ten_to_pol), None],
+                                   [None, None, csr(p0_blocks_ten_to_pol)]]
+        
+        self._p_ten_to_ten['v'] = [[csr(p0_blocks_ten_to_ten), None, None],
+                                   [None, csr(p0_blocks_ten_to_ten), None],
+                                   [None, None, csr(p0_blocks_ten_to_ten)]]
         
         
         # ======================= discrete gradient ======================================
         
         # "polar coeffs" to "polar coeffs"
-        grad_blocks_pol_to_pol_1 = np.zeros((self.n_polar[1][0], self.n_polar[0][0]), dtype=float)
-        grad_blocks_pol_to_pol_2 = np.array([[-1., 1., 0.], [-1., 0., 1.]])
-        grad_blocks_pol_to_pol_3 = np.identity(self.n_polar[0][0], dtype=float)
+        grad_pol_to_pol_1 = np.zeros((self.n_polar[1][0], self.n_polar[0][0]), dtype=float)
+        grad_pol_to_pol_2 = np.array([[-1., 1., 0.], [-1., 0., 1.]])
+        grad_pol_to_pol_3 = np.identity(self.n_polar[0][0], dtype=float)
         
-        self._grad_blocks_pol_to_pol = [[csr(grad_blocks_pol_to_pol_1)], 
-                                        [csr(grad_blocks_pol_to_pol_2)], 
-                                        [csr(grad_blocks_pol_to_pol_3)]]
+        self._grad_pol_to_pol = [[csr(grad_pol_to_pol_1)], 
+                                 [csr(grad_pol_to_pol_2)], 
+                                 [csr(grad_pol_to_pol_3)]]
         
         # "polar coeffs" to "first tp ring"
-        grad_blocks_pol_to_ten_1 = np.zeros(((self.n_rings[1][0] + 1)*self.n1, self.n_polar[0][0]))
-        grad_blocks_pol_to_ten_2 = np.zeros(((self.n_rings[1][1] + 1)*self.d1, self.n_polar[0][0]))
-        grad_blocks_pol_to_ten_3 = np.zeros(((self.n_rings[0][0] + 1)*self.n1, self.n_polar[0][0]))
+        grad_pol_to_ten_1 = np.zeros(((self.n_rings[1][0] + 1)*self.n1, self.n_polar[0][0]))
+        grad_pol_to_ten_2 = np.zeros(((self.n_rings[1][1] + 1)*self.d1, self.n_polar[0][0]))
+        grad_pol_to_ten_3 = np.zeros(((self.n_rings[0][0] + 1)*self.n1, self.n_polar[0][0]))
         
-        grad_blocks_pol_to_ten_1[-self.n1:, :] = -self.xi_1.T
+        grad_pol_to_ten_1[-self.n1:, :] = -self.xi_1.T
         
-        self._grad_blocks_pol_to_ten = [[csr(grad_blocks_pol_to_ten_1)], 
-                                        [csr(grad_blocks_pol_to_ten_2)], 
-                                        [csr(grad_blocks_pol_to_ten_3)]]
+        self._grad_pol_to_ten = [[csr(grad_pol_to_ten_1)], 
+                                 [csr(grad_pol_to_ten_2)], 
+                                 [csr(grad_pol_to_ten_3)]]
         
         # eta_3 direction
-        grad_blocks_e3_1 = np.identity(self.n2, dtype=float)
-        grad_blocks_e3_2 = np.identity(self.n2, dtype=float)
-        grad_blocks_e3_3 = grad_1d_matrix(derham.spl_kind[2], self.n2)
+        grad_e3_1 = np.identity(self.n2, dtype=float)
+        grad_e3_2 = np.identity(self.n2, dtype=float)
+        grad_e3_3 = grad_1d_matrix(derham.spl_kind[2], self.n2)
         
-        self._grad_blocks_e3 = [[csr(grad_blocks_e3_1)], 
-                                [csr(grad_blocks_e3_2)], 
-                                [csr(grad_blocks_e3_3)]]
+        self._grad_e3 = [[csr(grad_e3_1)], 
+                         [csr(grad_e3_2)], 
+                         [csr(grad_e3_3)]]
         
         # =========================== discrete curl ======================================
         
         # "polar coeffs" to "polar coeffs"
-        curl_blocks_pol_to_pol_12 = np.identity(self.n_polar[1][1], dtype=float)
-        curl_blocks_pol_to_pol_13 = np.array([[-1., 1., 0.], [-1., 0., 1.]])
+        curl_pol_to_pol_12 = np.identity(self.n_polar[1][1], dtype=float)
+        curl_pol_to_pol_13 = np.array([[-1., 1., 0.], [-1., 0., 1.]])
         
-        curl_blocks_pol_to_pol_21 = np.identity(self.n_polar[1][0], dtype=float)
-        curl_blocks_pol_to_pol_23 = np.zeros((self.n_polar[2][1], self.n_polar[0][0]), dtype=float)
+        curl_pol_to_pol_21 = np.identity(self.n_polar[1][0], dtype=float)
+        curl_pol_to_pol_23 = np.zeros((self.n_polar[2][1], self.n_polar[0][0]), dtype=float)
         
-        curl_blocks_pol_to_pol_31 = np.zeros((self.n_polar[3][0], self.n_polar[1][0]), dtype=float)
-        curl_blocks_pol_to_pol_32 = np.zeros((self.n_polar[3][0], self.n_polar[1][1]), dtype=float)
+        curl_pol_to_pol_31 = np.zeros((self.n_polar[3][0], self.n_polar[1][0]), dtype=float)
+        curl_pol_to_pol_32 = np.zeros((self.n_polar[3][0], self.n_polar[1][1]), dtype=float)
         
-        self._curl_blocks_pol_to_pol = [[None, csr(-curl_blocks_pol_to_pol_12), csr(curl_blocks_pol_to_pol_13)],
-                                        [csr(curl_blocks_pol_to_pol_21), None, csr(-curl_blocks_pol_to_pol_23)],
-                                        [csr(-curl_blocks_pol_to_pol_31), csr(curl_blocks_pol_to_pol_32), None]]
+        self._curl_pol_to_pol = [[None, csr(-curl_pol_to_pol_12), csr(curl_pol_to_pol_13)],
+                                 [csr(curl_pol_to_pol_21), None, csr(-curl_pol_to_pol_23)],
+                                 [csr(-curl_pol_to_pol_31), csr(curl_pol_to_pol_32), None]]
         
         # "polar coeffs" to "first tp ring"
-        curl_blocks_pol_to_ten_12 = np.zeros(((self.n_rings[2][0] + 1)*self.d1, self.n_polar[1][1]))
-        curl_blocks_pol_to_ten_13 = np.zeros(((self.n_rings[2][0] + 1)*self.d1, self.n_polar[0][0]))
+        curl_pol_to_ten_12 = np.zeros(((self.n_rings[2][0] + 1)*self.d1, self.n_polar[1][1]))
+        curl_pol_to_ten_13 = np.zeros(((self.n_rings[2][0] + 1)*self.d1, self.n_polar[0][0]))
      
-        curl_blocks_pol_to_ten_21 = np.zeros(((self.n_rings[2][1] + 1)*self.n1, self.n_polar[1][0]))
-        curl_blocks_pol_to_ten_23 = np.zeros(((self.n_rings[2][1] + 1)*self.n1, self.n_polar[0][0]))
+        curl_pol_to_ten_21 = np.zeros(((self.n_rings[2][1] + 1)*self.n1, self.n_polar[1][0]))
+        curl_pol_to_ten_23 = np.zeros(((self.n_rings[2][1] + 1)*self.n1, self.n_polar[0][0]))
 
-        curl_blocks_pol_to_ten_31 = np.zeros(((self.n_rings[3][0] + 1)*self.n1, self.n_polar[1][0]))
-        curl_blocks_pol_to_ten_32 = np.zeros(((self.n_rings[3][0] + 1)*self.d1, self.n_polar[1][1]))
+        curl_pol_to_ten_31 = np.zeros(((self.n_rings[3][0] + 1)*self.n1, self.n_polar[1][0]))
+        curl_pol_to_ten_32 = np.zeros(((self.n_rings[3][0] + 1)*self.d1, self.n_polar[1][1]))
         
-        curl_blocks_pol_to_ten_23[-self.n1:, :] = -self.xi_1.T
+        curl_pol_to_ten_23[-self.n1:, :] = -self.xi_1.T
         
         for l in range(2):
             for j in range(self.d1, 2*self.d1):
-                curl_blocks_pol_to_ten_32[j, l] = -(self.xi_1[l + 1, (j - self.d1 + 1)%self.d1] - self.xi_1[l + 1, j - self.d1])
+                curl_pol_to_ten_32[j, l] = -(self.xi_1[l + 1, (j - self.d1 + 1)%self.d1] - self.xi_1[l + 1, j - self.d1])
         
-        self._curl_blocks_pol_to_ten = [[None, csr(-curl_blocks_pol_to_ten_12), csr(curl_blocks_pol_to_ten_13)],
-                                        [csr(curl_blocks_pol_to_ten_21), None, csr(-curl_blocks_pol_to_ten_23)],
-                                        [csr(-curl_blocks_pol_to_ten_31), csr(curl_blocks_pol_to_ten_32), None]]
+        self._curl_pol_to_ten = [[None, csr(-curl_pol_to_ten_12), csr(curl_pol_to_ten_13)],
+                                 [csr(curl_pol_to_ten_21), None, csr(-curl_pol_to_ten_23)],
+                                 [csr(-curl_pol_to_ten_31), csr(curl_pol_to_ten_32), None]]
         
         # eta_3 direction
-        curl_blocks_e3_12 = grad_1d_matrix(derham.spl_kind[2], self.n2)
-        curl_blocks_e3_13 = np.identity(self.d2)
+        curl_e3_12 = grad_1d_matrix(derham.spl_kind[2], self.n2)
+        curl_e3_13 = np.identity(self.d2)
      
-        curl_blocks_e3_21 = grad_1d_matrix(derham.spl_kind[2], self.n2)
-        curl_blocks_e3_23 = np.identity(self.d2)
+        curl_e3_21 = grad_1d_matrix(derham.spl_kind[2], self.n2)
+        curl_e3_23 = np.identity(self.d2)
 
-        curl_blocks_e3_31 = np.identity(self.n2)
-        curl_blocks_e3_32 = np.identity(self.n2)
+        curl_e3_31 = np.identity(self.n2)
+        curl_e3_32 = np.identity(self.n2)
         
-        self._curl_blocks_e3 = [[None, csr(curl_blocks_e3_12), csr(curl_blocks_e3_13)],
-                                [csr(curl_blocks_e3_21), None, csr(curl_blocks_e3_23)],
-                                [csr(curl_blocks_e3_31), csr(curl_blocks_e3_32), None]]
+        self._curl_e3 = [[None, csr(curl_e3_12), csr(curl_e3_13)],
+                         [csr(curl_e3_21), None, csr(curl_e3_23)],
+                         [csr(curl_e3_31), csr(curl_e3_32), None]]
         
         # =========================== discrete div ======================================
         
         # "polar coeffs" to "polar coeffs"
-        div_blocks_pol_to_pol_1 = np.zeros((self.n_polar[3][0], self.n_polar[2][0]), dtype=float)
-        div_blocks_pol_to_pol_2 = np.zeros((self.n_polar[3][0], self.n_polar[2][1]), dtype=float)
-        div_blocks_pol_to_pol_3 = np.identity(self.n_polar[3][0], dtype=float)
+        div_pol_to_pol_1 = np.zeros((self.n_polar[3][0], self.n_polar[2][0]), dtype=float)
+        div_pol_to_pol_2 = np.zeros((self.n_polar[3][0], self.n_polar[2][1]), dtype=float)
+        div_pol_to_pol_3 = np.identity(self.n_polar[3][0], dtype=float)
         
-        self._div_blocks_pol_to_pol = [[csr(div_blocks_pol_to_pol_1), 
-                                        csr(div_blocks_pol_to_pol_2), 
-                                        csr(div_blocks_pol_to_pol_3)]]
+        self._div_pol_to_pol = [[csr(div_pol_to_pol_1), 
+                                 csr(div_pol_to_pol_2), 
+                                 csr(div_pol_to_pol_3)]]
         
         # "polar coeffs" to "first tp ring"
-        div_blocks_pol_to_ten_1 = np.zeros(((self.n_rings[3][0] + 1)*self.d1, self.n_polar[2][0]))
-        div_blocks_pol_to_ten_2 = np.zeros(((self.n_rings[3][0] + 1)*self.d1, self.n_polar[2][1]))
-        div_blocks_pol_to_ten_3 = np.zeros(((self.n_rings[3][0] + 1)*self.d1, self.n_polar[3][0]))
+        div_pol_to_ten_1 = np.zeros(((self.n_rings[3][0] + 1)*self.d1, self.n_polar[2][0]))
+        div_pol_to_ten_2 = np.zeros(((self.n_rings[3][0] + 1)*self.d1, self.n_polar[2][1]))
+        div_pol_to_ten_3 = np.zeros(((self.n_rings[3][0] + 1)*self.d1, self.n_polar[3][0]))
         
         for l in range(2):
             for j in range(self.d1, 2*self.d1):
-                div_blocks_pol_to_ten_1[j, l] = -(self.xi_1[l + 1, (j - self.d1 + 1)%self.d1] - self.xi_1[l + 1, j - self.d1])
+                div_pol_to_ten_1[j, l] = -(self.xi_1[l + 1, (j - self.d1 + 1)%self.d1] - self.xi_1[l + 1, j - self.d1])
                 
-        self._div_blocks_pol_to_ten = [[csr(div_blocks_pol_to_ten_1), 
-                                        csr(div_blocks_pol_to_ten_2), 
-                                        csr(div_blocks_pol_to_ten_3)]]
+        self._div_pol_to_ten = [[csr(div_pol_to_ten_1), 
+                                 csr(div_pol_to_ten_2), 
+                                 csr(div_pol_to_ten_3)]]
         
         # eta_3 direction
-        div_blocks_e3_1 = np.identity(self.d2, dtype=float)
-        div_blocks_e3_2 = np.identity(self.d2, dtype=float)
-        div_blocks_e3_3 = grad_1d_matrix(derham.spl_kind[2], self.n2)
+        div_e3_1 = np.identity(self.d2, dtype=float)
+        div_e3_2 = np.identity(self.d2, dtype=float)
+        div_e3_3 = grad_1d_matrix(derham.spl_kind[2], self.n2)
         
-        self._div_blocks_e3 = [[csr(div_blocks_e3_1), 
-                                csr(div_blocks_e3_2), 
-                                csr(div_blocks_e3_3)]]
+        self._div_e3 = [[csr(div_e3_1), 
+                         csr(div_e3_2), 
+                         csr(div_e3_3)]]
         
         
     @property
@@ -433,104 +429,52 @@ class PolarExtractionBlocksC1:
         return self._xi_1
     
     @property
-    def e0_blocks_ten_to_pol(self):
-        return self._e0_blocks_ten_to_pol
+    def e_ten_to_pol(self):
+        return self._e_ten_to_pol
     
     @property
-    def e1_blocks_ten_to_pol(self):
-        return self._e1_blocks_ten_to_pol 
+    def p_ten_to_pol(self):
+        return self._p_ten_to_pol
     
     @property
-    def e2_blocks_ten_to_pol(self):
-        return self._e2_blocks_ten_to_pol 
+    def p_ten_to_ten(self):
+        return self._p_ten_to_ten
     
     @property
-    def e3_blocks_ten_to_pol(self):
-        return self._e3_blocks_ten_to_pol
+    def grad_pol_to_pol(self):
+        return self._grad_pol_to_pol
     
     @property
-    def e0_blocks_ten_to_ten(self):
-        return self._e0_blocks_ten_to_ten
+    def grad_pol_to_ten(self):
+        return self._grad_pol_to_ten
     
     @property
-    def e1_blocks_ten_to_ten(self):
-        return self._e1_blocks_ten_to_ten
+    def grad_e3(self):
+        return self._grad_e3
     
     @property
-    def e2_blocks_ten_to_ten(self):
-        return self._e2_blocks_ten_to_ten
+    def curl_pol_to_pol(self):
+        return self._curl_pol_to_pol
     
     @property
-    def e3_blocks_ten_to_ten(self):
-        return self._e3_blocks_ten_to_ten
+    def curl_pol_to_ten(self):
+        return self._curl_pol_to_ten
     
     @property
-    def p0_blocks_ten_to_pol(self):
-        return self._p0_blocks_ten_to_pol
+    def curl_e3(self):
+        return self._curl_e3
     
     @property
-    def p1_blocks_ten_to_pol(self):
-        return self._p1_blocks_ten_to_pol
+    def div_pol_to_pol(self):
+        return self._div_pol_to_pol
     
     @property
-    def p2_blocks_ten_to_pol(self):
-        return self._p2_blocks_ten_to_pol
+    def div_pol_to_ten(self):
+        return self._div_pol_to_ten
     
     @property
-    def p3_blocks_ten_to_pol(self):
-        return self._p3_blocks_ten_to_pol
-    
-    @property
-    def p0_blocks_ten_to_ten(self):
-        return self._p0_blocks_ten_to_ten
-    
-    @property
-    def p1_blocks_ten_to_ten(self):
-        return self._p1_blocks_ten_to_ten
-    
-    @property
-    def p2_blocks_ten_to_ten(self):
-        return self._p2_blocks_ten_to_ten
-    
-    @property
-    def p3_blocks_ten_to_ten(self):
-        return self._p3_blocks_ten_to_ten
-    
-    @property
-    def grad_blocks_pol_to_pol(self):
-        return self._grad_blocks_pol_to_pol
-    
-    @property
-    def grad_blocks_pol_to_ten(self):
-        return self._grad_blocks_pol_to_ten
-    
-    @property
-    def grad_blocks_e3(self):
-        return self._grad_blocks_e3
-    
-    @property
-    def curl_blocks_pol_to_pol(self):
-        return self._curl_blocks_pol_to_pol
-    
-    @property
-    def curl_blocks_pol_to_ten(self):
-        return self._curl_blocks_pol_to_ten
-    
-    @property
-    def curl_blocks_e3(self):
-        return self._curl_blocks_e3
-    
-    @property
-    def div_blocks_pol_to_pol(self):
-        return self._div_blocks_pol_to_pol
-    
-    @property
-    def div_blocks_pol_to_ten(self):
-        return self._div_blocks_pol_to_ten
-    
-    @property
-    def div_blocks_e3(self):
-        return self._div_blocks_e3
+    def div_e3(self):
+        return self._div_e3
     
 
 

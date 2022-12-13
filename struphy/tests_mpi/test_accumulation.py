@@ -84,7 +84,7 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
 
     # create a random array for the magnetic field
     seed = 1404
-    B2, B2_psy = create_equal_random_arrays(DR.V2, seed)
+    B2, B2_psy = create_equal_random_arrays(DR.Vh_fem['2'], seed)
 
     # =========================
     # ====== Legacy Part ======
@@ -216,7 +216,7 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
 
     # create a random array for the magnetic field
     seed = 1404
-    B2, B2_psy = create_equal_random_arrays(DR.V2, seed)
+    B2, B2_psy = create_equal_random_arrays(DR.Vh_fem['2'], seed)
 
     # =========================
     # ====== Legacy Part ======
