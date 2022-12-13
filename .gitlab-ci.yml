@@ -333,6 +333,8 @@ default_install:
     - cd ${ENV_PATH}/psydac/core
     - pyccel kernels.py --libdir $LIBDIR 
     - pyccel bsplines_pyccel.py --libdir $LIBDIR
+    - cd ${ENV_PATH}/psydac/feec
+    - pyccel dof_kernels.py --libdir $LIBDIR
 
 # default tests (always)
 default_unit_tests:

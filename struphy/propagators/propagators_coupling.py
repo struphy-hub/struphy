@@ -270,9 +270,9 @@ class StepPressurecoupling( Propagator ):
                [self._ACC.matrix13, self._ACC.matrix23, self._ACC.matrix33]]
         VEC =  [self._ACC.vector1, self._ACC.vector2, self._ACC.vector3]
 
-        GT_VEC = BlockVector(self._derham.V0vec.vector_space, blocks=[self._GT.dot(VEC[0]),
-                                                                      self._GT.dot(VEC[1]),
-                                                                      self._GT.dot(VEC[2])])
+        GT_VEC = BlockVector(self._derham.Vh['v'], blocks=[self._GT.dot(VEC[0]),
+                                                           self._GT.dot(VEC[1]),
+                                                           self._GT.dot(VEC[2])])
 
         # define BC and B dot V of the Schur block matrix [[A, B], [C, I]]
         BC = Multiply(-1/4, Compose(self._XT, self.GT_MAT_G(self._derham, MAT), self._X))
@@ -333,15 +333,15 @@ class StepPressurecoupling( Propagator ):
             self._G = derham.grad
             self._GT = derham.grad.transpose()
 
-            self._domain = derham.V0vec.vector_space
-            self._codomain = derham.V0vec.vector_space
+            self._domain = derham.Vh['v']
+            self._codomain = derham.Vh['v']
             self._MAT = MAT
 
-            v1 = StencilVector(derham.V0vec.vector_space.spaces[0])
-            v2 = StencilVector(derham.V0vec.vector_space.spaces[1])
-            v3 = StencilVector(derham.V0vec.vector_space.spaces[2])
+            v1 = StencilVector(derham.Vh['v'].spaces[0])
+            v2 = StencilVector(derham.Vh['v'].spaces[1])
+            v3 = StencilVector(derham.Vh['v'].spaces[2])
             list_blocks = [v1, v2, v3]
-            self._vector = BlockVector(derham.V0vec.vector_space, blocks=list_blocks)
+            self._vector = BlockVector(derham.Vh['v'], blocks=list_blocks)
 
         @property
         def domain(self):
@@ -353,7 +353,7 @@ class StepPressurecoupling( Propagator ):
 
         @property
         def dtype(self):
-            return self._derham.V0vec.vector_space.dtype
+            return self._derham.Vh['v'].dtype
 
         @property
         def transposed(self):

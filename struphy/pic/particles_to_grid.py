@@ -63,19 +63,8 @@ class Accumulator:
         self._args_add = args_add
         self._do_vector = do_vector
         self._symmetry = symmetry
-
-        if space_id == 'H1':
-            self._space = derham.V0
-        elif space_id == 'Hcurl':
-            self._space = derham.V1
-        elif space_id == 'Hdiv':
-            self._space = derham.V2
-        elif space_id == 'L2':
-            self._space = derham.V3
-        elif space_id == 'H1^3':
-            self._space = derham.V0vec
-        else:
-            raise ValueError('Space not properly defined.')
+        
+        self._space = derham.Vh_fem[derham.spaces_dict[space_id]]
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
@@ -336,13 +325,13 @@ class Accumulator:
 
         # fixed arguments for the accumulator function
         self._args_fixed = [np.array(derham.p),
-                            derham.V0.spaces[0].knots,
-                            derham.V0.spaces[1].knots,
-                            derham.V0.spaces[2].knots,
-                            np.array(derham.V0.vector_space.starts), 
-                            np.array(derham.V1.vector_space.starts),
-                            np.array(derham.V2.vector_space.starts),
-                            np.array(derham.V3.vector_space.starts),
+                            derham.Vh_fem['0'].spaces[0].knots,
+                            derham.Vh_fem['0'].spaces[1].knots,
+                            derham.Vh_fem['0'].spaces[2].knots,
+                            np.array(derham.Vh_fem['0'].vector_space.starts), 
+                            np.array(derham.Vh_fem['1'].vector_space.starts),
+                            np.array(derham.Vh_fem['2'].vector_space.starts),
+                            np.array(derham.Vh_fem['3'].vector_space.starts),
                             *domain.args_map]
 
         # combine all arguments

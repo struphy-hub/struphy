@@ -101,11 +101,11 @@ def test_basis_ops(Nel, p, spl_kind, mapping, show_plots=False):
     basis_str12.set_operators()
     
     # create random input arrays
-    x0_str, x0_psy = create_equal_random_arrays(derham.V0, 1234, flattened=True)
-    x1_str, x1_psy = create_equal_random_arrays(derham.V1, 1568, flattened=True)
-    x2_str, x2_psy = create_equal_random_arrays(derham.V2, 8945, flattened=True)
-    x3_str, x3_psy = create_equal_random_arrays(derham.V3, 8196, flattened=True)
-    xv_str, xv_psy = create_equal_random_arrays(derham.V0vec, 2038, flattened=True)
+    x0_str, x0_psy = create_equal_random_arrays(derham.Vh_fem['0'], 1234, flattened=True)
+    x1_str, x1_psy = create_equal_random_arrays(derham.Vh_fem['1'], 1568, flattened=True)
+    x2_str, x2_psy = create_equal_random_arrays(derham.Vh_fem['2'], 8945, flattened=True)
+    x3_str, x3_psy = create_equal_random_arrays(derham.Vh_fem['3'], 8196, flattened=True)
+    xv_str, xv_psy = create_equal_random_arrays(derham.Vh_fem['v'], 2038, flattened=True)
     
     
     # compare matrix-vector products of different methods
@@ -516,16 +516,16 @@ def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     mhd_ops_str.set_operators()
     
     # create random input arrays
-    x0_str, x0_psy = create_equal_random_arrays(derham.V0, seed=1234, flattened=True)
-    x1_str, x1_psy = create_equal_random_arrays(derham.V1, seed=1568, flattened=True)
-    x2_str, x2_psy = create_equal_random_arrays(derham.V2, seed=8945, flattened=True)
-    x3_str, x3_psy = create_equal_random_arrays(derham.V3, seed=8196, flattened=True)
+    x0_str, x0_psy = create_equal_random_arrays(derham.Vh_fem['0'], seed=1234, flattened=True)
+    x1_str, x1_psy = create_equal_random_arrays(derham.Vh_fem['1'], seed=1568, flattened=True)
+    x2_str, x2_psy = create_equal_random_arrays(derham.Vh_fem['2'], seed=8945, flattened=True)
+    x3_str, x3_psy = create_equal_random_arrays(derham.Vh_fem['3'], seed=8196, flattened=True)
     
     # set polar vectors
-    x0_pol_psy = PolarVector(derham.V0_pol)
-    x1_pol_psy = PolarVector(derham.V1_pol)
-    x2_pol_psy = PolarVector(derham.V2_pol)
-    x3_pol_psy = PolarVector(derham.V3_pol)
+    x0_pol_psy = PolarVector(derham.Vh_pol['0'])
+    x1_pol_psy = PolarVector(derham.Vh_pol['1'])
+    x2_pol_psy = PolarVector(derham.Vh_pol['2'])
+    x3_pol_psy = PolarVector(derham.Vh_pol['3'])
 
     x0_pol_psy.tp = x0_psy
     x1_pol_psy.tp = x1_psy

@@ -65,7 +65,7 @@ def test_send_ghost_regions(Nel, p, spl_kind, mapping, verbose=False):
         
         Acc = Accumulator(domain, DR, space_id, accum_name, do_vector=False)
 
-        pads = DR.V0.vector_space.pads
+        pads = DR.Vh['0'].pads
 
         for dat in Acc.args_data:
 

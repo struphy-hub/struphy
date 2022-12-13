@@ -20,39 +20,55 @@ import numpy as np
 
 class Derham:
     """
-    Psydac API for the discrete Derham sequence on the logical unit cube (3d).
+    Psydac API for the discrete Derham sequence on the logical unit cube (3d): Polar sub-spaces can be added.
+    
+         V0 ----- d0 ----> V1 ----- d1 ----> V2 ----- d1 ----> V3
+          |                 |                 |                 |
+          |                 |                 |                 |
+          | P0              | P1              | P2              | P3
+          |                 |                 |                 |
+          v                 v                 v                 v
+         V0h ---- d0 ----> V1h ---- d1 ----> V2h ---- d2 ----> V3h
+          ^                 ^                 ^                 ^
+          |                 |                 |                 |
+          | E0              | E1              | E2              | E3
+          |                 |                 |                 |
+          |                 |                 |                 |
+       V0h_pol -- d0 --> V1h_pol -- d1 --> V2h_pol -- d2 --> V3h_pol
+       
+    In above diagram, d0 <-> grad, d1 <-> curl and d2 <-> div. If polar sub-spaces are added, Pk (k = 0,1,2,3) map to Vkh_pol.
     
     Parameters
     ----------
-        Nel : list[int]
-            Number of elements in each direction.
+    Nel : list[int]
+        Number of elements in each direction.
 
-        p : list[int]
-            Spline degree in each direction.
+    p : list[int]
+        Spline degree in each direction.
 
-        spl_kind : list[bool]
-            Kind of spline in each direction (True=periodic, False=clamped).
-            
-        bc : list[str]
-            Homogeneous Dirichlet boundary condition in each direction.
+    spl_kind : list[bool]
+        Kind of spline in each direction (True=periodic, False=clamped).
 
-        nq_pr : list[int]
-            Number of Gauss-Legendre quadrature points in histopolation in each direction (default = p + 1).
+    bc : list[str]
+        Homogeneous Dirichlet boundary condition in each direction.
 
-        quad_order : list[int]
-            Degree of Gauss-Legendre quadrature in each direction (default = p, leads to p + 1 quadrature points per cell).
+    nq_pr : list[int]
+        Number of Gauss-Legendre quadrature points in histopolation in each direction (default = p + 1).
 
-        comm : mpi4py.MPI.Intracomm
-            MPI communicator.
-            
-        with_projectors : bool
-            Whether to add global commuting projectors to the diagram.
-            
-        polar_ck : int
-            Smoothness at a polar singularity at eta_1=0 (default -1 : standard tensor product splines, OR 1 : C1 polar splines)
-            
-        domain : struphy.geometry.domains
-            Mapping from logical unit cube to physical domain (only needed in case of polar splines polar_ck=1).
+    quad_order : list[int]
+        Degree of Gauss-Legendre quadrature in each direction (default = p, leads to p + 1 quadrature points per cell).
+
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator.
+
+    with_projectors : bool
+        Whether to add global commuting projectors to the diagram.
+
+    polar_ck : int
+        Smoothness at a polar singularity at eta_1=0 (default -1 : standard tensor product splines, OR 1 : C1 polar splines)
+
+    domain : struphy.geometry.domains
+        Mapping from logical unit cube to physical domain (only needed in case of polar splines polar_ck=1).
     """
 
     def __init__(self, Nel, p, spl_kind, bc=None, quad_order=None, nq_pr=None, comm=None, with_projectors=True, polar_ck=-1, domain=None):
@@ -99,8 +115,9 @@ class Derham:
         self._polar_ck = polar_ck
         
         # Psydac symbolic logical domain
-        self._domain_log = Cube('C', bounds1=(
-            0, 1), bounds2=(0, 1), bounds3=(0, 1))
+        self._domain_log = Cube('C', bounds1=(0, 1), 
+                                     bounds2=(0, 1), 
+                                     bounds3=(0, 1))
 
         # Psydac symbolic Derham
         self._derham_symb = Derham_psy(self._domain_log)
@@ -109,154 +126,124 @@ class Derham:
         self._domain_log_h = discretize(
             self._domain_log, ncells=Nel, comm=self._comm)
 
-        # discrete de Rham
+        # Psydac discrete de Rham, projectors and derivatives (as Stencil-/BlockMatrix)
         _derham = discretize(self._derham_symb, self._domain_log_h,
                              degree=self.p, periodic=self.spl_kind, quad_order=self.quad_order)
         
-        self._forms_dict = {'H1' : '0_form', 'Hcurl' : '1_form', 'Hdiv' : '2_form', 'L2' : '3_form', 'H1vec' : 'vector'}
+        self._grad, self._curl, self._div = _derham.derivatives_as_matrices
+        
+        _projectors = _derham.projectors(nquads=self._nq_pr)
 
-        # Psydac spline spaces
-        self._spaces_dict = {'H1' : 'V0', 'Hcurl' : 'V1', 'Hdiv' : 'V2', 'L2' : 'V3', 'H1vec' : 'V0vec'}
+        # keys for continuous spaces
+        self._V = {'0' : 'H1', 
+                   '1' : 'Hcurl', 
+                   '2' : 'Hdiv', 
+                   '3' : 'L2', 
+                   'v' : 'H1vec'}
         
-        self._V0 = _derham.V0
-        self._V1 = _derham.V1
-        self._V2 = _derham.V2
-        self._V3 = _derham.V3
+        self._forms_dict = {'H1'    : '0_form', 
+                            'Hcurl' : '1_form', 
+                            'Hdiv'  : '2_form', 
+                            'L2'    : '3_form', 
+                            'H1vec' : 'vector'}
         
-        # H1xH1xH1=H1vec space (needed in pressure coupling for instance)
-        self._V0vec = ProductFemSpace(self._V0, self._V0, self._V0)
+        self._spaces_dict = {'H1'    : '0', 
+                             'Hcurl' : '1', 
+                             'Hdiv'  : '2', 
+                             'L2'    : '3', 
+                             'H1vec' : 'v'}
         
-        # total number of basis functions in each direction in scalar spaces
-        self._nbasis_v0 = [space.nbasis for space in self._V0.spaces]
-        self._nbasis_v3 = [space.nbasis for space in self._V3.spaces]
+        # Psydac vector space and FEM spline spaces
+        self._Vh = {}
+        self._Vh_fem = {}
+        self._P = {}
         
-        # total number of basis functions in each direction in vector-valued spaces
-        self._nbasis_v1 = [[space.nbasis for space in comp_space.spaces] for comp_space in self._V1.spaces]
-        self._nbasis_v2 = [[space.nbasis for space in comp_space.spaces] for comp_space in self._V2.spaces]
+        for i, key in enumerate(self._V.keys()):
+            
+            if key == 'v':
+                self._Vh_fem[key] = ProductFemSpace(_derham.V0, _derham.V0, _derham.V0)
+                self._P[key] = Projector_H1vec(self._Vh_fem[key])
+            else:
+                self._Vh_fem[key] = getattr(_derham, 'V' + str(i))
+                self._P[key] = _projectors[i]
+                
+            self._Vh[key] = self._Vh_fem[key].vector_space 
         
-        self._nbasis_v0vec = [[space.nbasis for space in comp_space.spaces] for comp_space in self._V0vec.spaces]
-        
-        # 1d spline types in each direction ('B' or 'M' resp. 0 or 1)
+        # total number of basis functions and spline types of 1d spaces in each direction ('B' or 'M', resp. 0 or 1)
+        self._nbasis = {}
         self._spline_types = {}
         self._spline_types_pyccel = {}
 
-        for name in self.spaces_dict.values():
-            _space = getattr(self, name)
+        for i, key in enumerate(self._V.keys()):
+            fem_space = self._Vh_fem[key]
 
-            if isinstance(_space, ProductFemSpace):
-                self._spline_types[name] = [[space.basis for space in tensor_femspace.spaces]
-                                    for tensor_femspace in _space._spaces]
-                self._spline_types_pyccel[name] = [
-                    np.array([int(space.basis == 'M') for space in tensor_femspace.spaces]) for tensor_femspace in _space._spaces]
+            if key in {'0', '3'}:
+                self._nbasis[key] = [space.nbasis for space in fem_space.spaces]
+                self._spline_types[key] = [space.basis for space in fem_space.spaces]
+                self._spline_types_pyccel[key] = np.array([int(space.basis == 'M') for space in fem_space.spaces])
             else:
-                self._spline_types[name] = [space.basis for space in _space.spaces]
-                self._spline_types_pyccel[name] = np.array([int(space.basis == 'M') for space in _space.spaces])
-
-        # discrete derivatives as Stencil-/BlockMatrix
-        self._grad, self._curl, self._div = _derham.derivatives_as_matrices
-        
-        # Psydac projectors
-        if with_projectors:
-            self._projectors_dict = {'H1' : 'P0', 'Hcurl' : 'P1', 'Hdiv' : 'P2', 'L2' : 'P3', 'H1vec' : 'P0vec'}
-
-            self._P0, self._P1, self._P2, self._P3 = _derham.projectors(
-                nquads=self.nq_pr)
-
-            # interpolation in all components for H1vec space
-            self._P0vec = Projector_H1vec(self._V0vec)
-        
+                self._nbasis[key] = [[space.nbasis for space in comp.spaces] for comp in fem_space.spaces]
+                self._spline_types[key] = [[space.basis for space in comp.spaces] for comp in fem_space.spaces]
+                self._spline_types_pyccel[key] = [np.array([int(space.basis == 'M') for space in comp.spaces]) for comp in fem_space.spaces]
+            
         # break points
         self._breaks = [space.breaks for space in _derham.spaces[0].spaces]
-
+        
         # index arrays
-        self._indN = [(np.indices((space.ncells, space.degree + 1))[1] + np.arange(space.ncells)[:, None])%space.nbasis for space in self._V0.spaces]
-        self._indD = [(np.indices((space.ncells, space.degree + 1))[1] + np.arange(space.ncells)[:, None])%space.nbasis for space in self._V3.spaces]
-
+        self._indN = [(np.indices((space.ncells, space.degree + 1))[1] + np.arange(space.ncells)[:, None])%space.nbasis for space in self._Vh_fem['0'].spaces]
+        self._indD = [(np.indices((space.ncells, space.degree + 1))[1] + np.arange(space.ncells)[:, None])%space.nbasis for space in self._Vh_fem['3'].spaces]
+        
         # distribute info on domain decomposition
         self._domain_array, self._index_array_N, self._index_array_D = self._get_decomp_arrays()
         if comm is not None:
             self._neighbours = self._get_neighbours()
-            
-        # some dictionaries
-        self._boundary_dict   = {'H1' : 'B0', 'Hcurl' : 'B1', 'Hdiv' : 'B2', 'L2' : 'B3', 'H1vec' : 'B0vec'}
-        self._extraction_dict = {'H1' : 'E0', 'Hcurl' : 'E1', 'Hdiv' : 'E2', 'L2' : 'E3', 'H1vec' : 'E0vec'}
         
         # set polar sub-spaces, polar basis extraction operators, polar DOF extraction operators and boundary operators
         if self.polar_ck == -1:
-            
-            self._V0_pol = None
-            self._V1_pol = None
-            self._V2_pol = None
-            self._V3_pol = None
-            self._V0vec_pol = None
-            
-            self._B0 = BoundaryOperator(self._V0.vector_space, 'H1', self._bc)
-            self._B1 = BoundaryOperator(self._V1.vector_space, 'Hcurl', self._bc)
-            self._B2 = BoundaryOperator(self._V2.vector_space, 'Hdiv', self._bc)
-            self._B3 = BoundaryOperator(self._V3.vector_space, 'L2', self._bc)
-            self._B0vec = BoundaryOperator(self._V0vec.vector_space, 'H1vec', self._bc)
-            
-            self._E0 = IdentityOperator(self._V0.vector_space)
-            self._E1 = IdentityOperator(self._V1.vector_space)
-            self._E2 = IdentityOperator(self._V2.vector_space)
-            self._E3 = IdentityOperator(self._V3.vector_space)
-            self._E0vec = IdentityOperator(self._V0vec.vector_space)
-            
-            P0_ex = IdentityOperator(self._V0.vector_space)
-            P1_ex = IdentityOperator(self._V1.vector_space)
-            P2_ex = IdentityOperator(self._V2.vector_space)
-            P3_ex = IdentityOperator(self._V3.vector_space)
-            P0vec_ex = IdentityOperator(self._V0vec.vector_space)
-            
-            if with_projectors:
-                self._P0 = Projector(self._P0, P0_ex, self._E0, self._B0)
-                self._P1 = Projector(self._P1, P1_ex, self._E1, self._B1)
-                self._P2 = Projector(self._P2, P2_ex, self._E2, self._B2)
-                self._P3 = Projector(self._P3, P3_ex, self._E3, self._B3)
-                self._P0vec = Projector(self._P0vec, P0vec_ex, self._E0vec, self._B0vec)
-            
+            ck_blocks = None
         else:
-            c1_blocks = PolarExtractionBlocksC1(domain, self)
+            ck_blocks = PolarExtractionBlocksC1(domain, self)
+        
+        self._Vh_pol = {}
+        
+        self._B = {}
+        self._E = {}
+        
+        for i, key in enumerate(self._V.keys()):
             
-            self._V0_pol = PolarDerhamSpace(self, 'H1')
-            self._V1_pol = PolarDerhamSpace(self, 'Hcurl')
-            self._V2_pol = PolarDerhamSpace(self, 'Hdiv')
-            self._V3_pol = PolarDerhamSpace(self, 'L2')
-            self._V0vec_pol = PolarDerhamSpace(self, 'H1vec')
+            vec_space = self._Vh[key]
             
-            self._B0 = BoundaryOperator(self._V0_pol, 'H1', self._bc)
-            self._B1 = BoundaryOperator(self._V1_pol, 'Hcurl', self._bc)
-            self._B2 = BoundaryOperator(self._V2_pol, 'Hdiv', self._bc)
-            self._B3 = BoundaryOperator(self._V3_pol, 'L2', self._bc)
-            self._B0vec = BoundaryOperator(self._V0vec_pol, 'H1vec', self._bc)
-            
-            self._E0 = PolarExtractionOperator(self._V0.vector_space, self._V0_pol, c1_blocks.e0_blocks_ten_to_pol, c1_blocks.e0_blocks_ten_to_ten)
-            self._E1 = PolarExtractionOperator(self._V1.vector_space, self._V1_pol, c1_blocks.e1_blocks_ten_to_pol, c1_blocks.e1_blocks_ten_to_ten)
-            self._E2 = PolarExtractionOperator(self._V2.vector_space, self._V2_pol, c1_blocks.e2_blocks_ten_to_pol, c1_blocks.e2_blocks_ten_to_ten)
-            self._E3 = PolarExtractionOperator(self._V3.vector_space, self._V3_pol, c1_blocks.e3_blocks_ten_to_pol, c1_blocks.e3_blocks_ten_to_ten)
-            self._E0vec = None # TODO: extraction operator E0vec
-            
-            self._grad = PolarLinearOperator(self._V0_pol, self._V1_pol, self._grad, c1_blocks.grad_blocks_pol_to_ten, c1_blocks.grad_blocks_pol_to_pol, c1_blocks.grad_blocks_e3)
-            self._curl = PolarLinearOperator(self._V1_pol, self._V2_pol, self._curl, c1_blocks.curl_blocks_pol_to_ten, c1_blocks.curl_blocks_pol_to_pol, c1_blocks.curl_blocks_e3)
-            self._div  = PolarLinearOperator(self._V2_pol, self._V3_pol, self._div , c1_blocks.div_blocks_pol_to_ten , c1_blocks.div_blocks_pol_to_pol , c1_blocks.div_blocks_e3 )
-            
-            P0_ex = PolarExtractionOperator(self._V0.vector_space, self._V0_pol, c1_blocks.p0_blocks_ten_to_pol, c1_blocks.p0_blocks_ten_to_ten)
-            P1_ex = PolarExtractionOperator(self._V1.vector_space, self._V1_pol, c1_blocks.p1_blocks_ten_to_pol, c1_blocks.p1_blocks_ten_to_ten)
-            P2_ex = PolarExtractionOperator(self._V2.vector_space, self._V2_pol, c1_blocks.p2_blocks_ten_to_pol, c1_blocks.p2_blocks_ten_to_ten)
-            P3_ex = PolarExtractionOperator(self._V3.vector_space, self._V3_pol, c1_blocks.p3_blocks_ten_to_pol, c1_blocks.p3_blocks_ten_to_ten)
-            P0vec_ex = None # TODO: extraction operator P0vec_ex
+            # tensor product case
+            if self.polar_ck == -1:
+                
+                pol_space = self._Vh[key]
+                
+                self._E[key] = IdentityOperator(pol_space)
+                P_ex = IdentityOperator(pol_space)
+                    
+            # C^1 polar spline case
+            else:
+                
+                pol_space = PolarDerhamSpace(self, self._V[key])
+                
+                self._E[key] = PolarExtractionOperator(vec_space, pol_space, ck_blocks.e_ten_to_pol[key])
+                P_ex = PolarExtractionOperator(vec_space, pol_space, ck_blocks.p_ten_to_pol[key], ck_blocks.p_ten_to_ten[key])
+                
+            self._Vh_pol[key] = pol_space
+            self._B[key] = BoundaryOperator(pol_space, self._V[key], self._bc)
             
             if with_projectors:
-                self._P0 = Projector(self._P0, P0_ex, self._E0, self._B0)
-                self._P1 = Projector(self._P1, P1_ex, self._E1, self._B1)
-                self._P2 = Projector(self._P2, P2_ex, self._E2, self._B2)
-                self._P3 = Projector(self._P3, P3_ex, self._E3, self._B3)
-                self._P0vec = None # TODO: projector P0vec
-                
-        self._grad = CompositeLinearOperator(self._B1, self._grad, self._B0.transpose())
-        self._curl = CompositeLinearOperator(self._B2, self._curl, self._B1.transpose())
-        self._div  = CompositeLinearOperator(self._B3, self._div , self._B2.transpose())
+                self._P[key] = Projector(self._P[key], P_ex, self._E[key], self._B[key])
+        
+        # set discrete derivatives with boundary operators
+        if self.polar_ck == 1:
+            self._grad = PolarLinearOperator(self._Vh_pol['0'], self._Vh_pol['1'], self._grad, ck_blocks.grad_pol_to_ten, ck_blocks.grad_pol_to_pol, ck_blocks.grad_e3)
+            self._curl = PolarLinearOperator(self._Vh_pol['1'], self._Vh_pol['2'], self._curl, ck_blocks.curl_pol_to_ten, ck_blocks.curl_pol_to_pol, ck_blocks.curl_e3)
+            self._div  = PolarLinearOperator(self._Vh_pol['2'], self._Vh_pol['3'], self._div , ck_blocks.div_pol_to_ten , ck_blocks.div_pol_to_pol , ck_blocks.div_e3 )
             
+        self._grad = CompositeLinearOperator(self._B['1'], self._grad, self._B['0'].transpose())
+        self._curl = CompositeLinearOperator(self._B['2'], self._curl, self._B['1'].transpose())
+        self._div  = CompositeLinearOperator(self._B['3'], self._div , self._B['2'].transpose())      
    
     @property
     def Nel(self):
@@ -381,230 +368,80 @@ class Derham:
         return self._spaces_dict
     
     @property
-    def V0(self):
-        """ Discrete H1 space.
+    def V(self):
+        """ Dictionary containing names of continuous functions spaces (H1, Hcurl, Hdiv, L2 and H1vec).
         """
-        return self._V0
-
-    @property
-    def V1(self):
-        """ Discrete H(curl) space.
-        """
-        return self._V1
-
-    @property
-    def V2(self):
-        """ Discrete H(div) space.
-        """
-        return self._V2
-
-    @property
-    def V3(self):
-        """ Discrete L2 space.
-        """
-        return self._V3
-
-    @property
-    def V0vec(self):
-        """ Discrete H1 x H1 x H1 space.
-        """
-        return self._V0vec
+        return self._V
     
     @property
-    def extraction_dict(self):
-        """ Dictionary containing the names of the continuous spaces and corresponding polar extraction operators.
+    def Vh(self):
+        """ Dictionary containing finite-dimensional vector spaces (sub-spaces of continuous spaces, Stencil-/BlockVectorSpace).
         """
-        return self._extraction_dict
+        return self._Vh
     
     @property
-    def E0(self):
-        """ Discrete polar extraction operator V0 --> V0_pol
+    def Vh_fem(self):
+        """ Dictionary containing FEM spline spaces (TensorFem-/ProductFemSpace).
         """
-        return self._E0
-
-    @property
-    def E1(self):
-        """ Discrete polar extraction operator V1 --> V1_pol
-        """
-        return self._E1
-
-    @property
-    def E2(self):
-        """ Discrete polar extraction operator V2 --> V2_pol
-        """
-        return self._E2
-
-    @property
-    def E3(self):
-        """ Discrete polar extraction operator V3 --> V3_pol
-        """
-        return self._E3
-
-    @property
-    def E0vec(self):
-        """ Discrete polar extraction operator V0vec --> V0vec_pol
-        """
-        return self._E0vec
+        return self._Vh_fem
     
     @property
-    def boundary_dict(self):
-        """ Dictionary containing the names of the continuous spaces and corresponding boundary operators.
+    def nbasis(self):
+        """ Dictionary containing number of 1d basis functions for each component and spatial direction.
         """
-        return self._boundary_dict
+        return self._nbasis
     
-    @property
-    def B0(self):
-        """ Boundary operator in V0.
-        """
-        return self._B0
-    
-    @property
-    def B1(self):
-        """ Boundary operator in V1.
-        """
-        return self._B1
-    
-    @property
-    def B2(self):
-        """ Boundary operator in V2.
-        """
-        return self._B2
-    
-    @property
-    def B3(self):
-        """ Boundary operator in V3.
-        """
-        return self._B3
-    
-    @property
-    def B0vec(self):
-        """ Boundary operator in V0vec.
-        """
-        return self._B0vec
-    
-    @property
-    def V0_pol(self):
-        """ Discrete polar H1 space.
-        """
-        return self._V0_pol
-
-    @property
-    def V1_pol(self):
-        """ Discrete polar H(curl) space.
-        """
-        return self._V1_pol
-
-    @property
-    def V2_pol(self):
-        """ Discrete polar H(div) space.
-        """
-        return self._V2_pol
-
-    @property
-    def V3_pol(self):
-        """ Discrete polar L2 space.
-        """
-        return self._V3_pol
-
-    @property
-    def V0vec_pol(self):
-        """ Discrete polar H1 x H1 x H1 space.
-        """
-        return self._V0vec_pol
-
-    @property
-    def nbasis_v0(self):
-        """ List of number of basis functions in space V0 in each direction.
-        """
-        return self._nbasis_v0
-    
-    @property
-    def nbasis_v1(self):
-        """ List of number of basis functions in space V1 in each direction.
-        """
-        return self._nbasis_v1
-    
-    @property
-    def nbasis_v2(self):
-        """ List of number of basis functions in space V2 in each direction.
-        """
-        return self._nbasis_v2
-    
-    @property
-    def nbasis_v3(self):
-        """ List of number of basis functions in space V3 in each direction.
-        """
-        return self._nbasis_v3
-    
-    @property
-    def nbasis_v0vec(self):
-        """ List of number of basis functions in space V0vec in each direction.
-        """
-        return self._nbasis_v0vec
-
     @property
     def spline_types(self):
-        """ List holding holding 1d spline types in each direction, entries either 'B' or 'M'.
+        """ Dictionary holding 1d spline types for each component and spatial direction, entries either 'B' or 'M'.
         """
         return self._spline_types
 
     @property
     def spline_types_pyccel(self):
-        """ List holding holding 1d spline types in each direction, entries either 0 (='B') or 1 (='M').
+        """ Dictionary holding 1d spline types for each component and spatial direction, entries either 0 (='B') or 1 (='M').
         """
         return self._spline_types_pyccel
-
-    @property
-    def projectors_dict(self):
-        """ Dictionary containing the names of the continuous spaces and corresponding commuting projectors.
-        """
-        return self._projectors_dict
     
     @property
-    def P0(self):
-        """ Interpolation into discrete H1 space.
+    def E(self):
+        """ Dictionary holding basis extraction operators, either IdentityOperator or PolarExtractionOperator.
         """
-        return self._P0
-
+        return self._E
+    
     @property
-    def P1(self):
-        """ Inter-/histopolation into discrete H(curl) space.
+    def B(self):
+        """ Dictionary holding essential boundary operators (BoundaryOperator).
         """
-        return self._P1
-
+        return self._B
+    
     @property
-    def P2(self):
-        """ Inter-/histopolation into discrete H(div) space.
+    def P(self):
+        """ Dictionary holding global commuting projectors (BoundaryOperator).
         """
-        return self._P2
-
+        return self._P
+    
     @property
-    def P3(self):
-        """ Histopolation into discrete L2 space.
+    def Vh_pol(self):
+        """ Polar sub-spaces, either PolarDerhamSpace (with polar splines) or Stencil-/BlockVectorSpace (same as self.Vh)
         """
-        return self._P3
-
-    @property
-    def P0vec(self):
-        """ Interpolation into discrete H1 x H1 x H1 space.
-        """
-        return self._P0vec
+        return self._Vh_pol
 
     @property
     def grad(self):
-        """ Discrete gradient H1 -> H(curl).
+        """ Discrete gradient Vh0_pol (H1) -> Vh1_pol (Hcurl).
         """
         return self._grad
 
     @property
     def curl(self):
-        """ Discrete curl H(curl) -> H(div).
+        """ Discrete curl Vh1_pol (Hcurl) -> Vh2_pol (Hdiv).
         """
         return self._curl
 
     @property
     def div(self):
-        """ Discrete divergence H(div) -> L2.
+        """ Discrete divergence Vh2_pol (Hdiv) -> Vh3_pol (L2).
         """
         return self._div
 
@@ -654,16 +491,20 @@ class Derham:
         dom_arr = np.zeros(nproc * 9, dtype=float)
         ind_arr_0 = np.zeros(nproc * 6, dtype=int)
         ind_arr_3 = np.zeros(nproc * 6, dtype=int)
+        
+        # get V0 and V3 FEM spaces
+        V0 = self.Vh_fem['0']
+        V3 = self.Vh_fem['3']
 
         # Get process info
-        starts_0 = self.V0.vector_space.starts
-        ends_0 = self.V0.vector_space.ends
+        starts_0 = V0.vector_space.starts
+        ends_0 = V0.vector_space.ends
 
-        starts_3 = self.V3.vector_space.starts
-        ends_3 = self.V3.vector_space.ends
+        starts_3 = V3.vector_space.starts
+        ends_3 = V3.vector_space.ends
 
         # Fill local domain array
-        for n, (el_sta, el_end, brks) in enumerate(zip(self.V0.local_domain[0], self.V0.local_domain[1], self.breaks)):
+        for n, (el_sta, el_end, brks) in enumerate(zip(V0.local_domain[0], V0.local_domain[1], self.breaks)):
 
             dom_arr_loc[3*n] = brks[el_sta]
             dom_arr_loc[3*n + 1] = brks[el_end + 1]
@@ -748,15 +589,19 @@ class Derham:
                 id of neighbouring process
         """
         assert len(comp) == 3
+        
+        # get V0 and V3 FEM spaces
+        V0 = self.Vh_fem['0']
+        V3 = self.Vh_fem['3']
 
         # Get space info
-        dims = [space.nbasis for space in self.V0.spaces]
+        dims = [space.nbasis for space in V0.spaces]
         index_arr = self.index_array_N
         kinds = self.spl_kind
-
+        
         # Get process info
-        starts = self.V0.vector_space.starts
-        ends = self.V0.vector_space.ends
+        starts = V0.vector_space.starts
+        ends = V0.vector_space.ends
 
         # Get communicator info
         rank = self.comm.Get_rank()

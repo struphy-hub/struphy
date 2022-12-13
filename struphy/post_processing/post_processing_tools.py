@@ -63,7 +63,7 @@ def create_femfields(path, snapshots=None):
 
         names += [name]
         space_ids += [dset.attrs['space_id']]
-        spaces += [getattr(derham, derham.spaces_dict[space_ids[-1]])]
+        spaces += [derham.Vh_fem[derham.spaces_dict[space_ids[-1]]]]
     
     # create FemFields
     dt = params['time']['dt']

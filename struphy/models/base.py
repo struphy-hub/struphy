@@ -60,6 +60,7 @@ class StruphyModel( metaclass=ABCMeta ):
         bc = params['grid']['bc'] # boundary conditions (Homogeneous Dirichlet or None)
         nq_pr = params['grid']['nq_pr'] # Number of quadrature points per histopolation cell
         nq_el = params['grid']['nq_el'] # Number of quadrature points per grid cell for L^2
+        polar_ck = params['grid']['polar_ck'] # C^k smoothness at eta_1=0 for polar domains 
 
         quad_order = [nq_el[0] - 1,
                       nq_el[1] - 1,
@@ -68,7 +69,10 @@ class StruphyModel( metaclass=ABCMeta ):
         self._derham = Derham(Nel, p, spl_kind, bc,
                               quad_order=quad_order,
                               nq_pr=nq_pr,
-                              comm=mpi_comm)
+                              comm=mpi_comm,
+                              with_projectors=True,
+                              polar_ck=polar_ck,
+                              domain=self.domain)
 
         # mhd equilibrium
         if 'mhd_equilibrium' in params: 

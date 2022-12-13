@@ -63,8 +63,8 @@ def test_solvers(Nel, p, spl_kind, mapping, show_plots=False, verbose=False):
     pc1 = MassMatrixPreconditioner(mass_mats.M1)
     
     # create random right-hand side vectors
-    b0_str, b0 = create_equal_random_arrays(derham.V0, 1234)
-    b1_str, b1 = create_equal_random_arrays(derham.V1, 1607)
+    b0_str, b0 = create_equal_random_arrays(derham.Vh_fem['0'], 1234)
+    b1_str, b1 = create_equal_random_arrays(derham.Vh_fem['1'], 1607)
     
     x0_bicgstab, info0_bicgstab = bicgstab(mass_mats.M0, b0)
     x0_pbicgstab, info0_pbicgstab = pbicgstab(mass_mats.M0, b0, pc0)

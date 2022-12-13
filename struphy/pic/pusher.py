@@ -31,11 +31,11 @@ class Pusher:
         
         # get FEM information
         self._args_fem = (np.array(derham.p), 
-                          derham.V0.knots[0], derham.V0.knots[1], derham.V0.knots[2],
-                          np.array(derham.V0.vector_space.starts), 
-                          np.array(derham.V1.vector_space.starts),
-                          np.array(derham.V2.vector_space.starts),
-                          np.array(derham.V3.vector_space.starts))
+                          derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
+                          np.array(derham.Vh['0'].starts), 
+                          np.array(derham.Vh['1'].starts),
+                          np.array(derham.Vh['2'].starts),
+                          np.array(derham.Vh['3'].starts))
         
         # select pusher kernel
         self._pusher_name = pusher_name

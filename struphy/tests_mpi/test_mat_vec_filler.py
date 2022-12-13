@@ -35,25 +35,25 @@ def test_mat_vec_filler(Nel, p, spl_kind, n_markers=1):
 
     # DR attributes
     pn = np.array(DR.p)
-    tn1, tn2, tn3 = DR.V0.knots
+    tn1, tn2, tn3 = DR.Vh_fem['0'].knots
 
     starts1 = {}
     starts2 = {}
     starts3 = {}
 
-    starts1['v0'] = np.array(DR.V0.vector_space.starts)
+    starts1['v0'] = np.array(DR.Vh['0'].starts)
 
-    s1, s2, s3 = DR.V1.vector_space.starts
+    s1, s2, s3 = DR.Vh['1'].starts
     starts1['v1'] = np.array(s1)
     starts2['v1'] = np.array(s2)
     starts3['v1'] = np.array(s3)
 
-    s1, s2, s3 = DR.V2.vector_space.starts
+    s1, s2, s3 = DR.Vh['2'].starts
     starts1['v2'] = np.array(s1)
     starts2['v2'] = np.array(s2)
     starts3['v2'] = np.array(s3)
 
-    starts1['v3'] = np.array(DR.V3.vector_space.starts)
+    starts1['v3'] = np.array(DR.Vh['3'].starts)
 
     comm.Barrier()
     sleep(.02*(rank + 1))
@@ -75,33 +75,33 @@ def test_mat_vec_filler(Nel, p, spl_kind, n_markers=1):
     mat = {}
     vec = {}
 
-    mat['v0'] = StencilMatrix(DR.V0.vector_space, DR.V0.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)._data
-    vec['v0'] = StencilVector(DR.V0.vector_space)._data
+    mat['v0'] = StencilMatrix(DR.Vh['0'], DR.Vh['0'], backend=PSYDAC_BACKEND_GPYCCEL)._data
+    vec['v0'] = StencilVector(DR.Vh['0'])._data
 
-    mat['v3'] = StencilMatrix(DR.V3.vector_space, DR.V3.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)._data
-    vec['v3'] = StencilVector(DR.V3.vector_space)._data
+    mat['v3'] = StencilMatrix(DR.Vh['3'], DR.Vh['3'], backend=PSYDAC_BACKEND_GPYCCEL)._data
+    vec['v3'] = StencilVector(DR.Vh['3'])._data
 
     mat['v1'] = []
     for i in range(3):
         mat['v1'] += [[]]
         for j in range(3):
             mat['v1'][-1] += [StencilMatrix(
-        DR.V1.vector_space.spaces[i], DR.V1.vector_space.spaces[j], backend=PSYDAC_BACKEND_GPYCCEL)._data]
+        DR.Vh['1'].spaces[i], DR.Vh['1'].spaces[j], backend=PSYDAC_BACKEND_GPYCCEL)._data]
 
     vec['v1'] = []
     for i in range(3):
-        vec['v1'] += [StencilVector(DR.V1.vector_space.spaces[i])._data]
+        vec['v1'] += [StencilVector(DR.Vh['1'].spaces[i])._data]
 
     mat['v2'] = []
     for i in range(3):
         mat['v2'] += [[]]
         for j in range(3):
             mat['v2'][-1] += [StencilMatrix(
-        DR.V2.vector_space.spaces[i], DR.V2.vector_space.spaces[j], backend=PSYDAC_BACKEND_GPYCCEL)._data]
+        DR.Vh['2'].spaces[i], DR.Vh['2'].spaces[j], backend=PSYDAC_BACKEND_GPYCCEL)._data]
 
     vec['v2'] = []
     for i in range(3):
-        vec['v2'] += [StencilVector(DR.V2.vector_space.spaces[i])._data]
+        vec['v2'] += [StencilVector(DR.Vh['2'].spaces[i])._data]
 
     # Some filling for testing
     fill_mat = np.reshape(np.arange(9, dtype=float), (3, 3)) + 1.

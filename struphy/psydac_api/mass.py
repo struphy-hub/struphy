@@ -159,7 +159,10 @@ class WeightedMassOperators:
         """
         
         if not hasattr(self, '_M0'):
-            self._M0 = WeightedMassOperator(self.derham.V0, self.derham.V0, V_extraction_op=self.derham.E0, W_extraction_op=self.derham.E0, V_boundary_op=self.derham.B0, W_boundary_op=self.derham.B0, weight=self._fun_M0, transposed=False)
+            self._M0 = WeightedMassOperator(self.derham.Vh_fem['0'], self.derham.Vh_fem['0'], 
+                                            V_extraction_op=self.derham.E['0'], W_extraction_op=self.derham.E['0'],
+                                            V_boundary_op=self.derham.B['0'], W_boundary_op=self.derham.B['0'], 
+                                            weight=self._fun_M0, transposed=False)
         
         return self._M0
     
@@ -169,7 +172,10 @@ class WeightedMassOperators:
         """
         
         if not hasattr(self, '_M1'):
-            self._M1 = WeightedMassOperator(self.derham.V1, self.derham.V1, V_extraction_op=self.derham.E1, W_extraction_op=self.derham.E1, V_boundary_op=self.derham.B1, W_boundary_op=self.derham.B1, weight=self._fun_M1, transposed=False)
+            self._M1 = WeightedMassOperator(self.derham.Vh_fem['1'], self.derham.Vh_fem['1'], 
+                                            V_extraction_op=self.derham.E['1'], W_extraction_op=self.derham.E['1'],
+                                            V_boundary_op=self.derham.B['1'], W_boundary_op=self.derham.B['1'], 
+                                            weight=self._fun_M1, transposed=False)
         
         return self._M1
     
@@ -179,7 +185,10 @@ class WeightedMassOperators:
         """
         
         if not hasattr(self, '_M2'):
-            self._M2 = WeightedMassOperator(self.derham.V2, self.derham.V2, V_extraction_op=self.derham.E2, W_extraction_op=self.derham.E2, V_boundary_op=self.derham.B2, W_boundary_op=self.derham.B2, weight=self._fun_M2, transposed=False)
+            self._M2 = WeightedMassOperator(self.derham.Vh_fem['2'], self.derham.Vh_fem['2'], 
+                                            V_extraction_op=self.derham.E['2'], W_extraction_op=self.derham.E['2'],
+                                            V_boundary_op=self.derham.B['2'], W_boundary_op=self.derham.B['2'], 
+                                            weight=self._fun_M2, transposed=False)
         
         return self._M2
     
@@ -189,7 +198,10 @@ class WeightedMassOperators:
         """
         
         if not hasattr(self, '_M3'):
-            self._M3 = WeightedMassOperator(self.derham.V3, self.derham.V3, V_extraction_op=self.derham.E3, W_extraction_op=self.derham.E3, V_boundary_op=self.derham.B3, W_boundary_op=self.derham.B3, weight=self._fun_M3, transposed=False)
+            self._M3 = WeightedMassOperator(self.derham.Vh_fem['3'], self.derham.Vh_fem['3'], 
+                                            V_extraction_op=self.derham.E['3'], W_extraction_op=self.derham.E['3'],
+                                            V_boundary_op=self.derham.B['3'], W_boundary_op=self.derham.B['3'], 
+                                            weight=self._fun_M3, transposed=False)
         
         return self._M3
     
@@ -199,7 +211,10 @@ class WeightedMassOperators:
         """
         
         if not hasattr(self, '_Mv'):
-            self._Mv = WeightedMassOperator(self.derham.V0vec, self.derham.V0vec, V_extraction_op=self.derham.E0vec, W_extraction_op=self.derham.E0vec, V_boundary_op=self.derham.B0vec, W_boundary_op=self.derham.B0vec, weight=self._fun_Mv, transposed=False)
+            self._Mv = WeightedMassOperator(self.derham.Vh_fem['v'], self.derham.Vh_fem['v'], 
+                                            V_extraction_op=self.derham.E['v'], W_extraction_op=self.derham.E['v'],
+                                            V_boundary_op=self.derham.B['v'], W_boundary_op=self.derham.B['v'],
+                                            weight=self._fun_Mv, transposed=False)
         
         return self._Mv
     
@@ -214,7 +229,10 @@ class WeightedMassOperators:
         assert hasattr(self, '_fun_M1n'), 'MHD equilibrium has not been set!'
         
         if not hasattr(self, '_M1n'):
-            self._M1n = WeightedMassOperator(self.derham.V1, self.derham.V1, V_extraction_op=self.derham.E1, W_extraction_op=self.derham.E1, V_boundary_op=self.derham.B1, W_boundary_op=self.derham.B1, weight=self._fun_M1n, transposed=False)
+            self._M1n = WeightedMassOperator(self.derham.Vh_fem['1'], self.derham.Vh_fem['1'],
+                                             V_extraction_op=self.derham.E['1'], W_extraction_op=self.derham.E['1'],
+                                             V_boundary_op=self.derham.B['1'], W_boundary_op=self.derham.B['1'], 
+                                             weight=self._fun_M1n, transposed=False)
         
         return self._M1n
     
@@ -224,7 +242,10 @@ class WeightedMassOperators:
         """
         
         if not hasattr(self, '_M2n'):
-            self._M2n = WeightedMassOperator(self.derham.V2, self.derham.V2, V_extraction_op=self.derham.E2, W_extraction_op=self.derham.E2, V_boundary_op=self.derham.B2, W_boundary_op=self.derham.B2, weight=self._fun_M2n, transposed=False)
+            self._M2n = WeightedMassOperator(self.derham.Vh_fem['2'], self.derham.Vh_fem['2'],
+                                             V_extraction_op=self.derham.E['2'], W_extraction_op=self.derham.E['2'],
+                                             V_boundary_op=self.derham.B['2'], W_boundary_op=self.derham.B['2'], 
+                                             weight=self._fun_M2n, transposed=False)
         
         return self._M2n
     
@@ -234,7 +255,10 @@ class WeightedMassOperators:
         """
         
         if not hasattr(self, '_Mvn'):
-            self._Mvn = WeightedMassOperator(self.derham.V0vec, self.derham.V0vec, V_extraction_op=self.derham.E0vec, W_extraction_op=self.derham.E0vec, V_boundary_op=self.derham.B0vec, W_boundary_op=self.derham.B0vec, weight=self._fun_Mvn, transposed=False)
+            self._Mvn = WeightedMassOperator(self.derham.Vh_fem['v'], self.derham.Vh_fem['v'],
+                                             V_extraction_op=self.derham.E['v'], W_extraction_op=self.derham.E['v'],
+                                             V_boundary_op=self.derham.B['v'], W_boundary_op=self.derham.B['v'],
+                                             weight=self._fun_Mvn, transposed=False)
         
         return self._Mvn
     
@@ -244,7 +268,10 @@ class WeightedMassOperators:
         """
         
         if not hasattr(self, '_M1J'):
-            self._M1J = WeightedMassOperator(self.derham.V2, self.derham.V1, V_extraction_op=self.derham.E2, W_extraction_op=self.derham.E1, V_boundary_op=self.derham.B2, W_boundary_op=self.derham.B1, weight=self._fun_M1J, transposed=False)
+            self._M1J = WeightedMassOperator(self.derham.Vh_fem['2'], self.derham.Vh_fem['1'],
+                                             V_extraction_op=self.derham.E['2'], W_extraction_op=self.derham.E['1'],
+                                             V_boundary_op=self.derham.B['2'], W_boundary_op=self.derham.B['1'], 
+                                             weight=self._fun_M1J, transposed=False)
         
         return self._M1J
     
@@ -254,7 +281,10 @@ class WeightedMassOperators:
         """
         
         if not hasattr(self, '_M2J'):
-            self._M2J = WeightedMassOperator(self.derham.V2, self.derham.V2, V_extraction_op=self.derham.E2, W_extraction_op=self.derham.E2, V_boundary_op=self.derham.B2, W_boundary_op=self.derham.B2, weight=self._fun_M2J, transposed=False)
+            self._M2J = WeightedMassOperator(self.derham.Vh_fem['2'], self.derham.Vh_fem['2'],
+                                             V_extraction_op=self.derham.E['2'], W_extraction_op=self.derham.E['2'],
+                                             V_boundary_op=self.derham.B['2'], W_boundary_op=self.derham.B['2'],
+                                             weight=self._fun_M2J, transposed=False)
         
         return self._M2J
     
@@ -264,7 +294,10 @@ class WeightedMassOperators:
         """
         
         if not hasattr(self, '_MvJ'):
-            self._MvJ = WeightedMassOperator(self.derham.V2, self.derham.V0vec, V_extraction_op=self.derham.E2, W_extraction_op=self.derham.E0vec, V_boundary_op=self.derham.B2, W_boundary_op=self.derham.B0vec, weight=self._fun_MvJ, transposed=False)
+            self._MvJ = WeightedMassOperator(self.derham.Vh_fem['2'], self.derham.Vh_fem['v'],
+                                             V_extraction_op=self.derham.E['2'], W_extraction_op=self.derham.E['v'],
+                                             V_boundary_op=self.derham.B['2'], W_boundary_op=self.derham.B['v'],
+                                             weight=self._fun_MvJ, transposed=False)
         
         return self._MvJ
 

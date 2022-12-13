@@ -5,6 +5,7 @@ grid :
       bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
       nq_el    : [6, 6, 6] # quadrature points per grid cell
       nq_pr    : [4, 4, 4] # quadrature points per histopolation cell (for commuting projectors)
+      polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
           
 time : 
       dt         : 0.15 # time step

@@ -34,10 +34,10 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     # discrete Derham sequence (psydac and legacy struphy)
     derham = Derham(Nel, p, spl_kind, comm=comm)
     
-    starts0 = np.array(derham.V0.vector_space.starts)
-    starts1 = np.array(derham.V1.vector_space.starts)
-    starts2 = np.array(derham.V2.vector_space.starts)
-    starts3 = np.array(derham.V3.vector_space.starts)
+    starts0 = np.array(derham.Vh['0'].starts)
+    starts1 = np.array(derham.Vh['1'].starts)
+    starts2 = np.array(derham.Vh['2'].starts)
+    starts3 = np.array(derham.Vh['3'].starts)
     
     if rank == 0: print('Domain decomposition : \n', derham.domain_array)
     
@@ -62,10 +62,10 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     markers_str = particles.markers.copy().T
     
     # create random FEM coefficients for magnetic field
-    b0_eq_str, b0_eq_psy = create_equal_random_arrays(derham.V0, seed=1234, flattened=True)
-    b2_eq_str, b2_eq_psy = create_equal_random_arrays(derham.V2, seed=2345, flattened=True)
+    b0_eq_str, b0_eq_psy = create_equal_random_arrays(derham.Vh_fem['0'], seed=1234, flattened=True)
+    b2_eq_str, b2_eq_psy = create_equal_random_arrays(derham.Vh_fem['2'], seed=2345, flattened=True)
     
-    b2_str, b2_psy = create_equal_random_arrays(derham.V2, seed=3456, flattened=True)
+    b2_str, b2_psy = create_equal_random_arrays(derham.Vh_fem['2'], seed=3456, flattened=True)
 
     # create legacy struphy pusher and psydac based pusher 
     pusher_str = Pusher_str(domain, space, space.extract_0(b0_eq_str), space.extract_2(b2_eq_str), basis_u=2, bc_pos=0)
@@ -147,11 +147,11 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     markers_str = particles.markers.copy().T
     
     # create random FEM coefficients for magnetic field and velocity field
-    b0_eq_str, b0_eq_psy = create_equal_random_arrays(derham.V0, seed=1234, flattened=True)
-    b2_eq_str, b2_eq_psy = create_equal_random_arrays(derham.V2, seed=2345, flattened=True)
+    b0_eq_str, b0_eq_psy = create_equal_random_arrays(derham.Vh_fem['0'], seed=1234, flattened=True)
+    b2_eq_str, b2_eq_psy = create_equal_random_arrays(derham.Vh_fem['2'], seed=2345, flattened=True)
     
-    b2_str, b2_psy = create_equal_random_arrays(derham.V2, seed=3456, flattened=True)
-    u2_str, u2_psy = create_equal_random_arrays(derham.V2, seed=4567, flattened=True)
+    b2_str, b2_psy = create_equal_random_arrays(derham.Vh_fem['2'], seed=3456, flattened=True)
+    u2_str, u2_psy = create_equal_random_arrays(derham.Vh_fem['2'], seed=4567, flattened=True)
     
     # create legacy struphy pusher and psydac based pusher 
     pusher_str = Pusher_str(domain, space, space.extract_0(b0_eq_str), space.extract_2(b2_eq_str), basis_u=2, bc_pos=0)
@@ -238,11 +238,11 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     markers_str = particles.markers.copy().T
     
     # create random FEM coefficients for magnetic field
-    b0_eq_str, b0_eq_psy = create_equal_random_arrays(derham.V0, seed=1234, flattened=True)
-    b2_eq_str, b2_eq_psy = create_equal_random_arrays(derham.V2, seed=2345, flattened=True)
+    b0_eq_str, b0_eq_psy = create_equal_random_arrays(derham.Vh_fem['0'], seed=1234, flattened=True)
+    b2_eq_str, b2_eq_psy = create_equal_random_arrays(derham.Vh_fem['2'], seed=2345, flattened=True)
     
-    b2_str, b2_psy = create_equal_random_arrays(derham.V2, seed=3456, flattened=True)
-    u1_str, u1_psy = create_equal_random_arrays(derham.V1, seed=4567, flattened=True)
+    b2_str, b2_psy = create_equal_random_arrays(derham.Vh_fem['2'], seed=3456, flattened=True)
+    u1_str, u1_psy = create_equal_random_arrays(derham.Vh_fem['1'], seed=4567, flattened=True)
     
     # create legacy struphy pusher and psydac based pusher 
     pusher_str = Pusher_str(domain, space, space.extract_0(b0_eq_str), space.extract_2(b2_eq_str), basis_u=1, bc_pos=0)
@@ -329,11 +329,11 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     markers_str = particles.markers.copy().T
     
     # create random FEM coefficients for magnetic field
-    b0_eq_str, b0_eq_psy = create_equal_random_arrays(derham.V0, seed=1234, flattened=True)
-    b2_eq_str, b2_eq_psy = create_equal_random_arrays(derham.V2, seed=2345, flattened=True)
+    b0_eq_str, b0_eq_psy = create_equal_random_arrays(derham.Vh_fem['0'], seed=1234, flattened=True)
+    b2_eq_str, b2_eq_psy = create_equal_random_arrays(derham.Vh_fem['2'], seed=2345, flattened=True)
     
-    b2_str, b2_psy = create_equal_random_arrays(derham.V2, seed=3456, flattened=True)
-    uv_str, uv_psy = create_equal_random_arrays(derham.V0vec, seed=4567, flattened=True)
+    b2_str, b2_psy = create_equal_random_arrays(derham.Vh_fem['2'], seed=3456, flattened=True)
+    uv_str, uv_psy = create_equal_random_arrays(derham.Vh_fem['v'], seed=4567, flattened=True)
     
     # create legacy struphy pusher and psydac based pusher 
     pusher_str = Pusher_str(domain, space, space.extract_0(b0_eq_str), space.extract_2(b2_eq_str), basis_u=0, bc_pos=0)
@@ -420,11 +420,11 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     markers_str = particles.markers.copy().T
     
     # create random FEM coefficients for magnetic field
-    b0_eq_str, b0_eq_psy = create_equal_random_arrays(derham.V0, seed=1234, flattened=True)
-    b2_eq_str, b2_eq_psy = create_equal_random_arrays(derham.V2, seed=2345, flattened=True)
+    b0_eq_str, b0_eq_psy = create_equal_random_arrays(derham.Vh_fem['0'], seed=1234, flattened=True)
+    b2_eq_str, b2_eq_psy = create_equal_random_arrays(derham.Vh_fem['2'], seed=2345, flattened=True)
     
-    b2_str, b2_psy = create_equal_random_arrays(derham.V2, seed=3456, flattened=True)
-    u2_str, u2_psy = create_equal_random_arrays(derham.V2, seed=4567, flattened=True)
+    b2_str, b2_psy = create_equal_random_arrays(derham.Vh_fem['2'], seed=3456, flattened=True)
+    u2_str, u2_psy = create_equal_random_arrays(derham.Vh_fem['2'], seed=4567, flattened=True)
     
     # create legacy struphy pusher and psydac based pusher 
     pusher_str = Pusher_str(domain, space, space.extract_0(b0_eq_str), space.extract_2(b2_eq_str), basis_u=2, bc_pos=0)
@@ -514,8 +514,8 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     markers_str = particles.markers.copy().T
     
     # create random FEM coefficients for magnetic field
-    b0_eq_str, b0_eq_psy = create_equal_random_arrays(derham.V0, seed=1234, flattened=True)
-    b2_eq_str, b2_eq_psy = create_equal_random_arrays(derham.V2, seed=2345, flattened=True)
+    b0_eq_str, b0_eq_psy = create_equal_random_arrays(derham.Vh_fem['0'], seed=1234, flattened=True)
+    b2_eq_str, b2_eq_psy = create_equal_random_arrays(derham.Vh_fem['2'], seed=2345, flattened=True)
     
     # create legacy struphy pusher and psydac based pusher 
     pusher_str = Pusher_str(domain, space, space.extract_0(b0_eq_str), space.extract_2(b2_eq_str), basis_u=0, bc_pos=0)
@@ -577,10 +577,10 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 #     # discrete Derham sequence (psydac and legacy struphy)
 #     derham = Derham(Nel, p, spl_kind, comm=comm)
     
-#     starts0 = np.array(derham.V0.vector_space.starts)
-#     starts1 = np.array(derham.V1.vector_space.starts)
-#     starts2 = np.array(derham.V2.vector_space.starts)
-#     starts3 = np.array(derham.V3.vector_space.starts)
+#     starts0 = np.array(derham.Vh['0'].starts)
+#     starts1 = np.array(derham.Vh['1'].starts)
+#     starts2 = np.array(derham.Vh['2'].starts)
+#     starts3 = np.array(derham.Vh['3'].starts)
 
 #     if rank == 0: print('Domain decomposition : \n', derham.domain_array)
     
@@ -604,13 +604,13 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     
 #     # test_push_pc_GXu_Full ----------------------------------------------------------------
 #     # create random FEM coefficients for magnetic field
-#     b0_eq_str, b0_eq_psy = create_equal_random_arrays(derham.V0, seed=1234, flattened=True)
-#     b2_eq_str, b2_eq_psy = create_equal_random_arrays(derham.V2, seed=2345, flattened=True)
+#     b0_eq_str, b0_eq_psy = create_equal_random_arrays(derham.Vh_fem['0'], seed=1234, flattened=True)
+#     b2_eq_str, b2_eq_psy = create_equal_random_arrays(derham.Vh_fem['2'], seed=2345, flattened=True)
 
 #     # create random FEM coefficients corresponding to three of GXu
-#     V_1_str, V_1_psy = create_equal_random_arrays(derham.V1, seed=1234, flattened=True)
-#     V_2_str, V_2_psy = create_equal_random_arrays(derham.V1, seed=2345, flattened=True)
-#     V_3_str, V_3_psy = create_equal_random_arrays(derham.V1, seed=3456, flattened=True)
+#     V_1_str, V_1_psy = create_equal_random_arrays(derham.Vh_fem['1'], seed=1234, flattened=True)
+#     V_2_str, V_2_psy = create_equal_random_arrays(derham.Vh_fem['1'], seed=2345, flattened=True)
+#     V_3_str, V_3_psy = create_equal_random_arrays(derham.Vh_fem['1'], seed=3456, flattened=True)
 
 #     # create legacy struphy pusher and psydac based pusher 
 #     pusher_str = Pusher_str(domain, space, space.extract_0(b0_eq_str), space.extract_2(b2_eq_str), basis_u=1, bc_pos=0)
@@ -689,11 +689,11 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     
 #     # test_push_pc_GXu_Full ----------------------------------------------------------------
 #     # create random FEM coefficients for magnetic field
-#     b0_eq_str, b0_eq_psy = create_equal_random_arrays(derham.V0, seed=1234, flattened=True)
-#     b2_eq_str, b2_eq_psy = create_equal_random_arrays(derham.V2, seed=2345, flattened=True)
+#     b0_eq_str, b0_eq_psy = create_equal_random_arrays(derham.Vh_fem['0'], seed=1234, flattened=True)
+#     b2_eq_str, b2_eq_psy = create_equal_random_arrays(derham.Vh_fem['2'], seed=2345, flattened=True)
 
 #     # create random FEM coefficients corresponding to three of GXu
-#     up_str, up_psy = create_equal_random_arrays(derham.V1, seed=1234, flattened=True)
+#     up_str, up_psy = create_equal_random_arrays(derham.Vh_fem['1'], seed=1234, flattened=True)
 
 #     # create legacy struphy pusher and psydac based pusher 
 #     pusher_str = Pusher_str(domain, space, space.extract_0(b0_eq_str), space.extract_2(b2_eq_str), basis_u=1, bc_pos=0)
