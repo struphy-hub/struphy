@@ -704,7 +704,7 @@ class StepStaticBfield( Propagator ):
     .. math::
 
         \frac{\text{d} \mathbf{\eta}_p}{\text{d} t} & = 0 \,,
-        
+
         \frac{\text{d} \mathbf{v}_p}{\text{d} t} & = \mathbf{v}_p \times \left[ \frac{1}{\text{det}(DL)} DL \mathbf{B}_0 \right]
 
     Parameters
@@ -731,7 +731,7 @@ class StepStaticBfield( Propagator ):
         self._derham = derham
         self._particles = particles
         self._b_bg = b_background
-        
+
         self._pusher = Pusher(derham, domain, 'push_vxb_analytic')
 
     @property
@@ -739,5 +739,5 @@ class StepStaticBfield( Propagator ):
         return [self._particles]
 
     def __call__(self, dt):
-        self._pusher.push(self._particles, dt,
-                          self._b_bg.blocks[0]._data, self._b_bg.blocks[1]._data, self._b_bg.blocks[2]._data)
+        self._pusher(self._particles, dt,
+                     self._b_bg.blocks[0]._data, self._b_bg.blocks[1]._data, self._b_bg.blocks[2]._data)

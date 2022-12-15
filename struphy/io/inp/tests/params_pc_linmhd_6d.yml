@@ -111,6 +111,7 @@ kinetic :
                   kBT  : 100. # thermal energy in units keV 
                   beta : 0.01 # plasma beta = p*2*mu_0/|B|^2
             markers :
+                  type        : full_f # full_f or delta_f
                   ppc         : 1000  # particles per 3d grid cell
                   eps         : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
                   control_var : False # control variate (use delta-f)?

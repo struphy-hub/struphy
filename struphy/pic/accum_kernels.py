@@ -1,6 +1,6 @@
 from pyccel.decorators import stack_array
 
-from numpy import zeros, empty, sqrt, shape
+from numpy import zeros, empty, sqrt, shape, sum
 
 import struphy.geometry.map_eval as map_eval
 import struphy.feec.bsplines_kernels as bsp
@@ -78,7 +78,7 @@ def _docstring():
     print('This is just the docstring function.')
 
 
-@stack_array('df', 'df_t', 'df_inv', 'g', 'g_inv', 'g_inv_times_v', 'df_inv_times_v', 'filling_m', 'filling_v')
+@stack_array('df', 'df_t', 'df_inv', 'df_inv_times_v', 'filling_m', 'filling_v')
 def linear_vlasov_maxwell(markers: 'float[:,:]',
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -89,26 +89,24 @@ def linear_vlasov_maxwell(markers: 'float[:,:]',
                           mat11: 'float[:,:,:,:,:,:]',
                           mat12: 'float[:,:,:,:,:,:]',
                           mat13: 'float[:,:,:,:,:,:]',
-                          mat21: 'float[:,:,:,:,:,:]',
                           mat22: 'float[:,:,:,:,:,:]',
                           mat23: 'float[:,:,:,:,:,:]',
-                          mat31: 'float[:,:,:,:,:,:]',
-                          mat32: 'float[:,:,:,:,:,:]',
                           mat33: 'float[:,:,:,:,:,:]',
                           vec1: 'float[:,:,:]',
                           vec2: 'float[:,:,:]',
                           vec3: 'float[:,:,:]',
                           f0_spec: 'int',          # model specific argument
                           moms_spec: 'int[:]',     # model specific argument
-                          f0_params: 'float[:]'):  # model specific argument
+                          f0_params: 'float[:]',   # model specific argument
+                          n_markers_tot: 'int'):   # model specific argument
     r"""
     Accumulates into V1 with the filling functions
 
     .. math::
 
-        A_p^{\mu, \nu} &= f_0(\eta_p, v_p) * [ G^{-1}(\eta_p) * v_p ]_\mu * [ DF^{-1}(\eta_p) * v_p ]_\nu    
+        A_p^{\mu, \nu} &= f_0(\eta_p, v_p) * [ DF^{-1}(\eta_p) * v_p ]_\mu * [ DF^{-1}(\eta_p) * v_p ]_\nu    
 
-        B_p^\mu &= \sqrt{f_0(\eta_p, v_p)} * w_p * [ G^{-1}(\eta_p) * v_p ]_\mu  
+        B_p^\mu &= \sqrt{f_0(\eta_p, v_p)} * w_p * [ DF^{-1}(\eta_p) * v_p ]_\mu  
 
     Parameters
     ----------
@@ -122,6 +120,9 @@ def linear_vlasov_maxwell(markers: 'float[:,:]',
         f0_params : array[float]
             Parameters needed to specify the moments; the order is specified in :ref:`kinetic_moments` for the respective functions available.
 
+        n_markers_tot : int
+            total number of markers
+
     Note
     ----
         The above parameter list contains only the model specific input arguments.
@@ -129,24 +130,20 @@ def linear_vlasov_maxwell(markers: 'float[:,:]',
 
     # allocate for metric coeffs
     df = empty((3, 3), dtype=float)
-    df_t = empty((3, 3), dtype=float)
     df_inv = empty((3, 3), dtype=float)
-    g = empty((3, 3), dtype=float)
-    g_inv = empty((3, 3), dtype=float)
 
     # allocate for filling
-    g_inv_times_v = empty(3, dtype=float)
     df_inv_times_v = empty(3, dtype=float)
     filling_m = empty((3, 3), dtype=float)
     filling_v = empty(3, dtype=float)
 
     # get number of markers
     n_markers = shape(markers)[0]
-    
-    #$ omp parallel private (ip, eta1, eta2, eta3, v, f0, df, df_inv, df_t, g, g_inv, g_inv_times_v, df_inv_times_v, weight, filling_m, filling_v)
+
+    #$ omp parallel private (ip, eta1, eta2, eta3, v, f0, df, df_inv, df_inv_times_v, weight, filling_m, filling_v)
     #$ omp for reduction ( + : mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32, mat33, vec1, vec2, vec3)
     for ip in range(n_markers):
-        
+
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
             continue
@@ -158,9 +155,9 @@ def linear_vlasov_maxwell(markers: 'float[:,:]',
 
         # evaluate background
         v = markers[ip, 3:6]
-        
-        f0 = background_eval.f0(
-            markers[ip, 0:3], v, f0_spec, moms_spec, f0_params)
+
+        f0 = background_eval.f0(markers[ip, 0:3], v,
+                                f0_spec, moms_spec, f0_params)
 
         # evaluate Jacobian, result in df
         map_eval.df(eta1, eta2, eta3,
@@ -170,31 +167,28 @@ def linear_vlasov_maxwell(markers: 'float[:,:]',
                     cx, cy, cz,
                     df)
 
-        # Avoid second computation of df, use linear_algebra.core routines to get g_inv:
-        linalg.matrix_inv(df, df_inv)
-        linalg.transpose(df, df_t)
-        linalg.matrix_matrix(df, df_t, g)
-        linalg.matrix_inv(g, g_inv)
-
         # filling functions
-        linalg.matrix_vector(g_inv, v, g_inv_times_v)
+        linalg.matrix_inv(df, df_inv)
         linalg.matrix_vector(df_inv, v, df_inv_times_v)
 
         weight = markers[ip, 6]
-        
-        linalg.outer(g_inv_times_v, df_inv_times_v, filling_m)
-        filling_m[:] = f0 * filling_m
-        filling_v[:] = sqrt(f0) * weight * g_inv_times_v
+
+        # filling_m = DL^{-1} v_p f_0 DL^{-1} v_p / (N s_0)
+        linalg.outer(df_inv_times_v, df_inv_times_v, filling_m)
+        filling_m[:] = f0 * filling_m / markers[ip, 7]
+
+        # filling_v = w_p * sqrt{f_0} DL^{-1} v_p
+        filling_v[:] = sqrt(f0) * weight * df_inv_times_v * n_markers_tot
 
         # call the appropriate matvec filler
-        mvf.m_v_fill_b_v1_full(pn, tn1, tn2, tn3, starts1,
+        mvf.m_v_fill_b_v1_symm(pn, tn1, tn2, tn3, starts1,
                                eta1, eta2, eta3,
-                               mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32, mat33,
+                               mat11, mat12, mat13, mat22, mat23, mat33,
                                filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
-                               filling_m[1, 0], filling_m[1, 1], filling_m[1, 2],
-                               filling_m[2, 0], filling_m[2, 1], filling_m[2, 2],
+                               filling_m[1, 1], filling_m[1, 2], filling_m[2, 2],
                                vec1, vec2, vec3,
                                filling_v[0], filling_v[1], filling_v[2])
+
     #$ omp end parallel
 
 

@@ -1,6 +1,7 @@
 import struphy.kinetic_background.f0_kernels as f0_kernels
 
-def f0(x : 'float[:]', v : 'float[:]', f0_spec : 'int', moms_spec : 'int[:]', params: 'float[:]') -> float:
+
+def f0(x: 'float[:]', v: 'float[:]', f0_spec: 'int', moms_spec: 'int[:]', params: 'float[:]') -> float:
     """
     Point-wise evaluation of a static kinetic background in 6d phase space.
 
@@ -11,7 +12,7 @@ def f0(x : 'float[:]', v : 'float[:]', f0_spec : 'int', moms_spec : 'int[:]', pa
 
         v : array[float]
             Velocity at which to evaluate f0.
-        
+
         f0_spec : int
             Specifier for kinetic background, 0 -> maxwellian_6d. See Notes.
 
@@ -27,7 +28,7 @@ def f0(x : 'float[:]', v : 'float[:]', f0_spec : 'int', moms_spec : 'int[:]', pa
         See :ref:`struphy.kinetic_background.f0_kernels` for available backgrounds.
     """
 
-    if f0_spec == 0: 
+    if f0_spec == 0:
         value = f0_kernels.maxwellian_6d(x, v, moms_spec, params)
     else:
         print('Invalid f0_spec', f0_spec)

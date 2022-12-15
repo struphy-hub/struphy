@@ -39,7 +39,7 @@ class SchurSolver:
                 Can either be:
                 * 'pcg', if S is symmetric and positive-definite (recommended in this case).
                 * 'pbicgstab' for general S.
-            
+
             tol : float
                 Absolute tolerance for L2-norm of residual r = A*x - b.
 
@@ -88,41 +88,47 @@ class SchurSolver:
     def A(self):
         """Upper left block from [[A B], [C Id]]."""
         return self._A
-    
+
     @property
     def BC(self):
         """Product from [[A B], [C Id]]."""
         return self._BC
-    
+
     @A.setter
     def A(self, a):
         """Upper left block from [[A B], [C Id]]."""
         self._A = a
-    
+
     @BC.setter
     def BC(self, bc):
         """Product from [[A B], [C Id]]."""
         self._BC = bc
-    
 
     def __call__(self, xn, Byn, dt):
+        """
+        TODO
+        """
 
-        self._schur   = Sum(self._A, Multiply(-dt**2, self._BC))
+        self._schur = Sum(self._A, Multiply(-dt**2, self._BC))
         self._rhs_mat = Sum(self._A, Multiply(dt**2, self._BC))
 
         assert xn.space == self._rhs_mat.domain
         assert Byn.space == self._rhs_mat.codomain
 
         _rhs = self._rhs_mat.dot(xn) - dt*2.*Byn
-        
+
         if self._solver_type == 'pcg':
-            
-            x, info = pcg(self._schur, _rhs, self._pc, x0=xn, tol=self._tol, 
+
+            x, info = pcg(self._schur, _rhs, self._pc, x0=xn, tol=self._tol,
                           maxiter=self._maxiter, verbose=self._verbose)
-            
+
         elif self._solver_type == 'pbicgstab':
-            
-            x, info = pbicgstab(self._schur, _rhs, self._pc, x0=xn, tol=self._tol, 
+
+            x, info = pbicgstab(self._schur, _rhs, self._pc, x0=xn, tol=self._tol,
                                 maxiter=self._maxiter, verbose=self._verbose)
+
+        else:
+            raise NotImplementedError(
+                f'Solver type {self._solver_type} is not implemented.')
 
         return x, info

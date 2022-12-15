@@ -512,7 +512,7 @@ class Accumulator:
         # accumulate
         self.accumulator(markers, *self.args)
 
-        #divide by n_mks 
+        # divide by n_mks 
         for dat in self._args_data:
             dat[:] = dat[:] / n_mks
 
