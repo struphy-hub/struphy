@@ -3,21 +3,17 @@ from numpy import array
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 
-import numpy as np
-
 from struphy.propagators.base import Propagator
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.pic.particles_to_grid import Accumulator
 from struphy.pic.pusher import Pusher
 
 from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
-from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
 from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
-from struphy.psydac_api.linear_operators import InverseLinearOperator as Invert
 from struphy.psydac_api import preconditioner
 from struphy.psydac_api.linear_operators import LinOpWithTransp
 
-from struphy.psydac_api.utilities import apply_essential_bc_to_array
+import numpy as np
 
 
 class StepEfieldWeights( Propagator ):
@@ -31,8 +27,8 @@ class StepEfieldWeights( Propagator ):
         \end{bmatrix}
         = 
         \begin{bmatrix}
-            0 & - \mathbb{H} \\
-            - \mathbb{A} & 0
+            0 & \frac{\Delta t}{2} \mathbb{K}^T \\
+            \frac{\Delta t}{2} \mathbb{K} & 0
         \end{bmatrix}
         \begin{bmatrix}
             \mathbf{e}^{n+1} + \mathbf{e}^n
@@ -42,10 +38,9 @@ class StepEfieldWeights( Propagator ):
     based on the :ref:`Schur complement <schur_solver>` where
 
     .. math::
-        \mathbb{A} & = - \frac{\Delta t}{2} \hat{\mathbf{F}}_0 \mathbb{V} \overline{DL}^T \left( \mathbb{P}^1 \right)^T \,,
-        \mathbb{H} & = \frac{\Delta t}{2} \mathbb{P}^1 \overline{G} \left( \mathbb{V} \right)^T \hat{\mathbf{F}}_0 \,.
+        (\mathbb{K})_p & = \sqrt{f_0} \left( DF^{-1} \bv_p \right) \cdot \left( \mathbb{\Lambda}^1 \right)^T \,.
 
-    make up the accumulation matrix :math:`\mathbb{H} \mathbb{A}` .
+    make up the accumulation matrix :math:`\mathbb{K}^T \mathbb{K}` .
 
     Parameters
     ---------- 
@@ -77,16 +72,20 @@ class StepEfieldWeights( Propagator ):
 
         # Initialize Accumulator object
         self._accum = Accumulator(domain, derham, 'Hcurl', 'linear_vlasov_maxwell',
-                                  self.f0_spec, array(self.moms_spec), array(self.f0_params), do_vector=True)
+                                  self.f0_spec, array(self.moms_spec), array(self.f0_params), int(particles.n_mks),
+                                  do_vector=True, symmetry='symm')
 
         self._e = e
         self._particles = particles
         self._info = params_solver['info']
+        
+        # store old weights to compute difference
+        self._old_weights = np.empty(particles.markers.shape[0], dtype=float)
 
         self._domain = domain
         self._derham = derham
 
-        self._accum.accumulate(particles.markers)
+        self._accum.accumulate(self._particles.markers, self._particles.n_mks)
 
         # ================================
         # ========= Schur Solver =========
@@ -99,30 +98,9 @@ class StepEfieldWeights( Propagator ):
             pc_class = getattr(preconditioner, params_solver["pc"])
             self._pc = pc_class(mass_ops.M1)
 
-        r'''
-        .. math::
-
-            \begin{bmatrix}
-                \mathbb{M}_1 & \mathbb{H} \\
-                \mathbb{A} & \mathbb{1}
-            \end{bmatrix}
-            \begin{bmatrix}
-                \mathbf{e}^{n+1} \\
-                \mathbf{W}^{n+1}
-            \end{bmatrix}
-            =
-            \begin{bmatrix}
-                \mathbb{M}_1 & -\mathbb{H} \\
-                -\mathbb{A} & \mathbb{1}
-            \end{bmatrix}
-            \begin{bmatrix}
-                \mathbf{e}^{n} \\
-                \mathbf{W}^{n}
-            \end{bmatrix}
-        '''
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = mass_ops.M1
-        _BC = self._accum.matrix
+        _BC = self._accum.matrix / 4
 
         # Instantiate Schur solver
         self._schur_solver = SchurSolver(_A, _BC, pc=self._pc, solver_type=params_solver['type'], 
@@ -140,26 +118,36 @@ class StepEfieldWeights( Propagator ):
         # current variables
         en = self.variables[0]
 
-        self._accum.accumulate(self._particles.markers)
+        self._accum.accumulate(self._particles.markers, self._particles.n_mks)
 
         # Update Schur solver
-        self._schur_solver.BC = self._accum.matrix
+        self._schur_solver.BC = - self._accum.matrix / 4
 
         # allocate temporary FemFields _e during solution
-        _e, info = self._schur_solver(en, self._accum.vector, dt)
+        _e, info = self._schur_solver(en, - self._accum.vector / 2, dt)
+
+        # Store old weights
+        self._old_weights[~self._particles.holes] = self._particles.markers[~self._particles.holes, 6]
+
+        # Update weights
+        self._pusher(self._particles, dt,
+                     (_e + en).blocks[0]._data, (_e + en).blocks[1]._data, (_e + en).blocks[2]._data,
+                     self.f0_spec, array(self.moms_spec), array(self.f0_params),
+                     int(self._particles.n_mks))
 
         # write new coeffs into Propagator.variables
         de = self.in_place_update(_e)
-        self._pusher(self._particles, dt,
-                     en.blocks[0]._data, en.blocks[1]._data, en.blocks[2]._data,
-                     self.f0_spec, array(self.moms_spec), array(self.f0_params))
 
-        # TODO: Implement info for weights as well
+        # Print out max differences for weights and efield
         if self._info:
-            print('Status     for StepEfieldWeights:', info['success'])
-            print('Iterations for StepEfieldWeights:', info['niter'])
-            print('Maxdiff e1 for StepEfieldWeights:', max(de))
+            print('Status          for StepEfieldWeights:', info['success'])
+            print('Iterations      for StepEfieldWeights:', info['niter'])
+            print('Maxdiff    e1   for StepEfieldWeights:', max(de))
+            max_diff = np.max(np.abs(self._old_weights[~self._particles.holes] \
+                        - self._particles.markers[~self._particles.holes, 6]))
+            print('Maxdiff weights for StepEfieldWeights:', max_diff)
             print()
+
 
 
 class StepPressurecoupling( Propagator ):

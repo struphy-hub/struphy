@@ -336,12 +336,15 @@ class Particles6D:
                 self.markers[~self._holes, :3] > self.domain_array[self.mpi_rank, 0::3], 
                 self.markers[~self._holes, :3] < self.domain_array[self.mpi_rank, 1::3]))
 
-    def initialize_weights(self, background_params, perturb_params):
+    def initialize_weights(self, marker_type, background_params, perturb_params):
         """
-        Computes w0=f0(t=0, eta(t=0), v(t=0))/s0(t=0, eta(t=0), v(t=0)) from the initial distribution function.
+        Computes w0 = f0(t=0, eta(t=0), v(t=0)) / s0(t=0, eta(t=0), v(t=0)) from the initial distribution function.
 
         Parameters
         ----------
+            marker_type : str
+                'full_f' or 'delta_f'
+
             background_params : dict
                 Parameters for background distribution function used as initial condition.
 
@@ -349,11 +352,12 @@ class Particles6D:
                 Parameters for perturbation of background distribution function used as initial condition.
         """
 
-        f_init = KineticPerturbation(background_params, perturb_params)
+        f_init = KineticPerturbation(marker_type, background_params, perturb_params)
 
         # compute w0
-        self._markers[~self._holes, 8] = f_init(
-            self._markers[~self.holes, :3], self._markers[~self.holes, 3:6]) / self.markers[~self.holes, 7]
+        self._markers[~self._holes, 8] = f_init(self._markers[~self.holes, :3],
+                                                self._markers[~self.holes, 3:6]) \
+                                            / self.markers[~self.holes, 7]
 
         # set weights
         self._markers[~self._holes, 6] = self.markers[~self._holes, 8]
@@ -789,12 +793,15 @@ class Particles5D:
                 self.markers[~self._holes, :3] > self.domain_array[self.mpi_rank, 0::3], 
                 self.markers[~self._holes, :3] < self.domain_array[self.mpi_rank, 1::3]))
 
-    def initialize_weights(self, background_params, perturb_params):
+    def initialize_weights(self, marker_type, background_params, perturb_params):
         """
         Computes w0=f0(t=0, eta(t=0), v(t=0))/s0(t=0, eta(t=0), v(t=0)) from the initial distribution function.
 
         Parameters
         ----------
+            marker_type : str
+                'full_f' or 'delta_f'
+
             background_params : dict
                 Parameters for background distribution function used as initial condition.
 
@@ -802,7 +809,7 @@ class Particles5D:
                 Parameters for perturbation of background distribution function used as initial condition.
         """
 
-        f_init = KineticPerturbation(background_params, perturb_params)
+        f_init = KineticPerturbation(marker_type, background_params, perturb_params)
 
         # compute w0
         self._markers[~self._holes, 8] = f_init(

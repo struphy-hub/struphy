@@ -1878,7 +1878,8 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
                              ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                              cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                              e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
-                             f0_spec: int, moms_spec: 'int[:]', f0_params: 'float[:]'):
+                             f0_spec: 'int', moms_spec: 'int[:]', f0_params: 'float[:]',
+                             n_markers_tot: 'int'):
     r'''
     updates the single weights in the e_W substep of the linearized Vlasov Maxwell system;
     c.f. struphy.propagators.propagators.StepEfieldWeights
@@ -1898,6 +1899,9 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
         params : array[float]
             Parameters needed to specify the moments; the order is specified in :ref:`struphy.kinetic_background.moments_kernels`
             for the respective functions available.
+
+        n_markers : int
+            total number of particles
     '''
 
     # total number of basis functions : B-splines (pn) and D-splines (pd)
@@ -1917,27 +1921,29 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
 
     df      = empty((3,3), dtype=float)
     df_inv  = empty((3,3), dtype=float)
-    x       = empty(3    , dtype=float)
+    eta     = empty(3    , dtype=float)
     v       = empty(3    , dtype=float)
+    prod    = empty(3    , dtype=float)
 
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, x, v1, v2, v3, v, df, df_inv, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, temp1, temp2, temp3, update)
+    #$ omp parallel private (ip, eta1, eta2, eta3, eta, v, prod, df, df_inv, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, temp1, temp2, temp3, update)
     #$ omp for
     for ip in range(n_markers):
+        if markers[ip, 0] == -1:
+            continue
 
         # position
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
-        x    = [eta1, eta2, eta3]
+        eta  = [eta1, eta2, eta3]
 
         # velocity
-        v1 = markers[ip, 3]
-        v2 = markers[ip, 4]
-        v3 = markers[ip, 5]
-        v  = [v1, v2, v3]
+        v[0] = markers[ip, 3]
+        v[1] = markers[ip, 4]
+        v[2] = markers[ip, 5]
 
         # spans (i.e. index for non-vanisle of manishing basis functions)
         span1 = bsp.find_span(tn1, pn1, eta1)
@@ -1949,30 +1955,24 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
         bsp.b_d_splines_slim(tn2, pn2, eta2, span2, bn2, bd2)
         bsp.b_d_splines_slim(tn3, pn3, eta3, span3, bn3, bd3)
 
-        f0 = background_eval.f0(x, v, f0_spec, moms_spec, f0_params)
+        f0 = background_eval.f0(eta, v, f0_spec, moms_spec, f0_params)
 
         map_eval.df(eta1, eta2, eta3, kind_map, params_map, t1_map, t2_map, t3_map, p_map, ind1_map, ind2_map, ind3_map, cx, cy, cz, df)
         linalg.matrix_inv(df, df_inv)
 
-        temp1 = 0.
-        temp2 = 0.
-        temp3 = 0.
-
         # E-field (1-form)
         temp1 = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3,
-                                           span1, span2, span3, e1_1, starts1[0])
+                                               span1, span2, span3, e1_1, starts1[0])
         temp2 = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3,
-                                           span1, span2, span3, e1_2, starts1[1])
+                                               span1, span2, span3, e1_2, starts1[1])
         temp3 = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3,
-                                           span1, span2, span3, e1_3, starts1[2])
+                                               span1, span2, span3, e1_3, starts1[2])
 
-        prod1 = df_inv[0, 0] * v1 + df_inv[0, 1] * v2 + df_inv[0, 2] * v3
-        prod2 = df_inv[1, 0] * v1 + df_inv[1, 1] * v2 + df_inv[1, 2] * v3
-        prod3 = df_inv[2, 0] * v1 + df_inv[2, 1] * v2 + df_inv[2, 2] * v3
+        linalg.matrix_vector(df_inv, v, prod)
 
-        # w_{n+1} = w_n + dt/2 * sqrt(f) * ( DF^{-1} v ) * ( e_{n+1} + e_n )
-        update = (prod1 * temp1 + prod2 * temp2 + prod3 * temp3) * sqrt(f0) * dt / 2.
-        markers[ip, 6] += update
+        # w_{n+1} = w_n - dt/2 * 1/(N s_0) * sqrt(f) * ( DF^{-1} v ) * ( e_{n+1} + e_n )
+        update = (prod[0] * temp1 + prod[1] * temp2 + prod[2] * temp3) * sqrt(f0) * dt / (2 * n_markers_tot * markers[ip, 7])
+        markers[ip, 6] -= update 
 
     #$ omp end parallel
 

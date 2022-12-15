@@ -2,7 +2,6 @@ import numpy as np
 from mpi4py import MPI
 
 from struphy.models.base import StruphyModel
-from struphy.pic.utilities import eval_field_at_particles
 from struphy.polar.basic import PolarVector
 
 
@@ -331,30 +330,29 @@ class LinearVlasovMaxwell( StruphyModel ):
 
     .. math::
 
+        \partial_t h + \mathbf{v} \cdot \nabla h + \left( \mathbf{E}_0 + \mathbf{v} \times \mathbf{B}_0 \right)
+        \cdot \nabla_\mathbf{v} h = \frac{1}{v_{\text{th}}^2} \sqrt{f_0} \mathbf{E} \cdot \mathbf{v} \,,
+
         \frac{\partial \mathbf{E}}{\partial t} & = \nabla \times \mathbf{B} -
-        \sum_p w_p \sqrt{f_{0,p}(\mathbf{x}_p, \mathbf{v}_p)} \mathbf{v}_p \,,
+        \int_{\mathbb{R}^3} \sqrt{f_0} \, h \, \mathbf{v} \text{d}^3 \mathbf{v} \,,
 
-        \frac{\partial \mathbf{B}}{\partial t} & = - \nabla \times \mathbf{E} \,,
-
-        \frac{\text{d} \mathbf{x}_p}{\text{d} t} & = \mathbf{v}_p \,,
-
-        \frac{\text{d} \mathbf{v}_p}{\text{d} t} & = \mathbf{E}_0 + \mathbf{v}_p \times \mathbf{B}_0 \,,
-
-        \frac{\text{d} w_p}{\text{d} t} & = \frac{1}{v_{\text{th},p}^2} \,
-        \sqrt{f_{0,p}(\mathbf{x}_p, \mathbf{v}_p)} \, \mathbf{E} \cdot \mathbf{v}_p
+        \frac{\partial \mathbf{B}}{\partial t} & = - \nabla \times \mathbf{E}
 
     which form a Hamiltonian system with the energies:
 
     .. math::
 
-        H_0(t) & = \sum_p \left( \frac{\mathbf{v}_p^2}{2} + \phi_0(\mathbf{x}_p) \right) \,,
-
-        H_h(t) & = \sum_p \frac{v_{\text{th},p}^2 w_p^2}{2}
+        H(t) & = \frac{1}{2} \int_\Omega h^2 \, \text{d}^3 \mathbf{x} \, \text{d}^3 \mathbf{v}
         + \frac{1}{2} \int_\Omega |\mathbf{E}|^2 \, \text{d}^3 \mathbf{x}
         + \frac{1}{2} \int_\Omega |\mathbf{B}|^2 \, \text{d}^3 \mathbf{x} \,.
 
-    All natural constants are set equal to 1 and all particles are normalized
-    to have unit mass and unit charge.
+    Normalization:
+
+    .. math::
+
+        c = \frac{\hat \omega}{\hat k} = \frac{\hat E}{\hat B}
+
+    where :math:`c` is the vacuum speed of light.
 
     Parameters
     ----------
@@ -367,7 +365,6 @@ class LinearVlasovMaxwell( StruphyModel ):
         from struphy.psydac_api.mass import WeightedMassOperators
         from struphy.propagators import propagators_fields, propagators_markers, propagators_coupling
         from struphy.psydac_api.fields import Field
-        from struphy.fields_background.mhd_equil import analytical
 
         super().__init__(params, comm, e_field='Hcurl', b_field='Hdiv', electrons='Particles6D')
 
@@ -377,9 +374,7 @@ class LinearVlasovMaxwell( StruphyModel ):
 
         # pointer to electrons
         self._electrons = self.kinetic['electrons']['obj']
-
-        # extract necessary parameters
-        solver_params = params['solvers']['solver_1']
+        electron_params = params['kinetic']['electrons']
 
         # Assemble necessary mass matrices
         self._mass_ops = WeightedMassOperators(self.derham, self.domain)
@@ -387,21 +382,21 @@ class LinearVlasovMaxwell( StruphyModel ):
         # ====================================================================================
         # Instantiate background electric field and potential
         self._background_fields = []
-        self._background_fields += [Field('e_background',
-                                          'Hcurl', self.derham)]
-        self._background_fields += [Field('phi_background', 'H1', self.derham)]
+        # self._background_fields += [Field('e_background',
+        #                                   'Hcurl', self.derham)]
+        # self._background_fields += [Field('phi_background', 'H1', self.derham)]
 
-        self._background_fields[1].set_initial_conditions(
-            self.domain, [True], params['fields']['init'])
+        # self._background_fields[1].set_initial_conditions(
+        #     self.domain, [True], params['fields']['init'])
 
-        self._e_background = self._background_fields[0].vector
-        self._phi_background = self._background_fields[1].vector
+        # self._e_background = self._background_fields[0].vector
+        # self._phi_background = self._background_fields[1].vector
 
-        self._e_background = self.derham.grad.dot(self._phi_background)
+        # self._e_background = self.derham.grad.dot(self._phi_background)
 
         # Initialize background magnetic field from MHD equilibrium
         self._background_fields += [Field('b_background', 'Hdiv', self.derham)]
-        self._b_background = self._background_fields[2].vector
+        self._b_background = self._background_fields[0].vector
 
         # self._b_background[0] =
         self._b_background = self.derham.P['2']([self.mhd_equil.b_x, 
@@ -411,54 +406,50 @@ class LinearVlasovMaxwell( StruphyModel ):
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-        self._propagators += [propagators_markers.StepStaticEfield(
-            self.domain, self.derham, self._electrons, self._e_background)]
-        self._propagators += [propagators_markers.StepStaticBfield(
-            self.domain, self.derham, self._electrons, self._b_background)]
-        self._propagators += [propagators_coupling.StepEfieldWeights(self.domain, self.derham, self._e, self._electrons, self._mass_ops,
-                                                params['kinetic']['electrons']['background'], params['solvers']['solver_1'])]
+        # self._propagators += [propagators_markers.StepStaticEfield(
+        #     self.domain, self.derham, self._electrons, self._e_background)]
+        # self._propagators += [propagators_markers.StepPushEta(
+        #     self._electrons, self.derham, electron_params['push_algos']['eta'],
+        #     electron_params['markers']['bc_type'])]
+        # self._propagators += [propagators_markers.StepStaticBfield(
+        #     self.domain, self.derham, self._electrons, self._b_background)]
+        self._propagators += [propagators_coupling.StepEfieldWeights(self.domain, self.derham,
+                                                self._e, self._electrons, self._mass_ops,
+                                                electron_params['background'], params['solvers']['solver_ew'])]
         self._propagators += [propagators_fields.Maxwell(self._e, self._b,
-                                          self.derham, self._mass_ops, solver_params)]
+                                          self.derham, self._mass_ops, params['solvers']['solver_eb'])]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities['time'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_E'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_weights'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_all'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_el_pot'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_kin'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_sing'] = np.empty(1, dtype=float)
+        self._scalar_quantities['energy'] = np.empty(1, dtype=float)
 
     @property
     def propagators(self):
         return self._propagators
 
-    def _compute_electric_potential(self):
-        ''' Compute the sum of the electric potential at all particle positions '''
-
-        res = eval_field_at_particles(
-            self._phi_background, self._derham, 'H1', self._electrons)
-
-        return res
-
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
+
+        # e^T * M_1 * e
         self._scalar_quantities['en_E'][0] = self._e.dot(
             self._mass_ops.M1.dot(self._e)) / 2.
+
+        # b^T * M_2 * b
         self._scalar_quantities['en_B'][0] = self._b.dot(
             self._mass_ops.M2.dot(self._b)) / 2.
+
+        # sum_p N * s_0 * w_p^2
         self._scalar_quantities['en_weights'][0] = np.sum(
-            self._electrons.markers[:, 8])**2
-        self._scalar_quantities['en_all'][0] = self._scalar_quantities['en_weights'][0] + \
+            self._electrons.markers[~self._electrons._holes, 6]**2 \
+            * self._electrons.markers[~self._electrons._holes, 7]) \
+            * self._electrons.n_mks / 2
+
+        self._scalar_quantities['energy'][0] = self._scalar_quantities['en_weights'][0] + \
             self._scalar_quantities['en_E'][0] + \
             self._scalar_quantities['en_B'][0]
-        self._scalar_quantities['en_el_pot'][0] = self._compute_electric_potential(
-        )
-        self._scalar_quantities['en_kin'][0] = np.sum(
-            np.sum(self._electrons.markers[:, 3:6], axis=1)**2)
-        self._scalar_quantities['en_sing'][0] = self._scalar_quantities['en_el_pot'][0] + \
-            self._scalar_quantities['en_kin'][0]
 
 
 #############################
