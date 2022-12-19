@@ -7,7 +7,9 @@ from struphy.psydac_api.psydac_derham import Derham
 from struphy.psydac_api.fields import Field
 from struphy.pic import particles
 from struphy.models.pre_processing import plasma_params
-from struphy.fields_background.mhd_equil import analytical
+from struphy.fields_background.mhd_equil import analytical as analytical_mhd
+from struphy.fields_background.electric_equil import analytical as analytical_electric
+
 
 
 class StruphyModel( metaclass=ABCMeta ):
@@ -77,7 +79,7 @@ class StruphyModel( metaclass=ABCMeta ):
         # mhd equilibrium
         if 'mhd_equilibrium' in params: 
             equil_params = params['mhd_equilibrium']
-            mhd_equil_class = getattr(analytical, equil_params['type'])
+            mhd_equil_class = getattr(analytical_mhd, equil_params['type'])
             self._mhd_equil = mhd_equil_class(equil_params[equil_params['type']], self.domain)
 
             # minor radius 
@@ -94,6 +96,16 @@ class StruphyModel( metaclass=ABCMeta ):
             self._size_params['B_abs [T]'] = np.mean(self.mhd_equil.b0(eta1, eta2, eta3))
         else:
             self._mhd_equil = None
+
+        # electric equilibrium
+        if 'electric_equilibrium' in params:
+            equil_params = params['electric_equilibrium']
+            electric_equil_class = getattr(
+                analytical_electric, equil_params['type'])
+            self._electric_equil = electric_equil_class(
+                equil_params[equil_params['type']], self.domain, self.derham)
+        else:
+            self._electric_equil = None
 
         # electromagnetic fields, fluid and/or kinetic species
         self._em_fields = {}
@@ -136,7 +148,7 @@ class StruphyModel( metaclass=ABCMeta ):
 
             else:
                 raise ValueError(f'Type {type(val)} not supported as value.')
-                
+
         # FE coeffs of electromagnetic fields/potentials
         if 'em_fields' in params:
 
@@ -214,16 +226,16 @@ class StruphyModel( metaclass=ABCMeta ):
                             for j in range(dims):
                                 val['bin_edges'][sli] += [np.linspace(ranges[i][j][0], ranges[i][j][1], n_bins[i][j] + 1)]
                             val['kinetic_data']['f'][sli] = np.zeros(n_bins[i], dtype=float)
-                
+
                 # other data (wave-particle power exchange, etc.)
                 # TODO
-                            
+
         # create time propagators list
         self._propagators = []
-        
+
         # create dictionary for scalar quantities
         self._scalar_quantities = {}
-    
+
         # print info to screen 
         if mpi_comm.Get_rank() == 0:
             print('GRID parameters:')
@@ -285,6 +297,11 @@ class StruphyModel( metaclass=ABCMeta ):
         return self._mhd_equil
 
     @property
+    def electric_equil(self):
+        '''Eelctric equilibrium object, see :ref:`electric_equil`.'''
+        return self._electric_equil
+
+    @property
     def em_fields(self):
         '''Dictionary of electromagnetic field/potential variables.'''
         return self._em_fields
@@ -317,7 +334,7 @@ class StruphyModel( metaclass=ABCMeta ):
 
             self._scalar_quantities['time'] = np.empty(1, dtype=float)'''
         return self._scalar_quantities
-    
+
     @abstractmethod
     def update_scalar_quantities(self, time):
         '''
@@ -329,7 +346,7 @@ class StruphyModel( metaclass=ABCMeta ):
                 Time at which to update.
         '''
         pass
-    
+
     def update_markers_to_be_saved(self):
         '''
         Writes markers with IDs that are supposed to be saved into corresponding array.
@@ -343,7 +360,7 @@ class StruphyModel( metaclass=ABCMeta ):
                 n_markers_on_proc = np.count_nonzero(markers_on_proc)
                 val['kinetic_data']['markers'][:] = -1.
                 val['kinetic_data']['markers'][:n_markers_on_proc] = val['obj'].markers[markers_on_proc]
-            
+
     def update_distr_function(self):
         '''
         Writes distribution function slices that are supposed to be saved into corresponding array.
@@ -364,7 +381,7 @@ class StruphyModel( metaclass=ABCMeta ):
                         components[dim_to_int[comp]] = True
                     
                     val['kinetic_data']['f'][slic][:] = val['obj'].binning(components, edges)
-        
+
     def print_scalar_quantities(self):
         '''
         Print quantities saved in scalar_quantities to screen.

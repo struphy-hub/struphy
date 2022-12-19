@@ -134,7 +134,7 @@ geometry :
             Nel      : [8, 24] # number of grid cells, >p
             p        : [3, 3] # spline degree, >1
             spl_kind : [False, True] # spline type: True=periodic, False=clamped
-  
+
 mhd_equilibrium : 
       type : HomogenSlab # (possible choices seen below)
       HomogenSlab :
@@ -177,7 +177,7 @@ mhd_equilibrium :
             p2     : .1 # shape factor for ad hoc pressure profile
             beta : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
 
-phi_equilibrium :
+electric_equilibrium :
       type : HomogenSlab # (possible choices seen below)
       HomogenSlab :
             phi0  : 1. # constant electric potential
@@ -309,7 +309,7 @@ kinetic :
             push_algos :
                   vxb : analytic # possible choices: analytic, implicit
                   eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4
-         
+
 solvers :
       solver_ew : 
             type : pcg

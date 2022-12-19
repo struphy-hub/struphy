@@ -41,11 +41,11 @@ class Field:
         # initialize field in memory (FEM space, vector and tensor product (stencil) vector)
         self._space_key = derham.spaces_dict[space_id]
         self._space = derham.Vh_fem[self._space_key]
-        
+
         self._vector = derham.Vh_pol[self._space_key].zeros()
-                
+
         self._vector_stencil = self._space.vector_space.zeros()
-                
+
         # transposed basis extraction operator for PolarVector --> Stencil-/BlockVector
         self._ET = derham.E[self._space_key].transpose()
 
@@ -55,17 +55,22 @@ class Field:
             self._gl_e = self._space.vector_space.ends
             self._pads = self._space.vector_space.pads
         else:
-            self._gl_s = [comp.starts for comp in self._space.vector_space.spaces]
-            self._gl_e = [comp.ends   for comp in self._space.vector_space.spaces]
-            self._pads = [comp.pads   for comp in self._space.vector_space.spaces]
-        
+            self._gl_s = [
+                comp.starts for comp in self._space.vector_space.spaces]
+            self._gl_e = [
+                comp.ends for comp in self._space.vector_space.spaces]
+            self._pads = [
+                comp.pads for comp in self._space.vector_space.spaces]
+
         # dimensions in each direction
-        #self._nbasis = derham.nbasis[self._space_key]
-        
+        # self._nbasis = derham.nbasis[self._space_key]
+
         if self._space_id in {'H1', 'L2'}:
-            self._nbasis = tuple([space.nbasis for space in self._space.spaces])
+            self._nbasis = tuple(
+                [space.nbasis for space in self._space.spaces])
         else:
-            self._nbasis = [tuple([space.nbasis for space in vec_space.spaces]) for vec_space in self._space.spaces]
+            self._nbasis = [tuple([space.nbasis for space in vec_space.spaces])
+                            for vec_space in self._space.spaces]
 
     @property
     def name(self):
@@ -78,7 +83,7 @@ class Field:
         """ String identifying the continuous space of the field: 'H1', 'Hcurl', 'Hdiv', 'L2' or 'H1vec'.
         """
         return self._space_id
-    
+
     @property
     def space_key(self):
         """ String identifying the discrete space of the field: '0', '1', '2', '3' or 'v'.
@@ -90,13 +95,13 @@ class Field:
         """ 3d Derham complex struphy.psydac_api.psydac_derham.Derham.
         """
         return self._derham
-    
+
     @property
     def space(self):
         """ Discrete space of the field, either psydac.fem.tensor.TensorFemSpace or psydac.fem.vector.ProductFemSpace.
         """
         return self._space
-    
+
     @property
     def ET(self):
         """ Transposed PolarExtractionOperator (or IdentityOperator) for mapping polar coeffs to polar tensor product rings.
@@ -113,29 +118,32 @@ class Field:
     def vector(self, value):
         """ In-place setter for Stencil-/Block-/PolarVector.
         """
-        
+
         if isinstance(value, StencilVector):
-            
+
             s1, s2, s3 = self.starts
             e1, e2, e3 = self.ends
-            
-            self._vector[s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = value[s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
-        
+
+            self._vector[s1:e1 + 1, s2:e2 + 1, s3:e3 +
+                         1] = value[s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
+
         elif isinstance(value, BlockVector):
             for n in range(3):
-                
+
                 s1, s2, s3 = self.starts[n]
                 e1, e2, e3 = self.ends[n]
-                
-                self._vector[n][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = value[n][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
-                
+
+                self._vector[n][s1:e1 + 1, s2:e2 + 1, s3:e3 +
+                                1] = value[n][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
+
         elif isinstance(value, PolarVector):
             self._vector.pol = value.pol
             self._vector.tp = value.tp
-            
+
         else:
-            raise ValueError('Given vector must be either Stencil-, Block- or PolarVector!') 
-       
+            raise ValueError(
+                'Given vector must be either Stencil-, Block- or PolarVector!')
+
     @property
     def starts(self):
         """ Global indices of the first FE coefficient on the process, in each direction.
@@ -159,31 +167,31 @@ class Field:
         """ Tuple(s) of 1d dimensions for each direction.
         """
         return self._nbasis
-    
+
     @property
     def vector_stencil(self):
         """ Tensor-product Stencil-/BlockVector corresponding to a copy of self.vector in case of Stencil-/Blockvector 
-        
+
             OR 
-            
+
             the extracted coefficients in case of PolarVector. Call self.extract_coeffs() beforehand.
         """
         return self._vector_stencil
-    
+
     def extract_coeffs(self, update_ghost_regions=True):
         """
         Maps polar coeffs to polar tensor product rings in case of PolarVector (written in-place to self.vector_stencil) and updates ghost regions.
-        
+
         Parameters
         ----------
             update_ghost_regions : bool
                 If the ghost regions shall be updated (needed in case of non-local acccess, e.g. in field evaluation).
         """
         self._ET.dot(self._vector, out=self._vector_stencil)
-        
+
         if update_ghost_regions:
             self._vector_stencil.update_ghost_regions()
-            
+
     def initialize_coeffs(self, comps, init_params, domain=None):
         """
         Sets the initial conditions for self.vector.
@@ -204,17 +212,18 @@ class Field:
             rank = self._derham.comm.Get_rank()
         else:
             rank = 0
-        
+
         # set initial conditions for each component
         init_type = init_params['type']
         init_coords = init_params['coords']
         init_comps = init_params['comps']
         fun_params = init_params[init_type]
-        
+
         # make sure that given comps are part of the comps given in the parameter file
         assert comps in init_comps
-        
-        if init_coords == 'physical': assert domain is not None
+
+        if init_coords == 'physical':
+            assert domain is not None
 
         # white noise
         if init_type == 'noise':
@@ -244,50 +253,50 @@ class Field:
             form_str = self.derham.forms_dict[self.space_id]
 
             if self.space_id in {'H1', 'L2'}:
-                fun = PulledPform(init_coords, 
-                                        fun_tmp, domain, form_str)
+                fun = PulledPform(init_coords,
+                                  fun_tmp, domain, form_str)
             elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
                 fun = []
 
                 fun += [PulledPform(init_coords,
-                                          fun_tmp, domain, form_str + '_1')]
+                                    fun_tmp, domain, form_str + '_1')]
                 fun += [PulledPform(init_coords,
-                                          fun_tmp, domain, form_str + '_2')]
+                                    fun_tmp, domain, form_str + '_2')]
                 fun += [PulledPform(init_coords,
-                                          fun_tmp, domain, form_str + '_3')]
-                
+                                    fun_tmp, domain, form_str + '_3')]
+
             # peform projection
             self.vector = self.derham.P[self.space_key](fun)
 
         # loading of eigenfunction
         elif init_type[-6:] == 'EigFun':
-            
-            # select class      
+
+            # select class
             funs = getattr(eigenfunctions, init_type)(fun_params, self.derham)
-          
+
             # select eigenvector and set coefficients
             if hasattr(funs, self.name):
-                
+
                 eig_vec = getattr(funs, self.name)
-                
+
                 self.vector = eig_vec
 
         # projection of analytical function
         else:
-            
+
             # select class
             funs = getattr(analytic, init_type)(fun_params, domain)
-            
+
             # select function and project project
             if hasattr(funs, self.name):
-                self.vector = self.derham.P[self.space_key](getattr(funs, self.name))
+                self.vector = self.derham.P[self.space_key](
+                    getattr(funs, self.name))
 
         # apply boundary operator (in-place)
         self.derham.B[self.space_key].dot(self._vector, out=self._vector)
 
         # update ghost regions
         self._vector.update_ghost_regions()
-
 
     def __call__(self, eta1, eta2, eta3, squeeze_output=False):
         """
@@ -322,24 +331,27 @@ class Field:
             rank = 0
 
         if dom_arr[rank, 0] != 0.:
-            E1[E1==dom_arr[rank, 0]] += 1e-8
+            E1[E1 == dom_arr[rank, 0]] += 1e-8
         if dom_arr[rank, 1] != 1.:
-            E1[E1==dom_arr[rank, 1]] += 1e-8
+            E1[E1 == dom_arr[rank, 1]] += 1e-8
 
         if dom_arr[rank, 3] != 0.:
-            E2[E2==dom_arr[rank, 3]] += 1e-8
+            E2[E2 == dom_arr[rank, 3]] += 1e-8
         if dom_arr[rank, 4] != 1.:
-            E2[E2==dom_arr[rank, 4]] += 1e-8
+            E2[E2 == dom_arr[rank, 4]] += 1e-8
 
         if dom_arr[rank, 6] != 0.:
-            E3[E3==dom_arr[rank, 6]] += 1e-8
+            E3[E3 == dom_arr[rank, 6]] += 1e-8
         if dom_arr[rank, 7] != 1.:
-            E3[E3==dom_arr[rank, 7]] += 1e-8
+            E3[E3 == dom_arr[rank, 7]] += 1e-8
 
         # True for eval points on current process
-        E1_on_proc = np.logical_and(E1 >= dom_arr[rank, 0], E1 <= dom_arr[rank, 1])
-        E2_on_proc = np.logical_and(E2 >= dom_arr[rank, 3], E2 <= dom_arr[rank, 4])
-        E3_on_proc = np.logical_and(E3 >= dom_arr[rank, 6], E3 <= dom_arr[rank, 7])
+        E1_on_proc = np.logical_and(
+            E1 >= dom_arr[rank, 0], E1 <= dom_arr[rank, 1])
+        E2_on_proc = np.logical_and(
+            E2 >= dom_arr[rank, 3], E2 <= dom_arr[rank, 4])
+        E3_on_proc = np.logical_and(
+            E3 >= dom_arr[rank, 6], E3 <= dom_arr[rank, 7])
 
         # flag eval points not on current process
         E1[~E1_on_proc] = -1.
@@ -348,25 +360,24 @@ class Field:
 
         # prepare arrays for AllReduce
         tmp = np.zeros((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
-        
+
         # extract coefficients and update ghost regions
         self.extract_coeffs(update_ghost_regions=True)
 
         # call pyccel kernels
         T1, T2, T3 = self.derham.Vh_fem['0'].knots
-        
+
         if isinstance(self._vector_stencil, StencilVector):
 
             kind = self.derham.spline_types_pyccel[self.space_key]
-            
-            
+
             if is_sparse_meshgrid:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
-                eval_3d.eval_spline_mpi_sparse_meshgrid(E1, E2, E3, self._vector_stencil._data, kind, 
+                eval_3d.eval_spline_mpi_sparse_meshgrid(E1, E2, E3, self._vector_stencil._data, kind,
                                                         np.array(self.derham.p), T1, T2, T3, np.array(self.starts), tmp)
             else:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
-                eval_3d.eval_spline_mpi_matrix(E1, E2, E3, self._vector_stencil._data, kind, 
+                eval_3d.eval_spline_mpi_matrix(E1, E2, E3, self._vector_stencil._data, kind,
                                                np.array(self.derham.p), T1, T2, T3, np.array(self.starts), tmp)
 
             if self.derham.comm is not None:
@@ -378,21 +389,21 @@ class Field:
             if squeeze_output:
                 values = np.squeeze(values)
 
-            if values.ndim == 0: 
+            if values.ndim == 0:
                 values = values.item()
 
         else:
 
             values = []
             for n, kind in enumerate(self.derham.spline_types_pyccel[self.space_key]):
-                
+
                 if is_sparse_meshgrid:
                     eval_3d.eval_spline_mpi_sparse_meshgrid(E1, E2, E3, self._vector_stencil[n]._data, kind,
                                                             np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp)
                 else:
-                    eval_3d.eval_spline_mpi_matrix(E1, E2, E3, self._vector_stencil[n]._data, kind, 
+                    eval_3d.eval_spline_mpi_matrix(E1, E2, E3, self._vector_stencil[n]._data, kind,
                                                    np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp)
-            
+
                 if self.derham.comm is not None:
                     self.derham.comm.Allreduce(MPI.IN_PLACE, tmp, op=MPI.SUM)
 
@@ -403,9 +414,9 @@ class Field:
                 if squeeze_output:
                     values[-1] = np.squeeze(values[-1])
 
-                if values[-1].ndim == 0: 
+                if values[-1].ndim == 0:
                     values[-1] = values[-1].item()
-            
+
         return values
 
     def _add_noise(self, fun_params, n=None):
