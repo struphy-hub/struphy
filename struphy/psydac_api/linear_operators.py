@@ -1,13 +1,13 @@
 from abc import abstractmethod
 
 from psydac.linalg.basic import LinearOperator
-from psydac.linalg.stencil import StencilVector, StencilMatrix
-from psydac.linalg.block import BlockVector, BlockMatrix
+from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
+from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockMatrix
 from psydac.linalg.kron import KroneckerStencilMatrix
 from psydac.linalg.iterative_solvers import pcg
 
 from struphy.psydac_api.utilities import apply_essential_bc_to_array
-from struphy.polar.basic import PolarVector
+from struphy.polar.basic import PolarVector, PolarDerhamSpace
 from struphy.linear_algebra.iterative_solvers import pbicgstab
 
 
@@ -306,6 +306,127 @@ class BoundaryOperator(LinOpWithTransp):
             assert isinstance(bc, list)
             assert len(bc) == 3
             self._bc = bc
+            
+        # number of non-zero elements in poloidal/toroidal direction
+        if isinstance(vector_space, PolarDerhamSpace):
+            vec_space_ten = vector_space.parent_space
+        else:
+            vec_space_ten = vector_space
+            
+        if isinstance(vec_space_ten, StencilVectorSpace):
+            n_pts = vec_space_ten.npts
+        else:
+            n_pts = [comp.npts for comp in vec_space_ten.spaces]
+            
+        def conv(b):
+            if b == 'd':
+                return 1
+            else:
+                return 0
+            
+        dim_nz1_pol = 1
+        dim_nz2_pol = 1
+        dim_nz3_pol = 1
+        
+        dim_nz1_tor = 1
+        dim_nz2_tor = 1
+        dim_nz3_tor = 1
+        
+        if space_id == 'H1':
+            
+            if isinstance(vector_space, PolarDerhamSpace):
+                dim_nz1_pol *= (n_pts[0] - vector_space.n_rings[0] - conv(self._bc[0][1]))*n_pts[1]
+                dim_nz1_pol += vector_space.n_polar[0]
+            else:
+                dim_nz1_pol *= n_pts[0] - conv(self._bc[0][0]) - conv(self._bc[0][1])
+                dim_nz1_pol *= n_pts[1] - conv(self._bc[1][0]) - conv(self._bc[1][1])
+                
+            dim_nz1_tor *= n_pts[2] - conv(self._bc[2][0]) - conv(self._bc[2][1])
+            
+            self._dim_nz_pol = (dim_nz1_pol,)
+            self._dim_nz_tor = (dim_nz1_tor,)
+            
+            self._dim_nz = (dim_nz1_pol*dim_nz1_tor,)
+            
+        elif space_id == 'Hcurl':
+            
+            if isinstance(vector_space, PolarDerhamSpace):
+                dim_nz1_pol *= (n_pts[0][0] - vector_space.n_rings[0])*n_pts[0][1]
+                dim_nz1_pol += vector_space.n_polar[0]
+                
+                dim_nz2_pol *= (n_pts[1][0] - vector_space.n_rings[1] - conv(self._bc[0][1]))*n_pts[1][1]
+                dim_nz2_pol += vector_space.n_polar[1]
+                
+                dim_nz3_pol *= (n_pts[2][0] - vector_space.n_rings[2] - conv(self._bc[0][1]))*n_pts[2][1]
+                dim_nz3_pol += vector_space.n_polar[2]
+            else:
+                dim_nz1_pol *= n_pts[0][0]
+                dim_nz1_pol *= n_pts[0][1] - conv(self._bc[1][0]) - conv(self._bc[1][1])
+                
+                dim_nz2_pol *= n_pts[1][0] - conv(self._bc[0][0]) - conv(self._bc[0][1])
+                dim_nz2_pol *= n_pts[1][1]
+                
+                dim_nz3_pol *= n_pts[2][0] - conv(self._bc[0][0]) - conv(self._bc[0][1])
+                dim_nz3_pol *= n_pts[2][1] - conv(self._bc[1][0]) - conv(self._bc[1][1])
+                
+            dim_nz1_tor *= n_pts[0][2] - conv(self._bc[2][0]) - conv(self._bc[2][1])
+            dim_nz2_tor *= n_pts[1][2] - conv(self._bc[2][0]) - conv(self._bc[2][1])
+            dim_nz3_tor *= n_pts[2][2]
+            
+            self._dim_nz_pol = (dim_nz1_pol, dim_nz2_pol, dim_nz3_pol)
+            self._dim_nz_tor = (dim_nz1_tor, dim_nz2_tor, dim_nz3_tor)
+            
+            self._dim_nz = (dim_nz1_pol*dim_nz1_tor,
+                            dim_nz2_pol*dim_nz2_tor,
+                            dim_nz3_pol*dim_nz3_tor)
+            
+        elif space_id == 'Hdiv' or space_id == 'H1vec':
+            
+            if isinstance(vector_space, PolarDerhamSpace):
+                dim_nz1_pol *= (n_pts[0][0] - vector_space.n_rings[0] - conv(self._bc[0][1]))*n_pts[0][1]
+                dim_nz1_pol += vector_space.n_polar[0]
+                
+                dim_nz2_pol *= (n_pts[1][0] - vector_space.n_rings[1])*n_pts[1][1]
+                dim_nz2_pol += vector_space.n_polar[1]
+                
+                dim_nz3_pol *= (n_pts[2][0] - vector_space.n_rings[2])*n_pts[2][1]
+                dim_nz3_pol += vector_space.n_polar[2]
+            else:
+                dim_nz1_pol *= n_pts[0][0] - conv(self._bc[0][0]) - conv(self._bc[0][1])
+                dim_nz1_pol *= n_pts[0][1]
+                
+                dim_nz2_pol *= n_pts[1][0]
+                dim_nz2_pol *= n_pts[1][1] - conv(self._bc[1][0]) - conv(self._bc[1][1])
+                
+                dim_nz3_pol *= n_pts[2][0]
+                dim_nz3_pol *= n_pts[2][1]
+                
+            dim_nz1_tor *= n_pts[0][2]
+            dim_nz2_tor *= n_pts[1][2]
+            dim_nz3_tor *= n_pts[2][2] - conv(self._bc[2][0]) - conv(self._bc[2][1])
+            
+            self._dim_nz_pol = (dim_nz1_pol, dim_nz2_pol, dim_nz3_pol)
+            self._dim_nz_tor = (dim_nz1_tor, dim_nz2_tor, dim_nz3_tor)
+            
+            self._dim_nz = (dim_nz1_pol*dim_nz1_tor,
+                            dim_nz2_pol*dim_nz2_tor,
+                            dim_nz3_pol*dim_nz3_tor)
+            
+        else:
+            
+            if isinstance(vector_space, PolarDerhamSpace):
+                dim_nz1_pol *= (n_pts[0] - vector_space.n_rings[0])*n_pts[1]
+                dim_nz1_pol += vector_space.n_polar[0]
+            else:
+                dim_nz1_pol *= n_pts[0]
+                dim_nz1_pol *= n_pts[1]
+                
+            dim_nz1_tor *= n_pts[2]
+            
+            self._dim_nz_pol = (dim_nz1_pol,)
+            self._dim_nz_tor = (dim_nz1_tor,)
+            
+            self._dim_nz = (dim_nz1_pol*dim_nz1_tor,)
         
     @property
     def domain(self):
@@ -322,6 +443,18 @@ class BoundaryOperator(LinOpWithTransp):
     @property
     def bc(self):
         return self._bc
+    
+    @property
+    def dim_nz_pol(self):
+        return self._dim_nz_pol
+    
+    @property
+    def dim_nz_tor(self):
+        return self._dim_nz_tor
+    
+    @property
+    def dim_nz(self):
+        return self._dim_nz
 
     def dot(self, v, out=None):
         """

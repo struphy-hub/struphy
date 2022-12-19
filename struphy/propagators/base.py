@@ -42,45 +42,38 @@ class Propagator(metaclass=ABCMeta):
         ----------
             variables_new : list
                 Same sequence as in ``Propagator.variables`` but with the updated variables, 
-                ie. for variables = [e, b] we must have variables_new = [e_updated, b_updated].
+                i.e. for variables = [e, b] we must have variables_new = [e_updated, b_updated].
 
         Returns
         -------
-            A list of max(abs(e - e_updated)) for all variables.'''
+            diffs : list
+                A list [max(abs(self.variables - variables_new)), ...] for all variables in self.variables and variables_new.'''
 
         diffs = []
-        for i, arg in enumerate(variables_new):
-
-            assert type(arg) is type(self.variables[i])
-
-            if isinstance(arg, StencilVector):
-
-                new = arg
-                old = self.variables[i]
-                diff = [np.max(np.abs(new._data - old._data))]
-                old[:] = new[:]
-                old.update_ghost_regions()  # important: sync processes!
-
-            elif isinstance(arg, BlockVector):
-
-                diff = []
-                for new, old in zip(arg, self.variables[i]):
-                    diff += [np.max(np.abs(new._data - old._data))]
-                    old[:] = new[:]
-                    old.update_ghost_regions()  # important: sync processes!
-
-            elif isinstance(arg, PolarVector):
-
-                new = arg
-                old = self.variables[i]
-                # TODO: diff for PolarVectors
-                old.set_vector(new)
-                old.update_ghost_regions()  # important: sync processes!
-
+        
+        for i, new in enumerate(variables_new):
+            
+            assert type(new) is type(self.variables[i])
+            
+            # calculate maximum of difference abs(old - new)
+            diffs += [np.max(np.abs(self.variables[i].toarray() - new.toarray()))]
+            
+            # in-place update
+            if isinstance(new, StencilVector):
+                self.variables[i][:] = new[:]
+                
+            elif isinstance(new, BlockVector):
+                for n in range(3):
+                    self.variables[i][n][:] = new[n][:]
+                    
+            elif isinstance(new, PolarVector):
+                self.variables[i].set_vector(new)
+                
             else:
                 raise NotImplementedError(
                     f'Update of variable type {type(arg)} not implemented.')
-
-            diffs += [diff]
+                
+            # important: sync processes!
+            self.variables[i].update_ghost_regions()
 
         return diffs

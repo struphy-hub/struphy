@@ -214,7 +214,7 @@ em_fields :
                   U  : 0.1 # amplitude of Ux/Uy
                   A  : 0. # amplitude of Uz
             InitialMHDAxisymHdivEigFun :
-                  path : 'some_path/' # relative path (to working dir) to folder containing the .npy eigenspectrum 
+                  spec : '/path_to_spec/spec.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
                   eig_freq_upper : 0.15 # upper search limit of squared eigenfrequency to identify eigenfunction
                   eig_freq_lower : 0.14 # lower search limit of squared eigenfrequency to identify eigenfunction
                   kind : r # real (r) or imaginary (i) part of eigenfunction
@@ -258,7 +258,7 @@ fluid :
                         U  : 0.1 # amplitude of Ux/Uy
                         A  : 0. # amplitude of Uz
                   InitialMHDAxisymHdivEigFun :
-                        path : 'some_path/' # relative path (to working dir) to folder containing the .npy eigenspectrum 
+                        spec : '/path_to_spec/spec.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
                         eig_freq_upper : 0.15 # upper search limit of squared eigenfrequency to identify eigenfunction
                         eig_freq_lower : 0.14 # lower search limit of squared eigenfrequency to identify eigenfunction
                         kind : r # real (r) or imaginary (i) part of eigenfunction
