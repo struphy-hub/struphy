@@ -72,7 +72,7 @@ class StepEfieldWeights( Propagator ):
 
         # Initialize Accumulator object
         self._accum = Accumulator(domain, derham, 'Hcurl', 'linear_vlasov_maxwell',
-                                  self.f0_spec, array(self.moms_spec), array(self.f0_params), int(particles.n_mks),
+                                  self.f0_spec, array(self.moms_spec), array(self.f0_params),
                                   do_vector=True, symmetry='symm')
 
         self._e = e

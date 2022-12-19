@@ -79,7 +79,7 @@ def _docstring():
 
 
 @stack_array('df', 'df_t', 'df_inv', 'df_inv_times_v', 'filling_m', 'filling_v')
-def linear_vlasov_maxwell(markers: 'float[:,:]',
+def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                           kind_map: 'int', params_map: 'float[:]',
@@ -97,8 +97,7 @@ def linear_vlasov_maxwell(markers: 'float[:,:]',
                           vec3: 'float[:,:,:]',
                           f0_spec: 'int',          # model specific argument
                           moms_spec: 'int[:]',     # model specific argument
-                          f0_params: 'float[:]',   # model specific argument
-                          n_markers_tot: 'int'):   # model specific argument
+                          f0_params: 'float[:]'):  # model specific argument
     r"""
     Accumulates into V1 with the filling functions
 
@@ -119,9 +118,6 @@ def linear_vlasov_maxwell(markers: 'float[:,:]',
 
         f0_params : array[float]
             Parameters needed to specify the moments; the order is specified in :ref:`kinetic_moments` for the respective functions available.
-
-        n_markers_tot : int
-            total number of markers
 
     Note
     ----
@@ -175,10 +171,10 @@ def linear_vlasov_maxwell(markers: 'float[:,:]',
 
         # filling_m = DL^{-1} v_p f_0 DL^{-1} v_p / (N s_0)
         linalg.outer(df_inv_times_v, df_inv_times_v, filling_m)
-        filling_m[:] = f0 * filling_m / markers[ip, 7]
+        filling_m[:] = f0 * filling_m / (n_markers_tot * markers[ip, 7])
 
         # filling_v = w_p * sqrt{f_0} DL^{-1} v_p
-        filling_v[:] = sqrt(f0) * weight * df_inv_times_v * n_markers_tot
+        filling_v[:] = sqrt(f0) * weight * df_inv_times_v
 
         # call the appropriate matvec filler
         mvf.m_v_fill_b_v1_symm(pn, tn1, tn2, tn3, starts1,
@@ -193,7 +189,7 @@ def linear_vlasov_maxwell(markers: 'float[:,:]',
 
 
 @stack_array('g_inv', 'tmp1', 'tmp2', 'b', 'b_prod', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def cc_lin_mhd_6d_1(markers: 'float[:,:]',
+def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                     starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                     kind_map: 'int', params_map: 'float[:]',
@@ -297,9 +293,9 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]',
 
         weight = markers[ip, 6]
         
-        filling_m12 = - weight * tmp2[0, 1]
-        filling_m13 = - weight * tmp2[0, 2]
-        filling_m23 = - weight * tmp2[1, 2]
+        filling_m12 = - weight * tmp2[0, 1] / n_markers_tot
+        filling_m13 = - weight * tmp2[0, 2] / n_markers_tot
+        filling_m23 = - weight * tmp2[1, 2] / n_markers_tot
 
         # call the appropriate matvec filler
         mvf.mat_fill_v1_asym(pn, span1, span2, span3,
@@ -312,7 +308,7 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]',
 
 
 @stack_array('df', 'df_t', 'df_inv', 'g', 'g_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp1_t', 'tmp2', 'tmp3', 'tmp_v', 'df_inv_times_v', 'b', 'b_prod', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def cc_lin_mhd_6d_2(markers: 'float[:,:]',
+def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                     starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                     kind_map: 'int', params_map: 'float[:]',
@@ -449,8 +445,8 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]',
 
         weight = markers[ip, 6]
         
-        filling_m[:] = weight * tmp3
-        filling_v[:] = weight * tmp_v
+        filling_m[:] = weight * tmp3 / n_markers_tot
+        filling_v[:] = weight * tmp_v / n_markers_tot
 
         # call the appropriate matvec filler
         mvf.m_v_fill_v1_symm(pn, span1, span2, span3,
@@ -469,7 +465,7 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]',
 
 
 @stack_array('df', 'df_t', 'df_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def pc_lin_mhd_6d_full(markers: 'float[:,:]',
+def pc_lin_mhd_6d_full(markers: 'float[:,:]', n_markers_tot: 'int',
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                        starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                        kind_map: 'int', params_map: 'float[:]',
@@ -605,8 +601,8 @@ def pc_lin_mhd_6d_full(markers: 'float[:,:]',
 
         weight = markers[ip, 8]
         
-        filling_m[:] = weight * tmp1
-        filling_v[:] = weight * tmp_v
+        filling_m[:] = weight * tmp1 / n_markers_tot
+        filling_v[:] = weight * tmp_v / n_markers_tot
 
         # call the appropriate matvec filler
         mvf.m_v_fill_v1_pressure_full(pn, span1, span2, span3,
@@ -643,7 +639,7 @@ def pc_lin_mhd_6d_full(markers: 'float[:,:]',
 
 
 @stack_array('df', 'df_t', 'df_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def pc_lin_mhd_6d(markers: 'float[:,:]',
+def pc_lin_mhd_6d(markers: 'float[:,:]', n_markers_tot: 'int',
                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                   kind_map: 'int', params_map: 'float[:]',
@@ -779,8 +775,8 @@ def pc_lin_mhd_6d(markers: 'float[:,:]',
 
         weight = markers[ip, 8]
         
-        filling_m[:] = weight * tmp1
-        filling_v[:] = weight * tmp_v
+        filling_m[:] = weight * tmp1 / n_markers_tot
+        filling_v[:] = weight * tmp_v / n_markers_tot
 
         # call the appropriate matvec filler
         mvf.m_v_fill_v1_pressure(pn, span1, span2, span3,
