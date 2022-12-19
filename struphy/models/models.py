@@ -6,9 +6,9 @@ from struphy.polar.basic import PolarVector
 
 
 #############################
-# Fluid models 
+# Fluid models
 #############################
-class LinearMHD( StruphyModel ):
+class LinearMHD(StruphyModel):
     r'''Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`). 
 
     Normalization: 
@@ -145,9 +145,9 @@ class LinearMHD( StruphyModel ):
 
 
 #############################
-# Fluid-kinetic hybrid models 
+# Fluid-kinetic hybrid models
 #############################
-class PC_LinearMHD_Vlasov( StruphyModel ):
+class PC_LinearMHD_Vlasov(StruphyModel):
     r'''Hybrid (Linear ideal MHD + Full-orbit Vlasov) equations with **pressure coupling scheme**. 
 
     Normalization: 
@@ -322,9 +322,9 @@ class PC_LinearMHD_Vlasov( StruphyModel ):
 
 
 #############################
-# Kinetic models 
+# Kinetic models
 #############################
-class LinearVlasovMaxwell( StruphyModel ):
+class LinearVlasovMaxwell(StruphyModel):
     r'''The linearized Vlasov Maxwell system with a Maxwellian background distribution function
     is described by the following equations:
 
@@ -442,9 +442,9 @@ class LinearVlasovMaxwell( StruphyModel ):
 
 
 #############################
-# Toy models 
+# Toy models
 #############################
-class Maxwell( StruphyModel ):
+class Maxwell(StruphyModel):
     r'''Maxwell's equations in vacuum. 
 
     Normalization:
@@ -508,7 +508,7 @@ class Maxwell( StruphyModel ):
             self._scalar_quantities['en_B'][0]
 
 
-class Vlasov( StruphyModel ):
+class Vlasov(StruphyModel):
     r'''Vlasov equation in static background magnetic field. 
 
     Normalization:
@@ -565,7 +565,7 @@ class Vlasov( StruphyModel ):
         self._scalar_quantities['time'][0] = time
 
 
-class DriftKinetic( StruphyModel ):
+class DriftKinetic(StruphyModel):
     r'''Drift-kinetic equation in static background magnetic field (guiding-center motion). 
 
     Normalization:

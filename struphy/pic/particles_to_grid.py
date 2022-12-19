@@ -510,11 +510,7 @@ class Accumulator:
             dat[:] = 0.
 
         # accumulate
-        self.accumulator(markers, *self.args)
-
-        # divide by n_mks 
-        for dat in self._args_data:
-            dat[:] = dat[:] / n_mks
+        self.accumulator(markers, int(n_mks), *self.args)
 
         # use mpi
         self._send_ghost_regions()
