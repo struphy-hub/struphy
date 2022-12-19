@@ -380,28 +380,17 @@ class LinearVlasovMaxwell( StruphyModel ):
         self._mass_ops = WeightedMassOperators(self.derham, self.domain)
 
         # ====================================================================================
-        # Instantiate background electric field and potential
-        self._background_fields = []
-        # self._background_fields += [Field('e_background',
-        #                                   'Hcurl', self.derham)]
-        # self._background_fields += [Field('phi_background', 'H1', self.derham)]
-
-        # self._background_fields[1].set_initial_conditions(
-        #     self.domain, [True], params['fields']['init'])
-
-        # self._e_background = self._background_fields[0].vector
-        # self._phi_background = self._background_fields[1].vector
-
-        # self._e_background = self.derham.grad.dot(self._phi_background)
-
         # Initialize background magnetic field from MHD equilibrium
-        self._background_fields += [Field('b_background', 'Hdiv', self.derham)]
-        self._b_background = self._background_fields[0].vector
+        self._b_background_field = Field('b_background', 'Hdiv', self.derham)
+        self._b_background = self._b_background_field.vector
 
-        # self._b_background[0] =
         self._b_background = self.derham.P['2']([self.mhd_equil.b_x, 
                                                  self.mhd_equil.b_y, 
                                                  self.mhd_equil.b_z])
+
+        # Create pointers to background electric potential and field
+        self._phi_background = self.electric_equil.phi0_vector
+        self._e_background = self.electric_equil.e1_vector
         # ====================================================================================
 
         # Initialize propagators/integrators used in splitting substeps
