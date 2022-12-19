@@ -154,13 +154,13 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
 # command line interface
 if __name__ == '__main__':
     
-    import sys, os, yaml, shutil, glob
+    import sys, yaml, shutil, glob
     import argparse
     
     # parse arguments
     parser = argparse.ArgumentParser(description='Looks for eigenmodes in a given MHD eigenspectrum in a certain poloidal mode number range and plots the continuous shear Alfvén and slow sound spectra (frequency versus radial-like coordinate).')
     
-    parser.add_argument('path', type=str, help='the path/folder (relative to the working directory) containing the parameter .yml file and a single .npy eigenspectrum')
+    parser.add_argument('path', type=str, help='the directory (relative to relative to <install_path>/struphy) containing the parameter .yml file and a single .npy eigenspectrum (must end without "/")')
     parser.add_argument('m_l_alfvén', type=int, help='the lower bound of poloidal mode numbers that shall be identified for Alfvénic modes')
     parser.add_argument('m_u_alfvén', type=int, help='the upper bound of poloidal mode numbers that shall be identified for Alfvénic modes')
     parser.add_argument('m_l_sound', type=int, help='the lower bound of poloidal mode numbers that shall be identified for slow sound modes')
@@ -172,10 +172,13 @@ if __name__ == '__main__':
     args_dict = vars(args)
     
     # ansolute path to yaml file and eigenspectrum
-    inp_path = os.path.abspath(os.getcwd()) + '/' +  args_dict['path']
+    import struphy as _
+    struphy_path = _.__path__[0]
+    
+    inp_path = struphy_path + args_dict['path']
     
     # read in parameters file
-    with open(inp_path + 'parameters.yml') as file:
+    with open(inp_path + '/parameters.yml') as file:
         params = yaml.load(file, Loader=yaml.FullLoader)
        
     # create domain (mapping from logical unit cube to physical domain)
@@ -190,7 +193,7 @@ if __name__ == '__main__':
     # load appropriate MHD equilibrium
     from struphy.fields_background.mhd_equil import analytical
     
-    equil_params = params['fields']['mhd_equilibrium']
+    equil_params = params['mhd_equilibrium']
     params_mhd = equil_params[equil_params['type']]
     
     mhd_equil_class = getattr(analytical, equil_params['type'])
@@ -199,17 +202,17 @@ if __name__ == '__main__':
     # set up spline spaces
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
     
-    spec_path = glob.glob(inp_path + '*.npy')[0]
-    n_tor = int(spec_path[-13:-11])
-    polar_ck = int(spec_path[-6:-4])
+    spec_path = glob.glob(inp_path + '/*.npy')[0]
+    n_tor = int(spec_path[-6:-4])
     
-    print(n_tor, polar_ck)
+    print('Toroidal mode number : ', n_tor)
     
     Nel = params['grid']['Nel']
     p = params['grid']['p']
     spl_kind = params['grid']['spl_kind']
     nq_el = params['grid']['nq_el']
     bc = params['grid']['bc']
+    polar_ck = params['grid']['polar_ck']
     
     fem_1d_1 = Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0], bc[0])
     fem_1d_2 = Spline_space_1d(Nel[1], p[1], spl_kind[1], nq_el[1], bc[1])
@@ -234,6 +237,8 @@ if __name__ == '__main__':
     fig.set_figwidth(14)
     
     etaplot = [np.linspace(0., 1., 201), np.linspace(0., 1., 101)]
+    
+    etaplot[0][0] += 1e-5
 
     xplot = domain.evaluate(etaplot[0], etaplot[1], 0., 'x')
     yplot = domain.evaluate(etaplot[0], etaplot[1], 0., 'y')

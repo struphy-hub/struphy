@@ -136,13 +136,13 @@ class StepEfieldWeights( Propagator ):
                      int(self._particles.n_mks))
 
         # write new coeffs into Propagator.variables
-        de = self.in_place_update(_e)
+        max_de, = self.in_place_update(_e)
 
         # Print out max differences for weights and efield
         if self._info:
             print('Status          for StepEfieldWeights:', info['success'])
             print('Iterations      for StepEfieldWeights:', info['niter'])
-            print('Maxdiff    e1   for StepEfieldWeights:', max(de))
+            print('Maxdiff    e1   for StepEfieldWeights:', max_de)
             max_diff = np.max(np.abs(self._old_weights[~self._particles.holes] \
                         - self._particles.markers[~self._particles.holes, 6]))
             print('Maxdiff weights for StepEfieldWeights:', max_diff)
@@ -293,12 +293,12 @@ class StepPressurecoupling( Propagator ):
                      GXu_3[0]._data, GXu_3[1]._data, GXu_3[2]._data)
 
         # write new coeffs into Propagator.variables
-        du = self.in_place_update(_u)
+        max_du, = self.in_place_update(_u)
 
         if self._info and self._rank == 0:
             print('Status     for StepPressurecoupling:', info['success'])
             print('Iterations for StepPressurecoupling:', info['niter'])
-            print('Maxdiff u1 for StepPressurecoupling:', max(du))
+            print('Maxdiff u1 for StepPressurecoupling:', max_du)
             print()
 
     class GT_MAT_G(LinOpWithTransp):

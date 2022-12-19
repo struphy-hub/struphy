@@ -134,6 +134,7 @@ function example_help {
     echo "  linearmhd          1d linear MHD equations, dispersion relation, 4 mpi processes."
     echo "  orbits_tokamak     full-orbit particle trajectories in a tokamak-like static magnetic field, 2 mpi processes."
     echo "  gc_orbits_tokamak  guiding center particle trajectories in a tokamak-like static magnetic field, 2 mpi processes."
+    echo "  TAE_tokamak        3d linear MHD equations, initialized with m=2,3, n=-2 TAE in toroidal geometry, 2 mpi processes (warning: takes between 30-40 minutes on a laptop)."
 
 }
 
@@ -380,12 +381,24 @@ if [ "$RUN" = true ] ; then
     OUTPUT_ABS=$STRUPHY/io/out/$OUTPUT
   fi
 
-  # delete output folder if it exists
-  rm -rf $OUTPUT_ABS
-
-  # Create ouput folder and copy parameters there
-  mkdir $OUTPUT_ABS
-  cp $INPUT_ABS $OUTPUT_ABS/parameters.yml 
+  # Create ouput folder OR clear output folder if it already exists
+  if [ -d $OUTPUT_ABS ]; then
+    echo "Output folder already exists: clean it"
+    tmp_path=$(pwd)
+    cd $OUTPUT_ABS
+    rm -rf */
+    find . -type f -not \( -name '*.yml' -or -name '*.npy' \) -delete
+    cd $tmp_path
+  else
+    mkdir $OUTPUT_ABS
+  fi
+  
+  # Copy parameters there (if not already at right place)
+  if [ $INPUT_ABS -ef $OUTPUT_ABS/parameters.yml ]; then
+    :
+  else
+    cp $INPUT_ABS $OUTPUT_ABS/parameters.yml
+  fi
   METAFILE=$OUTPUT_ABS/meta.txt 
 
   # Run flags
@@ -527,6 +540,8 @@ if [ $EXAMPLE ]; then
     example_orbits_tokamak_mpi_2
   elif [ "$EXAMPLE" == gc_orbits_tokamak ]; then
     example_gc_orbits_tokamak_mpi_2
+  elif [ "$EXAMPLE" == TAE_tokamak ]; then
+    example_TAE_tokamak_mpi_2
   else
     echo "Example $EXAMPLE not implemented."
   fi
