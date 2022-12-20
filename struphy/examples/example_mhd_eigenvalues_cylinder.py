@@ -4,14 +4,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from struphy.geometry import domains
-
-from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
-
 from struphy.fields_background.mhd_equil.analytical import ScrewPinch
-
-from struphy.dispersion_relations.MHD_eigenvalues_2D import solve_mhd_ev_problem_2d
-
 from struphy.diagnostics.continuous_spectra import get_mhd_continua_2d
+
+from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
+from struphy.eigenvalue_solvers.mhd_axisymmetric_main import solve_mhd_ev_problem_2d
 
 
 # ----- numerical parameters ----

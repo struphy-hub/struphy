@@ -1,7 +1,7 @@
 from pyccel.decorators import stack_array
 
-import struphy.feec.bsplines_kernels as bsp
-from struphy.feec.basics.spline_evaluation_3d import eval_spline_mpi_kernel
+import struphy.b_splines.bsplines_kernels as bsp
+from struphy.b_splines.bspline_evaluation_3d import eval_spline_mpi_kernel
 import struphy.linear_algebra.core as linalg
 import struphy.geometry.map_eval as map_eval
 

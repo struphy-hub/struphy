@@ -349,7 +349,7 @@ default_unit_tests:
     - ls -1
     - struphy test --mpi 2
     # run unit tests with coverage
-    - cd ${ENV_PATH}/struphy/tests/
+    - cd ${ENV_PATH}/struphy/tests/tests_serial/
     - coverage run --omit="*/tests*" --data-file=$CI_PROJECT_DIR/.coverage -m pytest 
     - cd $CI_PROJECT_DIR
     - coverage xml

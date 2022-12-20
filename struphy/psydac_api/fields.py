@@ -10,7 +10,7 @@ from struphy.initial import eigenfunctions
 
 from struphy.polar.basic import PolarVector
 from struphy.geometry.base import Domain
-from struphy.feec.basics import spline_evaluation_3d as eval_3d
+from struphy.b_splines import bspline_evaluation_3d as eval_3d
 
 import numpy as np
 from mpi4py import MPI

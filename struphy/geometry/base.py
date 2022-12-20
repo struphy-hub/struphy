@@ -6,7 +6,7 @@ from sympde.topology import Mapping
 
 from struphy.geometry import map_eval, pullback, pushforward, transform 
 from struphy.linear_algebra import linalg_kron 
-import struphy.feec.bsplines as bsp
+import struphy.b_splines.bsplines as bsp
 
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve

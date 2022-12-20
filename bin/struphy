@@ -553,14 +553,14 @@ fi
 if [ $TEST ]; then
 
   if [ $SERIAL == true ]; then
-    cd $STRUPHY/tests
-    echo "Unit tests from $STRUPHY/tests"
+    cd $STRUPHY/tests/tests_serial
+    echo "Unit tests from $STRUPHY/tests/tests_serial"
     pytest
   fi
 
   if [ $MPI_SIZE ]; then 
-    cd $STRUPHY/tests_mpi
-    echo "Unit tests from $STRUPHY/tests_mpi"
+    cd $STRUPHY/tests/tests_mpi
+    echo "Unit tests from $STRUPHY/tests/tests_mpi"
     if (($MPI_SIZE == 1)); then
       MPI_SIZE=2
     fi

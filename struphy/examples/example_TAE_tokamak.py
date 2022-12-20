@@ -11,7 +11,7 @@ from struphy.geometry import domains
 from struphy.fields_background.mhd_equil import analytical
 from struphy.psydac_api.fields import Field
 from struphy.diagnostics.continuous_spectra import get_mhd_continua_2d
-from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
+from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
 
 sim_path = sys.argv[1]
 

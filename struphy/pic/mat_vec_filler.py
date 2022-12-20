@@ -1,6 +1,6 @@
 from pyccel.decorators import pure, stack_array
 
-import struphy.feec.bsplines_kernels as bsp
+import struphy.b_splines.bsplines_kernels as bsp
 import struphy.pic.filler_kernels as fk
 
 

@@ -26,10 +26,10 @@ PSY3  := $(psydac_path)/feec/dof_kernels
 LAC  := $(struphy_path)/linear_algebra/core
 
 # Splines
-BK   := $(struphy_path)/feec/bsplines_kernels
-BEV1 := $(struphy_path)/feec/basics/spline_evaluation_1d
-BEV2 := $(struphy_path)/feec/basics/spline_evaluation_2d
-BEV3 := $(struphy_path)/feec/basics/spline_evaluation_3d
+BK   := $(struphy_path)/b_splines/bsplines_kernels
+BEV1 := $(struphy_path)/b_splines/bspline_evaluation_1d
+BEV2 := $(struphy_path)/b_splines/bspline_evaluation_2d
+BEV3 := $(struphy_path)/b_splines/bspline_evaluation_3d
 
 # Mapping
 MAFA := $(struphy_path)/geometry/mappings_fast
@@ -59,12 +59,12 @@ PUTL := $(struphy_path)/pic/pusher_utilities
 PUSH := $(struphy_path)/pic/pusher_kernels
 PS   := $(struphy_path)/pic/sampling
 
-# Legacy
-KM2  := $(struphy_path)/feec/basics/kernels_2d
-KM3  := $(struphy_path)/feec/basics/kernels_3d
+# Eigenvalue solver
+KM2  := $(struphy_path)/eigenvalue_solvers/kernels_2d
+KM3  := $(struphy_path)/eigenvalue_solvers/kernels_3d
 
-KPG  := $(struphy_path)/feec/projectors/pro_global/kernels_projectors_global
-KPGM := $(struphy_path)/feec/projectors/pro_global/kernels_projectors_global_mhd
+KPG  := $(struphy_path)/eigenvalue_solvers/kernels_projectors_global
+KPGM := $(struphy_path)/eigenvalue_solvers/kernels_projectors_global_mhd
 
 SOURCES := $(LAC).py $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(PB3).py $(PF3).py $(TR3).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(PUTL).py $(PUSH).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py $(PSY3).py
 
@@ -182,17 +182,24 @@ clean:
 	rm -rf $(psydac_path)/__pyccel__ $(psydac_path)/__pycache__
 	rm -rf $(psydac_path)/core/__pyccel__ $(psydac_path)/core/__pycache__ $(psydac_path)/core/.lock_acquisition.lock
 	rm -rf $(psydac_path)/feec/__pyccel__ $(psydac_path)/feec/__pycache__ $(psydac_path)/feec/.lock_acquisition.lock
-	
-	rm -rf $(struphy_path)/__pyccel__ $(struphy_path)/__pycache__
-	rm -rf $(struphy_path)/linear_algebra/__pyccel__ $(struphy_path)/linear_algebra/__pycache__ $(struphy_path)/linear_algebra/.lock_acquisition.lock
-	rm -rf $(struphy_path)/feec/__pyccel__ $(struphy_path)/feec/__pycache__ $(struphy_path)/feec/.lock_acquisition.lock
-	rm -rf $(struphy_path)/feec/basics/__pyccel__ $(struphy_path)/feec/basics/__pycache__ $(struphy_path)/feec/basics/.lock_acquisition.lock
-	rm -rf $(struphy_path)/feec/projectors/__pyccel__ $(struphy_path)/feec/projectors/__pycache__ $(struphy_path)/feec/projectors/.lock_acquisition.lock
-	rm -rf $(struphy_path)/feec/projectors/pro_global/__pyccel__ $(struphy_path)/feec/projectors/pro_global/__pycache__ $(struphy_path)/feec/projectors/pro_global/.lock_acquisition.lock
-	rm -rf $(struphy_path)/feec/projectors/pro_local/__pyccel__ $(struphy_path)/feec/projectors/pro_local/__pycache__ $(struphy_path)/feec/projectors/pro_local/.lock_acquisition.lock
-	rm -rf $(struphy_path)/geometry/__pyccel__ $(struphy_path)/geometry/__pycache__ $(struphy_path)/geometry/.lock_acquisition.lock
-	rm -rf $(struphy_path)/kinetic_background/__pyccel__ $(struphy_path)/kinetic_background/__pycache__ $(struphy_path)/kinetic_background/.lock_acquisition.lock
-	rm -rf $(struphy_path)/diagnostics/__pyccel__ $(struphy_path)/diagnostics/__pycache__ $(struphy_path)/diagnostics/.lock_acquisition.lock
-	rm -rf $(struphy_path)/dispersion_relations/__pyccel__ $(struphy_path)/dispersion_relations/__pycache__ $(struphy_path)/dispersion_relations/.lock_acquisition.lock
-	rm -rf $(struphy_path)/pic/__pyccel__ $(struphy_path)/pic/__pycache__     $(struphy_path)/pic/.lock_acquisition.lock
-	rm -rf $(struphy_path)/psydac_api/__pyccel__ $(struphy_path)/psydac_api/__pycache__ $(struphy_path)/psydac_api/.lock_acquisition.lock
+    
+	find $(struphy_path)/ -type d -name '__pyccel__' -prune -exec rm -rf {} \;
+	find $(struphy_path)/ -type d -name '__pycache__' -prune -exec rm -rf {} \;
+	find $(struphy_path)/ -type f -name '*.lock' -delete
+
+#	rm -rf $(struphy_path)/__pyccel__ $(struphy_path)/__pycache__
+#	rm -rf $(struphy_path)/b_splines/__pyccel__ $(struphy_path)/b_splines/__pycache__ $(struphy_path)/b_splines/.lock_acquisition.lock
+#	rm -rf $(struphy_path)/diagnostics/__pyccel__ $(struphy_path)/diagnostics/__pycache__ $(struphy_path)/diagnostics/.lock_acquisition.lock
+#	rm -rf $(struphy_path)/dispersion_relations/__pyccel__ $(struphy_path)/dispersion_relations/__pycache__ $(struphy_path)/dispersion_relations/.lock_acquisition.lock
+#	rm -rf $(struphy_path)/eigenvalue_solvers/__pyccel__ $(struphy_path)/eigenvalue_solvers/__pycache__ $(struphy_path)/eigenvalue_solvers/.lock_acquisition.lock
+#	rm -rf $(struphy_path)/fields_background/__pyccel__ $(struphy_path)/fields_background/__pycache__ $(struphy_path)/fields_background/.lock_acquisition.lock
+#	rm -rf $(struphy_path)/geometry/__pyccel__ $(struphy_path)/geometry/__pycache__ $(struphy_path)/geometry/.lock_acquisition.lock 
+#	rm -rf $(struphy_path)/initial/__pyccel__ $(struphy_path)/initial/__pycache__ $(struphy_path)/initial/.lock_acquisition.lock
+#	rm -rf $(struphy_path)/kinetic_background/__pyccel__ $(struphy_path)/kinetic_background/__pycache__ $(struphy_path)/kinetic_background/.lock_acquisition.lock    
+#	rm -rf $(struphy_path)/linear_algebra/__pyccel__ $(struphy_path)/linear_algebra/__pycache__ $(struphy_path)/linear_algebra/.lock_acquisition.lock
+#	rm -rf $(struphy_path)/models/__pyccel__ $(struphy_path)/models/__pycache__     $(struphy_path)/models/.lock_acquisition.lock
+#	rm -rf $(struphy_path)/pic/__pyccel__ $(struphy_path)/pic/__pycache__     $(struphy_path)/pic/.lock_acquisition.lock
+#	rm -rf $(struphy_path)/polar/__pyccel__ $(struphy_path)/polar/__pycache__     $(struphy_path)/polar/.lock_acquisition.lock
+#	rm -rf $(struphy_path)/post_processing/__pyccel__ $(struphy_path)/post_processing/__pycache__ $(struphy_path)/post_processing/.lock_acquisition.lock
+#	rm -rf $(struphy_path)/propagators/__pyccel__ $(struphy_path)/propagators/__pycache__ $(struphy_path)/propagators/.lock_acquisition.lock
+#	rm -rf $(struphy_path)/psydac_api/__pyccel__ $(struphy_path)/psydac_api/__pycache__ $(struphy_path)/psydac_api/.lock_acquisition.lock

@@ -1,6 +1,6 @@
 import numpy as np
 
-import struphy.feec.bsplines as bsp
+import struphy.b_splines.bsplines as bsp
 
 
 def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol, comp_sound):
@@ -200,7 +200,7 @@ if __name__ == '__main__':
     mhd_equil = mhd_equil_class(params_mhd, domain)
     
     # set up spline spaces
-    from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
+    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     
     spec_path = glob.glob(inp_path + '/*.npy')[0]
     n_tor = int(spec_path[-6:-4])

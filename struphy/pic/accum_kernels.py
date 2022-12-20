@@ -3,8 +3,8 @@ from pyccel.decorators import stack_array
 from numpy import zeros, empty, sqrt, shape, sum
 
 import struphy.geometry.map_eval as map_eval
-import struphy.feec.bsplines_kernels as bsp
-import struphy.feec.basics.spline_evaluation_3d as eval_3d
+import struphy.b_splines.bsplines_kernels as bsp
+import struphy.b_splines.bspline_evaluation_3d as eval_3d
 import struphy.kinetic_background.background_eval as background_eval
 
 import struphy.pic.mat_vec_filler as mvf
