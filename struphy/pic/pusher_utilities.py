@@ -3,7 +3,7 @@ from pyccel.decorators import pure, stack_array
 from numpy import empty, sqrt, floor
 
 import struphy.geometry.map_eval as map_eval
-import struphy.feec.bsplines_kernels as bsp
+import struphy.b_splines.bsplines_kernels as bsp
 import struphy.linear_algebra.core as linalg
 
 

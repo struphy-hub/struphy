@@ -35,7 +35,7 @@ class PolarExtractionBlocksC1:
     def __init__(self, domain, derham):
         
         from scipy.sparse import csr_matrix as csr
-        from struphy.feec.derivatives.derivatives import grad_1d_matrix
+        from struphy.eigenvalue_solvers.derivatives import grad_1d_matrix
         
         # get control points
         cx = domain.cx[:, :, 0]
@@ -484,7 +484,7 @@ class polar_splines_C0_2D:
     def __init__(self, n0, n1):
         
         import scipy.sparse as spa
-        from struphy.feec.derivatives.derivatives import grad_1d_matrix
+        from struphy.eigenvalue_solvers.derivatives import grad_1d_matrix
         
         d0 = n0 - 1
         d1 = n1 - 0
@@ -638,7 +638,7 @@ class polar_splines_C1_2D:
     def __init__(self, cx, cy):
         
         import scipy.sparse as spa
-        from struphy.feec.derivatives.derivatives import grad_1d_matrix
+        from struphy.eigenvalue_solvers.derivatives import grad_1d_matrix
         
         n0, n1 = cx.shape
         
@@ -920,7 +920,7 @@ class polar_splines:
     def __init__(self, tensor_space, cx, cy):
         
         import scipy.sparse as spa
-        from struphy.feec.derivatives.derivatives import grad_1d_matrix
+        from struphy.eigenvalue_solvers.derivatives import grad_1d_matrix
         
         n0, n1, n2 = tensor_space.NbaseN
         d0, d1, d2 = tensor_space.NbaseD
