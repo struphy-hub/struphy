@@ -15,8 +15,8 @@ class KineticPerturbation:
         perturb_params : dict
             From parameters.yml, see :ref:`kinetic`.
 
-        marker_type : int
-
+        marker_type : str
+            'full_f' or 'delta_f'
     '''
 
     def __init__(self, marker_type, background_params, perturb_params):

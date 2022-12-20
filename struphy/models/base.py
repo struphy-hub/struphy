@@ -103,7 +103,7 @@ class StruphyModel( metaclass=ABCMeta ):
             electric_equil_class = getattr(
                 analytical_electric, equil_params['type'])
             self._electric_equil = electric_equil_class(
-                equil_params[equil_params['type']], self.domain, self.derham)
+                equil_params[equil_params['type']], self.domain)
         else:
             self._electric_equil = None
 

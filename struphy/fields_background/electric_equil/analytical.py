@@ -6,17 +6,17 @@ class HomogenSlab(EquilibriumElectric):
     TODO
     """
 
-    def __init__(self, params=None, domain=None, derham=None):
+    def __init__(self, params=None, domain=None):
 
         # set default parameters
         if params is None:
             params_default = {'phi0': 1.}
-            super().__init__(params_default, domain, derham)
+            super().__init__(params_default, domain)
 
         # or check if given parameter dictionary is complete
         else:
             assert 'phi0' in params
-            super().__init__(params, domain, derham)
+            super().__init__(params, domain)
 
     def phi(self, x, y, z):
         """ Equilibrium electric potential on physical domain.

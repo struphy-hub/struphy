@@ -7,10 +7,10 @@ import struphy.feec.basics.spline_evaluation_3d as eval_3d
 import struphy.kinetic_background.background_eval as background_eval
 from struphy.pic.pusher_utilities import aux_fun_x_v_stat_e
 
-from numpy import zeros, empty, shape, sqrt, cos, sin
+from numpy import zeros, empty, shape, sqrt, cos, sin, floor
 
 
-#@stack_array('df', 'df_inv', 'df_inv_t', 'e_form', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+@stack_array('df', 'df_inv', 'df_inv_t', 'e_form', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                        starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -36,7 +36,7 @@ def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
     # allocate metric coeffs
     df = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
-    dfinv_t = empty((3, 3), dtype=float)
+    dfinvt = empty((3, 3), dtype=float)
 
     # allocate for field evaluations (1-form and Cartesian components)
     e_form = empty(3, dtype=float)
@@ -50,14 +50,14 @@ def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
     bd1 = empty(pn[0], dtype=float)
     bd2 = empty(pn[1], dtype=float)
     bd3 = empty(pn[2], dtype=float)
-    
+
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, df, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, e_form, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, df, dfinv, dfinvt, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, e_form, e_cart)
     #$ omp for
     for ip in range(n_markers):
-        
+
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
             continue
@@ -77,7 +77,7 @@ def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
         # metric coeffs
         det_df = linalg.det(df)
         linalg.matrix_inv_with_det(df, det_df, dfinv)
-        linalg.transpose(dfinv, dfinv_t)
+        linalg.transpose(dfinv, dfinvt)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], eta1)
@@ -97,14 +97,15 @@ def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, e1_3, starts1[2])
 
         # electric field: Cartesian components
-        linalg.matrix_vector(dfinv_t, e_form, e_cart)
+        linalg.matrix_vector(dfinvt, e_form, e_cart)
 
         # update velocities
         markers[ip, 3:6] += dt*e_cart
 
     #$ omp end parallel
 
-#@stack_array('df', 'b_form', 'b_cart', 'b_norm', 'e', 'v', 'vperp', 'vxb_norm', 'b_normxvperp', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+
+@stack_array('df', 'b_form', 'b_cart', 'b_norm', 'e', 'v', 'vperp', 'vxb_norm', 'b_normxvperp', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_vxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -138,7 +139,7 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
     # particle position and velocity
     e = empty(3, dtype=float)
     v = empty(3, dtype=float)
-    
+
     # perpendicular velocity, v x b_norm and b_norm x vperp
     vperp = empty(3, dtype=float)
     vxb_norm = empty(3, dtype=float)
@@ -152,7 +153,7 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
     bd1 = empty(pn[0], dtype=float)
     bd2 = empty(pn[1], dtype=float)
     bd3 = empty(pn[2], dtype=float)
-    
+
     # get number of markers
     n_markers = shape(markers)[0]
 
@@ -163,7 +164,7 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
             continue
-            
+
         e[:] = markers[ip, 0:3]
         v[:] = markers[ip, 3:6]
 
@@ -223,7 +224,8 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
 
     #$ omp end parallel
 
-#@stack_array('df', 'b_form', 'b_cart', 'b_prod', 'e', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'identity', 'rhs', 'lhs', 'lhs_inv', 'vec', 'res')
+
+@stack_array('df', 'b_form', 'b_cart', 'b_prod', 'e', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'identity', 'rhs', 'lhs', 'lhs_inv', 'vec', 'res')
 def push_vxb_implicit(markers: 'float[:,:]', dt: float, stage: int,
                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -257,7 +259,7 @@ def push_vxb_implicit(markers: 'float[:,:]', dt: float, stage: int,
     # particle position and velocity
     e = empty(3, dtype=float)
     v = empty(3, dtype=float)
-    
+
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
     bn2 = empty(pn[1] + 1, dtype=float)
@@ -269,7 +271,7 @@ def push_vxb_implicit(markers: 'float[:,:]', dt: float, stage: int,
 
     # identity matrix
     identity = zeros((3, 3), dtype=float)
-    
+
     identity[0, 0] = 1.
     identity[1, 1] = 1.
     identity[2, 2] = 1.
@@ -277,12 +279,12 @@ def push_vxb_implicit(markers: 'float[:,:]', dt: float, stage: int,
     # right-hand side and left-hand side of Crank-Nicolson scheme
     rhs = empty((3, 3), dtype=float)
     lhs = empty((3, 3), dtype=float)
-    
+
     lhs_inv = empty((3, 3), dtype=float)
-    
+
     vec = empty(3, dtype=float)
     res = empty(3, dtype=float)
-    
+
     # get number of markers
     n_markers = shape(markers)[0]
 
@@ -330,29 +332,30 @@ def push_vxb_implicit(markers: 'float[:,:]', dt: float, stage: int,
         b_cart[:] = b_cart/det_df
 
         # magnetic field: rotation matrix
-        b_prod[0, 1] =  b_cart[2]
+        b_prod[0, 1] = b_cart[2]
         b_prod[0, 2] = -b_cart[1]
 
         b_prod[1, 0] = -b_cart[2]
-        b_prod[1, 2] =  b_cart[0]
+        b_prod[1, 2] = b_cart[0]
 
-        b_prod[2, 0] =  b_cart[1]
+        b_prod[2, 0] = b_cart[1]
         b_prod[2, 1] = -b_cart[0]
 
         # solve 3x3 system
         rhs[:, :] = identity + dt/2*b_prod
         lhs[:, :] = identity - dt/2*b_prod
-        
+
         linalg.matrix_inv(lhs, lhs_inv)
-        
+
         linalg.matrix_vector(rhs, v, vec)
         linalg.matrix_vector(lhs_inv, vec, res)
-        
+
         markers[ip, 3:6] = res
 
     #$ omp end parallel
 
-#@stack_array('df', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+
+@stack_array('df', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -385,10 +388,10 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
     # allocate for field evaluations (2-form and Cartesian components)
     b_form = empty(3, dtype=float)
     u_form = empty(3, dtype=float)
-    
+
     b_cart = empty(3, dtype=float)
     u_cart = empty(3, dtype=float)
-    
+
     e_cart = empty(3, dtype=float)
 
     # allocate spline values
@@ -399,7 +402,7 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
     bd1 = empty(pn[0], dtype=float)
     bd2 = empty(pn[1], dtype=float)
     bd3 = empty(pn[2], dtype=float)
-    
+
     # get number of markers
     n_markers = shape(markers)[0]
 
@@ -443,7 +446,7 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
         b_form[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
-        
+
         # magnetic field: Cartesian components
         linalg.matrix_vector(df, b_form, b_cart)
         b_cart[:] = b_cart/det_df
@@ -455,7 +458,7 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u2_2, starts2[1])
         u_form[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u2_3, starts2[2])
-        
+
         linalg.matrix_vector(df, u_form, u_cart)
         u_cart[:] = u_cart/det_df
 
@@ -467,7 +470,8 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 
     #$ omp end parallel
 
-#@stack_array('df', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+
+@stack_array('df', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_bxu_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -502,10 +506,10 @@ def push_bxu_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
     # allocate for field evaluations (2-form and Cartesian components)
     b_form = empty(3, dtype=float)
     u_form = empty(3, dtype=float)
-    
+
     b_cart = empty(3, dtype=float)
     u_cart = empty(3, dtype=float)
-    
+
     e_cart = empty(3, dtype=float)
 
     # allocate spline values
@@ -516,7 +520,7 @@ def push_bxu_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
     bd1 = empty(pn[0], dtype=float)
     bd2 = empty(pn[1], dtype=float)
     bd3 = empty(pn[2], dtype=float)
-    
+
     # get number of markers
     n_markers = shape(markers)[0]
 
@@ -562,7 +566,7 @@ def push_bxu_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
         b_form[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
-        
+
         # magnetic field: Cartesian components
         linalg.matrix_vector(df, b_form, b_cart)
         b_cart[:] = b_cart/det_df
@@ -577,7 +581,7 @@ def push_bxu_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
 
         # velocity field: Cartesian components
         linalg.matrix_vector(dfinv_t, u_form, u_cart)
-        
+
         # electric field E = B x U
         linalg.cross(b_cart, u_cart, e_cart)
 
@@ -586,7 +590,8 @@ def push_bxu_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
 
     #$ omp end parallel
 
-#@stack_array('df', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+
+@stack_array('df', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -619,10 +624,10 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
     # allocate for field evaluations (2-form and Cartesian components)
     b_form = empty(3, dtype=float)
     u_form = empty(3, dtype=float)
-    
+
     b_cart = empty(3, dtype=float)
     u_cart = empty(3, dtype=float)
-    
+
     e_cart = empty(3, dtype=float)
 
     # allocate spline values
@@ -633,7 +638,7 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
     bd1 = empty(pn[0], dtype=float)
     bd2 = empty(pn[1], dtype=float)
     bd3 = empty(pn[2], dtype=float)
-    
+
     # get number of markers
     n_markers = shape(markers)[0]
 
@@ -677,7 +682,7 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
         b_form[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
-        
+
         # magnetic field: Cartesian components
         linalg.matrix_vector(df, b_form, b_cart)
         b_cart[:] = b_cart/det_df
@@ -689,7 +694,7 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, uv_2, starts0)
         u_form[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, uv_3, starts0)
-        
+
         # velocity field: Cartesian components
         linalg.matrix_vector(df, u_form, u_cart)
 
@@ -701,7 +706,8 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
 
     #$ omp end parallel
 
-#@stack_array('df', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_diff', 'b_cart', 'u_cart', 'b_grad', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'der1', 'der2', 'der3')
+
+@stack_array('df', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_diff', 'b_cart', 'u_cart', 'b_grad', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'der1', 'der2', 'der3')
 def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                         starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -745,11 +751,11 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
     b_form = empty(3, dtype=float)
     u_form = empty(3, dtype=float)
     b_diff = empty(3, dtype=float)
-    
+
     b_cart = empty(3, dtype=float)
     u_cart = empty(3, dtype=float)
     b_grad = empty(3, dtype=float)
-    
+
     e_cart = empty(3, dtype=float)
 
     # allocate spline values
@@ -760,11 +766,11 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
     bd1 = empty(pn[0], dtype=float)
     bd2 = empty(pn[1], dtype=float)
     bd3 = empty(pn[2], dtype=float)
-    
+
     der1 = empty(pn[0] + 1, dtype=float)
     der2 = empty(pn[1] + 1, dtype=float)
     der3 = empty(pn[2] + 1, dtype=float)
-    
+
     # get number of markers
     n_markers = shape(markers)[0]
 
@@ -814,11 +820,11 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
         b_form[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
-        
+
         # magnetic field: Cartesian components
         linalg.matrix_vector(df, b_form, b_cart)
         b_cart[:] = b_cart/det_df
-        
+
         # magnetic field: evaluation of gradient (1-form)
         b_diff[0] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], der1, bn2, bn3, span1, span2, span3, b0, starts1[0])
@@ -826,7 +832,7 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
             pn[0], pn[1], pn[2], bn1, der2, bn3, span1, span2, span3, b0, starts1[1])
         b_diff[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, der3, span1, span2, span3, b0, starts1[2])
-        
+
         # magnetic field: evaluation of gradient (Cartesian components)
         linalg.matrix_vector(dfinv_t, b_diff, b_grad)
 
@@ -837,13 +843,13 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u2_2, starts2[1])
         u_form[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u2_3, starts2[2])
-        
+
         linalg.matrix_vector(df, u_form, u_cart)
         u_cart[:] = u_cart/det_df
 
         # electric field E = B x U
         linalg.cross(b_cart, u_cart, e_cart)
-        
+
         # additional artificial electric field of Pauli markers
         e_cart[:] = e_cart - mu[ip]*b_grad
 
@@ -852,7 +858,8 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
 
     #$ omp end parallel
 
-#@stack_array('df', 'dfinv', 'dfinv_t', 'e', 'e_cart', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+
+@stack_array('df', 'dfinv', 'dfinv_t', 'e', 'e_cart', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_GXu_full(markers: 'float[:,:]', dt: float, stage: int,
                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                      starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -935,9 +942,12 @@ def push_pc_GXu_full(markers: 'float[:,:]', dt: float, stage: int,
         bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         # Evaluate grad(X(u, v)) at the particle positions
-        e[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_11 * v[0] + GXu_21 * v[1] + GXu_31 * v[2], starts1[0])
-        e[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_12 * v[0] + GXu_22 * v[1] + GXu_32 * v[2], starts1[1])
-        e[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_13 * v[0] + GXu_23 * v[1] + GXu_33 * v[2], starts1[2])
+        e[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3,
+                                              span1, span2, span3, GXu_11 * v[0] + GXu_21 * v[1] + GXu_31 * v[2], starts1[0])
+        e[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3,
+                                              span1, span2, span3, GXu_12 * v[0] + GXu_22 * v[1] + GXu_32 * v[2], starts1[1])
+        e[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3,
+                                              span1, span2, span3, GXu_13 * v[0] + GXu_23 * v[1] + GXu_33 * v[2], starts1[2])
 
         # electric field in Cartesian coordinates
         linalg.matrix_vector(dfinv_t, e, e_cart)
@@ -945,7 +955,8 @@ def push_pc_GXu_full(markers: 'float[:,:]', dt: float, stage: int,
         # update velocities
         markers[ip, 3:6] -= dt*e_cart[:]/2.
 
-#@stack_array('df', 'dfinv', 'dfinv_t', 'e', 'e_cart', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+
+@stack_array('df', 'dfinv', 'dfinv_t', 'e', 'e_cart', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_GXu(markers: 'float[:,:]', dt: float, stage: int,
                 pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                 starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -962,7 +973,7 @@ def push_pc_GXu(markers: 'float[:,:]', dt: float, stage: int,
 
         \frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = - DF^{-\top} \left(  \boldsymbol \Lambda^1 \mathbb G \mathcal X(\mathbf u, \mathbf v)  \right)^n_p
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf u` 
+    for each marker :math:`p` in markers array, where :math:`\mathbf u`
     are the coefficients of the mhd velocity field (either 1-form or 2-form) and :math:`\mathcal X`
     is either the MHD operator :meth:`struphy.psydac_api.basis_projection_ops.MHDOperators.assemble_X1` (if u is 1-form)
     or :meth:`struphy.psydac_api.basis_projection_ops.MHDOperators.assemble_X2` (if u is 2-form).
@@ -1028,9 +1039,12 @@ def push_pc_GXu(markers: 'float[:,:]', dt: float, stage: int,
         bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         # Evaluate grad(X(u, v)) at the particle positions
-        e[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_11 * v[0] + GXu_21 * v[1], starts1[0])
-        e[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_12 * v[0] + GXu_22 * v[1], starts1[1])
-        e[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_13 * v[0] + GXu_23 * v[1], starts1[2])
+        e[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_11 * v[0] + GXu_21 * v[1], starts1[0])
+        e[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_12 * v[0] + GXu_22 * v[1], starts1[1])
+        e[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_13 * v[0] + GXu_23 * v[1], starts1[2])
 
         # electric field in Cartesian coordinates
         linalg.matrix_vector(dfinv_t, e, e_cart)
@@ -1038,7 +1052,8 @@ def push_pc_GXu(markers: 'float[:,:]', dt: float, stage: int,
         # update velocities
         markers[ip, 3:6] -= dt*e_cart/2.
 
-#@stack_array('df', 'dfinv', 'e', 'v', 'k')
+
+@stack_array('df', 'dfinv', 'e', 'v', 'k')
 def push_eta_stage(markers: 'float[:,:]', dt: float, stage: int,
                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1047,7 +1062,7 @@ def push_eta_stage(markers: 'float[:,:]', dt: float, stage: int,
                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                    cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                    a: 'float[:]', b: 'float[:]', c: 'float[:]'):
-    r'''Single stage of a s-stage Runge-Kutta solve of 
+    r'''Single stage of a s-stage Runge-Kutta solve of
 
     .. math::
 
@@ -1066,13 +1081,13 @@ def push_eta_stage(markers: 'float[:,:]', dt: float, stage: int,
 
     # intermediate k-vector
     k = empty(3, dtype=float)
-    
+
     # get number of markers
     n_markers = shape(markers)[0]
-    
+
     # get number of stages
     n_stages = shape(b)[0]
-    
+
     if stage == n_stages - 1:
         last = 1.
     else:
@@ -1081,7 +1096,7 @@ def push_eta_stage(markers: 'float[:,:]', dt: float, stage: int,
     #$ omp parallel private(ip, e, v, df, dfinv, k)
     #$ omp for
     for ip in range(n_markers):
-        
+
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
             continue
@@ -1102,16 +1117,18 @@ def push_eta_stage(markers: 'float[:,:]', dt: float, stage: int,
 
         # pull-back of velocity
         linalg.matrix_vector(dfinv, v, k)
-        
+
         # accumulation for last stage
         markers[ip, 12:15] += dt*b[stage]*k
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, 9:12] + dt*a[stage]*k + last*markers[ip, 12:15]
+        markers[ip, 0:3] = markers[ip, 9:12] + \
+            dt*a[stage]*k + last*markers[ip, 12:15]
 
     #$ omp end parallel
 
-#@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+
+@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: float, stage: int,
                                pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1120,13 +1137,13 @@ def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: float, stage: int,
                                ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                                u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
-    r'''Fourth order Runge-Kutta solve of 
+    r'''Fourth order Runge-Kutta solve of
 
     .. math::
 
         \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and 
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and
 
     .. math::
 
@@ -1174,27 +1191,28 @@ def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: float, stage: int,
     # assign factor of k for each stage
     if stage == 0 or stage == 3:
         nk = 1.
-    else: nk = 2.
+    else:
+        nk = 2.
 
     # which stage
     if stage == 3:
         last = 1.
-        cont  = 0.
+        cont = 0.
     elif stage == 2:
         last = 0.
-        cont  = 2.
+        cont = 2.
     else:
         last = 0.
         cont = 1.
 
     for ip in range(n_markers):
-        
+
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
             continue
 
         eta[:] = markers[ip, 0:3]
-        v[:]   = markers[ip, 3:6]
+        v[:] = markers[ip, 3:6]
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in df
@@ -1223,9 +1241,12 @@ def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: float, stage: int,
         bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # U-field
-        u[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts1[0])
-        u[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts1[1])
-        u[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u_3, starts1[2])
+        u[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts1[0])
+        u[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts1[1])
+        u[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u_3, starts1[2])
 
         # transform to vector field
         linalg.matrix_vector(ginv, u, k_u)
@@ -1235,11 +1256,13 @@ def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: float, stage: int,
 
         # accum k
         markers[ip, 12:15] += k*nk/6.
-        
-        # update markers for the next stage
-        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)
 
-#@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+        # update markers for the next stage
+        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 *
+                            cont + dt*markers[ip, 12:15] * last)
+
+
+@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: float, stage: int,
                               pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                               starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1248,13 +1271,13 @@ def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: float, stage: int,
                               ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                               cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                               u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
-    r'''Fourth order Runge-Kutta solve of 
+    r'''Fourth order Runge-Kutta solve of
 
     .. math::
 
         \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and 
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and
 
     .. math::
 
@@ -1308,13 +1331,13 @@ def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: float, stage: int,
     # is it the last stage?
     if stage == 3:
         last = 1.
-        cont  = 0.
+        cont = 0.
     else:
         last = 0.
-        cont  = 1.
+        cont = 1.
 
     for ip in range(n_markers):
-        
+
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
             continue
@@ -1350,9 +1373,12 @@ def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: float, stage: int,
         bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # U-field
-        u[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts2[0])
-        u[1] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts2[1])
-        u[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u_3, starts2[2])
+        u[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts2[0])
+        u[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts2[1])
+        u[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u_3, starts2[2])
 
         # transform to vector field
         k_u[:] = u/det_df
@@ -1362,11 +1388,13 @@ def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: float, stage: int,
 
         # accum k
         markers[ip, 12:15] += k*nk/6.
-        
-        # update markers for the next stage
-        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)
 
-#@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+        # update markers for the next stage
+        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 *
+                            cont + dt*markers[ip, 12:15] * last)
+
+
+@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: float, stage: int,
                                pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1375,13 +1403,13 @@ def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: float, stage: int,
                                ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                                u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
-    r'''Fourth order Runge-Kutta solve of 
+    r'''Fourth order Runge-Kutta solve of
 
     .. math::
 
         \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and 
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and
 
     .. math::
 
@@ -1428,27 +1456,28 @@ def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: float, stage: int,
     # assign factor of k for each stage
     if stage == 0 or stage == 3:
         nk = 1.
-    else: nk = 2.
+    else:
+        nk = 2.
 
     # which stage
     if stage == 3:
         last = 1.
-        cont  = 0.
+        cont = 0.
     elif stage == 2:
         last = 0.
-        cont  = 2.
+        cont = 2.
     else:
         last = 0.
         cont = 1.
 
     for ip in range(n_markers):
-        
+
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
             continue
 
         eta[:] = markers[ip, 0:3]
-        v[:]   = markers[ip, 3:6]
+        v[:] = markers[ip, 3:6]
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in df
@@ -1477,20 +1506,25 @@ def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: float, stage: int,
         bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # U-field
-        u[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_1, starts0)
-        u[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_2, starts0)
-        u[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_3, starts0)
+        u[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_1, starts0)
+        u[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_2, starts0)
+        u[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_3, starts0)
 
         # sum contribs
         k[:] = k_v + u
 
         # accum k
         markers[ip, 12:15] += k*nk/6.
-        
-        # update markers for the next stage
-        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)       
 
-#@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+        # update markers for the next stage
+        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 *
+                            cont + dt*markers[ip, 12:15] * last)
+
+
+@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1499,13 +1533,13 @@ def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                           u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
-    r'''Fourth order Runge-Kutta solve of 
+    r'''Fourth order Runge-Kutta solve of
 
     .. math::
 
         \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and 
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and
 
     .. math::
 
@@ -1553,27 +1587,28 @@ def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
     # assign factor of k for each stage
     if stage == 0 or stage == 3:
         nk = 1.
-    else: nk = 2.
+    else:
+        nk = 2.
 
     # which stage
     if stage == 3:
         last = 1.
-        cont  = 0.
+        cont = 0.
     elif stage == 2:
         last = 0.
-        cont  = 2.
+        cont = 2.
     else:
         last = 0.
         cont = 1.
 
     for ip in range(n_markers):
-        
+
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
             continue
 
         eta[:] = markers[ip, 0:3]
-        v[:]   = markers[ip, 3:6]
+        v[:] = markers[ip, 3:6]
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in df
@@ -1602,8 +1637,10 @@ def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
         bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # U-field
-        u[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts1[0])
-        u[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts1[1])
+        u[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts1[0])
+        u[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts1[1])
         u[2] = 0.
 
         # transform to vector field
@@ -1614,26 +1651,28 @@ def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
 
         # accum k
         markers[ip, 12:15] += k*nk/6.
-        
-        # update markers for the next stage
-        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)
 
-#@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+        # update markers for the next stage
+        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 *
+                            cont + dt*markers[ip, 12:15] * last)
+
+
+@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
-                              pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                              starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                              kind_map: int, params_map: 'float[:]',
-                              p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                              ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                              cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                              u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
-    r'''Fourth order Runge-Kutta solve of 
+                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                         starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                         kind_map: int, params_map: 'float[:]',
+                         p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                         ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                         cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                         u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
+    r'''Fourth order Runge-Kutta solve of
 
     .. math::
 
         \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and 
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and
 
     .. math::
 
@@ -1687,13 +1726,13 @@ def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
     # is it the last stage?
     if stage == 3:
         last = 1.
-        cont  = 0.
+        cont = 0.
     else:
         last = 0.
-        cont  = 1.
+        cont = 1.
 
     for ip in range(n_markers):
-        
+
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
             continue
@@ -1729,8 +1768,10 @@ def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
         bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # U-field
-        u[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts2[0])
-        u[1] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts2[1])
+        u[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts2[0])
+        u[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts2[1])
         u[2] = 0.
 
         # transform to vector field
@@ -1741,11 +1782,13 @@ def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 
         # accum k
         markers[ip, 12:15] += k*nk/6.
-        
-        # update markers for the next stage
-        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)
 
-#@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+        # update markers for the next stage
+        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 *
+                            cont + dt*markers[ip, 12:15] * last)
+
+
+@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1754,13 +1797,13 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                           u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
-    r'''Fourth order Runge-Kutta solve of 
+    r'''Fourth order Runge-Kutta solve of
 
     .. math::
 
         \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and 
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and
 
     .. math::
 
@@ -1807,27 +1850,28 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
     # assign factor of k for each stage
     if stage == 0 or stage == 3:
         nk = 1.
-    else: nk = 2.
+    else:
+        nk = 2.
 
     # which stage
     if stage == 3:
         last = 1.
-        cont  = 0.
+        cont = 0.
     elif stage == 2:
         last = 0.
-        cont  = 2.
+        cont = 2.
     else:
         last = 0.
         cont = 1.
 
     for ip in range(n_markers):
-        
+
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
             continue
 
         eta[:] = markers[ip, 0:3]
-        v[:]   = markers[ip, 3:6]
+        v[:] = markers[ip, 3:6]
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in df
@@ -1856,8 +1900,10 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # U-field
-        u[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_1, starts0)
-        u[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_2, starts0)
+        u[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_1, starts0)
+        u[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_2, starts0)
         u[2] = 0.
 
         # sum contribs
@@ -1865,11 +1911,13 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
 
         # accum k
         markers[ip, 12:15] += k*nk/6.
-        
-        # update markers for the next stage
-        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)       
 
-#@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'df', 'df_inv', 'x', 'v')
+        # update markers for the next stage
+        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 *
+                            cont + dt*markers[ip, 12:15] * last)
+
+
+@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'df', 'df_inv', 'x', 'v')
 def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
                              pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                              starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1919,11 +1967,11 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
     bd2 = empty(pn[1] + 1, dtype=float)
     bd3 = empty(pn[2] + 1, dtype=float)
 
-    df      = empty((3,3), dtype=float)
-    df_inv  = empty((3,3), dtype=float)
-    eta     = empty(3    , dtype=float)
-    v       = empty(3    , dtype=float)
-    prod    = empty(3    , dtype=float)
+    df = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    eta = empty(3, dtype=float)
+    v = empty(3, dtype=float)
+    prod = empty(3, dtype=float)
 
     # get number of markers
     n_markers = shape(markers)[0]
@@ -1938,7 +1986,7 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
-        eta  = [eta1, eta2, eta3]
+        eta = [eta1, eta2, eta3]
 
         # velocity
         v[0] = markers[ip, 3]
@@ -1957,7 +2005,8 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
 
         f0 = background_eval.f0(eta, v, f0_spec, moms_spec, f0_params)
 
-        map_eval.df(eta1, eta2, eta3, kind_map, params_map, t1_map, t2_map, t3_map, p_map, ind1_map, ind2_map, ind3_map, cx, cy, cz, df)
+        map_eval.df(eta1, eta2, eta3, kind_map, params_map, t1_map, t2_map,
+                    t3_map, p_map, ind1_map, ind2_map, ind3_map, cx, cy, cz, df)
         linalg.matrix_inv(df, df_inv)
 
         # E-field (1-form)
@@ -1971,12 +2020,14 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
         linalg.matrix_vector(df_inv, v, prod)
 
         # w_{n+1} = w_n - dt/2 * 1/(N s_0) * sqrt(f) * ( DF^{-1} v ) * ( e_{n+1} + e_n )
-        update = (prod[0] * temp1 + prod[1] * temp2 + prod[2] * temp3) * sqrt(f0) * dt / (2 * n_markers_tot * markers[ip, 7])
-        markers[ip, 6] -= update 
+        update = (prod[0] * temp1 + prod[1] * temp2 + prod[2] * temp3) * \
+            sqrt(f0) * dt / (2 * n_markers_tot * markers[ip, 7])
+        markers[ip, 6] -= update
 
     #$ omp end parallel
 
-#@stack_array('particle')
+
+@stack_array('particle', 'df', 'df_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'taus')
 def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1990,16 +2041,17 @@ def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
                            eps: 'float[:]', maxiter: int):
     r"""
     particle pusher for ODE
-    
+
     .. math::
-        \frac{\text{d} \mathbf{\eta}}{\text{d} t} & = DL^{-1} \mathbf{v}
+        \frac{\text{d} \mathbf{\eta}}{\text{d} t} & = DL^{-1} \mathbf{v} \,
+
         \frac{\text{d} \mathbf{v}}{\text{d} t} & = DL^{-T} \mathbf{E}_0(\mathbf{\eta})
 
     Parameters 
     ----------
         loc1, loc2, loc3 : array
             contain the positions of the Legendre-Gauss quadrature points of necessary order to integrate basis splines exactly in each direction
-        
+
         weight1, weight2, weight3 : array
             contain the values of the weights for the Legendre-Gauss quadrature in each direction
 
@@ -2018,19 +2070,47 @@ def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private(ip, run, temp, k, particle, dt2)
+    # non-vanishing B-splines at particle position
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    # non-vanishing D-splines at particle position
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    df = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+
+    # number of quadrature points in direction 1
+    n_quad1 = int(floor((pn[0] - 1) * pn[1] * pn[2] / 2 + 1))
+    # number of quadrature points in direction 2
+    n_quad2 = int(floor(pn[0] * (pn[1] - 1) * pn[2] / 2 + 1))
+    # number of quadrature points in direction 3
+    n_quad3 = int(floor(pn[0] * pn[1] * (pn[2] - 1) / 2 + 1))
+
+    # Create array for storing the tau values
+    taus = empty(20, dtype=float)
+
+    #$ omp parallel private(ip, run, bn1, bn2, bn3, bd1, bd2, bd3, df, df_inv, taus, temp, k, particle, dt2)
     #$ omp for
     for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
 
         particle[:] = markers[ip, :]
 
         run = 1
-        k   = 0
+        k = 0
 
         while run != 0:
             k += 1
             if k == 5:
-                print('Splitting the time steps into 4 has not been enough, aborting the iteration.')
+                print(
+                    'Splitting the time steps into 4 has not been enough, aborting the iteration.')
                 print()
                 break
 
@@ -2046,6 +2126,10 @@ def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
                                           p_map, t1_map, t2_map, t3_map,
                                           ind1_map, ind2_map, ind3_map,
                                           cx, cy, cz,
+                                          n_quad1, n_quad2, n_quad3,
+                                          df, df_inv,
+                                          bn1, bn2, bn3, bd1, bd2, bd3,
+                                          taus,
                                           dt2,
                                           loc1, loc2, loc3, weight1, weight2, weight3,
                                           e1_1, e1_2, e1_3,
@@ -2057,21 +2141,22 @@ def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
 
     #$ omp end parallel
 
-#@stack_array('df', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'v', 'k')
+
+@stack_array('df', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'v', 'k')
 def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
-                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                           kind_map: int, params_map: 'float[:]',
-                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                           epsilon: float,
-                           b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                           norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                           norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                           curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                           grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                           a: 'float[:]', b: 'float[:]', c: 'float[:]'):
+                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                            kind_map: int, params_map: 'float[:]',
+                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                            epsilon: float,
+                            b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+                            norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+                            norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+                            curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+                            grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                            a: 'float[:]', b: 'float[:]', c: 'float[:]'):
     r'''Single stage of a s-stage Runge-Kutta solve of 
 
     .. math::
@@ -2109,20 +2194,20 @@ def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
 
     # intermediate k-vector
     k = empty(3, dtype=float)
-    
+
     # get number of markers
     n_markers = shape(markers)[0]
-    
+
     # get number of stages
     n_stages = shape(b)[0]
-    
+
     if stage == n_stages - 1:
         last = 1.
     else:
         last = 0.
 
     for ip in range(n_markers):
-        
+
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
             continue
@@ -2158,24 +2243,36 @@ def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
 
         # eval all the needed field
         # grad_abs_b; 1form
-        grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
-        grad_abs_b[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
-        grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
+        grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
+        grad_abs_b[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
+        grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # norm_b1; 1form
-        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
+        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
+        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
 
         # norm_b2; 2form
-        norm_b2[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
-        norm_b2[1] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
-        norm_b2[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
+        norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
+        norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
+        norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
 
         # b_star; 2form
-        b_star[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + epsilon*v*curl_norm_b1, starts2[0])
-        b_star[1] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + epsilon*v*curl_norm_b2, starts2[1])
-        b_star[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + epsilon*v*curl_norm_b3, starts2[2])
+        b_star[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + epsilon*v*curl_norm_b1, starts2[0])
+        b_star[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + epsilon*v*curl_norm_b2, starts2[1])
+        b_star[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + epsilon*v*curl_norm_b3, starts2[2])
 
         # transform to H1vec
         b_star[:] = b_star/det_df
@@ -2192,33 +2289,35 @@ def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
 
         # calculate k
         k[:] = epsilon*mu/abs_b_star_para*temp1
-        
+
         # accumulation for last stage
         markers[ip, 13:16] += dt*b[stage]*k
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, 9:12] + dt*a[stage]*k + last*markers[ip, 13:16]
+        markers[ip, 0:3] = markers[ip, 9:12] + \
+            dt*a[stage]*k + last*markers[ip, 13:16]
+
 
 def push_gc2_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
-                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                           kind_map: int, params_map: 'float[:]',
-                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                           epsilon: float,
-                           b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                           norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                           norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                           curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                           grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                           a: 'float[:]', b: 'float[:]', c: 'float[:]'):
+                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                            kind_map: int, params_map: 'float[:]',
+                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                            epsilon: float,
+                            b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+                            norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+                            norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+                            curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+                            grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                            a: 'float[:]', b: 'float[:]', c: 'float[:]'):
     r'''Single stage of a s-stage Runge-Kutta solve of 
 
     .. math::
 
         &\dot{\mathbf H}_p &= \frac{1}{|B^*_{p,\parallel}|} \left( \frac{1}{\sqrt{g}} \hat{\mathbf B}^{*2}_p \right) v_{p, \parallel} \,,
-            
+
         &\dot v_{p, \parallel} &= -\frac{\mu}{|B^*_{p,\parallel}|}  \left( \frac{1}{\sqrt{g}} \hat{\mathbf B}^{*2}_p \right) \cdot \hat \nabla |\hat B^0_0|_p \,.
 
     for each marker :math:`p` in markers array.
@@ -2246,20 +2345,20 @@ def push_gc2_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
 
     # intermediate k-vector
     k = empty(3, dtype=float)
-    
+
     # get number of markers
     n_markers = shape(markers)[0]
-    
+
     # get number of stages
     n_stages = shape(b)[0]
-    
+
     if stage == n_stages - 1:
         last = 1.
     else:
         last = 0.
 
     for ip in range(n_markers):
-        
+
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
             continue
@@ -2275,7 +2374,7 @@ def push_gc2_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
                     df)
-        
+
         # metric coeffs
         det_df = linalg.det(df)
 
@@ -2290,19 +2389,28 @@ def push_gc2_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
 
         # eval all the needed field
         # grad_abs_b; 1form
-        grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
-        grad_abs_b[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
-        grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
+        grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
+        grad_abs_b[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
+        grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # norm_b1; 1form
-        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
+        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
+        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
 
         # b_star; 2form
-        b_star[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + epsilon*v*curl_norm_b1, starts2[0])
-        b_star[1] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + epsilon*v*curl_norm_b2, starts2[1])
-        b_star[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + epsilon*v*curl_norm_b3, starts2[2])
+        b_star[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + epsilon*v*curl_norm_b1, starts2[0])
+        b_star[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + epsilon*v*curl_norm_b2, starts2[1])
+        b_star[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + epsilon*v*curl_norm_b3, starts2[2])
 
         # transform to H1vec
         b_star[:] = b_star/det_df
@@ -2316,14 +2424,17 @@ def push_gc2_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
         # calculate k_v for v
         temp = linalg.scalar_dot(b_star, grad_abs_b)
         k_v = -1*mu/abs_b_star_para*temp
-        
+
         # accumulation for last stage
         markers[ip, 13:16] += dt*b[stage]*k
         markers[ip, 16] += dt*b[stage]*k_v
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, 9:12] + dt*a[stage]*k + last*markers[ip, 13:16]
-        markers[ip, 3] = markers[ip, 12] + dt*a[stage]*k_v + last*markers[ip, 16]
+        markers[ip, 0:3] = markers[ip, 9:12] + \
+            dt*a[stage]*k + last*markers[ip, 13:16]
+        markers[ip, 3] = markers[ip, 12] + dt * \
+            a[stage]*k_v + last*markers[ip, 16]
+
 
 def push_gc_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -2346,7 +2457,7 @@ def push_gc_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
         &\dot{\mathbf H}_p = \frac{\epsilon \mu_p}{|B^*_{p,\parallel}|}  G_p^{-1} \mathbb{b}_{p,0, \otimes}G_p^{-1} \hat \nabla |\hat B^0_{p,0}| + \frac{1}{|B^*_{p,\parallel}|} \left( \frac{1}{\sqrt{g}} \hat{\mathbf B}^{*2}_p \right) v_{p, \parallel}\,,
 
         &\dot v_{p, \parallel} &= -\frac{\mu}{|B^*_{p,\parallel}|}  \left( \frac{1}{\sqrt{g}} \hat{\mathbf B}^{*2}_p \right) \cdot \hat \nabla |\hat B^0_0|_p \,.
-        
+
     for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant.
     '''
 
@@ -2379,20 +2490,20 @@ def push_gc_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
 
     # intermediate k-vector
     k = empty(3, dtype=float)
-    
+
     # get number of markers
     n_markers = shape(markers)[0]
-    
+
     # get number of stages
     n_stages = shape(b)[0]
-    
+
     if stage == n_stages - 1:
         last = 1.
     else:
         last = 0.
 
     for ip in range(n_markers):
-        
+
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
             continue
@@ -2428,24 +2539,36 @@ def push_gc_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
 
         # eval all the needed field
         # grad_abs_b; 1form
-        grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
-        grad_abs_b[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
-        grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
+        grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
+        grad_abs_b[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
+        grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # norm_b1; 1form
-        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
+        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
+        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
 
         # norm_b2; 2form
-        norm_b2[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
-        norm_b2[1] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
-        norm_b2[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
+        norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
+        norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
+        norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
 
         # b_star; 2form
-        b_star[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + epsilon*v*curl_norm_b1, starts2[0])
-        b_star[1] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + epsilon*v*curl_norm_b2, starts2[1])
-        b_star[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + epsilon*v*curl_norm_b3, starts2[2])
+        b_star[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + epsilon*v*curl_norm_b1, starts2[0])
+        b_star[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + epsilon*v*curl_norm_b2, starts2[1])
+        b_star[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + epsilon*v*curl_norm_b3, starts2[2])
 
         # transform to H1vec
         b_star[:] = b_star/det_df
@@ -2467,14 +2590,16 @@ def push_gc_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
         temp = linalg.scalar_dot(b_star, grad_abs_b)
 
         k_v = -1*mu/abs_b_star_para*temp
-        
+
         # accumulation for last stage
         markers[ip, 13:16] += dt*b[stage]*k
         markers[ip, 16] += dt*b[stage]*k_v
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, 9:12] + dt*a[stage]*k + last*markers[ip, 13:16]
-        markers[ip, 3] = markers[ip, 12] + dt*a[stage]*k_v + last*markers[ip, 16]
+        markers[ip, 0:3] = markers[ip, 9:12] + \
+            dt*a[stage]*k + last*markers[ip, 13:16]
+        markers[ip, 3] = markers[ip, 12] + dt * \
+            a[stage]*k_v + last*markers[ip, 16]
 
 
 def push_gc1_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: int, tol: float,
@@ -2537,12 +2662,12 @@ def push_gc1_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: i
     e = empty(3, dtype=float)
     e_mid = empty(3, dtype=float)
     e_diff = empty(3, dtype=float)
-    
+
     # get number of markers
     n_markers = shape(markers)[0]
 
     for ip in range(n_markers):
-        
+
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
             continue
@@ -2566,67 +2691,79 @@ def push_gc1_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: i
                         ind1_map, ind2_map, ind3_map,
                         cx, cy, cz,
                         df)
-    
+
             # evaluate inverse of G
             linalg.transpose(df, df_t)
             linalg.matrix_matrix(df_t, df, g)
             linalg.matrix_inv(g, g_inv)
-    
+
             # metric coeffs
             det_df = linalg.det(df)
-    
+
             # spline evaluation
             span1 = bsp.find_span(tn1, pn[0], e_mid[0])
             span2 = bsp.find_span(tn2, pn[1], e_mid[1])
             span3 = bsp.find_span(tn3, pn[2], e_mid[2])
-    
+
             bsp.b_d_splines_slim(tn1, pn[0], e_mid[0], span1, bn1, bd1)
             bsp.b_d_splines_slim(tn2, pn[1], e_mid[1], span2, bn2, bd2)
             bsp.b_d_splines_slim(tn3, pn[2], e_mid[2], span3, bn3, bd3)
-    
+
             # eval all the needed field
             # grad_abs_b; 1form
-            grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
-            grad_abs_b[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
-            grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
-    
+            grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(
+                pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
+            grad_abs_b[1] = eval_3d.eval_spline_mpi_kernel(
+                pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
+            grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(
+                pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
+
             # norm_b1; 1form
-            norm_b1[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-            norm_b1[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-            norm_b1[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
-    
+            norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
+                pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
+            norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
+                pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
+            norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
+                pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+
             # norm_b2; 2form
-            norm_b2[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
-            norm_b2[1] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
-            norm_b2[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
-    
+            norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
+                pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
+            norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
+                pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
+            norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
+                pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
+
             # b_star; 2form
-            b_star[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + epsilon*v*curl_norm_b1, starts2[0])
-            b_star[1] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + epsilon*v*curl_norm_b2, starts2[1])
-            b_star[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + epsilon*v*curl_norm_b3, starts2[2])
-    
+            b_star[0] = eval_3d.eval_spline_mpi_kernel(
+                pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + epsilon*v*curl_norm_b1, starts2[0])
+            b_star[1] = eval_3d.eval_spline_mpi_kernel(
+                pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + epsilon*v*curl_norm_b2, starts2[1])
+            b_star[2] = eval_3d.eval_spline_mpi_kernel(
+                pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + epsilon*v*curl_norm_b3, starts2[2])
+
             # transform to H1vec
             b_star[:] = b_star/det_df
-    
+
             # calculate abs_b_star_para
             abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
-    
+
             # assemble b cross (.) as 3x3 matrix
-            bcross[:,:] = ( (     0.     ,  -norm_b2[2],   norm_b2[1]), 
-                            (  norm_b2[2],      0.     ,  -norm_b2[0]), 
-                            ( -norm_b2[1],   norm_b2[0],      0.     ) )
-    
-            # calculate G-1 b cross G-1 
+            bcross[:, :] = ((0.,  -norm_b2[2],   norm_b2[1]),
+                            (norm_b2[2],      0.,  -norm_b2[0]),
+                            (-norm_b2[1],   norm_b2[0],      0.))
+
+            # calculate G-1 b cross G-1
             linalg.matrix_matrix(bcross, g_inv, temp1)
             linalg.matrix_matrix(g_inv, temp1, temp2)
-    
+
             # calculate S
             S = (epsilon*temp2)/abs_b_star_para
 
             # save at the markers
-            markers[ip, 13:16] = S[0,:]
-            markers[ip, 16:18] = S[1,1:3]
-            markers[ip, 18]    = S[2,2]
+            markers[ip, 13:16] = S[0, :]
+            markers[ip, 16:18] = S[1, 1:3]
+            markers[ip, 18] = S[2, 2]
             markers[ip, 20:23] = mu*grad_abs_b[:]
 
         # spline evaluation
@@ -2640,24 +2777,27 @@ def push_gc1_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: i
 
         # eval all the needed field
         # abs_b; 0form
-        abs_b0 = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts0)
+        abs_b0 = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts0)
 
         # assemble S
-        S[:,:] = ( ( markers[ip, 13],  markers[ip, 14], markers[ip, 15]), 
-                   (-markers[ip, 14],  markers[ip, 16], markers[ip, 17]), 
-                   (-markers[ip, 15], -markers[ip, 17], markers[ip, 18]) )
+        S[:, :] = ((markers[ip, 13],  markers[ip, 14], markers[ip, 15]),
+                   (-markers[ip, 14],  markers[ip, 16], markers[ip, 17]),
+                   (-markers[ip, 15], -markers[ip, 17], markers[ip, 18]))
 
         # calculate grad_I
-        temp_scalar = linalg.scalar_dot(e_diff[:], markers[ip,20:23])
-        temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + e_diff[2]**2 
+        temp_scalar = linalg.scalar_dot(e_diff[:], markers[ip, 20:23])
+        temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + e_diff[2]**2
 
-        grad_I[:] = markers[ip,20:23] + e_diff[:]*(abs_b0*mu - markers[ip,19] - temp_scalar)/temp_scalar2
-        
+        grad_I[:] = markers[ip, 20:23] + e_diff[:] * \
+            (abs_b0*mu - markers[ip, 19] - temp_scalar)/temp_scalar2
+
         linalg.matrix_vector(S, grad_I, temp)
-        
+
         markers[ip, 0:3] = markers[ip, 9:12] + dt*temp[:]
 
-        diff = sqrt((e[0] - markers[ip, 0])**2 + (e[1] - markers[ip, 1])**2 + (e[2] - markers[ip, 2])**2)
+        diff = sqrt((e[0] - markers[ip, 0])**2 +
+                    (e[1] - markers[ip, 1])**2 + (e[2] - markers[ip, 2])**2)
 
         if diff < tol:
             markers[ip, 21] = -1.
@@ -2670,13 +2810,13 @@ def push_gc1_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: i
 
         # check whether the mid position is already outside of the proc domain
         if (e_mid[0] < domain_array[0]) or (e_mid[0] > domain_array[1]):
-            markers[ip,20] = -1.
+            markers[ip, 20] = -1.
             continue
         if (e_mid[1] < domain_array[3]) or (e_mid[1] > domain_array[4]):
-            markers[ip,20] = -1.
+            markers[ip, 20] = -1.
             continue
         if (e_mid[2] < domain_array[6]) or (e_mid[2] > domain_array[7]):
-            markers[ip,20] = -1.
+            markers[ip, 20] = -1.
             continue
 
         # evaluate Jacobian, result in df
@@ -2706,24 +2846,36 @@ def push_gc1_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: i
 
         # eval all the needed field
         # grad_abs_b; 1form
-        grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
-        grad_abs_b[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
-        grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
+        grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
+        grad_abs_b[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
+        grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # norm_b1; 1form
-        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
+        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
+        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
 
         # norm_b2; 2form
-        norm_b2[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
-        norm_b2[1] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
-        norm_b2[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
+        norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
+        norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
+        norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
 
         # b_star; 2form
-        b_star[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + epsilon*v*curl_norm_b1, starts2[0])
-        b_star[1] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + epsilon*v*curl_norm_b2, starts2[1])
-        b_star[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + epsilon*v*curl_norm_b3, starts2[2])
+        b_star[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + epsilon*v*curl_norm_b1, starts2[0])
+        b_star[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + epsilon*v*curl_norm_b2, starts2[1])
+        b_star[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + epsilon*v*curl_norm_b3, starts2[2])
 
         # transform to H1vec
         b_star[:] = b_star/det_df
@@ -2732,21 +2884,21 @@ def push_gc1_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: i
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
 
         # assemble b cross (.) as 3x3 matrix
-        bcross[:,:] = ( (     0.     ,  -norm_b2[2],   norm_b2[1]), 
-                        (  norm_b2[2],      0.     ,  -norm_b2[0]), 
-                        ( -norm_b2[1],   norm_b2[0],      0.     ) )
+        bcross[:, :] = ((0.,  -norm_b2[2],   norm_b2[1]),
+                        (norm_b2[2],      0.,  -norm_b2[0]),
+                        (-norm_b2[1],   norm_b2[0],      0.))
 
-        # calculate G-1 b cross G-1 
+        # calculate G-1 b cross G-1
         linalg.matrix_matrix(bcross, g_inv, temp1)
         linalg.matrix_matrix(g_inv, temp1, temp2)
 
         # calculate S
-        S[:,:] = (epsilon*temp2)/abs_b_star_para
+        S[:, :] = (epsilon*temp2)/abs_b_star_para
 
         # save at the markers
-        markers[ip, 13:16] = S[0,:]
-        markers[ip, 16:18] = S[1,1:3]
-        markers[ip, 18]    = S[2,2]
+        markers[ip, 13:16] = S[0, :]
+        markers[ip, 16:18] = S[1, 1:3]
+        markers[ip, 18] = S[2, 2]
         markers[ip, 20:23] = mu*grad_abs_b[:]
 
 
@@ -2795,12 +2947,12 @@ def push_gc2_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: i
     e = empty(3, dtype=float)
     e_mid = empty(3, dtype=float)
     e_diff = empty(3, dtype=float)
-    
+
     # get number of markers
     n_markers = shape(markers)[0]
 
     for ip in range(n_markers):
-        
+
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
             continue
@@ -2812,7 +2964,7 @@ def push_gc2_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: i
         e_mid[:] = (e[:] + markers[ip, 9:12])/2.
         e_diff[:] = e[:] - markers[ip, 9:12]
         v = markers[ip, 3]
-        v_old = markers[ip,12]
+        v_old = markers[ip, 12]
         v_mid = (markers[ip, 3] + markers[ip, 12])/2.
         mu = markers[ip, 4]
 
@@ -2841,19 +2993,28 @@ def push_gc2_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: i
 
             # eval all the needed field
             # grad_abs_b; 1form
-            grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
-            grad_abs_b[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
-            grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
+            grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(
+                pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
+            grad_abs_b[1] = eval_3d.eval_spline_mpi_kernel(
+                pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
+            grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(
+                pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
             # norm_b1; 1form
-            norm_b1[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-            norm_b1[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-            norm_b1[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+            norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
+                pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
+            norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
+                pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
+            norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
+                pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
 
             # b_star; 2form
-            b_star[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + epsilon*v_mid*curl_norm_b1, starts2[0])
-            b_star[1] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + epsilon*v_mid*curl_norm_b2, starts2[1])
-            b_star[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + epsilon*v_mid*curl_norm_b3, starts2[2])
+            b_star[0] = eval_3d.eval_spline_mpi_kernel(
+                pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + epsilon*v_mid*curl_norm_b1, starts2[0])
+            b_star[1] = eval_3d.eval_spline_mpi_kernel(
+                pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + epsilon*v_mid*curl_norm_b2, starts2[1])
+            b_star[2] = eval_3d.eval_spline_mpi_kernel(
+                pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + epsilon*v_mid*curl_norm_b3, starts2[2])
 
             # transform to H1vec
             b_star[:] = b_star/det_df
@@ -2876,21 +3037,26 @@ def push_gc2_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: i
 
         # eval all the needed field
         # abs_b; 0form
-        abs_b0 = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts0)
+        abs_b0 = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts0)
 
         # calculate grad_I
-        temp_scalar = linalg.scalar_dot(e_diff[:], markers[ip,20:23])
-        temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + e_diff[2]**2 + (v - v_old)**2
+        temp_scalar = linalg.scalar_dot(e_diff[:], markers[ip, 20:23])
+        temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + \
+            e_diff[2]**2 + (v - v_old)**2
 
-        grad_I[:] = markers[ip,20:23] + e_diff*(abs_b0*mu - markers[ip,19] - temp_scalar)/temp_scalar2
-        grad_Iv = v_mid + (v - v_old)*(abs_b0*mu - markers[ip,19] - temp_scalar)/temp_scalar2
+        grad_I[:] = markers[ip, 20:23] + e_diff * \
+            (abs_b0*mu - markers[ip, 19] - temp_scalar)/temp_scalar2
+        grad_Iv = v_mid + (v - v_old)*(abs_b0*mu -
+                                       markers[ip, 19] - temp_scalar)/temp_scalar2
 
         temp_scalar3 = linalg.scalar_dot(markers[ip, 13:16], grad_I)
-        
-        markers[ip, 0:3] = markers[ip, 9:12] + dt*markers[ip, 13:16]*grad_Iv
-        markers[ip, 3] = markers[ip,12] - dt*temp_scalar3
 
-        diff = sqrt((e[0] - markers[ip, 0])**2 + (e[1] - markers[ip, 1])**2 + (e[2] - markers[ip, 2])**2)
+        markers[ip, 0:3] = markers[ip, 9:12] + dt*markers[ip, 13:16]*grad_Iv
+        markers[ip, 3] = markers[ip, 12] - dt*temp_scalar3
+
+        diff = sqrt((e[0] - markers[ip, 0])**2 +
+                    (e[1] - markers[ip, 1])**2 + (e[2] - markers[ip, 2])**2)
         vdiff = sqrt((v - markers[ip, 3])**2)
 
         if diff < tol and vdiff < tol:
@@ -2904,13 +3070,13 @@ def push_gc2_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: i
 
         # check whether the mid position is already outside of the proc domain
         if (e_mid[0] < domain_array[0]) or (e_mid[0] > domain_array[1]):
-            markers[ip,20] = -1.
+            markers[ip, 20] = -1.
             continue
         if (e_mid[1] < domain_array[3]) or (e_mid[1] > domain_array[4]):
-            markers[ip,20] = -1.
+            markers[ip, 20] = -1.
             continue
         if (e_mid[2] < domain_array[6]) or (e_mid[2] > domain_array[7]):
-            markers[ip,20] = -1.
+            markers[ip, 20] = -1.
             continue
 
         # evaluate Jacobian, result in df
@@ -2935,19 +3101,28 @@ def push_gc2_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: i
 
         # eval all the needed field
         # grad_abs_b; 1form
-        grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
-        grad_abs_b[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
-        grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
+        grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
+        grad_abs_b[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
+        grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # norm_b1; 1form
-        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
+        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
+        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
 
         # b_star; 2form
-        b_star[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + epsilon*v_mid*curl_norm_b1, starts2[0])
-        b_star[1] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + epsilon*v_mid*curl_norm_b2, starts2[1])
-        b_star[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + epsilon*v_mid*curl_norm_b3, starts2[2])
+        b_star[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + epsilon*v_mid*curl_norm_b1, starts2[0])
+        b_star[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + epsilon*v_mid*curl_norm_b2, starts2[1])
+        b_star[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + epsilon*v_mid*curl_norm_b3, starts2[2])
 
         # transform to H1vec
         b_star[:] = b_star/det_df

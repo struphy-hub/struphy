@@ -338,7 +338,7 @@ class LinearVlasovMaxwell(StruphyModel):
 
         \frac{\partial \mathbf{B}}{\partial t} & = - \nabla \times \mathbf{E}
 
-    which form a Hamiltonian system with the energies:
+    which form a Hamiltonian system with the energy:
 
     .. math::
 
@@ -381,27 +381,29 @@ class LinearVlasovMaxwell(StruphyModel):
 
         # ====================================================================================
         # Initialize background magnetic field from MHD equilibrium
-        self._b_background_field = Field('b_background', 'Hdiv', self.derham)
-        self._b_background = self._b_background_field.vector
-
-        self._b_background = self.derham.P['2']([self.mhd_equil.b_x, 
-                                                 self.mhd_equil.b_y, 
-                                                 self.mhd_equil.b_z])
+        self._b_background = self.derham.P['2']([self.mhd_equil.b2_1,
+                                                 self.mhd_equil.b2_2,
+                                                 self.mhd_equil.b2_3])
 
         # Create pointers to background electric potential and field
-        self._phi_background = self.electric_equil.phi0_vector
-        self._e_background = self.electric_equil.e1_vector
+        self._phi_background = self.derham.P['0'](self.electric_equil.phi0)
+        self._e_background = self.derham.grad.dot(self._phi_background)
         # ====================================================================================
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-        # self._propagators += [propagators_markers.StepStaticEfield(
-        #     self.domain, self.derham, self._electrons, self._e_background)]
-        # self._propagators += [propagators_markers.StepPushEta(
-        #     self._electrons, self.derham, electron_params['push_algos']['eta'],
-        #     electron_params['markers']['bc_type'])]
-        # self._propagators += [propagators_markers.StepStaticBfield(
-        #     self.domain, self.derham, self._electrons, self._b_background)]
+
+        # Only add StepStaticEfield if efield is non-zero, otherwise it is more expensive
+        if np.all(self._e_background[0]._data < 1e-14) and np.all(self._e_background[1]._data < 1e-14) and np.all(self._e_background[2]._data < 1e-14):
+        # if False:
+            self._propagators += [propagators_markers.StepPushEta(
+                self._electrons, self.derham, electron_params['push_algos']['eta'],
+                electron_params['markers']['bc_type'])]
+        else:
+            self._propagators += [propagators_markers.StepStaticEfield(
+                self.domain, self.derham, self._electrons, self._e_background)]
+        self._propagators += [propagators_markers.StepPushVxB(
+            self._electrons, self.derham, electron_params['push_algos']['vxb'], self._b_background)]
         self._propagators += [propagators_coupling.StepEfieldWeights(self.domain, self.derham,
                                                 self._e, self._electrons, self._mass_ops,
                                                 electron_params['background'], params['solvers']['solver_ew'])]
