@@ -9,7 +9,7 @@ grid :
 
 time :
       dt         : 0.05 # time step
-      Tend       : 1. # simulation time interval is [0, Tend]
+      Tend       : 0.5 # simulation time interval is [0, Tend]
       max_time   : 300. # maximum runtime of program in minutes
       split_algo : LieTrotter # LieTrotter | Strang
 
@@ -274,7 +274,7 @@ kinetic :
                   beta : 0.01 # plasma beta = p*2*mu_0/|B|^2
             markers :
                   type    : delta_f # full_f or delta_f
-                  ppc     : 100  # number of markers per 3d grid cell
+                  ppc     : 10  # number of markers per 3d grid cell
                   Np      : 3 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
                   eps     : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
                   bc_type : [periodic, periodic, periodic] # remove, reflect or periodic

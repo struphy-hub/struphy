@@ -7,33 +7,33 @@ grid :
       nq_pr    : [2, 2, 2] # quadrature points per histopolation cell (for commuting projectors)
       polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
 
-time : 
+time :
       dt         : 0.05 # time step
       Tend       : 100 # simulation time interval is [0, Tend]
       max_time   : 300. # maximum runtime of program in minutes
       split_algo : LieTrotter # LieTrotter | Strang
-      
-geometry : 
-      type : Cuboid # mapping F (possible types seen below)  
-      Cuboid : 
+
+geometry :
+      type : Cuboid # mapping F (possible types seen below)
+      Cuboid :
             l1 : 0. # start of interval in eta1
             r1 : 1. # end of interval in eta1, r1>l1
             l2 : 0. # start of interval in eta2
             r2 : 1. # end of interval in eta2, r2>l2
             l3 : 0. # start of interval in eta3
             r3 : 20. # end of interval in eta3, r3>l3
-                
-em_fields : 
+
+em_fields :
       init :
             type   : noise # initial conditions (possible types seen below)
             coords : physical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
             comps  : [[True, True, False], [False, False, False]] # default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
-            noise : 
+            noise :
                   direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
                   amp : 0.1 # noise amplitude
-        
+
 solvers :
-      solver_1 : 
+      solver_1 :
             type : pcg
             pc : MassMatrixPreconditioner # null or name of preconditioner class
             tol : 1.e-8

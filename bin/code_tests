@@ -13,4 +13,6 @@ struphy profile sim_4 sim_5
 struphy pproc sim_4 sim_5
 # Test PC_LinearMHD_Vlasov
 struphy run PC_LinearMHD_Vlasov -i tests/params_pc_linmhd_6d.yml -o sim_6
+# Test LinearVlasovMaxwell
+struphy run LinearVlasovMaxwell -i tests/params_linvlasovmaxwell.yml -o sim_7
 # Add Test for each model

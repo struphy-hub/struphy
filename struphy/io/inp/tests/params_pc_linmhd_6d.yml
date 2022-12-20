@@ -66,7 +66,7 @@ em_fields :
       
 fluid :
       mhd :
-            attributes :                           # one entry for each field; put null EM fields (no plasma species)
+            attributes :    # one entry for each field; put null EM fields (no plasma species)
                   Z    : 1. # charge number Z = q/e, in units of elementary charge, can have a sign
                   M    : 1. # mass ratio m/m_p, in units of proton mass
                   kBT  : 1. # thermal energy in units keV 
@@ -112,7 +112,7 @@ kinetic :
                   beta : 0.01 # plasma beta = p*2*mu_0/|B|^2
             markers :
                   type        : full_f # full_f or delta_f
-                  ppc         : 1000  # particles per 3d grid cell
+                  ppc         : 2  # particles per 3d grid cell
                   eps         : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
                   control_var : False # control variate (use delta-f)?
                   bc_type     : [periodic, periodic, periodic] # remove, reflect or periodic

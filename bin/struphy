@@ -80,8 +80,9 @@ function run_help {
     echo "Run a struphy model."
     echo 
     echo "Models:"
-    echo "  Maxwell     Maxwell equations in vacuum"
-    echo "  LinearMHD   Linear ideal MHD with zero-flow equilibrium"
+    echo "  Maxwell               Maxwell equations in vacuum"
+    echo "  LinearMHD             Linear ideal MHD with zero-flow equilibrium"
+    echo "  LinearVlasovMaxwell   Linearized Vlasov Maxwell system with Maxwellian background"
     echo 
     echo "  See https://struphy.pages.mpcdf.de/struphy/sections/models.html for more info on available models."
     echo 
