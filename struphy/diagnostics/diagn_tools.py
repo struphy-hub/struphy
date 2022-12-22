@@ -139,9 +139,8 @@ def fourier_1d(values, name, code, grids, grids_mapped=None, component=0, slice_
         disp = disp_class(**disp_params)
 
         kpara = kvec
-        kperp = None
 
-        branches = disp(kpara, kperp=kperp)
+        branches = disp(kpara)
         set_min = 0.
         set_max = 0.
         for key, branch in branches.items():
