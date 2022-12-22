@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from struphy.geometry import domains
 from struphy.fields_background.mhd_equil.analytical import ShearedSlab
 from struphy.diagnostics.continuous_spectra import get_mhd_continua_2d
+from struphy.dispersion_relations.analytic import MhdContinousSpectraShearedSlab
 
 from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
 from struphy.eigenvalue_solvers.mhd_axisymmetric_main import solve_mhd_ev_problem_2d
@@ -121,6 +122,8 @@ ax[1, 0].set_xlabel('x')
 ax[1, 0].set_ylabel('y')
 ax[1, 0].set_title(r'Grid : $N_\mathrm{el}=$' + str(fem_2d.Nel[:2]), pad=10)
 
+# analytical continuous spectra
+spec_calc = MhdContinousSpectraShearedSlab(a=params_mhd['a'], R0=params_mhd['R0'], Bz=lambda x : params_mhd['B0'] - 0*x, q=eq_mhd.q, rho=eq_mhd.nx, p=eq_mhd.px, gamma=5/3)
 
 #  ====================== plot shear Alfvén continuum =========================
 exponent_A = 2
@@ -130,6 +133,7 @@ ms_plot = [1, 2, 3]
 
 for m in ms_plot:  
     ax[1, 1].plot(A[m][0]*a, (np.sqrt(A[m][1])/norm)**exponent_A, '+', label='m = ' + str(m))
+    ax[1, 1].plot(etaplot[0]*a, (spec_calc(etaplot[0]*a, m, n_tor)['shear_Alfvén']/norm)**exponent_A, 'k--', linewidth=0.5)
     
 ax[1, 1].set_xlabel('$x$')
 
@@ -153,6 +157,7 @@ ms_plot = [0, 1, 2, 3]
 
 for m in ms_plot:  
     ax[1, 2].plot(S[m][0]*a, (np.sqrt(S[m][1])/norm)**exponent_S, '+', label='m = ' + str(m))
+    ax[1, 2].plot(etaplot[0]*a, (spec_calc(etaplot[0]*a, m, n_tor)['slow_sound']/norm)**exponent_A, 'k--', linewidth=0.5)
 
 ax[1, 2].set_xlabel('$x$')
 
@@ -162,7 +167,7 @@ else:
     ax[1, 2].set_ylabel('$\omega^2/\omega_A^2$')
 
 ax[1, 2].set_xlim((0., a))
-ax[1, 2].set_ylim((0., 0.05))
+ax[1, 2].set_ylim((0., 0.1))
 ax[1, 2].legend()
 ax[1, 2].set_title('Slow sound continuum', pad=10)
 # =========================================================================

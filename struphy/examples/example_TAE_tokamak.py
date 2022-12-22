@@ -11,6 +11,7 @@ from struphy.geometry import domains
 from struphy.fields_background.mhd_equil import analytical
 from struphy.psydac_api.fields import Field
 from struphy.diagnostics.continuous_spectra import get_mhd_continua_2d
+from struphy.dispersion_relations.analytic import MhdContinousSpectraCylinder
 from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
 
 sim_path = sys.argv[1]
@@ -92,19 +93,25 @@ plt.xlabel('r [m]')
 plt.ylabel('safety factor')
 
 # plot shear Alfvén continuous spectra for m = [2, 3, 4]
+
+# analytical continuous spectra
+spec_calc = MhdContinousSpectraCylinder(R0=mhd_params['R0'], Bz=lambda r : mhd_params['B0'] - 0*r, q=mhd_equil.q, rho=mhd_equil.nr, p=mhd_equil.pr, gamma=5/3)
+
 plt.subplot(2, 2, 2)
 for m in range(2, 4 + 1):  
-    plt.plot(A[m][0], A[m][1]/omegaA**2, '+', label='m = ' + str(m))
+    plt.plot(0.1 + 0.9*A[m][0], A[m][1]/omegaA**2, '+', label='m = ' + str(m))
+    plt.plot(domain(etaplot[0], 0., 0.)[0] - mhd_params['R0'], spec_calc(domain(etaplot[0], 0., 0.)[0] - mhd_params['R0'], m, n_tor)['shear_Alfvén']**2/omegaA**2, 'k--', linewidth=0.5)
 
-plt.xlabel('$s$')
+plt.xlabel('$r$ [m]')
 plt.ylabel('$\omega^2/\omega_\mathrm{A}^2$')
 plt.xlim((0., 1.))
 plt.ylim((0.05, omegaA**2))
 plt.legend()
 plt.title('Shear Alfvén continuum ($n=-2$)', pad=10, fontsize=f_size)
 plt.xticks([0., 0.5, 1.])
-plt.arrow(0.375, 0.5, 0., -0.30, head_width=.02)
-plt.text(0.32, 0.55, 'TAE')
+plt.arrow(0.44, 0.5, 0., -0.30, head_width=.02)
+plt.text(0.39, 0.55, 'TAE')
+plt.plot(0.1*np.ones(11), np.linspace(0., 1., 11), 'k--')
 
 # plot U2_1(t=0) on mapped grid
 plt.subplot(2, 2, 3)

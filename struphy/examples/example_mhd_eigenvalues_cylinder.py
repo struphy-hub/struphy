@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from struphy.geometry import domains
 from struphy.fields_background.mhd_equil.analytical import ScrewPinch
 from struphy.diagnostics.continuous_spectra import get_mhd_continua_2d
+from struphy.dispersion_relations.analytic import MhdContinousSpectraCylinder 
 
 from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
 from struphy.eigenvalue_solvers.mhd_axisymmetric_main import solve_mhd_ev_problem_2d
@@ -120,6 +121,9 @@ ax[1, 0].set_ylabel('y')
 ax[1, 0].set_title(r'Grid : $N_\mathrm{el}=$' + str(fem_2d.Nel[:2]), pad=10)
 
 
+# analytical continuous spectra
+spec_calc = MhdContinousSpectraCylinder(R0=params_mhd['R0'], Bz=lambda r : params_mhd['B0'] - 0*r, q=eq_mhd.q, rho=eq_mhd.nr, p=eq_mhd.pr, gamma=5/3)
+
 #  ====================== plot shear Alfvén continuum =========================
 exponent_A = 2
 norm = params_mhd['B0']/R0
@@ -128,6 +132,7 @@ ms_plot = [1, 2]
 
 for m in ms_plot:  
     ax[1, 1].plot(A[m][0]*a, (np.sqrt(A[m][1])/norm)**exponent_A, '+', label='m = ' + str(m))
+    ax[1, 1].plot(rplot[1:-1], (spec_calc(rplot[1:-1], m, n_tor)['shear_Alfvén']/norm)**exponent_A, 'k--', linewidth=0.5)
     
 ax[1, 1].set_xlabel('$r$')
 
@@ -151,6 +156,7 @@ ms_plot = [0, 1, 2]
 
 for m in ms_plot:  
     ax[1, 2].plot(S[m][0]*a, (np.sqrt(S[m][1])/norm)**exponent_S, '+', label='m = ' + str(m))
+    ax[1, 2].plot(rplot[1:-1], (spec_calc(rplot[1:-1], m, n_tor)['slow_sound']/norm)**exponent_A, 'k--', linewidth=0.5)
 
 ax[1, 2].set_xlabel('$r$')
 
