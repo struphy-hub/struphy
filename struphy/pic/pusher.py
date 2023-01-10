@@ -71,13 +71,13 @@ class Pusher:
         """
         # save initial etas in columns 9-11
         particles.markers[~particles.holes, 9:12] = particles.markers[~particles.holes, 0:3]
-
+        
         if particles.kinds == 'Particles5D':
             particles.markers[~particles.holes, 12] = particles.markers[~particles.holes, 3]
 
         for stage in range(self._n_stages):
             self._pusher(particles.markers, dt, stage, *self.args_fem, *self.domain.args_map, *args_opt)
-
+            
             # apply boundary conditions to markers
             if bc is not None: 
                 apply_kinetic_bc(particles.markers, particles.holes, self.domain, bc)

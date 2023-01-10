@@ -150,6 +150,75 @@ class StepEfieldWeights( Propagator ):
 
 
 
+
+class StepHybridDensity( Propagator ):
+    r'''Solve the following Crank-Nicolson step in hybrid model with unknowns f and A.
+
+    .. math::
+
+        \begin{bmatrix}
+            \mathbb{M}_1 \left( \mathbf{e}^{n+1} - \mathbf{e}^n \right) \\
+            \mathbf{W}^{n+1} - \mathbf{W}^n
+        \end{bmatrix}
+        = 
+        \begin{bmatrix}
+            0 & \frac{\Delta t}{2} \mathbb{K}^T \\
+            \frac{\Delta t}{2} \mathbb{K} & 0
+        \end{bmatrix}
+        \begin{bmatrix}
+            \mathbf{e}^{n+1} + \mathbf{e}^n
+            \mathbf{W}^{n+1} + \mathbf{W}^n
+        \end{bmatrix}
+
+    based on the :ref:`Schur complement <schur_solver>` where
+
+    .. math::
+        (\mathbb{K})_p & = \sqrt{f_0} \left( DF^{-1} \bv_p \right) \cdot \left( \mathbb{\Lambda}^1 \right)^T \,.
+
+    make up the accumulation matrix :math:`\mathbb{K}^T \mathbb{K}` .
+
+    Parameters
+    ---------- 
+        e : psydac.linalg.block.BlockVector
+            FE coefficients of a 1-form.
+
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete Derham complex.
+
+        particles : struphy.pic.particles.Particles6D
+            Particles object.
+
+        mass_ops : struphy.psydac_api.mass.WeightedMassOperators
+            Weighted mass matrices from struphy.psydac_api.mass.
+
+        params : dict
+            Solver parameters for this splitting step.
+    '''
+
+    def __init__(self, domain, derham, particles):
+
+        # Initialize Accumulator object
+        self._accum = Accumulator(domain, derham, 'H1', 'hybrid_fA',
+                                  do_vector=False, symmetry='None')
+
+        self._particles = particles
+        
+        self._domain = domain
+        self._derham = derham
+
+        self._accum.accumulate(self._particles.markers, self._particles.n_mks)
+
+    @property
+    def variables(self):
+        return [self._particles]
+
+    def __call__(self, dt):
+
+        self._accum.accumulate(self._particles.markers, self._particles.n_mks)
+
+
+
+
 class StepPressurecoupling( Propagator ):
     r'''Crank-Nicolson step for pressure coupling term in MHD equations and velocity update with the force term :math:`\nabla \mathbf U \cdot \mathbf v`.
 

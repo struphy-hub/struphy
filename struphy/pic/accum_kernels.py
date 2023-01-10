@@ -78,6 +78,106 @@ def _docstring():
     print('This is just the docstring function.')
 
 
+
+@stack_array('cell_left', 'point_left', 'point_right', 'cell_number', 'temp1', 'temp4', 'compact')
+def hybrid_fA(markers: 'float[:,:]', n_markers_tot: 'int',
+                          pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                          starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                          kind_map: 'int', params_map: 'float[:]',
+                          p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                          ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                          cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                          mat: 'float[:,:,:,:,:,:]'):  # model specific argument
+    r"""
+    Accumulates the values of density at quadrature points with the filling functions
+
+    .. math::
+        n = \sum_p w_p S(x - x_p)
+
+    Parameters
+    ----------
+        To do 
+    Note
+    ----
+        The above parameter list contains only the model specific input arguments.
+    """
+
+    # allocate
+    cell_left    = empty(3, dtype=int)
+    point_left   = zeros(3, dtype=float)
+    point_right  = zeros(3, dtype=float)
+    cell_number  = empty(3, dtype=int)
+
+    temp1        = zeros(3, dtype=float)
+    temp4        = zeros(3, dtype=float)
+
+    compact      = zeros(3, dtype=float)
+    #compact[0]   = (p_shape[0]+1.0)*p_size[0]
+    #compact[1]   = (p_shape[1]+1.0)*p_size[1]
+    #compact[2]   = (p_shape[2]+1.0)*p_size[2]
+
+    #grids_shapex = zeros(p_shape[0] + 2, dtype=float)
+    #grids_shapey = zeros(p_shape[1] + 2, dtype=float)
+    #grids_shapez = zeros(p_shape[2] + 2, dtype=float)
+    
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    #$ omp parallel private (ip, eta1, eta2, eta3)
+    #$ omp for reduction ( + : mat)
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        #weight = markers[ip, 6]/(p_size[0]*p_size[1]*p_size[2])/n_markers
+
+        #ie1 = int(eta1*Nel[0])
+        #ie2 = int(eta2*Nel[1])
+        #ie3 = int(eta3*Nel[2])
+
+        #the points here are still not put in the periodic box [0, 1] x [0, 1] x [0, 1]
+        #point_left[0]  = eta1 - 0.5*compact[0]
+        #point_right[0] = eta1 + 0.5*compact[0]
+        #point_left[1]  = eta2 - 0.5*compact[1]
+        #point_right[1] = eta2 + 0.5*compact[1]
+        #point_left[2]  = eta3 - 0.5*compact[2]
+        #point_right[2] = eta3 + 0.5*compact[2]
+
+        #cell_left[0] = int(floor(point_left[0]*Nel[0]))
+        #cell_left[1] = int(floor(point_left[1]*Nel[1]))
+        #cell_left[2] = int(floor(point_left[2]*Nel[2]))
+
+        #cell_number[0] = int(floor(point_right[0]*Nel[0])) - cell_left[0] + 1
+        #cell_number[1] = int(floor(point_right[1]*Nel[1])) - cell_left[1] + 1
+        #cell_number[2] = int(floor(point_right[2]*Nel[2])) - cell_left[2] + 1
+
+        #for i in range(p_shape[0] + 1):
+        #    grids_shapex[i] = point_left[0] + i * p_size[0]
+        #grids_shapex[p_shape[0] + 1] = point_right[0]
+
+        #for i in range(p_shape[1] + 1):
+        #    grids_shapey[i] = point_left[1] + i * p_size[1]
+        #grids_shapey[p_shape[1] + 1] = point_right[1]
+
+        #for i in range(p_shape[2] + 1):
+        #    grids_shapez[i] = point_left[2] + i * p_size[2]
+        #grids_shapez[p_shape[2] + 1] = point_right[2]
+
+        # call the appropriate matvec filler
+        #mvf.mat_fill_v0_hybrid(pn, tn1, tn2, tn3, starts0,
+        #                       eta1, eta2, eta3,
+        #                       mat)
+
+    #$ omp end parallel
+
+
 @stack_array('df', 'df_t', 'df_inv', 'df_inv_times_v', 'filling_m', 'filling_v')
 def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
