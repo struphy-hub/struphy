@@ -163,6 +163,76 @@ class StepPushVxB(Propagator):
                      b_full[2]._data)
 
 
+
+
+class StepPushpxB_hybrid(Propagator):
+    """
+        TODO
+    """
+
+    def __init__(self, particles, derham, algo, *field_vectors):
+
+        self._C = derham.curl
+
+        self._particles = particles
+
+        # load pusher
+        from struphy.pic.pusher import Pusher
+
+        kernel_name = 'push_pxb_' + algo
+
+        self._pusher = Pusher(derham, particles.domain, kernel_name)
+
+        # magnetic field vectors
+        for b in field_vectors:
+            assert isinstance(b, (BlockVector, PolarVector))
+
+        self._field_vectors = field_vectors
+
+        # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
+        self._E2T = derham.E['2'].transpose()
+
+    @property
+    def variables(self):
+        return self._particles
+
+    def __call__(self, dt):
+        """
+        TODO
+        """
+
+        # calculate curl_A
+        curl_A = self._C.dot(self._field_vectors[0])
+        
+        # check if ghost regions are synchronized
+        for i in range(3):
+            if not curl_A[i].ghost_regions_in_sync: curl_A[i].update_ghost_regions()
+
+        # sum up total magnetic field
+        b_full = self._field_vectors[1].space.zeros()
+
+        for b in self._field_vectors:
+            b_full = curl_A + self._field_vectors[1]
+
+        # extract coefficients to tensor product space
+        b_full = self._E2T.dot(b_full)
+
+        # update ghost regions because of non-local access in pusher kernel
+        b_full.update_ghost_regions()
+        self._field_vectors[0].update_ghost_regions()
+
+        # call pusher kernel
+        self._pusher(self._particles, dt,
+                     b_full[0]._data,
+                     b_full[1]._data,
+                     b_full[2]._data,
+                     self._field_vectors[0][0]._data,
+                     self._field_vectors[0][1]._data,
+                     self._field_vectors[0][2]._data)
+
+
+
+
 class StepPushEtaPC(Propagator):
     r'''Step for the update of particles' positions with the RK4 method which solves
 

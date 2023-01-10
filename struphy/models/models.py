@@ -665,3 +665,166 @@ class DriftKinetic(StruphyModel):
 
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
+
+
+
+
+#############################
+# Fluid-kinetic hybrid models
+#############################
+class Hybrid_fA(StruphyModel):
+    r'''Hybrid (kinetic ions + massless electrons) equations with quasi-neutrality condition. 
+
+    Normalization: 
+
+    .. math::
+
+        \frac{\hat B^2}{\hat \rho \mu_0} =: \hat v_\textnormal{A} = \frac{\hat \omega}{\hat k} = \hat U \,, \qquad \hat p = \hat \rho \, \hat v_\textnormal{A}^2\,.
+
+    Implemented equations:
+
+    PC_LinearMHD_Vlasov
+
+    .. math::
+
+        \begin{align}
+        \textnormal{linear MHD} &\left\{
+        \begin{aligned}
+        &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
+        \\
+        \rho_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p \color{red}+ \nabla\cdot \tilde{\mathbb{P}}_{h,\perp} \color{black} 
+        =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf{J}_0\times \tilde{\mathbf{B}}
+        \,, \qquad
+        \mathbf{J}_0 = \nabla\times\mathbf{B}_0\,, 
+        \\
+        &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
+        + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,, 
+        \\
+        &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
+        = 0\,,
+        \end{aligned}
+        \right.
+        \\[2mm]
+        \textnormal{Vlasov}\qquad& \frac{\partial f_h}{\partial t} + (\mathbf{v} \color{red} + \tilde{\mathbf{U}}_\perp \color{black})\cdot\frac{\partial f_h}{\partial \mathbf{x}}
+        + \left[\frac{q_h}{m_h}\mathbf{v}\times(\mathbf{B}_0 + \tilde{\mathbf{B}}) \color{red}- \nabla \tilde{\mathbf{U}}_\perp\cdot \mathbf{v} \color{black} \right]\cdot\frac{\partial f_h}{\partial \mathbf{v}}
+        = 0\,,
+        \\
+        &\color{red} \tilde{\mathbb{P}}_{h,\perp} = \int \mathbf{v}_\perp\mathbf{v}^\top_\perp f_h d\mathbf{v} \color{black}\,.
+        \end{align}
+
+    PC_LinearMHD_Vlasov_full (including the parallel pressure tensor)
+
+    .. math::
+
+        \begin{align}
+        \textnormal{linear MHD} &\left\{
+        \begin{aligned}
+        &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
+        \\
+        &\rho_0\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p \color{red}+ \nabla\cdot \tilde{\mathbb{P}}_h \color{black} 
+        =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf{J}_0\times \tilde{\mathbf{B}}
+        \,, \qquad
+        \mathbf{J}_0 = \nabla\times\mathbf{B}_0\,, 
+        \\
+        &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
+        + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,, 
+        \\
+        &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
+        = 0\,,
+        \end{aligned}
+        \right.
+        \\[2mm]
+        \textnormal{Vlasov}\qquad& \frac{\partial f_h}{\partial t} + (\mathbf{v} \color{red} + \tilde{\mathbf{U}} \color{black})\cdot\frac{\partial f_h}{\partial \mathbf{x}}
+        + \left[\frac{q_h}{m_h}\mathbf{v}\times(\mathbf{B}_0 + \tilde{\mathbf{B}}) \color{red}- \nabla \tilde{\mathbf{U}}\cdot \mathbf{v} \color{black} \right]\cdot\frac{\partial f_h}{\partial \mathbf{v}}
+        = 0\,,
+        \\
+        &\color{red} \tilde{\mathbb{P}}_h = \int \mathbf{v}\mathbf{v}^\top f_h d\mathbf{v} \color{black}\,.
+        \end{align}
+
+    Parameters
+    ----------
+        params : dict
+            Simulation parameters, see from :ref:`params_yml`.
+    '''
+
+    def __init__(self, params, comm):
+
+        from struphy.psydac_api.mass import WeightedMassOperators
+        from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
+        from struphy.fields_background.mhd_equil import analytical
+        from struphy.propagators import propagators_fields, propagators_markers, propagators_coupling
+
+        super().__init__(params, comm, a1='Hcurl', ions='Particles6D')
+
+        # pointers to em-field variables
+        self._a = self.em_fields['a1']['obj'].vector
+
+        # pointer to kinetic variables
+        self._ions = self.kinetic['ions']['obj']
+        ions_params = self.kinetic['ions']['params']
+
+        # extract necessary parameters
+        alfven_solver = params['solvers']['solver_1']
+        magnetosonic_solver = params['solvers']['solver_2']
+        coupling_solver = params['solvers']['solver_3']
+        coupling = ions_params['pc']
+
+        # Project magnetic field
+        self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1, 
+                                         self.mhd_equil.b2_2, 
+                                         self.mhd_equil.b2_3])
+
+        # Assemble necessary mass matrices
+        self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.mhd_equil)
+
+        # Assemble necessary linear basis projection operators
+        self._basis_ops = BasisProjectionOperators(self.derham, self.domain, self.mhd_equil)
+
+        # Initialize propagators/integrators used in splitting substeps
+        self._propagators = []
+        #self._propagators += [propagators_fields.ShearAlfvén(self._u, self._b, self._u_space, self.derham, self._mass_ops, self._basis_ops, alfven_solver)]
+        #self._propagators += [propagators_fields.Magnetosonic(self._n, self._u, self._p, self._b, self._u_space, self.derham, self._mass_ops, self._basis_ops, magnetosonic_solver)]
+        #self._propagators += [propagators_markers.StepPushEtaPC(self._u, self._u_space, coupling, self._ions, self.derham, self.domain, ions_params['markers']['bc_type'])]
+        #self._propagators += [propagators_coupling.StepPressurecoupling(self._u, self._u_space, coupling, self._ions, self.derham, self.domain, self._mass_ops, self._basis_ops, coupling_solver)]
+        self._propagators += [propagators_markers.StepPushpxB_hybrid(self._ions, self.derham, ions_params['push_algos']['pxb'], self._a, self._b_eq)]
+
+        # Scalar variables to be saved during simulation
+        self._scalar_quantities['time']   = np.empty(1, dtype=float)
+        #self._scalar_quantities['en_U']   = np.empty(1, dtype=float)
+        #self._scalar_quantities['en_p']   = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B']   = np.empty(1, dtype=float)
+        self._en_f_loc                    = np.empty(1, dtype=float)
+        self._scalar_quantities['en_f']   = np.empty(1, dtype=float)
+        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+
+    @property
+    def propagators(self):
+        return self._propagators
+
+    def update_scalar_quantities(self, time):
+        self._scalar_quantities['time'][0] = time
+
+        #if self._u_space == 'Hcurl':
+        #    self._en_U_loc = self._u.dot(self._mass_ops.M1n.dot(self._u))/2
+        #    self._scalar_quantities['en_U'][0] = self._u.dot(self._mass_ops.M1n.dot(self._u))/2
+        #    self._scalar_quantities['en_p'][0] = self._p.toarray().sum()/(5/3 - 1)
+        #elif self._u_space == 'Hdiv':
+        #    self._scalar_quantities['en_U'][0] = self._u.dot(self._mass_ops.M2n.dot(self._u))/2
+        #    self._scalar_quantities['en_p'][0] = self._p.toarray().sum()/(5/3 - 1)
+        #else:
+        #    self._scalar_quantities['en_U'][0] = self._u.dot(self._mass_ops.Mvn.dot(self._u))/2
+        #    self._scalar_quantities['en_p'][0] = self._p.toarray().sum()/(5/3 - 1)
+
+        self._scalar_quantities['en_B'][0] = self._a.dot(self._mass_ops.M1.dot(self._a))/2
+
+        self._en_f_loc = self._ions.markers[~self._ions.holes, 8].dot(self._ions.markers[~self._ions.holes, 3]**2
+                                                                    + self._ions.markers[~self._ions.holes, 4]**2
+                                                                    + self._ions.markers[~self._ions.holes, 5]**2)/(2. * self._ions.n_mks)
+
+        self.derham.comm.Reduce(self._en_f_loc, self._scalar_quantities['en_f'], op=MPI.SUM, root=0)
+
+        #self._scalar_quantities['en_tot'][0]  = self._scalar_quantities['en_U'][0]
+        #self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_p'][0]
+        self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_B'][0]
+        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_f'][0]
+

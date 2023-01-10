@@ -355,6 +355,151 @@ def push_vxb_implicit(markers: 'float[:,:]', dt: float, stage: int,
     #$ omp end parallel
 
 
+@stack_array('df', 'dfinv', 'dfinv_t', 'rot_temp', 'b_form', 'b_cart', 'b_norm', 'e', 'v', 'vperp', 'vxb_norm', 'b_normxvperp', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+def push_pxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
+                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                      starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                      kind_map: int, params_map: 'float[:]',
+                      p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                      ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                      cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                      b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
+                      a1_1: 'float[:,:,:]', a1_2: 'float[:,:,:]', a1_3: 'float[:,:,:]'):
+    r'''Solves exactly the rotation
+
+    .. math::
+
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \mathbf v_p(t) \times \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}
+
+    for each marker :math:`p` in markers array, with fixed rotation vector.
+
+    Parameters
+    ----------
+        b2_1, b2_2, b2_3: array[float]
+            3d array of FE coeffs of B-field as 2-form.
+    '''
+
+    # allocate metric coeffs
+    df = empty((3, 3), dtype=float)
+    dfinv = empty((3, 3), dtype=float)
+    dfinv_t = empty((3, 3), dtype=float)
+
+    rot_temp = empty(3, dtype=float)
+
+    # allocate for field evaluations (2-form components, Cartesian components and normalized Cartesian components)
+    b_form = empty(3, dtype=float)
+    b_cart = empty(3, dtype=float)
+    b_norm = empty(3, dtype=float)
+
+    a_form = empty(3, dtype=float)
+
+    # particle position and velocity
+    e = empty(3, dtype=float)
+    v = empty(3, dtype=float)
+
+    # perpendicular velocity, v x b_norm and b_norm x vperp
+    vperp = empty(3, dtype=float)
+    vxb_norm = empty(3, dtype=float)
+    b_normxvperp = empty(3, dtype=float)
+
+    # allocate spline values
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    #$ omp parallel private (ip, e, v, df, dfinv, dfinv_t, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, a_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
+    #$ omp for
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        e[:] = markers[ip, 0:3]
+        v[:] = markers[ip, 3:6]
+
+        # evaluate Jacobian, result in df
+        map_eval.df(e[0], e[1], e[2],
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        linalg.matrix_inv(df, dfinv)
+        linalg.transpose(dfinv, dfinv_t)
+        # metric coeffs
+        det_df = linalg.det(df)
+
+        # spline evaluation
+        span1 = bsp.find_span(tn1, pn[0], e[0])
+        span2 = bsp.find_span(tn2, pn[1], e[1])
+        span3 = bsp.find_span(tn3, pn[2], e[2])
+
+        bsp.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
+
+        # magnetic field: 2-form components
+        b_form[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts2[0])
+        b_form[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
+        b_form[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
+
+        # magnetic field: 2-form components
+        a_form[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, a1_1, starts1[0])
+        a_form[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, a1_2, starts1[1])
+        a_form[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, a1_3, starts1[2])
+
+        rot_temp[0] = dfinv_t[0,0] * a_form[0] + dfinv_t[0,1] * a_form[1] + dfinv_t[0,2] * a_form[2]
+        rot_temp[1] = dfinv_t[1,0] * a_form[0] + dfinv_t[1,1] * a_form[1] + dfinv_t[1,2] * a_form[2]
+        rot_temp[2] = dfinv_t[2,0] * a_form[0] + dfinv_t[2,1] * a_form[1] + dfinv_t[2,2] * a_form[2]
+        
+        v[0] = v[0] - rot_temp[0]
+        v[1] = v[1] - rot_temp[1]
+        v[2] = v[2] - rot_temp[2]
+
+        # magnetic field: Cartesian components
+        linalg.matrix_vector(df, b_form, b_cart)
+        b_cart[:] = b_cart/det_df
+
+        # normalized magnetic field direction
+        b_abs = sqrt(b_cart[0]**2 + b_cart[1]**2 + b_cart[2]**2)
+
+        if b_abs != 0.:
+            b_norm[:] = b_cart/b_abs
+        else:
+            b_norm[:] = b_cart
+
+        # parallel velocity v.b_norm
+        vpar = linalg.scalar_dot(v, b_norm)
+
+        # first component of perpendicular velocity
+        linalg.cross(v, b_norm, vxb_norm)
+        linalg.cross(b_norm, vxb_norm, vperp)
+
+        # second component of perpendicular velocity
+        linalg.cross(b_norm, vperp, b_normxvperp)
+
+        # analytic rotation
+        markers[ip, 3:6] = vpar*b_norm + \
+            cos(b_abs*dt)*vperp - sin(b_abs*dt)*b_normxvperp + rot_temp
+
+    #$ omp end parallel
+
+
 @stack_array('df', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
