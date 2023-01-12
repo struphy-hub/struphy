@@ -135,8 +135,9 @@ geometry :
             p        : [3, 3] # spline degree, >1
             spl_kind : [False, True] # spline type: True=periodic, False=clamped
 
-mhd_equilibrium :
-      type : HomogenSlab # (possible choices seen below)
+mhd_equilibrium : 
+      type : analytical # analytical or numerical
+      name : HomogenSlab # (possible choices seen below)
       HomogenSlab :
             B0x  : 0. # magnetic field in x
             B0y  : 0. # magnetic field in y

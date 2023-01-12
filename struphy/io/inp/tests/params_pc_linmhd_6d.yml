@@ -24,7 +24,8 @@ geometry :
             r3 : 7.85398163397 # end of interval in eta3, r3>l3
 
 mhd_equilibrium : 
-      type : HomogenSlab # (possible choices seen below)
+      type : analytical # analytical or numerical
+      name : HomogenSlab # (possible choices seen below)
       HomogenSlab :
             B0x  : 0. # magnetic field in x
             B0y  : 0. # magnetic field in y

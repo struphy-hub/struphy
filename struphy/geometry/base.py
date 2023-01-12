@@ -102,12 +102,16 @@ class Domain(metaclass=ABCMeta):
 
         # keys for performing transformation
         self._keys_transform = {
-            '0_to_3': 0, '3_to_0': 1,
             'norm_to_v_1': 11, 'norm_to_v_2': 12, 'norm_to_v_3': 13,
             'norm_to_1_1': 21, 'norm_to_1_2': 22, 'norm_to_1_3': 23,
             'norm_to_2_1': 31, 'norm_to_2_2': 32, 'norm_to_2_3': 33,
+            '0_to_3': 0, '3_to_0': 1,
             '1_to_2_1': 41, '1_to_2_2': 42, '1_to_2_3': 43,
-            '2_to_1_1': 51, '2_to_1_2': 52, '2_to_1_3': 53
+            '2_to_1_1': 51, '2_to_1_2': 52, '2_to_1_3': 53,
+            'v_to_1_1': 61, 'v_to_1_2': 62, 'v_to_1_3': 63,
+            '1_to_v_1': 71, '1_to_v_2': 72, '1_to_v_3': 73,
+            'v_to_2_1': 81, 'v_to_2_2': 82, 'v_to_2_3': 83,
+            '2_to_v_1': 91, '2_to_v_2': 92, '2_to_v_3': 93
         }
         
 
@@ -733,9 +737,13 @@ class Domain(metaclass=ABCMeta):
                 * 'norm_to_v_1', 'norm_to_v_2', 'norm_to_v_3',
                 * 'norm_to_1_1', 'norm_to_1_2', 'norm_to_1_3',
                 * 'norm_to_2_1', 'norm_to_2_2', 'norm_to_2_3',
+                * '0_to_3', '3_to_0'
                 * '1_to_2_1', '1_to_2_2', '1_to_2_3',
                 * '2_to_1_1', '2_to_1_2', '2_to_1_3',
-                * '0_to_3', '3_to_0'
+                * 'v_to_1_1', 'v_to_1_2', 'v_to_1_3'
+                * '1_to_v_1', '1_to_v_2', '1_to_v_3'
+                * 'v_to_2_1', 'v_to_2_2', 'v_to_2_3'
+                * '2_to_v_1', '2_to_v_2', '2_to_v_3'
         """
 
         # convert evaluation points (eta1, eta2, eta3) to 3d array of appropriate shape

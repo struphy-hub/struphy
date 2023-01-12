@@ -10,10 +10,14 @@ transformation types:
 - norm vector to vector
 - norm vector to 1-form          
 - norm vector to 2-form
-- 0-form to 3-form         
+- 0-form to 3-form
+- 3-form to 0-form         
 - 1-form to 2-form
 - 2-form to 1-form
-- 3-form to 0-form
+- vector to 1-form
+- 1-form to vector
+- vector to 2-form
+- 2-form to vector
 
 evaluation types:
 
@@ -124,6 +128,20 @@ def transform_0_form_to_3_form(a0: float, eta1: float, eta2: float, eta3: float,
 
     return a3
 
+def transform_3_form_to_0_form(a3: float, eta1: float, eta2: float, eta3: float, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
+    '''
+    scalar
+    3 form to 0 form
+    a^0 = a^3 / |det(DF)|
+    '''
+
+    detdf = det_df(eta1, eta2, eta3, kind_map, params_map, tn1,
+                   tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+
+    a0 = a3 / abs(detdf)
+
+    return a0
+
 @stack_array('tmp', 'ginv_out')
 def transform_1_form_to_2_form(a1: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     '''
@@ -178,19 +196,93 @@ def transform_2_form_to_1_form(a2: 'float[:]', eta1: float, eta2: float, eta3: f
     else:
         print('Error: component does not exist')
 
-def transform_3_form_to_0_form(a3: float, eta1: float, eta2: float, eta3: float, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
+@stack_array('tmp', 'g_out')
+def transform_vector_to_1_form(av: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     '''
-    scalar
-    3 form to 0 form
-    a^0 = a^3 / |det(DF)|
+    vector
+    vector to 1 form:
+    (a^1_1, a^1_2, a^1_3) = G (a_1, a_2, a_3) 
+    '''
+
+    tmp = empty(3, dtype=float)
+    g_out = empty((3, 3), dtype=float)
+
+    g(eta1, eta2, eta3, kind_map, params_map, tn1, tn2,
+      tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, g_out)
+
+    matrix_vector(g_out, av, tmp)
+
+    if component == 1:
+        return tmp[0] 
+    elif component == 2:
+        return tmp[1] 
+    elif component == 3:
+        return tmp[2] 
+    else:
+        print('Error: component does not exist')
+
+@stack_array('tmp', 'ginv_out')
+def transform_1_form_to_vector(a1: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
+    '''
+    vector
+    1 form to vector:
+    (a_1, a_2, a_3) = G^(-1) (a^1_1, a^1_2, a^1_3) 
+    '''
+
+    tmp = empty(3, dtype=float)
+    ginv_out = empty((3, 3), dtype=float)
+
+    g_inv(eta1, eta2, eta3, kind_map, params_map, tn1, tn2,
+      tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, ginv_out)
+
+    matrix_vector(ginv_out, a1, tmp)
+
+    if component == 1:
+        return tmp[0] 
+    elif component == 2:
+        return tmp[1] 
+    elif component == 3:
+        return tmp[2] 
+    else:
+        print('Error: component does not exist')
+
+def transform_vector_to_2_form(av: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
+    '''
+    vector
+    vector to 2 form:
+    (a^2_1, a^2_2, a^2_3) = det(DF) * (a_1, a_2, a_3) 
     '''
 
     detdf = det_df(eta1, eta2, eta3, kind_map, params_map, tn1,
                    tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
 
-    a0 = a3 / abs(detdf)
+    if component == 1:
+        return av[0] * detdf
+    elif component == 2:
+        return av[1] * detdf
+    elif component == 3:
+        return av[2] * detdf
+    else:
+        print('Error: component does not exist')
 
-    return a0
+def transform_2_form_to_vector(a2: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
+    '''
+    vector
+    2 form to vector:
+    (a_1, a_2, a_3) = (a^2_1, a^2_2, a^2_3) / det(DF) 
+    '''
+
+    detdf = det_df(eta1, eta2, eta3, kind_map, params_map, tn1,
+                   tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+
+    if component == 1:
+        return a2[0] / detdf
+    elif component == 2:
+        return a2[1] / detdf
+    elif component == 3:
+        return a2[2] / detdf
+    else:
+        print('Error: component does not exist')
 
 def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', kind_fun: int, kind_map: int, params_map: 'float[:]', pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', values: 'float[:,:,:]', is_sparse_meshgrid: bool):
 
@@ -259,6 +351,12 @@ def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,
                         a[0, i1, i2, i3], e1, e2, e3, kind_map, params_map,
                         tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
 
+                # 3 form to 0 form
+                elif kind_fun == 1:
+                    values[i1, i2, i3] = transform_3_form_to_0_form(
+                        a[0, i1, i2, i3], e1, e2, e3, kind_map, params_map,
+                        tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+
                 # 1 form to 2 form
                 elif kind_fun == 41:
                     values[i1, i2, i3] = transform_1_form_to_2_form(
@@ -287,8 +385,60 @@ def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,
                         a[:, i1, i2, i3], e1, e2, e3, 3, kind_map, params_map,
                         tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
 
-                # 3 form to 0 form
-                elif kind_fun == 1:
-                    values[i1, i2, i3] = transform_3_form_to_0_form(
-                        a[0, i1, i2, i3], e1, e2, e3, kind_map, params_map,
+                # vector to 1 form
+                elif kind_fun == 61:
+                    values[i1, i2, i3] = transform_vector_to_1_form(
+                        a[:, i1, i2, i3], e1, e2, e3, 1, kind_map, params_map,
                         tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+                elif kind_fun == 62:
+                    values[i1, i2, i3] = transform_vector_to_1_form(
+                        a[:, i1, i2, i3], e1, e2, e3, 2, kind_map, params_map,
+                        tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+                elif kind_fun == 63:
+                    values[i1, i2, i3] = transform_vector_to_1_form(
+                        a[:, i1, i2, i3], e1, e2, e3, 3, kind_map, params_map,
+                        tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+
+                # 1 form to vector
+                elif kind_fun == 71:
+                    values[i1, i2, i3] = transform_1_form_to_vector(
+                        a[:, i1, i2, i3], e1, e2, e3, 1, kind_map, params_map,
+                        tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+                elif kind_fun == 72:
+                    values[i1, i2, i3] = transform_1_form_to_vector(
+                        a[:, i1, i2, i3], e1, e2, e3, 2, kind_map, params_map,
+                        tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+                elif kind_fun == 73:
+                    values[i1, i2, i3] = transform_1_form_to_vector(
+                        a[:, i1, i2, i3], e1, e2, e3, 3, kind_map, params_map,
+                        tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+
+                # vector to 2 form
+                elif kind_fun == 81:
+                    values[i1, i2, i3] = transform_vector_to_2_form(
+                        a[:, i1, i2, i3], e1, e2, e3, 1, kind_map, params_map,
+                        tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+                elif kind_fun == 82:
+                    values[i1, i2, i3] = transform_vector_to_2_form(
+                        a[:, i1, i2, i3], e1, e2, e3, 2, kind_map, params_map,
+                        tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+                elif kind_fun == 83:
+                    values[i1, i2, i3] = transform_vector_to_2_form(
+                        a[:, i1, i2, i3], e1, e2, e3, 3, kind_map, params_map,
+                        tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+
+                # 2 form to vector
+                elif kind_fun == 91:
+                    values[i1, i2, i3] = transform_2_form_to_vector(
+                        a[:, i1, i2, i3], e1, e2, e3, 1, kind_map, params_map,
+                        tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+                elif kind_fun == 92:
+                    values[i1, i2, i3] = transform_2_form_to_vector(
+                        a[:, i1, i2, i3], e1, e2, e3, 2, kind_map, params_map,
+                        tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+                elif kind_fun == 93:
+                    values[i1, i2, i3] = transform_2_form_to_vector(
+                        a[:, i1, i2, i3], e1, e2, e3, 3, kind_map, params_map,
+                        tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+
+                

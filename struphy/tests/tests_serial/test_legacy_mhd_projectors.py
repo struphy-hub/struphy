@@ -50,7 +50,8 @@ def test_1form_projectors_dot():
         print()
 
         # mhd projectors dot operator
-        eq_MHD = HomogenSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200., 'n0' : 1.}, domain)
+        eq_MHD = HomogenSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200., 'n0' : 1.})
+        eq_MHD.domain = domain
         
         dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD)
 
@@ -341,7 +342,8 @@ def test_2form_projectors_dot():
         print()
 
         # mhd projectors dot operator
-        eq_MHD = HomogenSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200., 'n0' : 1.}, domain)
+        eq_MHD = HomogenSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200., 'n0' : 1.})
+        eq_MHD.domain = domain
         
         dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD)
 
@@ -610,7 +612,8 @@ def test_1form_symmetric():
         print()
 
         # mhd projectors dot operator
-        eq_MHD = HomogenSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200., 'n0' : 1.}, domain)
+        eq_MHD = HomogenSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200., 'n0' : 1.})
+        eq_MHD.domain = domain
         
         dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD)
 
@@ -775,7 +778,8 @@ def test_2form_symmetric():
         print()
 
         # mhd projectors dot operator
-        eq_MHD = HomogenSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200., 'n0' : 1.}, domain)
+        eq_MHD = HomogenSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200., 'n0' : 1.})
+        eq_MHD.domain = domain
         
         dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD)
 

@@ -8,6 +8,7 @@ from struphy.psydac_api.fields import Field
 from struphy.pic import particles
 from struphy.models.pre_processing import plasma_params
 from struphy.fields_background.mhd_equil import analytical as analytical_mhd
+from struphy.fields_background.mhd_equil import numerical as numerical_mhd
 from struphy.fields_background.electric_equil import analytical as analytical_electric
 
 
@@ -43,6 +44,39 @@ class StruphyModel( metaclass=ABCMeta ):
         domain_class = getattr(domains, dom_type)
         self._domain = domain_class(dom_params)
 
+        # mhd equilibrium
+        if 'mhd_equilibrium' in params: 
+            equil_params = params['mhd_equilibrium']
+
+            if equil_params['type'] == 'analytical':
+                mhd_equil_class = getattr(analytical_mhd, equil_params['name'])
+                self._mhd_equil = mhd_equil_class(equil_params[equil_params['name']])
+
+                # set mapping for equilibrium object
+                self._mhd_equil.domain = self.domain
+
+            elif equil_params['type'] == 'numerical':
+                mhd_equil_class = getattr(numerical_mhd, equil_params['name'])
+                self._mhd_equil = mhd_equil_class(equil_params[equil_params['name']])
+
+                # reset domain 
+                self._domain = self.mhd_equil.domain
+                
+            else:
+                raise TypeError('type parameter must be either "analytical" or "numerical", is {0}'.format(equil_params['type']))
+        else:
+            self._mhd_equil = None
+
+        # electric equilibrium
+        if 'electric_equilibrium' in params:
+            equil_params = params['electric_equilibrium']
+            electric_equil_class = getattr(
+                analytical_electric, equil_params['type'])
+            self._electric_equil = electric_equil_class(
+                equil_params[equil_params['type']], self.domain)
+        else:
+            self._electric_equil = None
+
         # plasma size
         self._size_params = {}
         h = 1/100
@@ -54,6 +88,20 @@ class StruphyModel( metaclass=ABCMeta ):
         self._size_params['transit length [m]'] = self.size_params['plasma volume [m^3]']**(1/3)
         self._size_params['transit k [1/m]'] = 2*np.pi / self._size_params['transit length [m]']
         self._size_params['eps_key'] = 'rho*k'
+
+        # minor radius
+        if self.mhd_equil is not None: 
+            if 'a' in self.mhd_equil.params:
+                self._size_params['minor radius [m]'] = self.mhd_equil.params['a']
+                self._size_params['transit length [m]'] = self._size_params['minor radius [m]']
+                self._size_params['transit k [1/m]'] = 2*np.pi / self._size_params['transit length [m]']
+                self._size_params['eps_key'] = 'rhostar'
+
+            # average B-field strength (Tesla)
+            eta1 = np.linspace(0., 1., 100)
+            eta2 = np.linspace(0., 1., 100)    
+            eta3 = np.linspace(0., 1., 100)
+            self._size_params['B_abs [T]'] = np.mean(self.mhd_equil.absB0(eta1, eta2, eta3))
 
         # 3d Derham sequence
         Nel = params['grid']['Nel'] # Number of grid cells
@@ -75,37 +123,6 @@ class StruphyModel( metaclass=ABCMeta ):
                               with_projectors=True,
                               polar_ck=polar_ck,
                               domain=self.domain)
-
-        # mhd equilibrium
-        if 'mhd_equilibrium' in params: 
-            equil_params = params['mhd_equilibrium']
-            mhd_equil_class = getattr(analytical_mhd, equil_params['type'])
-            self._mhd_equil = mhd_equil_class(equil_params[equil_params['type']], self.domain)
-
-            # minor radius 
-            if 'a' in self.mhd_equil.params:
-                self._size_params['minor radius [m]'] = self.mhd_equil.params['a']
-                self._size_params['transit length [m]'] = self._size_params['minor radius [m]']
-                self._size_params['transit k [1/m]'] = 2*np.pi / self._size_params['transit length [m]']
-                self._size_params['eps_key'] = 'rhostar'
-
-            # average B-field strength (Tesla)
-            eta1 = np.linspace(0., 1., 100)
-            eta2 = np.linspace(0., 1., 100)    
-            eta3 = np.linspace(0., 1., 100)
-            self._size_params['B_abs [T]'] = np.mean(self.mhd_equil.b0(eta1, eta2, eta3))
-        else:
-            self._mhd_equil = None
-
-        # electric equilibrium
-        if 'electric_equilibrium' in params:
-            equil_params = params['electric_equilibrium']
-            electric_equil_class = getattr(
-                analytical_electric, equil_params['type'])
-            self._electric_equil = electric_equil_class(
-                equil_params[equil_params['type']], self.domain)
-        else:
-            self._electric_equil = None
 
         # electromagnetic fields, fluid and/or kinetic species
         self._em_fields = {}

@@ -41,11 +41,12 @@ etaplot = [np.linspace(0., 1., 101),
 xplot = domain(*etaplot)
 
 # load MHD equilibrium
-mhd_type = params['mhd_equilibrium']['type']
-mhd_params = params['mhd_equilibrium'][mhd_type]
+mhd_name = params['mhd_equilibrium']['name']
+mhd_params = params['mhd_equilibrium'][mhd_name]
 
-mhd_class = getattr(analytical, mhd_type)
-mhd_equil = mhd_class(mhd_params, domain)
+mhd_class = getattr(analytical, mhd_name)
+mhd_equil = mhd_class(mhd_params)
+mhd_equil.domain = domain
 
 # field names, grid info and energies
 file = h5py.File(sim_path + '/data_proc0.hdf5', 'r')

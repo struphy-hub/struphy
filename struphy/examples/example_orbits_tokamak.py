@@ -22,8 +22,9 @@ domain = domain_class(dom_params)
 
 # load MHD equilibrium
 equil_params = params['mhd_equilibrium']
-mhd_equil_class = getattr(analytical, equil_params['type'])
-mhd_equil = mhd_equil_class(equil_params[equil_params['type']], domain)
+mhd_equil_class = getattr(analytical, equil_params['name'])
+mhd_equil = mhd_equil_class(equil_params[equil_params['name']])
+mhd_equil.domain = domain
 
 file = h5py.File(sim_path + 'data_proc0.hdf5', 'r')
 grid_info = file['scalar'].attrs['grid_info']
@@ -62,7 +63,7 @@ e1 = np.linspace(0., 1., 101)
 e2 = np.linspace(0., 1., 101)
 X = domain(e1, e2, 0.)
 
-plt.contourf(X[0], X[1], mhd_equil.b(X[0], X[1], X[2]), levels=50, cmap='inferno')
+plt.contourf(X[0], X[1], mhd_equil.absB(X[0], X[1], X[2]), levels=50, cmap='inferno')
 
 plt.xlabel('x [m]')
 plt.ylabel('y [m]')
