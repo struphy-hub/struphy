@@ -7,13 +7,11 @@ grid :
     nq_pr    : [6, 6, 6] # quadrature points per histopolation cell (for commuting projectors)
     polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
       
-
 time : 
       dt         : 0.02  # time step
       Tend       : 20. # simulation time interval is [0, Tend]
       max_time   : 300. # maximum runtime of program in minutes
       split_algo : Strang # LieTrotter | Strang
-
 
 geometry : 
     type : HollowTorusStraightFieldLine # mapping F (possible types seen below)  
@@ -22,9 +20,9 @@ geometry :
         a2       : 1.0 # minor radius
         R0       : 5.0 # major radius
             
-
 mhd_equilibrium : 
-    type : AdhocTorus # (possible choices seen below)
+    type : analytical # analytical or numerical
+    name : AdhocTorus # (possible choices seen below)
     AdhocTorus :
         a    : 1. # minor radius
         R0   : 5. # major radius

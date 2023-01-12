@@ -19,7 +19,7 @@ def test_solvers(Nel, p, spl_kind, mapping, show_plots=False, verbose=False):
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
     from struphy.psydac_api.mass import WeightedMassOperators
-    from struphy.fields_background.mhd_equil.analytical import ShearedSlab, ScrewPinch
+    from struphy.fields_background.mhd_equil.analytical import ShearedSlab
     
     from struphy.linear_algebra.iterative_solvers import bicgstab, pbicgstab
     from struphy.psydac_api.preconditioner import MassMatrixPreconditioner
@@ -44,13 +44,16 @@ def test_solvers(Nel, p, spl_kind, mapping, show_plots=False, verbose=False):
     
     # MHD equilibrium
     if   mapping[0] == 'Cuboid':
-        eq_mhd = ShearedSlab({'a': mapping[1]['r1'] - mapping[1]['l1'], 'R0': (mapping[1]['r3'] - mapping[1]['l3'])/(2*np.pi), 'B0': 1.0, 'q0': 1.05, 'q1': 1.8, 'n1': 3.0, 'n2': 4.0, 'na': 0.0, 'beta': 10.0}, domain)
+        eq_mhd = ShearedSlab({'a': mapping[1]['r1'] - mapping[1]['l1'], 'R0': (mapping[1]['r3'] - mapping[1]['l3'])/(2*np.pi), 'B0': 1.0, 'q0': 1.05, 'q1': 1.8, 'n1': 3.0, 'n2': 4.0, 'na': 0.0, 'beta': 10.0})
             
     elif mapping[0] == 'Colella':
-        eq_mhd = ShearedSlab({'a': mapping[1]['Lx'], 'R0': mapping[1]['Lz']/(2*np.pi), 'B0': 1.0, 'q0': 1.05, 'q1': 1.8, 'n1': 3.0, 'n2': 4.0, 'na': 0.0, 'beta': 10.0}, domain)
+        eq_mhd = ShearedSlab({'a': mapping[1]['Lx'], 'R0': mapping[1]['Lz']/(2*np.pi), 'B0': 1.0, 'q0': 1.05, 'q1': 1.8, 'n1': 3.0, 'n2': 4.0, 'na': 0.0, 'beta': 10.0})
         
         if show_plots:
             eq_mhd.plot_profiles()
+
+    # set equilibrium object domain
+    eq_mhd.domain = domain
 
     # derham object
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm)

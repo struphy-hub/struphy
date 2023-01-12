@@ -925,10 +925,9 @@ class Particles5D:
         Empty markers[:,5]
         
         """
-        from struphy.fields_background.mhd_equil import analytical
         from struphy.pic.utilities_kernels import eval_magnetic_moments
 
-        abs_b = derham.P['0'](mhd_equil.b0)
+        abs_b = derham.P['0'](mhd_equil.absB0)
 
         # save the calculated magnetic moments in markers[:,4]
         T1, T2, T3 = derham.Vh_fem['0'].knots

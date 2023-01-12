@@ -28,7 +28,8 @@ geometry :
             coordinates : straight # poloidal angular coordinate (possible choices: straight or equal arc)
                       
 mhd_equilibrium : 
-      type : AdhocTorus # (possible choices seen below)
+      type : analytical # analytical or numerical
+      name : AdhocTorus # (possible choices seen below)
       AdhocTorus :
             a      : 1. # minor radius (radius of cylinder)
             R0     : 4. # major radius (Lz = 2*pi*R0)

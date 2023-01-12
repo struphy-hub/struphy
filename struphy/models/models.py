@@ -46,7 +46,6 @@ class LinearMHD(StruphyModel):
 
         from struphy.psydac_api.mass import WeightedMassOperators
         from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
-        from struphy.fields_background.mhd_equil import analytical
         from struphy.propagators import propagators_fields
 
         self._u_space = params['fluid']['mhd']['mhd_u_space']
@@ -72,7 +71,7 @@ class LinearMHD(StruphyModel):
         shearalfven_solver = params['solvers']['solver_1']
         magnetosonic_solver = params['solvers']['solver_2']
 
-        # project background magnetic field and pressure
+        # project background magnetic field (2-form) and pressure (3-form)
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1, 
                                          self.mhd_equil.b2_2, 
                                          self.mhd_equil.b2_3])
@@ -226,7 +225,6 @@ class PC_LinearMHD_Vlasov(StruphyModel):
 
         from struphy.psydac_api.mass import WeightedMassOperators
         from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
-        from struphy.fields_background.mhd_equil import analytical
         from struphy.propagators import propagators_fields, propagators_markers, propagators_coupling
 
         self._u_space = params['fluid']['mhd']['mhd_u_space']
@@ -536,7 +534,6 @@ class Vlasov(StruphyModel):
     def __init__(self, params, comm):
 
         from struphy.propagators import propagators_markers
-        from struphy.fields_background.mhd_equil import analytical
 
         super().__init__(params, comm, ions='Particles6D')
 
@@ -619,20 +616,20 @@ class DriftKinetic(StruphyModel):
                                 self.mhd_equil.b2_2,
                                 self.mhd_equil.b2_3])
 
-        abs_b = self.derham.P['0'](self.mhd_equil.b0)
+        abs_b = self.derham.P['0'](self.mhd_equil.absB0)
 
-        norm_b1 = self.derham.P['1']([self.mhd_equil.norm_b1_1,
-                                      self.mhd_equil.norm_b1_2,
-                                      self.mhd_equil.norm_b1_3])
+        unit_b1 = self.derham.P['1']([self.mhd_equil.unit_b1_1,
+                                      self.mhd_equil.unit_b1_2,
+                                      self.mhd_equil.unit_b1_3])
 
-        norm_b2 = self.derham.P['2']([self.mhd_equil.norm_b2_1,
-                                      self.mhd_equil.norm_b2_2,
-                                      self.mhd_equil.norm_b2_3])
+        unit_b2 = self.derham.P['2']([self.mhd_equil.unit_b2_1,
+                                      self.mhd_equil.unit_b2_2,
+                                      self.mhd_equil.unit_b2_3])
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
         self._propagators += [propagators_markers.StepPushGuidingCenter1(ions, epsilon,
-                                                                         b, norm_b1, norm_b2, abs_b, 
+                                                                         b, unit_b1, unit_b2, abs_b, 
                                                                          self.derham, 
                                                                          ions_params['push_algos']['method'], 
                                                                          ions_params['push_algos']['integrator'],
@@ -640,7 +637,7 @@ class DriftKinetic(StruphyModel):
                                                                          ions_params['push_algos']['maxiter'],
                                                                          ions_params['push_algos']['tol'])]
         self._propagators += [propagators_markers.StepPushGuidingCenter2(ions, epsilon,
-                                                                         b, norm_b1, norm_b2, abs_b, 
+                                                                         b, unit_b1, unit_b2, abs_b, 
                                                                          self.derham, 
                                                                          ions_params['push_algos']['method'], 
                                                                          ions_params['push_algos']['integrator'],
@@ -648,7 +645,7 @@ class DriftKinetic(StruphyModel):
                                                                          ions_params['push_algos']['maxiter'],
                                                                          ions_params['push_algos']['tol'])]
         # self._propagators += [propagators_markers.StepPushGuidingCenter(ions, epsilon,
-        #                                                                 b, norm_b1, norm_b2, abs_b, 
+        #                                                                 b, unit_b1, unit_b2, abs_b, 
         #                                                                 self.derham, 
         #                                                                 ions_params['push_algos']['method'], 
         #                                                                 ions_params['push_algos']['integrator'],

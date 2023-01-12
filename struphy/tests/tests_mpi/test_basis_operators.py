@@ -47,19 +47,22 @@ def test_basis_ops(Nel, p, spl_kind, mapping, show_plots=False):
     
     # MHD equilibrium
     if   mapping[0] == 'Cuboid':
-        eq_mhd = ShearedSlab({'a': mapping[1]['r1'] - mapping[1]['l1'], 'R0': (mapping[1]['r3'] - mapping[1]['l3'])/(2*np.pi), 'B0': 1.0, 'q0': 1.05, 'q1': 1.8, 'n1': 3.0, 'n2': 4.0, 'na': 0.0, 'beta': 10.0}, domain)
+        eq_mhd = ShearedSlab({'a': mapping[1]['r1'] - mapping[1]['l1'], 'R0': (mapping[1]['r3'] - mapping[1]['l3'])/(2*np.pi), 'B0': 1.0, 'q0': 1.05, 'q1': 1.8, 'n1': 3.0, 'n2': 4.0, 'na': 0.0, 'beta': 10.0})
             
     elif mapping[0] == 'Colella':
-        eq_mhd = ShearedSlab({'a': mapping[1]['Lx'], 'R0': mapping[1]['Lz']/(2*np.pi), 'B0': 1.0, 'q0': 1.05, 'q1': 1.8, 'n1': 3.0, 'n2': 4.0, 'na': 0.0, 'beta': 10.0}, domain)
+        eq_mhd = ShearedSlab({'a': mapping[1]['Lx'], 'R0': mapping[1]['Lz']/(2*np.pi), 'B0': 1.0, 'q0': 1.05, 'q1': 1.8, 'n1': 3.0, 'n2': 4.0, 'na': 0.0, 'beta': 10.0})
         
         if show_plots:
             eq_mhd.plot_profiles()
         
     elif mapping[0] == 'HollowCylinder':
-        eq_mhd = ScrewPinch({'a': mapping[1]['a2'], 'R0': mapping[1]['R0'], 'B0': 1.0, 'q0': 1.05, 'q1': 1.8, 'n1': 3.0, 'n2': 4.0, 'na': 0.0, 'beta': 10.0}, domain)
+        eq_mhd = ScrewPinch({'a': mapping[1]['a2'], 'R0': mapping[1]['R0'], 'B0': 1.0, 'q0': 1.05, 'q1': 1.8, 'n1': 3.0, 'n2': 4.0, 'na': 0.0, 'beta': 10.0})
         
         if show_plots:
             eq_mhd.plot_profiles()
+
+    # set equilibrium object domain
+    eq_mhd.domain = domain
 
     # Psydac derham object
     nq_el = [p[0] + 1, p[1] + 1, p[2] + 1]

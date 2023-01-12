@@ -78,7 +78,8 @@ fem_2d = Tensor_spline_space([fem_1d_1, fem_1d_2], n_tor=n_tor, basis_tor=b_tor)
 fem_2d.set_projectors('general')
 
 # load MHD equilibrium 
-eq_mhd = ShearedSlab(params_mhd, domain)
+eq_mhd = ShearedSlab(params_mhd)
+eq_mhd.domain = domain
 
 # solve eigenvalue problem
 omega2_eig, U_eig, MAT = solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, b_tor)

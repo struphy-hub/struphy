@@ -1,9 +1,9 @@
 import numpy as np
 
-from struphy.fields_background.mhd_equil.base import EquilibriumMHD
+from struphy.fields_background.mhd_equil.base import AnalyticalMHDequilibrium
 
 
-class HomogenSlab(EquilibriumMHD):
+class HomogenSlab(AnalyticalMHDequilibrium):
     r"""
     Homogeneous MHD equilibrium in slab geometry.
 
@@ -21,24 +21,18 @@ class HomogenSlab(EquilibriumMHD):
                 * B0y  : magnetic field in y-direction
                 * B0z  : magnetic field in z-direction
                 * beta : plasma beta in % (ratio of kinetic pressure to magnetic pressure)
-                * n0   : number density
-
-        domain: struphy.geometry.base.Domain
-            All things mapping. Enables pull-backs if set.             
+                * n0   : number density            
     """
 
-    def __init__(self, params=None, domain=None):
+    def __init__(self, params=None):
 
         # set default parameters
         if params is None:
-            params_default = {'B0x': 0.,
-                              'B0y': 0.,
-                              'B0z': 1.,
-                              'beta': 100.,
-                              'n0': 1.}
-
-            super().__init__(params_default, domain)
-
+            params = {'B0x': 0.,
+                      'B0y': 0.,
+                      'B0z': 1.,
+                      'beta': 100.,
+                      'n0': 1.}
         # or check if given parameter dictionary is complete
         else:
             assert 'B0x' in params
@@ -49,7 +43,12 @@ class HomogenSlab(EquilibriumMHD):
 
             assert 'n0' in params
 
-            super().__init__(params, domain)
+        self._params = params
+
+    @property
+    def params(self):
+        '''Parameters describing the equilibrium.'''
+        return self._params
 
     # ===============================================================
     #                  profiles on physical domain
@@ -121,7 +120,7 @@ class HomogenSlab(EquilibriumMHD):
         return nn
 
 
-class ShearedSlab(EquilibriumMHD):
+class ShearedSlab(AnalyticalMHDequilibrium):
     r"""
     Sheared slab MHD equilibrium in Cartesian space :math:`(x, y, z)`. Profiles depend on :math:`x` solely. 
 
@@ -146,28 +145,22 @@ class ShearedSlab(EquilibriumMHD):
                 * n1   : 1st shape factor for number density profile 
                 * n2   : 2nd shape factor for number density profile 
                 * na   : number density at x=a
-                * beta : plasma beta in % at x=0 (ratio of kinetic pressure to magnetic pressure)
-
-        domain: struphy.geometry.base.Domain
-            All things mapping. Enables pull-backs if set.             
+                * beta : plasma beta in % at x=0 (ratio of kinetic pressure to magnetic pressure)            
     """
 
-    def __init__(self, params=None, domain=None):
+    def __init__(self, params=None):
 
         # set default parameters
         if params is None:
-            params_default = {'a': 1.,
-                              'R0': 3.,
-                              'B0': 1.,
-                              'q0': 1.05,
-                              'q1': 1.80,
-                              'n1': 0.,
-                              'n2': 0.,
-                              'na': 1.,
-                              'beta': 10.}
-
-            super().__init__(params_default, domain)
-
+            params = {'a': 1.,
+                      'R0': 3.,
+                      'B0': 1.,
+                      'q0': 1.05,
+                      'q1': 1.80,
+                      'n1': 0.,
+                      'n2': 0.,
+                      'na': 1.,
+                      'beta': 10.}
         # or check if given parameter dictionary is complete
         else:
             assert 'a' in params
@@ -184,7 +177,12 @@ class ShearedSlab(EquilibriumMHD):
 
             assert 'beta' in params
 
-            super().__init__(params, domain)
+        self._params = params
+
+    @property
+    def params(self):
+        '''Parameters describing the equilibrium.'''
+        return self._params
 
     # ===============================================================
     #             profiles for a sheared slab geometry
@@ -350,7 +348,7 @@ class ShearedSlab(EquilibriumMHD):
         return nn
 
 
-class ScrewPinch(EquilibriumMHD):
+class ScrewPinch(AnalyticalMHDequilibrium):
     r"""
     Straight tokamak (screw pinch) MHD equilibrium.
 
@@ -381,27 +379,21 @@ class ScrewPinch(EquilibriumMHD):
                 * n1   : 1st shape factor for number density profile 
                 * n2   : 2nd shape factor for number density profile 
                 * na   : number density at r=a
-                * beta : plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
-
-        domain: struphy.geometry.base.Domain
-            All things mapping. Enables pull-backs if set.  
+                * beta : plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)  
     """
 
-    def __init__(self, params=None, domain=None):
+    def __init__(self, params=None):
 
         # set default parameters
         if params is None:
-            params_default = {'a': 1.,
-                              'R0': 5.,
-                              'B0': 1.,
-                              'q0': 1.05,
-                              'q1': 1.80,
-                              'n1': 0.,
-                              'n2': 0.,
-                              'na': 1.}
-
-            super().__init__(params_default, domain)
-
+            params = {'a': 1.,
+                      'R0': 5.,
+                      'B0': 1.,
+                      'q0': 1.05,
+                      'q1': 1.80,
+                      'n1': 0.,
+                      'n2': 0.,
+                      'na': 1.}
         # or check if given parameter dictionary is complete
         else:
             assert 'a' in params
@@ -419,12 +411,17 @@ class ScrewPinch(EquilibriumMHD):
             if params['q0'] == params['q1']:
                 assert 'beta' in params
 
-            super().__init__(params, domain)
+        self._params = params
 
         # inverse cylindrical coordinate transformation (x, y, z) --> (r, theta, phi)
         self.r = lambda x, y, z: np.sqrt((x - self.params['R0'])**2 + y**2)
         self.theta = lambda x, y, z: np.arctan2(y, x - self.params['R0'])
         self.z = lambda x, y, z: 1*z
+
+    @property
+    def params(self):
+        '''Parameters describing the equilibrium.'''
+        return self._params
 
     # ===============================================================
     #           profiles for a straight tokamak equilibrium
@@ -599,7 +596,7 @@ class ScrewPinch(EquilibriumMHD):
         return nn
 
 
-class AdhocTorus(EquilibriumMHD):
+class AdhocTorus(AnalyticalMHDequilibrium):
     r"""
     Ad hoc tokamak MHD equilibrium with circular concentric flux surfaces.
 
@@ -635,31 +632,25 @@ class AdhocTorus(EquilibriumMHD):
                 * p_kind : kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
                 * p1     : 1st shape factor for ad hoc pressure profile
                 * p2     : 2nd shape factor for ad hoc pressure profile
-                * beta   : on-axis plasma beta in % (ratio of kinetic pressure to magnetic pressure)
-
-        domain: struphy.geometry.base.Domain
-            All things mapping. Enables pull-backs if set.   
+                * beta   : on-axis plasma beta in % (ratio of kinetic pressure to magnetic pressure)   
     """
 
-    def __init__(self, params=None, domain=None):
+    def __init__(self, params=None):
 
         # set default parameters
         if params is None:
-            params_default = {'a': 1.,
-                              'R0': 10.,
-                              'B0': 3.,
-                              'q0': 1.71,
-                              'q1': 1.87,
-                              'n1': 0.,
-                              'n2': 0.,
-                              'na': 1.,
-                              'p_kind': 1,
-                              'p1': 0.,
-                              'p2': 0.,
-                              'beta': 0.179}
-
-            super().__init__(params_default, domain)
-
+            params = {'a': 1.,
+                      'R0': 10.,
+                      'B0': 3.,
+                      'q0': 1.71,
+                      'q1': 1.87,
+                      'n1': 0.,
+                      'n2': 0.,
+                      'na': 1.,
+                      'p_kind': 1,
+                      'p1': 0.,
+                      'p2': 0.,
+                      'beta': 0.179}
         # or check if given parameter dictionary is complete
         else:
             assert 'a' in params
@@ -684,7 +675,7 @@ class AdhocTorus(EquilibriumMHD):
                 if params['q0'] == params['q1']:
                     assert 'beta' in params
 
-            super().__init__(params, domain)
+        self._params = params
 
         # inverse toroidal coordinate transformation (x, y, z) --> (r, theta, phi)
         self.r = lambda x, y, z: np.sqrt(
@@ -699,6 +690,11 @@ class AdhocTorus(EquilibriumMHD):
         # distance from axis of symmetry
         self.R = lambda r, theta: self.params['R0'] * \
             (1 + self.eps_loc(r)*np.cos(theta))
+
+    @property
+    def params(self):
+        '''Parameters describing the equilibrium.'''
+        return self._params
 
     # ===============================================================
     #           profiles for an ad hoc tokamak equilibrium
