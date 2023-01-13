@@ -47,14 +47,14 @@ class EquilibriumElectric(metaclass=ABCMeta):
         """
         return
 
-    def phi0(self, eta1, eta2, eta3):
+    def phi0(self, *etas):
         """ Equilibrium electric potential as 0-form, evaluated on logical unit cube.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull(self.phi, eta1, eta2, eta3, '0_form')
+        return self.domain.pull(self.phi, *etas, kind='0_form')
 
-    def phi3(self, eta1, eta2, eta3):
+    def phi3(self, *etas):
         """ Equilibrium electric potential as 3-form, evaluated on logical unit cube.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull(self.phi, eta1, eta2, eta3, '3_form')
+        return self.domain.pull(self.phi, *etas, kind='3_form')

@@ -34,8 +34,6 @@ BEV3 := $(struphy_path)/b_splines/bspline_evaluation_3d
 # Mapping
 MAFA := $(struphy_path)/geometry/mappings_fast
 MEVA := $(struphy_path)/geometry/map_eval
-PB3  := $(struphy_path)/geometry/pullback
-PF3  := $(struphy_path)/geometry/pushforward
 TR3  := $(struphy_path)/geometry/transform
 
 # Kinetic background
@@ -66,7 +64,7 @@ KM3  := $(struphy_path)/eigenvalue_solvers/kernels_3d
 KPG  := $(struphy_path)/eigenvalue_solvers/kernels_projectors_global
 KPGM := $(struphy_path)/eigenvalue_solvers/kernels_projectors_global_mhd
 
-SOURCES := $(LAC).py $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(PB3).py $(PF3).py $(TR3).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(PUTL).py $(PUSH).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py $(PSY3).py
+SOURCES := $(LAC).py $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(TR3).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(PUTL).py $(PUSH).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py $(PSY3).py
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
@@ -108,12 +106,6 @@ $(MAFA)$(SO_EXT) : $(MAFA).py $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
 $(MEVA)$(SO_EXT) : $(MEVA).py $(MAFA)$(SO_EXT) $(LAC)$(SO_EXT)
-	pyccel $< $(FLAGS)
-
-$(PB3)$(SO_EXT) : $(PB3).py $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT)
-	pyccel $< $(FLAGS)
-
-$(PF3)$(SO_EXT) : $(PF3).py $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
 $(TR3)$(SO_EXT) : $(TR3).py $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT)
@@ -186,20 +178,3 @@ clean:
 	find $(struphy_path)/ -type d -name '__pyccel__' -prune -exec rm -rf {} \;
 	find $(struphy_path)/ -type d -name '__pycache__' -prune -exec rm -rf {} \;
 	find $(struphy_path)/ -type f -name '*.lock' -delete
-
-#	rm -rf $(struphy_path)/__pyccel__ $(struphy_path)/__pycache__
-#	rm -rf $(struphy_path)/b_splines/__pyccel__ $(struphy_path)/b_splines/__pycache__ $(struphy_path)/b_splines/.lock_acquisition.lock
-#	rm -rf $(struphy_path)/diagnostics/__pyccel__ $(struphy_path)/diagnostics/__pycache__ $(struphy_path)/diagnostics/.lock_acquisition.lock
-#	rm -rf $(struphy_path)/dispersion_relations/__pyccel__ $(struphy_path)/dispersion_relations/__pycache__ $(struphy_path)/dispersion_relations/.lock_acquisition.lock
-#	rm -rf $(struphy_path)/eigenvalue_solvers/__pyccel__ $(struphy_path)/eigenvalue_solvers/__pycache__ $(struphy_path)/eigenvalue_solvers/.lock_acquisition.lock
-#	rm -rf $(struphy_path)/fields_background/__pyccel__ $(struphy_path)/fields_background/__pycache__ $(struphy_path)/fields_background/.lock_acquisition.lock
-#	rm -rf $(struphy_path)/geometry/__pyccel__ $(struphy_path)/geometry/__pycache__ $(struphy_path)/geometry/.lock_acquisition.lock 
-#	rm -rf $(struphy_path)/initial/__pyccel__ $(struphy_path)/initial/__pycache__ $(struphy_path)/initial/.lock_acquisition.lock
-#	rm -rf $(struphy_path)/kinetic_background/__pyccel__ $(struphy_path)/kinetic_background/__pycache__ $(struphy_path)/kinetic_background/.lock_acquisition.lock    
-#	rm -rf $(struphy_path)/linear_algebra/__pyccel__ $(struphy_path)/linear_algebra/__pycache__ $(struphy_path)/linear_algebra/.lock_acquisition.lock
-#	rm -rf $(struphy_path)/models/__pyccel__ $(struphy_path)/models/__pycache__     $(struphy_path)/models/.lock_acquisition.lock
-#	rm -rf $(struphy_path)/pic/__pyccel__ $(struphy_path)/pic/__pycache__     $(struphy_path)/pic/.lock_acquisition.lock
-#	rm -rf $(struphy_path)/polar/__pyccel__ $(struphy_path)/polar/__pycache__     $(struphy_path)/polar/.lock_acquisition.lock
-#	rm -rf $(struphy_path)/post_processing/__pyccel__ $(struphy_path)/post_processing/__pycache__ $(struphy_path)/post_processing/.lock_acquisition.lock
-#	rm -rf $(struphy_path)/propagators/__pyccel__ $(struphy_path)/propagators/__pycache__ $(struphy_path)/propagators/.lock_acquisition.lock
-#	rm -rf $(struphy_path)/psydac_api/__pyccel__ $(struphy_path)/psydac_api/__pycache__ $(struphy_path)/psydac_api/.lock_acquisition.lock

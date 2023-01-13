@@ -53,27 +53,20 @@ kinetic :
                   beta : 0.01 # plasma beta = p*2*mu_0/|B|^2
             markers :
                   type    : full_f # full_f or delta_f
-                  ppc     : null  # number of markers per 3d grid cell
                   Np      : 3 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
                   eps     : 1.0 # MPI send/receive buffer (0.1 <= eps <= 1.0)
                   bc_type : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
                   loading :
-                        type        : pseudo_random # particle loading mechanism 
-                        seed        : 1608 # seed for random number generator
-                        moms_params : [1., 0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
-                        initial     : [[.501, 0.001, 0.001, 0., 0.06,  0.0450], 
-                                       [.501, 0.001, 0.001, 0., 0.06, -0.0450], 
-                                       [.501, 0.001, 0.001, 0., 0.06, -0.0225]]
-
-            background :
-                  type        : 0 # 0: Maxwellian in 6d
-                  moms_spec   : [0, 0, 0, 0, 0, 0, 0] # Specifier for the moments n0, u0x, u0y, u0z, vth0x, vth0y, vth0z. 0 means constant
-                  moms_params : [1., 0., 0., 0., 1., 1., 1.] # parameters needed to specify the moments
-            perturbations : # always in logical position space
-                  type : null # null or possible types seen below
+                        type    : pseudo_random # particle loading mechanism 
+                        seed    : 1608 # seed for random number generator
+                        moments : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
+                        initial : [[.501, 0.001, 0.001, 0., 0.06,  0.0450], 
+                                   [.501, 0.001, 0.001, 0., 0.06, -0.0450], 
+                                   [.501, 0.001, 0.001, 0., 0.06, -0.0225]]
+            init : 
+                  type : Maxwellian6DUniform
             save_data :
                   n_markers : 3 # number of markers to be save during simulation
             push_algos :
                   vxb : analytic # possible choices: analytic, implicit
                   eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4
-            pc : full # for pressure coupling: full or perp

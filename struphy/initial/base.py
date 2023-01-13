@@ -45,41 +45,41 @@ class InitialMaxwell:
         """
         self._domain = domain
 
-    def e1_1(self, eta1, eta2, eta3):
+    def e1_1(self, *etas):
         """ 1-form initial electrid field (1-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.e_x, self.e_y, self.e_z], eta1, eta2, eta3, '1_form_1')
+        return self.domain.pull([self.e_x, self.e_y, self.e_z], *etas, kind='1_form')[0]
     
-    def e1_2(self, eta1, eta2, eta3):
+    def e1_2(self, *etas):
         """ 1-form initial electric field (2-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.e_x, self.e_y, self.e_z], eta1, eta2, eta3, '1_form_2')
+        return self.domain.pull([self.e_x, self.e_y, self.e_z], *etas, kind='1_form')[1]
         
-    def e1_3(self, eta1, eta2, eta3):
+    def e1_3(self, *etas):
         """ 1-form initial electric field (3-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.e_x, self.e_y, self.e_z], eta1, eta2, eta3, '1_form_3')
+        return self.domain.pull([self.e_x, self.e_y, self.e_z], *etas, kind='1_form')[2]
     
-    def b2_1(self, eta1, eta2, eta3):
+    def b2_1(self, *etas):
         """ 2-form initial magnetic field (1-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.b_x, self.b_y, self.b_z], eta1, eta2, eta3, '2_form_1')
+        return self.domain.pull([self.b_x, self.b_y, self.b_z], *etas, kind='2_form')[0]
     
-    def b2_2(self, eta1, eta2, eta3):
+    def b2_2(self, *etas):
         """ 2-form initial magnetic field (2-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.b_x, self.b_y, self.b_z], eta1, eta2, eta3, '2_form_2')
+        return self.domain.pull([self.b_x, self.b_y, self.b_z], *etas, kind='2_form')[1]
         
-    def b2_3(self, eta1, eta2, eta3):
+    def b2_3(self, *etas):
         """ 2-form initial magnetic field (3-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.b_x, self.b_y, self.b_z], eta1, eta2, eta3, '2_form_3')
+        return self.domain.pull([self.b_x, self.b_y, self.b_z], *etas, kind='2_form')[2]
 
 
 class InitialMHD:
@@ -128,98 +128,98 @@ class InitialMHD:
         """
         self._domain = domain
 
-    def u1_1(self, s, chi, phi):
+    def u1_1(self, *etas):
         """ 2-form initial magnetic field (1-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.u_x, self.u_y, self.u_z], s, chi, phi, '1_form_1')
+        return self.domain.pull([self.u_x, self.u_y, self.u_z], *etas, kind='1_form')[0]
     
-    def u1_2(self, s, chi, phi):
+    def u1_2(self, *etas):
         """ 2-form initial magnetic field (2-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.u_x, self.u_y, self.u_z], s, chi, phi, '1_form_2')
+        return self.domain.pull([self.u_x, self.u_y, self.u_z], *etas, kind='1_form')[1]
         
-    def u1_3(self, s, chi, phi):
+    def u1_3(self, *etas):
         """ 2-form initial magnetic field (3-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.u_x, self.u_y, self.u_z], s, chi, phi, '1_form_3')
+        return self.domain.pull([self.u_x, self.u_y, self.u_z], *etas, kind='1_form')[2]
     
-    def u2_1(self, s, chi, phi):
+    def u2_1(self, *etas):
         """ 2-form initial magnetic field (1-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.u_x, self.u_y, self.u_z], s, chi, phi, '2_form_1')
+        return self.domain.pull([self.u_x, self.u_y, self.u_z], *etas, kind='2_form')[0]
     
-    def u2_2(self, s, chi, phi):
+    def u2_2(self, *etas):
         """ 2-form initial magnetic field (2-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.u_x, self.u_y, self.u_z], s, chi, phi, '2_form_2')
+        return self.domain.pull([self.u_x, self.u_y, self.u_z], *etas, kind='2_form')[1]
         
-    def u2_3(self, s, chi, phi):
+    def u2_3(self, *etas):
         """ 2-form initial magnetic field (3-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.u_x, self.u_y, self.u_z], s, chi, phi, '2_form_3')
+        return self.domain.pull([self.u_x, self.u_y, self.u_z], *etas, kind='2_form')[2]
     
-    def uv_1(self, s, chi, phi):
+    def uv_1(self, *etas):
         """ 2-form initial magnetic field (1-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.u_x, self.u_y, self.u_z], s, chi, phi, 'vector_1')
+        return self.domain.pull([self.u_x, self.u_y, self.u_z], *etas, kind='vector')[0]
     
-    def uv_2(self, s, chi, phi):
+    def uv_2(self, *etas):
         """ 2-form initial magnetic field (2-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.u_x, self.u_y, self.u_z], s, chi, phi, 'vector_2')
+        return self.domain.pull([self.u_x, self.u_y, self.u_z], *etas, kind='vector')[1]
         
-    def uv_3(self, s, chi, phi):
+    def uv_3(self, *etas):
         """ 2-form initial magnetic field (3-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.u_x, self.u_y, self.u_z], s, chi, phi, 'vector_3')
+        return self.domain.pull([self.u_x, self.u_y, self.u_z], *etas, kind='vector')[2]
     
-    def b2_1(self, s, chi, phi):
+    def b2_1(self, *etas):
         """ 2-form initial magnetic field (1-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, '2_form_1')
+        return self.domain.pull([self.b_x, self.b_y, self.b_z], *etas, kind='2_form')[0]
     
-    def b2_2(self, s, chi, phi):
+    def b2_2(self, *etas):
         """ 2-form initial magnetic field (2-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, '2_form_2')
+        return self.domain.pull([self.b_x, self.b_y, self.b_z], *etas, kind='2_form')[1]
         
-    def b2_3(self, s, chi, phi):
+    def b2_3(self, *etas):
         """ 2-form initial magnetic field (3-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, '2_form_3')
+        return self.domain.pull([self.b_x, self.b_y, self.b_z], *etas, kind='2_form')[2]
     
-    def p0(self, s, chi, phi):
+    def p0(self, *etas):
         """ 0-form initial pressure in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.p], s, chi, phi, '0_form')
+        return self.domain.pull([self.p], *etas, kind='0_form')
       
-    def p3(self, s, chi, phi):
+    def p3(self, *etas):
         """ 3-form initial pressure in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.p], s, chi, phi, '3_form')
+        return self.domain.pull([self.p], *etas, kind='3_form')
    
-    def n0(self, s, chi, phi):
+    def n0(self, *etas):
         """ 0-form initial number density in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.n], s, chi, phi, '0_form')
+        return self.domain.pull([self.n], *etas, kind='0_form')
      
-    def n3(self, s, chi, phi):
+    def n3(self, *etas):
         """ 3-form initial number density in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.n], s, chi, phi, '3_form')
+        return self.domain.pull([self.n], *etas, kind='3_form')

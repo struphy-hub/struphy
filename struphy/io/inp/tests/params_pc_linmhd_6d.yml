@@ -112,33 +112,24 @@ kinetic :
                   kBT  : 100. # thermal energy in units keV 
                   beta : 0.01 # plasma beta = p*2*mu_0/|B|^2
             markers :
-                  type        : full_f # full_f or delta_f
-                  ppc         : 2  # particles per 3d grid cell
-                  eps         : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
-                  control_var : False # control variate (use delta-f)?
-                  bc_type     : [periodic, periodic, periodic] # remove, reflect or periodic
+                  type    : full_f # full_f or delta_f
+                  ppc     : 2  # particles per 3d grid cell
+                  eps     : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
+                  bc_type : [periodic, periodic, periodic] # remove, reflect or periodic
                   loading :
-                        type          : pseudo_random # particle loading mechanism 
-                        seed          : 1234 # seed for random number generator
-                        dir_particles : path_to_particles # directory of particles if loaded externally
-                        moms_params   : [1., 0., 0., 2.5, 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
-            background :
-                  type        : 0 # 0: Maxwellian in 6d
-                  moms_spec   : [0, 0, 0, 0, 0, 0, 0] # Specifier for the moments n0, u0x, u0y, u0z, vth0x, vth0y, vth0z. 0 means constant
-                  moms_params : [1., 0., 0., 2.5, 1., 1., 1.] # parameters needed to specify the moments
-            perturbations : # always in logical position space
-                  type : null # null or possible types seen below
-                  moms : [n, uz] # which velocity moment to perturb: n, ux, uy, uz, vthx, vthy, vthz
-                  Modes_sin : 
-                        k1 : [6.283186] # wave vectors in eta_1 
-                        k2 : [0.] # wave vectors in eta_2 
-                        k3 : [0.] # wave vectors in eta_3 
-                        amp : [0.001] # amplitudes
-                  Modes_cos : 
-                        k1 : [6.283186] # wave vectors in eta_1 
-                        k2 : [0.] # wave vectors in eta_2
-                        k3 : [0.] # wave vectors in eta_3
-                        amp : [0.001] # amplitudes
+                        type    : pseudo_random # particle loading mechanism 
+                        seed    : 1234 # seed for random number generator
+                        moments : [0., 0., 2.5, 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
+            init :
+                  type : Maxwellian6DUniform
+                  Maxwellian6DUniform :
+                        n  : 1.
+                        ux : 0.
+                        uy : 0.
+                        uz : 2.5
+                        vthx : 1.
+                        vthy : 1.
+                        vthz : 1.
             save_data :
                   n_markers : 3 # number of markers to be save during simulation
                   f :

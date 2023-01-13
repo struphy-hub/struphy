@@ -61,8 +61,8 @@ domain = domain_class(dom_params)
 # for plotting
 etaplot = [np.linspace(0., 1., 201), np.linspace(0., 1., 101)]
 
-xplot = domain.evaluate(etaplot[0], etaplot[1], 0., 'x')
-yplot = domain.evaluate(etaplot[0], etaplot[1], 0., 'y')
+xplot = domain(etaplot[0], etaplot[1], 0.)[0]
+yplot = domain(etaplot[0], etaplot[1], 0.)[1]
 rplot = etaplot[0]*a
 
 # set up 1d spline spaces and set projectors
@@ -110,8 +110,8 @@ ax[0, 1].set_title('Pressure')
 ax[0, 2].set_title('Number density')
 
 
-xgrid = domain.evaluate(fem_2d.el_b[0], fem_2d.el_b[1], 0., 'x')
-ygrid = domain.evaluate(fem_2d.el_b[0], fem_2d.el_b[1], 0., 'y')
+xgrid = domain(fem_2d.el_b[0], fem_2d.el_b[1], 0.)[0]
+ygrid = domain(fem_2d.el_b[0], fem_2d.el_b[1], 0.)[1]
 
 for i in range(xgrid.shape[0]):
     ax[1, 0].plot(xgrid[i, :], ygrid[i, :], 'k')

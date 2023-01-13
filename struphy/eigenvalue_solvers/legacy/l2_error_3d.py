@@ -48,25 +48,22 @@ def l2_error_V0(tensor_space_FEM, domain, fun, coeff):
     
     assert coeff.ndim == 3
     
-    # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2, Nel3, nq3)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'det_df'))
-    det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
+    # evaluation of |det(DF)| at quadrature points
+    det_df = abs(domain.jacobian_det(pts[0].flatten(), pts[1].flatten(), pts[2].flatten()))
     
     # evaluation of given 0-form at quadrature points
-    mat_f  = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
+    mat_f = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
     
     if callable(fun):
-        quad_mesh      = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij')
+        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij')
         mat_f[:, :, :] = fun(quad_mesh[0], quad_mesh[1], quad_mesh[2])
     else:
         mat_f[:, :, :] = fun
     
-    mat_f = mat_f.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
-    
     # compute error
     error = np.zeros(Nel, dtype=float)
 
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 0, 0], [0, 0, 0], basisN[0], basisN[1], basisN[2], basisN[0], basisN[1], basisN[2], indN[0], indN[1], indN[2], indN[0], indN[1], indN[2], error, mat_f, mat_f, coeff, coeff, det_df)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 0, 0], [0, 0, 0], basisN[0], basisN[1], basisN[2], basisN[0], basisN[1], basisN[2], indN[0], indN[1], indN[2], indN[0], indN[1], indN[2], error, mat_f.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), mat_f.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), coeff, coeff, det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]))
                 
     return np.sqrt(error.sum())
 
@@ -106,9 +103,9 @@ def l2_error_V1(tensor_space_FEM, domain, fun, coeff):
     # extract coefficients to tensor-product space
     coeff1, coeff2, coeff3 = tensor_space_FEM.extract_1(coeff)
     
-    # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2, Nel3, nq3)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'det_df'))
-    det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
+    # evaluation of G^(-1)*|det(DF)| at quadrature points
+    metric_coeffs = domain.metric_inv(pts[0].flatten(), pts[1].flatten(), pts[2].flatten())
+    metric_coeffs *= abs(domain.jacobian_det(pts[0].flatten(), pts[1].flatten(), pts[2].flatten()))
     
     # evaluation of given 1-form components at quadrature points
     mat_f1 = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
@@ -116,7 +113,7 @@ def l2_error_V1(tensor_space_FEM, domain, fun, coeff):
     mat_f3 = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
     
     if callable(fun[0]):
-        quad_mesh       = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij') 
+        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij') 
         mat_f1[:, :, :] = fun[0](quad_mesh[0], quad_mesh[1], quad_mesh[2])
         mat_f2[:, :, :] = fun[1](quad_mesh[0], quad_mesh[1], quad_mesh[2])
         mat_f3[:, :, :] = fun[2](quad_mesh[0], quad_mesh[1], quad_mesh[2])
@@ -124,43 +121,27 @@ def l2_error_V1(tensor_space_FEM, domain, fun, coeff):
         mat_f1[:, :, :] = fun[0]
         mat_f2[:, :, :] = fun[1]
         mat_f3[:, :, :] = fun[2]
-        
-    mat_f1 = mat_f1.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
-    mat_f2 = mat_f2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
-    mat_f3 = mat_f3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
     
     # compute error
     error = np.zeros(Nel, dtype=float)
     
     # 1 * f1 * G^11 * |det(DF)| * f1
-    g_inv = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_inv_11')
-
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 0, 0], [1, 0, 0], basisD[0], basisN[1], basisN[2], basisD[0], basisN[1], basisN[2], [indD[0], indN[1], indN[2]], [indD[0], indN[1], indN[2]], error, mat_f1, mat_f1, coeff1, coeff1, 1*g_inv*det_df)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 0, 0], [1, 0, 0], basisD[0], basisN[1], basisN[2], basisD[0], basisN[1], basisN[2], [indD[0], indN[1], indN[2]], [indD[0], indN[1], indN[2]], error, mat_f1.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), mat_f1.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), coeff1, coeff1, 1*metric_coeffs[0, 0].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]))
     
     # 2 * f1 * G^12 * |det(DF)| * f2
-    g_inv = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_inv_12')
-
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 0, 0], [0, 1, 0], basisD[0], basisN[1], basisN[2], basisN[0], basisD[1], basisN[2], [indD[0], indN[1], indN[2]], [indN[0], indD[1], indN[2]], error, mat_f1, mat_f2, coeff1, coeff2, 2*g_inv*det_df)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 0, 0], [0, 1, 0], basisD[0], basisN[1], basisN[2], basisN[0], basisD[1], basisN[2], [indD[0], indN[1], indN[2]], [indN[0], indD[1], indN[2]], error, mat_f1.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), mat_f2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), coeff1, coeff2, 2*metric_coeffs[0, 1].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]))
     
     # 2 * f1 * G^13 * |det(DF)| * f3
-    g_inv = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_inv_13')
-
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 0, 0], [0, 0, 1], basisD[0], basisN[1], basisN[2], basisN[0], basisN[1], basisD[2], [indD[0], indN[1], indN[2]], [indN[0], indN[1], indD[2]], error, mat_f1, mat_f3, coeff1, coeff3, 2*g_inv*det_df)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 0, 0], [0, 0, 1], basisD[0], basisN[1], basisN[2], basisN[0], basisN[1], basisD[2], [indD[0], indN[1], indN[2]], [indN[0], indN[1], indD[2]], error, mat_f1.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), mat_f3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), coeff1, coeff3, 2*metric_coeffs[0, 2].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]))
     
     # 1 * f2 * G^22 * |det(DF)| * f2
-    g_inv = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_inv_22')
-
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 1, 0], [0, 1, 0], basisN[0], basisD[1], basisN[2], basisN[0], basisD[1], basisN[2], [indN[0], indD[1], indN[2]], [indN[0], indD[1], indN[2]], error, mat_f2, mat_f2, coeff2, coeff2, 1*g_inv*det_df)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 1, 0], [0, 1, 0], basisN[0], basisD[1], basisN[2], basisN[0], basisD[1], basisN[2], [indN[0], indD[1], indN[2]], [indN[0], indD[1], indN[2]], error, mat_f2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), mat_f2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), coeff2, coeff2, 1*metric_coeffs[1, 1].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]))
     
     # 2 * f2 * G^23 * |det(DF)| * f3
-    g_inv = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_inv_23')
-
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 1, 0], [0, 0, 1], basisN[0], basisD[1], basisN[2], basisN[0], basisN[1], basisD[2], [indN[0], indD[1], indN[2]], [indN[0], indN[1], indD[2]], error, mat_f2, mat_f3, coeff2, coeff3, 2*g_inv*det_df)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 1, 0], [0, 0, 1], basisN[0], basisD[1], basisN[2], basisN[0], basisN[1], basisD[2], [indN[0], indD[1], indN[2]], [indN[0], indN[1], indD[2]], error, mat_f2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), mat_f3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), coeff2, coeff3, 2*metric_coeffs[1, 2].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]))
     
     # 1 * f3 * G^33 * |det(DF)| * f3
-    g_inv = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_inv_33')
-
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 0, 1], [0, 0, 1], basisN[0], basisN[1], basisD[2], basisN[0], basisN[1], basisD[2], [indN[0], indN[1], indD[2]], [indN[0], indN[1], indD[2]], error, mat_f3, mat_f3, coeff3, coeff3, 1*g_inv*det_df)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 0, 1], [0, 0, 1], basisN[0], basisN[1], basisD[2], basisN[0], basisN[1], basisD[2], [indN[0], indN[1], indD[2]], [indN[0], indN[1], indD[2]], error, mat_f3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), mat_f3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), coeff3, coeff3, 1*metric_coeffs[2, 2].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]))
                 
     return np.sqrt(error.sum())
 
@@ -200,9 +181,9 @@ def l2_error_V2(tensor_space_FEM, domain, fun, coeff):
     # extract coefficients to tensor-product space
     coeff1, coeff2, coeff3 = tensor_space_FEM.extract_2(coeff)
     
-    # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2, Nel3, nq3)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'det_df'))
-    det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
+    # evaluation of G/|det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2, Nel3, nq3)
+    metric_coeffs = domain.metric(pts[0].flatten(), pts[1].flatten(), pts[2].flatten())
+    metric_coeffs /= abs(domain.jacobian_det(pts[0].flatten(), pts[1].flatten(), pts[2].flatten()))
     
     # evaluation of given 2-form components at quadrature points
     mat_f1 = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
@@ -210,7 +191,7 @@ def l2_error_V2(tensor_space_FEM, domain, fun, coeff):
     mat_f3 = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
     
     if callable(fun[0]):
-        quad_mesh       = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij') 
+        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij') 
         mat_f1[:, :, :] = fun[0](quad_mesh[0], quad_mesh[1], quad_mesh[2])
         mat_f2[:, :, :] = fun[1](quad_mesh[0], quad_mesh[1], quad_mesh[2])
         mat_f3[:, :, :] = fun[2](quad_mesh[0], quad_mesh[1], quad_mesh[2])
@@ -218,43 +199,27 @@ def l2_error_V2(tensor_space_FEM, domain, fun, coeff):
         mat_f1[:, :, :] = fun[0]
         mat_f2[:, :, :] = fun[1]
         mat_f3[:, :, :] = fun[2]
-        
-    mat_f1 = mat_f1.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
-    mat_f2 = mat_f2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
-    mat_f3 = mat_f3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
     
     # compute error
     error = np.zeros(Nel, dtype=float)
     
     # 1 * f1 * G_11 / |det(DF)| * f1
-    g = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_11')
-
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 1, 1], [0, 1, 1], basisN[0], basisD[1], basisD[2], basisN[0], basisD[1], basisD[2], [indN[0], indD[1], indD[2]], [indN[0], indD[1], indD[2]], error, mat_f1, mat_f1, coeff1, coeff1, 1*g/det_df)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 1, 1], [0, 1, 1], basisN[0], basisD[1], basisD[2], basisN[0], basisD[1], basisD[2], [indN[0], indD[1], indD[2]], [indN[0], indD[1], indD[2]], error, mat_f1.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), mat_f1.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), coeff1, coeff1, 1*metric_coeffs[0, 0].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]))
     
     # 2 * f1 * G_12 / |det(DF)| * f2
-    g = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_12')
-
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 1, 1], [1, 0, 1], basisN[0], basisD[1], basisD[2], basisD[0], basisN[1], basisD[2], [indN[0], indD[1], indD[2]], [indD[0], indN[1], indD[2]], error, mat_f1, mat_f2, coeff1, coeff2, 2*g/det_df)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 1, 1], [1, 0, 1], basisN[0], basisD[1], basisD[2], basisD[0], basisN[1], basisD[2], [indN[0], indD[1], indD[2]], [indD[0], indN[1], indD[2]], error, mat_f1.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), mat_f2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), coeff1, coeff2, 2*metric_coeffs[0, 1].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]))
     
     # 2 * f1 * G_13 / |det(DF)| * f3
-    g = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_13')
-
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 1, 1], [1, 1, 0], basisN[0], basisD[1], basisD[2], basisD[0], basisD[1], basisN[2], [indN[0], indD[1], indD[2]], [indD[0], indD[1], indN[2]], error, mat_f1, mat_f3, coeff1, coeff3, 2*g/det_df)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 1, 1], [1, 1, 0], basisN[0], basisD[1], basisD[2], basisD[0], basisD[1], basisN[2], [indN[0], indD[1], indD[2]], [indD[0], indD[1], indN[2]], error, mat_f1.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), mat_f3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), coeff1, coeff3, 2*metric_coeffs[0, 2].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]))
     
     # 1 * f2 * G_22 / |det(DF)| * f2
-    g = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_22')
-
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 0, 1], [1, 0, 1], basisD[0], basisN[1], basisD[2], basisD[0], basisN[1], basisD[2], [indD[0], indN[1], indD[2]], [indD[0], indN[1], indD[2]], error, mat_f2, mat_f2, coeff2, coeff2, 1*g/det_df)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 0, 1], [1, 0, 1], basisD[0], basisN[1], basisD[2], basisD[0], basisN[1], basisD[2], [indD[0], indN[1], indD[2]], [indD[0], indN[1], indD[2]], error, mat_f2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), mat_f2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), coeff2, coeff2, 1*metric_coeffs[1, 1].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]))
     
     # 2 * f2 * G_23 / |det(DF)| * f3
-    g = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_23')
-
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 0, 1], [1, 1, 0], basisD[0], basisN[1], basisD[2], basisD[0], basisD[1], basisN[2], [indD[0], indN[1], indD[2]], [indD[0], indD[1], indN[2]], error, mat_f2, mat_f3, coeff2, coeff3, 2*g/det_df)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 0, 1], [1, 1, 0], basisD[0], basisN[1], basisD[2], basisD[0], basisD[1], basisN[2], [indD[0], indN[1], indD[2]], [indD[0], indD[1], indN[2]], error, mat_f2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), mat_f3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), coeff2, coeff3, 2*metric_coeffs[1, 2].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]))
     
     # 1 * f3 * G_33 / |det(DF)| * f3
-    g = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_33')
-
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 1, 0], [1, 1, 0], basisD[0], basisD[1], basisN[2], basisD[0], basisD[1], basisN[2], [indD[0], indD[1], indN[2]], [indD[0], indD[1], indN[2]], error, mat_f3, mat_f3, coeff3, coeff3, 1*g/det_df)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 1, 0], [1, 1, 0], basisD[0], basisD[1], basisN[2], basisD[0], basisD[1], basisN[2], [indD[0], indD[1], indN[2]], [indD[0], indD[1], indN[2]], error, mat_f3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), mat_f3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), coeff3, coeff3, 1*metric_coeffs[2, 2].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]))
                 
     return np.sqrt(error.sum())
 
@@ -295,24 +260,21 @@ def l2_error_V3(tensor_space_FEM, domain, fun, coeff):
     
     assert coeff.ndim == 3
     
-    # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2, Nel3, nq3)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'det_df'))
-    det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
-    
+    # evaluation of |det(DF)| at quadrature points
+    det_df = abs(domain.jacobian_det(pts[0].flatten(), pts[1].flatten(), pts[2].flatten()))
+
     # evaluation of given 3-form component at quadrature points
-    mat_f  = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
+    mat_f = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
     
     if callable(fun):
-        quad_mesh      = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij')
+        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij')
         mat_f[:, :, :] = fun(quad_mesh[0], quad_mesh[1], quad_mesh[2])
     else:
         mat_f[:, :, :] = fun
-        
-    mat_f = mat_f.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
     
     # compute error
     error = np.zeros(Nel, dtype=float)
 
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 1, 1], [1, 1, 1], basisD[0], basisD[1], basisD[2], basisD[0], basisD[1], basisD[2], indD[0], indD[1], indD[2], indD[0], indD[1], indD[2], error, mat_f, mat_f, coeff, coeff, 1/det_df)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 1, 1], [1, 1, 1], basisD[0], basisD[1], basisD[2], basisD[0], basisD[1], basisD[2], indD[0], indD[1], indD[2], indD[0], indD[1], indD[2], error, mat_f.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), mat_f.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), coeff, coeff, 1/det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]))
                 
     return np.sqrt(error.sum())

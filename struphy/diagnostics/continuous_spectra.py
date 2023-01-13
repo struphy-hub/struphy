@@ -54,7 +54,7 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
     ms = np.arange(m_range[1] - m_range[0] + 1) + m_range[0]
     
     # grid for normalized Jacobian determinant
-    det_df = domain.evaluate(gD_1, gD_2, 0., 'det_df')
+    det_df = domain.jacobian_det(gD_1, gD_2, 0.)
     
     # remove singularity for polar domains
     if domain.pole:
@@ -240,8 +240,8 @@ if __name__ == '__main__':
     
     etaplot[0][0] += 1e-5
 
-    xplot = domain.evaluate(etaplot[0], etaplot[1], 0., 'x')
-    yplot = domain.evaluate(etaplot[0], etaplot[1], 0., 'y')
+    xplot = domain(etaplot[0], etaplot[1], 0.)[0]
+    yplot = domain(etaplot[0], etaplot[1], 0.)[1]
     
     # plot equilibrium profiles for (s, chi=0)
     ax[0, 0].plot(etaplot[0], mhd_equil.b2_3(etaplot[0], 0., 0.)/mhd_equil.b2_2(etaplot[0], 0., 0.))
@@ -261,8 +261,8 @@ if __name__ == '__main__':
     ax[0, 2].set_title('Number density')
 
     # plot grid
-    xgrid = domain.evaluate(fem_2d.el_b[0], fem_2d.el_b[1], 0., 'x')
-    ygrid = domain.evaluate(fem_2d.el_b[0], fem_2d.el_b[1], 0., 'y')
+    xgrid = domain(fem_2d.el_b[0], fem_2d.el_b[1], 0.)[0]
+    ygrid = domain(fem_2d.el_b[0], fem_2d.el_b[1], 0.)[1]
 
     for i in range(xgrid.shape[0]):
         ax[1, 0].plot(xgrid[i, :], ygrid[i, :], 'tab:blue', alpha=0.5)

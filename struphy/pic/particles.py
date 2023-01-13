@@ -3,8 +3,8 @@ import h5py
 import scipy.special as sp
 
 from struphy.pic import sampling, sobol_seq
-from struphy.initial.initialize import KineticPerturbation
 from struphy.pic.pusher_utilities import reflect
+from struphy.kinetic_background import analytical
 
 
 class Particles6D:
@@ -13,20 +13,20 @@ class Particles6D:
 
     Parameters
     ----------
-        name : str
-            Name of the particle species.
+    name : str
+        Name of the particle species.
 
-        domain : struphy.geometry.domains
-            All things mapping.
+    domain : struphy.geometry.domains
+        All things mapping.
 
-        domain_array : array[float]
-            2d array of shape (comm_size, 9) defining the domain of each process.
+    domain_array : array[float]
+        2d array of shape (comm_size, 9) defining the domain of each process.
 
-        params : dict
-            Parameters under key-word markers in the parameter file.
+    params : dict
+        Parameters under key-word markers in the parameter file.
 
-        comm : mpi4py.MPI.Intracomm
-            MPI communicator.
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator.
     """
 
     def __init__(self, name, params_markers, domain, domain_array, comm):
@@ -47,14 +47,14 @@ class Particles6D:
         n_cells = np.sum(np.prod(self._domain_array[:, 2::3], axis=1, dtype=int))
         
         # number of markers to load on each process (depending on relative domain size)
-        if params_markers['ppc'] is None:
-            Np = params_markers['Np']
-            assert isinstance(Np, int)
-            ppc = Np/n_cells
-        else:
+        if 'ppc' in params_markers:
             ppc = params_markers['ppc']
             assert isinstance(ppc, int)
             Np = ppc*n_cells
+        else:
+            Np = params_markers['Np']
+            assert isinstance(Np, int)
+            ppc = Np/n_cells
             
         assert Np >= self._mpi_size
         
@@ -76,12 +76,14 @@ class Particles6D:
         self._markers = np.zeros((markers_size, 16), dtype=float)
         
         n_mks_load_cum_sum = np.cumsum(n_mks_load)
+        
+        loading_params = params_markers['loading']
 
         # load markers from external .hdf5 file
-        if params_markers['loading']['type'] == 'external':
+        if loading_params['type'] == 'external':
 
             if self._mpi_rank == 0:
-                file = h5py.File(params_markers['loading']['dir_markers'], 'r')
+                file = h5py.File(loading_params['dir_markers'], 'r')
 
                 self._markers[:n_mks_load_cum_sum[0], :
                               ] = file['markers'][:n_mks_load_cum_sum[0], :]
@@ -100,9 +102,9 @@ class Particles6D:
         else:
 
             # 1. standard random number generator (pseudo-random)
-            if params_markers['loading']['type'] == 'pseudo_random':
+            if loading_params['type'] == 'pseudo_random':
 
-                np.random.seed(params_markers['loading']['seed'])
+                np.random.seed(loading_params['seed'])
 
                 for i in range(self._mpi_size):
                     temp = np.random.rand(n_mks_load[i], 6)
@@ -114,13 +116,13 @@ class Particles6D:
                 del temp
 
             # 2. plain sobol numbers with skip of first 1000 numbers
-            elif params_markers['loading']['type'] == 'sobol_standard':
+            elif loading_params['type'] == 'sobol_standard':
 
                 self._markers[:n_mks_load_loc, :6] = sobol_seq.i4_sobol_generate(
                     6, n_mks_load_loc, 1000 + (n_mks_load_cum_sum - n_mks_load)[self._mpi_rank])
 
             # 3. symmetric sobol numbers in all 6 dimensions with skip of first 1000 numbers
-            elif params_markers['loading']['type'] == 'sobol_antithetic':
+            elif loading_params['type'] == 'sobol_antithetic':
 
                 temp_markers = sobol_seq.i4_sobol_generate(
                     6, n_mks_load_loc//64, 1000 + (n_mks_load_cum_sum - n_mks_load)[self._mpi_rank]//64)
@@ -135,7 +137,7 @@ class Particles6D:
             # inversion of Gaussian in velocity space
             for i in range(3):
                 self._markers[:n_mks_load_loc, i + 3] = sp.erfinv(
-                2*self._markers[:n_mks_load_loc, i + 3] - 1)*params_markers['loading']['moms_params'][i + 4] + params_markers['loading']['moms_params'][i + 1]
+                2*self._markers[:n_mks_load_loc, i + 3] - 1)*loading_params['moments'][i + 3] + loading_params['moments'][i]
             
         # fill holes in markers array with -1
         self._markers[n_mks_load_loc:] = -1.
@@ -144,8 +146,8 @@ class Particles6D:
         self._markers[:n_mks_load_loc, -1] = (n_mks_load_cum_sum - n_mks_load)[self._mpi_rank] + np.arange(n_mks_load_loc, dtype=float)
         
         # set specific initial condition for some particles
-        if 'initial' in params_markers['loading']:
-            specific_markers = params_markers['loading']['initial']
+        if 'initial' in loading_params:
+            specific_markers = loading_params['initial']
 
             counter = 0
             for i in range(len(specific_markers)):
@@ -157,22 +159,26 @@ class Particles6D:
                             
                     counter += 1
                             
-        # compute initial sampling density s0 at particle positions
-        self._markers[:n_mks_load_loc, 7] = self.s0(self._markers[:n_mks_load_loc, 0],
-                                                    self._markers[:n_mks_load_loc, 1],
-                                                    self._markers[:n_mks_load_loc, 2],
-                                                    self._markers[:n_mks_load_loc, 3], 
-                                                    self._markers[:n_mks_load_loc, 4],
-                                                    self._markers[:n_mks_load_loc, 5])
-
         # number of holes and markers on process
         self._holes = self._markers[:, 0] == -1.
         self._n_holes_loc = np.count_nonzero(self._holes)
         self._n_mks_loc = self._markers.shape[0] - self._n_holes_loc
+        
+        # compute initial sampling density s0 at particle positions
+        Maxwellian6DUniform = getattr(analytical, 'Maxwellian6DUniform')
+        
+        self._s3 = Maxwellian6DUniform(n=1., 
+                                       ux=loading_params['moments'][0], 
+                                       uy=loading_params['moments'][1], 
+                                       uz=loading_params['moments'][2],
+                                       vthx=loading_params['moments'][3], 
+                                       vthy=loading_params['moments'][4], 
+                                       vthz=loading_params['moments'][5])
+        
+        self._markers[:n_mks_load_loc, 7] = self.s0(*self._markers[:, :6].T)
 
         # check if all particle positions are inside the unit cube [0, 1]^3
-        assert not (np.any(self._markers[:n_mks_load_loc, :3] >= 1.) or 
-                    np.any(self._markers[:n_mks_load_loc, :3] <= 0.))
+        assert np.all(~self._holes[:n_mks_load_loc]) and np.all(self._holes[n_mks_load_loc:])
         
 
     @property
@@ -259,46 +265,33 @@ class Particles6D:
         """
         return self._markers[~self._holes]
     
+    @property
+    def s3(self):
+        """ Sampling density function for markers (3-form, normalized to 1, constant moments).
+        """
+        return self._s3
 
-    def s3(self, eta1, eta2, eta3, vx, vy, vz):
+    def s0(self, eta1, eta2, eta3, vx, vy, vz, remove_holes=True):
         """ 
-        Gaussian velocity distribution for sampling markers (3-form, normalized to 1, constant moments).
+        Sampling density transformed from 3-form to 0-form (division by Jacobian determinant).
         
         Parameters
         ----------
-            eta1, eta2, eta3 : float
-                Logical coordinates.
-                
-            vx, vy, vz : float
-                Cartesian velocity components.
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+            
+        vx, vy, vz : array_like
+            Velocity evaluation points.
+            
+        remove_holes : bool
+            If True, holes are removed from the returned array. If False, holes are evaluated to -1.
+            
+        Returns
+        -------
+        out : array-like
+            The 0-form sampling density.
         """
-
-        vthx = self.params['loading']['moms_params'][4]
-        vthy = self.params['loading']['moms_params'][5]
-        vthz = self.params['loading']['moms_params'][6]
-
-        Gx = np.exp(-(vx - self.params['loading']['moms_params'][1])**2 / vthx**2) / vthx / np.sqrt(np.pi)
-        Gy = np.exp(-(vy - self.params['loading']['moms_params'][2])**2 / vthy**2) / vthy / np.sqrt(np.pi)
-        Gz = np.exp(-(vz - self.params['loading']['moms_params'][3])**2 / vthz**2) / vthz / np.sqrt(np.pi)
-    
-        return Gx*Gy*Gz
-
-    def s0(self, eta1, eta2, eta3, vx, vy, vz):
-        """ 
-        Sampling distribution trasformed to 0-form.
-        
-        Parameters
-        ----------
-            eta1, eta2, eta3 : float
-                Logical coordinates.
-                
-            vx, vy, vz : float
-                Cartesian velocity components.
-        """
-
-        s3_markers = self.s3(eta1, eta2, eta3, vx, vy, vz)
-
-        return self.domain.transform(s3_markers, eta1.copy(), eta2.copy(), eta3.copy(), '3_to_0', flat_eval=True)
+        return self.domain.push(self.s3(eta1, eta2, eta3, vx, vy, vz), self.markers, kind='3_form', remove_outside=remove_holes)
 
     def mpi_sort_markers(self, do_test=False):
         """ 
@@ -306,8 +299,8 @@ class Particles6D:
         
         Parameters
         ----------
-            do_test : bool
-                Check if all markers are on the right process after sorting.
+        do_test : bool
+            Check if all markers are on the right process after sorting.
         """
 
         # create new markers_to_be_sent array and make corresponding holes in markers array
@@ -336,49 +329,45 @@ class Particles6D:
                 self.markers[~self._holes, :3] > self.domain_array[self.mpi_rank, 0::3], 
                 self.markers[~self._holes, :3] < self.domain_array[self.mpi_rank, 1::3]))
 
-    def initialize_weights(self, marker_type, background_params, perturb_params):
+    def initialize_weights(self, fun_params):
         """
-        Computes w0 = f0(t=0, eta(t=0), v(t=0)) / s0(t=0, eta(t=0), v(t=0)) from the initial distribution function.
+        Computes w0 = f0(t=0, eta(t=0), v(t=0)) / s0(t=0, eta(t=0), v(t=0)) from the initial distribution function and sets the corresponding columns for w0 and weights in markers array.
 
         Parameters
         ----------
-            marker_type : str
-                'full_f' or 'delta_f'
-
-            background_params : dict
-                Parameters for background distribution function used as initial condition.
-
-            perturb_params : dict
-                Parameters for perturbation of background distribution function used as initial condition.
+        fun_params : dict
+            Dictionary of the form {type : class_name, class_name : params_dict} defining the initial condition.
         """
+        
+        fun_name = fun_params['type']
 
-        f_init = KineticPerturbation(marker_type, background_params, perturb_params)
-
+        # load distribution function (with given parameters or default parameters)
+        if fun_name in fun_params:
+            f_init = getattr(analytical, fun_name)(**fun_params[fun_name])
+        else:
+            f_init = getattr(analytical, fun_name)()
+        
         # compute w0
-        self._markers[~self._holes, 8] = f_init(self._markers[~self.holes, :3],
-                                                self._markers[~self.holes, 3:6]) \
-                                            / self.markers[~self.holes, 7]
-
+        self._markers[~self._holes, 8] = f_init(*self.markers_wo_holes[:, :6].T)/self.markers_wo_holes[:, 7]
+        
         # set weights
-        self._markers[~self._holes, 6] = self.markers[~self._holes, 8]
+        self._markers[~self._holes, 6] = self.markers_wo_holes[:, 8]
 
-    def update_weights(self, kinetic_background, use_control):
+    def update_weights(self, f0, use_control=False):
         """
-        Computes the weight update w0-control*f0_back(eta, v)/s0, where control=True or control=False.
+        Updates the marker weights according to w0 - control*f0(eta, v)/s0, where control=True or control=False.
 
         Parameters
         ----------
-            TODO
+        f0 : callable
+            The distribution function used as a control variate. Is called as f0(eta1, eta2, eta3, vx, vy, vz).
+            
+        use_control : bool
+            Whether the update shall be performed or not.
         """
 
         if use_control:
-            self._markers[~self._holes, 6] = self._markers[~self._holes, 8] - kinetic_background.fh0_eq(
-                self.markers[~self._holes, 0], 
-                self.markers[~self._holes, 1], 
-                self.markers[~self._holes, 2], 
-                self.markers[~self._holes, 3], 
-                self.markers[~self._holes, 4], 
-                self.markers[~self._holes, 5])
+            self._markers[~self._holes, 6] = self.markers_wo_holes[:, 8] - f0(*self.markers_wo_holes[:, :6].T)/self.markers_wo_holes[:, 7]
             
     def binning(self, components, bin_edges):
         """
@@ -386,16 +375,16 @@ class Particles6D:
         
         Parameters
         ----------
-            components : list[bool]
-                List of length 6 giving the directions in phase space in which to bin.
-                
-            bin_edges : list[array]
-                List of bin edges (resolution) having the length of True entries in components.
+        components : list[bool]
+            List of length 6 giving the directions in phase space in which to bin.
+
+        bin_edges : list[array]
+            List of bin edges (resolution) having the length of True entries in components.
                 
         Returns
         -------
-            f_sclice : array-like
-                The reconstructed distribution function.
+        f_sclice : array-like
+            The reconstructed distribution function.
         """
         
         assert np.count_nonzero(components) == len(bin_edges)
@@ -411,12 +400,9 @@ class Particles6D:
         
         # binning
         f_slice = np.histogramdd(self.markers_wo_holes[:, slicing], 
-                                 bins=bin_edges, 
+                                 bins=bin_edges,
                                  weights=self.markers_wo_holes[:, 6]
-                                 /self._domain.jacobian_det(self.markers_wo_holes[:, 0].copy(), 
-                                                            self.markers_wo_holes[:, 1].copy(),
-                                                            self.markers_wo_holes[:, 2].copy(), 
-                                                            flat_eval=True))[0]
+                                 /self._domain.jacobian_det(self.markers))[0]
         
         return f_slice/(self._n_mks*bin_vol)
     
@@ -426,11 +412,11 @@ class Particles6D:
         
         Parameters
         ----------
-            components : list[bool]
-                List of length 6 giving the directions in phase space in which to bin.
-                
-            bin_edges : list[array]
-                List of bin edges (resolution) having the length of True entries in components.
+        components : list[bool]
+            List of length 6 giving the directions in phase space in which to bin.
+
+        bin_edges : list[array]
+            List of bin edges (resolution) having the length of True entries in components.
         """
         
         import matplotlib.pyplot as plt
@@ -443,20 +429,19 @@ class Particles6D:
 
         bin_centers = [bi[:-1] + (bi[1] - bi[0])/2 for bi in bin_edges]
         
-        labels = {0 : '$\eta_1$', 1 : '$\eta_2$', 2 : '$\eta_3$',
-                  3 : '$v_x$', 4 : '$v_y$', 5 : '$v_z$'}
+        #labels = {0 : '$\eta_1$', 1 : '$\eta_2$', 2 : '$\eta_3$', 3 : '$v_x$', 4 : '$v_y$', 5 : '$v_z$'}
         
         indices = np.nonzero(components)[0]
         
         if n_dim == 1:
             plt.plot(bin_centers[0], f_slice)
-            plt.xlabel(labels[indices[0]])
+            #plt.xlabel(labels[indices[0]])
         else:
             plt.contourf(bin_centers[0], bin_centers[1], f_slice, levels=20)
             plt.colorbar()
             plt.axis('square')
-            plt.xlabel(labels[indices[0]])
-            plt.ylabel(labels[indices[1]])
+            #plt.xlabel(labels[indices[0]])
+            #plt.ylabel(labels[indices[1]])
             
         plt.show()
 
@@ -470,20 +455,20 @@ class Particles5D:
 
     Parameters
     ----------
-        name : str
-            Name of the particle species.
+    name : str
+        Name of the particle species.
 
-        domain: struphy.geometry.domains
-            All things mapping.
+    domain: struphy.geometry.domains
+        All things mapping.
 
-        domain_array : array[float]
-            2d array of shape (comm_size, 6) defining the domain of each process.
+    domain_array : array[float]
+        2d array of shape (comm_size, 6) defining the domain of each process.
 
-        params : dict
-            Parameters under key-word markers in the parameter file.
+    params : dict
+        Parameters under key-word markers in the parameter file.
 
-        comm : Intracomm
-            MPI communicator from mpi4py.MPI.Intracomm.
+    comm : Intracomm
+        MPI communicator from mpi4py.MPI.Intracomm.
     """
 
     def __init__(self, name, params_markers, domain, domain_array, comm):
@@ -504,14 +489,14 @@ class Particles5D:
         n_cells = np.sum(np.prod(self._domain_array[:, 2::3], axis=1, dtype=int))
         
         # number of markers to load on each process (depending on relative domain size)
-        if params_markers['ppc'] is None:
-            Np = params_markers['Np']
-            assert isinstance(Np, int)
-            ppc = Np/n_cells
-        else:
+        if 'ppc' in params_markers:
             ppc = params_markers['ppc']
             assert isinstance(ppc, int)
             Np = ppc*n_cells
+        else:
+            Np = params_markers['Np']
+            assert isinstance(Np, int)
+            ppc = Np/n_cells
             
         assert Np >= self._mpi_size
         
@@ -533,12 +518,14 @@ class Particles5D:
         self._markers = np.zeros((markers_size, 24), dtype=float)
         
         n_mks_load_cum_sum = np.cumsum(n_mks_load)
+        
+        loading_params = params_markers['loading']
 
         # load markers from external .hdf5 file
-        if params_markers['loading']['type'] == 'external':
+        if loading_params['type'] == 'external':
 
             if self._mpi_rank == 0:
-                file = h5py.File(params_markers['loading']['dir_markers'], 'r')
+                file = h5py.File(loading_params['dir_markers'], 'r')
 
                 self._markers[:n_mks_load_cum_sum[0], :
                               ] = file['markers'][:n_mks_load_cum_sum[0], :]
@@ -557,9 +544,9 @@ class Particles5D:
         else:
 
             # 1. standard random number generator (pseudo-random)
-            if params_markers['loading']['type'] == 'pseudo_random':
+            if loading_params['type'] == 'pseudo_random':
 
-                np.random.seed(params_markers['loading']['seed'])
+                np.random.seed(loading_params['seed'])
 
                 for i in range(self._mpi_size):
                     temp = np.random.rand(n_mks_load[i], 6)
@@ -571,13 +558,13 @@ class Particles5D:
                 del temp
 
             # 2. plain sobol numbers with skip of first 1000 numbers
-            elif params_markers['loading']['type'] == 'sobol_standard':
+            elif loading_params['type'] == 'sobol_standard':
 
                 self._markers[:n_mks_load_loc, :6] = sobol_seq.i4_sobol_generate(
                     6, n_mks_load_loc, 1000 + (n_mks_load_cum_sum - n_mks_load)[self._mpi_rank])
 
             # 3. symmetric sobol numbers in all 6 dimensions with skip of first 1000 numbers
-            elif params_markers['loading']['type'] == 'sobol_antithetic':
+            elif loading_params['type'] == 'sobol_antithetic':
 
                 temp_markers = sobol_seq.i4_sobol_generate(
                     6, n_mks_load_loc//64, 1000 + (n_mks_load_cum_sum - n_mks_load)[self._mpi_rank]//64)
@@ -592,7 +579,7 @@ class Particles5D:
             # inversion of Gaussian in velocity space
             for i in range(3):
                 self._markers[:n_mks_load_loc, i + 3] = sp.erfinv(
-                2*self._markers[:n_mks_load_loc, i + 3] - 1)*params_markers['loading']['moms_params'][i + 4] + params_markers['loading']['moms_params'][i + 1]
+                2*self._markers[:n_mks_load_loc, i + 3] - 1)*loading_params['moments'][i + 3] + loading_params['moments'][i]
             
         # fill holes in markers array with -1
         self._markers[n_mks_load_loc:] = -1.
@@ -601,8 +588,8 @@ class Particles5D:
         self._markers[:n_mks_load_loc, -1] = (n_mks_load_cum_sum - n_mks_load)[self._mpi_rank] + np.arange(n_mks_load_loc, dtype=float)
         
         # set specific initial condition for some particles
-        if 'initial' in params_markers['loading']:
-            specific_markers = params_markers['loading']['initial']
+        if 'initial' in loading_params:
+            specific_markers = loading_params['initial']
 
             counter = 0
             for i in range(len(specific_markers)):
@@ -614,22 +601,26 @@ class Particles5D:
                             
                     counter += 1
                             
-        # compute initial sampling density s0 at particle positions
-        self._markers[:n_mks_load_loc, 7] = self.s0(self._markers[:n_mks_load_loc, 0],
-                                                    self._markers[:n_mks_load_loc, 1],
-                                                    self._markers[:n_mks_load_loc, 2],
-                                                    self._markers[:n_mks_load_loc, 3], 
-                                                    self._markers[:n_mks_load_loc, 4],
-                                                    self._markers[:n_mks_load_loc, 5])
-
         # number of holes and markers on process
         self._holes = self._markers[:, 0] == -1.
         self._n_holes_loc = np.count_nonzero(self._holes)
         self._n_mks_loc = self._markers.shape[0] - self._n_holes_loc
+        
+        # compute initial sampling density s0 at particle positions
+        Maxwellian6DUniform = getattr(analytical, 'Maxwellian6DUniform')
+        
+        self._s3 = Maxwellian6DUniform(n=1., 
+                                       ux=loading_params['moments'][0], 
+                                       uy=loading_params['moments'][1], 
+                                       uz=loading_params['moments'][2],
+                                       vthx=loading_params['moments'][3], 
+                                       vthy=loading_params['moments'][4], 
+                                       vthz=loading_params['moments'][5])
+        
+        self._markers[:n_mks_load_loc, 7] = self.s0(*self._markers[:, :6].T)
 
         # check if all particle positions are inside the unit cube [0, 1]^3
-        assert not (np.any(self._markers[:n_mks_load_loc, :3] >= 1.) or 
-                    np.any(self._markers[:n_mks_load_loc, :3] <= 0.))
+        assert np.all(~self._holes[:n_mks_load_loc]) and np.all(self._holes[n_mks_load_loc:])
         
 
     @property
@@ -716,46 +707,33 @@ class Particles5D:
         """
         return self._markers[~self._holes]
     
+    @property
+    def s3(self):
+        """ Sampling density function for markers (3-form, normalized to 1, constant moments).
+        """
+        return self._s3
 
-    def s3(self, eta1, eta2, eta3, vx, vy, vz):
+    def s0(self, eta1, eta2, eta3, vx, vy, vz, remove_holes=True):
         """ 
-        Gaussian velocity distribution for sampling markers (3-form, normalized to 1, constant moments).
+        Sampling density transformed from 3-form to 0-form (division by Jacobian determinant).
         
         Parameters
         ----------
-            eta1, eta2, eta3 : float
-                Logical coordinates.
-                
-            vx, vy, vz : float
-                Cartesian velocity components.
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+            
+        vx, vy, vz : array_like
+            Velocity evaluation points.
+            
+        remove_holes : bool
+            If True, holes are removed from the returned array. If False, holes are evaluated to -1.
+            
+        Returns
+        -------
+        out : array-like
+            The 0-form sampling density.
         """
-
-        vthx = self.params['loading']['moms_params'][4]
-        vthy = self.params['loading']['moms_params'][5]
-        vthz = self.params['loading']['moms_params'][6]
-
-        Gx = np.exp(-(vx - self.params['loading']['moms_params'][1])**2 / vthx**2) / vthx / np.sqrt(np.pi)
-        Gy = np.exp(-(vy - self.params['loading']['moms_params'][2])**2 / vthy**2) / vthy / np.sqrt(np.pi)
-        Gz = np.exp(-(vz - self.params['loading']['moms_params'][3])**2 / vthz**2) / vthz / np.sqrt(np.pi)
-    
-        return Gx*Gy*Gz
-
-    def s0(self, eta1, eta2, eta3, vx, vy, vz):
-        """ 
-        Sampling distribution trasformed to 0-form.
-        
-        Parameters
-        ----------
-            eta1, eta2, eta3 : float
-                Logical coordinates.
-                
-            vx, vy, vz : float
-                Cartesian velocity components.
-        """
-
-        s3_markers = self.s3(eta1, eta2, eta3, vx, vy, vz)
-
-        return self.domain.transform(s3_markers, eta1.copy(), eta2.copy(), eta3.copy(), '3_to_0', flat_eval=True)
+        return self.domain.push(self.s3(eta1, eta2, eta3, vx, vy, vz), self.markers, kind='3_form', remove_outside=remove_holes)
 
     def mpi_sort_markers(self, do_test=False):
         """ 
@@ -793,48 +771,45 @@ class Particles5D:
                 self.markers[~self._holes, :3] > self.domain_array[self.mpi_rank, 0::3], 
                 self.markers[~self._holes, :3] < self.domain_array[self.mpi_rank, 1::3]))
 
-    def initialize_weights(self, marker_type, background_params, perturb_params):
+    def initialize_weights(self, fun_params):
         """
-        Computes w0=f0(t=0, eta(t=0), v(t=0))/s0(t=0, eta(t=0), v(t=0)) from the initial distribution function.
+        Computes w0 = f0(t=0, eta(t=0), v(t=0)) / s0(t=0, eta(t=0), v(t=0)) from the initial distribution function and sets the corresponding columns for w0 and weights in markers array.
 
         Parameters
         ----------
-            marker_type : str
-                'full_f' or 'delta_f'
-
-            background_params : dict
-                Parameters for background distribution function used as initial condition.
-
-            perturb_params : dict
-                Parameters for perturbation of background distribution function used as initial condition.
+        fun_params : dict
+            Dictionary of the form {type : class_name, class_name : params_dict} defining the initial condition.
         """
+        
+        fun_name = fun_params['type']
 
-        f_init = KineticPerturbation(marker_type, background_params, perturb_params)
-
+        # load distribution function (with given parameters or default parameters)
+        if fun_name in fun_params:
+            f_init = getattr(analytical, fun_name)(**fun_params[fun_name])
+        else:
+            f_init = getattr(analytical, fun_name)()
+        
         # compute w0
-        self._markers[~self._holes, 8] = f_init(
-            self._markers[~self.holes, :3], self._markers[~self.holes, 3:6]) / self.markers[~self.holes, 7]
-
+        self._markers[~self._holes, 8] = f_init(*self.markers_wo_holes[:, :6].T)/self.markers_wo_holes[:, 7]
+        
         # set weights
-        self._markers[~self._holes, 6] = self.markers[~self._holes, 8]
+        self._markers[~self._holes, 6] = self.markers_wo_holes[:, 8]
 
-    def update_weights(self, kinetic_background, use_control):
+    def update_weights(self, f0, use_control=False):
         """
-        Computes the weight update w0-control*f0_back(eta, v)/s0, where control=True or control=False.
+        Updates the marker weights according to w0 - control*f0(eta, v)/s0, where control=True or control=False.
 
         Parameters
         ----------
-            TODO
+        f0 : callable
+            The distribution function used as a control variate. Is called as f0(eta1, eta2, eta3, vx, vy, vz).
+            
+        use_control : bool
+            Whether the update shall be performed or not.
         """
 
         if use_control:
-            self._markers[~self._holes, 6] = self._markers[~self._holes, 8] - kinetic_background.fh0_eq(
-                self.markers[~self._holes, 0], 
-                self.markers[~self._holes, 1], 
-                self.markers[~self._holes, 2], 
-                self.markers[~self._holes, 3], 
-                self.markers[~self._holes, 4], 
-                self.markers[~self._holes, 5])
+            self._markers[~self._holes, 6] = self.markers_wo_holes[:, 8] - f0(*self.markers_wo_holes[:, :6].T)/self.markers_wo_holes[:, 7]
             
     def binning(self, components, bin_edges):
         """
@@ -842,16 +817,16 @@ class Particles5D:
         
         Parameters
         ----------
-            components : list[bool]
-                List of length 6 giving the directions in phase space in which to bin.
-                
-            bin_edges : list[array]
-                List of bin edges (resolution) having the length of True entries in components.
+        components : list[bool]
+            List of length 6 giving the directions in phase space in which to bin.
+
+        bin_edges : list[array]
+            List of bin edges (resolution) having the length of True entries in components.
                 
         Returns
         -------
-            f_sclice : array-like
-                The reconstructed distribution function.
+        f_sclice : array-like
+            The reconstructed distribution function.
         """
         
         assert np.count_nonzero(components) == len(bin_edges)
@@ -867,12 +842,9 @@ class Particles5D:
         
         # binning
         f_slice = np.histogramdd(self.markers_wo_holes[:, slicing], 
-                                 bins=bin_edges, 
+                                 bins=bin_edges,
                                  weights=self.markers_wo_holes[:, 6]
-                                 /self._domain.jacobian_det(self.markers_wo_holes[:, 0].copy(), 
-                                                            self.markers_wo_holes[:, 1].copy(),
-                                                            self.markers_wo_holes[:, 2].copy(), 
-                                                            flat_eval=True))[0]
+                                 /self._domain.jacobian_det(self.markers))[0]
         
         return f_slice/(self._n_mks*bin_vol)
     
@@ -882,11 +854,11 @@ class Particles5D:
         
         Parameters
         ----------
-            components : list[bool]
-                List of length 6 giving the directions in phase space in which to bin.
-                
-            bin_edges : list[array]
-                List of bin edges (resolution) having the length of True entries in components.
+        components : list[bool]
+            List of length 6 giving the directions in phase space in which to bin.
+
+        bin_edges : list[array]
+            List of bin edges (resolution) having the length of True entries in components.
         """
         
         import matplotlib.pyplot as plt
@@ -899,24 +871,22 @@ class Particles5D:
 
         bin_centers = [bi[:-1] + (bi[1] - bi[0])/2 for bi in bin_edges]
         
-        labels = {0 : '$\eta_1$', 1 : '$\eta_2$', 2 : '$\eta_3$',
-                  3 : '$v_x$', 4 : '$v_y$', 5 : '$v_z$'}
+        #labels = {0 : '$\eta_1$', 1 : '$\eta_2$', 2 : '$\eta_3$', 3 : '$v_x$', 4 : '$v_y$', 5 : '$v_z$'}
         
         indices = np.nonzero(components)[0]
         
         if n_dim == 1:
             plt.plot(bin_centers[0], f_slice)
-            plt.xlabel(labels[indices[0]])
+            #plt.xlabel(labels[indices[0]])
         else:
             plt.contourf(bin_centers[0], bin_centers[1], f_slice, levels=20)
             plt.colorbar()
             plt.axis('square')
-            plt.xlabel(labels[indices[0]])
-            plt.ylabel(labels[indices[1]])
+            #plt.xlabel(labels[indices[0]])
+            #plt.ylabel(labels[indices[1]])
             
         plt.show()
-
-
+        
     def initialize_magnetic_moments(self, derham, mhd_equil):
         r"""
         

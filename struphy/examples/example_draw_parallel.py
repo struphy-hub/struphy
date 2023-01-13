@@ -20,9 +20,9 @@ spl_kind = [False, True, True]
 
 loading_type = 'pseudo_random'
 loading_params = {'type': loading_type, 'seed': 1234,
-                  'moms_params': [1., 0., 0., 0., 1., 1., 1.]}
+                  'moments': [0., 0., 0., 1., 1., 1.]}
 
-marker_params = {'ppc': 10, 'eps': .25, 'bc_type' : ['periodic', 'periodic', 'periodic'], 'loading': loading_params}
+marker_params = {'ppc': 10, 'eps': .25, 'loading': loading_params}
 
 # create domain
 dom_type = 'ShafranovShiftCylinder'
