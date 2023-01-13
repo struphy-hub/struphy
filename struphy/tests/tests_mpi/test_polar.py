@@ -351,17 +351,17 @@ def test_projectors(Nel, p, spl_kind):
     fun_vector = [fun_scalar, fun_scalar, fun_scalar]
 
     # pull-back to logical domain
-    fun0 =  lambda e1, e2, e3 : domain.pull(fun_scalar, e1, e2, e3, '0_form')
+    fun0 =  lambda e1, e2, e3 : domain.pull(fun_scalar, e1, e2, e3, kind='0_form')
 
-    fun1 = [lambda e1, e2, e3 : domain.pull(fun_vector, e1, e2, e3, '1_form_1'),
-            lambda e1, e2, e3 : domain.pull(fun_vector, e1, e2, e3, '1_form_2'),
-            lambda e1, e2, e3 : domain.pull(fun_vector, e1, e2, e3, '1_form_3')]
+    fun1 = [lambda e1, e2, e3 : domain.pull(fun_vector, e1, e2, e3, kind='1_form')[0],
+            lambda e1, e2, e3 : domain.pull(fun_vector, e1, e2, e3, kind='1_form')[1],
+            lambda e1, e2, e3 : domain.pull(fun_vector, e1, e2, e3, kind='1_form')[2]]
 
-    fun2 = [lambda e1, e2, e3 : domain.pull(fun_vector, e1, e2, e3, '2_form_1'),
-            lambda e1, e2, e3 : domain.pull(fun_vector, e1, e2, e3, '2_form_2'),
-            lambda e1, e2, e3 : domain.pull(fun_vector, e1, e2, e3, '2_form_3')]
+    fun2 = [lambda e1, e2, e3 : domain.pull(fun_vector, e1, e2, e3, kind='2_form')[0],
+            lambda e1, e2, e3 : domain.pull(fun_vector, e1, e2, e3, kind='2_form')[1],
+            lambda e1, e2, e3 : domain.pull(fun_vector, e1, e2, e3, kind='2_form')[2]]
 
-    fun3 =  lambda e1, e2, e3 : domain.pull(fun_scalar, e1, e2, e3, '3_form')
+    fun3 =  lambda e1, e2, e3 : domain.pull(fun_scalar, e1, e2, e3, kind='3_form')
     
     # ============ project on V0 =========================
     if rank == 0:

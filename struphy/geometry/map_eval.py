@@ -1,5 +1,5 @@
 """
-Module containing accelerated (pyccelized) functions for evaluation of metric coefficients 
+Module containing accelerated (pyccelized) functions for evaluating metric coefficients 
 corresponding to mappings (x, y, z) = F(eta_1, eta_2, eta_3).
 """
 from pyccel.decorators import pure, stack_array
@@ -17,35 +17,36 @@ def f(eta1: float, eta2: float, eta3: float,  # evaluation point
       ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]',
       # control points (numpy array, cloned to each process)
       cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-      f_out: 'float[:]'):  # output array
+      # output array
+      f_out: 'float[:]'):
     """
     Point-wise evaluation of (x, y, z) = F(eta1, eta2, eta3). 
 
     Parameters
     ----------
-        eta1, eta2, eta3 : float              
-            Logical coordinates in [0, 1].
+    eta1, eta2, eta3 : float              
+        Logical coordinates in [0, 1]^3.
 
-        kind_map : int                 
-            Kind of mapping (see module docstring).
+    kind_map : int                 
+        Kind of mapping (see module docstring).
 
-        params : array[float]
-            Parameters for the mapping in a 1d array.
+    params : float[:]
+        Parameters for the mapping in a 1d array.
 
-        t1, t2, t3 : array[float]          
-            Knot vectors of univariate B-splines.
+    t1, t2, t3 : float[:]   
+        Knot vectors of univariate B-splines.
 
-        p : array[int]
-            Degrees of univariate B-splines.
+    p : int[:]
+        Degrees of univariate B-splines.
 
-        ind1, ind2, ind3 : array[int]                 
-            Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
+    ind1, ind2, ind3 : int[:,:]             
+        Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
 
-        cx, cy, cz : array[float]     
-            Control points of (F_x, F_y, F_z) in case of a IGA mapping.
+    cx, cy, cz : float[:,:,:]     
+        Control points of (F_x, F_y, F_z) in case of an IGA mapping.
 
-        f_out : array[float]
-            Output: (x, y, z) = F(eta1, eta2, eta3).
+    f_out : float[:]
+        Output values.
     """
 
     if kind_map == 0:
@@ -105,35 +106,36 @@ def df(eta1: float, eta2: float, eta3: float,  # evaluation point
        ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]',
        # control points (numpy array, cloned to each process)
        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-       df_out: 'float[:,:]'):  # output array
+       # output array
+       df_out: 'float[:,:]'):
     """
     Point-wise evaluation of the Jacobian matrix DF = (dF_i/deta_j)_(i,j=1,2,3). 
 
     Parameters
     ----------
-        eta1, eta2, eta3 : float              
-            Logical coordinates in [0, 1].
+    eta1, eta2, eta3 : float              
+        Logical coordinates in [0, 1]^3.
 
-        kind_map : int                 
-            Kind of mapping (see module docstring).
+    kind_map : int                 
+        Kind of mapping (see module docstring).
 
-        params : array[float]
-            Parameters for the mapping in a 1d array.
+    params : float[:]
+        Parameters for the mapping in a 1d array.
 
-        t1, t2, t3 : array[float]          
-            Knot vectors of univariate splines.
+    t1, t2, t3 : float[:]   
+        Knot vectors of univariate B-splines.
 
-        p : array[int]
-            Degrees of univariate splines.
+    p : int[:]
+        Degrees of univariate B-splines.
 
-        ind1, ind2, ind3 : array[int]                 
-            Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
+    ind1, ind2, ind3 : int[:,:]             
+        Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
 
-        cx, cy, cz : array[float]     
-            Control points of (F_x, F_y, F_z) in case of a IGA mapping.
+    cx, cy, cz : float[:,:,:]     
+        Control points of (F_x, F_y, F_z) in case of an IGA mapping.
 
-        df_out : array[float]
-            Output: DF(eta1, eta2, eta3).
+    df_out : float[:,:]
+        Output values.
     """
 
     if kind_map == 0:
@@ -191,37 +193,38 @@ def det_df(eta1: float, eta2: float, eta3: float,  # evaluation point
            t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p: 'int[:]',
            # spline index arrays
            ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]',
-           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:  # control points (numpy array, cloned to each process)
+           # control points (numpy array, cloned to each process)
+           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     """
-    Point-wise evaluation of the Jacobian determinant det(df) = df/deta1.dot(df/deta2 x df/deta3). 
+    Point-wise evaluation of the Jacobian determinant det(dF) = dF/deta1.dot(dF/deta2 x dF/deta3). 
 
     Parameters
     ----------
-        eta1, eta2, eta3 : float              
-            Logical coordinates in [0, 1].
+    eta1, eta2, eta3 : float              
+        Logical coordinates in [0, 1]^3.
 
-        kind_map : int                 
-            Kind of mapping (see module docstring).
+    kind_map : int                 
+        Kind of mapping (see module docstring).
 
-        params : array[float]
-            Parameters for the mapping in a 1d array.
+    params : float[:]
+        Parameters for the mapping in a 1d array.
 
-        t1, t2, t3 : array[float]          
-            Knot vectors of univariate splines.
+    t1, t2, t3 : float[:]   
+        Knot vectors of univariate B-splines.
 
-        p : array[int]
-            Degrees of univariate splines.
+    p : int[:]
+        Degrees of univariate B-splines.
 
-        ind1, ind2, ind3 : array[int]                 
-            Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
+    ind1, ind2, ind3 : int[:,:]             
+        Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
 
-        cx, cy, cz : array[float]     
-            Control points of (F_x, F_y, F_z) in case of a IGA mapping.
-
-    Returns:
-    --------
-        detdf : float
-            Jacobian determinant det(df)(eta1, eta2, eta3).
+    cx, cy, cz : float[:,:,:]     
+        Control points of (F_x, F_y, F_z) in case of an IGA mapping.
+    
+    Returns
+    -------
+    detdf : int
+        Jacobian determinant.
     """
 
     df_mat = empty((3, 3), dtype=float)
@@ -241,41 +244,42 @@ def df_inv(eta1: float, eta2: float, eta3: float,  # evaluation point
            ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]',
            # control points (numpy array, cloned to each process)
            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-           dfinv_out: 'float[:,:]'):  # output array
+           # output array
+           dfinv_out: 'float[:,:]'):
     """
-    Point-wise evaluation of ij-th component of the inverse Jacobian matrix df^(-1)_ij (i,j=1,2,3). 
+    Point-wise evaluation of ij-th component of the inverse Jacobian matrix dF^(-1)_ij (i,j=1,2,3). 
 
-    The 3 x 3 inverse is computed directly from df, using the cross product of the columns of df:
+    The 3 x 3 inverse is computed directly from dF, using the cross product of the columns of dF:
 
-                            | [ (df/deta2) x (df/deta3) ]^T |
-    (df)^(-1) = 1/det_df *  | [ (df/deta3) x (df/deta1) ]^T |
-                            | [ (df/deta1) x (df/deta2) ]^T |
+                            | [ (dF/deta2) x (dF/deta3) ]^T |
+    (dF)^(-1) = 1/det(DF) * | [ (dF/deta3) x (dF/deta1) ]^T |
+                            | [ (dF/deta1) x (dF/deta2) ]^T |
 
     Parameters
     ----------
-        eta1, eta2, eta3 : float              
-            Logical coordinates in [0, 1].
+    eta1, eta2, eta3 : float              
+        Logical coordinates in [0, 1]^3.
 
-        kind_map : int                 
-            Kind of mapping (see module docstring).
+    kind_map : int                 
+        Kind of mapping (see module docstring).
 
-        params : array[float]
-            Parameters for the mapping in a 1d array.
+    params : float[:]
+        Parameters for the mapping in a 1d array.
 
-        t1, t2, t3 : array[float]          
-            Knot vectors of univariate splines.
+    t1, t2, t3 : float[:]   
+        Knot vectors of univariate B-splines.
 
-        p : array[int]
-            Degrees of univariate splines.
+    p : int[:]
+        Degrees of univariate B-splines.
 
-        ind1, ind2, ind3 : array[int]                 
-            Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
+    ind1, ind2, ind3 : int[:,:]             
+        Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
 
-        cx, cy, cz : array[float]     
-            Control points of (F_x, F_y, F_z) in case of a IGA mapping.
+    cx, cy, cz : float[:,:,:]     
+        Control points of (F_x, F_y, F_z) in case of an IGA mapping.
 
-        dfinv_out : array[float]
-            Output: the inverse Jacobian matrix at (eta1, eta2, eta3).
+    dfinv_out : float[:,:]
+        Output values.
     """
 
     df_mat = empty((3, 3), dtype=float)
@@ -293,35 +297,36 @@ def g(eta1: float, eta2: float, eta3: float,  # evaluation point
       ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]',
       # control points (numpy array, cloned to each process)
       cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-      g_out: 'float[:,:]'):  # output array
+      # output array
+      g_out: 'float[:,:]'):
     """
-    Point-wise evaluation of the metric tensor g = df^T * df. 
+    Point-wise evaluation of the metric tensor G = dF^T * dF. 
 
     Parameters
     ----------
-        eta1, eta2, eta3 : float              
-            Logical coordinates in [0, 1].
+    eta1, eta2, eta3 : float              
+        Logical coordinates in [0, 1]^3.
 
-        kind_map : int                 
-            Kind of mapping (see module docstring).
+    kind_map : int                 
+        Kind of mapping (see module docstring).
 
-        params : array[float]
-            Parameters for the mapping in a 1d array.
+    params : float[:]
+        Parameters for the mapping in a 1d array.
 
-        t1, t2, t3 : array[float]          
-            Knot vectors of univariate splines.
+    t1, t2, t3 : float[:]   
+        Knot vectors of univariate B-splines.
 
-        p : array[int]
-            Degrees of univariate splines.
+    p : int[:]
+        Degrees of univariate B-splines.
 
-        ind1, ind2, ind3 : array[int]                 
-            Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
+    ind1, ind2, ind3 : int[:,:]             
+        Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
 
-        cx, cy, cz : array[float]     
-            Control points of (F_x, F_y, F_z) in case of a IGA mapping.
+    cx, cy, cz : float[:,:,:]     
+        Control points of (F_x, F_y, F_z) in case of an IGA mapping.
 
-        g_out : array[float]
-            Output: g(eta1, eta2, eta3).
+    g_out : float[:,:]
+        Output values.
     """
 
     df_mat = empty((3, 3), dtype=float)
@@ -342,35 +347,36 @@ def g_inv(eta1: float, eta2: float, eta3: float,  # evaluation point
           ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]',
           # control points (numpy array, cloned to each process)
           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-          ginv_out: 'float[:,:]'):  # output array
+          # output array
+          ginv_out: 'float[:,:]'): 
     """
-    Point-wise evaluation of the inverse metric tensor g^(-1) = df^(-1) * df^(-T). 
+    Point-wise evaluation of the inverse metric tensor G^(-1) = dF^(-1) * dF^(-T). 
 
     Parameters
     ----------
-        eta1, eta2, eta3 : float              
-            Logical coordinates in [0, 1].
+    eta1, eta2, eta3 : float              
+        Logical coordinates in [0, 1]^3.
 
-        kind_map : int                 
-            Kind of mapping (see module docstring).
+    kind_map : int                 
+        Kind of mapping (see module docstring).
 
-        params : array[float]
-            Parameters for the mapping in a 1d array.
+    params : float[:]
+        Parameters for the mapping in a 1d array.
 
-        t1, t2, t3 : array[float]          
-            Knot vectors of univariate splines.
+    t1, t2, t3 : float[:]   
+        Knot vectors of univariate B-splines.
 
-        p : array[int]
-            Degrees of univariate splines.
+    p : int[:]
+        Degrees of univariate B-splines.
 
-        ind1, ind2, ind3 : array[int]                 
-            Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
+    ind1, ind2, ind3 : int[:,:]             
+        Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
 
-        cx, cy, cz : array[float]     
-            Control points of (F_x, F_y, F_z) in case of a IGA mapping.
+    cx, cy, cz : float[:,:,:]     
+        Control points of (F_x, F_y, F_z) in case of an IGA mapping.
 
-        ginv_out : array[float]
-            Output: g^(-1)(eta1, eta2, eta3).
+    ginv_out : float[:,:]
+        Output values.
     """
 
     g_mat = empty((3, 3), dtype=float)
@@ -379,56 +385,134 @@ def g_inv(eta1: float, eta2: float, eta3: float,  # evaluation point
 
     matrix_inv(g_mat, ginv_out)
     
+    
+def select_fun(eta1: float, eta2: float, eta3: float,  # evaluation point
+               kind_map: int, params: 'float[:]',  # mapping parameters
+               # spline mapping knots and degrees
+               t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p: 'int[:]',
+               # spline index arrays
+               ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]',
+               # control points (numpy array, cloned to each process)
+               cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+               # output array and kind of metric coefficient
+               mat_f: 'float[:,:]', kind_coeff: int):
+    """
+    Point-wise evaluation of metric coefficients 
+
+    Parameters
+    ----------
+    eta1, eta2, eta3 : float              
+        Logical coordinates in [0, 1]^3.
+
+    kind_map : int                 
+        Kind of mapping (see module docstring).
+
+    params : float[:]
+        Parameters for the mapping in a 1d array.
+
+    t1, t2, t3 : float[:]   
+        Knot vectors of univariate B-splines.
+
+    p : int[:]
+        Degrees of univariate B-splines.
+
+    ind1, ind2, ind3 : int[:,:]             
+        Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
+
+    cx, cy, cz : float[:,:,:]     
+        Control points of (F_x, F_y, F_z) in case of an IGA mapping.
+
+    mat_f : float[:,:]
+        Output values. Mapping is stored in mat_f[:, 0] and Jacobian determinant in mat_f[0, 0].
+        
+    kind_coeff : int
+        Which metric coefficient to evaluate. 
+            * -1 : identity 
+            *  0 : mapping
+            *  1 : Jacobian matrix
+            *  2 : Jacobian determinant
+            *  3 : inverse Jacobian matrix
+            *  4 : metric tensor
+            *  5 : inverse metric tensor
+    """
+    # identity map
+    if kind_coeff == -1:
+        mat_f[0, 0] = eta1
+        mat_f[1, 0] = eta2
+        mat_f[2, 0] = eta3
+    
+    # mapping F
+    elif kind_coeff == 0:
+        f(eta1, eta2, eta3, kind_map, params, t1, t2,
+          t3, p, ind1, ind2, ind3, cx, cy, cz, mat_f[:, 0])
+
+    # Jacobian matrix DF
+    elif kind_coeff == 1:
+        df(eta1, eta2, eta3, kind_map, params, t1, t2,
+           t3, p, ind1, ind2, ind3, cx, cy, cz, mat_f)
+
+    # Jacobian determinant det(dF)
+    elif kind_coeff == 2:
+        mat_f[0, 0] = det_df(
+            eta1, eta2, eta3, kind_map, params, t1, t2,
+            t3, p, ind1, ind2, ind3, cx, cy, cz)
+
+    # inverse Jacobian matrix DF^(-1) 
+    elif kind_coeff == 3:
+        df_inv(eta1, eta2, eta3, kind_map, params, t1, t2,
+               t3, p, ind1, ind2, ind3, cx, cy, cz, mat_f)
+
+    # metric tensor G = DF^T * DF
+    elif kind_coeff == 4:
+        g(eta1, eta2, eta3, kind_map, params, t1, t2,
+          t3, p, ind1, ind2, ind3, cx, cy, cz, mat_f)
+
+    # inverse metric tensor G^(-1) = DF^(-1) * DF^(-T)
+    elif kind_coeff == 5:
+        g_inv(eta1, eta2, eta3, kind_map, params, t1, t2,
+              t3, p, ind1, ind2, ind3, cx, cy, cz, mat_f)
+    
 @stack_array('mat')
-def kernel_evaluate_all(eta1 : 'float[:,:,:]', eta2 : 'float[:,:,:]', eta3 : 'float[:,:,:]', kind_fun : int, kind_map : int, params : 'float[:]', p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', ind1 : 'int[:,:]', ind2 : 'int[:,:]', ind3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', mat_f : 'float[:,:,:,:,:]', is_sparse_meshgrid : bool):
+def kernel_evaluate(eta1 : 'float[:,:,:]', eta2 : 'float[:,:,:]', eta3 : 'float[:,:,:]', kind_coeff : int, kind_map : int, params : 'float[:]', p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', ind1 : 'int[:,:]', ind2 : 'int[:,:]', ind3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', mat_f : 'float[:,:,:,:,:]', is_sparse_meshgrid : bool):
     """
-    Matrix-wise evaluation of
-        - f      : mapping x_i = f_i(eta1, eta2, eta3),
-        - df     : Jacobian matrix df_i/deta_j,
-        - det_df : Jacobian determinant det(df),
-        - df_inv : inverse Jacobian matrix (df_i/deta_j)^(-1),
-        - g      : metric tensor df^T * df,
-        - g_inv  : inverse metric tensor df^(-1) * df^(-T).
+    Evaluation of metric coefficients on a given 3d grid of evaluation points.
 
     Parameters
     ----------
-        eta1, eta2, eta3 : array[float]              
-            Logical coordinatess in 3d arrays.
+    eta1, eta2, eta3 : float[:,:,:]              
+        3d evaluation point sets.
 
-        kind_fun : int
-            Which metric coefficient to evaluate
+    kind_coeff : int
+        Which metric coefficient to evaluate.
 
-        kind_map : int                 
-            Kind of mapping (see module docstring).
+    kind_map : int                 
+        Kind of mapping (see module docstring).
 
-        params : array[float]
-            Parameters for the mapping in a 1d array.
+    params : float[:]
+        Parameters for the mapping in a 1d array.
 
-        p : array[int]
-            Degrees of univariate splines.
+    t1, t2, t3 : float[:]   
+        Knot vectors of univariate B-splines.
 
-        t1, t2, t3 : array[float]          
-            Knot vectors of univariate splines.
+    p : int[:]
+        Degrees of univariate B-splines.
 
-        ind1, ind2, ind3 : array[int]                 
-            Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
+    ind1, ind2, ind3 : int[:,:]             
+        Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
 
-        cx, cy, cz : array[float]     
-            Control points of (F_x, F_y, F_z) in case of a IGA mapping.
+    cx, cy, cz : float[:,:,:]     
+        Control points of (F_x, F_y, F_z) in case of an IGA mapping.
 
-        mat_f : array[float]
-            Matrix-valued mapping/metric coefficient evaluated at (eta1, eta2, eta3).
+    mat_f : float[:,:,:,:,:]
+        Output values.
 
-        is_sparse_meshgrid : bool
-            Whether the evaluation points werde obtained from a sparse meshgrid.
+    is_sparse_meshgrid : bool
+        Whether the 3d evaluation points were obtained from a sparse meshgrid.
     """
 
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
     n3 = shape(eta3)[2]
-    
-    # container for point-wise evaluation
-    mat = empty((3, 3), dtype=float)
 
     if is_sparse_meshgrid:
         sparse_factor = 0
@@ -442,207 +526,73 @@ def kernel_evaluate_all(eta1 : 'float[:,:,:]', eta2 : 'float[:,:,:]', eta3 : 'fl
                 e1 = eta1[i1, i2*sparse_factor, i3*sparse_factor]
                 e2 = eta2[i1*sparse_factor, i2, i3*sparse_factor]
                 e3 = eta3[i1*sparse_factor, i2*sparse_factor, i3]
-
-                # mapping f
-                if kind_fun == 0:
-                    f(e1, e2, e3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, mat[0])
-                    mat_f[:, 0, i1, i2, i3] = mat[0]
-                    
-                # Jacobian matrix df
-                elif kind_fun == 1:
-                    df(e1, e2, e3, kind_map, params, t1, t2,
-                       t3, p, ind1, ind2, ind3, cx, cy, cz, mat)
-                    mat_f[:, :, i1, i2, i3] = mat
-
-                # Jacobian determinant det_df
-                elif kind_fun == 2:
-                    mat_f[0, 0, i1, i2, i3] = det_df(
-                        e1, e2, e3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz)
-
-                # inverse Jacobian matrix df_inv
-                elif kind_fun == 3:
-                    df_inv(e1, e2, e3, kind_map, params, t1, t2,
-                           t3, p, ind1, ind2, ind3, cx, cy, cz, mat)
-                    mat_f[:, :, i1, i2, i3] = mat
-
-                # metric tensor g
-                elif kind_fun == 4:
-                    g(e1, e2, e3, kind_map, params, t1, t2,
-                      t3, p, ind1, ind2, ind3, cx, cy, cz, mat)
-                    mat_f[:, :, i1, i2, i3] = mat
-
-                # inverse metric tensor g_inv
-                elif kind_fun == 5:
-                    g_inv(e1, e2, e3, kind_map, params, t1, t2,
-                          t3, p, ind1, ind2, ind3, cx, cy, cz, mat)
-                    mat_f[:, :, i1, i2, i3] = mat
-
-def kernel_evaluate(eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', kind_fun: int, kind_map: int, params: 'float[:]', p: 'int[:]', t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', mat_f: 'float[:,:,:]', is_sparse_meshgrid: bool):
+                
+                select_fun(e1, e2, e3, kind_map, params, t1, t2,
+                           t3, p, ind1, ind2, ind3, cx, cy, cz, mat_f[:, :, i1, i2, i3], kind_coeff)
+                
+                
+@stack_array('mat')
+def kernel_evaluate_pic(markers : 'float[:,:]', kind_coeff : int, kind_map : int, params : 'float[:]', p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', ind1 : 'int[:,:]', ind2 : 'int[:,:]', ind3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', mat_f : 'float[:,:,:]', remove_outside : bool) -> int:
     """
-    Matrix-wise evaluation of
-        - f_i       : mapping x_i = f_i(eta1, eta2, eta3),
-        - df_ij     : Jacobian matrix df_i/deta_j,
-        - det_df    : Jacobian determinant det(df),
-        - df_inv_ij : inverse Jacobian matrix (df_i/deta_j)^(-1),
-        - g_ij      : metric tensor df^T * df,
-        - g_inv_ij  : inverse metric tensor df^(-1) * df^(-T).
+    Evaluation of metric coefficients for given markers.
 
     Parameters
     ----------
-        eta1, eta2, eta3 : array[float]              
-            Logical coordinatess in 3d arrays with shape(eta1) == shape(eta2) == shape(eta3).
+    markers : float[:,:]
+        Evaluation points in marker format (eta1 = markers[:, 0], eta2 = markers[:, 1], eta3 = markers[:, 2]).
 
-        kind_fun : int
-            Which metric coefficient to evaluate
+    kind_coeff : int
+        Which metric coefficient to evaluate.
 
-        kind_map : int                 
-            Kind of mapping (see module docstring).
+    kind_map : int                 
+        Kind of mapping (see module docstring).
 
-        params : array[float]
-            Parameters for the mapping in a 1d array.
+    params : float[:]
+        Parameters for the mapping in a 1d array.
 
-        t1, t2, t3 : array[float]          
-            Knot vectors of univariate splines.
+    t1, t2, t3 : float[:]   
+        Knot vectors of univariate B-splines.
 
-        p : array[int]
-            Degrees of univariate splines.
+    p : int[:]
+        Degrees of univariate B-splines.
 
-        ind1, ind2, ind3 : array[int]                 
-            Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
+    ind1, ind2, ind3 : int[:,:]             
+        Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
 
-        cx, cy, cz : array[float]     
-            Control points of (F_x, F_y, F_z) in case of a IGA mapping.
+    cx, cy, cz : float[:,:,:]     
+        Control points of (F_x, F_y, F_z) in case of an IGA mapping.
 
-        mat_f : array[float]
-            matrix-valued mapping/metric coefficient evaluated at (eta1, eta2, eta3).
-
-        is_sparse_meshgrid : bool
-            Whether the evaluation points werde obtained from a sparse meshgrid.
+    mat_f : float[:,:,:]
+        Output values.
+        
+    remove_outside : bool
+        Whether to remove values that originate from markers outside of [0, 1]^d.
     """
 
-    n1 = shape(eta1)[0]
-    n2 = shape(eta2)[1]
-    n3 = shape(eta3)[2]
-    
-    # container for point-wise evaluation
-    mat = empty((3, 3), dtype=float)
-    
-    if is_sparse_meshgrid:
-        sparse_factor = 0
-    else:
-        sparse_factor = 1
+    np = shape(markers)[0]
+    counter = 0
 
-    for i1 in range(n1):
-        for i2 in range(n2):
-            for i3 in range(n3):
+    for i in range(np):
 
-                e1 = eta1[i1, i2*sparse_factor, i3*sparse_factor]
-                e2 = eta2[i1*sparse_factor, i2, i3*sparse_factor]
-                e3 = eta3[i1*sparse_factor, i2*sparse_factor, i3]
+        e1 = markers[i, 0]
+        e2 = markers[i, 1]
+        e3 = markers[i, 2]
+        
+        if e1 < 0. or e1 > 1. or e2 < 0. or e2 > 1. or e3 < 0. or e3 > 1.:
+            if remove_outside:
+                continue
+            else:
+                if kind_coeff >= 0:
+                    mat_f[:, :, counter] = -1.
+                else:
+                    mat_f[0, 0, counter] = e1
+                    mat_f[1, 0, counter] = e2
+                    mat_f[2, 0, counter] = e3
+                counter += 1
+        else:
+            select_fun(e1, e2, e3, kind_map, params, t1, t2,
+                       t3, p, ind1, ind2, ind3, cx, cy, cz, mat_f[:, :, counter], kind_coeff)
+            counter += 1
+        
+    return counter
                 
-                # mapping f
-                if kind_fun > 0 and kind_fun < 4:
-                    f(e1, e2, e3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, mat[0])
-                    
-                    if   kind_fun == 1:  
-                        mat_f[i1, i2, i3] = mat[0, 0]
-                    elif kind_fun == 2:
-                        mat_f[i1, i2, i3] = mat[0, 1]
-                    elif kind_fun == 3:
-                        mat_f[i1, i2, i3] = mat[0, 2]
-
-                # Jacobian matrix df
-                elif kind_fun > 10 and kind_fun < 20:
-                    df(e1, e2, e3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, mat)
-                
-                    if   kind_fun == 11:
-                        mat_f[i1, i2, i3] = mat[0, 0]
-                    elif kind_fun == 12:
-                        mat_f[i1, i2, i3] = mat[0, 1]
-                    elif kind_fun == 13:
-                        mat_f[i1, i2, i3] = mat[0, 2]
-                    elif kind_fun == 14:
-                        mat_f[i1, i2, i3] = mat[1, 0]
-                    elif kind_fun == 15:
-                        mat_f[i1, i2, i3] = mat[1, 1]
-                    elif kind_fun == 16:
-                        mat_f[i1, i2, i3] = mat[1, 2]
-                    elif kind_fun == 17:
-                        mat_f[i1, i2, i3] = mat[2, 0]
-                    elif kind_fun == 18:
-                        mat_f[i1, i2, i3] = mat[2, 1]
-                    elif kind_fun == 19:
-                        mat_f[i1, i2, i3] = mat[2, 2]
-
-                # Jacobian determinant det_df
-                elif kind_fun == 4:
-                    mat_f[i1, i2, i3] = det_df(e1, e2, e3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz)
-
-                # inverse Jacobian matrix df_inv
-                elif kind_fun > 20 and kind_fun < 30:
-                    df_inv(e1, e2, e3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, mat)
-                
-                    if   kind_fun == 21:
-                        mat_f[i1, i2, i3] = mat[0, 0]
-                    elif kind_fun == 22:
-                        mat_f[i1, i2, i3] = mat[0, 1]
-                    elif kind_fun == 23:
-                        mat_f[i1, i2, i3] = mat[0, 2]
-                    elif kind_fun == 24:
-                        mat_f[i1, i2, i3] = mat[1, 0]
-                    elif kind_fun == 25:
-                        mat_f[i1, i2, i3] = mat[1, 1]
-                    elif kind_fun == 26:
-                        mat_f[i1, i2, i3] = mat[1, 2]
-                    elif kind_fun == 27:
-                        mat_f[i1, i2, i3] = mat[2, 0]
-                    elif kind_fun == 28:
-                        mat_f[i1, i2, i3] = mat[2, 1]
-                    elif kind_fun == 29:
-                        mat_f[i1, i2, i3] = mat[2, 2]
-
-                # metric tensor g
-                elif kind_fun > 30 and kind_fun < 40:
-                    g(e1, e2, e3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, mat)
-                    
-                    if   kind_fun == 31:
-                        mat_f[i1, i2, i3] = mat[0, 0]
-                    elif kind_fun == 32:
-                        mat_f[i1, i2, i3] = mat[0, 1]
-                    elif kind_fun == 33:
-                        mat_f[i1, i2, i3] = mat[0, 2]
-                    elif kind_fun == 34:
-                        mat_f[i1, i2, i3] = mat[1, 0]
-                    elif kind_fun == 35:
-                        mat_f[i1, i2, i3] = mat[1, 1]
-                    elif kind_fun == 36:
-                        mat_f[i1, i2, i3] = mat[1, 2]
-                    elif kind_fun == 37:
-                        mat_f[i1, i2, i3] = mat[2, 0]     
-                    elif kind_fun == 38:
-                        mat_f[i1, i2, i3] = mat[2, 1]
-                    elif kind_fun == 39:
-                        mat_f[i1, i2, i3] = mat[2, 2]
-
-                # metric tensor g_inv
-                elif kind_fun > 40 and kind_fun < 50:
-                    g_inv(e1, e2, e3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, mat)
-                    
-                    if   kind_fun == 41:                 
-                        mat_f[i1, i2, i3] = mat[0, 0]
-                    elif kind_fun == 42:
-                        mat_f[i1, i2, i3] = mat[0, 1]
-                    elif kind_fun == 43:
-                        mat_f[i1, i2, i3] = mat[0, 2]  
-                    elif kind_fun == 44:
-                        mat_f[i1, i2, i3] = mat[1, 0]
-                    elif kind_fun == 45:
-                        mat_f[i1, i2, i3] = mat[1, 1]
-                    elif kind_fun == 46:
-                        mat_f[i1, i2, i3] = mat[1, 2]
-                    elif kind_fun == 47:
-                        mat_f[i1, i2, i3] = mat[2, 0]
-                    elif kind_fun == 48:
-                        mat_f[i1, i2, i3] = mat[2, 1]
-                    elif kind_fun == 49:
-                        mat_f[i1, i2, i3] = mat[2, 2]

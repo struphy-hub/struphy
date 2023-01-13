@@ -39,7 +39,7 @@ def get_M0(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points
     
     # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2, Nel3, nq3)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'det_df'))
+    det_df = abs(domain.jacobian_det(pts[0].flatten(), pts[1].flatten(), pts[2].flatten()))
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
     
     # evaluation of weight function at quadrature points
@@ -122,11 +122,11 @@ def get_M1(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     ns    = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
     
     # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2, Nel3, nq3)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'det_df'))
+    det_df = abs(domain.jacobian_det(pts[0].flatten(), pts[1].flatten(), pts[2].flatten()))
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
     
-    # keys for components of inverse metric tensor
-    kind_funs = [['g_inv_11', 'g_inv_12', 'g_inv_13'], ['g_inv_21', 'g_inv_22', 'g_inv_23'], ['g_inv_31', 'g_inv_32', 'g_inv_33']]
+    # evaluation of G^(-1) at quadrature points in format (3, 3, Nel1*nq1, Nel2*nq2, Nel3*nq3)
+    g_inv = domain.metric_inv(pts[0].flatten(), pts[1].flatten(), pts[2].flatten())
     
     # blocks of global mass matrix
     M = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
@@ -141,7 +141,7 @@ def get_M1(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
             
             # evaluate metric tensor at quadrature points
             if weight == None:
-                mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), kind_funs[a][b]) 
+                mat_w = g_inv[a, b]
             else:
                 mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), pts[2].flatten())
                 
@@ -217,11 +217,11 @@ def get_M2(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     ns    = [[0, 1, 1], [1, 0, 1], [1, 1, 0]]
     
     # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2, Nel3, nq3)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'det_df'))
+    det_df = abs(domain.jacobian_det(pts[0].flatten(), pts[1].flatten(), pts[2].flatten()))
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
     
-    # keys for components of metric tensor
-    kind_funs = [['g_11', 'g_12', 'g_13'], ['g_21', 'g_22', 'g_23'], ['g_31', 'g_32', 'g_33']]
+    # evaluation of G at quadrature points in format (3, 3, Nel1*nq1, Nel2*nq2, Nel3*nq3)
+    g = domain.metric(pts[0].flatten(), pts[1].flatten(), pts[2].flatten())
     
     # blocks of global mass matrix
     M = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
@@ -236,7 +236,7 @@ def get_M2(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
             
             # evaluate metric tensor at quadrature points
             if weight == None:
-                mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), kind_funs[a][b]) 
+                mat_w = g[a, b]
             else:
                 mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), pts[2].flatten())
                 
@@ -305,7 +305,7 @@ def get_M3(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points
     
     # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2, Nel3, nq3)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'det_df'))
+    det_df = abs(domain.jacobian_det(pts[0].flatten(), pts[1].flatten(), pts[2].flatten()))
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
     
     # evaluation of weight function at quadrature points
@@ -396,11 +396,11 @@ def get_Mv(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
         ns    = [[0, 1, 1], [1, 0, 1], [1, 1, 0]]
     
     # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2, Nel3, nq3)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'det_df'))
+    det_df = abs(domain.jacobian_det(pts[0].flatten(), pts[1].flatten(), pts[2].flatten()))
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
     
-    # keys for components of metric tensor
-    kind_funs = [['g_11', 'g_12', 'g_13'], ['g_21', 'g_22', 'g_23'], ['g_31', 'g_32', 'g_33']]
+    # evaluation of G at quadrature points in format (3, 3, Nel1*nq1, Nel2*nq2, Nel3*nq3)
+    g = domain.metric(pts[0].flatten(), pts[1].flatten(), pts[2].flatten())
     
     # blocks of global mass matrix
     M = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
@@ -419,7 +419,7 @@ def get_Mv(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
             
             # evaluate metric tensor at quadrature points
             if weight == None:
-                mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), kind_funs[a][b]) 
+                mat_w = g[a, b] 
             else:
                 mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), pts[2].flatten())
                 

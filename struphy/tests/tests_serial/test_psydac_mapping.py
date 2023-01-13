@@ -52,77 +52,27 @@ def test_psydac_mapping(mapping):
     eta = np.random.rand(3)
 
     # Mapping
-    assert np.allclose(F_PSY(*eta)[0], domain.evaluate(*eta, 'x'))
-    assert np.allclose(F_PSY(*eta)[1], domain.evaluate(*eta, 'y'))
-    assert np.allclose(F_PSY(*eta)[2], domain.evaluate(*eta, 'z'))
+    assert np.allclose(F_PSY(*eta), domain(*eta))
 
     # Absolute value of Jacobian determinant
     assert np.allclose(np.sqrt(F_PSY.metric_det(*eta)),
-                       np.abs(domain.evaluate(*eta, 'det_df')))
+                       np.abs(domain.jacobian_det(*eta)))
 
     # Jacobian
     assert np.allclose(F_PSY.jacobian(
-        *eta)[0, 0], domain.evaluate(*eta, 'df_11'))
-    assert np.allclose(F_PSY.jacobian(
-        *eta)[0, 1], domain.evaluate(*eta, 'df_12'))
-    assert np.allclose(F_PSY.jacobian(
-        *eta)[0, 2], domain.evaluate(*eta, 'df_13'))
-    assert np.allclose(F_PSY.jacobian(
-        *eta)[1, 0], domain.evaluate(*eta, 'df_21'))
-    assert np.allclose(F_PSY.jacobian(
-        *eta)[1, 1], domain.evaluate(*eta, 'df_22'))
-    assert np.allclose(F_PSY.jacobian(
-        *eta)[1, 2], domain.evaluate(*eta, 'df_23'))
-    assert np.allclose(F_PSY.jacobian(
-        *eta)[2, 0], domain.evaluate(*eta, 'df_31'))
-    assert np.allclose(F_PSY.jacobian(
-        *eta)[2, 1], domain.evaluate(*eta, 'df_32'))
-    assert np.allclose(F_PSY.jacobian(
-        *eta)[2, 2], domain.evaluate(*eta, 'df_33'))
+        *eta), domain.jacobian(*eta))
 
     # Inverse Jacobian
     assert np.allclose(F_PSY.jacobian_inv(
-        *eta)[0, 0], domain.evaluate(*eta, 'df_inv_11'))
-    assert np.allclose(F_PSY.jacobian_inv(
-        *eta)[0, 1], domain.evaluate(*eta, 'df_inv_12'))
-    assert np.allclose(F_PSY.jacobian_inv(
-        *eta)[0, 2], domain.evaluate(*eta, 'df_inv_13'))
-    assert np.allclose(F_PSY.jacobian_inv(
-        *eta)[1, 0], domain.evaluate(*eta, 'df_inv_21'))
-    assert np.allclose(F_PSY.jacobian_inv(
-        *eta)[1, 1], domain.evaluate(*eta, 'df_inv_22'))
-    assert np.allclose(F_PSY.jacobian_inv(
-        *eta)[1, 2], domain.evaluate(*eta, 'df_inv_23'))
-    assert np.allclose(F_PSY.jacobian_inv(
-        *eta)[2, 0], domain.evaluate(*eta, 'df_inv_31'))
-    assert np.allclose(F_PSY.jacobian_inv(
-        *eta)[2, 1], domain.evaluate(*eta, 'df_inv_32'))
-    assert np.allclose(F_PSY.jacobian_inv(
-        *eta)[2, 2], domain.evaluate(*eta, 'df_inv_33'))
-
+        *eta), domain.jacobian_inv(*eta))
+    
     # Metric tensor
-    assert np.allclose(F_PSY.metric(*eta)[0, 0], domain.evaluate(*eta, 'g_11'))
-    assert np.allclose(F_PSY.metric(*eta)[0, 1], domain.evaluate(*eta, 'g_12'))
-    assert np.allclose(F_PSY.metric(*eta)[0, 2], domain.evaluate(*eta, 'g_13'))
-    assert np.allclose(F_PSY.metric(*eta)[1, 0], domain.evaluate(*eta, 'g_21'))
-    assert np.allclose(F_PSY.metric(*eta)[1, 1], domain.evaluate(*eta, 'g_22'))
-    assert np.allclose(F_PSY.metric(*eta)[1, 2], domain.evaluate(*eta, 'g_23'))
-    assert np.allclose(F_PSY.metric(*eta)[2, 0], domain.evaluate(*eta, 'g_31'))
-    assert np.allclose(F_PSY.metric(*eta)[2, 1], domain.evaluate(*eta, 'g_32'))
-    assert np.allclose(F_PSY.metric(*eta)[2, 2], domain.evaluate(*eta, 'g_33'))
+    assert np.allclose(F_PSY.metric(*eta), domain.metric(*eta))
 
     # Inverse metric tensor
     metric_inv_PSY = np.matmul(F_PSY.jacobian_inv(
         *eta), F_PSY.jacobian_inv(*eta).T)  # missing in psydac
-    assert np.allclose(metric_inv_PSY[0, 0], domain.evaluate(*eta, 'g_inv_11'))
-    assert np.allclose(metric_inv_PSY[0, 1], domain.evaluate(*eta, 'g_inv_12'))
-    assert np.allclose(metric_inv_PSY[0, 2], domain.evaluate(*eta, 'g_inv_13'))
-    assert np.allclose(metric_inv_PSY[1, 0], domain.evaluate(*eta, 'g_inv_21'))
-    assert np.allclose(metric_inv_PSY[1, 1], domain.evaluate(*eta, 'g_inv_22'))
-    assert np.allclose(metric_inv_PSY[1, 2], domain.evaluate(*eta, 'g_inv_23'))
-    assert np.allclose(metric_inv_PSY[2, 0], domain.evaluate(*eta, 'g_inv_31'))
-    assert np.allclose(metric_inv_PSY[2, 1], domain.evaluate(*eta, 'g_inv_32'))
-    assert np.allclose(metric_inv_PSY[2, 2], domain.evaluate(*eta, 'g_inv_33'))
+    assert np.allclose(metric_inv_PSY, domain.metric_inv(*eta))
 
     print(map + ' done.\n')
 

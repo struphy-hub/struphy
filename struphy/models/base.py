@@ -444,7 +444,7 @@ class StruphyModel( metaclass=ABCMeta ):
             
             for val in self.kinetic.values():
                 val['obj'].mpi_sort_markers(do_test=True)
-                val['obj'].initialize_weights(val['params']['markers']['type'], val['params']['background'], val['params']['perturbations'])
+                val['obj'].initialize_weights(val['params']['init'])
                 if val['space'] == 'Particles5D':
                     val['obj'].initialize_magnetic_moments(self.derham, self.mhd_equil)
 

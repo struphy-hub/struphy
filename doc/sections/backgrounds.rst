@@ -9,9 +9,10 @@ Available backgrounds
 Kinetic backgrounds
 -------------------
     
-.. automodule:: struphy.kinetic_background.f0_kernels
+.. automodule:: struphy.kinetic_background.analytical
     :members:
-    :undoc-members:
+    :undoc-members: 
+    :exclude-members: Maxwellian6D
 
 
 .. _kinetic_moments:

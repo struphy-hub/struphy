@@ -321,7 +321,7 @@ class MHDOperatorsCore:
                 B2_3_pts = B2_3_pts.reshape(self.nhis[0], self.nq[0], self.nint[1])
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
-                det_dF = abs(self.equilibrium.domain.evaluate(self.eta_his[0].flatten(), self.eta_int[1], 0., 'det_df'))
+                det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_int[1], 0.))
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nint[1])
 
                 # assemble sparse matrix
@@ -342,7 +342,7 @@ class MHDOperatorsCore:
                 B2_2_pts = B2_2_pts.reshape(self.nhis[0], self.nq[0], self.nint[1])
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
-                det_dF = abs(self.equilibrium.domain.evaluate(self.eta_his[0].flatten(), self.eta_int[1], 0., 'det_df'))
+                det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_int[1], 0.))
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nint[1])
 
                 # assemble sparse matrix
@@ -363,7 +363,7 @@ class MHDOperatorsCore:
                 B2_3_pts = B2_3_pts.reshape(self.nint[0], self.nhis[1], self.nq[1])
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
-                det_dF = abs(self.equilibrium.domain.evaluate(self.eta_int[0], self.eta_his[1].flatten(), 0., 'det_df'))
+                det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_his[1].flatten(), 0.))
                 det_dF = det_dF.reshape(self.nint[0], self.nhis[1], self.nq[1])
 
                 # assemble sparse matrix
@@ -384,7 +384,7 @@ class MHDOperatorsCore:
                 B2_1_pts = B2_1_pts.reshape(self.nint[0], self.nhis[1], self.nq[1])
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
-                det_dF = abs(self.equilibrium.domain.evaluate(self.eta_int[0], self.eta_his[1].flatten(), 0., 'det_df'))
+                det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_his[1].flatten(), 0.))
                 det_dF = det_dF.reshape(self.nint[0], self.nhis[1], self.nq[1])
 
                 # assemble sparse matrix
@@ -404,7 +404,7 @@ class MHDOperatorsCore:
                 B2_2_pts = self.equilibrium.b2_2(self.eta_int[0], self.eta_int[1], 0.)
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
-                det_dF = abs(self.equilibrium.domain.evaluate(self.eta_int[0], self.eta_int[1], 0., 'det_df'))
+                det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_int[1], 0.))
 
                 # assemble sparse matrix
                 val = np.empty(self.dofs_0_N_i[0][0].size*self.dofs_0_D_i[1][0].size, dtype=float)
@@ -423,7 +423,7 @@ class MHDOperatorsCore:
                 B2_1_pts = self.equilibrium.b2_1(self.eta_int[0], self.eta_int[1], 0.)
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
-                det_dF = abs(self.equilibrium.domain.evaluate(self.eta_int[0], self.eta_int[1], 0., 'det_df'))
+                det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_int[1], 0.))
 
                 # assemble sparse matrix
                 val = np.empty(self.dofs_0_D_i[0][0].size*self.dofs_0_N_i[1][0].size, dtype=float)
@@ -444,7 +444,7 @@ class MHDOperatorsCore:
                 B2_3_pts = B2_3_pts.reshape(self.nhis[0], self.nq[0], self.nint[1], self.nint[2])
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
-                det_dF = abs(self.equilibrium.domain.evaluate(self.eta_his[0].flatten(), self.eta_int[1], self.eta_int[2], 'det_df'))
+                det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_int[1], self.eta_int[2]))
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nint[1], self.nint[2])
 
                 # assemble sparse matrix
@@ -465,7 +465,7 @@ class MHDOperatorsCore:
                 B2_2_pts = B2_2_pts.reshape(self.nhis[0], self.nq[0], self.nint[1], self.nint[2])
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
-                det_dF = abs(self.equilibrium.domain.evaluate(self.eta_his[0].flatten(), self.eta_int[1], self.eta_int[2], 'det_df'))
+                det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_int[1], self.eta_int[2]))
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nint[1], self.nint[2])
 
                 # assemble sparse matrix
@@ -486,7 +486,7 @@ class MHDOperatorsCore:
                 B2_3_pts = B2_3_pts.reshape(self.nint[0], self.nhis[1], self.nq[1], self.nint[2])
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
-                det_dF = abs(self.equilibrium.domain.evaluate(self.eta_int[0], self.eta_his[1].flatten(), self.eta_int[2], 'det_df'))
+                det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_his[1].flatten(), self.eta_int[2]))
                 det_dF = det_dF.reshape(self.nint[0], self.nhis[1], self.nq[1], self.nint[2])
 
                 # assemble sparse matrix
@@ -507,7 +507,7 @@ class MHDOperatorsCore:
                 B2_1_pts = B2_1_pts.reshape(self.nint[0], self.nhis[1], self.nq[1], self.nint[2])
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
-                det_dF = abs(self.equilibrium.domain.evaluate(self.eta_int[0], self.eta_his[1].flatten(), self.eta_int[2], 'det_df'))
+                det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_his[1].flatten(), self.eta_int[2]))
                 det_dF = det_dF.reshape(self.nint[0], self.nhis[1], self.nq[1], self.nint[2])
 
                 # assemble sparse matrix
@@ -528,7 +528,7 @@ class MHDOperatorsCore:
                 B2_2_pts = B2_2_pts.reshape(self.nint[0], self.nint[1], self.nhis[2], self.nq[2])
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
-                det_dF = abs(self.equilibrium.domain.evaluate(self.eta_int[0], self.eta_int[1], self.eta_his[2].flatten(), 'det_df'))
+                det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_int[1], self.eta_his[2].flatten()))
                 det_dF = det_dF.reshape(self.nint[0], self.nint[1], self.nhis[2], self.nq[2])
 
                 # assemble sparse matrix
@@ -549,7 +549,7 @@ class MHDOperatorsCore:
                 B2_1_pts = B2_1_pts.reshape(self.nint[0], self.nint[1], self.nhis[2], self.nq[2])
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
-                det_dF = abs(self.equilibrium.domain.evaluate(self.eta_int[0], self.eta_int[1], self.eta_his[2].flatten(), 'det_df'))
+                det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_int[1], self.eta_his[2].flatten()))
                 det_dF = det_dF.reshape(self.nint[0], self.nint[1], self.nhis[2], self.nq[2])
 
                 # assemble sparse matrix
@@ -609,7 +609,7 @@ class MHDOperatorsCore:
                 elif which == 'p':
                     EQ = self.equilibrium.p3(self.eta_int[0], self.eta_his[1].flatten(), 0.)
                 else:
-                    EQ = self.equilibrium.domain.evaluate(self.eta_int[0], self.eta_his[1].flatten(), 0., 'det_df')
+                    EQ = self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_his[1].flatten(), 0.)
 
                 EQ = EQ.reshape(self.nint[0], self.nhis[1], self.nq[1])
 
@@ -632,7 +632,7 @@ class MHDOperatorsCore:
                 elif which == 'p':
                     EQ = self.equilibrium.p3(self.eta_his[0].flatten(), self.eta_int[1], 0.)
                 else:
-                    EQ = self.equilibrium.domain.evaluate(self.eta_his[0].flatten(), self.eta_int[1], 0., 'det_df')
+                    EQ = self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_int[1], 0.)
 
                 EQ = EQ.reshape(self.nhis[0], self.nq[0], self.nint[1])
 
@@ -655,7 +655,7 @@ class MHDOperatorsCore:
                 elif which == 'p':
                     EQ = self.equilibrium.p3(self.eta_his[0].flatten(), self.eta_his[1].flatten(), 0.)
                 else:
-                    EQ = self.equilibrium.domain.evaluate(self.eta_his[0].flatten(), self.eta_his[1].flatten(), 0., 'det_df')
+                    EQ = self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_his[1].flatten(), 0.)
 
                 EQ = EQ.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1])
 
@@ -679,7 +679,7 @@ class MHDOperatorsCore:
                 elif which == 'p':
                     EQ = self.equilibrium.p3(self.eta_int[0], self.eta_his[1].flatten(), self.eta_his[2].flatten())
                 else:
-                    EQ = self.equilibrium.domain.evaluate(self.eta_int[0], self.eta_his[1].flatten(), self.eta_his[2].flatten(), 'det_df')
+                    EQ = self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_his[1].flatten(), self.eta_his[2].flatten())
 
                 EQ = EQ.reshape(self.nint[0], self.nhis[1], self.nq[1], self.nhis[2], self.nq[2])
 
@@ -702,7 +702,7 @@ class MHDOperatorsCore:
                 elif which == 'p':
                     EQ = self.equilibrium.p3(self.eta_his[0].flatten(), self.eta_int[1], self.eta_his[2].flatten())
                 else:
-                    EQ = self.equilibrium.domain.evaluate(self.eta_his[0].flatten(), self.eta_int[1], self.eta_his[2].flatten(), 'det_df')
+                    EQ = self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_int[1], self.eta_his[2].flatten())
 
                 EQ = EQ.reshape(self.nhis[0], self.nq[0], self.nint[1], self.nhis[2], self.nq[2])
 
@@ -725,7 +725,7 @@ class MHDOperatorsCore:
                 elif which == 'p':
                     EQ = self.equilibrium.p3(self.eta_his[0].flatten(), self.eta_his[1].flatten(), self.eta_int[2])
                 else:
-                    EQ = self.equilibrium.domain.evaluate(self.eta_his[0].flatten(), self.eta_his[1].flatten(), self.eta_int[2], 'det_df')
+                    EQ = self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_his[1].flatten(), self.eta_int[2])
 
                 EQ = EQ.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1], self.nint[2])
 
@@ -754,7 +754,7 @@ class MHDOperatorsCore:
                 EQ = EQ.reshape(self.nint[0], self.nhis[1], self.nq[1])
 
                 # evaluate Jacobian determinant at interpolation and quadrature points
-                det_dF = abs(self.equilibrium.domain.evaluate(self.eta_int[0], self.eta_his[1].flatten(), 0., 'det_df'))
+                det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_his[1].flatten(), 0.))
                 det_dF = det_dF.reshape(self.nint[0], self.nhis[1], self.nq[1])
 
                 # assemble sparse matrix
@@ -779,7 +779,7 @@ class MHDOperatorsCore:
                 EQ = EQ.reshape(self.nhis[0], self.nq[0], self.nint[1])
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
-                det_dF = abs(self.equilibrium.domain.evaluate(self.eta_his[0].flatten(), self.eta_int[1], 0., 'det_df'))
+                det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_int[1], 0.))
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nint[1])
 
                 # assemble sparse matrix
@@ -804,7 +804,7 @@ class MHDOperatorsCore:
                 EQ = EQ.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1])
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
-                det_dF = abs(self.equilibrium.domain.evaluate(self.eta_his[0].flatten(), self.eta_his[1].flatten(), 0., 'det_df'))
+                det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_his[1].flatten(), 0.))
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1])
 
                 # assemble sparse matrix
@@ -830,7 +830,7 @@ class MHDOperatorsCore:
                 EQ = EQ.reshape(self.nint[0], self.nhis[1], self.nq[1], self.nhis[2], self.nq[2])
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
-                det_dF = abs(self.equilibrium.domain.evaluate(self.eta_int[0], self.eta_his[1].flatten(), self.eta_his[2].flatten(), 'det_df'))
+                det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_his[1].flatten(), self.eta_his[2].flatten()))
                 det_dF = det_dF.reshape(self.nint[0], self.nhis[1], self.nq[1], self.nhis[2], self.nq[2])
 
                 # assemble sparse matrix
@@ -855,7 +855,7 @@ class MHDOperatorsCore:
                 EQ = EQ.reshape(self.nhis[0], self.nq[0], self.nint[1], self.nhis[2], self.nq[2])
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
-                det_dF = abs(self.equilibrium.domain.evaluate(self.eta_his[0].flatten(), self.eta_int[1], self.eta_his[2].flatten(), 'det_df'))
+                det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_int[1], self.eta_his[2].flatten()))
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nint[1], self.nhis[2], self.nq[2])
 
                 # assemble sparse matrix
@@ -880,7 +880,7 @@ class MHDOperatorsCore:
                 EQ = EQ.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1], self.nint[2])
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
-                det_dF = abs(self.equilibrium.domain.evaluate(self.eta_his[0].flatten(), self.eta_his[1].flatten(), self.eta_int[2], 'det_df'))
+                det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_his[1].flatten(), self.eta_int[2]))
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1], self.nint[2])
 
                 # assemble sparse matrix
@@ -924,7 +924,7 @@ class MHDOperatorsCore:
             P3_pts = P3_pts.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1])
             
             # evaluate Jacobian determinant at at interpolation and quadrature points
-            det_dF = abs(self.equilibrium.domain.evaluate(self.eta_his[0].flatten(), self.eta_his[1].flatten(), 0., 'det_df'))
+            det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_his[1].flatten(), 0.))
             det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1])
 
             # assemble sparse matrix
@@ -947,7 +947,7 @@ class MHDOperatorsCore:
             P3_pts = P3_pts.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1], self.nhis[2], self.nq[2])
 
             # evaluate Jacobian determinant at at interpolation and quadrature points
-            det_dF = abs(self.equilibrium.domain.evaluate(self.eta_his[0].flatten(), self.eta_his[1].flatten(), self.eta_his[2].flatten(), 'det_df'))
+            det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_his[1].flatten(), self.eta_his[2].flatten()))
             det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1], self.nhis[2], self.nq[2])
 
             # assemble sparse matrix
@@ -983,17 +983,17 @@ class MHDOperatorsCore:
                 the weighted mass matrix.
         """
         
-        weight11 = lambda s, chi, phi : self.equilibrium.n0(s, chi, phi)*self.equilibrium.domain.evaluate(s, chi, phi, 'g_11')
-        weight12 = lambda s, chi, phi : self.equilibrium.n0(s, chi, phi)*self.equilibrium.domain.evaluate(s, chi, phi, 'g_12')
-        weight13 = lambda s, chi, phi : self.equilibrium.n0(s, chi, phi)*self.equilibrium.domain.evaluate(s, chi, phi, 'g_13')
+        weight11 = lambda s, chi, phi : self.equilibrium.n0(s, chi, phi)*self.equilibrium.domain.metric(s, chi, phi)[0, 0]
+        weight12 = lambda s, chi, phi : self.equilibrium.n0(s, chi, phi)*self.equilibrium.domain.metric(s, chi, phi)[0, 1]
+        weight13 = lambda s, chi, phi : self.equilibrium.n0(s, chi, phi)*self.equilibrium.domain.metric(s, chi, phi)[0, 2]
 
-        weight21 = lambda s, chi, phi : self.equilibrium.n0(s, chi, phi)*self.equilibrium.domain.evaluate(s, chi, phi, 'g_21')
-        weight22 = lambda s, chi, phi : self.equilibrium.n0(s, chi, phi)*self.equilibrium.domain.evaluate(s, chi, phi, 'g_22')
-        weight23 = lambda s, chi, phi : self.equilibrium.n0(s, chi, phi)*self.equilibrium.domain.evaluate(s, chi, phi, 'g_23')
+        weight21 = lambda s, chi, phi : self.equilibrium.n0(s, chi, phi)*self.equilibrium.domain.metric(s, chi, phi)[1, 0]
+        weight22 = lambda s, chi, phi : self.equilibrium.n0(s, chi, phi)*self.equilibrium.domain.metric(s, chi, phi)[1, 1]
+        weight23 = lambda s, chi, phi : self.equilibrium.n0(s, chi, phi)*self.equilibrium.domain.metric(s, chi, phi)[1, 2]
 
-        weight31 = lambda s, chi, phi : self.equilibrium.n0(s, chi, phi)*self.equilibrium.domain.evaluate(s, chi, phi, 'g_31')
-        weight32 = lambda s, chi, phi : self.equilibrium.n0(s, chi, phi)*self.equilibrium.domain.evaluate(s, chi, phi, 'g_32')
-        weight33 = lambda s, chi, phi : self.equilibrium.n0(s, chi, phi)*self.equilibrium.domain.evaluate(s, chi, phi, 'g_33')
+        weight31 = lambda s, chi, phi : self.equilibrium.n0(s, chi, phi)*self.equilibrium.domain.metric(s, chi, phi)[2, 0]
+        weight32 = lambda s, chi, phi : self.equilibrium.n0(s, chi, phi)*self.equilibrium.domain.metric(s, chi, phi)[2, 1]
+        weight33 = lambda s, chi, phi : self.equilibrium.n0(s, chi, phi)*self.equilibrium.domain.metric(s, chi, phi)[2, 2]
         
         self.weights_Mn = [[weight11, weight12, weight13], 
                            [weight21, weight22, weight23], 

@@ -31,7 +31,7 @@ class Derham:
          V0h ---- d0 ----> V1h ---- d1 ----> V2h ---- d2 ----> V3h
           ^                 ^                 ^                 ^
           |                 |                 |                 |
-          | E0              | E1              | E2              | E3
+          | (E0)^T          | (E1)^T          | (E2)^T          | (E3)^T
           |                 |                 |                 |
           |                 |                 |                 |
        V0h_pol -- d0 --> V1h_pol -- d1 --> V2h_pol -- d2 --> V3h_pol

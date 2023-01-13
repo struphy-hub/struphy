@@ -41,15 +41,15 @@ def inner_prod_V0(tensor_space_FEM, domain, fun):
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points
     
     # evaluation of |det(DF)| at eta3 = 0 and quadrature points in format (Nel1, nq1, Nel2, nq2)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))[:, :, 0]
+    det_df = abs(domain.jacobian_det(pts[0].flatten(), pts[1].flatten(), 0.))
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
     # evaluation of given 0-form at quadrature points
-    mat_f  = np.empty((pts[0].size, pts[1].size), dtype=float)
+    mat_f = np.empty((pts[0].size, pts[1].size), dtype=float)
     
     if callable(fun):
-        quad_mesh   = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing='ij')
-        mat_f[:, :] = fun(quad_mesh[0], quad_mesh[1])
+        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing='ij')
+        mat_f[:, :] = fun(quad_mesh[0], quad_mesh[1], 0.)
     else:
         mat_f[:, :] = fun
     
@@ -98,13 +98,11 @@ def inner_prod_V1(tensor_space_FEM, domain, fun):
     ns    = [[1, 0], [0, 1], [0, 0]]
     
     # evaluation of |det(DF)| at eta3 = 0 and quadrature points in format (Nel1, nq1, Nel2, nq2)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))[:, :, 0]
+    det_df = abs(domain.jacobian_det(pts[0].flatten(), pts[1].flatten(), 0.))
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
-    # keys for components of inverse metric tensor
-    kind_funs = [['g_inv_11', 'g_inv_12', 'g_inv_13'],
-                 ['g_inv_21', 'g_inv_22', 'g_inv_23'],
-                 ['g_inv_31', 'g_inv_32', 'g_inv_33']]
+    # evaluation of G^(-1) at eta3 = 0 and quadrature points in format (3, 3, Nel1*nq1, Nel2*nq2)
+    g_inv = domain.metric_inv(pts[0].flatten(), pts[1].flatten(), 0.)
     
     # 1-form components at quadrature points
     mat_f = np.empty((pts[0].size, pts[1].size), dtype=float)
@@ -125,14 +123,11 @@ def inner_prod_V1(tensor_space_FEM, domain, fun):
         
         for b in range(3):
             
-            # evaluate inverse metric tensor g^ab at quadrature points
-            g_inv = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[a][b])[:, :, 0]
-            
             # evaluate g^ab * f_b at quadrature points
             if callable(fun[b]):
-                mat_f += fun[b](quad_mesh[0], quad_mesh[1]) * g_inv
+                mat_f += fun[b](quad_mesh[0], quad_mesh[1], 0.) * g_inv[a, b]
             else:
-                mat_f += fun[b] * g_inv
+                mat_f += fun[b] * g_inv[a, b]
             
         mat_f = mat_f.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])    
         
@@ -177,13 +172,11 @@ def inner_prod_V2(tensor_space_FEM, domain, fun):
     ns    = [[0, 1], [1, 0], [1, 1]]
     
     # evaluation of |det(DF)| at eta3 = 0 and quadrature points in format (Nel1, nq1, Nel2, nq2)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))[:, :, 0]
+    det_df = abs(domain.jacobian_det(pts[0].flatten(), pts[1].flatten(), 0.))
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
-    # keys for components of metric tensor
-    kind_funs = [['g_11', 'g_12', 'g_13'],
-                 ['g_21', 'g_22', 'g_23'],
-                 ['g_31', 'g_32', 'g_33']]
+    # evaluation of G at eta3 = 0 and quadrature points in format (3, 3, Nel1*nq1, Nel2*nq2)
+    g = domain.metric(pts[0].flatten(), pts[1].flatten(), 0.)
     
     # 2-form components at quadrature points
     mat_f = np.empty((pts[0].size, pts[1].size), dtype=float)
@@ -204,14 +197,11 @@ def inner_prod_V2(tensor_space_FEM, domain, fun):
         
         for b in range(3):
             
-            # evaluate metric tensor g_ab at quadrature points
-            g = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[a][b])[:, :, 0]
-            
             # evaluate g_ab * f_b at quadrature points
             if callable(fun[b]):
-                mat_f += fun[b](quad_mesh[0], quad_mesh[1]) * g
+                mat_f += fun[b](quad_mesh[0], quad_mesh[1], 0.) * g[a, b]
             else:
-                mat_f += fun[b] * g
+                mat_f += fun[b] * g[a, b]
             
         mat_f = mat_f.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])    
         
@@ -249,15 +239,15 @@ def inner_prod_V3(tensor_space_FEM, domain, fun):
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points
     
     # evaluation of |det(DF)| at eta3 = 0 and quadrature points in format (Nel1, nq1, Nel2, nq2)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))[:, :, 0]
+    det_df = abs(domain.jacobian_det(pts[0].flatten(), pts[1].flatten(), 0.))
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
     # evaluation of given 3-form at quadrature points
-    mat_f  = np.empty((pts[0].size, pts[1].size), dtype=float)
+    mat_f = np.empty((pts[0].size, pts[1].size), dtype=float)
     
     if callable(fun):
-        quad_mesh   = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing='ij')
-        mat_f[:, :] = fun(quad_mesh[0], quad_mesh[1])
+        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing='ij')
+        mat_f[:, :] = fun(quad_mesh[0], quad_mesh[1], 0.)
     else:
         mat_f[:, :] = fun
     

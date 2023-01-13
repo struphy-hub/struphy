@@ -38,30 +38,26 @@ class WeightedMassOperators:
         self._domain = domain
         
         # Wrapper functions for evaluating metric coefficients in right order (3x3 entries are last two axes!!)
-        flat_eval = False
-        squeeze_output = False
-        change_out_order = True
-        
         def DF(e1, e2, e3):
-            return domain.jacobian(e1, e2, e3, flat_eval, squeeze_output, change_out_order, transposed=False)
+            return domain.jacobian(e1, e2, e3, transposed=False, change_out_order=True, squeeze_out=False)
 
         def DFT(e1, e2, e3):
-            return domain.jacobian(e1, e2, e3, flat_eval, squeeze_output, change_out_order, transposed=True)
+            return domain.jacobian(e1, e2, e3, transposed=True, change_out_order=True, squeeze_out=False)
             
         def DFinv(e1, e2, e3):
-            return domain.jacobian_inv(e1, e2, e3, flat_eval, squeeze_output, change_out_order, transposed=False)
+            return domain.jacobian_inv(e1, e2, e3, transposed=False, change_out_order=True, squeeze_out=False)
 
         def DFinvT(e1, e2, e3):
-            return domain.jacobian_inv(e1, e2, e3, flat_eval, squeeze_output, change_out_order, transposed=True)
+            return domain.jacobian_inv(e1, e2, e3, transposed=True, change_out_order=True, squeeze_out=False)
 
         def G(e1, e2, e3):
-            return domain.metric(e1, e2, e3, flat_eval, squeeze_output, change_out_order)
+            return domain.metric(e1, e2, e3, change_out_order=True, squeeze_out=False)
             
         def Ginv(e1, e2, e3):
-            return domain.metric_inv(e1, e2, e3, flat_eval, squeeze_output, change_out_order)
+            return domain.metric_inv(e1, e2, e3, change_out_order=True, squeeze_out=False)
             
         def sqrt_g(e1, e2, e3):
-            return abs(domain.jacobian_det(e1, e2, e3, flat_eval, squeeze_output))
+            return abs(domain.jacobian_det(e1, e2, e3, squeeze_out=False))
         
         # Cross product matrices and evaluation of cross products
         cross_mask = [[ 1, -1,  1], 
@@ -116,9 +112,9 @@ class WeightedMassOperators:
                 fun_Mv[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]*sqrt_g(e1, e2, e3)]
                 
                 if 'eq_mhd' in weights:
-                    fun_M1n[-1] += [lambda e1, e2, e3, m=m, n=n : Ginv(e1, e2, e3)[:, :, :, m, n]*sqrt_g(e1, e2, e3)*weights['eq_mhd'].n0(e1, e2, e3, squeeze_output=False)]
-                    fun_M2n[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]/sqrt_g(e1, e2, e3)*weights['eq_mhd'].n0(e1, e2, e3, squeeze_output=False)]
-                    fun_Mvn[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]*sqrt_g(e1, e2, e3)*weights['eq_mhd'].n0(e1, e2, e3, squeeze_output=False)]
+                    fun_M1n[-1] += [lambda e1, e2, e3, m=m, n=n : Ginv(e1, e2, e3)[:, :, :, m, n]*sqrt_g(e1, e2, e3)*weights['eq_mhd'].n0(e1, e2, e3, squeeze_out=False)]
+                    fun_M2n[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]/sqrt_g(e1, e2, e3)*weights['eq_mhd'].n0(e1, e2, e3, squeeze_out=False)]
+                    fun_Mvn[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]*sqrt_g(e1, e2, e3)*weights['eq_mhd'].n0(e1, e2, e3, squeeze_out=False)]
                     fun_M1J[-1] += [lambda e1, e2, e3, m=m, n=n : (Ginv(e1, e2, e3) @ eval_cross(e1, e2, e3, j2_cross))[:, :, :, m, n]]
                     fun_M2J[-1] += [lambda e1, e2, e3, m=m, n=n : cross_mask[m][n]*j2_cross[m][n](e1, e2, e3)/sqrt_g(e1, e2, e3)]
                     fun_MvJ[-1] += [lambda e1, e2, e3, m=m, n=n : cross_mask[m][n]*j2_cross[m][n](e1, e2, e3)]

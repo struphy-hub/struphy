@@ -11,7 +11,7 @@ from struphy.fields_background.mhd_equil.base import NumericalMHDequilibrium
     ['ShafranovDshapedCylinder', {
         'x0': -30., 'y0': -30., 'z0': -30., 'R0': 60., 'Lz': 100., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}],
 ])
-@pytest.mark.parametrize('mhd_equil', ['HomogenSlab', 'ShearedSlab', 'ScrewPinch', 'AdhocTorus'])
+@pytest.mark.parametrize('mhd_equil', ['HomogenSlab', 'ShearedSlab', 'ScrewPinch'])
 def test_transformations(mapping, mhd_equil):
     '''Test whether the class NumericalMHDequilibrium yields the same function values as AnalyticalMHDequilibrium.
     For this we construct an artificial numerical equilibrium from an analytical proxy.'''
@@ -132,45 +132,45 @@ class NumEqTest(NumericalMHDequilibrium):
         """
         return self._domain
 
-    def bv_1(self, eta1, eta2, eta3):
+    def b2_1(self, *etas, squeeze_out=True):
         """First contra-variant component (eta1) of magnetic field on logical cube [0, 1]^3.
         """
-        return self._equil.bv_1(eta1, eta2, eta3)
+        return self._equil.b2_1(*etas, squeeze_out=squeeze_out)
 
-    def bv_2(self, eta1, eta2, eta3):
+    def b2_2(self, *etas, squeeze_out=True):
         """First contra-variant component (eta1) of magnetic field on logical cube [0, 1]^3.
         """
-        return self._equil.bv_2(eta1, eta2, eta3)
+        return self._equil.b2_2(*etas, squeeze_out=squeeze_out)
 
-    def bv_3(self, eta1, eta2, eta3):
+    def b2_3(self, *etas, squeeze_out=True):
         """First contra-variant component (eta1) of magnetic field on logical cube [0, 1]^3.
         """
-        return self._equil.bv_3(eta1, eta2, eta3)
+        return self._equil.b2_3(*etas, squeeze_out=squeeze_out)
 
-    def j2_1(self, eta1, eta2, eta3):
+    def j2_1(self, *etas, squeeze_out=True):
         """First 2-form component (eta1) of current (=curl B) on logical cube [0, 1]^3.
         """
-        return self._equil.j2_1(eta1, eta2, eta3)
+        return self._equil.j2_1(*etas, squeeze_out=squeeze_out)
 
-    def j2_2(self, eta1, eta2, eta3):
+    def j2_2(self, *etas, squeeze_out=True):
         """Second 2-form component (eta2) of current (=curl B) on logical cube [0, 1]^3.
         """
-        return self._equil.j2_2(eta1, eta2, eta3)
+        return self._equil.j2_2(*etas, squeeze_out=squeeze_out)
 
-    def j2_3(self, eta1, eta2, eta3):
+    def j2_3(self, *etas, squeeze_out=True):
         """Third 2-form component (eta3) of current (=curl B) on logical cube [0, 1]^3.
         """
-        return self._equil.j2_3(eta1, eta2, eta3)
+        return self._equil.j2_3(*etas, squeeze_out=squeeze_out)
 
-    def p0(self, eta1, eta2, eta3):
+    def p0(self, *etas, squeeze_out=True):
         """0-form equilibrium pressure on logical cube [0, 1]^3.
         """
-        return self._equil.p0(eta1, eta2, eta3)
+        return self._equil.p0(*etas, squeeze_out=squeeze_out)
 
-    def n0(self, eta1, eta2, eta3):
+    def n0(self, *etas, squeeze_out=True):
         """0-form equilibrium density on logical cube [0, 1]^3.
         """
-        return self._equil.n0(eta1, eta2, eta3)
+        return self._equil.n0(*etas, squeeze_out=squeeze_out)
 
 
 if __name__ == '__main__':

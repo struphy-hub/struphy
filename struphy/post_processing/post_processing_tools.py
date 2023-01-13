@@ -166,7 +166,7 @@ def eval_femfields(path, fields, space_ids, cell_divide=None):
             1d logical grids in each eta-direction with Nel[i]*cell_divide[i] + 1 entries in each direction.  
             
         grids_mapped : 3-list
-            Mapped grids obtained by domain.evaluate().
+            Mapped grids obtained by domain().
     '''
 
     assert isinstance(fields, dict)
@@ -220,9 +220,9 @@ def eval_femfields(path, fields, space_ids, cell_divide=None):
                     grids += [np.linspace(0., 1., Nel_i*n_i + 1)]
 
                 # physical grids
-                grids_mapped = [domain.evaluate(*grids, 'x'), 
-                                domain.evaluate(*grids, 'y'), 
-                                domain.evaluate(*grids, 'z')]
+                grids_mapped = [domain(*grids)[0], 
+                                domain(*grids)[1], 
+                                domain(*grids)[2]]
 
                 # create point_data dicts for each name
                 point_data_logic[name] = {}
@@ -238,9 +238,9 @@ def eval_femfields(path, fields, space_ids, cell_divide=None):
 
                 # point data for vtk file at time n
                 if space_id == 'H1':
-                    point_data_n[name] = domain.push(temp_val, *grids, '0_form')
+                    point_data_n[name] = domain.push(temp_val, *grids, kind='0_form')
                 elif space_id == 'L2':
-                    point_data_n[name] = domain.push(temp_val, *grids, '3_form')
+                    point_data_n[name] = domain.push(temp_val, *grids, kind='3_form')
 
                 point_data_phys[name][n*dt] = [point_data_n[name]]
 
@@ -252,13 +252,13 @@ def eval_femfields(path, fields, space_ids, cell_divide=None):
                 # point data for vtk file at time n
                 if space_id == 'Hcurl':
                     for j in range(3):
-                        point_data_n[name + f'_{j + 1}'] = domain.push(temp_val, *grids, f'1_form_{j + 1}')
+                        point_data_n[name + f'_{j + 1}'] = domain.push(temp_val, *grids, kind='1_form')[j]
                 elif space_id == 'Hdiv':
                     for j in range(3):
-                        point_data_n[name + f'_{j + 1}'] = domain.push(temp_val, *grids, f'2_form_{j + 1}')
+                        point_data_n[name + f'_{j + 1}'] = domain.push(temp_val, *grids, kind='2_form')[j]
                 elif space_id == 'H1vec':
                     for j in range(3):
-                        point_data_n[name + f'_{j + 1}'] = domain.push(temp_val, *grids, f'vector_{j + 1}') 
+                        point_data_n[name + f'_{j + 1}'] = domain.push(temp_val, *grids, kind='vector')[j] 
 
                 point_data_phys[name][n*dt] = [point_data_n[name + f'_{j + 1}'] for j in range(3)]
         
