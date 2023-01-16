@@ -1,3 +1,48 @@
+
+## Version 1.9.6
+
+* Implementation of the DriftKinetic particle pusher with unperturbed magnetic field !251
+* Unifying pressure coupling schemes !252
+* Change of StruphyModel base class: there are now three categories of unknowns: `self.em_fields`, `self.fluid` and `self.kinetic` !253
+* Add polar projectors, polar basis projection operators and polar unit tests !254, !255, !256
+* Substep efield weights for linearized Vlasov Maxwell !257
+* Electric Background: implemented a base class and analytical class for electric backgrounds; base class gives electric potential phi as 0-form or 3-form, and electric field as 1-form !258
+* TAE example tokamak: added complete example for model LinearMHD that is initialized with a TAE eigenfunction obtained from the MHD eigenvalue solver !260
+* Linear Vlasov Maxwell other substeps !261
+* Current coupling dispersion relation and MHD continuous spectra in cylinder and slab !263
+* Add new model--hybrid_fA, rotation sub-step, get density from particles (hat...) !264
+* Enable numerical MHD equilibria !265
+* Pure python analytical kinetic functions and unification of domain methods !266
+
+## Version 1.9.5
+
+* Generalized eta pusher for arbitrary s-stage explicit Runge-Kutta methods and implicit vxb pusher !234
+* Loading of MHD eigenfunction as initial condition for axisymmetric equilibria !235
+* Separate propagators into "fields", "markers" and "coupling" !238
+* Finish polar extraction and linear operators !239
+* adding draft of guiding center equations with explicit solver !240
+* Polar mass matrices and projectors with units tests !242
+* Preconditioner for polar mass matrices !243
+* Make pyccel work on Cobra !245
+* Draft of guiding center models with implicit scheme !246
+* Added --no-build-isolation to psydac install !249
+
+## Version 1.9.4
+
+* new model PC_LinearMHD_Vlasov_full is implemented !212
+* Added particle orbit post processing tool post_process_markers() to post_processing_tools.py, extended the method show() in the domain base class !213
+* Kinetic boundary conditions implemented !215
+* Banana orbit example binary !216
+* Step magnetosonic hcurl added !217
+* Step pressurecoupling h1vec added !219
+* Add __call__ routine to Field object !220
+* Marker binning in arbitrary directions implemented !221
+* Added Ohm propagator for cold plasma !224
+* PC dispersion relation added !226
+* Unify filler kernels !227
+* Enable p=1 spline degree !228
+* PC_LinearMHD_Vlasov model (only perp U) is implemented !229
+
 ## Version 1.9.3
 
 * Make spline maps work, !188

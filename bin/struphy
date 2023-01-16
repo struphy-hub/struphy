@@ -3,10 +3,9 @@
 # Python interpreter
 PYTHON=python3
 
-# Struphy ans Psydac installation paths
+# Struphy installation path
 cd ~
 STRUPHY=$($PYTHON -c "import struphy as _; print(_.__path__[0])")
-PSYDAC=$($PYTHON -c "import psydac as _; print(_.__path__[0])")
 
 # Defaults
 RUN=false
@@ -353,12 +352,12 @@ if [ "$COMPILE" = true ]; then
   if [ "$CLEAN" = true ]; then
     echo "Start cleaning up struphy..."
     cd .. # change dir not be in source path
-    command make clean -f $STRUPHY/compile_struphy.mk struphy_path=$STRUPHY psydac_path=$PSYDAC 
+    command make clean -f $STRUPHY/compile_struphy.mk struphy_path=$STRUPHY
     exit 0
   else
     echo "Start compiling struphy..."
     cd .. # change dir not be in source path
-    command make -f $STRUPHY/compile_struphy.mk struphy_path=$STRUPHY psydac_path=$PSYDAC flags_openmp_pic=$CFLAGS flags=$FLAGS
+    command make -f $STRUPHY/compile_struphy.mk struphy_path=$STRUPHY flags_openmp_pic=$CFLAGS flags=$FLAGS
     exit 0
   fi
 
