@@ -2,7 +2,7 @@
 Module specifying the current version string for struphy.
 """
 
-__version__ = "1.9.5"
+__version__ = "1.9.6"
 
 def display_version():
     print(f'struphy {__version__}\n\

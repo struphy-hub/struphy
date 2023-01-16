@@ -1,11 +1,11 @@
 from pyccel.decorators import stack_array
 
-import struphy.feec.bsplines_kernels as bsp
-from struphy.feec.basics.spline_evaluation_3d import eval_spline_mpi_kernel
+import struphy.b_splines.bsplines_kernels as bsp
+from struphy.b_splines.bspline_evaluation_3d import eval_spline_mpi_kernel
 import struphy.linear_algebra.core as linalg
 import struphy.geometry.map_eval as map_eval
 
-from numpy import empty, shape
+from numpy import empty, shape, zeros
 
 
 @stack_array('bn1', 'bn2', 'bn3')
@@ -344,7 +344,7 @@ def eval_magnetic_moments(markers: 'float[:,:]',
                           pn: 'int[:]',
                           tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                           starts0: 'int[:]',
-                          b0: 'float[:,:,:]', mh: 'float'):
+                          b0: 'float[:,:,:]'):
     """
     Evaluate magnetic moments of each particles
 
@@ -395,7 +395,7 @@ def eval_magnetic_moments(markers: 'float[:,:]',
 
         b = eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b0, starts0)
 
-        markers[ip,4] = mh/2 * vperp_square / b
+        markers[ip,4] = 1/2 * vperp_square / b
 
 
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_mid')
@@ -490,9 +490,9 @@ def push_gc1_discrete_gradients_stage_initial_guess(markers: 'float[:,:]', dt: f
         linalg.matrix_vector(S, mu*grad_abs_b, temp)
 
         # save at the markers
-        markers[ip, 0:3] = markers[ip, 9:12] + dt*temp[:]
+        markers[ip, 0:3] = markers[ip, 0:3] + dt*temp[:]
 
-        e_mid = (markers[ip, 0:3] + markers[ip, 9:12])/2
+        e_mid[:] = (markers[ip, 0:3] + markers[ip, 9:12])/2
 
         # check whether the mid position is already outside of the proc domain
         if (e_mid[0] < domain_array[0]) or (e_mid[0] > domain_array[1]):
@@ -567,7 +567,7 @@ def push_gc1_discrete_gradients_stage_initial_guess(markers: 'float[:,:]', dt: f
         linalg.matrix_matrix(g_inv, temp1, temp2)
 
         # calculate S
-        S = (epsilon*temp2)/abs_b_star_para
+        S[:,:] = (epsilon*temp2)/abs_b_star_para
 
         # save at the markers
         markers[ip, 13:16] = S[0,:]
@@ -715,7 +715,7 @@ def push_gc1_discrete_gradients_stage_eval_S_and_I(markers: 'float[:,:]',
         linalg.matrix_matrix(g_inv, temp1, temp2)
 
         # calculate S
-        S = (epsilon*temp2)/abs_b_star_para
+        S[:,:] = (epsilon*temp2)/abs_b_star_para
 
         # save at the markers
         markers[ip, 13:16] = S[0,:]
@@ -830,9 +830,9 @@ def push_gc2_discrete_gradients_stage_initial_guess(markers: 'float[:,:]', dt: f
 
         # save at the markers
         markers[ip, 0:3] = markers[ip, 9:12] + dt*b_star[:]/abs_b_star_para*v
-        markers[ip, 4] = markers[ip, 12] - dt*b_star_dot_grad_abs_b/abs_b_star_para
+        markers[ip, 3] = markers[ip, 12] - dt*b_star_dot_grad_abs_b/abs_b_star_para
 
-        e_mid = (markers[ip, 0:3] + markers[ip, 9:12])/2.
+        e_mid[:] = (markers[ip, 0:3] + markers[ip, 9:12])/2.
         v_mid = (markers[ip, 3] + markers[ip, 12])/2.
 
         # check whether the mid position is already outside of the proc domain
@@ -987,4 +987,134 @@ def push_gc2_discrete_gradients_stage_eval_S_and_I(markers: 'float[:,:]',
 
         # save at the markers
         markers[ip, 13:16] = b_star[:]/abs_b_star_para
-        markers[ip, 19] = mu*abs_b0 + 1/2*v**2
+        markers[ip, 19] = mu*abs_b0
+
+
+
+#========================================================================================
+def piecewise(p: 'int', delta: 'double', eta: 'double'):
+    # definition of B-splines defined piecewisely
+    # eta is eta_j - eta_k
+    if abs(eta) > delta * (p+1)*0.5:
+        return 0.0 
+    else:
+        if p == 0:
+            return 1.0
+        elif p == 1:
+            return 1 - abs(eta/delta)
+        elif p == 2:
+            if eta >= 0.5*delta:
+                temp = eta/delta + 1.5
+                return 0.5 * (3 - temp)**2.0
+            elif eta < -0.5*delta:
+                temp = eta/delta + 1.5
+                return 0.5 * temp**2.0
+            else:
+                temp = eta/delta + 1.5
+                return 0.5*(-3.0 + 6.0 * temp - 2 * temp**2.0)
+        else:
+            print('higher degree B-splines has not been implemented')
+
+
+    ierr = 0
+
+
+#========================================================================================
+def piecewise_der(p: 'int', delta: 'double', eta: 'double'):
+    # definition of B-splines defined piecewisely
+    # eta is eta_j - eta_k
+    if abs(eta) > delta * (p+1)*0.5:
+        return 0.0 
+    else:
+        if p == 0:
+            return 0.0
+        elif p == 1:
+            if eta < 0:
+                return 1 / delta
+            else:
+                return -1 / delta
+        elif p == 2:
+            if eta >= 0.5 * delta:
+                temp = eta / delta + 1.5
+                return  - (3 - temp)/delta
+            elif eta < -0.5 * delta:
+                temp = eta / delta + 1.5
+                return  temp / delta
+            else:
+                temp = eta / delta + 1.5
+                return 0.5 * (6.0 - 4.0 * temp) / delta
+        else:
+            print('higher degree B-splines has not been implemented')
+
+
+    ierr = 0
+
+
+
+
+
+
+#========================================================================================
+def convolution(p: 'int', grids: 'double[:]', eta: 'double'):
+    # convolution is the function which could give us the B-spline values at evaluatioin point eta
+    # p is the degree of the shape function
+    # 'grids' is the knots in the support of shape function centered at particle position
+    if eta < grids[p+1] and eta >= grids[0]:
+        value_stored  = zeros(p + 1, dtype = float)
+        value_temp    = zeros(p + 1, dtype = float)
+        w             = zeros(p + 1, dtype = float)
+        # 0 degree B-spline evluation
+        ie           = int( (eta - grids[0]) / (grids[1] - grids[0])) # index of the cell where eta is located
+        value_stored[ie] = 1.0                           # value (is 1) in this cell
+        result           = value_stored[ie]
+
+        for loop in range(p):
+
+            for ii in range(p - loop + 1):
+                w[ii] = (eta - grids[ii]) / (grids[ii + loop + 1] - grids[ii])
+
+            for ii in range(p - loop):
+                value_temp[ii] = w[ii] * value_stored[ii] + (1 - w[ii+1]) * value_stored[ii+1]
+
+            value_stored[:] = value_temp
+
+        result = value_stored[0]
+    else:
+        result = 0.0
+    return result
+
+    ierr = 0
+
+
+
+#========================================================================================
+def convolution_der(p: 'int', grids: 'double[:]', eta: 'double'):
+    # convolution is the function which could give us the B-spline values at evaluatioin point eta
+    # p is the degree of the shape function
+    # 'grids' is the knots in the support of shape function centered at particle position, length is p + 1
+    if eta < grids[p+1] and eta >= grids[0]:
+        value_stored = zeros(p + 1, dtype = float)
+        value_temp   = zeros(p + 1, dtype = float)
+        w            = zeros(p + 1, dtype = float)
+        # 0 degree B-spline evluation
+        ie           = int( (eta - grids[0]) / (grids[1] - grids[0])) # index of the cell where eta is located
+        value_stored[ie] = 1.0                           # value (is 1) in this cell
+        result           = 0.0
+
+        for loop in range(1, p):
+
+            for ii in range(p - loop + 2):
+                w[ii] = (eta - grids[ii]) / (grids[ii + loop] - grids[ii])
+
+            for ii in range(p - loop + 1):
+                value_temp[ii] = w[ii] * value_stored[ii] + (1 - w[ii+1]) * value_stored[ii+1]
+
+            value_stored[:] = value_temp
+
+
+        result = p / (grids[p] - grids[0]) * value_stored[0] - p / (grids[p + 1] - grids[1]) * value_stored[1]
+    else:
+        result = 0.0
+    return result
+
+    ierr = 0

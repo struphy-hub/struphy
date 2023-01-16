@@ -32,7 +32,7 @@ def fourier_1d(values, name, code, grids, grids_mapped=None, component=0, slice_
             1d logical grids in each eta-direction with Nel[i]*npts_per_cell[i] + 1 entries in each direction. 
 
         grids_mapped : 3-list
-            Mapped grids obtained by domain.evaluate(). If None, the fft is performed on the logical grids.
+            Mapped grids obtained by domain(). If None, the fft is performed on the logical grids.
 
         component : int
             Which component of a FemField to consider; is 0 for 0-and 3-forms, is in {0, 1, 2} for 1- and 2-forms.
@@ -139,9 +139,8 @@ def fourier_1d(values, name, code, grids, grids_mapped=None, component=0, slice_
         disp = disp_class(**disp_params)
 
         kpara = kvec
-        kperp = None
 
-        branches = disp(kpara, kperp=kperp)
+        branches = disp(kpara)
         set_min = 0.
         set_max = 0.
         for key, branch in branches.items():

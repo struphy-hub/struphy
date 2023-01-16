@@ -4,14 +4,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from struphy.geometry import domains
-
-from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
-
 from struphy.fields_background.mhd_equil.analytical import ShearedSlab
-
-from struphy.dispersion_relations.MHD_eigenvalues_2D import solve_mhd_ev_problem_2d
-
 from struphy.diagnostics.continuous_spectra import get_mhd_continua_2d
+from struphy.dispersion_relations.analytic import MhdContinousSpectraShearedSlab
+
+from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
+from struphy.eigenvalue_solvers.mhd_axisymmetric_main import solve_mhd_ev_problem_2d
 
 
 # ------ mapping parameters -----
@@ -63,8 +61,8 @@ domain = domain_class(dom_params)
 # for plotting
 etaplot = [np.linspace(0., 1., 201), np.linspace(0., 1., 101)]
 
-xplot = domain.evaluate(etaplot[0], etaplot[1], 0., 'x')
-yplot = domain.evaluate(etaplot[0], etaplot[1], 0., 'y')
+xplot = domain(etaplot[0], etaplot[1], 0.)[0]
+yplot = domain(etaplot[0], etaplot[1], 0.)[1]
 rplot = etaplot[0]*a
 
 # set up 1d spline spaces and set projectors
@@ -80,7 +78,8 @@ fem_2d = Tensor_spline_space([fem_1d_1, fem_1d_2], n_tor=n_tor, basis_tor=b_tor)
 fem_2d.set_projectors('general')
 
 # load MHD equilibrium 
-eq_mhd = ShearedSlab(params_mhd, domain)
+eq_mhd = ShearedSlab(params_mhd)
+eq_mhd.domain = domain
 
 # solve eigenvalue problem
 omega2_eig, U_eig, MAT = solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, b_tor)
@@ -111,8 +110,8 @@ ax[0, 1].set_title('Pressure')
 ax[0, 2].set_title('Number density')
 
 
-xgrid = domain.evaluate(fem_2d.el_b[0], fem_2d.el_b[1], 0., 'x')
-ygrid = domain.evaluate(fem_2d.el_b[0], fem_2d.el_b[1], 0., 'y')
+xgrid = domain(fem_2d.el_b[0], fem_2d.el_b[1], 0.)[0]
+ygrid = domain(fem_2d.el_b[0], fem_2d.el_b[1], 0.)[1]
 
 for i in range(xgrid.shape[0]):
     ax[1, 0].plot(xgrid[i, :], ygrid[i, :], 'k')
@@ -124,6 +123,8 @@ ax[1, 0].set_xlabel('x')
 ax[1, 0].set_ylabel('y')
 ax[1, 0].set_title(r'Grid : $N_\mathrm{el}=$' + str(fem_2d.Nel[:2]), pad=10)
 
+# analytical continuous spectra
+spec_calc = MhdContinousSpectraShearedSlab(a=params_mhd['a'], R0=params_mhd['R0'], Bz=lambda x : params_mhd['B0'] - 0*x, q=eq_mhd.q, rho=eq_mhd.nx, p=eq_mhd.px, gamma=5/3)
 
 #  ====================== plot shear Alfvén continuum =========================
 exponent_A = 2
@@ -133,6 +134,7 @@ ms_plot = [1, 2, 3]
 
 for m in ms_plot:  
     ax[1, 1].plot(A[m][0]*a, (np.sqrt(A[m][1])/norm)**exponent_A, '+', label='m = ' + str(m))
+    ax[1, 1].plot(etaplot[0]*a, (spec_calc(etaplot[0]*a, m, n_tor)['shear_Alfvén']/norm)**exponent_A, 'k--', linewidth=0.5)
     
 ax[1, 1].set_xlabel('$x$')
 
@@ -156,6 +158,7 @@ ms_plot = [0, 1, 2, 3]
 
 for m in ms_plot:  
     ax[1, 2].plot(S[m][0]*a, (np.sqrt(S[m][1])/norm)**exponent_S, '+', label='m = ' + str(m))
+    ax[1, 2].plot(etaplot[0]*a, (spec_calc(etaplot[0]*a, m, n_tor)['slow_sound']/norm)**exponent_A, 'k--', linewidth=0.5)
 
 ax[1, 2].set_xlabel('$x$')
 
@@ -165,7 +168,7 @@ else:
     ax[1, 2].set_ylabel('$\omega^2/\omega_A^2$')
 
 ax[1, 2].set_xlim((0., a))
-ax[1, 2].set_ylim((0., 0.05))
+ax[1, 2].set_ylim((0., 0.1))
 ax[1, 2].legend()
 ax[1, 2].set_title('Slow sound continuum', pad=10)
 # =========================================================================

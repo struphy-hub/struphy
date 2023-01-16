@@ -4,10 +4,10 @@ from pyccel.decorators import stack_array
 import struphy.linear_algebra.core as linalg
 
 # import modules for B-spline evaluation
-from struphy.feec.bsplines_kernels import basis_funs_all
+from struphy.b_splines.bsplines_kernels import basis_funs_all
 
-from struphy.feec.basics.spline_evaluation_2d import evaluation_kernel_2d
-from struphy.feec.basics.spline_evaluation_3d import evaluation_kernel_3d
+from struphy.b_splines.bspline_evaluation_2d import evaluation_kernel_2d
+from struphy.b_splines.bspline_evaluation_3d import evaluation_kernel_3d
 
 # import module for mapping evaluation
 from struphy.geometry.map_eval import df

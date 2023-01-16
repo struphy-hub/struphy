@@ -3,10 +3,10 @@ from pyccel.decorators import pure, stack_array
 from numpy import zeros
 from numpy import sin, cos, tan, pi, sqrt, arctan2, arcsin, arctan
 
-import struphy.feec.bsplines_kernels as bsp
+import struphy.b_splines.bsplines_kernels as bsp
 
-import struphy.feec.basics.spline_evaluation_2d as eva_2d
-import struphy.feec.basics.spline_evaluation_3d as eva_3d
+import struphy.b_splines.bspline_evaluation_2d as eva_2d
+import struphy.b_splines.bspline_evaluation_3d as eva_3d
 
 
 @stack_array('b1', 'b2', 'b3')

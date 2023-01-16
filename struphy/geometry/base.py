@@ -4,9 +4,9 @@ from abc import ABCMeta, abstractmethod
 
 from sympde.topology import Mapping
 
-from struphy.geometry import map_eval, pullback, pushforward, transform 
+from struphy.geometry import map_eval, transform
 from struphy.linear_algebra import linalg_kron 
-import struphy.feec.bsplines as bsp
+import struphy.b_splines.bsplines as bsp
 
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve
@@ -23,19 +23,22 @@ class Domain(metaclass=ABCMeta):
 
         # create IGA attributes for IGA mappings
         if self.kind_map < 10:
-
-            self._Nel = self.params_map['Nel']
-            self._p = self.params_map['p']
-            self._spl_kind = self.params_map['spl_kind']
-
-            self._NbaseN = [Nel + p - kind*p for Nel, p,
-                            kind in zip(self.params_map['Nel'], self.params_map['p'], self.params_map['spl_kind'])]
-
-            el_b = [np.linspace(0., 1., Nel + 1) for Nel in self.params_map['Nel']]
-            self._T = [bsp.make_knots(el_b, p, kind) for el_b, p, kind in zip(
-                el_b, self.params_map['p'], self.params_map['spl_kind'])]
             
-            self._indN = [(np.indices((Nel, p + 1))[1] + np.arange(Nel)[:, None])%NbaseN for Nel, p, NbaseN in zip(self.params_map['Nel'], self.params_map['p'], self._NbaseN)] 
+            Nel = self.params_map['Nel']
+            p   = self.params_map['p']
+            spl = self.params_map['spl_kind']
+
+            self._Nel = Nel
+            self._p = p
+            self._spl_kind = spl
+
+            self._NbaseN = [Nel + p - kind*p for Nel, p, kind in zip(Nel, p, spl)]
+
+            el_b = [np.linspace(0., 1., Nel + 1) for Nel in Nel]
+            
+            self._T = [bsp.make_knots(el_b, p, kind) for el_b, p, kind in zip(el_b, p, spl)]
+            
+            self._indN = [(np.indices((Nel, p + 1))[1] + np.arange(Nel)[:, None])%NbaseN for Nel, p, NbaseN in zip(Nel, p, self._NbaseN)] 
 
             # extend to 3d for 2d IGA mappings
             if self._kind_map != 0:
@@ -54,6 +57,7 @@ class Domain(metaclass=ABCMeta):
             self._Nel = [0, 0, 0]
             self._p = [0, 0, 0]
             self._spl_kind = [True, True, True]
+            
             self._NbaseN = [0, 0, 0]
 
             self._T = [np.zeros((1,), dtype=float),
@@ -68,51 +72,53 @@ class Domain(metaclass=ABCMeta):
             self._cy = np.zeros((1, 1, 1), dtype=float)
             self._cz = np.zeros((1, 1, 1), dtype=float)
 
-        # keys for evaluating mapping related quantities
-        self._keys_map = {
-            'x': 1, 'y': 2, 'z': 3, 'det_df': 4,
-            'df_11': 11, 'df_12': 12, 'df_13': 13,
-            'df_21': 14, 'df_22': 15, 'df_23': 16,
-            'df_31': 17, 'df_32': 18, 'df_33': 19,
-            'df_inv_11': 21, 'df_inv_12': 22, 'df_inv_13': 23,
-            'df_inv_21': 24, 'df_inv_22': 25, 'df_inv_23': 26,
-            'df_inv_31': 27, 'df_inv_32': 28, 'df_inv_33': 29,
-            'g_11': 31, 'g_12': 32, 'g_13': 33, 'g_21': 34,
-            'g_22': 35, 'g_23': 36, 'g_31': 37, 'g_32': 38, 'g_33': 39,
-            'g_inv_11': 41, 'g_inv_12': 42, 'g_inv_13': 43, 'g_inv_21': 44,
-            'g_inv_22': 45, 'g_inv_23': 46, 'g_inv_31': 47, 'g_inv_32': 48,
-            'g_inv_33': 49
-        }
-
+        
+        self._transformation_ids = {'pull' : 0,
+                                    'push' : 1,
+                                    'tran' : 2}
+        
         # keys for performing pull-backs
-        self._keys_pull = {
-            '0_form': 0, '3_form': 3,
-            '1_form_1': 11, '1_form_2': 12, '1_form_3': 13, 
-            '2_form_1': 21, '2_form_2': 22, '2_form_3': 23,
-            'vector_1': 31, 'vector_2': 32, 'vector_3': 33
+        dict_pull = {
+            '0_form': 0,
+            '3_form': 1,
+            '1_form': 10,
+            '2_form': 11,
+            'vector': 12
         }
 
         # keys for performing push-forwards
-        self._keys_push = {
-            '0_form': 0, '3_form': 3,
-            '1_form_1': 11, '1_form_2': 12, '1_form_3': 13,
-            '2_form_1': 21, '2_form_2': 22, '2_form_3': 23,
-            'vector_1': 31, 'vector_2': 32, 'vector_3': 33
+        dict_push = {
+            '0_form': 0,
+            '3_form': 1,
+            '1_form': 10,
+            '2_form': 11,
+            'vector': 12
         }
 
         # keys for performing transformation
-        self._keys_transform = {
-            '0_to_3': 0, '3_to_0': 1,
-            'norm_to_v_1': 11, 'norm_to_v_2': 12, 'norm_to_v_3': 13,
-            'norm_to_1_1': 21, 'norm_to_1_2': 22, 'norm_to_1_3': 23,
-            'norm_to_2_1': 31, 'norm_to_2_2': 32, 'norm_to_2_3': 33,
-            '1_to_2_1': 41, '1_to_2_2': 42, '1_to_2_3': 43,
-            '2_to_1_1': 51, '2_to_1_2': 52, '2_to_1_3': 53
+        dict_tran = {
+            '0_to_3': 0,
+            '3_to_0': 1,
+            '1_to_2': 10,
+            '2_to_1': 11,
+            'norm_to_v': 12,
+            'norm_to_1': 13,
+            'norm_to_2': 14,
+            'v_to_1' : 15,
+            'v_to_2' : 16,
+            '1_to_v' : 17,
+            '2_to_v' : 18
         }
         
+        self._dict_transformations = {'pull' : dict_pull,
+                                      'push' : dict_push,
+                                      'tran' : dict_tran}
 
+    
     class PsydacMapping(Mapping):
-        '''To create a psydac domain.'''
+        """
+        Class to create a psydac domain.
+        """
 
         _expressions = None
         _ldim = 3
@@ -206,561 +212,553 @@ class Domain(metaclass=ABCMeta):
         return _args_map
 
     @property
-    def keys_map(self):
-        '''Dictionary of str->int for kind_map.'''
-        return self._keys_map
-
-    @property
-    def keys_pull(self):
-        '''Dictionary of str->int for pull function.'''
-        return self._keys_pull
-
-    @property
-    def keys_push(self):
-        '''Dictionary of str->int for push function.'''
-        return self._keys_push
-
-    @property
-    def keys_transform(self):
-        '''Dictionary of str->int for transform function.'''
-        return self._keys_transform
-    
+    def dict_transformations(self):
+        '''Dictionary of str->int for pull, push and transformation functions.'''
+        return self._dict_transformations    
     
     # ========================
-    def __call__(self, eta1, eta2, eta3, flat_eval=False, squeeze_output=True, change_out_order=False):
+    def __call__(self, *etas, change_out_order=False, squeeze_out=True, remove_outside=True, identity_map=False):
         """
-        Evaluates the mapping.
+        Evaluates the mapping F : [0, 1]^d --> R^d. Logical coordinates outside of [0, 1]^d are evaluated to -1.
         
         Parameters
         ----------
-            eta1, eta2, eta3 : array-like
-                Logical coordinates at which to evaluate.
-                
-            flat_eval : bool
-                Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
-                
-            squeeze_output : bool
-                Whether to remove singleton dimensions in output "values".
-                
-            change_out_order : bool
-                If True, the axis corresponding to the x, y, z coordinates in the output array is the last one, otherwise the first one.
+        *etas : array-like | tuple
+            Logical coordinates at which to evaluate. Two cases are possible:
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
+            
+        change_out_order : bool
+            If True, the axis corresponding to x, y, z coordinates in the output array is the last one, otherwise the first one.
+
+        squeeze_out : bool
+            Whether to remove singleton dimensions in output array.
+            
+        remove_outside : bool
+            If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
+            
+        identity_map : bool
+            If True, not the mapping F, but the identity map [0, 1]^d --> [0, 1]^d is evaluated
                 
         Returns
         -------
-            values : array-like
-                The Cartesian coordinates corresponding to the given logical ones.
+        out : array-like | float
+            The Cartesian coordinates corresponding to the given logical ones.
         """
         
-        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-            eta1, eta2, eta3, flat_eval)
-
-        values = np.empty((3, 1, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
-        
-        map_eval.kernel_evaluate_all(E1, E2, E3, 0, *self.args_map, values, is_sparse_meshgrid)
-        
-        values = values[:, 0, :, :, :]
-            
-        if flat_eval:
-            values = values[:, :, 0, 0]
-            if change_out_order: values = np.transpose(values, axes=(1, 0))
+        if identity_map:
+            which = -1
         else:
-            if change_out_order: values = np.transpose(values, axes=(1, 2, 3, 0))
-            
-            if squeeze_output: 
-                values = values.squeeze()
-
-            if values.ndim == 0: 
-                values = values.item()
-
-        return values
+            which = 0
+        
+        return self._evaluate_metric_coefficient(*etas, which=which, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside)
     
     # ========================
-    def jacobian(self, eta1, eta2, eta3, flat_eval=False, squeeze_output=True, change_out_order=False, transposed=False):
+    def jacobian(self, *etas, transposed=False, change_out_order=False, squeeze_out=True, remove_outside=True):
         """
-        Evaluates the Jacobian matrix.
+        Evaluates the Jacobian matrix. Logical coordinates outside of [0, 1]^d are evaluated to -1.
         
         Parameters
         ----------
-            eta1, eta2, eta3 : array-like
-                Logical coordinates at which to evaluate.
-                
-            flat_eval : bool
-                Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
-                
-            squeeze_output : bool
-                Whether to remove singleton dimensions in output "values".
-                
-            change_out_order : bool
-                If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two.
-                
-            transposed : bool
-                If True, the transposed Jacobian matrix is evaluated.
-                
+        *etas : array-like | tuple
+            Logical coordinates at which to evaluate. Two cases are possible:
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
+            
+        transposed : bool
+            If True, the transposed Jacobian matrix is evaluated.
+            
+        change_out_order : bool
+            If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two. 
+        
+        squeeze_out : bool
+            Whether to remove singleton dimensions in output array.
+            
+        remove_outside : bool
+            If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
+        
         Returns
         -------
-            values : array-like
-                The Jacobian matrix evaluated at the given logical coordinates.
+        out : array-like | float
+            The Jacobian matrix evaluated at given logical coordinates.
         """
         
-        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-            eta1, eta2, eta3, flat_eval)
-
-        values = np.empty((3, 3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
-        
-        map_eval.kernel_evaluate_all(E1, E2, E3, 1, *self.args_map, values, is_sparse_meshgrid)
-            
-        if transposed: values = np.transpose(values, axes=(1, 0, 2, 3, 4))
-            
-        if flat_eval:
-            values = values[:, :, :, 0, 0]
-            if change_out_order: values = np.transpose(values, axes=(2, 0, 1))       
-        else:
-            if change_out_order: values = np.transpose(values, axes=(2, 3, 4, 0, 1))
-            
-            if squeeze_output: 
-                values = values.squeeze()
-
-            if values.ndim == 0: 
-                values = values.item()
-
-        return values
+        return self._evaluate_metric_coefficient(*etas, which=1, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
     
     # ========================
-    def jacobian_det(self, eta1, eta2, eta3, flat_eval=False, squeeze_output=True):
+    def jacobian_det(self, *etas, squeeze_out=True, remove_outside=True):
         """
-        Evaluates the Jacobian determinant.
+        Evaluates the Jacobian determinant. Logical coordinates outside of [0, 1]^d are evaluated to -1.
         
         Parameters
         ----------
-            eta1, eta2, eta3 : array-like
-                Logical coordinates at which to evaluate.
-                
-            flat_eval : bool
-                Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
-                
-            squeeze_output : bool
-                Whether to remove singleton dimensions in output "values".
+        *etas : array-like | tuple
+            Logical coordinates at which to evaluate. Two cases are possible:
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
+                       
+        squeeze_out : bool, optional
+            Whether to remove singleton dimensions in output array.
+            
+        remove_outside : bool, optional
+            If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
                 
         Returns
         -------
-            values : array-like
-                The Jacobian determinant evaluated at the given logical coordinates.
+        out : array-like | float
+            The Jacobian determinant evaluated at given logical coordinates.
         """
         
-        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-            eta1, eta2, eta3, flat_eval)
-
-        values = np.empty((1, 1, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
-        
-        map_eval.kernel_evaluate_all(E1, E2, E3, 2, *self.args_map, values, is_sparse_meshgrid)
-        
-        values = values[0, 0, :, :, :]
-        
-        if flat_eval:
-            values = values[:, 0, 0]
-        else:
-            if squeeze_output: 
-                values = values.squeeze()
-
-            if values.ndim == 0: 
-                values = values.item()
-
-        return values
+        return self._evaluate_metric_coefficient(*etas, which=2, squeeze_out=squeeze_out, remove_outside=remove_outside)
     
     # ========================
-    def jacobian_inv(self, eta1, eta2, eta3, flat_eval=False, squeeze_output=True, change_out_order=False, transposed=False):
+    def jacobian_inv(self, *etas, transposed=False, change_out_order=False, squeeze_out=True, remove_outside=True):
         """
-        Evaluates the inverse Jacobian matrix.
+        Evaluates the inverse Jacobian matrix. Logical coordinates outside of [0, 1]^d are evaluated to -1.
         
         Parameters
         ----------
-            eta1, eta2, eta3 : array-like
-                Logical coordinates at which to evaluate.
-                
-            flat_eval : bool
-                Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
-                
-            squeeze_output : bool
-                Whether to remove singleton dimensions in output "values".
-                
-            change_out_order : bool
-                If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two.
-                
-            transposed : bool
-                If True, the inverse transposed Jacobian matrix is evaluated.
-                
+        *etas : array-like | tuple
+            Logical coordinates at which to evaluate. Two cases are possible:
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
+            
+        transposed : bool, optional
+            If True, the transposed Jacobian matrix is evaluated.
+            
+        change_out_order : bool, optional
+            If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two. 
+        
+        squeeze_out : bool, optional
+            Whether to remove singleton dimensions in output array.
+            
+        remove_outside : bool, optional
+            If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
+        
         Returns
         -------
-            values : array-like
-                The inverse Jacobian matrix evaluated at the given logical coordinates.
+        out : array-like | float
+            The inverse Jacobian matrix evaluated at given logical coordinates.
         """
         
-        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-            eta1, eta2, eta3, flat_eval)
-
-        values = np.empty((3, 3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
-        
-        map_eval.kernel_evaluate_all(E1, E2, E3, 3, *self.args_map, values, is_sparse_meshgrid)
-            
-        if transposed: values = np.transpose(values, axes=(1, 0, 2, 3, 4))
-            
-        if flat_eval:
-            values = values[:, :, :, 0, 0]
-            if change_out_order: values = np.transpose(values, axes=(2, 0, 1))       
-        else:
-            if change_out_order: values = np.transpose(values, axes=(2, 3, 4, 0, 1))
-            
-            if squeeze_output: 
-                values = values.squeeze()
-
-            if values.ndim == 0: 
-                values = values.item()
-
-        return values
+        return self._evaluate_metric_coefficient(*etas, which=3, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
     
     # ========================
-    def metric(self, eta1, eta2, eta3, flat_eval=False, squeeze_output=True, change_out_order=False):
+    def metric(self, *etas, transposed=False, change_out_order=False, squeeze_out=True, remove_outside=True):
         """
-        Evaluates the metric tensor.
+        Evaluates the metric tensor. Logical coordinates outside of [0, 1]^d are evaluated to -1.
         
         Parameters
         ----------
-            eta1, eta2, eta3 : array-like
-                Logical coordinates at which to evaluate.
-                
-            flat_eval : bool
-                Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
-                
-            squeeze_output : bool
-                Whether to remove singleton dimensions in output "values".
-                
-            change_out_order : bool
-                If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two.
-                
+        *etas : array-like | tuple
+            Logical coordinates at which to evaluate. Two cases are possible:
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
+            
+        transposed : bool, optional
+            If True, the transposed Jacobian matrix is evaluated.
+            
+        change_out_order : bool, optional
+            If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two. 
+        
+        squeeze_out : bool, optional
+            Whether to remove singleton dimensions in output array.
+            
+        remove_outside : bool, optional
+            If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
+        
         Returns
         -------
-            values : array-like
-                The metric tensor evaluated at the given logical coordinates.
+        out : array-like | float
+            The metric tensor evaluated at given logical coordinates.
         """
         
-        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-            eta1, eta2, eta3, flat_eval)
-
-        values = np.empty((3, 3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
-        
-        map_eval.kernel_evaluate_all(E1, E2, E3, 4, *self.args_map, values, is_sparse_meshgrid)
-            
-        if flat_eval:
-            values = values[:, :, :, 0, 0]
-            if change_out_order: values = np.transpose(values, axes=(2, 0, 1))       
-        else:
-            if change_out_order: values = np.transpose(values, axes=(2, 3, 4, 0, 1))
-            
-            if squeeze_output: 
-                values = values.squeeze()
-
-            if values.ndim == 0: 
-                values = values.item()
-
-        return values
+        return self._evaluate_metric_coefficient(*etas, which=4, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
     
     # ========================
-    def metric_inv(self, eta1, eta2, eta3, flat_eval=False, squeeze_output=True, change_out_order=False):
+    def metric_inv(self, *etas, transposed=False, change_out_order=False, squeeze_out=True, remove_outside=True):
         """
-        Evaluates the inverse metric tensor.
+        Evaluates the inverse metric tensor. Logical coordinates outside of [0, 1]^d are evaluated to -1.
         
         Parameters
         ----------
-            eta1, eta2, eta3 : array-like
-                Logical coordinates at which to evaluate.
-                
-            flat_eval : bool
-                Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
-                
-            squeeze_output : bool
-                Whether to remove singleton dimensions in output "values".
-                
-            change_out_order : bool
-                If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two.
-                
+        *etas : array-like | tuple
+            Logical coordinates at which to evaluate. Two cases are possible:
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
+            
+        transposed : bool, optional
+            If True, the transposed Jacobian matrix is evaluated.
+            
+        change_out_order : bool, optional
+            If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two. 
+        
+        squeeze_out : bool, optional
+            Whether to remove singleton dimensions in output array.
+            
+        remove_outside : bool, optional
+            If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
+        
         Returns
         -------
-            values : array-like
-                The metric tensor evaluated at the given logical coordinates.
+        out : array-like | float
+            The inverse metric tensor evaluated at given logical coordinates.
         """
         
-        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-            eta1, eta2, eta3, flat_eval)
-
-        values = np.empty((3, 3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
-        
-        map_eval.kernel_evaluate_all(E1, E2, E3, 5, *self.args_map, values, is_sparse_meshgrid)
-            
-        if flat_eval:
-            values = values[:, :, :, 0, 0]
-            if change_out_order: values = np.transpose(values, axes=(2, 0, 1))       
-        else:
-            if change_out_order: values = np.transpose(values, axes=(2, 3, 4, 0, 1))
-            
-            if squeeze_output: 
-                values = values.squeeze()
-
-            if values.ndim == 0: 
-                values = values.item()
-
-        return values
+        return self._evaluate_metric_coefficient(*etas, which=5, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
     
-    # ========================
-    def evaluate(self, eta1, eta2, eta3, kind_eval, flat_eval=False, squeeze_output=True):
+    # ================================
+    def pull(self, a, *etas, kind='0_form', a_kwargs={}, change_out_order=False, squeeze_out=True, remove_outside=True, coordinates='physical'):
         """
-        Evaluate mapping/metric coefficients. 
+        Pull-back of a Cartesian scalar/vector field to a differential p-form.
 
-        Depending on the dimension of eta1, eta2, eta3 either point-wise, tensor-product, slice plane, etc. (see prepare_eval_pts).
+        Parameters
+        ----------
+        a : callable | list | tuple | array-like
+            The function a(x, y, z) resp. [a_x(x, y, z), a_y(x, y, z), a_z(x, y, z)] to be pulled.
+
+        *etas : array-like | tuple
+            Logical coordinates at which to evaluate. Two cases are possible:
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
+
+        kind : str
+            Which pull-back to apply, see dict_transformations['pull'].
+            
+        a_kwargs : dict
+            Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
+
+        change_out_order : bool, optional
+            If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two. 
+        
+        squeeze_out : bool, optional
+            Whether to remove singleton dimensions in output array.
+            
+        remove_outside : bool, optional
+            If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
+
+        coordinates : str, optional
+            In which coordinates the input "a" is given (in case of callables).
+                * "physical" : a = a(x, y, z)
+                * "logical"  : a = a(eta1, eta2, eta3)
+
+        Returns
+        -------
+        out : array-like | float
+            Pullback of Cartesian vector/scalar field to p-form evaluated at given logical coordinates.
+
+        Notes
+        -----
+        Possible choices for kind are '0_form', '1_form', '2_form', '3_form' and 'vector'.
+        """
+        
+        return self._pull_push_transform('pull', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside, coordinates=coordinates)
+        
+    # ================================
+    def push(self, a, *etas, kind='0_form', a_kwargs={}, change_out_order=False, squeeze_out=True, remove_outside=True):
+        """
+        Pushforward of a differential p-form to a Cartesian scalar/vector field .
 
         Parameters
         -----------
-            eta1, eta2, eta3 : array-like
-                Logical coordinates at which to evaluate.
-                
-            kind_eval : str
-                What metric coefficient to evaluate, see Notes.
-                
-            flat_eval : bool
-                Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
-                
-            squeeze_output : bool
-                Whether to remove singleton dimensions in output "values".
+        a : callable | list | tuple | array-like
+            The function a(e1, e2, e3) resp. [a_1(e1, e2, e3), a_2(e1, e2, e3), a_3(e1, e2, e3)] to be pushed.
 
-        Returns
-        --------
-             values : array-like
-                Mapping/metric coefficients evaluated at (eta1, eta2, eta3). 
+        *etas : array-like | tuple
+            Logical coordinates at which to evaluate. Two cases are possible:
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
-        Notes
-        -----
-            Possible choices for kind_eval: 
+        kind : str
+            Which pushforward to apply, see dict_transformations['push'].
+            
+        a_kwargs : dict
+            Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
 
-                * 'x', 'y', 'z': components of F
-                * 'det_df': Jacobian determinant
-                * 'df_11', 'df_12', 'df_13', 'df_21', 'df_22', 'df_23', 'df_31', 'df_32', 'df_33': Jacobian 
-                * 'df_inv_11', 'df_inv_12', 'df_inv_13', 'df_inv_21', 'df_inv_22', 'df_inv_23', 'df_inv_31', 'df_inv_32', 'df_inv_33', Jacobian inverse 
-                * 'g_11', 'g_12', 'g_13', 'g_21', 'g_22', 'g_23', 'g_31', 'g_32', 'g_33': metric tensor 
-                * 'g_inv_11', 'g_inv_12', 'g_inv_13', 'g_inv_21', 'g_inv_22', 'g_inv_23', 'g_inv_31', 'g_inv_32', 'g_inv_33': inverse metric tensor
-        """
-
-        # convert evaluation points to 3d array of appropriate shape
-        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-            eta1, eta2, eta3, flat_eval)
-
-        # call evaluation kernel
-        values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
-
-        map_eval.kernel_evaluate(E1, E2, E3, self.keys_map[kind_eval], *self.args_map, values, is_sparse_meshgrid)
-
-        # convert evaluated values to correct shape
-        if flat_eval:
-            values = values[:, 0, 0]
-        else:
-            if squeeze_output:
-                values = values.squeeze()
-
-            if values.ndim == 0:
-                values = values.item()
-
-        return values
-
-    # ================================
-    def pull(self, a, eta1, eta2, eta3, kind_pull, flat_eval=False, squeeze_output=True):
-        """
-        Pull-back of p-forms. 
-
-        Depending on the dimension of eta1, eta2, eta3 either point-wise, tensor-product, slice plane, etc. (see prepare_eval_pts).
-
-        Parameters
-        ----------
-            a : list of callables or array-like
-                The function a(x, y, z) resp. [a_x(x, y, z), a_y(x, y, z), a_z(x, y, z)] to be pulled.
-                
-            eta1, eta2, eta3 : array-like
-                Logical coordinates at which to pull.
-                
-            kind_pull : str
-                Which pull-back to apply, see keys_pull.
-                
-            flat_eval : bool
-                Whether to do a flat evaluation, i.e. f([e11, e12, ...], [e21, e22, ...]) = [f(e11, e21), f(e12, e22), ...].
-                
-            squeeze_output : bool
-                Whether to remove singleton dimensions in output "values".
+        change_out_order : bool, optional
+            If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two. 
+        
+        squeeze_out : bool, optional
+            Whether to remove singleton dimensions in output array.
+            
+        remove_outside : bool, optional
+            If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
 
         Returns
         -------
-             values : array-like
-                Pullback of p-form (component) evaluated at (eta1, eta2, eta3).
+        out : array-like | float
+            Pushforward of p-form to Cartesian vector/scalar field evaluated at given logical coordinates.
 
         Notes
         -----
-            Possible choices for kind_pull:
-
-                * '0_form'  , '3_form'
-                * '1_form_1', '1_form_2', '1_form_3'
-                * '2_form_1', '2_form_2', '2_form_3',
-                * 'vector_1', 'vector_2', 'vector_3'
+        Possible choices for kind are '0_form', '1_form', '2_form', '3_form' and 'vector'.
         """
-        
-        # convert evaluation points to 3d array of appropriate shape
-        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-            eta1, eta2, eta3, flat_eval)
-        
-        # convert input to be transformed (a) to 4d array of appropriate shape
-        X = self(E1, E2, E3, squeeze_output=False)
-        
-        A = Domain.prepare_arg(a, X[0], X[1], X[2], flat_eval)
 
-        # call evaluation kernel
-        values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
-        
-        pullback.kernel_evaluate(A, E1, E2, E3, self.keys_pull[kind_pull], *self.args_map, values, is_sparse_meshgrid)
-        
-        # convert pulled values to correct shape
-        if flat_eval:
-            values = values[:, 0, 0]
-        else:
-            if squeeze_output:
-                values = values.squeeze()
-
-            if values.ndim == 0:
-                values = values.item()
-
-        return values
+        return self._pull_push_transform('push', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside)
 
     # ================================
-    def push(self, a, eta1, eta2, eta3, kind_push, flat_eval=False, squeeze_output=True):
+    def transform(self, a, *etas, kind='0_to_3', a_kwargs={}, change_out_order=False, squeeze_out=True, remove_outside=True):
         """
-        Push-forward of p-forms. 
-
-        Depending on the dimension of eta1, eta2, eta3 either point-wise, tensor-product, slice plane, etc. (see prepare_eval_pts).
+        Transformation between different differential p-forms and/or vector fields. 
 
         Parameters
         -----------
-            a : list of callables or array-like
-                The function a(e1, e2, e3) resp. [a_1(e1, e2, e), a_2(e1, e2, e), a_3(e1, e2, e3)] to be pushed.
-                
-            eta1, eta2, eta3 : array-like
-                Logical coordinates at which to push.
-                
-            kind_push : str
-                Which push-forward to apply, see keys_push.
-                
-            flat_eval : bool
-                Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
-                
-            squeeze_output : bool
-                Whether to remove singleton dimensions in output "values".
+        a : callable | list | tuple | array-like
+            The function a(e1, e2, e3) resp. [a_1(e1, e2, e3), a_2(e1, e2, e3), a_3(e1, e2, e3)] to be transformed.
 
-        Returns
-        --------
-             values : array-like
-                Push forward of p-form (component) evaluated at (eta1, eta2, eta3).
+        *etas : array-like | tuple
+            Logical coordinates at which to evaluate. Two cases are possible:
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
-        Notes
-        -----
-            Possible choices for kind_push:
+        kind : str
+            Which transformation to apply, see see dict_transformations['tran'].
+            
+        a_kwargs : dict
+            Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
 
-                * '0_form'  , '3_form'
-                * '1_form_1', '1_form_2', '1_form_3'
-                * '2_form_1', '2_form_2', '2_form_3',
-                * 'vector_1', 'vector_2', 'vector_3'
-        """
-
-        # convert evaluation points to 3d array of appropriate shape
-        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-            eta1, eta2, eta3, flat_eval)
+        change_out_order : bool, optional
+            If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two. 
         
-        # convert input to be transformed (a) to 4d array of appropriate shape
-        A = Domain.prepare_arg(a, E1, E2, E3, flat_eval)
-
-        # call evaluation kernel
-        values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
-        
-        pushforward.kernel_evaluate(A, E1, E2, E3, self.keys_pull[kind_push], *self.args_map, values, is_sparse_meshgrid)
-
-        # convert pushed values to correct shape
-        if flat_eval:
-            values = values[:, 0, 0]
-        else:
-            if squeeze_output:
-                values = values.squeeze()
-
-            if values.ndim == 0:
-                values = values.item()
-
-        return values
-
-    # ================================
-    def transform(self, a, eta1, eta2, eta3, kind_trans, flat_eval=False, squeeze_output=True):
-        """
-        Transformation between different p-forms on logical domain. 
-
-        Depending on the dimension of eta1, eta2, eta3 either point-wise, tensor-product, slice plane, etc. (see prepare_eval_pts).
-
-        Parameters
-        ----------
-            a : list of callables or array-like
-                The function a(e1, e2, e3) resp. [a_1(e1, e2, e), a_2(e1, e2, e), a_3(e1, e2, e3)] to be transformed.
-                
-            eta1, eta2, eta3 : array-like
-                Logical coordinates at which to transform.
-                
-            kind_trans : str
-                Which transformation to apply, see keys_transform.
-                
-            flat_eval : bool
-                Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
-                
-            squeeze_output : bool
-                Whether to remove singleton dimensions in output "values".
+        squeeze_out : bool, optional
+            Whether to remove singleton dimensions in output array.
+            
+        remove_outside : bool, optional
+            If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
 
         Returns
         -------
-            values : array-like
-                Transformed p-form from norm_vector or scalar (component) evaluated at (eta1, eta2, eta3).
+        out : array-like | float
+            Transformed p-form evaluated at given logical coordinates.
 
         Notes
         -----
-            Possible choices for kind_trans:
-            
-                * 'norm_to_v_1', 'norm_to_v_2', 'norm_to_v_3',
-                * 'norm_to_1_1', 'norm_to_1_2', 'norm_to_1_3',
-                * 'norm_to_2_1', 'norm_to_2_2', 'norm_to_2_3',
-                * '1_to_2_1', '1_to_2_2', '1_to_2_3',
-                * '2_to_1_1', '2_to_1_2', '2_to_1_3',
-                * '0_to_3', '3_to_0'
+        Possible choices for kind are '0_to_3', '3_to_0', '1_to_2', '2_to_1', 'norm_to_v', 'norm_to_1', 'norm_to_2', 'v_to_1', 'v_to_2', '1_to_v' and '2_to_v'.
         """
 
-        # convert evaluation points (eta1, eta2, eta3) to 3d array of appropriate shape
-        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-            eta1, eta2, eta3, flat_eval)
-
-        # convert input to be transformed (a) to 4d array of appropriate shape
-        A = Domain.prepare_arg(a, E1, E2, E3, flat_eval)
-
-        # call evaluation kernel
-        values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+        return self._pull_push_transform('tran', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside, a_kwargs=a_kwargs)
+    
+    # ========================
+    # private methods :
+    # ========================
+    
+    # ================================
+    def _evaluate_metric_coefficient(self, *etas, which=0, **kwargs):
+        """
+        Evaluates metric coefficients. Logical coordinates outside of [0, 1]^d are evaluated to -1 for markers evaluation.
         
-        transform.kernel_evaluate(A, E1, E2, E3, self.keys_transform[kind_trans], *self.args_map, values, is_sparse_meshgrid)
-
-        # convert transformed values to correct shape
-        if flat_eval:
-            values = values[:, 0, 0]
+        Parameters
+        ----------
+        *etas : array-like | tuple
+            Logical coordinates at which to evaluate. Two cases are possible:
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
+                
+        which : int
+            Which metric coefficients to be evaluated (0 : F, 1 : DF, 2 : det(DF), 3 : DF^(-1), 4 : G, 5 : G^(-1)).
+            
+        **kwargs
+            Addtional boolean keyword arguments (transposed, change_out_order, squeeze_out, remove_outside).
+        
+        Returns
+        -------
+        out : array-like | float
+            The metric coefficient evaluated at the given logical coordinates.
+        """
+        
+        # set default values
+        transposed = kwargs.get('transposed', False)
+        change_out_order = kwargs.get('change_out_order', False)
+        squeeze_out = kwargs.get('squeeze_out', True)
+        remove_outside = kwargs.get('remove_outside', False)
+        
+        # markers evaluation
+        if len(etas) == 1:
+            
+            markers = etas[0]
+            
+            out = np.empty((3, 3, markers.shape[0]), dtype=float)
+            
+            n_inside = map_eval.kernel_evaluate_pic(markers, which, *self.args_map, out, remove_outside)
+            
+            # remove holes
+            out = out[:, :, :n_inside]
+            
+            if transposed: out = np.transpose(out, axes=(1, 0, 2))
+            
+            if   which == 0 or which == -1:
+                out = out[:, 0, :]
+                if change_out_order: out = np.transpose(out, axes=(1, 0)) 
+            elif which == 2:
+                out = out[0, 0, :]
+            else:
+                if change_out_order: out = np.transpose(out, axes=(2, 0, 1)) 
+            
+        # tensor-product/slice evaluation
         else:
-            if squeeze_output:
-                values = values.squeeze()
+            
+            E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
+                etas[0], etas[1], etas[2], flat_eval=False)
 
-            if values.ndim == 0:
-                values = values.item()
+            out = np.empty((3, 3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
 
-        return values 
+            map_eval.kernel_evaluate(E1, E2, E3, which, *self.args_map, out, is_sparse_meshgrid)
+            
+            if transposed: out = np.transpose(out, axes=(1, 0, 2, 3, 4))
+            
+            if   which == 0:
+                out = out[:, 0, :, :, :]
+                if change_out_order: out = np.transpose(out, axes=(1, 2, 3, 0))
+            elif which == 2:
+                out = out[0, 0, :, :, :]
+            else:    
+                if change_out_order: out = np.transpose(out, axes=(2, 3, 4, 0, 1))
+
+            # remove singleton dimensions for slice evaluation
+            if squeeze_out: 
+                out = out.squeeze()
+
+            # remove all "dimensions" for point-wise evaluation
+            if out.ndim == 0: 
+                out = out.item()
+
+        if isinstance(out, float):
+            return out
+        else:
+            return out.copy()
+        
+    # ================================
+    def _pull_push_transform(self, which, a, kind_fun, *etas, **kwargs):
+        """
+        Evaluates metric coefficients. Logical coordinates outside of [0, 1]^d are evaluated to -1 for markers evaluation.
+        
+        Parameters
+        ----------
+        which : str
+            Which transformation to apply (one of "pull", "push" or "tran").
+            
+        a : callable | list | tuple | array-like
+            The function/values to be transformed.
+            
+        kind_fun : str
+            The kind of transformation (e.g. "0_form" or "1_form" in case of which="pull").
+        
+        *etas : array-like| tuple
+            Logical coordinates at which to evaluate. Two cases are possible:
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
+            
+        **kwargs
+            Addtional keyword arguments (transposed, change_out_order, squeeze_out, remove_outside, a_kwargs).
+        
+        Returns
+        -------
+        out : array-like | float
+            The metric coefficient evaluated at the given logical coordinates.
+        """
+        
+        # set default values
+        coordinates = kwargs.get('coordinates', 'logical')
+        change_out_order = kwargs.get('change_out_order', False)
+        squeeze_out = kwargs.get('squeeze_out', True)
+        remove_outside = kwargs.get('remove_outside', False)
+        a_kwargs = kwargs.get('a_kwargs', {})
+        
+        # kind of transformation
+        kind_int = self.dict_transformations[which][kind_fun]
+        
+        # markers evaluation
+        if len(etas) == 1:
+            
+            markers = etas[0]
+            
+            # coordinates (:, 3) and argument evaluation (without holes)
+            if callable(a):
+                if coordinates == 'logical':
+                    A = Domain.prepare_arg(a, self(markers, change_out_order=True, remove_outside=remove_outside, identity_map=True)) 
+                else:
+                    A = Domain.prepare_arg(a, self(markers, change_out_order=True, remove_outside=remove_outside))
+            
+            elif isinstance(a, (list, tuple)):
+                
+                if callable(a[0]):
+                    if coordinates == 'logical':
+                        A = Domain.prepare_arg(a, self(markers, change_out_order=True, remove_outside=remove_outside, identity_map=True)) 
+                    else:
+                        A = Domain.prepare_arg(a, self(markers, change_out_order=True, remove_outside=remove_outside))
+                else:
+                    A = Domain.prepare_arg(a, markers)
+                
+            else:
+                A = Domain.prepare_arg(a, markers)
+            
+            # check if A includes holes or not
+            if A.shape[1] == markers.shape[0]:
+                A_has_holes = True
+            else:
+                A_has_holes = False
+            
+            # call evaluation kernel
+            out = np.empty((3, markers.shape[0]), dtype=float)
+            
+            n_inside = transform.kernel_evaluate_pic(A, markers, self._transformation_ids[which], kind_int, *self.args_map, out, remove_outside)
+            
+            # remove holes
+            out = out[:, :n_inside]
+            
+            # check if A has correct shape
+            if not A_has_holes and remove_outside:
+                assert A.shape[1] == out.shape[1]
+            
+            # change output order
+            if kind_int < 10:
+                out = out[0, :]
+            else:
+                if change_out_order:
+                    out = np.transpose(out, axes=(1, 0))
+                
+        # tensor-product/slice evaluation
+        else:
+        
+            # convert evaluation points to 3d array of appropriate shape
+            E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
+                etas[0], etas[1], etas[2], flat_eval=False)
+            
+            # convert input to be transformed (a) to 4d array of appropriate shape
+            if coordinates == 'logical':
+                A = Domain.prepare_arg(a, E1, E2, E3, is_sparse_meshgrid=is_sparse_meshgrid, a_kwargs=a_kwargs) 
+            else:
+                X = self(E1, E2, E3, squeeze_out=False)
+                A = Domain.prepare_arg(a, X[0], X[1], X[2], a_kwargs=a_kwargs)
+                
+            # call evaluation kernel
+            out = np.empty((3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+            
+            transform.kernel_evaluate(A, E1, E2, E3, self._transformation_ids[which], kind_int, *self.args_map, is_sparse_meshgrid, out)
+                
+            # change output order
+            if kind_int < 10:
+                out = out[0, :, :, :]
+            else:
+                if change_out_order:
+                    out = np.transpose(out, axes=(1, 2, 3, 0))
+                    
+            # remove singleton dimensions for slice evaluation
+            if squeeze_out: 
+                out = out.squeeze()
+
+            # remove all "dimensions" for point-wise evaluation
+            if out.ndim == 0: 
+                out = out.item()
+                
+        if isinstance(out, float):
+            return out
+        else:
+            return out.copy()
+    
+    # ========================
+    # static methods :
+    # ========================
     
     # ================================
     @staticmethod
@@ -770,19 +768,19 @@ class Domain(metaclass=ABCMeta):
 
         Parameters
         ----------
-            x, y, z : float | int | list | numpy array 
-                Evaluation point sets.
+        x, y, z : float | int | list | array-like
+            Evaluation point sets.
 
-            flat_eval : bool
-                Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
+        flat_eval : bool
+            Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
 
         Returns
         -------
-            E1, E2, E3 : numpy array
-                3d arrays of correct shape for evaluation.
+        E1, E2, E3 : array-like
+            3d arrays of correct shape for evaluation.
 
-            is_sparse_meshgrid : bool
-                Whether arguments fit sparse_meshgrid shape.
+        is_sparse_meshgrid : bool
+            Whether arguments fit sparse_meshgrid shape.
         """
 
         is_sparse_meshgrid = False
@@ -898,42 +896,51 @@ class Domain(metaclass=ABCMeta):
     
     # ================================
     @staticmethod
-    def prepare_arg(a_in, X1, X2, X3, flat_eval=False):
+    def prepare_arg(a_in, *Xs, is_sparse_meshgrid=False, a_kwargs={}):
         """
-        Broadcasts argument to be pulled, pushed or transformed to 4d array of correct shape.
+        Broadcasts argument to be pulled, pushed or transformed to array of correct shape (2d for markers, 4d else).
 
         Parameters
         ----------
-            a_in : list, tuple or array-like
-                The argument to be pulled, pushed or transformed. Can be a list/tuple of callables that are first evaluated, OR numpy arrays of appropriate shape.
+        a_in : callable | list | tuple | array-like
+            The argument to be pulled, pushed or transformed.
 
-            X1, X2, X3 : array-like
-                The evaluation point sets. Obtained from prepare_eval_pts function (with possible additional __call__ for physical coordinates).
+        *Xs : array-like | tuple
+            The evaluation point sets. Obtained from prepare_eval_pts function.
 
-            flat_eval : bool
-                    Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
+        is_sparse_meshgrid : bool
+            Whether arguments fit sparse_meshgrid shape. Obtained from prepare_eval_pts function.
+            
+        a_kwargs : dict
+            Keyword arguments passed to parameter "a_in" if "a_in" is a callable: is called as a_in(*etas, **a_kwargs).
 
         Returns
         -------
-            a_out : array-like
-                The 4d array suitable for evaluation kernels.
+        a_out : array-like
+            The 2d/4d array suitable for evaluation kernels.
         """
-
+        
+        if len(Xs) == 1:
+            flat_eval = True
+        else:
+            flat_eval = False
 
         # single callable:
         # scalar function -> must return a 3d array for 3d evaluation points
         # vector-valued function -> must return a 4d array of shape (3,:,:,:)
         if callable(a_in):
 
-            a_out = a_in(X1, X2, X3)
-
-            if   a_out.ndim == 3:
-                a_out = a_out[None, :, :, :]
-            elif a_out.ndim == 4:
-                a_out = a_out[:, :, :, :]
+            if flat_eval:
+                a_out = a_in(Xs[0][:, 0], Xs[0][:, 1], Xs[0][:, 2], **a_kwargs)
+                if a_out.ndim == 1:
+                    a_out = a_out[None, :]
             else:
-                raise ValueError('Input callable a_in must return a 3d array (for a scalar function) \
-                or 4d array of shape (3,:,:,:) (for a vector-valued function) for 3d evaluation point sets!')
+                if is_sparse_meshgrid:
+                    a_out = a_in(*np.meshgrid(Xs[0][:, 0, 0], Xs[1][0, :, 0], Xs[2][0, 0, :], indexing='ij'), **a_kwargs)
+                else:
+                    a_out = a_in(*Xs, **a_kwargs)
+                if a_out.ndim == 3:
+                    a_out = a_out[None, :, :, :]
 
         # list/tuple of length 1 or 3 containing:
         # callable(s) that must return 3d array(s) for 3d evaluation points
@@ -947,18 +954,23 @@ class Domain(metaclass=ABCMeta):
             for component in a_in:
 
                 if callable(component):
-                    tmp = component(X1, X2, X3)
-                    assert tmp.ndim == 3
-                    a_out += [tmp]
+                    
+                    if flat_eval:
+                        a_out += [component(Xs[0][:, 0], Xs[0][:, 1], Xs[0][:, 2], **a_kwargs)]
+                    else:
+                        if is_sparse_meshgrid:
+                            a_out += [component(*np.meshgrid(Xs[0][:, 0, 0], Xs[1][0, :, 0], Xs[2][0, 0, :], indexing='ij'), **a_kwargs)]
+                        else:
+                            a_out += [component(*Xs, **a_kwargs)]
 
                 elif isinstance(component, np.ndarray):
 
                     if flat_eval:
                         assert component.ndim == 1
-                        a_out += [component[:, None, None]]
                     else:
                         assert component.ndim == 3
-                        a_out += [component[:, :, :]]
+                    
+                    a_out += [component]
 
             a_out = np.array(a_out, dtype=float)
 
@@ -971,12 +983,12 @@ class Domain(metaclass=ABCMeta):
 
             if flat_eval:
                 if   a_in.ndim == 1: 
-                    a_out = a_in[None, :, None, None]
+                    a_out = a_in[None, :]
                 elif a_in.ndim == 2:
-                    a_out = a_in[:, :, None, None]
+                    a_out = a_in[:, :]
                 else:
                     raise ValueError('Input array a_in must be either 1d (scalar) or \
-                    2d (vector-valued, shape (3,:)) for flat evaluation (flat_eval=True)!')
+                    2d (vector-valued, shape (3,:)) for flat evaluation!')
 
             else:
                 if   a_in.ndim == 3:
@@ -985,15 +997,21 @@ class Domain(metaclass=ABCMeta):
                     a_out = a_in[:, :, :, :]
                 else:
                     raise ValueError('Input array a_in must be either 3d (scalar) or \
-                    4d (vector-valued, shape (3,:,:,:)) for non-flat evaluation (flat_eval=False)!')
+                    4d (vector-valued, shape (3,:,:,:)) for non-flat evaluation!')
 
         else:
             raise TypeError('Argument a must be either a list/tuple of 1/3 callable(s)/numpy array(s) \
             OR a single numpy array OR a single callable!')
 
-        # make sure that output array is 4d and of shape (1,:,:,:) or (3,:,:,:)
-        assert a_out.ndim == 4
-        assert a_out.shape[0] == 1 or a_out.shape[0] == 3
+        # make sure that output array is 2d and of shape (1,:) or (3,:) for flat evaluation
+        if flat_eval:
+            assert a_out.ndim == 2
+            assert a_out.shape[0] == 1 or a_out.shape[0] == 3
+        
+        # make sure that output array is 4d and of shape (1,:,:,:) or (3,:,:,:) for tensor-product/slice evaluation
+        else:
+            assert a_out.ndim == 4
+            assert a_out.shape[0] == 1 or a_out.shape[0] == 3
 
         return a_out
 
@@ -1005,22 +1023,22 @@ class Domain(metaclass=ABCMeta):
 
         Parameters
         ----------
-            logical : bool
-                Whether to plot the physical domain (False) or logical domain (True).
-        
-            grid_info : array-like (optional)
-                Information about the grid. If not given, the domain is shown with high resolution. If given, can be either
-                    * a list of # of elements [Nel1, Nel2, (Nel3)], OR
-                    * a 2d array with information about MPI decomposition.
-                    
-            markers : array-like (optional)
-                Markers to be plotted. Can be of shape (Np, 3) or (:, Np, 3). For the former, all markers are plotted with the same color. For the latter, with different colors (are interpreted as orbits in time).
-                
-            marker_coords : bool (optional)
-                Whether the marker coordinates are logical or physical.
+        logical : bool
+            Whether to plot the physical domain (False) or logical domain (True).
 
-            save_dir : string (optional)
-                If given, the figure is saved according the given directory.
+        grid_info : array-like, optional
+            Information about the grid. If not given, the domain is shown with high resolution. If given, can be either
+                * a list of # of elements [Nel1, Nel2, (Nel3)], OR
+                * a 2d array with information about MPI decomposition.
+
+        markers : array-like, optional
+            Markers to be plotted. Can be of shape (Np, 3) or (:, Np, 3). For the former, all markers are plotted with the same color. For the latter, with different colors (are interpreted as orbits in time).
+
+        marker_coords : bool, optional
+            Whether the marker coordinates are logical or physical.
+
+        save_dir : str, optional
+            If given, the figure is saved according the given directory.
         """
 
         import matplotlib.pyplot as plt
@@ -1034,20 +1052,13 @@ class Domain(metaclass=ABCMeta):
             if markers.ndim == 2:
                 
                 if not logical and marker_coords == 'logical':
-                    X = self.evaluate(markers[:, 0].copy(),
-                                      markers[:, 1].copy(), 
-                                      markers[:, 2].copy()*0,
-                                      'x', 'flat')
-                    
-                    Y = self.evaluate(markers[:, 0].copy(), 
-                                      markers[:, 1].copy(), 
-                                      markers[:, 2].copy()*0, 
-                                      'y', 'flat')   
+                    tmp = markers.copy() # TODO: needed for eta3=0
+                    tmp[:, 2] = 0. # TODO: needed for eta3=0
+                    X = self(tmp, remove_outside=True)
                 else:
-                    X = markers[:, 0].copy()
-                    Y = markers[:, 1].copy()
+                    X = (markers[:, 0].copy(), markers[:, 1].copy())
                 
-                plt.scatter(X, Y, s=1, color='b')
+                plt.scatter(X[0], X[1], s=1, color='b')
                 
             # time series: plot markers with different colors
             elif markers.ndim == 3:
@@ -1055,20 +1066,13 @@ class Domain(metaclass=ABCMeta):
                 for i in range(markers.shape[1]):
                     
                     if not logical and marker_coords == 'logical':
-                        X = self.evaluate(markers[:, i, 0].copy(), 
-                                          markers[:, i, 1].copy(), 
-                                          markers[:, i, 2].copy()*0, 
-                                          'x', 'flat')
-                        
-                        Y = self.evaluate(markers[:, i, 0].copy(), 
-                                          markers[:, i, 1].copy(), 
-                                          markers[:, i, 2].copy()*0, 
-                                          'y', 'flat')
+                        tmp = markers[:, i, :].copy() # TODO: needed for eta3=0
+                        tmp[:, 2] = 0. # TODO: needed for eta3 = 0
+                        X = self(tmp, remove_outside=True)
                     else:
-                        X = markers[:, i, 0].copy()
-                        Y = markers[:, i, 1].copy()
+                        X = (markers[:, i, 0].copy(), markers[:, i, 1].copy())
                         
-                    plt.scatter(X, Y, s=1)    
+                    plt.scatter(X[0], X[1], s=1)    
             
         # plot domain without MPI decomposition and high resolution
         if grid_info is None:
@@ -1171,19 +1175,19 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
 
     Parameters
     -----------
-        Nel, p, spl_kind : array-like
-            Defining the spline space.
+    Nel, p, spl_kind : array-like
+        Defining the spline space.
 
-        X, Y : callable
-            Either X(eta1, eta2) in 2D or X(eta1, eta2, eta3) in 3D.
+    X, Y : callable
+        Either X(eta1, eta2) in 2D or X(eta1, eta2, eta3) in 3D.
 
-        Z : callable 
-            3rd mapping component Z(eta1, eta2, eta3) in 3D.
+    Z : callable 
+        3rd mapping component Z(eta1, eta2, eta3) in 3D.
 
     Returns
     --------
-        cx, cy (, cz) : array-like
-            The control points.
+    cx, cy (, cz) : array-like
+        The control points.
     """
 
     # number of basis functions
@@ -1245,22 +1249,22 @@ def spline_interpolation_nd(p, grids_1d, values):
 
     Parameters
     -----------
-        p : list 
-            Spline degree.
+    p : list 
+        Spline degree.
 
-        grids_1d : list of np.arrays
-            Interpolation points.
+    grids_1d : list of np.arrays
+        Interpolation points.
 
-        values: np.array
-            Function values at interpolation points. values.shape = (grid1.size, ..., gridn.size).
+    values: np.array
+        Function values at interpolation points. values.shape = (grid1.size, ..., gridn.size).
 
     Returns
     --------
-        coeffs : np.array
-            spline coefficients as nd array.
+    coeffs : np.array
+        spline coefficients as nd array.
 
-        T : list
-            Knot vector of spline interpolant.
+    T : list
+        Knot vector of spline interpolant.
     """
 
     # dimension check

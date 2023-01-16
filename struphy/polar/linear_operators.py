@@ -155,11 +155,10 @@ class PolarExtractionOperator(LinOpWithTransp):
         
         assert isinstance(blocks, list) or blocks is None
         
-        if blocks is None:
-            self._blocks_ten_to_pol = set_blocks(self.blocks_ten_to_pol_shapes)
-        else:
+        if blocks is not None:
             check_blocks(blocks, self.blocks_ten_to_pol_shapes)
-            self._blocks_ten_to_pol = blocks
+        
+        self._blocks_ten_to_pol = blocks
 
     @property
     def blocks_ten_to_ten_shapes(self):
@@ -176,11 +175,10 @@ class PolarExtractionOperator(LinOpWithTransp):
         
         assert isinstance(blocks, list) or blocks is None
         
-        if blocks is None:
-            self._blocks_ten_to_ten = set_blocks(self.blocks_ten_to_ten_shapes)
-        else:
+        if blocks is not None:
             check_blocks(blocks, self.blocks_ten_to_ten_shapes)
-            self._blocks_ten_to_ten = blocks
+            
+        self._blocks_ten_to_ten = blocks
             
     @property
     def blocks_e3(self):
@@ -217,14 +215,16 @@ class PolarExtractionOperator(LinOpWithTransp):
                         out[n][:] = v.tp[n][:]
             
             # 2. map "first tp ring" to "polar rings" + "first tp ring"
-            dot_parts_of_polar(self.blocks_ten_to_ten, self.blocks_e3, v, out)
+            if self.blocks_ten_to_ten is not None:
+                dot_parts_of_polar(self.blocks_ten_to_ten, self.blocks_e3, v, out)
             
             # 3. map polar coeffs to "polar rings"
-            out2 = v.space.parent_space.zeros()
-            dot_parts_of_polar(self.blocks_ten_to_pol, self.blocks_e3, v, out2)
+            if self.blocks_ten_to_pol is not None:
+                out2 = out.space.zeros()
+                dot_parts_of_polar(self.blocks_ten_to_pol, self.blocks_e3, v, out2)
 
-            # sum up contributions on "polar rings"
-            out += out2
+                # add contributions to "polar rings"
+                out += out2
 
         # "standard" operator (tensor-product vector --> polar vector)
         else:
@@ -239,11 +239,13 @@ class PolarExtractionOperator(LinOpWithTransp):
             # 1. identity operation on outer tp zone
             out.tp = v
             
-            # 2. map from "polar rings" to polar coeffs 
-            dot_inner_tp_rings(self.blocks_ten_to_pol, self.blocks_e3, v, out)
+            # 2. map from "polar rings" to polar coeffs
+            if self.blocks_ten_to_pol is not None:
+                dot_inner_tp_rings(self.blocks_ten_to_pol, self.blocks_e3, v, out)
 
             # 3. map to "polar rings" + "first tp ring" to "first tp ring"
-            dot_inner_tp_rings(self.blocks_ten_to_ten, self.blocks_e3, v, out)
+            if self.blocks_ten_to_ten is not None:
+                dot_inner_tp_rings(self.blocks_ten_to_ten, self.blocks_e3, v, out)
 
         if do_return:
             return out
@@ -260,8 +262,15 @@ class PolarExtractionOperator(LinOpWithTransp):
             V = self.domain
             W = self.codomain
 
-        blocks_ten_to_pol = transpose_block_mat(self.blocks_ten_to_pol)
-        blocks_ten_to_ten = transpose_block_mat(self.blocks_ten_to_ten)
+        if self.blocks_ten_to_pol is not None:
+            blocks_ten_to_pol = transpose_block_mat(self.blocks_ten_to_pol)
+        else:
+            blocks_ten_to_pol = None
+            
+        if self.blocks_ten_to_ten is not None:
+            blocks_ten_to_ten = transpose_block_mat(self.blocks_ten_to_ten)
+        else:
+            blocks_ten_to_ten = None
 
         return PolarExtractionOperator(V, W, blocks_ten_to_pol=blocks_ten_to_pol, blocks_ten_to_ten=blocks_ten_to_ten, transposed=not self.transposed)
 
@@ -911,60 +920,4 @@ def check_blocks(blocks, shapes):
             else:
                 if blk is not None:
                     assert blk.shape == shp
-
-
-
-class PolarProjectionPreconditioner(LinearSolver):
-    """
-    Approximate solution of polar inter/-histopolation matrices of the form (P * I * E^T)^(-1) via the approximation P * I^(-1) * E^T).
-    
-    Parameters
-    ----------
-        P : PolarExtractionOperator
-            The polar DOF extraction operator.
-            
-        P_ten : GlobalProjector
-            The pure tensor-product global projector that solves exactly solves Ix = b for x.
-            
-        ET : PolarExtractionOperator
-            The transposed polar basis extraction operator.
-            
-        transposed : bool
-            Wether to solve (P * I * E^T)^(-T) with the approximation (P * I(-T) * E^T).
-    """
-    
-    def __init__(self, P, P_ten, ET, transposed=False):
-        
-        self._P = P
-        self._P_ten = P_ten
-        self._ET = ET
-        self._transposed = transposed
-        
-        #self._mat_pol = P.blocks_ten_to_pol[0][0].dot(kron(csr_matrix(P_ten.space.spaces[0].imat[:2, :2]), csr_matrix(P_ten.space.spaces[1].imat))).dot(ET.blocks_ten_to_pol[0][0]).toarray()
-    
-    @property
-    def space(self):
-        return self._P.codomain
-    
-    def solve(self, rhs, out=None):
-        """
-        Solves approximately the system (P * I * ET) x = rhs or (P * I * ET)^T x = rhs for x.
-        """
-        
-        assert isinstance(rhs, PolarVector)
-        assert rhs.space == self.space
-        
-        #out = PolarVector(rhs.space)
-        #out.tp = self._P_ten.solver.solve(rhs.tp, transposed=self._transposed)
-        #out.pol = [self._P_ten.solver.solvers[2].solve(np.linalg.solve(self._mat_pol, rhs.pol[0]))]
-        
-        out = self._P.dot(self._P_ten.solver.solve(self._ET.dot(rhs), transposed=self._transposed))
-        
-        return out
-    
-    def transpose(self):
-        """
-        Returns a preconditioner for inverting the transposed polar inter/-histopolation matrix.
-        """
-        return PolarProjectionPreconditioner(self._P, self._P_ten.solver, self._ET, not self._transposed)
-        
+                    

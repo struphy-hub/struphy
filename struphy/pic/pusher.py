@@ -31,11 +31,11 @@ class Pusher:
         
         # get FEM information
         self._args_fem = (np.array(derham.p), 
-                          derham.V0.knots[0], derham.V0.knots[1], derham.V0.knots[2],
-                          np.array(derham.V0.vector_space.starts), 
-                          np.array(derham.V1.vector_space.starts),
-                          np.array(derham.V2.vector_space.starts),
-                          np.array(derham.V3.vector_space.starts))
+                          derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
+                          np.array(derham.Vh['0'].starts), 
+                          np.array(derham.Vh['1'].starts),
+                          np.array(derham.Vh['2'].starts),
+                          np.array(derham.Vh['3'].starts))
         
         # select pusher kernel
         self._pusher_name = pusher_name
@@ -71,14 +71,13 @@ class Pusher:
         """
         # save initial etas in columns 9-11
         particles.markers[~particles.holes, 9:12] = particles.markers[~particles.holes, 0:3]
-
-        # in case of Particles5D, save initial v in columns 12
+        
         if particles.kinds == 'Particles5D':
             particles.markers[~particles.holes, 12] = particles.markers[~particles.holes, 3]
 
         for stage in range(self._n_stages):
             self._pusher(particles.markers, dt, stage, *self.args_fem, *self.domain.args_map, *args_opt)
-
+            
             # apply boundary conditions to markers
             if bc is not None: 
                 apply_kinetic_bc(particles.markers, particles.holes, self.domain, bc)
@@ -99,7 +98,7 @@ class Pusher:
         particles.markers[~particles.holes, 9:15] = 0.
 
         if particles.kinds == 'Particles5D':
-            particles.markers[~particles.holes, 9:17] = 0.
+            particles.markers[~particles.holes, 9:23] = 0.
         
         
     @property
@@ -273,8 +272,6 @@ class Pusher_iteration:
         # TODO: only applicable to Particle5D case! if we have any iterative solver with Particle6D then we should generalize
         # TODO: maybe we can modulize ... discrete gradient method, fixed-point iterative solver ...
 
-        # is_converged = False
-
         # save initial etas in columns 9:12
         particles.markers[~particles.holes, 9:13] = particles.markers[~particles.holes, 0:4]
 
@@ -304,9 +301,10 @@ class Pusher_iteration:
                 print(self._pusher_name, 'done. (stage :', stage + 1, ')')
 
         # sort markers according to domain decomposition
-        particles.mpi_sort_markers()
+        if mpi_sort == 'last': 
+            particles.mpi_sort_markers()
                 
-        # clear buffer columns 9-14 for multi-stage pushers
+        # clear buffer columns 9-23 for multi-stage pushers
         particles.markers[~particles.holes, 9:23] = 0.
         
         

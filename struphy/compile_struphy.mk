@@ -5,6 +5,7 @@
 PYTHON  := python3
 SO_EXT  := $(shell $(PYTHON) -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")
 LIBDIR  := $(shell $(PYTHON) -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")
+psydac_path := $(shell $(PYTHON) -c "import psydac as _; print(_.__path__[0])")
 
 FLAGS            := --libdir $(LIBDIR) $(flags)
 FLAGS_openmp_mhd := $(flags_openmp_mhd)
@@ -16,6 +17,7 @@ FLAGS_openmp_pic := $(flags_openmp_pic)
 
 PSY1  := $(psydac_path)/core/kernels
 PSY2  := $(psydac_path)/core/bsplines_pyccel
+PSY3  := $(psydac_path)/feec/dof_kernels
 
 #--------------------------------------
 # SOURCE FILES STRUPHY
@@ -25,16 +27,14 @@ PSY2  := $(psydac_path)/core/bsplines_pyccel
 LAC  := $(struphy_path)/linear_algebra/core
 
 # Splines
-BK   := $(struphy_path)/feec/bsplines_kernels
-BEV1 := $(struphy_path)/feec/basics/spline_evaluation_1d
-BEV2 := $(struphy_path)/feec/basics/spline_evaluation_2d
-BEV3 := $(struphy_path)/feec/basics/spline_evaluation_3d
+BK   := $(struphy_path)/b_splines/bsplines_kernels
+BEV1 := $(struphy_path)/b_splines/bspline_evaluation_1d
+BEV2 := $(struphy_path)/b_splines/bspline_evaluation_2d
+BEV3 := $(struphy_path)/b_splines/bspline_evaluation_3d
 
 # Mapping
 MAFA := $(struphy_path)/geometry/mappings_fast
 MEVA := $(struphy_path)/geometry/map_eval
-PB3  := $(struphy_path)/geometry/pullback
-PF3  := $(struphy_path)/geometry/pushforward
 TR3  := $(struphy_path)/geometry/transform
 
 # Kinetic background
@@ -58,14 +58,14 @@ PUTL := $(struphy_path)/pic/pusher_utilities
 PUSH := $(struphy_path)/pic/pusher_kernels
 PS   := $(struphy_path)/pic/sampling
 
-# Legacy
-KM2  := $(struphy_path)/feec/basics/kernels_2d
-KM3  := $(struphy_path)/feec/basics/kernels_3d
+# Eigenvalue solver
+KM2  := $(struphy_path)/eigenvalue_solvers/kernels_2d
+KM3  := $(struphy_path)/eigenvalue_solvers/kernels_3d
 
-KPG  := $(struphy_path)/feec/projectors/pro_global/kernels_projectors_global
-KPGM := $(struphy_path)/feec/projectors/pro_global/kernels_projectors_global_mhd
+KPG  := $(struphy_path)/eigenvalue_solvers/kernels_projectors_global
+KPGM := $(struphy_path)/eigenvalue_solvers/kernels_projectors_global_mhd
 
-SOURCES := $(LAC).py $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(PB3).py $(PF3).py $(TR3).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(PUTL).py $(PUSH).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py
+SOURCES := $(LAC).py $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(TR3).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(PUTL).py $(PUSH).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py $(PSY3).py
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
@@ -82,6 +82,9 @@ $(PSY1)$(SO_EXT) : $(PSY1).py
 	pyccel $< $(FLAGS)
 
 $(PSY2)$(SO_EXT) : $(PSY2).py
+	pyccel $< $(FLAGS)
+    
+$(PSY3)$(SO_EXT) : $(PSY3).py
 	pyccel $< $(FLAGS)
 
 # Struphy:
@@ -104,12 +107,6 @@ $(MAFA)$(SO_EXT) : $(MAFA).py $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
 $(MEVA)$(SO_EXT) : $(MEVA).py $(MAFA)$(SO_EXT) $(LAC)$(SO_EXT)
-	pyccel $< $(FLAGS)
-
-$(PB3)$(SO_EXT) : $(PB3).py $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT)
-	pyccel $< $(FLAGS)
-
-$(PF3)$(SO_EXT) : $(PF3).py $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
 $(TR3)$(SO_EXT) : $(TR3).py $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT)
@@ -177,17 +174,8 @@ clean:
 
 	rm -rf $(psydac_path)/__pyccel__ $(psydac_path)/__pycache__
 	rm -rf $(psydac_path)/core/__pyccel__ $(psydac_path)/core/__pycache__ $(psydac_path)/core/.lock_acquisition.lock
-	
-	rm -rf $(struphy_path)/__pyccel__ $(struphy_path)/__pycache__
-	rm -rf $(struphy_path)/linear_algebra/__pyccel__ $(struphy_path)/linear_algebra/__pycache__ $(struphy_path)/linear_algebra/.lock_acquisition.lock
-	rm -rf $(struphy_path)/feec/__pyccel__ $(struphy_path)/feec/__pycache__ $(struphy_path)/feec/.lock_acquisition.lock
-	rm -rf $(struphy_path)/feec/basics/__pyccel__ $(struphy_path)/feec/basics/__pycache__ $(struphy_path)/feec/basics/.lock_acquisition.lock
-	rm -rf $(struphy_path)/feec/projectors/__pyccel__ $(struphy_path)/feec/projectors/__pycache__ $(struphy_path)/feec/projectors/.lock_acquisition.lock
-	rm -rf $(struphy_path)/feec/projectors/pro_global/__pyccel__ $(struphy_path)/feec/projectors/pro_global/__pycache__ $(struphy_path)/feec/projectors/pro_global/.lock_acquisition.lock
-	rm -rf $(struphy_path)/feec/projectors/pro_local/__pyccel__ $(struphy_path)/feec/projectors/pro_local/__pycache__ $(struphy_path)/feec/projectors/pro_local/.lock_acquisition.lock
-	rm -rf $(struphy_path)/geometry/__pyccel__ $(struphy_path)/geometry/__pycache__ $(struphy_path)/geometry/.lock_acquisition.lock
-	rm -rf $(struphy_path)/kinetic_background/__pyccel__ $(struphy_path)/kinetic_background/__pycache__ $(struphy_path)/kinetic_background/.lock_acquisition.lock
-	rm -rf $(struphy_path)/diagnostics/__pyccel__ $(struphy_path)/diagnostics/__pycache__ $(struphy_path)/diagnostics/.lock_acquisition.lock
-	rm -rf $(struphy_path)/dispersion_relations/__pyccel__ $(struphy_path)/dispersion_relations/__pycache__ $(struphy_path)/dispersion_relations/.lock_acquisition.lock
-	rm -rf $(struphy_path)/pic/__pyccel__ $(struphy_path)/pic/__pycache__     $(struphy_path)/pic/.lock_acquisition.lock
-	rm -rf $(struphy_path)/psydac_api/__pyccel__ $(struphy_path)/psydac_api/__pycache__ $(struphy_path)/psydac_api/.lock_acquisition.lock
+	rm -rf $(psydac_path)/feec/__pyccel__ $(psydac_path)/feec/__pycache__ $(psydac_path)/feec/.lock_acquisition.lock
+    
+	find $(struphy_path)/ -type d -name '__pyccel__' -prune -exec rm -rf {} \;
+	find $(struphy_path)/ -type d -name '__pycache__' -prune -exec rm -rf {} \;
+	find $(struphy_path)/ -type f -name '*.lock' -delete

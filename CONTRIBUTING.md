@@ -12,5 +12,9 @@
 ## TU Munich
 
 * Dominik Bell
+* Nathan Marín
+
+## Former members
+
 * Benedikt Aigner
-* Tin Kei Cheng 
+* Tin Kei Cheng
