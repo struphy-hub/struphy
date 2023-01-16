@@ -3,10 +3,9 @@
 # Python interpreter
 PYTHON=python3
 
-# Struphy ans Psydac installation paths
+# Struphy installation path
 cd ~
 STRUPHY=$($PYTHON -c "import struphy as _; print(_.__path__[0])")
-PSYDAC=$($PYTHON -c "import psydac as _; print(_.__path__[0])")
 
 # Defaults
 RUN=false
@@ -18,7 +17,7 @@ REPLACE=false
 N_LINES=6     
 FLAGS=
 CFLAGS=--openmp    
-CODE=                                 
+MODEL=                                 
 INPUT=parameters.yml            
 INPUT_ABS=        
 OUTPUT=sim_1           
@@ -80,8 +79,9 @@ function run_help {
     echo "Run a struphy model."
     echo 
     echo "Models:"
-    echo "  Maxwell     Maxwell equations in vacuum"
-    echo "  LinearMHD   Linear ideal MHD with zero-flow equilibrium"
+    echo "  Maxwell               Maxwell equations in vacuum"
+    echo "  LinearMHD             Linear ideal MHD with zero-flow equilibrium"
+    echo "  LinearVlasovMaxwell   Linearized Vlasov Maxwell system with Maxwellian background"
     echo 
     echo "  See https://struphy.pages.mpcdf.de/struphy/sections/models.html for more info on available models."
     echo 
@@ -134,6 +134,7 @@ function example_help {
     echo "  linearmhd          1d linear MHD equations, dispersion relation, 4 mpi processes."
     echo "  orbits_tokamak     full-orbit particle trajectories in a tokamak-like static magnetic field, 2 mpi processes."
     echo "  gc_orbits_tokamak  guiding center particle trajectories in a tokamak-like static magnetic field, 2 mpi processes."
+    echo "  TAE_tokamak        3d linear MHD equations, initialized with m=2,3, n=-2 TAE in toroidal geometry, 2 mpi processes (warning: takes between 30-40 minutes on a laptop)."
 
 }
 
@@ -183,7 +184,7 @@ while [[ $# -gt 0 ]]; do
           exit 0
           ;;
       esac
-      CODE="$2"
+      MODEL="$2"
       shift
       shift
       ;;
@@ -351,12 +352,12 @@ if [ "$COMPILE" = true ]; then
   if [ "$CLEAN" = true ]; then
     echo "Start cleaning up struphy..."
     cd .. # change dir not be in source path
-    command make clean -f $STRUPHY/compile_struphy.mk struphy_path=$STRUPHY psydac_path=$PSYDAC 
+    command make clean -f $STRUPHY/compile_struphy.mk struphy_path=$STRUPHY
     exit 0
   else
     echo "Start compiling struphy..."
     cd .. # change dir not be in source path
-    command make -f $STRUPHY/compile_struphy.mk struphy_path=$STRUPHY psydac_path=$PSYDAC flags_openmp_pic=$CFLAGS flags=$FLAGS
+    command make -f $STRUPHY/compile_struphy.mk struphy_path=$STRUPHY flags_openmp_pic=$CFLAGS flags=$FLAGS
     exit 0
   fi
 
@@ -380,17 +381,29 @@ if [ "$RUN" = true ] ; then
     OUTPUT_ABS=$STRUPHY/io/out/$OUTPUT
   fi
 
-  # delete output folder if it exists
-  rm -rf $OUTPUT_ABS
-
-  # Create ouput folder and copy parameters there
-  mkdir $OUTPUT_ABS
-  cp $INPUT_ABS $OUTPUT_ABS/parameters.yml 
+  # Create ouput folder OR clear output folder if it already exists
+  if [ -d $OUTPUT_ABS ]; then
+    echo "Output folder already exists: clean it"
+    tmp_path=$(pwd)
+    cd $OUTPUT_ABS
+    rm -rf */
+    find . -type f -not \( -name '*.yml' -or -name '*.npy' \) -delete
+    cd $tmp_path
+  else
+    mkdir $OUTPUT_ABS
+  fi
+  
+  # Copy parameters there (if not already at right place)
+  if [ $INPUT_ABS -ef $OUTPUT_ABS/parameters.yml ]; then
+    :
+  else
+    cp $INPUT_ABS $OUTPUT_ABS/parameters.yml
+  fi
   METAFILE=$OUTPUT_ABS/meta.txt 
 
   # Run flags
   CPROFILE="-m cProfile -o $OUTPUT_ABS/profile_tmp -s time $STRUPHY/main.py"
-  ARGS="$CODE $INPUT_ABS $OUTPUT_ABS/ None $METAFILE $RESTART_DIR"
+  ARGS="$MODEL $INPUT_ABS $OUTPUT_ABS/ None $METAFILE $RESTART_DIR"
 
   # Normal run  
   RUN_CMD="$PYTHON $CPROFILE $ARGS"  
@@ -435,7 +448,7 @@ if [ "$RUN" = true ] ; then
   # Print parameters
   echo "STRUPHY          = ${STRUPHY}"
   echo "RUN              = ${RUN}"
-  echo "CODE             = ${CODE}"
+  echo "MODEL            = ${MODEL}"
   echo "RESTART_DIR      = ${RESTART_DIR}"
   echo "MPI_SIZE         = ${MPI_SIZE}"
   echo "INPUT_ABS        = ${INPUT_ABS}"
@@ -446,8 +459,8 @@ if [ "$RUN" = true ] ; then
 
   # Write to meta.txt
   echo "STRUPHY          = ${STRUPHY}" >> $METAFILE
-  echo "CODE             = ${CODE}" >> $METAFILE
-  echo "RESTART_DIR   = ${RESTART_DIR}" >> $METAFILE
+  echo "MODEL            = ${MODEL}" >> $METAFILE
+  echo "RESTART_DIR      = ${RESTART_DIR}" >> $METAFILE
   echo "MPI_SIZE         = ${MPI_SIZE}" >> $METAFILE
   echo "INPUT_ABS        = ${INPUT_ABS}" >> $METAFILE
   echo "OUTPUT_ABS       = ${OUTPUT_ABS}" >> $METAFILE
@@ -527,6 +540,8 @@ if [ $EXAMPLE ]; then
     example_orbits_tokamak_mpi_2
   elif [ "$EXAMPLE" == gc_orbits_tokamak ]; then
     example_gc_orbits_tokamak_mpi_2
+  elif [ "$EXAMPLE" == TAE_tokamak ]; then
+    example_TAE_tokamak_mpi_2
   else
     echo "Example $EXAMPLE not implemented."
   fi
@@ -537,14 +552,14 @@ fi
 if [ $TEST ]; then
 
   if [ $SERIAL == true ]; then
-    cd $STRUPHY/tests
-    echo "Unit tests from $STRUPHY/tests"
+    cd $STRUPHY/tests/tests_serial
+    echo "Unit tests from $STRUPHY/tests/tests_serial"
     pytest
   fi
 
   if [ $MPI_SIZE ]; then 
-    cd $STRUPHY/tests_mpi
-    echo "Unit tests from $STRUPHY/tests_mpi"
+    cd $STRUPHY/tests/tests_mpi
+    echo "Unit tests from $STRUPHY/tests/tests_mpi"
     if (($MPI_SIZE == 1)); then
       MPI_SIZE=2
     fi

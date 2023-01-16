@@ -11,12 +11,12 @@ path = sys.argv[1]
 with open(path + '/parameters.yml') as file:
     params = yaml.load(file, Loader=yaml.FullLoader)
     
-B0x = params['fields']['mhd_equilibrium']['HomogenSlab']['B0x']
-B0y = params['fields']['mhd_equilibrium']['HomogenSlab']['B0y']
-B0z = params['fields']['mhd_equilibrium']['HomogenSlab']['B0z']
+B0x = params['mhd_equilibrium']['HomogenSlab']['B0x']
+B0y = params['mhd_equilibrium']['HomogenSlab']['B0y']
+B0z = params['mhd_equilibrium']['HomogenSlab']['B0z']
 
-p0 = (2*params['fields']['mhd_equilibrium']['HomogenSlab']['beta']/100)/(B0x**2 + B0y**2 + B0z**2)
-n0 = params['fields']['mhd_equilibrium']['HomogenSlab']['n0']
+p0 = (2*params['mhd_equilibrium']['HomogenSlab']['beta']/100)/(B0x**2 + B0y**2 + B0z**2)
+n0 = params['mhd_equilibrium']['HomogenSlab']['n0']
 
 gamma = 5/3
 
@@ -30,7 +30,7 @@ code = lines[-2].split()[-1]
 
 # field names
 file = h5py.File(path + '/data_proc0.hdf5', 'r')
-names = list(file['fields'].keys())
+names = list(file['feec'].keys())
 file.close()
     
 # load grids

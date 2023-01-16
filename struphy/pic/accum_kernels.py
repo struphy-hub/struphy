@@ -1,10 +1,10 @@
 from pyccel.decorators import stack_array
 
-from numpy import zeros, empty, sqrt, shape
+from numpy import zeros, empty, sqrt, shape, sum
 
 import struphy.geometry.map_eval as map_eval
-import struphy.feec.bsplines_kernels as bsp
-import struphy.feec.basics.spline_evaluation_3d as eval_3d
+import struphy.b_splines.bsplines_kernels as bsp
+import struphy.b_splines.bspline_evaluation_3d as eval_3d
 import struphy.kinetic_background.background_eval as background_eval
 
 import struphy.pic.mat_vec_filler as mvf
@@ -78,8 +78,108 @@ def _docstring():
     print('This is just the docstring function.')
 
 
-@stack_array('df', 'df_t', 'df_inv', 'g', 'g_inv', 'g_inv_times_v', 'df_inv_times_v', 'filling_m', 'filling_v')
-def linear_vlasov_maxwell(markers: 'float[:,:]',
+
+@stack_array('cell_left', 'point_left', 'point_right', 'cell_number', 'temp1', 'temp4', 'compact')
+def hybrid_fA(markers: 'float[:,:]', n_markers_tot: 'int',
+                          pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                          starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                          kind_map: 'int', params_map: 'float[:]',
+                          p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                          ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                          cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                          mat: 'float[:,:,:,:,:,:]'):  # model specific argument
+    r"""
+    Accumulates the values of density at quadrature points with the filling functions
+
+    .. math::
+        n = \sum_p w_p S(x - x_p)
+
+    Parameters
+    ----------
+        To do 
+    Note
+    ----
+        The above parameter list contains only the model specific input arguments.
+    """
+
+    # allocate
+    cell_left    = empty(3, dtype=int)
+    point_left   = zeros(3, dtype=float)
+    point_right  = zeros(3, dtype=float)
+    cell_number  = empty(3, dtype=int)
+
+    temp1        = zeros(3, dtype=float)
+    temp4        = zeros(3, dtype=float)
+
+    compact      = zeros(3, dtype=float)
+    #compact[0]   = (p_shape[0]+1.0)*p_size[0]
+    #compact[1]   = (p_shape[1]+1.0)*p_size[1]
+    #compact[2]   = (p_shape[2]+1.0)*p_size[2]
+
+    #grids_shapex = zeros(p_shape[0] + 2, dtype=float)
+    #grids_shapey = zeros(p_shape[1] + 2, dtype=float)
+    #grids_shapez = zeros(p_shape[2] + 2, dtype=float)
+    
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    #$ omp parallel private (ip, eta1, eta2, eta3)
+    #$ omp for reduction ( + : mat)
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        #weight = markers[ip, 6]/(p_size[0]*p_size[1]*p_size[2])/n_markers
+
+        #ie1 = int(eta1*Nel[0])
+        #ie2 = int(eta2*Nel[1])
+        #ie3 = int(eta3*Nel[2])
+
+        #the points here are still not put in the periodic box [0, 1] x [0, 1] x [0, 1]
+        #point_left[0]  = eta1 - 0.5*compact[0]
+        #point_right[0] = eta1 + 0.5*compact[0]
+        #point_left[1]  = eta2 - 0.5*compact[1]
+        #point_right[1] = eta2 + 0.5*compact[1]
+        #point_left[2]  = eta3 - 0.5*compact[2]
+        #point_right[2] = eta3 + 0.5*compact[2]
+
+        #cell_left[0] = int(floor(point_left[0]*Nel[0]))
+        #cell_left[1] = int(floor(point_left[1]*Nel[1]))
+        #cell_left[2] = int(floor(point_left[2]*Nel[2]))
+
+        #cell_number[0] = int(floor(point_right[0]*Nel[0])) - cell_left[0] + 1
+        #cell_number[1] = int(floor(point_right[1]*Nel[1])) - cell_left[1] + 1
+        #cell_number[2] = int(floor(point_right[2]*Nel[2])) - cell_left[2] + 1
+
+        #for i in range(p_shape[0] + 1):
+        #    grids_shapex[i] = point_left[0] + i * p_size[0]
+        #grids_shapex[p_shape[0] + 1] = point_right[0]
+
+        #for i in range(p_shape[1] + 1):
+        #    grids_shapey[i] = point_left[1] + i * p_size[1]
+        #grids_shapey[p_shape[1] + 1] = point_right[1]
+
+        #for i in range(p_shape[2] + 1):
+        #    grids_shapez[i] = point_left[2] + i * p_size[2]
+        #grids_shapez[p_shape[2] + 1] = point_right[2]
+
+        # call the appropriate matvec filler
+        #mvf.mat_fill_v0_hybrid(pn, tn1, tn2, tn3, starts0,
+        #                       eta1, eta2, eta3,
+        #                       mat)
+
+    #$ omp end parallel
+
+
+@stack_array('df', 'df_t', 'df_inv', 'df_inv_times_v', 'filling_m', 'filling_v')
+def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                           kind_map: 'int', params_map: 'float[:]',
@@ -89,11 +189,8 @@ def linear_vlasov_maxwell(markers: 'float[:,:]',
                           mat11: 'float[:,:,:,:,:,:]',
                           mat12: 'float[:,:,:,:,:,:]',
                           mat13: 'float[:,:,:,:,:,:]',
-                          mat21: 'float[:,:,:,:,:,:]',
                           mat22: 'float[:,:,:,:,:,:]',
                           mat23: 'float[:,:,:,:,:,:]',
-                          mat31: 'float[:,:,:,:,:,:]',
-                          mat32: 'float[:,:,:,:,:,:]',
                           mat33: 'float[:,:,:,:,:,:]',
                           vec1: 'float[:,:,:]',
                           vec2: 'float[:,:,:]',
@@ -106,9 +203,9 @@ def linear_vlasov_maxwell(markers: 'float[:,:]',
 
     .. math::
 
-        A_p^{\mu, \nu} &= f_0(\eta_p, v_p) * [ G^{-1}(\eta_p) * v_p ]_\mu * [ DF^{-1}(\eta_p) * v_p ]_\nu    
+        A_p^{\mu, \nu} &= f_0(\eta_p, v_p) * [ DF^{-1}(\eta_p) * v_p ]_\mu * [ DF^{-1}(\eta_p) * v_p ]_\nu    
 
-        B_p^\mu &= \sqrt{f_0(\eta_p, v_p)} * w_p * [ G^{-1}(\eta_p) * v_p ]_\mu  
+        B_p^\mu &= \sqrt{f_0(\eta_p, v_p)} * w_p * [ DF^{-1}(\eta_p) * v_p ]_\mu  
 
     Parameters
     ----------
@@ -129,24 +226,20 @@ def linear_vlasov_maxwell(markers: 'float[:,:]',
 
     # allocate for metric coeffs
     df = empty((3, 3), dtype=float)
-    df_t = empty((3, 3), dtype=float)
     df_inv = empty((3, 3), dtype=float)
-    g = empty((3, 3), dtype=float)
-    g_inv = empty((3, 3), dtype=float)
 
     # allocate for filling
-    g_inv_times_v = empty(3, dtype=float)
     df_inv_times_v = empty(3, dtype=float)
     filling_m = empty((3, 3), dtype=float)
     filling_v = empty(3, dtype=float)
 
     # get number of markers
     n_markers = shape(markers)[0]
-    
-    #$ omp parallel private (ip, eta1, eta2, eta3, v, f0, df, df_inv, df_t, g, g_inv, g_inv_times_v, df_inv_times_v, weight, filling_m, filling_v)
+
+    #$ omp parallel private (ip, eta1, eta2, eta3, v, f0, df, df_inv, df_inv_times_v, weight, filling_m, filling_v)
     #$ omp for reduction ( + : mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32, mat33, vec1, vec2, vec3)
     for ip in range(n_markers):
-        
+
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
             continue
@@ -158,9 +251,9 @@ def linear_vlasov_maxwell(markers: 'float[:,:]',
 
         # evaluate background
         v = markers[ip, 3:6]
-        
-        f0 = background_eval.f0(
-            markers[ip, 0:3], v, f0_spec, moms_spec, f0_params)
+
+        f0 = background_eval.f0(markers[ip, 0:3], v,
+                                f0_spec, moms_spec, f0_params)
 
         # evaluate Jacobian, result in df
         map_eval.df(eta1, eta2, eta3,
@@ -170,36 +263,33 @@ def linear_vlasov_maxwell(markers: 'float[:,:]',
                     cx, cy, cz,
                     df)
 
-        # Avoid second computation of df, use linear_algebra.core routines to get g_inv:
-        linalg.matrix_inv(df, df_inv)
-        linalg.transpose(df, df_t)
-        linalg.matrix_matrix(df, df_t, g)
-        linalg.matrix_inv(g, g_inv)
-
         # filling functions
-        linalg.matrix_vector(g_inv, v, g_inv_times_v)
+        linalg.matrix_inv(df, df_inv)
         linalg.matrix_vector(df_inv, v, df_inv_times_v)
 
         weight = markers[ip, 6]
-        
-        linalg.outer(g_inv_times_v, df_inv_times_v, filling_m)
-        filling_m[:] = f0 * filling_m
-        filling_v[:] = sqrt(f0) * weight * g_inv_times_v
+
+        # filling_m = DL^{-1} v_p f_0 DL^{-1} v_p / (N s_0)
+        linalg.outer(df_inv_times_v, df_inv_times_v, filling_m)
+        filling_m[:] = f0 * filling_m / (n_markers_tot * markers[ip, 7])
+
+        # filling_v = w_p * sqrt{f_0} DL^{-1} v_p
+        filling_v[:] = sqrt(f0) * weight * df_inv_times_v
 
         # call the appropriate matvec filler
-        mvf.m_v_fill_b_v1_full(pn, tn1, tn2, tn3, starts1,
+        mvf.m_v_fill_b_v1_symm(pn, tn1, tn2, tn3, starts1,
                                eta1, eta2, eta3,
-                               mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32, mat33,
+                               mat11, mat12, mat13, mat22, mat23, mat33,
                                filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
-                               filling_m[1, 0], filling_m[1, 1], filling_m[1, 2],
-                               filling_m[2, 0], filling_m[2, 1], filling_m[2, 2],
+                               filling_m[1, 1], filling_m[1, 2], filling_m[2, 2],
                                vec1, vec2, vec3,
                                filling_v[0], filling_v[1], filling_v[2])
+
     #$ omp end parallel
 
 
 @stack_array('g_inv', 'tmp1', 'tmp2', 'b', 'b_prod', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def cc_lin_mhd_6d_1(markers: 'float[:,:]',
+def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                     starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                     kind_map: 'int', params_map: 'float[:]',
@@ -303,9 +393,9 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]',
 
         weight = markers[ip, 6]
         
-        filling_m12 = - weight * tmp2[0, 1]
-        filling_m13 = - weight * tmp2[0, 2]
-        filling_m23 = - weight * tmp2[1, 2]
+        filling_m12 = - weight * tmp2[0, 1] / n_markers_tot
+        filling_m13 = - weight * tmp2[0, 2] / n_markers_tot
+        filling_m23 = - weight * tmp2[1, 2] / n_markers_tot
 
         # call the appropriate matvec filler
         mvf.mat_fill_v1_asym(pn, span1, span2, span3,
@@ -318,7 +408,7 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]',
 
 
 @stack_array('df', 'df_t', 'df_inv', 'g', 'g_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp1_t', 'tmp2', 'tmp3', 'tmp_v', 'df_inv_times_v', 'b', 'b_prod', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def cc_lin_mhd_6d_2(markers: 'float[:,:]',
+def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                     starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                     kind_map: 'int', params_map: 'float[:]',
@@ -455,8 +545,8 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]',
 
         weight = markers[ip, 6]
         
-        filling_m[:] = weight * tmp3
-        filling_v[:] = weight * tmp_v
+        filling_m[:] = weight * tmp3 / n_markers_tot
+        filling_v[:] = weight * tmp_v / n_markers_tot
 
         # call the appropriate matvec filler
         mvf.m_v_fill_v1_symm(pn, span1, span2, span3,
@@ -475,7 +565,7 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]',
 
 
 @stack_array('df', 'df_t', 'df_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def pc_lin_mhd_6d_full(markers: 'float[:,:]',
+def pc_lin_mhd_6d_full(markers: 'float[:,:]', n_markers_tot: 'int',
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                        starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                        kind_map: 'int', params_map: 'float[:]',
@@ -611,8 +701,8 @@ def pc_lin_mhd_6d_full(markers: 'float[:,:]',
 
         weight = markers[ip, 8]
         
-        filling_m[:] = weight * tmp1
-        filling_v[:] = weight * tmp_v
+        filling_m[:] = weight * tmp1 / n_markers_tot
+        filling_v[:] = weight * tmp_v / n_markers_tot
 
         # call the appropriate matvec filler
         mvf.m_v_fill_v1_pressure_full(pn, span1, span2, span3,
@@ -649,7 +739,7 @@ def pc_lin_mhd_6d_full(markers: 'float[:,:]',
 
 
 @stack_array('df', 'df_t', 'df_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def pc_lin_mhd_6d(markers: 'float[:,:]',
+def pc_lin_mhd_6d(markers: 'float[:,:]', n_markers_tot: 'int',
                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                   kind_map: 'int', params_map: 'float[:]',
@@ -785,8 +875,8 @@ def pc_lin_mhd_6d(markers: 'float[:,:]',
 
         weight = markers[ip, 8]
         
-        filling_m[:] = weight * tmp1
-        filling_v[:] = weight * tmp_v
+        filling_m[:] = weight * tmp1 / n_markers_tot
+        filling_v[:] = weight * tmp_v / n_markers_tot
 
         # call the appropriate matvec filler
         mvf.m_v_fill_v1_pressure(pn, span1, span2, span3,

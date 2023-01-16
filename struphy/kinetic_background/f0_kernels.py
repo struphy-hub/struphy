@@ -9,7 +9,7 @@ def maxwellian_6d(x: 'float[:]', v: 'float[:]', moms_spec: 'int[:]', params: 'fl
 
     .. math::
 
-        f_0(\mathbf x, \mathbf v) = \frac{n_0(\mathbf x)}{(\pi)^{3/2}\, \hat v_{0,x}(\mathbf x) \hat v_{0,y}(\mathbf x) \hat v_{0,z}(\mathbf x)}\,\exp{-\left[ \frac{(v_x - u_{0,x}(\mathbf x))^2}{\hat v_{0,x}^2(\mathbf x)} \frac{(v_y - u_{0,y}(\mathbf x))^2}{\hat v_{0,y}^2(\mathbf x)} \frac{(v_z - u_{0,z}(\mathbf x))^2}{\hat v_{0,z}^2(\mathbf x)} \right]}
+        f_0(\mathbf x, \mathbf v) = \frac{n_0(\mathbf x)}{(\pi)^{3/2}\, \hat v_{0,x}(\mathbf x) \hat v_{0,y}(\mathbf x) \hat v_{0,z}(\mathbf x)}\,\exp{\left[ - \frac{(v_x - u_{0,x}(\mathbf x))^2}{\hat v_{0,x}^2(\mathbf x)} \frac{(v_y - u_{0,y}(\mathbf x))^2}{\hat v_{0,y}^2(\mathbf x)} \frac{(v_z - u_{0,z}(\mathbf x))^2}{\hat v_{0,z}^2(\mathbf x)} \right]}
 
     Parameters
     ----------

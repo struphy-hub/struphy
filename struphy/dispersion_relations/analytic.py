@@ -2,42 +2,57 @@ import numpy as np
 import scipy.special as sp
 from scipy.optimize import fsolve, root
 
-from struphy.dispersion_relations.base import DispersionRelations1D
+from struphy.dispersion_relations.base import DispersionRelations1D, ContinuousSpectra1D, Zplasma
 
 
 class Maxwell1D(DispersionRelations1D):
-    r'''Dispersion relation for Maxwell's equation in vacuum in Struphy units (see ``Maxwell`` in :ref:`models`):
+    r"""
+    Dispersion relation for Maxwell's equation in vacuum in Struphy units (see ``Maxwell`` in :ref:`models`):
     
     .. math::
     
         \omega^2 = k^2 \,.
-    '''
+    """
 
     def __init__(self, **params):
         super().__init__('light wave') 
 
-    def __call__(self, kvec, kperp=None):
+    def __call__(self, k):
+        """
+        The evaluation of all branches of the 1d dispersion relation.
+        
+        Parameters
+        ----------
+        k : array_like
+            Evaluation wave numbers.
+                
+        Returns
+        -------
+        omegas : dict
+            A dictionary with key=branch_name and value=omega(k) (complex ndarray).
+        """
 
         # One complex array for each branch
         tmps = []
         for n in range(self.nbranches):
-            tmps += [np.zeros_like(kvec, dtype=complex)]
+            tmps += [np.zeros_like(k, dtype=complex)]
 
         ########### Model specific part ##############################
         # first branch
-        tmps[0][:] = kvec
+        tmps[0][:] = k
         ##############################################################
 
         # fill output dictionary
-        dict_disp = {}
+        omegas = {}
         for name, tmp in zip(self.branches, tmps):
-            dict_disp[name] = tmp
+            omegas[name] = tmp
 
-        return dict_disp
+        return omegas
     
     
 class Mhd1D(DispersionRelations1D):
-    r'''Dispersion relation for linear MHD equations for homogeneous background :math:`(n_0,p_0,\mathbf B_0)` and wave propagation along z-axis in Struphy units (see ``LinearMHD`` in :ref:`models`):
+    r"""
+    Dispersion relation for linear MHD equations for homogeneous background :math:`(n_0,p_0,\mathbf B_0)` and wave propagation along z-axis in Struphy units (see ``LinearMHD`` in :ref:`models`):
     
     .. math::
     
@@ -46,17 +61,30 @@ class Mhd1D(DispersionRelations1D):
         \textnormal{fast (+) and slow (-) magnetosonic}:\quad &\omega^2 =\frac{1}{2}(c_\textnormal{S}^2+c_\textnormal{A}^2)k^2(1\pm\sqrt{1-\delta}\,)\,,\quad\delta=\frac{4B_{0z}^2c_\textnormal{S}^2c_\textnormal{A}^2}{(c_\textnormal{S}^2+c_\textnormal{A}^2)^2|\mathbf B_0|^2}\,,
         
     where :math:`c_\textnormal{A}^2=|\mathbf B_0|^2/n_0` is the Alfvén velocity and :math:`c_\textnormal{S}^2=\gamma\,p_0/n_0` is the speed of sound.
-    '''
+    """
 
     def __init__(self, **params):
         super().__init__('shear Alfvén', 'slow magnetosonic', 'fast magnetosonic', **params) 
 
-    def __call__(self, kvec, kperp=None):
+    def __call__(self, k):
+        """
+        The evaluation of all branches of the 1d dispersion relation.
+        
+        Parameters
+        ----------
+        k : array_like
+            Evaluation wave numbers.
+                
+        Returns
+        -------
+        omegas : dict
+            A dictionary with key=branch_name and value=omega(k) (complex ndarray).
+        """
 
         # One complex array for each branch
         tmps = []
         for n in range(self.nbranches):
-            tmps += [np.zeros_like(kvec, dtype=complex)]
+            tmps += [np.zeros_like(k, dtype=complex)]
 
         ########### Model specific part ##############################
         
@@ -65,23 +93,219 @@ class Mhd1D(DispersionRelations1D):
         cS = np.sqrt(self.params['gamma']*self.params['p0']/self.params['n0']) 
         
         # shear Alfvén branch
-        tmps[0][:] = cA * kvec * self.params['B0z']/np.sqrt(self.params['B0x']**2 + self.params['B0y']**2 + self.params['B0z']**2)
+        tmps[0][:] = cA * k * self.params['B0z']/np.sqrt(self.params['B0x']**2 + self.params['B0y']**2 + self.params['B0z']**2)
         
         # slow/fast magnetosonic branch
         delta = (4*self.params['B0z']**2*cS**2*cA**2)/((cS**2 + cA**2)**2*(self.params['B0x']**2 + self.params['B0y']**2 + self.params['B0z']**2))
         
-        tmps[1][:] = np.sqrt(1/2*kvec**2*(cS**2 + cA**2)*(1 - np.sqrt(1 - delta)))
-        tmps[2][:] = np.sqrt(1/2*kvec**2*(cS**2 + cA**2)*(1 + np.sqrt(1 - delta)))
+        tmps[1][:] = np.sqrt(1/2*k**2*(cS**2 + cA**2)*(1 - np.sqrt(1 - delta)))
+        tmps[2][:] = np.sqrt(1/2*k**2*(cS**2 + cA**2)*(1 + np.sqrt(1 - delta)))
         
         ##############################################################
 
         # fill output dictionary
-        dict_disp = {}
+        omegas = {}
         for name, tmp in zip(self.branches, tmps):
-            dict_disp[name] = tmp
+            omegas[name] = tmp
 
-        return dict_disp
+        return omegas
 
+    
+class CurrentCoupling6DParallel(DispersionRelations1D):
+    r"""
+    Dispersion relation for linearized hybrid MHD-Vlasov model (current coupling scheme) in Struphy units for homogeneous background :math:`(n_0=1,p_0,\mathbf B_0=B_0\mathbf e_z)`, wave propagation along z-axis and EP distribution function
+    
+    .. math::
+    
+        f_0=\frac{1}{\pi^{3/2}v_\textnormal{th}^3}\exp\left[-\frac{(v_\parallel-v_0)^2+v_\perp^2}{v_\textnormal{th}^2}\right]\,.
+        
+    The two branches of the dispersion relation are circularly polarized shear Alfvén waves (R-wave and L-wave)
+    
+    .. math::
+    
+        D_\textnormal{R/L}(\omega,k)=\omega^2-B_0^2k^2\pm\nu_\textnormal{h}\omega\frac{Z_\textnormal{h}B_0}{A_\textnormal{b}}\kappa\mp\nu_\textnormal{h}\frac{Z_\textnormal{h}B_0}{A_\textnormal{b}}\kappa v_0 k+\nu_\textnormal{h}\frac{Z_\textnormal{h}^2B_0^2}{A_\textnormal{h}A_\textnormal{b}}\kappa^2\frac{\omega-kv_0}{kv_\textnormal{th}}Z(\xi^\pm)\,,
+        
+    and standard sound waves
+    
+    .. math::
+        
+        \omega^2=\gamma p_0 k^2\,,
+        
+    where :math:`\xi^\pm=(\omega-kv_0\pm Z_\textnormal{h}B_0\kappa/A_\textnormal{h})/kv_\textnormal{th}` and :math:`Z(\xi)=\sqrt{\pi}\exp(-\xi^2)[i-\textnormal{erfi}(\xi)]` is the plasma dispersion function.
+    """
+    
+    def __init__(self, **params):
+        super().__init__('shear_Alfvén_R', 'shear_Alfvén_L', 'sound', **params) 
+        
+        # some constants
+        mp = 1.672621924e-27
+        mu = 1.256637062e-6
+        ee = 1.602176634e-19
+        
+        # calculate coupling parameter alpha_c from bulk number density and mass number
+        self._kappa = ee*np.sqrt(mu*self.params['Ab']*self.params['nb']*1e19/mp)
+          
+    def __call__(self, k, method='newton', tol=1e-10, max_it=100):
+        """
+        Solves the dispersion relation for given wave numbers.
+        
+        Parameters
+        ----------
+        k : array_like
+            The wave numbers for which to evaluate the dispersion relation.
+
+        method : str, optional
+            Which numerical method/solver to be used (either "newton" or "fsolve").
+
+        tol : float, optional
+            Stop tolerance in numerical solution of dispersion relation.
+            
+        max_it : int, optional
+            Maximum number of iterations in case of Newton solver.
+            
+        Returns
+        -------
+        omegas : dict
+            A dictionary with key=branch_name and value=omega(k) (complex ndarray).
+        """
+
+        # One complex array for each branch
+        tmps = []
+        for n in range(self.nbranches):
+            tmps += [np.zeros_like(k, dtype=complex)]
+            
+        ########### Model specific part ##############################
+        
+        # sound waves
+        tmps[2][:] = self.params['gamma']*self.params['p0']*k
+        
+        # solve dispersion relation for R-/L-waves for fixed k with Newton method
+        for i, ki in enumerate(k):
+
+            # choose initial guess w = B0*k for first iteration and result from last k otherwise
+            if i == 0:
+                wR = [self.params['B0']*ki, 0.]
+                wL = [self.params['B0']*ki, 0.]
+            else:
+                wR = [np.real(tmps[0][i - 1]), np.imag(tmps[0][i - 1])]
+                wL = [np.real(tmps[1][i - 1]), np.imag(tmps[1][i - 1])]
+            
+            # apply solver
+            if method == 'newton':
+                
+                # R -wave
+                counter = 0
+
+                Dr, Di = self.D_RL(wR, ki, +1)
+
+                while np.abs(Dr + Di*1j) > tol or counter == max_it:
+
+                    # derivative
+                    Drp, Dip = self.D_RL(wR, ki, +1, 1)
+                    
+                    # update
+                    wR[0] = wR[0] - np.real((Dr + Di*1j)/(Drp + Dip*1j))
+                    wR[1] = wR[1] - np.imag((Dr + Di*1j)/(Drp + Dip*1j))
+
+                    Dr, Di = self.D_RL(wR, ki, +1)
+                    counter += 1
+                    
+                # L -wave
+                counter = 0
+
+                Dr, Di = self.D_RL(wL, ki, -1)
+
+                while np.abs(Dr + Di*1j) > tol or counter == max_it:
+
+                    # derivative
+                    Drp, Dip = self.D_RL(wL, ki, -1, 1)
+                    
+                    # update
+                    wL[0] = wL[0] - np.real((Dr + Di*1j)/(Drp + Dip*1j))
+                    wL[1] = wL[1] - np.imag((Dr + Di*1j)/(Drp + Dip*1j))
+
+                    Dr, Di = self.D_RL(wL, ki, -1)
+                    counter += 1
+            
+            elif method == 'fsolve':
+                
+                wR = fsolve(self.D_RL, x0=wR, args=(ki, +1, 0), xtol=tol)
+                wL = fsolve(self.D_RL, x0=wL, args=(ki, -1, 0), xtol=tol)
+
+            else:
+                raise NotImplementedError('Only methods newton and fsolve available!')
+                
+            tmps[0][i] = wR[0] + 1j*wR[1]
+            tmps[1][i] = wL[0] + 1j*wL[1]
+
+        ##############################################################
+
+        # fill output dictionary
+        omegas = {}
+        for name, tmp in zip(self.branches, tmps):
+            omegas[name] = tmp
+
+        return omegas
+    
+    def D_RL(self, w, k, pol, der=0):
+        """
+        Dispersion relation :math:`D_\mathrm{R/L}(\omega,k)=0` (or its first derivative with respect to :math:`\omega`) for R- and L- shear Alfvén waves.
+        
+        Parameters
+        ----------
+        w : list
+            The complex frequencies at which to evaluate the dispersion relation. w[0] is the real part, w[1] the imaginary part.
+            
+        k : array_like
+            The real wave numbers at which to evaluate the dispersion relation.
+            
+        pol : int
+            The polarization of the wave (+1 : R-wave, -1 : L-wave).
+            
+        der : int, optional
+            Whether to evaluate the dispersion relation (der = 0) or its first derivative with respect to w (der = 1).
+            
+        Returns
+        -------
+        d_real : ndarray
+            The real part of the evaluated dispersion relation.
+            
+        d_imag : ndarray
+            The imaginary part of the evaluated dispersion relation.
+        """
+        
+        assert der == 0 or der ==  1, 'Parameter "der" must be either 0 or 1.'
+        assert pol == 1 or pol == -1, 'Polarization must be either +1 (R) or -1 (L).' 
+        
+        w = w[0] + 1j*w[1]
+        
+        vth = self.params['vth']
+        v0  = self.params['v0']
+        B0  = self.params['B0']
+        Zh  = self.params['Zh']
+        Ah  = self.params['Ah']
+        Ab  = self.params['Ab']
+        nuh = self.params['nuh']
+        
+        xi  = (w - k*v0 + pol*B0*Zh*self._kappa/Ah)/(k*vth)
+        xip = 1/(k*vth)
+        
+        if der == 0:
+        
+            out  = w**2
+            out -= B0**2*k**2
+            out += pol*nuh*w*Zh*B0/Ab*self._kappa
+            out -= pol*nuh*Zh*B0/Ab*self._kappa*v0*k
+            out += nuh*Zh**2*B0**2/(Ah*Ab)*self._kappa**2*(w - k*v0)/(k*vth)*Zplasma(xi, 0)
+            
+        else:
+            
+            out  = 2*w
+            out += pol*nuh*Zh*B0/Ab*self._kappa
+            out += nuh*Zh**2*B0**2/(Ah*Ab)*self._kappa**2/(k*vth)*(Zplasma(xi, 0) + (w - k*v0)*Zplasma(xi, 1)*xip)
+        
+        return np.real(out), np.imag(out) 
+    
 
 class PC_LinMHD_6d_full1D(DispersionRelations1D):
     r'''Dispersion relation for linear MHD equations coupled to the Vlasov equation with Full Pressure Coupling scheme
@@ -132,14 +356,92 @@ class PC_LinMHD_6d_full1D(DispersionRelations1D):
     def __init__(self, params):
         super().__init__('shear Alfvén_R', 'shear Alfvén_L', 'sonic', **params) 
 
-    def __call__(self, kvec, kperp=None):
+    def __call__(self, k, tol=1e-10):
+        """
+        Solves the dispersion relation for given wave numbers.
+        
+        Parameters
+        ----------
+        k : array_like
+            The wave numbers for which to evaluate the dispersion relation.
+
+        tol : float, optional
+            Stop tolerance in numerical solution of dispersion relation.
+            
+        Returns
+        -------
+        omegas : dict
+            A dictionary with key=branch_name and value=omega(k) (complex ndarray).
+        """
         
         # One complex array for each branch
         tmps = []
         for n in range(self.nbranches):
-            tmps += [np.zeros_like(kvec, dtype=complex)]
+            tmps += [np.zeros_like(k, dtype=complex)]
 
         ########### Model specific part ##############################
+
+        # solve omega
+        for i, ki in enumerate(k):
+            
+            # choose initial guess wRL = cA*k, wS = cS*k for first iteration and result from last k otherwise
+            if i == 0:
+                wR = [1*ki, 0.] # TODO: use cA
+                wL = [1*ki, 0.] # TODO: use cA
+                wS = [1*ki, 0.] # TODO: use cS
+            else:
+                wR = [np.real(tmps[0][i - 1]), np.imag(tmps[0][i - 1])]
+                wL = [np.real(tmps[1][i - 1]), np.imag(tmps[1][i - 1])]
+                wS = [np.real(tmps[2][i - 1]), np.imag(tmps[2][i - 1])]
+
+            # R/L shear Alfvén wave
+            sol_R = fsolve(self.D_RL, x0=wR, args=(ki, +1), xtol=tol)
+            sol_L = fsolve(self.D_RL, x0=wL, args=(ki, -1), xtol=tol)
+
+            tmps[0][i] = sol_R[0] + 1j*sol_R[1]
+            tmps[1][i] = sol_L[0] + 1j*sol_L[1]
+
+            # sonic wave
+            sol_S = fsolve(self.D_sonic, x0=wS, args=(ki,), xtol=tol)
+            
+            tmps[2][i] = sol_S[0] + 1j*sol_S[1]
+        
+        ##############################################################
+
+        # fill output dictionary
+        omegas = {}
+        for name, tmp in zip(self.branches, tmps):
+            omegas[name] = tmp
+
+        return omegas
+    
+    def D_RL(self, w, k, pol):
+        """
+        Dispersion relation :math:`D_\mathrm{R/L}(\omega,k)=0` for R- and L- shear Alfvén waves.
+        
+        Parameters
+        ----------
+        w : list
+            The complex frequencies at which to evaluate the dispersion relation. w[0] is the real part, w[1] the imaginary part.
+            
+        k : array_like
+            The real wave numbers at which to evaluate the dispersion relation.
+            
+        pol : int
+            The polarization of the wave (+1 : R-wave, -1 : L-wave).
+            
+        Returns
+        -------
+        d_real : ndarray
+            The real part of the evaluated dispersion relation.
+            
+        d_imag : ndarray
+            The imaginary part of the evaluated dispersion relation.
+        """
+        
+        assert pol == 1 or pol == -1, 'Polarization must be either +1 (R) or -1 (L).' 
+        
+        w = w[0] + 1j*w[1]
         
         # Alfvén velocity and speed of sound
         # TODO: call the parameters from the yml file.
@@ -153,87 +455,268 @@ class PC_LinMHD_6d_full1D(DispersionRelations1D):
         # cS = np.sqrt(self.params['beta']*cA)
         cS = 1. 
         
-        a0 = u0 / vpara #TODO
+        a0 = u0/vpara #TODO
         nu = 0.05 #TODO
-
-        # initially asign k
-        k = 1.
-
-        # define plasma dispersion function
-        def pdf(xi):
-            return np.sqrt(np.pi)*np.e**(-xi**2)*(1j - sp.erfi(xi))
-
-        # defin integrals and functions
-        def X4(xi, a):
-            return 5/4*xi + 3/2*a + (xi + a)**3 * (1 + xi*pdf(xi))
-
-        def Y1(xi, eta, a):
-            return pdf(xi) + (eta + a) * (pdf(xi) - pdf(eta)) / (xi - eta)
-
-        def Y2(xi, eta, a):
-            return 1 + (xi + eta + 2*a)*pdf(xi) + (eta + a)**2 * (pdf(xi) - pdf(eta)) / (xi - eta) 
-
-        def Y3(xi, eta, a):
-            c1 = xi + eta + 3*a + (xi**2 + xi*eta + eta**2 + 3*a*(xi + eta) + 3*a**2) * pdf(xi)
-            c2 = (eta + a)**3 * (pdf(xi) - pdf(eta)) / (xi - eta)
-            return c1 + c2
-
-        def zeta0(w):
-            return (w/k - u0)/vpara
-
-        def zetap(w):
-            return ((w+wc)/k - u0)/vpara
-
-        def zetam(w):
-            return ((w-wc)/k - u0)/vpara
-
-        def sonic(w):
-            c1 = (w[0] + 1j*w[1])**2 - k**2 * cS**2 + 2*(w[0] + 1j*w[1])*k*nu*vpara*X4(zeta0((w[0] + 1j*w[1])),a0)
-            return np.real(c1), np.imag(c1)
-
-        def shearAlfvén_R(w):
-            c1 = (w[0] + 1j*w[1])**2 - k**2 * cA**2 - (w[0] + 1j*w[1])*nu*k*(wc/(w[0] + 1j*w[1])*u0* \
-            (Y2(zetam(w[0] + 1j*w[1]), zetap(w[0] + 1j*w[1]), a0) - (w[0] + 1j*w[1] - wc)/k/vpara* \
-            Y1(zetam(w[0] + 1j*w[1]), zetap(w[0] + 1j*w[1]), a0)) - (vperp**2/vpara) * \
-            (Y3(zetam(w[0] + 1j*w[1]), zetap(w[0] + 1j*w[1]), a0) - (w[0] + 1j*w[1] - wc)/k/vpara* \
-            Y2(zetam(w[0] + 1j*w[1]), zetap(w[0] + 1j*w[1]), a0) - u0 / vpara * \
-            Y2(zetam(w[0] + 1j*w[1]), zetap(w[0] + 1j*w[1]), a0) + \
-            (w[0] + 1j*w[1] - wc)/k/vpara**2 * u0 * Y1(zetam(w[0] + 1j*w[1]), zetap(w[0] + 1j*w[1]), a0)))
-    
-            return np.real(c1), np.imag(c1)
-
-        def shearAlfvén_L(w):
-            c1 = (w[0] + 1j*w[1])**2 - k**2 * cA**2 - (w[0] + 1j*w[1])*nu*k*(wc/(w[0] + 1j*w[1])*u0* \
-            (-Y2(zetam(w[0] + 1j*w[1]), zetap(w[0] + 1j*w[1]), a0) + (w[0] + 1j*w[1] + wc)/k/vpara* \
-            Y1(zetam(w[0] + 1j*w[1]), zetap(w[0] + 1j*w[1]), a0)) - (vperp**2/vpara) * \
-            (Y3(zetam(w[0] + 1j*w[1]), zetap(w[0] + 1j*w[1]), a0) - (w[0] + 1j*w[1] + wc)/k/vpara* \
-            Y2(zetam(w[0] + 1j*w[1]), zetap(w[0] + 1j*w[1]), a0) - u0 / vpara * \
-            Y2(zetam(w[0] + 1j*w[1]), zetap(w[0] + 1j*w[1]), a0) + \
-            (w[0] + 1j*w[1] + wc)/k/vpara**2 * u0 * Y1(zetam(w[0] + 1j*w[1]), zetap(w[0] + 1j*w[1]), a0)))
-
-            return np.real(c1), np.imag(c1)
-
-        # solve omega
-        for i, val in enumerate(kvec):
-            k = val
-            initial_guess = k * cA
-
-            # R/L shearAlfvén wave
-            sol_R = fsolve(shearAlfvén_R, [initial_guess, 0])
-            sol_L = fsolve(shearAlfvén_L, [initial_guess, 0])
-
-            tmps[0][i] = sol_R[0] + 1j*sol_R[1]
-            tmps[1][i] = sol_L[0] + 1j*sol_L[1]
-
-            # sonic wave
-            sol_S = fsolve(sonic, [initial_guess, 0])
-            tmps[2][i] = sol_S[0] + i*sol_S[1]
         
-        ##############################################################
+        zp = self._zetap(w, k, u0, vpara, wc)
+        zm = self._zetam(w, k, u0, vpara, wc)
+        
+        y1 = self._Y1(zm, zp, a0)
+        y2 = self._Y2(zm, zp, a0)
+        y3 = self._Y3(zm, zp, a0)
+        
+        # R-wave
+        if pol == 1:
+            
+            c1 = w**2 - cA**2*k**2 - w*nu*k*(wc/w*u0*(+y2 - (w - wc)/k/vpara*y1) - (vperp**2/vpara)*(y3 - (w - wc)/k/vpara*y2 - u0/vpara*y2 + (w - wc)/k/vpara**2*u0*y1))
+            
+        # L-wave:
+        else:
+            
+            c1 = w**2 - cA**2*k**2 - w*nu*k*(wc/w*u0*(-y2 + (w + wc)/k/vpara*y1) - (vperp**2/vpara)*(y3 - (w + wc)/k/vpara*y2 - u0/vpara*y2 + (w + wc)/k/vpara**2*u0*y1))
+        
+        return np.real(c1), np.imag(c1)
+    
+    def D_sonic(self, w, k):
+        """
+        Dispersion relation :math:`D_\mathrm{sonic}(\omega,k)=0` for sonic waves.
+        
+        Parameters
+        ----------
+        w : list
+            The complex frequencies at which to evaluate the dispersion relation. w[0] is the real part, w[1] the imaginary part.
+            
+        k : array_like
+            The real wave numbers at which to evaluate the dispersion relation.
+            
+        Returns
+        -------
+        d_real : ndarray
+            The real part of the evaluated dispersion relation.
+            
+        d_imag : ndarray
+            The imaginary part of the evaluated dispersion relation.
+        """
+        
+        w = w[0] + 1j*w[1]
+        
+        # Alfvén velocity and speed of sound
+        # TODO: call the parameters from the yml file.
+        wc = 1.
+        u0 = 2.5 #TODO
+        vpara = 1. #TODO
+        vperp = 1. #TODO
+        vth = 1.
 
-        # fill output dictionary
-        dict_disp = {}
-        for name, tmp in zip(self.branches, tmps):
-            dict_disp[name] = tmp
+        cA = np.sqrt((self.params['B0x']**2 + self.params['B0y']**2 + self.params['B0z']**2)/self.params['n0'])
+        # cS = np.sqrt(self.params['beta']*cA)
+        cS = 1. 
+        
+        a0 = u0/vpara #TODO
+        nu = 0.05 #TODO
+        
+        z0 = self._zeta0(w, k, u0, vpara)
+        x4 = self._X4(z0, a0)
+        
+        c1 = w**2 - k**2*cS**2 + 2*w*k*nu*vpara*x4
+            
+        return np.real(c1), np.imag(c1)
+    
+    
+    # private methods:
+    # ----------------
+    
+    # define integrals and functions
+    def _Y1(self, xi, eta, a):
+        
+        y1  = Zplasma(xi)
+        y1 += (eta + a) * (Zplasma(xi) - Zplasma(eta)) / (xi - eta)
+        
+        return y1 
 
-        return dict_disp
+    def _Y2(self, xi, eta, a):
+        
+        y2  = 1.
+        y2 += (xi + eta + 2*a)*Zplasma(xi)
+        y2 += (eta + a)**2 * (Zplasma(xi) - Zplasma(eta)) / (xi - eta) 
+        
+        return y2 
+
+    def _Y3(self, xi, eta, a):
+        
+        y3  = xi + eta + 3*a
+        y3 += (xi**2 + xi*eta + eta**2 + 3*a*(xi + eta) + 3*a**2) * Zplasma(xi)
+        y3 += (eta + a)**3 * (Zplasma(xi) - Zplasma(eta)) / (xi - eta)
+
+        return y3
+    
+    def _X4(self, xi, a):
+        return 5/4*xi + 3/2*a + (xi + a)**3 * (1 + xi*Zplasma(xi))
+    
+    def _zeta0(self, w, k, u0, vpara):
+        return (w/k - u0)/vpara
+
+    def _zetap(self, w, k, u0, vpara, wc):
+        return ((w + wc)/k - u0)/vpara
+
+    def _zetam(self, w, k, u0, vpara, wc):
+        return ((w - wc)/k - u0)/vpara
+    
+
+class MhdContinousSpectraShearedSlab( ContinuousSpectra1D ):
+    r"""
+    Continuous shear Alfvén and slow sound spectra along x-direction in slab geometry with side lengths :math:`L_x=a,L_y=2\pi a, L_z=2\pi\,R_0` in Struphy units.
+    
+    The profiles in Cartesian coordinates :math:`(x, y, z)` are
+
+    .. math::
+
+        \mathbf B_0 &= \mathbf B_0(x) = B_{0z}(x)\left( \mathbf e_z + \frac{a}{q(x) R_0}\mathbf e_y \right)\,,
+
+        p_0 &= p_0(x) 
+
+        n_0 &= n_0(x)\,.
+        
+    The continuous spectra are then given by
+    
+    .. math::
+    
+        \textnormal{shear Alfvén}:\quad & \omega^2(x)=\frac{B_{0z}(x)^2}{n_0(x)}\frac{1}{R_0^2}\left(n+\frac{m}{q(x)}\right)^2\,
+        
+        \textnormal{slow sound}:\quad & \omega^2(x)=\frac{\gamma p_0(x)B_{0z}(x)^2}{n_0(x)\,[\gamma p_0(x) + B_{0y}(x)^2 + B_{0z}(x)^2]}\frac{1}{R_0^2}\left(n+\frac{m}{q(x)}\right)^2\,.
+    """
+    
+    def __init__(self, **params):
+        super().__init__('shear_Alfvén', 'slow_sound', **params)
+        
+    def __call__(self, x, m, n):
+        """ 
+        The calculation of all continuous spectra.
+        
+        Parameters
+        ----------
+        x : array_like
+            The x points at which the continuous spectra shall be evaluated.
+
+        m, n : int
+            Mode numbers in y- and z-direction.
+                
+        Returns
+        -------
+        specs : dict
+            A dictionary with key=branch_name and value=omega(x) (ndarray).
+        """
+        
+        # radial profiles
+        Bz  = self.params['Bz']
+        By  = self._By
+        p   = self.params['p']
+        rho = self.params['rho']
+        F   = self._F
+        
+        # other parameters
+        gamma = self.params['gamma']
+        
+        specs = {}
+        
+        # shear Alfvén continuum
+        specs['shear_Alfvén'] = np.sqrt(F(x, m, n)**2/rho(x))
+        
+        # slow sound continuum
+        specs['slow_sound'] = np.sqrt(gamma*p(x)*F(x, m, n)**2/(rho(x)*(gamma*p(x) + By(x)**2 + Bz(x)**2)))
+        
+        return specs
+    
+    # private methods:
+    # ----------------
+    
+    def _By(self, x):
+        """ Poloidal magnetic field.
+        """
+        return self.params['a']*self.params['Bz'](x)/(self.params['R0']*self.params['q'](x))
+    
+    def _F(self, x, m, n):
+        """ Dot product of magnetic field with wavenumber k.B.
+        """
+        return m/self.params['a']*self._By(x) + n/self.params['R0']*self.params['Bz'](x)    
+    
+    
+    
+class MhdContinousSpectraCylinder( ContinuousSpectra1D ):
+    r"""
+    Continuous shear Alfvén and slow sound spectra along radial direction in cylindrical geometry with radius :math:`a` and length :math:`2\pi\,R_0` in Struphy units.
+    
+    The profiles in cylindrical coordinates :math:`(r, \theta, z)` are
+
+    .. math::
+
+        \mathbf B_0 &= \mathbf B_0(r) = B_{0z}(r)\left( \mathbf e_z + \frac{r}{q(r) R_0}\mathbf e_\theta \right)\,,
+
+        p_0 &= p_0(r) 
+
+        n_0 &= n_0(r)\,.
+        
+    The continuous spectra are then given by
+    
+    .. math::
+    
+        \textnormal{shear Alfvén}:\quad & \omega^2(r)=\frac{B_{0z}(r)^2}{n_0(r)}\frac{1}{R_0^2}\left(n+\frac{m}{q(r)}\right)^2\,
+        
+        \textnormal{slow sound}:\quad & \omega^2(r)=\frac{\gamma p_0(r)B_{0z}(r)^2}{n_0(r)\,[\gamma p_0(r) + B_{0\theta}(r)^2 + B_{0z}(r)^2]}\frac{1}{R_0^2}\left(n+\frac{m}{q(r)}\right)^2\,.
+    """
+    
+    def __init__(self, **params):
+        super().__init__('shear_Alfvén', 'slow_sound', **params)
+        
+    def __call__(self, r, m, n):
+        """ 
+        The evaluation of all continuous spectra.
+        
+        Parameters
+        ----------
+        r : array_like
+            The radial points at which the continuous spectra shall be evaluated.
+
+        m, n : int
+            Mode numbers in theta- and z-direction.
+                
+        Returns
+        -------
+        specs : dict
+            A dictionary with key=branch_name and value=omega(r) (ndarray).
+        """
+        
+        # radial profiles
+        Bz  = self.params['Bz']
+        Bt  = self._Bt
+        p   = self.params['p']
+        rho = self.params['rho']
+        F   = self._F
+        
+        # other parameters
+        gamma = self.params['gamma']
+        
+        specs = {}
+        
+        # shear Alfvén continuum
+        specs['shear_Alfvén'] = np.sqrt(F(r, m, n)**2/rho(r))
+        
+        # slow sound continuum
+        specs['slow_sound'] = np.sqrt(gamma*p(r)*F(r, m, n)**2/(rho(r)*(gamma*p(r) + Bt(r)**2 + Bz(r)**2)))
+        
+        return specs
+    
+    # private methods:
+    # ----------------
+    
+    def _Bt(self, r):
+        """ Poloidal magnetic field.
+        """
+        return r*self.params['Bz'](r)/(self.params['R0']*self.params['q'](r))
+    
+    def _F(self, r, m, n):
+        """ Dot product of magnetic field with wavenumber k.B.
+        """
+        return m/r*self._Bt(r) + n/self.params['R0']*self.params['Bz'](r)
+    
+    

@@ -9,6 +9,7 @@ from struphy.propagators.base import Propagator
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.pic.particles_to_grid import Accumulator
 from struphy.pic.pusher import Pusher
+from struphy.polar.basic import PolarVector
 
 from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
 from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
@@ -17,8 +18,6 @@ from struphy.psydac_api.linear_operators import InverseLinearOperator as Invert
 from struphy.psydac_api import preconditioner
 from struphy.psydac_api.linear_operators import LinOpWithTransp
 
-from struphy.psydac_api.utilities import apply_essential_bc_to_array
-    
 
 class Maxwell( Propagator ):
     r'''Crank-Nicolson step
@@ -48,8 +47,8 @@ class Maxwell( Propagator ):
 
     def __init__(self, e, b, derham, mass_ops, params):
 
-        assert isinstance(e, BlockVector)
-        assert isinstance(b, BlockVector)
+        assert isinstance(e, (BlockVector, PolarVector))
+        assert isinstance(b, (BlockVector, PolarVector))
 
         self._e = e
         self._b = b
@@ -66,7 +65,7 @@ class Maxwell( Propagator ):
             pc = None
         else:
             pc_class = getattr(preconditioner, params['pc'])
-            pc = pc_class(derham, 'V1', mass_ops._fun_M1)
+            pc = pc_class(mass_ops.M1)
 
         # Instantiate Schur solver (constant in this case)
         _BC = Compose(self._B, self._C)
@@ -90,13 +89,13 @@ class Maxwell( Propagator ):
         _b = bn - dt*self._C.dot(_e + en)
 
         # write new coeffs into Propagator.variables
-        de, db = self.in_place_update(_e, _b)
+        max_de, max_db = self.in_place_update(_e, _b)
 
         if self._info:
             print('Status     for Maxwell:', info['success'])
             print('Iterations for Maxwell:', info['niter'])
-            print('Maxdiff e1 for Maxwell:', max(de))
-            print('Maxdiff b2 for Maxwell:', max(db))
+            print('Maxdiff e1 for Maxwell:', max_de)
+            print('Maxdiff b2 for Maxwell:', max_db)
             print()
 
 
@@ -159,8 +158,8 @@ class OhmCold( Propagator ):
 
     def __init__(self, j, e, a):
 
-        assert isinstance(j, BlockVector)
-        assert isinstance(e, BlockVector)
+        assert isinstance(j, (BlockVector, PolarVector))
+        assert isinstance(e, (BlockVector, PolarVector))
         assert isinstance(a, float)
 
         self._j = j
@@ -182,10 +181,10 @@ class OhmCold( Propagator ):
         _e = -np.sin(self._a * dt) * jn + np.cos(self._a * dt) * en
 
         # write new coeffs into Propagator.variables
-        dj, de = self.in_place_update(_j, _e)
+        max_dj, max_de = self.in_place_update(_j, _e)
 
-        print('Maxdiff j1 for OhmCold:', max(dj))
-        print('Maxdiff e2 for OhmCold:', max(de))
+        print('Maxdiff j1 for OhmCold:', max_dj)
+        print('Maxdiff e2 for OhmCold:', max_de)
         print()
 
         
@@ -227,8 +226,8 @@ class ShearAlfvén( Propagator ):
 
     def __init__(self, u, b, u_space, derham, mass_ops, mhd_ops, params):
 
-        assert isinstance(u, BlockVector)
-        assert isinstance(b, BlockVector)
+        assert isinstance(u, (BlockVector, PolarVector))
+        assert isinstance(b, (BlockVector, PolarVector))
         assert u_space in {'Hcurl', 'Hdiv', 'H1vec'}
 
         self._u = u
@@ -261,7 +260,7 @@ class ShearAlfvén( Propagator ):
             pc = None
         else:
             pc_class = getattr(preconditioner, params['pc'])
-            pc = pc_class(derham, derham.spaces_dict[u_space], _pc_fun)
+            pc = pc_class(getattr(mass_ops, id_Mn))
         
         # Instantiate Schur solver (constant in this case)
         _BC = Compose(self._B, self._C)
@@ -285,13 +284,13 @@ class ShearAlfvén( Propagator ):
         _b = bn - dt*self._C.dot(_u + un)
 
         # write new coeffs into Propagator.variables
-        du, db = self.in_place_update(_u, _b)
+        max_du, max_db = self.in_place_update(_u, _b)
 
         if self._info and self._rank ==0:
             print('Status     for ShearAlfvén:', info['success'])
             print('Iterations for ShearAlfvén:', info['niter'])
-            print('Maxdiff up for ShearAlfvén:', max(du))
-            print('Maxdiff b2 for ShearAlfvén:', max(db))
+            print('Maxdiff up for ShearAlfvén:', max_du)
+            print('Maxdiff b2 for ShearAlfvén:', max_db)
             print()
 
 
@@ -348,10 +347,10 @@ class Magnetosonic( Propagator ):
 
     def __init__(self, n, u, p, b, u_space, derham, mass_ops, mhd_ops, params):
 
-        assert isinstance(n, StencilVector)
-        assert isinstance(u, BlockVector)
-        assert isinstance(p, StencilVector)
-        assert isinstance(b, BlockVector)
+        assert isinstance(n, (StencilVector, PolarVector))
+        assert isinstance(u, (BlockVector, PolarVector))
+        assert isinstance(p, (StencilVector, PolarVector))
+        assert isinstance(b, (BlockVector, PolarVector))
         assert u_space in {'Hcurl', 'Hdiv', 'H1vec'}
 
         self._n = n
@@ -406,7 +405,7 @@ class Magnetosonic( Propagator ):
             pc = None
         else:
             pc_class = getattr(preconditioner, params['pc'])
-            pc = pc_class(derham, derham.spaces_dict[u_space], _pc_fun)
+            pc = pc_class(getattr(mass_ops, id_Mn))
 
         # Instantiate Schur solver (constant in this case)
         _BC = Compose(self._B, self._C)
@@ -434,13 +433,13 @@ class Magnetosonic( Propagator ):
         _b = 1*bn
         
         # write new coeffs into Propagator.variables
-        dn, du, dp, db = self.in_place_update(_n, _u, _p, _b)
+        max_dn, max_du, max_dp, max_db = self.in_place_update(_n, _u, _p, _b)
 
         if self._info and self._rank == 0:
             print('Status     for Magnetosonic:', info['success'])
             print('Iterations for Magnetosonic:', info['niter'])
-            print('Maxdiff n3 for Magnetosonic:', max(dn))
-            print('Maxdiff up for Magnetosonic:', max(du))
-            print('Maxdiff p3 for Magnetosonic:', max(dp))
-            print('Maxdiff b2 for Magnetosonic:', max(db))
+            print('Maxdiff n3 for Magnetosonic:', max_dn)
+            print('Maxdiff up for Magnetosonic:', max_du)
+            print('Maxdiff p3 for Magnetosonic:', max_dp)
+            print('Maxdiff b2 for Magnetosonic:', max_db)
             print()
