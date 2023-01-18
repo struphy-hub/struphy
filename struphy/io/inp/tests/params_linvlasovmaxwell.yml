@@ -135,7 +135,7 @@ geometry :
             p        : [3, 3] # spline degree, >1
             spl_kind : [False, True] # spline type: True=periodic, False=clamped
 
-mhd_equilibrium :
+mhd_equilibrium : 
       type : analytical # analytical or numerical
       name : HomogenSlab # (possible choices seen below)
       HomogenSlab :
@@ -276,12 +276,14 @@ kinetic :
             markers :
                   type    : delta_f # full_f or delta_f
                   ppc     : 10  # number of markers per 3d grid cell
+                  Np      : 3 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
                   eps     : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
                   bc_type : [periodic, periodic, periodic] # remove, reflect or periodic
                   loading :
-                        type    : pseudo_random # particle loading mechanism
-                        seed    : 1234 # seed for random number generator
-                        moments : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
+                        type          : pseudo_random # particle loading mechanism
+                        seed          : 1234 # seed for random number generator
+                        dir_particles : path_to_particles # directory of particles if loaded externally
+                        moments       : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
             init :
                   type : Maxwellian6DUniform
                   Maxwellian6DUniform :
@@ -310,14 +312,14 @@ solvers :
       solver_ew :
             type : pcg
             pc : MassMatrixPreconditioner # null or name of preconditioner class
-            tol : 1.e-8
+            tol : 1.e-10
             maxiter : 3000
             info : False
             verbose : False
       solver_eb :
             type : pcg
             pc : MassMatrixPreconditioner # null or name of preconditioner class
-            tol : 1.e-8
+            tol : 1.e-10
             maxiter : 3000
             info : False
             verbose : False

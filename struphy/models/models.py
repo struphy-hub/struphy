@@ -323,24 +323,26 @@ class PC_LinearMHD_Vlasov(StruphyModel):
 # Kinetic models
 #############################
 class LinearVlasovMaxwell(StruphyModel):
-    r'''The linearized Vlasov Maxwell system with a Maxwellian background distribution function
-    is described by the following equations:
+    r'''The linearized Vlasov Maxwell system is described by the following equations:
 
     .. math::
 
-        \partial_t h + \mathbf{v} \cdot \nabla h + \left( \mathbf{E}_0 + \mathbf{v} \times \mathbf{B}_0 \right)
-        \cdot \nabla_\mathbf{v} h = \frac{1}{v_{\text{th}}^2} \sqrt{f_0} \mathbf{E} \cdot \mathbf{v} \,,
+        \begin{align}
+            \partial_t h + \mathbf{v} \cdot \, & \nabla_\mathbf{x} h + \left( \mathbf{E}_0 + \mathbf{v} \times \mathbf{B}_0 \right)
+            \cdot \nabla_\mathbf{v} h = \frac{1}{v_{\text{th}}^2} \sqrt{f_0} \, \mathbf{E} \cdot \mathbf{v} \,,
+            \\
+            \frac{\partial \mathbf{E}}{\partial t} & = \nabla \times \mathbf{B} -
+            \alpha^2 \int_{\mathbb{R}^3} \sqrt{f_0} \, h \, \mathbf{v} \, \text{d}^3 \mathbf{v} \,,
+            \\
+            \frac{\partial \mathbf{B}}{\partial t} & = - \nabla \times \mathbf{E} \,,
+        \end{align}
 
-        \frac{\partial \mathbf{E}}{\partial t} & = \nabla \times \mathbf{B} -
-        \int_{\mathbb{R}^3} \sqrt{f_0} \, h \, \mathbf{v} \text{d}^3 \mathbf{v} \,,
-
-        \frac{\partial \mathbf{B}}{\partial t} & = - \nabla \times \mathbf{E}
-
-    which form a Hamiltonian system with the energy:
+    where :math:`f_0` is a Maxwellian background distribution function and :math:`h = \frac{\delta f}{\sqrt{f_0}}`.
+    These equations form a Hamiltonian system with the energy:
 
     .. math::
 
-        H(t) & = \frac{1}{2} \int_\Omega h^2 \, \text{d}^3 \mathbf{x} \, \text{d}^3 \mathbf{v}
+        H(t) = \frac{1}{2} \alpha^2 v_{\text{th}}^2 \int_\Omega h^2 \, \text{d}^3 \mathbf{x} \, \text{d}^3 \mathbf{v}
         + \frac{1}{2} \int_\Omega |\mathbf{E}|^2 \, \text{d}^3 \mathbf{x}
         + \frac{1}{2} \int_\Omega |\mathbf{B}|^2 \, \text{d}^3 \mathbf{x} \,.
 
@@ -348,7 +350,11 @@ class LinearVlasovMaxwell(StruphyModel):
 
     .. math::
 
-        c = \frac{\hat \omega}{\hat k} = \frac{\hat E}{\hat B}
+        \begin{align}
+            c & = \frac{\hat \omega}{\hat k} = \frac{\hat E}{\hat B} \,, &
+            \omega & = \Omega_c = \frac{q \hat B}{m} \,, &
+            \alpha & = \frac{\Omega_p}{\Omega_c} \,,
+        \end{align}
 
     where :math:`c` is the vacuum speed of light.
 
@@ -362,7 +368,6 @@ class LinearVlasovMaxwell(StruphyModel):
 
         from struphy.psydac_api.mass import WeightedMassOperators
         from struphy.propagators import propagators_fields, propagators_markers, propagators_coupling
-        from struphy.psydac_api.fields import Field
 
         super().__init__(params, comm, e_field='Hcurl', b_field='Hdiv', electrons='Particles6D')
 
@@ -372,7 +377,15 @@ class LinearVlasovMaxwell(StruphyModel):
 
         # pointer to electrons
         self._electrons = self.kinetic['electrons']['obj']
-        electron_params = params['kinetic']['electrons']
+        self.electron_params = params['kinetic']['electrons']
+
+        # Assert that v_th is the same in all directions and no shift in velocity
+        maxwellian_params = self.electron_params['background']['moms_params']
+        assert maxwellian_params[1] == maxwellian_params[2] == maxwellian_params[3] == 0.
+        assert maxwellian_params[4] == maxwellian_params[5] == maxwellian_params[6]
+
+        # Get coupling strength
+        self.alpha = self.kinetic['electrons']['plasma_params']['alpha']
 
         # Assemble necessary mass matrices
         self._mass_ops = WeightedMassOperators(self.derham, self.domain)
@@ -393,18 +406,18 @@ class LinearVlasovMaxwell(StruphyModel):
 
         # Only add StepStaticEfield if efield is non-zero, otherwise it is more expensive
         if np.all(self._e_background[0]._data < 1e-14) and np.all(self._e_background[1]._data < 1e-14) and np.all(self._e_background[2]._data < 1e-14):
-        # if False:
             self._propagators += [propagators_markers.StepPushEta(
-                self._electrons, self.derham, electron_params['push_algos']['eta'],
-                electron_params['markers']['bc_type'])]
+                self._electrons, self.derham, self.electron_params['push_algos']['eta'],
+                self.electron_params['markers']['bc_type'])]
         else:
             self._propagators += [propagators_markers.StepStaticEfield(
                 self.domain, self.derham, self._electrons, self._e_background)]
         self._propagators += [propagators_markers.StepPushVxB(
-            self._electrons, self.derham, electron_params['push_algos']['vxb'], self._b_background)]
+            self._electrons, self.derham, self.electron_params['push_algos']['vxb'], self._b_background)]
         self._propagators += [propagators_coupling.StepEfieldWeights(self.domain, self.derham,
                                                 self._e, self._electrons, self._mass_ops,
-                                                electron_params['background'], params['solvers']['solver_ew'])]
+                                                self.electron_params['background'], params['solvers']['solver_ew'],
+                                                self.alpha)]
         self._propagators += [propagators_fields.Maxwell(self._e, self._b,
                                           self.derham, self._mass_ops, params['solvers']['solver_eb'])]
 
@@ -430,10 +443,12 @@ class LinearVlasovMaxwell(StruphyModel):
         self._scalar_quantities['en_B'][0] = self._b.dot(
             self._mass_ops.M2.dot(self._b)) / 2.
 
-        # sum_p N * s_0 * w_p^2
-        self._scalar_quantities['en_weights'][0] = np.sum(
-            self._electrons.markers[~self._electrons._holes, 6]**2 \
-            * self._electrons.markers[~self._electrons._holes, 7]) \
+        # alpha^2 * v_th^2 * sum_p N * s_0 * w_p^2
+        self._scalar_quantities['en_weights'][0] = \
+            self.alpha**2 * \
+            self.electron_params['background']['moms_params'][4]**2 * \
+            np.sum(self._electrons.markers[~self._electrons._holes, 6]**2 \
+                   * self._electrons.markers[~self._electrons._holes, 7]) \
             * self._electrons.n_mks / 2
 
         self._scalar_quantities['energy'][0] = self._scalar_quantities['en_weights'][0] + \
@@ -664,8 +679,6 @@ class DriftKinetic(StruphyModel):
         self._scalar_quantities['time'][0] = time
 
 
-
-
 #############################
 # Fluid-kinetic hybrid models
 #############################
@@ -824,4 +837,3 @@ class Hybrid_fA(StruphyModel):
         #self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_p'][0]
         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_B'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_f'][0]
-

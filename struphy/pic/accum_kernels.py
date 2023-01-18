@@ -197,7 +197,8 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                           vec3: 'float[:,:,:]',
                           f0_spec: 'int',          # model specific argument
                           moms_spec: 'int[:]',     # model specific argument
-                          f0_params: 'float[:]'):  # model specific argument
+                          f0_params: 'float[:]',   # model specific argument
+                          alpha: 'float'):  # model specific argument
     r"""
     Accumulates into V1 with the filling functions
 
@@ -218,6 +219,9 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
 
         f0_params : array[float]
             Parameters needed to specify the moments; the order is specified in :ref:`kinetic_moments` for the respective functions available.
+
+        alpha : float
+            = Omega_c / Omega_p ; Parameter determining the coupling strength between particles and fields
 
     Note
     ----
@@ -271,10 +275,10 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
 
         # filling_m = DL^{-1} v_p f_0 DL^{-1} v_p / (N s_0)
         linalg.outer(df_inv_times_v, df_inv_times_v, filling_m)
-        filling_m[:] = f0 * filling_m / (n_markers_tot * markers[ip, 7])
+        filling_m[:] = alpha**2 * f0 * filling_m / (n_markers_tot * markers[ip, 7] * f0_params[4]**2)
 
         # filling_v = w_p * sqrt{f_0} DL^{-1} v_p
-        filling_v[:] = sqrt(f0) * weight * df_inv_times_v
+        filling_v[:] = alpha**2 * sqrt(f0) * weight * df_inv_times_v
 
         # call the appropriate matvec filler
         mvf.m_v_fill_b_v1_symm(pn, tn1, tn2, tn3, starts1,

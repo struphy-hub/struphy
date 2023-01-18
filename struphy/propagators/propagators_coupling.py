@@ -16,7 +16,7 @@ from struphy.psydac_api.linear_operators import LinOpWithTransp
 import numpy as np
 
 
-class StepEfieldWeights( Propagator ):
+class StepEfieldWeights(Propagator):
     r'''Solve the following Crank-Nicolson step
 
     .. math::
@@ -58,27 +58,32 @@ class StepEfieldWeights( Propagator ):
 
         params : dict
             Solver parameters for this splitting step.
+
+        alpha : float
+            = Omega_c / Omega_p ; Parameter determining the coupling strength between particles and fields
     '''
 
-    def __init__(self, domain, derham, e, particles, mass_ops, params_bs, params_solver):
-        
+    def __init__(self, domain, derham, e, particles, mass_ops, params_bs, params_solver, alpha):
+
         assert isinstance(e, BlockVector)
 
         # Read out relevant parameters for Accumulator object
-        self.f0_spec   = params_bs['type']
+        self.f0_spec = params_bs['type']
         self.moms_spec = params_bs['moms_spec']
         self.f0_params = params_bs['moms_params']
         # raise NotImplementedError('Parameters are not correct yet!')
 
         # Initialize Accumulator object
         self._accum = Accumulator(domain, derham, 'Hcurl', 'linear_vlasov_maxwell',
-                                  self.f0_spec, array(self.moms_spec), array(self.f0_params),
+                                  self.f0_spec, array(
+                                      self.moms_spec), array(self.f0_params),
+                                  alpha,
                                   do_vector=True, symmetry='symm')
 
         self._e = e
         self._particles = particles
         self._info = params_solver['info']
-        
+
         # store old weights to compute difference
         self._old_weights = np.empty(particles.markers.shape[0], dtype=float)
 
@@ -103,7 +108,7 @@ class StepEfieldWeights( Propagator ):
         _BC = self._accum.matrix / 4
 
         # Instantiate Schur solver
-        self._schur_solver = SchurSolver(_A, _BC, pc=self._pc, solver_type=params_solver['type'], 
+        self._schur_solver = SchurSolver(_A, _BC, pc=self._pc, solver_type=params_solver['type'],
                                          tol=params_solver['tol'], maxiter=params_solver['maxiter'],
                                          verbose=params_solver['verbose'])
 
@@ -131,8 +136,10 @@ class StepEfieldWeights( Propagator ):
 
         # Update weights
         self._pusher(self._particles, dt,
-                     (_e + en).blocks[0]._data, (_e + en).blocks[1]._data, (_e + en).blocks[2]._data,
-                     self.f0_spec, array(self.moms_spec), array(self.f0_params),
+                     (_e + en).blocks[0]._data, (_e +
+                                                 en).blocks[1]._data, (_e + en).blocks[2]._data,
+                     self.f0_spec, array(
+                         self.moms_spec), array(self.f0_params),
                      int(self._particles.n_mks))
 
         # write new coeffs into Propagator.variables
@@ -143,15 +150,13 @@ class StepEfieldWeights( Propagator ):
             print('Status          for StepEfieldWeights:', info['success'])
             print('Iterations      for StepEfieldWeights:', info['niter'])
             print('Maxdiff    e1   for StepEfieldWeights:', max_de)
-            max_diff = np.max(np.abs(self._old_weights[~self._particles.holes] \
-                        - self._particles.markers[~self._particles.holes, 6]))
+            max_diff = np.max(np.abs(self._old_weights[~self._particles.holes]
+                                     - self._particles.markers[~self._particles.holes, 6]))
             print('Maxdiff weights for StepEfieldWeights:', max_diff)
             print()
 
 
-
-
-class StepHybridDensity( Propagator ):
+class StepHybridDensity(Propagator):
     r'''Solve the following Crank-Nicolson step in hybrid model with unknowns f and A.
 
     .. math::
@@ -202,7 +207,7 @@ class StepHybridDensity( Propagator ):
                                   do_vector=False, symmetry='None')
 
         self._particles = particles
-        
+
         self._domain = domain
         self._derham = derham
 
@@ -217,9 +222,7 @@ class StepHybridDensity( Propagator ):
         self._accum.accumulate(self._particles.markers, self._particles.n_mks)
 
 
-
-
-class StepPressurecoupling( Propagator ):
+class StepPressurecoupling(Propagator):
     r'''Crank-Nicolson step for pressure coupling term in MHD equations and velocity update with the force term :math:`\nabla \mathbf U \cdot \mathbf v`.
 
     .. math::
@@ -245,10 +248,10 @@ class StepPressurecoupling( Propagator ):
 
         domain : struphy.geometry.base.Domain
                  Infos regarding mapping.
-            
+
         mass_ops : struphy.psydac_api.mass.WeightedMassOperators
                    Weighted mass matrices from struphy.psydac_api.mass.
-            
+
         mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
                   Linear MHD operators from struphy.psydac_api.basis_projection_ops.
 
@@ -294,15 +297,20 @@ class StepPressurecoupling( Propagator ):
         # Call the accumulation and Pusher class
         args = []
 
-        if coupling == 'perp' : 
-            self._ACC = Accumulator(self._domain, self._derham, 'Hcurl', 'pc_lin_mhd_6d', *args, do_vector = True, symmetry = 'pressure')
+        if coupling == 'perp':
+            self._ACC = Accumulator(self._domain, self._derham, 'Hcurl',
+                                    'pc_lin_mhd_6d', *args, do_vector=True, symmetry='pressure')
             self._pusher = Pusher(self._derham, self._domain, 'push_pc_GXu')
 
-        elif coupling == 'full' :
-            self._ACC = Accumulator(self._domain, self._derham, 'Hcurl', 'pc_lin_mhd_6d_full', *args, do_vector = True, symmetry = 'pressure')
-            self._pusher = Pusher(self._derham, self._domain, 'push_pc_GXu_full')
+        elif coupling == 'full':
+            self._ACC = Accumulator(self._domain, self._derham, 'Hcurl',
+                                    'pc_lin_mhd_6d_full', *args, do_vector=True, symmetry='pressure')
+            self._pusher = Pusher(
+                self._derham, self._domain, 'push_pc_GXu_full')
 
-        else : raise NotImplementedError('Given coupling scheme is not implemented!')
+        else:
+            raise NotImplementedError(
+                'Given coupling scheme is not implemented!')
 
         # Define operators
         self._A = getattr(mass_ops, id_Mn)
@@ -312,7 +320,7 @@ class StepPressurecoupling( Propagator ):
     @property
     def variables(self):
         return [self._u]
-    
+
     def __call__(self, dt):
         un = self.variables[0]
 
@@ -322,39 +330,44 @@ class StepPressurecoupling( Propagator ):
         # acuumulate MAT and VEC
         self._ACC.accumulate(self._particles.markers, self._particles.n_mks)
 
-        MAT = [[self._ACC.matrix11, self._ACC.matrix12, self._ACC.matrix13], 
-               [self._ACC.matrix12, self._ACC.matrix22, self._ACC.matrix23], 
+        MAT = [[self._ACC.matrix11, self._ACC.matrix12, self._ACC.matrix13],
+               [self._ACC.matrix12, self._ACC.matrix22, self._ACC.matrix23],
                [self._ACC.matrix13, self._ACC.matrix23, self._ACC.matrix33]]
-        VEC =  [self._ACC.vector1, self._ACC.vector2, self._ACC.vector3]
+        VEC = [self._ACC.vector1, self._ACC.vector2, self._ACC.vector3]
 
         GT_VEC = BlockVector(self._derham.Vh['v'], blocks=[self._GT.dot(VEC[0]),
-                                                           self._GT.dot(VEC[1]),
+                                                           self._GT.dot(
+                                                               VEC[1]),
                                                            self._GT.dot(VEC[2])])
 
         # define BC and B dot V of the Schur block matrix [[A, B], [C, I]]
-        BC = Multiply(-1/4, Compose(self._XT, self.GT_MAT_G(self._derham, MAT), self._X))
+        BC = Multiply(-1/4, Compose(self._XT,
+                      self.GT_MAT_G(self._derham, MAT), self._X))
 
         BV = Multiply(-1/2, self._XT).dot(GT_VEC)
-        
+
         # call SchurSolver class
-        schur_solver = SchurSolver(self._A, BC, pc=self._pc, solver_type=self._coupling_solver['type'], 
+        schur_solver = SchurSolver(self._A, BC, pc=self._pc, solver_type=self._coupling_solver['type'],
                                    tol=self._coupling_solver['tol'], maxiter=self._coupling_solver['maxiter'],
                                    verbose=self._coupling_solver['verbose'])
 
         # allocate temporary FemFields _u during solution
-        _u, info = schur_solver(un, BV, dt) 
+        _u, info = schur_solver(un, BV, dt)
 
         # calculate GXu
         GXu_1 = self._G.dot(self._X.dot(un + _u)[0])
         GXu_2 = self._G.dot(self._X.dot(un + _u)[1])
         GXu_3 = self._G.dot(self._X.dot(un + _u)[2])
-            
+
         # push particles
         # check if ghost regions are synchronized
         for i in range(3):
-            if not GXu_1[i].ghost_regions_in_sync: GXu_1[i].update_ghost_regions()
-            if not GXu_2[i].ghost_regions_in_sync: GXu_2[i].update_ghost_regions()
-            if not GXu_3[i].ghost_regions_in_sync: GXu_3[i].update_ghost_regions()
+            if not GXu_1[i].ghost_regions_in_sync:
+                GXu_1[i].update_ghost_regions()
+            if not GXu_2[i].ghost_regions_in_sync:
+                GXu_2[i].update_ghost_regions()
+            if not GXu_3[i].ghost_regions_in_sync:
+                GXu_3[i].update_ghost_regions()
 
         self._pusher(self._particles, dt,
                      GXu_1[0]._data, GXu_1[1]._data, GXu_1[2]._data,
@@ -374,7 +387,7 @@ class StepPressurecoupling( Propagator ):
         r'''
         Class for defining LinearOperator corresponding to :math:`G^\top (\text{MAT}) G \in \mathbb{R}^{3N^0 \times 3N^0}` 
         where :math:`\text{MAT} = V^\top (\bar {\mathbf \Lambda}^1)^\top \bar{DF}^{-1} \bar{W} \bar{DF}^{-\top} \bar{\mathbf \Lambda}^1 V \in \mathbb{R}^{3N^1 \times 3N^1}`.
-        
+
         Parameters
         ----------
             derham : struphy.psydac_api.psydac_derham.Derham

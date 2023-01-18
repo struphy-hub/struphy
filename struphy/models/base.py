@@ -12,8 +12,7 @@ from struphy.fields_background.mhd_equil import numerical as numerical_mhd
 from struphy.fields_background.electric_equil import analytical as analytical_electric
 
 
-
-class StruphyModel( metaclass=ABCMeta ):
+class StruphyModel(metaclass=ABCMeta):
     '''Base class for all Struphy models.
 
     Parameters
@@ -45,25 +44,28 @@ class StruphyModel( metaclass=ABCMeta ):
         self._domain = domain_class(dom_params)
 
         # mhd equilibrium
-        if 'mhd_equilibrium' in params: 
+        if 'mhd_equilibrium' in params:
             equil_params = params['mhd_equilibrium']
 
             if equil_params['type'] == 'analytical':
                 mhd_equil_class = getattr(analytical_mhd, equil_params['name'])
-                self._mhd_equil = mhd_equil_class(equil_params[equil_params['name']])
+                self._mhd_equil = mhd_equil_class(
+                    equil_params[equil_params['name']])
 
                 # set mapping for equilibrium object
                 self._mhd_equil.domain = self.domain
 
             elif equil_params['type'] == 'numerical':
                 mhd_equil_class = getattr(numerical_mhd, equil_params['name'])
-                self._mhd_equil = mhd_equil_class(equil_params[equil_params['name']])
+                self._mhd_equil = mhd_equil_class(
+                    equil_params[equil_params['name']])
 
-                # reset domain 
+                # reset domain
                 self._domain = self.mhd_equil.domain
-                
+
             else:
-                raise TypeError('type parameter must be either "analytical" or "numerical", is {0}'.format(equil_params['type']))
+                raise TypeError('type parameter must be either "analytical" or "numerical", is {0}'.format(
+                    equil_params['type']))
         else:
             self._mhd_equil = None
 
@@ -83,34 +85,44 @@ class StruphyModel( metaclass=ABCMeta ):
         eta1 = np.linspace(h/2., 1.-h/2., 100)
         eta2 = np.linspace(h/2., 1.-h/2., 100)
         eta3 = np.linspace(h/2., 1.-h/2., 100)
-        self._size_params['plasma volume [m^3]'] = np.mean(np.abs(self.domain.jacobian_det(eta1, eta2, eta3)))
+        self._size_params['plasma volume [m^3]'] = np.mean(
+            np.abs(self.domain.jacobian_det(eta1, eta2, eta3)))
         self._size_params['minor radius [m]'] = 'No minor radius.'
-        self._size_params['transit length [m]'] = self.size_params['plasma volume [m^3]']**(1/3)
-        self._size_params['transit k [1/m]'] = 2*np.pi / self._size_params['transit length [m]']
+        self._size_params['transit length [m]'] = self.size_params['plasma volume [m^3]']**(
+            1/3)
+        self._size_params['transit k [1/m]'] = 2*np.pi / \
+            self._size_params['transit length [m]']
         self._size_params['eps_key'] = 'rho*k'
 
         # minor radius
-        if self.mhd_equil is not None: 
+        if self.mhd_equil is not None:
             if 'a' in self.mhd_equil.params:
                 self._size_params['minor radius [m]'] = self.mhd_equil.params['a']
                 self._size_params['transit length [m]'] = self._size_params['minor radius [m]']
-                self._size_params['transit k [1/m]'] = 2*np.pi / self._size_params['transit length [m]']
+                self._size_params['transit k [1/m]'] = 2 * \
+                    np.pi / self._size_params['transit length [m]']
                 self._size_params['eps_key'] = 'rhostar'
 
             # average B-field strength (Tesla)
             eta1 = np.linspace(0., 1., 100)
-            eta2 = np.linspace(0., 1., 100)    
+            eta2 = np.linspace(0., 1., 100)
             eta3 = np.linspace(0., 1., 100)
-            self._size_params['B_abs [T]'] = np.mean(self.mhd_equil.absB0(eta1, eta2, eta3))
+            self._size_params['B_abs [T]'] = np.mean(
+                self.mhd_equil.absB0(eta1, eta2, eta3))
 
         # 3d Derham sequence
-        Nel = params['grid']['Nel'] # Number of grid cells
-        p = params['grid']['p'] # spline degrees
-        spl_kind = params['grid']['spl_kind'] # spline types (clamped vs. periodic)
-        bc = params['grid']['bc'] # boundary conditions (Homogeneous Dirichlet or None)
-        nq_pr = params['grid']['nq_pr'] # Number of quadrature points per histopolation cell
-        nq_el = params['grid']['nq_el'] # Number of quadrature points per grid cell for L^2
-        polar_ck = params['grid']['polar_ck'] # C^k smoothness at eta_1=0 for polar domains 
+        Nel = params['grid']['Nel']  # Number of grid cells
+        p = params['grid']['p']  # spline degrees
+        # spline types (clamped vs. periodic)
+        spl_kind = params['grid']['spl_kind']
+        # boundary conditions (Homogeneous Dirichlet or None)
+        bc = params['grid']['bc']
+        # Number of quadrature points per histopolation cell
+        nq_pr = params['grid']['nq_pr']
+        # Number of quadrature points per grid cell for L^2
+        nq_el = params['grid']['nq_el']
+        # C^k smoothness at eta_1=0 for polar domains
+        polar_ck = params['grid']['polar_ck']
 
         quad_order = [nq_el[0] - 1,
                       nq_el[1] - 1,
@@ -129,9 +141,9 @@ class StruphyModel( metaclass=ABCMeta ):
         self._fluid = {}
         self._kinetic = {}
 
-        nem = 0 # number of electromagnetic fields/potentials
-        nf = [] # numbers of variables for each fluid species
-        nk = 0 # number of kinetic species
+        nem = 0  # number of electromagnetic fields/potentials
+        nf = []  # numbers of variables for each fluid species
+        nk = 0  # number of kinetic species
         for key, val in kwargs.items():
 
             if isinstance(val, str):
@@ -151,7 +163,8 @@ class StruphyModel( metaclass=ABCMeta ):
                     nk += 1
 
                 else:
-                    raise ValueError('The given value string ' + str(val) + ' is not supported!')
+                    raise ValueError('The given value string ' +
+                                     str(val) + ' is not supported!')
 
             elif isinstance(val, dict):
 
@@ -172,15 +185,17 @@ class StruphyModel( metaclass=ABCMeta ):
             self._em_fields['params'] = params['em_fields']
 
             comps = params['em_fields']['init']['comps']
-            assert len(comps) == nem, 'Lengths of ["em_fields"]["init"]["comps"] lists do not correspond to number of fields.'
-            
+            assert len(
+                comps) == nem, 'Lengths of ["em_fields"]["init"]["comps"] lists do not correspond to number of fields.'
+
             for n, (key, val) in enumerate(self.em_fields.items()):
 
                 if 'params' not in key:
                     field = Field(key, val['space'], self.derham)
                     val['obj'] = field
 
-                    assert len(comps[n]) == isinstance(field.nbasis, tuple)*1 + isinstance(field.nbasis, list)*3, f'Wrong length of ["init"]["comps"] list for {key}.'
+                    assert len(comps[n]) == isinstance(field.nbasis, tuple)*1 + isinstance(
+                        field.nbasis, list)*3, f'Wrong length of ["init"]["comps"] list for {key}.'
                     val['init_comps'] = comps[n]
 
         # FE coeffs and plasma parameters of fluid variables
@@ -191,18 +206,23 @@ class StruphyModel( metaclass=ABCMeta ):
                 assert species in params['fluid']
                 val['params'] = params['fluid'][species]
 
-                Z, M, kBT, beta = params['fluid'][species]['attributes'].values()
+                Z, M, kBT, beta = params['fluid'][species]['attributes'].values(
+                )
                 comps = params['fluid'][species]['init']['comps']
-                assert len(comps) == nfi, f'Lengths of ["fluid"]["species"]["attributes"] lists do not correspond to number of fluid variables of species {species}.'
-                val['plasma_params'] = plasma_params(Z, M, kBT, beta, self.size_params)
+                assert len(comps) == nfi, \
+                    f'Lengths of ["fluid"]["species"]["attributes"] lists do not correspond to number of fluid variables of species {species}.'
+                val['plasma_params'] = plasma_params(Z, M,
+                                                     kBT, beta,
+                                                     self.size_params)
 
                 for n, (variable, subval) in enumerate(val.items()):
 
                     if 'params' not in variable:
                         field = Field(variable, subval['space'], self.derham)
                         subval['obj'] = field
-                        
-                        assert len(comps[n]) == isinstance(field.nbasis, tuple)*1 + isinstance(field.nbasis, list)*3, f'Wrong length of ["init"]["comps"] list for {variable}.'
+
+                        assert len(comps[n]) == isinstance(field.nbasis, tuple)*1 + isinstance(field.nbasis, list)*3, \
+                            f'Wrong length of ["init"]["comps"] list for {variable}.'
                         subval['init_comps'] = comps[n]
 
         # marker arrays and plasma parameters of kinetic species
@@ -214,35 +234,40 @@ class StruphyModel( metaclass=ABCMeta ):
                 val['params'] = params['kinetic'][species]
 
                 kinetic_class = getattr(particles, val['space'])
-                val['obj'] = kinetic_class(species, val['params']['markers'], self.domain, self.derham.domain_array, self.derham.comm)
-                
+                val['obj'] = kinetic_class(species, val['params']['markers'],
+                                           self.domain, self.derham.domain_array, self.derham.comm)
+
                 Z, M, kBT, beta = val['params']['attributes'].values()
-                val['plasma_params'] = plasma_params(Z, M, kBT, beta, self.size_params)
+                val['plasma_params'] = plasma_params(
+                    Z, M, kBT, beta, self.size_params)
 
                 # for storing markers
-                n_markers = val['params']['save_data']['n_markers']  
+                n_markers = val['params']['save_data']['n_markers']
                 assert n_markers <= val['obj'].n_mks
                 if n_markers > 0:
                     val['kinetic_data'] = {}
-                    val['kinetic_data']['markers'] = np.zeros((n_markers, val['obj'].markers.shape[1]), dtype=float)
-                    
+                    val['kinetic_data']['markers'] = np.zeros(
+                        (n_markers, val['obj'].markers.shape[1]), dtype=float)
+
                 # for storing the distribution function
                 if 'f' in val['params']['save_data']:
                     slices = val['params']['save_data']['f']['slices']
                     n_bins = val['params']['save_data']['f']['n_bins']
                     ranges = val['params']['save_data']['f']['ranges']
-                    
+
                     val['kinetic_data']['f'] = {}
                     val['bin_edges'] = {}
                     if len(slices) > 0:
                         for i, sli in enumerate(slices):
-                            
+
                             assert ((len(sli) - 2)/3).is_integer()
                             val['bin_edges'][sli] = []
                             dims = (len(sli) - 2)//3 + 1
                             for j in range(dims):
-                                val['bin_edges'][sli] += [np.linspace(ranges[i][j][0], ranges[i][j][1], n_bins[i][j] + 1)]
-                            val['kinetic_data']['f'][sli] = np.zeros(n_bins[i], dtype=float)
+                                val['bin_edges'][sli] += [np.linspace(
+                                    ranges[i][j][0], ranges[i][j][1], n_bins[i][j] + 1)]
+                            val['kinetic_data']['f'][sli] = np.zeros(
+                                n_bins[i], dtype=float)
 
                 # other data (wave-particle power exchange, etc.)
                 # TODO
@@ -253,7 +278,7 @@ class StruphyModel( metaclass=ABCMeta ):
         # create dictionary for scalar quantities
         self._scalar_quantities = {}
 
-        # print info to screen 
+        # print info to screen
         if mpi_comm.Get_rank() == 0:
             print('GRID parameters:')
             print(f'number of elements : {self.derham.Nel}')
@@ -262,7 +287,8 @@ class StruphyModel( metaclass=ABCMeta ):
             print(f'hom. Dirichlet bc  : {self.derham.bc}')
             print(f'GL quad pts (L2)   : {self.derham.quad_order}')
             print(f'GL quad pts (hist) : {self.derham.nq_pr}')
-            print(f'MPI indices for N-splines on rank 0: {self.derham.index_array_N[0]}\n')
+            print(
+                f'MPI indices for N-splines on rank 0: {self.derham.index_array_N[0]}\n')
 
             print('DOMAIN parameters:')
             print(f'domain type: {dom_type}')
@@ -278,24 +304,24 @@ class StruphyModel( metaclass=ABCMeta ):
             print('----------------------------------')
             for key, val in self.em_fields.items():
                 if 'params' not in key:
-                    print(key  + ': ' + val['space'])
+                    print(key + ': ' + val['space'])
             print('\nfluid species:')
             print('--------------')
             for species, val in self.fluid.items():
-                print(species  + ':')
+                print(species + ':')
                 for variable, subval in val.items():
                     if 'params' not in variable:
-                        print(variable  + ': ' + subval['space']) 
+                        print(variable + ': ' + subval['space'])
                 for p, pv in val['plasma_params'].items():
-                        print(p + ': ', pv)   
+                    print(p + ': ', pv)
             print('\nkinetic species:')
             print('----------------')
             for species, val in self.kinetic.items():
-                print(species  + ': ' + val['space'] + ' with ' 
-                        + str(val['obj'].n_mks) + ' markers initialized, shape=' 
-                        + str(val['obj'].markers.shape) + ' on rank 0.')
+                print(species + ': ' + val['space'] + ' with '
+                      + str(val['obj'].n_mks) + ' markers initialized, shape='
+                      + str(val['obj'].markers.shape) + ' on rank 0.')
                 for p, pv in val['plasma_params'].items():
-                    print(p + ': ', pv) 
+                    print(p + ': ', pv)
             print('')
 
     @property
@@ -368,12 +394,13 @@ class StruphyModel( metaclass=ABCMeta ):
         '''
         Writes markers with IDs that are supposed to be saved into corresponding array.
         '''
-        
+
         for val in self.kinetic.values():
-            
-            n_mks_save = val['params']['save_data']['n_markers'] 
+
+            n_mks_save = val['params']['save_data']['n_markers']
             if n_mks_save > 0:
-                markers_on_proc = np.logical_and(val['obj'].markers[:, -1] >= 0., val['obj'].markers[:, -1] < n_mks_save)
+                markers_on_proc = np.logical_and(
+                    val['obj'].markers[:, -1] >= 0., val['obj'].markers[:, -1] < n_mks_save)
                 n_markers_on_proc = np.count_nonzero(markers_on_proc)
                 val['kinetic_data']['markers'][:] = -1.
                 val['kinetic_data']['markers'][:n_markers_on_proc] = val['obj'].markers[markers_on_proc]
@@ -382,22 +409,23 @@ class StruphyModel( metaclass=ABCMeta ):
         '''
         Writes distribution function slices that are supposed to be saved into corresponding array.
         '''
-        
-        dim_to_int = {'e1' : 0, 'e2' : 1, 'e3' : 2, 'vx' : 3, 'vy' : 4, 'vz' : 5}
-        
+
+        dim_to_int = {'e1': 0, 'e2': 1, 'e3': 2, 'vx': 3, 'vy': 4, 'vz': 5}
+
         for val in self.kinetic.values():
-            
+
             if 'f' in val['params']['save_data']:
                 for slic, edges in val['bin_edges'].items():
-                    
+
                     dims = (len(slic) - 2)//3 + 1
                     comps = [slic[3*i:3*i + 2] for i in range(dims)]
                     components = [False]*6
-                    
+
                     for comp in comps:
                         components[dim_to_int[comp]] = True
-                    
-                    val['kinetic_data']['f'][slic][:] = val['obj'].binning(components, edges)
+
+                    val['kinetic_data']['f'][slic][:] = val['obj'].binning(
+                        components, edges)
 
     def print_scalar_quantities(self):
         '''
@@ -423,7 +451,8 @@ class StruphyModel( metaclass=ABCMeta ):
 
             for key, val in self.em_fields.items():
                 if 'params' not in key:
-                    val['obj'].initialize_coeffs(val['init_comps'], self.em_fields['params']['init'], domain=dom_arg)
+                    val['obj'].initialize_coeffs(
+                        val['init_comps'], self.em_fields['params']['init'], domain=dom_arg)
 
         # initialize fields
         if len(self.fluid) > 0:
@@ -437,16 +466,27 @@ class StruphyModel( metaclass=ABCMeta ):
 
                 for variable, subval in val.items():
                     if 'params' not in variable:
-                        subval['obj'].initialize_coeffs(subval['init_comps'], val['params']['init'], domain=dom_arg)
+                        subval['obj'].initialize_coeffs(
+                            subval['init_comps'], val['params']['init'], domain=dom_arg)
 
         # initialize particles
         if len(self.kinetic) > 0:
-            
+
             for val in self.kinetic.values():
                 val['obj'].mpi_sort_markers(do_test=True)
-                val['obj'].initialize_weights(val['params']['init'])
+                if val['params']['markers']['type'] == 'full_f':
+                    val['obj'].initialize_weights(val['params']['init'])
+                elif val['params']['markers']['type'] == 'delta_f':
+                    val['obj'].initialize_weights_delta_f(
+                        val['params']['init'])
+                else:
+                    typ = val['params']['markers']['type']
+                    raise NotImplementedError(
+                        f'Type {typ} for distribution function is not known!')
+
                 if val['space'] == 'Particles5D':
-                    val['obj'].initialize_magnetic_moments(self.derham, self.mhd_equil)
+                    val['obj'].initialize_magnetic_moments(
+                        self.derham, self.mhd_equil)
 
             self.update_markers_to_be_saved()
             self.update_distr_function()
