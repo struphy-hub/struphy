@@ -39,16 +39,16 @@ def test_send_ghost_regions(Nel, p, spl_kind, mapping, verbose=False):
     domain = domain_class(dom_params)
 
     # Psydac discrete Derham sequence
-    DR = Derham(Nel, p, spl_kind, comm=comm)
+    derham = Derham(Nel, p, spl_kind, comm=comm)
 
     # just a placeholder for the Accumulator object to be initialized later
     accum_name = 'cc_lin_mhd_6d_1'
 
-    neighbours = DR.neighbours
+    neighbours = derham.neighbours
 
     if rank == 0:
         print(f'\nspl_kind now : {spl_kind}')
-        print(f'domain array : \n {DR.domain_array}\n')
+        print(f'domain array : \n {derham.domain_array}\n')
     if verbose == True:
         print(f'rank {rank} has neighbours : \n {neighbours}\n')
 
@@ -63,9 +63,9 @@ def test_send_ghost_regions(Nel, p, spl_kind, mapping, verbose=False):
                 print(f'========== Space {space_id} =========')
                 print('================================')
         
-        Acc = Accumulator(domain, DR, space_id, accum_name, do_vector=False)
+        Acc = Accumulator(derham, domain, space_id, accum_name, do_vector=False)
 
-        pads = DR.Vh['0'].pads
+        pads = derham.Vh['0'].pads
 
         for dat in Acc.args_data:
 

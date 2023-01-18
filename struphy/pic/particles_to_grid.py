@@ -24,29 +24,23 @@ class Accumulator:
 
     Parameters
     ----------
-        domain : struphy.geometry.domains
-            Domain object for mapping evaluations.
+    derham : struphy.psydac_api.psydac_derham.Derham
+        Discrete Derham complex.
 
-        DR : struphy.psydac_api.psydac_derham.Derham
-            Discrete Derham complex.
+    domain : struphy.geometry.domains
+        Mapping info for evaluating metric coefficients.
 
-        space_id : str
-            Space identifier for the matrix/vector (H1, Hcurl, Hdiv, L2 or H1^3) to be accumulated into.
+    space_id : str
+        Space identifier for the matrix/vector (H1, Hcurl, Hdiv, L2 or H1vec) to be accumulated into.
 
-        accumulator_name : str
-            Name of accumulator function to be loaded from struphy/pic/accum_kernels.py.
+    accumulator_name : str
+        Name of accumulator function to be loaded from struphy/pic/accum_kernels.py.
 
-        args_add : list
-            Additional arguments to be passed to the accumulator function, besides the mandatory arguments
-            which are prepared automatically (spline bases info, mapping info, data arrays).
-            Examples would be parameters for a background kinetic distribution or spline coefficients of a background magnetic field.
-            Entries must be pyccel-conform types.
+    do_vector : bool
+        True if, additionally to a matrix, a vector in the same space is to be accumulated. Default=False.
 
-        do_vector : bool
-            True if, additionally to a matrix, a vector in the same space is to be accumulated. Default=False.
-
-        symmetry : str
-            In case of space_id=Hcurl/Hdiv, the symmetry property of the block matrix: diag, asym, symm, pressure or None (=full matrix, default)
+    symmetry : str
+        In case of space_id=Hcurl/Hdiv, the symmetry property of the block matrix: diag, asym, symm, pressure or None (=full matrix, default)
 
     Note
     ----
@@ -54,17 +48,18 @@ class Accumulator:
         Please follow the docstring in `struphy.pic.accum_kernels._docstring`.
     '''
 
-    def __init__(self, domain, derham, space_id, accumulator_name, *args_add, do_vector=False, symmetry=None):
+    def __init__(self, derham, domain, space_id, accumulator_name, do_vector=False, symmetry=None):
 
-        self._domain = domain
         self._derham = derham
+        self._domain = domain
+        
         self._space_id = space_id
         self._accumulator_name = accumulator_name
-        self._args_add = args_add
+
         self._do_vector = do_vector
         self._symmetry = symmetry
         
-        self._space = derham.Vh_fem[derham.spaces_dict[space_id]]
+        self._space = derham.Vh[derham.spaces_dict[space_id]]
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
@@ -73,44 +68,23 @@ class Accumulator:
         self._vector = None
         if space_id in {'H1', 'L2'}:
 
-            self._matrix = StencilMatrix(
-                self._space.vector_space, self._space.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
+            self._matrix = StencilMatrix(self.space, self.space, backend=PSYDAC_BACKEND_GPYCCEL)
 
-            self._args_data = [self.matrix._data]
+            self._args_data = (self.matrix._data,)
 
             if do_vector:
-                self._vector = StencilVector(self._space.vector_space)
-                self._args_data += [self.vector._data]
+                self._vector = StencilVector(self.space)
+                self._args_data += (self.vector._data,)
 
         else:
 
             if symmetry is None:
-
-                A11 = StencilMatrix(
-                    self.space.vector_space.spaces[0], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A12 = StencilMatrix(
-                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A13 = StencilMatrix(
-                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A21 = StencilMatrix(
-                    self.space.vector_space.spaces[0], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
-                A22 = StencilMatrix(
-                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
-                A23 = StencilMatrix(
-                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
-                A31 = StencilMatrix(
-                    self.space.vector_space.spaces[0], self.space.vector_space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
-                A32 = StencilMatrix(
-                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
-                A33 = StencilMatrix(
-                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
-                dict_blocks = {(0, 0): A11, (0, 1): A12, (0, 2): A13, (1, 0): A21,
-                               (1, 1): A22, (1, 2): A23, (2, 0): A31, (2, 1): A32, (2, 2): A33}
-
-                self._matrix = BlockMatrix(self._space.vector_space,
-                                           self._space.vector_space, blocks=dict_blocks)
-
-                self._args_data = [self.matrix[0, 0]._data,
+                
+                blocks = [[StencilMatrix(V, W, backend=PSYDAC_BACKEND_GPYCCEL) for V in self.space.spaces] for W in self.space.spaces]
+        
+                self._matrix = BlockMatrix(self.space, self.space, blocks=blocks)
+        
+                self._args_data = (self.matrix[0, 0]._data,
                                    self.matrix[0, 1]._data,
                                    self.matrix[0, 2]._data,
                                    self.matrix[1, 0]._data,
@@ -118,107 +92,79 @@ class Accumulator:
                                    self.matrix[1, 2]._data,
                                    self.matrix[2, 0]._data,
                                    self.matrix[2, 1]._data,
-                                   self.matrix[2, 2]._data]
+                                   self.matrix[2, 2]._data)
 
             elif symmetry == 'symm':
 
-                A11 = StencilMatrix(
-                    self.space.vector_space.spaces[0], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A12 = StencilMatrix(
-                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A13 = StencilMatrix(
-                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A22 = StencilMatrix(
-                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
-                A23 = StencilMatrix(
-                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
-                A33 = StencilMatrix(
-                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
-                dict_blocks = {(0, 0): A11, (0, 1): A12, (0, 2): A13,
-                               (1, 1): A22, (1, 2): A23, (2, 2): A33}
+                blocks = [[StencilMatrix(V, W, backend=PSYDAC_BACKEND_GPYCCEL) for V in self.space.spaces] for W in self.space.spaces]
+                
+                self._matrix = BlockMatrix(self.space, self.space, blocks=blocks)
 
-                self._matrix = BlockMatrix(self._space.vector_space,
-                                           self._space.vector_space, blocks=dict_blocks)
-
-                self._args_data = [self.matrix[0, 0]._data,
+                self._args_data = (self.matrix[0, 0]._data,
                                    self.matrix[0, 1]._data,
                                    self.matrix[0, 2]._data,
                                    self.matrix[1, 1]._data,
                                    self.matrix[1, 2]._data,
-                                   self.matrix[2, 2]._data]
+                                   self.matrix[2, 2]._data)
 
             elif symmetry == 'asym':
 
-                A12 = StencilMatrix(
-                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A13 = StencilMatrix(
-                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A23 = StencilMatrix(
-                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
-                dict_blocks = {(0, 1): A12, (0, 2): A13, (1, 2): A23}
+                blocks = [[StencilMatrix(V, W, backend=PSYDAC_BACKEND_GPYCCEL) if i != j else None for j, V in enumerate(self.space.spaces)] for i, W in enumerate(self.space.spaces)]
+        
+                self._matrix = BlockMatrix(self.space, self.space, blocks=blocks)
 
-                self._matrix = BlockMatrix(self._space.vector_space,
-                                           self._space.vector_space, blocks=dict_blocks)
-
-                self._args_data = [self.matrix[0, 1]._data,
+                self._args_data = (self.matrix[0, 1]._data,
                                    self.matrix[0, 2]._data,
-                                   self.matrix[1, 2]._data]
+                                   self.matrix[1, 2]._data)
 
             elif symmetry == 'diag':
+                
+                blocks = [[StencilMatrix(V, W, backend=PSYDAC_BACKEND_GPYCCEL) if i == j else None for j, V in enumerate(self.space.spaces)] for i, W in enumerate(self.space.spaces)]
 
-                A11 = StencilMatrix(
-                    self.space.vector_space.spaces[0], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A22 = StencilMatrix(
-                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
-                A33 = StencilMatrix(
-                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
-                dict_blocks = {(0, 0): A11, (1, 1): A22, (2, 2): A33}
+                self._matrix = BlockMatrix(self.space, self.space, blocks=blocks)
 
-                self._matrix = BlockMatrix(self._space.vector_space,
-                                           self._space.vector_space, blocks=dict_blocks)
-
-                self._args_data = [self.matrix[0, 0]._data,
+                self._args_data = (self.matrix[0, 0]._data,
                                    self.matrix[1, 1]._data,
-                                   self.matrix[2, 2]._data]
+                                   self.matrix[2, 2]._data)
             
             elif symmetry == 'pressure':
             
-                A11_11 = StencilMatrix(self.space.vector_space.spaces[0], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A12_11 = StencilMatrix(self.space.vector_space.spaces[1], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A13_11 = StencilMatrix(self.space.vector_space.spaces[2], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A22_11 = StencilMatrix(self.space.vector_space.spaces[1], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
-                A23_11 = StencilMatrix(self.space.vector_space.spaces[2], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
-                A33_11 = StencilMatrix(self.space.vector_space.spaces[2], self.space.vector_space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
-                A11_12 = StencilMatrix(self.space.vector_space.spaces[0], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A12_12 = StencilMatrix(self.space.vector_space.spaces[1], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A13_12 = StencilMatrix(self.space.vector_space.spaces[2], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A22_12 = StencilMatrix(self.space.vector_space.spaces[1], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
-                A23_12 = StencilMatrix(self.space.vector_space.spaces[2], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
-                A33_12 = StencilMatrix(self.space.vector_space.spaces[2], self.space.vector_space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
-                A11_13 = StencilMatrix(self.space.vector_space.spaces[0], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A12_13 = StencilMatrix(self.space.vector_space.spaces[1], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A13_13 = StencilMatrix(self.space.vector_space.spaces[2], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A22_13 = StencilMatrix(self.space.vector_space.spaces[1], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
-                A23_13 = StencilMatrix(self.space.vector_space.spaces[2], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
-                A33_13 = StencilMatrix(self.space.vector_space.spaces[2], self.space.vector_space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
-                A11_22 = StencilMatrix(self.space.vector_space.spaces[0], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A12_22 = StencilMatrix(self.space.vector_space.spaces[1], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A13_22 = StencilMatrix(self.space.vector_space.spaces[2], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A22_22 = StencilMatrix(self.space.vector_space.spaces[1], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
-                A23_22 = StencilMatrix(self.space.vector_space.spaces[2], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
-                A33_22 = StencilMatrix(self.space.vector_space.spaces[2], self.space.vector_space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
-                A11_23 = StencilMatrix(self.space.vector_space.spaces[0], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A12_23 = StencilMatrix(self.space.vector_space.spaces[1], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A13_23 = StencilMatrix(self.space.vector_space.spaces[2], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A22_23 = StencilMatrix(self.space.vector_space.spaces[1], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
-                A23_23 = StencilMatrix(self.space.vector_space.spaces[2], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
-                A33_23 = StencilMatrix(self.space.vector_space.spaces[2], self.space.vector_space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
-                A11_33 = StencilMatrix(self.space.vector_space.spaces[0], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A12_33 = StencilMatrix(self.space.vector_space.spaces[1], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A13_33 = StencilMatrix(self.space.vector_space.spaces[2], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
-                A22_33 = StencilMatrix(self.space.vector_space.spaces[1], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
-                A23_33 = StencilMatrix(self.space.vector_space.spaces[2], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
-                A33_33 = StencilMatrix(self.space.vector_space.spaces[2], self.space.vector_space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
+                A11_11 = StencilMatrix(self.space.spaces[0], self.space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
+                A12_11 = StencilMatrix(self.space.spaces[1], self.space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
+                A13_11 = StencilMatrix(self.space.spaces[2], self.space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
+                A22_11 = StencilMatrix(self.space.spaces[1], self.space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
+                A23_11 = StencilMatrix(self.space.spaces[2], self.space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
+                A33_11 = StencilMatrix(self.space.spaces[2], self.space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
+                A11_12 = StencilMatrix(self.space.spaces[0], self.space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
+                A12_12 = StencilMatrix(self.space.spaces[1], self.space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
+                A13_12 = StencilMatrix(self.space.spaces[2], self.space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
+                A22_12 = StencilMatrix(self.space.spaces[1], self.space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
+                A23_12 = StencilMatrix(self.space.spaces[2], self.space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
+                A33_12 = StencilMatrix(self.space.spaces[2], self.space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
+                A11_13 = StencilMatrix(self.space.spaces[0], self.space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
+                A12_13 = StencilMatrix(self.space.spaces[1], self.space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
+                A13_13 = StencilMatrix(self.space.spaces[2], self.space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
+                A22_13 = StencilMatrix(self.space.spaces[1], self.space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
+                A23_13 = StencilMatrix(self.space.spaces[2], self.space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
+                A33_13 = StencilMatrix(self.space.spaces[2], self.space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
+                A11_22 = StencilMatrix(self.space.spaces[0], self.space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
+                A12_22 = StencilMatrix(self.space.spaces[1], self.space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
+                A13_22 = StencilMatrix(self.space.spaces[2], self.space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
+                A22_22 = StencilMatrix(self.space.spaces[1], self.space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
+                A23_22 = StencilMatrix(self.space.spaces[2], self.space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
+                A33_22 = StencilMatrix(self.space.spaces[2], self.space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
+                A11_23 = StencilMatrix(self.space.spaces[0], self.space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
+                A12_23 = StencilMatrix(self.space.spaces[1], self.space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
+                A13_23 = StencilMatrix(self.space.spaces[2], self.space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
+                A22_23 = StencilMatrix(self.space.spaces[1], self.space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
+                A23_23 = StencilMatrix(self.space.spaces[2], self.space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
+                A33_23 = StencilMatrix(self.space.spaces[2], self.space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
+                A11_33 = StencilMatrix(self.space.spaces[0], self.space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
+                A12_33 = StencilMatrix(self.space.spaces[1], self.space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
+                A13_33 = StencilMatrix(self.space.spaces[2], self.space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
+                A22_33 = StencilMatrix(self.space.spaces[1], self.space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
+                A23_33 = StencilMatrix(self.space.spaces[2], self.space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
+                A33_33 = StencilMatrix(self.space.spaces[2], self.space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
                 
                 dict_blocks_11 = {(0, 0): A11_11, (0, 1): A12_11, (0, 2): A13_11,(1, 1): A22_11, (1, 2): A23_11, (2, 2): A33_11}
                 dict_blocks_12 = {(0, 0): A11_12, (0, 1): A12_12, (0, 2): A13_12,(1, 1): A22_12, (1, 2): A23_12, (2, 2): A33_12}
@@ -227,20 +173,14 @@ class Accumulator:
                 dict_blocks_23 = {(0, 0): A11_23, (0, 1): A12_23, (0, 2): A13_23,(1, 1): A22_23, (1, 2): A23_23, (2, 2): A33_23}
                 dict_blocks_33 = {(0, 0): A11_33, (0, 1): A12_33, (0, 2): A13_33,(1, 1): A22_33, (1, 2): A23_33, (2, 2): A33_33}
 
-                self._matrix11 = BlockMatrix(self._space.vector_space,
-                                           self._space.vector_space, blocks=dict_blocks_11)
-                self._matrix12 = BlockMatrix(self._space.vector_space,
-                                           self._space.vector_space, blocks=dict_blocks_12)
-                self._matrix13 = BlockMatrix(self._space.vector_space,
-                                           self._space.vector_space, blocks=dict_blocks_13)
-                self._matrix22 = BlockMatrix(self._space.vector_space,
-                                           self._space.vector_space, blocks=dict_blocks_22)
-                self._matrix23 = BlockMatrix(self._space.vector_space,
-                                           self._space.vector_space, blocks=dict_blocks_23)
-                self._matrix33 = BlockMatrix(self._space.vector_space,
-                                           self._space.vector_space, blocks=dict_blocks_33)
+                self._matrix11 = BlockMatrix(self.space, self.space, blocks=dict_blocks_11)
+                self._matrix12 = BlockMatrix(self.space, self.space, blocks=dict_blocks_12)
+                self._matrix13 = BlockMatrix(self.space, self.space, blocks=dict_blocks_13)
+                self._matrix22 = BlockMatrix(self.space, self.space, blocks=dict_blocks_22)
+                self._matrix23 = BlockMatrix(self.space, self.space, blocks=dict_blocks_23)
+                self._matrix33 = BlockMatrix(self.space, self.space, blocks=dict_blocks_33)
 
-                self._args_data = [self.matrix11[0, 0]._data,
+                self._args_data = (self.matrix11[0, 0]._data,
                                    self.matrix11[0, 1]._data,
                                    self.matrix11[0, 2]._data,
                                    self.matrix11[1, 1]._data,
@@ -275,7 +215,7 @@ class Accumulator:
                                    self.matrix33[0, 2]._data,
                                    self.matrix33[1, 1]._data,
                                    self.matrix33[1, 2]._data,
-                                   self.matrix33[2, 2]._data]
+                                   self.matrix33[2, 2]._data)
                                    
             else:
                 raise ValueError(
@@ -283,24 +223,24 @@ class Accumulator:
 
             if do_vector:
                 if symmetry == 'pressure':
-                    v1_1 = StencilVector(self.space.vector_space.spaces[0])
-                    v2_1 = StencilVector(self.space.vector_space.spaces[1])
-                    v3_1 = StencilVector(self.space.vector_space.spaces[2])
-                    v1_2 = StencilVector(self.space.vector_space.spaces[0])
-                    v2_2 = StencilVector(self.space.vector_space.spaces[1])
-                    v3_2 = StencilVector(self.space.vector_space.spaces[2])
-                    v1_3 = StencilVector(self.space.vector_space.spaces[0])
-                    v2_3 = StencilVector(self.space.vector_space.spaces[1])
-                    v3_3 = StencilVector(self.space.vector_space.spaces[2])
+                    v1_1 = StencilVector(self.space.spaces[0])
+                    v2_1 = StencilVector(self.space.spaces[1])
+                    v3_1 = StencilVector(self.space.spaces[2])
+                    v1_2 = StencilVector(self.space.spaces[0])
+                    v2_2 = StencilVector(self.space.spaces[1])
+                    v3_2 = StencilVector(self.space.spaces[2])
+                    v1_3 = StencilVector(self.space.spaces[0])
+                    v2_3 = StencilVector(self.space.spaces[1])
+                    v3_3 = StencilVector(self.space.spaces[2])
                     list_blocks1 = [v1_1, v2_1, v3_1]
                     list_blocks2 = [v1_2, v2_2, v3_2]
                     list_blocks3 = [v1_3, v2_3, v3_3]
 
-                    self._vector1 = BlockVector(self._space.vector_space, blocks=list_blocks1)
-                    self._vector2 = BlockVector(self._space.vector_space, blocks=list_blocks2)
-                    self._vector3 = BlockVector(self._space.vector_space, blocks=list_blocks3)
+                    self._vector1 = BlockVector(self.space, blocks=list_blocks1)
+                    self._vector2 = BlockVector(self.space, blocks=list_blocks2)
+                    self._vector3 = BlockVector(self.space, blocks=list_blocks3)
 
-                    self._args_data += [self._vector1[0]._data,
+                    self._args_data += (self._vector1[0]._data,
                                         self._vector1[1]._data,
                                         self._vector1[2]._data,
                                         self._vector2[0]._data,
@@ -308,41 +248,99 @@ class Accumulator:
                                         self._vector2[2]._data,
                                         self._vector3[0]._data,
                                         self._vector3[1]._data,
-                                        self._vector3[2]._data]
+                                        self._vector3[2]._data)
 
                 else: 
-                    v1 = StencilVector(self.space.vector_space.spaces[0])
-                    v2 = StencilVector(self.space.vector_space.spaces[1])
-                    v3 = StencilVector(self.space.vector_space.spaces[2])
-                    list_blocks = [v1, v2, v3]
+                    blocks = [StencilVector(V) for V in self.space.spaces]
 
-                    self._vector = BlockVector(
-                        self._space.vector_space, blocks=list_blocks)
+                    self._vector = BlockVector(self.space, blocks=blocks)
 
-                    self._args_data += [self._vector[0]._data,
+                    self._args_data += (self._vector[0]._data,
                                         self._vector[1]._data,
-                                        self._vector[2]._data]
-
-        # fixed arguments for the accumulator function
-        self._args_fixed = [np.array(derham.p),
-                            derham.Vh_fem['0'].spaces[0].knots,
-                            derham.Vh_fem['0'].spaces[1].knots,
-                            derham.Vh_fem['0'].spaces[2].knots,
-                            np.array(derham.Vh_fem['0'].vector_space.starts), 
-                            np.array(derham.Vh_fem['1'].vector_space.starts),
-                            np.array(derham.Vh_fem['2'].vector_space.starts),
-                            np.array(derham.Vh_fem['3'].vector_space.starts),
-                            *domain.args_map]
-
-        # combine all arguments
-        self._args = self.args_fixed + \
-            self.args_data + list(self.args_add)
+                                        self._vector[2]._data)
+        
+        # fixed FEM arguments for the accumulator function
+        self._args_fem = (np.array(derham.p),
+                          derham.Vh_fem['0'].knots[0],
+                          derham.Vh_fem['0'].knots[1],
+                          derham.Vh_fem['0'].knots[2],
+                          np.array(derham.Vh['0'].starts), 
+                          np.array(derham.Vh['1'].starts),
+                          np.array(derham.Vh['2'].starts),
+                          np.array(derham.Vh['3'].starts))
 
         # load the appropriate accumulation routine (pyccelized)
         self._accumulator = getattr(accums, self._accumulator_name)
 
         self._send_types, self._recv_types = self._create_buffer_types()
 
+    
+    def accumulate(self, particles, *args_add):
+        """
+        Performs the accumulation.
+
+        Parameters
+        ----------
+        particles : array[float]
+            Particle information in format (n_markers, :), including holes.
+            
+        args_add : list
+            Additional arguments to be passed to the accumulator kernel, besides the mandatory arguments
+            which are prepared automatically (spline bases info, mapping info, data arrays).
+            Examples would be parameters for a background kinetic distribution or spline coefficients of a background magnetic field.
+            Entries must be pyccel-conform types.
+        """
+
+        # reset arrays
+        for dat in self._args_data:
+            dat[:] = 0.
+
+        # accumulate
+        self.accumulator(particles.markers, particles.n_mks, *self.args_fem, *self.domain.args_map, *self.args_data, *args_add)
+
+        # use mpi
+        self._send_ghost_regions()
+        
+        # copy data for symmetric and antisymmetric block matrices
+        if self.symmetry == 'symm':
+            self.matrix[1, 0]._data[:] = self.matrix[0, 1].T._data
+            self.matrix[2, 0]._data[:] = self.matrix[0, 2].T._data
+            self.matrix[2, 1]._data[:] = self.matrix[1, 2].T._data
+        
+        elif self.symmetry == 'asym':
+            self.matrix[1, 0]._data[:] = -self.matrix[0, 1].T._data
+            self.matrix[2, 0]._data[:] = -self.matrix[0, 2].T._data
+            self.matrix[2, 1]._data[:] = -self.matrix[1, 2].T._data
+            
+        # update ghost regions
+        self.update_ghost_regions()
+    
+    def update_ghost_regions(self):
+        """ 
+        Updates ghost regions of all attributes.
+        """
+        
+        if self._symmetry != 'pressure':
+            self.matrix.update_ghost_regions()
+            if self._do_vector:
+                self.vector.update_ghost_regions()
+        
+        if self._symmetry == 'pressure':
+            self.matrix11.update_ghost_regions()
+            self.matrix12.update_ghost_regions()
+            self.matrix13.update_ghost_regions()
+            self.matrix22.update_ghost_regions()
+            self.matrix23.update_ghost_regions()
+            self.matrix33.update_ghost_regions()
+            if self._do_vector:
+                self.vector1.update_ghost_regions()
+                self.vector2.update_ghost_regions()
+                self.vector3.update_ghost_regions()
+    
+    # =============================
+    # Private Methods :
+    # =============================
+    
     def _create_buffer_types(self):
         """
         Creates the buffer types for the ghost region sender. Send types are only the slicing information;
@@ -356,7 +354,7 @@ class Accumulator:
 
         neighbours = self._derham.neighbours
 
-        pads = self.space.vector_space.pads
+        pads = self.space.pads
 
         for k, arg in enumerate(self.args_data):
             for comp, neigh in np.ndenumerate(neighbours):
@@ -497,27 +495,6 @@ class Accumulator:
 
         return temp
 
-    def accumulate(self, markers, n_mks):
-        '''Perform accumulation.
-
-        Parameters
-        ----------
-            markers : array[float]
-                Particle information in format (n_markers, :), including holes.'''
-
-        # reset arrays
-        for dat in self._args_data:
-            dat[:] = 0.
-
-        # accumulate
-        self.accumulator(markers, int(n_mks), *self.args)
-
-        # use mpi
-        self._send_ghost_regions()
-
-        # update ghost regions
-        self.update_ghost_regions()
-
     def _send_ghost_regions(self):
         """
         Communicates the ghost regions between all processes using non-blocking communication.
@@ -645,25 +622,19 @@ class Accumulator:
         
         return tuple(res)
 
-    def update_ghost_regions(self):
-        """updates ghost regions of all attributes"""
-        if self._symmetry != 'pressure':
-            self.matrix.update_ghost_regions()
-            if self._do_vector:
-                self.vector.update_ghost_regions()
-        
-        if self._symmetry == 'pressure':
-            self.matrix11.update_ghost_regions()
-            self.matrix12.update_ghost_regions()
-            self.matrix13.update_ghost_regions()
-            self.matrix22.update_ghost_regions()
-            self.matrix23.update_ghost_regions()
-            self.matrix33.update_ghost_regions()
-            if self._do_vector:
-                self.vector1.update_ghost_regions()
-                self.vector2.update_ghost_regions()
-                self.vector3.update_ghost_regions()
 
+    @property
+    def derham(self):
+        """ Discrete derham sequence.
+        """
+        return self._derham
+    
+    @property
+    def domain(self):
+        """ Mapping from logical unit cube to physical domain.
+        """
+        return self._domain
+    
     @property
     def space(self):
         '''Discrete space of the matrix/vector (Psydac object).'''
@@ -740,25 +711,14 @@ class Accumulator:
         return self._accumulator
 
     @property
-    def args(self):
-        '''List of arguments passed to the accumulator, composed of 
-        mandatory arguments, data arguments and additional arguments.'''
-        return self._args
-
-    @property
-    def args_fixed(self):
-        '''List of mandatory arguments for the accumulator.'''
-        return self._args_fixed
+    def args_fem(self):
+        '''FEM and MPI related arguments taken by all accumulation kernels.'''
+        return self._args_fem
 
     @property
     def args_data(self):
-        '''List of data arguments for the accumulator.'''
+        '''List of data arguments for the accumulator kernels.'''
         return self._args_data
-
-    @property
-    def args_add(self):
-        '''List of additional arguments for the accumulator.'''
-        return self._args_add
 
     @property
     def symmetry(self):

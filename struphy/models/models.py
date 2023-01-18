@@ -274,9 +274,9 @@ class PC_LinearMHD_Vlasov(StruphyModel):
         self._propagators = []
         self._propagators += [propagators_fields.ShearAlfvén(self._u, self._b, self._u_space, self.derham, self._mass_ops, self._basis_ops, alfven_solver)]
         self._propagators += [propagators_fields.Magnetosonic(self._n, self._u, self._p, self._b, self._u_space, self.derham, self._mass_ops, self._basis_ops, magnetosonic_solver)]
-        self._propagators += [propagators_markers.StepPushEtaPC(self._u, self._u_space, coupling, self._ions, self.derham, self.domain, ions_params['markers']['bc_type'])]
+        self._propagators += [propagators_markers.StepPushEtaPC(self._ions, self.derham, self.domain, self._u, self._u_space, coupling, ions_params['markers']['bc_type'])]
         self._propagators += [propagators_coupling.StepPressurecoupling(self._u, self._u_space, coupling, self._ions, self.derham, self.domain, self._mass_ops, self._basis_ops, coupling_solver)]
-        self._propagators += [propagators_markers.StepPushVxB(self._ions, self.derham, ions_params['push_algos']['vxb'], self._b, self._b_eq)]
+        self._propagators += [propagators_markers.StepPushVxB(self._ions, self.derham, self.domain, ions_params['push_algos']['vxb'], self._b, self._b_eq)]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities['time']   = np.empty(1, dtype=float)
@@ -407,13 +407,16 @@ class LinearVlasovMaxwell(StruphyModel):
         # Only add StepStaticEfield if efield is non-zero, otherwise it is more expensive
         if np.all(self._e_background[0]._data < 1e-14) and np.all(self._e_background[1]._data < 1e-14) and np.all(self._e_background[2]._data < 1e-14):
             self._propagators += [propagators_markers.StepPushEta(
-                self._electrons, self.derham, self.electron_params['push_algos']['eta'],
+                self._electrons, self.derham, self.domain, self.electron_params['push_algos']['eta'],
                 self.electron_params['markers']['bc_type'])]
+
         else:
             self._propagators += [propagators_markers.StepStaticEfield(
-                self.domain, self.derham, self._electrons, self._e_background)]
+                self._electrons, self.derham, self.domain, self._e_background)]
+            
         self._propagators += [propagators_markers.StepPushVxB(
-            self._electrons, self.derham, self.electron_params['push_algos']['vxb'], self._b_background)]
+            self._electrons, self.derham, self.domain, self.electron_params['push_algos']['vxb'], self._b_background)]
+
         self._propagators += [propagators_coupling.StepEfieldWeights(self.domain, self.derham,
                                                 self._e, self._electrons, self._mass_ops,
                                                 self.electron_params['background'], params['solvers']['solver_ew'],
@@ -565,8 +568,8 @@ class Vlasov(StruphyModel):
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-        self._propagators += [propagators_markers.StepPushVxB(ions, self.derham, ions_params['push_algos']['vxb'], self._b_eq)]
-        self._propagators += [propagators_markers.StepPushEta(ions, self.derham, ions_params['push_algos']['eta'], ions_params['markers']['bc_type'])]
+        self._propagators += [propagators_markers.StepPushVxB(ions, self.derham, self.domain, ions_params['push_algos']['vxb'], self._b_eq)]
+        self._propagators += [propagators_markers.StepPushEta(ions, self.derham, self.domain, ions_params['push_algos']['eta'], ions_params['markers']['bc_type'])]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities['time'] = np.empty(1, dtype=float)
@@ -643,25 +646,22 @@ class DriftKinetic(StruphyModel):
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-        self._propagators += [propagators_markers.StepPushGuidingCenter1(ions, epsilon,
-                                                                         b, unit_b1, unit_b2, abs_b, 
-                                                                         self.derham, 
+        self._propagators += [propagators_markers.StepPushGuidingCenter1(ions, self.derham, self.domain,
+                                                                         epsilon, b, unit_b1, unit_b2, abs_b, 
                                                                          ions_params['push_algos']['method'], 
                                                                          ions_params['push_algos']['integrator'],
                                                                          ions_params['markers']['bc_type'],
                                                                          ions_params['push_algos']['maxiter'],
                                                                          ions_params['push_algos']['tol'])]
-        self._propagators += [propagators_markers.StepPushGuidingCenter2(ions, epsilon,
-                                                                         b, unit_b1, unit_b2, abs_b, 
-                                                                         self.derham, 
+        self._propagators += [propagators_markers.StepPushGuidingCenter2(ions, self.derham, self.domain, 
+                                                                         epsilon, b, unit_b1, unit_b2, abs_b,
                                                                          ions_params['push_algos']['method'], 
                                                                          ions_params['push_algos']['integrator'],
                                                                          ions_params['markers']['bc_type'],
                                                                          ions_params['push_algos']['maxiter'],
                                                                          ions_params['push_algos']['tol'])]
-        # self._propagators += [propagators_markers.StepPushGuidingCenter(ions, epsilon,
-        #                                                                 b, unit_b1, unit_b2, abs_b, 
-        #                                                                 self.derham, 
+        # self._propagators += [propagators_markers.StepPushGuidingCenter(ions, self.derham, self.domain,
+        #                                                                 epsilon, b, unit_b1, unit_b2, abs_b,
         #                                                                 ions_params['push_algos']['method'], 
         #                                                                 ions_params['push_algos']['integrator'],
         #                                                                 ions_params['markers']['bc_type'],
@@ -796,7 +796,7 @@ class Hybrid_fA(StruphyModel):
         #self._propagators += [propagators_fields.Magnetosonic(self._n, self._u, self._p, self._b, self._u_space, self.derham, self._mass_ops, self._basis_ops, magnetosonic_solver)]
         #self._propagators += [propagators_markers.StepPushEtaPC(self._u, self._u_space, coupling, self._ions, self.derham, self.domain, ions_params['markers']['bc_type'])]
         #self._propagators += [propagators_coupling.StepPressurecoupling(self._u, self._u_space, coupling, self._ions, self.derham, self.domain, self._mass_ops, self._basis_ops, coupling_solver)]
-        self._propagators += [propagators_markers.StepPushpxB_hybrid(self._ions, self.derham, ions_params['push_algos']['pxb'], self._a, self._b_eq)]
+        self._propagators += [propagators_markers.StepPushpxB_hybrid(self._ions, self.derham, self.domain, ions_params['push_algos']['pxb'], self._a, self._b_eq)]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities['time']   = np.empty(1, dtype=float)

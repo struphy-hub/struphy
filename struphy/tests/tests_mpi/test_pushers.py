@@ -50,7 +50,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     loader_params = {'type': 'pseudo_random', 'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.]}
     marker_params = {'ppc': 2, 'eps': .25, 'loading': loader_params, 'bc_type' : ['periodic', 'periodic', 'periodic']}
     
-    particles = Particles6D('energetic_ions', marker_params, domain, derham.domain_array, comm)
+    particles = Particles6D('energetic_ions', marker_params, derham.domain_array, comm)
     
     if show_plots: particles.show_physical()
     comm.Barrier()
@@ -135,7 +135,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     loader_params = {'type': 'pseudo_random', 'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.]}
     marker_params = {'ppc': 2, 'eps': .25, 'loading': loader_params, 'bc_type' : ['periodic', 'periodic', 'periodic']}
     
-    particles = Particles6D('energetic_ions', marker_params, domain, derham.domain_array, comm)
+    particles = Particles6D('energetic_ions', marker_params, derham.domain_array, comm)
     
     if show_plots: particles.show_physical()
     comm.Barrier()
@@ -226,7 +226,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     loader_params = {'type': 'pseudo_random', 'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.]}
     marker_params = {'ppc': 2, 'eps': .25, 'loading': loader_params, 'bc_type' : ['periodic', 'periodic', 'periodic']}
     
-    particles = Particles6D('energetic_ions', marker_params, domain, derham.domain_array, comm)
+    particles = Particles6D('energetic_ions', marker_params, derham.domain_array, comm)
     
     if show_plots: particles.show_physical()
     comm.Barrier()
@@ -317,7 +317,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     loader_params = {'type': 'pseudo_random', 'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.]}
     marker_params = {'ppc': 2, 'eps': .25, 'loading': loader_params, 'bc_type' : ['periodic', 'periodic', 'periodic']}
     
-    particles = Particles6D('energetic_ions', marker_params, domain, derham.domain_array, comm)
+    particles = Particles6D('energetic_ions', marker_params, derham.domain_array, comm)
     
     if show_plots: particles.show_physical()
     comm.Barrier()
@@ -408,7 +408,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     loader_params = {'type': 'pseudo_random', 'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.]}
     marker_params = {'ppc': 2, 'eps': .25, 'loading': loader_params, 'bc_type' : ['periodic', 'periodic', 'periodic']}
     
-    particles = Particles6D('energetic_ions', marker_params, domain, derham.domain_array, comm)
+    particles = Particles6D('energetic_ions', marker_params, derham.domain_array, comm)
     
     if show_plots: particles.show_physical()
     comm.Barrier()
@@ -502,7 +502,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     loader_params = {'type': 'pseudo_random', 'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.]}
     marker_params = {'ppc': 2, 'eps': .25, 'loading': loader_params, 'bc_type' : ['periodic', 'periodic', 'periodic']}
     
-    particles = Particles6D('energetic_ions', marker_params, domain, derham.domain_array, comm)
+    particles = Particles6D('energetic_ions', marker_params, derham.domain_array, comm)
     
     if show_plots: particles.show_physical()
     comm.Barrier()
@@ -591,7 +591,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 #     loader_params = {'type': 'pseudo_random', 'seed': 1234, 'moments': [0., 0., 0., 1., 1., 1.]}
 #     marker_params = {'ppc': 2, 'loading': loader_params, 'bc_type' : ['periodic', 'periodic', 'periodic']}
     
-#     particles = Particles6D('energetic_ions', marker_params, domain, derham.domain_array, comm)
+#     particles = Particles6D('energetic_ions', marker_params, derham.domain_array, comm)
     
 #     if show_plots: particles.show_physical()
 #     comm.Barrier()
@@ -678,7 +678,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 #     loader_params = {'type': 'pseudo_random', 'seed': 1234, 'moments': [0., 0., 0., 1., 1., 1.]}
 #     marker_params = {'ppc': 1, 'loading': loader_params, 'bc_type' : ['periodic', 'periodic', 'periodic']}
     
-#     particles = Particles6D('energetic_ions', marker_params, domain, derham.domain_array, comm)
+#     particles = Particles6D('energetic_ions', marker_params, derham.domain_array, comm)
 
 #     comm.Barrier()
 #     particles.mpi_sort_markers()

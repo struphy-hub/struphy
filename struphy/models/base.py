@@ -234,8 +234,9 @@ class StruphyModel(metaclass=ABCMeta):
                 val['params'] = params['kinetic'][species]
 
                 kinetic_class = getattr(particles, val['space'])
+
                 val['obj'] = kinetic_class(species, val['params']['markers'],
-                                           self.domain, self.derham.domain_array, self.derham.comm)
+                                           self.derham.domain_array, self.derham.comm)
 
                 Z, M, kBT, beta = val['params']['attributes'].values()
                 val['plasma_params'] = plasma_params(
@@ -415,17 +416,17 @@ class StruphyModel(metaclass=ABCMeta):
         for val in self.kinetic.values():
 
             if 'f' in val['params']['save_data']:
-                for slic, edges in val['bin_edges'].items():
 
-                    dims = (len(slic) - 2)//3 + 1
-                    comps = [slic[3*i:3*i + 2] for i in range(dims)]
+                for slice_i, edges in val['bin_edges'].items():
+                    
+                    dims = (len(slice_i) - 2)//3 + 1
+                    comps = [slice_i[3*i:3*i + 2] for i in range(dims)]
                     components = [False]*6
 
                     for comp in comps:
                         components[dim_to_int[comp]] = True
-
-                    val['kinetic_data']['f'][slic][:] = val['obj'].binning(
-                        components, edges)
+                    
+                    val['kinetic_data']['f'][slice_i][:] = val['obj'].binning(components, edges, self.domain)
 
     def print_scalar_quantities(self):
         '''
@@ -474,11 +475,12 @@ class StruphyModel(metaclass=ABCMeta):
 
             for val in self.kinetic.values():
                 val['obj'].mpi_sort_markers(do_test=True)
+                
                 if val['params']['markers']['type'] == 'full_f':
-                    val['obj'].initialize_weights(val['params']['init'])
+                    val['obj'].initialize_weights(val['params']['init'], self.domain)
                 elif val['params']['markers']['type'] == 'delta_f':
                     val['obj'].initialize_weights_delta_f(
-                        val['params']['init'])
+                        val['params']['init'], self.domain)
                 else:
                     typ = val['params']['markers']['type']
                     raise NotImplementedError(

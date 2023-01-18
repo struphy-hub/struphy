@@ -305,7 +305,8 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
                     mat23: 'float[:,:,:,:,:,:]',
                     b2_1: 'float[:,:,:]',   # model specific argument
                     b2_2: 'float[:,:,:]',   # model specific argument
-                    b2_3: 'float[:,:,:]'):  # model specific argument
+                    b2_3: 'float[:,:,:]',   # model specific argument
+                    basis_u : 'int'):       # model specific argument
     r"""Accumulates into V1 with the filling functions
 
     .. math::
@@ -324,13 +325,6 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
         The above parameter list contains only the model specific input arguments.
     """
 
-    # allocate for metric coeffs
-    g_inv = empty((3, 3), dtype=float)
-
-    # allocate for filling
-    tmp1 = empty((3, 3), dtype=float)
-    tmp2 = empty((3, 3), dtype=float)
-
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
     b_prod = zeros((3, 3), dtype=float) 
@@ -342,13 +336,23 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
     bd1 = empty(pn[0], dtype=float)
     bd2 = empty(pn[1], dtype=float)
     bd3 = empty(pn[2], dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
     
-    #$ omp parallel firstprivate(b_prod) private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, g_inv, tmp1, tmp2, weight, filling_m12, filling_m13, filling_m23) 
+    # allocate for metric coefficients
+    df       = empty((3, 3), dtype=float)
+    df_inv   = empty((3, 3), dtype=float)
+    df_inv_t = empty((3, 3), dtype=float)
+    g_inv    = empty((3, 3), dtype=float)
+
+    # allocate some temporary buffers for filling
+    tmp1 = empty((3, 3), dtype=float)
+    tmp2 = empty((3, 3), dtype=float)
+
+    # get local number of markers
+    n_markers_loc = shape(markers)[0]
+    
+    #$ omp parallel firstprivate(b_prod) private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, df, det_df, weight, df_inv, df_inv_t, g_inv, tmp1, tmp2, filling_m12, filling_m13, filling_m23) 
     #$ omp for reduction ( + : mat12, mat13, mat23)
-    for ip in range(n_markers):
+    for ip in range(n_markers_loc):
         
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
@@ -383,31 +387,69 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
         b_prod[2, 0] = -b[1]
         b_prod[2, 1] = +b[0]
 
-        # evaluate inverse metric tensor, result in g_inv
-        map_eval.g_inv(eta1, eta2, eta3,
-                       kind_map, params_map,
-                       t1_map, t2_map, t3_map, p_map,
-                       ind1_map, ind2_map, ind3_map,
-                       cx, cy, cz,
-                       g_inv)
+        # evaluate Jacobian matrix and Jacobian determinant
+        map_eval.df(eta1, eta2, eta3,
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+        
+        det_df = linalg.det(df)
 
-        # filling functions
-        linalg.matrix_matrix(g_inv, b_prod, tmp1)
-        linalg.matrix_matrix(tmp1, g_inv, tmp2)
-
+        # marker weight
         weight = markers[ip, 6]
         
-        filling_m12 = - weight * tmp2[0, 1] / n_markers_tot
-        filling_m13 = - weight * tmp2[0, 2] / n_markers_tot
-        filling_m23 = - weight * tmp2[1, 2] / n_markers_tot
+        if basis_u == 0:
+        
+            # filling functions
+            filling_m12 = - weight * b_prod[0, 1] / n_markers_tot
+            filling_m13 = - weight * b_prod[0, 2] / n_markers_tot
+            filling_m23 = - weight * b_prod[1, 2] / n_markers_tot
 
-        # call the appropriate matvec filler
-        mvf.mat_fill_v1_asym(pn, span1, span2, span3,
-                             bn1, bn2, bn3,
-                             bd1, bd2, bd3,
-                             starts1,
-                             mat12, mat13, mat23,
-                             filling_m12, filling_m13, filling_m23)
+            # call the appropriate matvec filler
+            mvf.mat_fill_v0vec_asym(pn, span1, span2, span3,
+                                 bn1, bn2, bn3,
+                                 starts0,
+                                 mat12, mat13, mat23,
+                                 filling_m12, filling_m13, filling_m23)
+        
+        elif basis_u == 1:
+        
+            # filling functions
+            linalg.matrix_inv_with_det(df, det_df, df_inv)
+            linalg.transpose(df_inv, df_inv_t)
+            linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
+            linalg.matrix_matrix(g_inv, b_prod, tmp1)
+            linalg.matrix_matrix(tmp1, g_inv, tmp2)
+
+            filling_m12 = - weight * tmp2[0, 1] / n_markers_tot
+            filling_m13 = - weight * tmp2[0, 2] / n_markers_tot
+            filling_m23 = - weight * tmp2[1, 2] / n_markers_tot
+
+            # call the appropriate matvec filler
+            mvf.mat_fill_v1_asym(pn, span1, span2, span3,
+                                 bn1, bn2, bn3,
+                                 bd1, bd2, bd3,
+                                 starts1,
+                                 mat12, mat13, mat23,
+                                 filling_m12, filling_m13, filling_m23)
+            
+        elif basis_u == 2:
+            
+            # filling functions
+            filling_m12 = - weight * b_prod[0, 1] / n_markers_tot / det_df**2
+            filling_m13 = - weight * b_prod[0, 2] / n_markers_tot / det_df**2
+            filling_m23 = - weight * b_prod[1, 2] / n_markers_tot / det_df**2
+
+            # call the appropriate matvec filler
+            mvf.mat_fill_v2_asym(pn, span1, span2, span3,
+                                 bn1, bn2, bn3,
+                                 bd1, bd2, bd3,
+                                 starts1,
+                                 mat12, mat13, mat23,
+                                 filling_m12, filling_m13, filling_m23)
+            
     #$ omp end parallel
 
 
@@ -430,7 +472,8 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
                     vec3: 'float[:,:,:]',
                     b2_1: 'float[:,:,:]',   # model specific argument
                     b2_2: 'float[:,:,:]',   # model specific argument
-                    b2_3: 'float[:,:,:]'):  # model specific argument
+                    b2_3: 'float[:,:,:]',   # model specific argument
+                    basis_u : 'int'):       # model specific argument
     r"""Accumulates into V1 with the filling functions
 
     .. math::
@@ -451,25 +494,6 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
         The above parameter list contains only the model specific input arguments.
     """
 
-    # allocate for metric coeffs
-    df = empty((3, 3), dtype=float)
-    df_t = empty((3, 3), dtype=float)
-    df_inv = empty((3, 3), dtype=float)
-    g = empty((3, 3), dtype=float)
-    g_inv = empty((3, 3), dtype=float)
-
-    # allocate for filling
-    filling_m = empty((3, 3), dtype=float)
-    filling_v = empty(3, dtype=float)
-
-    tmp1 = empty((3, 3), dtype=float)
-    tmp1_t = empty((3, 3), dtype=float)
-    tmp2 = empty((3, 3), dtype=float)
-    tmp3 = empty((3, 3), dtype=float)
-
-    tmp_v = empty(3, dtype=float)
-    df_inv_times_v = empty(3, dtype=float)
-
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
     b_prod = zeros((3, 3), dtype=float)
@@ -481,13 +505,31 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
     bd1 = empty(pn[0], dtype=float)
     bd2 = empty(pn[1], dtype=float)
     bd3 = empty(pn[2], dtype=float)
+    
+    # allocate for metric coeffs
+    df       = empty((3, 3), dtype=float)
+    df_inv   = empty((3, 3), dtype=float)
+    df_inv_t = empty((3, 3), dtype=float)
+    g_inv    = empty((3, 3), dtype=float)
+
+    # allocate for filling
+    filling_m = empty((3, 3), dtype=float)
+    filling_v = empty(3, dtype=float)
+
+    tmp1   = empty((3, 3), dtype=float)
+    tmp2   = empty((3, 3), dtype=float)
+    
+    tmp_t  = empty((3, 3), dtype=float)
+    tmp_m  = empty((3, 3), dtype=float)
+
+    tmp_v = empty(3, dtype=float)
 
     # get number of markers
-    n_markers = shape(markers)[0]
+    n_markers_loc = shape(markers)[0]
     
-    #$ omp parallel firstprivate(b_prod) private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, df, df_inv, df_t, g, g_inv, tmp1, tmp1_t, tmp2, tmp3, v, df_inv_times_v, tmp_v, weight, filling_m, filling_v) 
+    #$ omp parallel firstprivate(b_prod) private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, df, det_df, weight, v, df_inv, df_inv_t, g_inv, tmp1, tmp2, tmp_t, tmp_m, tmp_v, filling_m, filling_v) 
     #$ omp for reduction ( + : mat12, mat13, mat23)
-    for ip in range(n_markers):
+    for ip in range(n_markers_loc):
         
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
@@ -529,42 +571,109 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
                     df)
-
-        # Avoid second computation of df, use linear_algebra.core routines to get g_inv:
-        linalg.matrix_inv(df, df_inv)
-        linalg.transpose(df, df_t)
-        linalg.matrix_matrix(df, df_t, g)
-        linalg.matrix_inv(g, g_inv)
-
-        # filling functions
-        linalg.matrix_matrix(g_inv, b_prod, tmp1)
-        linalg.transpose(tmp1, tmp1_t)
-        linalg.matrix_matrix(tmp1, g_inv, tmp2)
-        linalg.matrix_matrix(tmp2, tmp1_t, tmp3)
-
+        
+        det_df = linalg.det(df)
+        
+        # marker weight and velocity
+        weight = markers[ip, 6]
         v = markers[ip, 3:6]
         
-        linalg.matrix_vector(df_inv, v, df_inv_times_v)
-        linalg.matrix_vector(tmp1, df_inv_times_v, tmp_v)
+        if basis_u == 0:
+            
+            # needed metric coefficients
+            linalg.matrix_inv_with_det(df, det_df, df_inv)
+            linalg.transpose(df_inv, df_inv_t)
+            linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
+            
+            # filling functions tmp_m = tmp1 * tmp1^T and tmp_v = tmp1 * v, where tmp1 = B^x * DF^(-1)
+            linalg.matrix_matrix(b_prod, df_inv, tmp1)
+            
+            linalg.transpose(tmp1, tmp_t)
+            
+            linalg.matrix_matrix(tmp1, tmp_t, tmp_m)
+            linalg.matrix_vector(tmp1, v, tmp_v)
 
-        weight = markers[ip, 6]
+            filling_m[:, :] = weight * tmp_m / n_markers_tot
+            filling_v[:] = weight * tmp_v / n_markers_tot
+
+            # call the appropriate matvec filler
+            mvf.m_v_fill_v0vec_symm(pn, span1, span2, span3,
+                                    bn1, bn2, bn3,
+                                    starts0,
+                                    mat11, mat12, mat13, 
+                                    mat22, mat23, 
+                                    mat33, 
+                                    filling_m[0, 0], filling_m[0, 1], filling_m[0, 2], 
+                                    filling_m[1, 1], filling_m[1, 2], 
+                                    filling_m[2, 2],
+                                    vec1, vec2, vec3,
+                                    filling_v[0], filling_v[1], filling_v[2])
         
-        filling_m[:] = weight * tmp3 / n_markers_tot
-        filling_v[:] = weight * tmp_v / n_markers_tot
+        elif basis_u == 1:
+            
+            # needed metric coefficients
+            linalg.matrix_inv_with_det(df, det_df, df_inv)
+            linalg.transpose(df_inv, df_inv_t)
+            linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
+            
+            # filling functions tmp_m = tmp2 * tmp2^T and tmp_v = tmp2 * v, where tmp2 = G^(-1) * B^x * DF^(-1)
+            linalg.matrix_matrix(g_inv, b_prod, tmp1)
+            linalg.matrix_matrix(tmp1, df_inv, tmp2)
+            
+            linalg.transpose(tmp2, tmp_t)
+            
+            linalg.matrix_matrix(tmp2, tmp_t, tmp_m)
+            linalg.matrix_vector(tmp2, v, tmp_v)
 
-        # call the appropriate matvec filler
-        mvf.m_v_fill_v1_symm(pn, span1, span2, span3,
-                             bn1, bn2, bn3,
-                             bd1, bd2, bd3,
-                             starts1,
-                             mat11, mat12, mat13, 
-                             mat22, mat23, 
-                             mat33, 
-                             filling_m[0, 0], filling_m[0, 1], filling_m[0, 2], 
-                             filling_m[1, 1], filling_m[1, 2], 
-                             filling_m[2, 2],
-                             vec1, vec2, vec3,
-                             filling_v[0], filling_v[1], filling_v[2])
+            filling_m[:, :] = weight * tmp_m / n_markers_tot
+            filling_v[:] = weight * tmp_v / n_markers_tot
+
+            # call the appropriate matvec filler
+            mvf.m_v_fill_v1_symm(pn, span1, span2, span3,
+                                 bn1, bn2, bn3,
+                                 bd1, bd2, bd3,
+                                 starts1,
+                                 mat11, mat12, mat13, 
+                                 mat22, mat23, 
+                                 mat33, 
+                                 filling_m[0, 0], filling_m[0, 1], filling_m[0, 2], 
+                                 filling_m[1, 1], filling_m[1, 2], 
+                                 filling_m[2, 2],
+                                 vec1, vec2, vec3,
+                                 filling_v[0], filling_v[1], filling_v[2])
+            
+        elif basis_u == 2:
+            
+            # needed metric coefficients
+            linalg.matrix_inv_with_det(df, det_df, df_inv)
+            linalg.transpose(df_inv, df_inv_t)
+            linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
+            
+            # filling functions tmp_m = tmp1 * tmp1^T and tmp_v = tmp1 * v, where tmp1 = B^x * DF^(-1) / det(DF)
+            linalg.matrix_matrix(b_prod, df_inv, tmp1)
+            
+            linalg.transpose(tmp1, tmp_t)
+            
+            linalg.matrix_matrix(tmp1, tmp_t, tmp_m)
+            linalg.matrix_vector(tmp1, v, tmp_v)
+
+            filling_m[:, :] = weight * tmp_m / n_markers_tot / det_df**2
+            filling_v[:] = weight * tmp_v / n_markers_tot / det_df
+
+            # call the appropriate matvec filler
+            mvf.m_v_fill_v2_symm(pn, span1, span2, span3,
+                                 bn1, bn2, bn3,
+                                 bd1, bd2, bd3,
+                                 starts2,
+                                 mat11, mat12, mat13, 
+                                 mat22, mat23, 
+                                 mat33, 
+                                 filling_m[0, 0], filling_m[0, 1], filling_m[0, 2], 
+                                 filling_m[1, 1], filling_m[1, 2], 
+                                 filling_m[2, 2],
+                                 vec1, vec2, vec3,
+                                 filling_v[0], filling_v[1], filling_v[2])
+            
     #$ omp end parallel
 
 
