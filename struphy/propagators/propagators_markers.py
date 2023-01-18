@@ -6,8 +6,9 @@ from psydac.linalg.block import BlockVector
 from struphy.polar.basic import PolarVector
 
 from struphy.propagators.base import Propagator
-from struphy.pic.pusher import Pusher
 
+from struphy.pic.pusher import Pusher, Pusher_iteration
+from struphy.pic.pusher import ButcherTableau
 
 class StepPushEta(Propagator):
     r"""Solves
@@ -26,27 +27,26 @@ class StepPushEta(Propagator):
 
     Parameters
     ----------
-        particles : struphy.pic.particles.Particles6D
-            Holdes the markers to push.
+    particles : struphy.pic.particles.Particles6D
+        Holdes the markers to push.
 
-        derham : struphy.psydac_api.psydac_derham.Derham
-            Discrete Derham complex.
+    derham : struphy.psydac_api.psydac_derham.Derham
+        Discrete Derham complex.
 
-        algo : str
-            The used algorithm.
+    domain : struphy.geometry.domains
+        Mapping info for evaluating metric coefficients.
 
-        bc : list[str]
-            Kinetic boundary conditions in each direction.
+    algo : str
+        The used algorithm.
+
+    bc : list[str]
+        Kinetic boundary conditions in each direction.
     """
 
-    def __init__(self, particles, derham, algo, bc):
+    def __init__(self, particles, derham, domain, algo, bc):
 
         self._particles = particles
         self._bc = bc
-
-        # load butcher tableau and pusher
-        from struphy.pic.pusher import Pusher
-        from struphy.pic.pusher import ButcherTableau
 
         if algo == 'forward_euler':
             a = []
@@ -72,7 +72,7 @@ class StepPushEta(Propagator):
             raise NotImplementedError('Chosen algorithm is not implemented.')
 
         self._butcher = ButcherTableau(a, b, c)
-        self._pusher = Pusher(derham, particles.domain,
+        self._pusher = Pusher(derham, domain,
                               'push_eta_stage', self._butcher.n_stages)
 
     @property
@@ -102,29 +102,30 @@ class StepPushVxB(Propagator):
 
     Parameters
     ----------
-        particles : struphy.pic.particles.Particles6D
-            Holdes the markers to push.
+    particles : struphy.pic.particles.Particles6D
+        Holdes the markers to push.
 
-        derham : struphy.psydac_api.psydac_derham.Derham
-            Discrete Derham complex.
+    derham : struphy.psydac_api.psydac_derham.Derham
+        Discrete Derham complex.
 
-        algo : str
-            The used algorithm.
+    domain : struphy.geometry.domains
+        Mapping info for evaluating metric coefficients.
 
-        *b_vectors : psydac.linalg.block.BlockVector | struphy.polar.basic.PolarVector
-            FE coefficients of several magnetic fields (2-form) (typically static and dynamical magnetic field).
+    algo : str
+        The used algorithm.
+
+    *b_vectors : psydac.linalg.block.BlockVector | struphy.polar.basic.PolarVector
+        FE coefficients of several magnetic fields (2-form) (typically static and dynamical magnetic field).
     """
 
-    def __init__(self, particles, derham, algo, *b_vectors):
+    def __init__(self, particles, derham, domain, algo, *b_vectors):
 
         self._particles = particles
 
         # load pusher
-        from struphy.pic.pusher import Pusher
-
         kernel_name = 'push_vxb_' + algo
 
-        self._pusher = Pusher(derham, particles.domain, kernel_name)
+        self._pusher = Pusher(derham, domain, kernel_name)
 
         # magnetic field vectors
         for b in b_vectors:
@@ -163,25 +164,32 @@ class StepPushVxB(Propagator):
                      b_full[2]._data)
 
 
-
-
 class StepPushpxB_hybrid(Propagator):
     """
-        TODO
+    TODO
+    
+    Parameters
+    ----------
+    particles : struphy.pic.particles.Particles6D
+        Holdes the markers to push.
+
+    derham : struphy.psydac_api.psydac_derham.Derham
+        Discrete Derham complex.
+
+    domain : struphy.geometry.domains
+        Mapping info for evaluating metric coefficients.
     """
 
-    def __init__(self, particles, derham, algo, *field_vectors):
+    def __init__(self, particles, derham, domain, algo, *field_vectors):
 
         self._C = derham.curl
 
         self._particles = particles
 
         # load pusher
-        from struphy.pic.pusher import Pusher
-
         kernel_name = 'push_pxb_' + algo
 
-        self._pusher = Pusher(derham, particles.domain, kernel_name)
+        self._pusher = Pusher(derham, domain, kernel_name)
 
         # magnetic field vectors
         for b in field_vectors:
@@ -231,8 +239,6 @@ class StepPushpxB_hybrid(Propagator):
                      self._field_vectors[0][2]._data)
 
 
-
-
 class StepPushEtaPC(Propagator):
     r'''Step for the update of particles' positions with the RK4 method which solves
 
@@ -248,22 +254,26 @@ class StepPushEtaPC(Propagator):
 
     Parameters
     ----------
-        u : psydac.linalg.block.BlockVector
-            FE coefficients of a discrete 0-form, 1-form or 2-form.
+    particles : struphy.pic.particles.Particles6D
+        Holdes the markers to push.
 
-        u_space : dic
-            params['fields']['mhd_u_space']
+    derham : struphy.psydac_api.psydac_derham.Derham
+        Discrete Derham complex.
 
-        particles : struphy.pic.particles.Particles6D
+    domain : struphy.geometry.domains
+        Mapping info for evaluating metric coefficients.
+    
+    u : psydac.linalg.block.BlockVector
+        FE coefficients of a discrete 0-form, 1-form or 2-form.
 
-        domain : struphy.geometry.base.Domain
-            Infos regarding mapping.
+    u_space : dic
+        params['fields']['mhd_u_space']
 
-        bc : list[str]
-            Kinetic boundary conditions in each direction.
+    bc : list[str]
+        Kinetic boundary conditions in each direction.
     '''
 
-    def __init__(self, u, u_space, coupling, particles, derham, domain, bc):
+    def __init__(self, particles, derham, domain, u, u_space, coupling, bc):
 
         assert isinstance(u, BlockVector)
 
@@ -352,20 +362,23 @@ class StepPushGuidingCenter1(Propagator):
 
     Parameters
     ----------
-        particles : struphy.pic.particles.Particles5D
-            Holdes the markers to push.
+    particles : struphy.pic.particles.Particles6D
+        Holdes the markers to push.
 
-        derham : struphy.psydac_api.psydac_derham.Derham
-            Discrete Derham complex.
+    derham : struphy.psydac_api.psydac_derham.Derham
+        Discrete Derham complex.
 
-        algo : str
-            The used algorithm.
+    domain : struphy.geometry.domains
+        Mapping info for evaluating metric coefficients.
 
-        bc : list[str]
-            Kinetic boundary conditions in each direction.
+    algo : str
+        The used algorithm.
+
+    bc : list[str]
+        Kinetic boundary conditions in each direction.
     """
 
-    def __init__(self, particles, epsilon, b, norm_b1, norm_b2, abs_b, derham, algo, integrator, bc, maxiter=100, tol=1.e-8):
+    def __init__(self, particles, derham, domain, epsilon, b, norm_b1, norm_b2, abs_b, algo, integrator, bc, maxiter=100, tol=1.e-8):
 
         self._particles = particles
         self._epsilon = epsilon
@@ -400,10 +413,6 @@ class StepPushGuidingCenter1(Propagator):
         if not self._grad_abs_b[2].ghost_regions_in_sync:
             self._grad_abs_b[2].update_ghost_regions()
 
-        # load butcher tableau and pusher
-        from struphy.pic.pusher import Pusher, Pusher_iteration
-        from struphy.pic.pusher import ButcherTableau
-
         if integrator == 'explicit':
 
             if algo == 'forward_euler':
@@ -432,7 +441,7 @@ class StepPushGuidingCenter1(Propagator):
 
             self._butcher = ButcherTableau(a, b, c)
             self._pusher = Pusher(
-                derham, particles.domain, 'push_gc1_explicit_stage', self._butcher.n_stages)
+                derham, domain, 'push_gc1_explicit_stage', self._butcher.n_stages)
 
             self._pusher_inputs = (self._b[0]._data, self._b[1]._data, self._b[2]._data,
                                    self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
@@ -445,7 +454,7 @@ class StepPushGuidingCenter1(Propagator):
 
             if algo == 'discrete_gradients':
                 self._pusher = Pusher_iteration(
-                    derham, particles.domain, 'push_gc1_discrete_gradients_stage', maxiter, tol)
+                    derham, domain, 'push_gc1_discrete_gradients_stage', maxiter, tol)
 
             else:
                 raise NotImplementedError(
@@ -493,20 +502,23 @@ class StepPushGuidingCenter2(Propagator):
 
     Parameters
     ----------
-        particles : struphy.pic.particles.Particles5D
-            Holdes the markers to push.
+    particles : struphy.pic.particles.Particles6D
+        Holdes the markers to push.
 
-        derham : struphy.psydac_api.psydac_derham.Derham
-            Discrete Derham complex.
+    derham : struphy.psydac_api.psydac_derham.Derham
+        Discrete Derham complex.
 
-        algo : str
-            The used algorithm.
+    domain : struphy.geometry.domains
+        Mapping info for evaluating metric coefficients.
 
-        bc : list[str]
-            Kinetic boundary conditions in each direction.
+    algo : str
+        The used algorithm.
+
+    bc : list[str]
+        Kinetic boundary conditions in each direction.
     """
 
-    def __init__(self, particles, epsilon, b, norm_b1, norm_b2, abs_b, derham, algo, integrator, bc, maxiter=100, tol=1.e-8):
+    def __init__(self, particles, derham, domain, epsilon, b, norm_b1, norm_b2, abs_b, algo, integrator, bc, maxiter=100, tol=1.e-8):
 
         self._particles = particles
         self._epsilon = epsilon
@@ -541,10 +553,6 @@ class StepPushGuidingCenter2(Propagator):
         if not self._grad_abs_b[2].ghost_regions_in_sync:
             self._grad_abs_b[2].update_ghost_regions()
 
-        # load butcher tableau and pusher
-        from struphy.pic.pusher import Pusher, Pusher_iteration
-        from struphy.pic.pusher import ButcherTableau
-
         if integrator == 'explicit':
 
             if algo == 'forward_euler':
@@ -573,7 +581,7 @@ class StepPushGuidingCenter2(Propagator):
 
             self._butcher = ButcherTableau(a, b, c)
             self._pusher = Pusher(
-                derham, particles.domain, 'push_gc2_explicit_stage', self._butcher.n_stages)
+                derham, domain, 'push_gc2_explicit_stage', self._butcher.n_stages)
 
             self._pusher_inputs = (self._b[0]._data, self._b[1]._data, self._b[2]._data,
                                    self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
@@ -586,7 +594,7 @@ class StepPushGuidingCenter2(Propagator):
 
             if algo == 'discrete_gradients':
                 self._pusher = Pusher_iteration(
-                    derham, particles.domain, 'push_gc2_discrete_gradients_stage', maxiter, tol)
+                    derham, domain, 'push_gc2_discrete_gradients_stage', maxiter, tol)
 
             else:
                 raise NotImplementedError(
@@ -634,20 +642,23 @@ class StepPushGuidingCenter(Propagator):
 
     Parameters
     ----------
-        particles : struphy.pic.particles.Particles5D
-            Holdes the markers to push.
+    particles : struphy.pic.particles.Particles6D
+        Holdes the markers to push.
 
-        derham : struphy.psydac_api.psydac_derham.Derham
-            Discrete Derham complex.
+    derham : struphy.psydac_api.psydac_derham.Derham
+        Discrete Derham complex.
 
-        algo : str
-            The used algorithm.
+    domain : struphy.geometry.domains
+        Mapping info for evaluating metric coefficients.
 
-        bc : list[str]
-            Kinetic boundary conditions in each direction.
+    algo : str
+        The used algorithm.
+
+    bc : list[str]
+        Kinetic boundary conditions in each direction.
     """
 
-    def __init__(self, particles, epsilon, b, norm_b1, norm_b2, abs_b, derham, algo, integrator, bc, maxiter=100, tol=1.e-8):
+    def __init__(self, particles, derham, domain, epsilon, b, norm_b1, norm_b2, abs_b, algo, integrator, bc, maxiter=100, tol=1.e-8):
 
         self._particles = particles
         self._epsilon = epsilon
@@ -673,10 +684,6 @@ class StepPushGuidingCenter(Propagator):
             self._grad_abs_b[1].update_ghost_regions()
         if not self._grad_abs_b[2].ghost_regions_in_sync:
             self._grad_abs_b[2].update_ghost_regions()
-
-        # load butcher tableau and pusher
-        from struphy.pic.pusher import Pusher, Pusher_iteration
-        from struphy.pic.pusher import ButcherTableau
 
         if integrator == 'explicit':
             if algo == 'forward_euler':
@@ -705,7 +712,7 @@ class StepPushGuidingCenter(Propagator):
 
             self._butcher = ButcherTableau(a, b, c)
             self._pusher = Pusher(
-                derham, particles.domain, 'push_gc_explicit_stage', self._butcher.n_stages)
+                derham, domain, 'push_gc_explicit_stage', self._butcher.n_stages)
 
             self._pusher_inputs = (self._b[0]._data, self._b[1]._data, self._b[2]._data,
                                    self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
@@ -718,7 +725,7 @@ class StepPushGuidingCenter(Propagator):
 
             if algo == 'discrete_gradients':
                 self._pusher = Pusher_iteration(
-                    derham, particles.domain, 'push_gc_discrete_gradients_stage', maxiter, tol)
+                    derham, domain, 'push_gc_discrete_gradients_stage', maxiter, tol)
 
             else:
                 raise NotImplementedError(
@@ -768,24 +775,21 @@ class StepStaticEfield(Propagator):
         \int_0^1 \left[ \mathbb{\Lambda}\left( \eta^n + \tau (\mathbf{\eta}^{n+1}_k - \mathbf{\eta}^n) \right) \right]^T \mathbf{e}_0 \, \text{d} \tau
 
     Parameters
-    ---------- 
-        e : psydac.linalg.block.BlockVector
-            FE coefficients of a 1-form.
+    ----------
+    particles : struphy.pic.particles.Particles6D
+        Holdes the markers to push.
 
-        derham : struphy.psydac_api.psydac_derham.Derham
-            Discrete Derham complex.
+    derham : struphy.psydac_api.psydac_derham.Derham
+        Discrete Derham complex.
 
-        particles : struphy.pic.particles.Particles6D
-            Particles object.
-
-        mass_ops : struphy.psydac_api.mass.WeightedMassOperators
-            Weighted mass matrices from struphy.psydac_api.mass.
-
-        params : dict
-            Solver parameters for this splitting step.
+    domain : struphy.geometry.domains
+        Mapping info for evaluating metric coefficients.
+    
+    e_background : TODO
     '''
 
-    def __init__(self, domain, derham, particles, e_background):
+    def __init__(self, particles, derham, domain, e_background):
+        
         from numpy import polynomial, floor
 
         self._domain = domain

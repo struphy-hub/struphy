@@ -15,26 +15,22 @@ class Particles6D:
     ----------
     name : str
         Name of the particle species.
-
-    domain : struphy.geometry.domains
-        All things mapping.
-
-    domain_array : array[float]
-        2d array of shape (comm_size, 9) defining the domain of each process.
-
-    params : dict
+        
+    params_markers : dict
         Parameters under key-word markers in the parameter file.
 
+    domain_decomp : array[float]
+        2d array of shape (comm_size, 9) defining the domain of each process.
+        
     comm : mpi4py.MPI.Intracomm
         MPI communicator.
     """
 
-    def __init__(self, name, params_markers, domain, domain_array, comm):
+    def __init__(self, name, params_markers, domain_decomp, comm):
 
         self._name = name
         self._params = params_markers
-        self._domain = domain
-        self._domain_array = domain_array
+        self._domain_decomp = domain_decomp
 
         self._mpi_comm = comm
         self._mpi_size = comm.Get_size()
@@ -42,12 +38,12 @@ class Particles6D:
 
         # number of cells on current process
         n_cells_loc = np.prod(
-            self._domain_array[self._mpi_rank, 2::3], dtype=int)
-
+            self._domain_decomp[self._mpi_rank, 2::3], dtype=int)
+        
         # total number of cells
         n_cells = np.sum(
-            np.prod(self._domain_array[:, 2::3], axis=1, dtype=int))
-
+            np.prod(self._domain_decomp[:, 2::3], axis=1, dtype=int))
+        
         # number of markers to load on each process (depending on relative domain size)
         if 'ppc' in params_markers:
             ppc = params_markers['ppc']
@@ -57,9 +53,10 @@ class Particles6D:
             Np = params_markers['Np']
             assert isinstance(Np, int)
             ppc = Np/n_cells
-
+    
+        Np = int(Np)
         assert Np >= self._mpi_size
-
+        
         n_mks_load = np.zeros(self._mpi_size, dtype=int)
         self._mpi_comm.Allgather(np.array([int(ppc*n_cells_loc)]), n_mks_load)
 
@@ -170,7 +167,7 @@ class Particles6D:
         self._n_holes_loc = np.count_nonzero(self._holes)
         self._n_mks_loc = self._markers.shape[0] - self._n_holes_loc
 
-        # compute initial sampling density s0 at particle positions
+        # load sampling density s3 (normalized to 1 in logical space!)
         Maxwellian6DUniform = getattr(analytical, 'Maxwellian6DUniform')
 
         self._s3 = Maxwellian6DUniform(n=1.,
@@ -180,8 +177,6 @@ class Particles6D:
                                        vthx=loading_params['moments'][3],
                                        vthy=loading_params['moments'][4],
                                        vthz=loading_params['moments'][5])
-
-        self._markers[:n_mks_load_loc, 7] = self.s0(*self._markers[:, :6].T)
 
         # check if all particle positions are inside the unit cube [0, 1]^3
         assert np.all(~self._holes[:n_mks_load_loc]) and np.all(
@@ -206,17 +201,11 @@ class Particles6D:
         return self._params
 
     @property
-    def domain(self):
-        """ Mapping from logical to physical space.
-        """
-        return self._domain
-
-    @property
-    def domain_array(self):
+    def domain_decomp(self):
         """ Array containing domain decomposition information.
         """
-        return self._domain_array
-
+        return self._domain_decomp
+    
     @property
     def comm(self):
         """ MPI communicator.
@@ -277,7 +266,7 @@ class Particles6D:
         """
         return self._s3
 
-    def s0(self, eta1, eta2, eta3, vx, vy, vz, remove_holes=True):
+    def s0(self, eta1, eta2, eta3, vx, vy, vz, domain, remove_holes=True):
         """ 
         Sampling density transformed from 3-form to 0-form (division by Jacobian determinant).
 
@@ -288,7 +277,10 @@ class Particles6D:
 
         vx, vy, vz : array_like
             Velocity evaluation points.
-
+            
+        domain : struphy.geometry.domains
+            Mapping info for evaluating metric coefficients.
+            
         remove_holes : bool
             If True, holes are removed from the returned array. If False, holes are evaluated to -1.
 
@@ -297,7 +289,7 @@ class Particles6D:
         out : array-like
             The 0-form sampling density.
         """
-        return self.domain.push(self.s3(eta1, eta2, eta3, vx, vy, vz), self.markers, kind='3_form', remove_outside=remove_holes)
+        return domain.transform(self.s3(eta1, eta2, eta3, vx, vy, vz), self.markers, kind='3_to_0', remove_outside=remove_holes)
 
     def mpi_sort_markers(self, do_test=False):
         """ 
@@ -311,11 +303,11 @@ class Particles6D:
 
         # create new markers_to_be_sent array and make corresponding holes in markers array
         markers_to_be_sent, hole_inds_after_send = sendrecv_determine_mtbs(
-            self._markers, self._holes, self.domain_array, self.mpi_rank)
+            self._markers, self._holes, self.domain_decomp, self.mpi_rank)
 
         # determine where to send markers_to_be_sent
         send_info, send_list = sendrecv_get_destinations(
-            markers_to_be_sent, self.domain_array, self.mpi_size)
+            markers_to_be_sent, self.domain_decomp, self.mpi_size)
 
         # transpose send_info
         recv_info = sendrecv_all_to_all(send_info, self.comm)
@@ -333,22 +325,28 @@ class Particles6D:
         if do_test:
             assert np.all(np.logical_and(
                 self.markers[~self._holes,
-                             :3] > self.domain_array[self.mpi_rank, 0::3],
-                self.markers[~self._holes, :3] < self.domain_array[self.mpi_rank, 1::3]))
+                             :3] > self.domain_decomp[self.mpi_rank, 0::3], 
+                self.markers[~self._holes, :3] < self.domain_decomp[self.mpi_rank, 1::3]))
 
-    def initialize_weights(self, fun_params):
+    def initialize_weights(self, fun_params, domain):
         """
-        Computes w0 = f0(t=0, eta(t=0), v(t=0)) / s0(t=0, eta(t=0), v(t=0)) from the initial distribution function and sets the corresponding columns for w0 and weights in markers array.
+        Computes w0 = f0(t=0, eta(t=0), v(t=0)) / s0(t=0, eta(t=0), v(t=0)) from the initial distribution function and sets the corresponding columns for w0, s0 and weights in markers array.
 
         Parameters
         ----------
         fun_params : dict
             Dictionary of the form {type : class_name, class_name : params_dict} defining the initial condition.
+            
+        domain : struphy.geometry.domains
+            Mapping info for evaluating metric coefficients.
         """
 
-        fun_name = fun_params['type']
+        # compute s0
+        self._markers[~self._holes, 7] = self.s0(*self._markers[:, :6].T, domain)
 
         # load distribution function (with given parameters or default parameters)
+        fun_name = fun_params['type']
+        
         if fun_name in fun_params:
             f_init = getattr(analytical, fun_name)(**fun_params[fun_name])
         else:
@@ -361,7 +359,7 @@ class Particles6D:
         # set weights
         self._markers[~self._holes, 6] = self.markers_wo_holes[:, 8]
 
-    def initialize_weights_delta_f(self, fun_params):
+    def initialize_weights_delta_f(self, fun_params, domain):
         """
         Computes w0 = f0(t=0, eta(t=0), v(t=0)) / s0(t=0, eta(t=0), v(t=0)) from the initial distribution function and sets the corresponding columns for w0 and weights in markers array.
 
@@ -369,11 +367,17 @@ class Particles6D:
         ----------
         fun_params : dict
             Dictionary of the form {type : class_name, class_name : params_dict} defining the initial condition.
+            
+        domain : struphy.geometry.domains
+            Mapping info for evaluating metric coefficients.
         """
 
+        # compute s0
+        self._markers[~self._holes, 7] = self.s0(*self._markers[:, :6].T, domain)
+        
+        # load distribution function (with given parameters or default parameters)
         fun_name = fun_params['type']
 
-        # load distribution function (with given parameters or default parameters)
         if fun_name in fun_params:
             f_init = getattr(analytical, fun_name)(**fun_params[fun_name])
         else:
@@ -403,8 +407,8 @@ class Particles6D:
         if use_control:
             self._markers[~self._holes, 6] = self.markers_wo_holes[:, 8] - \
                 f0(*self.markers_wo_holes[:, :6].T)/self.markers_wo_holes[:, 7]
-
-    def binning(self, components, bin_edges):
+            
+    def binning(self, components, bin_edges, domain=None):
         """
         Computes the distribution function via marker binning in logical space using numpy's histogramdd.
 
@@ -416,6 +420,9 @@ class Particles6D:
         bin_edges : list[array]
             List of bin edges (resolution) having the length of True entries in components.
 
+        domain : struphy.geometry.domains
+            Mapping info for evaluating metric coefficients.
+                
         Returns
         -------
         f_sclice : array-like
@@ -433,15 +440,23 @@ class Particles6D:
         # extend components list to number of columns of markers array
         slicing = components + [False] * (self._markers.shape[1] - 6)
 
-        # binning
-        f_slice = np.histogramdd(self.markers_wo_holes[:, slicing],
-                                 bins=bin_edges,
-                                 weights=self.markers_wo_holes[:, 6]
-                                 / self._domain.jacobian_det(self.markers))[0]
-
+        # binning with weight transformation
+        if domain is not None:
+            f_slice = np.histogramdd(self.markers_wo_holes[:, slicing], 
+                                     bins=bin_edges,
+                                     weights=self.markers_wo_holes[:, 6]
+                                     /domain.jacobian_det(self.markers))[0]
+        
+        # binning without weight transformation
+        else:
+            f_slice = np.histogramdd(self.markers_wo_holes[:, slicing], 
+                                     bins=bin_edges,
+                                     weights=self.markers_wo_holes[:, 6])[0]
+            
+        
         return f_slice/(self._n_mks*bin_vol)
-
-    def show_distribution_function(self, components, bin_edges):
+    
+    def show_distribution_function(self, components, bin_edges, domain=None):
         """
         1D and 2D plots of slices of the distribution function via marker binning.
 
@@ -452,6 +467,9 @@ class Particles6D:
 
         bin_edges : list[array]
             List of bin edges (resolution) having the length of True entries in components.
+            
+        domain : struphy.geometry.domains
+            Mapping info for evaluating metric coefficients.
         """
 
         import matplotlib.pyplot as plt
@@ -460,7 +478,7 @@ class Particles6D:
 
         assert n_dim == 1 or n_dim == 2
 
-        f_slice = self.binning(components, bin_edges)
+        f_slice = self.binning(components, bin_edges, domain)
 
         bin_centers = [bi[:-1] + (bi[1] - bi[0])/2 for bi in bin_edges]
 
@@ -493,25 +511,21 @@ class Particles5D:
     name : str
         Name of the particle species.
 
-    domain: struphy.geometry.domains
-        All things mapping.
-
-    domain_array : array[float]
-        2d array of shape (comm_size, 6) defining the domain of each process.
-
-    params : dict
+    params_markers : dict
         Parameters under key-word markers in the parameter file.
+    
+    domain_decomp : array[float]
+        2d array of shape (comm_size, 6) defining the domain of each process.
 
     comm : Intracomm
         MPI communicator from mpi4py.MPI.Intracomm.
     """
 
-    def __init__(self, name, params_markers, domain, domain_array, comm):
+    def __init__(self, name, params_markers, domain_decomp, comm):
 
         self._name = name
         self._params = params_markers
-        self._domain = domain
-        self._domain_array = domain_array
+        self._domain_decomp = domain_decomp
 
         self._mpi_comm = comm
         self._mpi_size = comm.Get_size()
@@ -519,12 +533,12 @@ class Particles5D:
 
         # number of cells on current process
         n_cells_loc = np.prod(
-            self._domain_array[self._mpi_rank, 2::3], dtype=int)
-
+            self._domain_decomp[self._mpi_rank, 2::3], dtype=int)
+        
         # total number of cells
         n_cells = np.sum(
-            np.prod(self._domain_array[:, 2::3], axis=1, dtype=int))
-
+            np.prod(self._domain_decomp[:, 2::3], axis=1, dtype=int))
+        
         # number of markers to load on each process (depending on relative domain size)
         if 'ppc' in params_markers:
             ppc = params_markers['ppc']
@@ -535,6 +549,7 @@ class Particles5D:
             assert isinstance(Np, int)
             ppc = Np/n_cells
 
+        Np = int(Np)
         assert Np >= self._mpi_size
 
         n_mks_load = np.zeros(self._mpi_size, dtype=int)
@@ -647,7 +662,7 @@ class Particles5D:
         self._n_holes_loc = np.count_nonzero(self._holes)
         self._n_mks_loc = self._markers.shape[0] - self._n_holes_loc
 
-        # compute initial sampling density s0 at particle positions
+        # load sampling density s3 (normalized to 1 in logical space!)
         Maxwellian6DUniform = getattr(analytical, 'Maxwellian6DUniform')
 
         self._s3 = Maxwellian6DUniform(n=1.,
@@ -657,8 +672,6 @@ class Particles5D:
                                        vthx=loading_params['moments'][3],
                                        vthy=loading_params['moments'][4],
                                        vthz=loading_params['moments'][5])
-
-        self._markers[:n_mks_load_loc, 7] = self.s0(*self._markers[:, :6].T)
 
         # check if all particle positions are inside the unit cube [0, 1]^3
         assert np.all(~self._holes[:n_mks_load_loc]) and np.all(
@@ -683,17 +696,11 @@ class Particles5D:
         return self._params
 
     @property
-    def domain(self):
-        """ Mapping from logical to physical space.
-        """
-        return self._domain
-
-    @property
-    def domain_array(self):
+    def domain_decomp(self):
         """ Array containing domain decomposition information.
         """
-        return self._domain_array
-
+        return self._domain_decomp
+    
     @property
     def comm(self):
         """ MPI communicator.
@@ -754,7 +761,7 @@ class Particles5D:
         """
         return self._s3
 
-    def s0(self, eta1, eta2, eta3, vx, vy, vz, remove_holes=True):
+    def s0(self, eta1, eta2, eta3, vx, vy, vz, domain, remove_holes=True):
         """ 
         Sampling density transformed from 3-form to 0-form (division by Jacobian determinant).
 
@@ -766,6 +773,9 @@ class Particles5D:
         vx, vy, vz : array_like
             Velocity evaluation points.
 
+        domain : struphy.geometry.domains
+            Mapping info for evaluating metric coefficients.
+            
         remove_holes : bool
             If True, holes are removed from the returned array. If False, holes are evaluated to -1.
 
@@ -774,7 +784,7 @@ class Particles5D:
         out : array-like
             The 0-form sampling density.
         """
-        return self.domain.push(self.s3(eta1, eta2, eta3, vx, vy, vz), self.markers, kind='3_form', remove_outside=remove_holes)
+        return domain.transform(self.s3(eta1, eta2, eta3, vx, vy, vz), self.markers, kind='3_to_0', remove_outside=remove_holes)
 
     def mpi_sort_markers(self, do_test=False):
         """ 
@@ -788,11 +798,11 @@ class Particles5D:
 
         # create new markers_to_be_sent array and make corresponding holes in markers array
         markers_to_be_sent, hole_inds_after_send = sendrecv_determine_mtbs(
-            self._markers, self._holes, self.domain_array, self.mpi_rank)
+            self._markers, self._holes, self.domain_decomp, self.mpi_rank)
 
         # determine where to send markers_to_be_sent
         send_info, send_list = sendrecv_get_destinations(
-            markers_to_be_sent, self.domain_array, self.mpi_size)
+            markers_to_be_sent, self.domain_decomp, self.mpi_size)
 
         # transpose send_info
         recv_info = sendrecv_all_to_all(send_info, self.comm)
@@ -810,22 +820,28 @@ class Particles5D:
         if do_test:
             assert np.all(np.logical_and(
                 self.markers[~self._holes,
-                             :3] > self.domain_array[self.mpi_rank, 0::3],
-                self.markers[~self._holes, :3] < self.domain_array[self.mpi_rank, 1::3]))
+                             :3] > self.domain_decomp[self.mpi_rank, 0::3], 
+                self.markers[~self._holes, :3] < self.domain_decomp[self.mpi_rank, 1::3]))
 
-    def initialize_weights(self, fun_params):
+    def initialize_weights(self, fun_params, domain):
         """
-        Computes w0 = f0(t=0, eta(t=0), v(t=0)) / s0(t=0, eta(t=0), v(t=0)) from the initial distribution function and sets the corresponding columns for w0 and weights in markers array.
+        Computes w0 = f0(t=0, eta(t=0), v(t=0)) / s0(t=0, eta(t=0), v(t=0)) from the initial distribution function and sets the corresponding columns for w0, s0 and weights in markers array.
 
         Parameters
         ----------
         fun_params : dict
             Dictionary of the form {type : class_name, class_name : params_dict} defining the initial condition.
+            
+        domain : struphy.geometry.domains
+            Mapping info for evaluating metric coefficients.
         """
 
-        fun_name = fun_params['type']
+        # compute s0
+        self._markers[~self._holes, 7] = self.s0(*self._markers[:, :6].T, domain)
 
         # load distribution function (with given parameters or default parameters)
+        fun_name = fun_params['type']
+        
         if fun_name in fun_params:
             f_init = getattr(analytical, fun_name)(**fun_params[fun_name])
         else:
@@ -852,10 +868,9 @@ class Particles5D:
         """
 
         if use_control:
-            self._markers[~self._holes, 6] = self.markers_wo_holes[:, 8] - \
-                f0(*self.markers_wo_holes[:, :6].T)/self.markers_wo_holes[:, 7]
-
-    def binning(self, components, bin_edges):
+            self._markers[~self._holes, 6] = self.markers_wo_holes[:, 8] - f0(*self.markers_wo_holes[:, :6].T)/self.markers_wo_holes[:, 7]
+            
+    def binning(self, components, bin_edges, domain=None):
         """
         Computes the distribution function via marker binning in logical space using numpy's histogramdd.
 
@@ -867,6 +882,9 @@ class Particles5D:
         bin_edges : list[array]
             List of bin edges (resolution) having the length of True entries in components.
 
+        domain : struphy.geometry.domains
+            Mapping info for evaluating metric coefficients.
+                
         Returns
         -------
         f_sclice : array-like
@@ -884,15 +902,23 @@ class Particles5D:
         # extend components list to number of columns of markers array
         slicing = components + [False] * (self._markers.shape[1] - 6)
 
-        # binning
-        f_slice = np.histogramdd(self.markers_wo_holes[:, slicing],
-                                 bins=bin_edges,
-                                 weights=self.markers_wo_holes[:, 6]
-                                 / self._domain.jacobian_det(self.markers))[0]
-
+        # binning with weight transformation
+        if domain is not None:
+            f_slice = np.histogramdd(self.markers_wo_holes[:, slicing], 
+                                     bins=bin_edges,
+                                     weights=self.markers_wo_holes[:, 6]
+                                     /domain.jacobian_det(self.markers))[0]
+        
+        # binning without weight transformation
+        else:
+            f_slice = np.histogramdd(self.markers_wo_holes[:, slicing], 
+                                     bins=bin_edges,
+                                     weights=self.markers_wo_holes[:, 6])[0]
+            
+        
         return f_slice/(self._n_mks*bin_vol)
-
-    def show_distribution_function(self, components, bin_edges):
+    
+    def show_distribution_function(self, components, bin_edges, domain=None):
         """
         1D and 2D plots of slices of the distribution function via marker binning.
 
@@ -903,6 +929,9 @@ class Particles5D:
 
         bin_edges : list[array]
             List of bin edges (resolution) having the length of True entries in components.
+            
+        domain : struphy.geometry.domains
+            Mapping info for evaluating metric coefficients.
         """
 
         import matplotlib.pyplot as plt
@@ -911,7 +940,7 @@ class Particles5D:
 
         assert n_dim == 1 or n_dim == 2
 
-        f_slice = self.binning(components, bin_edges)
+        f_slice = self.binning(components, bin_edges, domain)
 
         bin_centers = [bi[:-1] + (bi[1] - bi[0])/2 for bi in bin_edges]
 
@@ -955,7 +984,7 @@ class Particles5D:
         self.markers[~self.holes, 5] = 0.
 
 
-def sendrecv_determine_mtbs(markers, holes, domain_array, mpi_rank):
+def sendrecv_determine_mtbs(markers, holes, domain_decomp, mpi_rank):
     """
     Determine which markers have to be sent from current process and put them in a new array. 
     Corresponding rows in markers array become holes and are therefore set to -1.
@@ -969,7 +998,7 @@ def sendrecv_determine_mtbs(markers, holes, domain_array, mpi_rank):
         holes : array[bool]
             Local array stating whether a row in the markers array is empty (i.e. a hole) or not.
 
-        domain_array : array[float]
+        domain_decomp : array[float]
             2d array of shape (mpi_size, 9) defining the domain of each process.
 
         mpi_rank : int
@@ -986,8 +1015,8 @@ def sendrecv_determine_mtbs(markers, holes, domain_array, mpi_rank):
 
     # check which particles are in a certain interval (e.g. the process domain)
     is_on_proc_domain = np.logical_and(
-        markers[:, :3] > domain_array[mpi_rank, 0::3],
-        markers[:, :3] < domain_array[mpi_rank, 1::3])
+        markers[:, :3] > domain_decomp[mpi_rank, 0::3], 
+        markers[:, :3] < domain_decomp[mpi_rank, 1::3])
 
     # to can_stay on the current process, all three columns must be True
     can_stay = np.all(is_on_proc_domain, axis=1)
@@ -1011,7 +1040,7 @@ def sendrecv_determine_mtbs(markers, holes, domain_array, mpi_rank):
     return markers_to_be_sent, hole_inds_after_send
 
 
-def sendrecv_get_destinations(markers_to_be_sent, domain_array, mpi_size):
+def sendrecv_get_destinations(markers_to_be_sent, domain_decomp, mpi_size):
     """
     Determine to which process particles have to be sent.
 
@@ -1020,7 +1049,7 @@ def sendrecv_get_destinations(markers_to_be_sent, domain_array, mpi_size):
         markers_to_be_sent : array[float]
             Markers of shape (n_send, :) to be sent.
 
-        domain_array : array[float]
+        domain_decomp : array[float]
             2d array of shape (mpi_size, 9) defining the domain of each process.
 
         mpi_size : int
@@ -1043,8 +1072,8 @@ def sendrecv_get_destinations(markers_to_be_sent, domain_array, mpi_size):
     for i in range(mpi_size):
 
         conds = np.logical_and(
-            markers_to_be_sent[:, :3] > domain_array[i, 0::3],
-            markers_to_be_sent[:, :3] < domain_array[i, 1::3])
+            markers_to_be_sent[:, :3] > domain_decomp[i, 0::3], 
+            markers_to_be_sent[:, :3] < domain_decomp[i, 1::3])
 
         send_to_i = np.nonzero(np.all(conds, axis=1))[0]
         send_info[i] = send_to_i.size

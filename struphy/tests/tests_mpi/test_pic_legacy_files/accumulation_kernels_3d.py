@@ -102,7 +102,7 @@ def kernel_step1(particles : 'float[:,:]',
     for ip in range(np):
         
         # only do something if particle is inside the logical domain (s < 1)
-        if particles[ip, 0] > 1.0:
+        if particles[ip, 0] > 1.0 or particles[ip, 0] < 0.:
             continue
         
         eta1 = particles[ip, 0]
@@ -426,7 +426,7 @@ def kernel_step3(particles : 'float[:,:]',
     for ip in range(np):
         
         # only do something if particle is inside the logical domain (s < 1)
-        if particles[ip, 0] > 1.0:
+        if particles[ip, 0] > 1.0 or particles[ip, 0] < 0.:
             continue
 
         eta1 = particles[ip, 0]
@@ -900,7 +900,7 @@ def kernel_step_ph_full(particles : 'float[:,:]',
     for ip in range(np):
 
         # only do something if particle is inside the logical domain (s < 1)
-        if particles[ip, 0] > 1.0:
+        if particles[ip, 0] > 1.0 or particles[ip, 0] < 0.:
             continue
 
         eta1 = particles[ip, 0]

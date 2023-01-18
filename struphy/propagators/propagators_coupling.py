@@ -71,13 +71,11 @@ class StepEfieldWeights(Propagator):
         self.f0_spec = params_bs['type']
         self.moms_spec = params_bs['moms_spec']
         self.f0_params = params_bs['moms_params']
+        self.alpha = alpha
         # raise NotImplementedError('Parameters are not correct yet!')
 
         # Initialize Accumulator object
-        self._accum = Accumulator(domain, derham, 'Hcurl', 'linear_vlasov_maxwell',
-                                  self.f0_spec, array(
-                                      self.moms_spec), array(self.f0_params),
-                                  alpha,
+        self._accum = Accumulator(derham, domain, 'Hcurl', 'linear_vlasov_maxwell',
                                   do_vector=True, symmetry='symm')
 
         self._e = e
@@ -90,7 +88,7 @@ class StepEfieldWeights(Propagator):
         self._domain = domain
         self._derham = derham
 
-        self._accum.accumulate(self._particles.markers, self._particles.n_mks)
+        self._accum.accumulate(self._particles, self.f0_spec, array(self.moms_spec), array(self.f0_params), self.alpha)
 
         # ================================
         # ========= Schur Solver =========
@@ -123,7 +121,7 @@ class StepEfieldWeights(Propagator):
         # current variables
         en = self.variables[0]
 
-        self._accum.accumulate(self._particles.markers, self._particles.n_mks)
+        self._accum.accumulate(self._particles, self.f0_spec, array(self.moms_spec), array(self.f0_params), self.alpha)
 
         # Update Schur solver
         self._schur_solver.BC = - self._accum.matrix / 4
@@ -203,7 +201,7 @@ class StepHybridDensity(Propagator):
     def __init__(self, domain, derham, particles):
 
         # Initialize Accumulator object
-        self._accum = Accumulator(domain, derham, 'H1', 'hybrid_fA',
+        self._accum = Accumulator(derham, domain, 'H1', 'hybrid_fA',
                                   do_vector=False, symmetry='None')
 
         self._particles = particles
@@ -211,7 +209,7 @@ class StepHybridDensity(Propagator):
         self._domain = domain
         self._derham = derham
 
-        self._accum.accumulate(self._particles.markers, self._particles.n_mks)
+        self._accum.accumulate(self._particles)
 
     @property
     def variables(self):
@@ -219,7 +217,7 @@ class StepHybridDensity(Propagator):
 
     def __call__(self, dt):
 
-        self._accum.accumulate(self._particles.markers, self._particles.n_mks)
+        self._accum.accumulate(self._particles)
 
 
 class StepPressurecoupling(Propagator):
@@ -295,19 +293,16 @@ class StepPressurecoupling(Propagator):
             self._pc = pc_class(getattr(mass_ops, id_Mn))
 
         # Call the accumulation and Pusher class
-        args = []
-
-        if coupling == 'perp':
-            self._ACC = Accumulator(self._domain, self._derham, 'Hcurl',
-                                    'pc_lin_mhd_6d', *args, do_vector=True, symmetry='pressure')
+        if coupling == 'perp' : 
+            self._ACC = Accumulator(self._derham, self._domain, 'Hcurl',
+                                    'pc_lin_mhd_6d', do_vector=True, symmetry='pressure')
             self._pusher = Pusher(self._derham, self._domain, 'push_pc_GXu')
 
-        elif coupling == 'full':
-            self._ACC = Accumulator(self._domain, self._derham, 'Hcurl',
-                                    'pc_lin_mhd_6d_full', *args, do_vector=True, symmetry='pressure')
-            self._pusher = Pusher(
-                self._derham, self._domain, 'push_pc_GXu_full')
-
+        elif coupling == 'full' :
+            self._ACC = Accumulator(self._derham, self._domain, 'Hcurl', 
+                                    'pc_lin_mhd_6d_full', do_vector=True, symmetry='pressure')
+            self._pusher = Pusher(self._derham, self._domain, 'push_pc_GXu_full')
+                                  
         else:
             raise NotImplementedError(
                 'Given coupling scheme is not implemented!')
@@ -328,7 +323,7 @@ class StepPressurecoupling(Propagator):
         self._particles.mpi_sort_markers()
 
         # acuumulate MAT and VEC
-        self._ACC.accumulate(self._particles.markers, self._particles.n_mks)
+        self._ACC.accumulate(self._particles)
 
         MAT = [[self._ACC.matrix11, self._ACC.matrix12, self._ACC.matrix13],
                [self._ACC.matrix12, self._ACC.matrix22, self._ACC.matrix23],
@@ -460,3 +455,41 @@ class StepPressurecoupling(Propagator):
             assert self._vector.space == self.codomain
 
             return self._vector
+
+        
+#class StepCurrentCouplingCurrent( Propagator ):
+#    """
+#    TODO
+#    """
+#    
+#    def __init__(self, particles, derham, domain, params, mass_ops, u, u_space, *b_vectors):
+#        
+#        assert isinstance(u, (BlockVector, PolarVector))
+#        assert u_space in {'Hcurl', 'Hdiv', 'H1vec'}
+#        
+#        for b in b_vectors:
+#            assert isinstance(b, (BlockVector, PolarVector))
+#        
+#        self._particles = particles
+#        
+#        self._u = u
+#        self._b_vectors = b_vectors
+#        
+#        self._E2T = derham.E['2'].transpose()
+#        
+#        self._info = params['info']
+#        self._rank = derham.comm.Get_rank()
+#
+#        # load accumulator
+#        self._accumulator = Accumulator(particles.domain, derham, u_space, 'cc_lin_mhd_6d_2', *args, do_vector=True, symmetry='symm')
+#        
+#    @property
+#    def variables(self):
+#        return self._particles
+#
+#    def __call__(self, dt):
+#        """
+#        TODO
+#        """
+        
+        
