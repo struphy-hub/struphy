@@ -165,9 +165,16 @@ class StepPushVxB(Propagator):
 
 
 class StepPushpxB_hybrid(Propagator):
-    """
-    TODO
-    
+    r"""Solves
+
+    .. math::
+
+        \frac{\textnormal d \mathbf p_i(t)}{\textnormal d t} =  (\mathbf p_i(t) - {\mathbf A}({\mathbf x})) \times \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}
+
+    for each marker :math:`i` in markers array, with fixed rotation vector. Available algorithms:
+
+        * analytic
+
     Parameters
     ----------
     particles : struphy.pic.particles.Particles6D
@@ -178,6 +185,12 @@ class StepPushpxB_hybrid(Propagator):
 
     domain : struphy.geometry.domains
         Mapping info for evaluating metric coefficients.
+
+    algo : str
+        The used algorithm.
+
+    *b_vectors : psydac.linalg.block.BlockVector | struphy.polar.basic.PolarVector
+        FE coefficients of brackground magnetic fields (2-form) and vector potential (1-form).
     """
 
     def __init__(self, particles, derham, domain, algo, *field_vectors):
@@ -209,18 +222,10 @@ class StepPushpxB_hybrid(Propagator):
         TODO
         """
 
-        # calculate curl_A
-        curl_A = self._C.dot(self._field_vectors[0])
-        
-        # check if ghost regions are synchronized
-        for i in range(3):
-            if not curl_A[i].ghost_regions_in_sync: curl_A[i].update_ghost_regions()
-
         # sum up total magnetic field
         b_full = self._field_vectors[1].space.zeros()
 
-        for b in self._field_vectors:
-            b_full = curl_A + self._field_vectors[1]
+        b_full += self._field_vectors[1]
 
         # extract coefficients to tensor product space
         b_full = self._E2T.dot(b_full)
@@ -237,6 +242,77 @@ class StepPushpxB_hybrid(Propagator):
                      self._field_vectors[0][0]._data,
                      self._field_vectors[0][1]._data,
                      self._field_vectors[0][2]._data)
+
+
+
+class StepHybridXP(Propagator):
+    r'''Step for the update of particles' positions and canonical momentum with symplectic methods (only in Cartesian coordinates) and discrete gradient methods which solve the following Hamiltonian system
+
+    .. math::
+
+        \frac{\mathrm{d} {\mathbf x}(t)}{\textnormal d t} = {\mathbf p} - {\mathbf A}, \quad \frac{\mathrm{d} {\mathbf p}(t)}{\textnormal d t} = - \left( \frac{\partial{\mathbf A}}{\partial {\mathbf x}} \right)^\top ({\mathbf A} - {\mathbf p} ). 
+
+    for each marker in markers array.
+
+    Parameters
+    ----------
+        density : psydac stencil matrix type
+            values of density at all the quadrature points obtained from depositions of all particles.
+
+        a : psydac stencil vector (1 form)
+            finite element coefficients of vector potential
+
+        particles : struphy.pic.particles.Particles6D
+
+        derham : struphy.psydac_api.psydac_derham.Derham
+        Discrete Derham complex.
+
+        domain : struphy.geometry.base.Domain
+            Infos regarding mapping.
+
+        bc : list[str]
+            Kinetic boundary conditions in each direction.
+    '''
+
+    def __init__(self, a, particles, derham, domain, bc):
+
+        assert isinstance(a, BlockVector)
+
+        self._derham = derham
+        self._domain = domain
+        self._a = a
+        self._particles = particles
+        self._bc = bc
+
+        # we do depostion here to get density... To do
+
+        # set kernel function
+        #self._pusher = Pusher(derham, particles.domain, 'hybrid_xp')
+
+    @property
+    def variables(self):
+        return
+
+    def __call__(self, dt):
+        """
+        TODO
+        """
+        # push particles
+        # check if ghost regions are synchronized
+        #if not self._density.ghost_regions_in_sync:
+        #    self._density.update_ghost_regions()
+        if not self._a[0].ghost_regions_in_sync:
+            self._a[0].update_ghost_regions()
+        if not self._a[1].ghost_regions_in_sync:
+            self._a[1].update_ghost_regions()
+        if not self._a[2].ghost_regions_in_sync:
+            self._a[2].update_ghost_regions()
+
+        #self._pusher(self._particles, dt, self._density,
+        #             self._a[0]._data, self._a[1]._data, self._a[2]._data,
+        #             bc=self._bc, mpi_sort='last')
+
+
 
 
 class StepPushEtaPC(Propagator):

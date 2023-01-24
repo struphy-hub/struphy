@@ -1,6 +1,6 @@
 from numpy import array
 
-from psydac.linalg.stencil import StencilVector
+from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.block import BlockVector
 
 import numpy as np
@@ -17,6 +17,9 @@ from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Mul
 from struphy.psydac_api.linear_operators import InverseLinearOperator as Invert
 from struphy.psydac_api import preconditioner
 from struphy.psydac_api.linear_operators import LinOpWithTransp
+
+from struphy.psydac_api.Hybrid_linear_operator import HybridOperators
+from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
 
 class Maxwell( Propagator ):
@@ -443,3 +446,89 @@ class Magnetosonic( Propagator ):
             print('Maxdiff p3 for Magnetosonic:', max_dp)
             print('Maxdiff b2 for Magnetosonic:', max_db)
             print()
+
+
+
+class Hybrid_potential( Propagator ):
+    r'''Crank-Nicolson step for the Faraday's law.
+
+    math::
+
+        \begin{align}
+        \textnormal{Faraday's law}\qquad& \frac{\partial {\mathbf A}}{\partial t} = - \frac{\nabla \times \nabla \times A}{n} \times \nabla \times {\mathbf A} - \frac{\int ({\mathbf A} - {\mathbf p}f \mathrm{d}{\mathbf p})}{n} \times \nabla \times {\mathbf A}, \quad n = \int f \mathrm{d}{\mathbf p}.
+        \end{align}
+
+    Parameters
+    ---------- 
+        a : psydac.linalg.block.BlockVector
+            FE coefficients of vector potential as 1-form
+
+        a_space : str
+            Space identifier of vector potential: 'Hcurl.
+
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete Derham complex.
+            
+        mass_ops : struphy.psydac_api.mass.WeightedMassOperators
+            Weighted mass matrices from struphy.psydac_api.mass. 
+    '''
+
+    def __init__(self, a, a_space, beq, derham, mass_ops, domain, particles, nqs, p_shape, p_size):
+
+        
+
+        assert isinstance(a, (BlockVector, PolarVector))
+        assert a_space in {'Hcurl', 'Hdiv', 'H1vec'}
+
+        self._a = a
+        self._rank = derham.comm.Get_rank()
+        self._beq = beq
+
+        self._particles = particles
+
+        self._domain = domain
+        self._derham = derham
+
+        # Initialize Accumulator object for getting density from particles
+        self._pts_x = 1.0 / (2.0*derham.Nel[0]) * np.polynomial.legendre.leggauss(nqs[0])[0] + 1.0 / (2.0*derham.Nel[0])
+        self._pts_y = 1.0 / (2.0*derham.Nel[1]) * np.polynomial.legendre.leggauss(nqs[1])[0] + 1.0 / (2.0*derham.Nel[1])
+        self._pts_z = 1.0 / (2.0*derham.Nel[2]) * np.polynomial.legendre.leggauss(nqs[2])[0] + 1.0 / (2.0*derham.Nel[2])
+        self._nqs   = nqs 
+        self._p_shape = p_shape
+        self._p_size = p_size
+        self._accum_density = Accumulator(derham, domain, 'H1', 'hybrid_fA_density',
+                                  do_vector=False, symmetry='None')
+
+        self._accum_density.accumulate(self._particles, np.array(self._derham.Nel), np.array(self._nqs), np.array(self._pts_x), np.array(self._pts_y), np.array(self._pts_z), np.array(self._p_shape), np.array(self._p_size))
+
+        # Initialize Accumulator object for getting the matrix and vector related with vector potential 
+        self._accum_potential = Accumulator(derham, domain, 'Hcurl', 'hybrid_fA_Arelated',  
+                                  do_vector=True, symmetry='symm')
+
+        self._accum_potential.accumulate(self._particles)
+        
+        # for testing of hybrid linear operators 
+        self._density = StencilMatrix(self._derham.Vh[self._derham.spaces_dict['H1']], self._derham.Vh[self._derham.spaces_dict['H1']], backend=PSYDAC_BACKEND_GPYCCEL)
+        self._hybrid_ops = HybridOperators(self._derham, self._domain, self._density, self._a, self._beq)
+
+
+    @property
+    def variables(self):
+        return self._a
+
+    def __call__(self, dt):
+
+        # for getting density from particles. 
+        self._accum_density.accumulate(self._particles, np.array(self._derham.Nel), np.array(self._nqs), np.array(self._pts_x), np.array(self._pts_y), np.array(self._pts_z), np.array(self._p_shape), np.array(self._p_size))
+        # for getting the matrix and vector related with vector potential 
+        self._accum_potential.accumulate(self._particles)
+        # Iniitialize hybrid linear operators 
+        self._hybrid_ops.HybridM1
+        # current variables
+        an = self.variables[0]
+
+        # allocate temporary FemFields _u, _b during solution
+        #_a, info = self._schur_solver(un, self._B.dot(bn), dt)
+
+        # write new coeffs into Propagator.variables
+        #max_du, max_db = self.in_place_update(_u, _b)

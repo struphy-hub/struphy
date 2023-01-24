@@ -5999,58 +5999,7 @@ def m_v_fill_v1_pressure(pn : 'int[:]', span1 : int, span2 : int, span3 : int, b
                          vx, vy)
 
 
-
-
-
-
 @pure
-def mat_fill_v0_hybrid(pn : 'int[:]', span1 : int, span2 : int, span3 : int, bn1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', starts0 : 'int[:]', mat : 'float[:,:,:,:,:,:]'):
-    """
-    Adds the contribution of one particle to the density (in V0). 
-    The result is returned in mat.
+def hybrid_density(Nel: 'int[:]', pn: 'int[:]', cell_left: 'int[:]', cell_number: 'int[:]', span1: 'int', span2: 'int', span3: 'int', starts0: 'int[:]', ie1: 'int', ie2: 'int', ie3: 'int', temp1: 'float[:]', temp4: 'float[:]', quad: 'int[:]', quad_pts_x: 'float[:]', quad_pts_y: 'float[:]', quad_pts_z: 'float[:]', compact: 'float[:]', eta1: 'float', eta2: 'float', eta3: 'float', mat: 'float[:,:,:,:,:,:]', weight: 'float', p_shape: 'int[:]', p_size: 'float[:]', grids_shapex: 'float[:]', grids_shapey: 'float[:]', grids_shapez: 'float[:]'):
 
-    Parameters To Do
-    ----------
-        pn : array[int]
-            Spline degrees in each direction.
-
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
-
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
-
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
-
-        starts1 : array[int]
-            Start indices of the current process in space V1.
-
-        mat.._.. : array[float]
-            (mu, nu)-th element (mu, nu=1,2,3) of the block matrix corresponding to the pressure term with velocity components v_a and v_b (a,b=x,y,z). 
-
-        fill11, fill12, fill13, fill22, fill23, fill33 : float
-            Number that will be multiplied by the basis functions of V1 and written to mat.._..
-
-        vec._. : array[float]
-            mu-th element (mu=1,2,3) of the vector corresponding to the pressure term with velocity component v_a (a=x,y,z).
-
-        fill1, fill2, fill3 : float
-            Number that will be multplied by the basis functions of V1 and written to vec._.
-
-        vx, vy, vz : float
-            Component of the particle velocity.
-    """
-
-    # degrees of the basis functions : B-splines (pn) and D-splines (pd)
-    
-    #======================================
-    #fk.fill_density_hybrid(pn1, pd2, pn3, pn1, pn2, pd3,
-    #                     bn1, bd2, bn3, bn1, bn2, bd3,
-    #                     span1, span2, span3,
-    #                     starts1[1], pn,
-    #                     mat23_11, mat23_12, mat23_22, fill23, 
-    #                     vx, vy)
-    pn1 = pn[0]
-
-    
+    fk.hy_density(Nel, pn, cell_left, cell_number, span1, span2, span3, starts0, ie1, ie2, ie3, temp1, temp4, quad, quad_pts_x, quad_pts_y, quad_pts_z, compact, eta1, eta2, eta3, mat, weight, p_shape, p_size, grids_shapex, grids_shapey, grids_shapez)

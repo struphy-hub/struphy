@@ -1,6 +1,6 @@
 from pyccel.decorators import stack_array
 
-from numpy import zeros, empty, sqrt, shape, sum
+from numpy import zeros, empty, sqrt, shape, sum, floor
 
 import struphy.geometry.map_eval as map_eval
 import struphy.b_splines.bsplines_kernels as bsp
@@ -8,6 +8,7 @@ import struphy.b_splines.bspline_evaluation_3d as eval_3d
 import struphy.kinetic_background.background_eval as background_eval
 
 import struphy.pic.mat_vec_filler as mvf
+
 import struphy.linear_algebra.core as linalg
 
 
@@ -79,15 +80,19 @@ def _docstring():
 
 
 
-@stack_array('cell_left', 'point_left', 'point_right', 'cell_number', 'temp1', 'temp4', 'compact')
-def hybrid_fA(markers: 'float[:,:]', n_markers_tot: 'int',
+
+
+
+@stack_array('cell_left', 'point_left', 'point_right', 'cell_number', 'temp1', 'temp4', 'compact', 'grids_shapex', 'grids_shapey', 'grids_shapez')
+def hybrid_fA_density(markers: 'float[:,:]', n_markers_tot: 'int',
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                           kind_map: 'int', params_map: 'float[:]',
                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                          mat: 'float[:,:,:,:,:,:]'):  # model specific argument
+                          mat: 'float[:,:,:,:,:,:]', Nel: 'int[:]', quad: 'int[:]', quad_pts_x: 'float[:]', quad_pts_y: 'float[:]', quad_pts_z: 'float[:]',
+                          p_shape: 'int[:]', p_size: 'float[:]'):  # model specific argument
     r"""
     Accumulates the values of density at quadrature points with the filling functions
 
@@ -112,18 +117,18 @@ def hybrid_fA(markers: 'float[:,:]', n_markers_tot: 'int',
     temp4        = zeros(3, dtype=float)
 
     compact      = zeros(3, dtype=float)
-    #compact[0]   = (p_shape[0]+1.0)*p_size[0]
-    #compact[1]   = (p_shape[1]+1.0)*p_size[1]
-    #compact[2]   = (p_shape[2]+1.0)*p_size[2]
+    compact[0]   = (p_shape[0]+1.0)*p_size[0]
+    compact[1]   = (p_shape[1]+1.0)*p_size[1]
+    compact[2]   = (p_shape[2]+1.0)*p_size[2]
 
-    #grids_shapex = zeros(p_shape[0] + 2, dtype=float)
-    #grids_shapey = zeros(p_shape[1] + 2, dtype=float)
-    #grids_shapez = zeros(p_shape[2] + 2, dtype=float)
+    grids_shapex = zeros(p_shape[0] + 2, dtype=float)
+    grids_shapey = zeros(p_shape[1] + 2, dtype=float)
+    grids_shapez = zeros(p_shape[2] + 2, dtype=float)
     
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private (ip, eta1, eta2, eta3)
+    #$ omp parallel private (cell_left, point_left, point_right, cell_number, temp1, temp4, compact, grids_shapex, grids_shapey, grids_shapez, n_markers, ip, eta1, eta2, eta3, weight, ie1, ie2, ie3, il1, il2, il3, jl1, jl2, jl3, i1, i2, i3, value_x, value_y, value_z, span1, span2, span3)
     #$ omp for reduction ( + : mat)
     for ip in range(n_markers):
 
@@ -136,46 +141,161 @@ def hybrid_fA(markers: 'float[:,:]', n_markers_tot: 'int',
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        #weight = markers[ip, 6]/(p_size[0]*p_size[1]*p_size[2])/n_markers
+        weight = markers[ip, 6]/(p_size[0]*p_size[1]*p_size[2])/n_markers_tot
 
-        #ie1 = int(eta1*Nel[0])
-        #ie2 = int(eta2*Nel[1])
-        #ie3 = int(eta3*Nel[2])
+        ie1 = int(eta1*Nel[0])
+        ie2 = int(eta2*Nel[1])
+        ie3 = int(eta3*Nel[2])
 
         #the points here are still not put in the periodic box [0, 1] x [0, 1] x [0, 1]
-        #point_left[0]  = eta1 - 0.5*compact[0]
-        #point_right[0] = eta1 + 0.5*compact[0]
-        #point_left[1]  = eta2 - 0.5*compact[1]
-        #point_right[1] = eta2 + 0.5*compact[1]
-        #point_left[2]  = eta3 - 0.5*compact[2]
-        #point_right[2] = eta3 + 0.5*compact[2]
+        point_left[0]  = eta1 - 0.5*compact[0]
+        point_right[0] = eta1 + 0.5*compact[0]
+        point_left[1]  = eta2 - 0.5*compact[1]
+        point_right[1] = eta2 + 0.5*compact[1]
+        point_left[2]  = eta3 - 0.5*compact[2]
+        point_right[2] = eta3 + 0.5*compact[2]
 
-        #cell_left[0] = int(floor(point_left[0]*Nel[0]))
-        #cell_left[1] = int(floor(point_left[1]*Nel[1]))
-        #cell_left[2] = int(floor(point_left[2]*Nel[2]))
+        cell_left[0] = int(floor(point_left[0]*Nel[0]))
+        cell_left[1] = int(floor(point_left[1]*Nel[1]))
+        cell_left[2] = int(floor(point_left[2]*Nel[2]))
 
-        #cell_number[0] = int(floor(point_right[0]*Nel[0])) - cell_left[0] + 1
-        #cell_number[1] = int(floor(point_right[1]*Nel[1])) - cell_left[1] + 1
-        #cell_number[2] = int(floor(point_right[2]*Nel[2])) - cell_left[2] + 1
+        cell_number[0] = int(floor(point_right[0]*Nel[0])) - cell_left[0] + 1
+        cell_number[1] = int(floor(point_right[1]*Nel[1])) - cell_left[1] + 1
+        cell_number[2] = int(floor(point_right[2]*Nel[2])) - cell_left[2] + 1
 
-        #for i in range(p_shape[0] + 1):
-        #    grids_shapex[i] = point_left[0] + i * p_size[0]
-        #grids_shapex[p_shape[0] + 1] = point_right[0]
+        for i in range(p_shape[0] + 1):
+            grids_shapex[i] = point_left[0] + i * p_size[0]
+        grids_shapex[p_shape[0] + 1] = point_right[0]
 
-        #for i in range(p_shape[1] + 1):
-        #    grids_shapey[i] = point_left[1] + i * p_size[1]
-        #grids_shapey[p_shape[1] + 1] = point_right[1]
+        for i in range(p_shape[1] + 1):
+            grids_shapey[i] = point_left[1] + i * p_size[1]
+        grids_shapey[p_shape[1] + 1] = point_right[1]
 
-        #for i in range(p_shape[2] + 1):
-        #    grids_shapez[i] = point_left[2] + i * p_size[2]
-        #grids_shapez[p_shape[2] + 1] = point_right[2]
+        for i in range(p_shape[2] + 1):
+            grids_shapez[i] = point_left[2] + i * p_size[2]
+        grids_shapez[p_shape[2] + 1] = point_right[2]
+
+        span1 = int(eta1*Nel[0]) + pn[0]
+        span2 = int(eta2*Nel[1]) + pn[1]
+        span3 = int(eta3*Nel[2]) + pn[2]
+
+        # =========== kernel part (periodic bundary case) ==========
+        mvf.hybrid_density(Nel, pn, cell_left, cell_number, span1, span2, span3, starts0, ie1, ie2, ie3, temp1, temp4, quad, quad_pts_x, quad_pts_y, quad_pts_z, compact, eta1, eta2, eta3, mat, weight, p_shape, p_size, grids_shapex, grids_shapey, grids_shapez)
+    #$ omp end parallel
+
+
+
+@stack_array('df', 'df_t', 'df_inv', 'df_inv_times_v', 'filling_m', 'filling_v')
+def hybrid_fA_Arelated(markers: 'float[:,:]', n_markers_tot: 'int',
+                          pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                          starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                          kind_map: 'int', params_map: 'float[:]',
+                          p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                          ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                          cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                          mat11: 'float[:,:,:,:,:,:]',
+                          mat12: 'float[:,:,:,:,:,:]',
+                          mat13: 'float[:,:,:,:,:,:]',
+                          mat22: 'float[:,:,:,:,:,:]',
+                          mat23: 'float[:,:,:,:,:,:]',
+                          mat33: 'float[:,:,:,:,:,:]',
+                          vec1: 'float[:,:,:]',
+                          vec2: 'float[:,:,:]',
+                          vec3: 'float[:,:,:]'):  # model specific argument
+    r"""
+    Accumulates into V1 with the filling functions
+
+    .. math::
+
+        A_p^{\mu, \nu} &= f_0(\eta_p, v_p) * [ DF^{-1}(\eta_p) * v_p ]_\mu * [ DF^{-1}(\eta_p) * v_p ]_\nu    
+
+        B_p^\mu &= \sqrt{f_0(\eta_p, v_p)} * w_p * [ DF^{-1}(\eta_p) * v_p ]_\mu  
+
+    Parameters
+    ----------
+        f0_spec : int
+            Specifier for kinetic background, see :ref:`kinetic_backgrounds`  
+
+        moms_spec : array[int]
+            Specifier for the seven moments n0, u0x, u0y, u0z, vth0x, vth0y, vth0z (in this order).
+            Is 0 for constant moment, for more see :meth:`struphy.kinetic_background.moments_kernels.moments`.
+
+        f0_params : array[float]
+            Parameters needed to specify the moments; the order is specified in :ref:`kinetic_moments` for the respective functions available.
+
+    Note
+    ----
+        The above parameter list contains only the model specific input arguments.
+    """
+
+    # allocate for metric coeffs
+    df = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+
+    # allocate for filling
+    df_inv_times_v = empty(3, dtype=float)
+    filling_m = empty((3, 3), dtype=float)
+    filling_v = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    #$ omp parallel private (ip, eta1, eta2, eta3, v, df, df_inv, df_inv_times_v, weight, filling_m, filling_v)
+    #$ omp for reduction ( + : mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32, mat33, vec1, vec2, vec3)
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # evaluate background
+        v = markers[ip, 3:6]
+
+        # evaluate Jacobian, result in df
+        map_eval.df(eta1, eta2, eta3,
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        # filling functions
+        linalg.matrix_inv(df, df_inv)
+        linalg.matrix_vector(df_inv, v, df_inv_times_v)
+
+        weight = markers[ip, 6]
+
+        # filling_m
+        filling_m[0,0] = weight / n_markers_tot * (df_inv[0,0]*df_inv[0,0] + df_inv[0,1]*df_inv[0,1] + df_inv[0,2]*df_inv[0,2])
+        filling_m[0,1] = weight / n_markers_tot * (df_inv[0,0]*df_inv[1,0] + df_inv[0,1]*df_inv[1,1] + df_inv[0,2]*df_inv[1,2])
+        filling_m[0,2] = weight / n_markers_tot * (df_inv[0,0]*df_inv[2,0] + df_inv[0,1]*df_inv[2,1] + df_inv[0,2]*df_inv[2,2])
+
+        filling_m[1,1] = weight / n_markers_tot * (df_inv[1,0]*df_inv[1,0] + df_inv[1,1]*df_inv[1,1] + df_inv[1,2]*df_inv[1,2])
+        filling_m[1,2] = weight / n_markers_tot * (df_inv[1,0]*df_inv[2,0] + df_inv[1,1]*df_inv[2,1] + df_inv[1,2]*df_inv[2,2])
+
+        filling_m[2,2] = weight / n_markers_tot * (df_inv[2,0]*df_inv[2,0] + df_inv[2,1]*df_inv[2,1] + df_inv[2,2]*df_inv[2,2])
+
+        # filling_v
+        filling_v[:] = weight / n_markers_tot * df_inv_times_v
 
         # call the appropriate matvec filler
-        #mvf.mat_fill_v0_hybrid(pn, tn1, tn2, tn3, starts0,
-        #                       eta1, eta2, eta3,
-        #                       mat)
+        mvf.m_v_fill_b_v1_symm(pn, tn1, tn2, tn3, starts1,
+                               eta1, eta2, eta3,
+                               mat11, mat12, mat13, mat22, mat23, mat33,
+                               filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
+                               filling_m[1, 1], filling_m[1, 2], filling_m[2, 2],
+                               vec1, vec2, vec3,
+                               filling_v[0], filling_v[1], filling_v[2])
 
     #$ omp end parallel
+
+
+
 
 
 @stack_array('df', 'df_t', 'df_inv', 'df_inv_times_v', 'filling_m', 'filling_v')
