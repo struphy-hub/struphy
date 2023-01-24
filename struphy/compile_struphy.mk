@@ -28,6 +28,7 @@ LAC  := $(struphy_path)/linear_algebra/core
 
 # Splines
 BK   := $(struphy_path)/b_splines/bsplines_kernels
+BKP  := $(struphy_path)/b_splines/bsplines_kernels_particles
 BEV1 := $(struphy_path)/b_splines/bspline_evaluation_1d
 BEV2 := $(struphy_path)/b_splines/bspline_evaluation_2d
 BEV3 := $(struphy_path)/b_splines/bspline_evaluation_3d
@@ -65,7 +66,7 @@ KM3  := $(struphy_path)/eigenvalue_solvers/kernels_3d
 KPG  := $(struphy_path)/eigenvalue_solvers/kernels_projectors_global
 KPGM := $(struphy_path)/eigenvalue_solvers/kernels_projectors_global_mhd
 
-SOURCES := $(LAC).py $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(TR3).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(PUTL).py $(PUSH).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py $(PSY3).py
+SOURCES := $(LAC).py $(BK).py $(BKP).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(TR3).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(PUTL).py $(PUSH).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py $(PSY3).py
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
@@ -92,6 +93,9 @@ $(LAC)$(SO_EXT) : $(LAC).py
 	pyccel $< $(FLAGS)
 
 $(BK)$(SO_EXT) : $(BK).py
+	pyccel $< $(FLAGS)
+
+$(BKP)$(SO_EXT) : $(BKP).py
 	pyccel $< $(FLAGS)
 
 $(BEV1)$(SO_EXT) : $(BEV1).py $(BK)$(SO_EXT)
@@ -133,7 +137,7 @@ $(BTS)$(SO_EXT) : $(BTS).py
 $(UTL)$(SO_EXT) : $(UTL).py $(BEV3).py $(BK).py
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
-$(FK)$(SO_EXT) : $(FK).py
+$(FK)$(SO_EXT) : $(FK).py $(BKP).py
 	pyccel $< $(FLAGS)
 
 $(MVF)$(SO_EXT) : $(MVF).py $(FK)$(SO_EXT)
