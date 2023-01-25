@@ -28,11 +28,6 @@ Fluid-kinetic hybrid models
     :undoc-members:
     :exclude-members: propagators, scalar_quantities, update_scalar_quantities
 
-.. autoclass:: struphy.models.models.PC_LinearMHD_Vlasov_full
-    :members:
-    :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
-
 
 Kinetic models
 --------------

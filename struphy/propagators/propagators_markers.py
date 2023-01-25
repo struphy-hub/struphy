@@ -320,7 +320,7 @@ class StepPushEtaPC(Propagator):
 
     .. math::
 
-        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}})
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U})
 
     for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and
 

@@ -850,13 +850,14 @@ def pc_lin_mhd_6d_full(markers: 'float[:,:]', n_markers_tot: 'int',
                        vec1_3: 'float[:,:,:]',
                        vec2_3: 'float[:,:,:]',
                        vec3_3: 'float[:,:,:]'):
+
     r"""Accumulates into V1 with the filling functions
 
     .. math::
 
-        V_{p,i} A_p^{\mu, \\nu} V_{p,j} &= w_p * [ DF^{-1}(\eta_p) DF^{-\\top}(\eta_p) ]_{\mu, \\nu} * V_{p,i} * V_{p,j} \,,
+        V_{p,i} A_p^{\mu, \nu} V_{p,j} &= w_p * [ DF^{-1}(\eta_p) DF^{-\top}(\eta_p) ]_{\mu, \nu} * V_{p,i} * V_{p,j}
         
-        V_{p,i} B_p^\mu &= w_p * [DF^{-1}(\eta_p)]_\mu * V_{p,i} \,.
+        V_{p,i} B_p^\mu &= w_p * [DF^{-1}(\eta_p)]_\mu * V_{p,i}
 
     Parameters
     ----------
@@ -1028,9 +1029,9 @@ def pc_lin_mhd_6d(markers: 'float[:,:]', n_markers_tot: 'int',
 
     .. math::
 
-        {V_{p,i}}_/perp A_p^{\mu, \\nu} {V_{p,j}}_/perp &= w_p * [ DF^{-1}(\eta_p) DF^{-\\top}(\eta_p) ]_{\mu, \\nu} * {V_{p,i}}_/perp * {V_{p,j}}_/perp \,,
+        {V_{p,i}}_\perp A_p^{\mu, \nu} {V_{p,j}}_\perp &= w_p * [ DF^{-1}(\eta_p) DF^{-\top}(\eta_p) ]_{\mu, \nu} * {V_{p,i}}_\perp * {V_{p,j}}_\perp
         
-        {V_{p,i}}_/perp B_p^\mu &= w_p * [DF^{-1}(\eta_p)]_\mu * {V_{p,i}}_/perp \,.
+        {V_{p,i}}_\perp B_p^\mu &= w_p * [DF^{-1}(\eta_p)]_\mu * {V_{p,i}}_\perp
 
     Parameters
     ----------
