@@ -92,7 +92,7 @@ class Pusher:
 
         # sort markers according to domain decomposition
         if mpi_sort == 'last': 
-            particles.mpi_sort_markers()
+            particles.mpi_sort_markers(do_test=True)
                 
         # clear buffer columns 9-14 for multi-stage pushers
         particles.markers[~particles.holes, 9:15] = 0.

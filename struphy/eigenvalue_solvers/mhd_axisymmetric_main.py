@@ -193,12 +193,21 @@ if __name__ == '__main__':
     domain = domain_class(dom_params)
     
     # load appropriate MHD equilibrium
-    from struphy.fields_background.mhd_equil import analytical
+    from struphy.fields_background.mhd_equil import analytical as mhd_ana
+    from struphy.fields_background.mhd_equil import numerical  as mhd_num
     
     equil_params = params['mhd_equilibrium']
     
-    mhd_equil_class = getattr(analytical, equil_params['type'])
-    mhd_equil = mhd_equil_class(equil_params[equil_params['type']], domain)
+    if equil_params['type'] == 'analytical':
+        mhd_equil_class = getattr(mhd_ana, equil_params['name'])
+        mhd_equil = mhd_equil_class(equil_params[equil_params['name']])
+
+        # set mapping for equilibrium object
+        mhd_equil.domain = domain
+
+    elif equil_params['type'] == 'numerical':
+        mhd_equil_class = getattr(mhd_num, equil_params['name'])
+        mhd_equil = mhd_equil_class(equil_params[equil_params['name']])
     
     # load grid parameters
     num_params = {'Nel'     : params['grid']['Nel'][:2],

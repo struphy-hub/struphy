@@ -184,9 +184,9 @@ class StruphyModel(metaclass=ABCMeta):
 
             self._em_fields['params'] = params['em_fields']
 
-            comps = params['em_fields']['init']['comps']
-            assert len(
-                comps) == nem, 'Lengths of ["em_fields"]["init"]["comps"] lists do not correspond to number of fields.'
+            #comps = params['em_fields']['init']['comps']
+            #assert len(
+            #    comps) == nem, 'Lengths of ["em_fields"]["init"]["comps"] lists do not correspond to number of fields.'
 
             for n, (key, val) in enumerate(self.em_fields.items()):
 
@@ -194,9 +194,9 @@ class StruphyModel(metaclass=ABCMeta):
                     field = Field(key, val['space'], self.derham)
                     val['obj'] = field
 
-                    assert len(comps[n]) == isinstance(field.nbasis, tuple)*1 + isinstance(
-                        field.nbasis, list)*3, f'Wrong length of ["init"]["comps"] list for {key}.'
-                    val['init_comps'] = comps[n]
+                    #assert len(comps[n]) == isinstance(field.nbasis, tuple)*1 + isinstance(
+                    #    field.nbasis, list)*3, f'Wrong length of ["init"]["comps"] list for {key}.'
+                    #val['init_comps'] = comps[n]
 
         # FE coeffs and plasma parameters of fluid variables
         if 'fluid' in params:
@@ -208,9 +208,9 @@ class StruphyModel(metaclass=ABCMeta):
 
                 Z, M, kBT, beta = params['fluid'][species]['attributes'].values(
                 )
-                comps = params['fluid'][species]['init']['comps']
-                assert len(comps) == nfi, \
-                    f'Lengths of ["fluid"]["species"]["attributes"] lists do not correspond to number of fluid variables of species {species}.'
+                #comps = params['fluid'][species]['init']['comps']
+                #assert len(comps) == nfi, \
+                #    f'Lengths of ["fluid"]["species"]["attributes"] lists do not correspond to number of fluid variables of species {species}.'
                 val['plasma_params'] = plasma_params(Z, M,
                                                      kBT, beta,
                                                      self.size_params)
@@ -221,9 +221,9 @@ class StruphyModel(metaclass=ABCMeta):
                         field = Field(variable, subval['space'], self.derham)
                         subval['obj'] = field
 
-                        assert len(comps[n]) == isinstance(field.nbasis, tuple)*1 + isinstance(field.nbasis, list)*3, \
-                            f'Wrong length of ["init"]["comps"] list for {variable}.'
-                        subval['init_comps'] = comps[n]
+                        #assert len(comps[n]) == isinstance(field.nbasis, tuple)*1 + isinstance(field.nbasis, list)*3, \
+                        #    f'Wrong length of ["init"]["comps"] list for {variable}.'
+                        #subval['init_comps'] = comps[n]
 
         # marker arrays and plasma parameters of kinetic species
         if 'kinetic' in params:
@@ -286,7 +286,10 @@ class StruphyModel(metaclass=ABCMeta):
             print(f'spline degrees     : {self.derham.p}')
             print(f'periodic bcs       : {self.derham.spl_kind}')
             print(f'hom. Dirichlet bc  : {self.derham.bc}')
-            print(f'GL quad pts (L2)   : {self.derham.quad_order}')
+            _gl_quad_pts_l2 = [self.derham.quad_order[0] + 1,
+                               self.derham.quad_order[1] + 1,
+                               self.derham.quad_order[2] + 1]
+            print(f'GL quad pts (L2)   : {_gl_quad_pts_l2}')
             print(f'GL quad pts (hist) : {self.derham.nq_pr}')
             print(
                 f'MPI indices for N-splines on rank 0: {self.derham.index_array_N[0]}\n')
@@ -445,30 +448,30 @@ class StruphyModel(metaclass=ABCMeta):
         # initialize em fields
         if len(self.em_fields) > 0:
 
-            if self.em_fields['params']['init']['coords'] == 'physical':
-                dom_arg = self.domain
-            else:
-                dom_arg = None
+            #if self.em_fields['params']['init']['coords'] == 'physical':
+            #    dom_arg = self.domain
+            #else:
+            #    dom_arg = None
 
             for key, val in self.em_fields.items():
                 if 'params' not in key:
                     val['obj'].initialize_coeffs(
-                        val['init_comps'], self.em_fields['params']['init'], domain=dom_arg)
+                        self.em_fields['params']['init'], domain=self.domain)
 
         # initialize fields
         if len(self.fluid) > 0:
 
             for val in self.fluid.values():
 
-                if val['params']['init']['coords'] == 'physical':
-                    dom_arg = self.domain
-                else:
-                    dom_arg = None
+                #if val['params']['init']['coords'] == 'physical':
+                #    dom_arg = self.domain
+                #else:
+                #    dom_arg = None
 
                 for variable, subval in val.items():
                     if 'params' not in variable:
                         subval['obj'].initialize_coeffs(
-                            subval['init_comps'], val['params']['init'], domain=dom_arg)
+                            val['params']['init'], domain=self.domain)
 
         # initialize particles
         if len(self.kinetic) > 0:
@@ -477,10 +480,9 @@ class StruphyModel(metaclass=ABCMeta):
                 val['obj'].mpi_sort_markers(do_test=True)
                 
                 if val['params']['markers']['type'] == 'full_f':
-                    val['obj'].initialize_weights(val['params']['init'], self.domain)
+                    val['obj'].initialize_weights(val['params']['init'], self.domain, delta_f=False)
                 elif val['params']['markers']['type'] == 'delta_f':
-                    val['obj'].initialize_weights_delta_f(
-                        val['params']['init'], self.domain)
+                    val['obj'].initialize_weights(val['params']['init'], self.domain, delta_f=True)
                 else:
                     typ = val['params']['markers']['type']
                     raise NotImplementedError(

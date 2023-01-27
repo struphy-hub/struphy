@@ -35,14 +35,11 @@ mhd_equilibrium :
         p_kind : 1 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
         p1     : 0. # shape factor for ad hoc pressure profile
         p2     : 0. # shape factor for ad hoc pressure profile
-        beta : .2 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
-        
+        beta : .2 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)   
         
 em_fields : 
       init :
-            type   : InitialMHDAxisymHdivEigFun # initial conditions (possible types seen below)
-            coords : logical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
-            comps  : [[False, False, False]] # default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
+            type : InitialMHDAxisymHdivEigFun # initial conditions (possible types seen below)
             InitialMHDAxisymHdivEigFun :
                 spec : '/io/out/sim_10/spec_n_-2.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
                 eig_freq_upper : 0.14855 # upper search limit of squared eigenfrequency to identify eigenfunction
@@ -57,18 +54,16 @@ fluid :
                   M    : 1. # mass ratio m/m_p, in units of proton mass
                   kBT  : 1. # thermal energy in units keV 
                   beta : .01 # plasma beta = p*2*mu_0/|B|^2
+            mhd_u_space : Hdiv # Hdiv | H1vec
             init :
-                  type   : InitialMHDAxisymHdivEigFun # initial conditions (possible types seen below)
-                  coords : logical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
-                  comps  : [[False], [True, True, True], [False]] # default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
+                  type : InitialMHDAxisymHdivEigFun # initial conditions (possible types seen below)
                   InitialMHDAxisymHdivEigFun :
                       spec : '/io/out/sim_10/spec_n_-2.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
                       eig_freq_upper : 0.14855 # upper search limit of squared eigenfrequency to identify eigenfunction
                       eig_freq_lower : 0.14850 # lower search limit of squared eigenfrequency to identify eigenfunction
                       kind : r # real (r) or imaginary (i) part of eigenfunction
                       scaling : 1. # scaling factor to scale the amplitude of the eigenfunction
-            mhd_u_space : Hdiv # Hdiv | H1vec
-      
+              
 solvers :
       solver_1 : 
             type : pcg

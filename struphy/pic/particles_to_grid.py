@@ -4,6 +4,8 @@ from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.block import BlockVector, BlockMatrix
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
+from struphy.psydac_api.linear_operators import CompositeLinearOperator, IdentityOperator
+
 import struphy.pic.accum_kernels as accums
 
 
@@ -59,7 +61,9 @@ class Accumulator:
         self._do_vector = do_vector
         self._symmetry = symmetry
         
-        self._space = derham.Vh[derham.spaces_dict[space_id]]
+        _space_key = derham.spaces_dict[space_id]
+        
+        self._space = derham.Vh[_space_key]
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
@@ -70,7 +74,7 @@ class Accumulator:
 
             self._matrix = StencilMatrix(self.space, self.space, backend=PSYDAC_BACKEND_GPYCCEL)
 
-            self._args_data = (self.matrix._data,)
+            self._args_data = (self._matrix._data,)
 
             if do_vector:
                 self._vector = StencilVector(self.space)
@@ -84,15 +88,15 @@ class Accumulator:
         
                 self._matrix = BlockMatrix(self.space, self.space, blocks=blocks)
         
-                self._args_data = (self.matrix[0, 0]._data,
-                                   self.matrix[0, 1]._data,
-                                   self.matrix[0, 2]._data,
-                                   self.matrix[1, 0]._data,
-                                   self.matrix[1, 1]._data,
-                                   self.matrix[1, 2]._data,
-                                   self.matrix[2, 0]._data,
-                                   self.matrix[2, 1]._data,
-                                   self.matrix[2, 2]._data)
+                self._args_data = (self._matrix[0, 0]._data,
+                                   self._matrix[0, 1]._data,
+                                   self._matrix[0, 2]._data,
+                                   self._matrix[1, 0]._data,
+                                   self._matrix[1, 1]._data,
+                                   self._matrix[1, 2]._data,
+                                   self._matrix[2, 0]._data,
+                                   self._matrix[2, 1]._data,
+                                   self._matrix[2, 2]._data)
 
             elif symmetry == 'symm':
 
@@ -100,12 +104,12 @@ class Accumulator:
                 
                 self._matrix = BlockMatrix(self.space, self.space, blocks=blocks)
 
-                self._args_data = (self.matrix[0, 0]._data,
-                                   self.matrix[0, 1]._data,
-                                   self.matrix[0, 2]._data,
-                                   self.matrix[1, 1]._data,
-                                   self.matrix[1, 2]._data,
-                                   self.matrix[2, 2]._data)
+                self._args_data = (self._matrix[0, 0]._data,
+                                   self._matrix[0, 1]._data,
+                                   self._matrix[0, 2]._data,
+                                   self._matrix[1, 1]._data,
+                                   self._matrix[1, 2]._data,
+                                   self._matrix[2, 2]._data)
 
             elif symmetry == 'asym':
 
@@ -113,9 +117,9 @@ class Accumulator:
         
                 self._matrix = BlockMatrix(self.space, self.space, blocks=blocks)
 
-                self._args_data = (self.matrix[0, 1]._data,
-                                   self.matrix[0, 2]._data,
-                                   self.matrix[1, 2]._data)
+                self._args_data = (self._matrix[0, 1]._data,
+                                   self._matrix[0, 2]._data,
+                                   self._matrix[1, 2]._data)
 
             elif symmetry == 'diag':
                 
@@ -123,9 +127,9 @@ class Accumulator:
 
                 self._matrix = BlockMatrix(self.space, self.space, blocks=blocks)
 
-                self._args_data = (self.matrix[0, 0]._data,
-                                   self.matrix[1, 1]._data,
-                                   self.matrix[2, 2]._data)
+                self._args_data = (self._matrix[0, 0]._data,
+                                   self._matrix[1, 1]._data,
+                                   self._matrix[2, 2]._data)
             
             elif symmetry == 'pressure':
             
@@ -180,42 +184,42 @@ class Accumulator:
                 self._matrix23 = BlockMatrix(self.space, self.space, blocks=dict_blocks_23)
                 self._matrix33 = BlockMatrix(self.space, self.space, blocks=dict_blocks_33)
 
-                self._args_data = (self.matrix11[0, 0]._data,
-                                   self.matrix11[0, 1]._data,
-                                   self.matrix11[0, 2]._data,
-                                   self.matrix11[1, 1]._data,
-                                   self.matrix11[1, 2]._data,
-                                   self.matrix11[2, 2]._data,
-                                   self.matrix12[0, 0]._data,
-                                   self.matrix12[0, 1]._data,
-                                   self.matrix12[0, 2]._data,
-                                   self.matrix12[1, 1]._data,
-                                   self.matrix12[1, 2]._data,
-                                   self.matrix12[2, 2]._data,
-                                   self.matrix13[0, 0]._data,
-                                   self.matrix13[0, 1]._data,
-                                   self.matrix13[0, 2]._data,
-                                   self.matrix13[1, 1]._data,
-                                   self.matrix13[1, 2]._data,
-                                   self.matrix13[2, 2]._data,
-                                   self.matrix22[0, 0]._data,
-                                   self.matrix22[0, 1]._data,
-                                   self.matrix22[0, 2]._data,
-                                   self.matrix22[1, 1]._data,
-                                   self.matrix22[1, 2]._data,
-                                   self.matrix22[2, 2]._data,
-                                   self.matrix23[0, 0]._data,
-                                   self.matrix23[0, 1]._data,
-                                   self.matrix23[0, 2]._data,
-                                   self.matrix23[1, 1]._data,
-                                   self.matrix23[1, 2]._data,
-                                   self.matrix23[2, 2]._data,
-                                   self.matrix33[0, 0]._data,
-                                   self.matrix33[0, 1]._data,
-                                   self.matrix33[0, 2]._data,
-                                   self.matrix33[1, 1]._data,
-                                   self.matrix33[1, 2]._data,
-                                   self.matrix33[2, 2]._data)
+                self._args_data = (self._matrix11[0, 0]._data,
+                                   self._matrix11[0, 1]._data,
+                                   self._matrix11[0, 2]._data,
+                                   self._matrix11[1, 1]._data,
+                                   self._matrix11[1, 2]._data,
+                                   self._matrix11[2, 2]._data,
+                                   self._matrix12[0, 0]._data,
+                                   self._matrix12[0, 1]._data,
+                                   self._matrix12[0, 2]._data,
+                                   self._matrix12[1, 1]._data,
+                                   self._matrix12[1, 2]._data,
+                                   self._matrix12[2, 2]._data,
+                                   self._matrix13[0, 0]._data,
+                                   self._matrix13[0, 1]._data,
+                                   self._matrix13[0, 2]._data,
+                                   self._matrix13[1, 1]._data,
+                                   self._matrix13[1, 2]._data,
+                                   self._matrix13[2, 2]._data,
+                                   self._matrix22[0, 0]._data,
+                                   self._matrix22[0, 1]._data,
+                                   self._matrix22[0, 2]._data,
+                                   self._matrix22[1, 1]._data,
+                                   self._matrix22[1, 2]._data,
+                                   self._matrix22[2, 2]._data,
+                                   self._matrix23[0, 0]._data,
+                                   self._matrix23[0, 1]._data,
+                                   self._matrix23[0, 2]._data,
+                                   self._matrix23[1, 1]._data,
+                                   self._matrix23[1, 2]._data,
+                                   self._matrix23[2, 2]._data,
+                                   self._matrix33[0, 0]._data,
+                                   self._matrix33[0, 1]._data,
+                                   self._matrix33[0, 2]._data,
+                                   self._matrix33[1, 1]._data,
+                                   self._matrix33[1, 2]._data,
+                                   self._matrix33[2, 2]._data)
                                    
             else:
                 raise ValueError(
@@ -223,22 +227,13 @@ class Accumulator:
 
             if do_vector:
                 if symmetry == 'pressure':
-                    v1_1 = StencilVector(self.space.spaces[0])
-                    v2_1 = StencilVector(self.space.spaces[1])
-                    v3_1 = StencilVector(self.space.spaces[2])
-                    v1_2 = StencilVector(self.space.spaces[0])
-                    v2_2 = StencilVector(self.space.spaces[1])
-                    v3_2 = StencilVector(self.space.spaces[2])
-                    v1_3 = StencilVector(self.space.spaces[0])
-                    v2_3 = StencilVector(self.space.spaces[1])
-                    v3_3 = StencilVector(self.space.spaces[2])
-                    list_blocks1 = [v1_1, v2_1, v3_1]
-                    list_blocks2 = [v1_2, v2_2, v3_2]
-                    list_blocks3 = [v1_3, v2_3, v3_3]
-
-                    self._vector1 = BlockVector(self.space, blocks=list_blocks1)
-                    self._vector2 = BlockVector(self.space, blocks=list_blocks2)
-                    self._vector3 = BlockVector(self.space, blocks=list_blocks3)
+                    blocks1 = [StencilVector(V) for V in self.space.spaces]
+                    blocks2 = [StencilVector(V) for V in self.space.spaces]
+                    blocks3 = [StencilVector(V) for V in self.space.spaces]
+                    
+                    self._vector1 = BlockVector(self.space, blocks=blocks1)
+                    self._vector2 = BlockVector(self.space, blocks=blocks2)
+                    self._vector3 = BlockVector(self.space, blocks=blocks3)
 
                     self._args_data += (self._vector1[0]._data,
                                         self._vector1[1]._data,
@@ -270,9 +265,19 @@ class Accumulator:
                           np.array(derham.Vh['3'].starts))
 
         # load the appropriate accumulation routine (pyccelized)
-        self._accumulator = getattr(accums, self._accumulator_name)
+        self._accumulator_kernel = getattr(accums, self._accumulator_name)
 
         self._send_types, self._recv_types = self._create_buffer_types()
+        
+        # build composite linear operators A0 = B * E * M * E^T * B^T, resp. A = ID * E * M * E^T * ID^T
+        if symmetry != 'pressure':
+            E = derham.E[_space_key]
+            B = derham.B[_space_key]
+
+            self._A  = CompositeLinearOperator(IdentityOperator(E.codomain), E, self._matrix,
+                                               E.transpose(), IdentityOperator(E.transpose().domain))
+
+            self._A0 = CompositeLinearOperator(B, E, self._matrix, E.transpose(), B.transpose())
 
     
     def accumulate(self, particles, *args_add):
@@ -296,32 +301,38 @@ class Accumulator:
             dat[:] = 0.
 
         # accumulate
-        self.accumulator(particles.markers, particles.n_mks, *self.args_fem, *self.domain.args_map, *self.args_data, *args_add)
+        self.accumulator_kernel(particles.markers, particles.n_mks, 
+                                *self.args_fem, *self.domain.args_map,
+                                *self.args_data, *args_add)
 
         # use mpi
         self._send_ghost_regions()
         
-        # copy data for symmetric and antisymmetric block matrices
-        if self.symmetry == 'symm':
-            self.matrix[1, 0]._data[:] = self.matrix[0, 1].T._data
-            self.matrix[2, 0]._data[:] = self.matrix[0, 2].T._data
-            self.matrix[2, 1]._data[:] = self.matrix[1, 2].T._data
-        
-        elif self.symmetry == 'asym':
-            self.matrix[1, 0]._data[:] = -self.matrix[0, 1].T._data
-            self.matrix[2, 0]._data[:] = -self.matrix[0, 2].T._data
-            self.matrix[2, 1]._data[:] = -self.matrix[1, 2].T._data
-            
         # update ghost regions
         self.update_ghost_regions()
-    
+        
+        # copy data for symmetric and antisymmetric block matrices
+        if self.symmetry == 'symm':
+            
+            self._matrix[1, 0]._data[:] = self._matrix[0, 1].T._data
+            self._matrix[2, 0]._data[:] = self._matrix[0, 2].T._data
+            self._matrix[2, 1]._data[:] = self._matrix[1, 2].T._data
+        
+        elif self.symmetry == 'asym':
+            
+            self._matrix[1, 0]._data[:] = -self._matrix[0, 1].T._data
+            self._matrix[2, 0]._data[:] = -self._matrix[0, 2].T._data
+            self._matrix[2, 1]._data[:] = -self._matrix[1, 2].T._data
+            
+        self.update_ghost_regions()
+        
     def update_ghost_regions(self):
         """ 
         Updates ghost regions of all attributes.
         """
         
         if self._symmetry != 'pressure':
-            self.matrix.update_ghost_regions()
+            self._matrix.update_ghost_regions()
             if self._do_vector:
                 self.vector.update_ghost_regions()
         
@@ -636,14 +647,49 @@ class Accumulator:
         return self._domain
     
     @property
+    def space_id(self):
+        '''Space identifier for the matrix/vector (H1, Hcurl, Hdiv or L2) to be accumulated into.'''
+        return self._space_id
+
+    @property
+    def accumulator_name(self):
+        '''String that identifies which function to load from the module struphy.pic.accum_kernels.'''
+        return self._accumulator_name
+    
+    @property
+    def symmetry(self):
+        '''In case of space_id=Hcurl/Hdiv, the symmetry property of the block matrix: diag, asym, symm or None (=full matrix, default)'''
+        return self._symmetry
+    
+    @property
     def space(self):
         '''Discrete space of the matrix/vector (Psydac object).'''
         return self._space
 
     @property
-    def matrix(self):
+    def accumulator_kernel(self):
+        '''The function loaded from the module struphy.pic.accum_kernels.'''
+        return self._accumulator_kernel
+    
+    @property
+    def args_data(self):
+        '''List of data arguments for the accumulator kernels.'''
+        return self._args_data
+    
+    @property
+    def args_fem(self):
+        '''FEM and MPI related arguments taken by all accumulation kernels.'''
+        return self._args_fem
+    
+    @property
+    def A(self):
         '''Accumulation matrix (Stencil- or BlockMatrix)'''
-        return self._matrix
+        return self._A
+    
+    @property
+    def A0(self):
+        '''Accumulation matrix (Stencil- or BlockMatrix)'''
+        return self._A0
 
     @property
     def matrix11(self):
@@ -694,33 +740,3 @@ class Accumulator:
     def vector3(self):
         '''Accumulation vector, optional (Stencil- or BlockMatrix)'''
         return self._vector3
-
-    @property
-    def space_id(self):
-        '''Space identifier for the matrix/vector (H1, Hcurl, Hdiv or L2) to be accumulated into.'''
-        return self._space_id
-
-    @property
-    def accumulator_name(self):
-        '''String that identifies which function to load from the module struphy.pic.accum_kernels.'''
-        return self._accumulator_name
-
-    @property
-    def accumulator(self):
-        '''The function loaded from the module struphy.pic.accum_kernels.'''
-        return self._accumulator
-
-    @property
-    def args_fem(self):
-        '''FEM and MPI related arguments taken by all accumulation kernels.'''
-        return self._args_fem
-
-    @property
-    def args_data(self):
-        '''List of data arguments for the accumulator kernels.'''
-        return self._args_data
-
-    @property
-    def symmetry(self):
-        '''In case of space_id=Hcurl/Hdiv, the symmetry property of the block matrix: diag, asym, symm or None (=full matrix, default)'''
-        return self._symmetry

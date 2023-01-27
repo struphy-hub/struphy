@@ -171,15 +171,19 @@ def test_eval_field(Nel, p, spl_kind):
     uv = Field('velocity', 'H1vec', derham)
 
     # initialize fields with sin/cos
-    comps = [[True], [True, True, True], [True, True, True], [True], [True, True, True]]
+    comps = {'pressure' :  True,
+             'e_field'  : [True, True, True],
+             'b_field'  : [True, True, True],
+             'density'  :  True,
+             'velocity' : [True, True, True]}
     
-    init_params = {'type': 'ModesCos', 'coords': 'logical', 'comps' : comps,
-                   'ModesCos': {'ls': [0], 'ms': [0], 'ns': [1], 'amp': [5.]}}
-    p0.initialize_coeffs(comps[0], init_params)
-    E1.initialize_coeffs(comps[1], init_params)
-    B2.initialize_coeffs(comps[2], init_params)
-    n3.initialize_coeffs(comps[3], init_params)
-    uv.initialize_coeffs(comps[4], init_params)
+    init_params = {'type': 'ModesCos', 'ModesCos': {'coords': 'logical', 'comps' : comps, 'ls': [0], 'ms': [0], 'ns': [1], 'amp': [5.]}}
+    
+    p0.initialize_coeffs(init_params)
+    E1.initialize_coeffs(init_params)
+    B2.initialize_coeffs(init_params)
+    n3.initialize_coeffs(init_params)
+    uv.initialize_coeffs(init_params)
 
     # evaluation points
     eta1 = np.linspace(0, 1, 11)

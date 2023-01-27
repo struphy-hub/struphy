@@ -128,13 +128,27 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, Np, verbose=False):
                        b2_psy[0]._data, 
                        b2_psy[1]._data,
                        b2_psy[2]._data,
-                       0)
+                       0, 1.)
     else:
         acc.accumulate(particles, 
                        b2_psy[0]._data, 
                        b2_psy[1]._data,
                        b2_psy[2]._data,
-                       int(space_key))
+                       int(space_key), 1.)
+        
+    # accumulate a 2nd time to check whether calling accumulate successively gives the same result
+    if space == 'H1vec':
+        acc.accumulate(particles, 
+                       b2_psy[0]._data, 
+                       b2_psy[1]._data,
+                       b2_psy[2]._data,
+                       0, 1.)
+    else:
+        acc.accumulate(particles, 
+                       b2_psy[0]._data, 
+                       b2_psy[1]._data,
+                       b2_psy[2]._data,
+                       int(space_key), 1.)
         
     end_time = time()
     tot_time = np.round(end_time - start_time, 3)
@@ -149,20 +163,20 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, Np, verbose=False):
     # compare blocks
     atol = 1e-10
     
-    compare_arrays(acc.matrix[0, 1], acc_leg.blocks_glo[0][1], mpi_rank, atol=atol, verbose=verbose)
+    compare_arrays(acc._matrix[0, 1], acc_leg.blocks_glo[0][1], mpi_rank, atol=atol, verbose=verbose)
     if verbose and mpi_rank == 0:
         print('mat12 passed test')
-    compare_arrays(acc.matrix[0, 2], acc_leg.blocks_glo[0][2], mpi_rank, atol=atol, verbose=verbose)
+    compare_arrays(acc._matrix[0, 2], acc_leg.blocks_glo[0][2], mpi_rank, atol=atol, verbose=verbose)
     if verbose and mpi_rank == 0:
         print('mat13 passed test')
-    compare_arrays(acc.matrix[1, 2], acc_leg.blocks_glo[1][2], mpi_rank, atol=atol, verbose=verbose)
+    compare_arrays(acc._matrix[1, 2], acc_leg.blocks_glo[1][2], mpi_rank, atol=atol, verbose=verbose)
     if verbose and mpi_rank == 0:
         print('mat23 passed test')
         
     # compare matrix-vector product
     x, x_psy = create_equal_random_arrays(derham.Vh_fem[space_key], seed=5624, flattened=True)
     
-    r_psy = acc.matrix.dot(x_psy)
+    r_psy = acc.A.dot(x_psy)
     
     r = acc_leg.to_sparse_step1().dot(x)
     
@@ -263,13 +277,27 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, Np, verbose=False):
                        b2_psy[0]._data, 
                        b2_psy[1]._data,
                        b2_psy[2]._data,
-                       0)
+                       0, 1., 1.)
     else:
         acc.accumulate(particles, 
                        b2_psy[0]._data, 
                        b2_psy[1]._data,
                        b2_psy[2]._data,
-                       int(space_key))
+                       int(space_key), 1., 1.)
+        
+    # accumulate a 2nd time to check whether calling accumulate successively gives the same result
+    if space == 'H1vec':
+        acc.accumulate(particles, 
+                       b2_psy[0]._data, 
+                       b2_psy[1]._data,
+                       b2_psy[2]._data,
+                       0, 1., 1.)
+    else:
+        acc.accumulate(particles, 
+                       b2_psy[0]._data, 
+                       b2_psy[1]._data,
+                       b2_psy[2]._data,
+                       int(space_key), 1., 1.)
         
     end_time = time()
     tot_time = np.round(end_time - start_time, 3)
@@ -284,22 +312,22 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, Np, verbose=False):
     # compare blocks
     atol = 1e-10
 
-    compare_arrays(acc.matrix[0, 0], acc_leg.blocks_glo[0][0], mpi_rank, atol=atol, verbose=verbose)
+    compare_arrays(acc._matrix[0, 0], acc_leg.blocks_glo[0][0], mpi_rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat11 passed test')
-    compare_arrays(acc.matrix[0, 1], acc_leg.blocks_glo[0][1], mpi_rank, atol=atol, verbose=verbose)
+    compare_arrays(acc._matrix[0, 1], acc_leg.blocks_glo[0][1], mpi_rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat12 passed test')
-    compare_arrays(acc.matrix[0, 2], acc_leg.blocks_glo[0][2], mpi_rank, atol=atol, verbose=verbose)
+    compare_arrays(acc._matrix[0, 2], acc_leg.blocks_glo[0][2], mpi_rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat13 passed test')
-    compare_arrays(acc.matrix[1, 1], acc_leg.blocks_glo[1][1], mpi_rank, atol=atol, verbose=verbose)
+    compare_arrays(acc._matrix[1, 1], acc_leg.blocks_glo[1][1], mpi_rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat22 passed test')
-    compare_arrays(acc.matrix[1, 2], acc_leg.blocks_glo[1][2], mpi_rank, atol=atol, verbose=verbose)
+    compare_arrays(acc._matrix[1, 2], acc_leg.blocks_glo[1][2], mpi_rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat23 passed test')
-    compare_arrays(acc.matrix[2, 2], acc_leg.blocks_glo[2][2], mpi_rank, atol=atol, verbose=verbose)
+    compare_arrays(acc._matrix[2, 2], acc_leg.blocks_glo[2][2], mpi_rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat33 passed test')
     
@@ -320,7 +348,7 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, Np, verbose=False):
     # compare matrix-vector product
     x, x_psy = create_equal_random_arrays(derham.Vh_fem[space_key], seed=5624, flattened=True)
     
-    r_psy = acc.matrix.dot(x_psy)
+    r_psy = acc.A.dot(x_psy)
     
     r = acc_leg.to_sparse_step3().dot(x)
     

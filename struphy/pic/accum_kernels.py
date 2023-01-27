@@ -426,7 +426,7 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
                     b2_1: 'float[:,:,:]',   # model specific argument
                     b2_2: 'float[:,:,:]',   # model specific argument
                     b2_3: 'float[:,:,:]',   # model specific argument
-                    basis_u : 'int'):       # model specific argument
+                    basis_u : 'int', scale_mat : 'float'):  # model specific argument
     r"""Accumulates into V1 with the filling functions
 
     .. math::
@@ -523,9 +523,9 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
         if basis_u == 0:
         
             # filling functions
-            filling_m12 = - weight * b_prod[0, 1] / n_markers_tot
-            filling_m13 = - weight * b_prod[0, 2] / n_markers_tot
-            filling_m23 = - weight * b_prod[1, 2] / n_markers_tot
+            filling_m12 = - weight * b_prod[0, 1] * scale_mat
+            filling_m13 = - weight * b_prod[0, 2] * scale_mat
+            filling_m23 = - weight * b_prod[1, 2] * scale_mat
 
             # call the appropriate matvec filler
             mvf.mat_fill_v0vec_asym(pn, span1, span2, span3,
@@ -543,9 +543,9 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
             linalg.matrix_matrix(g_inv, b_prod, tmp1)
             linalg.matrix_matrix(tmp1, g_inv, tmp2)
 
-            filling_m12 = - weight * tmp2[0, 1] / n_markers_tot
-            filling_m13 = - weight * tmp2[0, 2] / n_markers_tot
-            filling_m23 = - weight * tmp2[1, 2] / n_markers_tot
+            filling_m12 = - weight * tmp2[0, 1] * scale_mat
+            filling_m13 = - weight * tmp2[0, 2] * scale_mat
+            filling_m23 = - weight * tmp2[1, 2] * scale_mat
 
             # call the appropriate matvec filler
             mvf.mat_fill_v1_asym(pn, span1, span2, span3,
@@ -558,9 +558,9 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
         elif basis_u == 2:
             
             # filling functions
-            filling_m12 = - weight * b_prod[0, 1] / n_markers_tot / det_df**2
-            filling_m13 = - weight * b_prod[0, 2] / n_markers_tot / det_df**2
-            filling_m23 = - weight * b_prod[1, 2] / n_markers_tot / det_df**2
+            filling_m12 = - weight * b_prod[0, 1] * scale_mat / det_df**2
+            filling_m13 = - weight * b_prod[0, 2] * scale_mat / det_df**2
+            filling_m23 = - weight * b_prod[1, 2] * scale_mat / det_df**2
 
             # call the appropriate matvec filler
             mvf.mat_fill_v2_asym(pn, span1, span2, span3,
@@ -571,6 +571,10 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
                                  filling_m12, filling_m13, filling_m23)
             
     #$ omp end parallel
+    
+    mat12 /= n_markers_tot
+    mat13 /= n_markers_tot
+    mat23 /= n_markers_tot
 
 
 @stack_array('df', 'df_t', 'df_inv', 'g', 'g_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp1_t', 'tmp2', 'tmp3', 'tmp_v', 'df_inv_times_v', 'b', 'b_prod', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
@@ -593,7 +597,7 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
                     b2_1: 'float[:,:,:]',   # model specific argument
                     b2_2: 'float[:,:,:]',   # model specific argument
                     b2_3: 'float[:,:,:]',   # model specific argument
-                    basis_u : 'int'):       # model specific argument
+                    basis_u : 'int', scale_mat : 'float', scale_vec : 'float'): # model specific argument
     r"""Accumulates into V1 with the filling functions
 
     .. math::
@@ -713,8 +717,8 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
             linalg.matrix_matrix(tmp1, tmp_t, tmp_m)
             linalg.matrix_vector(tmp1, v, tmp_v)
 
-            filling_m[:, :] = weight * tmp_m / n_markers_tot
-            filling_v[:] = weight * tmp_v / n_markers_tot
+            filling_m[:, :] = weight * tmp_m * scale_mat
+            filling_v[:] = weight * tmp_v * scale_vec
 
             # call the appropriate matvec filler
             mvf.m_v_fill_v0vec_symm(pn, span1, span2, span3,
@@ -745,8 +749,8 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
             linalg.matrix_matrix(tmp2, tmp_t, tmp_m)
             linalg.matrix_vector(tmp2, v, tmp_v)
 
-            filling_m[:, :] = weight * tmp_m / n_markers_tot
-            filling_v[:] = weight * tmp_v / n_markers_tot
+            filling_m[:, :] = weight * tmp_m * scale_mat
+            filling_v[:] = weight * tmp_v * scale_vec
 
             # call the appropriate matvec filler
             mvf.m_v_fill_v1_symm(pn, span1, span2, span3,
@@ -777,8 +781,8 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
             linalg.matrix_matrix(tmp1, tmp_t, tmp_m)
             linalg.matrix_vector(tmp1, v, tmp_v)
 
-            filling_m[:, :] = weight * tmp_m / n_markers_tot / det_df**2
-            filling_v[:] = weight * tmp_v / n_markers_tot / det_df
+            filling_m[:, :] = weight * tmp_m * scale_mat / det_df**2
+            filling_v[:] = weight * tmp_v * scale_vec / det_df
 
             # call the appropriate matvec filler
             mvf.m_v_fill_v2_symm(pn, span1, span2, span3,
@@ -795,6 +799,17 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
                                  filling_v[0], filling_v[1], filling_v[2])
             
     #$ omp end parallel
+    
+    mat11 /= n_markers_tot
+    mat12 /= n_markers_tot
+    mat13 /= n_markers_tot
+    mat22 /= n_markers_tot
+    mat23 /= n_markers_tot
+    mat33 /= n_markers_tot
+    
+    vec1 /= n_markers_tot
+    vec2 /= n_markers_tot
+    vec3 /= n_markers_tot
 
 
 @stack_array('df', 'df_t', 'df_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')

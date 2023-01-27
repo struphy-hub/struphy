@@ -185,23 +185,36 @@ electric_equilibrium :
 
 em_fields : 
       init :
-            type   : ModesCos # initial conditions (possible types seen below)
-            coords : logical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
-            comps  : [[True, False, False], [False, False, False]] # One list for each field (E/B or phi/A); True if component should be intitialized with type.
+            type : ModesCos # initial conditions (possible types seen below)
             noise : 
-                  direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
+                  comps :
+                        e_field : [True, False, False]
+                        b_field : [False, False, False]
+                  direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain (x -> eta_1 etc.)
                   amp : 0.1   # noise amplitude
             ModesSin : 
+                  coords : 'logical'
+                  comps :
+                        e_field : [True, False, False]
+                        b_field : [False, False, False]
                   ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
                   ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
                   ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
                   amp : [0.001] # amplitudes of each mode
-            ModesCos : 
+            ModesCos :
+                  coords : 'logical'
+                  comps :
+                        e_field : [True, False, False]
+                        b_field : [False, False, False]
                   ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
                   ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
                   ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
                   amp : [0.001] # amplitudes of each mode
-            TorusModesSin : 
+            TorusModesSin :
+                  coords : 'logical'
+                  comps :
+                        e_field : [True, False, False]
+                        b_field : [False, False, False]
                   ms : [1] # poloidal mode numbers
                   ns : [0] # toroidal mode numbers
                   amp : [0.001] # amplitudes of each mode
@@ -228,24 +241,42 @@ fluid :
                   M    : 1. # mass ratio m/m_p, in units of proton mass
                   kBT  : 1. # thermal energy in units keV 
                   beta : .01 # plasma beta = p*2*mu_0/|B|^2
+            mhd_u_space : H1vec # Hdiv | H1vec
             init :
-                  type   : ModesCos # initial conditions (possible types seen below)
-                  coords : logical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
-                  comps  : [[True], [False, False, False], [False]] # One list for each field (n, U, p, etc.); True if component should be intitialized with type.
+                  type : ModesCos # initial conditions (possible types seen below)
                   noise : 
+                        comps :
+                              n3 : False
+                              uv : [True, True, True]
+                              p3 : False
                         direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
                         amp : 0.1   # noise amplitude
                   ModesSin : 
+                        coords : 'logical'
+                        comps :
+                              n3 : False
+                              uv : [True, True, True]
+                              p3 : False
                         ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
                         ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
                         ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
                         amp : [0.001] # amplitudes of each mode
-                  ModesCos : 
+                  ModesCos :
+                        coords : 'logical'
+                        comps :
+                              n3 : False
+                              uv : [True, True, True]
+                              p3 : False
                         ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
                         ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
                         ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
                         amp : [0.001] # amplitudes of each mode
-                  TorusModesSin : 
+                  TorusModesSin :
+                        coords : 'logical'
+                        comps :
+                              n3 : False
+                              uv : [True, True, True]
+                              p3 : False
                         ms : [1] # poloidal mode numbers
                         ns : [0] # toroidal mode numbers
                         amp : [0.001] # amplitudes of each mode
@@ -263,8 +294,7 @@ fluid :
                         eig_freq_upper : 0.15 # upper search limit of squared eigenfrequency to identify eigenfunction
                         eig_freq_lower : 0.14 # lower search limit of squared eigenfrequency to identify eigenfunction
                         kind : r # real (r) or imaginary (i) part of eigenfunction
-                        scaling : 1. # scaling factor to scale the amplitude of the eigenfunction
-            mhd_u_space : H1vec # Hdiv | H1vec
+                        scaling : 1. # scaling factor to scale the amplitude of the eigenfunction     
 
 kinetic :
       hot_ions :
@@ -282,7 +312,7 @@ kinetic :
                   loading :
                         type          : pseudo_random # particle loading mechanism 
                         seed          : 1234 # seed for random number generator
-                        dir_particles : path_to_particles # directory of particles if loaded externally
+                        dir_particles : 'path_to_particles' # directory of particles if loaded externally
                         moments       : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
             init :
                   type : Maxwellian6DPerturbed
