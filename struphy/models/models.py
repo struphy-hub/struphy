@@ -38,8 +38,11 @@ class LinearMHD(StruphyModel):
 
     Parameters
     ----------
-        params : dict
-            Simulation parameters, see from :ref:`params_yml`.
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
+        
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
     '''
 
     def __init__(self, params, comm):
@@ -146,7 +149,218 @@ class LinearMHD(StruphyModel):
 #############################
 # Fluid-kinetic hybrid models
 #############################
-class PC_LinearMHD_Vlasov(StruphyModel):
+class HybridMHDVlasovCC(StruphyModel):
+    r"""
+    Hybrid linear MHD + energetic ions (6D Vlasov) with **current coupling scheme**.
+    
+    Normalization:
+    
+    .. math::
+    
+        &\mathbf{x}=\mathbf{x}^\prime\hat{L}\,,\quad\mathbf{B}=\mathbf{B}^\prime\hat{B}\,,\quad\rho_\textnormal{b}=n_\textnormal{b}^\prime A_\textnormal{b}m_\textnormal{p}\hat{n}_\textnormal{b}\,,\quad p=p^\prime\frac{\hat{B}^2}{\mu_0}\,,\quad\mathbf{U}=\mathbf{U}^\prime\hat{v}_\textnormal{A}\,,
+        
+        &t=t^\prime\hat{\tau}_{\textnormal{A}}\,,\quad\hat{\tau}_{\textnormal{A}}=\frac{\hat{L}}{\hat{v}_{\textnormal{A}}}\,,\quad\hat{v}_{\textnormal{A}}=\frac{\hat{B}}{\sqrt{\mu_0A_\textnormal{b}m_\textnormal{p}\hat{n}_\textnormal{b}}}\,,
+        
+        &f_\textnormal{h}=f_\textnormal{h}^\prime\frac{\hat{n}_\textnormal{h}}{\hat{v}_\textnormal{A}^3}\,,\quad \rho_\textnormal{h}=Z_\textnormal{h}en_\textnormal{h}^\prime\hat{n}_\textnormal{h}\,,\quad\mathbf{J}_\textnormal{h}=Z_\textnormal{h}en_\textnormal{h}^\prime \mathbf{U}_\textnormal{h}^\prime\hat{n}_\textnormal{h}\hat{v}_\textnormal{A}\,,
+    
+    where :math:`e` is the elementary charge, :math:`m_\textnormal{p}` the proton mass and :math:`\mu_0` the vaccuum permeability.
+    
+    Implemented equations (dimensionless, primes are dropped):
+    
+    .. math::
+
+        \begin{align}
+        \textnormal{linear MHD}\,\, &\left\{\,\,
+        \begin{aligned}
+        &\frac{\partial \tilde{n}_\textnormal{b}}{\partial t}+\nabla\cdot(n_\textnormal{b0} \tilde{\mathbf{U}})=0\,, 
+        \\
+        n_\textnormal{b0} &\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p 
+        =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf{J}_0\times \tilde{\mathbf{B}}+\nu_\textnormal{h}\frac{Z_\textnormal{h}}{A_\textnormal{b}}\left(n_\textnormal{h}\tilde{\mathbf{U}}-n_\textnormal{h}\mathbf{U}_\textnormal{h}\right)\times(\mathbf{B}_0+\tilde{\mathbf{B}})\,,
+        \\
+        &\frac{\partial \tilde p}{\partial t} + (\gamma-1)\nabla\cdot(p_0 \tilde{\mathbf{U}}) 
+        + p_0\nabla\cdot \tilde{\mathbf{U}}=0\,, 
+        \\
+        &\frac{\partial \tilde{\mathbf{B}}}{\partial t} = \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)\,,\qquad \nabla\cdot\tilde{\mathbf{B}}=0\,,
+        \end{aligned}
+        \right.
+        \\[2mm]
+        \textnormal{EPs}\,\, &\left\{\,\,
+        \begin{aligned}
+        &\quad\,\,\frac{\partial f_\textnormal{h}}{\partial t}+\mathbf{v}\cdot\nabla f_\textnormal{h}+\frac{Z_\textnormal{h}}{A_\textnormal{h}}\kappa\left[(\mathbf{B}_0+\tilde{\mathbf{B}})\times\tilde{\mathbf{U}}+\mathbf{v}\times(\mathbf{B}_0+\tilde{\mathbf{B}})\right]\cdot\nabla_{\mathbf{v}}f_\textnormal{h}=0\,,
+        \\
+        &\quad\,\,n_\textnormal{h}=\int_{\mathbb{R}^3}f_\textnormal{h}\,\textnormal{d}^3v\,,\qquad n_\textnormal{h}\mathbf{U}_\textnormal{h}=\int_{\mathbb{R}^3}f_\textnormal{h}\mathbf{v}\,\textnormal{d}^3v\,,
+        \end{aligned}
+        \right.
+        \end{align}
+        
+    where :math:`\mathbf{J}_0 = \nabla\times\mathbf{B}_0` is the equilibrium current and subscripts "b" and "h" refer to bulk (MHD) and hot (energetic) species, respectively. Moreover, the dimensionless quantities :math:`\nu_\textnormal{h}=\hat{n}_\textnormal{h}/\hat{n}_\textnormal{b}` and :math:`\kappa=\hat{\Omega}_\textnormal{cp}\hat{\tau}_\textnormal{A}=e\hat{B}\,\hat{\tau}_\textnormal{A}/m_\textnormal{p}=e\hat{L}\sqrt{\mu_0A_\textnormal{b}\hat{n}_\textnormal{b}/m_\textnormal{p}}`.
+    
+    Parameters
+    ----------
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
+        
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
+    """
+
+    def __init__(self, params, comm):
+
+        from struphy.psydac_api.mass import WeightedMassOperators
+        from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
+        from struphy.propagators import propagators_fields, propagators_markers, propagators_coupling
+
+        self._u_space = params['fluid']['mhd']['mhd_u_space']
+
+        if self._u_space == 'Hdiv':
+            u_name = 'u2'
+        elif self._u_space == 'H1vec':
+            u_name = 'uv'
+        else:
+            raise ValueError(f'MHD velocity must be in Hdiv or in H1vec, but has been specified in {self._u_space}.')
+
+        super().__init__(params, comm, 
+                         b2='Hdiv', 
+                         mhd={'n3': 'L2', u_name: self._u_space, 'p3': 'L2'},
+                         energetic_ions='Particles6D')
+
+        # pointers to em-field variables
+        self._b = self.em_fields['b2']['obj'].vector
+
+        # pointers to fluid variables
+        self._n = self.fluid['mhd']['n3']['obj'].vector
+        self._u = self.fluid['mhd'][u_name]['obj'].vector
+        self._p = self.fluid['mhd']['p3']['obj'].vector
+        
+        # pointer to energetic ions
+        self._e_ions = self.kinetic['energetic_ions']['obj']
+        e_ions_params = self.kinetic['energetic_ions']['params']
+
+        # extract necessary parameters
+        solver_params_1 = params['solvers']['solver_1']
+        solver_params_2 = params['solvers']['solver_2']
+        solver_params_3 = params['solvers']['solver_3']
+        solver_params_4 = params['solvers']['solver_4']
+        
+        # model units
+        #B   = params['model_units']['B']
+        #L   = params['model_units']['L']
+        #nb  = params['model_units']['nb']
+        #nuh = params['model_units']['nuh']*0.01
+        
+        nb = self.fluid['mhd']['plasma_params']['n [10^20/m^3]']
+        nh = self.kinetic['energetic_ions']['plasma_params']['n [10^20/m^3]']
+        
+        #nuh = nh/nb
+        nuh = 0.05
+        
+        Ab = self.fluid['mhd']['plasma_params']['mass [m_p]']
+        Zh = self.kinetic['energetic_ions']['plasma_params']['charge [e]']
+        Ah = self.kinetic['energetic_ions']['plasma_params']['mass [m_p]']
+        
+        kappa = self.fluid['mhd']['plasma_params']['kappa']
+        #kappa = 1.602176634e-19*L*np.sqrt(1.25663706212e-6*Ab*nb*1e20/1.67262192369e-27)
+        kappa = 1.
+        
+        coupling_params = {'nuh' : nuh, 'Ab' : Ab, 'Ah' : Ah, 'Zh' : Zh, 'kappa' : kappa}
+        
+        if self.derham.comm.Get_rank() == 0:
+            print('Bulk / EP coupling parameters : ', coupling_params)
+
+        # project background magnetic field (2-form) and background pressure (3-form)
+        self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1, 
+                                         self.mhd_equil.b2_2, 
+                                         self.mhd_equil.b2_3])
+        
+        self._p_eq = self.derham.P['3'](self.mhd_equil.p3)
+
+        self._ones = self._p_eq.space.zeros()
+        
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.
+        else:
+            self._ones[:] = 1.
+
+        # mass and basis projection operators
+        self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.mhd_equil)
+        self._base_ops = BasisProjectionOperators(self.derham, self.domain, self.mhd_equil)
+
+        # Initialize propagators/integrators used in splitting substeps
+        self._propagators = []
+        
+        # updates u
+        self._propagators += [propagators_fields.CurrentCoupling6DDensity(self._e_ions, self.derham, self.domain, self._mass_ops, solver_params_1, coupling_params, self._u, self._u_space, self._b_eq, self._b)]
+        
+        # updates u and b
+        self._propagators += [propagators_fields.ShearAlfvén(self._u, self._b, self._u_space, self.derham, self._mass_ops, self._base_ops, solver_params_2)]
+        
+        # updates u and v
+        self._propagators += [propagators_coupling.CurrentCoupling6DCurrent(self._e_ions, self.derham, self.domain, self._mass_ops, solver_params_3, coupling_params, self._u, self._u_space, self._b_eq, self._b)]
+        
+        # updates eta
+        self._propagators += [propagators_markers.StepPushEta(self._e_ions, self.derham, self.domain, e_ions_params['push_algos']['eta'], e_ions_params['markers']['bc_type'])] 
+        
+        # updates v
+        self._propagators += [propagators_markers.StepPushVxB(self._e_ions, self.derham, self.domain, e_ions_params['push_algos']['vxb'], self._b_eq, self._b)]
+        
+        # updates u and p
+        self._propagators += [propagators_fields.Magnetosonic(self._n, self._u, self._p, self._b, self._u_space, self.derham, self._mass_ops, self._base_ops, solver_params_4)]
+
+        # Scalar variables to be saved during simulation:
+
+        # 1. time
+        self._scalar_quantities['time'] = np.empty(1, dtype=float)
+
+        # 2. energies
+        self._scalar_quantities['en_U'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_p'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_f'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_p_eq'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B_eq'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B_tot'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+
+    @property
+    def propagators(self):
+        return self._propagators
+
+    def update_scalar_quantities(self, time):
+        self._scalar_quantities['time'][0] = time
+
+        if self._u_space == 'Hdiv':
+            self._scalar_quantities['en_U'][0] = self._u.dot(
+                self._mass_ops.M2n.dot(self._u))/2
+        else:
+            self._scalar_quantities['en_U'][0] = self._u.dot(
+                self._mass_ops.Mvn.dot(self._u))/2
+
+        self._scalar_quantities['en_p'][0] = self._p.dot(self._ones)/(5/3 - 1)
+        self._scalar_quantities['en_B'][0] = self._b.dot(
+            self._mass_ops.M2.dot(self._b))/2
+
+        self._scalar_quantities['en_p_eq'][0] = self._p_eq.dot(
+            self._ones)/(5/3 - 1)
+        self._scalar_quantities['en_B_eq'][0] = self._b_eq.dot(
+            self._mass_ops.M2.dot(self._b_eq, apply_bc=False))/2
+
+        self._scalar_quantities['en_B_tot'][0] = (
+            self._b_eq + self._b).dot(self._mass_ops.M2.dot(self._b_eq + self._b, apply_bc=False))/2
+        
+        self._scalar_quantities['en_f'][0] = 0.05*self._e_ions.markers_wo_holes[:, 6].dot(
+            self._e_ions.markers_wo_holes[:, 3]**2 + 
+            self._e_ions.markers_wo_holes[:, 4]**2 + 
+            self._e_ions.markers_wo_holes[:, 5]**2)/(2*self._e_ions.n_mks)
+        
+        self.derham.comm.Allreduce(MPI.IN_PLACE, self._scalar_quantities['en_f'], op=MPI.SUM)
+
+        self._scalar_quantities['en_tot'][0]  = self._scalar_quantities['en_U'][0]
+        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_p'][0]
+        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_B'][0]
+        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_f'][0]
+
+
+class HybridMHDVlasovPC(StruphyModel):
     r'''Hybrid (Linear ideal MHD + Full-orbit Vlasov) equations with **pressure coupling scheme**. 
 
     Normalization: 
@@ -157,7 +371,7 @@ class PC_LinearMHD_Vlasov(StruphyModel):
 
     Implemented equations:
 
-    PC_LinearMHD_Vlasov
+    HybridMHDVlasovPC
 
     .. math::
 
@@ -186,7 +400,7 @@ class PC_LinearMHD_Vlasov(StruphyModel):
         &\color{red} \tilde{\mathbb{P}}_{h,\perp} = \int \mathbf{v}_\perp\mathbf{v}^\top_\perp f_h d\mathbf{v} \color{black}\,.
         \end{align}
 
-    PC_LinearMHD_Vlasov_full (including the parallel pressure tensor)
+    HybridMHDVlasovPC_full (including the parallel pressure tensor)
 
     .. math::
 
@@ -217,8 +431,11 @@ class PC_LinearMHD_Vlasov(StruphyModel):
 
     Parameters
     ----------
-        params : dict
-            Simulation parameters, see from :ref:`params_yml`.
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
+        
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
     '''
 
     def __init__(self, params, comm):
@@ -317,160 +534,6 @@ class PC_LinearMHD_Vlasov(StruphyModel):
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_p'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_B'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_f'][0]
-
-
-        
-class HybridMHDVlasovCC(StruphyModel):
-    """
-    TODO
-    """
-
-    def __init__(self, params, comm):
-
-        from struphy.psydac_api.mass import WeightedMassOperators
-        from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
-        from struphy.propagators import propagators_fields, propagators_markers, propagators_coupling
-
-        self._u_space = params['fluid']['mhd']['mhd_u_space']
-
-        if self._u_space == 'Hdiv':
-            u_name = 'u2'
-        elif self._u_space == 'H1vec':
-            u_name = 'uv'
-        else:
-            raise ValueError(f'MHD velocity must be in Hdiv or in H1vec, but has been specified in {self._u_space}.')
-
-        super().__init__(params, comm, 
-                         b2='Hdiv', 
-                         mhd={'n3': 'L2', u_name: self._u_space, 'p3': 'L2'},
-                         energetic_ions='Particles6D')
-
-        # pointers to em-field variables
-        self._b = self.em_fields['b2']['obj'].vector
-
-        # pointers to fluid variables
-        self._n = self.fluid['mhd']['n3']['obj'].vector
-        self._u = self.fluid['mhd'][u_name]['obj'].vector
-        self._p = self.fluid['mhd']['p3']['obj'].vector
-        
-        # pointer to energetic ions
-        self._e_ions = self.kinetic['energetic_ions']['obj']
-        e_ions_params = self.kinetic['energetic_ions']['params']
-
-        # extract necessary parameters
-        solver_params_1 = params['solvers']['solver_1']
-        solver_params_2 = params['solvers']['solver_2']
-        solver_params_3 = params['solvers']['solver_3']
-        solver_params_4 = params['solvers']['solver_4']
-        
-        nb = self.fluid['mhd']['plasma_params']['n [10^20/m^3]']
-        nh = self.kinetic['energetic_ions']['plasma_params']['n [10^20/m^3]']
-        
-        #nuh = nh/nb
-        nuh = 0.05
-        
-        Ab = self.fluid['mhd']['plasma_params']['mass [m_p]']
-        Zh = self.kinetic['energetic_ions']['plasma_params']['charge [e]']
-        Ah = self.kinetic['energetic_ions']['plasma_params']['mass [m_p]']
-        
-        #kappa = self.fluid['mhd']['plasma_params']['kappa']
-        kappa = 1.
-        
-        coupling_params = {'nuh' : nuh, 'Ab' : Ab, 'Ah' : Ah, 'Zh' : Zh, 'kappa' : kappa}
-        print('Bulk / EP coupling parameters : ', coupling_params)
-
-        # project background magnetic field (2-form) and background pressure (3-form)
-        self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1, 
-                                         self.mhd_equil.b2_2, 
-                                         self.mhd_equil.b2_3])
-        
-        self._p_eq = self.derham.P['3'](self.mhd_equil.p3)
-
-        self._ones = self._p_eq.space.zeros()
-        
-        if isinstance(self._ones, PolarVector):
-            self._ones.tp[:] = 1.
-        else:
-            self._ones[:] = 1.
-
-        # mass and basis projection operators
-        self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.mhd_equil)
-        self._base_ops = BasisProjectionOperators(self.derham, self.domain, self.mhd_equil)
-
-        # Initialize propagators/integrators used in splitting substeps
-        self._propagators = []
-        
-        # updates u
-        self._propagators += [propagators_fields.CurrentCoupling6DDensity(self._e_ions, self.derham, self.domain, self._mass_ops, solver_params_1, coupling_params, self._u, self._u_space, self._b_eq, self._b)]
-        
-        # updates u and b
-        self._propagators += [propagators_fields.ShearAlfvén(self._u, self._b, self._u_space, self.derham, self._mass_ops, self._base_ops, solver_params_2)]
-        
-        # updates u and v
-        self._propagators += [propagators_coupling.CurrentCoupling6DCurrent(self._e_ions, self.derham, self.domain, self._mass_ops, solver_params_3, coupling_params, self._u, self._u_space, self._b_eq, self._b)]
-        
-        # updates eta
-        self._propagators += [propagators_markers.StepPushEta(self._e_ions, self.derham, self.domain, e_ions_params['push_algos']['eta'], e_ions_params['markers']['bc_type'])] 
-        
-        # updates v
-        self._propagators += [propagators_markers.StepPushVxB(self._e_ions, self.derham, self.domain, e_ions_params['push_algos']['vxb'], self._b_eq, self._b)]
-        
-        # updates u and p
-        self._propagators += [propagators_fields.Magnetosonic(self._n, self._u, self._p, self._b, self._u_space, self.derham, self._mass_ops, self._base_ops, solver_params_4)]
-
-        # Scalar variables to be saved during simulation:
-
-        # 1. time
-        self._scalar_quantities['time'] = np.empty(1, dtype=float)
-
-        # 2. energies
-        self._scalar_quantities['en_U'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_p'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_f'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_p_eq'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B_eq'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B_tot'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
-
-    @property
-    def propagators(self):
-        return self._propagators
-
-    def update_scalar_quantities(self, time):
-        self._scalar_quantities['time'][0] = time
-
-        if self._u_space == 'Hdiv':
-            self._scalar_quantities['en_U'][0] = self._u.dot(
-                self._mass_ops.M2n.dot(self._u))/2
-        else:
-            self._scalar_quantities['en_U'][0] = self._u.dot(
-                self._mass_ops.Mvn.dot(self._u))/2
-
-        self._scalar_quantities['en_p'][0] = self._p.dot(self._ones)/(5/3 - 1)
-        self._scalar_quantities['en_B'][0] = self._b.dot(
-            self._mass_ops.M2.dot(self._b))/2
-
-        self._scalar_quantities['en_p_eq'][0] = self._p_eq.dot(
-            self._ones)/(5/3 - 1)
-        self._scalar_quantities['en_B_eq'][0] = self._b_eq.dot(
-            self._mass_ops.M2.dot(self._b_eq, apply_bc=False))/2
-
-        self._scalar_quantities['en_B_tot'][0] = (
-            self._b_eq + self._b).dot(self._mass_ops.M2.dot(self._b_eq + self._b, apply_bc=False))/2
-        
-        self._scalar_quantities['en_f'][0] = 0.05*self._e_ions.markers_wo_holes[:, 6].dot(
-            self._e_ions.markers_wo_holes[:, 3]**2 + 
-            self._e_ions.markers_wo_holes[:, 4]**2 + 
-            self._e_ions.markers_wo_holes[:, 5]**2)/(2*self._e_ions.n_mks)
-        
-        self.derham.comm.Allreduce(MPI.IN_PLACE, self._scalar_quantities['en_f'], op=MPI.SUM)
-
-        self._scalar_quantities['en_tot'][0]  = self._scalar_quantities['en_U'][0]
-        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_p'][0]
-        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_B'][0]
-        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_f'][0]
-
         
         
 #############################
@@ -514,8 +577,11 @@ class LinearVlasovMaxwell(StruphyModel):
 
     Parameters
     ----------
-        params : dict
-            Simulation parameters, see from :ref:`params_yml`.
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
+        
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
     '''
 
     def __init__(self, params, comm):
@@ -635,8 +701,11 @@ class Maxwell(StruphyModel):
 
     Parameters
     ----------
-        params : dict
-            Simulation parameters, see from :ref:`params_yml`.
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
+        
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
     '''
 
     def __init__(self, params, comm):
@@ -691,16 +760,19 @@ class Vlasov(StruphyModel):
         
         &\hat v = \frac{\hat \omega}{\hat k} = \frac{\hat \Omega_{c}}{\hat k} \,.
 
-    where :math:`\Omega_{c}` is cyclotron frequency. Implemented equations:
+    where :math:`\Omega_{c}=q\hat B/m` is cyclotron frequency. Implemented equations:
 
     .. math::
 
-        \frac{\partial f}{\partial t} + \mathbf{v} \cdot \frac{\partial f}{\partial \mathbf{x}} + \left[\frac{q_h}{m_h}\mathbf{v}\times\mathbf{B}_0 \right] \cdot \frac{\partial f}{\partial \mathbf{v}} = 0\,.
+        \frac{\partial f}{\partial t} + \mathbf{v} \cdot \frac{\partial f}{\partial \mathbf{x}} + \left(\mathbf{v}\times\mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0\,.
 
     Parameters
     ----------
-        params : dict
-            Simulation parameters, see from :ref:`params_yml`.
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
+        
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
     '''
 
     def __init__(self, params, comm):
@@ -766,8 +838,11 @@ class DriftKinetic(StruphyModel):
     
     Parameters
     ----------
-        params : dict
-            Simulation parameters, see from :ref:`params_yml`.
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
+        
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
     '''
 
     def __init__(self, params, comm):
@@ -862,8 +937,11 @@ class Hybrid_fA(StruphyModel):
 
     Parameters
     ----------
-        params : dict
-            Simulation parameters, see from :ref:`params_yml`.
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
+        
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
     '''
 
     def __init__(self, params, comm):

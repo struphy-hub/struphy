@@ -206,6 +206,8 @@ if __name__ == '__main__':
     elif equil_params['type'] == 'numerical':
         mhd_equil_class = getattr(mhd_num, equil_params['name'])
         mhd_equil = mhd_equil_class(equil_params[equil_params['name']])
+        
+    params_mhd = equil_params[equil_params['name']]
     
     # set up spline spaces
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space

@@ -129,12 +129,13 @@ function example_help {
     echo "Run complete struphy example with post processing and plotting."
     echo
     echo "Cases:"
-    echo "  maxwell            1d Maxwell equations in vacuum, dispersion relation."
-    echo "  maxwell_mpi        maxwell with 3 mpi processes."
-    echo "  linearmhd          1d linear MHD equations, dispersion relation, 4 mpi processes."
-    echo "  orbits_tokamak     full-orbit particle trajectories in a tokamak-like static magnetic field, 2 mpi processes."
-    echo "  gc_orbits_tokamak  guiding center particle trajectories in a tokamak-like static magnetic field, 2 mpi processes."
-    echo "  TAE_tokamak        3d linear MHD equations, initialized with m=2,3, n=-2 TAE in toroidal geometry, 2 mpi processes (warning: takes between 30-40 minutes on a laptop)."
+    echo "  maxwell                1d Maxwell equations in vacuum, dispersion relation."
+    echo "  maxwell_mpi            maxwell with 3 mpi processes."
+    echo "  linearmhd              1d linear MHD equations, dispersion relation, 4 mpi processes."
+    echo "  orbits_tokamak         full-orbit particle trajectories in a tokamak-like static magnetic field, 2 mpi processes."
+    echo "  gc_orbits_tokamak      guiding center particle trajectories in a tokamak-like static magnetic field, 2 mpi processes."
+    echo "  TAE_tokamak            3d linear MHD equations, initialized with m=2,3, n=-2 TAE in toroidal geometry, 2 mpi processes (warning: takes between 30-40 minutes on a laptop)."
+    echo "  hybridmhdvlasovcc_slab 1d hybrid MHD Vlasov current coupling model."
 
 }
 
@@ -542,6 +543,8 @@ if [ $EXAMPLE ]; then
     example_gc_orbits_tokamak_mpi_2
   elif [ "$EXAMPLE" == TAE_tokamak ]; then
     example_TAE_tokamak_mpi_2
+  elif [ "$EXAMPLE" == hybridmhdvlasovcc_slab ]; then
+    example_hybridmhdvlasovcc_mpi_2
   else
     echo "Example $EXAMPLE not implemented."
   fi

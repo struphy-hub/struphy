@@ -13,8 +13,8 @@ struphy run LinearMHD -i tests/params_linearmhd.yml -o sim_test_5 --mpi 2
 struphy profile sim_test_4 sim_test_5
 struphy pproc sim_test_4 sim_test_5
 
-# Test PC_LinearMHD_Vlasov
-struphy run PC_LinearMHD_Vlasov -i tests/params_pc_linmhd_6d.yml -o sim_test_6
+# Test HybridMHDVlasovPC
+struphy run HybridMHDVlasovPC -i tests/params_pc_linmhd_6d.yml -o sim_test_6
 
 # Test LinearVlasovMaxwell
 struphy run LinearVlasovMaxwell -i tests/params_linvlasovmaxwell.yml -o sim_test_7
