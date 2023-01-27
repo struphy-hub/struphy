@@ -22,10 +22,12 @@ geometry :
                 
 em_fields : 
       init :
-            type   : TorusModesSin # initial conditions (possible types seen below)
-            coords : logical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
-            comps  : [[True, True, False], [False, False, False]] # default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
+            type : TorusModesSin # initial conditions (possible types seen below)
             TorusModesSin : 
+                  coords : 'logical' 
+                  comps :
+                        e_field : [True, True, False]
+                        b_field : [False, False, False]
                   ms : [3] # poloidal mode numbers
                   ns : [1] # toroidal mode numbers
                   amp : [0.001] # amplitudes

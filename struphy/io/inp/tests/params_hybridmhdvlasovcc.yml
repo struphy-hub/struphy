@@ -1,15 +1,15 @@
 grid :
-      Nel      : [4, 4, 32] # number of grid cells, >p
-      p        : [2, 2, 2]  # spline degree, 
+      Nel      : [3, 3, 8] # number of grid cells, >p
+      p        : [2, 2, 3]  # spline degree
       spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
       bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
       nq_el    : [6, 6, 6] # quadrature points per grid cell
-      nq_pr    : [4, 4, 4] # quadrature points per histopolation cell (for commuting projectors)
+      nq_pr    : [6, 6, 6] # quadrature points per histopolation cell (for commuting projectors)
       polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
-      
+          
 time : 
-      dt         : 0.01 # time step
-      Tend       : 0.05 # simulation time interval is [0, Tend]
+      dt         : 0.1  # time step
+      Tend       : 1. # simulation time interval is [0, Tend]
       max_time   : 300. # maximum runtime of program in minutes
       split_algo : LieTrotter # LieTrotter | Strang
       
@@ -19,10 +19,10 @@ geometry :
             l1 : 0. # start of interval in eta1
             r1 : 1. # end of interval in eta1, r1>l1
             l2 : 0. # start of interval in eta2
-            r2 : 1. # end of interval in eta2, r2>l2
+            r2 : 6.283185307 # end of interval in eta2, r2>l2
             l3 : 0. # start of interval in eta3
-            r3 : 7.85398163397 # end of interval in eta3, r3>l3
-
+            r3 : 6.283185307 # end of interval in eta3, r3>l3 
+            
 mhd_equilibrium : 
       type : analytical # analytical or numerical
       name : HomogenSlab # (possible choices seen below)
@@ -30,93 +30,96 @@ mhd_equilibrium :
             B0x  : 0. # magnetic field in x
             B0y  : 0. # magnetic field in y
             B0z  : 1. # magnetic field in z
-            beta : 100. # plasma beta = 2*p*mu_0/B^2
+            beta : 0. # plasma beta = 2*p*mu_0/B^2
             n0   : 1. # number density
 
-em_fields :
+em_fields : 
       init :
-            type : null # initial conditions (possible types seen below)
-      
-fluid :
+            type : null # type of initialization
+
+fluid : 
       mhd :
-            attributes :    # one entry for each field; put null EM fields (no plasma species)
+            attributes :
                   Z    : 1. # charge number Z = q/e, in units of elementary charge, can have a sign
                   M    : 1. # mass ratio m/m_p, in units of proton mass
-                  kBT  : 1. # thermal energy in units keV 
+                  kBT  : 10. # thermal energy in units keV 
                   beta : .01 # plasma beta = p*2*mu_0/|B|^2
-            mhd_u_space : Hdiv # H1vec, Hcurl or Hdiv
+            mhd_u_space : H1vec # Hdiv | H1vec
             init :
-                  type : ModesCos # initial conditions (possible types seen below)
+                  type : ModesCos # type of initialization
                   ModesCos :
-                        coords : 'logical'
-                        comps :
+                        coords : 'physical'
+                        comps : 
                               n3 : False
-                              u2 : [True, False, False]
+                              uv : [False, True, False]
                               p3 : False
                         ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
                         ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
-                        ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
+                        ns : [-1] # Integer mode numbers in z or eta_3 (depending on coords)
                         amp : [0.001] # amplitudes of each mode
-
+                        Lx : 1.
+                        Ly : 6.283185307
+                        Lz : 6.283185307
+                  InitialMHDSlab : 
+                        a  : 1.
+                        R0 : 1.
+                        m  : 0
+                        n  : -1
+                        U  : 0.001
+                        A  : 0.    
+            
 kinetic :
       energetic_ions :
             attributes :
                   Z    : 1. # charge number Z = q/e, in units of elementary charge, can have a sign
                   M    : 1. # mass ratio m/m_p, in units of proton mass
                   kBT  : 100. # thermal energy in units keV 
-                  beta : 0.01 # plasma beta = p*2*mu_0/|B|^2
+                  beta : 0.005 # plasma beta = p*2*mu_0/|B|^2
             markers :
                   type    : full_f # full_f or delta_f
-                  ppc     : 2  # particles per 3d grid cell
+                  Np      : 6400 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
                   eps     : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
-                  bc_type : [periodic, periodic, periodic] # remove, reflect or periodic
+                  bc_type : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
                   loading :
                         type    : pseudo_random # particle loading mechanism 
                         seed    : 1234 # seed for random number generator
                         moments : [0., 0., 2.5, 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
-            init :
+            init : 
                   type : Maxwellian6DUniform
                   Maxwellian6DUniform :
-                        n  : 1.
-                        ux : 0.
-                        uy : 0.
                         uz : 2.5
-                        vthx : 1.
-                        vthy : 1.
-                        vthz : 1.
             save_data :
-                  n_markers : 3 # number of markers to be save during simulation
-                  f :
-                        slices : [vz]
-                        n_bins : [[32]]
-                        ranges : [[[-3., 3.]]]
+                  n_markers : 10 # number of markers to be save during simulation
             push_algos :
                   vxb : analytic # possible choices: analytic, implicit
                   eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4
-            pc : full # for pressure coupling: full or perp
-            
-
+      
 solvers :
       solver_1 : 
-            type : pcg
-            pc : MassMatrixPreconditioner # null or fft
-            tol : 1.e-12
+            type : pbicgstab
+            pc : MassMatrixPreconditioner # null or name of preconditioner class
+            tol : 1.e-14
             maxiter : 3000
             info : False
             verbose : False
       solver_2 :
             type : pcg
-            pc : MassMatrixPreconditioner # null or fft
-            tol : 1.e-12
+            pc : MassMatrixPreconditioner # null or name of preconditioner class
+            tol : 1.e-14
             maxiter : 3000
             info : False
             verbose : False
-      solver_3 :
+      solver_3 : 
             type : pcg
-            pc : MassMatrixPreconditioner # null or fft
-            tol : 1.e-12
+            pc : MassMatrixPreconditioner # null or name of preconditioner class
+            tol : 1.e-14
             maxiter : 3000
             info : False
             verbose : False
-
-                
+      solver_4 :
+            type : pbicgstab
+            pc : MassMatrixPreconditioner # null or name of preconditioner class
+            tol : 1.e-14
+            maxiter : 3000
+            info : False
+            verbose : False

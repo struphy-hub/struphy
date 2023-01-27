@@ -319,6 +319,160 @@ class PC_LinearMHD_Vlasov(StruphyModel):
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_f'][0]
 
 
+        
+class HybridMHDVlasovCC(StruphyModel):
+    """
+    TODO
+    """
+
+    def __init__(self, params, comm):
+
+        from struphy.psydac_api.mass import WeightedMassOperators
+        from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
+        from struphy.propagators import propagators_fields, propagators_markers, propagators_coupling
+
+        self._u_space = params['fluid']['mhd']['mhd_u_space']
+
+        if self._u_space == 'Hdiv':
+            u_name = 'u2'
+        elif self._u_space == 'H1vec':
+            u_name = 'uv'
+        else:
+            raise ValueError(f'MHD velocity must be in Hdiv or in H1vec, but has been specified in {self._u_space}.')
+
+        super().__init__(params, comm, 
+                         b2='Hdiv', 
+                         mhd={'n3': 'L2', u_name: self._u_space, 'p3': 'L2'},
+                         energetic_ions='Particles6D')
+
+        # pointers to em-field variables
+        self._b = self.em_fields['b2']['obj'].vector
+
+        # pointers to fluid variables
+        self._n = self.fluid['mhd']['n3']['obj'].vector
+        self._u = self.fluid['mhd'][u_name]['obj'].vector
+        self._p = self.fluid['mhd']['p3']['obj'].vector
+        
+        # pointer to energetic ions
+        self._e_ions = self.kinetic['energetic_ions']['obj']
+        e_ions_params = self.kinetic['energetic_ions']['params']
+
+        # extract necessary parameters
+        solver_params_1 = params['solvers']['solver_1']
+        solver_params_2 = params['solvers']['solver_2']
+        solver_params_3 = params['solvers']['solver_3']
+        solver_params_4 = params['solvers']['solver_4']
+        
+        nb = self.fluid['mhd']['plasma_params']['n [10^20/m^3]']
+        nh = self.kinetic['energetic_ions']['plasma_params']['n [10^20/m^3]']
+        
+        #nuh = nh/nb
+        nuh = 0.05
+        
+        Ab = self.fluid['mhd']['plasma_params']['mass [m_p]']
+        Zh = self.kinetic['energetic_ions']['plasma_params']['charge [e]']
+        Ah = self.kinetic['energetic_ions']['plasma_params']['mass [m_p]']
+        
+        #kappa = self.fluid['mhd']['plasma_params']['kappa']
+        kappa = 1.
+        
+        coupling_params = {'nuh' : nuh, 'Ab' : Ab, 'Ah' : Ah, 'Zh' : Zh, 'kappa' : kappa}
+        print('Bulk / EP coupling parameters : ', coupling_params)
+
+        # project background magnetic field (2-form) and background pressure (3-form)
+        self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1, 
+                                         self.mhd_equil.b2_2, 
+                                         self.mhd_equil.b2_3])
+        
+        self._p_eq = self.derham.P['3'](self.mhd_equil.p3)
+
+        self._ones = self._p_eq.space.zeros()
+        
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.
+        else:
+            self._ones[:] = 1.
+
+        # mass and basis projection operators
+        self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.mhd_equil)
+        self._base_ops = BasisProjectionOperators(self.derham, self.domain, self.mhd_equil)
+
+        # Initialize propagators/integrators used in splitting substeps
+        self._propagators = []
+        
+        # updates u
+        self._propagators += [propagators_fields.CurrentCoupling6DDensity(self._e_ions, self.derham, self.domain, self._mass_ops, solver_params_1, coupling_params, self._u, self._u_space, self._b_eq, self._b)]
+        
+        # updates u and b
+        self._propagators += [propagators_fields.ShearAlfvén(self._u, self._b, self._u_space, self.derham, self._mass_ops, self._base_ops, solver_params_2)]
+        
+        # updates u and v
+        self._propagators += [propagators_coupling.CurrentCoupling6DCurrent(self._e_ions, self.derham, self.domain, self._mass_ops, solver_params_3, coupling_params, self._u, self._u_space, self._b_eq, self._b)]
+        
+        # updates eta
+        self._propagators += [propagators_markers.StepPushEta(self._e_ions, self.derham, self.domain, e_ions_params['push_algos']['eta'], e_ions_params['markers']['bc_type'])] 
+        
+        # updates v
+        self._propagators += [propagators_markers.StepPushVxB(self._e_ions, self.derham, self.domain, e_ions_params['push_algos']['vxb'], self._b_eq, self._b)]
+        
+        # updates u and p
+        self._propagators += [propagators_fields.Magnetosonic(self._n, self._u, self._p, self._b, self._u_space, self.derham, self._mass_ops, self._base_ops, solver_params_4)]
+
+        # Scalar variables to be saved during simulation:
+
+        # 1. time
+        self._scalar_quantities['time'] = np.empty(1, dtype=float)
+
+        # 2. energies
+        self._scalar_quantities['en_U'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_p'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_f'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_p_eq'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B_eq'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B_tot'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+
+    @property
+    def propagators(self):
+        return self._propagators
+
+    def update_scalar_quantities(self, time):
+        self._scalar_quantities['time'][0] = time
+
+        if self._u_space == 'Hdiv':
+            self._scalar_quantities['en_U'][0] = self._u.dot(
+                self._mass_ops.M2n.dot(self._u))/2
+        else:
+            self._scalar_quantities['en_U'][0] = self._u.dot(
+                self._mass_ops.Mvn.dot(self._u))/2
+
+        self._scalar_quantities['en_p'][0] = self._p.dot(self._ones)/(5/3 - 1)
+        self._scalar_quantities['en_B'][0] = self._b.dot(
+            self._mass_ops.M2.dot(self._b))/2
+
+        self._scalar_quantities['en_p_eq'][0] = self._p_eq.dot(
+            self._ones)/(5/3 - 1)
+        self._scalar_quantities['en_B_eq'][0] = self._b_eq.dot(
+            self._mass_ops.M2.dot(self._b_eq, apply_bc=False))/2
+
+        self._scalar_quantities['en_B_tot'][0] = (
+            self._b_eq + self._b).dot(self._mass_ops.M2.dot(self._b_eq + self._b, apply_bc=False))/2
+        
+        self._scalar_quantities['en_f'][0] = 0.05*self._e_ions.markers_wo_holes[:, 6].dot(
+            self._e_ions.markers_wo_holes[:, 3]**2 + 
+            self._e_ions.markers_wo_holes[:, 4]**2 + 
+            self._e_ions.markers_wo_holes[:, 5]**2)/(2*self._e_ions.n_mks)
+        
+        self.derham.comm.Allreduce(MPI.IN_PLACE, self._scalar_quantities['en_f'], op=MPI.SUM)
+
+        self._scalar_quantities['en_tot'][0]  = self._scalar_quantities['en_U'][0]
+        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_p'][0]
+        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_B'][0]
+        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_f'][0]
+
+        
+        
 #############################
 # Kinetic models
 #############################

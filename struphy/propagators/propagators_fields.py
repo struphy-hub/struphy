@@ -10,6 +10,7 @@ from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.pic.particles_to_grid import Accumulator
 from struphy.pic.pusher import Pusher
 from struphy.polar.basic import PolarVector
+from struphy.linear_algebra.iterative_solvers import pbicgstab
 
 from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
 from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
@@ -20,7 +21,7 @@ from struphy.psydac_api.linear_operators import LinOpWithTransp
 
 from struphy.psydac_api.Hybrid_linear_operator import HybridOperators
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
-
+from psydac.linalg.iterative_solvers import pcg
 
 class Maxwell( Propagator ):
     r'''Crank-Nicolson step
@@ -532,3 +533,116 @@ class Hybrid_potential( Propagator ):
 
         # write new coeffs into Propagator.variables
         #max_du, max_db = self.in_place_update(_u, _b)
+
+        
+        
+class CurrentCoupling6DDensity( Propagator ):
+    """
+    TODO
+    """
+    
+    def __init__(self, particles, derham, domain, mass_ops, solver_params, coupling_params, u, u_space, *b_vectors):
+        
+        assert isinstance(u, (BlockVector, PolarVector))
+        
+        for b in b_vectors:
+            assert isinstance(b, (BlockVector, PolarVector))
+        
+        assert u_space in {'Hcurl', 'Hdiv', 'H1vec'}
+        
+        if u_space == 'H1vec':
+            self._space_key_int = 0
+        else:
+            self._space_key_int = int(derham.spaces_dict[u_space])
+            
+        # needed variables
+        self._particles = particles
+        self._u = u
+        self._b_vectors = b_vectors
+        
+        # load accumulator
+        self._accumulator = Accumulator(derham, domain, u_space, 'cc_lin_mhd_6d_1', do_vector=False, symmetry='asym')
+        
+        nuh = coupling_params['nuh']
+        kap = coupling_params['kappa']
+        Ab  = coupling_params['Ab']
+        Ah  = coupling_params['Ah']
+        Zh  = coupling_params['Zh']
+        
+        self._coupling_mat = nuh*kap*Zh/Ab
+        
+        # transposed extraction operators for u and b
+        self._EbT = derham.E['2'].transpose()
+
+        # mass matrix in system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
+        self._M = getattr(mass_ops, 'M' + derham.spaces_dict[u_space]  + 'n')
+        
+        # preconditioner
+        if solver_params['pc'] is None:
+            self._pc = None
+        else:
+            pc_class = getattr(preconditioner, solver_params['pc'])
+            self._pc = pc_class(self._M)
+        
+        self._solver_params = solver_params
+        self._info = solver_params['info']
+        self._rank = derham.comm.Get_rank()
+        
+    @property
+    def variables(self):
+        return [self._u] 
+
+    def __call__(self, dt):
+        """
+        TODO
+        """
+        
+        # old coefficients
+        u_old = self.variables[0]
+        
+        # sum up total magnetic field
+        b_full = self._b_vectors[0].space.zeros()
+
+        for b in self._b_vectors:
+            b_full += b
+
+        # extract coefficients to tensor product space
+        b_full = self._EbT.dot(b_full)
+
+        # update ghost regions because of non-local access in pusher kernel
+        b_full.update_ghost_regions()
+
+        # perform accumulation
+        self._accumulator.accumulate(self._particles,
+                                     b_full[0]._data, b_full[1]._data, b_full[2]._data, 
+                                     self._space_key_int, self._coupling_mat)
+        
+        # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
+        lhs = Sum(self._M, Multiply(-dt/2, self._accumulator.A0))
+        rhs = Sum(self._M, Multiply( dt/2, self._accumulator.A0)).dot(u_old)
+        
+        solver_type = self._solver_params['type']
+        
+        # solve linear system for updated u coefficients
+        if solver_type == 'pcg':
+
+            u_new, info = pcg(lhs, rhs, self._pc, x0=u_old, tol=self._solver_params['tol'],
+                          maxiter=self._solver_params['maxiter'], verbose=self._solver_params['verbose'])
+
+        elif solver_type == 'pbicgstab':
+
+            u_new, info = pbicgstab(lhs, rhs, self._pc, x0=u_old, tol=self._solver_params['tol'],
+                          maxiter=self._solver_params['maxiter'], verbose=self._solver_params['verbose'])
+            
+        else:
+            raise NotImplementedError(f'Solver type {solver_type} is not implemented.')
+        
+        # write new coeffs into Propagator.variables
+        max_du = self.in_place_update(u_new)
+
+        if self._info and self._rank ==0:
+            print('Status     for CurrentCoupling6DDensity:', info['success'])
+            print('Iterations for CurrentCoupling6DDensity:', info['niter'])
+            print('Maxdiff up for CurrentCoupling6DDensity:', max_du)
+            print()
+            

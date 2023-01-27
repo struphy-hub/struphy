@@ -64,6 +64,12 @@ def plasma_params(Z, M, kBT, beta, size_params):
 
     # alpha = omega_p/omega_c
     pparams['alpha'] = pparams['omega_p/(2*pi) [MHz]'] / pparams['omega_c/(2*pi) [MHz]']
+    
+    # Alfvén velocity vA = B/sqrt(M*n*mu0)
+    pparams['v_A [10^6 m/s]'] = size_params['B_abs [T]']/np.sqrt(mu0*M*pparams['n [10^20/m^3]']*1e20*m_p)*1e-6
+    
+    # kappa = e/(m_p*vA)
+    pparams['kappa'] = e/(m_p*pparams['v_A [10^6 m/s]']*1e6)
 
     return pparams
 

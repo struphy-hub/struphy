@@ -25,10 +25,11 @@ geometry :
 
 em_fields :
       init :
-            type   : noise # initial conditions (possible types seen below)
-            coords : physical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
-            comps  : [[True, True, False], [False, False, False]] # default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
+            type : noise
             noise :
+                  comps :
+                        e_field : [True, True, False]
+                        b_field : [False, False, False]
                   direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
                   amp : 0.1 # noise amplitude
 
