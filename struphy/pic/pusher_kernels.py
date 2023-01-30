@@ -2062,7 +2062,7 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                             cont + dt*markers[ip, 12:15] * last)
 
 
-@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'df', 'df_inv', 'x', 'v')
+@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'df', 'df_inv', 'df_inv_v')
 def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
                              pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                              starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -2097,7 +2097,7 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
             total number of particles
     '''
 
-    # total number of basis functions : B-splines (pn) and D-splines (pd)
+    # total number of basis functions : B-splines (pn) and D-splines (pn-1)
     pn1 = pn[0]
     pn2 = pn[1]
     pn3 = pn[2]
@@ -2108,20 +2108,18 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
     bn3 = empty(pn[2] + 1, dtype=float)
 
     # non-vanishing D-splines at particle position
-    bd1 = empty(pn[0] + 1, dtype=float)
-    bd2 = empty(pn[1] + 1, dtype=float)
-    bd3 = empty(pn[2] + 1, dtype=float)
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
 
     df = empty((3, 3), dtype=float)
     df_inv = empty((3, 3), dtype=float)
-    eta = empty(3, dtype=float)
-    v = empty(3, dtype=float)
-    prod = empty(3, dtype=float)
+    df_inv_v = empty(3, dtype=float)
 
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, eta, v, prod, df, df_inv, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, temp1, temp2, temp3, update)
+    #$ omp parallel private (ip, eta1, eta2, eta3, df_inv_v, df, df_inv, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, e_vec_1, e_vec_2, e_vec_3, update)
     #$ omp for
     for ip in range(n_markers):
         if markers[ip, 0] == -1:
@@ -2131,14 +2129,8 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
-        eta = [eta1, eta2, eta3]
 
-        # velocity
-        v[0] = markers[ip, 3]
-        v[1] = markers[ip, 4]
-        v[2] = markers[ip, 5]
-
-        # spans (i.e. index for non-vanisle of manishing basis functions)
+        # spans (i.e. index for non-vanishing basis functions)
         span1 = bsp.find_span(tn1, pn1, eta1)
         span2 = bsp.find_span(tn2, pn2, eta2)
         span3 = bsp.find_span(tn3, pn3, eta3)
@@ -2148,26 +2140,34 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
         bsp.b_d_splines_slim(tn2, pn2, eta2, span2, bn2, bd2)
         bsp.b_d_splines_slim(tn3, pn3, eta3, span3, bn3, bd3)
 
-        f0 = background_eval.f0(eta, v, f0_spec, moms_spec, f0_params)
+        f0 = background_eval.f0(markers[ip, 0:3], markers[ip, 3:6],
+                                f0_spec, moms_spec, f0_params)
 
-        map_eval.df(eta1, eta2, eta3, kind_map, params_map, t1_map, t2_map,
-                    t3_map, p_map, ind1_map, ind2_map, ind3_map, cx, cy, cz, df)
+        # Compute Jacobian matrix
+        map_eval.df(eta1, eta2, eta3,
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map,
+                    p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        # invert Jacobian matrix
         linalg.matrix_inv(df, df_inv)
+        linalg.matrix_vector(df_inv, markers[ip, 3:6], df_inv_v)
 
         # E-field (1-form)
-        temp1 = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3,
-                                               span1, span2, span3, e1_1, starts1[0])
-        temp2 = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3,
-                                               span1, span2, span3, e1_2, starts1[1])
-        temp3 = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3,
-                                               span1, span2, span3, e1_3, starts1[2])
+        e_vec_1 = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3,
+                                                 span1, span2, span3, e1_1, starts1[0])
+        e_vec_2 = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3,
+                                                 span1, span2, span3, e1_2, starts1[1])
+        e_vec_3 = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3,
+                                                 span1, span2, span3, e1_3, starts1[2])
 
-        linalg.matrix_vector(df_inv, v, prod)
-
-        # w_{n+1} = w_n - dt/2 * 1/(N s_0) * sqrt(f) * ( DF^{-1} v ) * ( e_{n+1} + e_n )
-        update = (prod[0] * temp1 + prod[1] * temp2 + prod[2] * temp3) * \
-            sqrt(f0) * dt / (2 * n_markers_tot * markers[ip, 7])
-        markers[ip, 6] -= update
+        # w_{n+1} = w_n + dt / (2 * N * s_0 * v_th^2) * sqrt(f_0) * ( DF^{-1} v ) \cdot ( e_{n+1} + e_n )
+        update = (df_inv_v[0] * e_vec_1 + df_inv_v[1] * e_vec_2 + df_inv_v[2] * e_vec_3) * \
+            sqrt(f0) * dt / (2 * n_markers_tot * markers[ip, 7] * f0_params[4]**2)
+        markers[ip, 6] += update
 
     #$ omp end parallel
 

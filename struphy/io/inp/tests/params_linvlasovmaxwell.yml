@@ -187,10 +187,10 @@ em_fields :
       init :
             type : noise # initial conditions (possible types seen below)
             noise :
-                  comps : 
+                  comps :
                         e_field : [True, False, False]
                         b_field : [False, False, False]
-                  direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
+                  direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain (x -> eta_1 etc.)
                   amp : 0.1   # noise amplitude
 
 kinetic :

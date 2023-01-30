@@ -1,3 +1,4 @@
+import numpy as np
 from numpy import array
 
 from psydac.linalg.stencil import StencilVector
@@ -14,8 +15,6 @@ from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Mul
 from struphy.psydac_api import preconditioner
 from struphy.psydac_api.linear_operators import LinOpWithTransp
 
-import numpy as np
-
 
 class StepEfieldWeights(Propagator):
     r'''Solve the following Crank-Nicolson step
@@ -26,22 +25,28 @@ class StepEfieldWeights(Propagator):
             \mathbb{M}_1 \left( \mathbf{e}^{n+1} - \mathbf{e}^n \right) \\
             \mathbf{W}^{n+1} - \mathbf{W}^n
         \end{bmatrix}
-        = 
+        =
+        \frac{\Delta t}{2}
         \begin{bmatrix}
-            0 & \frac{\Delta t}{2} \mathbb{K}^T \\
-            \frac{\Delta t}{2} \mathbb{K} & 0
+            0 & - \mathbb{E} \\
+            \mathbb{W} & 0
         \end{bmatrix}
         \begin{bmatrix}
-            \mathbf{e}^{n+1} + \mathbf{e}^n
+            \mathbf{e}^{n+1} + \mathbf{e}^n \\
             \mathbf{W}^{n+1} + \mathbf{W}^n
         \end{bmatrix}
 
     based on the :ref:`Schur complement <schur_solver>` where
 
     .. math::
-        (\mathbb{K})_p & = \sqrt{f_0} \left( DF^{-1} \bv_p \right) \cdot \left( \mathbb{\Lambda}^1 \right)^T \,.
+        \begin{align}
+        (\mathbb{W})_p & = \frac{1}{N \, s_{0, p}} \frac{1}{v_{\text{th}}^2} \sqrt{f_0}
+            \left( DF^{-1} \mathbf{v}_p \right) \cdot \left( \mathbb{\Lambda}^1 \right)^T \,,
+            \\
+        (\mathbb{E})_p & = \alpha^2 \sqrt{f_0} \, \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right) \,.
+        \end{align}
 
-    make up the accumulation matrix :math:`\mathbb{K}^T \mathbb{K}` .
+    make up the accumulation matrix :math:`\mathbb{E} \mathbb{W}` .
 
     Parameters
     ---------- 
@@ -73,15 +78,24 @@ class StepEfieldWeights(Propagator):
         self.moms_spec = params_bs['moms_spec']
         self.f0_params = params_bs['moms_params']
         self.alpha = alpha
-        # raise NotImplementedError('Parameters are not correct yet!')
 
         # Initialize Accumulator object
         self._accum = Accumulator(derham, domain, 'Hcurl', 'linear_vlasov_maxwell',
                                   do_vector=True, symmetry='symm')
 
+        # self._args_add = [self.f0_spec, array(self.moms_spec),
+        #                   array(self.f0_params), alpha]
+
+        # Create pointers to the variables
         self._e = e
         self._particles = particles
+        self._domain = domain
+        self._derham = derham
         self._info = params_solver['info']
+
+        # Create buffers to store temporarily _e and its sum with old e
+        self._e_temp = e.copy()
+        self._e_sum = e.copy()
 
         # store old weights to compute difference
         self._old_weights = np.empty(particles.markers.shape[0], dtype=float)
@@ -89,7 +103,9 @@ class StepEfieldWeights(Propagator):
         self._domain = domain
         self._derham = derham
 
-        self._accum.accumulate(self._particles, self.f0_spec, array(self.moms_spec), array(self.f0_params), self.alpha)
+        self._accum.accumulate(self._particles,
+                               self.f0_spec, array(self.moms_spec),
+                               array(self.f0_params), self.alpha)
 
         # ================================
         # ========= Schur Solver =========
@@ -104,13 +120,14 @@ class StepEfieldWeights(Propagator):
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = mass_ops.M1
-        _BC = self._accum._matrix / 4
+        _BC = - self._accum._matrix / 4.
 
         # Instantiate Schur solver
         self._schur_solver = SchurSolver(_A, _BC, pc=self._pc, solver_type=params_solver['type'],
                                          tol=params_solver['tol'], maxiter=params_solver['maxiter'],
                                          verbose=params_solver['verbose'])
 
+        # Instantiate particle pusher
         self._pusher = Pusher(derham, domain, 'push_weights_with_efield')
 
     @property
@@ -118,31 +135,38 @@ class StepEfieldWeights(Propagator):
         return [self._e, self._particles]
 
     def __call__(self, dt):
+        """
+        TODO
+        """
 
-        # current variables
-        en = self.variables[0]
-
-        self._accum.accumulate(self._particles, self.f0_spec, array(self.moms_spec), array(self.f0_params), self.alpha)
+        self._accum.accumulate(self._particles,
+                               self.f0_spec, array(self.moms_spec),
+                               array(self.f0_params), self.alpha)
 
         # Update Schur solver
         self._schur_solver.BC = - self._accum._matrix / 4
 
-        # allocate temporary FemFields _e during solution
-        _e, info = self._schur_solver(en, - self._accum.vector / 2, dt)
+        # allocate temporary BlockVector during solution
+        self._e_temp, info = self._schur_solver(
+            self._e, self._accum.vector / 2., dt)
 
         # Store old weights
         self._old_weights[~self._particles.holes] = self._particles.markers[~self._particles.holes, 6]
 
+        self._e_sum = self._e_temp + self._e
+
         # Update weights
         self._pusher(self._particles, dt,
-                     (_e + en).blocks[0]._data, (_e +
-                                                 en).blocks[1]._data, (_e + en).blocks[2]._data,
-                     self.f0_spec, array(
-                         self.moms_spec), array(self.f0_params),
+                     self._e_temp.blocks[0]._data + self._e.blocks[0]._data,
+                     self._e_temp.blocks[1]._data + self._e.blocks[1]._data,
+                     self._e_temp.blocks[2]._data + self._e.blocks[2]._data,
+                     self.f0_spec,
+                     array(self.moms_spec),
+                     array(self.f0_params),
                      int(self._particles.n_mks))
 
-        # write new coeffs into Propagator.variables
-        max_de, = self.in_place_update(_e)
+        # write new coeffs into self.variables
+        max_de, = self.in_place_update(self._e_temp)
 
         # Print out max differences for weights and efield
         if self._info:
@@ -155,9 +179,7 @@ class StepEfieldWeights(Propagator):
             print()
 
 
-
-
-class StepPressurecoupling( Propagator ):
+class StepPressurecoupling(Propagator):
     r'''Crank-Nicolson step for pressure coupling term in MHD equations and velocity update with the force term :math:`\nabla \mathbf U \cdot \mathbf v`.
 
     .. math::
@@ -230,16 +252,17 @@ class StepPressurecoupling( Propagator ):
             self._pc = pc_class(getattr(mass_ops, id_Mn))
 
         # Call the accumulation and Pusher class
-        if coupling == 'perp' : 
+        if coupling == 'perp':
             self._ACC = Accumulator(self._derham, self._domain, 'Hcurl',
                                     'pc_lin_mhd_6d', do_vector=True, symmetry='pressure')
             self._pusher = Pusher(self._derham, self._domain, 'push_pc_GXu')
 
-        elif coupling == 'full' :
-            self._ACC = Accumulator(self._derham, self._domain, 'Hcurl', 
+        elif coupling == 'full':
+            self._ACC = Accumulator(self._derham, self._domain, 'Hcurl',
                                     'pc_lin_mhd_6d_full', do_vector=True, symmetry='pressure')
-            self._pusher = Pusher(self._derham, self._domain, 'push_pc_GXu_full')
-                                  
+            self._pusher = Pusher(
+                self._derham, self._domain, 'push_pc_GXu_full')
+
         else:
             raise NotImplementedError(
                 'Given coupling scheme is not implemented!')
@@ -393,81 +416,82 @@ class StepPressurecoupling( Propagator ):
 
             return self._vector
 
-        
-class CurrentCoupling6DCurrent( Propagator ):
+
+class CurrentCoupling6DCurrent(Propagator):
     """
     TODO
     """
-    
+
     def __init__(self, particles, derham, domain, mass_ops, solver_params, coupling_params, u, u_space, *b_vectors):
-        
+
         assert isinstance(u, (BlockVector, PolarVector))
-        
+
         for b in b_vectors:
             assert isinstance(b, (BlockVector, PolarVector))
-        
+
         assert u_space in {'Hcurl', 'Hdiv', 'H1vec'}
-        
+
         if u_space == 'H1vec':
             self._space_key_int = 0
         else:
             self._space_key_int = int(derham.spaces_dict[u_space])
-            
+
         # needed variables
         self._particles = particles
         self._u = u
         self._b_vectors = b_vectors
-        
+
         # load accumulator
-        self._accumulator = Accumulator(derham, domain, u_space, 'cc_lin_mhd_6d_2', do_vector=True, symmetry='symm')
-        
+        self._accumulator = Accumulator(
+            derham, domain, u_space, 'cc_lin_mhd_6d_2', do_vector=True, symmetry='symm')
+
         nuh = coupling_params['nuh']
         kap = coupling_params['kappa']
-        Ab  = coupling_params['Ab']
-        Ah  = coupling_params['Ah']
-        Zh  = coupling_params['Zh']
-        
+        Ab = coupling_params['Ab']
+        Ah = coupling_params['Ah']
+        Zh = coupling_params['Zh']
+
         self._coupling_mat = nuh*kap**2*Zh**2/(Ab*Ah)
         self._coupling_vec = nuh*kap*Zh/Ab
-        
+
         # load pusher
         self._pusher = Pusher(derham, domain, 'push_bxu_' + u_space)
-        
+
         # transposed extraction operators for u and b
         self._EbT = derham.E['2'].transpose()
         self._EuT = derham.E[derham.spaces_dict[u_space]].transpose()
 
         # define system [[A B], [C I]] [u_new, v_new] = [[A -B], [-C I]] [u_old, v_old] (without time step size dt)
-        _A = getattr(mass_ops, 'M' + derham.spaces_dict[u_space]  + 'n')
-        
+        _A = getattr(mass_ops, 'M' + derham.spaces_dict[u_space] + 'n')
+
         # preconditioner
         if solver_params['pc'] is None:
             pc = None
         else:
             pc_class = getattr(preconditioner, solver_params['pc'])
             pc = pc_class(_A)
-            
+
         _BC = Multiply(-1/4, self._accumulator.A0)
-        
-        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_type=solver_params['type'], 
+
+        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_type=solver_params['type'],
                                          tol=solver_params['tol'], maxiter=solver_params['maxiter'],
                                          verbose=solver_params['verbose'])
-        
+
         self._info = solver_params['info']
         self._rank = derham.comm.Get_rank()
-        
+
     @property
     def variables(self):
-        return [self._u] 
+        return [self._u]
 
     def __call__(self, dt):
         """
         TODO
         """
-        
+
         # old coefficients
         u_old = self.variables[0]
-        
+
         # sum up total magnetic field
         b_full = self._b_vectors[0].space.zeros()
 
@@ -479,29 +503,29 @@ class CurrentCoupling6DCurrent( Propagator ):
 
         # update ghost regions because of non-local access in pusher kernel
         b_full.update_ghost_regions()
-        
+
         # perform accumulation
         self._accumulator.accumulate(self._particles,
-                                     b_full[0]._data, b_full[1]._data, b_full[2]._data, 
+                                     b_full[0]._data, b_full[1]._data, b_full[2]._data,
                                      self._space_key_int, self._coupling_mat, self._coupling_vec)
-        
+
         # solve linear system for updated u coefficients
-        u_new, info = self._schur_solver(u_old, -self._accumulator.vector/2, dt)
-        
+        u_new, info = self._schur_solver(
+            u_old, -self._accumulator.vector/2, dt)
+
         # call pusher kernel with average field (u_new + u_old)/2 and update ghost regions because of non-local access in kernel
         u_avg = self._EuT.dot((u_old + u_new)/2)
         u_avg.update_ghost_regions()
-        
+
         self._pusher(self._particles, dt,
                      b_full[0]._data, b_full[1]._data, b_full[2]._data,
-                     u_avg [0]._data, u_avg [1]._data, u_avg [2]._data)
-        
+                     u_avg[0]._data, u_avg[1]._data, u_avg[2]._data)
+
         # write new coeffs into Propagator.variables
         max_du = self.in_place_update(u_new)
 
-        if self._info and self._rank ==0:
+        if self._info and self._rank == 0:
             print('Status     for CurrentCoupling6DCurrent:', info['success'])
             print('Iterations for CurrentCoupling6DCurrent:', info['niter'])
             print('Maxdiff up for CurrentCoupling6DCurrent:', max_du)
             print()
-        
