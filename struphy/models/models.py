@@ -641,6 +641,7 @@ class LinearVlasovMaxwell(StruphyModel):
                                                 self._e, self._electrons, self._mass_ops,
                                                 self.electron_params['background'], params['solvers']['solver_ew'],
                                                 self.alpha)]
+
         self._propagators += [propagators_fields.Maxwell(self._e, self._b,
                                           self.derham, self._mass_ops, params['solvers']['solver_eb'])]
 
@@ -666,15 +667,16 @@ class LinearVlasovMaxwell(StruphyModel):
         self._scalar_quantities['en_B'][0] = self._b.dot(
             self._mass_ops.M2.dot(self._b)) / 2.
 
-        # alpha^2 * v_th^2 * sum_p N * s_0 * w_p^2
+        # alpha^2 * v_th^2 * N/2 * sum_p s_0 * w_p^2
         self._scalar_quantities['en_weights'][0] = \
-            self.alpha**2 * \
+            self.alpha**2 * self._electrons.n_mks / 2. * \
             self.electron_params['background']['moms_params'][4]**2 * \
-            np.sum(self._electrons.markers[~self._electrons._holes, 6]**2 \
-                   * self._electrons.markers[~self._electrons._holes, 7]) \
-            * self._electrons.n_mks / 2
+            np.dot(self._electrons.markers[~self._electrons._holes, 6]**2,
+                   self._electrons.markers[~self._electrons._holes, 7])
 
-        self._scalar_quantities['energy'][0] = self._scalar_quantities['en_weights'][0] + \
+        # en_tot = en_w + en_e + en_b
+        self._scalar_quantities['energy'][0] = \
+            self._scalar_quantities['en_weights'][0] + \
             self._scalar_quantities['en_E'][0] + \
             self._scalar_quantities['en_B'][0]
 

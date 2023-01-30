@@ -120,57 +120,62 @@ class Field:
         """
 
         if isinstance(self._vector, StencilVector):
-            
+
             assert isinstance(value, (StencilVector, np.ndarray))
-            
+
             s1, s2, s3 = self.starts
             e1, e2, e3 = self.ends
-            
-            self._vector[s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = value[s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
-        
+
+            self._vector[s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = \
+                value[s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
+
         elif isinstance(self._vector, BlockVector):
-            
+
             assert isinstance(value, (BlockVector, list, tuple))
-            
+
             for n in range(3):
 
                 s1, s2, s3 = self.starts[n]
                 e1, e2, e3 = self.ends[n]
-                
-                self._vector[n][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = value[n][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
-                
+
+                self._vector[n][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = \
+                    value[n][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
+
         elif isinstance(self._vector, PolarVector):
-            
+
             assert isinstance(value, (PolarVector, list, tuple))
-            
+
             if isinstance(value, PolarVector):
                 self._vector.set_vector(value)
             else:
-                
+
                 if isinstance(self._vector.tp, StencilVector):
-                    
+
                     assert isinstance(value[0], np.ndarray)
                     assert isinstance(value[1], (StencilVector, np.ndarray))
-                    
+
                     self._vector.pol[0][:] = value[0][:]
-                    
+
                     s1, s2, s3 = self.starts
                     e1, e2, e3 = self.ends
 
-                    self._vector.tp[s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = value[1][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
+                    self._vector.tp[s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = \
+                        value[1][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
                 else:
                     for n in range(3):
-                        
+
                         assert isinstance(value[n][0], np.ndarray)
-                        assert isinstance(value[n][1], (StencilVector, np.ndarray))
-                        
+                        assert isinstance(
+                            value[n][1], (StencilVector, np.ndarray))
+
                         self._vector.pol[n][:] = value[n][0][:]
-                        
+
                         s1, s2, s3 = self.starts[n]
                         e1, e2, e3 = self.ends[n]
 
-                        self._vector.tp[n][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = value[n][1][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
-       
+                        self._vector.tp[n][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = \
+                            value[n][1][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
+
     @property
     def starts(self):
         """ Global indices of the first FE coefficient on the process, in each direction.

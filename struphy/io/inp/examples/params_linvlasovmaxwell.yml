@@ -9,7 +9,7 @@ grid :
 
 time :
       dt         : 0.05 # time step
-      Tend       : 10. # simulation time interval is [0, Tend]
+      Tend       : 20. # simulation time interval is [0, Tend]
       max_time   : 300. # maximum runtime of program in minutes
       split_algo : LieTrotter # LieTrotter | Strang
 
@@ -185,23 +185,36 @@ electric_equilibrium :
 
 em_fields :
       init :
-            type   : noise # initial conditions (possible types seen below)
-            coords : logical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
-            comps  : [[True, False, False], [False, False, False]] # One list for each field (E/B or phi/A); True if component should be intitialized with type.
+            type : noise # initial conditions (possible types seen below)
             noise :
-                  direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
+                  comps :
+                        e_field : [True, False, False]
+                        b_field : [False, False, False]
+                  direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain (x -> eta_1 etc.)
                   amp : 0.1   # noise amplitude
-            ModesSin :
+            ModesSin : 
+                  coords : 'logical'
+                  comps :
+                        e_field : [True, False, False]
+                        b_field : [False, False, False]
                   ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
                   ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
                   ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
                   amp : [0.001] # amplitudes of each mode
             ModesCos :
+                  coords : 'logical'
+                  comps :
+                        e_field : [True, False, False]
+                        b_field : [False, False, False]
                   ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
                   ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
                   ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
                   amp : [0.001] # amplitudes of each mode
             TorusModesSin :
+                  coords : 'logical'
+                  comps :
+                        e_field : [True, False, False]
+                        b_field : [False, False, False]
                   ms : [1] # poloidal mode numbers
                   ns : [0] # toroidal mode numbers
                   amp : [0.001] # amplitudes of each mode
@@ -215,7 +228,7 @@ em_fields :
                   U  : 0.1 # amplitude of Ux/Uy
                   A  : 0. # amplitude of Uz
             InitialMHDAxisymHdivEigFun :
-                  path : 'some_path/' # relative path (to working dir) to folder containing the .npy eigenspectrum
+                  spec : '/path_to_spec/spec.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
                   eig_freq_upper : 0.15 # upper search limit of squared eigenfrequency to identify eigenfunction
                   eig_freq_lower : 0.14 # lower search limit of squared eigenfrequency to identify eigenfunction
                   kind : r # real (r) or imaginary (i) part of eigenfunction
@@ -275,9 +288,8 @@ kinetic :
                   beta : 0.01 # plasma beta = p*2*mu_0/|B|^2
             markers :
                   type    : delta_f # full_f or delta_f
-                  ppc     : 100  # number of markers per 3d grid cell
-                  Np      : 3 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
-                  eps     : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
+                  Np      : 5 # alternative if ppc is not given (total number of markers, must be larger or equal than # MPI processes)
+                  eps     : 0. # MPI send/receive buffer (0.1 <= eps <= 1.0)
                   bc_type : [periodic, periodic, periodic] # remove, reflect or periodic
                   loading :
                         type          : pseudo_random # particle loading mechanism
@@ -299,7 +311,7 @@ kinetic :
                   moms_spec : [0, 0, 0, 0, 0, 0, 0] # Specifier for the moments n0, u0x, u0y, u0z, vth0x, vth0y, vth0z. 0 means constant
                   moms_params : [1., 0., 0., 0., 1., 1., 1.] # parameters needed to specify the moments
             save_data :
-                  n_markers : 3 # number of markers to be save during simulation
+                  n_markers : 1 # number of markers to be save during simulation
                   f :
                         slices : [vz] # in which directions to bin (e.g. [e1_e2, vx_vy_vz])
                         n_bins : [[32]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])

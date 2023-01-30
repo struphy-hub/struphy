@@ -1,6 +1,6 @@
 from pyccel.decorators import stack_array
 
-from numpy import zeros, empty, sqrt, shape, sum, floor
+from numpy import zeros, empty, sqrt, shape, floor
 
 import struphy.geometry.map_eval as map_eval
 import struphy.b_splines.bsplines_kernels as bsp
@@ -77,10 +77,6 @@ def _docstring():
     '''
 
     print('This is just the docstring function.')
-
-
-
-
 
 
 @stack_array('cell_left', 'point_left', 'point_right', 'cell_number', 'temp1', 'temp4', 'compact', 'grids_shapex', 'grids_shapey', 'grids_shapez')
@@ -182,7 +178,6 @@ def hybrid_fA_density(markers: 'float[:,:]', n_markers_tot: 'int',
         # =========== kernel part (periodic bundary case) ==========
         mvf.hybrid_density(Nel, pn, cell_left, cell_number, span1, span2, span3, starts0, ie1, ie2, ie3, temp1, temp4, quad, quad_pts_x, quad_pts_y, quad_pts_z, compact, eta1, eta2, eta3, mat, weight, p_shape, p_size, grids_shapex, grids_shapey, grids_shapez)
     #$ omp end parallel
-
 
 
 @stack_array('df', 'df_t', 'df_inv', 'df_inv_times_v', 'filling_m', 'filling_v')
@@ -295,9 +290,6 @@ def hybrid_fA_Arelated(markers: 'float[:,:]', n_markers_tot: 'int',
     #$ omp end parallel
 
 
-
-
-
 @stack_array('df', 'df_t', 'df_inv', 'df_inv_times_v', 'filling_m', 'filling_v')
 def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -324,9 +316,10 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
 
     .. math::
 
-        A_p^{\mu, \nu} &= f_0(\eta_p, v_p) * [ DF^{-1}(\eta_p) * v_p ]_\mu * [ DF^{-1}(\eta_p) * v_p ]_\nu    
+        A_p^{\mu, \nu} &= \frac{\alpha^2}{v_{\text{th}}^2} \frac{1}{N\, s_0} f_0(\mathbf{\eta}_p, \mathbf{v}_p)
+            [ DF^{-1}(\mathbf{\eta}_p) v_p ]_\mu [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\nu \,,
 
-        B_p^\mu &= \sqrt{f_0(\eta_p, v_p)} * w_p * [ DF^{-1}(\eta_p) * v_p ]_\mu  
+        B_p^\mu &= \alpha^2 \sqrt{f_0(\mathbf{\eta}_p, \mathbf{v}_p)} w_p [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\mu \,.
 
     Parameters
     ----------
@@ -360,8 +353,8 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, v, f0, df, df_inv, df_inv_times_v, weight, filling_m, filling_v)
-    #$ omp for reduction ( + : mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32, mat33, vec1, vec2, vec3)
+    #$ omp parallel private (ip, eta1, eta2, eta3, f0, df, df_inv, df_inv_times_v, filling_m, filling_v)
+    #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
     for ip in range(n_markers):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -373,10 +366,7 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        # evaluate background
-        v = markers[ip, 3:6]
-
-        f0 = background_eval.f0(markers[ip, 0:3], v,
+        f0 = background_eval.f0(markers[ip, 0:3], markers[ip, 3:6],
                                 f0_spec, moms_spec, f0_params)
 
         # evaluate Jacobian, result in df
@@ -389,16 +379,14 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
 
         # filling functions
         linalg.matrix_inv(df, df_inv)
-        linalg.matrix_vector(df_inv, v, df_inv_times_v)
+        linalg.matrix_vector(df_inv, markers[ip, 3:6], df_inv_times_v)
 
-        weight = markers[ip, 6]
-
-        # filling_m = DL^{-1} v_p f_0 DL^{-1} v_p / (N s_0)
+        # filling_m = alpha^2 * f0 / (N * s_0 * v_th^2) * (DF^{-1} v_p)_mu * (DF^{-1} v_p)_nu
         linalg.outer(df_inv_times_v, df_inv_times_v, filling_m)
-        filling_m[:] = alpha**2 * f0 * filling_m / (n_markers_tot * markers[ip, 7] * f0_params[4]**2)
+        filling_m[:, :] *= alpha**2 * f0 / (n_markers_tot * markers[ip, 7] * f0_params[4]**2)
 
-        # filling_v = w_p * sqrt{f_0} DL^{-1} v_p
-        filling_v[:] = alpha**2 * sqrt(f0) * weight * df_inv_times_v
+        # filling_v = alpha^2 * w_p * sqrt{f_0} DL^{-1} v_p
+        filling_v[:] = alpha**2 * sqrt(f0) * markers[ip, 6] * df_inv_times_v[:]
 
         # call the appropriate matvec filler
         mvf.m_v_fill_b_v1_symm(pn, tn1, tn2, tn3, starts1,
