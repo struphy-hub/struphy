@@ -15,13 +15,13 @@ struphy profile sim_test_4 sim_test_5
 struphy pproc sim_test_4 sim_test_5
 
 # Test HybridMHDVlasovPC
-struphy run HybridMHDVlasovPC -i tests/params_pc_linmhd_6d.yml -o sim_test_6
+struphy run LinearMHDVlasovPC -i tests/params_pc_linmhd_6d.yml -o sim_test_6
 
 # Test LinearVlasovMaxwell
 struphy run LinearVlasovMaxwell -i tests/params_linvlasovmaxwell.yml -o sim_test_7
 
 # Test HybridMHDVlasovCC
-struphy run HybridMHDVlasovCC -i tests/params_hybridmhdvlasovcc.yml -o sim_test_8 --mpi 2
+struphy run LinearMHDVlasovCC -i tests/params_hybridmhdvlasovcc.yml -o sim_test_8 --mpi 2
 struphy pproc sim_test_8
 
 # Add Test for each model

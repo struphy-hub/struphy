@@ -23,12 +23,17 @@ Fluid models
 Fluid-kinetic hybrid models
 ---------------------------
 
-.. autoclass:: struphy.models.models.HybridMHDVlasovCC
+.. autoclass:: struphy.models.models.LinearMHDVlasovCC
     :members:
     :undoc-members:
     :exclude-members: propagators, scalar_quantities, update_scalar_quantities
 
-.. autoclass:: struphy.models.models.HybridMHDVlasovPC
+.. autoclass:: struphy.models.models.LinearMHDVlasovPC
+    :members:
+    :undoc-members:
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
+
+.. autoclass:: struphy.models.models.LinearMHDDriftkineticCC
     :members:
     :undoc-members:
     :exclude-members: propagators, scalar_quantities, update_scalar_quantities
