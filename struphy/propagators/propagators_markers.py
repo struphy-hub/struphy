@@ -430,11 +430,15 @@ class StepPushGuidingCenter1(Propagator):
 
     for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant. Available algorithms:
 
+        Explicit:
         * forward_euler (1st order)
         * heun2 (2nd order)
         * rk2 (2nd order)
         * heun3 (3rd order)
         * rk4 (4th order)
+
+        Implicit:
+        * discrete_gradients
 
     Parameters
     ----------
@@ -570,11 +574,15 @@ class StepPushGuidingCenter2(Propagator):
 
     for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant. Available algorithms:
 
+        Explicit:
         * forward_euler (1st order)
         * heun2 (2nd order)
         * rk2 (2nd order)
         * heun3 (3rd order)
         * rk4 (4th order)
+
+        Implicit:
+        * discrete_gradients
 
     Parameters
     ----------
@@ -906,3 +914,339 @@ class StepStaticEfield(Propagator):
                      self._loc1, self._loc2, self._loc3, self._weight1, self._weight2, self._weight3,
                      self._e_bg.blocks[0]._data, self._e_bg.blocks[1]._data, self._e_bg.blocks[2]._data,
                      array([1e-10, 1e-10]), 100)
+
+
+class StepPushDriftkinetic1(Propagator):
+    r"""Solves
+
+    .. math::
+
+        \dot{\mathbf X} &= \frac{1}{B^*_\parallel} \mathbf{b}_0 \times \frac{\mu}{q} \nabla B_\parallel\,,
+
+        \dot v_\parallel &= 0 \,.
+
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant. Available algorithms:
+
+        Explicit:
+        * forward_euler (1st order)
+        * heun2 (2nd order)
+        * rk2 (2nd order)
+        * heun3 (3rd order)
+        * rk4 (4th order)
+
+        Implicit:
+        * discrete_gradients
+
+    Parameters
+    ----------
+    particles : struphy.pic.particles.Particles6D
+        Holdes the markers to push.
+
+    derham : struphy.psydac_api.psydac_derham.Derham
+        Discrete Derham complex.
+
+    domain : struphy.geometry.domains
+        Mapping info for evaluating metric coefficients.
+
+    basis_ops : struphy.psydac_api.basis_projection_ops.BasisProjectionOperators
+        A class for all the basis projection operators.
+
+    epsilon : float
+        Guiding center asymptotic parameter
+
+    b : psydac.linalg.block.BlockVector
+        FE coefficients of magnetic field as a 2-form.
+
+    mhd_equil : list[psydac.linalg.block.BlockVector]
+        FE coefficients of various equilibrium fields
+
+    push_algos : dict
+        dictionary for push algorithms
+
+    bc : list[str]
+        Kinetic boundary conditions in each direction.
+    """
+
+    def __init__(self, particles, derham, domain, basis_ops, epsilon, b, *mhd_equil, push_algos, bc):
+
+        self._particles = particles
+        self._derham = derham
+        self._epsilon = epsilon
+
+        self._method = push_algos['method']
+        self._integrator = push_algos['integrator']
+        self._maxiter = push_algos['maxiter']
+        self._tol = push_algos['tol']
+        self._bc = bc
+        self._b_full = b + self._b_eq
+        self._derham = derham
+
+        # define equilibrium fields
+        self._b_eq = mhd_equil[0]
+        self._norm_b1 = mhd_equil[1]
+        self._norm_b2 = mhd_equil[2]
+        self._abs_b = mhd_equil[3]
+        self._curl_norm_b = derham.curl.dot(self._norm_b1)
+
+        # define full magnetic field
+        self._b_full = b + self._b_eq
+
+        # define gradient of absolute value of parallel magnetic field
+        PB = getattr(basis_ops, 'PB')
+        self._grad_PB = derham.grad.dot(PB.dot(self._b_full))
+
+        if not self._b_full[0].ghost_regions_in_sync:
+            self._b_full[0].update_ghost_regions()
+        if not self._b_full[1].ghost_regions_in_sync:
+            self._b_full[1].update_ghost_regions()
+        if not self._b_full[2].ghost_regions_in_sync:
+            self._b_full[2].update_ghost_regions()
+        if not self._abs_b.ghost_regions_in_sync:
+            self._abs_b.update_ghost_regions()
+        if not self._curl_norm_b[0].ghost_regions_in_sync:
+            self._curl_norm_b[0].update_ghost_regions()
+        if not self._curl_norm_b[1].ghost_regions_in_sync:
+            self._curl_norm_b[1].update_ghost_regions()
+        if not self._curl_norm_b[2].ghost_regions_in_sync:
+            self._curl_norm_b[2].update_ghost_regions()
+        if not self._grad_PB[0].ghost_regions_in_sync:
+            self._grad_PB[0].update_ghost_regions()
+        if not self._grad_PB[1].ghost_regions_in_sync:
+            self._grad_PB[1].update_ghost_regions()
+        if not self._grad_PB[2].ghost_regions_in_sync:
+            self._grad_PB[2].update_ghost_regions()
+
+        if self._integrator == 'explicit':
+
+            if self._method == 'forward_euler':
+                a = []
+                b = [1.]
+                c = [0.]
+            elif self._method == 'heun2':
+                a = [1.]
+                b = [1/2, 1/2]
+                c = [0., 1.]
+            elif self._method == 'rk2':
+                a = [1/2]
+                b = [0., 1.]
+                c = [0., 1/2]
+            elif self._method == 'heun3':
+                a = [1/3, 2/3]
+                b = [1/4, 0., 3/4]
+                c = [0., 1/3, 2/3]
+            elif self._method == 'rk4':
+                a = [1/2, 1/2, 1.]
+                b = [1/6, 1/3, 1/3, 1/6]
+                c = [0., 1/2, 1/2, 1.]
+            else:
+                raise NotImplementedError(
+                    'Chosen algorithm is not implemented.')
+
+            self._butcher = ButcherTableau(a, b, c)
+            self._pusher = Pusher(
+                derham, domain, 'push_gc1_explicit_stage', self._butcher.n_stages)
+
+            self._pusher_inputs = (self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
+                                   self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
+                                   self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
+                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                                   self._grad_PB[0]._data, self._grad_PB[1]._data, self._grad_PB[2]._data,
+                                   self._butcher.a, self._butcher.b, self._butcher.c)
+
+        elif self._integrator == 'implicit':
+
+            if self._method == 'discrete_gradients':
+                self._pusher = Pusher_iteration(
+                    derham, domain, 'push_gc1_discrete_gradients_stage', maxiter, tol)
+
+            else:
+                raise NotImplementedError(
+                    'Chosen implicit method is not implemented.')
+
+            self._pusher_inputs = (self._abs_b._data,
+                                   self._b[0]._data, self._b[1]._data, self._b[2]._data,
+                                   self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
+                                   self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
+                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                                   self._grad_PB[0]._data, self._grad_PB[1]._data, self._grad_PB[2]._data)
+
+        else:
+            raise NotImplementedError('Chosen integrator is not implemented.')
+
+    @property
+    def variables(self):
+        return self._particles
+
+    def __call__(self, dt):
+        """
+        TODO
+        """
+        self._pusher(self._particles, dt, self._epsilon,
+                     *self._pusher_inputs,
+                     bc=self._bc, mpi_sort='each', verbose=False)
+
+
+class StepPushDriftkinetic2(Propagator):
+    r"""Solves
+
+    .. math::
+
+        \dot{\mathbf X} &= \frac{1}{B^*_\parallel} \mathbf{B}^* v_\parallel \,,
+
+        \dot v_\parallel &= - \mu \frac{1}{B^*_\parallel} \mathbf{B}^* \cdot \nabla B_\parallel \,.
+
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant. Available algorithms:
+
+        * forward_euler (1st order)
+        * heun2 (2nd order)
+        * rk2 (2nd order)
+        * heun3 (3rd order)
+        * rk4 (4th order)
+
+    Parameters
+    ----------
+    particles : struphy.pic.particles.Particles6D
+        Holdes the markers to push.
+
+    derham : struphy.psydac_api.psydac_derham.Derham
+        Discrete Derham complex.
+
+    domain : struphy.geometry.domains
+        Mapping info for evaluating metric coefficients.
+
+    basis_ops : struphy.psydac_api.basis_projection_ops.BasisProjectionOperators
+        A class for all the basis projection operators.
+
+    epsilon : float
+        Guiding center asymptotic parameter
+
+    b : psydac.linalg.block.BlockVector
+        FE coefficients of magnetic field as a 2-form.
+
+    mhd_equil : list[psydac.linalg.block.BlockVector]
+        FE coefficients of various equilibrium fields
+
+    push_algos : dict
+        dictionary for push algorithms
+
+    bc : list[str]
+        Kinetic boundary conditions in each direction.
+    """
+
+    def __init__(self, particles, derham, domain, basis_ops, epsilon, b, *mhd_equil, push_algos, bc):
+
+        self._particles = particles
+        self._derham = derham
+        self._epsilon = epsilon
+
+        self._method = push_algos['method']
+        self._integrator = push_algos['integrator']
+        self._maxiter = push_algos['maxiter']
+        self._tol = push_algos['tol']
+        self._bc = bc
+        self._b_full = b + self._b_eq
+        self._derham = derham
+
+        # define equilibrium fields
+        self._b_eq = mhd_equil[0]
+        self._norm_b1 = mhd_equil[1]
+        self._norm_b2 = mhd_equil[2]
+        self._abs_b = mhd_equil[3]
+        self._curl_norm_b = derham.curl.dot(self._norm_b1)
+
+        # define full magnetic field
+        self._b_full = b + self._b_eq
+
+        # define gradient of absolute value of parallel magnetic field
+        PB = getattr(basis_ops, 'PB')
+        self._grad_PB = derham.grad.dot(PB.dot(self._b_full))
+
+        if not self._b_full[0].ghost_regions_in_sync:
+            self._b_full[0].update_ghost_regions()
+        if not self._b_full[1].ghost_regions_in_sync:
+            self._b_full[1].update_ghost_regions()
+        if not self._b_full[2].ghost_regions_in_sync:
+            self._b_full[2].update_ghost_regions()
+        if not self._abs_b.ghost_regions_in_sync:
+            self._abs_b.update_ghost_regions()
+        if not self._curl_norm_b[0].ghost_regions_in_sync:
+            self._curl_norm_b[0].update_ghost_regions()
+        if not self._curl_norm_b[1].ghost_regions_in_sync:
+            self._curl_norm_b[1].update_ghost_regions()
+        if not self._curl_norm_b[2].ghost_regions_in_sync:
+            self._curl_norm_b[2].update_ghost_regions()
+        if not self._grad_PB[0].ghost_regions_in_sync:
+            self._grad_PB[0].update_ghost_regions()
+        if not self._grad_PB[1].ghost_regions_in_sync:
+            self._grad_PB[1].update_ghost_regions()
+        if not self._grad_PB[2].ghost_regions_in_sync:
+            self._grad_PB[2].update_ghost_regions()
+
+        if self._integrator == 'explicit':
+
+            if self._method == 'forward_euler':
+                a = []
+                b = [1.]
+                c = [0.]
+            elif self._method == 'heun2':
+                a = [1.]
+                b = [1/2, 1/2]
+                c = [0., 1.]
+            elif self._method == 'rk2':
+                a = [1/2]
+                b = [0., 1.]
+                c = [0., 1/2]
+            elif self._method == 'heun3':
+                a = [1/3, 2/3]
+                b = [1/4, 0., 3/4]
+                c = [0., 1/3, 2/3]
+            elif self._method == 'rk4':
+                a = [1/2, 1/2, 1.]
+                b = [1/6, 1/3, 1/3, 1/6]
+                c = [0., 1/2, 1/2, 1.]
+            else:
+                raise NotImplementedError(
+                    'Chosen algorithm is not implemented.')
+
+            self._butcher = ButcherTableau(a, b, c)
+            self._pusher = Pusher(
+                derham, domain, 'push_gc2_explicit_stage', self._butcher.n_stages)
+
+            self._pusher_inputs = (self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
+                                   self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
+                                   self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
+                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                                   self._grad_PB[0]._data, self._grad_PB[1]._data, self._grad_PB[2]._data,
+                                   self._butcher.a, self._butcher.b, self._butcher.c)
+
+        elif self._integrator == 'implicit':
+
+            if self._method == 'discrete_gradients':
+                self._pusher = Pusher_iteration(
+                    derham, domain, 'push_gc2_discrete_gradients_stage', self._maxiter, self._tol)
+
+            else:
+                raise NotImplementedError(
+                    'Chosen implicit method is not implemented.')
+
+            self._pusher_inputs = (self._abs_b._data,
+                                   self._b[0]._data, self._b[1]._data, self._b[2]._data,
+                                   self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
+                                   self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
+                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                                   self._grad_PB[0]._data, self._grad_PB[1]._data, self._grad_PB[2]._data)
+
+        else:
+            raise NotImplementedError('Chosen integrator is not implemented.')
+
+    @property
+    def variables(self):
+        return self._particles
+
+    def __call__(self, dt):
+        """
+        TODO
+        """
+        self._pusher(self._particles, dt, self._epsilon,
+                     *self._pusher_inputs,
+                     bc=self._bc, mpi_sort='each', verbose=False)

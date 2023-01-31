@@ -3,7 +3,7 @@
 PYTHON=python3
 
 # run
-struphy run HybridMHDVlasovCC -i examples/params_hybridmhdvlasovcc.yml -o sim_8 --mpi 2 
+struphy run LinearMHDVlasovCC -i examples/params_hybridmhdvlasovcc.yml -o sim_8 --mpi 2 
 
 # post process
 struphy pproc sim_8
