@@ -1,5 +1,7 @@
 from abc import ABCMeta, abstractmethod
 import numpy as np
+from matplotlib import pyplot as plt
+from pyevtk.hl import gridToVTK
 
 
 class MHDequilibrium(metaclass=ABCMeta):
@@ -44,7 +46,25 @@ class MHDequilibrium(metaclass=ABCMeta):
         """
         assert self.domain is not None, 'Domain not set, use obj.domain=...'
         return self.domain.pull([self.b_x, self.b_y, self.b_z], *etas, kind='2_form', squeeze_out=squeeze_out)[2]
+
+    def b_cart_1(self, *etas, squeeze_out=True):
+        """ Cartesian equilibrium magnetic field (x-component) in physical space.
+        """
+        assert self.domain is not None, 'Domain not set, use obj.domain=...'
+        return self.domain.push([self.b2_1, self.b2_2, self.b2_3], *etas, kind='2_form', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)[0], self.domain(*etas)
     
+    def b_cart_2(self, *etas, squeeze_out=True):
+        """ Cartesian equilibrium magnetic field (y-component) in physical space.
+        """
+        assert self.domain is not None, 'Domain not set, use obj.domain=...'
+        return self.domain.push([self.b2_1, self.b2_2, self.b2_3], *etas, kind='2_form', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)[1], self.domain(*etas)
+
+    def b_cart_3(self, *etas, squeeze_out=True):
+        """ Cartesian equilibrium magnetic field (z-component) in physical space.
+        """
+        assert self.domain is not None, 'Domain not set, use obj.domain=...'
+        return self.domain.push([self.b2_1, self.b2_2, self.b2_3], *etas, kind='2_form', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)[2], self.domain(*etas)
+
     def b1_1(self, *etas, squeeze_out=True):
         """ 1-form equilibrium magnetic field (eta1-component) in logical space.
         """
@@ -195,6 +215,24 @@ class MHDequilibrium(metaclass=ABCMeta):
         assert self.domain is not None, 'Domain not set, use obj.domain=...'
         return self.domain.transform([self.j2_1, self.j2_2, self.j2_3], *etas, kind='2_to_v', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)[2]
 
+    def j_cart_1(self, *etas, squeeze_out=True):
+        """ Cartesian equilibrium current (x-component) in physical space.
+        """
+        assert self.domain is not None, 'Domain not set, use obj.domain=...'
+        return self.domain.push([self.j2_1, self.j2_2, self.j2_3], *etas, kind='2_form', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)[0], self.domain(*etas)
+    
+    def j_cart_2(self, *etas, squeeze_out=True):
+        """ Cartesian equilibrium current (y-component) in physical space.
+        """
+        assert self.domain is not None, 'Domain not set, use obj.domain=...'
+        return self.domain.push([self.j2_1, self.j2_2, self.j2_3], *etas, kind='2_form', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)[1], self.domain(*etas)
+
+    def j_cart_3(self, *etas, squeeze_out=True):
+        """ Cartesian equilibrium current (z-component) in physical space.
+        """
+        assert self.domain is not None, 'Domain not set, use obj.domain=...'
+        return self.domain.push([self.j2_1, self.j2_2, self.j2_3], *etas, kind='2_form', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)[2], self.domain(*etas)
+
     def p0(self, *etas, squeeze_out=True):
         """ 0-form equilibrium pressure in logical space.
         This method is overidden by NumericalMHDequilibrium.
@@ -221,7 +259,133 @@ class MHDequilibrium(metaclass=ABCMeta):
         assert self.domain is not None, 'Domain not set, use obj.domain=...'
         return self.domain.transform([self.n0], *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
-    
+    def plot_equil(self, n1=16, n2=32, n3=9):
+        '''Generate vtk files of equilibirum and do some 2d plots with matplotlib.
+        
+        Parameters
+        ----------
+        n1, n2, n3 : int
+            Evaluation points of mapping in each direcion.'''
+
+        import struphy as _
+
+        e1 = np.linspace(0.0001, 1, n1)
+        e2 = np.linspace(0, 1, n2)
+        e3 = np.linspace(0, 1, n3)
+
+        x, y, z = self.domain(e1, e2, e3)
+        det_df  = self.domain.jacobian_det(e1, e2, e3)
+        p = self.p0(e1, e2, e3)
+        absB = self.absB0(e1, e2, e3)
+
+        _path = _.__path__[0] + '/fields_background/mhd_equil/gvec/output/'
+        gridToVTK(_path + 'vtk/gvec_equil', x, y, z, pointData = {'det_df': det_df, 'pressure': p, 'absB': absB})
+
+        # poloidal plane grid
+        fig = plt.figure(figsize=(13, np.ceil(n3/2) * 6.5))
+        for n in range(n3):
+            xp = x[:, :, n].squeeze()
+            yp = y[:, :, n].squeeze()
+            zp = z[:, :, n].squeeze()
+
+            rp = np.sqrt(xp**2 + yp**2)
+            
+            ax = fig.add_subplot(int(np.ceil(n3/2)), 2, n + 1)
+            for i in range(rp.shape[0]):
+                for j in range(rp.shape[1] - 1):
+                    if i < rp.shape[0] - 1:
+                        ax.plot([rp[i, j], rp[i + 1, j]], [zp[i, j], zp[i + 1, j]], 'b', linewidth=.6)
+                    if j < rp.shape[1] - 1:
+                        ax.plot([rp[i, j], rp[i, j + 1]], [zp[i, j], zp[i, j + 1]], 'b', linewidth=.6)
+            ax.set_xlabel('r')
+            ax.set_ylabel('z')
+            ax.axis('equal')
+            ax.set_title('Poloidal plane at $\\eta_3$={0:4.3f}'.format(e3[n]))
+
+        # top view
+        fig = plt.figure(figsize=(13, 2 * 6.5))
+        ax = fig.add_subplot()
+        for m in range(2):
+
+            xp = x[:, m, :].squeeze()
+            yp = y[:, m, :].squeeze()
+            zp = z[:, m, :].squeeze()
+
+            for i in range(xp.shape[0]):
+                for j in range(xp.shape[1] - 1):
+                    if i < xp.shape[0] - 1:
+                        ax.plot([xp[i, j], xp[i + 1, j]], [yp[i, j], yp[i + 1, j]], 'b', linewidth=.6)
+                    if j < xp.shape[1] - 1:
+                        if i == 0:
+                            ax.plot([xp[i, j], xp[i, j + 1]], [yp[i, j], yp[i, j + 1]], 'r', linewidth=1)
+                        else:
+                            ax.plot([xp[i, j], xp[i, j + 1]], [yp[i, j], yp[i, j + 1]], 'b', linewidth=.6)
+            ax.set_xlabel('x')
+            ax.set_ylabel('y')
+            ax.axis('equal')
+            ax.set_title('Device top view')
+
+        # Jacobian determinant
+        fig = plt.figure(figsize=(13, np.ceil(n3/2) * 6.5))
+        for n in range(n3):
+
+            xp = x[:, :, n].squeeze()
+            yp = y[:, :, n].squeeze()
+            zp = z[:, :, n].squeeze()
+
+            rp = np.sqrt(xp**2 + yp**2)
+
+            detp = det_df[:, :, n].squeeze()
+
+            ax = fig.add_subplot(int(np.ceil(n3/2)), 2, n + 1)
+            map = ax.contourf(rp, zp, detp, 30)
+            ax.set_xlabel('r')
+            ax.set_ylabel('z')
+            ax.axis('equal')
+            ax.set_title('Jacobian determinant at $\\eta_3$={0:4.3f}$'.format(e3[n]))
+            fig.colorbar(map, ax=ax, location='right')
+
+        # pressure
+        fig = plt.figure(figsize=(15, np.ceil(n3/2) * 6.5))
+        for n in range(n3):
+
+            xp = x[:, :, n].squeeze()
+            yp = y[:, :, n].squeeze()
+            zp = z[:, :, n].squeeze()
+
+            rp = np.sqrt(xp**2 + yp**2)
+
+            pp = p[:, :, n].squeeze()
+
+            ax = fig.add_subplot(int(np.ceil(n3/2)), 2, n + 1)
+            map = ax.contourf(rp, zp, pp, 30)
+            ax.set_xlabel('r')
+            ax.set_ylabel('z')
+            ax.axis('equal')
+            ax.set_title('Pressure at $\\eta_3$={0:4.3f}'.format(e3[n]))
+            fig.colorbar(map, ax=ax, location='right')
+
+        # magnetic field strength
+        fig = plt.figure(figsize=(15, np.ceil(n3/2) * 6.5))
+        for n in range(n3):
+
+            xp = x[:, :, n].squeeze()
+            yp = y[:, :, n].squeeze()
+            zp = z[:, :, n].squeeze()
+
+            rp = np.sqrt(xp**2 + yp**2)
+
+            ab = absB[:, :, n].squeeze()
+
+            ax = fig.add_subplot(int(np.ceil(n3/2)), 2, n + 1)
+            map = ax.contourf(rp, zp, ab, 30)
+            ax.set_xlabel('r')
+            ax.set_ylabel('z')
+            ax.axis('equal')
+            ax.set_title('Magnetic field strength at $\\eta_3$={0:4.3f}'.format(e3[n]))
+            fig.colorbar(map, ax=ax, location='right')
+
+
 class AnalyticalMHDequilibrium(MHDequilibrium):
     """
     Base class for analytical MHD equilibria. B, J, n and p have to be specified in Cartesian coordinates.  
@@ -377,12 +541,11 @@ class NumericalMHDequilibrium(MHDequilibrium):
         tmp2 = self.b2_2(*etas, squeeze_out=False)
         tmp3 = self.b2_3(*etas, squeeze_out=False)
 
-        bx = self.domain.push(
-            [tmp1, tmp2, tmp3], *etas, kind='2_form', squeeze_out=squeeze_out)[0]
-        by = self.domain.push(
-            [tmp1, tmp2, tmp3], *etas, kind='2_form', squeeze_out=squeeze_out)[1]
-        bz = self.domain.push(
-            [tmp1, tmp2, tmp3], *etas, kind='2_form', squeeze_out=squeeze_out)[2]
+        b = self.domain.push(
+            [tmp1, tmp2, tmp3], *etas, kind='2_form', squeeze_out=squeeze_out)
+        bx = b[0]
+        by = b[1]
+        bz = b[2]
 
         return np.sqrt(bx**2 + by**2 + bz**2)
     

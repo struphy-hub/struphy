@@ -358,6 +358,7 @@ if [ "$COMPILE" = true ]; then
   else
     echo "Start compiling struphy..."
     cd .. # change dir not be in source path
+    compile_gvec_to_python
     command make -f $STRUPHY/compile_struphy.mk struphy_path=$STRUPHY flags_openmp_pic=$CFLAGS flags=$FLAGS
     exit 0
   fi

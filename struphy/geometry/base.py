@@ -1171,7 +1171,7 @@ class Domain(metaclass=ABCMeta):
             
 def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
     """
-    Interpolates the mapping (eta1, eta2, eta3) --> (X, Y, Z) on the given spline space.
+    Interpolates the mapping (eta1, eta2, eta3) in [0, 1]^3 --> (X, Y, Z) on the given spline space.
 
     Parameters
     -----------

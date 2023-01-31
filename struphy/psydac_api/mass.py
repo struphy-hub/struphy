@@ -398,12 +398,22 @@ class WeightedMassOperator( LinOpWithTransp ):
             self._codomain_femspace = W
             self._codomain_symbolic_name = W_name
         
+        if V_name in {'H1', 'L2'}:
+            comm = V.vector_space.cart.comm
+        else:
+            comm = V.vector_space[0].cart.comm
+
         # ====== assemble tensor-product mass matrix ====
+        if comm.Get_rank() == 0:
+            print(f'Assembling WeightedMassOperator with V={V_name}, W={W_name}.')
         if transposed:
             self._mat = WeightedMassOperator.assemble_mat(V, W, weight).transpose()
         else:
             self._mat = WeightedMassOperator.assemble_mat(V, W, weight)
+        if comm.Get_rank() == 0:
+            print('Done.')
         # ===============================================
+        
         
         # some shortcuts
         BW = self._W_boundary_op

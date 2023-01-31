@@ -62,6 +62,7 @@ __psydac__/
 *~
 *.hdf5
 *acquisition.lock
+*.json
 
 # Default simulations and diagnostics
 my_diagnostics

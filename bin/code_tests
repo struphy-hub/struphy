@@ -10,6 +10,7 @@ struphy pproc sim_test_1 sim_test_2 sim_test_3
 # Test LinearMHD
 struphy run LinearMHD -i tests/params_linearmhd.yml -o sim_test_4
 struphy run LinearMHD -i tests/params_linearmhd.yml -o sim_test_5 --mpi 2
+#struphy run LinearMHD -i tests/params_linearmhd_gvec.yml -o sim_test_6 # TODO: fix gvec current density
 struphy profile sim_test_4 sim_test_5
 struphy pproc sim_test_4 sim_test_5
 

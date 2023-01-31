@@ -177,6 +177,13 @@ mhd_equilibrium :
             p1     : .1 # shape factor for ad hoc pressure profile
             p2     : .1 # shape factor for ad hoc pressure profile
             beta : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
+      GVECequilibrium : 
+            rel_path : True # whether to state dat_file (json_file) relative to "<struphy_path>/fields_background/mhd_equil/gvec", or give the absolute path
+            dat_file : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file 
+            json_file : Null # give directly the parsed json file, if it exists (then dat_file is not used)
+            use_pest : False # Whether to use straight-field line coordinates (PEST)
+            Nel : [32, 32, 32] # Number of cells in each direction used for interpolation of the mapping.
+            p : [3, 3, 3] # Spline degree in each direction used for interpolation of the mapping.
 
 electric_equilibrium :
       type : HomogenSlab # (possible choices seen below)
