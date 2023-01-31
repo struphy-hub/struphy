@@ -233,10 +233,11 @@ default_build:
     - python3 -m pip install -r requirements.txt
     - python3 -m pip install -r requirements_extra.txt --no-build-isolation
     - pip install --no-build-isolation .
+    - pip install sympy==1.6.1
     - cd ..
     - cd gvec_to_python
-    - python3 -m pip install . -r requirements.txt
-    - pip install sympy==1.6.1 
+    - pip install . 
+    - compile_gvec_to_python # is also compile soth struphy compile, but just to show here
     - cd ..
     - python -m build # build struphy (.whl) 
   artifacts:
@@ -327,14 +328,9 @@ default_install:
     - struphy
     - pyccel --version
     - struphy compile --delete
-    - struphy compile --verbose
+    - struphy compile --verbose # compiles struphy, psydac and gvec_to_python
     - ./struphy/verify_compilation.sh
     - pip list
-    - cd ${ENV_PATH}/psydac/core
-    - pyccel kernels.py --libdir $LIBDIR 
-    - pyccel bsplines_pyccel.py --libdir $LIBDIR
-    - cd ${ENV_PATH}/psydac/feec
-    - pyccel dof_kernels.py --libdir $LIBDIR
 
 # default tests (always)
 default_unit_tests:

@@ -56,6 +56,8 @@ class MassMatrixPreconditioner(LinearSolver):
             
         n_comps = len(femspaces)
         n_dims = self._femspace.ldim
+
+        assert n_dims == 3 # other dims not yet implemented
         
         # get boundary conditions list from BoundaryOperator in CompositeLinearOperator M0 of mass operator
         if isinstance(mass_operator.M0.operators[0], BoundaryOperator):
@@ -75,8 +77,8 @@ class MassMatrixPreconditioner(LinearSolver):
                 
                 # weight function only along in first direction
                 if d == 0 and mass_operator._weight is not None:
-                    pts = [0.5] * (n_dims - 1)
-                    fun = [[lambda e1 : mass_operator._weight[c][c](e1, *pts).squeeze()]]
+                    #pts = [0.5] * (n_dims - 1)
+                    fun = [[lambda e1 : mass_operator._weight[c][c](e1, np.array([.5]), np.array([.5])).squeeze()]]
                 else:
                     fun = None
                     

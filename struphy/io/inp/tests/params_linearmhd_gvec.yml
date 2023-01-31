@@ -1,0 +1,73 @@
+grid :
+      Nel      : [16, 16, 8] # number of grid cells, >p
+      p        : [2, 2, 3]  # spline degree, 
+      spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
+      bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
+      nq_el    : [6, 6, 6] # quadrature points per grid cell
+      nq_pr    : [4, 4, 4] # quadrature points per histopolation cell (for commuting projectors)
+      polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
+          
+time : 
+      dt         : 0.15 # time step
+      Tend       : 1.5 # simulation time interval is [0, Tend]
+      max_time   : 300. # maximum runtime of program in minutes
+      split_algo : LieTrotter # LieTrotter | Strang
+      
+geometry : 
+      type : Cuboid # mapping F (possible types seen below)  
+      Cuboid : 
+            l1 : 0. # start of interval in eta1
+            r1 : 1. # end of interval in eta1, r1>l1
+            l2 : 0. # start of interval in eta2
+            r2 : 1. # end of interval in eta2, r2>l2
+            l3 : 0. # start of interval in eta3
+            r3 : 60. # end of interval in eta3, r3>l3
+            
+mhd_equilibrium : 
+      type : numerical # analytical or numerical
+      name : GVECequilibrium # (possible choices seen below)
+      GVECequilibrium : 
+            rel_path : True # whether to state dat_file (json_file) relative to "<struphy_path>/fields_background/mhd_equil/gvec", or give the absolute path
+            dat_file : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file 
+            json_file : Null # give directly the parsed json file, if it exists (then dat_file is not used)
+            use_pest : False # Whether to use straight-field line coordinates (PEST)
+            Nel : [16, 16, 8] # Number of cells in each direction used for interpolation of the mapping.
+            p : [3, 3, 3] # Spline degree in each direction used for interpolation of the mapping.
+
+em_fields : 
+      init :
+            type : null # initialization
+
+fluid :
+      mhd :
+            attributes :                           # one entry for each field; put null EM fields (no plasma species)
+                  Z    : 1. # charge number Z = q/e, in units of elementary charge, can have a sign
+                  M    : 1. # mass ratio m/m_p, in units of proton mass
+                  kBT  : 1. # thermal energy in units keV 
+                  beta : .01 # plasma beta = p*2*mu_0/|B|^2
+            mhd_u_space : H1vec # Hdiv | H1vec
+            init :
+                  type : noise # initial conditions (possible types seen below)
+                  noise :
+                        comps : 
+                              n3 : False
+                              uv : [True, True, True]
+                              p3 : False
+                        direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
+                        amp : 0.1   # noise amplitude
+      
+solvers :
+      solver_1 : 
+            type : pcg
+            pc : MassMatrixPreconditioner # null or name of preconditioner class
+            tol : 1.e-8
+            maxiter : 3000
+            info : False
+            verbose : False
+      solver_2 :
+            type : pbicgstab
+            pc : MassMatrixPreconditioner # null or name of preconditioner class
+            tol : 1.e-8
+            maxiter : 3000
+            info : False
+            verbose : False       

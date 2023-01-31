@@ -81,10 +81,10 @@ class StruphyModel(metaclass=ABCMeta):
 
         # plasma size
         self._size_params = {}
-        h = 1/100
-        eta1 = np.linspace(h/2., 1.-h/2., 100)
-        eta2 = np.linspace(h/2., 1.-h/2., 100)
-        eta3 = np.linspace(h/2., 1.-h/2., 100)
+        h = 1/20
+        eta1 = np.linspace(h/2., 1.-h/2., 20)
+        eta2 = np.linspace(h/2., 1.-h/2., 20)
+        eta3 = np.linspace(h/2., 1.-h/2., 20)
         self._size_params['plasma volume [m^3]'] = np.mean(
             np.abs(self.domain.jacobian_det(eta1, eta2, eta3)))
         self._size_params['minor radius [m]'] = 'No minor radius.'
@@ -104,9 +104,9 @@ class StruphyModel(metaclass=ABCMeta):
                 self._size_params['eps_key'] = 'rhostar'
 
             # average B-field strength (Tesla)
-            eta1 = np.linspace(0., 1., 100)
-            eta2 = np.linspace(0., 1., 100)
-            eta3 = np.linspace(0., 1., 100)
+            eta1 = np.linspace(0., 1., 20)
+            eta2 = np.linspace(0., 1., 20)
+            eta3 = np.linspace(0., 1., 20)
             self._size_params['B_abs [T]'] = np.mean(
                 self.mhd_equil.absB0(eta1, eta2, eta3))
 
@@ -295,8 +295,8 @@ class StruphyModel(metaclass=ABCMeta):
                 f'MPI indices for N-splines on rank 0: {self.derham.index_array_N[0]}\n')
 
             print('DOMAIN parameters:')
-            print(f'domain type: {dom_type}')
-            print(f'domain parameters: {dom_params}\n')
+            print(f'domain type: {self.domain}')
+            print(f'domain parameters: {self.domain.params_map}\n')
 
             print('PLASMA parameters:')
             print('size:')
