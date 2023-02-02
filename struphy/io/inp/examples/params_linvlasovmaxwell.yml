@@ -264,7 +264,7 @@ kinetic :
             background :
                   type : 0 # 0: Maxwellian in 6d
                   moms_spec : [0, 0, 0, 0, 0, 0, 0] # Specifier for the moments n0, u0x, u0y, u0z, vth0x, vth0y, vth0z. 0 means constant
-                  moms_params : [1., 0., 0., 0., 1., 1., 1.] # parameters needed to specify the moments
+                  moms_params : [1., 2., 2.5, 3.2, 1.1, 1.4, 1.9] # parameters needed to specify the moments
             save_data :
                   n_markers : 1 # number of markers to be save during simulation
                   f :

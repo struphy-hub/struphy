@@ -2062,7 +2062,7 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                             cont + dt*markers[ip, 12:15] * last)
 
 
-@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'df', 'df_inv', 'df_inv_v')
+@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'df', 'df_inv', 'v', 'df_inv_v')
 def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
                              pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                              starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -2114,12 +2114,13 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
 
     df = empty((3, 3), dtype=float)
     df_inv = empty((3, 3), dtype=float)
+    v = empty(3, dtype=float)
     df_inv_v = empty(3, dtype=float)
 
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, df_inv_v, df, df_inv, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, e_vec_1, e_vec_2, e_vec_3, update)
+    #$ omp parallel private (ip, eta1, eta2, eta3, df, df_inv, v, df_inv_v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, e_vec_1, e_vec_2, e_vec_3, update)
     #$ omp for
     for ip in range(n_markers):
         if markers[ip, 0] == -1:
@@ -2152,9 +2153,14 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
                     cx, cy, cz,
                     df)
 
+        # compute shifted and stretched velocity
+        v[0] = (markers[ip, 3] - f0_params[1]) / f0_params[4]**2
+        v[1] = (markers[ip, 4] - f0_params[2]) / f0_params[5]**2
+        v[2] = (markers[ip, 5] - f0_params[3]) / f0_params[6]**2
+
         # invert Jacobian matrix
         linalg.matrix_inv(df, df_inv)
-        linalg.matrix_vector(df_inv, markers[ip, 3:6], df_inv_v)
+        linalg.matrix_vector(df_inv, v, df_inv_v)
 
         # E-field (1-form)
         e_vec_1 = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3,
@@ -2164,9 +2170,9 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
         e_vec_3 = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3,
                                                  span1, span2, span3, e1_3, starts1[2])
 
-        # w_{n+1} = w_n + dt / (2 * N * s_0 * v_th^2) * sqrt(f_0) * ( DF^{-1} v ) \cdot ( e_{n+1} + e_n )
+        # w_{n+1} = w_n + dt / (2 * N * s_0) * sqrt(f_0) * ( DF^{-1} \V_th (v_p - u) ) \cdot ( e_{n+1} + e_n )
         update = (df_inv_v[0] * e_vec_1 + df_inv_v[1] * e_vec_2 + df_inv_v[2] * e_vec_3) * \
-            sqrt(f0) * dt / (2 * n_markers_tot * markers[ip, 7] * f0_params[4]**2)
+            sqrt(f0) * dt / (2 * n_markers_tot * markers[ip, 7])
         markers[ip, 6] += update
 
     #$ omp end parallel
