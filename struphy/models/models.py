@@ -754,20 +754,22 @@ class LinearVlasovMaxwell(StruphyModel):
 
         \begin{align}
             \partial_t h + \mathbf{v} \cdot \, & \nabla_\mathbf{x} h + \left( \mathbf{E}_0 + \mathbf{v} \times \mathbf{B}_0 \right)
-            \cdot \nabla_\mathbf{v} h = \frac{1}{v_{\text{th}}^2} \sqrt{f_0} \, \mathbf{E} \cdot \mathbf{v} \,,
+            \cdot \nabla_\mathbf{v} h = \sqrt{f_0} \, \mathbf{E} \cdot \left( \mathbb{1}_{\text{th}}^2 (\mathbf{v} - \mathbf{u}) \right) \,,
             \\
             \frac{\partial \mathbf{E}}{\partial t} & = \nabla \times \mathbf{B} -
-            \alpha^2 \int_{\mathbb{R}^3} \sqrt{f_0} \, h \, \mathbf{v} \, \text{d}^3 \mathbf{v} \,,
+            \alpha^2 \int_{\mathbb{R}^3} \sqrt{f_0} \, h \, \left( \mathbb{1}_{\text{th}}^2 (\mathbf{v} - \mathbf{u}) \right) \, \text{d}^3 \mathbf{v} \,,
             \\
             \frac{\partial \mathbf{B}}{\partial t} & = - \nabla \times \mathbf{E} \,,
         \end{align}
 
-    where :math:`f_0` is a Maxwellian background distribution function and :math:`h = \frac{\delta f}{\sqrt{f_0}}`.
+    where :math:`f_0` is a Maxwellian background distribution function with constant velocity shift :math:`\mathbf{u}`
+    and thermal velocity matrix :math:`\mathbb{1}_{\text{th}} = \text{diag} \left( \frac{1}{v_{\text{th},1}^2}, \frac{1}{v_{\text{th},2}^2}, \frac{1}{v_{\text{th},3}^2} \right)`
+    and :math:`h = \frac{\delta f}{\sqrt{f_0}}`.
     These equations form a Hamiltonian system with the energy:
 
     .. math::
 
-        H(t) = \frac{1}{2} \alpha^2 v_{\text{th}}^2 \int_\Omega h^2 \, \text{d}^3 \mathbf{x} \, \text{d}^3 \mathbf{v}
+        H(t) = \frac{\alpha^2}{2 \det^2(\mathbb{1}_{\text{th}})} \int_\Omega h^2 \, \text{d}^3 \mathbf{x} \, \text{d}^3 \mathbf{v}
         + \frac{1}{2} \int_\Omega |\mathbf{E}|^2 \, \text{d}^3 \mathbf{x}
         + \frac{1}{2} \int_\Omega |\mathbf{B}|^2 \, \text{d}^3 \mathbf{x} \,.
 
@@ -807,10 +809,7 @@ class LinearVlasovMaxwell(StruphyModel):
         self._electrons = self.kinetic['electrons']['obj']
         self.electron_params = params['kinetic']['electrons']
 
-        # Assert that v_th is the same in all directions and no shift in velocity
-        maxwellian_params = self.electron_params['background']['moms_params']
-        assert maxwellian_params[1] == maxwellian_params[2] == maxwellian_params[3] == 0.
-        assert maxwellian_params[4] == maxwellian_params[5] == maxwellian_params[6]
+        self._maxwellian_params = self.electron_params['background']['moms_params']
 
         # Get coupling strength
         self.alpha = self.kinetic['electrons']['plasma_params']['alpha']
@@ -875,10 +874,12 @@ class LinearVlasovMaxwell(StruphyModel):
         self._scalar_quantities['en_B'][0] = self._b.dot(
             self._mass_ops.M2.dot(self._b)) / 2.
 
-        # alpha^2 * v_th^2 * N/2 * sum_p s_0 * w_p^2
+        # alpha^2 * v_th_1^2 * v_th_2^2 * v_th_3^2 * N/2 * sum_p s_0 * w_p^2
         self._scalar_quantities['en_weights'][0] = \
             self.alpha**2 * self._electrons.n_mks / 2. * \
-            self.electron_params['background']['moms_params'][4]**2 * \
+            self._maxwellian_params[4]**2 * \
+            self._maxwellian_params[5]**2 * \
+            self._maxwellian_params[6]**2 * \
             np.dot(self._electrons.markers[~self._electrons._holes, 6]**2,
                    self._electrons.markers[~self._electrons._holes, 7])
 

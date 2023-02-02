@@ -290,7 +290,7 @@ def hybrid_fA_Arelated(markers: 'float[:,:]', n_markers_tot: 'int',
     #$ omp end parallel
 
 
-@stack_array('df', 'df_t', 'df_inv', 'df_inv_times_v', 'filling_m', 'filling_v')
+@stack_array('df', 'df_t', 'df_inv', 'v', 'df_inv_times_v', 'filling_m', 'filling_v')
 def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -346,6 +346,7 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
     df_inv = empty((3, 3), dtype=float)
 
     # allocate for filling
+    v = empty(3, dtype=float)
     df_inv_times_v = empty(3, dtype=float)
     filling_m = empty((3, 3), dtype=float)
     filling_v = empty(3, dtype=float)
@@ -353,7 +354,7 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, f0, df, df_inv, df_inv_times_v, filling_m, filling_v)
+    #$ omp parallel private (ip, eta1, eta2, eta3, f0, df, df_inv, v, df_inv_times_v, filling_m, filling_v)
     #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
     for ip in range(n_markers):
 
@@ -377,16 +378,21 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                     cx, cy, cz,
                     df)
 
+        # compute shifted and stretched velocity
+        v[0] = (markers[ip, 3] - f0_params[1]) / f0_params[4]**2
+        v[1] = (markers[ip, 4] - f0_params[2]) / f0_params[5]**2
+        v[2] = (markers[ip, 5] - f0_params[3]) / f0_params[6]**2
+
         # filling functions
         linalg.matrix_inv(df, df_inv)
-        linalg.matrix_vector(df_inv, markers[ip, 3:6], df_inv_times_v)
+        linalg.matrix_vector(df_inv, v, df_inv_times_v)
 
-        # filling_m = alpha^2 * f0 / (N * s_0 * v_th^2) * (DF^{-1} v_p)_mu * (DF^{-1} v_p)_nu
+        # filling_m = alpha^2 * f0 / (N * s_0 * v_th_1^2 * v_th_2^2 * v_th_3^2) * (DF^{-1} v_p)_mu * (DF^{-1} \V_th (v_p - u))_nu
         linalg.outer(df_inv_times_v, df_inv_times_v, filling_m)
-        filling_m[:, :] *= alpha**2 * f0 / (n_markers_tot * markers[ip, 7] * f0_params[4]**2)
+        filling_m[:, :] *= alpha**2 * f0 * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2 / (n_markers_tot * markers[ip, 7])
 
-        # filling_v = alpha^2 * w_p * sqrt{f_0} DL^{-1} v_p
-        filling_v[:] = alpha**2 * sqrt(f0) * markers[ip, 6] * df_inv_times_v[:]
+        # filling_v = alpha^2 * w_p * sqrt{f_0} DL^{-1} * \V_th * (v_p - u)
+        filling_v[:] = alpha**2 * sqrt(f0) * markers[ip, 6] * df_inv_times_v[:] * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2
 
         # call the appropriate matvec filler
         mvf.m_v_fill_b_v1_symm(pn, tn1, tn2, tn3, starts1,
