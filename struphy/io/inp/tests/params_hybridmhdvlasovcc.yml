@@ -50,9 +50,9 @@ fluid :
                   ModesCos :
                         coords : 'physical'
                         comps : 
-                              n3 : False
-                              uv : [False, True, False]
-                              p3 : False
+                              n3 : False                # components to be initialized (for scalar fields: no list)
+                              uv : [False, True, False] # components to be initialized (for scalar fields: no list)
+                              p3 : False                # components to be initialized (for scalar fields: no list)
                         ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
                         ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
                         ns : [-1] # Integer mode numbers in z or eta_3 (depending on coords)

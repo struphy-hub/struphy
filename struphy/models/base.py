@@ -282,21 +282,20 @@ class StruphyModel(metaclass=ABCMeta):
         # print info to screen
         if mpi_comm.Get_rank() == 0:
             print('GRID parameters:')
-            print(f'number of elements : {self.derham.Nel}')
-            print(f'spline degrees     : {self.derham.p}')
-            print(f'periodic bcs       : {self.derham.spl_kind}')
-            print(f'hom. Dirichlet bc  : {self.derham.bc}')
+            print(f'number of elements     : {self.derham.Nel}')
+            print(f'spline degrees         : {self.derham.p}')
+            print(f'periodic bcs           : {self.derham.spl_kind}')
+            print(f'hom. Dirichlet bc      : {self.derham.bc}')
             _gl_quad_pts_l2 = [self.derham.quad_order[0] + 1,
                                self.derham.quad_order[1] + 1,
                                self.derham.quad_order[2] + 1]
-            print(f'GL quad pts (L2)   : {_gl_quad_pts_l2}')
-            print(f'GL quad pts (hist) : {self.derham.nq_pr}')
-            print(
-                f'MPI indices for N-splines on rank 0: {self.derham.index_array_N[0]}\n')
+            print(f'GL quad pts (L2)       : {_gl_quad_pts_l2}')
+            print(f'GL quad pts (hist)     : {self.derham.nq_pr}')
+            print(f'N-spline indices rank 0: {self.derham.index_array_N[0]}\n')
 
             print('DOMAIN parameters:')
-            print(f'domain type: {self.domain}')
-            print(f'domain parameters: {self.domain.params_map}\n')
+            print(f'domain type       : {self.domain}')
+            print(f'domain parameters : {self.domain.params_map}\n')
 
             print('PLASMA parameters:')
             print('size:')
@@ -482,6 +481,8 @@ class StruphyModel(metaclass=ABCMeta):
                 if val['params']['markers']['type'] == 'full_f':
                     val['obj'].initialize_weights(val['params']['init'], self.domain, delta_f=False)
                 elif val['params']['markers']['type'] == 'delta_f':
+                    val['obj'].initialize_weights(val['params']['init'], self.domain, delta_f=True)
+                elif val['params']['markers']['type'] == 'control_f':
                     val['obj'].initialize_weights(val['params']['init'], self.domain, delta_f=True)
                 else:
                     typ = val['params']['markers']['type']

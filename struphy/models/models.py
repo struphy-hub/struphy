@@ -209,6 +209,8 @@ class LinearMHDVlasovCC(StruphyModel):
         from struphy.psydac_api.mass import WeightedMassOperators
         from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
         from struphy.propagators import propagators_fields, propagators_markers, propagators_coupling
+        
+        from struphy.kinetic_background import analytical as kin_ana
 
         self._u_space = params['fluid']['mhd']['mhd_u_space']
 
@@ -260,12 +262,22 @@ class LinearMHDVlasovCC(StruphyModel):
         
         kappa = self.fluid['mhd']['plasma_params']['kappa']
         #kappa = 1.602176634e-19*L*np.sqrt(1.25663706212e-6*Ab*nb*1e20/1.67262192369e-27)
-        kappa = 1.
+        kappa = 1. 
         
         coupling_params = {'nuh' : nuh, 'Ab' : Ab, 'Ah' : Ah, 'Zh' : Zh, 'kappa' : kappa}
         
         if self.derham.comm.Get_rank() == 0:
             print('Bulk / EP coupling parameters : ', coupling_params)
+        
+        # background distribution function used as control variate
+        if params['kinetic']['energetic_ions']['markers']['type'] == 'control_f':
+            assert 'background' in params['kinetic']['energetic_ions'], 'no background distribution function for control variate specified'
+            control = True
+            f0_name = params['kinetic']['energetic_ions']['background']['type']
+            f0 = getattr(kin_ana, f0_name)(**params['kinetic']['energetic_ions']['background'][f0_name])
+        else:
+            control = False
+            f0 = None
 
         # project background magnetic field (2-form) and background pressure (3-form)
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1, 
@@ -282,26 +294,30 @@ class LinearMHDVlasovCC(StruphyModel):
             self._ones[:] = 1.
 
         # mass and basis projection operators
-        self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.mhd_equil)
+        if control:
+            self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.mhd_equil, kinetic_fun=f0)
+        else:
+            self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.mhd_equil)
+            
         self._base_ops = BasisProjectionOperators(self.derham, self.domain, self.mhd_equil)
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
         
         # updates u
-        self._propagators += [propagators_fields.CurrentCoupling6DDensity(self._e_ions, self.derham, self.domain, self._mass_ops, solver_params_1, coupling_params, self._u, self._u_space, self._b_eq, self._b)]
+        self._propagators += [propagators_fields.CurrentCoupling6DDensity(self._e_ions, self.derham, self.domain, self._mass_ops, solver_params_1, coupling_params, self._u, self._u_space, self._b_eq, self._b, f0=f0)]
         
         # updates u and b
         self._propagators += [propagators_fields.ShearAlfvén(self._u, self._b, self._u_space, self.derham, self._mass_ops, self._base_ops, solver_params_2)]
         
-        # updates u and v
-        self._propagators += [propagators_coupling.CurrentCoupling6DCurrent(self._e_ions, self.derham, self.domain, self._mass_ops, solver_params_3, coupling_params, self._u, self._u_space, self._b_eq, self._b)]
+        # updates u and v (and weights for control variate)
+        self._propagators += [propagators_coupling.CurrentCoupling6DCurrent(self._e_ions, self.derham, self.domain, self._mass_ops, solver_params_3, coupling_params, self._u, self._u_space, self._b_eq, self._b, f0=f0)]
         
         # updates eta
-        self._propagators += [propagators_markers.StepPushEta(self._e_ions, self.derham, self.domain, e_ions_params['push_algos']['eta'], e_ions_params['markers']['bc_type'])] 
+        self._propagators += [propagators_markers.StepPushEta(self._e_ions, self.derham, self.domain, e_ions_params['push_algos']['eta'], e_ions_params['markers']['bc_type'], f0=f0)] 
         
         # updates v
-        self._propagators += [propagators_markers.StepPushVxB(self._e_ions, self.derham, self.domain, e_ions_params['push_algos']['vxb'], self._b_eq, self._b)]
+        self._propagators += [propagators_markers.StepPushVxB(self._e_ions, self.derham, self.domain, e_ions_params['push_algos']['vxb'], self._b_eq, self._b, f0=f0)]
         
         # updates u and p
         self._propagators += [propagators_fields.Magnetosonic(self._n, self._u, self._p, self._b, self._u_space, self.derham, self._mass_ops, self._base_ops, solver_params_4)]

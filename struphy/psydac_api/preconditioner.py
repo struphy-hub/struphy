@@ -9,6 +9,8 @@ from psydac.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace
 
+from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+
 from psydac.api.essential_bc import apply_essential_bc_stencil
 
 from struphy.psydac_api.linear_operators import CompositeLinearOperator, BoundaryOperator, IdentityOperator
@@ -87,8 +89,14 @@ class MassMatrixPreconditioner(LinearSolver):
                 quad_order_1d = femspaces[c].quad_order[d]
                     
                 # assemble 1d mass matrix
-                M = WeightedMassOperator.assemble_mat(TensorFemSpace(femspace_1d, quad_order=[quad_order_1d]),
-                                                      TensorFemSpace(femspace_1d, quad_order=[quad_order_1d]), fun)
+                femspace_1d_tensor = TensorFemSpace(femspace_1d, quad_order=[quad_order_1d])
+                
+                # only for M1 Mac users
+                PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
+                
+                M = StencilMatrix(femspace_1d_tensor.vector_space, femspace_1d_tensor.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
+                
+                WeightedMassOperator.assemble_mat(femspace_1d_tensor, femspace_1d_tensor, M, fun)
                 
                 # apply boundary conditions
                 if apply_bc:

@@ -24,10 +24,10 @@ em_fields :
       init :
             type : TorusModesSin # initial conditions (possible types seen below)
             TorusModesSin : 
-                  coords : 'logical' 
+                  coords : 'logical' # in which coordinates (logical or physical)
                   comps :
-                        e_field : [True, True, False]
-                        b_field : [False, False, False]
+                        e_field : [True, True, False]   # components to be initialized (for scalar fields: no list)
+                        b_field : [False, False, False] # components to be initialized (for scalar fields: no list)
                   ms : [3] # poloidal mode numbers
                   ns : [1] # toroidal mode numbers
                   amp : [0.001] # amplitudes

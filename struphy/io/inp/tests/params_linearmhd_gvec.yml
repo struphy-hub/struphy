@@ -50,10 +50,10 @@ fluid :
                   type : noise # initial conditions (possible types seen below)
                   noise :
                         comps : 
-                              n3 : False
-                              uv : [True, True, True]
-                              p3 : False
-                        direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
+                              n3 : False              # components to be initialized (for scalar fields: no list)
+                              uv : [True, True, True] # components to be initialized (for scalar fields: no list)
+                              p3 : False              # components to be initialized (for scalar fields: no list)
+                        variation_in : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
                         amp : 0.1   # noise amplitude
       
 solvers :

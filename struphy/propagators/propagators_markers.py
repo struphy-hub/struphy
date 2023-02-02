@@ -41,9 +41,12 @@ class StepPushEta(Propagator):
 
     bc : list[str]
         Kinetic boundary conditions in each direction.
+        
+    f0 : callable | NoneType
+        Distribution function used to update weights if control variate is used. Is called as f0(eta1, eta2, eta3, vx, vy, vz).
     """
 
-    def __init__(self, particles, derham, domain, algo, bc):
+    def __init__(self, particles, derham, domain, algo, bc, f0=None):
 
         self._particles = particles
         self._bc = bc
@@ -74,6 +77,12 @@ class StepPushEta(Propagator):
         self._butcher = ButcherTableau(a, b, c)
         self._pusher = Pusher(derham, domain,
                               'push_eta_stage', self._butcher.n_stages)
+        
+        # distribution function (control variate)
+        if f0 is not None:
+            assert callable(f0)
+        
+        self._f0 = f0
 
     @property
     def variables(self):
@@ -83,9 +92,15 @@ class StepPushEta(Propagator):
         """
         TODO
         """
+        
+        # push markers
         self._pusher(self._particles, dt,
                      self._butcher.a, self._butcher.b, self._butcher.c,
                      bc=self._bc, mpi_sort='last')
+        
+        # update_weights
+        if self._f0 is not None:
+            self._particles.update_weights(self._f0, True)
 
 
 class StepPushVxB(Propagator):
@@ -116,9 +131,12 @@ class StepPushVxB(Propagator):
 
     *b_vectors : psydac.linalg.block.BlockVector | struphy.polar.basic.PolarVector
         FE coefficients of several magnetic fields (2-form) (typically static and dynamical magnetic field).
+        
+    f0 : callable | NoneType
+        Distribution function used to update weights if control variate is used. Is called as f0(eta1, eta2, eta3, vx, vy, vz).
     """
 
-    def __init__(self, particles, derham, domain, algo, *b_vectors):
+    def __init__(self, particles, derham, domain, algo, *b_vectors, f0=None):
 
         self._particles = particles
 
@@ -135,6 +153,12 @@ class StepPushVxB(Propagator):
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         self._E2T = derham.E['2'].transpose()
+        
+        # distribution function (control variate)
+        if f0 is not None:
+            assert callable(f0)
+        
+        self._f0 = f0
 
     @property
     def variables(self):
@@ -162,6 +186,10 @@ class StepPushVxB(Propagator):
                      b_full[0]._data,
                      b_full[1]._data,
                      b_full[2]._data)
+        
+        # update_weights
+        if self._f0 is not None:
+            self._particles.update_weights(self._f0, True)
 
 
 class StepPushpxB_hybrid(Propagator):
