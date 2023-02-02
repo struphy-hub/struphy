@@ -466,7 +466,7 @@ class Field:
                 From parameters/fields/init/noise.
         """
 
-        _direction = fun_params['direction']
+        _direction = fun_params['variation_in']
         _ampsize = fun_params['amp']
 
         if n == None:
@@ -478,7 +478,7 @@ class Field:
             _shape = (self._gl_e[n][0] + 1 - self._gl_s[n][0], self._gl_e[n]
                       [1] + 1 - self._gl_s[n][1], self._gl_e[n][2] + 1 - self._gl_s[n][2])
 
-        if _direction == 'x':
+        if _direction == 'e1':
             _amps = (np.random.rand(_shape_w_pads[0]) - .5) * 2. * _ampsize
             for j in range(_shape[1]):
                 for k in range(_shape[2]):
@@ -489,7 +489,7 @@ class Field:
                         self._vector[n][:, self._gl_s[n][1] +
                                         j, self._gl_s[n][2] + k] = _amps
 
-        elif _direction == 'y':
+        elif _direction == 'e2':
             _amps = (np.random.rand(_shape_w_pads[1]) - .5) * 2. * _ampsize
             for j in range(_shape[0]):
                 for k in range(_shape[2]):
@@ -500,7 +500,7 @@ class Field:
                         self._vector[n][self._gl_s[n][0] + j,
                                         :, self._gl_s[n][2] + k] = _amps
 
-        elif _direction == 'z':
+        elif _direction == 'e3':
             _amps = (np.random.rand(_shape_w_pads[2]) - .5) * 2. * _ampsize
             for j in range(_shape[0]):
                 for k in range(_shape[1]):
@@ -511,7 +511,7 @@ class Field:
                         self._vector[n][self._gl_s[n][0] + j,
                                         self._gl_s[n][1] + k, :] = _amps
 
-        elif _direction == 'xy':
+        elif _direction == 'e1e2':
             _amps = (np.random.rand(
                 _shape_w_pads[0], _shape_w_pads[1]) - .5) * 2. * _ampsize
             for j in range(_shape[2]):
@@ -520,7 +520,7 @@ class Field:
                 else:
                     self._vector[n][:, :, self._gl_s[n][2] + j] = _amps
 
-        elif _direction == 'xz':
+        elif _direction == 'e1e3':
             _amps = (np.random.rand(
                 _shape_w_pads[0], _shape_w_pads[2]) - .5) * 2. * _ampsize
             for j in range(_shape[1]):
@@ -529,7 +529,7 @@ class Field:
                 else:
                     self._vector[n][:, self._gl_s[n][1] + j, :] = _amps
 
-        elif _direction == 'yz':
+        elif _direction == 'e2e3':
             _amps = (np.random.rand(
                 _shape_w_pads[1], _shape_w_pads[2]) - .5) * 2. * _ampsize
             for j in range(_shape[0]):
@@ -538,7 +538,7 @@ class Field:
                 else:
                     self._vector[n][self._gl_s[n][0] + j, :, :] = _amps
 
-        elif _direction == 'xyz':
+        elif _direction == 'e1e2e3':
             _amps = (np.random.rand(
                 _shape_w_pads[0], _shape_w_pads[1], _shape_w_pads[2]) - .5) * 2. * _ampsize
             if n == None:

@@ -11,6 +11,7 @@ from struphy.pic.particles_to_grid import Accumulator
 from struphy.pic.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.linear_algebra.iterative_solvers import pbicgstab
+from struphy.kinetic_background.analytical import Maxwellian6D
 
 from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
 from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
@@ -18,6 +19,7 @@ from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Mul
 from struphy.psydac_api.linear_operators import InverseLinearOperator as Invert
 from struphy.psydac_api import preconditioner
 from struphy.psydac_api.linear_operators import LinOpWithTransp
+from struphy.psydac_api.mass import WeightedMassOperator
 
 from struphy.psydac_api.Hybrid_linear_operator import HybridOperators
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
@@ -541,7 +543,7 @@ class CurrentCoupling6DDensity( Propagator ):
     TODO
     """
     
-    def __init__(self, particles, derham, domain, mass_ops, solver_params, coupling_params, u, u_space, *b_vectors):
+    def __init__(self, particles, derham, domain, mass_ops, solver_params, coupling_params, u, u_space, *b_vectors, f0=None):
         
         assert isinstance(u, (BlockVector, PolarVector))
         
@@ -571,7 +573,30 @@ class CurrentCoupling6DDensity( Propagator ):
         
         self._coupling_mat = nuh*kap*Zh/Ab
         
-        # transposed extraction operators for u and b
+        # distribution function (control variate, without control variate f0=None)
+        self._f0 = f0
+        
+        # evaluate and save nh0*|det(DF)| (H1vec) or nh0/|det(DF)| (Hdiv) at quadrature points for control variate
+        if f0 is not None:
+            
+            # f0 must be a 6d Maxwellian
+            assert isinstance(f0, Maxwellian6D)
+            
+            quad_pts = [quad_grid.points.flatten() for quad_grid in derham.Vh_fem['0'].quad_grids]
+            
+            if u_space == 'H1vec':
+                self._nh0_at_quad = domain.pull([f0.n], *quad_pts, kind='3_form', squeeze_out=False, coordinates='logical')
+            else:
+                self._nh0_at_quad = domain.push([f0.n], *quad_pts, kind='3_form', squeeze_out=False)
+        
+        # FEM spaces and basis extraction operators for u and b
+        self._fem_space_u = derham.Vh_fem[derham.spaces_dict[u_space]]
+        self._fem_space_b = derham.Vh_fem['2']
+        
+        self._Eu  = derham.E[derham.spaces_dict[u_space]]
+        self._Eb  = derham.E['2']
+        
+        self._EuT = derham.E[derham.spaces_dict[u_space]].transpose()
         self._EbT = derham.E['2'].transpose()
 
         # mass matrix in system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
@@ -612,10 +637,28 @@ class CurrentCoupling6DDensity( Propagator ):
         # update ghost regions because of non-local access in pusher kernel
         b_full.update_ghost_regions()
 
-        # perform accumulation
-        self._accumulator.accumulate(self._particles,
-                                     b_full[0]._data, b_full[1]._data, b_full[2]._data, 
-                                     self._space_key_int, self._coupling_mat)
+        # perform accumulation  (either with or without control variate)
+        if self._f0 is not None:
+            
+            # evaluate magnetic field at quadrature points
+            b_quad = WeightedMassOperator.eval_quad(self._fem_space_b, b_full)
+            
+            mat12 =  self._coupling_mat*b_quad[2]*self._nh0_at_quad
+            mat13 = -self._coupling_mat*b_quad[1]*self._nh0_at_quad
+            mat23 =  self._coupling_mat*b_quad[0]*self._nh0_at_quad
+            
+            control_mat_at_quad = [[None, mat12, mat13],
+                                   [None,  None, mat23],
+                                   [None,  None,  None]]
+            
+            self._accumulator.accumulate(self._particles,
+                                         b_full[0]._data, b_full[1]._data, b_full[2]._data, 
+                                         self._space_key_int, self._coupling_mat,
+                                         control_mat=control_mat_at_quad)
+        else:
+            self._accumulator.accumulate(self._particles,
+                                         b_full[0]._data, b_full[1]._data, b_full[2]._data, 
+                                         self._space_key_int, self._coupling_mat)
         
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
         lhs = Sum(self._M, Multiply(-dt/2, self._accumulator.A0))

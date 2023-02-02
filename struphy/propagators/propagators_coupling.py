@@ -9,11 +9,13 @@ from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.pic.particles_to_grid import Accumulator
 from struphy.pic.pusher import Pusher
 from struphy.polar.basic import PolarVector
+from struphy.kinetic_background.analytical import Maxwellian6D
 
 from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
 from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
 from struphy.psydac_api import preconditioner
 from struphy.psydac_api.linear_operators import LinOpWithTransp
+from struphy.psydac_api.mass import WeightedMassOperator
 
 
 class StepEfieldWeights(Propagator):
@@ -178,8 +180,8 @@ class StepEfieldWeights(Propagator):
             print('Maxdiff weights for StepEfieldWeights:', max_diff)
             print()
 
-
-class StepPressurecoupling(Propagator):
+            
+class StepPressurecoupling( Propagator ):
     r'''Crank-Nicolson step for pressure coupling term in MHD equations and velocity update with the force term :math:`\nabla \mathbf U \cdot \mathbf v`.
 
     .. math::
@@ -420,9 +422,8 @@ class CurrentCoupling6DCurrent(Propagator):
     """
     TODO
     """
-
-    def __init__(self, particles, derham, domain, mass_ops, solver_params, coupling_params, u, u_space, *b_vectors):
-
+    def __init__(self, particles, derham, domain, mass_ops, solver_params, coupling_params, u, u_space, *b_vectors, f0=None):
+        
         assert isinstance(u, (BlockVector, PolarVector))
 
         for b in b_vectors:
@@ -452,13 +453,41 @@ class CurrentCoupling6DCurrent(Propagator):
 
         self._coupling_mat = nuh*kap**2*Zh**2/(Ab*Ah)
         self._coupling_vec = nuh*kap*Zh/Ab
-
-        # load pusher
+        
+        # distribution function (control variate, without control variate f0=None)
+        self._f0 = f0
+        
+        # evaluate and save nh0 (0-form) * uh0 (2-form if H1vec or vector if Hdiv) at quadrature points for control variate
+        if f0 is not None:
+            
+            # f0 must be a 6d Maxwellian
+            assert isinstance(f0, Maxwellian6D)
+            
+            quad_pts = [quad_grid.points.flatten() for quad_grid in derham.Vh_fem['0'].quad_grids]
+            
+            uh0_cart = [f0.ux, f0.uy, f0.uz]
+            
+            if u_space == 'H1vec':
+                self._nuh0_at_quad = domain.pull(uh0_cart, *quad_pts, kind='2_form', squeeze_out=False, coordinates='logical')
+            else:
+                self._nuh0_at_quad = domain.pull(uh0_cart, *quad_pts, kind='vector', squeeze_out=False, coordinates='logical')
+            
+            self._nuh0_at_quad[0] *= domain.pull([f0.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
+            self._nuh0_at_quad[1] *= domain.pull([f0.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
+            self._nuh0_at_quad[2] *= domain.pull([f0.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
+        
+        # load particle pusher
         self._pusher = Pusher(derham, domain, 'push_bxu_' + u_space)
-
-        # transposed extraction operators for u and b
-        self._EbT = derham.E['2'].transpose()
+        
+        # FEM spaces and basis extraction operators for u and b
+        self._fem_space_u = derham.Vh_fem[derham.spaces_dict[u_space]]
+        self._fem_space_b = derham.Vh_fem['2']
+        
+        self._Eu  = derham.E[derham.spaces_dict[u_space]]
+        self._Eb  = derham.E['2']
+        
         self._EuT = derham.E[derham.spaces_dict[u_space]].transpose()
+        self._EbT = derham.E['2'].transpose()
 
         # define system [[A B], [C I]] [u_new, v_new] = [[A -B], [-C I]] [u_old, v_old] (without time step size dt)
         _A = getattr(mass_ops, 'M' + derham.spaces_dict[u_space] + 'n')
@@ -496,32 +525,51 @@ class CurrentCoupling6DCurrent(Propagator):
 
         for b in self._b_vectors:
             b_full += b
-
+        
         # extract coefficients to tensor product space
         b_full = self._EbT.dot(b_full)
 
         # update ghost regions because of non-local access in pusher kernel
         b_full.update_ghost_regions()
-
-        # perform accumulation
-        self._accumulator.accumulate(self._particles,
-                                     b_full[0]._data, b_full[1]._data, b_full[2]._data,
-                                     self._space_key_int, self._coupling_mat, self._coupling_vec)
-
+        
+        # perform accumulation (either with or without control variate)
+        if self._f0 is not None:
+            
+            # evaluate total magnetic field at quadrature points
+            b_quad = WeightedMassOperator.eval_quad(self._fem_space_b, b_full)
+            
+            control_vec_at_quad = [self._coupling_vec*(b_quad[1]*self._nuh0_at_quad[2] - b_quad[2]*self._nuh0_at_quad[1]),
+                                   self._coupling_vec*(b_quad[2]*self._nuh0_at_quad[0] - b_quad[0]*self._nuh0_at_quad[2]),
+                                   self._coupling_vec*(b_quad[0]*self._nuh0_at_quad[1] - b_quad[1]*self._nuh0_at_quad[0])]
+            
+            self._accumulator.accumulate(self._particles,
+                                         b_full[0]._data, b_full[1]._data, b_full[2]._data, 
+                                         self._space_key_int, self._coupling_mat, self._coupling_vec,
+                                         control_vec=control_vec_at_quad)
+        else:
+            self._accumulator.accumulate(self._particles,
+                                         b_full[0]._data, b_full[1]._data, b_full[2]._data, 
+                                         self._space_key_int, self._coupling_mat, self._coupling_vec)
+        
         # solve linear system for updated u coefficients
-        u_new, info = self._schur_solver(
-            u_old, -self._accumulator.vector/2, dt)
-
+        u_new, info = self._schur_solver(u_old, -self._Eu.dot(self._accumulator.vector)/2, dt)
+        
         # call pusher kernel with average field (u_new + u_old)/2 and update ghost regions because of non-local access in kernel
         u_avg = self._EuT.dot((u_old + u_new)/2)
+        
         u_avg.update_ghost_regions()
-
+        
+        # push particles
         self._pusher(self._particles, dt,
                      b_full[0]._data, b_full[1]._data, b_full[2]._data,
                      u_avg[0]._data, u_avg[1]._data, u_avg[2]._data)
 
         # write new coeffs into Propagator.variables
         max_du = self.in_place_update(u_new)
+        
+        # update weights in case of control variate
+        if self._f0 is not None:
+            self._particles.update_weights(self._f0, True)
 
         if self._info and self._rank == 0:
             print('Status     for CurrentCoupling6DCurrent:', info['success'])

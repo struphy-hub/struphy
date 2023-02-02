@@ -188,9 +188,9 @@ em_fields :
             type : noise # initial conditions (possible types seen below)
             noise :
                   comps :
-                        e_field : [True, False, False]
-                        b_field : [False, False, False]
-                  direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain (x -> eta_1 etc.)
+                        e_field : [True, False, False]  # components to be initialized (for scalar fields: no list)
+                        b_field : [False, False, False] # components to be initialized (for scalar fields: no list)
+                  variation_in : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
                   amp : 0.1   # noise amplitude
 
 kinetic :

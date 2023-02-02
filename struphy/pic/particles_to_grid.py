@@ -5,8 +5,10 @@ from psydac.linalg.block import BlockVector, BlockMatrix
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
 from struphy.psydac_api.linear_operators import CompositeLinearOperator, IdentityOperator
+from struphy.psydac_api.mass import WeightedMassOperator
 
 import struphy.pic.accum_kernels as accums
+
 
 
 class Accumulator:
@@ -64,6 +66,7 @@ class Accumulator:
         _space_key = derham.spaces_dict[space_id]
         
         self._space = derham.Vh[_space_key]
+        self._fem_space = derham.Vh_fem[_space_key]
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
@@ -280,7 +283,7 @@ class Accumulator:
             self._A0 = CompositeLinearOperator(B, E, self._matrix, E.transpose(), B.transpose())
 
     
-    def accumulate(self, particles, *args_add):
+    def accumulate(self, particles, *args_add, **args_control):
         """
         Performs the accumulation.
 
@@ -289,11 +292,14 @@ class Accumulator:
         particles : array[float]
             Particle information in format (n_markers, :), including holes.
             
-        args_add : list
+        *args_add
             Additional arguments to be passed to the accumulator kernel, besides the mandatory arguments
             which are prepared automatically (spline bases info, mapping info, data arrays).
             Examples would be parameters for a background kinetic distribution or spline coefficients of a background magnetic field.
             Entries must be pyccel-conform types.
+            
+        **args_control
+            Keyword arguments for an analytical control variate correction in the accumulation step. Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction. Values are a 1d (vector) or 2d (matrix) list with callables or np.ndarrays used for the correction.
         """
 
         # reset arrays
@@ -305,8 +311,16 @@ class Accumulator:
                                 *self.args_fem, *self.domain.args_map,
                                 *self.args_data, *args_add)
 
-        # use mpi
+        # send ghost regions
         self._send_ghost_regions()
+        
+        # add analytical contribution (control variate) to vector
+        if 'control_vec' in args_control:
+            WeightedMassOperator.assemble_vec(self._fem_space, self._vector, args_control['control_vec'])
+            
+        # add analytical contribution (control variate) to matrix
+        if 'control_mat' in args_control:
+            WeightedMassOperator.assemble_mat(self._fem_space, self._fem_space, self._matrix, args_control['control_mat'])
         
         # update ghost regions
         self.update_ghost_regions()
