@@ -456,7 +456,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
                         np.array(SPACES.p), np.array(Nel),
                         np.array(SPACES.NbaseN), np.array(SPACES.NbaseD),
                         particles_leg.shape[0],
-                        domain.kind_map, domain.params_map,
+                        domain.kind_map, domain.params_numpy,
                         domain.T[0], domain.T[1], domain.T[2],
                         np.array(domain.p), np.array(domain.Nel), np.array(domain.NbaseN),
                         domain.cx, domain.cy, domain.cz,

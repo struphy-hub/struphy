@@ -127,16 +127,25 @@ class Domain(metaclass=ABCMeta):
     @property
     @abstractmethod
     def kind_map(self):
-        '''Integer defining the mapping; must be <10 for spline mappings and >=10 otherwise.'''
+        '''Integer defining the mapping: 
+            * <=9: spline mappings
+            * >=10 and <=19: analytical mappings with cubic domain boundary
+            * >=20 and <=29: analytical cylinder and torus mappings 
+            * >=30 and <=39: Shafranov mappings (cylinder)'''
         pass
 
     @property
     @abstractmethod
     def params_map(self):
-        '''Mapping parameters: as numpy array for analytical mappings, as dict for spline mappings.
-        Needs to be manually reset to numpy array after __init__ for the latter.'''
+        '''Mapping parameters as dictionary.'''
         pass
     
+    @property
+    @abstractmethod
+    def params_numpy(self):
+        '''Mapping parameters as numpy array (can be empty).'''
+        pass
+
     @property
     @abstractmethod
     def F_psy(self):
@@ -204,10 +213,10 @@ class Domain(metaclass=ABCMeta):
     def args_map(self):
         '''Tuple of all parameters needed for evaluation of metric coefficients.'''
         
-        _args_map = (self._kind_map, self._params_map,
-                     np.array(self._p), self._T[0], self._T[1], self._T[2],
-                     self._indN[0], self._indN[1], self._indN[2],
-                     self._cx, self._cy, self._cz)
+        _args_map = (self.kind_map, self.params_numpy,
+                     np.array(self.p), self.T[0], self.T[1], self.T[2],
+                     self.indN[0], self.indN[1], self.indN[2],
+                     self.cx, self.cy, self.cz)
         
         return _args_map
 
@@ -242,7 +251,7 @@ class Domain(metaclass=ABCMeta):
                 
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             The Cartesian coordinates corresponding to the given logical ones.
         """
         
@@ -279,7 +288,7 @@ class Domain(metaclass=ABCMeta):
         
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             The Jacobian matrix evaluated at given logical coordinates.
         """
         
@@ -305,7 +314,7 @@ class Domain(metaclass=ABCMeta):
                 
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             The Jacobian determinant evaluated at given logical coordinates.
         """
         
@@ -337,7 +346,7 @@ class Domain(metaclass=ABCMeta):
         
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             The inverse Jacobian matrix evaluated at given logical coordinates.
         """
         
@@ -369,7 +378,7 @@ class Domain(metaclass=ABCMeta):
         
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             The metric tensor evaluated at given logical coordinates.
         """
         
@@ -401,7 +410,7 @@ class Domain(metaclass=ABCMeta):
         
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             The inverse metric tensor evaluated at given logical coordinates.
         """
         
@@ -444,7 +453,7 @@ class Domain(metaclass=ABCMeta):
 
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             Pullback of Cartesian vector/scalar field to p-form evaluated at given logical coordinates.
 
         Notes
@@ -486,7 +495,7 @@ class Domain(metaclass=ABCMeta):
 
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             Pushforward of p-form to Cartesian vector/scalar field evaluated at given logical coordinates.
 
         Notes
@@ -528,7 +537,7 @@ class Domain(metaclass=ABCMeta):
 
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             Transformed p-form evaluated at given logical coordinates.
 
         Notes
@@ -562,7 +571,7 @@ class Domain(metaclass=ABCMeta):
         
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             The metric coefficient evaluated at the given logical coordinates.
         """
         
@@ -653,7 +662,7 @@ class Domain(metaclass=ABCMeta):
         
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             The metric coefficient evaluated at the given logical coordinates.
         """
         
@@ -1043,6 +1052,8 @@ class Domain(metaclass=ABCMeta):
 
         import matplotlib.pyplot as plt
         
+        is_not_cube = self.kind_map < 10 or self.kind_map > 19
+
         # plot given markers
         if markers is not None:
             
@@ -1077,22 +1088,95 @@ class Domain(metaclass=ABCMeta):
         # plot domain without MPI decomposition and high resolution
         if grid_info is None:
 
-            e1 = np.linspace(0., 1., 101)
-            e2 = np.linspace(0., 1., 101)
+            e1 = np.linspace(0., 1., 16)
+            e2 = np.linspace(0., 1., 65)
 
             if logical:
                 E1, E2 = np.meshgrid(e1, e2, indexing='ij')
                 X = np.stack((E1, E2), axis=0)
             else:
-                X = self(e1, e2, 0.)
+                XYZ = self(e1, e2, 0.)
+
+            # TODO: homogenize coordinates for poloidal plane: always use z as torus symmetry axis?
+            X = XYZ[0]
+            if self.__class__.__name__ == 'GVECunit' or 'Torus' in self.__class__.__name__:
+                Y = XYZ[2]
+            else:
+                Y = XYZ[1]
+
+            fig = plt.figure(figsize=(12, 5))
+            ax = fig.add_subplot(1, 2, 1)
 
             # eta1-isolines
-            for i in range(e1.size//5 + 1):
-                plt.plot(X[0, i*5, :], X[1, i*5, :], 'tab:blue', alpha=.5)
+            for i in range(e1.size):
+                ax.plot(X[i, :], Y[i, :], 'tab:blue', alpha=.5, zorder=0)
 
             # eta2-isolines
-            for j in range(e2.size//5 + 1):
-                plt.plot(X[0, :, j*5], X[1, :, j*5], 'tab:blue', alpha=.5)
+            for j in range(e2.size - int(is_not_cube)):
+                ax.plot(X[:, j], Y[:, j], 'tab:blue', alpha=.5, zorder=0)
+
+            ax.scatter(X[0, 0], Y[0, 0], 20, 'red', zorder=10)
+            if is_not_cube:
+                ax.scatter(X[0, 32], Y[0, 32], 20, 'red', zorder=10)
+
+            tstr = ''
+            for key, val in self.params_map.items():
+                if key not in {'cx', 'cy', 'cz'}:
+                    tstr += key + ': ' + str(val) + '\n'
+            ax.set_title(self.__class__.__name__ + ' at $\\eta_3=0$')
+            ax.text(.01,.99, tstr, ha='left', va='top', transform = ax.transAxes)
+
+            # top view
+            e3 = np.linspace(0., 1., 65)
+
+            if logical:
+                E1, E2 = np.meshgrid(e1, e2, indexing='ij')
+                X = np.stack((E1, E2), axis=0)
+            else:
+                theta_0 = self(e1, 0., e3)
+                theta_pi = self(e1, .5, e3)
+
+            # TODO: homogenize coordinates for poloidal plane: always use z as torus symmetry axis?
+            X_0 = theta_0[0]
+            X_pi = theta_pi[0]
+            if self.__class__.__name__ == 'GVECunit' or 'Torus' in self.__class__.__name__:
+                Z_0 = theta_0[1]
+                Z_pi = theta_pi[1]
+            else:
+                Z_0 = theta_0[2]
+                Z_pi = theta_pi[2]
+
+            ax2 = fig.add_subplot(1, 2, 2)
+
+            # eta1-isolines
+            for i in range(e1.size):
+                ax2.plot(X_0[i, :], Z_0[i, :], 'tab:blue', alpha=.5, zorder=0)
+
+            # eta3-isolines
+            for j in range(e2.size):
+                ax2.plot(X_0[:, j], Z_0[:, j], 'tab:blue', alpha=.5, zorder=0)
+
+            if is_not_cube:
+                # eta1-isolines
+                for i in range(e1.size):
+                    ax2.plot(X_pi[i, :], Z_pi[i, :], 'tab:blue', alpha=.5, zorder=0)
+
+                # eta3-isolines
+                for j in range(e2.size):
+                    ax2.plot(X_pi[:, j], Z_pi[:, j], 'tab:blue', alpha=.5, zorder=0)
+
+            # magnetic axis
+            ax2.plot(X_0[0, :], Z_0[0, :], 'tab:red', alpha=1., zorder=10)
+            ax2.plot(X_pi[0, :], Z_pi[0, :], 'tab:red', alpha=1., zorder=10)
+
+            if self.__class__.__name__ == 'GVECunit' or 'Torus' in self.__class__.__name__:
+                ylab = 'y'
+            else:
+                ylab = 'z'
+            ax2.set_xlabel('x')
+            ax2.set_ylabel(ylab)
+            ax2.set_title('top view')
+            ax2.axis('equal')
                 
         # plot domain according to given grid [nel1, nel2, (nel3)]
         elif isinstance(grid_info, list):
@@ -1108,13 +1192,16 @@ class Domain(metaclass=ABCMeta):
             else:
                 X = self(e1, e2, 0.)
 
+            fig = plt.figure(figsize=(6, 5))
+            ax = fig.add_subplot(1, 1, 1)
+
             # eta1-isolines
             for i in range(e1.size):
-                plt.plot(X[0, i, :], X[1, i, :], 'tab:blue', alpha=.5)
+                ax.plot(X[0, i, :], X[1, i, :], 'tab:blue', alpha=.5)
 
             # eta2-isolines
             for j in range(e2.size):
-                plt.plot(X[0, :, j], X[1, :, j], 'tab:blue', alpha=.5)
+                ax.plot(X[0, :, j], X[1, :, j], 'tab:blue', alpha=.5)
         
         # plot domain with MPI decomposition
         elif isinstance(grid_info, np.ndarray):
@@ -1135,32 +1222,40 @@ class Domain(metaclass=ABCMeta):
                 else:
                     X = self(e1, e2, 0.)
 
+                fig = plt.figure(figsize=(12, 5))
+                ax = fig.add_subplot(1, 2, 1)
+
                 # eta1-isolines
-                first_line = plt.plot(X[0, 0, :], X[1, 0, :], label='rank=' + str(i), alpha=.5)
+                first_line = ax.plot(X[0, 0, :], X[1, 0, :], label='rank=' + str(i), alpha=.5)
 
                 for j in range(e1.size):
-                    plt.plot(X[0, j, :], X[1, j, :], color=first_line[0].get_color(), alpha=.5)
+                    ax.plot(X[0, j, :], X[1, j, :], color=first_line[0].get_color(), alpha=.5)
 
                 # eta2-isolines
                 for k in range(e2.size):
-                    plt.plot(X[0, :, k], X[1, :, k], color=first_line[0].get_color(), alpha=.5)
+                    ax.plot(X[0, :, k], X[1, :, k], color=first_line[0].get_color(), alpha=.5)
                     
         else:
             raise ValueError('given grid_info is not supported!')
             
-
         # plot control points in case of IGA mappings
         if not logical and self.kind_map < 10:
-            plt.scatter(self.cx[:, :, 0].flatten(),
-                        self.cy[:, :, 0].flatten(),
-                        s=3, color='b')
+            if self.__class__.__name__ == 'GVECunit':
+                Yc = self.cz[:, :, 0].flatten()
+            else:
+                Yc = self.cy[:, :, 0].flatten()
+            ax.scatter(self.cx[:, :, 0].flatten(), Yc, s=3, color='b')
 
-        plt.axis('square')
+        ax.axis('equal')
         
         if isinstance(grid_info, np.ndarray): plt.legend()
         
-        plt.xlabel('x')
-        plt.ylabel('y')
+        if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit':
+            ylab = 'z'
+        else:
+            ylab = 'y'
+        ax.set_xlabel('x')
+        ax.set_ylabel(ylab)
 
         if save_dir is not None:
             plt.savefig(save_dir)
@@ -1168,7 +1263,268 @@ class Domain(metaclass=ABCMeta):
             plt.show()
 
 
+class Spline(Domain):
+    r'''
+    .. math:: 
+
+        F: (\eta_1, \eta_2, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
+        x &= \sum_{ijk} c^x_{ijk} N_i(\eta_1) N_j(\eta_2) N_k(\eta_3)\,, 
+
+        y &= \sum_{ijk} c^y_{ijk} N_i(\eta_1) N_j(\eta_2) N_k(\eta_3)\,, 
+
+        z &= \sum_{ijk} c^z_{ijk} N_i(\eta_1) N_j(\eta_2) N_k(\eta_3)\,.
+        \end{aligned}\right.
+
+    .. image:: ../pics/mappings/spline.png'''
+
+    def __init__(self, params_map=None):
+
+        self._kind_map = 0
+
+        # set a default
+        if params_map is None:
+
+            from struphy.fields_background.mhd_equil.numerical import GVECequilibrium
+
+            mhd_equil = GVECequilibrium() 
             
+            params_map = {'cx': mhd_equil.domain.cx,
+                        'cy': mhd_equil.domain.cy,
+                        'cz': mhd_equil.domain.cz,
+                        'Nel': mhd_equil.domain.Nel,
+                        'p': mhd_equil.domain.p,
+                        'spl_kind': mhd_equil.domain.spl_kind}
+
+        else:
+            assert 'cx' in params_map
+            assert 'cy' in params_map
+            assert 'cz' in params_map
+            assert 'Nel' in params_map
+            assert 'p' in params_map
+            assert 'spl_kind' in params_map
+
+        # assign coefficients
+        self._cx = params_map['cx']
+        self._cy = params_map['cy']
+        self._cz = params_map['cz']
+
+        # check dimensions
+        assert self.cx.ndim == 3
+        assert self.cy.ndim == 3
+        assert self.cz.ndim == 3
+
+        assert all([self.cx.shape[n] == params_map['Nel'][n] + (not params_map['spl_kind'][n])*params_map['p'][n] for n in range(3)])
+        assert self.cy.shape == self.cx.shape
+        assert self.cz.shape == self.cx.shape
+
+        # check polar singularity
+        if np.all(self.cx[0, :, 0] == self.cx[0, 0, 0]):
+            self._pole = True
+        else:
+            self._pole = False
+
+        self._periodic_eta3 = params_map['spl_kind'][-1] 
+
+        # init base class
+        self._params_map = params_map
+        self._params_numpy = np.array([])
+        super().__init__()
+
+    @property
+    def kind_map(self):
+        return self._kind_map
+
+    @property
+    def params_map(self):
+        return self._params_map
+
+    @property
+    def params_numpy(self):
+        return self._params_numpy
+
+    @property
+    def F_psy(self):
+        return None
+
+    @property
+    def pole(self):
+        return self._pole
+
+    @property
+    def periodic_eta3(self):
+        return self._periodic_eta3
+
+
+class PoloidalSpline(Domain):
+    r'''
+    Base class for all mappings that use a 2D spline representation :math:`S:(\eta_1, \eta_2) \to (q_1, q_2) \in \mathbb R^2` in the poloidal plane.
+    The full map F is obtained by defining :math:`(q_1, q_2, \eta_3) \mapsto (x, y, z)` in the sub-class.
+
+    .. math:: 
+
+        S: (\eta_1, \eta_2) \mapsto (q_1, q_2) \textnormal{ as } \left\{\begin{aligned}
+        q_1 &= \sum_{ij} c^x_{ij} N_i(\eta_1) N_j(\eta_2) \,, 
+
+        q_2 &= \sum_{ij} c^y_{ij} N_i(\eta_1) N_j(\eta_2) \,.
+        \end{aligned}\right.
+
+    .. image:: ../pics/mappings/xxx.png'''
+
+    def __init__(self, params_map=None):
+
+        import struphy as _
+
+        # set a default
+        if params_map is None:
+        
+            params_map = {
+                        'Nel': [8, 24],
+                        'p': [2, 3],
+                        'spl_kind': [False, True]
+                        }
+
+            def X(eta1, eta2): return eta1 * np.cos(2*np.pi * eta2) + 3.
+            def Y(eta1, eta2): return eta1 * np.sin(2*np.pi * eta2)
+
+            cx, cy = interp_mapping(params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y)
+
+            params_map['cx'] = cx
+            params_map['cy'] = cy
+
+        else:
+            assert 'cx' in params_map
+            assert 'cy' in params_map
+            assert 'Nel' in params_map
+            assert 'p' in params_map
+            assert 'spl_kind' in params_map
+
+        self._cx = params_map['cx']
+        self._cy = params_map['cy']
+
+        assert self.cx.ndim == 2 
+        assert self.cy.ndim == 2
+
+        assert all([self.cx.shape[n] == params_map['Nel'][n] + (not params_map['spl_kind'][n])*params_map['p'][n] for n in range(2)])
+        assert self.cy.shape == self.cx.shape
+
+        if np.all(self.cx[0, :] == self.cx[0, 0]):
+            self._pole = True
+        else:
+            self._pole = False
+
+        self._cx = self.cx[:, :, None]
+        self._cy = self.cy[:, :, None]
+        self._cz = np.zeros((1, 1, 1), dtype=float)
+
+        # init base class
+        self._params_map = params_map
+        self._params_numpy = None
+        self._periodic_eta3 = None
+        super().__init__()
+
+    @property
+    def kind_map(self):
+        return self._kind_map
+
+    @property
+    def params_map(self):
+        return self._params_map
+
+    @property
+    def params_numpy(self):
+        return self._params_numpy
+
+    @property
+    def F_psy(self):
+        return None
+
+    @property
+    def pole(self):
+        return self._pole
+
+    @property
+    def periodic_eta3(self):
+        return self._periodic_eta3
+
+
+class PoloidalSplineStraight(PoloidalSpline):
+    r'''
+    .. math:: 
+
+        F: (\eta_1, \eta_2, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
+        x &= \sum_{ij} c^x_{ij} N_i(\eta_1) N_j(\eta_2) \,, 
+
+        y &= \sum_{ij} c^y_{ij} N_i(\eta_1) N_j(\eta_2) \,, 
+
+        z &= L_z\eta_3\,.
+        \end{aligned}\right.
+
+    .. image:: ../pics/mappings/poloidal_spline_straight.png'''
+
+    def __init__(self, params_map=None):
+
+        self._kind_map = 1
+
+        # set a default
+        if params_map is not None:
+            assert 'cx' in params_map
+            assert 'cy' in params_map
+            assert 'Nel' in params_map
+            assert 'p' in params_map
+            assert 'spl_kind' in params_map
+            assert 'Lz' in params_map
+
+        # init base class and set class specific properties
+        super().__init__(params_map)
+
+        # set default
+        if params_map is None:
+            self._params_map['Lz'] = 4.
+
+        self._params_numpy = np.array([self.params_map['Lz']])
+        self._periodic_eta3 = False 
+
+        
+class PoloidalSplineTorus(PoloidalSpline):
+    r'''
+    .. math:: 
+
+        F: (\eta_1, \eta_2, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
+        x &= \sum_{ij} c^{R}_{ij} N_i(\eta_1) N_j(\eta_2) \cos(2\pi\eta_3)  \,, 
+
+        y &= \sum_{ij} c^{R}_{ij} N_i(\eta_1) N_j(\eta_2) \sin(2\pi\eta_3) \,, 
+
+        z &= \sum_{ij} c^{z}_{ij} N_i(\eta_1) N_j(\eta_2) \,.
+        \end{aligned}\right.
+
+    .. image:: ../pics/mappings/poloidal_spline_torus.png'''
+
+    def __init__(self, params_map=None):
+
+        self._kind_map = 2
+
+        # set a default
+        if params_map is not None:
+            assert 'cx' in params_map
+            assert 'cy' in params_map
+            assert 'Nel' in params_map
+            assert 'p' in params_map
+            assert 'spl_kind' in params_map
+            assert 'tor_period' in params_map
+            assert 'sfl' in params_map
+
+        # init base class and set class specific properties
+        super().__init__(params_map)
+
+        # set defualt
+        if params_map is None:
+            self._params_map['tor_period'] = 3 
+            self._params_map['sfl'] = True
+
+        self._params_numpy = np.array([float(self.params_map['tor_period'])])
+        self._periodic_eta3 = True
+
+
 def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
     """
     Interpolates the mapping (eta1, eta2, eta3) in [0, 1]^3 --> (X, Y, Z) on the given spline space.

@@ -27,14 +27,14 @@ n_tor = -1
 b_tor = 'i'
 
 # ------ mapping parameters -----
-dom_type    = 'PoloidalSplineCylinder'
+dom_type    = 'IGAPolarCylinder'
 a          = 1.
-R0         = 5.
-dom_params = {'a' : a, 'R0' : R0, 'Nel' : Nel, 'p' : p, 'spl_kind' : spl_kind}
+dom_params = {'a' : a, 'Lz' : 3., 'Nel' : Nel, 'p' : p}
 
 
 # -- MHD equilibrium parameters --
 params_mhd = {}
+R0         = 5.
 
 # minor/major radius
 params_mhd['a']  = a 

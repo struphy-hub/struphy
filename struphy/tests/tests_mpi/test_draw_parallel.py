@@ -9,7 +9,7 @@ import pytest
     ['Cuboid', {
         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}],
     ['ShafranovDshapedCylinder', {
-        'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
+        'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
 ])
 def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     '''Asserts whether all particles are on the correct process after `particles.mpi_sort_markers()`.'''

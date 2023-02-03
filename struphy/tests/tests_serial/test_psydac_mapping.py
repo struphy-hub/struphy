@@ -10,17 +10,13 @@ import pytest
         'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}],
     ['HollowCylinder', None],
     ['HollowTorus', {
-        'a1': 1., 'a2': 2., 'R0': 3.}],
-    ['EllipticCylinder', {
-        'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6.}],
-    ['RotatedEllipticCylinder', {
-        'x0': 1., 'y0': 2., 'z0': 3., 'r1': 4., 'r2': 5., 'Lz': 6., 'th': 7.}],
+        'a1': 1., 'a2': 2., 'R0': 3., 'tor_period': 1}],
     ['ShafranovShiftCylinder', {
-        'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6., 'delta': 7.}],
+        'rx': 4., 'ry': 5., 'Lz': 6., 'delta': 7.}],
     ['ShafranovSqrtCylinder', {
-        'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6., 'delta': 7.}],
+        'rx': 4., 'ry': 5., 'Lz': 6., 'delta': 7.}],
     ['ShafranovDshapedCylinder', {
-        'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}],
+        'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}],
 ])
 def test_psydac_mapping(mapping):
 
@@ -79,4 +75,4 @@ def test_psydac_mapping(mapping):
 
 if __name__ == '__main__':
     test_psydac_mapping(['ShafranovDshapedCylinder', {
-        'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}])
+        'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}])

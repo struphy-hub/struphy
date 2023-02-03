@@ -57,47 +57,38 @@ def f(eta1: float, eta2: float, eta3: float,  # evaluation point
             eta1, eta2, eta3, t1, t2, p[:2], ind1, ind2, cx[:, :, 0], cy[:, :, 0], params[0], f_out)
     elif kind_map == 2:
         maps.spline_2d_torus(eta1, eta2, eta3, t1, t2,
-                             p[:2], ind1, ind2, cx[:, :, 0], cy[:, :, 0], f_out)
+                             p[:2], ind1, ind2, cx[:, :, 0], cy[:, :, 0], params[0], f_out)
     elif kind_map == 10:
         maps.cuboid(eta1, eta2, eta3, params[0], params[1],
                     params[2], params[3], params[4], params[5], f_out)
     elif kind_map == 11:
-        maps.hollow_cyl(eta1, eta2, eta3,
+        maps.orthogonal(eta1, eta2, eta3,
                         params[0], params[1], params[2], params[3], f_out)
     elif kind_map == 12:
         maps.colella(eta1, eta2, eta3,
                      params[0], params[1], params[2], params[3], f_out)
-    elif kind_map == 13:
-        maps.orthogonal(eta1, eta2, eta3,
-                        params[0], params[1], params[2], params[3], f_out)
-    elif kind_map == 14:
-        maps.hollow_torus(eta1, eta2, eta3,
-                          params[0], params[1], params[2], f_out)
-    elif kind_map == 15:
-        maps.ellipse(eta1, eta2, eta3, params[0], params[1],
-                     params[2], params[3], params[4], params[5], f_out)
-    elif kind_map == 16:
-        maps.rotated_ellipse(
-            eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4], params[5], params[6], f_out)
-    elif kind_map == 17:
-        maps.powered_ellipse(
-            eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4], params[5], params[6], f_out)
-    elif kind_map == 18:
-        maps.shafranov_shift(
-            eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4], params[5], params[6], f_out)
-    elif kind_map == 19:
-        maps.shafranov_sqrt(
-            eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4], params[5], params[6], f_out)
     elif kind_map == 20:
-        maps.shafranov_dshaped(eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4],
-                               params[5], params[6], params[7], params[8], params[9], f_out)
+        maps.hollow_cyl(eta1, eta2, eta3,
+                        params[0], params[1], params[2], f_out)
     elif kind_map == 21:
-        maps.shafranov_eta3dep(eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4],
-                               params[5], params[6], params[7], params[8], params[9], params[10], f_out)
+        maps.powered_ellipse(
+            eta1, eta2, eta3, params[0], params[1], params[2], params[3], f_out)
     elif kind_map == 22:
+        maps.hollow_torus(eta1, eta2, eta3,
+                          params[0], params[1], params[2], params[3], f_out)
+    elif kind_map == 23:
         maps.hollow_torus_straight_field_line(eta1, eta2, eta3,
-                          params[0], params[1], params[2], f_out)
-
+                          params[0], params[1], params[2], params[3], f_out)
+    elif kind_map == 30:
+        maps.shafranov_shift(
+            eta1, eta2, eta3, params[0], params[1], params[2], params[3], f_out)
+    elif kind_map == 31:
+        maps.shafranov_sqrt(
+            eta1, eta2, eta3, params[0], params[1], params[2], params[3], f_out)
+    elif kind_map == 32:
+        maps.shafranov_dshaped(eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4],
+                               params[5], params[6], f_out)
+    
 def df(eta1: float, eta2: float, eta3: float,  # evaluation point
        kind_map: int, params: 'float[:]',  # mapping parameters
        # spline mapping knots and degrees
@@ -146,46 +137,37 @@ def df(eta1: float, eta2: float, eta3: float,  # evaluation point
             eta1, eta2, t1, t2, p[:2], ind1, ind2, cx[:, :, 0], cy[:, :, 0], params[0], df_out)
     elif kind_map == 2:
         maps.spline_2d_torus_df(
-            eta1, eta2, eta3, t1, t2, p[:2], ind1, ind2, cx[:, :, 0], cy[:, :, 0], df_out)
+            eta1, eta2, eta3, t1, t2, p[:2], ind1, ind2, cx[:, :, 0], cy[:, :, 0], params[0], df_out)
     elif kind_map == 10:
         maps.cuboid_df(params[0], params[1], params[2],
                        params[3], params[4], params[5], df_out)
     elif kind_map == 11:
-        maps.hollow_cyl_df(eta1, eta2, params[0], params[1], params[3], df_out)
+        maps.orthogonal_df(
+            eta1, eta2, params[0], params[1], params[2], params[3], df_out)
     elif kind_map == 12:
         maps.colella_df(
             eta1, eta2, params[0], params[1], params[2], params[3], df_out)
-    elif kind_map == 13:
-        maps.orthogonal_df(
-            eta1, eta2, params[0], params[1], params[2], params[3], df_out)
-    elif kind_map == 14:
-        maps.hollow_torus_df(
-            eta1, eta2, eta3, params[0], params[1], params[2], df_out)
-    elif kind_map == 15:
-        maps.ellipse_df(eta1, eta2, eta3,
-                        params[3], params[4], params[5], df_out)
-    elif kind_map == 16:
-        maps.rotated_ellipse_df(
-            eta1, eta2, eta3, params[3], params[4], params[5], params[6], df_out)
-    elif kind_map == 17:
-        maps.powered_ellipse_df(
-            eta1, eta2, eta3, params[3], params[4], params[5], params[6], df_out)
-    elif kind_map == 18:
-        maps.shafranov_shift_df(
-            eta1, eta2, eta3, params[3], params[4], params[5], params[6], df_out)
-    elif kind_map == 19:
-        maps.shafranov_sqrt_df(
-            eta1, eta2, eta3, params[3], params[4], params[5], params[6], df_out)
     elif kind_map == 20:
-        maps.shafranov_dshaped_df(
-            eta1, eta2, eta3, params[3], params[4], params[5], params[6], params[7], params[8], params[9], df_out)
+        maps.hollow_cyl_df(eta1, eta2, params[0], params[1], params[2], df_out)
     elif kind_map == 21:
-        maps.shafranov_eta3dep_df(
-            eta1, eta2, eta3, params[3], params[4], params[5], params[6], params[7], params[8], params[9], params[10], df_out)
+        maps.powered_ellipse_df(
+            eta1, eta2, eta3, params[0], params[1], params[2], params[3], df_out)
     elif kind_map == 22:
+        maps.hollow_torus_df(
+            eta1, eta2, eta3, params[0], params[1], params[2], params[3], df_out)
+    elif kind_map == 23:
         maps.hollow_torus_straight_field_line_df(
-            eta1, eta2, eta3, params[0], params[1], params[2], df_out)
-
+            eta1, eta2, eta3, params[0], params[1], params[2], params[3], df_out)
+    elif kind_map == 30:
+        maps.shafranov_shift_df(
+            eta1, eta2, eta3, params[0], params[1], params[2], params[3], df_out)
+    elif kind_map == 31:
+        maps.shafranov_sqrt_df(
+            eta1, eta2, eta3, params[0], params[1], params[2], params[3], df_out)
+    elif kind_map == 32:
+        maps.shafranov_dshaped_df(
+            eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4], params[5], params[6], df_out)
+    
 @stack_array('df_mat')
 def det_df(eta1: float, eta2: float, eta3: float,  # evaluation point
            kind_map: int, params: 'float[:]',  # mapping parameters

@@ -20,7 +20,6 @@ geometry :
       HollowCylinder :
             a1 : .1 # inner radius
             a2 : 1. # outer radius
-            R0 : 1. # shift of pole along x-axis and length Lz=2*pi*R0 in z-direction
             Lz : 6. # length in third direction   
 
 

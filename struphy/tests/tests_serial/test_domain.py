@@ -104,16 +104,13 @@ def test_prepare_arg():
     'Colella',
     'Orthogonal',
     'HollowTorus',
-    'EllipticCylinder',
-    'RotatedEllipticCylinder',
     'PoweredEllipticCylinder',
     'ShafranovShiftCylinder',
     'ShafranovSqrtCylinder',
     'ShafranovDshapedCylinder',
-    'ShafranovNonAxisSymmCylinder',
-    'Spline',
-    'PoloidalSplineCylinder',
-    'PoloidalSplineTorus'])    
+    'GVECunit',
+    'IGAPolarCylinder',
+    'IGAPolarTorus'])    
 def test_evaluation_mappings(mapping):
     """ Tests domain object creation with default parameters and evaluation of metric coefficients.
     """

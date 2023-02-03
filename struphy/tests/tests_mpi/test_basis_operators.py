@@ -12,7 +12,7 @@ import numpy as np
     ['Colella', {
         'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}],
     ['HollowCylinder', {
-        'a1': .1, 'a2': 1., 'R0': 3., 'Lz': 2*np.pi*3.}]
+        'a1': .1, 'a2': 1., 'Lz': 2*np.pi*3.}]
         ])
 def test_basis_ops(Nel, p, spl_kind, mapping, show_plots=False):
     
@@ -56,7 +56,7 @@ def test_basis_ops(Nel, p, spl_kind, mapping, show_plots=False):
             eq_mhd.plot_profiles()
         
     elif mapping[0] == 'HollowCylinder':
-        eq_mhd = ScrewPinch({'a': mapping[1]['a2'], 'R0': mapping[1]['R0'], 'B0': 1.0, 'q0': 1.05, 'q1': 1.8, 'n1': 3.0, 'n2': 4.0, 'na': 0.0, 'beta': 10.0})
+        eq_mhd = ScrewPinch({'a': mapping[1]['a2'], 'R0': 3., 'B0': 1.0, 'q0': 1.05, 'q1': 1.8, 'n1': 3.0, 'n2': 4.0, 'na': 0.0, 'beta': 10.0})
         
         if show_plots:
             eq_mhd.plot_profiles()
@@ -425,8 +425,8 @@ def test_basis_ops(Nel, p, spl_kind, mapping, show_plots=False):
 @pytest.mark.parametrize('bc', [[[None,  'd'], [None, None], [None, ' d']],
                                 [[None, None], [None, None], ['d', None]]])
 @pytest.mark.parametrize('mapping', [
-    ['PoloidalSplineCylinder', {
-        'a' : 1., 'R0' : 3.}]])
+    ['IGAPolarCylinder', {
+        'a' : 1., 'Lz' : 3.}]])
 def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     
     import numpy as np
@@ -452,7 +452,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     
     # mapping
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class({'Nel' : Nel[:2], 'p' : p[:2], 'spl_kind' : spl_kind[:2], 'a' : mapping[1]['a'], 'R0' : mapping[1]['R0']})
+    domain = domain_class({'Nel' : Nel[:2], 'p' : p[:2], 'a' : mapping[1]['a'], 'Lz' : mapping[1]['Lz']})
     
     if show_plots:
         import matplotlib.pyplot as plt
@@ -460,7 +460,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     
     # load MHD equilibrium
     eq_mhd = ScrewPinch({'a'   : mapping[1]['a'], 
-                         'R0'  : mapping[1]['R0'], 
+                         'R0'  : 3., 
                          'B0'  : 1.0, 
                          'q0'  : 1.05, 
                          'q1'  : 1.80, 
@@ -675,6 +675,6 @@ def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
 if __name__ == '__main__':
     #test_basis_ops([8, 6, 4], [2, 2, 2], [False, True, True], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
     #test_basis_ops([8, 6, 4], [2, 2, 2], [False, True, True], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False)
-    #test_basis_ops([6, 7, 4], [2, 3, 2], [False, True, True], ['HollowCylinder', {'a1': .1, 'a2': 1., 'R0': 3., 'Lz': 2*np.pi*3.}], False)
+    #test_basis_ops([6, 7, 4], [2, 3, 2], [False, True, True], ['HollowCylinder', {'a1': .1, 'a2': 1., 'Lz': 2*np.pi*3.}], False)
     
-    test_basis_ops_polar([5, 9, 6], [2, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['PoloidalSplineCylinder', {'a': 1., 'R0': 3.}], False)
+    test_basis_ops_polar([5, 9, 6], [2, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)

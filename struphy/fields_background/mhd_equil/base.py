@@ -259,19 +259,24 @@ class MHDequilibrium(metaclass=ABCMeta):
         assert self.domain is not None, 'Domain not set, use obj.domain=...'
         return self.domain.transform([self.n0], *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
-    def plot_equil(self, n1=16, n2=32, n3=9):
+    def show(self, n1=16, n2=32, n3=21, n_planes=5):
         '''Generate vtk files of equilibirum and do some 2d plots with matplotlib.
         
         Parameters
         ----------
         n1, n2, n3 : int
-            Evaluation points of mapping in each direcion.'''
+            Evaluation points of mapping in each direcion.
+            
+        n_planes : int
+            Number of planes to show perpendicular to eta3.'''
 
         import struphy as _
 
         e1 = np.linspace(0.0001, 1, n1)
         e2 = np.linspace(0, 1, n2)
         e3 = np.linspace(0, 1, n3)
+
+        jump = (n3 - 1)/(n_planes - 1)
 
         x, y, z = self.domain(e1, e2, e3)
         det_df  = self.domain.jacobian_det(e1, e2, e3)
@@ -281,16 +286,25 @@ class MHDequilibrium(metaclass=ABCMeta):
         _path = _.__path__[0] + '/fields_background/mhd_equil/gvec/output/'
         gridToVTK(_path + 'vtk/gvec_equil', x, y, z, pointData = {'det_df': det_df, 'pressure': p, 'absB': absB})
 
+        # show params
+        print('Equilibrium parameters:')
+        for key, val in self.params.items():
+            print(key, ': ', val)
+
+        print('\nMapping parameters:')
+        for key, val in self.domain.params_map.items():
+            print(key, ': ', val)
+
         # poloidal plane grid
-        fig = plt.figure(figsize=(13, np.ceil(n3/2) * 6.5))
-        for n in range(n3):
-            xp = x[:, :, n].squeeze()
-            yp = y[:, :, n].squeeze()
-            zp = z[:, :, n].squeeze()
+        fig = plt.figure(figsize=(13, np.ceil(n_planes/2) * 6.5))
+        for n in range(n_planes):
+            xp = x[:, :, int(n*jump)].squeeze()
+            yp = y[:, :, int(n*jump)].squeeze()
+            zp = z[:, :, int(n*jump)].squeeze()
 
             rp = np.sqrt(xp**2 + yp**2)
             
-            ax = fig.add_subplot(int(np.ceil(n3/2)), 2, n + 1)
+            ax = fig.add_subplot(int(np.ceil(n_planes/2)), 2, n + 1)
             for i in range(rp.shape[0]):
                 for j in range(rp.shape[1] - 1):
                     if i < rp.shape[0] - 1:
@@ -300,16 +314,22 @@ class MHDequilibrium(metaclass=ABCMeta):
             ax.set_xlabel('r')
             ax.set_ylabel('z')
             ax.axis('equal')
-            ax.set_title('Poloidal plane at $\\eta_3$={0:4.3f}'.format(e3[n]))
+            ax.set_title('Poloidal plane at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
 
         # top view
+        e1 = np.linspace(0, 1, n1) # radial coordinate in [0, 1]
+        e2 = np.linspace(0, 1, 3) # poloidal angle in [0, 1]
+        e3 = np.linspace(0, 1, n3) # toroidal angle in [0, 1]
+
+        xt, yt, zt = self.domain(e1, e2, e3)
+
         fig = plt.figure(figsize=(13, 2 * 6.5))
         ax = fig.add_subplot()
         for m in range(2):
 
-            xp = x[:, m, :].squeeze()
-            yp = y[:, m, :].squeeze()
-            zp = z[:, m, :].squeeze()
+            xp = xt[:, m, :].squeeze()
+            yp = yt[:, m, :].squeeze()
+            zp = zt[:, m, :].squeeze()
 
             for i in range(xp.shape[0]):
                 for j in range(xp.shape[1] - 1):
@@ -326,63 +346,63 @@ class MHDequilibrium(metaclass=ABCMeta):
             ax.set_title('Device top view')
 
         # Jacobian determinant
-        fig = plt.figure(figsize=(13, np.ceil(n3/2) * 6.5))
-        for n in range(n3):
+        fig = plt.figure(figsize=(13, np.ceil(n_planes/2) * 6.5))
+        for n in range(n_planes):
 
-            xp = x[:, :, n].squeeze()
-            yp = y[:, :, n].squeeze()
-            zp = z[:, :, n].squeeze()
+            xp = x[:, :, int(n*jump)].squeeze()
+            yp = y[:, :, int(n*jump)].squeeze()
+            zp = z[:, :, int(n*jump)].squeeze()
 
             rp = np.sqrt(xp**2 + yp**2)
 
-            detp = det_df[:, :, n].squeeze()
+            detp = det_df[:, :, int(n*jump)].squeeze()
 
-            ax = fig.add_subplot(int(np.ceil(n3/2)), 2, n + 1)
+            ax = fig.add_subplot(int(np.ceil(n_planes/2)), 2, n + 1)
             map = ax.contourf(rp, zp, detp, 30)
             ax.set_xlabel('r')
             ax.set_ylabel('z')
             ax.axis('equal')
-            ax.set_title('Jacobian determinant at $\\eta_3$={0:4.3f}$'.format(e3[n]))
+            ax.set_title('Jacobian determinant at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
             fig.colorbar(map, ax=ax, location='right')
 
         # pressure
-        fig = plt.figure(figsize=(15, np.ceil(n3/2) * 6.5))
-        for n in range(n3):
+        fig = plt.figure(figsize=(15, np.ceil(n_planes/2) * 6.5))
+        for n in range(n_planes):
 
-            xp = x[:, :, n].squeeze()
-            yp = y[:, :, n].squeeze()
-            zp = z[:, :, n].squeeze()
+            xp = x[:, :, int(n*jump)].squeeze()
+            yp = y[:, :, int(n*jump)].squeeze()
+            zp = z[:, :, int(n*jump)].squeeze()
 
             rp = np.sqrt(xp**2 + yp**2)
 
-            pp = p[:, :, n].squeeze()
+            pp = p[:, :, int(n*jump)].squeeze()
 
-            ax = fig.add_subplot(int(np.ceil(n3/2)), 2, n + 1)
+            ax = fig.add_subplot(int(np.ceil(n_planes/2)), 2, n + 1)
             map = ax.contourf(rp, zp, pp, 30)
             ax.set_xlabel('r')
             ax.set_ylabel('z')
             ax.axis('equal')
-            ax.set_title('Pressure at $\\eta_3$={0:4.3f}'.format(e3[n]))
+            ax.set_title('Pressure at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
             fig.colorbar(map, ax=ax, location='right')
 
         # magnetic field strength
-        fig = plt.figure(figsize=(15, np.ceil(n3/2) * 6.5))
-        for n in range(n3):
+        fig = plt.figure(figsize=(15, np.ceil(n_planes/2) * 6.5))
+        for n in range(n_planes):
 
-            xp = x[:, :, n].squeeze()
-            yp = y[:, :, n].squeeze()
-            zp = z[:, :, n].squeeze()
+            xp = x[:, :, int(n*jump)].squeeze()
+            yp = y[:, :, int(n*jump)].squeeze()
+            zp = z[:, :, int(n*jump)].squeeze()
 
             rp = np.sqrt(xp**2 + yp**2)
 
-            ab = absB[:, :, n].squeeze()
+            ab = absB[:, :, int(n*jump)].squeeze()
 
-            ax = fig.add_subplot(int(np.ceil(n3/2)), 2, n + 1)
+            ax = fig.add_subplot(int(np.ceil(n_planes/2)), 2, n + 1)
             map = ax.contourf(rp, zp, ab, 30)
             ax.set_xlabel('r')
             ax.set_ylabel('z')
             ax.axis('equal')
-            ax.set_title('Magnetic field strength at $\\eta_3$={0:4.3f}'.format(e3[n]))
+            ax.set_title('Magnetic field strength at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
             fig.colorbar(map, ax=ax, location='right')
 
 

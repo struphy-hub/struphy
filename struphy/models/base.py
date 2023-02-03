@@ -294,7 +294,7 @@ class StruphyModel(metaclass=ABCMeta):
             print(f'N-spline indices rank 0: {self.derham.index_array_N[0]}\n')
 
             print('DOMAIN parameters:')
-            print(f'domain type       : {self.domain}')
+            print(f'domain type       : {self.domain.__class__.__name__}')
             print(f'domain parameters : {self.domain.params_map}\n')
 
             print('PLASMA parameters:')
