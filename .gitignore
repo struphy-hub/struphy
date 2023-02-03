@@ -61,6 +61,8 @@ __psydac__/
 .DS_*
 *~
 *.hdf5
+*.h5py
+*.vts
 *acquisition.lock
 *.json
 

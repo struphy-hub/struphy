@@ -69,7 +69,7 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
         
     elif mapping[0] == 'HollowCylinder':
         eq_mhd = ScrewPinch({'a'   : mapping[1]['a2'], 
-                             'R0'  : mapping[1]['R0'], 
+                             'R0'  : 3., 
                              'B0'  : 1.0, 
                              'q0'  : 1.05, 
                              'q1'  : 1.8, 
@@ -203,8 +203,8 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
 @pytest.mark.parametrize('bc', [[[None,  'd'], [None, None], [None, ' d']],
                                 [[None, None], [None, None], ['d', None]]])
 @pytest.mark.parametrize('mapping', [
-    ['PoloidalSplineCylinder', {
-        'a' : 1., 'R0' : 3.}]])
+    ['IGAPolarCylinder', {
+        'a' : 1., 'Lz' : 3.}]])
 def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     
     import numpy as np
@@ -235,7 +235,7 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     
     # mapping
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class({'Nel' : Nel[:2], 'p' : p[:2], 'spl_kind' : spl_kind[:2], 'a' : mapping[1]['a'], 'R0' : mapping[1]['R0']})
+    domain = domain_class({'Nel' : Nel[:2], 'p' : p[:2], 'a' : mapping[1]['a'], 'Lz' : mapping[1]['Lz']})
     
     if show_plots:
         import matplotlib.pyplot as plt
@@ -243,7 +243,7 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     
     # load MHD equilibrium
     eq_mhd = ScrewPinch({'a'   : mapping[1]['a'], 
-                         'R0'  : mapping[1]['R0'], 
+                         'R0'  : mapping[1]['Lz'], 
                          'B0'  : 1.0, 
                          'q0'  : 1.05, 
                          'q1'  : 1.8, 
@@ -385,7 +385,7 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
                                 [[None, None], [None, None], ['d', None]]])
 @pytest.mark.parametrize('mapping', [
     ['HollowCylinder', {
-        'a1' : .1, 'a2' : 1., 'R0' : 3., 'Lz' : 18.84955592153876}]])
+        'a1' : .1, 'a2' : 1., 'Lz' : 18.84955592153876}]])
 def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     
     import numpy as np
@@ -449,7 +449,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
         
     elif mapping[0] == 'HollowCylinder':
         eq_mhd = ScrewPinch({'a'   : mapping[1]['a2'], 
-                             'R0'  : mapping[1]['R0'], 
+                             'R0'  : 3., 
                              'B0'  : 1.0, 
                              'q0'  : 1.05, 
                              'q1'  : 1.8, 
@@ -662,8 +662,8 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
 @pytest.mark.parametrize('bc', [[[None,  'd'], [None, None], [None, ' d']],
                                 [[None, None], [None, None], ['d', None]]])
 @pytest.mark.parametrize('mapping', [
-    ['PoloidalSplineCylinder', {
-        'a' : 1., 'R0' : 3.}]])
+    ['IGAPolarCylinder', {
+        'a' : 1., 'Lz' : 3.}]])
 def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     
     import numpy as np
@@ -697,7 +697,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     
     # mapping
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class({'Nel' : Nel[:2], 'p' : p[:2], 'spl_kind' : spl_kind[:2], 'a' : mapping[1]['a'], 'R0' : mapping[1]['R0']})
+    domain = domain_class({'Nel' : Nel[:2], 'p' : p[:2], 'a' : mapping[1]['a'], 'Lz' : mapping[1]['Lz']})
     
     if show_plots:
         import matplotlib.pyplot as plt
@@ -705,7 +705,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     
     # load MHD equilibrium
     eq_mhd = ScrewPinch({'a'   : mapping[1]['a'], 
-                         'R0'  : mapping[1]['R0'], 
+                         'R0'  : mapping[1]['Lz'], 
                          'B0'  : 1.0, 
                          'q0'  : 1.05, 
                          'q1'  : 1.8, 
@@ -927,14 +927,14 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     print(f'Rank {mpi_rank} | All tests passed!')
     
 if __name__ == '__main__':
-    #test_mass([8, 6, 8], [2, 2, 2], [False, True, False], [['d', 'd'], [None, None], [None, None]], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
-    #test_mass([8, 6, 4], [2, 3, 2], [False, True, False], [['d', 'd'], [None, None], [None, 'd']], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False)
-    #test_mass([8, 6, 4], [2, 2, 2], [False, True, True], [['d', 'd'], [None, None], [None, None]], ['HollowCylinder', {'a1': .1, 'a2': 1., 'R0': 3., 'Lz': 10.}], False)
+    test_mass([6, 7, 4], [2, 3, 1], [False, True, False], [[None, None], [None, None], [None, None]], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False)
+    # test_mass([8, 6, 4], [2, 3, 2], [False, True, False], [['d', 'd'], [None, None], [None, 'd']], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False)
+    # test_mass([8, 6, 4], [2, 2, 2], [False, True, True], [['d', 'd'], [None, None], [None, None]], ['HollowCylinder', {'a1': .1, 'a2': 1., 'Lz': 10.}], False)
     
-    #test_mass_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['PoloidalSplineCylinder', {'a': 1., 'R0': 3.}], False)
+    #test_mass_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)
     
     #test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [['d', 'd'], [None, None], [None, None]], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
     #test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [['d', 'd'], [None, None], [None, None]], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .05, 'Lz' : 10.}], False)
-    #test_mass_preconditioner([6, 9, 4], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['HollowCylinder', {'a1' : .1, 'a2' : 1., 'R0' : 3., 'Lz' : 18.84955592153876}], False)
+    #test_mass_preconditioner([6, 9, 4], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['HollowCylinder', {'a1' : .1, 'a2' : 1., 'Lz' : 18.84955592153876}], False)
     
-    test_mass_preconditioner_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['PoloidalSplineCylinder', {'a': 1., 'R0': 3.}], False)
+    #test_mass_preconditioner_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)

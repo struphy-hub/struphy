@@ -414,8 +414,8 @@ class ScrewPinch(AnalyticalMHDequilibrium):
         self._params = params
 
         # inverse cylindrical coordinate transformation (x, y, z) --> (r, theta, phi)
-        self.r = lambda x, y, z: np.sqrt((x - self.params['R0'])**2 + y**2)
-        self.theta = lambda x, y, z: np.arctan2(y, x - self.params['R0'])
+        self.r = lambda x, y, z: np.sqrt(x**2 + y**2)
+        self.theta = lambda x, y, z: np.arctan2(y, x)
         self.z = lambda x, y, z: 1*z
 
     @property

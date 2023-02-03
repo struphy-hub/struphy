@@ -7,9 +7,9 @@ from struphy.fields_background.mhd_equil.base import NumericalMHDequilibrium
     ['Cuboid', {
         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}],
     ['HollowTorus', {
-        'a1': 1., 'a2': 2., 'R0': 3.}],
+        'a1': 1., 'a2': 2., 'R0': 3., 'tor_period': 1}],
     ['ShafranovDshapedCylinder', {
-        'x0': -30., 'y0': -30., 'z0': -30., 'R0': 60., 'Lz': 100., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}],
+        'R0': 60., 'Lz': 100., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}],
 ])
 @pytest.mark.parametrize('mhd_equil', ['HomogenSlab', 'ShearedSlab', 'ScrewPinch'])
 def test_transformations(mapping, mhd_equil):

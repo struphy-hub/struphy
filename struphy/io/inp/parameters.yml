@@ -19,6 +19,26 @@ time :
 
 geometry : 
       type : Cuboid # mapping F (possible types seen below)  
+      GVECunit :
+            rel_path : True # whether to state dat_file (json_file) relative to "<struphy_path>/fields_background/mhd_equil/gvec", or give the absolute path
+            dat_file : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file 
+            json_file : Null # give directly the parsed json file, if it exists (then dat_file is not used)
+            use_pest : False # Whether to use straight-field line coordinates (PEST)
+            use_nfp : True # Whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
+            Nel : [32, 32, 32] # Number of cells in each direction used for interpolation of the mapping.
+            p : [3, 3, 3] # Spline degree in each direction used for interpolation of the mapping.
+      IGAPolarCylinder :
+            Nel      : [8, 24] # number of poloidal grid cells, >p
+            p        : [3, 3] # poloidal spline degree, >1
+            Lz       : 6. # Length in third direction
+            a        : 1. # minor radius
+      IGAPolarTorus :
+            Nel      : [8, 24] # number of poloidal grid cells, >p
+            p        : [3, 3] # poloidal spline degree, >1
+            a        : 1. # minor radius
+            R0       : 3. # major radius
+            tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
+            sfl      : False # whether to use straight field line coordinates (particular theta parametrization) 
       Cuboid : 
             l1       : 0. # start of interval in eta1
             r1       : 2. # end of interval in eta1, r1>l1
@@ -26,72 +46,46 @@ geometry :
             r2       : 2. # end of interval in eta2, r2>l2
             l3       : 0. # start of interval in eta3
             r3       : 1. # end of interval in eta3, r3>l3
-      HollowCylinder :
-            a1       : .2 # inner radius
-            a2       : 1. # outer radius
-            R0       : 0. # shift of pole along x-axis and length Lz=2*pi*R0 in z-direction
-            Lz       : 4. # length in third direction   
-      Colella :
-            Lx       : 2. # length in x-direction
-            Ly       : 2. # length in y-direction
-            alpha    : .1 # distortion factor
-            Lz       : 1. # length in third direction
       Orthogonal :
             Lx       : 2. # length in x-direction
             Ly       : 2. # length in y-direction
             alpha    : .1 # x-distortion and y-distortion
             Lz       : 1. # length in third direction
-      HollowTorus :
+      Colella :
+            Lx       : 2. # length in x-direction
+            Ly       : 2. # length in y-direction
+            alpha    : .1 # distortion factor
+            Lz       : 1. # length in third direction
+      HollowCylinder :
             a1       : .2 # inner radius
-            a2       : 1. # minor radius
-            R0       : 3. # major radius
-      HollowTorusStraightFieldLine :
-            a1       : .2 # inner radius
-            a2       : 1. # minor radius
-            R0       : 3. # major radius
-      EllipticCylinder :
-            x0       : 0. # center of ellipse
-            y0       : 0. # center of ellipse
-            z0       : 0. # start of cylinder in third direction
-            rx       : 1. # axis length
-            ry       : 2. # axis length
-            Lz       : 4. # length in third direction
-      RotatedEllipticCylinder :
-            x0       : 0. # center of ellipse
-            y0       : 0. # center of ellipse
-            z0       : 0. # start of cylinder in third direction
-            r1       : 1. # axis length
-            r2       : 2. # axis length
-            Lz       : 4. # length in third direction
-            th       : .15 # rotation angle in [0, 1), units of 2*pi
+            a2       : 1. # outer radius
+            Lz       : 4. # length in third direction   
       PoweredEllipticCylinder :
-            x0       : 0. # center of ellipse
-            y0       : 0. # center of ellipse
-            z0       : 0. # start of cylinder in third direction
             rx       : 1. # axis length
             ry       : 2. # axis length
             Lz       : 4. # length in third direction
             s        : .5 # power of radial coordinate
+      HollowTorus :
+            a1       : .2 # inner radius
+            a2       : 1. # minor radius
+            R0       : 3. # major radius
+            tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
+      HollowTorusStraightFieldLine :
+            a1       : .2 # inner radius
+            a2       : 1. # minor radius
+            R0       : 3. # major radius
+            tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
       ShafranovShiftCylinder :
-            x0       : 0. # center of ellipse
-            y0       : 0. # center of ellipse
-            z0       : 0. # start of cylinder in third direction
             rx       : 1. # axis length
             ry       : 1. # axis length
             Lz       : 4. # length in third direction
             delta    : .2 # shift factor, should be in [0, 0.1]
       ShafranovSqrtCylinder :
-            x0       : 0. # center of ellipse
-            y0       : 0. # center of ellipse
-            z0       : 0. # start of cylinder in third direction
             rx       : 1. # axis length
             ry       : 1. # axis length
             Lz       : 4. # length in third direction
             delta    : .2 # shift factor, should be in [0, 0.1]
       ShafranovDshapedCylinder :
-            x0       : 0. # center of ellipse
-            y0       : 0. # center of ellipse
-            z0       : 0. # start of cylinder in third direction
             R0       : 2. # base radius
             Lz       : 4. # length in third direction
             delta_x  : .05 # Shafranov shift in x-direction
@@ -99,45 +93,7 @@ geometry :
             delta_gs : .05 # delta = sin(alpha): triangularity, shift of high point
             epsilon_gs : .5 # epsilon: inverse aspect ratio a/r0
             kappa_gs : 2. # Kappa: ellipticity (elongation)
-      ShafranovNonAxisSymmCylinder :
-            x0       : 0. # center of ellipse
-            y0       : 0. # center of ellipse
-            z0       : 0. # start of cylinder in third direction
-            R0       : 2. # base radius
-            Lz       : 4. # length in third direction
-            delta_x  : .05 # Shafranov shift in x-direction
-            delta_y  : .025 # Shafranov shift in y-direction
-            delta_gs : .05 # delta = sin(alpha): triangularity, shift of high point
-            epsilon_gs : .5 # epsilon: inverse aspect ratio a/r0
-            kappa_gs : 2. # Kappa: ellipticity (elongation)
-            xi       : .1 # strength of eta_3 dependence
-      Spline :
-            file     : 'mhd_equil/gvec/sample_gvec_spline_coeffs.hdf5' # hdf5 file holding spline coeffs
-            Nel      : [6, 6, 6] # number of grid cells, >1
-            p        : [2, 3, 3] # spline degree, >0
-            spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
-      PoloidalSplineStraight :
-            file     : 'some_file.hdf5' # hdf5 file holding spline coeffs
-            Nel      : [8, 24] # number of grid cells, >p
-            p        : [3, 3] # spline degree, >1
-            spl_kind : [False, True] # spline type: True=periodic, False=clamped
-      PoloidalSplineToroidal :
-            file     : 'some_file.hdf5' # hdf5 file holding spline coeffs
-            Nel      : [8, 24] # number of grid cells, >p
-            p        : [3, 3] # spline degree, >1
-            spl_kind : [False, True] # spline type: True=periodic, False=clamped
-      PoloidalSplineCylinder :
-            a        : 1. # minor radius
-            R0       : 3. # major radius (shift of pole from zero)
-            Nel      : [8, 24] # number of grid cells, >p
-            p        : [3, 3] # spline degree, >1
-            spl_kind : [False, True] # spline type: True=periodic, False=clamped
-      PoloidalSplineTorus :
-            a        : 1. # minor radius
-            R0       : 3. # major radius
-            Nel      : [8, 24] # number of grid cells, >p
-            p        : [3, 3] # spline degree, >1
-            spl_kind : [False, True] # spline type: True=periodic, False=clamped
+      
 
 mhd_equilibrium : 
       type : analytical # analytical or numerical
@@ -186,6 +142,7 @@ mhd_equilibrium :
             dat_file : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file 
             json_file : Null # give directly the parsed json file, if it exists (then dat_file is not used)
             use_pest : False # Whether to use straight-field line coordinates (PEST)
+            use_nfp : True # Whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
             Nel : [32, 32, 32] # Number of cells in each direction used for interpolation of the mapping.
             p : [3, 3, 3] # Spline degree in each direction used for interpolation of the mapping.
 

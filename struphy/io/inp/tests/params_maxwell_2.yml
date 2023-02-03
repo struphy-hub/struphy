@@ -19,6 +19,7 @@ geometry :
             a1 : .1 # inner radius
             a2 : 1. # minor radius
             R0 : 4. # major radius
+            tor_period: 1 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
                 
 em_fields : 
       init :

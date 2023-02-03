@@ -30,8 +30,8 @@ def test_polar_splines_2D(plot=False):
     chi = 'equal arc'
 
     # create domain
-    dom_type = 'PoloidalSplineCylinder'      
-    dom_params = {'a': a, 'R0': R0, 'Nel': Nel, 'p': p, 'spl_kind': spl_kind}
+    dom_type = 'IGAPolarCylinder'      
+    dom_params = {'a': a, 'Lz': R0, 'Nel': Nel, 'p': p}
     domain_class = getattr(domains, dom_type)
     domain = domain_class(dom_params)
 

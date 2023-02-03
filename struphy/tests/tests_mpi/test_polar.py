@@ -171,7 +171,7 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     
     import numpy as np
 
-    from struphy.geometry.domains import PoloidalSplineCylinder
+    from struphy.geometry.domains import IGAPolarCylinder
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
 
@@ -188,8 +188,8 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     size = comm.Get_size()
 
     # create control points
-    params_map = {'Nel' : Nel[:2], 'p' : p[:2], 'spl_kind' : spl_kind[:2], 'a' : 1., 'R0' : 3.}
-    domain = PoloidalSplineCylinder(params_map)
+    params_map = {'Nel' : Nel[:2], 'p' : p[:2], 'Lz' : 3., 'a' : 1.}
+    domain = IGAPolarCylinder(params_map)
     
     # create de Rham sequence
     derham = Derham(Nel, p, spl_kind, comm=comm, polar_ck=1, domain=domain, with_projectors=False)
@@ -311,7 +311,7 @@ def test_projectors(Nel, p, spl_kind):
     
     import numpy as np
 
-    from struphy.geometry.domains import PoloidalSplineCylinder
+    from struphy.geometry.domains import IGAPolarCylinder
     from struphy.psydac_api.psydac_derham import Derham
     
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
@@ -323,8 +323,8 @@ def test_projectors(Nel, p, spl_kind):
     size = comm.Get_size()
 
     # create control points
-    params_map = {'Nel' : Nel[:2], 'p' : p[:2], 'spl_kind' : spl_kind[:2], 'a' : 1., 'R0' : 3.}
-    domain = PoloidalSplineCylinder(params_map)
+    params_map = {'Nel' : Nel[:2], 'p' : p[:2], 'Lz' : 3., 'a' : 1.}
+    domain = IGAPolarCylinder(params_map)
     
     # create polar de Rham sequence
     derham = Derham(Nel, p, spl_kind, comm=comm, nq_pr=[6, 6, 6], polar_ck=1, domain=domain)
@@ -346,7 +346,7 @@ def test_projectors(Nel, p, spl_kind):
     comm.Barrier()
 
     # function to project on physical domain
-    fun_scalar = lambda x, y, z : np.sin(2*np.pi*x)*np.cos(2*np.pi*y)*np.sin(z/3)
+    fun_scalar = lambda x, y, z : np.sin(2*np.pi*(x))*np.cos(2*np.pi*y)*np.sin(2*np.pi*z)
 
     fun_vector = [fun_scalar, fun_scalar, fun_scalar]
 
@@ -428,4 +428,4 @@ def test_projectors(Nel, p, spl_kind):
 if __name__ == '__main__':
     #test_spaces([6, 9, 4], [2, 2, 2], [False, True, False])
     #test_extraction_ops_and_derivatives([8, 12, 6], [2, 2, 3], [False, True, False])
-    test_projectors([8, 15, 4], [2, 2, 3], [False, True, True])
+    test_projectors([8, 15, 6], [2, 2, 3], [False, True, True])
