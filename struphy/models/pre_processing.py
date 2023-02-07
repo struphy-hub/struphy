@@ -70,6 +70,9 @@ def plasma_params(Z, M, kBT, beta, size_params):
     
     # kappa = e/(m_p*vA)
     pparams['kappa'] = e/(m_p*pparams['v_A [10^6 m/s]']*1e6)
+    
+    if abs(pparams['kappa'] - 1) < 1e-6:
+        pparams['kappa'] = 1.
 
     return pparams
 

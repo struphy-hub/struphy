@@ -1,5 +1,5 @@
 grid :
-    Nel      : [16, 24, 16] # number of grid cells, >p
+    Nel      : [16, 24, 8] # number of grid cells, >p
     p        : [3, 3, 3]  # spline degree, >1
     spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
     bc       : [[d, d], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
@@ -19,7 +19,7 @@ geometry :
         a1       : 0.1 # inner radius
         a2       : 1.0 # minor radius
         R0       : 5.0 # major radius
-        tor_period : 1 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
+        tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
             
 mhd_equilibrium : 
     type : analytical # analytical or numerical
@@ -42,7 +42,7 @@ em_fields :
       init :
             type : InitialMHDAxisymHdivEigFun # initial conditions (possible types seen below)
             InitialMHDAxisymHdivEigFun :
-                spec : '/io/out/sim_10/spec_n_-2.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
+                spec : '/io/out/sim_10/spec_n_-1.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
                 eig_freq_upper : 0.14855 # upper search limit of squared eigenfrequency to identify eigenfunction
                 eig_freq_lower : 0.14850 # lower search limit of squared eigenfrequency to identify eigenfunction
                 kind : r # real (r) or imaginary (i) part of eigenfunction
@@ -59,7 +59,7 @@ fluid :
             init :
                   type : InitialMHDAxisymHdivEigFun # initial conditions (possible types seen below)
                   InitialMHDAxisymHdivEigFun :
-                      spec : '/io/out/sim_10/spec_n_-2.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
+                      spec : '/io/out/sim_10/spec_n_-1.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
                       eig_freq_upper : 0.14855 # upper search limit of squared eigenfrequency to identify eigenfunction
                       eig_freq_lower : 0.14850 # lower search limit of squared eigenfrequency to identify eigenfunction
                       kind : r # real (r) or imaginary (i) part of eigenfunction

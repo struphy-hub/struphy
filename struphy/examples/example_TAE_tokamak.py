@@ -101,7 +101,7 @@ spec_calc = MhdContinousSpectraCylinder(R0=mhd_params['R0'], Bz=lambda r : mhd_p
 plt.subplot(2, 2, 2)
 for m in range(2, 4 + 1):  
     plt.plot(0.1 + 0.9*A[m][0], A[m][1]/omegaA**2, '+', label='m = ' + str(m))
-    plt.plot(domain(etaplot[0], 0., 0.)[0] - mhd_params['R0'], spec_calc(domain(etaplot[0], 0., 0.)[0] - mhd_params['R0'], m, n_tor)['shear_Alfvén']**2/omegaA**2, 'k--', linewidth=0.5)
+    plt.plot(domain(etaplot[0], 0., 0.)[0] - mhd_params['R0'], spec_calc(domain(etaplot[0], 0., 0.)[0] - mhd_params['R0'], m, -2)['shear_Alfvén']**2/omegaA**2, 'k--', linewidth=0.5)
 
 plt.xlabel('$r$ [m]')
 plt.ylabel('$\omega^2/\omega_\mathrm{A}^2$')
@@ -116,7 +116,7 @@ plt.plot(0.1*np.ones(11), np.linspace(0., 1., 11), 'k--')
 
 # plot U2_1(t=0) on mapped grid
 plt.subplot(2, 2, 3)
-plt.contourf(xplot[0][:, :, 0], xplot[1][:, :, 0], fields[0][names[3]](*etaplot)[0][:, :, 2], levels=51, cmap='coolwarm')
+plt.contourf(xplot[0][:, :, 0], xplot[2][:, :, 0], fields[0][names[3]](*etaplot)[0][:, :, 6], levels=51, cmap='coolwarm')
 plt.axis('square')
 plt.colorbar()
 plt.title('$U^2_1(t=0)$', pad=10, fontsize=f_size)

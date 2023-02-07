@@ -103,8 +103,8 @@ class IGAPolarTorus(PoloidalSplineTorus):
                 def theta(eta1, eta2):
                     return 2*np.pi*eta2
 
-            def R(eta1, eta2): return params_map['a'] * eta1 * np.cos(theta(eta1, eta2)) + params_map['R0']
-            def Z(eta1, eta2): return params_map['a'] * eta1 * np.sin(theta(eta1, eta2))
+            def R(eta1, eta2): return  params_map['a'] * eta1 * np.cos(theta(eta1, eta2)) + params_map['R0']
+            def Z(eta1, eta2): return -params_map['a'] * eta1 * np.sin(theta(eta1, eta2))
 
             cx, cy = interp_mapping(params_map['Nel'], params_map['p'], params_map['spl_kind'], R, Z)
 
@@ -468,7 +468,7 @@ class HollowTorus(Domain):
 
         self.PsydacMapping._expressions = {'x': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * cos(2*pi*x3 / tor_period)',
                                            'y': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * sin(2*pi*x3 / tor_period)',
-                                           'z': '( a1 + (a2 - a1)*x1)*sin(2*pi*x2)'}
+                                           'z': '-( a1 + (a2 - a1)*x1)*sin(2*pi*x2)'}
         self._F_psy = self.PsydacMapping('F', **params_map)
 
         self._params_map = params_map

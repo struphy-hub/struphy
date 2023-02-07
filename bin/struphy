@@ -9,6 +9,7 @@ STRUPHY=$($PYTHON -c "import struphy as _; print(_.__path__[0])")
 
 # Defaults
 RUN=false
+UNITS=false
 COMPILE=false 
 PROFILE=false
 PPROC=false
@@ -48,6 +49,7 @@ function struphy_help {
     echo "Commands:"
     echo "  compile   Compile struphy kernels"
     echo "  run       Run a struphy model"
+    echo "  units     Show units and some import physics quantities of a specific model"
     echo "  profile   Profile finished struphy runs"
     echo "  pproc     Post process data from finished struphy runs"
     echo "  example   Run complete struphy examples with post processing and plotting"
@@ -82,6 +84,7 @@ function run_help {
     echo "  Maxwell               Maxwell equations in vacuum"
     echo "  LinearMHD             Linear ideal MHD with zero-flow equilibrium"
     echo "  LinearVlasovMaxwell   Linearized Vlasov Maxwell system with Maxwellian background"
+    echo "  LinearMHDVlasovCC     Linear ideal MHD with zero-flow equilibrium and 6d kinetic energetic ion species"
     echo 
     echo "  See https://struphy.pages.mpcdf.de/struphy/sections/models.html for more info on available models."
     echo 
@@ -149,6 +152,13 @@ function test_help {
     echo "  --serial    Run only serial unit tests."
     echo "  --mpi N     Use 'mpirun -n N' to run only parallel unit tests."
     echo "  --codes     Run code tests."
+}
+
+function units_help {
+    echo
+    echo "Usage: struphy units MODEL"
+    echo
+    echo "Show units and some import physics quantities of a specific model."
 }
 
 # No arguments - display help and exit
@@ -238,6 +248,17 @@ while [[ $# -gt 0 ]]; do
           exit 0
           ;;
       esac
+      shift
+      ;;
+    units)
+      UNITS=true 
+      case $2 in
+        --help)
+          units_help
+          exit 0
+          ;;
+      esac
+      MODEL="$2"
       shift
       ;;
     -a|--all)
@@ -472,6 +493,25 @@ if [ "$RUN" = true ] ; then
 
   # Start code
   $RUN_CMD
+
+fi
+
+# Model units
+if [ "$UNITS" = true ]; then
+
+  # Input path
+  if [ -z $INPUT_ABS ]; then
+    INPUT_ABS=$STRUPHY/io/inp/$INPUT
+  fi
+  
+  # Print parameters
+  echo "STRUPHY   = ${STRUPHY}"
+  echo "UNITS     = ${UNITS}"
+  echo "MODEL     = ${MODEL}"
+  echo "INPUT_ABS = ${INPUT_ABS}"
+  
+  # Start code
+  $PYTHON $STRUPHY/main.py $MODEL $INPUT_ABS
 
 fi
 

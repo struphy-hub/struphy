@@ -23,12 +23,27 @@ rank = comm.Get_rank()
 # get arguments
 model_name = sys.argv[1]
 file_in = sys.argv[2]
-path_out = sys.argv[3]
-path_batch = sys.argv[4]
-file_meta = sys.argv[5]
-mode = 'w'  # needs fix
-if len(sys.argv) > 6:
-    mode = sys.argv[6]
+exit_flag = True
+
+if len(sys.argv) > 3:
+    exit_flag = False
+    path_out = sys.argv[3]
+    path_batch = sys.argv[4]
+    file_meta = sys.argv[5]
+    mode = 'w'  # needs fix
+    if len(sys.argv) > 6:
+        mode = sys.argv[6]
+    
+# load simulation parameters
+with open(file_in) as file:
+    params = yaml.load(file, Loader=yaml.FullLoader)
+    
+# load STRUPHY model
+model_class = getattr(models, model_name)
+
+if exit_flag:
+    model_class.print_units(params['model_units'])
+    exit()
 
 # write meta data
 if rank == 0:
@@ -45,13 +60,8 @@ if rank == 0:
         f'\nMPI communicator initialized with {comm.Get_size()} process(es).\n')
     print('Starting model ' + model_name + '...\n')
 
-# load simulation parameters
-with open(file_in) as file:
-    params = yaml.load(file, Loader=yaml.FullLoader)
-    
-# load STRUPHY model
-model_class = getattr(models, model_name)
 model = model_class(params, comm)
+# set initial conditions
 model.set_initial_conditions()
 
 # data object for saving

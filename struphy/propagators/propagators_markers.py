@@ -128,6 +128,9 @@ class StepPushVxB(Propagator):
 
     algo : str
         The used algorithm.
+        
+    scaling_dt : float
+        Scaling factor for time step : scaling_dt * dt
 
     *b_vectors : psydac.linalg.block.BlockVector | struphy.polar.basic.PolarVector
         FE coefficients of several magnetic fields (2-form) (typically static and dynamical magnetic field).
@@ -136,7 +139,7 @@ class StepPushVxB(Propagator):
         Distribution function used to update weights if control variate is used. Is called as f0(eta1, eta2, eta3, vx, vy, vz).
     """
 
-    def __init__(self, particles, derham, domain, algo, *b_vectors, f0=None):
+    def __init__(self, particles, derham, domain, algo, scaling_dt, *b_vectors, f0=None):
 
         self._particles = particles
 
@@ -159,6 +162,8 @@ class StepPushVxB(Propagator):
             assert callable(f0)
         
         self._f0 = f0
+        
+        self._scaling_dt = scaling_dt
 
     @property
     def variables(self):
@@ -182,7 +187,7 @@ class StepPushVxB(Propagator):
         b_full.update_ghost_regions()
 
         # call pusher kernel
-        self._pusher(self._particles, dt,
+        self._pusher(self._particles, self._scaling_dt*dt,
                      b_full[0]._data,
                      b_full[1]._data,
                      b_full[2]._data)

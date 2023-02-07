@@ -54,8 +54,8 @@ kinetic :
                         type    : pseudo_random # particle loading mechanism 
                         seed    : 1608 # seed for random number generator
                         moments : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
-                        initial : [[.501, 0.001, 0.001,  4.5 , 6., 0.],
-                                   [.501, 0.001, 0.001, -4.5 , 6., 0.],
+                        initial : [[.501, 0.001, 0.001, -4.50, 6., 0.],
+                                   [.501, 0.001, 0.001,  4.50, 6., 0.],
                                    [.501, 0.001, 0.001, -2.25, 6., 0.]]
             init : 
                   type : Maxwellian6DUniform

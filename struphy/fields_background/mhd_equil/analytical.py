@@ -679,10 +679,10 @@ class AdhocTorus(AnalyticalMHDequilibrium):
 
         # inverse toroidal coordinate transformation (x, y, z) --> (r, theta, phi)
         self.r = lambda x, y, z: np.sqrt(
-            (np.sqrt(x**2 + z**2) - self.params['R0'])**2 + y**2)
-        self.theta = lambda x, y, z: np.arctan2(
-            y, np.sqrt(x**2 + z**2) - self.params['R0'])
-        self.phi = lambda x, y, z: np.arctan2(z, x)
+            (np.sqrt(x**2 + y**2) - self.params['R0'])**2 + z**2)
+        self.theta = lambda x, y, z: -np.arctan2(
+            z, np.sqrt(x**2 + y**2) - self.params['R0'])
+        self.phi = lambda x, y, z: np.arctan2(y, x)
 
         # local inverse aspect ratio
         self.eps_loc = lambda r: r/self.params['R0']
@@ -821,11 +821,14 @@ class AdhocTorus(AnalyticalMHDequilibrium):
         else:
             b_theta = self.params['B0']*r/(self.R(r, theta)*q_bar)
 
+        # toroidal component
+        b_phi = self.params['B0']*self.params['R0']/self.R(r, theta)
+
         # cartesian y-component
-        by = b_theta*np.cos(theta)
+        by = -b_theta*np.sin(theta)*np.sin(phi) + b_phi*np.cos(phi)
 
         return by
-
+    
     # equilibrium magnetic field (z-component)
     def b_z(self, x, y, z):
         """ Equilibrium magnetic field (z-component).
@@ -843,11 +846,8 @@ class AdhocTorus(AnalyticalMHDequilibrium):
         else:
             b_theta = self.params['B0']*r/(self.R(r, theta)*q_bar)
 
-        # toroidal component
-        b_phi = self.params['B0']*self.params['R0']/self.R(r, theta)
-
-        # cartesian x-component
-        bz = -b_theta*np.sin(theta)*np.sin(phi) + b_phi*np.cos(phi)
+        # cartesian z-component
+        bz = -b_theta*np.cos(theta)
 
         return bz
 
@@ -882,14 +882,6 @@ class AdhocTorus(AnalyticalMHDequilibrium):
     def j_y(self, x, y, z):
         """ Equilibrium current (y-component).
         """
-        jy = 0*x
-
-        return jy
-
-    # equilibrium current (z-component, curl of equilibrium magnetic field)
-    def j_z(self, x, y, z):
-        """ Equilibrium current (z-component).
-        """
         r = self.r(x, y, z)
         theta = self.theta(x, y, z)
         phi = self.phi(x, y, z)
@@ -909,7 +901,15 @@ class AdhocTorus(AnalyticalMHDequilibrium):
                 2*q_bar - r*q_bar_p - r/self.R(r, theta)*q_bar*np.cos(theta))
 
         # cartesian x-component
-        jz = j_phi*np.cos(phi)
+        jy = j_phi*np.cos(phi)
+
+        return jy 
+    
+    # equilibrium current (z-component, curl of equilibrium magnetic field)
+    def j_z(self, x, y, z):
+        """ Equilibrium current (z-component).
+        """
+        jz = 0*x
 
         return jz
 

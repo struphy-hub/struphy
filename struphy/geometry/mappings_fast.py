@@ -700,7 +700,7 @@ def hollow_torus(eta1: float, eta2: float, eta3: float,
 
     f_out[0] = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * cos(2*pi*eta3 / tor_period)
     f_out[1] = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * sin(2*pi*eta3 / tor_period)
-    f_out[2] = (a1 + eta1 * da) * sin(2*pi*eta2) 
+    f_out[2] = -(a1 + eta1 * da) * sin(2*pi*eta2) 
 
 @pure
 def hollow_torus_df(eta1: float, eta2: float, eta3: float,
@@ -719,8 +719,8 @@ def hollow_torus_df(eta1: float, eta2: float, eta3: float,
     df_out[1, 0] = da * cos(2*pi*eta2) * sin(2*pi*eta3 / tor_period)
     df_out[1, 1] = -2*pi * (a1 + eta1 * da) * sin(2*pi*eta2) * sin(2*pi*eta3 / tor_period)
     df_out[1, 2] = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * cos(2*pi*eta3 / tor_period) * 2*pi / tor_period
-    df_out[2, 0] = da * sin(2*pi*eta2)
-    df_out[2, 1] = (a1 + eta1 * da) * cos(2*pi*eta2) * 2*pi
+    df_out[2, 0] = -da * sin(2*pi*eta2)
+    df_out[2, 1] = -(a1 + eta1 * da) * cos(2*pi*eta2) * 2*pi
     df_out[2, 2] = 0.
      
 @pure
@@ -771,7 +771,7 @@ def hollow_torus_straight_field_line(eta1: float, eta2: float, eta3: float,
 
     f_out[0] = (r * cos(theta) + r0) * cos(2*pi*eta3 / tor_period)
     f_out[1] = (r * cos(theta) + r0) * sin(2*pi*eta3 / tor_period)
-    f_out[2] = r * sin(theta) 
+    f_out[2] = -r * sin(theta) 
        
 @pure
 def hollow_torus_straight_field_line_df(eta1: float, eta2: float, eta3: float,
@@ -808,8 +808,8 @@ def hollow_torus_straight_field_line_df(eta1: float, eta2: float, eta3: float,
     df_out[1, 1] = -r * sin(theta) * dtheta_deta2 * sin(2*pi*eta3 / tor_period)
     df_out[1, 2] = 2*pi / tor_period * (r * cos(theta) + r0) * cos(2*pi*eta3 / tor_period)
 
-    df_out[2, 0] = da * sin(theta) + r * cos(theta) * dtheta_deta1
-    df_out[2, 1] = r * cos(theta) * dtheta_deta2
+    df_out[2, 0] = -(da * sin(theta) + r * cos(theta) * dtheta_deta1)
+    df_out[2, 1] = -r * cos(theta) * dtheta_deta2
     df_out[2, 2] = 0.
 
 @pure
