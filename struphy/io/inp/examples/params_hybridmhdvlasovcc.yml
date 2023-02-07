@@ -6,7 +6,16 @@ grid :
       nq_el    : [6, 6, 6] # quadrature points per grid cell
       nq_pr    : [6, 6, 6] # quadrature points per histopolation cell (for commuting projectors)
       polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
-          
+
+model_units :
+      B   : 1. # magnetic field unit in T
+      L   : 1. # length scale unit in m
+      nb  : 0.0005185219355 # bulk number density unit in 1 x 10^20 m^(-3)
+      nuh : 5. # ratio of hot/bulk number density units in %
+      Ab  : 1 # mass number of bulk ion species
+      Ah  : 1 # mass number of energetic ion species
+      Zh  : 1 # charge number of energetic ion species
+       
 time : 
       dt         : 0.2  # time step
       Tend       : 120. # simulation time interval is [0, Tend]

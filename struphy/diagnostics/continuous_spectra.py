@@ -97,11 +97,11 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
             U2_1_fft = np.fft.fft(U2_1_coeff)
             
             # determine m by looking for peak in Fourier spectrum at singularity
-            m = np.argmax(abs(U2_1_fft[s_ind]))
+            m = int((np.fft.fftfreq(U2_1_fft[s_ind].size)*U2_1_fft[s_ind].size)[np.argmax(abs(U2_1_fft[s_ind]))])
             
-            # perform shift for negative m
-            if m >= (space.Nel[1] + 1)//2:
-                m -= space.Nel[1]
+            ## perform shift for negative m
+            #if m >= (space.Nel[1] + 1)//2:
+            #    m -= space.Nel[1]
             
             # add to spectrum if found m is inside m_range
             for j in range(ms.size):
@@ -129,11 +129,11 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
             U2_fft = np.fft.fft(U2_coeff)
             
             # determine m by looking for peak in Fourier spectrum at singularity
-            m = np.argmax(abs(U2_fft[s_ind]))
+            m = int((np.fft.fftfreq(U2_fft[s_ind].size)*U2_fft[s_ind].size)[np.argmax(abs(U2_fft[s_ind]))])
             
-            # perform shift for negative m
-            if m >= (space.Nel[1] + 1)//2:
-                m -= space.Nel[1]
+            ## perform shift for negative m
+            #if m >= (space.Nel[1] + 1)//2:
+            #    m -= space.Nel[1]
             
             # add to spectrum if found m is inside m_range
             for j in range(ms.size):

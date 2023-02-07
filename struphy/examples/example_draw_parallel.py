@@ -25,7 +25,7 @@ loading_params = {'type': loading_type, 'seed': 1234,
 marker_params = {'ppc': 10, 'eps': .25, 'loading': loading_params}
 
 # create domain
-dom_type = 'ShafranovShiftCylinder'
+dom_type = 'HollowTorusStraightFieldLine'
 domain_class = getattr(domains, dom_type)
 domain = domain_class()
 

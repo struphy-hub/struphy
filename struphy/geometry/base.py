@@ -1034,6 +1034,9 @@ class Domain(metaclass=ABCMeta):
         ----------
         logical : bool
             Whether to plot the physical domain (False) or logical domain (True).
+            
+        plane : str
+            Which physical coordinates to plot (xy, xz or yz) in case of logical=False.
 
         grid_info : array-like, optional
             Information about the grid. If not given, the domain is shown with high resolution. If given, can be either
@@ -1052,38 +1055,7 @@ class Domain(metaclass=ABCMeta):
 
         import matplotlib.pyplot as plt
         
-        is_not_cube = self.kind_map < 10 or self.kind_map > 19
-
-        # plot given markers
-        if markers is not None:
-            
-            assert not (logical and marker_coords != 'logical')
-            
-            # no time series: plot all markers with the same color
-            if markers.ndim == 2:
-                
-                if not logical and marker_coords == 'logical':
-                    tmp = markers.copy() # TODO: needed for eta3=0
-                    tmp[:, 2] = 0. # TODO: needed for eta3=0
-                    X = self(tmp, remove_outside=True)
-                else:
-                    X = (markers[:, 0].copy(), markers[:, 1].copy())
-                
-                plt.scatter(X[0], X[1], s=1, color='b')
-                
-            # time series: plot markers with different colors
-            elif markers.ndim == 3:
-                
-                for i in range(markers.shape[1]):
-                    
-                    if not logical and marker_coords == 'logical':
-                        tmp = markers[:, i, :].copy() # TODO: needed for eta3=0
-                        tmp[:, 2] = 0. # TODO: needed for eta3 = 0
-                        X = self(tmp, remove_outside=True)
-                    else:
-                        X = (markers[:, i, 0].copy(), markers[:, i, 1].copy())
-                        
-                    plt.scatter(X[0], X[1], s=1)    
+        is_not_cube = self.kind_map < 10 or self.kind_map > 19    
             
         # plot domain without MPI decomposition and high resolution
         if grid_info is None:
@@ -1186,28 +1158,45 @@ class Domain(metaclass=ABCMeta):
             e1 = np.linspace(0., 1., grid_info[0] + 1)
             e2 = np.linspace(0., 1., grid_info[1] + 1)
             
-            if logical:
-                E1, E2 = np.meshgrid(e1, e2, indexing='ij')
-                X = np.stack((E1, E2), axis=0)
-            else:
-                X = self(e1, e2, 0.)
-
             fig = plt.figure(figsize=(6, 5))
             ax = fig.add_subplot(1, 1, 1)
+            
+            if logical:
+                E1, E2 = np.meshgrid(e1, e2, indexing='ij')
+                
+                # eta1-isolines
+                for i in range(e1.size):
+                    ax.plot(E1[i, :], E2[i, :], 'tab:blue', alpha=.5)
 
-            # eta1-isolines
-            for i in range(e1.size):
-                ax.plot(X[0, i, :], X[1, i, :], 'tab:blue', alpha=.5)
+                # eta2-isolines
+                for j in range(e2.size):
+                    ax.plot(E1[:, j], E2[:, j], 'tab:blue', alpha=.5)
+                
+            else:
+                X = self(e1, e2, 0.)
+            
+                # plot xz-plane for torus mappings, xy-plane else
+                if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit':
+                    co1, co2 = 0, 2
+                else:
+                    co1, co2 = 0, 1
+                    
+                # eta1-isolines
+                for i in range(e1.size):
+                    ax.plot(X[co1, i, :], X[co2, i, :], 'tab:blue', alpha=.5)
 
-            # eta2-isolines
-            for j in range(e2.size):
-                ax.plot(X[0, :, j], X[1, :, j], 'tab:blue', alpha=.5)
+                # eta2-isolines
+                for j in range(e2.size):
+                    ax.plot(X[co1, :, j], X[co2, :, j], 'tab:blue', alpha=.5)
         
         # plot domain with MPI decomposition
         elif isinstance(grid_info, np.ndarray):
             
             assert grid_info.ndim == 2
             assert grid_info.shape[1] > 5
+            
+            fig = plt.figure(figsize=(6, 5))
+            ax = fig.add_subplot(1, 1, 1)
             
             for i in range(grid_info.shape[0]):
                 
@@ -1218,22 +1207,35 @@ class Domain(metaclass=ABCMeta):
 
                 if logical:
                     E1, E2 = np.meshgrid(e1, e2, indexing='ij')
-                    X = np.stack((E1, E2), axis=0)
+                    
+                    # eta1-isolines
+                    first_line = ax.plot(E1[0, :], E2[0, :], label='rank=' + str(i), alpha=.5)
+
+                    for j in range(e1.size):
+                        ax.plot(E1[j, :], E2[j, :], color=first_line[0].get_color(), alpha=.5)
+
+                    # eta2-isolines
+                    for k in range(e2.size):
+                        ax.plot(E1[:, k], E2[:, k], color=first_line[0].get_color(), alpha=.5)
+                    
                 else:
                     X = self(e1, e2, 0.)
+                    
+                    # plot xz-plane for torus mappings, xy-plane else
+                    if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit':
+                        co1, co2 = 0, 2
+                    else:
+                        co1, co2 = 0, 1
 
-                fig = plt.figure(figsize=(12, 5))
-                ax = fig.add_subplot(1, 2, 1)
+                    # eta1-isolines
+                    first_line = ax.plot(X[co1, 0, :], X[co2, 0, :], label='rank=' + str(i), alpha=.5)
 
-                # eta1-isolines
-                first_line = ax.plot(X[0, 0, :], X[1, 0, :], label='rank=' + str(i), alpha=.5)
+                    for j in range(e1.size):
+                        ax.plot(X[co1, j, :], X[co2, j, :], color=first_line[0].get_color(), alpha=.5)
 
-                for j in range(e1.size):
-                    ax.plot(X[0, j, :], X[1, j, :], color=first_line[0].get_color(), alpha=.5)
-
-                # eta2-isolines
-                for k in range(e2.size):
-                    ax.plot(X[0, :, k], X[1, :, k], color=first_line[0].get_color(), alpha=.5)
+                    # eta2-isolines
+                    for k in range(e2.size):
+                        ax.plot(X[co1, :, k], X[co2, :, k], color=first_line[0].get_color(), alpha=.5)
                     
         else:
             raise ValueError('given grid_info is not supported!')
@@ -1245,6 +1247,42 @@ class Domain(metaclass=ABCMeta):
             else:
                 Yc = self.cy[:, :, 0].flatten()
             ax.scatter(self.cx[:, :, 0].flatten(), Yc, s=3, color='b')
+             
+        # plot given markers
+        if markers is not None:
+            
+            assert not (logical and marker_coords != 'logical')
+            
+            if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit':
+                co1, co2 = 0, 2
+            else:
+                co1, co2 = 0, 1
+            
+            # no time series: plot all markers with the same color
+            if markers.ndim == 2:
+                
+                if not logical and marker_coords == 'logical':
+                    tmp = markers.copy() # TODO: needed for eta3=0
+                    tmp[:, 2] = 0. # TODO: needed for eta3=0
+                    X = self(tmp, remove_outside=True)
+                else:
+                    X = (markers[:, 0].copy(), markers[:, 1].copy(), markers[:, 2].copy())
+                
+                ax.scatter(X[co1], X[co2], s=1, color='b')
+                
+            # time series: plot markers with different colors
+            elif markers.ndim == 3:
+                
+                for i in range(markers.shape[1]):
+                    
+                    if not logical and marker_coords == 'logical':
+                        tmp = markers[:, i, :].copy() # TODO: needed for eta3=0
+                        tmp[:, 2] = 0. # TODO: needed for eta3 = 0
+                        X = self(tmp, remove_outside=True)
+                    else:
+                        X = (markers[:, i, 0].copy(), markers[:, i, 1].copy(), markers[:, i, 2].copy())
+                        
+                    ax.scatter(X[co1], X[co2], s=1)
 
         ax.axis('equal')
         
@@ -1387,6 +1425,10 @@ class PoloidalSpline(Domain):
             def Y(eta1, eta2): return eta1 * np.sin(2*np.pi * eta2)
 
             cx, cy = interp_mapping(params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y)
+            
+            # make sure that control points at pole are all the same
+            cx[0] = 3.
+            cy[0] = 0.
 
             params_map['cx'] = cx
             params_map['cy'] = cy
@@ -1480,6 +1522,7 @@ class PoloidalSplineStraight(PoloidalSpline):
         # set default
         if params_map is None:
             self._params_map['Lz'] = 4.
+            self._params_map['cx'][:, :] = self._params_map['cx'] - 3.
 
         self._params_numpy = np.array([self.params_map['Lz']])
         self._periodic_eta3 = False 
@@ -1516,10 +1559,11 @@ class PoloidalSplineTorus(PoloidalSpline):
         # init base class and set class specific properties
         super().__init__(params_map)
 
-        # set defualt
+        # set default
         if params_map is None:
             self._params_map['tor_period'] = 3 
             self._params_map['sfl'] = True
+            self._params_map['cy'][:, :] = -self._params_map['cy']
 
         self._params_numpy = np.array([float(self.params_map['tor_period'])])
         self._periodic_eta3 = True

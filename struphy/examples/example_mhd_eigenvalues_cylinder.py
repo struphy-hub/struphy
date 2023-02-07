@@ -27,9 +27,9 @@ n_tor = -1
 b_tor = 'i'
 
 # ------ mapping parameters -----
-dom_type    = 'IGAPolarCylinder'
+dom_type   = 'IGAPolarCylinder'
 a          = 1.
-dom_params = {'a' : a, 'Lz' : 3., 'Nel' : Nel, 'p' : p}
+dom_params = {'a' : a, 'Lz' : 2*np.pi*5, 'Nel' : Nel, 'p' : p}
 
 
 # -- MHD equilibrium parameters --

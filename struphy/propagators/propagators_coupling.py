@@ -454,6 +454,8 @@ class CurrentCoupling6DCurrent(Propagator):
         self._coupling_mat = nuh*kap**2*Zh**2/(Ab*Ah)
         self._coupling_vec = nuh*kap*Zh/Ab
         
+        self._scale_push = kap*Zh/Ah
+        
         # distribution function (control variate, without control variate f0=None)
         self._f0 = f0
         
@@ -560,7 +562,7 @@ class CurrentCoupling6DCurrent(Propagator):
         u_avg.update_ghost_regions()
         
         # push particles
-        self._pusher(self._particles, dt,
+        self._pusher(self._particles, self._scale_push*dt,
                      b_full[0]._data, b_full[1]._data, b_full[2]._data,
                      u_avg[0]._data, u_avg[1]._data, u_avg[2]._data)
 

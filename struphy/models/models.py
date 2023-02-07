@@ -3,7 +3,7 @@ from mpi4py import MPI
 
 from struphy.models.base import StruphyModel
 from struphy.polar.basic import PolarVector
-
+from struphy.models.pre_processing import plasma_params
 
 #############################
 # Fluid models
@@ -118,6 +118,39 @@ class LinearMHD(StruphyModel):
     @property
     def propagators(self):
         return self._propagators
+    
+    @staticmethod
+    def print_units(model_units_params):
+        
+        # pressure unit in Pascal
+        pressure_unit = model_units_params['B']**2/1.25663706212e-6
+        
+        # beta 2*mu0*p/B^2 (always 2)
+        beta = 2.
+        
+        # temperature unit kBT = p/n in keV
+        temperature_unit = pressure_unit/(model_units_params['n']*1e20)/(1000*1.602176634e-19)
+        
+        size_params = {'B_abs [T]' : model_units_params['B'], 'transit k [1/m]' : 2*np.pi/model_units_params['L']}
+        
+        pparams = plasma_params(1, model_units_params['A'], temperature_unit, 2, size_params)
+        
+        print()
+        print()
+        print('------- MODEL UNITS (PRESCRIBED) -------')
+        print('x [m]        : ', model_units_params['L'])
+        print('B [T]        : ', model_units_params['B'])
+        print('n [10²⁰ m⁻³] : ', model_units_params['n'])
+        print('A            : ', model_units_params['A'])
+        print()
+        print('------- MODEL UNITS (DERIVED) ----------')
+        print('rho [10⁷ kg/m³] : ', model_units_params['n']*1e20*model_units_params['A']*1.67262192369e-27*1e7)
+        print('p   [bar]       : ', pressure_unit*1e-5)
+        print('t   [µs]        : ', model_units_params['L']/pparams['v_A [10^6 m/s]'])
+        print('v   [10⁶ m/s]   : ', pparams['v_A [10^6 m/s]'])
+        print()
+        print('------- OTHER QUANTITIES _--------------')
+        
 
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
@@ -141,7 +174,7 @@ class LinearMHD(StruphyModel):
         self._scalar_quantities['en_B_tot'][0] = (
             self._b_eq + self._b).dot(self._mass_ops.M2.dot(self._b_eq + self._b, apply_bc=False))/2
 
-        self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_U'][0]
+        self._scalar_quantities['en_tot'][0]  = self._scalar_quantities['en_U'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_p'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_B'][0]
 
@@ -163,7 +196,7 @@ class LinearMHDVlasovCC(StruphyModel):
         
         &f_\textnormal{h}=f_\textnormal{h}^\prime\frac{\hat{n}_\textnormal{h}}{\hat{v}_\textnormal{A}^3}\,,\quad \rho_\textnormal{h}=Z_\textnormal{h}en_\textnormal{h}^\prime\hat{n}_\textnormal{h}\,,\quad\mathbf{J}_\textnormal{h}=Z_\textnormal{h}en_\textnormal{h}^\prime \mathbf{U}_\textnormal{h}^\prime\hat{n}_\textnormal{h}\hat{v}_\textnormal{A}\,,
     
-    where :math:`e` is the elementary charge, :math:`m_\textnormal{p}` the proton mass and :math:`\mu_0` the vaccuum permeability.
+    where :math:`e` is the elementary charge, :math:`m_\textnormal{p}` the proton mass and :math:`\mu_0` the vaccuum permeability. 
     
     Implemented equations (dimensionless, primes are dropped):
     
@@ -175,7 +208,7 @@ class LinearMHDVlasovCC(StruphyModel):
         &\frac{\partial \tilde{n}_\textnormal{b}}{\partial t}+\nabla\cdot(n_\textnormal{b0} \tilde{\mathbf{U}})=0\,, 
         \\
         n_\textnormal{b0} &\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p 
-        =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf{J}_0\times \tilde{\mathbf{B}}+\nu_\textnormal{h}\frac{Z_\textnormal{h}}{A_\textnormal{b}}\left(n_\textnormal{h}\tilde{\mathbf{U}}-n_\textnormal{h}\mathbf{U}_\textnormal{h}\right)\times(\mathbf{B}_0+\tilde{\mathbf{B}})\,,
+        =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf{J}_0\times \tilde{\mathbf{B}}+\nu_\textnormal{h}\frac{Z_\textnormal{h}}{A_\textnormal{b}}\kappa\left(n_\textnormal{h}\tilde{\mathbf{U}}-n_\textnormal{h}\mathbf{U}_\textnormal{h}\right)\times(\mathbf{B}_0+\tilde{\mathbf{B}})\,,
         \\
         &\frac{\partial \tilde p}{\partial t} + (\gamma-1)\nabla\cdot(p_0 \tilde{\mathbf{U}}) 
         + p_0\nabla\cdot \tilde{\mathbf{U}}=0\,, 
@@ -194,6 +227,8 @@ class LinearMHDVlasovCC(StruphyModel):
         \end{align}
         
     where :math:`\mathbf{J}_0 = \nabla\times\mathbf{B}_0` is the equilibrium current and subscripts "b" and "h" refer to bulk (MHD) and hot (energetic) species, respectively. Moreover, the dimensionless quantities :math:`\nu_\textnormal{h}=\hat{n}_\textnormal{h}/\hat{n}_\textnormal{b}` and :math:`\kappa=\hat{\Omega}_\textnormal{cp}\hat{\tau}_\textnormal{A}=e\hat{B}\,\hat{\tau}_\textnormal{A}/m_\textnormal{p}=e\hat{L}\sqrt{\mu_0A_\textnormal{b}\hat{n}_\textnormal{b}/m_\textnormal{p}}`.
+    
+    The characteristic quantities :math:`(\hat{L},\hat{B},\hat{n}_\textnormal{b})` as well as the dimensionless constants :math:`(\nu_\textnormal{h},A_\textnormal{b},A_\textnormal{h},Z_\textnormal{h})` need to be defined by the user in the parameter file.
     
     Parameters
     ----------
@@ -245,24 +280,18 @@ class LinearMHDVlasovCC(StruphyModel):
         solver_params_4 = params['solvers']['solver_4']
         
         # model units
-        #B   = params['model_units']['B']
-        #L   = params['model_units']['L']
-        #nb  = params['model_units']['nb']
-        #nuh = params['model_units']['nuh']*0.01
+        B   = params['model_units']['B']
+        L   = params['model_units']['L']
+        nb  = params['model_units']['nb']
+        nuh = params['model_units']['nuh']*0.01
+        Ab  = params['model_units']['Ab']
+        Ah  = params['model_units']['Ah']
+        Zh  = params['model_units']['Zh']
         
-        nb = self.fluid['mhd']['plasma_params']['n [10^20/m^3]']
-        nh = self.kinetic['energetic_ions']['plasma_params']['n [10^20/m^3]']
+        kappa = 1.602176634e-19*L*np.sqrt(1.25663706212e-6*Ab*nb*1e20/1.67262192369e-27)
         
-        #nuh = nh/nb
-        nuh = 0.05
-        
-        Ab = self.fluid['mhd']['plasma_params']['mass [m_p]']
-        Zh = self.kinetic['energetic_ions']['plasma_params']['charge [e]']
-        Ah = self.kinetic['energetic_ions']['plasma_params']['mass [m_p]']
-        
-        kappa = self.fluid['mhd']['plasma_params']['kappa']
-        #kappa = 1.602176634e-19*L*np.sqrt(1.25663706212e-6*Ab*nb*1e20/1.67262192369e-27)
-        kappa = 1. 
+        if abs(kappa - 1) < 1e-6:
+            kappa = 1.
         
         coupling_params = {'nuh' : nuh, 'Ab' : Ab, 'Ah' : Ah, 'Zh' : Zh, 'kappa' : kappa}
         
@@ -317,7 +346,7 @@ class LinearMHDVlasovCC(StruphyModel):
         self._propagators += [propagators_markers.StepPushEta(self._e_ions, self.derham, self.domain, e_ions_params['push_algos']['eta'], e_ions_params['markers']['bc_type'], f0=f0)] 
         
         # updates v
-        self._propagators += [propagators_markers.StepPushVxB(self._e_ions, self.derham, self.domain, e_ions_params['push_algos']['vxb'], self._b_eq, self._b, f0=f0)]
+        self._propagators += [propagators_markers.StepPushVxB(self._e_ions, self.derham, self.domain, e_ions_params['push_algos']['vxb'], kappa*Zh/Ah, self._b_eq, self._b, f0=f0)]
         
         # updates u and p
         self._propagators += [propagators_fields.Magnetosonic(self._n, self._u, self._p, self._b, self._u_space, self.derham, self._mass_ops, self._base_ops, solver_params_4)]
@@ -340,6 +369,45 @@ class LinearMHDVlasovCC(StruphyModel):
     @property
     def propagators(self):
         return self._propagators
+    
+    @staticmethod
+    def print_units(model_units_params):
+        
+        # pressure unit in Pascal
+        pressure_unit = model_units_params['B']**2/1.25663706212e-6
+        
+        # beta 2*mu0*p/B^2 (always 2)
+        beta = 2.
+        
+        # bulk temperature unit kBT = p/nb in keV
+        temperature_unit = pressure_unit/(model_units_params['nb']*1e20)/(1000*1.602176634e-19)
+        
+        size_params = {'B_abs [T]' : model_units_params['B'], 'transit k [1/m]' : 2*np.pi/model_units_params['L']}
+        
+        pparams = plasma_params(1, model_units_params['Ab'], temperature_unit, 2, size_params)
+        
+        print()
+        print()
+        print('------- MODEL UNITS (PRESCRIBED) -------')
+        print('x  [m]        : ', model_units_params['L'])
+        print('B  [T]        : ', model_units_params['B'])
+        print('nb [10²⁰ m⁻³] : ', model_units_params['nb'])
+        print('Ab            : ', model_units_params['Ab'])
+        print('nh [10²⁰ m⁻³] : ', model_units_params['nb']*model_units_params['nuh']*0.01)
+        print('Ah            : ', model_units_params['Ah'])
+        print('Zh            : ', model_units_params['Zh'])
+        print()
+        print('------- MODEL UNITS (DERIVED) ----------')
+        print('rho_b [10⁷ kg/m⁻³] : ', model_units_params['nb']*1e20*model_units_params['Ab']*1.67262192369e-27*1e7)
+        print('p     [bar]        : ', pressure_unit*1e-5)
+        print('t     [µs]         : ', model_units_params['L']/pparams['v_A [10^6 m/s]'])
+        print('v     [10⁶ m/s]    : ', pparams['v_A [10^6 m/s]'])
+        print()
+        print('------- OTHER QUANTITIES ---------------')
+        print('nuh                 : ', model_units_params['nuh']*0.01)
+        print('kappa               : ', pparams['kappa'])
+        print('EP gyro period [µs] : ', 2*np.pi*model_units_params['Ah']*1.67262192369e-27/(model_units_params['Zh']*1.602176634e-19*model_units_params['B'])*1e6)
+        print('EP gyro radius [cm] : ', pparams['v_A [10^6 m/s]']*1e6*model_units_params['Ah']*1.67262192369e-27/(model_units_params['Zh']*1.602176634e-19*model_units_params['B'])*100)
 
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
@@ -509,7 +577,7 @@ class LinearMHDVlasovPC(StruphyModel):
         self._propagators += [propagators_fields.Magnetosonic(self._n, self._u, self._p, self._b, self._u_space, self.derham, self._mass_ops, self._basis_ops, magnetosonic_solver)]
         self._propagators += [propagators_markers.StepPushEtaPC(self._ions, self.derham, self.domain, self._u, self._u_space, coupling, ions_params['markers']['bc_type'])]
         self._propagators += [propagators_coupling.StepPressurecoupling(self._u, self._u_space, coupling, self._ions, self.derham, self.domain, self._mass_ops, self._basis_ops, coupling_solver)]
-        self._propagators += [propagators_markers.StepPushVxB(self._ions, self.derham, self.domain, ions_params['push_algos']['vxb'], self._b, self._b_eq)]
+        self._propagators += [propagators_markers.StepPushVxB(self._ions, self.derham, self.domain, ions_params['push_algos']['vxb'], 1., self._b, self._b_eq)]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities['time']   = np.empty(1, dtype=float)
@@ -842,7 +910,7 @@ class LinearVlasovMaxwell(StruphyModel):
                 self._electrons, self.derham, self.domain, self._e_background)]
             
         self._propagators += [propagators_markers.StepPushVxB(
-            self._electrons, self.derham, self.domain, self.electron_params['push_algos']['vxb'], self._b_background)]
+            self._electrons, self.derham, self.domain, self.electron_params['push_algos']['vxb'], 1., self._b_background)]
 
         self._propagators += [propagators_coupling.StepEfieldWeights(self.domain, self.derham,
                                                 self._e, self._electrons, self._mass_ops,
@@ -967,15 +1035,15 @@ class Vlasov(StruphyModel):
 
     .. math::
 
-        &\hat \omega = \frac{q \hat B}{m} = \hat \Omega_{c} \,,
-        
-        &\hat v = \frac{\hat \omega}{\hat k} = \frac{\hat \Omega_{c}}{\hat k} \,.
+        \mathbf{x}=\mathbf{x}^\prime\hat{L}\,,\quad\mathbf{B}=\mathbf{B}^\prime\hat{B}\,,\quad t=t^\prime\hat{\tau}=t^\prime\left(\frac{e\hat{B}}{m_\textnormal{p}}\right)^{-1}=t^\prime\Omega_\textnormal{pc}^{-1}\,,\quad \mathbf{v}=\mathbf{v}^\prime\frac{\hat{L}}{\hat{\tau}}\,,
 
-    where :math:`\Omega_{c}=q\hat B/m` is cyclotron frequency. Implemented equations:
+    where :math:`\Omega_\textnormal{pc}=e\hat B/m_\textnormal{p}` is the proton cyclotron frequency. Implemented equations:
 
     .. math::
 
-        \frac{\partial f}{\partial t} + \mathbf{v} \cdot \frac{\partial f}{\partial \mathbf{x}} + \left(\mathbf{v}\times\mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0\,.
+        \frac{\partial f}{\partial t} + \mathbf{v} \cdot \frac{\partial f}{\partial \mathbf{x}} + \frac{Z}{A}\left(\mathbf{v}\times\mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0\,,
+        
+    where :math:`Z` and :math:`A` are the charge and mass number, respectively, of the particles species. The characteristic quantities :math:`(\hat{L},\hat{B})` as well as :math:`(Z,A)` need to be defined by the user in the parameter file.
 
     Parameters
     ----------
@@ -998,14 +1066,17 @@ class Vlasov(StruphyModel):
 
         print(f'Total number of markers : {ions.n_mks}, shape of markers array on rank {self.derham.comm.Get_rank()} : {ions.markers.shape}')
 
+        A = params['model_units']['A']
+        Z = params['model_units']['Z']
+        
         # project magnetic background
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
                                          self.mhd_equil.b2_2,
                                          self.mhd_equil.b2_3])
 
         # Initialize propagators/integrators used in splitting substeps
-        self._propagators = []
-        self._propagators += [propagators_markers.StepPushVxB(ions, self.derham, self.domain, ions_params['push_algos']['vxb'], self._b_eq)]
+        self._propagators  = []
+        self._propagators += [propagators_markers.StepPushVxB(ions, self.derham, self.domain, ions_params['push_algos']['vxb'], Z/A, self._b_eq)]
         self._propagators += [propagators_markers.StepPushEta(ions, self.derham, self.domain, ions_params['push_algos']['eta'], ions_params['markers']['bc_type'])]
 
         # Scalar variables to be saved during simulation
@@ -1014,6 +1085,19 @@ class Vlasov(StruphyModel):
     @property
     def propagators(self):
         return self._propagators
+    
+    @staticmethod
+    def print_units(model_units_params):
+        print()
+        print()
+        print('----- MODEL UNITS -------')
+        print('x [m]       : ', model_units_params['L'])
+        print('B [T]       : ', model_units_params['B'])
+        print('t [10⁻⁸ s]  : ', 1.67262192369e-27/(model_units_params['B']*1.602176634e-19)*1e8)
+        print('v [10⁷ m/s] : ', model_units_params['L']/(1.67262192369e-27/(model_units_params['B']*1.602176634e-19))*1e-7)
+        print()
+        print('----- OTHER QUANTITIES ----')
+        print('EP gyro period [10⁻⁸ s] : ', 2*np.pi*model_units_params['A']*1.67262192369e-27/(model_units_params['Z']*1.602176634e-19*model_units_params['B'])*1e8)
 
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
