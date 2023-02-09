@@ -1,0 +1,142 @@
+grid :
+      Nel      : [3, 3, 10] # number of grid cells, >p
+      p        : [2, 2, 3]  # spline degree
+      spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
+      bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
+      nq_el    : [6, 6, 6] # quadrature points per grid cell
+      nq_pr    : [6, 6, 6] # quadrature points per histopolation cell (for commuting projectors)
+      polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
+
+model_units :
+      B   : 1. # magnetic field unit in T
+      L   : 1. # length scale unit in m
+      nb  : 0.0005185219355 # bulk number density unit in 1 x 10^20 m^(-3)
+      nuh : 5. # ratio of hot/bulk number density units in %
+      Ab  : 1 # mass number of bulk ion species
+      Ah  : 1 # mass number of energetic ion species
+      Zh  : 1 # charge number of energetic ion species
+       
+time : 
+      dt         : 0.2  # time step
+      Tend       : 1. # simulation time interval is [0, Tend]
+      max_time   : 300. # maximum runtime of program in minutes
+      split_algo : Strang # LieTrotter | Strang
+      
+geometry : 
+      type : Cuboid # mapping F (possible types seen below)  
+      Cuboid : 
+            l1 : 0. # start of interval in eta1
+            r1 : 1. # end of interval in eta1, r1>l1
+            l2 : 0. # start of interval in eta2
+            r2 : 1. # end of interval in eta2, r2>l2
+            l3 : 0. # start of interval in eta3
+            r3 : 10. # end of interval in eta3, r3>l3 
+            
+mhd_equilibrium : 
+      type : analytical # analytical or numerical
+      name : HomogenSlab # (possible choices seen below)
+      HomogenSlab :
+            B0x  : 0. # magnetic field in x
+            B0y  : 0. # magnetic field in y
+            B0z  : 1. # magnetic field in z
+            beta : 0. # plasma beta = 2*p*mu_0/B^2
+            n0   : 1. # number density
+
+em_fields : 
+      init :
+            type : null # type of initialization
+
+fluid : 
+      mhd :
+            attributes :
+                  Z    : 1. # charge number Z = q/e, in units of elementary charge, can have a sign
+                  M    : 1. # mass ratio m/m_p, in units of proton mass
+                  kBT  : 10. # thermal energy in units keV 
+                  beta : .01 # plasma beta = p*2*mu_0/|B|^2
+            mhd_u_space : H1vec # Hdiv | H1vec
+            init :
+                  type : ModesCos # type of initialization
+                  ModesCos :
+                        coords : 'physical' # in which coordinates (logical or physical)
+                        comps : 
+                              n3 : False                # components to be initialized (for scalar fields: no list)
+                              uv : [False, True, False] # components to be initialized (for scalar fields: no list)
+                              p3 : False                # components to be initialized (for scalar fields: no list)
+                        ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
+                        ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
+                        ns : [-1] # Integer mode numbers in z or eta_3 (depending on coords)
+                        amp : [0.0001] # amplitudes of each mode
+                        Lx : 1.
+                        Ly : 1.
+                        Lz : 10.
+                  InitialMHDSlab : 
+                        a  : 1.
+                        R0 : 1.
+                        m  : 0
+                        n  : -1
+                        U  : 0.001
+                        A  : 0.    
+            
+kinetic :
+      energetic_ions :
+            attributes :
+                  Z    : 1. # charge number Z = q/e, in units of elementary charge, can have a sign
+                  M    : 1. # mass ratio m/m_p, in units of proton mass
+                  kBT  : 100. # thermal energy in units keV 
+                  beta : 0.005 # plasma beta = p*2*mu_0/|B|^2
+            markers :
+                  type    : control_variate # full_f, control_variate, or delta_f
+                  ppc     : 10 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
+                  eps     : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
+                  bc_type : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
+                  loading :
+                        type    : pseudo_random # particle loading mechanism 
+                        seed    : 1234 # seed for random number generator
+                        moments : [0., 0., 2.5, 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
+            init : 
+                  type : Maxwellian6DUniform
+                  Maxwellian6DUniform :
+                        uz : 2.5
+            background :
+                  type : Maxwellian6DUniform
+                  Maxwellian6DUniform :
+                        uz : 2.5
+            save_data :
+                  n_markers : 10 # number of markers to be save during simulation
+                  f :
+                        slices : [vz] # in which directions to bin (e.g. [e1_e2, vx_vy_vz])
+                        n_bins : [[32]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
+                        ranges : [[[-0.5, 5.5]]] # bin range in each direction
+            push_algos :
+                  vxb : analytic # possible choices: analytic, implicit
+                  eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4
+      
+solvers :
+      solver_1 : 
+            type : pbicgstab
+            pc : MassMatrixPreconditioner # null or name of preconditioner class
+            tol : 1.e-14
+            maxiter : 3000
+            info : False
+            verbose : False
+      solver_2 :
+            type : pcg
+            pc : MassMatrixPreconditioner # null or name of preconditioner class
+            tol : 1.e-14
+            maxiter : 3000
+            info : False
+            verbose : False
+      solver_3 : 
+            type : pcg
+            pc : MassMatrixPreconditioner # null or name of preconditioner class
+            tol : 1.e-14
+            maxiter : 3000
+            info : False
+            verbose : False
+      solver_4 :
+            type : pbicgstab
+            pc : MassMatrixPreconditioner # null or name of preconditioner class
+            tol : 1.e-14
+            maxiter : 3000
+            info : False
+            verbose : False

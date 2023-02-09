@@ -27,9 +27,9 @@ mhd_equilibrium :
       type : analytical # analytical or numerical
       name : HomogenSlab # (possible choices seen below)
       HomogenSlab :
-            B0x  : 0. # magnetic field in x
+            B0x  : 0.5 # magnetic field in x
             B0y  : 0. # magnetic field in y
-            B0z  : 1. # magnetic field in z
+            B0z  : 1.4 # magnetic field in z
             beta : 0. # plasma beta = 2*p*mu_0/B^2
             n0   : 1. # number density
 
@@ -98,8 +98,8 @@ kinetic :
                   beta : 0.01 # plasma beta = p*2*mu_0/|B|^2
             markers :
                   type    : delta_f # full_f, control_variate, or delta_f
-                  Np      : 25 # alternative if ppc is not given (total number of markers, must be larger or equal than # MPI processes)
-                  eps     : 0.0 # MPI send/receive buffer (0.1 <= eps <= 1.0)
+                  Np      : 500 # alternative if ppc is not given (total number of markers, must be larger or equal than # MPI processes)
+                  eps     : 0.5 # MPI send/receive buffer (0.1 <= eps <= 1.0)
                   bc_type : [periodic, periodic, periodic] # remove, reflect or periodic
                   loading :
                         type          : pseudo_random # particle loading mechanism
@@ -142,7 +142,7 @@ kinetic :
             save_data :
                   n_markers : 10 # number of markers to be saved during simulation
                   f :
-                        slices : [e1] # in which directions to bin (e.g. [e1_e2, vx_vy_vz])
+                        slices : [vx] # in which directions to bin (e.g. [e1_e2, vx_vy_vz])
                         n_bins : [[32]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
                         ranges : [[[-3.9, 6.1]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
             push_algos :

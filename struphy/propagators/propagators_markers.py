@@ -1,6 +1,5 @@
 from numpy import array
 
-from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 
 from struphy.polar.basic import PolarVector

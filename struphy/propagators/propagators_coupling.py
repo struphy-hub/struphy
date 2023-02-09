@@ -96,9 +96,6 @@ class StepEfieldWeights(Propagator):
         self._accum = Accumulator(derham, domain, 'Hcurl', 'linear_vlasov_maxwell',
                                   do_vector=True, symmetry='symm')
 
-        # self._args_add = [self.f0_spec, array(self.moms_spec),
-        #                   array(self.f0_params), alpha]
-
         # Create pointers to the variables
         self._e = e
         self._particles = particles
@@ -115,10 +112,6 @@ class StepEfieldWeights(Propagator):
 
         self._domain = domain
         self._derham = derham
-
-        self._accum.accumulate(self._particles,
-                               array(self.moms_spec),
-                               array(self.f0_params), self.alpha)
 
         # ================================
         # ========= Schur Solver =========

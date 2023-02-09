@@ -217,18 +217,12 @@ class Accumulator:
                 A33_33 = StencilMatrix(
                     self.space.spaces[2], self.space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
 
-                dict_blocks_11 = {(0, 0): A11_11, (0, 1): A12_11, (0, 2)
-                                   : A13_11, (1, 1): A22_11, (1, 2): A23_11, (2, 2): A33_11}
-                dict_blocks_12 = {(0, 0): A11_12, (0, 1): A12_12, (0, 2)
-                                   : A13_12, (1, 1): A22_12, (1, 2): A23_12, (2, 2): A33_12}
-                dict_blocks_13 = {(0, 0): A11_13, (0, 1): A12_13, (0, 2)
-                                   : A13_13, (1, 1): A22_13, (1, 2): A23_13, (2, 2): A33_13}
-                dict_blocks_22 = {(0, 0): A11_22, (0, 1): A12_22, (0, 2)
-                                   : A13_22, (1, 1): A22_22, (1, 2): A23_22, (2, 2): A33_22}
-                dict_blocks_23 = {(0, 0): A11_23, (0, 1): A12_23, (0, 2)
-                                   : A13_23, (1, 1): A22_23, (1, 2): A23_23, (2, 2): A33_23}
-                dict_blocks_33 = {(0, 0): A11_33, (0, 1): A12_33, (0, 2)
-                                   : A13_33, (1, 1): A22_33, (1, 2): A23_33, (2, 2): A33_33}
+                dict_blocks_11 = {(0, 0): A11_11, (0, 1): A12_11, (0, 2): A13_11, (1, 1): A22_11, (1, 2): A23_11, (2, 2): A33_11}
+                dict_blocks_12 = {(0, 0): A11_12, (0, 1): A12_12, (0, 2): A13_12, (1, 1): A22_12, (1, 2): A23_12, (2, 2): A33_12}
+                dict_blocks_13 = {(0, 0): A11_13, (0, 1): A12_13, (0, 2): A13_13, (1, 1): A22_13, (1, 2): A23_13, (2, 2): A33_13}
+                dict_blocks_22 = {(0, 0): A11_22, (0, 1): A12_22, (0, 2): A13_22, (1, 1): A22_22, (1, 2): A23_22, (2, 2): A33_22}
+                dict_blocks_23 = {(0, 0): A11_23, (0, 1): A12_23, (0, 2): A13_23, (1, 1): A22_23, (1, 2): A23_23, (2, 2): A33_23}
+                dict_blocks_33 = {(0, 0): A11_33, (0, 1): A12_33, (0, 2): A13_33, (1, 1): A22_33, (1, 2): A23_33, (2, 2): A33_33}
 
                 self._matrix11 = BlockMatrix(
                     self.space, self.space, blocks=dict_blocks_11)
@@ -403,11 +397,6 @@ class Accumulator:
         Updates ghost regions of all attributes.
         """
 
-        if self._symmetry != 'pressure':
-            self._matrix.update_ghost_regions()
-            if self._do_vector:
-                self.vector.update_ghost_regions()
-
         if self._symmetry == 'pressure':
             self.matrix11.update_ghost_regions()
             self.matrix12.update_ghost_regions()
@@ -419,6 +408,11 @@ class Accumulator:
                 self.vector1.update_ghost_regions()
                 self.vector2.update_ghost_regions()
                 self.vector3.update_ghost_regions()
+
+        else:
+            self._matrix.update_ghost_regions()
+            if self._do_vector:
+                self.vector.update_ghost_regions()
 
     # =============================
     # Private Methods :
@@ -450,6 +444,8 @@ class Accumulator:
                         pads, arg.shape, comp)
                     recv_buf[k][comp] = self._create_recv_buffer_1_comp(
                         pads, arg.shape, comp)
+                    assert not np.any(np.isinf(recv_buf[k][comp]['buf'])), recv_buf[k][comp]['buf']
+                    assert not np.any(np.isnan(recv_buf[k][comp]['buf'])), recv_buf[k][comp]['buf']
 
         return send_types, recv_buf
 
@@ -603,10 +599,8 @@ class Accumulator:
 
                 if recv_neigh != -1:
                     recv_type_comp = recv_type[inv_comp]
-                    # Receiving from the inverted component direction if there is a neighbour
-                    self._recv_ghost_regions_1_comp(
-                        dat, recv_neigh, recv_type_comp, comp)
 
+                    # reset buffers before receive
                     if len(dat.shape) == 6:
                         recv_type_comp['buf'][:, :, :, :, :, :] == 0.
                         recv_type_comp['buf'][:, :, :, :, :, :] == 0.
@@ -616,6 +610,10 @@ class Accumulator:
                     else:
                         raise NotImplementedError(
                             'Unknown shape of data object!')
+
+                    # Receiving from the inverted component direction if there is a neighbour
+                    self._recv_ghost_regions_1_comp(
+                        dat, recv_neigh, recv_type_comp, comp)
 
                 comm.Barrier()
 
@@ -643,12 +641,12 @@ class Accumulator:
 
         send_tag = rank + 1000*comp[0] + 100*comp[1] + 10*comp[2]
 
-        comm.Isend(
-            (dat, 1, send_type), dest=neighbour, tag=send_tag)
+        comm.Isend((dat, 1, send_type),
+                   dest=neighbour, tag=send_tag)
 
     def _recv_ghost_regions_1_comp(self, dat, neighbour, recv_type, comp):
         """
-        Does the receving for one direction component using non-blocking communication.
+        Does the receiving for one direction component using non-blocking communication.
 
         Parameters
         ----------
@@ -670,8 +668,11 @@ class Accumulator:
 
         recv_tag = neighbour + 1000*comp[0] + 100*comp[1] + 10*comp[2]
 
-        req_l = comm.Irecv(
-            recv_type['buf'], source=neighbour, tag=recv_tag)
+        if np.sum(recv_type['buf']) in [np.inf, np.nan]:
+            raise ValueError(recv_type['buf'])
+
+        req_l = comm.Irecv(recv_type['buf'],
+                           source=neighbour, tag=recv_tag)
 
         re_l = False
         while not re_l:
