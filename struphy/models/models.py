@@ -8,8 +8,6 @@ from struphy.models.pre_processing import plasma_params
 #############################
 # Fluid models
 #############################
-
-
 class LinearMHD(StruphyModel):
     r'''Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
 
@@ -970,8 +968,8 @@ class LinearVlasovMaxwell(StruphyModel):
         # Only add StepStaticEfield if efield is non-zero, otherwise it is more expensive
         if np.all(self._e_background[0]._data < 1e-14) and np.all(self._e_background[1]._data < 1e-14) and np.all(self._e_background[2]._data < 1e-14):
             self._propagators += [propagators_markers.StepPushEta(
-                self._electrons, self.derham, self.domain, self.electron_params[
-                    'push_algos']['eta'],
+                self._electrons, self.derham, self.domain,
+                self.electron_params['push_algos']['eta'],
                 self.electron_params['markers']['bc_type'])]
 
         else:
@@ -1014,8 +1012,9 @@ class LinearVlasovMaxwell(StruphyModel):
             f_bckgr = getattr(analytical, fun_name)()
 
         # Correct initialization weights by dividing by N*sqrt(f_0)
-        self._electrons.markers[~self._electrons.holes, 6] /= (self._electrons.n_mks *
-                                                               np.sqrt(f_bckgr(*self._electrons.markers_wo_holes[:, :6].T)))
+        self._electrons.markers[~self._electrons.holes, 6] /= \
+            (self._electrons.n_mks *
+             np.sqrt(f_bckgr(*self._electrons.markers_wo_holes[:, :6].T)))
 
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
@@ -1034,8 +1033,11 @@ class LinearVlasovMaxwell(StruphyModel):
             self._maxwellian_params['vthx']**2 * \
             self._maxwellian_params['vthy']**2 * \
             self._maxwellian_params['vthz']**2 * \
-            np.dot(self._electrons.markers[~self._electrons._holes, 6]**2,
-                   self._electrons.markers[~self._electrons._holes, 7])
+            np.dot(self._electrons.markers_wo_holes[:, 6]**2,
+                   self._electrons.markers_wo_holes[:, 7])
+
+        self.derham.comm.Allreduce(
+            MPI.IN_PLACE, self._scalar_quantities['en_weights'], op=MPI.SUM)
 
         # en_tot = en_w + en_e + en_b
         self._scalar_quantities['energy'][0] = \

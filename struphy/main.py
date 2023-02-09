@@ -3,17 +3,16 @@
 '''
 STRUPHY main execution file.
 '''
-
-from psydac.api.postprocessing import OutputManager
-from psydac.linalg.stencil import StencilVector
-from struphy.post_processing.output_handling import DataContainer
-from struphy.models import models
 import time
 import yaml
 import datetime
 import sysconfig
 import sys
 from mpi4py import MPI
+
+from psydac.linalg.stencil import StencilVector
+from struphy.post_processing.output_handling import DataContainer
+from struphy.models import models
 
 
 def main():
@@ -28,11 +27,7 @@ def main():
     if len(sys.argv) > 3:
         exit_flag = False
         path_out = sys.argv[3]
-        path_batch = sys.argv[4]
         file_meta = sys.argv[5]
-        mode = 'w'  # needs fix
-        if len(sys.argv) > 6:
-            mode = sys.argv[6]
 
     # load simulation parameters
     with open(file_in) as file:
@@ -135,10 +130,6 @@ def main():
                 data.file[key_field].attrs['starts'] = subval['obj'].starts
                 data.file[key_field].attrs['ends'] = subval['obj'].ends
                 data.file[key_field].attrs['pads'] = subval['obj'].pads
-
-    # save kinetic data in group 'kinetic/'
-    n_mks_to_be_saved = []
-    markers_to_be_saved = []
 
     for key, val in model.kinetic.items():
         key_spec = 'kinetic/' + key
