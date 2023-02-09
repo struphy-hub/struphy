@@ -21,18 +21,18 @@ time :
       Tend       : 1. # simulation time interval is [0, Tend]
       max_time   : 300. # maximum runtime of program in minutes
       split_algo : LieTrotter # LieTrotter | Strang
-      
-geometry : 
-      type : Cuboid # mapping F (possible types seen below)  
-      Cuboid : 
+
+geometry :
+      type : Cuboid # mapping F (possible types seen below)
+      Cuboid :
             l1 : 0. # start of interval in eta1
             r1 : 1. # end of interval in eta1, r1>l1
             l2 : 0. # start of interval in eta2
             r2 : 6.283185307 # end of interval in eta2, r2>l2
             l3 : 0. # start of interval in eta3
             r3 : 6.283185307 # end of interval in eta3, r3>l3 
-            
-mhd_equilibrium : 
+
+mhd_equilibrium :
       type : analytical # analytical or numerical
       name : HomogenSlab # (possible choices seen below)
       HomogenSlab :
@@ -42,11 +42,11 @@ mhd_equilibrium :
             beta : 0. # plasma beta = 2*p*mu_0/B^2
             n0   : 1. # number density
 
-em_fields : 
+em_fields :
       init :
             type : null # type of initialization
 
-fluid : 
+fluid :
       mhd :
             attributes :
                   Z    : 1. # charge number Z = q/e, in units of elementary charge, can have a sign
@@ -69,14 +69,14 @@ fluid :
                         Lx : 1.
                         Ly : 6.283185307
                         Lz : 6.283185307
-                  InitialMHDSlab : 
+                  InitialMHDSlab :
                         a  : 1.
                         R0 : 1.
                         m  : 0
                         n  : -1
                         U  : 0.001
                         A  : 0.    
-            
+
 kinetic :
       energetic_ions :
             attributes :
@@ -85,7 +85,7 @@ kinetic :
                   kBT  : 100. # thermal energy in units keV 
                   beta : 0.005 # plasma beta = p*2*mu_0/|B|^2
             markers :
-                  type    : full_f # full_f or delta_f
+                  type    : full_f # full_f, control_variate, or delta_f
                   Np      : 6400 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
                   eps     : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
                   bc_type : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
@@ -93,7 +93,7 @@ kinetic :
                         type    : pseudo_random # particle loading mechanism 
                         seed    : 1234 # seed for random number generator
                         moments : [0., 0., 2.5, 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
-            init : 
+            init :
                   type : Maxwellian6DUniform
                   Maxwellian6DUniform :
                         uz : 2.5
@@ -102,9 +102,9 @@ kinetic :
             push_algos :
                   vxb : analytic # possible choices: analytic, implicit
                   eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4
-      
+
 solvers :
-      solver_1 : 
+      solver_1 :
             type : pbicgstab
             pc : MassMatrixPreconditioner # null or name of preconditioner class
             tol : 1.e-14
@@ -118,7 +118,7 @@ solvers :
             maxiter : 3000
             info : False
             verbose : False
-      solver_3 : 
+      solver_3 :
             type : pcg
             pc : MassMatrixPreconditioner # null or name of preconditioner class
             tol : 1.e-14

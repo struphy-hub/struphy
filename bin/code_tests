@@ -19,6 +19,7 @@ struphy run LinearMHDVlasovPC -i tests/params_pc_linmhd_6d.yml -o sim_test_6
 
 # Test LinearVlasovMaxwell
 struphy run LinearVlasovMaxwell -i tests/params_linvlasovmaxwell.yml -o sim_test_7
+struphy pproc sim_test_7
 
 # Test HybridMHDVlasovCC
 struphy run LinearMHDVlasovCC -i tests/params_hybridmhdvlasovcc.yml -o sim_test_8 --mpi 2

@@ -46,7 +46,7 @@ kinetic :
                   kBT  : 1. # thermal energy in units keV 
                   beta : 0.01 # plasma beta = p*2*mu_0/|B|^2
             markers :
-                  type    : full_f # full_f or delta_f
+                  type    : full_f # full_f, control_variate, or delta_f
                   Np      : 3 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
                   eps     : 1.0 # MPI send/receive buffer (0.1 <= eps <= 1.0)
                   bc_type : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic

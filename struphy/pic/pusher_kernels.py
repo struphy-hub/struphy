@@ -4,8 +4,9 @@ import struphy.linear_algebra.core as linalg
 import struphy.geometry.map_eval as map_eval
 import struphy.b_splines.bsplines_kernels as bsp
 import struphy.b_splines.bspline_evaluation_3d as eval_3d
-import struphy.kinetic_background.background_eval as background_eval
+
 from struphy.pic.pusher_utilities import aux_fun_x_v_stat_e
+from struphy.kinetic_background.f0_kernels import maxwellian_6d
 
 from numpy import zeros, empty, shape, sqrt, cos, sin, floor
 
@@ -2071,7 +2072,7 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
                              ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                              cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                              e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
-                             f0_spec: 'int', moms_spec: 'int[:]', f0_params: 'float[:]',
+                             moms_spec: 'int[:]', f0_params: 'float[:]',
                              n_markers_tot: 'int'):
     r'''
     updates the single weights in the e_W substep of the linearized Vlasov Maxwell system;
@@ -2141,8 +2142,8 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
         bsp.b_d_splines_slim(tn2, pn2, eta2, span2, bn2, bd2)
         bsp.b_d_splines_slim(tn3, pn3, eta3, span3, bn3, bd3)
 
-        f0 = background_eval.f0(markers[ip, 0:3], markers[ip, 3:6],
-                                f0_spec, moms_spec, f0_params)
+        f0 = maxwellian_6d(markers[ip, 0:3], markers[ip, 3:6],
+                           moms_spec, f0_params)
 
         # Compute Jacobian matrix
         map_eval.df(eta1, eta2, eta3,

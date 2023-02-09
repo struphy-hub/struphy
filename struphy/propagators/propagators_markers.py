@@ -4,11 +4,10 @@ from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 
 from struphy.polar.basic import PolarVector
-
 from struphy.propagators.base import Propagator
-
 from struphy.pic.pusher import Pusher, Pusher_iteration
 from struphy.pic.pusher import ButcherTableau
+
 
 class StepPushEta(Propagator):
     r"""Solves
@@ -41,7 +40,7 @@ class StepPushEta(Propagator):
 
     bc : list[str]
         Kinetic boundary conditions in each direction.
-        
+
     f0 : callable | NoneType
         Distribution function used to update weights if control variate is used. Is called as f0(eta1, eta2, eta3, vx, vy, vz).
     """
@@ -77,11 +76,11 @@ class StepPushEta(Propagator):
         self._butcher = ButcherTableau(a, b, c)
         self._pusher = Pusher(derham, domain,
                               'push_eta_stage', self._butcher.n_stages)
-        
+
         # distribution function (control variate)
         if f0 is not None:
             assert callable(f0)
-        
+
         self._f0 = f0
 
     @property
@@ -92,15 +91,15 @@ class StepPushEta(Propagator):
         """
         TODO
         """
-        
+
         # push markers
         self._pusher(self._particles, dt,
                      self._butcher.a, self._butcher.b, self._butcher.c,
                      bc=self._bc, mpi_sort='last')
-        
+
         # update_weights
         if self._f0 is not None:
-            self._particles.update_weights(self._f0, True)
+            self._particles.update_weights(self._f0)
 
 
 class StepPushVxB(Propagator):
@@ -134,7 +133,7 @@ class StepPushVxB(Propagator):
 
     *b_vectors : psydac.linalg.block.BlockVector | struphy.polar.basic.PolarVector
         FE coefficients of several magnetic fields (2-form) (typically static and dynamical magnetic field).
-        
+
     f0 : callable | NoneType
         Distribution function used to update weights if control variate is used. Is called as f0(eta1, eta2, eta3, vx, vy, vz).
     """
@@ -156,11 +155,11 @@ class StepPushVxB(Propagator):
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         self._E2T = derham.E['2'].transpose()
-        
+
         # distribution function (control variate)
         if f0 is not None:
             assert callable(f0)
-        
+
         self._f0 = f0
         
         self._scaling_dt = scaling_dt
@@ -191,10 +190,10 @@ class StepPushVxB(Propagator):
                      b_full[0]._data,
                      b_full[1]._data,
                      b_full[2]._data)
-        
+
         # update_weights
         if self._f0 is not None:
-            self._particles.update_weights(self._f0, True)
+            self._particles.update_weights(self._f0)
 
 
 class StepPushpxB_hybrid(Propagator):
@@ -277,7 +276,6 @@ class StepPushpxB_hybrid(Propagator):
                      self._field_vectors[0][2]._data)
 
 
-
 class StepHybridXP(Propagator):
     r'''Step for the update of particles' positions and canonical momentum with symplectic methods (only in Cartesian coordinates) and discrete gradient methods which solve the following Hamiltonian system
 
@@ -332,7 +330,7 @@ class StepHybridXP(Propagator):
         """
         # push particles
         # check if ghost regions are synchronized
-        #if not self._density.ghost_regions_in_sync:
+        # if not self._density.ghost_regions_in_sync:
         #    self._density.update_ghost_regions()
         if not self._a[0].ghost_regions_in_sync:
             self._a[0].update_ghost_regions()
@@ -341,11 +339,9 @@ class StepHybridXP(Propagator):
         if not self._a[2].ghost_regions_in_sync:
             self._a[2].update_ghost_regions()
 
-        #self._pusher(self._particles, dt, self._density,
+        # self._pusher(self._particles, dt, self._density,
         #             self._a[0]._data, self._a[1]._data, self._a[2]._data,
         #             bc=self._bc, mpi_sort='last')
-
-
 
 
 class StepPushEtaPC(Propagator):
@@ -371,7 +367,7 @@ class StepPushEtaPC(Propagator):
 
     domain : struphy.geometry.domains
         Mapping info for evaluating metric coefficients.
-    
+
     u : psydac.linalg.block.BlockVector
         FE coefficients of a discrete 0-form, 1-form or 2-form.
 
@@ -901,12 +897,12 @@ class StepStaticEfield(Propagator):
 
     domain : struphy.geometry.domains
         Mapping info for evaluating metric coefficients.
-    
+
     e_background : TODO
     '''
 
     def __init__(self, particles, derham, domain, e_background):
-        
+
         from numpy import polynomial, floor
 
         self._domain = domain
@@ -1090,7 +1086,7 @@ class StepPushDriftkinetic1(Propagator):
 
             if self._method == 'discrete_gradients':
                 self._pusher = Pusher_iteration(
-                    derham, domain, 'push_gc1_discrete_gradients_stage', maxiter, tol)
+                    derham, domain, 'push_gc1_discrete_gradients_stage')
 
             else:
                 raise NotImplementedError(

@@ -11,13 +11,13 @@ grid :
       nq_pr    : [2, 2, 2] # quadrature points per histopolation cell (for commuting projectors)
       polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
 
-time : 
+time :
       dt         : 0.05 # time step
       Tend       : 0.5 # simulation time interval is [0, Tend]
       max_time   : 300. # maximum runtime of program in minutes
       split_algo : LieTrotter # LieTrotter | Strang
 
-geometry : 
+geometry :
       type : Cuboid # mapping F (possible types seen below)  
       GVECunit :
             rel_path : True # whether to state dat_file (json_file) relative to "<struphy_path>/fields_background/mhd_equil/gvec", or give the absolute path
@@ -93,9 +93,8 @@ geometry :
             delta_gs : .05 # delta = sin(alpha): triangularity, shift of high point
             epsilon_gs : .5 # epsilon: inverse aspect ratio a/r0
             kappa_gs : 2. # Kappa: ellipticity (elongation)
-      
 
-mhd_equilibrium : 
+mhd_equilibrium :
       type : analytical # analytical or numerical
       name : HomogenSlab # (possible choices seen below)
       HomogenSlab :
@@ -151,7 +150,7 @@ electric_equilibrium :
       HomogenSlab :
             phi0  : 1. # constant electric potential
 
-em_fields : 
+em_fields :
       init :
             type : ModesCos # type of initial condition (possible types seen below)
             noise : 
@@ -202,9 +201,9 @@ em_fields :
                   kind : r # real (r) or imaginary (i) part of eigenfunction
                   scaling : 1. # scaling factor to scale the amplitude of the eigenfunction
 
-fluid : 
+fluid :
       mhd :
-            attributes :                           # one entry for each field; put null EM fields (no plasma species)
+            attributes : # one entry for each field; put null EM fields (no plasma species)
                   Z    : 1. # charge number Z = q/e, in units of elementary charge, can have a sign
                   M    : 1. # mass ratio m/m_p, in units of proton mass
                   kBT  : 1. # thermal energy in units keV 
@@ -212,14 +211,14 @@ fluid :
             mhd_u_space : H1vec # Hdiv | H1vec
             init :
                   type : ModesCos # type of initial condition (possible types seen below)
-                  noise : 
+                  noise :
                         comps :
                               n3 : False               # components to be initialized (for scalar fields: no list)
                               uv : [True, True, True]  # components to be initialized (for scalar fields: no list)
                               p3 : False               # components to be initialized (for scalar fields: no list)
                         variation_in : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
                         amp : 0.1   # noise amplitude
-                  ModesSin : 
+                  ModesSin :
                         coords : 'logical' # in which coordinates (logical or physical)
                         comps :
                               n3 : False              # components to be initialized (for scalar fields: no list)
@@ -272,7 +271,7 @@ kinetic :
                   kBT  : 1. # thermal energy in units keV 
                   beta : 0.01 # plasma beta = p*2*mu_0/|B|^2
             markers :
-                  type    : full_f # full_f or delta_f
+                  type    : full_f # full_f, control_variate, or delta_f
                   ppc     : 100  # number of markers per 3d grid cell
                   Np      : 3 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
                   eps     : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
@@ -287,23 +286,23 @@ kinetic :
                   Maxwellian6DPerturbed :
                         n :
                               n0 : 1.
-                              perturbations :
+                              perturbation :
                                     l : [0]
                                     m : [0]
                                     n : [0]
                                     amps_sin : [0.]
                                     amps_cos : [0.]
-                        ux : 
+                        ux :
                               ux0 : 0.
-                        uy : 
+                        uy :
                               uy0 : 0.
-                        uz : 
+                        uz :
                               uz0 : 0.
-                        vthx : 
+                        vthx :
                               vthx0 : 1.
-                        vthy : 
+                        vthy :
                               vthy0 : 1.
-                        vthy : 
+                        vthy :
                               vthz0 : 1.
             background :
                   type : Maxwellian6DUniform
@@ -316,7 +315,7 @@ kinetic :
                         vthy : 1.
                         vthz : 1.
             save_data :
-                  n_markers : 3 # number of markers to be save during simulation
+                  n_markers : 3 # number of markers to be saved during simulation
                   f :
                         slices : [vz] # in which directions to bin (e.g. [e1_e2, vx_vy_vz])
                         n_bins : [[32]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
