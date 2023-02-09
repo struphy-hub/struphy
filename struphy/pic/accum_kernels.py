@@ -5,11 +5,10 @@ from numpy import zeros, empty, sqrt, shape, floor
 import struphy.geometry.map_eval as map_eval
 import struphy.b_splines.bsplines_kernels as bsp
 import struphy.b_splines.bspline_evaluation_3d as eval_3d
-import struphy.kinetic_background.background_eval as background_eval
-
+import struphy.linear_algebra.core as linalg
 import struphy.pic.mat_vec_filler as mvf
 
-import struphy.linear_algebra.core as linalg
+from struphy.kinetic_background.f0_kernels import maxwellian_6d
 
 
 def _docstring():
@@ -307,7 +306,6 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                           vec1: 'float[:,:,:]',
                           vec2: 'float[:,:,:]',
                           vec3: 'float[:,:,:]',
-                          f0_spec: 'int',          # model specific argument
                           moms_spec: 'int[:]',     # model specific argument
                           f0_params: 'float[:]',   # model specific argument
                           alpha: 'float'):  # model specific argument
@@ -367,8 +365,8 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        f0 = background_eval.f0(markers[ip, 0:3], markers[ip, 3:6],
-                                f0_spec, moms_spec, f0_params)
+        f0 = maxwellian_6d(markers[ip, 0:3], markers[ip, 3:6],
+                           moms_spec, f0_params)
 
         # evaluate Jacobian, result in df
         map_eval.df(eta1, eta2, eta3,
@@ -1144,6 +1142,7 @@ def pc_lin_mhd_6d(markers: 'float[:,:]', n_markers_tot: 'int',
                                  v[0], v[1])
     #$ omp end parallel
 
+
 @stack_array('df', 'df_t', 'df_inv', 'g_inv', 'filling_m', 'filling_v', 'tmp1',  'tmp_t', 'tmp_m', 'tmp_v', 'b', 'b_prod', 'b_star', 'norm_b1', 'curl_norm_b', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -1392,6 +1391,7 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
     vec1 /= n_markers_tot
     vec2 /= n_markers_tot
     vec3 /= n_markers_tot
+
 
 @stack_array('df', 'df_t', 'df_inv', 'g_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp2', 'tmp_t', 'tmp_m', 'tmp_v', 'b', 'b_prod', 'norm_b2_prod', 'b_star', 'curl_norm_b', 'norm_b1', 'norm_b2', 'grad_PB', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
@@ -1682,4 +1682,3 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
     vec1 /= n_markers_tot
     vec2 /= n_markers_tot
     vec3 /= n_markers_tot
-

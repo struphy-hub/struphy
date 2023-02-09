@@ -1,6 +1,6 @@
 def get_cprofile_data(path, n_stats=None):
     '''Prepare Cprofile data and save to "profile_dict.sav".
-    
+
     Parameters
     ----------
         path : str
@@ -17,27 +17,27 @@ def get_cprofile_data(path, n_stats=None):
 
     p = pstats.Stats(path + 'profile_tmp')
     p.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_stats(0)
-    #p.strip_dirs().sort_stats(SortKey.TIME).print_stats(n_stats)
-    #p.print_title()
+    # p.strip_dirs().sort_stats(SortKey.TIME).print_stats(n_stats)
+    # p.print_title()
 
     stdout = open(path + "profile_out.txt", "w+")
     p = pstats.Stats(path + 'profile_tmp', stream=stdout)
     p.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_stats(n_stats)
-    #p.strip_dirs().sort_stats(SortKey.TIME).print_stats(n_stats)
+    # p.strip_dirs().sort_stats(SortKey.TIME).print_stats(n_stats)
     stdout.close()
 
     data_cprofile = dict()
     with open(path + 'profile_out.txt') as f:
         lines = f.readlines()
-        #print(len(lines))
+        # print(len(lines))
         search = False
         for n, line in enumerate(lines):
             if search:
                 li = line.split()
-                #print(li)
+                # print(li)
                 #print(len(name_li), len(li))
-                if len(li)==0: 
-                    search = False            
+                if len(li) == 0:
+                    search = False
                     continue
                 # print(name_li[0], li[0])
                 # print(name_li[1], li[1])
@@ -48,21 +48,22 @@ def get_cprofile_data(path, n_stats=None):
                                          name_li[1]: li[1],
                                          name_li[2]: li[2],
                                          name_li[3]: li[3],
-                                         name_li[4]: li[4],}
-                #time.sleep(1)
-                
+                                         name_li[4]: li[4], }
+                # time.sleep(1)
+
             if 'filename:lineno' in line:
                 #print(n, repr(line))
                 name_li = line.split()
-                #print(name_li)
+                # print(name_li)
                 search = True
 
-    with open(path + 'profile_dict.sav', 'w+b') as f:       
+    with open(path + 'profile_dict.sav', 'w+b') as f:
         pickle.dump(data_cprofile, f)
+
 
 def compare_cprofile_data(path, list_of_funcs=None):
     '''Print Cprofile data from "profile_dict.sav" to screen (see get_cprofile_data).
-    
+
     Parameters
     ----------
         path : str
@@ -78,29 +79,31 @@ def compare_cprofile_data(path, list_of_funcs=None):
     with open(path + 'profile_dict.sav', 'rb') as f:
         data_cprofile = pickle.load(f)
 
-    if list_of_funcs==None:
+    if list_of_funcs == None:
         print('-'*76)
         print('function name'.ljust(60), 'cumulative time')
         print('-'*76)
     else:
         print('-'*76)
-        print('function name, keywords: {}'.format(list_of_funcs).ljust(60), 'cumulative time')
+        print('function name, keywords: {}'.format(
+            list_of_funcs).ljust(60), 'cumulative time')
         print('-'*76)
 
     counter = 0
     for k, v in data_cprofile.items():
 
         counter += 1
-        if list_of_funcs==None:
+        if list_of_funcs == None:
             print(k.ljust(60), v['cumtime'])
-            if counter>49:
+            if counter > 49:
                 break
         elif any(func in k for func in list_of_funcs) and 'dependencies_' not in k:
             print(k.ljust(60), v['cumtime'])
 
+
 def replace_keys(d):
     '''Replace keys from cprofile data with corresponding class names.
-    
+
     Parameters
     ----------
         d : dict
@@ -111,8 +114,9 @@ def replace_keys(d):
     '''
 
     import os
-    import struphy, psydac
-    
+    import struphy
+    import psydac
+
     struphy_path = struphy.__path__[0]
     psydac_path = psydac.__path__[0]
 
@@ -123,12 +127,12 @@ def replace_keys(d):
     for key in key_list:
 
         if 'propagators' in key or 'stencil' in key or 'block' in key:
-        
+
             p1 = key.find(':')
             p2 = key.find('(')
             f_name = key[:p1]
             l_nr = int(key[p1 + 1:p2])
-            new_routine = key[p2:] 
+            new_routine = key[p2:]
 
             #print(key, p1, f_name, l_nr, new_routine)
 
@@ -137,7 +141,7 @@ def replace_keys(d):
                 for name in files:
                     if name == f_name:
                         f_path = os.path.abspath(os.path.join(root, name))
-                        #print(f_path)
+                        # print(f_path)
 
                         li = []
                         with open(f_path, "r") as fp:
@@ -147,16 +151,16 @@ def replace_keys(d):
                                 if n == l_nr - 1 and len(li) > 0:
                                     new_key = li[-1] + new_routine
                                     found = True
-                                    #print(new_key)
-                                    #print('xxx')
-                                    break 
+                                    # print(new_key)
+                                    # print('xxx')
+                                    break
 
             if not found:
                 for root, dirs, files in os.walk(psydac_path):
                     for name in files:
                         if name == f_name:
                             f_path = os.path.abspath(os.path.join(root, name))
-                            #print(f_path)
+                            # print(f_path)
 
                             li = []
                             with open(f_path, "r") as fp:
@@ -166,9 +170,9 @@ def replace_keys(d):
                                     if n == l_nr - 1 and len(li) > 0:
                                         new_key = li[-1] + new_routine
                                         found = True
-                                        #print(new_key)
-                                        #print('xxx')
-                                        break 
+                                        # print(new_key)
+                                        # print('xxx')
+                                        break
 
             if found:
                 d[new_key] = d.pop(key)

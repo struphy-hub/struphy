@@ -64,21 +64,32 @@ class StepEfieldWeights(Propagator):
         mass_ops : struphy.psydac_api.mass.WeightedMassOperators
             Weighted mass matrices from struphy.psydac_api.mass.
 
-        params : dict
+        params_backgr : dict
+            Parameters for the background distribution function
+
+        params_solver : dict
             Solver parameters for this splitting step.
 
         alpha : float
             = Omega_c / Omega_p ; Parameter determining the coupling strength between particles and fields
     '''
 
-    def __init__(self, domain, derham, e, particles, mass_ops, params_bs, params_solver, alpha):
+    def __init__(self, domain, derham, e, particles, mass_ops, params_bckgr, params_solver, alpha):
 
         assert isinstance(e, BlockVector)
 
         # Read out relevant parameters for Accumulator object
-        self.f0_spec = params_bs['type']
-        self.moms_spec = params_bs['moms_spec']
-        self.f0_params = params_bs['moms_params']
+        self.bckgr_type = params_bckgr['type']
+        # constant values
+        self.moms_spec = [0, 0, 0, 0, 0, 0, 0]
+        self.f0_params = [params_bckgr[self.bckgr_type]['n'],
+                          params_bckgr[self.bckgr_type]['ux'],
+                          params_bckgr[self.bckgr_type]['uy'],
+                          params_bckgr[self.bckgr_type]['uz'],
+                          params_bckgr[self.bckgr_type]['vthx'],
+                          params_bckgr[self.bckgr_type]['vthy'],
+                          params_bckgr[self.bckgr_type]['vthz'],
+                          ]
         self.alpha = alpha
 
         # Initialize Accumulator object
@@ -106,7 +117,7 @@ class StepEfieldWeights(Propagator):
         self._derham = derham
 
         self._accum.accumulate(self._particles,
-                               self.f0_spec, array(self.moms_spec),
+                               array(self.moms_spec),
                                array(self.f0_params), self.alpha)
 
         # ================================
@@ -142,7 +153,7 @@ class StepEfieldWeights(Propagator):
         """
 
         self._accum.accumulate(self._particles,
-                               self.f0_spec, array(self.moms_spec),
+                               array(self.moms_spec),
                                array(self.f0_params), self.alpha)
 
         # Update Schur solver
@@ -162,7 +173,6 @@ class StepEfieldWeights(Propagator):
                      self._e_temp.blocks[0]._data + self._e.blocks[0]._data,
                      self._e_temp.blocks[1]._data + self._e.blocks[1]._data,
                      self._e_temp.blocks[2]._data + self._e.blocks[2]._data,
-                     self.f0_spec,
                      array(self.moms_spec),
                      array(self.f0_params),
                      int(self._particles.n_mks))
@@ -180,8 +190,8 @@ class StepEfieldWeights(Propagator):
             print('Maxdiff weights for StepEfieldWeights:', max_diff)
             print()
 
-            
-class StepPressurecoupling( Propagator ):
+
+class StepPressurecoupling(Propagator):
     r'''Crank-Nicolson step for pressure coupling term in MHD equations and velocity update with the force term :math:`\nabla \mathbf U \cdot \mathbf v`.
 
     .. math::
@@ -292,9 +302,10 @@ class StepPressurecoupling( Propagator ):
                [self._ACC.matrix13, self._ACC.matrix23, self._ACC.matrix33]]
         VEC = [self._ACC.vector1, self._ACC.vector2, self._ACC.vector3]
 
-        GT_VEC = BlockVector(self._derham.Vh['v'], blocks=[self._GT.dot(VEC[0]),
-                                                           self._GT.dot(VEC[1]),
-                                                           self._GT.dot(VEC[2])])
+        GT_VEC = BlockVector(self._derham.Vh['v'],
+                             blocks=[self._GT.dot(VEC[0]),
+                                     self._GT.dot(VEC[1]),
+                                     self._GT.dot(VEC[2])])
 
         # define BC and B dot V of the Schur block matrix [[A, B], [C, I]]
         BC = Multiply(-1/4, Compose(self._XT,
@@ -422,8 +433,9 @@ class CurrentCoupling6DCurrent(Propagator):
     """
     TODO
     """
+
     def __init__(self, particles, derham, domain, mass_ops, solver_params, coupling_params, u, u_space, *b_vectors, f0=None):
-        
+
         assert isinstance(u, (BlockVector, PolarVector))
 
         for b in b_vectors:
@@ -458,36 +470,42 @@ class CurrentCoupling6DCurrent(Propagator):
         
         # distribution function (control variate, without control variate f0=None)
         self._f0 = f0
-        
+
         # evaluate and save nh0 (0-form) * uh0 (2-form if H1vec or vector if Hdiv) at quadrature points for control variate
         if f0 is not None:
-            
+
             # f0 must be a 6d Maxwellian
             assert isinstance(f0, Maxwellian6D)
-            
-            quad_pts = [quad_grid.points.flatten() for quad_grid in derham.Vh_fem['0'].quad_grids]
-            
+
+            quad_pts = [quad_grid.points.flatten()
+                        for quad_grid in derham.Vh_fem['0'].quad_grids]
+
             uh0_cart = [f0.ux, f0.uy, f0.uz]
-            
+
             if u_space == 'H1vec':
-                self._nuh0_at_quad = domain.pull(uh0_cart, *quad_pts, kind='2_form', squeeze_out=False, coordinates='logical')
+                self._nuh0_at_quad = domain.pull(
+                    uh0_cart, *quad_pts, kind='2_form', squeeze_out=False, coordinates='logical')
             else:
-                self._nuh0_at_quad = domain.pull(uh0_cart, *quad_pts, kind='vector', squeeze_out=False, coordinates='logical')
-            
-            self._nuh0_at_quad[0] *= domain.pull([f0.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
-            self._nuh0_at_quad[1] *= domain.pull([f0.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
-            self._nuh0_at_quad[2] *= domain.pull([f0.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
-        
+                self._nuh0_at_quad = domain.pull(
+                    uh0_cart, *quad_pts, kind='vector', squeeze_out=False, coordinates='logical')
+
+            self._nuh0_at_quad[0] *= domain.pull(
+                [f0.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
+            self._nuh0_at_quad[1] *= domain.pull(
+                [f0.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
+            self._nuh0_at_quad[2] *= domain.pull(
+                [f0.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
+
         # load particle pusher
         self._pusher = Pusher(derham, domain, 'push_bxu_' + u_space)
-        
+
         # FEM spaces and basis extraction operators for u and b
         self._fem_space_u = derham.Vh_fem[derham.spaces_dict[u_space]]
         self._fem_space_b = derham.Vh_fem['2']
-        
-        self._Eu  = derham.E[derham.spaces_dict[u_space]]
-        self._Eb  = derham.E['2']
-        
+
+        self._Eu = derham.E[derham.spaces_dict[u_space]]
+        self._Eb = derham.E['2']
+
         self._EuT = derham.E[derham.spaces_dict[u_space]].transpose()
         self._EbT = derham.E['2'].transpose()
 
@@ -527,40 +545,43 @@ class CurrentCoupling6DCurrent(Propagator):
 
         for b in self._b_vectors:
             b_full += b
-        
+
         # extract coefficients to tensor product space
         b_full = self._EbT.dot(b_full)
 
         # update ghost regions because of non-local access in pusher kernel
         b_full.update_ghost_regions()
-        
+
         # perform accumulation (either with or without control variate)
         if self._f0 is not None:
-            
+
             # evaluate total magnetic field at quadrature points
             b_quad = WeightedMassOperator.eval_quad(self._fem_space_b, b_full)
-            
+
             control_vec_at_quad = [self._coupling_vec*(b_quad[1]*self._nuh0_at_quad[2] - b_quad[2]*self._nuh0_at_quad[1]),
-                                   self._coupling_vec*(b_quad[2]*self._nuh0_at_quad[0] - b_quad[0]*self._nuh0_at_quad[2]),
+                                   self._coupling_vec *
+                                   (b_quad[2]*self._nuh0_at_quad[0] -
+                                    b_quad[0]*self._nuh0_at_quad[2]),
                                    self._coupling_vec*(b_quad[0]*self._nuh0_at_quad[1] - b_quad[1]*self._nuh0_at_quad[0])]
-            
+
             self._accumulator.accumulate(self._particles,
-                                         b_full[0]._data, b_full[1]._data, b_full[2]._data, 
+                                         b_full[0]._data, b_full[1]._data, b_full[2]._data,
                                          self._space_key_int, self._coupling_mat, self._coupling_vec,
                                          control_vec=control_vec_at_quad)
         else:
             self._accumulator.accumulate(self._particles,
-                                         b_full[0]._data, b_full[1]._data, b_full[2]._data, 
+                                         b_full[0]._data, b_full[1]._data, b_full[2]._data,
                                          self._space_key_int, self._coupling_mat, self._coupling_vec)
-        
+
         # solve linear system for updated u coefficients
-        u_new, info = self._schur_solver(u_old, -self._Eu.dot(self._accumulator.vector)/2, dt)
-        
+        u_new, info = self._schur_solver(
+            u_old, -self._Eu.dot(self._accumulator.vector)/2, dt)
+
         # call pusher kernel with average field (u_new + u_old)/2 and update ghost regions because of non-local access in kernel
         u_avg = self._EuT.dot((u_old + u_new)/2)
-        
+
         u_avg.update_ghost_regions()
-        
+
         # push particles
         self._pusher(self._particles, self._scale_push*dt,
                      b_full[0]._data, b_full[1]._data, b_full[2]._data,
@@ -568,10 +589,10 @@ class CurrentCoupling6DCurrent(Propagator):
 
         # write new coeffs into Propagator.variables
         max_du = self.in_place_update(u_new)
-        
+
         # update weights in case of control variate
         if self._f0 is not None:
-            self._particles.update_weights(self._f0, True)
+            self._particles.update_weights(self._f0)
 
         if self._info and self._rank == 0:
             print('Status     for CurrentCoupling6DCurrent:', info['success'])
@@ -579,7 +600,8 @@ class CurrentCoupling6DCurrent(Propagator):
             print('Maxdiff up for CurrentCoupling6DCurrent:', max_du)
             print()
 
-class CurrentCoupling5DCurrent1( Propagator ):
+
+class CurrentCoupling5DCurrent1(Propagator):
     r'''
     TODO
     '''
@@ -643,7 +665,8 @@ class CurrentCoupling5DCurrent1( Propagator ):
             self._pc = pc_class(getattr(mass_ops, id_Mn))
 
         # Call the accumulation and Pusher class
-        self._ACC = Accumulator(self._derham, domain, u_space, 'cc_lin_mhd_5d_J1', do_vector=True, symmetry='symm')
+        self._ACC = Accumulator(self._derham, domain, u_space,
+                                'cc_lin_mhd_5d_J1', do_vector=True, symmetry='symm')
         self._pusher = Pusher(derham, domain, 'push_gc_cc_J1_' + u_space)
 
         # Define operators
@@ -659,7 +682,7 @@ class CurrentCoupling5DCurrent1( Propagator ):
 
         # reorganize particles
         self._particles.mpi_sort_markers()
-    
+
         if not self._b_full[0].ghost_regions_in_sync:
             self._b_full[0].update_ghost_regions()
         if not self._b_full[1].ghost_regions_in_sync:

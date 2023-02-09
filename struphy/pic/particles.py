@@ -1,4 +1,4 @@
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
 
 import numpy as np
 import h5py
@@ -13,11 +13,21 @@ class Particles(metaclass=ABCMeta):
     """
     Base class for a particle based kinetic species.
     """
-    
+
     def __init__(self, name, params_markers, domain_decomp, comm, n_cols):
 
         self._name = name
         self._params = params_markers
+
+        # Assume full-f if type is not in parameters
+        if 'type' in params_markers.keys():
+            if params_markers['type'] == 'control_variate':
+                self._use_control_variate = True
+            else:
+                self._use_control_variate = False
+        else:
+            self._use_control_variate = False
+
         self._domain_decomp = domain_decomp
 
         self._mpi_comm = comm
@@ -27,11 +37,11 @@ class Particles(metaclass=ABCMeta):
         # number of cells on current process
         n_cells_loc = np.prod(
             self._domain_decomp[self._mpi_rank, 2::3], dtype=int)
-        
+
         # total number of cells
         n_cells = np.sum(
             np.prod(self._domain_decomp[:, 2::3], axis=1, dtype=int))
-        
+
         # number of markers to load on each process (depending on relative domain size)
         if 'ppc' in params_markers:
             ppc = params_markers['ppc']
@@ -41,10 +51,10 @@ class Particles(metaclass=ABCMeta):
             Np = params_markers['Np']
             assert isinstance(Np, int)
             ppc = Np/n_cells
-    
+
         Np = int(Np)
         assert Np >= self._mpi_size
-        
+
         n_mks_load = np.zeros(self._mpi_size, dtype=int)
         self._mpi_comm.Allgather(np.array([int(ppc*n_cells_loc)]), n_mks_load)
 
@@ -193,7 +203,7 @@ class Particles(metaclass=ABCMeta):
         """ Array containing domain decomposition information.
         """
         return self._domain_decomp
-    
+
     @property
     def comm(self):
         """ MPI communicator.
@@ -265,10 +275,10 @@ class Particles(metaclass=ABCMeta):
 
         vx, vy, vz : array_like
             Velocity evaluation points.
-            
+
         domain : struphy.geometry.domains
             Mapping info for evaluating metric coefficients.
-            
+
         remove_holes : bool
             If True, holes are removed from the returned array. If False, holes are evaluated to -1.
 
@@ -288,7 +298,7 @@ class Particles(metaclass=ABCMeta):
         do_test : bool
             Check if all markers are on the right process after sorting.
         """
-        
+
         self.comm.Barrier()
 
         # create new markers_to_be_sent array and make corresponding holes in markers array
@@ -314,35 +324,44 @@ class Particles(metaclass=ABCMeta):
         # check if all markers are on the right process after sorting
         if do_test:
             all_on_right_proc = np.all(np.logical_and(
-                self.markers[~self._holes, :3] > self.domain_decomp[self.mpi_rank, 0::3], 
+                self.markers[~self._holes,
+                             :3] > self.domain_decomp[self.mpi_rank, 0::3],
                 self.markers[~self._holes, :3] < self.domain_decomp[self.mpi_rank, 1::3]))
-            
+
             #print(self.mpi_rank, all_on_right_proc)
             assert all_on_right_proc
-            
+
         self.comm.Barrier()
-        
+
         #print(self.mpi_rank, self._n_mks_loc)
 
-    def initialize_weights(self, fun_params, domain, delta_f=False):
+    def initialize_weights(self, fun_params, domain, bckgr_params=None):
         """
-        Computes w0 = f0(t=0, eta(t=0), v(t=0)) / s0(t=0, eta(t=0), v(t=0)) from the initial distribution function and sets the corresponding columns for w0, s0 and weights in markers array.
+        Computes w0 = f0(t=0, eta(t=0), v(t=0)) / s0(t=0, eta(t=0), v(t=0)) from the initial
+        distribution function and sets the corresponding columns for w0, s0 and weights in markers array.
+        For the control variate method, the background is subtracted.
 
         Parameters
         ----------
         fun_params : dict
             Dictionary of the form {type : class_name, class_name : params_dict} defining the initial condition.
-            
+
         domain : struphy.geometry.domains
             Mapping info for evaluating metric coefficients.
+
+        bckgr_params : dict (optional)
+            Dictionary of the form {type : class_name, class_name : params_dict} defining the background.
         """
+        if self._use_control_variate:
+            assert bckgr_params is not None, 'When control variate is used, background parameters must be given!'
 
         # compute s0
-        self._markers[~self._holes, 7] = self.s0(*self._markers[:, :6].T, domain)
+        self._markers[~self._holes, 7] = self.s0(*self._markers[:, :6].T,
+                                                 domain)
 
         # load distribution function (with given parameters or default parameters)
         fun_name = fun_params['type']
-        
+
         if fun_name in fun_params:
             f_init = getattr(analytical, fun_name)(**fun_params[fun_name])
         else:
@@ -353,12 +372,22 @@ class Particles(metaclass=ABCMeta):
             *self.markers_wo_holes[:, :6].T)/self.markers_wo_holes[:, 7]
 
         # set weights
-        if delta_f:
-            self._markers[~self._holes, 6] = 0.
+        if self._use_control_variate:
+            fun_name = bckgr_params['type']
+
+            if fun_name in bckgr_params:
+                f_bckgr = getattr(analytical, fun_name)(
+                    **bckgr_params[fun_name])
+            else:
+                f_bckgr = getattr(analytical, fun_name)()
+
+            self._markers[~self._holes, 6] = self.markers_wo_holes[:, 8] - \
+                f_bckgr(*self.markers_wo_holes[:, :6].T) / \
+                self.markers_wo_holes[:, 7]
         else:
             self._markers[~self._holes, 6] = self.markers_wo_holes[:, 8]
 
-    def update_weights(self, f0, use_control=False):
+    def update_weights(self, f0):
         """
         Updates the marker weights according to w0 - control*f0(eta, v)/s0, where control=True or control=False.
 
@@ -366,15 +395,12 @@ class Particles(metaclass=ABCMeta):
         ----------
         f0 : callable
             The distribution function used as a control variate. Is called as f0(eta1, eta2, eta3, vx, vy, vz).
-
-        use_control : bool
-            Whether the update shall be performed or not.
         """
 
-        if use_control:
+        if self._use_control_variate:
             self._markers[~self._holes, 6] = self.markers_wo_holes[:, 8] - \
                 f0(*self.markers_wo_holes[:, :6].T)/self.markers_wo_holes[:, 7]
-            
+
     def binning(self, components, bin_edges, domain=None):
         """
         Computes the distribution function via marker binning in logical space using numpy's histogramdd.
@@ -389,7 +415,7 @@ class Particles(metaclass=ABCMeta):
 
         domain : struphy.geometry.domains
             Mapping info for evaluating metric coefficients.
-                
+
         Returns
         -------
         f_sclice : array-like
@@ -409,20 +435,19 @@ class Particles(metaclass=ABCMeta):
 
         # binning with weight transformation
         if domain is not None:
-            f_slice = np.histogramdd(self.markers_wo_holes[:, slicing], 
+            f_slice = np.histogramdd(self.markers_wo_holes[:, slicing],
                                      bins=bin_edges,
                                      weights=self.markers_wo_holes[:, 6]
-                                     /domain.jacobian_det(self.markers))[0]
-        
+                                     / domain.jacobian_det(self.markers))[0]
+
         # binning without weight transformation
         else:
-            f_slice = np.histogramdd(self.markers_wo_holes[:, slicing], 
+            f_slice = np.histogramdd(self.markers_wo_holes[:, slicing],
                                      bins=bin_edges,
                                      weights=self.markers_wo_holes[:, 6])[0]
-            
-        
+
         return f_slice/(self._n_mks*bin_vol)
-    
+
     def show_distribution_function(self, components, bin_edges, domain=None):
         """
         1D and 2D plots of slices of the distribution function via marker binning.
@@ -434,7 +459,7 @@ class Particles(metaclass=ABCMeta):
 
         bin_edges : list[array]
             List of bin edges (resolution) having the length of True entries in components.
-            
+
         domain : struphy.geometry.domains
             Mapping info for evaluating metric coefficients.
         """
@@ -464,7 +489,7 @@ class Particles(metaclass=ABCMeta):
             # plt.ylabel(labels[indices[1]])
 
         plt.show()
-    
+
 
 class Particles6D(Particles):
     """
@@ -474,19 +499,19 @@ class Particles6D(Particles):
     ----------
     name : str
         Name of the particle species.
-        
+
     params_markers : dict
         Parameters under key-word markers in the parameter file.
 
     domain_decomp : array[float]
         2d array of shape (comm_size, 9) defining the domain of each process.
-        
+
     comm : mpi4py.MPI.Intracomm
         MPI communicator.
     """
 
     def __init__(self, name, params_markers, domain_decomp, comm):
-        
+
         super().__init__(name, params_markers, domain_decomp, comm, 16)
 
 
@@ -504,7 +529,7 @@ class Particles5D(Particles):
 
     params_markers : dict
         Parameters under key-word markers in the parameter file.
-    
+
     domain_decomp : array[float]
         2d array of shape (comm_size, 6) defining the domain of each process.
 
@@ -513,7 +538,7 @@ class Particles5D(Particles):
     """
 
     def __init__(self, name, params_markers, domain_decomp, comm):
-        
+
         super().__init__(name, params_markers, domain_decomp, comm, 24)
 
     def initialize_magnetic_moments(self, derham, mhd_equil):
@@ -571,7 +596,7 @@ def sendrecv_determine_mtbs(markers, holes, domain_decomp, mpi_rank):
 
     # check which particles are in a certain interval (e.g. the process domain)
     is_on_proc_domain = np.logical_and(
-        markers[:, :3] > domain_decomp[mpi_rank, 0::3], 
+        markers[:, :3] > domain_decomp[mpi_rank, 0::3],
         markers[:, :3] < domain_decomp[mpi_rank, 1::3])
 
     # to can_stay on the current process, all three columns must be True
@@ -628,7 +653,7 @@ def sendrecv_get_destinations(markers_to_be_sent, domain_decomp, mpi_size):
     for i in range(mpi_size):
 
         conds = np.logical_and(
-            markers_to_be_sent[:, :3] > domain_decomp[i, 0::3], 
+            markers_to_be_sent[:, :3] > domain_decomp[i, 0::3],
             markers_to_be_sent[:, :3] < domain_decomp[i, 1::3])
 
         send_to_i = np.nonzero(np.all(conds, axis=1))[0]

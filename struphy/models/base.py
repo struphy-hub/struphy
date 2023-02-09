@@ -1,5 +1,4 @@
 from abc import ABCMeta, abstractmethod
-import scipy.special as sp
 import numpy as np
 
 from struphy.geometry import domains
@@ -185,7 +184,7 @@ class StruphyModel(metaclass=ABCMeta):
             self._em_fields['params'] = params['em_fields']
 
             #comps = params['em_fields']['init']['comps']
-            #assert len(
+            # assert len(
             #    comps) == nem, 'Lengths of ["em_fields"]["init"]["comps"] lists do not correspond to number of fields.'
 
             for n, (key, val) in enumerate(self.em_fields.items()):
@@ -194,7 +193,7 @@ class StruphyModel(metaclass=ABCMeta):
                     field = Field(key, val['space'], self.derham)
                     val['obj'] = field
 
-                    #assert len(comps[n]) == isinstance(field.nbasis, tuple)*1 + isinstance(
+                    # assert len(comps[n]) == isinstance(field.nbasis, tuple)*1 + isinstance(
                     #    field.nbasis, list)*3, f'Wrong length of ["init"]["comps"] list for {key}.'
                     #val['init_comps'] = comps[n]
 
@@ -209,7 +208,7 @@ class StruphyModel(metaclass=ABCMeta):
                 Z, M, kBT, beta = params['fluid'][species]['attributes'].values(
                 )
                 #comps = params['fluid'][species]['init']['comps']
-                #assert len(comps) == nfi, \
+                # assert len(comps) == nfi, \
                 #    f'Lengths of ["fluid"]["species"]["attributes"] lists do not correspond to number of fluid variables of species {species}.'
                 val['plasma_params'] = plasma_params(Z, M,
                                                      kBT, beta,
@@ -221,7 +220,7 @@ class StruphyModel(metaclass=ABCMeta):
                         field = Field(variable, subval['space'], self.derham)
                         subval['obj'] = field
 
-                        #assert len(comps[n]) == isinstance(field.nbasis, tuple)*1 + isinstance(field.nbasis, list)*3, \
+                        # assert len(comps[n]) == isinstance(field.nbasis, tuple)*1 + isinstance(field.nbasis, list)*3, \
                         #    f'Wrong length of ["init"]["comps"] list for {variable}.'
                         #subval['init_comps'] = comps[n]
 
@@ -232,6 +231,10 @@ class StruphyModel(metaclass=ABCMeta):
 
                 assert species in params['kinetic']
                 val['params'] = params['kinetic'][species]
+
+                if params['kinetic'][species]['markers']['type'] in ['control_variate', 'delta_f']:
+                    assert 'background' in params['kinetic'][species], \
+                        f'If a control variate or delta-f method is used, a analytical background must be given!'
 
                 kinetic_class = getattr(particles, val['space'])
 
@@ -420,15 +423,16 @@ class StruphyModel(metaclass=ABCMeta):
             if 'f' in val['params']['save_data']:
 
                 for slice_i, edges in val['bin_edges'].items():
-                    
+
                     dims = (len(slice_i) - 2)//3 + 1
                     comps = [slice_i[3*i:3*i + 2] for i in range(dims)]
                     components = [False]*6
 
                     for comp in comps:
                         components[dim_to_int[comp]] = True
-                    
-                    val['kinetic_data']['f'][slice_i][:] = val['obj'].binning(components, edges, self.domain)
+
+                    val['kinetic_data']['f'][slice_i][:] = val['obj'].binning(
+                        components, edges, self.domain)
 
     def print_scalar_quantities(self):
         '''
@@ -441,15 +445,15 @@ class StruphyModel(metaclass=ABCMeta):
 
     def set_initial_conditions(self):
         '''
-        Set initial conditions for FE coefficients and marker weights.
+        Set initial conditions for FE coefficients, fluid fields, and marker weights.
         '''
 
         # initialize em fields
         if len(self.em_fields) > 0:
 
-            #if self.em_fields['params']['init']['coords'] == 'physical':
+            # if self.em_fields['params']['init']['coords'] == 'physical':
             #    dom_arg = self.domain
-            #else:
+            # else:
             #    dom_arg = None
 
             for key, val in self.em_fields.items():
@@ -462,9 +466,9 @@ class StruphyModel(metaclass=ABCMeta):
 
             for val in self.fluid.values():
 
-                #if val['params']['init']['coords'] == 'physical':
+                # if val['params']['init']['coords'] == 'physical':
                 #    dom_arg = self.domain
-                #else:
+                # else:
                 #    dom_arg = None
 
                 for variable, subval in val.items():
@@ -477,13 +481,16 @@ class StruphyModel(metaclass=ABCMeta):
 
             for val in self.kinetic.values():
                 val['obj'].mpi_sort_markers(do_test=True)
-                
+
                 if val['params']['markers']['type'] == 'full_f':
-                    val['obj'].initialize_weights(val['params']['init'], self.domain, delta_f=False)
+                    val['obj'].initialize_weights(val['params']['init'],
+                                                  self.domain)
                 elif val['params']['markers']['type'] == 'delta_f':
-                    val['obj'].initialize_weights(val['params']['init'], self.domain, delta_f=True)
-                elif val['params']['markers']['type'] == 'control_f':
-                    val['obj'].initialize_weights(val['params']['init'], self.domain, delta_f=True)
+                    val['obj'].initialize_weights(val['params']['init'],
+                                                  self.domain)
+                elif val['params']['markers']['type'] == 'control_variate':
+                    val['obj'].initialize_weights(val['params']['init'], self.domain,
+                                                  val['params']['background'])
                 else:
                     typ = val['params']['markers']['type']
                     raise NotImplementedError(
@@ -495,5 +502,3 @@ class StruphyModel(metaclass=ABCMeta):
 
             self.update_markers_to_be_saved()
             self.update_distr_function()
-
-        self.update_scalar_quantities(0.)

@@ -5,15 +5,15 @@ import numpy as np
 from scipy.special import erfi
 
 
-class DispersionRelations1D( metaclass=ABCMeta ):
+class DispersionRelations1D(metaclass=ABCMeta):
     """
     The base class for analytic 1d dispersion relations.
-    
+
     Parameters
     ----------
     *branch_names
         Branche names (str) of the spectrum.
-        
+
     **params
         Physical parameters necessary to compute the dispersion relation.
 
@@ -29,19 +29,19 @@ class DispersionRelations1D( metaclass=ABCMeta ):
         self._params = params
 
     @property
-    def branches( self ):
+    def branches(self):
         """ List of branch names in the spectrum.
         """
         return self._branches
 
     @property
-    def nbranches( self ):
+    def nbranches(self):
         """ Integer : number of branches.
         """
         return self._nbranches
 
     @property
-    def params( self ):
+    def params(self):
         """ Dictionary of parameters necessary to compute the dispersion relation.
         """
         return self._params
@@ -50,61 +50,61 @@ class DispersionRelations1D( metaclass=ABCMeta ):
     def __call__(self, k):
         """
         The evaluation of all branches of a 1d dispersion relation.
-        
+
         Parameters
         ----------
         k : array_like
             Evaluation wave numbers.
-                
+
         Returns
         -------
         omegas : dict
             A dictionary with key=branch_name and value=omega(k) (complex ndarray).
         """
-        
-        
-class ContinuousSpectra1D( metaclass=ABCMeta ):
+
+
+class ContinuousSpectra1D(metaclass=ABCMeta):
     """
     The base class for analytical continuous spectra in one spatial dimension.
-    
+
     Parameters
     ----------
     *branch_names
         Names (str) of the continuous spectra.
-        
+
     **params
         Physical parameters necessary to compute the continuous spectra (e.g. profiles for magnetic field components).
     """
-    
+
     def __init__(self, *branch_names, **params):
-        
+
         self._branches = branch_names
         self._nbranches = len(branch_names)
         self._params = params
-        
+
     @property
-    def branches( self ):
+    def branches(self):
         """ List of branch names in the spectrum.
         """
         return self._branches
 
     @property
-    def nbranches( self ):
+    def nbranches(self):
         """ Integer : number of branches.
         """
         return self._nbranches
 
     @property
-    def params( self ):
+    def params(self):
         """ Dictionary of parameters necessary to compute the continuous spectra.
         """
         return self._params
-    
+
     @abstractmethod
     def __call__(self, x, *mode_numbers):
         """ 
         The evaluation of all continuous spectra.
-        
+
         Parameters
         ----------
         x : array_like
@@ -112,7 +112,7 @@ class ContinuousSpectra1D( metaclass=ABCMeta ):
 
         mode_number1, mode_number2, ... : int
             Mode numbers of a Fourier representation of other spatial directions (e.g. poloidal and toroidal).
-                
+
         Returns
         -------
         specs : dict
@@ -121,19 +121,20 @@ class ContinuousSpectra1D( metaclass=ABCMeta ):
 
 # somer helper function used in different dispersion relations:
 # -------------------------------------------------------------
-        
+
+
 def Zplasma(xi, der=0):
     """ 
     The plasma dispersion function and its first derivative.
-    
+
     Parameters
     ----------
     xi : array_like
         Evaluation points.
-        
+
     der : int, optional
         Wheter to evaluate the plasma dispersion function (der = 0) or its first derivative (der = 1).
-        
+
     Returns
     -------
     z : array_like
