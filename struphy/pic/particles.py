@@ -541,28 +541,36 @@ class Particles5D(Particles):
 
         super().__init__(name, params_markers, domain_decomp, comm, 24)
 
-    def initialize_magnetic_moments(self, derham, mhd_equil):
+    def save_magnetic_moment(self, derham, absB0):
         r"""
-
-        Calculate magnetic moments of each particles :math:`\mu = \frac{m v_\perp^2}{2B}` and asign it into markers[:,4].
-
-        Empty markers[:,5]
-
+        Calculate magnetic moment of each particles :math:`\mu = \frac{m v_\perp^2}{2B}` and asign it into markers[:,4].
         """
-        from struphy.pic.utilities_kernels import eval_magnetic_moments
+        from struphy.pic.utilities_kernels import eval_magnetic_moment
 
-        abs_b = derham.P['0'](mhd_equil.absB0)
+        absB0.update_ghost_regions()
 
         # save the calculated magnetic moments in markers[:,4]
         T1, T2, T3 = derham.Vh_fem['0'].knots
 
-        eval_magnetic_moments(self.markers[~self.holes, 0:6],
-                              np.array(derham.p), T1, T2, T3,
-                              np.array(derham.Vh['0'].starts),
-                              abs_b._data)
+        eval_magnetic_moment(self._markers,
+                             np.array(derham.p), T1, T2, T3,
+                             np.array(derham.Vh['0'].starts),
+                             absB0._data)
 
-        # clear markers[:,5]
-        self.markers[~self.holes, 5] = 0.
+    def save_magnetic_energy(self, derham, PB):
+        r"""
+        Calculate magnetic field energy at each particles' position and asign it into markers[:,5].
+        """
+        from struphy.pic.utilities_kernels import eval_magnetic_energy
+
+        PB.update_ghost_regions()
+
+        T1, T2, T3 = derham.Vh_fem['0'].knots
+
+        eval_magnetic_energy(self._markers,
+                             np.array(derham.p), T1, T2, T3,
+                             np.array(derham.Vh['0'].starts),
+                             PB._data)
 
 
 def sendrecv_determine_mtbs(markers, holes, domain_decomp, mpi_rank):

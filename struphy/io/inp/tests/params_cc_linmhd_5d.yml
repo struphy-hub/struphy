@@ -1,5 +1,5 @@
 grid :
-      Nel      : [24, 48, 4] # number of grid cells, >p
+      Nel      : [12, 12, 4] # number of grid cells, >p
       p        : [3, 3, 3]  # spline degree
       spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
       bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
@@ -9,7 +9,7 @@ grid :
           
 time : 
       dt         : 0.2  # time step
-      Tend       : 10. # simulation time interval is [0, Tend]
+      Tend       : 1. # simulation time interval is [0, Tend]
       max_time   : 300. # maximum runtime of program in minutes
       split_algo : LieTrotter # LieTrotter | Strang
       
@@ -19,6 +19,7 @@ geometry :
             a1 : .05 # inner radius
             a2 : 1. # minor radius
             R0 : 4. # major radius
+            tor_period: 1 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
             
 mhd_equilibrium : 
       type : analytical # analytical or numerical
@@ -56,15 +57,15 @@ fluid :
                               n3 : False
                               uv : [True, True, True]
                               p3 : False
-                        direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
-                        amp : 0.1   # noise amplitude
+                        variation_in : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
+                        amp : 0.0001   # noise amplitude
 
 kinetic :
       energetic_ions :
             attributes :
                   Z    : 1. # charge number Z = q/e, in units of elementary charge, can have a sign
                   M    : 1. # mass ratio m/m_p, in units of proton mass
-                  kBT  : 1. # thermal energy in units keV 
+                  kBT  : 100. # thermal energy in units keV 
                   beta : 0.01 # plasma beta = p*2*mu_0/|B|^2
             markers :
                   type    : full_f # full_f or delta_f
@@ -78,16 +79,14 @@ kinetic :
                         initial : [[.501, 0.001, 0.001,  4.5 , 6., 0.],
                                    [.501, 0.001, 0.001, -4.5 , 6., 0.],
                                    [.501, 0.001, 0.001, -2.25, 6., 0.]]
-            init :
+            init : 
                   type : Maxwellian6DUniform
                   Maxwellian6DUniform :
-                        n  : 1.
-                        ux : 0.
-                        uy : 0.
                         uz : 2.5
-                        vthx : 1.
-                        vthy : 1.
-                        vthz : 1.
+            background :
+                  type : Maxwellian6DUniform
+                  Maxwellian6DUniform :
+                        uz : 2.5
             save_data :
                   n_markers : 3 # number of markers to be save during simulation
                   f :

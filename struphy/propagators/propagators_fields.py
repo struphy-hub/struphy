@@ -699,3 +699,213 @@ class CurrentCoupling6DDensity(Propagator):
             print('Iterations for CurrentCoupling6DDensity:', info['niter'])
             print('Maxdiff up for CurrentCoupling6DDensity:', max_du)
             print()
+            
+
+class ShearAlfvén_CurrentCoupling5D( Propagator ):
+    r'''TODO'''
+
+    def __init__(self, particles, derham, domain, mass_ops, mhd_ops, u, u_space, b, beq, params):
+
+        assert isinstance(u, (BlockVector, PolarVector))
+        assert isinstance(b, (BlockVector, PolarVector))
+        assert u_space in {'Hcurl', 'Hdiv', 'H1vec'}
+
+        self._particles = particles
+        self._derham = derham
+        self._u = u
+        self._b = b
+        self._beq = beq
+        self._info = params['info']
+        self._rank = derham.comm.Get_rank()
+
+        self._PB = getattr(mhd_ops, 'PB')
+        self._ACC = Accumulator(self._derham, domain, 'H1', 'cc_lin_mhd_5d_mu', do_vector=True)
+
+        # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
+        if u_space == 'Hcurl':
+            id_Mn = 'M1n'
+            id_T = 'T1'
+            id_fun = '_fun_M1n'
+        elif u_space == 'Hdiv':
+            id_Mn = 'M2n'
+            id_T = 'T2'
+            id_fun = '_fun_M2n'
+        elif u_space == 'H1vec':
+            id_Mn = 'Mvn'
+            id_T = 'Tv'
+            id_fun = '_fun_Mvn'
+
+        _A = getattr(mass_ops, id_Mn)
+        _T = getattr(mhd_ops, id_T)
+        self._B = Multiply(-1/2., Compose(_T.transpose(), derham.curl.transpose(), mass_ops.M2))
+        self._B2 = Multiply(-1/2., Compose(_T.transpose(), derham.curl.transpose(), self._PB.transpose()))
+        self._C = Multiply( 1/2., Compose(derham.curl, _T))
+        
+        # Preconditioner
+        _pc_fun = getattr(mass_ops, id_fun)
+        if params['pc'] is None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            pc = pc_class(getattr(mass_ops, id_Mn))
+        
+        # Instantiate Schur solver (constant in this case)
+        _BC = Compose(self._B, self._C)
+
+        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_type=params['type'], 
+                                         tol=params['tol'], maxiter=params['maxiter'],
+                                         verbose=params['verbose'])
+
+    @property
+    def variables(self):
+        return self._u, self._b
+
+    def __call__(self, dt):
+
+        # current variables
+        un = self.variables[0]
+        bn = self.variables[1]
+
+        # accumulate scalar
+        self._ACC.accumulate(self._particles)
+
+        # allocate temporary FemFields _u, _b during solution
+        _u, info = self._schur_solver(un, self._B.dot(bn) + self._B2.dot(self._ACC.vector), dt)
+        _b = bn - dt*self._C.dot(_u + un)
+
+        # write new coeffs into Propagator.variables
+        max_du, max_db = self.in_place_update(_u, _b)
+
+        self._particles.save_magnetic_energy(self._derham, self._PB.dot(_b + self._beq))
+
+        if self._info and self._rank ==0:
+            print('Status     for ShearAlfvén:', info['success'])
+            print('Iterations for ShearAlfvén:', info['niter'])
+            print('Maxdiff up for ShearAlfvén:', max_du)
+            print('Maxdiff b2 for ShearAlfvén:', max_db)
+            print()
+
+class Magnetosonic_CurrentCoupling5D( Propagator ):
+    r'''TODO'''
+
+    def __init__(self, particles, derham, domain, mass_ops, mhd_ops,n, u, p, b, unit_b1, u_space, params):
+
+        assert isinstance(n, (StencilVector, PolarVector))
+        assert isinstance(u, (BlockVector, PolarVector))
+        assert isinstance(p, (StencilVector, PolarVector))
+        assert isinstance(b, (BlockVector, PolarVector))
+        assert u_space in {'Hcurl', 'Hdiv', 'H1vec'}
+
+        self._particles = particles
+        self._derham = derham
+        self._domain = domain
+        self._curl_norm_b = derham.curl.dot(unit_b1)
+        self._curl_norm_b.update_ghost_regions()
+        self._n = n
+        self._u = u
+        self._p = p
+        self._b = b
+        self._bc = derham.bc
+        self._info = params['info']
+        self._rank = derham.comm.Get_rank()
+
+        #TODO
+        self._scale_vec = 1.
+
+        self._ACC = Accumulator(self._derham, domain, u_space, 'cc_lin_mhd_5d_M', do_vector=True)
+        
+        # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
+        if u_space == 'Hcurl':
+            id_Mn = 'M1n'
+            id_MJ = 'M1J'
+            id_S = 'S1'
+            id_U = 'U1'
+            id_K = 'K1'
+            id_Q = 'Q1'
+            id_fun = '_fun_M1n'
+        elif u_space == 'Hdiv':
+            id_Mn = 'M2n'
+            id_MJ = 'M2J'
+            id_S = 'S2'
+            id_U = None
+            id_K = 'K2'
+            id_Q = 'Q2'
+            id_fun = '_fun_M1n'
+        elif u_space == 'H1vec':
+            id_Mn = 'Mvn'
+            id_MJ = 'MvJ'
+            id_S = 'S0'
+            id_U = 'Uv'
+            id_K = 'K0'
+            id_Q = 'Q0'
+            id_fun = '_fun_M1n'
+
+        if u_space == 'H1vec':
+            self._space_key_int = 0
+        else:
+            self._space_key_int = int(derham.spaces_dict[u_space])
+
+        _A = getattr(mass_ops, id_Mn)
+        _S = getattr(mhd_ops, id_S)
+        _U = getattr(mhd_ops, id_U) if id_U is not None else None
+        _UT = _U.transpose() if _U is not None else None
+        _K = getattr(mhd_ops, id_K)
+        self._B = Multiply(-1/2., Compose(_UT, derham.div.transpose(), mass_ops.M3))
+        self._C = Multiply( 1/2., Sum(Compose(derham.div, _S), Multiply(2/3, Compose(_K, derham.div, _U))))
+        
+        self._MJ = getattr(mass_ops, id_MJ)
+        self._Q  = getattr(mhd_ops, id_Q)
+        self._DIV = derham.div
+        
+        # Preconditioner
+        _pc_fun = getattr(mass_ops, id_fun)
+        if params['pc'] is None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            pc = pc_class(getattr(mass_ops, id_Mn))
+
+        # Instantiate Schur solver (constant in this case)
+        _BC = Compose(self._B, self._C)
+        
+        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_type=params['type'], 
+                                         tol=params['tol'], maxiter=params['maxiter'],
+                                         verbose=params['verbose'])
+
+    @property
+    def variables(self):
+        return self._n, self._u, self._p, self._b
+
+    def __call__(self, dt):
+
+        # current variables
+        nn = self.variables[0]
+        un = self.variables[1]
+        pn = self.variables[2]
+        bn = self.variables[3]
+
+        # accumulate
+        self._ACC.accumulate(self._particles, 
+                             self._b[0]._data, self._b[1]._data, self._b[2]._data, 
+                             self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data, 
+                             self._space_key_int, self._scale_vec)
+
+        self._ACC.vector.shape
+
+        # allocate temporary FemFields _u, _b during solution
+        _u, info = self._schur_solver(un, self._B.dot(pn) - self._MJ.dot(bn)/2 - self._ACC.vector/2, dt)
+        _p = pn - dt*self._C.dot(_u + un)
+        _n = nn - dt/2*self._DIV.dot(self._Q.dot(_u + un))
+        _b = 1*bn
+        
+        # write new coeffs into Propagator.variables
+        max_dn, max_du, max_dp, max_db = self.in_place_update(_n, _u, _p, _b)
+
+        if self._info and self._rank == 0:
+            print('Status     for Magnetosonic:', info['success'])
+            print('Iterations for Magnetosonic:', info['niter'])
+            print('Maxdiff n3 for Magnetosonic:', max_dn)
+            print('Maxdiff up for Magnetosonic:', max_du)
+            print('Maxdiff p3 for Magnetosonic:', max_dp)
+            print('Maxdiff b2 for Magnetosonic:', max_db)
+            print()
