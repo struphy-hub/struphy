@@ -120,6 +120,9 @@ def test_transformations(mapping, mhd_equil):
 
 
 class NumEqTest(NumericalMHDequilibrium):
+    """
+    TODO
+    """
 
     def __init__(self, analytic_domain, analytic_mhd_equil):
 

@@ -1,4 +1,7 @@
 def test_polar_splines_2D(plot=False):
+    """
+    TODO
+    """
 
     import sys
     sys.path.append('..')
@@ -23,14 +26,14 @@ def test_polar_splines_2D(plot=False):
     # boundary conditions in radial direction (for polar domain always 'f' at eta1 = 0 (pole))
     bc = ['f', 'd']
     # minor radius
-    a = 1.0          
+    a = 1.0
     # major radius (length or cylinder = 2*pi*R0 in case of spline_cyl)
     R0 = 3.0
     # meaning of angular coordinate in case of spline_tours ('straight' or 'equal arc')
     chi = 'equal arc'
 
     # create domain
-    dom_type = 'IGAPolarCylinder'      
+    dom_type = 'IGAPolarCylinder'
     dom_params = {'a': a, 'Lz': R0, 'Nel': Nel, 'p': p}
     domain_class = getattr(domains, dom_type)
     domain = domain_class(dom_params)

@@ -15,7 +15,10 @@ import pytest
         'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}],
 ])
 def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
-    
+    """
+    TODO
+    """
+
     from mpi4py import MPI
     import numpy as np
 
@@ -97,4 +100,4 @@ def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
 if __name__ == '__main__':
     test_composite_sum_scalar_inverse(
         [8, 10, 4], [2, 3, 2], [False, True, True], ['Colella', {
-        'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}])
+            'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}])

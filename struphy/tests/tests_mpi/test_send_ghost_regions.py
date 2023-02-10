@@ -62,83 +62,94 @@ def test_send_ghost_regions(Nel, p, spl_kind, mapping, verbose=False):
                 print('\n================================')
                 print(f'========== Space {space_id} =========')
                 print('================================')
-        
-        Acc = Accumulator(derham, domain, space_id, accum_name, do_vector=False)
+
+        Acc = Accumulator(derham, domain, space_id,
+                          accum_name, do_vector=False)
 
         pads = derham.Vh['0'].pads
 
         for dat in Acc.args_data:
 
-            for comp in product([0,1,2], repeat=3):
+            for comp in product([0, 1, 2], repeat=3):
 
                 dat[:] = 0.
 
                 if rank == 0 and verbose == True:
                     print('\n================================')
-                    print(f'====== Direction ({comp[0]},{comp[1]},{comp[2]}) =======')
+                    print(
+                        f'====== Direction ({comp[0]},{comp[1]},{comp[2]}) =======')
                     print('================================')
 
                 comm.Barrier()
 
                 inv_comp = Acc._invert_component(comp)
 
-                fill = 99 # write some value in ghost regions
+                fill = 99  # write some value in ghost regions
 
                 if len(dat.shape) == 6:
                     # Test component
                     # indices for writing
                     inds_w_co = [pads[0], pads[1], pads[2],
-                              pads[0], pads[1], pads[2]]
-                    for k,di in enumerate(comp):
+                                 pads[0], pads[1], pads[2]]
+                    for k, di in enumerate(comp):
                         if di == 1:
                             continue
                         elif di == 0:
-                            inds_w_co[k] = slice(None, pads[k]) # send to left
+                            inds_w_co[k] = slice(None, pads[k])  # send to left
                         elif di == 2:
-                            inds_w_co[k] = slice(-pads[k], None) # send to rigt
+                            # send to rigt
+                            inds_w_co[k] = slice(-pads[k], None)
                     inds_w_co = tuple(inds_w_co)
-                    
+
                     # indices for reading
                     inds_r_co = [pads[0], pads[1], pads[2],
-                              pads[0], pads[1], pads[2]]
+                                 pads[0], pads[1], pads[2]]
 
-                    for k,di in enumerate(inv_comp):
+                    for k, di in enumerate(inv_comp):
                         if di == 1:
                             continue
                         elif di == 0:
-                            inds_r_co[k] = slice(pads[k], 2*pads[k]) # receive from left
+                            # receive from left
+                            inds_r_co[k] = slice(pads[k], 2*pads[k])
                         elif di == 2:
-                            inds_r_co[k] = slice(-2*pads[k], -pads[k]) # receive from right
+                            # receive from right
+                            inds_r_co[k] = slice(-2*pads[k], -pads[k])
                     inds_r_co = tuple(inds_r_co)
 
                     dat[inds_w_co] = fill
 
                     # print before sending ghost regions
                     if verbose == True:
-                        print(f'\nrank {rank} read component ({comp[0]},{comp[1]},{comp[2]}) before : \n {dat[inds_r_co]}')
-                        print(f'\nrank {rank} write component ({comp[0]},{comp[1]},{comp[2]}) before : \n {dat[inds_w_co]}')
+                        print(
+                            f'\nrank {rank} read component ({comp[0]},{comp[1]},{comp[2]}) before : \n {dat[inds_r_co]}')
+                        print(
+                            f'\nrank {rank} write component ({comp[0]},{comp[1]},{comp[2]}) before : \n {dat[inds_w_co]}')
 
                     Acc._send_ghost_regions()
 
                     # print after sending ghost regions
                     if verbose == True:
-                        print(f'\nrank {rank} read component ({comp[0]},{comp[1]},{comp[2]}) after : \n {dat[inds_r_co]}')
-                        print(f'\nrank {rank} write component ({comp[0]},{comp[1]},{comp[2]}) after : \n {dat[inds_w_co]}')
-                
+                        print(
+                            f'\nrank {rank} read component ({comp[0]},{comp[1]},{comp[2]}) after : \n {dat[inds_r_co]}')
+                        print(
+                            f'\nrank {rank} write component ({comp[0]},{comp[1]},{comp[2]}) after : \n {dat[inds_w_co]}')
+
                 else:
                     raise NotImplementedError('Unknown shape of data object!')
-                
-                if neighbours[comp] != -1: 
-                    assert (dat[inds_r_co] == fill).all(), f'rank {rank} component ({comp[0]},{comp[1]},{comp[2]}) neighbour {neighbours[comp]}'
+
+                if neighbours[comp] != -1:
+                    assert (dat[inds_r_co] == fill).all(
+                    ), f'rank {rank} component ({comp[0]},{comp[1]},{comp[2]}) neighbour {neighbours[comp]}'
                 elif neighbours[comp] == -1:
                     continue
                 else:
                     raise NotImplementedError('Something weird happened')
 
                 comm.Barrier()
-        
+
         if rank == 0:
             print('Test passed!\n')
+
 
 if __name__ == '__main__':
     import itertools

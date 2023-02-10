@@ -1,9 +1,8 @@
 import pytest
+import numpy as np
 
 import struphy.b_splines.bsplines_kernels as bsp
 from struphy.eigenvalue_solvers import spline_space
-
-import numpy as np
 
 
 @pytest.mark.parametrize('Nel', [[8, 5, 6], [4, 3, 128]])
@@ -11,6 +10,9 @@ import numpy as np
 @pytest.mark.parametrize('spl_kind', [[True, True, True], [False, False, True]])
 @pytest.mark.parametrize('N', [100])
 def test_bsplines_kernels(Nel, p, spl_kind, N):
+    """
+    TODO
+    """
 
     # =========================================================================================
     # FEEC SPACES Object & related quantities

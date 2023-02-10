@@ -1,5 +1,6 @@
 import pytest
 
+
 @pytest.mark.parametrize('Nel', [[8, 12, 4]])
 @pytest.mark.parametrize('p',   [[2, 3, 2]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True]])
@@ -16,19 +17,16 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     '''
     from struphy.geometry import domains
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-    
+
     from struphy.fields_background.mhd_equil.analytical import HomogenSlab
-    
+
     from struphy.eigenvalue_solvers.legacy.mhd_operators_MF import projectors_dot_x
-    
+
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
 
-    from psydac.api.discretization import discretize
     from psydac.linalg.stencil import StencilVector
-    from psydac.linalg.block import BlockVector, BlockVectorSpace
-    from psydac.linalg.basic import VectorSpace
-    from psydac.fem.vector import ProductFemSpace
+    from psydac.linalg.block import BlockVector
 
     from mpi4py import MPI
     from time import time
@@ -42,13 +40,14 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     # Domain object
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(mapping[1])
-    
+
     # de Rham object
     n_quad_el = [5, 5, 5]
     n_quad_pr = [4, 4, 4]
-    
-    DERHAM_PSY = Derham(Nel, p, spl_kind, nq_pr=n_quad_pr, quad_order=n_quad_el, comm=MPI_COMM)
-    
+
+    DERHAM_PSY = Derham(Nel, p, spl_kind, nq_pr=n_quad_pr,
+                        quad_order=n_quad_el, comm=MPI_COMM)
+
     # grid parameters
     if mpi_rank == 0:
         print(f'Rank {mpi_rank} | Nel: {Nel}')
@@ -57,8 +56,9 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
         print(f'Rank {mpi_rank} | ')
 
     # Mhd equilibirum (slab)
-    mhd_equil_params = {'B0x': 0., 'B0y': 0., 'B0z': 1., 'beta': 200., 'n0' : 1.}
-    
+    mhd_equil_params = {'B0x': 0., 'B0y': 0.,
+                        'B0z': 1., 'beta': 200., 'n0': 1.}
+
     EQ_MHD = HomogenSlab(mhd_equil_params)
     EQ_MHD.domain = domain
 
@@ -68,7 +68,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     V2 = DERHAM_PSY.Vh_fem['2']
     V3 = DERHAM_PSY.Vh_fem['3']
     V0vec = DERHAM_PSY.Vh_fem['v']
-    
+
     if mpi_rank == 0:
         print(f'Rank {mpi_rank} | type(V0) {type(V0)}')
         print(f'Rank {mpi_rank} | type(V1) {type(V1)}')
@@ -491,7 +491,8 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 
     X1T = OPS_PSY.X1.transpose()
     res_PSY = X1T.dot(x0vec_st)
-    res_STR = OPS_STR.transpose_X1_dot([x0.flatten(), x0.flatten(), x0.flatten()])
+    res_STR = OPS_STR.transpose_X1_dot(
+        [x0.flatten(), x0.flatten(), x0.flatten()])
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
 
     MPI_COMM.Barrier()
@@ -517,6 +518,9 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 
 
 def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
+    """
+    TODO
+    """
 
     import numpy as np
 
@@ -614,5 +618,5 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
 
 
 if __name__ == '__main__':
-    test_some_basis_ops(Nel=[8, 8, 8], p=[2, 2, 2], spl_kind=[False, True, True], 
+    test_some_basis_ops(Nel=[8, 8, 8], p=[2, 2, 2], spl_kind=[False, True, True],
                         mapping=['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}])

@@ -19,6 +19,9 @@ import pytest
         'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}],
 ])
 def test_psydac_mapping(mapping):
+    """
+    TODO
+    """
 
     from struphy.geometry import domains
 
@@ -61,7 +64,7 @@ def test_psydac_mapping(mapping):
     # Inverse Jacobian
     assert np.allclose(F_PSY.jacobian_inv(
         *eta), domain.jacobian_inv(*eta))
-    
+
     # Metric tensor
     assert np.allclose(F_PSY.metric(*eta), domain.metric(*eta))
 
