@@ -590,6 +590,9 @@ class StepPushGuidingCenter1(Propagator):
                      *self._pusher_inputs,
                      bc=self._bc, mpi_sort='each', verbose=False)
 
+        # save magnetic field at each particles' position
+        self._particles.save_magnetic_energy(self._derham, self._abs_b)
+
 
 class StepPushGuidingCenter2(Propagator):
     r"""Solves
@@ -734,6 +737,9 @@ class StepPushGuidingCenter2(Propagator):
                      *self._pusher_inputs,
                      bc=self._bc, mpi_sort='each', verbose=False)
 
+        # save magnetic field at each particles' position
+        self._particles.save_magnetic_energy(self._derham, self._abs_b)
+
 
 class StepPushGuidingCenter(Propagator):
     r"""Solves
@@ -865,6 +871,9 @@ class StepPushGuidingCenter(Propagator):
                      *self._pusher_inputs,
                      bc=self._bc, mpi_sort='each', verbose=False)
 
+        # save magnetic field at each particles' position
+        self._particles.save_magnetic_field
+
 
 class StepStaticEfield(Propagator):
     r'''Solve the following system
@@ -995,7 +1004,7 @@ class StepPushDriftkinetic1(Propagator):
         Kinetic boundary conditions in each direction.
     """
 
-    def __init__(self, particles, derham, domain, basis_ops, epsilon, b, *mhd_equil, push_algos, bc):
+    def __init__(self, particles, derham, domain, basis_ops, epsilon, b, push_algos, bc, *mhd_equil):
 
         self._particles = particles
         self._derham = derham
@@ -1006,7 +1015,6 @@ class StepPushDriftkinetic1(Propagator):
         self._maxiter = push_algos['maxiter']
         self._tol = push_algos['tol']
         self._bc = bc
-        self._b_full = b + self._b_eq
         self._derham = derham
 
         # define equilibrium fields
@@ -1016,33 +1024,23 @@ class StepPushDriftkinetic1(Propagator):
         self._abs_b = mhd_equil[3]
         self._curl_norm_b = derham.curl.dot(self._norm_b1)
 
+        self._abs_b.update_ghost_regions()
+        self._norm_b1.update_ghost_regions()
+        self._norm_b2.update_ghost_regions()
+        self._curl_norm_b.update_ghost_regions()
+
         # define full magnetic field
         self._b_full = b + self._b_eq
 
+        self._b_full.update_ghost_regions()
+
         # define gradient of absolute value of parallel magnetic field
         PB = getattr(basis_ops, 'PB')
-        self._grad_PB = derham.grad.dot(PB.dot(self._b_full))
+        self._PB = PB.dot(self._b_full)
+        self._PB.update_ghost_regions()
 
-        if not self._b_full[0].ghost_regions_in_sync:
-            self._b_full[0].update_ghost_regions()
-        if not self._b_full[1].ghost_regions_in_sync:
-            self._b_full[1].update_ghost_regions()
-        if not self._b_full[2].ghost_regions_in_sync:
-            self._b_full[2].update_ghost_regions()
-        if not self._abs_b.ghost_regions_in_sync:
-            self._abs_b.update_ghost_regions()
-        if not self._curl_norm_b[0].ghost_regions_in_sync:
-            self._curl_norm_b[0].update_ghost_regions()
-        if not self._curl_norm_b[1].ghost_regions_in_sync:
-            self._curl_norm_b[1].update_ghost_regions()
-        if not self._curl_norm_b[2].ghost_regions_in_sync:
-            self._curl_norm_b[2].update_ghost_regions()
-        if not self._grad_PB[0].ghost_regions_in_sync:
-            self._grad_PB[0].update_ghost_regions()
-        if not self._grad_PB[1].ghost_regions_in_sync:
-            self._grad_PB[1].update_ghost_regions()
-        if not self._grad_PB[2].ghost_regions_in_sync:
-            self._grad_PB[2].update_ghost_regions()
+        self._grad_PB = derham.grad.dot(self._PB)
+        self._grad_PB.update_ghost_regions()
 
         if self._integrator == 'explicit':
 
@@ -1085,14 +1083,14 @@ class StepPushDriftkinetic1(Propagator):
 
             if self._method == 'discrete_gradients':
                 self._pusher = Pusher_iteration(
-                    derham, domain, 'push_gc1_discrete_gradients_stage')
+                    derham, domain, 'push_gc1_discrete_gradients_stage', self._maxiter, self._tol)
 
             else:
                 raise NotImplementedError(
                     'Chosen implicit method is not implemented.')
 
-            self._pusher_inputs = (self._abs_b._data,
-                                   self._b[0]._data, self._b[1]._data, self._b[2]._data,
+            self._pusher_inputs = (self._PB._data,
+                                   self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
                                    self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
                                    self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
@@ -1110,8 +1108,10 @@ class StepPushDriftkinetic1(Propagator):
         TODO
         """
         self._pusher(self._particles, dt, self._epsilon,
-                     *self._pusher_inputs,
+                    *self._pusher_inputs,
                      bc=self._bc, mpi_sort='each', verbose=False)
+                     
+        self._particles.save_magnetic_energy(self._derham, self._PB)
 
 
 class StepPushDriftkinetic2(Propagator):
@@ -1161,7 +1161,7 @@ class StepPushDriftkinetic2(Propagator):
         Kinetic boundary conditions in each direction.
     """
 
-    def __init__(self, particles, derham, domain, basis_ops, epsilon, b, *mhd_equil, push_algos, bc):
+    def __init__(self, particles, derham, domain, basis_ops, epsilon, b, push_algos, bc, *mhd_equil):
 
         self._particles = particles
         self._derham = derham
@@ -1172,7 +1172,7 @@ class StepPushDriftkinetic2(Propagator):
         self._maxiter = push_algos['maxiter']
         self._tol = push_algos['tol']
         self._bc = bc
-        self._b_full = b + self._b_eq
+
         self._derham = derham
 
         # define equilibrium fields
@@ -1182,33 +1182,23 @@ class StepPushDriftkinetic2(Propagator):
         self._abs_b = mhd_equil[3]
         self._curl_norm_b = derham.curl.dot(self._norm_b1)
 
+        self._abs_b.update_ghost_regions()
+        self._norm_b1.update_ghost_regions()
+        self._norm_b2.update_ghost_regions()
+        self._curl_norm_b.update_ghost_regions()
+
         # define full magnetic field
         self._b_full = b + self._b_eq
 
+        self._b_full.update_ghost_regions()
+
         # define gradient of absolute value of parallel magnetic field
         PB = getattr(basis_ops, 'PB')
-        self._grad_PB = derham.grad.dot(PB.dot(self._b_full))
+        self._PB = PB.dot(self._b_full)
+        self._PB.update_ghost_regions()
 
-        if not self._b_full[0].ghost_regions_in_sync:
-            self._b_full[0].update_ghost_regions()
-        if not self._b_full[1].ghost_regions_in_sync:
-            self._b_full[1].update_ghost_regions()
-        if not self._b_full[2].ghost_regions_in_sync:
-            self._b_full[2].update_ghost_regions()
-        if not self._abs_b.ghost_regions_in_sync:
-            self._abs_b.update_ghost_regions()
-        if not self._curl_norm_b[0].ghost_regions_in_sync:
-            self._curl_norm_b[0].update_ghost_regions()
-        if not self._curl_norm_b[1].ghost_regions_in_sync:
-            self._curl_norm_b[1].update_ghost_regions()
-        if not self._curl_norm_b[2].ghost_regions_in_sync:
-            self._curl_norm_b[2].update_ghost_regions()
-        if not self._grad_PB[0].ghost_regions_in_sync:
-            self._grad_PB[0].update_ghost_regions()
-        if not self._grad_PB[1].ghost_regions_in_sync:
-            self._grad_PB[1].update_ghost_regions()
-        if not self._grad_PB[2].ghost_regions_in_sync:
-            self._grad_PB[2].update_ghost_regions()
+        self._grad_PB = derham.grad.dot(self._PB)
+        self._grad_PB.update_ghost_regions()
 
         if self._integrator == 'explicit':
 
@@ -1257,8 +1247,8 @@ class StepPushDriftkinetic2(Propagator):
                 raise NotImplementedError(
                     'Chosen implicit method is not implemented.')
 
-            self._pusher_inputs = (self._abs_b._data,
-                                   self._b[0]._data, self._b[1]._data, self._b[2]._data,
+            self._pusher_inputs = (self._PB._data,
+                                   self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
                                    self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
                                    self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
@@ -1276,5 +1266,7 @@ class StepPushDriftkinetic2(Propagator):
         TODO
         """
         self._pusher(self._particles, dt, self._epsilon,
-                     *self._pusher_inputs,
+                    *self._pusher_inputs,
                      bc=self._bc, mpi_sort='each', verbose=False)
+                     
+        self._particles.save_magnetic_energy(self._derham, self._PB)

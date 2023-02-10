@@ -340,11 +340,11 @@ def eval_H1vec_at_particles(markers: 'float[:,:]',
 
 
 @stack_array('bn1', 'bn2', 'bn3')
-def eval_magnetic_moments(markers: 'float[:,:]',
-                          pn: 'int[:]',
-                          tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                          starts0: 'int[:]',
-                          b0: 'float[:,:,:]'):
+def eval_magnetic_moment(markers: 'float[:,:]',
+                         pn: 'int[:]',
+                         tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                         starts0: 'int[:]',
+                         b0: 'float[:,:,:]'):
     """
     Evaluate magnetic moments of each particles
 
@@ -396,6 +396,63 @@ def eval_magnetic_moments(markers: 'float[:,:]',
         b = eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b0, starts0)
 
         markers[ip,4] = 1/2 * vperp_square / b
+
+
+@stack_array('bn1', 'bn2', 'bn3')
+def eval_magnetic_energy(markers: 'float[:,:]',
+                         pn: 'int[:]',
+                         tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                         starts0: 'int[:]',
+                         b0: 'float[:,:,:]'):
+    """
+    Evaluate magnetic field energy of each particles
+
+    Parameters
+    ----------
+        markers : array[float]
+            .markers attribute of a struphy.pic.particles.Particles object
+
+        pn : array[int]
+            spline degrees
+
+        tn1, tn2, tn3 : array[float]
+            knot vectors
+
+        starts0 : array[int]
+            starts of the stencil objects (0-form)
+
+        b0 : array[float]
+            3d array of FE coeffs of the absolute value of static magnetic field (0-form).
+    """
+    # allocate spline values
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # spline evaluation
+        span1 = bsp.find_span(tn1, pn[0], eta1)
+        span2 = bsp.find_span(tn2, pn[1], eta2)
+        span3 = bsp.find_span(tn3, pn[2], eta3)
+
+        bsp.b_splines_slim(tn1, pn[0], eta1, span1, bn1)
+        bsp.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
+        bsp.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
+
+        b = eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b0, starts0)
+
+        markers[ip, 5] = b*markers[ip, 4]
 
 
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_mid')

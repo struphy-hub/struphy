@@ -98,6 +98,8 @@ def _docstring():
                 'm_v_fill_v3vec_full',
                 'm_v_fill_v1_pressure_full',
                 'm_v_fill_v1_pressure',
+                'vec_fill_v1'
+                'scalar_fill_v0'
                 ]
     """
 
@@ -6003,3 +6005,110 @@ def m_v_fill_v1_pressure(pn : 'int[:]', span1 : int, span2 : int, span3 : int, b
 def hybrid_density(Nel: 'int[:]', pn: 'int[:]', cell_left: 'int[:]', cell_number: 'int[:]', span1: 'int', span2: 'int', span3: 'int', starts0: 'int[:]', ie1: 'int', ie2: 'int', ie3: 'int', temp1: 'float[:]', temp4: 'float[:]', quad: 'int[:]', quad_pts_x: 'float[:]', quad_pts_y: 'float[:]', quad_pts_z: 'float[:]', compact: 'float[:]', eta1: 'float', eta2: 'float', eta3: 'float', mat: 'float[:,:,:,:,:,:]', weight: 'float', p_shape: 'int[:]', p_size: 'float[:]', grids_shapex: 'float[:]', grids_shapey: 'float[:]', grids_shapez: 'float[:]'):
 
     fk.hy_density(Nel, pn, cell_left, cell_number, span1, span2, span3, starts0, ie1, ie2, ie3, temp1, temp4, quad, quad_pts_x, quad_pts_y, quad_pts_z, compact, eta1, eta2, eta3, mat, weight, p_shape, p_size, grids_shapex, grids_shapey, grids_shapez)
+
+@pure
+def vec_fill_v0(pn : 'int[:]', span1 : int, span2 : int, span3 : int, bn1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', starts0 : 'int[:]', vec1 : 'float[:,:,:]', vec2 : 'float[:,:,:]',  vec3 : 'float[:,:,:]', fill1 : float, fill2 : float, fill3 : float):
+    """TODO
+    """
+
+    # degrees of the basis functions : B-splines (pn) and D-splines (pd)
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pn3 = pn[2]
+    
+    # fill matrix and vector entries
+    fk.fill_vec(pn1, pn2, pn3,
+                bn1, bn2, bn3,
+                span1, span2, span3, 
+                starts0,
+                vec1, fill1)
+    
+    fk.fill_vec(pn1, pn2, pn3,
+                bn1, bn2, bn3,
+                span1, span2, span3, 
+                starts0,
+                vec2, fill2)
+    
+    fk.fill_vec(pn1, pn2, pn3,
+                bn1, bn2, bn3,
+                span1, span2, span3, 
+                starts0,
+                vec3, fill3)
+
+@pure
+def vec_fill_v1(pn : 'int[:]', span1 : int, span2 : int, span3 : int, bn1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', starts1 : 'int[:,:]', vec1 : 'float[:,:,:]', vec2 : 'float[:,:,:]',  vec3 : 'float[:,:,:]', fill1 : float, fill2 : float, fill3 : float):
+    """TODO
+    """
+
+    # degrees of the basis functions : B-splines (pn) and D-splines (pd)
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pn3 = pn[2]
+    
+    pd1 = pn1 - 1
+    pd2 = pn2 - 1
+    pd3 = pn3 - 1
+    
+    # fill matrix and vector entries
+    fk.fill_vec(pd1, pn2, pn3,
+                bd1, bn2, bn3,
+                span1, span2, span3, 
+                starts1[0],
+                vec1, fill1)
+    
+    fk.fill_vec(pn1, pd2, pn3,
+                bn1, bd2, bn3,
+                span1, span2, span3, 
+                starts1[1],
+                vec2, fill2)
+    
+    fk.fill_vec(pn1, pn2, pd3,
+                bn1, bn2, bd3,
+                span1, span2, span3, 
+                starts1[2],
+                vec3, fill3)
+
+@pure
+def vec_fill_v2(pn : 'int[:]', span1 : int, span2 : int, span3 : int, bn1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', starts2 : 'int[:,:]', vec1 : 'float[:,:,:]', vec2 : 'float[:,:,:]',  vec3 : 'float[:,:,:]', fill1 : float, fill2 : float, fill3 : float):
+    """TODO
+    """
+
+    # degrees of the basis functions : B-splines (pn) and D-splines (pd)
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pn3 = pn[2]
+    
+    pd1 = pn1 - 1
+    pd2 = pn2 - 1
+    pd3 = pn3 - 1
+    
+    # fill matrix and vector entries
+    fk.fill_vec(pn1, pd2, pd3,
+                bn1, bd2, bd3,
+                span1, span2, span3, 
+                starts2[0],
+                vec1, fill1)
+    
+    fk.fill_vec(pd1, pn2, pd3,
+                bd1, bn2, bd3,
+                span1, span2, span3, 
+                starts2[1],
+                vec2, fill2)
+    
+    fk.fill_vec(pd1, pd2, pn3,
+                bd1, bd2, bn3,
+                span1, span2, span3, 
+                starts2[2],
+                vec3, fill3)
+
+@pure
+def scalar_fill_v0(pn: 'int[:]', span1 : int, span2 : int, span3 : int, bn1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', starts0 : 'int[:]', vec : 'float[:,:,:]', fill : float):
+    """TODO
+    """
+
+    # degrees of the basis functions : B-splines (pn) and D-splines (pd)
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pn3 = pn[2]
+
+    fk.fill_vec(pn1, pn2, pn3, bn1, bn2, bn3, span1, span2, span3, starts0, vec, fill)

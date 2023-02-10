@@ -497,8 +497,7 @@ class StruphyModel(metaclass=ABCMeta):
                         f'Type {typ} for distribution function is not known!')
 
                 if val['space'] == 'Particles5D':
-                    val['obj'].initialize_magnetic_moments(
-                        self.derham, self.mhd_equil)
+                    val['obj'].save_magnetic_moment(self.derham, self.derham.P['0'](self.mhd_equil.absB0))
 
             self.update_markers_to_be_saved()
             self.update_distr_function()
