@@ -356,14 +356,11 @@ class Accumulator:
         for dat in self._args_data:
             dat[:] = 0.
 
-        # accumulate
-        self.accumulator_kernel(particles.markers, particles.n_mks,
+        # accumulate markers
+        self.accumulator_kernel(particles.markers, particles.n_mks, 
                                 *self.args_fem, *self.domain.args_map,
                                 *self.args_data, *args_add)
-
-        # send ghost regions
-        self._send_ghost_regions()
-
+        
         # add analytical contribution (control variate) to vector
         if 'control_vec' in args_control:
             WeightedMassOperator.assemble_vec(
@@ -374,7 +371,14 @@ class Accumulator:
             WeightedMassOperator.assemble_mat(
                 self._fem_space, self._fem_space, self._matrix, args_control['control_mat'])
 
-        # update ghost regions
+        # send ghost regions
+        if self.symmetry != 'pressure':
+            self._matrix.exchange_assembly_data()
+            if self._do_vector: self._vector.exchange_assembly_data()
+        else:
+            self._send_ghost_regions()
+        
+        # update ghost regions to make sure that transposed works correctly (for sym and asym)
         self.update_ghost_regions()
 
         # copy data for symmetric and antisymmetric block matrices

@@ -21,6 +21,7 @@ RUN curl -O --header "PRIVATE-TOKEN: glpat-5QH11Kx-65GGiykzR5xo" "https://gitlab
 
 # install psydac from submodule
 RUN git clone https://github.com/pyccel/psydac.git \
+    && echo 'change something here if not using the cache' \
     && cd psydac \
     && git checkout struphy-branch \
     && git pull \ 
@@ -36,6 +37,8 @@ RUN PSYDAC=$(python3 -c "import psydac as _; print(_.__path__[0])") \
     && pip install -U pyccel \
     && pyccel $PSYDAC/core/kernels.py \
     && pyccel $PSYDAC/core/bsplines_pyccel.py \
+    && pyccel $PSYDAC/linalg/kernels.py \
+    && pyccel $PSYDAC/feec/dof_kernels.py \
     && compile_gvec_to_python 
 # compiled gvec here, to have consistent numpy cersion
 

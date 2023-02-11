@@ -22,14 +22,14 @@ class WeightedMassOperators:
     
     Parameters
     ----------
-        derham : struphy.psydac_api.psydac_derham.Derham
-            Discrete de Rham sequence on the logical unit cube.
+    derham : struphy.psydac_api.psydac_derham.Derham
+        Discrete de Rham sequence on the logical unit cube.
 
-        domain : struphy.geometry.domains
-            All things mapping.
-            
-        **weights
-            A general object providing access to callables that serve as weight functions (will be called with weights['keyword'].fun).
+    domain : struphy.geometry.domains
+        All things mapping.
+
+    **weights
+        A general object providing access to callables that serve as weight functions (will be called with weights['keyword'].fun).
     """
     
     def __init__(self, derham, domain, **weights):
@@ -399,12 +399,12 @@ class WeightedMassOperator( LinOpWithTransp ):
             self._codomain_symbolic_name = W_name
         
         if V_name in {'H1', 'L2'}:
-            comm = V.vector_space.cart.comm
+            rank = V.vector_space.cart.comm.Get_rank()
         else:
-            comm = V.vector_space[0].cart.comm
+            rank = V.vector_space[0].cart.comm.Get_rank()
 
         # ====== assemble tensor-product mass matrix ====
-        if comm.Get_rank() == 0:
+        if rank == 0:
             print(f'Assembling WeightedMassOperator with V={V_name}, W={W_name}.')
         
         # collect TensorFemSpaces for each component in tuple
@@ -455,17 +455,37 @@ class WeightedMassOperator( LinOpWithTransp ):
             self._mat = blocks[0][0]
         else:
             self._mat = BlockMatrix(V.vector_space, W.vector_space, blocks=blocks)
+            
+        ## create ghost region send and receive types/buffer
+        #self._datas = ()
+        #
+        #if isinstance(self._mat, StencilMatrix):
+        #    self._datas += (self._mat._data,)
+        #else:
+        #    
+        #    for a in range(len(Wspaces)):
+        #        for b in range(len(Vspaces)):
+        #            if self._mat.blocks[a][b] is not None:
+        #                self._datas += (self._mat.blocks[a][b]._data,)
+        #    
+        #self._send_types, self._recv_types = derham.create_buffer_types(*self._datas)
         
         # fill matrix
-        WeightedMassOperator.assemble_mat(V, W, self._mat, weight)
+        self.assemble_mat(V, W, self._mat, weight)
+        
+        ## accumulate ghost regions
+        #derham.send_ghost_regions(self._send_types, self._recv_types, *self._datas)
+        self._mat.exchange_assembly_data()
+        
+        # update ghost regions
+        #self._mat.update_ghost_regions()
         
         if transposed:
             self._mat = self._mat.transpose()
             
-        if comm.Get_rank() == 0:
+        if rank == 0:
             print('Done.')
         # ===============================================
-        
         
         # some shortcuts
         BW = self._W_boundary_op
@@ -625,11 +645,8 @@ class WeightedMassOperator( LinOpWithTransp ):
         # loop over codomain spaces (rows)
         for a, wspace in enumerate(Wspaces):
             
-            # periodicity: True (1) or False (0)
-            periodic = [int(periodic) for periodic in wspace.periodic]
-
-            # global element indices on process over which integration is performed
-            el_loc_indices = [quad_grid.indices for quad_grid in wspace.quad_grids]
+            # knot span indices of elements of local domain
+            spans_out = [quad_grid.spans for quad_grid in wspace.quad_grids]
 
             # global start spline index on process
             starts_out = [int(start) for start in wspace.vector_space.starts]
@@ -638,7 +655,6 @@ class WeightedMassOperator( LinOpWithTransp ):
             pads_out = wspace.vector_space.pads
 
             # global quadrature points (flattened) and weights in format (local element, local weight)
-            nqs = [quad_grid.num_quad_pts     for quad_grid in wspace.quad_grids]
             pts = [quad_grid.points.flatten() for quad_grid in wspace.quad_grids]
             wts = [quad_grid.weights          for quad_grid in wspace.quad_grids]
 
@@ -666,16 +682,115 @@ class WeightedMassOperator( LinOpWithTransp ):
 
                 # evaluated basis functions at quadrature points of output space
                 basis_i = [quad_grid.basis for quad_grid in vspace.quad_grids]
-
-                # assemble matrix (if weight is not zero) by calling the appropriate kernel (1d, 2d or 3d)
+                
+                # assemble matrix (if mat_w is not zero) by calling the appropriate kernel (1d, 2d or 3d)                
                 if np.any(np.abs(mat_w) > 1e-14):
                     if isinstance(mat, StencilMatrix):
-                        kernel(*el_loc_indices, *wspace.degree, *vspace.degree, *periodic, *starts_out, *pads_out, 
-                               *nqs, *wts, *basis_o, *basis_i, mat_w, mat._data)
+                        kernel(*spans_out, *wspace.degree, *vspace.degree, *starts_out, *pads_out, 
+                               *wts, *basis_o, *basis_i, mat_w, mat._data)
                     else:
-                        kernel(*el_loc_indices, *wspace.degree, *vspace.degree, *periodic, *starts_out, *pads_out, 
-                               *nqs, *wts, *basis_o, *basis_i, mat_w, mat[a, b]._data)
-        
+                        kernel(*spans_out, *wspace.degree, *vspace.degree, *starts_out, *pads_out, 
+                               *wts, *basis_o, *basis_i, mat_w, mat[a, b]._data)
+    
+    #@staticmethod
+    #def assemble_mat(V, W, mat, weight=None):
+    #    """
+    #    Assembles a weighted mass matrix (StencilMatrix/BlockMatrix) corresponding to given domain/codomain spline spaces.
+    #    
+    #    General form (in 3d) is mat_(ijk,lmn) = integral[ Lambda_ijk * weight * Lambda_lmn ],
+    #    where Lambda_ijk are the basis functions of the spline space and weight is some weight function.
+    #    
+    #    The integration is performed with Gauss-Legendre quadrature over the whole logical domain.
+    #    
+    #    Parameters
+    #    ----------
+    #    V : TensorFemSpace | ProductFemSpace
+    #        Tensor product spline space from psydac.fem.tensor (domain, input space).
+#
+    #    W : TensorFemSpace | ProductFemSpace
+    #        Tensor product spline space from psydac.fem.tensor (codomain, output space).
+    #        
+    #    mat : StencilMatrix | BlockMatrix
+    #        The matrix to be filled.
+#
+    #    weight : list | NoneType
+    #        Weight function(s) (callables or np.ndarrays) in a 2d list of shape corresponding to number of components of domain/codomain.
+    #    """
+    #    
+    #    assert isinstance(V, (TensorFemSpace, ProductFemSpace))
+    #    assert isinstance(W, (TensorFemSpace, ProductFemSpace))
+    #    assert isinstance(mat, (StencilMatrix, BlockMatrix))
+    #    assert V.vector_space == mat.domain
+    #    assert W.vector_space == mat.codomain
+    #    
+    #    # collect TensorFemSpaces for each component in tuple
+    #    if isinstance(V, TensorFemSpace):
+    #        Vspaces = (V,)
+    #    else:
+    #        Vspaces = V.spaces
+    #        
+    #    if isinstance(W, TensorFemSpace):
+    #        Wspaces = (W,)
+    #    else:
+    #        Wspaces = W.spaces
+    #    
+    #    # load assembly kernel
+    #    kernel = getattr(mass_kernels, 'kernel_' + str(V.ldim) + 'd_mat')
+    #
+    #    # loop over codomain spaces (rows)
+    #    for a, wspace in enumerate(Wspaces):
+    #        
+    #        # periodicity: True (1) or False (0)
+    #        periodic = [int(periodic) for periodic in wspace.periodic]
+#
+    #        # global element indices on process over which integration is performed
+    #        el_loc_indices = [np.array(quad_grid.indices) for quad_grid in wspace.quad_grids]
+#
+    #        # global start spline index on process
+    #        starts_out = [int(start) for start in wspace.vector_space.starts]
+#
+    #        # pads (ghost regions)
+    #        pads_out = wspace.vector_space.pads
+#
+    #        # global quadrature points (flattened) and weights in format (local element, local weight)
+    #        nqs = [quad_grid.num_quad_pts     for quad_grid in wspace.quad_grids]
+    #        pts = [quad_grid.points.flatten() for quad_grid in wspace.quad_grids]
+    #        wts = [quad_grid.weights          for quad_grid in wspace.quad_grids]
+#
+    #        # evaluated basis functions at quadrature points of codomain space
+    #        basis_o = [quad_grid.basis for quad_grid in wspace.quad_grids]
+#
+    #        # loop over domain spaces (columns)
+    #        for b, vspace in enumerate(Vspaces):
+#
+    #            if weight is not None:
+    #                if weight[a][b] is not None:
+#
+    #                    if callable(weight[a][b]):
+    #                        PTS = np.meshgrid(*pts, indexing='ij')
+    #                        mat_w = weight[a][b](*PTS).copy()
+    #                    elif isinstance(weight[a][b], np.ndarray):
+    #                        mat_w = weight[a][b]
+#
+    #                else:
+    #                    mat_w = np.zeros([pt.size for pt in pts], dtype=float)
+    #            else:
+    #                mat_w = np.ones([pt.size for pt in pts], dtype=float)
+#
+    #            assert mat_w.shape == tuple([pt.size for pt in pts])
+#
+    #            # evaluated basis functions at quadrature points of output space
+    #            basis_i = [quad_grid.basis for quad_grid in vspace.quad_grids]
+#
+    #            # assemble matrix (if weight is not zero) by calling the appropriate kernel (1d, 2d or 3d)
+    #            if np.any(np.abs(mat_w) > 1e-14):
+    #                if isinstance(mat, StencilMatrix):
+    #                    kernel(*el_loc_indices, *wspace.degree, *vspace.degree, *periodic, *starts_out, *pads_out, 
+    #                           *nqs, *wts, *basis_o, *basis_i, mat_w, mat._data)
+    #                else:
+    #                    kernel(*el_loc_indices, *wspace.degree, *vspace.degree, *periodic, *starts_out, *pads_out, 
+    #                           *nqs, *wts, *basis_o, *basis_i, mat_w, mat[a, b]._data)
+                        
     @staticmethod
     def assemble_vec(W, vec, weight=None):
         """
@@ -712,11 +827,8 @@ class WeightedMassOperator( LinOpWithTransp ):
         # loop over components
         for a, wspace in enumerate(Wspaces):
 
-            # periodicity: True (1) or False (0)
-            periodic = [int(periodic) for periodic in wspace.periodic]
-
-            # global element indices on process over which integration is performed
-            el_loc_indices = [quad_grid.indices for quad_grid in wspace.quad_grids]
+            # knot span indices of elements of local domain
+            spans = [quad_grid.spans for quad_grid in wspace.quad_grids]
 
             # global start spline index on process
             starts = [int(start) for start in wspace.vector_space.starts]
@@ -725,38 +837,118 @@ class WeightedMassOperator( LinOpWithTransp ):
             pads = wspace.vector_space.pads
 
             # global quadrature points (flattened) and weights in format (local element, local weight)
-            nqs = [quad_grid.num_quad_pts     for quad_grid in wspace.quad_grids]
             pts = [quad_grid.points.flatten() for quad_grid in wspace.quad_grids]
             wts = [quad_grid.weights          for quad_grid in wspace.quad_grids]
 
-            # evaluated basis functions at quadrature points
+            # evaluated basis functions at quadrature points of codomain space
             basis = [quad_grid.basis for quad_grid in wspace.quad_grids]
 
-            # evaluation of weight function at quadrature points (optional)
             if weight is not None:
                 if weight[a] is not None:
-                    
+
                     if callable(weight[a]):
                         PTS = np.meshgrid(*pts, indexing='ij')
                         mat_w = weight[a](*PTS).copy()
                     elif isinstance(weight[a], np.ndarray):
                         mat_w = weight[a]
-                        
+
                 else:
-                    mat_w = np.ones([pt.size for pt in pts], dtype=float)
+                    mat_w = np.zeros([pt.size for pt in pts], dtype=float)
             else:
                 mat_w = np.ones([pt.size for pt in pts], dtype=float)
 
             assert mat_w.shape == tuple([pt.size for pt in pts])
 
-            # assemble matrix (if weight is not zero) by calling the appropriate kernel (1d, 2d or 3d)
+            # assemble vector (if mat_w is not zero) by calling the appropriate kernel (1d, 2d or 3d)
             if np.any(np.abs(mat_w) > 1e-14):
                 if isinstance(vec, StencilVector):
-                    kernel(*el_loc_indices, *wspace.degree, *periodic, *starts, *pads, 
-                           *nqs, *wts, *basis, mat_w, vec._data)
+                    kernel(*spans, *wspace.degree, *starts, *pads, 
+                           *wts, *basis, mat_w, vec._data)
                 else:
-                    kernel(*el_loc_indices, *wspace.degree, *periodic, *starts, *pads, 
-                           *nqs, *wts, *basis, mat_w, vec[a]._data)
+                    kernel(*spans, *wspace.degree, *starts, *pads, 
+                           *wts, *basis, mat_w, vec[a]._data)
+        
+    #@staticmethod
+    #def assemble_vec(W, vec, weight=None):
+    #    """
+    #    Assembles (in 3d) vec_ijk = integral[ weight * Lambda_ijk ] into the Stencil-/BlockVector vec,
+    #    where Lambda_ijk are the basis functions of the spline space and weight is some weight function.
+    #    
+    #    The integration is performed with Gauss-Legendre quadrature over the whole logical domain.
+    #    
+    #    Parameters
+    #    ----------
+    #    W : TensorFemSpace | ProductFemSpace
+    #        Tensor product spline space from psydac.fem.tensor.
+    #        
+    #    vec : StencilVector | BlockVector
+    #        The vector to be filled.
+#
+    #    weight : list | NoneType
+    #        Weight function(s) (callables or np.ndarrays) in a 1d list of shape corresponding to number of components.
+    #    """
+#
+    #    assert isinstance(W, (TensorFemSpace, ProductFemSpace))
+    #    assert isinstance(vec, (StencilVector, BlockVector))
+    #    assert W.vector_space == vec.space
+#
+    #    # collect TensorFemSpaces for each component in tuple
+    #    if isinstance(W, TensorFemSpace):
+    #        Wspaces = (W,)
+    #    else:
+    #        Wspaces = W.spaces
+#
+    #    # loag assembly kernel
+    #    kernel = getattr(mass_kernels, 'kernel_' + str(W.ldim) + 'd_vec')
+#
+    #    # loop over components
+    #    for a, wspace in enumerate(Wspaces):
+#
+    #        # periodicity: True (1) or False (0)
+    #        periodic = [int(periodic) for periodic in wspace.periodic]
+#
+    #        # global element indices on process over which integration is performed
+    #        el_loc_indices = [quad_grid.indices for quad_grid in wspace.quad_grids]
+#
+    #        # global start spline index on process
+    #        starts = [int(start) for start in wspace.vector_space.starts]
+#
+    #        # pads (ghost regions)
+    #        pads = wspace.vector_space.pads
+#
+    #        # global quadrature points (flattened) and weights in format (local element, local weight)
+    #        nqs = [quad_grid.num_quad_pts     for quad_grid in wspace.quad_grids]
+    #        pts = [quad_grid.points.flatten() for quad_grid in wspace.quad_grids]
+    #        wts = [quad_grid.weights          for quad_grid in wspace.quad_grids]
+#
+    #        # evaluated basis functions at quadrature points
+    #        basis = [quad_grid.basis for quad_grid in wspace.quad_grids]
+#
+    #        # evaluation of weight function at quadrature points (optional)
+    #        if weight is not None:
+    #            if weight[a] is not None:
+    #                
+    #                if callable(weight[a]):
+    #                    PTS = np.meshgrid(*pts, indexing='ij')
+    #                    mat_w = weight[a](*PTS).copy()
+    #                elif isinstance(weight[a], np.ndarray):
+    #                    mat_w = weight[a]
+    #                    
+    #            else:
+    #                mat_w = np.ones([pt.size for pt in pts], dtype=float)
+    #        else:
+    #            mat_w = np.ones([pt.size for pt in pts], dtype=float)
+#
+    #        assert mat_w.shape == tuple([pt.size for pt in pts])
+#
+    #        # assemble matrix (if weight is not zero) by calling the appropriate kernel (1d, 2d or 3d)
+    #        if np.any(np.abs(mat_w) > 1e-14):
+    #            if isinstance(vec, StencilVector):
+    #                kernel(*el_loc_indices, *wspace.degree, *periodic, *starts, *pads, 
+    #                       *nqs, *wts, *basis, mat_w, vec._data)
+    #            else:
+    #                kernel(*el_loc_indices, *wspace.degree, *periodic, *starts, *pads, 
+    #                       *nqs, *wts, *basis, mat_w, vec[a]._data)
                     
     @staticmethod
     def eval_quad(W, coeffs):
@@ -790,11 +982,8 @@ class WeightedMassOperator( LinOpWithTransp ):
         # loop over components
         for a, wspace in enumerate(Wspaces):
 
-            # periodicity: True (1) or False (0)
-            periodic = [int(periodic) for periodic in wspace.periodic]
-
-            # global element indices on process over which integration is performed
-            el_loc_indices = [quad_grid.indices for quad_grid in wspace.quad_grids]
+            # knot span indices of elements of local domain
+            spans = [quad_grid.spans for quad_grid in wspace.quad_grids]
 
             # global start spline index on process
             starts = [int(start) for start in wspace.vector_space.starts]
@@ -803,21 +992,19 @@ class WeightedMassOperator( LinOpWithTransp ):
             pads = wspace.vector_space.pads
 
             # global quadrature points (flattened) and weights in format (local element, local weight)
-            nqs = [quad_grid.num_quad_pts     for quad_grid in wspace.quad_grids]
             pts = [quad_grid.points.flatten() for quad_grid in wspace.quad_grids]
+            wts = [quad_grid.weights          for quad_grid in wspace.quad_grids]
 
-            # evaluated basis functions at quadrature points
+            # evaluated basis functions at quadrature points of codomain space
             basis = [quad_grid.basis for quad_grid in wspace.quad_grids]
 
             # perform evaluation by calling the appropriate kernel (1d, 2d or 3d)
             values = np.zeros([pt.size for pt in pts], dtype=float)
             
             if isinstance(coeffs, StencilVector):
-                kernel(*el_loc_indices, *wspace.degree, *periodic, *starts, *pads, 
-                       *nqs, *basis, coeffs._data, values)
+                kernel(*spans, *wspace.degree, *starts, *pads, *basis, coeffs._data, values)
             else:
-                kernel(*el_loc_indices, *wspace.degree, *periodic, *starts, *pads, 
-                       *nqs, *basis, coeffs[a]._data, values)
+                kernel(*spans, *wspace.degree, *starts, *pads, *basis, coeffs[a]._data, values)
                 
             blocks += [values]
                 
@@ -825,4 +1012,72 @@ class WeightedMassOperator( LinOpWithTransp ):
             return blocks[0]
         else:
             return blocks
+    
+    #@staticmethod
+    #def eval_quad(W, coeffs):
+    #    """
+    #    Evaluates a given FEM field defined by its coefficients at the L2 quadrature points.
+    #    
+    #    Parameters
+    #    ----------
+    #    W : TensorFemSpace | ProductFemSpace
+    #        Tensor product spline space from psydac.fem.tensor.
+    #        
+    #    coeffs : StencilVector | BlockVector
+    #        The coefficient vector corresponding to the FEM field. Ghost regions must be up-to-date!
+    #    """
+#
+    #    assert isinstance(W, (TensorFemSpace, ProductFemSpace))
+    #    assert isinstance(coeffs, (StencilVector, BlockVector))
+    #    assert W.vector_space == coeffs.space
+#
+    #    # collect TensorFemSpaces for each component in tuple
+    #    if isinstance(W, TensorFemSpace):
+    #        Wspaces = (W,)
+    #    else:
+    #        Wspaces = W.spaces
+#
+    #    # loag assembly kernel
+    #    kernel = getattr(mass_kernels, 'kernel_' + str(W.ldim) + 'd_eval')
+    #    
+    #    blocks = []
+#
+    #    # loop over components
+    #    for a, wspace in enumerate(Wspaces):
+#
+    #        # periodicity: True (1) or False (0)
+    #        periodic = [int(periodic) for periodic in wspace.periodic]
+#
+    #        # global element indices on process over which integration is performed
+    #        el_loc_indices = [quad_grid.indices for quad_grid in wspace.quad_grids]
+#
+    #        # global start spline index on process
+    #        starts = [int(start) for start in wspace.vector_space.starts]
+#
+    #        # pads (ghost regions)
+    #        pads = wspace.vector_space.pads
+#
+    #        # global quadrature points (flattened) and weights in format (local element, local weight)
+    #        nqs = [quad_grid.num_quad_pts     for quad_grid in wspace.quad_grids]
+    #        pts = [quad_grid.points.flatten() for quad_grid in wspace.quad_grids]
+#
+    #        # evaluated basis functions at quadrature points
+    #        basis = [quad_grid.basis for quad_grid in wspace.quad_grids]
+#
+    #        # perform evaluation by calling the appropriate kernel (1d, 2d or 3d)
+    #        values = np.zeros([pt.size for pt in pts], dtype=float)
+    #        
+    #        if isinstance(coeffs, StencilVector):
+    #            kernel(*el_loc_indices, *wspace.degree, *periodic, *starts, *pads, 
+    #                   *nqs, *basis, coeffs._data, values)
+    #        else:
+    #            kernel(*el_loc_indices, *wspace.degree, *periodic, *starts, *pads, 
+    #                   *nqs, *basis, coeffs[a]._data, values)
+    #            
+    #        blocks += [values]
+    #            
+    #    if len(blocks) == 1:
+    #        return blocks[0]
+    #    else:
+    #        return blocks
             
