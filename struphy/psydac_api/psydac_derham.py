@@ -6,6 +6,7 @@ from sympde.topology import Derham as Derham_psy
 from psydac.api.discretization import discretize
 from psydac.fem.vector import ProductFemSpace
 from psydac.feec.global_projectors import Projector_H1vec
+from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 
 from struphy.psydac_api.linear_operators import BoundaryOperator, CompositeLinearOperator, IdentityOperator
 
@@ -124,11 +125,11 @@ class Derham:
         
         # discrete logical domain : the parallelism is initiated here.
         self._domain_log_h = discretize(
-            self._domain_log, ncells=Nel, comm=self._comm)
+            self._domain_log, ncells=Nel, comm=self._comm, periodic=self.spl_kind)
 
         # Psydac discrete de Rham, projectors and derivatives (as Stencil-/BlockMatrix)
         _derham = discretize(self._derham_symb, self._domain_log_h,
-                             degree=self.p, periodic=self.spl_kind, quad_order=self.quad_order)
+                             degree=self.p, quad_order=self.quad_order)
         
         self._grad, self._curl, self._div = _derham.derivatives_as_matrices
         
@@ -194,9 +195,15 @@ class Derham:
         self._indD = [(np.indices((space.ncells, space.degree + 1))[1] + np.arange(space.ncells)[:, None])%space.nbasis for space in self._Vh_fem['3'].spaces]
         
         # distribute info on domain decomposition
-        self._domain_array, self._index_array_N, self._index_array_D = self._get_decomp_arrays()
-        if comm is not None:
-            self._neighbours = self._get_neighbours()
+        self._domain_decomposition = self._Vh['0'].cart.domain_decomposition
+        
+        self._domain_array = self._get_domain_array()
+        self._index_array_domain = self._get_index_array(self._domain_decomposition)
+        
+        self._index_array_N = self._get_index_array(self._Vh['0'].cart)
+        self._index_array_D = self._get_index_array(self._Vh['3'].cart)
+        
+        self._neighbours = self._get_neighbours()
         
         # set polar sub-spaces, polar basis extraction operators, polar DOF extraction operators and boundary operators
         if self.polar_ck == -1:
@@ -312,6 +319,12 @@ class Derham:
         return self._indD
 
     @property
+    def domain_decomposition(self):
+        """ Psydac's domain decomposition object (same for all vector spaces!).
+        """
+        return self._domain_decomposition
+    
+    @property
     def domain_array(self):
         """
         A 2d array[float] of shape (comm.Get_size(), 9). The row index denotes the process number and
@@ -323,6 +336,17 @@ class Derham:
         """
         return self._domain_array
 
+    @property
+    def index_array_domain(self):
+        """
+        A 2d array[int] of shape (comm.Get_size(), 6). The row index denotes the process number and
+        for n=0,1,2:
+
+            * arr[i, 2*n + 0] holds the global start index of cells of process i in direction eta_(n+1).
+            * arr[i, 2*n + 1] holds the global end index of cells of process i in direction eta_(n+1).
+        """
+        return self._index_array_domain
+    
     @property
     def index_array_N(self):
         """
@@ -444,174 +468,272 @@ class Derham:
         """ Discrete divergence Vh2_pol (Hdiv) -> Vh3_pol (L2).
         """
         return self._div
-
-        
-    def _get_decomp_arrays(self):
+    
+    # --------------------------
+    #      public methods:
+    # --------------------------
+    
+    def create_buffer_types(self, *datas):
         """
-        Uses mpi.Allgather to distribute information on domain decomposition to all processes.
-
+        Creates the buffer types for the ghost region sender. Send types are only the slicing information;
+        receving has to be saved in a temporary array and then added to the _data object with the correct indices.
+        Buffers have the same structure as struphy.psydac_api.psydac_derham.Derham.neighbours, i.e. a 3d array with shape (3,3,3)
+        and are initialized with None. If the process has a neighbour, the send/recv information is filled in.
+        
+        Parameters
+        ----------
+        *datas : np.ndarrays
+            The 6d (matrices) or 3d (vectors) _data attributes of StencilMatrices/-Vectors whose ghost regions shall be sent.
+            
         Returns
         -------
-            dom_arr : array[float]
-                A 2d array[float] of shape (comm.Get_size(), 9). 
-                    - The row index denotes the process number. 
-                    - Let n=0,1,2 : 
-                        arr[i, 3*n + 0] holds the LEFT domain boundary of process i in direction eta_(n+1).
-                        arr[i, 3*n + 1] holds the RIGHT domain boundary of process i in direction eta_(n+1).
-                        arr[i, 3*n + 2] holds the number of cells of process i in direction eta_(n+1).
-                    
-            ind_arr_0 : array[int]
-                A 2d array[int] of shape (comm.Get_size(), 6). 
-                    - The row index denotes the process number.
-                    - Let n=0,1,2 :
-                        arr[i, 2*n + 0] holds the global start index of B-splines (N) of process i in direction eta_(n+1).
-                        arr[i, 2*n + 1] holds the global end index of B-splines (N) of process i in direction eta_(n+1).
+        send_types : list
+            The send types of ghost regions.
 
-            ind_arr_3 : array[int]
-                A 2d array[int] of shape (comm.Get_size(), 6). 
-                    - The row index denotes the process number.
-                    - Let n=0,1,2 :
-                        arr[i, 2*n + 0] holds the global start index of M-splines (D) of process i in direction eta_(n+1).
-                        arr[i, 2*n + 1] holds the global end index of M-splines (D) of process i in direction eta_(n+1).
+        recv_buf : list
+            The receive types of ghost regions.
         """
 
-        # mpi info
+        send_types = []
+        recv_buf = []
+
+        neighbours = self.neighbours
+
+        # pads are the same in all spaces (take V0 here)
+        pads = self.Vh['0'].pads
+
+        for k, arg in enumerate(datas):
+            for comp, neigh in np.ndenumerate(neighbours):
+
+                send_types.append(np.array([[[None]*3]*3]*3))
+                recv_buf.append(np.array([[[None]*3]*3]*3))
+
+                if neigh != -1:
+                    send_types[k][comp] = self._create_send_buffer_one_component(
+                        pads, arg.shape, comp)
+                    recv_buf[k][comp] = self._create_recv_buffer_one_component(
+                        pads, arg.shape, comp)
+
+        return send_types, recv_buf
+    
+    def send_ghost_regions(self, send_types, recv_types, *datas):
+        """
+        Communicates the ghost regions between all processes using non-blocking communication.
+        In order to avoid communication overhead a sending in one direction component is always accompanied
+        by a receiving (if neighbour is not -1) in the inverted direction. This guarantees that every send signal
+        is received in the same comp iteration.
+        
+        Parameters
+        ----------
+        send_types : list
+            The send types of ghost regions (obtained with self.create_buffer_types()).
+
+        recv_buf : list
+            The receive types of ghost regions (obtained with self.create_buffer_types()).
+            
+        *datas : np.ndarrays
+            The 6d (matrices) or 3d (vectors) _data attributes of StencilMatrices/-Vectors whose ghost regions shall be sent.
+        """
+
+        comm = self.comm
+        neighbours = self.neighbours
+
+        for dat, send_type, recv_type in zip(datas, send_types, recv_types):
+
+            for comp, send_neigh in np.ndenumerate(neighbours):
+                inv_comp = self._invert_component(comp)
+                recv_neigh = neighbours[inv_comp]
+                
+                if send_neigh != -1:
+                    send_type_comp = send_type[comp]
+                    # sending to component direction.
+                    self._send_ghost_regions_one_component(dat, send_neigh, send_type_comp, comp)
+                
+                if recv_neigh != -1:
+                    recv_type_comp = recv_type[inv_comp]
+                    # Receiving from the inverted component direction if there is a neighbour
+                    self._recv_ghost_regions_one_component(dat, recv_neigh, recv_type_comp, comp)
+
+                    if len(dat.shape) == 6:
+                        recv_type_comp['buf'][:, :, :, :, :, :] == 0.
+                        recv_type_comp['buf'][:, :, :, :, :, :] == 0.
+                    elif len(dat.shape) == 3:
+                        recv_type_comp['buf'][:, :, :] == 0.
+                        recv_type_comp['buf'][:, :, :] == 0.
+                    else:
+                        raise NotImplementedError('Unknown shape of data object!')
+
+                comm.Barrier()
+    
+    # --------------------------
+    #      private methods:
+    # --------------------------
+    
+    def _get_domain_array(self):
+        """
+        Uses mpi.Allgather to distribute information on domain decomposition to all processes.
+        
+        Returns
+        -------
+        dom_arr : np.ndarray
+            A 2d array of shape (#MPI processes, 9). The row index denotes the process rank. The columns are for n=0,1,2: 
+                - arr[i, 3*n + 0] holds the LEFT domain boundary of process i in direction eta_(n+1).
+                - arr[i, 3*n + 1] holds the RIGHT domain boundary of process i in direction eta_(n+1).
+                - arr[i, 3*n + 2] holds the number of cells of process i in direction eta_(n+1).
+        """
+        
+        # MPI info
         if self.comm is not None:
             nproc = self.comm.Get_size()
         else:
             nproc = 1
-        #rank = self.comm.Get_rank()
 
-        # Send buffer
+        # send buffer
         dom_arr_loc = np.zeros(9, dtype=float)
-        ind_arr_0_loc = np.zeros(6, dtype=int)
-        ind_arr_3_loc = np.zeros(6, dtype=int)
 
-        # Main arrays (receive buffers)
+        # main array (receive buffers)
         dom_arr = np.zeros(nproc * 9, dtype=float)
-        ind_arr_0 = np.zeros(nproc * 6, dtype=int)
-        ind_arr_3 = np.zeros(nproc * 6, dtype=int)
         
-        # get V0 and V3 FEM spaces
-        V0 = self.Vh_fem['0']
-        V3 = self.Vh_fem['3']
+        # Get global starts and ends of domain decomposition
+        gl_s = self.domain_decomposition.starts
+        gl_e = self.domain_decomposition.ends
+        
+        # fill local domain array
+        for n, (el_sta, el_end, brks) in enumerate(zip(gl_s, gl_e, self.breaks)):
 
-        # Get process info
-        starts_0 = V0.vector_space.starts
-        ends_0 = V0.vector_space.ends
-
-        starts_3 = V3.vector_space.starts
-        ends_3 = V3.vector_space.ends
-
-        # Fill local domain array
-        for n, (el_sta, el_end, brks) in enumerate(zip(V0.local_domain[0], V0.local_domain[1], self.breaks)):
-
-            dom_arr_loc[3*n] = brks[el_sta]
+            dom_arr_loc[3*n + 0] = brks[el_sta + 0]
             dom_arr_loc[3*n + 1] = brks[el_end + 1]
             dom_arr_loc[3*n + 2] = el_end - el_sta + 1
-
-        # Fill local index arrays 
-        for n, (gl_sta, gl_end, brks) in enumerate(zip(starts_0, ends_0, self.breaks)):
-
-            ind_arr_0_loc[2*n] = gl_sta
-            ind_arr_0_loc[2*n + 1] = gl_end
-
-        for n, (gl_sta, gl_end, brks) in enumerate(zip(starts_3, ends_3, self.breaks)):
-
-            ind_arr_3_loc[2*n] = gl_sta
-            ind_arr_3_loc[2*n + 1] = gl_end
-
-        # Distribute
+            
+        # distribute
         if self.comm is not None:
             self.comm.Allgather(dom_arr_loc, dom_arr)
-            self.comm.Allgather(ind_arr_0_loc, ind_arr_0)
-            self.comm.Allgather(ind_arr_3_loc, ind_arr_3)
         else:
-            dom_arr = dom_arr_loc
-            ind_arr_0 = ind_arr_0_loc
-            ind_arr_3 = ind_arr_3_loc
+            dom_arr[:] = dom_arr_loc
 
-        return dom_arr.reshape(nproc, 9), ind_arr_0.reshape(nproc, 6), ind_arr_3.reshape(nproc, 6)
+        return dom_arr.reshape(nproc, 9)
+    
+    def _get_index_array(self, decomposition):
+        """
+        Uses mpi.Allgather to distribute information on domain/cart decomposition to all processes.
+        
+        Parameters
+        ----------
+        decomposition : DomainDecomposition | CartDecomposition
+            Psydac's domain or cart decomposition object. The former is the same for all spaces, the latter different.
+        
+        Returns
+        -------
+        ind_arr : np.ndarray
+            A 2d array of shape (#MPI processes, 6). The row index denotes the process rank. The columns are for n=0,1,2: 
+                - arr[i, 2*n + 0] holds the global start index process i in direction eta_(n+1).
+                - arr[i, 2*n + 1] holds the global end index of process i in direction eta_(n+1).
+        """
+        
+        # MPI info
+        if self.comm is not None:
+            nproc = self.comm.Get_size()
+        else:
+            nproc = 1
 
+        # send buffer
+        ind_arr_loc = np.zeros(6, dtype=int)
+
+        # main array (receive buffers)
+        ind_arr = np.zeros(nproc * 6, dtype=int)
+        
+        # Get global starts and ends of cart OR domain decomposition
+        gl_s = decomposition.starts
+        gl_e = decomposition.ends
+        
+        # fill local domain array
+        for n, (sta, end) in enumerate(zip(gl_s, gl_e)):
+
+            ind_arr_loc[2*n + 0] = sta
+            ind_arr_loc[2*n + 1] = end
+            
+        # distribute
+        if self.comm is not None:
+            self.comm.Allgather(ind_arr_loc, ind_arr)
+        else:
+            ind_arr[:] = ind_arr_loc
+
+        return ind_arr.reshape(nproc, 6)
+    
     def _get_neighbours(self):
         """
         For each mpi process, compute the 26 neighbouring processes (3x3x3 cube except the most inner element).
-        This is done in terms of N-spline start/end indices.
+        This is done in terms of domain decomposition start/end indices.
+        
+        For fixed eta1-index k, eta2 as row index, eta3 as column index, we have:
+
+                    |         |
+            (k,0,0) | (k,0,1) | (k,0,2)
+                    |         |
+            ---------------------------
+                    |         |
+            (k,1,0) | (k,1,1) | (k,1,2)
+                    |         |
+            ---------------------------
+                    |         |
+            (k,2,0) | (k,2,1) | (k,2,2)
+                    |         |
+
+        The element is the rank number (can also be itself) and -1 if there is no neighbour.
+        The element with index (1,1,1) (center of the cube) is always -1.
 
         Returns
         -------
-            neighbours : array[int]
-                A 3d array[int] of shape (3,3,3).
-                The i-th axis is the direction eta_(i+1). Neighbours along the faces have index with two 1s,
-                neighbours along the edges only have one 1, neighbours along the edges have no 1 in the index.
-
-                For fixed eta1-index k, eta2 as row index, eta3 as column index, we have:
-
-                        |         |
-                (k,0,0) | (k,0,1) | (k,0,2)
-                        |         |
-                ---------------------------
-                        |         |
-                (k,1,0) | (k,1,1) | (k,1,2)
-                        |         |
-                ---------------------------
-                        |         |
-                (k,2,0) | (k,2,1) | (k,2,2)
-                        |         |
-
-                The element is the rank number (can also be itself) and -1 if there is no neighbour.
-                The element with index (1,1,1) (center of the cube) is always -1.
+        neighbours : np.ndarray
+            A 3d array of shape (3,3,3).
+            The i-th axis is the direction eta_(i+1). Neighbours along the faces have index with two 1s,
+            neighbours along the edges only have one 1, neighbours along the edges have no 1 in the index. 
         """
 
-        neighs = np.empty( (3,3,3), dtype=int )
+        neighs = np.empty((3, 3, 3), dtype=int)
 
         for i in range(3):
             for j in range(3):
                 for k in range(3):
-                    comp = [i,j,k]
+                    comp = [i, j, k]
                     ind = tuple(comp)
-                    neighs[ind] = self._get_neigh_1_comp(comp)
+                    neighs[ind] = self._get_neighbour_one_component(comp)
         
         return neighs
 
-    def _get_neigh_1_comp(self, comp):
+    def _get_neighbour_one_component(self, comp):
         """
         Computes the process id of a neighbour in direction of comp (c.f. _neighbours).
 
         Parameters
         ----------
-            comp : list
-                list with 3 entries
+        comp : list
+            list with 3 entries.
 
         Returns
         -------
-            res : int
-                id of neighbouring process
+        neigh_id : int
+            ID of neighbouring process.
         """
         assert len(comp) == 3
         
-        # get V0 and V3 FEM spaces
-        V0 = self.Vh_fem['0']
-        V3 = self.Vh_fem['3']
-
-        # Get space info
-        dims = [space.nbasis for space in V0.spaces]
-        index_arr = self.index_array_N
-        kinds = self.spl_kind
+        # get space info
+        ncells = self.domain_decomposition.ncells
+        kinds  = self.domain_decomposition.periods
         
-        # Get process info
-        starts = V0.vector_space.starts
-        ends = V0.vector_space.ends
+        # global starts and end cell indices of process
+        gl_s = self.domain_decomposition.starts
+        gl_e = self.domain_decomposition.ends
 
-        # Get communicator info
-        rank = self.comm.Get_rank()
-        size = self.comm.Get_size()
+        # get communicator info
+        rank = self.domain_decomposition.rank
+        size = self.domain_decomposition.size
 
-        res = -1
+        neigh_id = -1
 
         # central component is always the process itself
-        if comp == [1,1,1]:
-            return res
+        if comp == [1, 1, 1]:
+            return neigh_id
 
         comp = np.array(comp)
         kinds = np.array(kinds)
@@ -623,24 +745,26 @@ class Derham:
 
         # multiple processes
         else:
-            # initialize array which will be compared to the rows of index_arr; elements with index 2n are the starts and 2n+1 are the ends.
+            # initialize array which will be compared to the rows of index_array_domain:
+            # elements with index 2n are the starts and 2n + 1 are the ends.
+            
             neigh_inds = [None]*6
             
             # in each direction find start/end index for neighbour
             for k, co in enumerate(comp):
                 if co == 1:
-                    neigh_inds[2*k] = index_arr[rank, 2*k]
-                    neigh_inds[2*k+1] = index_arr[rank, 2*k+1]
+                    neigh_inds[2*k + 0] = self.index_array_domain[rank, 2*k + 0]
+                    neigh_inds[2*k + 1] = self.index_array_domain[rank, 2*k + 1]
                 
                 elif co == 0:
-                    neigh_inds[2*k+1] = starts[k] - 1
+                    neigh_inds[2*k + 1] = gl_s[k] - 1
                     if kinds[k]:
-                        neigh_inds[2*k+1] %= dims[k]
+                        neigh_inds[2*k + 1] %= ncells[k]
 
                 elif co == 2:
-                    neigh_inds[2*k] = ends[k] + 1
+                    neigh_inds[2*k] = gl_e[k] + 1
                     if kinds[k]:
-                        neigh_inds[2*k] %= dims[k]
+                        neigh_inds[2*k] %= ncells[k]
 
                 else:
                     raise ValueError('Wrong value for component; must be 0 or 1 or 2 !')
@@ -650,69 +774,217 @@ class Derham:
             # only use indices where information is present to find the neighbours rank
             inds = np.where(neigh_inds != None)
 
-            # find ranks (row index of index_arr) which agree in start/end indices
-            index_temp = np.squeeze(index_arr[:, inds])
+            # find ranks (row index of domain_array) which agree in start/end indices
+            index_temp = np.squeeze(self.index_array_domain[:, inds])
             unique_ranks = np.where( np.equal( index_temp, neigh_inds[inds] ).all(1) )[0]
 
             # if any row satisfies condition, return its index (=rank of neighbour)
             if len(unique_ranks) != 0:
-                res = unique_ranks[0]
+                neigh_id = unique_ranks[0]
         
-        return res
+        return neigh_id
     
-    
+    def _create_send_buffer_one_component(self, pads, arg_shape, comp):
+        """
+        creates the send buffer in direction for stencil matrices and vectors. Send buffer is the indexing (MPI.Create_subarray)
 
+        Parameters
+        ----------
+        pads : list
+            contains the paddings in each direction.
 
-def index_to_domain(gl_start, gl_end, pad, ind_mat, breaks):
-    """
-    Transform the psydac decomposition of spline indices into a domain decomposition (1d).
+        arg_shape : tuple
+            called by arg.shape.
 
-    Parameters
-    ----------
-        gl_start : int
-            Global start index on mpi process.
+        comp : tuple
+            component for which the send buffer is to be created; entries are in {0,1,2}.
+        """
+        from mpi4py import MPI
 
-        gl_end : int
-            Global end index on mpi process.
+        subsizes_sub = list(arg_shape)
 
-        pad : int
-            Padding on mpi process (size of ghost region in spline coeffs).
+        if len(arg_shape) == 6:
+            starts_sub = [pads[0], pads[1], pads[2], 0, 0, 0]
 
-        ind_mat : array[int]
-            2d array of shape (Nel, p + 1) of indices of non-vanishing splines in each element (or cell).
-            From Derham.indN_psy or Derham.indD_psy.
+        elif len(arg_shape) == 3:
+            starts_sub = [pads[0], pads[1], pads[2]]
 
-        breaks : list
-            Break points (=cell interfaces) in [0, 1].
+        else:
+            raise NotImplementedError('Unknown shape of argument!')
 
-    Returns
-    -------
-        Left and right boundary [le, ri] of local 1d domain.
-    """
+        for k in range(3):
+            subsizes_sub[k] -= 2*pads[k]
 
-    # Is it a B- or a D-spline?
-    is_D_spline = False
-    if ind_mat.shape[1] == pad:
-        is_D_spline = True
+        for k, co in enumerate(comp):
+            # if left neighbour
+            if co == 0:
+                subsizes_sub[k] = pads[k]
+                starts_sub[k] = 0
 
-    ind_le = gl_start
-    ind_ri = gl_end + pad - is_D_spline
-    if ind_ri > np.amax(ind_mat):
-        ind_ri -= pad - is_D_spline
+            # if middle neighbour
+            elif co == 1:
+                continue
 
-    assert ind_le < ind_ri
+            # if right neighbour
+            elif co == 2:
+                subsizes_sub[k] = pads[k]
+                starts_sub[k] = arg_shape[k] - pads[k]
 
-    le = None
-    ri = None
-    for n in range(ind_mat.shape[0]):
+            else:
+                raise ValueError('Unknown value for component!')
 
-        if ind_le == ind_mat[n, 0]:
-            le = breaks[n]
-            n1 = n
+        temp = MPI.DOUBLE.Create_subarray(
+            sizes=list(arg_shape),
+            subsizes=subsizes_sub,
+            starts=starts_sub
+        ).Commit()
 
-        if ind_ri == ind_mat[n, -1]:
-            ri = breaks[n + 1]
-            n_cells_loc = n - n1 + 1
+        return temp
 
-    return le, ri, n_cells_loc
+    def _create_recv_buffer_one_component(self, pads, arg_shape, comp):
+        """
+        creates the receive buffer in direction for stencil matrices. The receive buffer is an empty numpy array
+        and the indices where the ghost regions will have to be added to. Left and right are swapped compared to
+        send-types since _send_ghost_regions() does the sending component-wise. Sending to the left means 
 
+        Parameters
+        ----------
+        pads : list
+            contains the paddings in each direction.
+
+        arg_shape : tuple
+            called by arg.shape.
+
+        comp : tuple
+            component for which the send buffer is to be created; entries are in {0,1,2}.
+        """
+
+        subsizes_sub = [arg_shape[k] for k in range(len(arg_shape))]
+
+        if len(arg_shape) == 6:
+            inds = [slice(pads[0], -pads[0])] + [slice(pads[1], -pads[1])] + [slice(pads[2], -pads[2])] \
+                + [slice(None)]*3
+
+        elif len(arg_shape) == 3:
+            inds = [slice(pads[0], -pads[0])] + \
+                [slice(pads[1], -pads[1])] + [slice(pads[2], -pads[2])]
+
+        else:
+            raise NotImplementedError('Unknown shape of argument!')
+
+        for k in range(3):
+            subsizes_sub[k] -= 2*pads[k]
+
+        for k, co in enumerate(comp):
+            # if left neighbour
+            if co == 0:
+                subsizes_sub[k] = pads[k]
+                inds[k] = slice(pads[k], 2*pads[k])
+
+            # if middle neighbour
+            elif co == 1:
+                continue
+
+            # if right neighbour
+            elif co == 2:
+                subsizes_sub[k] = pads[k]
+                inds[k] = slice(-2*pads[k], -pads[k])
+
+            else:
+                raise ValueError('Unknown value for component!')
+
+        temp = {
+            'buf': np.zeros(tuple(subsizes_sub), dtype=float),
+            'inds': tuple(inds)
+        }
+
+        return temp
+
+    def _send_ghost_regions_one_component(self, dat, neighbour, send_type, comp):
+        """
+        Does the sending for one direction component using non-blocking communication.
+
+        Parameters
+        ----------
+        dat : array
+            Stencil ._data object; numpy array.
+
+        neighbour : int
+            tag of the neighbour or -1 if no neighbour.
+
+        send_type : MPI.Create_subarrays object
+            MPI.Create_subarrays object; created by _create_buffer_types().
+
+        comp : tuple
+            component direction into which the ghost region is to be sent; entries are in {0,1,2}.
+        """
+
+        comm = self.comm
+        rank = comm.Get_rank()
+
+        send_tag = rank + 1000*comp[0] + 100*comp[1] + 10*comp[2]
+
+        comm.Isend(
+            (dat, 1, send_type), dest=neighbour, tag=send_tag)
+
+    def _recv_ghost_regions_one_component(self, dat, neighbour, recv_type, comp):
+        """
+        Does the receving for one direction component using non-blocking communication.
+
+        Parameters
+        ----------
+        dat : array
+            Stencil ._data object; numpy array.
+
+        neighbour : int
+            tag of the neighbour or -1 if no neighbour.
+
+        recv_type : dict
+            dictionary with keys 'buf' and 'inds' and values are numpy arrays; created by _create_buffer_types().
+
+        comp : tuple
+            component direction from which the ghost region was sent (is only used for computing the tag); entries are in {0,1,2}.
+        """
+        from mpi4py import MPI
+
+        comm = self.comm
+
+        recv_tag = neighbour + 1000*comp[0] + 100*comp[1] + 10*comp[2]
+
+        req_l = comm.Irecv(
+            recv_type['buf'], source=neighbour, tag=recv_tag)
+
+        re_l = False
+        while not re_l:
+            re_l = MPI.Request.Test(req_l)
+
+        dat[recv_type['inds']] += recv_type['buf']
+
+    def _invert_component(self, comp):
+        """
+        Given a component in the 3x3x3 cube this function 'inverts' it, i.e. reflects
+        it on the central component (1,1,1).
+        
+        Parameters
+        ----------
+        comp : tuple
+            component index in the 3x3x3 cube; entries are in {0,1,2}.
+        
+        Returns
+        -------
+        res : tuple
+            inverse component to input.
+        """
+        res = [-1, -1, -1]
+
+        for k,co in enumerate(comp):
+            if co == 1:
+                res[k] = 1
+            elif co == 0:
+                res[k] = 2
+            elif co == 2:
+                res[k] = 0
+            else:
+                raise ValueError('Unknown component value!')
+        
+        return tuple(res)

@@ -4,11 +4,11 @@ import pytest
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 10]])
 @pytest.mark.parametrize('p', [[2, 3, 4]])
-@pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, True], [True, False, True], [True, True, True]])
+@pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, True], [True, True, False]])
 @pytest.mark.parametrize('mapping', [
     ['Cuboid', {
         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], ])
-def test_accumulation(Nel, p, spl_kind, mapping, Np=10, verbose=False):
+def test_accumulation(Nel, p, spl_kind, mapping, Np=40, verbose=False):
     """
     A test to compare the old accumulation routine of step1 and step3 of cc_lin_mhd_6d with the old way (files stored in
     ../test_pic_legacy_files) and the new way using the Accumulator object (ghost_region_sender, mat_vec_filler).
@@ -588,6 +588,6 @@ if __name__ == '__main__':
 
     for kind in itertools.product([True, False], repeat=2):
         print(kind)
-        spl_kind = list(kind) + [True]
-        test_accumulation([18, 20, 20], [2, 4, 4], spl_kind, ['Cuboid', {
-                          'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 4.}], Np=10, verbose=True)
+        spl_kind = list(kind) + [False]
+        test_accumulation([18, 10, 10], [2, 3, 4], spl_kind, ['Cuboid', {
+                          'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 4.}], Np=40, verbose=True)

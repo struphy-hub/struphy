@@ -49,6 +49,7 @@ ENV HDF5_MPI="ON"
 
 # install psydac from submodule
 RUN git clone https://github.com/pyccel/psydac.git \
+    && echo 'change something here if not using the cache' \
     && cd psydac \
     && git checkout 0be048d57040dc6b62b5d901f9805bcd30e35537 \
     && python3 -m pip install -r requirements.txt \
@@ -58,7 +59,9 @@ RUN git clone https://github.com/pyccel/psydac.git \
 # compile psydac kernels 
 RUN PSYDAC=$(python3 -c "import psydac as _; print(_.__path__[0])") \
     && pyccel $PSYDAC/core/kernels.py \
-    && pyccel $PSYDAC/core/bsplines_pyccel.py 
+    && pyccel $PSYDAC/core/bsplines_pyccel.py \ 
+    && pyccel $PSYDAC/linalg/kernels.py \
+    && pyccel $PSYDAC/feec/dof_kernels.py
 
 # allow mpirun as root
 ENV OMPI_ALLOW_RUN_AS_ROOT=1

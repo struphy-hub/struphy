@@ -9,6 +9,8 @@ from psydac.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace
 
+from psydac.ddm.cart import DomainDecomposition, CartDecomposition
+
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
 from psydac.api.essential_bc import apply_essential_bc_stencil
@@ -89,7 +91,8 @@ class MassMatrixPreconditioner(LinearSolver):
                 quad_order_1d = femspaces[c].quad_order[d]
                     
                 # assemble 1d mass matrix
-                femspace_1d_tensor = TensorFemSpace(femspace_1d, quad_order=[quad_order_1d])
+                domain_decomp_1d = DomainDecomposition([femspace_1d.ncells], [femspace_1d.periodic])
+                femspace_1d_tensor = TensorFemSpace(domain_decomp_1d, femspace_1d, quad_order=[quad_order_1d])
                 
                 # only for M1 Mac users
                 PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
@@ -97,6 +100,11 @@ class MassMatrixPreconditioner(LinearSolver):
                 M = StencilMatrix(femspace_1d_tensor.vector_space, femspace_1d_tensor.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
                 
                 WeightedMassOperator.assemble_mat(femspace_1d_tensor, femspace_1d_tensor, M, fun)
+                M.exchange_assembly_data()
+                
+                # add RIGHT ghost region to LEFT (only needed for periodic spline):
+                #if femspace_1d.periodic:
+                #    M._data[femspace_1d.pads:2*femspace_1d.pads] += M._data[-femspace_1d.pads:]
                 
                 # apply boundary conditions
                 if apply_bc:
@@ -126,7 +134,10 @@ class MassMatrixPreconditioner(LinearSolver):
                 s = femspaces[c].vector_space.starts[d]
                 e = femspaces[c].vector_space.ends[d]
                 
-                V_local = StencilVectorSpace([n], [p], [periodic], starts=[s], ends=[e])
+                cart_decomp_1d = CartDecomposition(domain_decomp_1d, [n], [[s]], [[e]], [p], [1])
+                V_local = StencilVectorSpace(cart_decomp_1d)
+                
+                #V_local = StencilVectorSpace([n], [p], [periodic], starts=[s], ends=[e])
                 M_local = StencilMatrix(V_local, V_local)
                 
                 row_indices, col_indices = np.nonzero(M_arr)

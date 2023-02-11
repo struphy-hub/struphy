@@ -302,12 +302,12 @@ class LinearMHDVlasovCC(StruphyModel):
 
         if abs(kappa - 1) < 1e-6:
             kappa = 1.
-
-        coupling_params = {'nuh': nuh, 'Ab': Ab,
+            
+        self._coupling_params = {'nuh': nuh, 'Ab': Ab,
                            'Ah': Ah, 'Zh': Zh, 'kappa': kappa}
 
         if self.derham.comm.Get_rank() == 0:
-            print('Bulk / EP coupling parameters : ', coupling_params)
+            print('Bulk / EP coupling parameters : ', self._coupling_params)
 
         # background distribution function used as control variate
         if params['kinetic']['energetic_ions']['markers']['type'] == 'control_variate':
@@ -350,7 +350,7 @@ class LinearMHDVlasovCC(StruphyModel):
 
         # updates u
         self._propagators += [propagators_fields.CurrentCoupling6DDensity(
-            self._e_ions, self.derham, self.domain, self._mass_ops, solver_params_1, coupling_params, self._u, self._u_space, self._b_eq, self._b, f0=f0)]
+            self._e_ions, self.derham, self.domain, self._mass_ops, solver_params_1, self._coupling_params, self._u, self._u_space, self._b_eq, self._b, f0=f0)]
 
         # updates u and b
         self._propagators += [propagators_fields.ShearAlfvén(
@@ -358,7 +358,7 @@ class LinearMHDVlasovCC(StruphyModel):
 
         # updates u and v (and weights for control variate)
         self._propagators += [propagators_coupling.CurrentCoupling6DCurrent(
-            self._e_ions, self.derham, self.domain, self._mass_ops, solver_params_3, coupling_params, self._u, self._u_space, self._b_eq, self._b, f0=f0)]
+            self._e_ions, self.derham, self.domain, self._mass_ops, solver_params_3, self._coupling_params, self._u, self._u_space, self._b_eq, self._b, f0=f0)]
 
         # updates eta
         self._propagators += [propagators_markers.StepPushEta(
@@ -459,10 +459,10 @@ class LinearMHDVlasovCC(StruphyModel):
 
         self._scalar_quantities['en_B_tot'][0] = (
             self._b_eq + self._b).dot(self._mass_ops.M2.dot(self._b_eq + self._b, apply_bc=False))/2
-
-        self._scalar_quantities['en_f'][0] = 0.05*self._e_ions.markers_wo_holes[:, 6].dot(
-            self._e_ions.markers_wo_holes[:, 3]**2 +
-            self._e_ions.markers_wo_holes[:, 4]**2 +
+        
+        self._scalar_quantities['en_f'][0] = self._coupling_params['nuh']*self._coupling_params['Ah']/self._coupling_params['Ab']*self._e_ions.markers_wo_holes[:, 6].dot(
+            self._e_ions.markers_wo_holes[:, 3]**2 + 
+            self._e_ions.markers_wo_holes[:, 4]**2 + 
             self._e_ions.markers_wo_holes[:, 5]**2)/(2*self._e_ions.n_mks)
 
         self.derham.comm.Allreduce(
