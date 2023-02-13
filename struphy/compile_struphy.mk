@@ -153,7 +153,7 @@ $(ACC)$(SO_EXT) : $(ACC).py $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT) $(B
 $(PUTL)$(SO_EXT) : $(PUTL).py $(LAC)$(SO_EXT)
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
-$(PUSH)$(SO_EXT) : $(PUSH).py $(PUTL).py $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
+$(PUSH)$(SO_EXT) : $(PUSH).py $(PUTL).py $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BKP)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
 $(PS)$(SO_EXT) : $(PS).py $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT) $(MEVA)$(SO_EXT)

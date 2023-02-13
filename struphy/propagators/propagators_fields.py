@@ -452,7 +452,7 @@ class Magnetosonic(Propagator):
             print()
 
 
-class Hybrid_potential(Propagator):
+class Hybrid_potential( Propagator ):
     r'''Crank-Nicolson step for the Faraday's law.
 
     math::
@@ -471,12 +471,14 @@ class Hybrid_potential(Propagator):
 
         derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
-
+            
         mass_ops : struphy.psydac_api.mass.WeightedMassOperators
             Weighted mass matrices from struphy.psydac_api.mass. 
     '''
 
     def __init__(self, a, a_space, beq, derham, mass_ops, domain, particles, nqs, p_shape, p_size):
+
+        
 
         assert isinstance(a, (BlockVector, PolarVector))
         assert a_space in {'Hcurl', 'Hdiv', 'H1vec'}
@@ -491,35 +493,27 @@ class Hybrid_potential(Propagator):
         self._derham = derham
 
         # Initialize Accumulator object for getting density from particles
-        self._pts_x = 1.0 / \
-            (2.0*derham.Nel[0]) * np.polynomial.legendre.leggauss(nqs[0]
-                                                                  )[0] + 1.0 / (2.0*derham.Nel[0])
-        self._pts_y = 1.0 / \
-            (2.0*derham.Nel[1]) * np.polynomial.legendre.leggauss(nqs[1]
-                                                                  )[0] + 1.0 / (2.0*derham.Nel[1])
-        self._pts_z = 1.0 / \
-            (2.0*derham.Nel[2]) * np.polynomial.legendre.leggauss(nqs[2]
-                                                                  )[0] + 1.0 / (2.0*derham.Nel[2])
-        self._nqs = nqs
+        self._pts_x = 1.0 / (2.0*derham.Nel[0]) * np.polynomial.legendre.leggauss(nqs[0])[0] + 1.0 / (2.0*derham.Nel[0])
+        self._pts_y = 1.0 / (2.0*derham.Nel[1]) * np.polynomial.legendre.leggauss(nqs[1])[0] + 1.0 / (2.0*derham.Nel[1])
+        self._pts_z = 1.0 / (2.0*derham.Nel[2]) * np.polynomial.legendre.leggauss(nqs[2])[0] + 1.0 / (2.0*derham.Nel[2])
+        self._nqs   = nqs 
         self._p_shape = p_shape
         self._p_size = p_size
         self._accum_density = Accumulator(derham, domain, 'H1', 'hybrid_fA_density',
-                                          do_vector=False, symmetry='None')
+                                  do_vector=False, symmetry='None')
 
-        self._accum_density.accumulate(self._particles, np.array(self._derham.Nel), np.array(self._nqs), np.array(
-            self._pts_x), np.array(self._pts_y), np.array(self._pts_z), np.array(self._p_shape), np.array(self._p_size))
+        self._accum_density.accumulate(self._particles, np.array(self._derham.Nel), np.array(self._nqs), np.array(self._pts_x), np.array(self._pts_y), np.array(self._pts_z), np.array(self._p_shape), np.array(self._p_size))
 
-        # Initialize Accumulator object for getting the matrix and vector related with vector potential
-        self._accum_potential = Accumulator(derham, domain, 'Hcurl', 'hybrid_fA_Arelated',
-                                            do_vector=True, symmetry='symm')
+        # Initialize Accumulator object for getting the matrix and vector related with vector potential 
+        self._accum_potential = Accumulator(derham, domain, 'Hcurl', 'hybrid_fA_Arelated',  
+                                  do_vector=True, symmetry='symm')
 
         self._accum_potential.accumulate(self._particles)
+        
+        # for testing of hybrid linear operators 
+        self._density = StencilMatrix(self._derham.Vh[self._derham.spaces_dict['H1']], self._derham.Vh[self._derham.spaces_dict['H1']], backend=PSYDAC_BACKEND_GPYCCEL)
+        self._hybrid_ops = HybridOperators(self._derham, self._domain, self._density, self._a, self._beq)
 
-        # for testing of hybrid linear operators
-        self._density = StencilMatrix(self._derham.Vh[self._derham.spaces_dict['H1']],
-                                      self._derham.Vh[self._derham.spaces_dict['H1']], backend=PSYDAC_BACKEND_GPYCCEL)
-        self._hybrid_ops = HybridOperators(
-            self._derham, self._domain, self._density, self._a, self._beq)
 
     @property
     def variables(self):
@@ -527,12 +521,11 @@ class Hybrid_potential(Propagator):
 
     def __call__(self, dt):
 
-        # for getting density from particles.
-        self._accum_density.accumulate(self._particles, np.array(self._derham.Nel), np.array(self._nqs), np.array(
-            self._pts_x), np.array(self._pts_y), np.array(self._pts_z), np.array(self._p_shape), np.array(self._p_size))
-        # for getting the matrix and vector related with vector potential
+        # for getting density from particles. 
+        self._accum_density.accumulate(self._particles, np.array(self._derham.Nel), np.array(self._nqs), np.array(self._pts_x), np.array(self._pts_y), np.array(self._pts_z), np.array(self._p_shape), np.array(self._p_size))
+        # for getting the matrix and vector related with vector potential 
         self._accum_potential.accumulate(self._particles)
-        # Iniitialize hybrid linear operators
+        # Iniitialize hybrid linear operators 
         self._hybrid_ops.HybridM1
         # current variables
         an = self.variables[0]

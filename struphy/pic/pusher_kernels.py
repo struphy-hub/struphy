@@ -3,6 +3,7 @@ from pyccel.decorators import stack_array
 import struphy.linear_algebra.core as linalg
 import struphy.geometry.map_eval as map_eval
 import struphy.b_splines.bsplines_kernels as bsp
+import struphy.b_splines.bsplines_kernels_particles as bspparticle
 import struphy.b_splines.bspline_evaluation_3d as eval_3d
 
 from struphy.pic.pusher_utilities import aux_fun_x_v_stat_e
@@ -497,6 +498,373 @@ def push_pxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
         # analytic rotation
         markers[ip, 3:6] = vpar*b_norm + \
             cos(b_abs*dt)*vperp - sin(b_abs*dt)*b_normxvperp + rot_temp
+
+    #$ omp end parallel
+
+
+@stack_array('df', 'dfinv', 'dfinv_t', 'eta1', 'eta2', 'eta3')
+def push_hybrid_xp_lnn(markers: 'float[:,:]', dt: float, stage: int,
+                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                      starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                      kind_map: int, params_map: 'float[:]',
+                      p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                      ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                      cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                      p_shape: 'int[:]', p_size: 'float[:]', Nel: 'int[:]', 
+                      pts1: 'float[:]', pts2: 'float[:]', pts3: 'float[:]',
+                      weight: 'float[:,:,:,:,:,:]', thermal: 'float', n_quad: 'int[:]'):
+    r'''Solves exactly the rotation
+
+    .. math::
+
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \mathbf v_p(t) \times \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}
+
+    for each marker :math:`p` in markers array, with fixed rotation vector.
+
+    Parameters
+    ----------
+        b2_1, b2_2, b2_3: array[float]
+            3d array of FE coeffs of B-field as 2-form.
+    '''
+
+    # allocate metric coeffs
+    df = empty((3, 3), dtype=float)
+    dfinv = empty((3, 3), dtype=float)
+    dfinv_t = empty((3, 3), dtype=float)
+
+    compact      = zeros(3, dtype=float)
+    compact[0]   = (p_shape[0]+1.0)*p_size[0]
+    compact[1]   = (p_shape[1]+1.0)*p_size[1]
+    compact[2]   = (p_shape[2]+1.0)*p_size[2]
+
+    cell_left    = empty(3, dtype=int)
+    point_left   = zeros(3, dtype=float)
+    point_right  = zeros(3, dtype=float)
+    cell_number  = empty(3, dtype=int)
+
+    grids_shapex = zeros(p_shape[0] + 2, dtype=float)
+    grids_shapey = zeros(p_shape[1] + 2, dtype=float)
+    grids_shapez = zeros(p_shape[2] + 2, dtype=float)
+
+    temp1 = empty(3, dtype=float)
+    temp4 = empty(3, dtype=float)
+    temp6 = empty(3, dtype=float)
+    temp8 = empty(3, dtype=float)
+    ww    = empty(1, dtype=float)
+
+    value = empty(3, dtype=float)
+    valuexyz = empty(3, dtype=float)
+    dvaluexyz = empty(3, dtype=float)
+
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    #$ omp parallel private (ip, eta1, eta2, eta3, df, dfinv, dfinv_t, det_df, weight_p, point_left, point_right, cell_left, cell_number, i, grids_shapex, grids_shapey, grids_shapez, x_ii, y_ii, z_ii, il1, il2, il3, q1, q2, q3, temp1, temp4, temp6, valuexyz, dvaluexyz, temp8, ww)
+    #$ omp for
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        eta1   = markers[ip, 0]
+        eta2   = markers[ip, 1]
+        eta3   = markers[ip, 2]
+
+        # evaluate Jacobian, result in df
+        map_eval.df(eta1, eta2, eta3,
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        linalg.matrix_inv(df, dfinv)
+        linalg.transpose(dfinv, dfinv_t)
+        # metric coeffs
+        det_df = linalg.det(df)
+
+        weight_p = 1.0/(p_size[0]*p_size[1]*p_size[2])
+
+        point_left[0]  = eta1 - 0.5*compact[0]
+        point_right[0] = eta1 + 0.5*compact[0]
+        point_left[1]  = eta2 - 0.5*compact[1]
+        point_right[1] = eta2 + 0.5*compact[1]
+        point_left[2]  = eta3 - 0.5*compact[2]
+        point_right[2] = eta3 + 0.5*compact[2]
+
+        cell_left[0] = int(floor(point_left[0]*Nel[0]))
+        cell_left[1] = int(floor(point_left[1]*Nel[1]))
+        cell_left[2] = int(floor(point_left[2]*Nel[2]))
+
+        cell_number[0] = int(floor(point_right[0]*Nel[0])) - cell_left[0] + 1.0
+        cell_number[1] = int(floor(point_right[1]*Nel[1])) - cell_left[1] + 1.0
+        cell_number[2] = int(floor(point_right[2]*Nel[2])) - cell_left[2] + 1.0
+
+        for i in range(p_shape[0] + 1):
+            grids_shapex[i] = point_left[0] + i * p_size[0]
+        grids_shapex[p_shape[0] + 1] = point_right[0]
+
+        for i in range(p_shape[1] + 1):
+            grids_shapey[i] = point_left[1] + i * p_size[1]
+        grids_shapey[p_shape[1] + 1] = point_right[1]
+
+        for i in range(p_shape[2] + 1):
+            grids_shapez[i] = point_left[2] + i * p_size[2]
+        grids_shapez[p_shape[2] + 1] = point_right[2]
+
+        # if periodic 
+        x_ii = pn[0] - (int(floor(eta1*Nel[0])) - cell_left[0])
+        y_ii = pn[1] - (int(floor(eta2*Nel[1])) - cell_left[1])
+        z_ii = pn[2] - (int(floor(eta3*Nel[2])) - cell_left[2])
+
+        #======================================
+        for il1 in range(cell_number[0]):
+            for il2 in range(cell_number[1]):
+                for il3 in range(cell_number[2]):
+                    for q1 in range(n_quad[0]):
+                        for q2 in range(n_quad[1]):
+                            for q3 in range(n_quad[2]):
+                                temp1[0] = (cell_left[0] + il1)/Nel[0] + pts1[q1] # quadrature points in the cell x direction
+                                temp4[0] = abs(temp1[0] - eta1) - compact[0]/2 # if > 0, result is 0
+
+                                temp1[1] = (cell_left[1] + il2)/Nel[1] + pts2[q2] 
+                                temp4[1] = abs(temp1[1] - eta2) - compact[1]/2 # if > 0, result is 0
+
+                                temp1[2] = (cell_left[2] + il3)/Nel[2] + pts3[q3] 
+                                temp4[2] = abs(temp1[2] - eta3) - compact[2]/2 # if > 0, result is 0
+
+                                if temp4[0] < 0 and temp4[1] < 0 and temp4[2] < 0:
+
+                                    valuexyz[0] = bspparticle.convolution(p_shape[0], grids_shapex, temp1[0])
+                                    dvaluexyz[0] = bspparticle.convolution_der(p_shape[0], grids_shapex, temp1[0])
+                                    valuexyz[1] = bspparticle.piecewise(p_shape[1], p_size[1], temp1[1] - eta2)
+                                    dvaluexyz[1] = bspparticle.piecewise(p_shape[2], p_size[2], temp1[2] - eta3)
+                                    valuexyz[2] = bspparticle.piecewise_der(p_shape[1], p_size[1], temp1[1] - eta2)
+                                    dvaluexyz[2] = bspparticle.piecewise_der(p_shape[2], p_size[2], temp1[2] - eta3)
+                                    temp8[0] = dvaluexyz[0] * valuexyz[1] * valuexyz[2]
+                                    temp8[1] = valuexyz[0] * dvaluexyz[1] * valuexyz[2]
+                                    temp8[2] = valuexyz[0] * valuexyz[1] * dvaluexyz[2]
+                                    ww[0] = weight[x_ii + il1, y_ii + il2, z_ii + il3, q1, q2, q3]
+                                    temp6[0] = dfinv_t[0,0]*temp8[0] + dfinv_t[0,1]*temp8[1] + dfinv_t[0,2]*temp8[2] 
+                                    temp6[1] = dfinv_t[1,0]*temp8[0] + dfinv_t[1,1]*temp8[1] + dfinv_t[1,2]*temp8[2] 
+                                    temp6[2] = dfinv_t[2,0]*temp8[0] + dfinv_t[2,1]*temp8[1] + dfinv_t[2,2]*temp8[2] 
+                                    # check weight_123 index
+                                    markers[ip, 3] += dt * ww[0] * thermal * weight_p * temp6[0]
+                                    markers[ip, 4] += dt * ww[0] * thermal * weight_p * temp6[1]
+                                    markers[ip, 5] += dt * ww[0] * thermal * weight_p * temp6[2]
+
+
+    #$ omp end parallel
+
+
+
+
+@stack_array('df', 'dfinv', 'dfinv_t', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+def push_hybrid_xp_ap(markers: 'float[:,:]', dt: float, stage: int,
+                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                      starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                      kind_map: int, params_map: 'float[:]',
+                      p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                      ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                      cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                      a1_1: 'float[:,:,:]', a1_2: 'float[:,:,:]', a1_3: 'float[:,:,:]'):
+    r'''Solves exactly the rotation
+
+    .. math::
+
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \mathbf v_p(t) \times \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}
+
+    for each marker :math:`p` in markers array, with fixed rotation vector.
+
+    Parameters
+    ----------
+        b2_1, b2_2, b2_3: array[float]
+            3d array of FE coeffs of B-field as 2-form.
+    '''
+
+    # allocate metric coeffs
+    df = empty((3, 3), dtype=float)
+    dfinv = empty((3, 3), dtype=float)
+    dfinv_t = empty((3, 3), dtype=float)
+
+    a_form = empty(3, dtype=float)
+    a_xx = empty((3, 3), dtype=float)
+    a_xxtrans = empty((3, 3), dtype=float)
+
+    matrixp = empty((3, 3), dtype=float)
+    matrixpp = empty((3, 3), dtype=float)
+    matrixppp = empty((3, 3), dtype=float)
+
+    lhs = empty((3, 3), dtype=float)
+    lhsinv = empty((3, 3), dtype=float)
+    rhs = empty(3, dtype=float)
+
+    # particle position and velocity
+    e = empty(3, dtype=float)
+    v = empty(3, dtype=float)
+
+    # p + 1 non-vanishing basis functions up tp degree p
+    b1  = zeros((pn[0] + 1, pn[0] + 1), dtype=float)
+    b2  = zeros((pn[1] + 1, pn[1] + 1), dtype=float)
+    b3  = zeros((pn[2] + 1, pn[2] + 1), dtype=float)
+    
+    l1  = zeros( pn[0]              , dtype=float)
+    l2  = zeros( pn[1]              , dtype=float)
+    l3  = zeros( pn[2]              , dtype=float)
+    
+    r1  = zeros( pn[0]              , dtype=float)
+    r2  = zeros( pn[1]              , dtype=float)
+    r3  = zeros( pn[2]              , dtype=float)
+    
+    # scaling arrays for M-splines
+    d1  = zeros( pn[0]              , dtype=float)
+    d2  = zeros( pn[1]              , dtype=float)
+    d3  = zeros( pn[2]              , dtype=float)
+    
+    # non-vanishing N-splines
+    bn1 = zeros( pn[0] + 1          , dtype=float)
+    bn2 = zeros( pn[1] + 1          , dtype=float)
+    bn3 = zeros( pn[2] + 1          , dtype=float)
+    
+    # non-vanishing D-splines
+    bd1 = zeros( pn[0]          , dtype=float)
+    bd2 = zeros( pn[1]          , dtype=float)
+    bd3 = zeros( pn[2]          , dtype=float)
+
+    pd1 = pn[0] - 1 
+    pd2 = pn[1] - 1
+    pd3 = pn[2] - 1
+
+    bdd1 = zeros( pd1          , dtype=float)
+    bdd2 = zeros( pd2          , dtype=float)
+    bdd3 = zeros( pd3          , dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    #$ omp parallel private (ip, e, v, df, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, bdd1, bdd2, bdd3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, a_form, a_xx, a_xxtrans, matrixp, matrixpp, matrixppp, lhs, rhs, lhsinv)
+    #$ omp for
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        e[:] = markers[ip, 0:3]
+        v[:] = markers[ip, 3:6]
+
+        # evaluate Jacobian, result in df
+        map_eval.df(e[0], e[1], e[2],
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        linalg.matrix_inv(df, dfinv)
+        linalg.transpose(dfinv, dfinv_t)
+
+        # spline evaluation
+        span1 = bsp.find_span(tn1, pn[0], e[0])
+        span2 = bsp.find_span(tn2, pn[1], e[1])
+        span3 = bsp.find_span(tn3, pn[2], e[2])
+
+        bsp.basis_funs_all(tn1, pn[0], e[0], span1, l1, r1, b1, d1)
+        bsp.basis_funs_all(tn2, pn[1], e[1], span2, l2, r2, b2, d2)
+        bsp.basis_funs_all(tn3, pn[2], e[2], span3, l3, r3, b3, d3)
+
+        # N-splines and D-splines
+        bn1[:] = b1[pn[0], :]
+        bn2[:] = b2[pn[1], :]
+        bn3[:] = b3[pn[2], :]
+        
+        for il1 in range(pn[0]):
+            bd1[il1] = b1[pd1, il1] * d1[il1]
+
+        for il2 in range(pn[1]):
+            bd2[il2] = b2[pd2, il2] * d2[il2]
+
+        for il3 in range(pn[2]):
+            bd3[il3] = b3[pd3, il3] * d3[il3]
+
+        for il1 in range(pd1):
+            bdd1[il1] = b1[pd1 - 1, il1] * d1[il1] * d1[il1]
+
+        for il2 in range(pd2):
+            bdd2[il2] = b2[pd2 - 1, il2] * d2[il2] * d2[il2]
+
+        for il3 in range(pd3):
+            bdd3[il3] = b3[pd3 - 1, il3] * d3[il3] * d3[il3]        
+
+
+        # vector potential: 1-form components
+        a_form[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, a1_1, starts1[0])
+        a_form[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, a1_2, starts1[1])
+        a_form[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, a1_3, starts1[2])
+
+        a_xx[0,0] = eval_3d.eval_spline_mpi_kernel_hybrid_x(
+            pn[0] - 2, pn[1], pn[2], bdd1, bn2, bn3, span1, span2, span3, a1_1, starts1[0])
+        a_xx[0,1] = eval_3d.eval_spline_mpi_kernel_hybrid_y(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, a1_1, starts1[1])
+        a_xx[0,2] = eval_3d.eval_spline_mpi_kernel_hybrid_z(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, a1_1, starts1[2])
+
+        a_xx[1,0] = eval_3d.eval_spline_mpi_kernel_hybrid_x(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, a1_2, starts1[0])
+        a_xx[1,1] = eval_3d.eval_spline_mpi_kernel_hybrid_y(
+            pn[0], pn[1] - 2, pn[2], bn1, bdd2, bn3, span1, span2, span3, a1_2, starts1[1])
+        a_xx[1,2] = eval_3d.eval_spline_mpi_kernel_hybrid_z(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, a1_2, starts1[2])
+
+        a_xx[2,0] = eval_3d.eval_spline_mpi_kernel_hybrid_x(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, a1_3, starts1[0])
+        a_xx[2,1] = eval_3d.eval_spline_mpi_kernel_hybrid_y(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, a1_3, starts1[1])
+        a_xx[2,2] = eval_3d.eval_spline_mpi_kernel_hybrid_z(
+            pn[0], pn[1], pn[2] - 2, bn1, bn2, bdd3, span1, span2, span3, a1_3, starts1[2])
+
+        linalg.transpose(a_xx, a_xxtrans)
+        linalg.matrix_matrix(a_xxtrans, dfinv, matrixp)
+        linalg.matrix_matrix(dfinv_t, matrixp, matrixpp) # left matrix
+        linalg.matrix_matrix(matrixpp, dfinv_t, matrixppp) # right matrix 
+
+        lhs[0,0] = 1.0 - dt*matrixpp[0,0]
+        lhs[0,1] =     - dt*matrixpp[0,1]
+        lhs[0,2] =     - dt*matrixpp[0,2]
+
+        lhs[1,0] =     - dt*matrixpp[0,0]
+        lhs[1,1] = 1.0 - dt*matrixpp[1,1]
+        lhs[1,2] =     - dt*matrixpp[1,2]
+
+        lhs[2,0] =     - dt*matrixpp[2,0]
+        lhs[2,1] =     - dt*matrixpp[2,1]
+        lhs[2,2] = 1.0 - dt*matrixpp[2,2]
+
+        linalg.matrix_vector(matrixppp, a_form, rhs)
+        rhs[0] = v[0] - dt*rhs[0]
+        rhs[1] = v[1] - dt*rhs[1]
+        rhs[2] = v[2] - dt*rhs[2]
+
+        linalg.matrix_inv(lhs, lhsinv)
+        # update velocity 
+        markers[ip, 3] = lhsinv[0,0]*rhs[0] + lhsinv[0,1]*rhs[1] + lhsinv[0,2]*rhs[2]
+        markers[ip, 4] = lhsinv[1,0]*rhs[0] + lhsinv[1,1]*rhs[1] + lhsinv[1,2]*rhs[2]
+        markers[ip, 5] = lhsinv[2,0]*rhs[0] + lhsinv[2,1]*rhs[1] + lhsinv[2,2]*rhs[2]
+
+        # update position
+        linalg.matrix_vector(dfinv_t, a_form, rhs)
+        rhs[0] = markers[ip, 3] - rhs[0]
+        rhs[1] = markers[ip, 4] - rhs[1]
+        rhs[2] = markers[ip, 5] - rhs[2]
+
+        markers[ip, 0] = e[0] + dt * (dfinv[0,0]*rhs[0] + dfinv[0,1]*rhs[1] + dfinv[0,2]*rhs[2])
+        markers[ip, 1] = e[1] + dt * (dfinv[1,0]*rhs[0] + dfinv[1,1]*rhs[1] + dfinv[1,2]*rhs[2])
+        markers[ip, 2] = e[2] + dt * (dfinv[2,0]*rhs[0] + dfinv[2,1]*rhs[1] + dfinv[2,2]*rhs[2])
 
     #$ omp end parallel
 

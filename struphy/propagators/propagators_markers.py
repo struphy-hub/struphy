@@ -1,11 +1,13 @@
-from numpy import array
+from numpy import array, polynomial
 
+from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.pic.pusher import Pusher, Pusher_iteration
 from struphy.pic.pusher import ButcherTableau
+from struphy.pic.particles_to_grid import Accumulator
 
 
 class StepPushEta(Propagator):
@@ -275,12 +277,12 @@ class StepPushpxB_hybrid(Propagator):
                      self._field_vectors[0][2]._data)
 
 
-class StepHybridXP(Propagator):
-    r'''Step for the update of particles' positions and canonical momentum with symplectic methods (only in Cartesian coordinates) and discrete gradient methods which solve the following Hamiltonian system
+class StepHybridXP_symplectic(Propagator):
+    r'''Step for the update of particles' positions and canonical momentum with symplectic methods (only in Cartesian coordinates) which solve the following Hamiltonian system
 
     .. math::
 
-        \frac{\mathrm{d} {\mathbf x}(t)}{\textnormal d t} = {\mathbf p} - {\mathbf A}, \quad \frac{\mathrm{d} {\mathbf p}(t)}{\textnormal d t} = - \left( \frac{\partial{\mathbf A}}{\partial {\mathbf x}} \right)^\top ({\mathbf A} - {\mathbf p} ). 
+        \frac{\mathrm{d} {\mathbf x}(t)}{\textnormal d t} = {\mathbf p} - {\mathbf A}, \quad \frac{\mathrm{d} {\mathbf p}(t)}{\textnormal d t} = - \left( \frac{\partial{\mathbf A}}{\partial {\mathbf x}} \right)^\top ({\mathbf A} - {\mathbf p} ) - T \frac{\nabla n}{n}. 
 
     for each marker in markers array.
 
@@ -304,7 +306,7 @@ class StepHybridXP(Propagator):
             Kinetic boundary conditions in each direction.
     '''
 
-    def __init__(self, a, particles, derham, domain, bc):
+    def __init__(self, a, particles, derham, domain, bc, nqs, p_shape, p_size, thermal, n_quad):
 
         assert isinstance(a, BlockVector)
 
@@ -313,11 +315,25 @@ class StepHybridXP(Propagator):
         self._a = a
         self._particles = particles
         self._bc = bc
+        self._thermal = thermal
+        self._n_quad = n_quad
 
-        # we do depostion here to get density... To do
+        # Initialize Accumulator object for getting density from particles
+        self._pts_x = 1.0 / (2.0*derham.Nel[0]) * polynomial.legendre.leggauss(nqs[0])[0] + 1.0 / (2.0*derham.Nel[0])
+        self._pts_y = 1.0 / (2.0*derham.Nel[1]) * polynomial.legendre.leggauss(nqs[1])[0] + 1.0 / (2.0*derham.Nel[1])
+        self._pts_z = 1.0 / (2.0*derham.Nel[2]) * polynomial.legendre.leggauss(nqs[2])[0] + 1.0 / (2.0*derham.Nel[2])
+        self._nqs   = nqs 
+        self._p_shape = p_shape
+        self._p_size = p_size
+        self._accum_density = Accumulator(derham, domain, 'H1', 'hybrid_fA_density',
+                                  do_vector=False, symmetry='None')
 
         # set kernel function
-        #self._pusher = Pusher(derham, particles.domain, 'hybrid_xp')
+        self._pusher_lnn = Pusher(derham, domain, 'push_hybrid_xp_lnn')
+        self._pusher_ap = Pusher(derham, domain, 'push_hybrid_xp_ap')
+
+        self._pusher_inputs = (self._a[0]._data, self._a[1]._data, self._a[2]._data)
+
 
     @property
     def variables(self):
@@ -327,20 +343,16 @@ class StepHybridXP(Propagator):
         """
         TODO
         """
-        # push particles
-        # check if ghost regions are synchronized
-        # if not self._density.ghost_regions_in_sync:
-        #    self._density.update_ghost_regions()
-        if not self._a[0].ghost_regions_in_sync:
-            self._a[0].update_ghost_regions()
-        if not self._a[1].ghost_regions_in_sync:
-            self._a[1].update_ghost_regions()
-        if not self._a[2].ghost_regions_in_sync:
-            self._a[2].update_ghost_regions()
+        # get density from particles
+        self._accum_density.accumulate(self._particles, array(self._derham.Nel), array(self._nqs), array(self._pts_x), array(self._pts_y), array(self._pts_z), array(self._p_shape), array(self._p_size))
+        if not self._accum_density._matrix.ghost_regions_in_sync: self._accum_density._matrix.update_ghost_regions()
+        self._pusher_lnn(self._particles, dt, array(self._p_shape), array(self._p_size), array(self._derham.Nel), array(self._pts_x), array(self._pts_y), array(self._pts_z), self._accum_density._matrix._data, self._thermal, self._n_quad)
 
-        # self._pusher(self._particles, dt, self._density,
-        #             self._a[0]._data, self._a[1]._data, self._a[2]._data,
-        #             bc=self._bc, mpi_sort='last')
+        if not self._a[0].ghost_regions_in_sync: self._a[0].update_ghost_regions()
+        if not self._a[1].ghost_regions_in_sync: self._a[1].update_ghost_regions()
+        if not self._a[2].ghost_regions_in_sync: self._a[2].update_ghost_regions()
+        self._pusher_ap(self._particles, dt, self._a[0]._data, self._a[1]._data, self._a[2]._data, mpi_sort='last')
+        
 
 
 class StepPushEtaPC(Propagator):

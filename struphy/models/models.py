@@ -1326,9 +1326,9 @@ class DriftKinetic(StruphyModel):
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fB'][0]
 
 
-#############################
-# Fluid-kinetic hybrid models
-#############################
+########################################################
+# Hybrid models with kinetic ions and massless electrons
+########################################################
 class Hybrid_fA(StruphyModel):
     r'''Hybrid (kinetic ions + massless electrons) equations with quasi-neutrality condition. 
     Unknowns: distribution function for ions, and vector potential.
@@ -1337,7 +1337,7 @@ class Hybrid_fA(StruphyModel):
 
     .. math::
             t, x, p, A, f...
-
+        
 
     Implemented equations:
 
@@ -1355,11 +1355,8 @@ class Hybrid_fA(StruphyModel):
 
     Parameters
     ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
-
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
+        params : dict
+            Simulation parameters, see from :ref:`params_yml`.
     '''
 
     def __init__(self, params, comm):
@@ -1370,7 +1367,7 @@ class Hybrid_fA(StruphyModel):
         from struphy.propagators import propagators_fields, propagators_markers, propagators_coupling
         from psydac.linalg.stencil import StencilVector, StencilMatrix
         from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
-
+        
         super().__init__(params, comm, a1='Hcurl', ions='Particles6D')
 
         # pointers to em-field variables
@@ -1379,44 +1376,39 @@ class Hybrid_fA(StruphyModel):
         # pointer to kinetic variables
         self._ions = self.kinetic['ions']['obj']
         ions_params = self.kinetic['ions']['params']
-
+        
         # extract necessary parameters
         shape_params = params['kinetic']['ions']['ionsshape']
+        thermal = 1.0 # electron temperature 
 
-        nqs = [quad_grid.num_quad_pts for quad_grid in self.derham.Vh_fem['0'].quad_grids]
-        pts = [quad_grid.points for quad_grid in self.derham.Vh_fem['0'].quad_grids]
-        wts = [quad_grid.weights for quad_grid in self.derham.Vh_fem['0'].quad_grids]
-        el_indices = [
-            quad_grid.indices for quad_grid in self.derham.Vh_fem['0'].quad_grids]
+        nqs = [quad_grid.num_quad_pts     for quad_grid in self.derham.Vh_fem['0'].quad_grids]
+        pts = [quad_grid.points           for quad_grid in self.derham.Vh_fem['0'].quad_grids]
+        wts = [quad_grid.weights          for quad_grid in self.derham.Vh_fem['0'].quad_grids]
+        el_indices = [quad_grid.indices   for quad_grid in self.derham.Vh_fem['0'].quad_grids]
         #basis = [quad_grid.basis          for quad_grid in self.derham.Vh_fem['0'].quad_grids]
 
         # Project magnetic field
-        self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
-                                         self.mhd_equil.b2_2,
+        self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1, 
+                                         self.mhd_equil.b2_2, 
                                          self.mhd_equil.b2_3])
 
         # Assemble necessary mass matrices
-        self._mass_ops = WeightedMassOperators(
-            self.derham, self.domain, eq_mhd=self.mhd_equil)
-
+        self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.mhd_equil)
+        
         # Assemble necessary linear basis projection operators
-        self._basis_ops = BasisProjectionOperators(
-            self.derham, self.domain, self.mhd_equil)
+        self._basis_ops = BasisProjectionOperators(self.derham, self.domain, self.mhd_equil)
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-        self._propagators += [propagators_markers.StepHybridXP(
-            self._a, self._ions, self.derham, self.domain, ions_params['markers']['bc_type'])]
-        self._propagators += [propagators_markers.StepPushpxB_hybrid(
-            self._ions, self.derham, self.domain, ions_params['push_algos']['pxb'], self._a, self._b_eq)]
-        self._propagators += [propagators_fields.Hybrid_potential(self._a, 'Hcurl', self._b_eq, self.derham, self._mass_ops,
-                                                                  self.domain, self._ions, nqs, np.array(shape_params['degree']), np.array(shape_params['size']))]
+        self._propagators += [propagators_markers.StepHybridXP_symplectic(self._a, self._ions, self.derham, self.domain, ions_params['markers']['bc_type'], nqs, np.array(shape_params['degree']), np.array(shape_params['size']), thermal, np.array(params['grid']['nq_el']))]
+        self._propagators += [propagators_markers.StepPushpxB_hybrid(self._ions, self.derham, self.domain, ions_params['push_algos']['pxb'], self._a, self._b_eq)]
+        self._propagators += [propagators_fields.Hybrid_potential(self._a, 'Hcurl', self._b_eq, self.derham, self._mass_ops, self.domain, self._ions, nqs, np.array(shape_params['degree']), np.array(shape_params['size']))]
 
         # Scalar variables to be saved during simulation
-        self._scalar_quantities['time'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
-        self._en_f_loc = np.empty(1, dtype=float)
-        self._scalar_quantities['en_f'] = np.empty(1, dtype=float)
+        self._scalar_quantities['time']   = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B']   = np.empty(1, dtype=float)
+        self._en_f_loc                    = np.empty(1, dtype=float)
+        self._scalar_quantities['en_f']   = np.empty(1, dtype=float)
         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
 
     @property
@@ -1426,15 +1418,13 @@ class Hybrid_fA(StruphyModel):
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
 
-        self._scalar_quantities['en_B'][0] = self._a.dot(
-            self._mass_ops.M1.dot(self._a))/2
+        self._scalar_quantities['en_B'][0] = self._a.dot(self._mass_ops.M1.dot(self._a))/2
 
         self._en_f_loc = self._ions.markers[~self._ions.holes, 8].dot(self._ions.markers[~self._ions.holes, 3]**2
-                                                                      + self._ions.markers[~self._ions.holes, 4]**2
-                                                                      + self._ions.markers[~self._ions.holes, 5]**2)/(2. * self._ions.n_mks)
+                                                                    + self._ions.markers[~self._ions.holes, 4]**2
+                                                                    + self._ions.markers[~self._ions.holes, 5]**2)/(2. * self._ions.n_mks)
 
-        self.derham.comm.Reduce(
-            self._en_f_loc, self._scalar_quantities['en_f'], op=MPI.SUM, root=0)
+        self.derham.comm.Reduce(self._en_f_loc, self._scalar_quantities['en_f'], op=MPI.SUM, root=0)
 
         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_B'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_f'][0]
