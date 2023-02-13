@@ -36,11 +36,11 @@ def quadrature_kernel(index1 : 'float[:,:]', index2 : 'float[:,:]', index3 : 'fl
                             
                             value = 0.0 
                             for il1 in range(pi1 + 1):
-                                i1 = ie1 + il1 #index1[ie1, il1]
+                                i1 = index1[ie1, il1]
                                 for il2 in range(pi2 + 1):
-                                    i2 = ie2 + il2 #index2[ie2, il2]
+                                    i2 = index2[ie2, il2]
                                     for il3 in range(pi3 + 1): 
-                                        i3 = ie3 + il3 #index3[ie3, il3]
+                                        i3 = index3[ie3, il3]
                                         value +=  bi1[iel1, il1, 0, q1] * bi2[iel2, il2, 0, q2] * bi3[iel3, il3, 0, q3] * coeffs[i1, i2, i3]         
 
                             data[ie1, ie2, ie3, q1, q2, q3] = value

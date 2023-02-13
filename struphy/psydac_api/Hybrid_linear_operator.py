@@ -29,8 +29,14 @@ class HybridOperators:
         domain : struphy.geometry.domains
             All things mapping.
             
-        density
+        density :
             A stencilmatrix type object providing the data of values of density at quadrature points
+    
+        a : BlockVector
+            A BlockVector saving the finte element coefficients of vector potential
+
+        beq : BlockVector
+            A BlockVector saving the finte element coefficients of background magnetic field
     """
     
     def __init__(self, derham, domain, density, a, beq):
@@ -289,16 +295,16 @@ class HybridOperator:
                 basis_i = [quad_grid.basis for quad_grid in vspace.quad_grids]
 
                 c = crossset[a,b]
-                
                 # assemble matrix (if weight is not zero) by calling the appropriate kernel (1d, 2d or 3d)
                 if np.any(np.abs(weight_blocks[c]) > 1e-14):
+
                     if a != b:
                         M = StencilMatrix(vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
                     
-                        kernel = getattr(mass_kernels, 'kernel_' + str(V.ldim) + 'd')
+                        #kernel = getattr(mass_kernels, 'kernel_' + str(V.ldim) + 'd')
                     
-                        kernel(*el_loc_indices, *wspace.degree, *vspace.degree, *periodic, *starts_out, *pads_out,
-                           *nqs, *wts, *basis_o, *basis_i, weight_blocks[c], M._data)
+                        #kernel(*el_loc_indices, *wspace.degree, *vspace.degree, *periodic, *starts_out, *pads_out,
+                           #*nqs, *wts, *basis_o, *basis_i, weight_blocks[c], M._data)
 
                         blocks[-1] += [np.sign(a-b)*M]
                     else:
