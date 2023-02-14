@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from struphy.geometry import domains
-from struphy.fields_background.mhd_equil import analytical
+from struphy.fields_background.mhd_equil import equils
 
 sim_path = sys.argv[1]
 
@@ -22,9 +22,14 @@ domain = domain_class(dom_params)
 
 # load MHD equilibrium
 equil_params = params['mhd_equilibrium']
-mhd_equil_class = getattr(analytical, equil_params['name'])
-mhd_equil = mhd_equil_class(equil_params[equil_params['name']])
-mhd_equil.domain = domain
+mhd_equil_class = getattr(equils, equil_params['type'])
+mhd_equil = mhd_equil_class(equil_params[equil_params['type']])
+
+if equil_params['use_equil_domain']:
+    assert mhd_equil.domain is not None
+    domain = mhd_equil.domain
+else:
+    mhd_equil.domain = domain
 
 file = h5py.File(sim_path + 'data_proc0.hdf5', 'r')
 grid_info = file['scalar'].attrs['grid_info']

@@ -6,8 +6,7 @@ from struphy.psydac_api.psydac_derham import Derham
 from struphy.psydac_api.fields import Field
 from struphy.pic import particles
 from struphy.models.pre_processing import plasma_params
-from struphy.fields_background.mhd_equil import analytical as analytical_mhd
-from struphy.fields_background.mhd_equil import numerical as numerical_mhd
+from struphy.fields_background.mhd_equil import equils
 from struphy.fields_background.electric_equil import analytical as analytical_electric
 
 
@@ -16,21 +15,21 @@ class StruphyModel(metaclass=ABCMeta):
 
     Parameters
     ----------
-        params : dict
-            Simulation parameters, see from :ref:`params_yml`.
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
 
-        mpi_comm : mpi4py.MPI.Intracomm
-            MPI communicator for parallel runs (=None for serial runs).
+    mpi_comm : mpi4py.MPI.Intracomm
+        MPI communicator for parallel runs (=None for serial runs).
 
-        kwargs : dict
-            The dynamical fields and kinetic species of the model. Keys are either 
-                * a) the electromagnetic field/potential names, then values are the space IDs ("H1", "Hcurl", "Hdiv", "L2" or "H1vec"), OR
-                * b) the fluid species names, then the value is a dict with key=var_name (n, U, p, ...) and value=space ID ("H1", "Hcurl", "Hdiv", "L2" or "H1vec"), OR
-                * c) the names of the kinetic species, then values are the type of particles ("Particles6D", "Particles5D", ...).
+    kwargs : dict
+        The dynamical fields and kinetic species of the model. Keys are either 
+            * a) the electromagnetic field/potential names, then values are the space IDs ("H1", "Hcurl", "Hdiv", "L2" or "H1vec"), OR
+            * b) the fluid species names, then the value is a dict with key=var_name (n, U, p, ...) and value=space ID ("H1", "Hcurl", "Hdiv", "L2" or "H1vec"), OR
+            * c) the names of the kinetic species, then values are the type of particles ("Particles6D", "Particles5D", ...).
 
     Note
     ----
-        All Struphy models are subclasses of ``StruphyModel`` and should be added to ``struphy/models/models.py``.  
+    All Struphy models are subclasses of ``StruphyModel`` and should be added to ``struphy/models/models.py``.  
     '''
 
     def __init__(self, params, mpi_comm=None, **kwargs):
@@ -44,27 +43,18 @@ class StruphyModel(metaclass=ABCMeta):
 
         # mhd equilibrium
         if 'mhd_equilibrium' in params:
+
             equil_params = params['mhd_equilibrium']
+    
+            mhd_equil_class = getattr(equils, equil_params['type'])
+            self._mhd_equil = mhd_equil_class(equil_params[equil_params['type']])
 
-            if equil_params['type'] == 'analytical':
-                mhd_equil_class = getattr(analytical_mhd, equil_params['name'])
-                self._mhd_equil = mhd_equil_class(
-                    equil_params[equil_params['name']])
-
-                # set mapping for equilibrium object
+            if equil_params['use_equil_domain']:
+                assert self.mhd_equil.domain is not None
+                self._domain = self.mhd_equil.domain
+            else:
                 self._mhd_equil.domain = self.domain
 
-            elif equil_params['type'] == 'numerical':
-                mhd_equil_class = getattr(numerical_mhd, equil_params['name'])
-                self._mhd_equil = mhd_equil_class(
-                    equil_params[equil_params['name']])
-
-                # reset domain
-                self._domain = self.mhd_equil.domain
-
-            else:
-                raise TypeError('type parameter must be either "analytical" or "numerical", is {0}'.format(
-                    equil_params['type']))
         else:
             self._mhd_equil = None
 

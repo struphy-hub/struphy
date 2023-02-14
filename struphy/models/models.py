@@ -187,6 +187,92 @@ class LinearMHD(StruphyModel):
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_B'][0]
 
 
+class ColdPlasma(StruphyModel):
+    r'''Cold plasma model
+
+    Normalization:
+
+    .. math::
+
+        &c = \frac{\hat \omega}{\hat k} = \frac{\hat E}{\hat B}\,,
+
+        &\hat \omega = \Omega_{ce}\,,
+
+        &\alpha = \frac{\Omega_{pe}}{\Omega_{ce}}\,,
+
+        &\hat j_c = \varepsilon_0 \Omega_{pe} \hat E\,,
+
+    where :math:`c` is the vacuum speed of light, :math:`\Omega_{ce}` the electron cyclotron frequency,
+    :math:`\Omega_{pe}` the plasma frequency and :math:`\varepsilon_0` the vacuum dielectric constant.
+    Implemented equations:
+
+    .. math::
+
+        &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,,
+
+        &-\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
+        \alpha \mathbf j_c \,,
+
+        &\frac{\partial \mathbf j_c}{\partial t} = \alpha \mathbf E + \mathbf j_c \times \mathbf B\,.
+        
+
+    Parameters
+    ----------
+        params : dict
+            Simulation parameters, see from :ref:`params_yml`.
+    '''
+
+    def __init__(self, params, comm):
+
+        from struphy.psydac_api.mass import WeightedMassOperators
+        from struphy.propagators import propagators_fields
+
+        super().__init__(params, comm, e1='Hcurl', b2='Hdiv', electron={'j1' : 'Hcurl'}, hot_electrons='Particles6D')
+
+        # pointers to em-fields variables
+        self._e = self.em_fields['e1']['obj'].vector
+        self._b = self.em_fields['b2']['obj'].vector
+
+        # pointers to  fluid variables
+        self._j = self.fluid['electrons']['j1']['obj'].vector
+
+        # extract necessary parameters
+        maxwell_solver = params['solvers']['solver_1']
+        cold_solver = params['solvers']['solver_2']
+
+        # Define callable for weighted mass matrices
+        proton_mass = 1.6726219237e-27
+        electron_mass = self.fluid['electrons']['plasma_params']['M'] * proton_mass
+        vacuum_permittivity = 8.854187813e-12
+        prefactor = (electron_mass / vacuum_permittivity)**0.5
+        call_alpha = lambda e1, e2, e3 : prefactor * self.mhd_equil.n0(e1, e2, e3, sqeez_out=False)**0.5 / self.mhd_equil.absB0(e1, e2, e3, sqeez_out=False)
+        call_M1alpha = lambda e1, e2, e3, m=m, n=n : self.domain.Ginv(e1, e2, e3)[:, :, :, m, n] * self.domain.sqrt_g(e1, e2, e3)*call_alpha(e1, e2, e3)
+
+        # Assemble necessary mass matrices
+        self._mass_ops = WeightedMassOperators(self.derham, self.domain, alpha=call_M1alpha)
+
+         # Initialize propagators/integrators used in splitting substeps
+        self._propagators = []
+        self._propagators += [propagators_fields.Maxwell(self._e, self._b, self.derham, self._mass_ops, maxwell_solver)]
+        self._propagators += [propagators_fields.OhmCold(self._j, self._e, self._mass_ops, cold_solver)]
+
+        # Scalar variables to be saved during simulation
+        self._scalar_quantities['time'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_E'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+
+    @property
+    def propagators(self):
+        return self._propagators
+
+    def update_scalar_quantities(self, time):
+        self._scalar_quantities['time'][0] = time
+        self._scalar_quantities['en_E'][0] = .5 * self._e.dot(self._mass_ops.M1.dot(self._e))
+        self._scalar_quantities['en_B'][0] = .5 * self._b.dot(self._mass_ops.M2.dot(self._b))
+        self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_E'][0]
+        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_B'][0]
+
 #############################
 # Fluid-kinetic hybrid models
 #############################
@@ -880,6 +966,97 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fB'][0]
 
 
+class ColdPlasmaVlasov(StruphyModel):
+    r'''Cold plasma model
+
+    Normalization:
+
+    .. math::
+
+        &c = \frac{\hat \omega}{\hat k} = \frac{\hat E}{\hat B}\,,
+
+        &\hat \omega = \Omega_{ce}\,,
+
+        &\alpha = \frac{\Omega_{pe}}{\Omega_{ce}}\,,
+
+        &\hat j_c = \varepsilon_0 \Omega_{pe} \hat E\,,
+
+        &\hat v = \frac{\Omega_{ce}}{\hat k} = c\,,
+
+    where :math:`c` is the vacuum speed of light, :math:`\Omega_{ce}` the electron cyclotron frequency,
+    :math:`\Omega_{pe}` the plasma frequency and :math:`\varepsilon_0` the vacuum dielectric constant.
+    Implemented equations:
+
+    .. math::
+
+        &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,,
+
+        &-\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
+        \alpha\left(\mathbf j_c + \frac{\hat n_h}{n_0 \left(x\right)} \alpha \mathbf j_h\right)\,,
+
+        &\frac{\partial \mathbf j_c}{\partial t} = \alpha \mathbf E + \mathbf j_c \times \mathbf B\,,
+
+        &\frac{\partial f_h}{\partial t} + v \cdot \nabla f_h
+        + \left(\mathbf E + \mathbf v \times B\right) \cdot \nabla_v f_h = 0\,.
+        
+
+    Parameters
+    ----------
+        params : dict
+            Simulation parameters, see from :ref:`params_yml`.
+    '''
+
+    def __init__(self, params, comm):
+
+        from struphy.psydac_api.mass import WeightedMassOperators
+        from struphy.propagators import propagators_fields
+
+        super().__init__(params, comm, e1='Hcurl', b2='Hdiv', electron={'j1' : 'Hcurl'}, hot_electrons='Particles6D')
+
+        # pointers to em-fields variables
+        self._e = self.em_fields['e1']['obj'].vector
+        self._b = self.em_fields['b2']['obj'].vector
+
+        # pointers to  fluid variables
+        self._j = self.fluid['electrons']['j1']['obj'].vector
+
+        # extract necessary parameters
+        maxwell_solver = params['solvers']['solver_1']
+        cold_solver = params['solvers']['solver_2']
+
+        # Define callable for weighted mass matrices
+        proton_mass = 1.6726219237e-27
+        electron_mass = self.fluid['electrons']['plasma_params']['M'] * proton_mass
+        vacuum_permittivity = 8.854187813e-12
+        prefactor = (electron_mass / vacuum_permittivity)**0.5
+        call_alpha = lambda e1, e2, e3 : prefactor * self.mhd_equil.n0(e1, e2, e3, sqeez_out=False)**0.5 / self.mhd_equil.absB0(e1, e2, e3, sqeez_out=False)
+        call_M1alpha = lambda e1, e2, e3, m=m, n=n : self.domain.Ginv(e1, e2, e3)[:, :, :, m, n] * self.domain.sqrt_g(e1, e2, e3)*call_alpha(e1, e2, e3)
+
+        # Assemble necessary mass matrices
+        self._mass_ops = WeightedMassOperators(self.derham, self.domain, alpha=call_M1alpha)
+
+         # Initialize propagators/integrators used in splitting substeps
+        self._propagators = []
+        self._propagators += [propagators_fields.Maxwell(self._e, self._b, self.derham, self._mass_ops, maxwell_solver)]
+        self._propagators += [propagators_fields.OhmCold(self._j, self._e, self._mass_ops, cold_solver)]
+
+        # Scalar variables to be saved during simulation
+        self._scalar_quantities['time'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_E'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+
+    @property
+    def propagators(self):
+        return self._propagators
+
+    def update_scalar_quantities(self, time):
+        self._scalar_quantities['time'][0] = time
+        self._scalar_quantities['en_E'][0] = .5 * self._e.dot(self._mass_ops.M1.dot(self._e))
+        self._scalar_quantities['en_B'][0] = .5 * self._b.dot(self._mass_ops.M2.dot(self._b))
+        self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_E'][0]
+        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_B'][0]
+
 #############################
 # Kinetic models
 #############################
@@ -1363,7 +1540,6 @@ class Hybrid_fA(StruphyModel):
 
         from struphy.psydac_api.mass import WeightedMassOperators
         from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
-        from struphy.fields_background.mhd_equil import analytical
         from struphy.propagators import propagators_fields, propagators_markers, propagators_coupling
         from psydac.linalg.stencil import StencilVector, StencilMatrix
         from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL

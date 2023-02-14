@@ -17,7 +17,7 @@ Possible combinations for tensor product (BB):
 """
 from pyccel.decorators import pure
 
-from numpy import empty
+from numpy import empty, zeros
 
 import struphy.b_splines.bsplines_kernels as bsp
 
@@ -112,6 +112,10 @@ def evaluate(kind1: int, kind2: int, t1: 'float[:]', t2: 'float[:]', p1: int, p2
         bsp.scaling(t1, p1, span1, b1)
     elif kind1 == 3:
         bsp.basis_funs_1st_der(t1, p1, eta1, span1, bl1, br1, b1)
+    elif kind1 == 4:
+        tmp = zeros((3, p1 + 1), dtype=float)
+        bsp.basis_funs_all_ders(t1, p1, eta1, span1, bl1, br1, 2, tmp)
+        b1[:] = tmp[2, :]
 
     # 2nd direction
     if kind2 == 1:
@@ -121,6 +125,10 @@ def evaluate(kind1: int, kind2: int, t1: 'float[:]', t2: 'float[:]', p1: int, p2
         bsp.scaling(t2, p2, span2, b2)
     elif kind2 == 3:
         bsp.basis_funs_1st_der(t2, p2, eta2, span2, bl2, br2, b2)
+    elif kind2 == 4:
+        tmp2 = zeros((3, p2 + 1), dtype=float)
+        bsp.basis_funs_all_ders(t2, p2, eta2, span2, bl2, br2, 2, tmp2)
+        b2[:] = tmp2[2, :]
 
     # sum up non-vanishing contributions
     spline_value = evaluation_kernel_2d(
@@ -162,6 +170,9 @@ def evaluate_tensor_product(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, in
                 * 2  : DD
                 * 31 : dN/deta N
                 * 32 : N dN/deta
+                * 41 : ddN/deta^2 N
+                * 42 : n ddN/deta^3
+                * 43 : dN/deta dN/deta
     """
 
     for i1 in range(len(eta1)):
@@ -185,10 +196,18 @@ def evaluate_tensor_product(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, in
             elif kind == 32:
                 spline_values[i1, i2] = evaluate(
                     1, 3, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1], eta2[i2])
-
+            elif kind == 41:
+                spline_values[i1, i2] = evaluate(
+                    4, 1, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1], eta2[i2])
+            elif kind == 42:
+                spline_values[i1, i2] = evaluate(
+                    1, 4, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1], eta2[i2])
+            elif kind == 43:
+                spline_values[i1, i2] = evaluate(
+                    3, 3, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1], eta2[i2])
 
 @pure
-def evaluate_matrix(t1: 'float[:]', t2: 'float[:]', p1: int,  p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'float[:,:]', eta1: 'float[:,:]', eta2: 'float[:,:]', spline_values: 'float[:,:]', kind: int):
+def evaluate_matrix(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'float[:,:]', eta1: 'float[:,:]', eta2: 'float[:,:]', spline_values: 'float[:,:]', kind: int):
     """
     General evaluation of a tensor-product spline. 
 
@@ -220,6 +239,9 @@ def evaluate_matrix(t1: 'float[:]', t2: 'float[:]', p1: int,  p2: int, ind1: 'in
                 * 2  : DD
                 * 31 : dN/deta N
                 * 32 : N dN/deta
+                * 41 : ddN/deta^2 N
+                * 42 : n ddN/deta^3
+                * 43 : dN/deta dN/deta
     """
 
     from numpy import shape
@@ -248,7 +270,15 @@ def evaluate_matrix(t1: 'float[:]', t2: 'float[:]', p1: int,  p2: int, ind1: 'in
             elif kind == 32:
                 spline_values[i1, i2] = evaluate(
                     1, 3, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, i2], eta2[i1, i2])
-
+            elif kind == 41:
+                spline_values[i1, i2] = evaluate(
+                    4, 1, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, i2], eta2[i1, i2])
+            elif kind == 42:
+                spline_values[i1, i2] = evaluate(
+                    1, 4, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, i2], eta2[i1, i2])
+            elif kind == 43:
+                spline_values[i1, i2] = evaluate(
+                    3, 3, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, i2], eta2[i1, i2])
 
 @pure
 def evaluate_sparse(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'float[:,:]', eta1: 'float[:,:]', eta2: 'float[:,:]', spline_values: 'float[:,:]', kind: int):
@@ -283,6 +313,9 @@ def evaluate_sparse(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int
                 * 2  : DD
                 * 31 : dN/deta N
                 * 32 : N dN/deta
+                * 41 : ddN/deta^2 N
+                * 42 : n ddN/deta^3
+                * 43 : dN/deta dN/deta
     """
 
     from numpy import shape
@@ -311,7 +344,15 @@ def evaluate_sparse(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int
             elif kind == 32:
                 spline_values[i1, i2] = evaluate(
                     1, 3, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, 0], eta2[0, i2])
-
+            elif kind == 41:
+                spline_values[i1, i2] = evaluate(
+                    4, 1, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, 0], eta2[0, i2])
+            elif kind == 42:
+                spline_values[i1, i2] = evaluate(
+                    1, 4, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, 0], eta2[0, i2])
+            elif kind == 43:
+                spline_values[i1, i2] = evaluate(
+                    3, 3, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, 0], eta2[0, i2])
 
 @pure
 def eval_spline_mpi_2d(p1: 'int', p2: 'int', basis1: 'float[:]', basis2: 'float[:]', span1: 'int', span2: 'int', coeff: 'float[:,:]', starts: 'int[:]', pn: 'int[:]') -> float:

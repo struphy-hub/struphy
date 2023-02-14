@@ -30,7 +30,7 @@ Kinetic moments
 MHD equilibria
 --------------
 
-.. automodule:: struphy.fields_background.mhd_equil.analytical
+.. automodule:: struphy.fields_background.mhd_equil.equils
     :members:
     :exclude-members: n, j_x, j_y, j_z, b_x, b_y, b_z, p
 

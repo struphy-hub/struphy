@@ -19,8 +19,8 @@ def test_solvers(Nel, p, spl_kind, mapping, show_plots=False, verbose=False):
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
     from struphy.psydac_api.mass import WeightedMassOperators
-    from struphy.fields_background.mhd_equil.analytical import ShearedSlab
-
+    from struphy.fields_background.mhd_equil.equils import ShearedSlab
+    
     from struphy.linear_algebra.iterative_solvers import bicgstab, pbicgstab
     from struphy.psydac_api.preconditioner import MassMatrixPreconditioner
 

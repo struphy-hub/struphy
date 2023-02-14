@@ -22,8 +22,8 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
     from struphy.psydac_api.mass import WeightedMassOperators
-    from struphy.fields_background.mhd_equil.analytical import ShearedSlab, ScrewPinch
-
+    from struphy.fields_background.mhd_equil.equils import ShearedSlab, ScrewPinch
+    
     from mpi4py import MPI
 
     mpi_comm = MPI.COMM_WORLD
@@ -225,8 +225,8 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
     from struphy.psydac_api.mass import WeightedMassOperators
-    from struphy.fields_background.mhd_equil.analytical import ScrewPinch
-
+    from struphy.fields_background.mhd_equil.equils import ScrewPinch
+    
     from struphy.polar.basic import PolarVector
 
     from mpi4py import MPI
@@ -423,9 +423,9 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     from struphy.psydac_api.mass import WeightedMassOperators
     from struphy.psydac_api.preconditioner import MassMatrixPreconditioner
     from struphy.psydac_api.linear_operators import InverseLinearOperator
-
-    from struphy.fields_background.mhd_equil.analytical import ShearedSlab, ScrewPinch
-
+    
+    from struphy.fields_background.mhd_equil.equils import ShearedSlab, ScrewPinch
+    
     from mpi4py import MPI
 
     mpi_comm = MPI.COMM_WORLD
@@ -732,8 +732,8 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     from struphy.psydac_api.linear_operators import InverseLinearOperator
 
     from struphy.polar.basic import PolarVector
-    from struphy.fields_background.mhd_equil.analytical import ScrewPinch
-
+    from struphy.fields_background.mhd_equil.equils import ScrewPinch
+    
     from mpi4py import MPI
 
     mpi_comm = MPI.COMM_WORLD

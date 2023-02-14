@@ -191,23 +191,20 @@ if __name__ == '__main__':
     domain = domain_class(dom_params)
     
     # load appropriate MHD equilibrium
-    from struphy.fields_background.mhd_equil import analytical as mhd_ana
-    from struphy.fields_background.mhd_equil import numerical  as mhd_num
+    from struphy.fields_background.mhd_equil import equils
     
     equil_params = params['mhd_equilibrium']
     
-    if equil_params['type'] == 'analytical':
-        mhd_equil_class = getattr(mhd_ana, equil_params['name'])
-        mhd_equil = mhd_equil_class(equil_params[equil_params['name']])
+    mhd_equil_class = getattr(equils, equil_params['type'])
+    mhd_equil = mhd_equil_class(equil_params[equil_params['type']])
 
-        # set mapping for equilibrium object
+    if equil_params['use_equil_domain']:
+        assert mhd_equil.domain is not None
+        domain = mhd_equil.domain
+    else:
         mhd_equil.domain = domain
-
-    elif equil_params['type'] == 'numerical':
-        mhd_equil_class = getattr(mhd_num, equil_params['name'])
-        mhd_equil = mhd_equil_class(equil_params[equil_params['name']])
         
-    params_mhd = equil_params[equil_params['name']]
+    params_mhd = equil_params[equil_params['type']]
     
     # set up spline spaces
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space

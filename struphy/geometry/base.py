@@ -5,7 +5,7 @@ from abc import ABCMeta, abstractmethod
 from sympde.topology import Mapping
 
 from struphy.geometry import map_eval, transform
-from struphy.linear_algebra import linalg_kron 
+from struphy.linear_algebra import linalg_kron
 import struphy.b_splines.bsplines as bsp
 
 from scipy.sparse import csc_matrix, kron
@@ -23,22 +23,25 @@ class Domain(metaclass=ABCMeta):
 
         # create IGA attributes for IGA mappings
         if self.kind_map < 10:
-            
+
             Nel = self.params_map['Nel']
-            p   = self.params_map['p']
+            p = self.params_map['p']
             spl = self.params_map['spl_kind']
 
             self._Nel = Nel
             self._p = p
             self._spl_kind = spl
 
-            self._NbaseN = [Nel + p - kind*p for Nel, p, kind in zip(Nel, p, spl)]
+            self._NbaseN = [Nel + p - kind*p for Nel,
+                            p, kind in zip(Nel, p, spl)]
 
             el_b = [np.linspace(0., 1., Nel + 1) for Nel in Nel]
-            
-            self._T = [bsp.make_knots(el_b, p, kind) for el_b, p, kind in zip(el_b, p, spl)]
-            
-            self._indN = [(np.indices((Nel, p + 1))[1] + np.arange(Nel)[:, None])%NbaseN for Nel, p, NbaseN in zip(Nel, p, self._NbaseN)] 
+
+            self._T = [bsp.make_knots(el_b, p, kind)
+                       for el_b, p, kind in zip(el_b, p, spl)]
+
+            self._indN = [(np.indices((Nel, p + 1))[1] + np.arange(Nel)[:, None]) %
+                          NbaseN for Nel, p, NbaseN in zip(Nel, p, self._NbaseN)]
 
             # extend to 3d for 2d IGA mappings
             if self._kind_map != 0:
@@ -48,7 +51,7 @@ class Domain(metaclass=ABCMeta):
                 self._NbaseN = self._NbaseN + [0]
 
                 self._T = self._T + [np.zeros((1,), dtype=float)]
-                
+
                 self._indN = self._indN + [np.zeros((1, 1), dtype=int)]
 
         # create dummy attributes for analytical mappings
@@ -57,13 +60,13 @@ class Domain(metaclass=ABCMeta):
             self._Nel = [0, 0, 0]
             self._p = [0, 0, 0]
             self._spl_kind = [True, True, True]
-            
+
             self._NbaseN = [0, 0, 0]
 
             self._T = [np.zeros((1,), dtype=float),
                        np.zeros((1,), dtype=float),
                        np.zeros((1,), dtype=float)]
-            
+
             self._indN = [np.zeros((1, 1), dtype=int),
                           np.zeros((1, 1), dtype=int),
                           np.zeros((1, 1), dtype=int)]
@@ -72,11 +75,10 @@ class Domain(metaclass=ABCMeta):
             self._cy = np.zeros((1, 1, 1), dtype=float)
             self._cz = np.zeros((1, 1, 1), dtype=float)
 
-        
-        self._transformation_ids = {'pull' : 0,
-                                    'push' : 1,
-                                    'tran' : 2}
-        
+        self._transformation_ids = {'pull': 0,
+                                    'push': 1,
+                                    'tran': 2}
+
         # keys for performing pull-backs
         dict_pull = {
             '0_form': 0,
@@ -104,17 +106,16 @@ class Domain(metaclass=ABCMeta):
             'norm_to_v': 12,
             'norm_to_1': 13,
             'norm_to_2': 14,
-            'v_to_1' : 15,
-            'v_to_2' : 16,
-            '1_to_v' : 17,
-            '2_to_v' : 18
+            'v_to_1': 15,
+            'v_to_2': 16,
+            '1_to_v': 17,
+            '2_to_v': 18
         }
-        
-        self._dict_transformations = {'pull' : dict_pull,
-                                      'push' : dict_push,
-                                      'tran' : dict_tran}
 
-    
+        self._dict_transformations = {'pull': dict_pull,
+                                      'push': dict_push,
+                                      'tran': dict_tran}
+
     class PsydacMapping(Mapping):
         """
         Class to create a psydac domain.
@@ -139,7 +140,7 @@ class Domain(metaclass=ABCMeta):
     def params_map(self):
         '''Mapping parameters as dictionary.'''
         pass
-    
+
     @property
     @abstractmethod
     def params_numpy(self):
@@ -203,219 +204,219 @@ class Domain(metaclass=ABCMeta):
     def T(self):
         '''List of knot vectors for N-splines in each direction.'''
         return self._T
-    
+
     @property
     def indN(self):
         '''Global indices of non-vanishing splines in each element. Can be accessed via (element index, local spline index).'''
         return self._indN
-    
+
     @property
     def args_map(self):
         '''Tuple of all parameters needed for evaluation of metric coefficients.'''
-        
+
         _args_map = (self.kind_map, self.params_numpy,
                      np.array(self.p), self.T[0], self.T[1], self.T[2],
                      self.indN[0], self.indN[1], self.indN[2],
                      self.cx, self.cy, self.cz)
-        
+
         return _args_map
 
     @property
     def dict_transformations(self):
         '''Dictionary of str->int for pull, push and transformation functions.'''
-        return self._dict_transformations    
-    
+        return self._dict_transformations
+
     # ========================
     def __call__(self, *etas, change_out_order=False, squeeze_out=True, remove_outside=True, identity_map=False):
         """
         Evaluates the mapping F : [0, 1]^d --> R^d. Logical coordinates outside of [0, 1]^d are evaluated to -1.
-        
+
         Parameters
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-            
+
         change_out_order : bool
             If True, the axis corresponding to x, y, z coordinates in the output array is the last one, otherwise the first one.
 
         squeeze_out : bool
             Whether to remove singleton dimensions in output array.
-            
+
         remove_outside : bool
             If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
-            
+
         identity_map : bool
             If True, not the mapping F, but the identity map [0, 1]^d --> [0, 1]^d is evaluated
-                
+
         Returns
         -------
         out : ndarray | float
             The Cartesian coordinates corresponding to the given logical ones.
         """
-        
+
         if identity_map:
             which = -1
         else:
             which = 0
-        
+
         return self._evaluate_metric_coefficient(*etas, which=which, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside)
-    
+
     # ========================
     def jacobian(self, *etas, transposed=False, change_out_order=False, squeeze_out=True, remove_outside=True):
         """
         Evaluates the Jacobian matrix. Logical coordinates outside of [0, 1]^d are evaluated to -1.
-        
+
         Parameters
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-            
+
         transposed : bool
             If True, the transposed Jacobian matrix is evaluated.
-            
+
         change_out_order : bool
             If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two. 
-        
+
         squeeze_out : bool
             Whether to remove singleton dimensions in output array.
-            
+
         remove_outside : bool
             If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
-        
+
         Returns
         -------
         out : ndarray | float
             The Jacobian matrix evaluated at given logical coordinates.
         """
-        
+
         return self._evaluate_metric_coefficient(*etas, which=1, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
-    
+
     # ========================
     def jacobian_det(self, *etas, squeeze_out=True, remove_outside=True):
         """
         Evaluates the Jacobian determinant. Logical coordinates outside of [0, 1]^d are evaluated to -1.
-        
+
         Parameters
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-                       
+
         squeeze_out : bool, optional
             Whether to remove singleton dimensions in output array.
-            
+
         remove_outside : bool, optional
             If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
-                
+
         Returns
         -------
         out : ndarray | float
             The Jacobian determinant evaluated at given logical coordinates.
         """
-        
+
         return self._evaluate_metric_coefficient(*etas, which=2, squeeze_out=squeeze_out, remove_outside=remove_outside)
-    
+
     # ========================
     def jacobian_inv(self, *etas, transposed=False, change_out_order=False, squeeze_out=True, remove_outside=True):
         """
         Evaluates the inverse Jacobian matrix. Logical coordinates outside of [0, 1]^d are evaluated to -1.
-        
+
         Parameters
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-            
+
         transposed : bool, optional
             If True, the transposed Jacobian matrix is evaluated.
-            
+
         change_out_order : bool, optional
             If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two. 
-        
+
         squeeze_out : bool, optional
             Whether to remove singleton dimensions in output array.
-            
+
         remove_outside : bool, optional
             If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
-        
+
         Returns
         -------
         out : ndarray | float
             The inverse Jacobian matrix evaluated at given logical coordinates.
         """
-        
+
         return self._evaluate_metric_coefficient(*etas, which=3, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
-    
+
     # ========================
     def metric(self, *etas, transposed=False, change_out_order=False, squeeze_out=True, remove_outside=True):
         """
         Evaluates the metric tensor. Logical coordinates outside of [0, 1]^d are evaluated to -1.
-        
+
         Parameters
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-            
+
         transposed : bool, optional
             If True, the transposed Jacobian matrix is evaluated.
-            
+
         change_out_order : bool, optional
             If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two. 
-        
+
         squeeze_out : bool, optional
             Whether to remove singleton dimensions in output array.
-            
+
         remove_outside : bool, optional
             If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
-        
+
         Returns
         -------
         out : ndarray | float
             The metric tensor evaluated at given logical coordinates.
         """
-        
+
         return self._evaluate_metric_coefficient(*etas, which=4, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
-    
+
     # ========================
     def metric_inv(self, *etas, transposed=False, change_out_order=False, squeeze_out=True, remove_outside=True):
         """
         Evaluates the inverse metric tensor. Logical coordinates outside of [0, 1]^d are evaluated to -1.
-        
+
         Parameters
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-            
+
         transposed : bool, optional
             If True, the transposed Jacobian matrix is evaluated.
-            
+
         change_out_order : bool, optional
             If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two. 
-        
+
         squeeze_out : bool, optional
             Whether to remove singleton dimensions in output array.
-            
+
         remove_outside : bool, optional
             If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
-        
+
         Returns
         -------
         out : ndarray | float
             The inverse metric tensor evaluated at given logical coordinates.
         """
-        
+
         return self._evaluate_metric_coefficient(*etas, which=5, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
-    
+
     # ================================
     def pull(self, a, *etas, kind='0_form', a_kwargs={}, change_out_order=False, squeeze_out=True, remove_outside=True, coordinates='physical'):
         """
@@ -433,16 +434,16 @@ class Domain(metaclass=ABCMeta):
 
         kind : str
             Which pull-back to apply, see dict_transformations['pull'].
-            
+
         a_kwargs : dict
             Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
 
         change_out_order : bool, optional
             If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two. 
-        
+
         squeeze_out : bool, optional
             Whether to remove singleton dimensions in output array.
-            
+
         remove_outside : bool, optional
             If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
 
@@ -460,9 +461,9 @@ class Domain(metaclass=ABCMeta):
         -----
         Possible choices for kind are '0_form', '1_form', '2_form', '3_form' and 'vector'.
         """
-        
+
         return self._pull_push_transform('pull', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside, coordinates=coordinates)
-        
+
     # ================================
     def push(self, a, *etas, kind='0_form', a_kwargs={}, change_out_order=False, squeeze_out=True, remove_outside=True):
         """
@@ -480,16 +481,16 @@ class Domain(metaclass=ABCMeta):
 
         kind : str
             Which pushforward to apply, see dict_transformations['push'].
-            
+
         a_kwargs : dict
             Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
 
         change_out_order : bool, optional
             If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two. 
-        
+
         squeeze_out : bool, optional
             Whether to remove singleton dimensions in output array.
-            
+
         remove_outside : bool, optional
             If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
 
@@ -522,16 +523,16 @@ class Domain(metaclass=ABCMeta):
 
         kind : str
             Which transformation to apply, see see dict_transformations['tran'].
-            
+
         a_kwargs : dict
             Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
 
         change_out_order : bool, optional
             If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two. 
-        
+
         squeeze_out : bool, optional
             Whether to remove singleton dimensions in output array.
-            
+
         remove_outside : bool, optional
             If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
 
@@ -546,229 +547,246 @@ class Domain(metaclass=ABCMeta):
         """
 
         return self._pull_push_transform('tran', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside, a_kwargs=a_kwargs)
-    
+
     # ========================
     # private methods :
     # ========================
-    
+
     # ================================
     def _evaluate_metric_coefficient(self, *etas, which=0, **kwargs):
         """
         Evaluates metric coefficients. Logical coordinates outside of [0, 1]^d are evaluated to -1 for markers evaluation.
-        
+
         Parameters
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-                
+
         which : int
             Which metric coefficients to be evaluated (0 : F, 1 : DF, 2 : det(DF), 3 : DF^(-1), 4 : G, 5 : G^(-1)).
-            
+
         **kwargs
             Addtional boolean keyword arguments (transposed, change_out_order, squeeze_out, remove_outside).
-        
+
         Returns
         -------
         out : ndarray | float
             The metric coefficient evaluated at the given logical coordinates.
         """
-        
+
         # set default values
         transposed = kwargs.get('transposed', False)
         change_out_order = kwargs.get('change_out_order', False)
         squeeze_out = kwargs.get('squeeze_out', True)
         remove_outside = kwargs.get('remove_outside', False)
-        
+
         # markers evaluation
         if len(etas) == 1:
-            
+
             markers = etas[0]
-            
+
             out = np.empty((3, 3, markers.shape[0]), dtype=float)
-            
-            n_inside = map_eval.kernel_evaluate_pic(markers, which, *self.args_map, out, remove_outside)
-            
+
+            n_inside = map_eval.kernel_evaluate_pic(
+                markers, which, *self.args_map, out, remove_outside)
+
             # remove holes
             out = out[:, :, :n_inside]
-            
-            if transposed: out = np.transpose(out, axes=(1, 0, 2))
-            
-            if   which == 0 or which == -1:
+
+            if transposed:
+                out = np.transpose(out, axes=(1, 0, 2))
+
+            if which == 0 or which == -1:
                 out = out[:, 0, :]
-                if change_out_order: out = np.transpose(out, axes=(1, 0)) 
+                if change_out_order:
+                    out = np.transpose(out, axes=(1, 0))
             elif which == 2:
                 out = out[0, 0, :]
             else:
-                if change_out_order: out = np.transpose(out, axes=(2, 0, 1)) 
-            
+                if change_out_order:
+                    out = np.transpose(out, axes=(2, 0, 1))
+
         # tensor-product/slice evaluation
         else:
-            
+
             E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
                 etas[0], etas[1], etas[2], flat_eval=False)
 
-            out = np.empty((3, 3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+            out = np.empty(
+                (3, 3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
 
-            map_eval.kernel_evaluate(E1, E2, E3, which, *self.args_map, out, is_sparse_meshgrid)
-            
-            if transposed: out = np.transpose(out, axes=(1, 0, 2, 3, 4))
-            
-            if   which == 0:
+            map_eval.kernel_evaluate(
+                E1, E2, E3, which, *self.args_map, out, is_sparse_meshgrid)
+
+            if transposed:
+                out = np.transpose(out, axes=(1, 0, 2, 3, 4))
+
+            if which == 0:
                 out = out[:, 0, :, :, :]
-                if change_out_order: out = np.transpose(out, axes=(1, 2, 3, 0))
+                if change_out_order:
+                    out = np.transpose(out, axes=(1, 2, 3, 0))
             elif which == 2:
                 out = out[0, 0, :, :, :]
-            else:    
-                if change_out_order: out = np.transpose(out, axes=(2, 3, 4, 0, 1))
+            else:
+                if change_out_order:
+                    out = np.transpose(out, axes=(2, 3, 4, 0, 1))
 
             # remove singleton dimensions for slice evaluation
-            if squeeze_out: 
+            if squeeze_out:
                 out = out.squeeze()
 
             # remove all "dimensions" for point-wise evaluation
-            if out.ndim == 0: 
+            if out.ndim == 0:
                 out = out.item()
 
         if isinstance(out, float):
             return out
         else:
             return out.copy()
-        
+
     # ================================
     def _pull_push_transform(self, which, a, kind_fun, *etas, **kwargs):
         """
         Evaluates metric coefficients. Logical coordinates outside of [0, 1]^d are evaluated to -1 for markers evaluation.
-        
+
         Parameters
         ----------
         which : str
             Which transformation to apply (one of "pull", "push" or "tran").
-            
+
         a : callable | list | tuple | array-like
             The function/values to be transformed.
-            
+
         kind_fun : str
             The kind of transformation (e.g. "0_form" or "1_form" in case of which="pull").
-        
+
         *etas : array-like| tuple
             Logical coordinates at which to evaluate. Two cases are possible:
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-            
+
         **kwargs
-            Addtional keyword arguments (transposed, change_out_order, squeeze_out, remove_outside, a_kwargs).
-        
+            Addtional keyword arguments (coordinates, change_out_order, squeeze_out, remove_outside, a_kwargs).
+
         Returns
         -------
         out : ndarray | float
             The metric coefficient evaluated at the given logical coordinates.
         """
-        
+
         # set default values
         coordinates = kwargs.get('coordinates', 'logical')
         change_out_order = kwargs.get('change_out_order', False)
         squeeze_out = kwargs.get('squeeze_out', True)
         remove_outside = kwargs.get('remove_outside', False)
         a_kwargs = kwargs.get('a_kwargs', {})
-        
+
         # kind of transformation
         kind_int = self.dict_transformations[which][kind_fun]
-        
+
         # markers evaluation
         if len(etas) == 1:
-            
+
             markers = etas[0]
-            
+
             # coordinates (:, 3) and argument evaluation (without holes)
             if callable(a):
                 if coordinates == 'logical':
-                    A = Domain.prepare_arg(a, self(markers, change_out_order=True, remove_outside=remove_outside, identity_map=True)) 
+                    A = Domain.prepare_arg(a, self(
+                        markers, change_out_order=True, remove_outside=remove_outside, identity_map=True))
                 else:
-                    A = Domain.prepare_arg(a, self(markers, change_out_order=True, remove_outside=remove_outside))
-            
+                    A = Domain.prepare_arg(
+                        a, self(markers, change_out_order=True, remove_outside=remove_outside))
+
             elif isinstance(a, (list, tuple)):
-                
+
                 if callable(a[0]):
                     if coordinates == 'logical':
-                        A = Domain.prepare_arg(a, self(markers, change_out_order=True, remove_outside=remove_outside, identity_map=True)) 
+                        A = Domain.prepare_arg(a, self(
+                            markers, change_out_order=True, remove_outside=remove_outside, identity_map=True))
                     else:
-                        A = Domain.prepare_arg(a, self(markers, change_out_order=True, remove_outside=remove_outside))
+                        A = Domain.prepare_arg(
+                            a, self(markers, change_out_order=True, remove_outside=remove_outside))
                 else:
                     A = Domain.prepare_arg(a, markers)
-                
+
             else:
                 A = Domain.prepare_arg(a, markers)
-            
+
             # check if A includes holes or not
             if A.shape[1] == markers.shape[0]:
                 A_has_holes = True
             else:
                 A_has_holes = False
-            
+
             # call evaluation kernel
             out = np.empty((3, markers.shape[0]), dtype=float)
-            
-            n_inside = transform.kernel_evaluate_pic(A, markers, self._transformation_ids[which], kind_int, *self.args_map, out, remove_outside)
-            
+
+            n_inside = transform.kernel_evaluate_pic(
+                A, markers, self._transformation_ids[which], kind_int, *self.args_map, out, remove_outside)
+
             # remove holes
             out = out[:, :n_inside]
-            
+
             # check if A has correct shape
             if not A_has_holes and remove_outside:
                 assert A.shape[1] == out.shape[1]
-            
+
             # change output order
             if kind_int < 10:
                 out = out[0, :]
             else:
                 if change_out_order:
                     out = np.transpose(out, axes=(1, 0))
-                
+
         # tensor-product/slice evaluation
         else:
-        
+
             # convert evaluation points to 3d array of appropriate shape
             E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
                 etas[0], etas[1], etas[2], flat_eval=False)
-            
+
             # convert input to be transformed (a) to 4d array of appropriate shape
             if coordinates == 'logical':
-                A = Domain.prepare_arg(a, E1, E2, E3, is_sparse_meshgrid=is_sparse_meshgrid, a_kwargs=a_kwargs) 
+                A = Domain.prepare_arg(
+                    a, E1, E2, E3, is_sparse_meshgrid=is_sparse_meshgrid, a_kwargs=a_kwargs)
             else:
                 X = self(E1, E2, E3, squeeze_out=False)
                 A = Domain.prepare_arg(a, X[0], X[1], X[2], a_kwargs=a_kwargs)
-                
+
             # call evaluation kernel
-            out = np.empty((3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
-            
-            transform.kernel_evaluate(A, E1, E2, E3, self._transformation_ids[which], kind_int, *self.args_map, is_sparse_meshgrid, out)
-                
+            out = np.empty(
+                (3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+
+            transform.kernel_evaluate(
+                A, E1, E2, E3, self._transformation_ids[which], kind_int, *self.args_map, is_sparse_meshgrid, out)
+
             # change output order
             if kind_int < 10:
                 out = out[0, :, :, :]
             else:
                 if change_out_order:
                     out = np.transpose(out, axes=(1, 2, 3, 0))
-                    
+
             # remove singleton dimensions for slice evaluation
-            if squeeze_out: 
+            if squeeze_out:
                 out = out.squeeze()
 
             # remove all "dimensions" for point-wise evaluation
-            if out.ndim == 0: 
+            if out.ndim == 0:
                 out = out.item()
-                
+
         if isinstance(out, float):
             return out
         else:
             return out.copy()
-    
+
     # ========================
     # static methods :
     # ========================
-    
+
     # ================================
     @staticmethod
     def prepare_eval_pts(x, y, z, flat_eval=False):
@@ -902,7 +920,7 @@ class Domain(metaclass=ABCMeta):
                 raise ValueError('Argument dimensions not supported')
 
             return E1, E2, E3, is_sparse_meshgrid
-    
+
     # ================================
     @staticmethod
     def prepare_arg(a_in, *Xs, is_sparse_meshgrid=False, a_kwargs={}):
@@ -919,7 +937,7 @@ class Domain(metaclass=ABCMeta):
 
         is_sparse_meshgrid : bool
             Whether arguments fit sparse_meshgrid shape. Obtained from prepare_eval_pts function.
-            
+
         a_kwargs : dict
             Keyword arguments passed to parameter "a_in" if "a_in" is a callable: is called as a_in(*etas, **a_kwargs).
 
@@ -928,7 +946,7 @@ class Domain(metaclass=ABCMeta):
         a_out : array-like
             The 2d/4d array suitable for evaluation kernels.
         """
-        
+
         if len(Xs) == 1:
             flat_eval = True
         else:
@@ -945,7 +963,8 @@ class Domain(metaclass=ABCMeta):
                     a_out = a_out[None, :]
             else:
                 if is_sparse_meshgrid:
-                    a_out = a_in(*np.meshgrid(Xs[0][:, 0, 0], Xs[1][0, :, 0], Xs[2][0, 0, :], indexing='ij'), **a_kwargs)
+                    a_out = a_in(
+                        *np.meshgrid(Xs[0][:, 0, 0], Xs[1][0, :, 0], Xs[2][0, 0, :], indexing='ij'), **a_kwargs)
                 else:
                     a_out = a_in(*Xs, **a_kwargs)
                 if a_out.ndim == 3:
@@ -956,19 +975,21 @@ class Domain(metaclass=ABCMeta):
         # 1d array(s) (flat_eval=True)
         # 3d array(s) (flat eval=False)
         elif isinstance(a_in, (list, tuple)):
-            
+
             assert len(a_in) == 1 or len(a_in) == 3
 
             a_out = []
             for component in a_in:
 
                 if callable(component):
-                    
+
                     if flat_eval:
-                        a_out += [component(Xs[0][:, 0], Xs[0][:, 1], Xs[0][:, 2], **a_kwargs)]
+                        a_out += [component(Xs[0][:, 0], Xs[0]
+                                            [:, 1], Xs[0][:, 2], **a_kwargs)]
                     else:
                         if is_sparse_meshgrid:
-                            a_out += [component(*np.meshgrid(Xs[0][:, 0, 0], Xs[1][0, :, 0], Xs[2][0, 0, :], indexing='ij'), **a_kwargs)]
+                            a_out += [component(*np.meshgrid(Xs[0][:, 0, 0], Xs[1]
+                                                [0, :, 0], Xs[2][0, 0, :], indexing='ij'), **a_kwargs)]
                         else:
                             a_out += [component(*Xs, **a_kwargs)]
 
@@ -978,20 +999,23 @@ class Domain(metaclass=ABCMeta):
                         assert component.ndim == 1
                     else:
                         assert component.ndim == 3
-                    
+
                     a_out += [component]
 
-            a_out = np.array(a_out, dtype=float)
+                elif isinstance(component, float):
 
+                    a_out += [np.array([component])[:, None, None]]
+
+            a_out = np.array(a_out, dtype=float)
         # numpy array:
         # 1d array (flat_eval=True and scalar input)
-        # 2d array (flat_eval=True and vector-valued input of shape (3,:)) 
-        # 3d array (flat_eval=False and scalar input) 
-        # 4d array (flat_eval=False and vector-valued input of shape (3,:,:,:)) 
+        # 2d array (flat_eval=True and vector-valued input of shape (3,:))
+        # 3d array (flat_eval=False and scalar input)
+        # 4d array (flat_eval=False and vector-valued input of shape (3,:,:,:))
         elif isinstance(a_in, np.ndarray):
 
             if flat_eval:
-                if   a_in.ndim == 1: 
+                if a_in.ndim == 1:
                     a_out = a_in[None, :]
                 elif a_in.ndim == 2:
                     a_out = a_in[:, :]
@@ -1000,7 +1024,7 @@ class Domain(metaclass=ABCMeta):
                     2d (vector-valued, shape (3,:)) for flat evaluation!')
 
             else:
-                if   a_in.ndim == 3:
+                if a_in.ndim == 3:
                     a_out = a_in[None, :, :, :]
                 elif a_in.ndim == 4:
                     a_out = a_in[:, :, :, :]
@@ -1016,7 +1040,7 @@ class Domain(metaclass=ABCMeta):
         if flat_eval:
             assert a_out.ndim == 2
             assert a_out.shape[0] == 1 or a_out.shape[0] == 3
-        
+
         # make sure that output array is 4d and of shape (1,:,:,:) or (3,:,:,:) for tensor-product/slice evaluation
         else:
             assert a_out.ndim == 4
@@ -1096,7 +1120,8 @@ class Domain(metaclass=ABCMeta):
                 if key not in {'cx', 'cy', 'cz'}:
                     tstr += key + ': ' + str(val) + '\n'
             ax.set_title(self.__class__.__name__ + ' at $\\eta_3=0$')
-            ax.text(.01,.99, tstr, ha='left', va='top', transform = ax.transAxes)
+            ax.text(.01, .99, tstr, ha='left',
+                    va='top', transform=ax.transAxes)
 
             # top view
             e3 = np.linspace(0., 1., 65)
@@ -1131,11 +1156,13 @@ class Domain(metaclass=ABCMeta):
             if is_not_cube:
                 # eta1-isolines
                 for i in range(e1.size):
-                    ax2.plot(X_pi[i, :], Z_pi[i, :], 'tab:blue', alpha=.5, zorder=0)
+                    ax2.plot(X_pi[i, :], Z_pi[i, :],
+                             'tab:blue', alpha=.5, zorder=0)
 
                 # eta3-isolines
                 for j in range(e2.size):
-                    ax2.plot(X_pi[:, j], Z_pi[:, j], 'tab:blue', alpha=.5, zorder=0)
+                    ax2.plot(X_pi[:, j], Z_pi[:, j],
+                             'tab:blue', alpha=.5, zorder=0)
 
             # magnetic axis
             ax2.plot(X_0[0, :], Z_0[0, :], 'tab:red', alpha=1., zorder=10)
@@ -1149,12 +1176,12 @@ class Domain(metaclass=ABCMeta):
             ax2.set_ylabel(ylab)
             ax2.set_title('top view')
             ax2.axis('equal')
-                
+
         # plot domain according to given grid [nel1, nel2, (nel3)]
         elif isinstance(grid_info, list):
-            
+
             assert len(grid_info) > 1
-            
+
             e1 = np.linspace(0., 1., grid_info[0] + 1)
             e2 = np.linspace(0., 1., grid_info[1] + 1)
             
@@ -1191,7 +1218,7 @@ class Domain(metaclass=ABCMeta):
         
         # plot domain with MPI decomposition
         elif isinstance(grid_info, np.ndarray):
-            
+
             assert grid_info.ndim == 2
             assert grid_info.shape[1] > 5
             
@@ -1199,7 +1226,7 @@ class Domain(metaclass=ABCMeta):
             ax = fig.add_subplot(1, 1, 1)
             
             for i in range(grid_info.shape[0]):
-                
+
                 e1 = np.linspace(grid_info[i, 0], grid_info[i, 1], int(
                     grid_info[i, 2]) + 1)
                 e2 = np.linspace(grid_info[i, 3], grid_info[i, 4], int(
@@ -1239,7 +1266,7 @@ class Domain(metaclass=ABCMeta):
                     
         else:
             raise ValueError('given grid_info is not supported!')
-            
+
         # plot control points in case of IGA mappings
         if not logical and self.kind_map < 10:
             if self.__class__.__name__ == 'GVECunit':
@@ -1285,9 +1312,10 @@ class Domain(metaclass=ABCMeta):
                     ax.scatter(X[co1], X[co2], s=1)
 
         ax.axis('equal')
-        
-        if isinstance(grid_info, np.ndarray): plt.legend()
-        
+
+        if isinstance(grid_info, np.ndarray):
+            plt.legend()
+
         if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit':
             ylab = 'z'
         else:
@@ -1322,16 +1350,16 @@ class Spline(Domain):
         # set a default
         if params_map is None:
 
-            from struphy.fields_background.mhd_equil.numerical import GVECequilibrium
+            from struphy.fields_background.mhd_equil.equils import GVECequilibrium
 
-            mhd_equil = GVECequilibrium() 
-            
+            mhd_equil = GVECequilibrium()
+
             params_map = {'cx': mhd_equil.domain.cx,
-                        'cy': mhd_equil.domain.cy,
-                        'cz': mhd_equil.domain.cz,
-                        'Nel': mhd_equil.domain.Nel,
-                        'p': mhd_equil.domain.p,
-                        'spl_kind': mhd_equil.domain.spl_kind}
+                          'cy': mhd_equil.domain.cy,
+                          'cz': mhd_equil.domain.cz,
+                          'Nel': mhd_equil.domain.Nel,
+                          'p': mhd_equil.domain.p,
+                          'spl_kind': mhd_equil.domain.spl_kind}
 
         else:
             assert 'cx' in params_map
@@ -1351,7 +1379,8 @@ class Spline(Domain):
         assert self.cy.ndim == 3
         assert self.cz.ndim == 3
 
-        assert all([self.cx.shape[n] == params_map['Nel'][n] + (not params_map['spl_kind'][n])*params_map['p'][n] for n in range(3)])
+        assert all([self.cx.shape[n] == params_map['Nel'][n] +
+                   (not params_map['spl_kind'][n])*params_map['p'][n] for n in range(3)])
         assert self.cy.shape == self.cx.shape
         assert self.cz.shape == self.cx.shape
 
@@ -1361,7 +1390,7 @@ class Spline(Domain):
         else:
             self._pole = False
 
-        self._periodic_eta3 = params_map['spl_kind'][-1] 
+        self._periodic_eta3 = params_map['spl_kind'][-1]
 
         # init base class
         self._params_map = params_map
@@ -1410,16 +1439,14 @@ class PoloidalSpline(Domain):
 
     def __init__(self, params_map=None):
 
-        import struphy as _
-
         # set a default
         if params_map is None:
-        
+
             params_map = {
-                        'Nel': [8, 24],
-                        'p': [2, 3],
-                        'spl_kind': [False, True]
-                        }
+                'Nel': [8, 24],
+                'p': [2, 3],
+                'spl_kind': [False, True]
+            }
 
             def X(eta1, eta2): return eta1 * np.cos(2*np.pi * eta2) + 3.
             def Y(eta1, eta2): return eta1 * np.sin(2*np.pi * eta2)
@@ -1443,10 +1470,11 @@ class PoloidalSpline(Domain):
         self._cx = params_map['cx']
         self._cy = params_map['cy']
 
-        assert self.cx.ndim == 2 
+        assert self.cx.ndim == 2
         assert self.cy.ndim == 2
 
-        assert all([self.cx.shape[n] == params_map['Nel'][n] + (not params_map['spl_kind'][n])*params_map['p'][n] for n in range(2)])
+        assert all([self.cx.shape[n] == params_map['Nel'][n] +
+                   (not params_map['spl_kind'][n])*params_map['p'][n] for n in range(2)])
         assert self.cy.shape == self.cx.shape
 
         if np.all(self.cx[0, :] == self.cx[0, 0]):
@@ -1525,9 +1553,9 @@ class PoloidalSplineStraight(PoloidalSpline):
             self._params_map['cx'][:, :] = self._params_map['cx'] - 3.
 
         self._params_numpy = np.array([self.params_map['Lz']])
-        self._periodic_eta3 = False 
+        self._periodic_eta3 = False
 
-        
+
 class PoloidalSplineTorus(PoloidalSpline):
     r'''
     .. math:: 
@@ -1554,15 +1582,13 @@ class PoloidalSplineTorus(PoloidalSpline):
             assert 'p' in params_map
             assert 'spl_kind' in params_map
             assert 'tor_period' in params_map
-            assert 'sfl' in params_map
 
         # init base class and set class specific properties
         super().__init__(params_map)
 
         # set default
         if params_map is None:
-            self._params_map['tor_period'] = 3 
-            self._params_map['sfl'] = True
+            self._params_map['tor_period'] = 3
             self._params_map['cy'][:, :] = -self._params_map['cy']
 
         self._params_numpy = np.array([float(self.params_map['tor_period'])])
@@ -1641,21 +1667,25 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
         return 0.
 
 
-def spline_interpolation_nd(p, grids_1d, values):
+def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: np.ndarray):
     """
-    nd spline interpolation with discrete input (nonuniform).
+    n-dimensional tensor-product spline interpolation with discrete input. 
 
-    The knot vector for the clamped spline interpolant is constructed from grids_1d.
+    The interpolation points are passed as a list of 1d arrays, each array with increasing entries g[0]=0 < g[1] < ...
+    The last element must be g[-1] = 1 for clamped interpolation and g[-1] < 1 for periodic interpolation.
 
     Parameters
     -----------
-    p : list 
+    p : list[int]
         Spline degree.
 
-    grids_1d : list of np.arrays
-        Interpolation points.
+    grids_1d : list[array]
+        Interpolation points in [0, 1].
 
-    values: np.array
+    spl_kind : list[bool]
+        True: periodic splines, False: clamped splines.
+
+    values: array
         Function values at interpolation points. values.shape = (grid1.size, ..., gridn.size).
 
     Returns
@@ -1663,41 +1693,56 @@ def spline_interpolation_nd(p, grids_1d, values):
     coeffs : np.array
         spline coefficients as nd array.
 
-    T : list
+    T : list[array]
         Knot vector of spline interpolant.
+
+    indN : list[array]
+        Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
     """
 
-    # dimension check
-    for sh, x_grid in zip(values.shape, grids_1d):
+    T = []
+    indN = []
+    I_mat = []
+    I_LU = []
+    for sh, x_grid, p_i, kind_i in zip(values.shape, grids_1d, p, spl_kind):
+        assert isinstance(x_grid, np.ndarray)
         assert sh == x_grid.size
+        assert np.all(np.roll(x_grid, 1)[1:] < x_grid[1:]) and x_grid[-1] > x_grid[-2]
+        assert x_grid[0] == 0. 
 
-    # list of break point arrays
-    breaks = []
+        if kind_i:
+            assert x_grid[-1] < 1. , 'Interpolation points must be <1 for periodic interpolation.'
+            breaks = np.ones(x_grid.size + 1)
 
-    for x_grid, p_i in zip(grids_1d, p):
+            if p_i % 2 == 0:
+                breaks[1:-1] = (x_grid[1:] + np.roll(x_grid, 1)[1:]) / 2.
+                breaks[0] = 0.
+            else:
+                breaks[:-1] = x_grid
 
-        # dimension of the 1d spline spaces: dim = breaks.size - 1 + p = x_grid.size
-        if p_i == 1:
-            breaks.append(x_grid)
-        elif p_i % 2 == 0:
-            breaks.append(x_grid[p_i//2 - 1:-p_i//2].copy())
         else:
-            breaks.append(x_grid[(p_i - 1)//2:-(p_i - 1)//2].copy())
+            assert np.abs(x_grid[-1] - 1.) < 1e-14, 'Interpolation points must include x=1 for clamped interpolation.'
+            # dimension of the 1d spline spaces: dim = breaks.size - 1 + p = x_grid.size
+            if p_i == 1:
+                breaks = x_grid
+            elif p_i % 2 == 0:
+                breaks = x_grid[p_i//2 - 1:-p_i//2].copy()
+            else:
+                breaks = x_grid[(p_i - 1)//2:-(p_i - 1)//2].copy()
 
-        # cells must be in interval [0, 1]
-        breaks[-1][0] = 0.
-        breaks[-1][-1] = 1.
+            # cells must be in interval [0, 1]
+            breaks[0] = 0.
+            breaks[-1] = 1.
 
-    # interpolation with clamped splines (periodic=False)
-    T = [bsp.make_knots(breaks_i, p_i, periodic=False)
-         for breaks_i, p_i in zip(breaks, p)]
-    
-    indN = [(np.indices((breaks_i.size - 1, p_i + 1))[1] + np.arange(breaks_i.size - 1)[:, None])%grids_1d_i.size for breaks_i, p_i, grids_1d_i in zip(breaks, p, grids_1d)]
+        #breaks = np.linspace(0., 1., x_grid.size - (not kind_i)*p_i + 1)
 
-    I_mat = [bsp.collocation_matrix(T_i, p_i, grids_1d_i, periodic=False)
-             for T_i, p_i, grids_1d_i in zip(T, p, grids_1d)]
+        T += [bsp.make_knots(breaks, p_i, periodic=kind_i)]
 
-    I_LU = [splu(csc_matrix(I_mat_i)) for I_mat_i in I_mat]
+        indN += [(np.indices((breaks.size - 1, p_i + 1))[1] + np.arange(breaks.size - 1)[:, None]) % x_grid.size]
+
+        I_mat += [bsp.collocation_matrix(T[-1], p_i, x_grid, periodic=kind_i)]
+
+        I_LU += [splu(csc_matrix(I_mat[-1]))]
 
     # dimension check
     for I, x_grid in zip(I_mat, grids_1d):

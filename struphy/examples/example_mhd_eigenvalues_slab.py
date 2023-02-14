@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from struphy.geometry import domains
-from struphy.fields_background.mhd_equil.analytical import ShearedSlab
+from struphy.fields_background.mhd_equil.equils import ShearedSlab
 from struphy.diagnostics.continuous_spectra import get_mhd_continua_2d
 from struphy.dispersion_relations.analytic import MhdContinousSpectraShearedSlab
 

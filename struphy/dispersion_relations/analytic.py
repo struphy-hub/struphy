@@ -116,6 +116,92 @@ class Mhd1D(DispersionRelations1D):
         return omegas
 
 
+class ColdPlasma1D(DispersionRelations1D):
+    r'''Dispersion relation for cold plasma model :math:`(\alpha,\mathbf B_0)`
+    and wave propagation along z-axis :math:`(\mathbf k = k \mathbf e_z)` in Struphy units
+    (see ``ColdPlasma`` in :ref:`models`):
+    
+    .. math::
+    
+        \left[ \left( \omega^2 - |k|^2 \right) \mathbb I + \mathbf k \otimes \mathbf k + i \omega \alpha \sigma_c \right] \mathbf E = 0\,,
+
+    where :math:`\left( \omega^2 - |k|^2 \right) \mathbb I + \mathbf k \otimes \mathbf k + i \omega \alpha \sigma_c = \varepsilon`
+    is the dielectric tensor, :math:`\alpha` is the plasma frequency in units of the electron cyclotron frequency
+    and :math:`\sigma_c = \left( \mathbb I - i Q / \omega \right)^{-1} i \alpha / \omega`,
+    with :math:`Q` being an operator which, if applied to vector :math:`\mathbf v`, returns :math:`\mathbf v \times \mathbf B_0`.
+    '''
+
+    def __init__(self, **params):
+        super().__init__('ion-cyclotron wave', 'electron-cyclotron wave', 'L-wave', 'R-wave', **params)
+
+    def __call__(self, kvec, kperp=None):
+        
+        # One complex array for each branch
+        tmps = []
+        for n in range(self.nbranches):
+            tmps += [np.zeros_like(kvec, dtype=complex)]
+
+        ########### Model specific part ##############################
+
+        # squared B modulus
+        B2 = self.params['B0x']**2 + self.params['B0y']**2 + self.params['B0z']**2
+        # squared Bz modulus
+        Bz2 = self.params['B0z']**2
+        # squared k modulus
+        k2vec = kvec**2
+        # alpha squared
+        alpha2 = self.params['alpha']**2
+
+        for n, k2 in enumerate(k2vec):
+            # polynomial coefficients in order of increasing degree
+            # 0th degree
+            a = - k2**2 * Bz2 * alpha2
+            # 1st degree
+            b = 0
+            # 2nd degree
+            c = k2**2 * B2 + k2**2 * alpha2 + k2 * B2 * alpha2 + k2 * Bz2 * alpha2 + alpha2**3
+            # 3rd degree
+            d = 0
+            # 4th degree
+            e = -1 * (k2**2 + 2 * k2 * B2 + 4 * alpha2 * k2 + alpha2 * B2 + 3 * alpha2**2)
+            # 5th degree
+            f = 0
+            # 6th degree
+            g = B2 + 3 * alpha2
+            # 7th degree
+            h = 0
+            # 8th degree
+            i = -1 
+
+            # R-wave cut frequency in terms of the electron-cyclotron one
+            Rcut = 0.5 * (np.sqrt(1 + 4 * alpha2) + 1)
+
+            # determinant in polynomial form
+            det = np.polynomial.Polynomial([a, b, c, d, e, f, g, h, i], domain=[0, 10 * Rcut])
+
+            # solutions
+            sol = det.roots()
+            # we want only positive omegas
+            sol = sol[sol >= 0]
+            # Ion-cyclotron branch
+            tmps[0][n] = sol[0]
+            # Electron-cyclotron branch
+            tmps[1][n] = sol[1]
+            # L-branch
+            tmps[2][n] = sol[2]
+            # R- branch
+            tmps[3][n] = sol[3]
+
+        ##############################################################
+
+        # fill output dictionary
+        dict_disp = {}
+        for name, tmp in zip(self.branches, tmps):
+            dict_disp[name] = tmp
+
+        return dict_disp
+
+
 class CurrentCoupling6DParallel(DispersionRelations1D):
     r"""
     Dispersion relation for linearized hybrid MHD-Vlasov model (current coupling scheme) in Struphy units for homogeneous background :math:`(n_0=1,p_0,\mathbf B_0=B_0\mathbf e_z)`, wave propagation along z-axis and EP distribution function
