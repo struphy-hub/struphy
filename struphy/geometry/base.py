@@ -871,7 +871,7 @@ class Domain(metaclass=ABCMeta):
                 arg_y = y
             else:
                 raise ValueError(f'data type {type(y)} not supported')
-
+    
             if isinstance(z, float):
                 arg_z = np.array([z])
             elif isinstance(z, int):
@@ -1093,7 +1093,6 @@ class Domain(metaclass=ABCMeta):
             else:
                 XYZ = self(e1, e2, 0.)
 
-            # TODO: homogenize coordinates for poloidal plane: always use z as torus symmetry axis?
             X = XYZ[0]
             if self.__class__.__name__ == 'GVECunit' or 'Torus' in self.__class__.__name__:
                 Y = XYZ[2]
@@ -1123,6 +1122,13 @@ class Domain(metaclass=ABCMeta):
             ax.text(.01, .99, tstr, ha='left',
                     va='top', transform=ax.transAxes)
 
+            # Jacobian determinant
+            # ax3 = fig.add_subplot(2, 2, 3)
+            # mp = ax3.contourf(X, Y, self.jacobian_det(e1, e2, 0.), levels=50)
+            # ax3.axis('equal')
+            # ax3.set_title('det(DF)')
+            # plt.colorbar(mappable=mp, format="%3.1f")
+
             # top view
             e3 = np.linspace(0., 1., 65)
 
@@ -1133,7 +1139,6 @@ class Domain(metaclass=ABCMeta):
                 theta_0 = self(e1, 0., e3)
                 theta_pi = self(e1, .5, e3)
 
-            # TODO: homogenize coordinates for poloidal plane: always use z as torus symmetry axis?
             X_0 = theta_0[0]
             X_pi = theta_pi[0]
             if self.__class__.__name__ == 'GVECunit' or 'Torus' in self.__class__.__name__:
@@ -1589,7 +1594,7 @@ class PoloidalSplineTorus(PoloidalSpline):
         # set default
         if params_map is None:
             self._params_map['tor_period'] = 3
-            self._params_map['cy'][:, :] = -self._params_map['cy']
+            self._params_map['cy'][:, :] = self._params_map['cy']
 
         self._params_numpy = np.array([float(self.params_map['tor_period'])])
         self._periodic_eta3 = True

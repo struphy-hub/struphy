@@ -235,7 +235,7 @@ def spline_2d_torus(eta1: float, eta2: float, eta3: float,
 
         F_x &= S_R(\eta_1, \eta_2) * \cos(2\pi\eta_3)
 
-        F_y &= S_R(\eta_1, \eta_2) * \sin(2\pi\eta_3)
+        F_y &= - S_R(\eta_1, \eta_2) * \sin(2\pi\eta_3)
 
         F_z &= S_z(\eta_1, \eta_2)\,.
 
@@ -282,13 +282,13 @@ def spline_2d_torus(eta1: float, eta2: float, eta3: float,
 
     # Evaluate mapping
     f_out[0] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx) * cos(2*pi*eta3 / tor_period)
-    f_out[1] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx) * sin(2*pi*eta3 / tor_period)
+    f_out[1] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx) * (-1) * sin(2*pi*eta3 / tor_period)
     f_out[2] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cy)
 
     # TODO: explanation
     if eta1 == 0. and cx[0, 0] == cx[0, 1]:
-        f_out[0] = cx[0, 0]*cos(2*pi*eta3 / tor_period)
-        f_out[1] = cx[0, 0]*sin(2*pi*eta3 / tor_period)
+        f_out[0] = cx[0, 0] * cos(2*pi*eta3 / tor_period)
+        f_out[1] = cx[0, 0] * (-1) * sin(2*pi*eta3 / tor_period)
 
     if eta1 == 0. and cy[0, 0] == cy[0, 1]:
         f_out[2] = cy[0, 0]
@@ -321,9 +321,9 @@ def spline_2d_torus_df(eta1: float, eta2: float, eta3: float,
     df_out[0, 0] = eva_2d.evaluation_kernel_2d(p[0], p[1], der1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx) * cos(2*pi*eta3 / tor_period)
     df_out[0, 1] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, der2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx) * cos(2*pi*eta3 / tor_period)
     df_out[0, 2] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx) * sin(2*pi*eta3 / tor_period) * (-2*pi / tor_period)
-    df_out[1, 0] = eva_2d.evaluation_kernel_2d(p[0], p[1], der1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx) * sin(2*pi*eta3 / tor_period)
-    df_out[1, 1] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, der2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx) * sin(2*pi*eta3 / tor_period)
-    df_out[1, 2] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx) * cos(2*pi*eta3 / tor_period) * 2*pi / tor_period
+    df_out[1, 0] = eva_2d.evaluation_kernel_2d(p[0], p[1], der1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx) * (-1) * sin(2*pi*eta3 / tor_period)
+    df_out[1, 1] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, der2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx) * (-1) * sin(2*pi*eta3 / tor_period)
+    df_out[1, 2] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx) * (-1) * cos(2*pi*eta3 / tor_period) * 2*pi / tor_period
     df_out[2, 0] = eva_2d.evaluation_kernel_2d(p[0], p[1], der1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cy)
     df_out[2, 1] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, der2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cy)
     df_out[2, 2] = 0.
@@ -665,7 +665,7 @@ def hollow_torus(eta1: float, eta2: float, eta3: float,
 
         F_x &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\cos(2\pi\,\eta_2)+R_0\\rbrace\cos(2\pi\,\eta_3)\,, 
 
-        F_y &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\cos(2\pi\,\eta_2)+R_0\\rbrace\sin(2\pi\,\eta_3) \,, 
+        F_y &= - \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\cos(2\pi\,\eta_2)+R_0\\rbrace\sin(2\pi\,\eta_3) \,, 
 
         F_z &= \,\,\,\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\sin(2\pi\,\eta_2)\,.
 
@@ -699,8 +699,8 @@ def hollow_torus(eta1: float, eta2: float, eta3: float,
     da = a2 - a1
 
     f_out[0] = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * cos(2*pi*eta3 / tor_period)
-    f_out[1] = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * sin(2*pi*eta3 / tor_period)
-    f_out[2] = -(a1 + eta1 * da) * sin(2*pi*eta2) 
+    f_out[1] = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * (-1) * sin(2*pi*eta3 / tor_period)
+    f_out[2] = (a1 + eta1 * da) * sin(2*pi*eta2) 
 
 @pure
 def hollow_torus_df(eta1: float, eta2: float, eta3: float,
@@ -716,11 +716,11 @@ def hollow_torus_df(eta1: float, eta2: float, eta3: float,
     df_out[0, 0] = da * cos(2*pi*eta2) * cos(2*pi*eta3 / tor_period)
     df_out[0, 1] = -2*pi * (a1 + eta1 * da) * sin(2*pi*eta2) * cos(2*pi*eta3 / tor_period)
     df_out[0, 2] = -2*pi / tor_period * ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * sin(2*pi*eta3 / tor_period) 
-    df_out[1, 0] = da * cos(2*pi*eta2) * sin(2*pi*eta3 / tor_period)
-    df_out[1, 1] = -2*pi * (a1 + eta1 * da) * sin(2*pi*eta2) * sin(2*pi*eta3 / tor_period)
-    df_out[1, 2] = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * cos(2*pi*eta3 / tor_period) * 2*pi / tor_period
-    df_out[2, 0] = -da * sin(2*pi*eta2)
-    df_out[2, 1] = -(a1 + eta1 * da) * cos(2*pi*eta2) * 2*pi
+    df_out[1, 0] = da * cos(2*pi*eta2) * (-1) * sin(2*pi*eta3 / tor_period)
+    df_out[1, 1] = -2*pi * (a1 + eta1 * da) * sin(2*pi*eta2) * (-1) * sin(2*pi*eta3 / tor_period)
+    df_out[1, 2] = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * (-1) * cos(2*pi*eta3 / tor_period) * 2*pi / tor_period
+    df_out[2, 0] = da * sin(2*pi*eta2)
+    df_out[2, 1] = (a1 + eta1 * da) * cos(2*pi*eta2) * 2*pi
     df_out[2, 2] = 0.
      
 @pure
@@ -770,8 +770,8 @@ def hollow_torus_straight_field_line(eta1: float, eta2: float, eta3: float,
     theta = 2*arctan( sqrt( (1 + r/r0) / (1 - r/r0) ) * tan(pi*eta2))
 
     f_out[0] = (r * cos(theta) + r0) * cos(2*pi*eta3 / tor_period)
-    f_out[1] = (r * cos(theta) + r0) * sin(2*pi*eta3 / tor_period)
-    f_out[2] = -r * sin(theta) 
+    f_out[1] = (r * cos(theta) + r0) * (-1) * sin(2*pi*eta3 / tor_period)
+    f_out[2] = r * sin(theta) 
        
 @pure
 def hollow_torus_straight_field_line_df(eta1: float, eta2: float, eta3: float,
@@ -804,12 +804,12 @@ def hollow_torus_straight_field_line_df(eta1: float, eta2: float, eta3: float,
     df_out[0, 1] = -r * sin(theta) * dtheta_deta2 * cos(2*pi*eta3 / tor_period)
     df_out[0, 2] = -2*pi / tor_period * (r * cos(theta) + r0) * sin(2*pi*eta3 / tor_period)
     
-    df_out[1, 0] = (da * cos(theta) - r * sin(theta) * dtheta_deta1) * sin(2*pi*eta3 / tor_period)
-    df_out[1, 1] = -r * sin(theta) * dtheta_deta2 * sin(2*pi*eta3 / tor_period)
-    df_out[1, 2] = 2*pi / tor_period * (r * cos(theta) + r0) * cos(2*pi*eta3 / tor_period)
+    df_out[1, 0] = (da * cos(theta) - r * sin(theta) * dtheta_deta1) * (-1) * sin(2*pi*eta3 / tor_period)
+    df_out[1, 1] = -r * sin(theta) * dtheta_deta2 * (-1) * sin(2*pi*eta3 / tor_period)
+    df_out[1, 2] = 2*pi / tor_period * (r * cos(theta) + r0) * (-1) * cos(2*pi*eta3 / tor_period)
 
-    df_out[2, 0] = -(da * sin(theta) + r * cos(theta) * dtheta_deta1)
-    df_out[2, 1] = -r * cos(theta) * dtheta_deta2
+    df_out[2, 0] = (da * sin(theta) + r * cos(theta) * dtheta_deta1)
+    df_out[2, 1] = r * cos(theta) * dtheta_deta2
     df_out[2, 2] = 0.
 
 @pure

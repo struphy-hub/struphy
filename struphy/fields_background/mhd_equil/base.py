@@ -36,7 +36,7 @@ class MHDequilibrium(metaclass=ABCMeta):
         """ 2-form equilibrium magnetic field on logical cube [0, 1]^3.
         """
         assert self.domain is not None, 'Domain not set, use obj.domain=...'
-        xyz = self.domain(*etas)
+        xyz = self.domain(*etas, squeeze_out=False)
         return self.domain.pull(self.b_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='2_form', squeeze_out=squeeze_out)
 
     def bv(self, *etas, squeeze_out=True):
@@ -88,7 +88,7 @@ class MHDequilibrium(metaclass=ABCMeta):
         """ 2-form equilibrium current (=curl B) on logical cube [0, 1]^3.
         """
         assert self.domain is not None, 'Domain not set, use obj.domain=...'
-        xyz = self.domain(*etas)
+        xyz = self.domain(*etas, squeeze_out=False)
         return self.domain.pull(self.j_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='2_form', squeeze_out=squeeze_out)
 
     def jv(self, *etas, squeeze_out=True):

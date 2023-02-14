@@ -102,7 +102,7 @@ class IGAPolarTorus(PoloidalSplineTorus):
 
         y &= \sum_{ij} c^{y}_{ij} N_i(\eta_1) N_j(\eta_2) \quad \approx \quad a\,\eta_1\sin(2\pi\theta(\eta_1, \eta_2))\,, 
 
-        z &= \sum_{ij} c^{R}_{ij} N_i(\eta_1) N_j(\eta_2) \sin(2\pi\eta_3) \quad \approx \quad [a\,\eta_1\cos(2\pi\theta(\eta_1, \eta_2)) + R_0]\sin(2\pi\eta_3)\,.
+        z &= \sum_{ij} c^{R}_{ij} N_i(\eta_1) N_j(\eta_2) \sin(-2\pi\eta_3) \quad \approx \quad [a\,\eta_1\cos(2\pi\theta(\eta_1, \eta_2)) + R_0]\sin(- 2\pi\eta_3)\,.
         \end{aligned}\right.
 
     .. image:: ../pics/mappings/iga_torus.png'''
@@ -473,7 +473,7 @@ class HollowTorus(Domain):
         F: (\eta_1, \eta_2, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
         x &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\cos(2\pi\,\eta_2)+R_0\rbrace\cos(2\pi\,\eta_3 / n)\,, 
 
-        y &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\cos(2\pi\,\eta_2)+R_0\rbrace\sin(2\pi\,\eta_3 / n) \,, 
+        y &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\cos(2\pi\,\eta_2)+R_0\rbrace\sin(-2\pi\,\eta_3 / n) \,, 
 
         z &= \,\,\,\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\sin(2\pi\,\eta_2) \,.
         \end{aligned}\right.
@@ -493,8 +493,8 @@ class HollowTorus(Domain):
             assert 'tor_period' in params_map
 
         self.PsydacMapping._expressions = {'x': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * cos(2*pi*x3 / tor_period)',
-                                           'y': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * sin(2*pi*x3 / tor_period)',
-                                           'z': '-( a1 + (a2 - a1)*x1)*sin(2*pi*x2)'}
+                                           'y': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * sin(-2*pi*x3 / tor_period)',
+                                           'z': '( a1 + (a2 - a1)*x1)*sin(2*pi*x2)'}
         self._F_psy = self.PsydacMapping('F', **params_map)
 
         self._params_map = params_map
@@ -541,7 +541,7 @@ class HollowTorusStraightFieldLine(Domain):
 
         y &=  \,\,\,\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\sin\left[\theta(\eta_1,\eta_2)\right]\,, 
 
-        z &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\cos\left[\theta(\eta_1,\eta_2)\right]+R_0\rbrace\sin(2\pi\,\eta_3 / n)\,,
+        z &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\cos\left[\theta(\eta_1,\eta_2)\right]+R_0\rbrace\sin(-2\pi\,\eta_3 / n)\,,
         \end{aligned}\right.
         
         &\theta(\eta_1,\eta_2) = 2\arctan\left[\sqrt{\frac{1 + \epsilon(\eta_1)}{1 - \epsilon(\eta_1)}}\,\tan\left(\pi\,\eta_2\right)\right]\,,
