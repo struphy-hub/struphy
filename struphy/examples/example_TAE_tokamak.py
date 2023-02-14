@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from struphy.post_processing.post_processing_tools import create_femfields
 from struphy.psydac_api.psydac_derham import Derham
 from struphy.geometry import domains
-from struphy.fields_background.mhd_equil import analytical
+from struphy.fields_background.mhd_equil import equils
 from struphy.psydac_api.fields import Field
 from struphy.diagnostics.continuous_spectra import get_mhd_continua_2d
 from struphy.dispersion_relations.analytic import MhdContinousSpectraCylinder
@@ -41,12 +41,17 @@ etaplot = [np.linspace(0., 1., 101),
 xplot = domain(*etaplot)
 
 # load MHD equilibrium
-mhd_name = params['mhd_equilibrium']['name']
+mhd_name = params['mhd_equilibrium']['type']
 mhd_params = params['mhd_equilibrium'][mhd_name]
 
-mhd_class = getattr(analytical, mhd_name)
+mhd_class = getattr(equils, mhd_name)
 mhd_equil = mhd_class(mhd_params)
-mhd_equil.domain = domain
+
+if params['mhd_equilibrium']['use_equil_domain']:
+    assert mhd_equil.domain is not None
+    domain = mhd_equil.domain
+else:
+    mhd_equil.domain = domain
 
 # field names, grid info and energies
 file = h5py.File(sim_path + '/data_proc0.hdf5', 'r')

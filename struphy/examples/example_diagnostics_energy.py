@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from struphy.geometry import domains
-from struphy.fields_background.mhd_equil import analytical
+from struphy.fields_background.mhd_equil import equils
 
 from struphy.dispersion_relations.analytic import PC_LinMHD_6d_full1D
 
@@ -25,8 +25,14 @@ domain = domain_class(dom_params)
 
 # load MHD equilibrium
 equil_params = params['fields']['mhd_equilibrium']
-mhd_equil_class = getattr(analytical, equil_params['type'])
-mhd_equil = mhd_equil_class(equil_params[equil_params['type']], domain)
+mhd_equil_class = getattr(equils, equil_params['type'])
+mhd_equil = mhd_equil_class(equil_params[equil_params['type']])
+
+if equil_params['use_equil_domain']:
+    assert mhd_equil.domain is not None
+    domain = mhd_equil.domain
+else:
+    mhd_equil.domain = domain
 
 params_homogenslab = params['fields']['mhd_equilibrium']['HomogenSlab']
 dispersion = PC_LinMHD_6d_full1D(params_homogenslab)

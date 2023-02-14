@@ -17,9 +17,9 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     '''
     from struphy.geometry import domains
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-
-    from struphy.fields_background.mhd_equil.analytical import HomogenSlab
-
+    
+    from struphy.fields_background.mhd_equil.equils import HomogenSlab
+    
     from struphy.eigenvalue_solvers.legacy.mhd_operators_MF import projectors_dot_x
 
     from struphy.psydac_api.psydac_derham import Derham

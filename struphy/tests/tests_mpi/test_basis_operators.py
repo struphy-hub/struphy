@@ -19,7 +19,7 @@ def test_basis_ops(Nel, p, spl_kind, mapping, show_plots=False):
     import numpy as np
 
     from struphy.geometry import domains
-    from struphy.fields_background.mhd_equil.analytical import ShearedSlab, ScrewPinch
+    from struphy.fields_background.mhd_equil.equils import ShearedSlab, ScrewPinch
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
 
     import struphy.eigenvalue_solvers.mhd_operators as basis_ops_str1
@@ -447,8 +447,8 @@ def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
     from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
-    from struphy.fields_background.mhd_equil.analytical import ScrewPinch
-
+    from struphy.fields_background.mhd_equil.equils import ScrewPinch
+    
     from struphy.polar.basic import PolarVector
 
     from mpi4py import MPI

@@ -262,7 +262,7 @@ class Spline_space_1d:
             FEM coefficients
             
         kind : int
-            kind of evaluation (0 : spline space, 2 : derivative of spline space)
+            kind of evaluation (0: N, 2: dN/deta, 3: ddN/deta^2)
 
         Returns
         -------
@@ -271,7 +271,7 @@ class Spline_space_1d:
         """
         
         assert (coeff.size == self.E0.shape[0]) or (coeff.size == self.E0_0.shape[0])
-        assert (kind == 0) or (kind == 2)
+        assert (kind == 0) or (kind == 2) or (kind==3)
         
         if coeff.size == self.E0_0.shape[0]:
             coeff = self.E0_0.T.dot(coeff)

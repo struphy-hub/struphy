@@ -1,23 +1,22 @@
 from numpy import NaN
+import pytest
 
 
-def test_interpolation_1d(plot=False, p_range=7, N_range=10):
-    """
-    TODO
-    """
+@pytest.mark.parametrize('spl_kind', [False, True])
+def test_interpolation_1d(spl_kind, plot=False, p_range=7, N_range=10):
 
     import sys
     sys.path.append('..')
 
     import numpy as np
 
-    from struphy.geometry import base
+    from struphy.geometry.base import spline_interpolation_nd
     import struphy.b_splines.bspline_evaluation_1d as eva
 
     import matplotlib.pyplot as plt
 
     # function to interpolate
-    def fun(eta): return np.exp(2.*eta) - 2.*np.cos(2*np.pi*eta/.2)
+    fun = lambda eta : (not spl_kind) * np.exp(2.*eta) - 2.*np.cos(2*np.pi*eta/.2)
 
     # plot points
     eta_plot = np.linspace(0., 1., 1000)
@@ -32,12 +31,13 @@ def test_interpolation_1d(plot=False, p_range=7, N_range=10):
 
         for Nel in [2**n for n in range(5, N_range)]:
 
-            # interpolation points
+            # interpolation points 
             x_grid = np.linspace(0., 1., Nel + 1)
-
+            if spl_kind:
+                x_grid = x_grid[:-1]
+            
             # call spline interpolation
-            coeff, T, indN = base.spline_interpolation_nd(
-                [p], [x_grid], fun(x_grid))
+            coeff, T, indN = spline_interpolation_nd([p], [spl_kind], [x_grid], fun(x_grid))
 
             # evaluate spline interpolant at plot points (need to use low-level evaluation routine, not spline_space class)
             eva.evaluate_vector(T[0], p, indN[0], coeff, eta_plot, fh_plot, 0)
@@ -50,8 +50,8 @@ def test_interpolation_1d(plot=False, p_range=7, N_range=10):
                 print('p: {0:2d}, Nel: {1:4d},   error: {2:8.6f},    order: {3:4.2f}'.format(
                     p, Nel, err[-1], order[-1]))
 
-            if p < 5 and Nel == 2**5:
-                plt.subplot(2, 2, p)
+            if p>5 and Nel==2**5:
+                plt.subplot(2, 2, p - 5)
                 plt.plot(eta_plot, fun(eta_plot), 'r', label='fun')
                 plt.plot(eta_plot, fh_plot, 'b--', label='spline')
                 plt.title('p: {0:2d}, Nel: {1:4d}'.format(p, Nel))
@@ -66,10 +66,8 @@ def test_interpolation_1d(plot=False, p_range=7, N_range=10):
         plt.show()
 
 
-def test_interpolation_2d(plot=False, p_range=7, N_range=8):
-    """
-    TODO
-    """
+@pytest.mark.parametrize('spl_kind', [[False, False], [True, False], [False, True], [True, True]])
+def test_interpolation_2d(spl_kind, plot=False, p_range=7, N_range=8):
 
     import sys
     sys.path.append('..')
@@ -80,11 +78,9 @@ def test_interpolation_2d(plot=False, p_range=7, N_range=8):
     import struphy.b_splines.bspline_evaluation_2d as eva
 
     import matplotlib.pyplot as plt
-    from mpl_toolkits.mplot3d import Axes3D
 
     # function to interpolate
-    def fun(eta1, eta2): return np.cos(2*np.pi*eta2/.2) * \
-        (np.exp(2.*eta1) - 2.*np.cos(2*np.pi*eta1/.2))
+    fun = lambda eta1, eta2 : np.cos(2*np.pi*eta2/.2) * ( (not spl_kind[0]) * np.exp(2.*eta1) - 2.*np.cos(2*np.pi*eta1/.2) )
 
     # plot points
     eta_plot = [np.linspace(0., 1., 500),
@@ -105,11 +101,16 @@ def test_interpolation_2d(plot=False, p_range=7, N_range=8):
             grids_1d = [np.linspace(0., 1., Nel + 1),
                         np.linspace(0., 1., Nel + 2)]
 
+            if spl_kind[0]:
+                grids_1d[0] = grids_1d[0][:-1]
+
+            if spl_kind[1]:
+                grids_1d[1] = grids_1d[1][:-1]
+
             ee1, ee2 = np.meshgrid(grids_1d[0], grids_1d[1], indexing='ij')
 
             # call spline interpolation
-            coeff, T, indN = base.spline_interpolation_nd(
-                [p, p], grids_1d, fun(ee1, ee2))
+            coeff, T, indN = base.spline_interpolation_nd([p, p], spl_kind, grids_1d, fun(ee1, ee2))
 
             # evaluate spline interpolant at plot points (need to use low-level evaluation routine, not spline_space class)
             eva.evaluate_tensor_product(
@@ -153,10 +154,8 @@ def test_interpolation_2d(plot=False, p_range=7, N_range=8):
         plt.show()
 
 
-def test_interpolation_3d(plot=False, p_range=7, N_range=6):
-    """
-    TODO
-    """
+@pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, False], [True, True, False], [True, False, True], [False, True, True], [True, True, True]])
+def test_interpolation_3d(spl_kind, plot=False, p_range=7, N_range=6):
 
     import sys
     sys.path.append('..')
@@ -170,8 +169,7 @@ def test_interpolation_3d(plot=False, p_range=7, N_range=6):
     from mpl_toolkits.mplot3d import Axes3D
 
     # function to interpolate
-    def fun(eta1, eta2, eta3): return np.sin(2*np.pi*eta3/.5) * \
-        np.cos(2*np.pi*eta2) * (np.exp(2*eta1) - 2.*np.cos(2*np.pi*eta1/.4))
+    fun = lambda eta1, eta2, eta3 : np.sin(2*np.pi*eta3/.5) * np.cos(2*np.pi*eta2) * ( (not spl_kind[0]) * np.exp(2*eta1) - 2.*np.cos(2*np.pi*eta1/.4) )
 
     # plot points
     eta_plot = [np.linspace(0., 1., 150),
@@ -195,12 +193,19 @@ def test_interpolation_3d(plot=False, p_range=7, N_range=6):
                         np.linspace(0., 1., Nel + 2),
                         np.linspace(0., 1., Nel + 3)]
 
-            ee1, ee2, ee3 = np.meshgrid(
-                grids_1d[0], grids_1d[1], grids_1d[2], indexing='ij')
+            if spl_kind[0]:
+                grids_1d[0] = grids_1d[0][:-1]
+
+            if spl_kind[1]:
+                grids_1d[1] = grids_1d[1][:-1]
+
+            if spl_kind[2]:
+                grids_1d[2] = grids_1d[2][:-1]
+
+            ee1, ee2, ee3 = np.meshgrid(grids_1d[0], grids_1d[1], grids_1d[2], indexing='ij')
 
             # call spline interpolation
-            coeff, T, indN = base.spline_interpolation_nd(
-                [p, p, p], grids_1d, fun(ee1, ee2, ee3))
+            coeff, T, indN = base.spline_interpolation_nd([p, p, p], spl_kind, grids_1d, fun(ee1, ee2, ee3))
 
             # evaluate spline interpolant at plot points (need to use low-level evaluation routine, not spline_space class)
             eva.evaluate_tensor_product(T[0], T[1], T[2], p, p, p, indN[0], indN[1], indN[2],
@@ -235,6 +240,11 @@ def test_interpolation_3d(plot=False, p_range=7, N_range=6):
 
 
 if __name__ == '__main__':
-    test_interpolation_1d(plot=True)
-    test_interpolation_2d(plot=True)
-    test_interpolation_3d(plot=True)
+    test_interpolation_1d(False, plot=True)
+    #test_interpolation_1d(True, plot=True)
+    #test_interpolation_2d([True, True], plot=True)
+    #test_interpolation_3d([False, True, False], plot=True)
+
+
+
+

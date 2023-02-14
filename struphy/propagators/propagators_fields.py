@@ -103,49 +103,51 @@ class Maxwell(Propagator):
 
 
 class OhmCold(Propagator):
-    r'''Analytical solution
+    r'''Crank-Nicolson step
 
     .. math::
 
         \begin{bmatrix}
-            \mathbf j^{n+1} \\
-            \mathbf e^{n+1}
+            \mathbf e^{n+1} - \mathbf e^n \\
+            \mathbf j^{n+1} - \mathbf j^n
         \end{bmatrix}
-        = \begin{bmatrix}
-            \cos{\alpha \Delta t} & \sin{\alpha \Delta t} \\
-            - \sin{\alpha \Delta t} & \cos{\alpha \Delta t}
+        = \frac{\Delta t}{2} \begin{bmatrix}
+            0 & - \mathbb M_1^{-1} M_{1, \alpha} \\
+            \mathbb M_1^{-1} M_{1, \alpha} & 0
         \end{bmatrix}
         \begin{bmatrix}
-            \mathbf j^n \\
-            \mathbf e^n
-        \end{bmatrix}
+            \mathbf e^n \\
+            \mathbf j^n
+        \end{bmatrix} ,
 
-    of the rotation problem
+    based on the :ref:`Schur complement <schur_solver>`, of the rotation problem
 
     .. math::
 
         \frac{\partial}{\partial t}
         \begin{bmatrix}
-            \mathbf j \\
-            \mathbf e
+            \mathbf e \\
+            \mathbf j
         \end{bmatrix}
-            = \begin{bmatrix}
-            0 & \alpha \mathbb M_1^{-1} \\
-            -\alpha \mathbb M_1^{-1} & 0
+        = \begin{bmatrix}
+            0 & - \mathbb M_1^{-1} \mathbb M_{1, \alpha} \\
+            \mathbb M_1^{-1} \mathbb M_{1, \alpha} & 0
         \end{bmatrix}
         \begin{bmatrix}
-            \mathbb M_1 \mathbf j \\
-            \mathbb M_1 \mathbf e
+            \mathbf e \\
+            \mathbf j
         \end{bmatrix}\,, \qquad \begin{bmatrix}
-            \mathbf j \\
-            \mathbf e
+            \mathbf e \\
+            \mathbf j
         \end{bmatrix}(0) = 
         \begin{bmatrix}
-            \mathbf j^n \\
-            \mathbf e^n
+            \mathbf e^n \\
+            \mathbf j^n
         \end{bmatrix}\,,
 
-    where :math:`\alpha \in \mathbb R` denotes the angular frequency of the rotation.
+    
+    where :math:`\mathbb M_{1, \alpha}` denotes the mass matrix weighted by :math:`\alpha`,
+    which represents the plasma frequency in units of the electron cyclotron frequency.
 
     Parameters
     ----------
@@ -155,40 +157,66 @@ class OhmCold(Propagator):
         e : psydac.linalg.block.BlockVector
             FE coefficients of a 1-form.
 
-        a : float
-            plasma frequency measured in unit of electron cyclotron frequency
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete Derham complex.
+
+        params : dict
+            Solver parameters for this splitting step.
     '''
 
-    def __init__(self, j, e, a):
+    def __init__(self, e, j, mass_ops, params):
 
-        assert isinstance(j, (BlockVector, PolarVector))
         assert isinstance(e, (BlockVector, PolarVector))
-        assert isinstance(a, float)
+        assert isinstance(j, (BlockVector, PolarVector))
 
-        self._j = j
         self._e = e
-        self._a = a
+        self._j = j
+        self._info = params['info']
+
+        # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
+        _A = 1
+
+        self._B = Multiply(-1./2., Compose(mass_ops.M1.invert(), mass_ops.M1alpha)) # no dt
+        self._C = Multiply( 1./2., Compose(mass_ops.M1.invert(), mass_ops.M1alpha)) # no dt
+
+        # Preconditioner
+        if params['pc'] is None:
+            pc = None
+        else:
+            # TODO ???
+            pc_class = getattr(preconditioner, params['pc'])
+            pc = pc_class(mass_ops.M1)
+
+        # Instantiate Schur solver (constant in this case)
+        _BC = Compose(self._B, self._C)
+
+        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_type=params['type'],
+                                         tol=params['tol'], maxiter=params['maxiter'],
+                                         verbose=params['verbose'])
 
     @property
     def variables(self):
-        return [self._j, self._e]
+        return [self._e, self._j]
 
     def __call__(self, dt):
 
-        # current variables
-        jn = self.variables[0]
-        en = self.variables[1]
+        #current variables
+        en = self.variables[0]
+        jn = self.variables[1]
 
-        # allocate temporary FemFields _j, _e during solution
-        _j = np.cos(self._a * dt) * jn + np.sin(self._a * dt) * en
-        _e = -np.sin(self._a * dt) * jn + np.cos(self._a * dt) * en
+        # allocate temporary FemFields _e, _j during solution
+        _e, info = self._schur_solver(en, self._B.dot(jn), dt)
+        _j = jn - dt*self._C.dot(_e + en)
 
         # write new coeffs into Propagator.variables
-        max_dj, max_de = self.in_place_update(_j, _e)
-
-        print('Maxdiff j1 for OhmCold:', max_dj)
-        print('Maxdiff e2 for OhmCold:', max_de)
-        print()
+        max_de, max_dj = self.in_place_update(_e, _j)
+        
+        if self._info:
+            print('Status     for OhmCold:', info['success'])
+            print('Iterations for OhmCold:', info['niter'])
+            print('Maxdiff e1 for OhmCold:', max_de)
+            print('Maxdiff j1 for OhmCold:', max_dj)
+            print()
 
 
 class ShearAlfvén(Propagator):

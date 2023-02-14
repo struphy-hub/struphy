@@ -7,8 +7,6 @@ from sympde.topology import Line, Derham
 
 from psydac.api.discretization import discretize
 
-from struphy.initial.base import InitialMHD
-
 
 class InitialMHDAxisymHdivEigFun:
     r"""

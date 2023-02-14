@@ -14,7 +14,7 @@ def test_1form_projectors_dot():
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d
     from struphy.eigenvalue_solvers.spline_space import Tensor_spline_space
 
-    from struphy.fields_background.mhd_equil.analytical import HomogenSlab
+    from struphy.fields_background.mhd_equil.equils import HomogenSlab
 
     from struphy.eigenvalue_solvers.legacy import mhd_operators_MF as mhd_op_V2
 
@@ -343,7 +343,7 @@ def test_2form_projectors_dot():
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d
     from struphy.eigenvalue_solvers.spline_space import Tensor_spline_space
 
-    from struphy.fields_background.mhd_equil.analytical import HomogenSlab
+    from struphy.fields_background.mhd_equil.equils import HomogenSlab
 
     from struphy.eigenvalue_solvers.legacy import mhd_operators_MF as mhd_op_V2
 
@@ -644,7 +644,7 @@ def test_1form_symmetric():
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d
     from struphy.eigenvalue_solvers.spline_space import Tensor_spline_space
 
-    from struphy.fields_background.mhd_equil.analytical import HomogenSlab
+    from struphy.fields_background.mhd_equil.equils import HomogenSlab
 
     from struphy.eigenvalue_solvers.legacy import mhd_operators_MF as mhd_op_V2
 
@@ -817,7 +817,7 @@ def test_2form_symmetric():
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d
     from struphy.eigenvalue_solvers.spline_space import Tensor_spline_space
 
-    from struphy.fields_background.mhd_equil.analytical import HomogenSlab
+    from struphy.fields_background.mhd_equil.equils import HomogenSlab
 
     from struphy.eigenvalue_solvers.legacy import mhd_operators_MF as mhd_op_V2
 

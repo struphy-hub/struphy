@@ -14,7 +14,7 @@ Possible combinations for tensor product (B):
 """
 from pyccel.decorators import pure
 
-from numpy import empty
+from numpy import empty, zeros
 
 import struphy.b_splines.bsplines_kernels as bsp
 
@@ -63,8 +63,12 @@ def evaluate(kind1: int, t1: 'float[:]', p1: int, ind1: 'int[:,:]', coeff: 'floa
 
     Parameters
     ----------
-        kind1 : int
-            Kind of univariate spline. 1 for B-spline, 2 for M-spline and 3 for derivative of B-spline.
+        kind : int
+            Kind of spline to evaluate.
+                * 0 : N
+                * 1 : D
+                * 2 : dN/deta
+                * 3 : ddN/deta^2
 
         t1 : array[float]
             Knot vector of univariate spline.
@@ -104,6 +108,10 @@ def evaluate(kind1: int, t1: 'float[:]', p1: int, ind1: 'int[:,:]', coeff: 'floa
         bsp.scaling(t1, p1, span1, b1)
     elif kind1 == 3:
         bsp.basis_funs_1st_der(t1, p1, eta1, span1, bl1, br1, b1)
+    elif kind1 == 4:
+        tmp = zeros((3, p1 + 1), dtype=float)
+        bsp.basis_funs_all_ders(t1, p1, eta1, span1, bl1, br1, 2, tmp)
+        b1[:] = tmp[2, :]
 
     # sum up non-vanishing contributions
     spline_value = evaluation_kernel_1d(p1, b1, ind1[span1 - p1, :], coeff)
@@ -139,9 +147,10 @@ def evaluate_vector(t1: 'float[:]', p1: int, ind1: 'int[:,:]', coeff: 'float[:]'
 
         kind : int
             Kind of spline to evaluate.
-                * 0  : N
-                * 1  : D
+                * 0 : N
+                * 1 : D
                 * 2 : dN/deta
+                * 3 : ddN/deta^2
     """
 
     for i1 in range(len(eta1)):
@@ -152,3 +161,5 @@ def evaluate_vector(t1: 'float[:]', p1: int, ind1: 'int[:,:]', coeff: 'float[:]'
             spline_values[i1] = evaluate(2, t1, p1, ind1, coeff, eta1[i1])
         elif kind == 2:
             spline_values[i1] = evaluate(3, t1, p1, ind1, coeff, eta1[i1])
+        elif kind == 3:
+            spline_values[i1] = evaluate(4, t1, p1, ind1, coeff, eta1[i1])

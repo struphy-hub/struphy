@@ -19,6 +19,17 @@ time :
 
 geometry :
       type : Cuboid # mapping F (possible types seen below)  
+      EQDSKTorus :
+            rel_path : True # whether eqdsk file path relative to "<struphy_path>/fields_background/mhd_equil/gvec", or the absolute path
+            file : 'AUGNLED_g031213.00830.high' # path to eqdsk file
+            data_type : 0 # 0: there is no space between data, 1: there is space between data
+            flux_resolution: 16 # number of cells for profile interpolation
+            psi_resolution: [32, 32] # number of cells for psi interpolation
+            p_for_psi : [2, 2] # spline degree in each direction used for interpolation of psi data.
+            Nel : [16, 32] # number of cells in each direction used for field line tracing
+            p : [2, 3] # spline degree in each direction used for field line tracing
+            theta : 'equal_angle' # choose theta parametrization: 'equal_angle', 'equal_arc_length' or 'sfl' (PEST)
+            tor_period : 3 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
       GVECunit :
             rel_path : True # whether to state dat_file (json_file) relative to "<struphy_path>/fields_background/mhd_equil/gvec", or give the absolute path
             dat_file : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file 
@@ -95,8 +106,8 @@ geometry :
             kappa_gs : 2. # Kappa: ellipticity (elongation)
 
 mhd_equilibrium :
-      type : analytical # analytical or numerical
-      name : HomogenSlab # (possible choices seen below)
+      type : HomogenSlab # (possible choices seen below)
+      use_equil_domain : False # use the mapping given by the equilibrium (flux aligned) or not
       HomogenSlab :
             B0x  : 0. # magnetic field in x
             B0y  : 0. # magnetic field in y
@@ -137,13 +148,24 @@ mhd_equilibrium :
             p2     : .1 # shape factor for ad hoc pressure profile
             beta : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
       GVECequilibrium : 
-            rel_path : True # whether to state dat_file (json_file) relative to "<struphy_path>/fields_background/mhd_equil/gvec", or give the absolute path
+            rel_path : True # whether file path is relative to "<struphy_path>/fields_background/mhd_equil/gvec", or the absolute path
             dat_file : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file 
             json_file : Null # give directly the parsed json file, if it exists (then dat_file is not used)
-            use_pest : False # Whether to use straight-field line coordinates (PEST)
-            use_nfp : True # Whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
-            Nel : [32, 32, 32] # Number of cells in each direction used for interpolation of the mapping.
-            p : [3, 3, 3] # Spline degree in each direction used for interpolation of the mapping.
+            use_pest : False # whether to use straight-field line coordinates (PEST)
+            use_nfp : True # whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
+            Nel : [32, 32, 32] # number of cells in each direction used for interpolation of the mapping.
+            p : [3, 3, 3] # spline degree in each direction used for interpolation of the mapping.
+      EQDSKequilibrium :
+            rel_path : True # whether eqdsk file path relative to "<struphy_path>/fields_background/mhd_equil/gvec", or the absolute path
+            file : 'AUGNLED_g031213.00830.high' # path to eqdsk file
+            data_type : 0 # 0: there is no space between data, 1: there is space between data
+            flux_resolution: 16 # number of cells for profile interpolation
+            psi_resolution: [32, 32] # number of cells for psi interpolation
+            p_for_psi : [2, 2] # spline degree in each direction used for interpolation of psi data.
+            Nel : [16, 32] # number of cells in each direction used for field line tracing
+            p : [2, 3] # spline degree in each direction used for field line tracing
+            theta : 'equal_angle' # choose theta parametrization: 'equal_angle', 'equal_arc_length' or 'sfl' (PEST)
+            tor_period : 3 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
 
 electric_equilibrium :
       type : HomogenSlab # (possible choices seen below)
