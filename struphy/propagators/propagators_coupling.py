@@ -94,7 +94,7 @@ class StepEfieldWeights(Propagator):
 
         # Initialize Accumulator object
         self._accum = Accumulator(derham, domain, 'Hcurl', 'linear_vlasov_maxwell',
-                                  do_vector=True, symmetry='symm')
+                                  add_vector=True, symmetry='symm')
 
         # Create pointers to the variables
         self._e = e
@@ -126,7 +126,7 @@ class StepEfieldWeights(Propagator):
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = mass_ops.M1
-        _BC = - self._accum._matrix / 4.
+        _BC = - self._accum.operators[0].matrix / 4.
 
         # Instantiate Schur solver
         self._schur_solver = SchurSolver(_A, _BC, pc=self._pc, solver_type=params_solver['type'],
@@ -150,11 +150,11 @@ class StepEfieldWeights(Propagator):
                                array(self.f0_params), self.alpha)
 
         # Update Schur solver
-        self._schur_solver.BC = - self._accum._matrix / 4
+        self._schur_solver.BC = - self._accum.operators[0].matrix / 4
 
         # allocate temporary BlockVector during solution
         self._e_temp, info = self._schur_solver(
-            self._e, self._accum.vector / 2., dt)
+            self._e, self._accum.vectors[0] / 2., dt)
 
         # Store old weights
         self._old_weights[~self._particles.holes] = self._particles.markers[~self._particles.holes, 6]
@@ -259,12 +259,12 @@ class StepPressurecoupling(Propagator):
         # Call the accumulation and Pusher class
         if coupling == 'perp':
             self._ACC = Accumulator(self._derham, self._domain, 'Hcurl',
-                                    'pc_lin_mhd_6d', do_vector=True, symmetry='pressure')
+                                    'pc_lin_mhd_6d', add_vector=True, symmetry='pressure')
             self._pusher = Pusher(self._derham, self._domain, 'push_pc_GXu')
 
         elif coupling == 'full':
             self._ACC = Accumulator(self._derham, self._domain, 'Hcurl',
-                                    'pc_lin_mhd_6d_full', do_vector=True, symmetry='pressure')
+                                    'pc_lin_mhd_6d_full', add_vector=True, symmetry='pressure')
             self._pusher = Pusher(
                 self._derham, self._domain, 'push_pc_GXu_full')
 
@@ -290,10 +290,10 @@ class StepPressurecoupling(Propagator):
         # acuumulate MAT and VEC
         self._ACC.accumulate(self._particles)
 
-        MAT = [[self._ACC.matrix11, self._ACC.matrix12, self._ACC.matrix13],
-               [self._ACC.matrix12, self._ACC.matrix22, self._ACC.matrix23],
-               [self._ACC.matrix13, self._ACC.matrix23, self._ACC.matrix33]]
-        VEC = [self._ACC.vector1, self._ACC.vector2, self._ACC.vector3]
+        MAT = [[self._ACC.operators[0].matrix, self._ACC.operators[1].matrix, self._ACC.operators[2].matrix],
+               [self._ACC.operators[1].matrix, self._ACC.operators[3].matrix, self._ACC.operators[4].matrix],
+               [self._ACC.operators[2].matrix, self._ACC.operators[4].matrix, self._ACC.operators[5].matrix]]
+        VEC = [self._ACC.vectors[0], self._ACC.vectors[1], self._ACC.vectors[2]]
 
         GT_VEC = BlockVector(self._derham.Vh['v'],
                              blocks=[self._GT.dot(VEC[0]),
@@ -448,7 +448,7 @@ class CurrentCoupling6DCurrent(Propagator):
 
         # load accumulator
         self._accumulator = Accumulator(
-            derham, domain, u_space, 'cc_lin_mhd_6d_2', do_vector=True, symmetry='symm')
+            derham, domain, u_space, 'cc_lin_mhd_6d_2', add_vector=True, symmetry='symm')
 
         nuh = coupling_params['nuh']
         kap = coupling_params['kappa']
@@ -512,7 +512,7 @@ class CurrentCoupling6DCurrent(Propagator):
             pc_class = getattr(preconditioner, solver_params['pc'])
             pc = pc_class(_A)
 
-        _BC = Multiply(-1/4, self._accumulator.A0)
+        _BC = Multiply(-1/4, self._accumulator.operators[0])
 
         self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_type=solver_params['type'],
                                          tol=solver_params['tol'], maxiter=solver_params['maxiter'],
@@ -568,7 +568,7 @@ class CurrentCoupling6DCurrent(Propagator):
 
         # solve linear system for updated u coefficients
         u_new, info = self._schur_solver(
-            u_old, -self._Eu.dot(self._accumulator.vector)/2, dt)
+            u_old, -self._accumulator.vectors[0]/2, dt)
 
         # call pusher kernel with average field (u_new + u_old)/2 and update ghost regions because of non-local access in kernel
         u_avg = self._EuT.dot((u_old + u_new)/2)
@@ -658,7 +658,7 @@ class CurrentCoupling5DCurrent1( Propagator ):
             self._pc = pc_class(getattr(mass_ops, id_Mn))
 
         # Call the accumulation and Pusher class
-        self._ACC = Accumulator(self._derham, domain, u_space, 'cc_lin_mhd_5d_J1', do_vector=True, symmetry='symm')
+        self._ACC = Accumulator(self._derham, domain, u_space, 'cc_lin_mhd_5d_J1', add_vector=True, symmetry='symm')
         self._pusher = Pusher(derham, domain, 'push_gc_cc_J1_' + u_space)
 
         # Define operators
@@ -687,7 +687,7 @@ class CurrentCoupling5DCurrent1( Propagator ):
                              self._space_key_int, self._coupling_mat, self._coupling_vec)
 
         # define BC and B dot V of the Schur block matrix [[A, B], [C, I]]
-        BC = Multiply(-1/4, self._ACC.A0)
+        BC = Multiply(-1/4, self._ACC.operators[0])
 
         # call SchurSolver class
         schur_solver = SchurSolver(self._A, BC, pc=self._pc, solver_type=self._coupling_solver['type'],
@@ -695,7 +695,7 @@ class CurrentCoupling5DCurrent1( Propagator ):
                                    verbose=self._coupling_solver['verbose'])
 
         # solve linear system for updated u coefficients
-        u_new, info = schur_solver(un, -self._ACC.vector/2, dt)
+        u_new, info = schur_solver(un, -self._ACC.vectors[0]/2, dt)
 
         # calculate average u
         u_avg = (un + u_new)/2
@@ -788,7 +788,7 @@ class CurrentCoupling5DCurrent2( Propagator ):
             self._pc = pc_class(getattr(mass_ops, id_Mn))
 
         # Call the accumulation and Pusher class
-        self._ACC = Accumulator(self._derham, domain, u_space, 'cc_lin_mhd_5d_J2', do_vector=True, symmetry='symm')
+        self._ACC = Accumulator(self._derham, domain, u_space, 'cc_lin_mhd_5d_J2', add_vector=True, symmetry='symm')
         self._pusher = Pusher(derham, domain, 'push_gc_cc_J2_' + u_space)
 
         # Define operators
@@ -819,7 +819,7 @@ class CurrentCoupling5DCurrent2( Propagator ):
                              self._space_key_int, self._coupling_mat, self._coupling_vec)
 
         # define BC and B dot V of the Schur block matrix [[A, B], [C, I]]
-        BC = Multiply(-1/4, self._ACC.A0)
+        BC = Multiply(-1/4, self._ACC.operators[0])
 
         # call SchurSolver class
         schur_solver = SchurSolver(self._A, BC, pc=self._pc, solver_type=self._coupling_solver['type'],

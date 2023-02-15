@@ -14,6 +14,7 @@ def main():
     """
     TODO
     """
+
     sim_path = sys.argv[1]
 
     # load parameters and markers
@@ -53,8 +54,7 @@ def main():
     for n in tqdm(range(Nt + 1)):
 
         # load x, y, z coordinates
-        pos[n] = np.loadtxt(sim_path + 'kinetic_data/ions/orbits/' +
-                            'ions_{0:0{1}d}.txt'.format(n, log_Nt), delimiter=',')[:, 1:]
+        pos[n] = np.loadtxt(sim_path + 'kinetic_data/ions/orbits/' + 'ions_{0:0{1}d}.txt'.format(n, log_Nt), delimiter=',')[:, 1:]
 
         # convert to R, y, z, coordinates
         pos[n, :, 0] = np.sqrt(pos[n, :, 0]**2 + pos[n, :, 1]**2)
@@ -74,11 +74,12 @@ def main():
     plt.subplot(1, 2, 2)
     e1 = np.linspace(0., 1., 101)
     e2 = np.linspace(0., 1., 101)
+
     X = domain(e1, e2, 0.)
 
-    plt.contourf(X[0], X[2],
-                 mhd_equil.absB(X[0], X[1], X[2]),
-                 levels=50, cmap='inferno')
+    e1[0] += 1e-5
+
+    plt.contourf(X[0], X[2], mhd_equil.absB0(e1, e2, 0.), levels=50, cmap='inferno')
 
     plt.xlabel('x [m]')
     plt.ylabel('z [m]')
@@ -90,7 +91,6 @@ def main():
     # plot particle orbits
     domain.show(grid_info=grid_info, markers=pos, marker_coords='phy')
     plt.title('Passing, co-passing and trapped particle')
-
-
+    
 if __name__ == '__main__':
     main()

@@ -462,7 +462,7 @@ class Domain(metaclass=ABCMeta):
         Possible choices for kind are '0_form', '1_form', '2_form', '3_form' and 'vector'.
         """
 
-        return self._pull_push_transform('pull', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside, coordinates=coordinates)
+        return self._pull_push_transform('pull', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside, coordinates=coordinates, a_kwargs=a_kwargs)
 
     # ================================
     def push(self, a, *etas, kind='0_form', a_kwargs={}, change_out_order=False, squeeze_out=True, remove_outside=True):
@@ -504,7 +504,7 @@ class Domain(metaclass=ABCMeta):
         Possible choices for kind are '0_form', '1_form', '2_form', '3_form' and 'vector'.
         """
 
-        return self._pull_push_transform('push', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside)
+        return self._pull_push_transform('push', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside, a_kwargs=a_kwargs)
 
     # ================================
     def transform(self, a, *etas, kind='0_to_3', a_kwargs={}, change_out_order=False, squeeze_out=True, remove_outside=True):
@@ -952,10 +952,14 @@ class Domain(metaclass=ABCMeta):
         else:
             flat_eval = False
 
+        # float (point-wise, scalar function)
+        if isinstance(a_in, float):
+            a_out = np.array([[[[a_in]]]])
+        
         # single callable:
         # scalar function -> must return a 3d array for 3d evaluation points
         # vector-valued function -> must return a 4d array of shape (3,:,:,:)
-        if callable(a_in):
+        elif callable(a_in):
 
             if flat_eval:
                 a_out = a_in(Xs[0][:, 0], Xs[0][:, 1], Xs[0][:, 2], **a_kwargs)
@@ -1007,8 +1011,9 @@ class Domain(metaclass=ABCMeta):
                     a_out += [np.array([component])[:, None, None]]
 
             a_out = np.array(a_out, dtype=float)
+        
         # numpy array:
-        # 1d array (flat_eval=True and scalar input)
+        # 1d array (flat_eval=True and scalar input or flat_eval=False and length 1 (scalar) or length 3 (vector))
         # 2d array (flat_eval=True and vector-valued input of shape (3,:))
         # 3d array (flat_eval=False and scalar input)
         # 4d array (flat_eval=False and vector-valued input of shape (3,:,:,:))
@@ -1024,8 +1029,17 @@ class Domain(metaclass=ABCMeta):
                     2d (vector-valued, shape (3,:)) for flat evaluation!')
 
             else:
-                if a_in.ndim == 3:
+                
+                # point-wise evaluation for scalar (len=1) or vector (len=3) input
+                if a_in.ndim == 1:
+                    assert a_in.size == 1 or a_in.size == 3
+                    a_out = a_in[:, None, None, None]
+                
+                # tensor-product evaluation (scalar)
+                elif a_in.ndim == 3:
                     a_out = a_in[None, :, :, :]
+                
+                # tensor-product evaluation (vector)
                 elif a_in.ndim == 4:
                     a_out = a_in[:, :, :, :]
                 else:
@@ -1033,7 +1047,7 @@ class Domain(metaclass=ABCMeta):
                     4d (vector-valued, shape (3,:,:,:)) for non-flat evaluation!')
 
         else:
-            raise TypeError('Argument a must be either a list/tuple of 1/3 callable(s)/numpy array(s) \
+            raise TypeError('Argument a must be either a float OR a list/tuple of 1 or 3 callable(s)/numpy array(s)/float(s) \
             OR a single numpy array OR a single callable!')
 
         # make sure that output array is 2d and of shape (1,:) or (3,:) for flat evaluation

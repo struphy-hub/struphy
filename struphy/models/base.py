@@ -96,6 +96,11 @@ class StruphyModel(metaclass=ABCMeta):
             eta1 = np.linspace(0., 1., 20)
             eta2 = np.linspace(0., 1., 20)
             eta3 = np.linspace(0., 1., 20)
+            
+            # shift away point from pole!
+            if self.mhd_equil.domain.pole:
+                eta1[0] += 1e-10
+            
             self._size_params['B_abs [T]'] = np.mean(
                 self.mhd_equil.absB0(eta1, eta2, eta3))
 

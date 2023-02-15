@@ -528,13 +528,13 @@ class Hybrid_potential( Propagator ):
         self._p_shape = p_shape
         self._p_size = p_size
         self._accum_density = Accumulator(derham, domain, 'H1', 'hybrid_fA_density',
-                                  do_vector=False, symmetry='None')
+                                          add_vector=False, symmetry='None')
 
         self._accum_density.accumulate(self._particles, np.array(self._derham.Nel), np.array(self._nqs), np.array(self._pts_x), np.array(self._pts_y), np.array(self._pts_z), np.array(self._p_shape), np.array(self._p_size))
 
-        # Initialize Accumulator object for getting the matrix and vector related with vector potential 
-        self._accum_potential = Accumulator(derham, domain, 'Hcurl', 'hybrid_fA_Arelated',  
-                                  do_vector=True, symmetry='symm')
+        # Initialize Accumulator object for getting the matrix and vector related with vector potential
+        self._accum_potential = Accumulator(derham, domain, 'Hcurl', 'hybrid_fA_Arelated',
+                                            add_vector=True, symmetry='symm')
 
         self._accum_potential.accumulate(self._particles)
         
@@ -591,7 +591,7 @@ class CurrentCoupling6DDensity(Propagator):
 
         # load accumulator
         self._accumulator = Accumulator(
-            derham, domain, u_space, 'cc_lin_mhd_6d_1', do_vector=False, symmetry='asym')
+            derham, domain, u_space, 'cc_lin_mhd_6d_1', add_vector=False, symmetry='asym')
 
         nuh = coupling_params['nuh']
         kap = coupling_params['kappa']
@@ -692,8 +692,8 @@ class CurrentCoupling6DDensity(Propagator):
                                          self._space_key_int, self._coupling_mat)
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
-        lhs = Sum(self._M, Multiply(-dt/2, self._accumulator.A0))
-        rhs = Sum(self._M, Multiply(dt/2, self._accumulator.A0)).dot(u_old)
+        lhs = Sum(self._M, Multiply(-dt/2, self._accumulator.operators[0]))
+        rhs = Sum(self._M, Multiply(dt/2, self._accumulator.operators[0])).dot(u_old)
 
         solver_type = self._solver_params['type']
 
@@ -740,7 +740,7 @@ class ShearAlfvén_CurrentCoupling5D( Propagator ):
         self._rank = derham.comm.Get_rank()
 
         self._PB = getattr(mhd_ops, 'PB')
-        self._ACC = Accumulator(self._derham, domain, 'H1', 'cc_lin_mhd_5d_mu', do_vector=True)
+        self._ACC = Accumulator(self._derham, domain, 'H1', 'cc_lin_mhd_5d_mu', add_vector=True)
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         if u_space == 'Hcurl':
@@ -791,7 +791,7 @@ class ShearAlfvén_CurrentCoupling5D( Propagator ):
         self._ACC.accumulate(self._particles)
 
         # allocate temporary FemFields _u, _b during solution
-        _u, info = self._schur_solver(un, self._B.dot(bn) + self._B2.dot(self._ACC.vector), dt)
+        _u, info = self._schur_solver(un, self._B.dot(bn) + self._B2.dot(self._ACC.vectors[0]), dt)
         _b = bn - dt*self._C.dot(_u + un)
 
         # write new coeffs into Propagator.variables
@@ -833,7 +833,7 @@ class Magnetosonic_CurrentCoupling5D( Propagator ):
         #TODO
         self._scale_vec = 1.
 
-        self._ACC = Accumulator(self._derham, domain, u_space, 'cc_lin_mhd_5d_M', do_vector=True)
+        self._ACC = Accumulator(self._derham, domain, u_space, 'cc_lin_mhd_5d_M', add_vector=True)
         
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         if u_space == 'Hcurl':
@@ -911,10 +911,10 @@ class Magnetosonic_CurrentCoupling5D( Propagator ):
                              self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data, 
                              self._space_key_int, self._scale_vec)
 
-        self._ACC.vector.shape
+        self._ACC.vectors[0].shape
 
         # allocate temporary FemFields _u, _b during solution
-        _u, info = self._schur_solver(un, self._B.dot(pn) - self._MJ.dot(bn)/2 - self._ACC.vector/2, dt)
+        _u, info = self._schur_solver(un, self._B.dot(pn) - self._MJ.dot(bn)/2 - self._ACC.vectors[0]/2, dt)
         _p = pn - dt*self._C.dot(_u + un)
         _n = nn - dt/2*self._DIV.dot(self._Q.dot(_u + un))
         _b = 1*bn
