@@ -18,7 +18,7 @@ model_units :
 
 time :
       dt         : 0.01 # time step
-      Tend       : 5. # simulation time interval is [0, Tend]
+      Tend       : 30. # simulation time interval is [0, Tend]
       max_time   : 300. # maximum runtime of program in minutes
       split_algo : LieTrotter # LieTrotter | Strang
 
@@ -49,54 +49,7 @@ electric_equilibrium :
 
 em_fields :
       init :
-            type : ModesSin # initial conditions (possible types seen below)
-            noise :
-                  comps :
-                        e_field : [True, False, False]  # components to be initialized (for scalar fields: no list)
-                        b_field : [False, False, False] # components to be initialized (for scalar fields: no list)
-                  variation_in : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
-                  amp : 0.1   # noise amplitude
-            ModesSin : 
-                  coords : 'logical' # in which coordinates (logical or physical)
-                  comps :
-                        e_field : [True, False, False]  # components to be initialized (for scalar fields: no list)
-                        b_field : [False, False, False] # components to be initialized (for scalar fields: no list)
-                  ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
-                  ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
-                  ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
-                  amp : [2.1] # amplitudes of each mode
-            ModesCos :
-                  coords : 'logical' # in which coordinates (logical or physical)
-                  comps :
-                        e_field : [True, False, False]  # components to be initialized (for scalar fields: no list)
-                        b_field : [False, False, False] # components to be initialized (for scalar fields: no list)
-                  ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
-                  ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
-                  ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
-                  amp : [0.001] # amplitudes of each mode
-            TorusModesSin :
-                  coords : 'logical' # in which coordinates (logical or physical)
-                  comps :
-                        e_field : [True, False, False]  # components to be initialized (for scalar fields: no list)
-                        b_field : [False, False, False] # components to be initialized (for scalar fields: no list)
-                  ms : [1] # poloidal mode numbers
-                  ns : [0] # toroidal mode numbers
-                  amp : [0.001] # amplitudes of each mode
-                  pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
-                  pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
-            InitialMHDSlab :
-                  a  : 1. # minor radius (Lx=a, Ly=2*pi*a)
-                  R0 : 3. # major radius (Lz=2*pi*R0)
-                  m  : 0  # poloidal (y) mode number
-                  n  : 1  # toroidal (z) mode number
-                  U  : 0.1 # amplitude of Ux/Uy
-                  A  : 0. # amplitude of Uz
-            InitialMHDAxisymHdivEigFun :
-                  spec : '/path_to_spec/spec.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
-                  eig_freq_upper : 0.15 # upper search limit of squared eigenfrequency to identify eigenfunction
-                  eig_freq_lower : 0.14 # lower search limit of squared eigenfrequency to identify eigenfunction
-                  kind : r # real (r) or imaginary (i) part of eigenfunction
-                  scaling : 1. # scaling factor to scale the amplitude of the eigenfunction
+            type : null # initial conditions (possible types seen below)
 
 kinetic :
       electrons :
@@ -107,7 +60,7 @@ kinetic :
                   beta : 0.01 # plasma beta = p*2*mu_0/|B|^2
             markers :
                   type    : delta_f # full_f, control_variate, or delta_f
-                  Np      : 50000 # alternative if ppc is not given (total number of markers, must be larger or equal than # MPI processes)
+                  Np      : 5000 # alternative if ppc is not given (total number of markers, must be larger or equal than # MPI processes)
                   eps     : 0.5 # MPI send/receive buffer (0.1 <= eps <= 1.0)
                   bc_type : [periodic, periodic, periodic] # remove, reflect or periodic
                   loading :
@@ -121,11 +74,12 @@ kinetic :
                         n :
                               n0 : 0.
                               perturbation :
-                                    l : [0.07957747154594767] # 0.5 / (2 * pi)
+                                    # l : [0.07957747154594767] # 0.5 / (2 * pi)
+                                    l : [5]
                                     m : [0]
                                     n : [0]
                                     amps_sin : [0.]
-                                    amps_cos : [1.5]
+                                    amps_cos : [0.5]
                         ux :
                               ux0 : 0.
                         uy :
@@ -133,11 +87,11 @@ kinetic :
                         uz :
                               uz0 : 0.
                         vthx :
-                              vthx0 : 1.
+                              vthx0 : 2.
                         vthy :
-                              vthy0 : 1.
+                              vthy0 : 2.
                         vthy :
-                              vthz0 : 1.
+                              vthz0 : 2.
             background :
                   type : Maxwellian6DUniform
                   Maxwellian6DUniform :
@@ -145,15 +99,15 @@ kinetic :
                         ux : 0.
                         uy : 0.
                         uz : 0.
-                        vthx : 1.
-                        vthy : 1.
-                        vthz : 1.
+                        vthx : 2.
+                        vthy : 2.
+                        vthz : 2.
             save_data :
                   n_markers : 10 # number of markers to be saved during simulation
                   f :
-                        slices : [e3, vx_vy_vz] # in which directions to bin (e.g. [e1_e2, vx_vy_vz])
-                        n_bins : [[64], [64, 64, 64]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
-                        ranges : [[[0., 1.]], [[-5., 5.], [-5., 5.], [-5., 5.]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
+                        slices : [e3, vx_vy] # in which directions to bin (e.g. [e1_e2, vx_vy_vz])
+                        n_bins : [[64], [64, 64]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
+                        ranges : [[[0., 1.]], [[-5., 5.], [-5., 5.]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
             push_algos :
                   vxb : analytic # possible choices: analytic, implicit
                   eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4

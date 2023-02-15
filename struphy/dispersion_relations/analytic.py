@@ -1,6 +1,5 @@
 import numpy as np
-import scipy.special as sp
-from scipy.optimize import fsolve, root
+from scipy.optimize import fsolve
 
 from struphy.dispersion_relations.base import DispersionRelations1D, ContinuousSpectra1D, Zplasma
 

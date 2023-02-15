@@ -1,17 +1,187 @@
 #!/usr/bin/env python3
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import axes3d
 import numpy as np
 from scipy.fft import fftfreq, fftn
 import matplotlib.colors as colors
+import argparse
+import pickle
+import os
+import h5py
+import yaml
 
+import struphy
 from struphy.dispersion_relations import analytic
 
-import pickle
-import os, shutil
+
+def main():
+    """
+    TODO
+    """
+
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawTextHelpFormatter)
+
+    parser.add_argument('actions', nargs='+', type=str, default=[None],
+                        help='''which actions to perform:\
+                            \n - fourier_1d   : performs Fourier analysis of the fields and plots the results\
+                            \n - plot_scalars : plots the scalar quantities that were saved during the simulation\
+                            \n - plot_distr   : plots the distribution function and delta-f (if available)\
+                            \n                  set points for slicing with options below (default is middle of the space)''')
+    parser.add_argument('-f', nargs=1, type=str, default=['sim_1'],
+                        help='in which folder the simulation data has been stored')
+    parser.add_argument('-scalars', nargs='+', action='append', default=[[]],
+                        help='(for plot_scalars) which quantities to plot')
+    parser.add_argument('--log', action='store_true',
+                        help='(for plot_scalars) if logarithmic y-axis should be used')
+    parser.add_argument('-t', nargs=1, type=float, default=[0.],
+                        help='(for plot_distr) at which time to plot the distribution function')
+    parser.add_argument('-e1', nargs=1, type=float, default=[None],
+                        help='(for plot_distr) at which position in eta1 direction to plot')
+    parser.add_argument('-e2', nargs=1, type=float, default=[None],
+                        help='(for plot_distr) at which position in eta2 direction to plot')
+    parser.add_argument('-e3', nargs=1, type=float, default=[None],
+                        help='(for plot_distr) at which position in eta3 direction to plot')
+    parser.add_argument('-vx', nargs=1, type=float, default=[None],
+                        help='(for plot_distr) at which point in v1 direction to plot')
+    parser.add_argument('-vy', nargs=1, type=float, default=[None],
+                        help='(for plot_distr) at which point in v2 direction to plot')
+    parser.add_argument('-vz', nargs=1, type=float, default=[None],
+                        help='(for plot_distr) at which point in v3 direction to plot')
+
+    args = parser.parse_args()
+    actions = args.actions
+    foldername = args.f[0]
+    time = args.t[0]
+    do_log = args.log
+    scalars_plot = args.scalars[0]
+    path = os.path.join(os.path.dirname(struphy.__file__),
+                        'io/out', foldername)
+
+    grid_slices = {'e': {'e1': args.e1[0], 'e2': args.e2[0], 'e3': args.e3[0]},
+                   'v': {'vx': args.vx[0], 'vy': args.vy[0], 'vz': args.vz[0]}}
+
+    # code name
+    with open(path + '/meta.txt', 'r') as f:
+        lines = f.readlines()
+
+    code = lines[-2].split()[-1]
+
+    # Get fields
+    file = h5py.File(path + '/data_proc0.hdf5', 'r')
+    field_names = list(file['feec'].keys())
+    saved_scalars = file['scalar']
+
+    # read in parameters
+    with open(path + '/parameters.yml') as file:
+        params = yaml.load(file, Loader=yaml.FullLoader)
+
+    if 'fourier_1d' in actions:
+        assert os.path.exists(os.path.join(path, 'eval_fields')), \
+            'For Fourier analysis needs fields in the model.'
+
+        point_data_log = []
+        # load data dicts for e_field
+        for k in range(len(field_names)):
+            with open(path + '/eval_fields/' + field_names[k] + '_log.bin', 'rb') as handle:
+                point_data_log += [pickle.load(handle)]
+
+        point_data_phys = []
+        for k in range(len(field_names)):
+            with open(path + '/eval_fields/' + field_names[k] + '_phy.bin', 'rb') as handle:
+                point_data_phys += [pickle.load(handle)]
+
+        # load grids
+        with open(path + '/eval_fields/grids_log.bin', 'rb') as handle:
+            grids = pickle.load(handle)
+
+        with open(path + '/eval_fields/grids_phy.bin', 'rb') as handle:
+            grids_mapped = pickle.load(handle)
+
+        if code == 'LinearMHD':
+            equil_type = params['mhd_equilibrium']['name']
+
+            if equil_type == 'HomogenSlab':
+                B0x = params['mhd_equilibrium']['HomogenSlab']['B0x']
+                B0y = params['mhd_equilibrium']['HomogenSlab']['B0y']
+                B0z = params['mhd_equilibrium']['HomogenSlab']['B0z']
+
+                p0 = (2*params['mhd_equilibrium']['HomogenSlab']
+                      ['beta']/100)/(B0x**2 + B0y**2 + B0z**2)
+                n0 = params['mhd_equilibrium']['HomogenSlab']['n0']
+
+                gamma = 5/3
+
+            else:
+                raise NotImplementedError(
+                    f'Dispersion relations for MHD equilibrium of type {equil_type} has not been implemented yet!')
+
+            disp_params = {'B0x': B0x, 'B0y': B0y, 'B0z': B0z,
+                           'p0': p0, 'n0': n0, 'gamma': gamma}
+
+            # fft in (t, z) of first component of u_field on physical grid
+            fourier_1d(point_data_log[3], field_names[3], code, grids,
+                       grids_mapped=grids_mapped, component=0, slice_at=[0, 0, None],
+                       do_plot=True, disp_name='Mhd1D', disp_params=disp_params,
+                       save_plot=True, save_name=os.path.join(path, code + '_' + field_names[3]))
+
+            # fft in (t, z) of pressure on physical grid
+            fourier_1d(point_data_log[2], field_names[2], code, grids,
+                       grids_mapped=grids_mapped, component=0, slice_at=[0, 0, None],
+                       do_plot=True, disp_name='Mhd1D', disp_params=disp_params,
+                       save_plot=True, save_name=os.path.join(path, code + '_' + field_names[2]))
+
+        elif code == 'Maxwell':
+            # fft in (t, z) of first component of e_field on physical grid
+            fourier_1d(point_data_log[1], field_names[1], code, grids,
+                       grids_mapped=grids_mapped, component=0, slice_at=[0, 0, None],
+                       do_plot=True, disp_name='Maxwell1D',
+                       save_plot=True, save_name=os.path.join(path, code + '_' + field_names[1]))
+
+        else:
+            raise NotImplementedError(
+                f'1D Fourier analysis is not yet implemented for the model {code}')
+
+    if 'plot_scalars' in actions:
+        plot_scalars(saved_scalars,
+                     scalars_plot=scalars_plot,
+                     do_log=do_log,
+                     save_plot=True,
+                     savename=os.path.join(path, code))
+
+    if 'plot_distr' in actions:
+        for species in params['kinetic'].keys():
+            time_idx = find_index(time, saved_scalars['time'][:])
+            plot_distr_fun(path=os.path.join(path, 'kinetic_data', species),
+                           time_idx=time_idx,
+                           grid_slices=grid_slices,
+                           save_plot=True, savepath=path)
+
+    file.close()
 
 
-def fourier_1d(values, name, code, grids, grids_mapped=None, component=0, slice_at=[None, 0, 0], plot=False, disp_name=None, disp_params={}):
+def find_index(value, array):
+    """
+    Find the index of the 1d array in which the value is closest to the given value.
+
+    Parameters
+    ----------
+    value : float
+        The value which should be found in the array
+
+    array : array-like
+        Array (1d) of values which should be searched
+    """
+    arr = np.asarray(array)
+    assert len(arr.shape) == 1, 'Array must have only one axis!'
+
+    idx = np.argmin(np.abs(arr - value))
+    return idx
+
+
+def fourier_1d(values, name, code, grids,
+               grids_mapped=None, component=0, slice_at=[None, 0, 0],
+               do_plot=False, disp_name=None, disp_params={},
+               save_plot=False, save_name=None, file_format='png'):
     """
     Perform fft in space-time, (t, x) -> (omega, k), where x can be a logical or physical coordinate.
     Returns values if plot=False.
@@ -42,7 +212,7 @@ def fourier_1d(values, name, code, grids, grids_mapped=None, component=0, slice_
             One entry must be "None"; this is the direction of the fft. 
             Default: [None, 0, 0] performs the eta1-fft at (eta2[0], eta3[0]). 
 
-        plot : boolean
+        do_plot : boolean
             Plot result if True, otherwise return things.
 
         disp_name : str
@@ -50,6 +220,15 @@ def fourier_1d(values, name, code, grids, grids_mapped=None, component=0, slice_
 
         disp_params : dict
             Parameters needed for analytical dispersion relation, see struphy.dispersion_relations.analytic.
+
+        save_plot : boolean
+            Save figure if True. Then a path has to be given.
+
+        save_name : str
+            Name under which the plot of the result should be saved.
+
+        file_format : str
+            Type of file which the plot of the result should be saved.
 
     Returns
     -------
@@ -118,9 +297,8 @@ def fourier_1d(values, name, code, grids, grids_mapped=None, component=0, slice_
     kvec = 2*np.pi*fftfreq(Nx, dx)[:Nx//2]
     omega = 2*np.pi*fftfreq(Nt, dt)[:Nt//2]
 
-    if plot:
-
-        fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+    if do_plot:
+        _, ax = plt.subplots(1, 1, figsize=(10, 10))
         colormap = 'plasma'
         K, W = np.meshgrid(kvec, omega)
         lvls = np.logspace(-15, -1, 27)
@@ -157,62 +335,226 @@ def fourier_1d(values, name, code, grids, grids_mapped=None, component=0, slice_
         ax.set_xlim(0, kvec[-1])
         ax.set_ylim(set_min*1.1, set_max*1.1)
 
-        plt.show()
+        if save_plot:
+            assert save_name is not None, 'When wanting to save the plot a path has to be given!'
+            plt.savefig(save_name + '.' + file_format)
+        else:
+            plt.show()
 
     else:
         return kvec, omega, dispersion
 
 
-def show_poloidal(path, name):
-    '''Show poloidal planes at eta3=0 and eta3=1, for testing. Also plot grid.
-    This is for comparison with paraview.'''
+def plot_scalars(scalar_quantities, scalars_plot=[], do_log=False, save_plot=False, savename=None, file_format='png'):
+    """
+    Plot the scalar quantities and the relative error in the total energy for a simulation.
 
-    with open(path + '/eval_fields/' + name + '_logical.bin', 'rb') as handle:
-        point_data_logical = pickle.load(handle)
+    Parameters
+    ----------
+    scalar_quantities : dict
+        HDF5 dictionary dataset containing the scalar quantities that were saved during the simulation
 
-    with open(path + '/eval_fields/' + name + '_physical.bin', 'rb') as handle:
-        point_data_physical = pickle.load(handle)
+    scalars_plot : list
+        list of names of scalars that should be plotted. If empty then all are plotted
 
-    with open(path + '/eval_fields/grids.bin', 'rb') as handle:
-        grids = pickle.load(handle)
+    do_log : boolean
+        Do a logarithmic plot in the y-axis if True.
 
-    with open(path + '/eval_fields/grids_mapped.bin', 'rb') as handle:
-        grids_mapped = pickle.load(handle)
+    save_plot : boolean
+        Save figure if True. Then a path has to be given.
 
-    fig0 = plt.figure()
-    ax0 = fig0.add_subplot(projection='3d')
+    savename : str
+        Name under which the plot of the result should be saved.
 
-    ax0.plot_wireframe(grids_mapped[0][:, :, 0], grids_mapped[1][:, :, 0], np.zeros_like(
-        grids_mapped[1][:, :, 0]))
-    ax0.plot_wireframe(grids_mapped[0][:, -1, :], np.ones_like(
-        grids_mapped[1][:, -1, :]), grids_mapped[2][:, -1, :])
-    ax0.plot_wireframe(np.zeros_like(grids_mapped[1][-1, :, :]), grids_mapped[1][-1, :, :], grids_mapped[2][-1, :, :])
-    plt.show()
+    file_format : str
+        Type of file which the plot of the result should be saved.
+    """
+    time = scalar_quantities['time'][:]
 
-    # directory for png files
-    png_path = path + '/eval_fields/' + name 
-    try:
-        os.mkdir(png_path + '/png/')
-    except:
-        shutil.rmtree(png_path + '/png/')
-        os.mkdir(png_path + '/png/')
+    if 'en_tot' in scalar_quantities.keys():
+        en_tot = scalar_quantities['en_tot'][:]
 
-    for n, (t, val) in enumerate(point_data_physical.items()):
+        plt.figure('en_tot')
+        if do_log:
+            plt.semilogy(time, en_tot)
+        else:
+            plt.plot(time, en_tot)
 
-        fig, axs = plt.subplots(1, 2, figsize=(10, 5))
-        im0 = axs[0].pcolor(grids_mapped[0][:, :, 0], grids_mapped[1][:, :, 0], val[0][:, :, 0], vmin=-1e-3, vmax=1e-3)
-        im1 = axs[1].pcolor(grids_mapped[0][:, :, -1], grids_mapped[1][:, :, -1], val[0][:, :, -1], vmin=-1e-3, vmax=1e-3)
-        axs[0].axis([0., 1., 0., 1.])
-        axs[1].axis([0., 1., 0., 1.])
-        plt.colorbar(im0, ax=axs[0])
-        plt.colorbar(im1, ax=axs[1])
-        axs[0].set_title(f'poloidal plane at eta3 = 0.0, n={n}')
-        axs[1].set_title(f'poloidal plane at eta3 = 1.0, n={n}')
-        plt.savefig(png_path + '/png/step_{0:04d}'.format(n))
-        plt.close(fig)
-        print(f'{n + 1} png files saved.')
+        if save_plot:
+            assert savename is not None, 'When wanting to save the plot a path has to be given!'
+            plt.savefig(savename + '_en_tot' + '.' + file_format)
+        else:
+            plt.show()
+
+        plt.figure('en_tot_rel_err')
+        plt.plot(time[1:], np.divide(
+            np.abs(en_tot[1:] - en_tot[0]), en_tot[0]))
+
+        if save_plot:
+            assert savename is not None, 'When wanting to save the plot a path has to be given!'
+            plt.savefig(savename + '_en_tot_rel_err' + '.' + file_format)
+        else:
+            plt.show()
+
+    plt.figure('scalars')
+    if len(scalars_plot) == 0:
+        for key, quantity in scalar_quantities.items():
+            if key not in ['time', 'en_tot']:
+                if do_log:
+                    plt.semilogy(time, quantity[:], label=key)
+                else:
+                    plt.plot(time, quantity[:], label=key)
+    else:
+        for key in scalars_plot:
+            if do_log:
+                plt.semilogy(time, scalar_quantities[key][:], label=key)
+            else:
+                plt.plot(time, scalar_quantities[key][:], label=key)
+
+    plt.legend()
+    plt.xlabel('time')
+
+    if save_plot:
+        assert savename is not None, 'When wanting to save the plot a path has to be given!'
+        plt.savefig(savename + '_scalars' + '.' + file_format)
+    else:
+        plt.show()
+
+
+def plot_distr_fun(path, time_idx, grid_slices, save_plot=False, savepath=None, file_format='png'):
+    """
+    Plot the scalar quantities and the relative error in the total energy for a simulation.
+
+    Parameters
+    ----------
+    path : str
+        Path to the kinetic data of the species.
+
+    time : float
+        at which point in time to plot
+
+    grid_slices : dict
+        dictionary with keys e and v that hold dictionaries with directions and values
+        that indicate which slices of the data should be plotted
+
+    save_plot : boolean
+        Save figure if True. Then a path has to be given.
+
+    savepath : str
+        Path under which the plot of the result should be saved.
+
+    file_format : str
+        Type of file which the plot of the result should be saved.
+    """
+
+    species = str(path.split('/')[-1])
+
+    # make empty dictionaries
+    f = {'e': None, 'v': None}
+    delta_f = {'e': None, 'v': None}
+    ints_to_names = {'e': {}, 'v': {}}
+    names_to_ints = {'e': {}, 'v': {}}
+    grids = {'e': {}, 'v': {}}
+
+    # Loop over files and load distribution function data
+    for filename in os.listdir(os.path.join(path, 'f')):
+        filepath = os.path.join(path, 'f', filename)
+
+        # load full distribution functions
+        if filename[:3] == 'f_e':
+            k = 1
+            while True:
+                try:
+                    ints_to_names['e'][str(k)] = \
+                        filename.split('_')[k].split('.')[0]
+                    names_to_ints['e'][filename.split('_')[k].split('.')[0]] = \
+                        str(k)
+                except:
+                    break
+                else:
+                    k += 1
+            f['e'] = np.load(filepath)
+        elif filename[:3] == 'f_v':
+            k = 1
+            while True:
+                try:
+                    ints_to_names['v'][str(k)] = \
+                        filename.split('_')[k].split('.')[0]
+                    names_to_ints['v'][filename.split('_')[k].split('.')[0]] = \
+                        str(k)
+                except:
+                    break
+                else:
+                    k += 1
+            f['v'] = np.load(filepath)
+
+        # load delta f
+        elif filename[:9] == 'delta_f_e':
+            delta_f['e'] = np.load(filepath)
+        elif filename[:9] == 'delta_f_v':
+            delta_f['v'] = np.load(filepath)
+
+    # loop over files and load grid data
+    for filename in os.listdir(os.path.join(path, 'f')):
+        filepath = os.path.join(path, 'f', filename)
+        # load position grids
+        if filename[:6] == 'grid_e':
+            suffix = filename.split('_')[-1].split('.')[0]
+            grids['e'][suffix] = np.load(filepath)
+
+        # load velocity grids
+        elif filename[:6] == 'grid_v':
+            suffix = filename.split('_')[-1].split('.')[0]
+            grids['v'][suffix] = np.load(filepath)
+
+    for typ in ['e', 'v']:
+        # plot in all available directions
+        for plot_dir, plot_grid in grids[typ].items():
+            slicing = [slice(None)] * len(grids[typ])
+
+            # find indices where values are in all directions
+            for direction, grid in grids[typ].items():
+                if direction != plot_dir:
+                    if grid_slices[typ][ints_to_names[typ][direction]] is None:
+                        idx = len(grid) // 2
+                    else:
+                        idx = np.argmin(np.abs(grid - grid_slices[typ][ints_to_names[typ][direction]]))
+                    slicing[int(direction) - 1] = idx
+
+            # create slicing tuple
+            f_slicing = tuple([time_idx] + slicing)
+
+            # plot delta_f
+            if delta_f[typ] is not None:
+                plt.figure('delta_f')
+                plt.plot(plot_grid, delta_f[typ][f_slicing].squeeze())
+                plt.xlabel(ints_to_names[typ][plot_dir])
+                plt.ylabel(r'$\delta f$')
+
+                if save_plot:
+                    assert savepath is not None, 'When wanting to save the plot a path has to be given!'
+                    savename = os.path.join(savepath, species + '_delta_f_'
+                                            + ints_to_names[typ][plot_dir] + '.' + file_format)
+                    plt.savefig(savename)
+                else:
+                    plt.show()
+                plt.close()
+
+            # plot full distribution function
+            plt.figure('f')
+            plt.plot(plot_grid, f[typ][f_slicing].squeeze())
+            plt.xlabel(ints_to_names[typ][plot_dir])
+            plt.ylabel(r'$f$')
+
+            if save_plot:
+                assert savepath is not None, 'When wanting to save the plot a path has to be given!'
+                savename = os.path.join(savepath, species + '_f_'
+                                        + ints_to_names[typ][plot_dir] + '.' + file_format)
+                plt.savefig(savename)
+            else:
+                plt.show()
+            plt.close()
 
 
 if __name__ == '__main__':
-    path = '/home/spossann/git_repos/struphy/struphy/io/out/sim_1'
-    show_poloidal(path, 'e_field')
+    main()

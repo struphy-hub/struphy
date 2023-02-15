@@ -163,88 +163,93 @@ def sendrecv_particles(send_list, recv_info, holes, particles_loc):
                 #     print(f'rank {rank} | Data from process {i} not yet reveived.')
 
 
-# ================
-# Start of example
-# ================
+def main():
+    """
+    TODO
+    """
+    # set up local particles
+    Np_loc = 15 + rank
+    eps = .4  # high eps (40 %) because of low particle number in this test
+    n_rows = round(Np_loc*(1 + 1/np.sqrt(Np_loc) + eps))
+    particles_loc = -1 * np.ones((n_rows, 7), dtype=float)
+    sleep(.1*(rank + 1))
+    print(f'rank {rank} | Np_loc={Np_loc}')
+    comm.Barrier()
 
-# set up local particles
-Np_loc = 15 + rank
-eps = .4  # high eps (40 %) because of low particle number in this test
-n_rows = round(Np_loc*(1 + 1/np.sqrt(Np_loc) + eps))
-particles_loc = -1 * np.ones((n_rows, 7), dtype=float)
-sleep(.1*(rank + 1))
-print(f'rank {rank} | Np_loc={Np_loc}')
-comm.Barrier()
+    particles_loc[:Np_loc] = np.random.rand(Np_loc, 7)
+    sleep(.1*(rank + 1))
+    print(f'rank {rank} | particles_loc.shape={particles_loc.shape}')
+    comm.Barrier()
+    if rank == 0:
+        print(f'rank {rank} | particles_loc:\n {particles_loc}')
 
-particles_loc[:Np_loc] = np.random.rand(Np_loc, 7)
-sleep(.1*(rank + 1))
-print(f'rank {rank} | particles_loc.shape={particles_loc.shape}')
-comm.Barrier()
-if rank == 0:
-    print(f'rank {rank} | particles_loc:\n {particles_loc}')
+    # Set up domain array for this example
+    domain_array = np.zeros((comm_size, 6), dtype=float)
+    domain_array[:, 1] = 1.
+    domain_array[:, 3] = 1.
+    domain_array[:, 5] = 1.
 
-# Set up domain array for this example
-domain_array = np.zeros((comm_size, 6), dtype=float)
-domain_array[:, 1] = 1.
-domain_array[:, 3] = 1.
-domain_array[:, 5] = 1.
+    domain_array[0, 1] = .5
+    domain_array[0, 3] = .5
+    domain_array[1, 0] = .5
+    domain_array[1, 3] = .5
+    domain_array[2, 1] = .5
+    domain_array[2, 2] = .5
+    domain_array[3, 0] = .5
+    domain_array[3, 2] = .5
 
-domain_array[0, 1] = .5
-domain_array[0, 3] = .5
-domain_array[1, 0] = .5
-domain_array[1, 3] = .5
-domain_array[2, 1] = .5
-domain_array[2, 2] = .5
-domain_array[3, 0] = .5
-domain_array[3, 2] = .5
+    if rank == 0:
+        print(f'rank {rank} | dom_array: \n {domain_array}')
 
-if rank == 0:
-    print(f'rank {rank} | dom_array: \n {domain_array}')
+    # create new send particles array and make corresponding holes in particles array
+    particles_to_be_sent, holes = sendrecv_determine_ptbs(
+        particles_loc, domain_array)
 
-# create new send particles array and make corresponding holes in particles array
-particles_to_be_sent, holes = sendrecv_determine_ptbs(
-    particles_loc, domain_array)
+    if rank == 0:
+        print('')
+    sleep(.1*(rank + 1))
+    print(f'rank {rank} | holes:\n {holes}')
+    comm.Barrier()
 
-if rank == 0:
-    print('')
-sleep(.1*(rank + 1))
-print(f'rank {rank} | holes:\n {holes}')
-comm.Barrier()
+    if rank == 0:
+        print('')
+    if rank == 0:
+        print(f'rank {rank} | particles_to_be_sent:\n {particles_to_be_sent}')
 
-if rank == 0:
-    print('')
-if rank == 0:
-    print(f'rank {rank} | particles_to_be_sent:\n {particles_to_be_sent}')
+    # where to send particles
+    send_info, send_list = sendrecv_get_destinations(
+        particles_to_be_sent, domain_array)
 
-# where to send particles
-send_info, send_list = sendrecv_get_destinations(
-    particles_to_be_sent, domain_array)
+    sleep(.1*(rank + 1))
+    print(
+        f'rank {rank} will send the following amounts (to i-th process): {send_info}')
+    comm.Barrier()
 
-sleep(.1*(rank + 1))
-print(f'rank {rank} will send the following amounts (to i-th process): {send_info}')
-comm.Barrier()
+    if rank == 0:
+        print('')
+    if rank == 0:
+        print(f'rank {rank} | send_list:\n {send_list}')
+    comm.Barrier()
 
-if rank == 0:
-    print('')
-if rank == 0:
-    print(f'rank {rank} | send_list:\n {send_list}')
-comm.Barrier()
+    # transpose send_info
+    recv_info = sendrecv_all_to_all(send_info)
 
-# transpose send_info
-recv_info = sendrecv_all_to_all(send_info)
+    if rank == 0:
+        print('')
 
-if rank == 0:
-    print('')
+    sleep(.1*(rank + 1))
+    print(
+        f'rank {rank} will receive the following amounts (from i-th process): {recv_info}')
+    comm.Barrier()
 
-sleep(.1*(rank + 1))
-print(f'rank {rank} will receive the following amounts (from i-th process): {recv_info}')
-comm.Barrier()
+    # send/receive partciels
+    sendrecv_particles(send_list, recv_info, holes, particles_loc)
 
-# send/receive partciels
-sendrecv_particles(send_list, recv_info, holes, particles_loc)
+    if rank == 0:
+        print('')
+    if rank == 0:
+        print(f'rank {rank} | particles_loc after receive:\n {particles_loc}')
 
-if rank == 0:
-    print('')
-if rank == 0:
-    print(f'rank {rank} | particles_loc after receive:\n {particles_loc}')
 
+if __name__ == '__main__':
+    main()
