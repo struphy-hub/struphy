@@ -129,8 +129,8 @@ class IGAPolarTorus(PoloidalSplineTorus):
                 def theta(eta1, eta2):
                     return 2*np.pi*eta2
 
-            def R(eta1, eta2): return  params_map['a'] * eta1 * np.cos(theta(eta1, eta2)) + params_map['R0']
-            def Z(eta1, eta2): return -params_map['a'] * eta1 * np.sin(theta(eta1, eta2))
+            def R(eta1, eta2): return params_map['a'] * eta1 * np.cos(theta(eta1, eta2)) + params_map['R0']
+            def Z(eta1, eta2): return params_map['a'] * eta1 * np.sin(theta(eta1, eta2))
 
             cx, cy = interp_mapping(params_map['Nel'], params_map['p'], params_map['spl_kind'], R, Z)
 

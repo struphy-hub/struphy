@@ -23,14 +23,14 @@ class MHDequilibrium(metaclass=ABCMeta):
         """ 0-form absolute value of equilibrium magnetic field on logical cube [0, 1]^3.
         """
         assert self.domain is not None, 'Domain not set, use obj.domain=...'
-        b, xyz = self.b_cart(*etas)
+        b, xyz = self.b_cart(*etas, squeeze_out=squeeze_out)
         return np.sqrt(b[0]**2 + b[1]**2 + b[2]**2)
     
     def b1(self, *etas, squeeze_out=True):
         """ 1-form equilibrium magnetic field on logical cube [0, 1]^3.
         """
         assert self.domain is not None, 'Domain not set, use obj.domain=...'
-        return self.domain.transform(self.b2(*etas), *etas, kind='2_to_1', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(self.b2(*etas, squeeze_out=False), *etas, kind='2_to_1', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
     def b2(self, *etas, squeeze_out=True):
         """ 2-form equilibrium magnetic field on logical cube [0, 1]^3.
@@ -43,38 +43,38 @@ class MHDequilibrium(metaclass=ABCMeta):
         """ Contra-variant magnetic field on logical cube [0, 1]^3.
         """
         assert self.domain is not None, 'Domain not set, use obj.domain=...'
-        return self.domain.transform(self.b2(*etas), *etas, kind='2_to_v', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(self.b2(*etas, squeeze_out=False), *etas, kind='2_to_v', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
     def b_cart(self, *etas, squeeze_out=True):
         """ Cartesian equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x, y, z).
         """
         assert self.domain is not None, 'Domain not set, use obj.domain=...'
-        b_out = self.domain.push(self.b2(*etas), *etas, kind='2_form', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
-        return b_out, self.domain(*etas)
+        b_out = self.domain.push(self.b2(*etas, squeeze_out=False), *etas, kind='2_form', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return b_out, self.domain(*etas, squeeze_out=squeeze_out)
 
     def unit_b1(self, *etas, squeeze_out=True):
         """ Unit vector equilibrium magnetic field (1-form) on logical cube [0, 1]^3.
         """
         assert self.domain is not None, 'Domain not set, use obj.domain=...'
-        return self.domain.pull(self.unit_b_cart(*etas)[0], *etas, kind='1_form', squeeze_out=squeeze_out)
+        return self.domain.pull(self.unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='1_form', squeeze_out=squeeze_out)
 
     def unit_b2(self, *etas, squeeze_out=True):
         """ Unit vector equilibrium magnetic field (2-form) on logical cube [0, 1]^3.
         """
         assert self.domain is not None, 'Domain not set, use obj.domain=...'
-        return self.domain.pull(self.unit_b_cart(*etas)[0], *etas, kind='2_form', squeeze_out=squeeze_out)
+        return self.domain.pull(self.unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='2_form', squeeze_out=squeeze_out)
     
     def unit_bv(self, *etas, squeeze_out=False):
         """ Unit vector equilibrium magnetic field (contra-variant) on logical cube [0, 1]^3.
         """
         assert self.domain is not None, 'Domain not set, use obj.domain=...'
-        return self.domain.pull(self.unit_b_cart(*etas)[0], *etas, kind='vector', squeeze_out=squeeze_out)
+        return self.domain.pull(self.unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='vector', squeeze_out=squeeze_out)
     
     def unit_b_cart(self, *etas, squeeze_out=True):
         """ Unit vector Cartesian equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x, y, z).
         """
-        b, xyz = self.b_cart(*etas)
-        absB = self.absB0(*etas)
+        b, xyz = self.b_cart(*etas, squeeze_out=squeeze_out)
+        absB = self.absB0(*etas, squeeze_out=squeeze_out)
         out = np.array([b[0]/absB, b[1]/absB, b[2]/absB], dtype=float)
         return out, xyz
 
@@ -82,7 +82,7 @@ class MHDequilibrium(metaclass=ABCMeta):
         """ 1-form equilibrium current on logical cube [0, 1]^3.
         """
         assert self.domain is not None, 'Domain not set, use obj.domain=...'
-        return self.domain.transform(self.j2(*etas), *etas, kind='2_to_1', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(self.j2(*etas, squeeze_out=False), *etas, kind='2_to_1', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
     def j2(self, *etas, squeeze_out=True):
         """ 2-form equilibrium current (=curl B) on logical cube [0, 1]^3.
@@ -95,13 +95,13 @@ class MHDequilibrium(metaclass=ABCMeta):
         """ Vector-field equilibrium current on logical cube [0, 1]^3.
         """
         assert self.domain is not None, 'Domain not set, use obj.domain=...'
-        return self.domain.transform(self.j2(*etas), *etas, kind='2_to_v', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(self.j2(*etas, squeeze_out=False), *etas, kind='2_to_v', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
     def j_cart(self, *etas, squeeze_out=True):
         """ Cartesian equilibrium current evaluated on logical cube [0, 1]^3. (x, y, z) are also returned.
         """
         assert self.domain is not None, 'Domain not set, use obj.domain=...'
-        j_out = self.domain.push(self.j2(*etas), *etas, kind='2_form', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        j_out = self.domain.push(self.j2(*etas, squeeze_out=False), *etas, kind='2_form', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
         return j_out, self.domain(*etas)
 
     def p0(self, *etas, squeeze_out=True):
