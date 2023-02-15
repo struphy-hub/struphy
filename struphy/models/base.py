@@ -74,22 +74,22 @@ class StruphyModel(metaclass=ABCMeta):
         eta1 = np.linspace(h/2., 1.-h/2., 20)
         eta2 = np.linspace(h/2., 1.-h/2., 20)
         eta3 = np.linspace(h/2., 1.-h/2., 20)
-        self._size_params['plasma volume [m^3]'] = np.mean(
+        self._size_params['plasma volume [x\u0302³]'] = np.mean(
             np.abs(self.domain.jacobian_det(eta1, eta2, eta3)))
-        self._size_params['minor radius [m]'] = 'No minor radius.'
-        self._size_params['transit length [m]'] = self.size_params['plasma volume [m^3]']**(
+        self._size_params['minor radius [x\u0302]'] = 'no minor radius'
+        self._size_params['transit length [x\u0302]'] = self.size_params['plasma volume [x\u0302³]']**(
             1/3)
-        self._size_params['transit k [1/m]'] = 2*np.pi / \
-            self._size_params['transit length [m]']
+        self._size_params['transit k [x\u0302⁻¹]'] = 2*np.pi / \
+            self._size_params['transit length [x\u0302]']
         self._size_params['eps_key'] = 'rho*k'
 
         # minor radius
         if self.mhd_equil is not None:
             if 'a' in self.mhd_equil.params:
-                self._size_params['minor radius [m]'] = self.mhd_equil.params['a']
-                self._size_params['transit length [m]'] = self._size_params['minor radius [m]']
-                self._size_params['transit k [1/m]'] = 2 * \
-                    np.pi / self._size_params['transit length [m]']
+                self._size_params['minor radius [x\u0302]'] = self.mhd_equil.params['a']
+                self._size_params['transit length [x\u0302]'] = self._size_params['minor radius [x\u0302]']
+                self._size_params['transit k [x\u0302⁻¹]'] = 2 * \
+                    np.pi / self._size_params['transit length [x\u0302]']
                 self._size_params['eps_key'] = 'rhostar'
 
             # average B-field strength (Tesla)
@@ -101,9 +101,9 @@ class StruphyModel(metaclass=ABCMeta):
             if self.mhd_equil.domain.pole:
                 eta1[0] += 1e-10
             
-            self._size_params['B_abs [T]'] = np.mean(
+            self._size_params['B_abs [B\u0302]'] = np.mean(
                 self.mhd_equil.absB0(eta1, eta2, eta3))
-
+        
         # 3d Derham sequence
         Nel = params['grid']['Nel']  # Number of grid cells
         p = params['grid']['p']  # spline degrees
@@ -178,19 +178,11 @@ class StruphyModel(metaclass=ABCMeta):
 
             self._em_fields['params'] = params['em_fields']
 
-            #comps = params['em_fields']['init']['comps']
-            # assert len(
-            #    comps) == nem, 'Lengths of ["em_fields"]["init"]["comps"] lists do not correspond to number of fields.'
-
             for n, (key, val) in enumerate(self.em_fields.items()):
 
                 if 'params' not in key:
                     field = Field(key, val['space'], self.derham)
                     val['obj'] = field
-
-                    # assert len(comps[n]) == isinstance(field.nbasis, tuple)*1 + isinstance(
-                    #    field.nbasis, list)*3, f'Wrong length of ["init"]["comps"] list for {key}.'
-                    #val['init_comps'] = comps[n]
 
         # FE coeffs and plasma parameters of fluid variables
         if 'fluid' in params:
@@ -200,24 +192,18 @@ class StruphyModel(metaclass=ABCMeta):
                 assert species in params['fluid']
                 val['params'] = params['fluid'][species]
 
-                Z, M, kBT, beta = params['fluid'][species]['attributes'].values(
-                )
-                #comps = params['fluid'][species]['init']['comps']
-                # assert len(comps) == nfi, \
-                #    f'Lengths of ["fluid"]["species"]["attributes"] lists do not correspond to number of fluid variables of species {species}.'
-                val['plasma_params'] = plasma_params(Z, M,
-                                                     kBT, beta,
-                                                     self.size_params)
+                #Z, M, kBT, beta = params['fluid'][species]['attributes'].values(
+                #)
+                
+                #val['plasma_params'] = plasma_params(Z, M,
+                #                                     kBT, beta,
+                #                                     self.size_params)
 
                 for n, (variable, subval) in enumerate(val.items()):
 
                     if 'params' not in variable:
                         field = Field(variable, subval['space'], self.derham)
                         subval['obj'] = field
-
-                        # assert len(comps[n]) == isinstance(field.nbasis, tuple)*1 + isinstance(field.nbasis, list)*3, \
-                        #    f'Wrong length of ["init"]["comps"] list for {variable}.'
-                        #subval['init_comps'] = comps[n]
 
         # marker arrays and plasma parameters of kinetic species
         if 'kinetic' in params:
@@ -236,9 +222,9 @@ class StruphyModel(metaclass=ABCMeta):
                 val['obj'] = kinetic_class(species, val['params']['markers'],
                                            self.derham.domain_array, self.derham.comm)
 
-                Z, M, kBT, beta = val['params']['attributes'].values()
-                val['plasma_params'] = plasma_params(
-                    Z, M, kBT, beta, self.size_params)
+                #Z, M, kBT, beta = val['params']['attributes'].values()
+                #val['plasma_params'] = plasma_params(
+                #    Z, M, kBT, beta, self.size_params)
 
                 # for storing markers
                 n_markers = val['params']['save_data']['n_markers']
@@ -280,49 +266,66 @@ class StruphyModel(metaclass=ABCMeta):
         # print info to screen
         if mpi_comm.Get_rank() == 0:
             print('GRID parameters:')
-            print(f'number of elements     : {self.derham.Nel}')
-            print(f'spline degrees         : {self.derham.p}')
-            print(f'periodic bcs           : {self.derham.spl_kind}')
-            print(f'hom. Dirichlet bc      : {self.derham.bc}')
+            print(f'number of elements      : {self.derham.Nel}')
+            print(f'spline degrees          : {self.derham.p}')
+            print(f'periodic bcs            : {self.derham.spl_kind}')
+            print(f'hom. Dirichlet bc       : {self.derham.bc}')
             _gl_quad_pts_l2 = [self.derham.quad_order[0] + 1,
                                self.derham.quad_order[1] + 1,
                                self.derham.quad_order[2] + 1]
-            print(f'GL quad pts (L2)       : {_gl_quad_pts_l2}')
-            print(f'GL quad pts (hist)     : {self.derham.nq_pr}')
-            print(f'N-spline indices rank 0: {self.derham.index_array_N[0]}\n')
+            print(f'GL quad pts (L2)        : {_gl_quad_pts_l2}')
+            print(f'GL quad pts (hist)      : {self.derham.nq_pr}')
+            print(f'N-spline indices rank 0 : {self.derham.index_array_N[0]}\n')
 
             print('DOMAIN parameters:')
             print(f'domain type       : {self.domain.__class__.__name__}')
             print(f'domain parameters : {self.domain.params_map}\n')
-
-            print('PLASMA parameters:')
-            print('size:')
-            print('-----')
+            
+            n_longest_key = len(max(self.size_params.keys(), key=len)) 
             for key, val in self.size_params.items():
                 if key != 'eps_key':
-                    print(key + ': ', val)
-            print('\nelectromagnetic fields/potentials:')
-            print('----------------------------------')
-            for key, val in self.em_fields.items():
-                if 'params' not in key:
-                    print(key + ': ' + val['space'])
-            print('\nfluid species:')
-            print('--------------')
-            for species, val in self.fluid.items():
-                print(species + ':')
-                for variable, subval in val.items():
-                    if 'params' not in variable:
-                        print(variable + ': ' + subval['space'])
-                for p, pv in val['plasma_params'].items():
-                    print(p + ': ', pv)
-            print('\nkinetic species:')
-            print('----------------')
-            for species, val in self.kinetic.items():
-                print(species + ': ' + val['space'] + ' with '
-                      + str(val['obj'].n_mks) + ' markers initialized, shape='
-                      + str(val['obj'].markers.shape) + ' on rank 0.')
-                for p, pv in val['plasma_params'].items():
-                    print(p + ': ', pv)
+                    diff = n_longest_key - len(key)
+                    
+                    key_str = key
+                    for i in range(diff):
+                        key_str += ' '
+                    
+                    if isinstance(val, float):
+                        print(key_str + ' :', '{:16.13f}'.format(val))
+                    else:
+                        print(key_str + ' :', val)
+                    
+            if hasattr(self, 'print_units') and 'model_units' in params:
+                self.print_units(params['model_units'])
+
+            #print('PLASMA parameters:')
+            #print('size:')
+            #print('-----')
+            #for key, val in self.size_params.items():
+            #    if key != 'eps_key':
+            #        print(key + ': ', val)
+            #print('\nelectromagnetic fields/potentials:')
+            #print('----------------------------------')
+            #for key, val in self.em_fields.items():
+            #    if 'params' not in key:
+            #        print(key + ': ' + val['space'])
+            #print('\nfluid species:')
+            #print('--------------')
+            #for species, val in self.fluid.items():
+            #    print(species + ':')
+            #    for variable, subval in val.items():
+            #        if 'params' not in variable:
+            #            print(variable + ': ' + subval['space'])
+            #    for p, pv in val['plasma_params'].items():
+            #        print(p + ': ', pv)
+            #print('\nkinetic species:')
+            #print('----------------')
+            #for species, val in self.kinetic.items():
+            #    print(species + ': ' + val['space'] + ' with '
+            #          + str(val['obj'].n_mks) + ' markers initialized, shape='
+            #          + str(val['obj'].markers.shape) + ' on rank 0.')
+            #    for p, pv in val['plasma_params'].items():
+            #        print(p + ': ', pv)
             print('')
 
     @property

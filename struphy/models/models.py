@@ -140,8 +140,8 @@ class LinearMHD(StruphyModel):
         temperature_unit = pressure_unit / \
             (model_units_params['n']*1e20)/(1000*1.602176634e-19)
 
-        size_params = {'B_abs [T]': model_units_params['B'],
-                       'transit k [1/m]': 2*np.pi/model_units_params['L']}
+        size_params = {'B_abs [B\u0302]': model_units_params['B'],
+                       'transit k [x\u0302⁻¹]': 2*np.pi/model_units_params['x']}
 
         pparams = plasma_params(
             1, model_units_params['A'], temperature_unit, 2, size_params)
@@ -149,18 +149,18 @@ class LinearMHD(StruphyModel):
         print()
         print()
         print('------- MODEL UNITS (PRESCRIBED) -------')
-        print('x [m]        : ', model_units_params['L'])
-        print('B [T]        : ', model_units_params['B'])
-        print('n [10²⁰ m⁻³] : ', model_units_params['n'])
-        print('A            : ', model_units_params['A'])
+        print('x\u0302 [m]        :', '{:16.13f}'.format(model_units_params['x']))
+        print('B\u0302 [T]        :', '{:16.13f}'.format(model_units_params['B']))
+        print('n\u0302 [10²⁰ m⁻³] :', '{:16.13f}'.format(model_units_params['n']))
+        print('A            :', '{:2d}'.format(model_units_params['A']))
         print()
         print('------- MODEL UNITS (DERIVED) ----------')
-        print('rho [10⁷ kg/m³] : ', model_units_params['n'] *
-              1e20*model_units_params['A']*1.67262192369e-27*1e7)
-        print('p   [bar]       : ', pressure_unit*1e-5)
-        print('t   [µs]        : ', model_units_params['L'] /
-              pparams['v_A [10^6 m/s]'])
-        print('v   [10⁶ m/s]   : ', pparams['v_A [10^6 m/s]'])
+        print('r\u0302ho [10⁷ kg/m³] :', '{:16.13f}'.format(model_units_params['n'] *
+              1e20*model_units_params['A']*1.67262192369e-27*1e7))
+        print('p\u0302   [bar]       :', '{:16.13f}'.format(pressure_unit*1e-5))
+        print('t\u0302   [µs]        :', '{:16.13f}'.format(model_units_params['x'] /
+              pparams['v_A [10⁶ m/s]']))
+        print('v\u0302   [10⁶ m/s]   :', '{:16.13f}'.format(pparams['v_A [10⁶ m/s]']))
         print()
         print('------- OTHER QUANTITIES _--------------')
 
@@ -390,13 +390,13 @@ class LinearMHDVlasovCC(StruphyModel):
         solver_params_4 = params['solvers']['solver_4']
 
         # model units
-        B = params['model_units']['B']
-        L = params['model_units']['L']
-        nb = params['model_units']['nb']
+        L   = params['model_units']['x']
+        B   = params['model_units']['B']
+        nb  = params['model_units']['nb']
         nuh = params['model_units']['nuh']*0.01
-        Ab = params['model_units']['Ab']
-        Ah = params['model_units']['Ah']
-        Zh = params['model_units']['Zh']
+        Ab  = params['model_units']['Ab']
+        Ah  = params['model_units']['Ah']
+        Zh  = params['model_units']['Zh']
 
         kappa = 1.602176634e-19*L * \
             np.sqrt(1.25663706212e-6*Ab*nb*1e20/1.67262192369e-27)
@@ -406,9 +406,6 @@ class LinearMHDVlasovCC(StruphyModel):
 
         self._coupling_params = {'nuh': nuh, 'Ab': Ab,
                                  'Ah': Ah, 'Zh': Zh, 'kappa': kappa}
-
-        if self.derham.comm.Get_rank() == 0:
-            print('Bulk / EP coupling parameters : ', self._coupling_params)
 
         # background distribution function used as control variate
         if params['kinetic']['energetic_ions']['markers']['type'] == 'control_variate':
@@ -498,7 +495,7 @@ class LinearMHDVlasovCC(StruphyModel):
         TODO
         """
 
-        # pressure unit in Pascal
+        # pressure unit in Pascal (B^2/mu_0)
         pressure_unit = model_units_params['B']**2/1.25663706212e-6
 
         # beta 2*mu0*p/B^2 (always 2)
@@ -508,8 +505,8 @@ class LinearMHDVlasovCC(StruphyModel):
         temperature_unit = pressure_unit / \
             (model_units_params['nb']*1e20)/(1000*1.602176634e-19)
 
-        size_params = {'B_abs [T]': model_units_params['B'],
-                       'transit k [1/m]': 2*np.pi/model_units_params['L']}
+        size_params = {'B_abs [B\u0302]': model_units_params['B'],
+                       'transit k [x\u0302⁻¹]': 2*np.pi/model_units_params['x']}
 
         pparams = plasma_params(
             1, model_units_params['Ab'], temperature_unit, 2, size_params)
@@ -517,30 +514,30 @@ class LinearMHDVlasovCC(StruphyModel):
         print()
         print()
         print('------- MODEL UNITS (PRESCRIBED) -------')
-        print('x  [m]        : ', model_units_params['L'])
-        print('B  [T]        : ', model_units_params['B'])
-        print('nb [10²⁰ m⁻³] : ', model_units_params['nb'])
-        print('Ab            : ', model_units_params['Ab'])
-        print('nh [10²⁰ m⁻³] : ', model_units_params['nb']
-              * model_units_params['nuh']*0.01)
-        print('Ah            : ', model_units_params['Ah'])
-        print('Zh            : ', model_units_params['Zh'])
+        print('x\u0302  [m]        : ', '{:16.13f}'.format(model_units_params['x']))
+        print('B\u0302  [T]        : ', '{:16.13f}'.format(model_units_params['B']))
+        print('n\u0302b [10²⁰ m⁻³] : ', '{:16.13f}'.format(model_units_params['nb']))
+        print('Ab            : ', '{:2d}'.format(model_units_params['Ab']))
+        print('n\u0302h [10²⁰ m⁻³] : ', '{:16.13f}'.format(model_units_params['nb']
+              * model_units_params['nuh']*0.01))
+        print('Ah            : ', '{:2d}'.format(model_units_params['Ah']))
+        print('Zh            : ', '{:2d}'.format(model_units_params['Zh']))
         print()
         print('------- MODEL UNITS (DERIVED) ----------')
-        print('rho_b [10⁷ kg/m⁻³] : ', model_units_params['nb']
-              * 1e20*model_units_params['Ab']*1.67262192369e-27*1e7)
-        print('p     [bar]        : ', pressure_unit*1e-5)
-        print('t     [µs]         : ',
-              model_units_params['L']/pparams['v_A [10^6 m/s]'])
-        print('v     [10⁶ m/s]    : ', pparams['v_A [10^6 m/s]'])
+        print('r\u0302ho_b [10⁷ kg/m⁻³] : ', '{:16.13f}'.format(model_units_params['nb']
+              * 1e20*model_units_params['Ab']*1.67262192369e-27*1e7))
+        print('p\u0302     [bar]        : ', '{:16.13f}'.format(pressure_unit*1e-5))
+        print('t\u0302     [µs]         : ',
+              '{:16.13f}'.format(model_units_params['x']/pparams['v_A [10⁶ m/s]']))
+        print('v\u0302     [10⁶ m/s]    : ', '{:16.13f}'.format(pparams['v_A [10⁶ m/s]']))
         print()
         print('------- OTHER QUANTITIES ---------------')
-        print('nuh                 : ', model_units_params['nuh']*0.01)
-        print('kappa               : ', pparams['kappa'])
-        print('EP gyro period [µs] : ', 2*np.pi*model_units_params['Ah']*1.67262192369e-27/(
-            model_units_params['Zh']*1.602176634e-19*model_units_params['B'])*1e6)
-        print('EP gyro radius [cm] : ', pparams['v_A [10^6 m/s]']*1e6*model_units_params['Ah'] *
-              1.67262192369e-27/(model_units_params['Zh']*1.602176634e-19*model_units_params['B'])*100)
+        print('nuh                 : ', '{:16.13f}'.format(model_units_params['nuh']*0.01))
+        print('kappa               : ', '{:16.13f}'.format(pparams['kappa']))
+        print('EP gyro period [µs] : ', '{:16.13f}'.format(2*np.pi*model_units_params['Ah']*1.67262192369e-27/(
+            model_units_params['Zh']*1.602176634e-19*model_units_params['B'])*1e6))
+        print('EP gyro radius [cm] : ', '{:16.13f}'.format(pparams['v_A [10⁶ m/s]']*1e6*model_units_params['Ah'] *
+              1.67262192369e-27/(model_units_params['Zh']*1.602176634e-19*model_units_params['B'])*100), '(for v = v\u0302)')
 
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
@@ -692,8 +689,9 @@ class LinearMHDVlasovPC(StruphyModel):
         magnetosonic_solver = params['solvers']['solver_2']
         coupling_solver = params['solvers']['solver_3']
         coupling = ions_params['pc']
-        self._nuh = self.kinetic['energetic_ions']['plasma_params']['n [10^20/m^3]'] / \
-            self.fluid['mhd']['plasma_params']['n [10^20/m^3]']
+        #self._nuh = self.kinetic['energetic_ions']['plasma_params']['n [10^20/m^3]'] / \
+        #    self.fluid['mhd']['plasma_params']['n [10^20/m^3]']
+        self._nuh = params['model_units']['nuh']*0.01
 
         print('Coupling parameter nu_h = n_h/n = ' + str(self._nuh) + '\n')
 
@@ -853,7 +851,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             'n3': 'L2', u_name: self._u_space, 'p3': 'L2'}, energetic_ions='Particles5D')
 
         # guiding center asymptotic parameter (rhostar)
-        epsilon = self.kinetic['energetic_ions']['plasma_params']['epsilon']
+        epsilon = plasma_params(1, 1, 1., 0.01, self.size_params)['epsilon']
 
         # pointers to em-field variables
         self._b = self.em_fields['b2']['obj'].vector
@@ -871,13 +869,16 @@ class LinearMHDDriftkineticCC(StruphyModel):
         alfven_solver = params['solvers']['solver_1']
         magnetosonic_solver = params['solvers']['solver_2']
         coupling_solver = params['solvers']['solver_3']
-        self._nuh = self.kinetic['energetic_ions']['plasma_params']['n [10^20/m^3]'] / \
-            self.fluid['mhd']['plasma_params']['n [10^20/m^3]']
+        #self._nuh = self.kinetic['energetic_ions']['plasma_params']['n [10^20/m^3]'] / \
+        #    self.fluid['mhd']['plasma_params']['n [10^20/m^3]']
+        self._nuh = params['model_units']['nh']/params['model_units']['nb']
 
         print('Coupling parameter nu_h = n_h/n = ' + str(self._nuh) + '\n')
 
-        coupling_params = {'nuh': self._nuh, 'Ab': 1., 'Ah': 1., 'Zh': 1.,
-                           'kappa': self.kinetic['energetic_ions']['plasma_params']['kappa']}
+        #coupling_params = {'nuh': self._nuh, 'Ab': 1., 'Ah': 1., 'Zh': 1.,
+        #
+        coupling_params = {'nuh': self._nuh, 'Ab': 1., 'Ah': 1., 'Zh': 1., 
+                           'kappa': 1.}
 
         # Project magnetic field
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
@@ -1162,7 +1163,8 @@ class LinearVlasovMaxwell(StruphyModel):
         self._maxwellian_params = self.electron_params['background']['Maxwellian6DUniform']
 
         # Get coupling strength
-        self.alpha = self.kinetic['electrons']['plasma_params']['alpha']
+        #self.alpha = self.kinetic['electrons']['plasma_params']['alpha']
+        self.alpha = plasma_params(1, 1, 1., 0.01, self.size_params)['alpha']
 
         # Assemble necessary mass matrices
         self._mass_ops = WeightedMassOperators(self.derham, self.domain)
@@ -1247,8 +1249,8 @@ class LinearVlasovMaxwell(StruphyModel):
         temperature_unit = pressure_unit / \
             (model_units_params['nb']*1e20)/(1000*1.602176634e-19)
 
-        size_params = {'B_abs [T]': model_units_params['B'],
-                       'transit k [1/m]': 2*np.pi/model_units_params['L']}
+        size_params = {'B_abs [B\u0302]': model_units_params['B'],
+                       'transit k [x\u0302⁻¹]': 2*np.pi/model_units_params['L']}
 
         pparams = plasma_params(1, model_units_params['Ab'],
                                 temperature_unit, 2, size_params)
@@ -1448,22 +1450,30 @@ class Vlasov(StruphyModel):
     @property
     def propagators(self):
         return self._propagators
-
+    
     @staticmethod
     def print_units(model_units_params):
+        """
+        TODO
+        """
+        
         print()
         print()
-        print('----- MODEL UNITS -------')
-        print('x [m]       : ', model_units_params['L'])
-        print('B [T]       : ', model_units_params['B'])
-        print('t [10⁻⁸ s]  : ', 1.67262192369e-27 /
-              (model_units_params['B']*1.602176634e-19)*1e8)
-        print('v [10⁷ m/s] : ', model_units_params['L'] /
-              (1.67262192369e-27/(model_units_params['B']*1.602176634e-19))*1e-7)
+        print('------- MODEL UNITS (PRESCRIBED) -------')
+        print('x\u0302  [m]      : ', '{:16.13f}'.format(model_units_params['x']))
+        print('B\u0302  [T]      : ', '{:16.13f}'.format(model_units_params['B']))
+        print('A           : ', '{:2d}'.format(model_units_params['A']))
+        print('Z           : ', '{:2d}'.format(model_units_params['Z']))
+        print()
+        print('------- MODEL UNITS (DERIVED) ----------')
+        print('t\u0302 [10⁻⁸ s]  : ', '{:16.13f}'.format(1.67262192369e-27 /
+              (model_units_params['B']*1.602176634e-19)*1e8))
+        print('v\u0302 [10⁷ m/s] : ', '{:16.13f}'.format(model_units_params['x'] /
+              (1.67262192369e-27/(model_units_params['B']*1.602176634e-19))*1e-7))
         print()
         print('----- OTHER QUANTITIES ----')
-        print('EP gyro period [10⁻⁸ s] : ', 2*np.pi*model_units_params['A']*1.67262192369e-27/(
-            model_units_params['Z']*1.602176634e-19*model_units_params['B'])*1e8)
+        print('Gyro period [10⁻⁸ s] : ', '{:16.13f}'.format(2*np.pi*model_units_params['A']*1.67262192369e-27/(
+            model_units_params['Z']*1.602176634e-19*model_units_params['B'])*1e8))
 
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
@@ -1517,7 +1527,7 @@ class DriftKinetic(StruphyModel):
         ions_params = self.kinetic['ions']['params']
 
         # guiding center asymptotic parameter (rhostar)
-        epsilon = self.kinetic['ions']['plasma_params']['epsilon']
+        epsilon = plasma_params(1, 1, 1., 0.01, self.size_params)['epsilon']
 
         # project magnetic background
         b = self.derham.P['2']([self.mhd_equil.b2_1,

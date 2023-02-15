@@ -1,72 +1,73 @@
 grid :
-      Nel      : [3, 3, 64] # number of grid cells, >p
-      p        : [2, 2, 3]  # spline degree
-      spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
-      bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
-      nq_el    : [6, 6, 6] # quadrature points per grid cell
-      nq_pr    : [4, 4, 4] # quadrature points per histopolation cell (for commuting projectors)
-      polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
+    Nel      : [3, 3, 64] # number of grid cells, >p
+    p        : [2, 2, 3]  # spline degree
+    spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
+    bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
+    nq_el    : [6, 6, 6] # quadrature points per grid cell
+    nq_pr    : [4, 4, 4] # quadrature points per histopolation cell (for commuting projectors)
+    polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
+
+model_units :
+    x : 1. # length scale unit in m
+    B : 1. # magnetic field unit in T
+    n : 1. # number density unit of fluid species in 1 x 10^20 m^(-3)
+    A : 1  # mass number of fluid species (1 : Hydrogen, 2 : Deuterium, 3 : Tritium, etc.)
 
 time :
-      dt         : 0.15 # time step
-      Tend       : 10. # simulation time interval is [0, Tend]
-      max_time   : 300. # maximum runtime of program in minutes
-      split_algo : LieTrotter # LieTrotter | Strang
+    dt         : 0.15 # time step
+    Tend       : 180. # simulation time interval is [0, Tend]
+    max_time   : 300. # maximum runtime of program in minutes
+    split_algo : LieTrotter # LieTrotter | Strang
 
 geometry :
-      type : Cuboid # mapping F (possible types seen below)
-      Cuboid :
-            l1 : 0. # start of interval in eta1
-            r1 : 1. # end of interval in eta1, r1>l1
-            l2 : 0. # start of interval in eta2
-            r2 : 1. # end of interval in eta2, r2>l2
-            l3 : 0. # start of interval in eta3
-            r3 : 60. # end of interval in eta3, r3>l3
+    type : Cuboid # mapping F (possible types seen below)
+    Cuboid :
+        l1 : 0. # start of interval in eta1
+        r1 : 1. # end of interval in eta1, r1>l1
+        l2 : 0. # start of interval in eta2
+        r2 : 1. # end of interval in eta2, r2>l2
+        l3 : 0. # start of interval in eta3
+        r3 : 60. # end of interval in eta3, r3>l3
 
 mhd_equilibrium :
-      type : HomogenSlab # (possible choices seen below)
-      use_equil_domain : False # use the mapping given by the equilibrium (flux aligned) or not
-      HomogenSlab :
-            B0x  : 0. # magnetic field in x
-            B0y  : 1. # magnetic field in y
-            B0z  : 1. # magnetic field in z
-            beta : 100. # plasma beta = 2*p*mu_0/B^2
-            n0   : 1. # number density
+    type : HomogenSlab # (possible choices seen below)
+    use_equil_domain : False # use the mapping given by the equilibrium (flux aligned) or not
+    HomogenSlab :
+        B0x  : 0. # magnetic field in x
+        B0y  : 1. # magnetic field in y
+        B0z  : 1. # magnetic field in z
+        beta : 100. # plasma beta = 2*p*mu_0/B^2
+        n0   : 1. # number density
 
 em_fields :
-      init :
-            type : null # initialization
+    init :
+        type : null # initialization
 
 fluid :
-      mhd :
-            attributes :
-                  Z    : 1. # charge number Z = q/e, in units of elementary charge, can have a sign
-                  M    : 1. # mass ratio m/m_p, in units of proton mass
-                  kBT  : 1. # thermal energy in units keV
-                  beta : .01 # plasma beta = p*2*mu_0/|B|^2
-            mhd_u_space : H1vec # Hdiv | H1vec
-            init :
-                  type : noise # initialization
-                  noise :
-                        comps :
-                              n3 : False              # components to be initialized (for scalar fields: no list)
-                              uv : [True, True, True] # components to be initialized (for scalar fields: no list)
-                              p3 : False              # components to be initialized (for scalar fields: no list)
-                        variation_in : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
-                        amp : 0.1 # noise amplitude
+    mhd :
+        mhd_u_space : H1vec # Hdiv | H1vec
+        init :
+            type : noise # initialization
+            noise :
+                comps :
+                    n3 : False              # components to be initialized (for scalar fields: no list)
+                    uv : [True, True, True] # components to be initialized (for scalar fields: no list)
+                    p3 : False              # components to be initialized (for scalar fields: no list)
+                variation_in : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
+                amp : 0.1 # noise amplitude
 
 solvers :
-      solver_1 :
-            type : pcg
-            pc : MassMatrixPreconditioner # null or name of preconditioner class
-            tol : 1.e-8
-            maxiter : 3000
-            info : False
-            verbose : False
-      solver_2 :
-            type : pbicgstab
-            pc : MassMatrixPreconditioner # null or name of preconditioner class
-            tol : 1.e-8
-            maxiter : 3000
-            info : False
-            verbose : False
+    solver_1 :
+        type : pcg
+        pc : MassMatrixPreconditioner # null or name of preconditioner class
+        tol : 1.e-8
+        maxiter : 3000
+        info : False
+        verbose : False
+    solver_2 :
+        type : pbicgstab
+        pc : MassMatrixPreconditioner # null or name of preconditioner class
+        tol : 1.e-8
+        maxiter : 3000
+        info : False
+        verbose : False
