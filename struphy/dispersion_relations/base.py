@@ -119,10 +119,9 @@ class ContinuousSpectra1D(metaclass=ABCMeta):
             A dictionary with key=branch_name and value=omega(x) (ndarray).
         """
 
+
 # somer helper function used in different dispersion relations:
 # -------------------------------------------------------------
-
-
 def Zplasma(xi, der=0):
     """ 
     The plasma dispersion function and its first derivative.
@@ -133,7 +132,7 @@ def Zplasma(xi, der=0):
         Evaluation points.
 
     der : int, optional
-        Wheter to evaluate the plasma dispersion function (der = 0) or its first derivative (der = 1).
+        Whether to evaluate the plasma dispersion function (der = 0) or its first derivative (der = 1).
 
     Returns
     -------

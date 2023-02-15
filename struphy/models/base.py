@@ -43,11 +43,11 @@ class StruphyModel(metaclass=ABCMeta):
 
         # mhd equilibrium
         if 'mhd_equilibrium' in params:
-
             equil_params = params['mhd_equilibrium']
-    
+
             mhd_equil_class = getattr(equils, equil_params['type'])
-            self._mhd_equil = mhd_equil_class(equil_params[equil_params['type']])
+            self._mhd_equil = mhd_equil_class(
+                equil_params[equil_params['type']])
 
             if equil_params['use_equil_domain']:
                 assert self.mhd_equil.domain is not None
@@ -487,7 +487,8 @@ class StruphyModel(metaclass=ABCMeta):
                         f'Type {typ} for distribution function is not known!')
 
                 if val['space'] == 'Particles5D':
-                    val['obj'].save_magnetic_moment(self.derham, self.derham.P['0'](self.mhd_equil.absB0))
+                    val['obj'].save_magnetic_moment(
+                        self.derham, self.derham.P['0'](self.mhd_equil.absB0))
 
             self.update_markers_to_be_saved()
             self.update_distr_function()

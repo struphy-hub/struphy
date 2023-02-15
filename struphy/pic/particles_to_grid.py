@@ -217,12 +217,18 @@ class Accumulator:
                 A33_33 = StencilMatrix(
                     self.space.spaces[2], self.space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
 
-                dict_blocks_11 = {(0, 0): A11_11, (0, 1): A12_11, (0, 2): A13_11, (1, 1): A22_11, (1, 2): A23_11, (2, 2): A33_11}
-                dict_blocks_12 = {(0, 0): A11_12, (0, 1): A12_12, (0, 2): A13_12, (1, 1): A22_12, (1, 2): A23_12, (2, 2): A33_12}
-                dict_blocks_13 = {(0, 0): A11_13, (0, 1): A12_13, (0, 2): A13_13, (1, 1): A22_13, (1, 2): A23_13, (2, 2): A33_13}
-                dict_blocks_22 = {(0, 0): A11_22, (0, 1): A12_22, (0, 2): A13_22, (1, 1): A22_22, (1, 2): A23_22, (2, 2): A33_22}
-                dict_blocks_23 = {(0, 0): A11_23, (0, 1): A12_23, (0, 2): A13_23, (1, 1): A22_23, (1, 2): A23_23, (2, 2): A33_23}
-                dict_blocks_33 = {(0, 0): A11_33, (0, 1): A12_33, (0, 2): A13_33, (1, 1): A22_33, (1, 2): A23_33, (2, 2): A33_33}
+                dict_blocks_11 = {(0, 0): A11_11, (0, 1): A12_11, (0, 2): A13_11,
+                                  (1, 1): A22_11, (1, 2): A23_11, (2, 2): A33_11}
+                dict_blocks_12 = {(0, 0): A11_12, (0, 1): A12_12, (0, 2): A13_12,
+                                  (1, 1): A22_12, (1, 2): A23_12, (2, 2): A33_12}
+                dict_blocks_13 = {(0, 0): A11_13, (0, 1): A12_13, (0, 2): A13_13,
+                                  (1, 1): A22_13, (1, 2): A23_13, (2, 2): A33_13}
+                dict_blocks_22 = {(0, 0): A11_22, (0, 1): A12_22, (0, 2): A13_22,
+                                  (1, 1): A22_22, (1, 2): A23_22, (2, 2): A33_22}
+                dict_blocks_23 = {(0, 0): A11_23, (0, 1): A12_23, (0, 2): A13_23,
+                                  (1, 1): A22_23, (1, 2): A23_23, (2, 2): A33_23}
+                dict_blocks_33 = {(0, 0): A11_33, (0, 1): A12_33, (0, 2): A13_33,
+                                  (1, 1): A22_33, (1, 2): A23_33, (2, 2): A33_33}
 
                 self._matrix11 = BlockMatrix(
                     self.space, self.space, blocks=dict_blocks_11)
@@ -357,10 +363,10 @@ class Accumulator:
             dat[:] = 0.
 
         # accumulate markers
-        self.accumulator_kernel(particles.markers, particles.n_mks, 
+        self.accumulator_kernel(particles.markers, particles.n_mks,
                                 *self.args_fem, *self.domain.args_map,
                                 *self.args_data, *args_add)
-        
+
         # add analytical contribution (control variate) to vector
         if 'control_vec' in args_control:
             WeightedMassOperator.assemble_vec(
@@ -374,10 +380,11 @@ class Accumulator:
         # send ghost regions
         if self.symmetry != 'pressure':
             self._matrix.exchange_assembly_data()
-            if self._do_vector: self._vector.exchange_assembly_data()
+            if self._do_vector:
+                self._vector.exchange_assembly_data()
         else:
             self._send_ghost_regions()
-        
+
         # update ghost regions to make sure that transposed works correctly (for sym and asym)
         self.update_ghost_regions()
 
@@ -421,7 +428,6 @@ class Accumulator:
     # =============================
     # Private Methods :
     # =============================
-
     def _create_buffer_types(self):
         """
         Creates the buffer types for the ghost region sender. Send types are only the slicing information;
@@ -448,8 +454,10 @@ class Accumulator:
                         pads, arg.shape, comp)
                     recv_buf[k][comp] = self._create_recv_buffer_1_comp(
                         pads, arg.shape, comp)
-                    assert not np.any(np.isinf(recv_buf[k][comp]['buf'])), recv_buf[k][comp]['buf']
-                    assert not np.any(np.isnan(recv_buf[k][comp]['buf'])), recv_buf[k][comp]['buf']
+                    assert not np.any(
+                        np.isinf(recv_buf[k][comp]['buf'])), recv_buf[k][comp]['buf']
+                    assert not np.any(
+                        np.isnan(recv_buf[k][comp]['buf'])), recv_buf[k][comp]['buf']
 
         return send_types, recv_buf
 

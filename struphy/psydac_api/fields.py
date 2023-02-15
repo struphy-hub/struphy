@@ -237,14 +237,9 @@ class Field:
             Domain object for metric coefficients. Needed if init_params[init_params['type']]['coords'] == 'physical'.
         """
 
-        if self._derham.comm is not None:
-            rank = self._derham.comm.Get_rank()
-        else:
-            rank = 0
-
         # set initial conditions for each component
         init_type = init_params['type']
-        
+
         if init_type is not None:
             fun_params = init_params[init_type]
 
@@ -291,17 +286,17 @@ class Field:
                 form_str = self.derham.forms_dict[self.space_id]
 
                 if self.space_id in {'H1', 'L2'}:
-                    fun = PulledPform(coords,
-                                      fun_tmp, domain, form_str)
+                    fun = PulledPform(coords, fun_tmp,
+                                      domain, form_str)
                 elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
                     fun = []
 
-                    fun += [PulledPform(coords,
-                                        fun_tmp, domain, form_str + '_1')]
-                    fun += [PulledPform(coords,
-                                        fun_tmp, domain, form_str + '_2')]
-                    fun += [PulledPform(coords,
-                                        fun_tmp, domain, form_str + '_3')]
+                    fun += [PulledPform(coords, fun_tmp, domain,
+                                        form_str + '_1')]
+                    fun += [PulledPform(coords, fun_tmp, domain,
+                                        form_str + '_2')]
+                    fun += [PulledPform(coords, fun_tmp, domain,
+                                        form_str + '_3')]
 
                 # peform projection
                 self.vector = self.derham.P[self.space_key](fun)
@@ -310,7 +305,8 @@ class Field:
             elif init_type[-6:] == 'EigFun':
 
                 # select class
-                funs = getattr(eigenfunctions, init_type)(fun_params, self.derham)
+                funs = getattr(eigenfunctions, init_type)(
+                    fun_params, self.derham)
 
                 # select eigenvector and set coefficients
                 if hasattr(funs, self.name):
@@ -609,9 +605,11 @@ class PulledPform:
             f = self._fun[self._comp](eta1, eta2, eta3)
         elif self._coords == 'physical':
             if self._form[0] == '0' or self._form[0] == '3':
-                f = self._domain.pull(self._fun, eta1, eta2, eta3, kind=self._form)
+                f = self._domain.pull(
+                    self._fun, eta1, eta2, eta3, kind=self._form)
             else:
-                f = self._domain.pull(self._fun, eta1, eta2, eta3, kind=self._form[:-2])[self._comp]
+                f = self._domain.pull(
+                    self._fun, eta1, eta2, eta3, kind=self._form[:-2])[self._comp]
         else:
             raise ValueError(
                 'Coordinates to be used for p-form pullback not properly specified.')

@@ -441,17 +441,19 @@ def post_process_f(path, species, marker_type='full_f'):
                 f_bckgr = getattr(analytical, fun_name)()
 
             # multiplier collecting all non-integrated slices in velocity space
-            data_bckgr = np.ones(data.shape[1])
+            data_bckgr = np.ones(data.shape)
 
             if isinstance(f_bckgr, analytical.Maxwellian6DUniform):
                 for direction in slice_name.split('_'):
                     if direction[0] == 'v':
                         for k in range(len(slice_name.split('_'))):
+                            slicing = [None] * len(data.shape)
+                            slicing[k + 1] = slice(None)
                             grid_v = files[0]['kinetic/' + species + '/f/' + slice_name].attrs['bin_centers_' + str(k+1)]
-                            data_bckgr *= getattr(f_bckgr, 'm' + direction[1])(0, 0, 0, grid_v)
+                            data_bckgr *= getattr(f_bckgr, 'm' + direction[1])(0, 0, 0, grid_v)[tuple(slicing)]
 
             else:
-                raise NotImplementedError(f'Pos-processing is not yet available for background of type {fun_name}')
+                raise NotImplementedError(f'Post-processing is not yet available for background of type {fun_name}')
 
             if marker_type == 'control_variate':
                 data_delta_f = data
@@ -463,6 +465,10 @@ def post_process_f(path, species, marker_type='full_f'):
                 if model == "LinearVlasovMaxwell":
                     assert fun_name == 'Maxwellian6DUniform', \
                         'The linearized Vlasov-Maxwell is only implemented for a uniform Maxwellian background!'
+
+                    # print(f'slice name = {slice_name}')
+                    # print(f'data shape = {data.shape}')
+                    # print(f'data_bckgr shape = {data_bckgr.shape}')
 
                     data_delta_f = np.multiply(data, np.sqrt(data_bckgr))
 

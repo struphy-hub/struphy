@@ -54,7 +54,7 @@ class HomogenSlab(CartesianMHDequilibrium):
     #                  profiles on physical domain
     # ===============================================================
 
-    # equilibrium magnetic field 
+    # equilibrium magnetic field
     def b_xyz(self, x, y, z):
         """ Equilibrium magnetic field (x-component).
         """
@@ -231,7 +231,7 @@ class ShearedSlab(CartesianMHDequilibrium):
     #                  profiles on physical domain
     # ===============================================================
 
-    # equilibrium magnetic field 
+    # equilibrium magnetic field
     def b_xyz(self, x, y, z):
         """ Equilibrium magnetic field.
         """
@@ -436,7 +436,7 @@ class ScrewPinch(CartesianMHDequilibrium):
     #                  profiles on physical domain
     # ===============================================================
 
-    # equilibrium magnetic field 
+    # equilibrium magnetic field
     def b_xyz(self, x, y, z):
         """ Equilibrium magnetic field (x-component).
         """
@@ -671,7 +671,7 @@ class AdhocTorus(CartesianMHDequilibrium):
     #                  profiles on physical domain
     # ===============================================================
 
-    # equilibrium magnetic field 
+    # equilibrium magnetic field
     def b_xyz(self, x, y, z):
         """ Equilibrium magnetic field.
         """
@@ -839,7 +839,7 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
         # R of magnetic axis in meter
         R_at_axis = eqdsk.data['rmaxis'][0]
         # Z of magnetic axis in meter
-        Z_at_axis = eqdsk.data['zmaxis'][0] 
+        Z_at_axis = eqdsk.data['zmaxis'][0]
 
         assert g_profile.size == pres_profile.size
         assert g_profile.size == q_profile.size
@@ -858,7 +858,7 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
         pres_smoothed = pres_profile[::smoothing]
         q_smoothed = q_profile[::smoothing]
         flux_grid_smoothed = flux_grid[::smoothing]
-        
+
         i_grid = (flux_grid_smoothed - self._psimin) / self._psidim
 
         self._cg, self._Tg, self._indNg = spline_interpolation_nd(
@@ -925,33 +925,40 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
             dflux = flux_grid[1] - flux_grid[0]
 
             psi_r = np.zeros_like(psi)
-            psi_r[1:-1, :] = (np.roll(psi, -1, axis=0)[1:-1, :] - np.roll(psi, 1, axis=0)[1:-1, :]) / (2*dR)
+            psi_r[1:-1, :] = (np.roll(psi, -1, axis=0)[1:-1, :] -
+                              np.roll(psi, 1, axis=0)[1:-1, :]) / (2*dR)
             psi_r[0, :] = (psi[1, :] - psi[0, :]) / dR
-            psi_r[-1,:] = (psi[-1, :] - psi[-2, :]) / dR
+            psi_r[-1, :] = (psi[-1, :] - psi[-2, :]) / dR
 
             psi_z = np.zeros_like(psi)
-            psi_z[:, 1:-1] = (np.roll(psi, -1, axis=1)[:, 1:-1] - np.roll(psi, 1, axis=1)[:, 1:-1]) / (2*dZ)
+            psi_z[:, 1:-1] = (np.roll(psi, -1, axis=1)[:, 1:-1] -
+                              np.roll(psi, 1, axis=1)[:, 1:-1]) / (2*dZ)
             psi_z[:, 0] = (psi[:, 1] - psi[:, 0]) / dZ
             psi_z[:, -1] = (psi[:, -1] - psi[:, -2]) / dZ
 
             psi_rr = np.zeros_like(psi)
-            psi_rr[1:-1, :] = (np.roll(psi, -1, axis=0)[1:-1] - 2*psi[1:-1] + np.roll(psi, 1, axis=0)[1:-1]) / dR**2
+            psi_rr[1:-1, :] = (np.roll(psi, -1, axis=0)[1:-1] -
+                               2*psi[1:-1] + np.roll(psi, 1, axis=0)[1:-1]) / dR**2
 
             psi_zz = np.zeros_like(psi)
-            psi_zz[:, 1:-1] = (np.roll(psi, -1, axis=1)[:, 1:-1] - 2*psi[:, 1:-1] + np.roll(psi, 1, axis=1)[:, 1:-1]) / dZ**2
+            psi_zz[:, 1:-1] = (np.roll(psi, -1, axis=1)[:, 1:-1] - 2 *
+                               psi[:, 1:-1] + np.roll(psi, 1, axis=1)[:, 1:-1]) / dZ**2
 
             g_psi = np.zeros_like(g_profile)
-            g_psi[1:-1] = (np.roll(g_profile, -1)[1:-1] - np.roll(g_profile, 1)[1:-1]) / (2*dflux)
-            g_psi[0] = (g_profile[1] - g_profile[0]) / dflux 
+            g_psi[1:-1] = (np.roll(g_profile, -1)[1:-1] -
+                           np.roll(g_profile, 1)[1:-1]) / (2*dflux)
+            g_psi[0] = (g_profile[1] - g_profile[0]) / dflux
             g_psi[-1] = (g_profile[-1] - g_profile[-2]) / dflux
 
             pres_psi = np.zeros_like(pres_profile)
-            pres_psi[1:-1] = (np.roll(pres_profile, -1)[1:-1] - np.roll(pres_profile, 1)[1:-1]) / (2*dflux)
+            pres_psi[1:-1] = (np.roll(pres_profile, -1)[1:-1] -
+                              np.roll(pres_profile, 1)[1:-1]) / (2*dflux)
             pres_psi[0] = (pres_profile[1] - pres_profile[0]) / dflux
             pres_psi[-1] = (pres_profile[-1] - pres_profile[-2]) / dflux
 
             q_psi = np.zeros_like(q_profile)
-            q_psi[1:-1] = (np.roll(q_profile, -1)[1:-1] - np.roll(q_profile, 1)[1:-1]) / (2*dflux)
+            q_psi[1:-1] = (np.roll(q_profile, -1)[1:-1] -
+                           np.roll(q_profile, 1)[1:-1]) / (2*dflux)
             q_psi[0] = (q_profile[1] - q_profile[0]) / dflux
             q_psi[-1] = (q_profile[-1] - q_profile[-2]) / dflux
 
@@ -959,8 +966,10 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
 
             plt.figure(figsize=(13, 8))
             plt.subplot(2, 2, 1)
-            plt.plot(flux_grid[:boundary_ind], g_profile[:boundary_ind], 'b', label='point data, size=' + str(g_profile.size))
-            plt.plot(flux_grid[:boundary_ind], self.g_1d(flux_grid[:boundary_ind]), 'r--', label='smoothed with pts=' + str(flux_grid_smoothed.size))
+            plt.plot(flux_grid[:boundary_ind], g_profile[:boundary_ind],
+                     'b', label='point data, size=' + str(g_profile.size))
+            plt.plot(flux_grid[:boundary_ind], self.g_1d(flux_grid[:boundary_ind]),
+                     'r--', label='smoothed with pts=' + str(flux_grid_smoothed.size))
             #plt.plot([psi_edge, psi_edge], [g_profile.min(), g_profile.max()], 'k--', label='plasma boundary')
             plt.legend()
             plt.xlim(self._psimin, psi_edge)
@@ -968,23 +977,29 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
             plt.ylabel('g [m-T]')
             plt.title('toroidal field function g')
             plt.subplot(2, 2, 2)
-            plt.plot(flux_grid[:boundary_ind], pres_profile[:boundary_ind], 'b', label='point data, size=' + str(pres_profile.size))
-            plt.plot(flux_grid[:boundary_ind], self.pres_1d(flux_grid[:boundary_ind]), 'r--', label='smoothed with pts=' + str(flux_grid_smoothed.size))
+            plt.plot(flux_grid[:boundary_ind], pres_profile[:boundary_ind],
+                     'b', label='point data, size=' + str(pres_profile.size))
+            plt.plot(flux_grid[:boundary_ind], self.pres_1d(
+                flux_grid[:boundary_ind]), 'r--', label='smoothed with pts=' + str(flux_grid_smoothed.size))
             plt.legend()
             plt.xlim(self._psimin, psi_edge)
             plt.xlabel('$\psi$')
             plt.ylabel('p [Pascal]')
             plt.title('pressure profile')
             plt.subplot(2, 2, 3)
-            plt.plot(flux_grid[:boundary_ind], g_psi[:boundary_ind], 'b', label='point data, size=' + str(g_psi.size))
-            plt.plot(flux_grid[:boundary_ind], self.g_1d(flux_grid[:boundary_ind], der=1), 'r--', label='smoothed with pts=' + str(flux_grid_smoothed.size))
+            plt.plot(flux_grid[:boundary_ind], g_psi[:boundary_ind],
+                     'b', label='point data, size=' + str(g_psi.size))
+            plt.plot(flux_grid[:boundary_ind], self.g_1d(flux_grid[:boundary_ind], der=1),
+                     'r--', label='smoothed with pts=' + str(flux_grid_smoothed.size))
             plt.legend()
             plt.xlim(self._psimin, psi_edge)
             plt.xlabel('$\psi$')
             plt.ylabel('dg/d$\psi$')
             plt.subplot(2, 2, 4)
-            plt.plot(flux_grid[:boundary_ind], pres_psi[:boundary_ind], 'b', label='point data, size=' + str(pres_psi.size))
-            plt.plot(flux_grid[:boundary_ind], self.pres_1d(flux_grid[:boundary_ind], der=1), 'r--', label='smoothed with pts=' + str(flux_grid_smoothed.size))
+            plt.plot(flux_grid[:boundary_ind], pres_psi[:boundary_ind],
+                     'b', label='point data, size=' + str(pres_psi.size))
+            plt.plot(flux_grid[:boundary_ind], self.pres_1d(flux_grid[:boundary_ind],
+                     der=1), 'r--', label='smoothed with pts=' + str(flux_grid_smoothed.size))
             plt.legend()
             plt.xlim(self._psimin, psi_edge)
             plt.xlabel('$\psi$')
@@ -992,16 +1007,20 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
 
             plt.figure(figsize=(6.5, 8))
             plt.subplot(2, 1, 1)
-            plt.plot(flux_grid[:boundary_ind], q_profile[:boundary_ind], 'b', label='point data, size=' + str(g_profile.size))
-            plt.plot(flux_grid[:boundary_ind], self.q_1d(flux_grid[:boundary_ind]), 'r--', label='smoothed with pts=' + str(flux_grid_smoothed.size))
+            plt.plot(flux_grid[:boundary_ind], q_profile[:boundary_ind],
+                     'b', label='point data, size=' + str(g_profile.size))
+            plt.plot(flux_grid[:boundary_ind], self.q_1d(flux_grid[:boundary_ind]),
+                     'r--', label='smoothed with pts=' + str(flux_grid_smoothed.size))
             plt.legend()
             plt.xlim(self._psimin, psi_edge)
             plt.xlabel('$\psi$')
             plt.ylabel('q')
             plt.title('safety factor q')
             plt.subplot(2, 1, 2)
-            plt.plot(flux_grid[:boundary_ind], q_psi[:boundary_ind], 'b', label='point data, size=' + str(g_psi.size))
-            plt.plot(flux_grid[:boundary_ind], self.q_1d(flux_grid[:boundary_ind], der=1), 'r--', label='smoothed with pts=' + str(flux_grid_smoothed.size))
+            plt.plot(flux_grid[:boundary_ind], q_psi[:boundary_ind],
+                     'b', label='point data, size=' + str(g_psi.size))
+            plt.plot(flux_grid[:boundary_ind], self.q_1d(flux_grid[:boundary_ind], der=1),
+                     'r--', label='smoothed with pts=' + str(flux_grid_smoothed.size))
             plt.legend()
             plt.xlim(self._psimin, psi_edge)
             plt.xlabel('$\psi$')
@@ -1031,7 +1050,8 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
             plt.axis('equal')
             plt.xlabel('R')
             plt.ylabel('Z')
-            plt.title('interpolated $\psi$, smoothed with pts=' + str(psi_smoothed.shape))
+            plt.title('interpolated $\psi$, smoothed with pts=' +
+                      str(psi_smoothed.shape))
 
             plt.figure(figsize=(13, 6.5))
             plt.subplot(1, 2, 1)
@@ -1185,7 +1205,8 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
             plt.ylabel('z')
             plt.title('bz')
             plt.subplot(2, 2, 4)
-            plt.contourf(XX.squeeze(), ZZ2.squeeze(), np.sqrt(bx**2 + by**2 + bz**2), levels=50)
+            plt.contourf(XX.squeeze(), ZZ2.squeeze(), np.sqrt(
+                bx**2 + by**2 + bz**2), levels=50)
             plt.colorbar()
             plt.contour(RR, ZZ, psi, levels=[
                         psi_edge], colors='black', linewidths=2.)
@@ -1226,7 +1247,8 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
             plt.ylabel('z')
             plt.title('jz')
             plt.subplot(2, 2, 4)
-            plt.contourf(XX.squeeze(), ZZ2.squeeze(), np.sqrt(jx**2 + jy**2 + jz**2), levels=50)
+            plt.contourf(XX.squeeze(), ZZ2.squeeze(), np.sqrt(
+                jx**2 + jy**2 + jz**2), levels=50)
             plt.colorbar()
             plt.contour(RR, ZZ, psi, levels=[
                         psi_edge], colors='black', linewidths=2.)
@@ -1255,7 +1277,7 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
 
         r = np.sqrt(x**2 + y**2)
         phi = np.arctan2(y, x)
-        z = z + 0*r # broadcasting happens here
+        z = z + 0*r  # broadcasting happens here
 
         r2 = r[:, 0, :]
         z2 = z[:, 0, :]
@@ -1295,7 +1317,7 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
 
         r = np.sqrt(x**2 + y**2)
         phi = np.arctan2(y, x)
-        z = z + 0*r # broadcasting happens here if sparse_meshgrid
+        z = z + 0*r  # broadcasting happens here if sparse_meshgrid
 
         r2 = r[:, 0, :]
         z2 = z[:, 0, :]
@@ -1303,7 +1325,8 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
         # J as 2-form (second component is already multiplied by r)
         # TODO: remove is_sparse_meshgrid (not necessary anymore)
         j2_1_tmp = - self.g_fun(r2, z2, 'z', is_sparse_meshgrid)
-        j2_2_tmp = self.psi_fun(r2, z2, 'rr', is_sparse_meshgrid) + self.psi_fun(r2, z2, 'zz', is_sparse_meshgrid)
+        j2_2_tmp = self.psi_fun(r2, z2, 'rr', is_sparse_meshgrid) + \
+            self.psi_fun(r2, z2, 'zz', is_sparse_meshgrid)
         j2_3_tmp = self.g_fun(r2, z2, 'r', is_sparse_meshgrid)
 
         if is_sparse_meshgrid:
@@ -1335,12 +1358,12 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
 
         r = np.sqrt(x**2 + y**2)
         phi = np.arctan2(y, x)
-        z = z + 0*r # broadcasting happens here
+        z = z + 0*r  # broadcasting happens here
 
         r2 = r[:, 0, :]
         z2 = z[:, 0, :]
 
-        psi_tmp = self.psi_fun(r2, z2, None, is_sparse_meshgrid) 
+        psi_tmp = self.psi_fun(r2, z2, None, is_sparse_meshgrid)
 
         if is_sparse_meshgrid:
             shp = (r.shape[0], phi.shape[1], z.shape[2])
@@ -1440,7 +1463,7 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
 
     def psi_fun(self, r, z, der=None, is_sparse_meshgrid=False):
         '''Interpolated flux function psi(r, z), and its first derivatives. 
-        
+
         Parameters
         ----------
         r, z : array
@@ -1469,10 +1492,10 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
         if der is None:
             _func(*self._Tpsi, *self.params['p_for_psi'], *self._indNpsi, self._cpsi, (
                 r - self._rmin) / self._rdim, (z - self._zmin) / self._zdim, out, 0)
-            fac = 1. 
+            fac = 1.
         elif der == 'r':
             _func(*self._Tpsi, *self.params['p_for_psi'], *self._indNpsi, self._cpsi, (
-                r - self._rmin) / self._rdim, (z - self._zmin) / self._zdim, out, 31) 
+                r - self._rmin) / self._rdim, (z - self._zmin) / self._zdim, out, 31)
             fac = 1 / self._rdim
         elif der == 'z':
             _func(*self._Tpsi, *self.params['p_for_psi'], *self._indNpsi, self._cpsi, (
@@ -1555,13 +1578,16 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
         '''Toroidal field function g(psi(r, z)). Arguments must stem from meshgrid.'''
 
         if der is None:
-            out = self.g_1d(self.psi_fun(r, z, None, is_sparse_meshgrid).flatten()).reshape(r.shape)
+            out = self.g_1d(self.psi_fun(
+                r, z, None, is_sparse_meshgrid).flatten()).reshape(r.shape)
         elif der == 'r':
             psi_r = self.psi_fun(r, z, 'r', is_sparse_meshgrid)
-            out = self.g_1d(self.psi_fun(r, z, None, is_sparse_meshgrid).flatten(), der=1).reshape(r.shape) * psi_r
+            out = self.g_1d(self.psi_fun(
+                r, z, None, is_sparse_meshgrid).flatten(), der=1).reshape(r.shape) * psi_r
         elif der == 'z':
             psi_z = self.psi_fun(r, z, 'z', is_sparse_meshgrid)
-            out = self.g_1d(self.psi_fun(r, z, None, is_sparse_meshgrid).flatten(), der=1).reshape(r.shape) * psi_z
+            out = self.g_1d(self.psi_fun(
+                r, z, None, is_sparse_meshgrid).flatten(), der=1).reshape(r.shape) * psi_z
 
         return out
 
