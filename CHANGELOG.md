@@ -1,3 +1,25 @@
+## Version 1.9.7
+
+* Three types of kinetic species possible (full_f, control_variate, delta_f). Model using control variate must implement the background function in the accumulation. Delta-f models are initialized as full-f and then lets the developer overwrite/extend the set_initial_conditions() function of the base class. !269 !283
+* New model `LinearMHDVlasovCC` (hybrid linear MHD + 6d full-orbit energetic ions) available, including option to run with control variate !270, !273, !279
+* Example command line `struphy example linearmhdvlasov_cc` for model `LinearMHDVlasovCC`, including plots of the energy evolution (comparison to analytical growth rate) and distribution function snapshots !274
+* New propagators `CurrentCoupling6DCurrent` and `CurrentCoupling6DDensity` !273
+* New particles base class `Particles`. `Particles6D` and `Particles5D` are child classes thereof !273
+* Model drafts `LinearMHDDriftkineticCC`, `ColdPlasma`, `ColdPlasmaVlasov` and `Hybrid_fA` !271, !286
+* New MHD equilibrium class `GVECequilibrium` for loading 3D GVEC equilibria !277
+* Drafts for propagators in model `LinearMHDDriftkineticCC`: `StepPushDriftkinetic1`, `StepPushDriftkinetic2` and `CurrentCoupling5DCurrent1` !278
+* Method `accumulate` in class `Accumulator` can now handle analytical control variates !279
+* New domain base classes `PoloidalSpline`, `PoloidalSplineStraight` and `PoloidalSplineTorus` and new domains `IGAPolarCylinder`, `IGAPolarTorus`, `GVECunit` !281
+* Toroidal mappings can be split into a half, third, quarter etc. !281
+* Renamed `plot_equil` to `show` and improved the plotting experience of MHD equilbria. !281
+* New command line interface `struphy units <MODEL>` for printing the physical units of the model unknowns !282
+* Added post-processing for control_variate and delta_f methods, saved are both the delta and full distribution functions binnings !283
+* The send/receive of ghost regions is now done with the Psydac method `exchange_assembly_data()` for stencil objects instead of STRUPHY's own implementation !287
+* Kernels in `mass_kernels.py` have been updated due to the new quadrature grid decomposition !287
+* Class `WeightedMassOperator` now also accepts numpy arrays as weights. These numpy arrays are the weight values at the quadrature points !287
+* New mapping `EQDSKTORUS` and `EQDSKequilibirum(CartesianMHDequilibrium)` with Cartesian MHD variables. Extensive plotting can be shown at instantiation (show=True) !289
+* print the model units at the beginning of a simulation (same as command `struphy unit <MODEL>`) !293
+* Default parameter seetings in domains and MHD equilibria classes have been improved !294
 
 ## Version 1.9.6
 
