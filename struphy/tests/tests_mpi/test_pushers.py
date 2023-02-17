@@ -28,7 +28,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
 
     # domain object
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(mapping[1])
+    domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac and legacy struphy)
     derham = Derham(Nel, p, spl_kind, comm=comm)
@@ -127,7 +127,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
 
     # domain object
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(mapping[1])
+    domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac and legacy struphy)
     derham = Derham(Nel, p, spl_kind, comm=comm)
@@ -228,7 +228,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
 
     # domain object
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(mapping[1])
+    domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac and legacy struphy)
     derham = Derham(Nel, p, spl_kind, comm=comm)
@@ -329,7 +329,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
 
     # domain object
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(mapping[1])
+    domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac and legacy struphy)
     derham = Derham(Nel, p, spl_kind, comm=comm)
@@ -430,7 +430,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
 
     # domain object
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(mapping[1])
+    domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac and legacy struphy)
     derham = Derham(Nel, p, spl_kind, comm=comm)
@@ -534,7 +534,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 
     # domain object
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(mapping[1])
+    domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac and legacy struphy)
     derham = Derham(Nel, p, spl_kind, comm=comm)

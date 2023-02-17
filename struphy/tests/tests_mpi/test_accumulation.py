@@ -62,7 +62,7 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, Np, verbose=False):
     dom_type = mapping[0]
     dom_params = mapping[1]
     domain_class = getattr(domains, dom_type)
-    domain = domain_class(dom_params)
+    domain = domain_class(**dom_params)
 
     # DeRham object
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm)
@@ -216,7 +216,7 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, Np, verbose=False):
     dom_type = mapping[0]
     dom_params = mapping[1]
     domain_class = getattr(domains, dom_type)
-    domain = domain_class(dom_params)
+    domain = domain_class(**dom_params)
 
     # DeRham object
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm)
@@ -391,7 +391,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     dom_type = mapping[0]
     dom_params = mapping[1]
     domain_class = getattr(domains, dom_type)
-    domain = domain_class(dom_params)
+    domain = domain_class(**dom_params)
 
     # DeRham object
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm)

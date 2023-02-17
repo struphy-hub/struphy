@@ -8,7 +8,8 @@ import pytest
         'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}],
     ['Colella', {
         'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}],
-    ['HollowCylinder', None],
+    ['HollowCylinder', {
+        'a1': 1., 'a2': 2., 'Lz': 5.}],
     ['HollowTorus', {
         'a1': 1., 'a2': 2., 'R0': 3., 'tor_period': 1}],
     ['ShafranovShiftCylinder', {
@@ -40,7 +41,7 @@ def test_psydac_mapping(mapping):
 
     # Struphy domain object
     domain_class = getattr(domains, map)
-    domain = domain_class(params)
+    domain = domain_class(**params)
 
     print(domain.F_psy._expressions, '\n')
 

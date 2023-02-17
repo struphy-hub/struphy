@@ -192,7 +192,7 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
 
     # create control points
     params_map = {'Nel': Nel[:2], 'p': p[:2], 'Lz': 3., 'a': 1.}
-    domain = IGAPolarCylinder(params_map)
+    domain = IGAPolarCylinder(**params_map)
 
     # create de Rham sequence
     derham = Derham(Nel, p, spl_kind, comm=comm, polar_ck=1,
@@ -337,7 +337,7 @@ def test_projectors(Nel, p, spl_kind):
 
     # create control points
     params_map = {'Nel': Nel[:2], 'p': p[:2], 'Lz': 3., 'a': 1.}
-    domain = IGAPolarCylinder(params_map)
+    domain = IGAPolarCylinder(**params_map)
 
     # create polar de Rham sequence
     derham = Derham(Nel, p, spl_kind, comm=comm, nq_pr=[

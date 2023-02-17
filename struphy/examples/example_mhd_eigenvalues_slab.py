@@ -62,7 +62,7 @@ def main():
 
     # create domain
     domain_class = getattr(domains, dom_type)
-    domain = domain_class(dom_params)
+    domain = domain_class(**dom_params)
 
     # for plotting
     etaplot = [np.linspace(0., 1., 201), np.linspace(0., 1., 101)]
@@ -85,7 +85,7 @@ def main():
     fem_2d.set_projectors('general')
 
     # load MHD equilibrium
-    eq_mhd = ShearedSlab(params_mhd)
+    eq_mhd = ShearedSlab(**params_mhd)
     eq_mhd.domain = domain
 
     # solve eigenvalue problem

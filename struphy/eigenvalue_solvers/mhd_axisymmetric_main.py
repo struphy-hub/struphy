@@ -190,7 +190,7 @@ if __name__ == '__main__':
     dom_params = params['geometry'][dom_type]
 
     domain_class = getattr(domains, dom_type)
-    domain = domain_class(dom_params)
+    domain = domain_class(**dom_params)
     
     # load appropriate MHD equilibrium
     from struphy.fields_background.mhd_equil import equils
@@ -198,7 +198,7 @@ if __name__ == '__main__':
     equil_params = params['mhd_equilibrium']
     
     mhd_equil_class = getattr(equils, equil_params['type'])
-    mhd_equil = mhd_equil_class(equil_params[equil_params['type']])
+    mhd_equil = mhd_equil_class(**equil_params[equil_params['type']])
 
     if equil_params['use_equil_domain']:
         assert mhd_equil.domain is not None

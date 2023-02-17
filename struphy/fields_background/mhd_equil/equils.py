@@ -14,37 +14,26 @@ class HomogenSlab(CartesianMHDequilibrium):
 
     Parameters
     ----------
-        params: dict
-            Parameters that characterize the MHD equilibrium.
+    **params
+        Parameters that characterize the MHD equilibrium. Possible keys are
 
-                * B0x  : magnetic field in x-direction
-                * B0y  : magnetic field in y-direction
-                * B0z  : magnetic field in z-direction
-                * beta : plasma beta in % (ratio of kinetic pressure to magnetic pressure)
-                * n0   : number density            
+            * B0x  : magnetic field in x-direction
+            * B0y  : magnetic field in y-direction
+            * B0z  : magnetic field in z-direction
+            * beta : plasma beta in % (ratio of kinetic pressure to magnetic pressure)
+            * n0   : number density            
     """
 
-    def __init__(self, params=None):
-
-        # set default parameters
-        if params is None:
-            params = {'B0x': 0.,
-                      'B0y': 0.,
-                      'B0z': 1.,
-                      'beta': 100.,
-                      'n0': 1.}
-        # or check if given parameter dictionary is complete
-        else:
-            assert 'B0x' in params
-            assert 'B0y' in params
-            assert 'B0z' in params
-
-            assert 'beta' in params
-
-            assert 'n0' in params
-
-        self._params = params
-
+    def __init__(self, **params):
+        
+        params_default = {'B0x': 0., 
+                          'B0y': 0., 
+                          'B0z': 1.,
+                          'beta': 100.,
+                          'n0': 1.}
+        
+        self._params = set_defaults(params, params_default)
+        
     @property
     def params(self):
         '''Parameters describing the equilibrium.'''
@@ -94,7 +83,7 @@ class HomogenSlab(CartesianMHDequilibrium):
 
 class ShearedSlab(CartesianMHDequilibrium):
     r"""
-    Sheared slab MHD equilibrium in Cartesian space :math:`(x, y, z)`. Profiles depend on :math:`x` solely. 
+    Sheared slab MHD equilibrium in a cube with side lengths :math:`L_x=a,\,L_y=2\pi a,\,L_z=2\pi R_0`. Profiles depend on :math:`x` solely. 
 
     .. math::
 
@@ -106,50 +95,33 @@ class ShearedSlab(CartesianMHDequilibrium):
 
     Parameters
     ----------
-        params: dict
-            Parameters that characterize the MHD equilibrium.
+    **params
+        Parameters that characterize the MHD equilibrium. Possible keys are
 
-                * a    : minor radius (Lx = a, Ly = 2*pi*a)
-                * R0   : major radius (Lz = 2*pi*R0)
-                * B0   : magnetic field in z-direction
-                * q0   : safety factor at x=0
-                * q1   : safety factor at x=a
-                * n1   : 1st shape factor for number density profile 
-                * n2   : 2nd shape factor for number density profile 
-                * na   : number density at x=a
-                * beta : plasma beta in % at x=0 (ratio of kinetic pressure to magnetic pressure)            
+            * a    : "minor" radius (Lx = a, Ly = 2*pi*a)
+            * R0   : "major" radius (Lz = 2*pi*R0)
+            * B0   : magnetic field in z-direction
+            * q0   : safety factor at x=0
+            * q1   : safety factor at x=a
+            * n1   : 1st shape factor for number density profile 
+            * n2   : 2nd shape factor for number density profile 
+            * na   : number density at x=a
+            * beta : plasma beta in % at x=0 (ratio of kinetic pressure to magnetic pressure)            
     """
 
-    def __init__(self, params=None):
-
-        # set default parameters
-        if params is None:
-            params = {'a': 1.,
-                      'R0': 3.,
-                      'B0': 1.,
-                      'q0': 1.05,
-                      'q1': 1.80,
-                      'n1': 0.,
-                      'n2': 0.,
-                      'na': 1.,
-                      'beta': 10.}
-        # or check if given parameter dictionary is complete
-        else:
-            assert 'a' in params
-            assert 'R0' in params
-
-            assert 'B0' in params
-
-            assert 'q0' in params
-            assert 'q1' in params
-
-            assert 'n1' in params
-            assert 'n2' in params
-            assert 'na' in params
-
-            assert 'beta' in params
-
-        self._params = params
+    def __init__(self, **params):
+        
+        params_default = {'a': 1.,
+                          'R0': 3.,
+                          'B0': 1.,
+                          'q0': 1.05,
+                          'q1': 1.80,
+                          'n1': 0.,
+                          'n2': 0.,
+                          'na': 1.,
+                          'beta': 10.}
+        
+        self._params = set_defaults(params, params_default)
 
     @property
     def params(self):
@@ -288,9 +260,17 @@ class ShearedSlab(CartesianMHDequilibrium):
 
 class ScrewPinch(CartesianMHDequilibrium):
     r"""
-    Straight tokamak (screw pinch) MHD equilibrium.
+    Straight tokamak (screw pinch) MHD equilibrium in a cylinder or radius :math:`a` and length :math:`L_z=2\pi R_0`.
 
-    The profiles in cylindrical coordinates :math:`(r, \theta, z)` are:
+    The profiles in cylindrical coordinates :math:`(r, \theta, z)` with transformation formulae 
+    
+    .. math::
+    
+        x &= r\cos(\theta)\,,
+        
+        y &= r\sin(\theta)\,,
+    
+    are:
 
     .. math::
 
@@ -306,50 +286,33 @@ class ScrewPinch(CartesianMHDequilibrium):
 
     Parameters
     ----------
-        params: dict
-            Parameters that characterize the MHD equilibrium.
+    **params
+        Parameters that characterize the MHD equilibrium. Possible keys are
 
-                * a    : minor radius (radius of cylinder)
-                * R0   : major radius (Lz = 2*pi*R0)
-                * B0   : magnetic field in z-direction
-                * q0   : safety factor at r=0
-                * q1   : safety factor at r=a
-                * n1   : 1st shape factor for number density profile 
-                * n2   : 2nd shape factor for number density profile 
-                * na   : number density at r=a
-                * beta : plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)  
+            * a    : minor radius (radius of cylinder)
+            * R0   : major radius (Lz = 2*pi*R0)
+            * B0   : magnetic field in z-direction
+            * q0   : safety factor at r=0
+            * q1   : safety factor at r=a
+            * n1   : 1st shape factor for number density profile 
+            * n2   : 2nd shape factor for number density profile 
+            * na   : number density at r=a
+            * beta : plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)  
     """
 
-    def __init__(self, params=None):
+    def __init__(self, **params):
 
-        # set default parameters
-        if params is None:
-            params = {'a': 1.,
-                      'R0': 5.,
-                      'B0': 1.,
-                      'q0': 1.05,
-                      'q1': 1.80,
-                      'n1': 0.,
-                      'n2': 0.,
-                      'na': 1.}
-        # or check if given parameter dictionary is complete
-        else:
-            assert 'a' in params
-            assert 'R0' in params
-
-            assert 'B0' in params
-
-            assert 'q0' in params
-            assert 'q1' in params
-
-            assert 'n1' in params
-            assert 'n2' in params
-            assert 'na' in params
-
-            if params['q0'] == params['q1']:
-                assert 'beta' in params
-
-        self._params = params
+        params_default = {'a': 1.,
+                          'R0': 5.,
+                          'B0': 1.,
+                          'q0': 1.05,
+                          'q1': 1.80,
+                          'n1': 0.,
+                          'n2': 0.,
+                          'na': 1.,
+                          'beta': 10.}
+        
+        self._params = set_defaults(params, params_default)
 
         # inverse cylindrical coordinate transformation (x, y, z) --> (r, theta, phi)
         self.r = lambda x, y, z: np.sqrt(x**2 + y**2)
@@ -491,9 +454,19 @@ class ScrewPinch(CartesianMHDequilibrium):
 
 class AdhocTorus(CartesianMHDequilibrium):
     r"""
-    Ad hoc tokamak MHD equilibrium with circular concentric flux surfaces.
+    Ad hoc tokamak MHD equilibrium with circular concentric flux surfaces for a torus with minor radius :math:`a` and major radius :math:`R_0`.
 
-    The profiles in toroidal coordinates :math:`(r, \theta, \phi)` with :math:`R=R_0+r\cos(\theta)` are:
+    The profiles in toroidal coordinates :math:`(r, \theta, \phi)` with :math:`R=R_0+r\cos(\theta)` and transformation formulae
+    
+    .. math::
+    
+        x &=  R(r,\theta)\cos(\phi)\,,
+        
+        y &= -R(r,\theta)\sin(\phi)\,,
+        
+        z &=  r\sin(\theta)\,,
+    
+    are:
 
     .. math::
 
@@ -511,64 +484,38 @@ class AdhocTorus(CartesianMHDequilibrium):
 
     Parameters
     ----------
-        params: dict
-            Parameters that characterize the MHD equilibrium.
-
-                * a      : minor radius of torus
-                * R0     : major radius of torus
-                * B0     : on-axis toroidal magnetic field
-                * q0     : safety factor at r=0
-                * q1     : safety factor at r=a
-                * n1     : 1st shape factor for number density profile 
-                * n2     : 2nd shape factor for number density profile 
-                * na     : number density at r=a
-                * p_kind : kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
-                * p1     : 1st shape factor for ad hoc pressure profile
-                * p2     : 2nd shape factor for ad hoc pressure profile
-                * beta   : on-axis plasma beta in % (ratio of kinetic pressure to magnetic pressure)   
+    **params
+        Parameters that characterize the MHD equilibrium. Possible keys 
+            * a      : minor radius of torus
+            * R0     : major radius of torus
+            * B0     : on-axis toroidal magnetic field
+            * q0     : safety factor at r=0
+            * q1     : safety factor at r=a
+            * n1     : 1st shape factor for number density profile 
+            * n2     : 2nd shape factor for number density profile 
+            * na     : number density at r=a
+            * p_kind : kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
+            * p1     : 1st shape factor for ad hoc pressure profile
+            * p2     : 2nd shape factor for ad hoc pressure profile
+            * beta   : on-axis plasma beta in % (ratio of kinetic pressure to magnetic pressure)   
     """
 
-    def __init__(self, params=None):
+    def __init__(self, **params):
 
-        # set default parameters
-        if params is None:
-            params = {'a': 1.,
-                      'R0': 10.,
-                      'B0': 3.,
-                      'q0': 1.71,
-                      'q1': 1.87,
-                      'n1': 0.,
-                      'n2': 0.,
-                      'na': 1.,
-                      'p_kind': 1,
-                      'p1': 0.,
-                      'p2': 0.,
-                      'beta': 0.179}
-        # or check if given parameter dictionary is complete
-        else:
-            assert 'a' in params
-            assert 'R0' in params
-
-            assert 'B0' in params
-
-            assert 'q0' in params
-            assert 'q1' in params
-
-            assert 'n1' in params
-            assert 'n2' in params
-            assert 'na' in params
-
-            assert 'p_kind' in params
-
-            if params['p_kind'] == 1:
-                assert 'p1' in params
-                assert 'p2' in params
-                assert 'beta' in params
-            else:
-                if params['q0'] == params['q1']:
-                    assert 'beta' in params
-
-        self._params = params
+        params_default = {'a': 1.,
+                          'R0': 10.,
+                          'B0': 3.,
+                          'q0': 1.71,
+                          'q1': 1.87,
+                          'n1': 0.,
+                          'n2': 0.,
+                          'na': 1.,
+                          'p_kind': 1,
+                          'p1': 0.,
+                          'p2': 0.,
+                          'beta': 0.179}
+        
+        self._params = set_defaults(params, params_default)
 
         # inverse toroidal coordinate transformation (x, y, z) --> (r, theta, phi)
         self.r = lambda x, y, z: np.sqrt(
@@ -749,8 +696,8 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
 
     Parameters
     ----------
-    params: dict
-        Parameters that characterize the MHD equilibrium.
+    **params
+        Parameters that characterize the MHD equilibrium. Possible keys are
 
         * rel_path : str
             Whether file is relative to "<struphy_path>/fields_background/mhd_equil/gvec", or is an absolute path.
@@ -770,7 +717,7 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
             Toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period.
     '''
 
-    def __init__(self, params=None, show=False):
+    def __init__(self, show=False, **params):
 
         from struphy.geometry.base import spline_interpolation_nd, PoloidalSplineTorus
         from struphy.b_splines.bspline_evaluation_2d import evaluate
@@ -779,40 +726,28 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
         import numpy as np
         from matplotlib import pyplot as plt
 
-        if params is None:
-            params = {'rel_path': True,
-                      'file': 'AUGNLED_g031213.00830.high',
-                      'data_type': 0,
-                      'flux_resolution': 16,
-                      'psi_resolution': [32, 32],
-                      'p_for_psi': [3, 3],
-                      'Nel': [16, 32],
-                      'p': [3, 3],
-                      'theta': 'equal_angle',
-                      'tor_period': 3
-                      }
-        else:
-            assert 'rel_path' in params
-            assert 'file' in params
-            assert 'data_type' in params
-            assert 'flux_resolution' in params
-            assert 'psi_resolution' in params
-            assert 'p_for_psi' in params
-            assert 'Nel' in params
-            assert 'p' in params
-            assert 'theta' in params
-            assert 'tor_period' in params
+        params_default = {'rel_path': True,
+                          'file': 'AUGNLED_g031213.00830.high',
+                          'data_type': 0,
+                          'flux_resolution': 16,
+                          'psi_resolution': [32, 32],
+                          'p_for_psi': [3, 3],
+                          'Nel': [16, 32],
+                          'p': [3, 3],
+                          'theta': 'equal_angle',
+                          'tor_period': 3
+                          }
+        
+        self._params = set_defaults(params, params_default)
 
-        self._params = params
-
-        if params['rel_path']:
+        if self._params['rel_path']:
             _path = struphy.__path__[0] + \
-                '/fields_background/mhd_equil/eqdsk/data/' + params['file']
+                '/fields_background/mhd_equil/eqdsk/data/' + self._params['file']
         else:
-            _path = params['file']
+            _path = self._params['file']
 
         eqdsk = readeqdsk.Geqdsk()
-        eqdsk.openFile(_path, data_type=params['data_type'])
+        eqdsk.openFile(_path, data_type=self._params['data_type'])
 
         # Number of horizontal R grid points
         nR = eqdsk.data['nw'][0]
@@ -845,7 +780,7 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
         assert g_profile.size == q_profile.size
         assert psi.shape == (nR, nZ)
 
-        p = params['p_for_psi']
+        p = self._params['p_for_psi']
 
         # interpolate toroidal field function and pressure profile from smoothed data
         self._psimin = psi.min()
@@ -853,7 +788,7 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
 
         flux_grid = np.linspace(self._psimin, psi.max(), g_profile.size)
 
-        smoothing = g_profile.size // params['flux_resolution']
+        smoothing = g_profile.size // self._params['flux_resolution']
         g_smoothed = g_profile[::smoothing]
         pres_smoothed = pres_profile[::smoothing]
         q_smoothed = q_profile[::smoothing]
@@ -882,8 +817,8 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
 
         s_mat = np.sqrt((psi - self._psimin)/(psi_edge - self._psimin))
 
-        smoothing_r = psi.shape[0] // params['psi_resolution'][0]
-        smoothing_z = psi.shape[1] // params['psi_resolution'][1]
+        smoothing_r = psi.shape[0] // self._params['psi_resolution'][0]
+        smoothing_z = psi.shape[1] // self._params['psi_resolution'][1]
         s_mat_smoothed = s_mat[::smoothing_r, ::smoothing_z]
         psi_smoothed = psi[::smoothing_r, ::smoothing_z]
         R1_smoothed = R1[::smoothing_r]
@@ -902,22 +837,26 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
 
         # do the field line tracing
         cx, cy = self.field_line_tracing(
-            s_fun, R_at_axis, Z_at_axis, self._rdim, params['Nel'], params['p'], theta=params['theta'])
+            s_fun, R_at_axis, Z_at_axis, self._rdim, self._params['Nel'], self._params['p'], theta=self._params['theta'])
 
+        # remove round-off errors at magnetic axis
+        cx[0, :] = cx[0, 0]
+        cy[0, :] = cy[0, 0]
+        
         # Instantiate Torus domain
         params_map = {'cx': cx,
                       'cy': cy,
-                      'Nel': params['Nel'],
-                      'p': params['p'],
+                      'Nel': self._params['Nel'],
+                      'p': self._params['p'],
                       'spl_kind': [False, True],
                       }
 
-        params_map['tor_period'] = params['tor_period']
-        self._domain = PoloidalSplineTorus(params_map)
+        params_map['tor_period'] = self._params['tor_period']
+        self._domain = PoloidalSplineTorus(**params_map)
 
         # plot for testing
         if show:
-            print('file: ', params['file'])
+            print('file: ', self._params['file'])
 
             # for testing: compute finite difference derivatives from data points
             dR = self._rdim / (nR - 1)
@@ -1597,8 +1536,8 @@ class GVECequilibrium(LogicalMHDequilibrium):
 
     Parameters
     ----------
-    params: dict
-        Parameters that characterize the MHD equilibrium.
+    **params
+        Parameters that characterize the MHD equilibrium. Possible keys are
 
         * rel_path : str
             Whether dat_file (json_file) are relative to "<struphy_path>/fields_background/mhd_equil/gvec", or are absolute paths.
@@ -1616,7 +1555,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
             Spline degree in each direction used for interpolation of the mapping.
     '''
 
-    def __init__(self, params=None):
+    def __init__(self, show=False, **params):
 
         from struphy.geometry.base import interp_mapping
         from struphy.geometry.domains import Spline
@@ -1626,55 +1565,46 @@ class GVECequilibrium(LogicalMHDequilibrium):
 
         import struphy
 
-        # set default parameters
-        if params is None:
-            params = {'rel_path': True,
-                      'dat_file': '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat',
-                      'json_file': None,
-                      'use_pest': False,
-                      'use_nfp': True,
-                      'Nel': (16, 16, 16),
-                      'p': (3, 3, 3), }
-        # or check if given parameter dictionary is complete
-        else:
-            assert 'rel_path' in params
-            assert 'dat_file' in params
-            assert 'json_file' in params
-            assert 'use_pest' in params
-            assert 'use_nfp' in params
-            assert 'Nel' in params
-            assert 'p' in params
+        params_default = {'rel_path': True,
+                          'dat_file': '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat',
+                          'json_file': None,
+                          'use_pest': False,
+                          'use_nfp': True,
+                          'Nel': (16, 16, 16),
+                          'p': (3, 3, 3), }
+        
+        self._params = set_defaults(params, params_default)
 
-        if params['dat_file'] is None:
+        if self._params['dat_file'] is None:
 
-            assert params['json_file'] is not None
-            assert params['json_file'][-5:] == '.json'
+            assert self._params['json_file'] is not None
+            assert self._params['json_file'][-5:] == '.json'
 
-            if params['rel_path']:
+            if self._params['rel_path']:
                 json_file = struphy.__path__[
-                    0] + '/fields_background/mhd_equil/gvec' + params['json_file']
+                    0] + '/fields_background/mhd_equil/gvec' + self._params['json_file']
             else:
-                json_file = params['json_file']
+                json_file = self._params['json_file']
 
         else:
 
-            assert params['dat_file'][-4:] == '.dat'
+            assert self._params['dat_file'][-4:] == '.dat'
 
-            if params['rel_path']:
+            if self._params['rel_path']:
                 dat_file = struphy.__path__[
-                    0] + '/fields_background/mhd_equil/gvec' + params['dat_file']
+                    0] + '/fields_background/mhd_equil/gvec' + self._params['dat_file']
             else:
                 dat_file = params['dat_file']
 
             json_file = dat_file[:-4] + '.json'
             create_GVEC_json(dat_file, json_file)
 
-        if params['use_pest']:
+        if self._params['use_pest']:
             mapping = 'unit_pest'
         else:
             mapping = 'unit'
 
-        if params['use_nfp']:
+        if self._params['use_nfp']:
             unit_tor_domain = "one-fp"
             spl_kind = (False, True, False)
         else:
@@ -1691,14 +1621,12 @@ class GVECequilibrium(LogicalMHDequilibrium):
         def Z(e1, e2, e3): return self.gvec.f(e1, e2, e3)[2]
 
         cx, cy, cz = interp_mapping(
-            params['Nel'], params['p'], spl_kind, X, Y, Z)
+            self._params['Nel'], self._params['p'], spl_kind, X, Y, Z)
 
         # struphy domain object
         params_map = {'cx': cx, 'cy': cy, 'cz': cz,
-                      'Nel': params['Nel'], 'p': params['p'], 'spl_kind': spl_kind}
-        self._domain = Spline(params_map)
-
-        self._params = params
+                      'Nel': self._params['Nel'], 'p': self._params['p'], 'spl_kind': spl_kind}
+        self._domain = Spline(**params_map)
 
     @property
     def domain(self):
@@ -1737,3 +1665,34 @@ class GVECequilibrium(LogicalMHDequilibrium):
         """
         # TODO: which density to set?
         return self.gvec.p0(eta1, eta2, eta3) * 0
+
+    
+def set_defaults(params_in, params_default):
+    """
+    Sets missing default key-value pairs in dictionary "params_in" according to "params_default".
+
+    Parameters
+    ----------
+    params_in : dict
+        Dictionary which is compared to the dictionary "params_default" and to which missing defaults are added.
+
+    params_default : dict
+        Dictionary with default values.
+
+    Returns
+    -------
+    params : dict
+        Dictionary with same keys as "params_default" and default values for missing keys.
+    """
+
+    # check for correct keys in params_in
+    for key in params_in:
+        assert key in params_default, f'Unknown key "{key}". Please choose one of {[*params_default]}.'
+
+    # set default values if key is missing
+    params = params_in
+
+    for key, val in params_default.items():
+        params.setdefault(key, val)
+
+    return params

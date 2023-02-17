@@ -35,7 +35,7 @@ def main():
     dom_params = params['geometry'][dom_type]
 
     domain_class = getattr(domains, dom_type)
-    domain = domain_class(dom_params)
+    domain = domain_class(**dom_params)
 
     etaplot = [np.linspace(0., 1., 101),
                np.linspace(0., 1., 101),
@@ -46,7 +46,7 @@ def main():
     mhd_params = params['mhd_equilibrium'][mhd_name]
 
     mhd_class = getattr(equils, mhd_name)
-    mhd_equil = mhd_class(mhd_params)
+    mhd_equil = mhd_class(**mhd_params)
 
     if params['mhd_equilibrium']['use_equil_domain']:
         assert mhd_equil.domain is not None
