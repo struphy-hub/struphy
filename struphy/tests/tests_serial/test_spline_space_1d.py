@@ -1,13 +1,14 @@
 def test_plot_splines(plot=False):
+    """
+    TODO
+    """
 
     import numpy as np
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d
     import matplotlib.pyplot as plt
 
-    eta_v = np.linspace(0, 1, 200)
-
     Nel = 8
-    for p in range(1,5):
+    for p in range(1, 5):
 
         # spline spaces
         Vh_per = Spline_space_1d(Nel, p, spl_kind=True)
@@ -26,14 +27,15 @@ def test_plot_splines(plot=False):
         plt.subplot(2, 2, 4)
         Vh_cla.plot_splines(which='D')
 
-        
     if plot:
         plt.show()
 
 
 def test_indices():
+    """
+    TODO
+    """
 
-    import numpy as np
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d
     from struphy.b_splines.bsplines import find_span, basis_funs
 
@@ -65,13 +67,13 @@ def test_indices():
             for iq in range(pts.shape[1]):
                 pt = pts[ie, iq]
                 # B-splines
-                span  = find_span(space.T, p, pt)
-                basis = basis_funs(space.T, p, pt, span) 
-                inds  = [span - p + i for i in range(p + 1)]
+                span = find_span(space.T, p, pt)
+                basis = basis_funs(space.T, p, pt, span)
+                inds = [span - p + i for i in range(p + 1)]
                 # M-splines
-                span_D  = find_span(space.t, p - 1, pt)
-                basis_D = basis_funs(space.t, p - 1, pt, span_D) 
-                inds_D  = [span_D - (p - 1) + i for i in range(p)]
+                span_D = find_span(space.t, p - 1, pt)
+                basis_D = basis_funs(space.t, p - 1, pt, span_D)
+                inds_D = [span_D - (p - 1) + i for i in range(p)]
                 print(ie, iq, span, basis, inds)
                 print(ie, iq, span_D, basis_D, inds_D)
                 print('')
@@ -91,8 +93,6 @@ def test_indices():
         print(space.projectors.basis_ptsG_D[0, 0, :])
         print('')
 
-
- 
 
 if __name__ == '__main__':
     test_plot_splines(plot=True)

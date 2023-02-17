@@ -1,72 +1,80 @@
 import numpy as np
-import matplotlib.pyplot as plt
-
-from struphy.geometry import domains
-
-from struphy.psydac_api.psydac_derham import Derham
-
-from struphy.pic.particles import Particles6D
-
 from mpi4py import MPI
 
-comm= MPI.COMM_WORLD
-mpi_size = comm.Get_size()
-rank = comm.Get_rank()
+from struphy.geometry import domains
+from struphy.psydac_api.psydac_derham import Derham
+from struphy.pic.particles import Particles6D
 
-# parameters
-Nel = [8, 16, 4]
-p = [2, 2, 2]
-spl_kind = [False, True, True]
 
-loading_type = 'pseudo_random'
-loading_params = {'type': loading_type, 'seed': 1234,
-                  'moments': [0., 0., 0., 1., 1., 1.]}
+def main():
+    """
+    TODO
+    """
+    comm = MPI.COMM_WORLD
+    mpi_size = comm.Get_size()
+    rank = comm.Get_rank()
 
-marker_params = {'ppc': 10, 'eps': .25, 'loading': loading_params}
+    # parameters
+    Nel = [8, 16, 4]
+    p = [2, 2, 2]
+    spl_kind = [False, True, True]
 
-# create domain
-dom_type = 'ShafranovShiftCylinder'
-domain_class = getattr(domains, dom_type)
-domain = domain_class()
+    loading_type = 'pseudo_random'
+    loading_params = {'type': loading_type, 'seed': 1234,
+                      'moments': [0., 0., 0., 1., 1., 1.]}
 
-# create de rham object
-derham = Derham(Nel, p, spl_kind, comm=comm)
+    marker_params = {'ppc': 10, 'eps': .25, 'loading': loading_params}
 
-if rank == 0:
-    print()
-    print('Domain decomposition according to : ')
-    print(derham.domain_array)
+    # create domain
+    dom_type = 'HollowTorusStraightFieldLine'
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class()
 
-# create particles
-particles = Particles6D('energetic_ions', marker_params,
-                        domain, derham.domain_array, comm)
+    # create de rham object
+    derham = Derham(Nel, p, spl_kind, comm=comm)
 
-comm.Barrier()
-print('Number of particles w/wo holes on each process before sorting : ')
-print('Rank', rank, ':', particles.n_mks_loc, particles.markers.shape[0])
+    if rank == 0:
+        print()
+        print('Domain decomposition according to : ')
+        print(derham.domain_array)
 
-domain.show(grid_info=derham.domain_array, markers=particles.markers_wo_holes)
+    # create particles
+    particles = Particles6D(
+        'energetic_ions', marker_params, derham.domain_array, comm)
 
-# sort particles according to domain decomposition
-comm.Barrier()
-particles.mpi_sort_markers()
+    comm.Barrier()
+    print('Number of particles w/wo holes on each process before sorting : ')
+    print('Rank', rank, ':', particles.n_mks_loc, particles.markers.shape[0])
 
-comm.Barrier()
-print('Number of particles w/wo holes on each process after sorting : ')
-print('Rank', rank, ':', particles.n_mks_loc, particles.markers.shape[0])
+    domain.show(grid_info=derham.domain_array,
+                markers=particles.markers_wo_holes)
 
-domain.show(grid_info=derham.domain_array, markers=particles.markers_wo_holes)
+    # sort particles according to domain decomposition
+    comm.Barrier()
+    particles.mpi_sort_markers()
 
-# are all markers in the correct domain?
-conds = np.logical_and(
-    particles.markers[:, :3] > derham.domain_array[rank, 0::3], 
-    particles.markers[:, :3] < derham.domain_array[rank, 1::3])
+    comm.Barrier()
+    print('Number of particles w/wo holes on each process after sorting : ')
+    print('Rank', rank, ':', particles.n_mks_loc, particles.markers.shape[0])
 
-holes = particles.markers[:, 0] == -1.
-stay = np.all(conds, axis=1)
+    domain.show(grid_info=derham.domain_array,
+                markers=particles.markers_wo_holes)
 
-error_mks = particles.markers[np.logical_and(~stay, ~holes)]
+    # are all markers in the correct domain?
+    conds = np.logical_and(
+        particles.markers[:, :3] > derham.domain_array[rank, 0::3],
+        particles.markers[:, :3] < derham.domain_array[rank, 1::3])
 
-print(f'rank {rank} | markers mot on correct process: {np.nonzero(np.logical_and(~stay, ~holes))} \n corresponding positions:\n {error_mks[:, :3]}')
+    holes = particles.markers[:, 0] == -1.
+    stay = np.all(conds, axis=1)
 
-assert error_mks.size == 0
+    error_mks = particles.markers[np.logical_and(~stay, ~holes)]
+
+    print(f'rank {rank} | markers not on correct process: {np.nonzero(np.logical_and(~stay, ~holes))} \
+            \n corresponding positions:\n {error_mks[:, :3]}')
+
+    assert error_mks.size == 0
+
+
+if __name__ == '__main__':
+    main()

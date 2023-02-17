@@ -9,6 +9,8 @@ from psydac.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace
 
+from psydac.ddm.cart import DomainDecomposition, CartDecomposition
+
 from psydac.api.essential_bc import apply_essential_bc_stencil
 
 from struphy.psydac_api.linear_operators import CompositeLinearOperator, BoundaryOperator, IdentityOperator
@@ -29,11 +31,11 @@ class MassMatrixPreconditioner(LinearSolver):
     
     Parameters
     ----------
-        mass_operator : WeightedMassOperator
-            The weighted mass operator for which the approximate inverse is needed.
-            
-        apply_bc : bool
-            Wether to include boundary operators.
+    mass_operator : struphy.psydac_api.mass.WeightedMassOperator
+        The weighted mass operator for which the approximate inverse is needed.
+
+    apply_bc : bool
+        Wether to include boundary operators.
     """
     
     def __init__(self, mass_operator, apply_bc=True):
@@ -56,6 +58,8 @@ class MassMatrixPreconditioner(LinearSolver):
             
         n_comps = len(femspaces)
         n_dims = self._femspace.ldim
+
+        assert n_dims == 3 # other dims not yet implemented
         
         # get boundary conditions list from BoundaryOperator in CompositeLinearOperator M0 of mass operator
         if isinstance(mass_operator.M0.operators[0], BoundaryOperator):
@@ -74,19 +78,24 @@ class MassMatrixPreconditioner(LinearSolver):
             for d in range(n_dims):
                 
                 # weight function only along in first direction
-                if d == 0 and mass_operator._weight is not None:
-                    pts = [0.5] * (n_dims - 1)
-                    fun = [[lambda e1 : mass_operator._weight[c][c](e1, *pts).squeeze()]]
+                if d == 0:
+                    #pts = [0.5] * (n_dims - 1)
+                    fun = [[lambda e1 : mass_operator.weights[c][c](e1, np.array([.5]), np.array([.5])).squeeze()]]
                 else:
                     fun = None
                     
-                # get 1D FEM space (serial, not distributed)
+                # get 1D FEM space (serial, not distributed) and quadrature order
                 femspace_1d = femspaces[c].spaces[d]
-                quad_order_1d = femspaces[c].quad_order[d]
+                qu_order_1d = femspaces[c].quad_order[d]
                     
-                # assemble 1d mass matrix
-                M = WeightedMassOperator.assemble_mat(TensorFemSpace(femspace_1d, quad_order=[quad_order_1d]),
-                                                      TensorFemSpace(femspace_1d, quad_order=[quad_order_1d]), fun)
+                # assemble 1d weighted mass matrix
+                domain_decompos_1d = DomainDecomposition([femspace_1d.ncells], [femspace_1d.periodic])
+                femspace_1d_tensor = TensorFemSpace(domain_decompos_1d, femspace_1d, quad_order=[qu_order_1d])
+                
+                M = WeightedMassOperator(femspace_1d_tensor, femspace_1d_tensor, weights=fun)
+                M.assemble(verbose=False)
+                M.matrix.exchange_assembly_data()
+                M = M.matrix
                 
                 # apply boundary conditions
                 if apply_bc:
@@ -116,7 +125,10 @@ class MassMatrixPreconditioner(LinearSolver):
                 s = femspaces[c].vector_space.starts[d]
                 e = femspaces[c].vector_space.ends[d]
                 
-                V_local = StencilVectorSpace([n], [p], [periodic], starts=[s], ends=[e])
+                cart_decomp_1d = CartDecomposition(domain_decompos_1d, [n], [[s]], [[e]], [p], [1])
+                
+                V_local = StencilVectorSpace(cart_decomp_1d)
+                
                 M_local = StencilMatrix(V_local, V_local)
                 
                 row_indices, col_indices = np.nonzero(M_arr)
@@ -185,13 +197,13 @@ class MassMatrixPreconditioner(LinearSolver):
         
         Parameters
         ----------
-            rhs : StencilVector | BlockVector | PolarVector
-                The right-hand side vector.
+        rhs : StencilVector | BlockVector | PolarVector
+            The right-hand side vector.
                 
         Returns
         -------
-            out : StencilVector | BlockVector | PolarVector
-                The approximate solution to the inverse mass matrix problem.
+        out : StencilVector | BlockVector | PolarVector
+            The approximate solution to the inverse mass matrix problem.
         """
         
         assert isinstance(rhs, (StencilVector, BlockVector, PolarVector))
@@ -219,14 +231,14 @@ class ProjectorPreconditioner(LinearSolver):
     
     Parameters
     ----------
-        projector : Projector
-            The global commuting projector for which the inter-/histopolation matrix shall be inverted. 
-            
-        transposed : bool
-            Whether to invert the transposed inter-/histopolation matrix.
-            
-        apply_bc : bool
-            Whether to include the boundary operators.
+    projector : Projector
+        The global commuting projector for which the inter-/histopolation matrix shall be inverted. 
+
+    transposed : bool
+        Whether to invert the transposed inter-/histopolation matrix.
+
+    apply_bc : bool
+        Whether to include the boundary operators.
     """
     
     def __init__(self, projector, transposed=False, apply_bc=False):
@@ -275,13 +287,13 @@ class ProjectorPreconditioner(LinearSolver):
         
         Parameters
         ----------
-            rhs : StencilVector | BlockVector | PolarVector
-                The right-hand side of the inter-/histopolation problem.
+        rhs : StencilVector | BlockVector | PolarVector
+            The right-hand side of the inter-/histopolation problem.
                 
         Returns
         -------
-            out : StencilVector | BlockVector | PolarVector
-                The approximate solution to the inter-/histopolation problem.
+        out : StencilVector | BlockVector | PolarVector
+            The approximate solution to the inter-/histopolation problem.
         """
         
         assert isinstance(rhs, (StencilVector, BlockVector, PolarVector))
@@ -306,8 +318,8 @@ class FFTSolver(DirectSolver):
 
     Parameters
     ----------
-        circmat : array[float]
-            Generic circulant matrix.
+    circmat : array[float]
+        Generic circulant matrix.
     """
     
     def __init__(self, circmat):
@@ -332,17 +344,17 @@ class FFTSolver(DirectSolver):
 
         Parameters
         ----------
-            rhs : array[float]
-                The right-hand sides to solve for. The vectors are assumed to be given in C-contiguous order, 
-                i.e. if multiple right-hand sides are given, then rhs is a two-dimensional array with the 0-th 
-                index denoting the number of the right-hand side, and the 1-st index denoting the element inside 
-                a right-hand side.
-        
-            out : array[float] | NoneType
-                Output vector. If given, it has to have the same shape and datatype as rhs.
-        
-            transposed : bool
-                If and only if set to true, we solve against the transposed matrix. (supported by the underlying solver)
+        rhs : array[float]
+            The right-hand sides to solve for. The vectors are assumed to be given in C-contiguous order, 
+            i.e. if multiple right-hand sides are given, then rhs is a two-dimensional array with the 0-th 
+            index denoting the number of the right-hand side, and the 1-st index denoting the element inside 
+            a right-hand side.
+
+        out : array[float] | NoneType
+            Output vector. If given, it has to have the same shape and datatype as rhs.
+
+        transposed : bool
+            If and only if set to true, we solve against the transposed matrix. (supported by the underlying solver)
         """
         
         assert rhs.T.shape[0] == self._column.size
@@ -366,13 +378,13 @@ def is_circulant(mat):
     
     Parameters
     ----------
-        mat : array[float]
-            The matrix that is checked to be circulant.
+    mat : array[float]
+        The matrix that is checked to be circulant.
             
     Returns
     -------
-        circulant : bool
-            Whether the matrix is circulant (=True) or not (=False).
+    circulant : bool
+        Whether the matrix is circulant (=True) or not (=False).
     """
     
     assert isinstance(mat, np.ndarray)

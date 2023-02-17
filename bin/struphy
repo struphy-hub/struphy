@@ -9,6 +9,7 @@ STRUPHY=$($PYTHON -c "import struphy as _; print(_.__path__[0])")
 
 # Defaults
 RUN=false
+UNITS=false
 COMPILE=false 
 PROFILE=false
 PPROC=false
@@ -48,6 +49,7 @@ function struphy_help {
     echo "Commands:"
     echo "  compile   Compile struphy kernels"
     echo "  run       Run a struphy model"
+    echo "  units     Show units and some import physics quantities of a specific model"
     echo "  profile   Profile finished struphy runs"
     echo "  pproc     Post process data from finished struphy runs"
     echo "  example   Run complete struphy examples with post processing and plotting"
@@ -82,6 +84,7 @@ function run_help {
     echo "  Maxwell               Maxwell equations in vacuum"
     echo "  LinearMHD             Linear ideal MHD with zero-flow equilibrium"
     echo "  LinearVlasovMaxwell   Linearized Vlasov Maxwell system with Maxwellian background"
+    echo "  LinearMHDVlasovCC     Linear ideal MHD with zero-flow equilibrium and 6d kinetic energetic ion species"
     echo 
     echo "  See https://struphy.pages.mpcdf.de/struphy/sections/models.html for more info on available models."
     echo 
@@ -126,15 +129,16 @@ function example_help {
     echo
     echo "Usage: struphy example CASE"
     echo
-    echo "Run complete struphy example with post processing and plotting."
+    echo "Run a complete struphy example, including post processing and plotting."
     echo
     echo "Cases:"
-    echo "  maxwell            1d Maxwell equations in vacuum, dispersion relation."
-    echo "  maxwell_mpi        maxwell with 3 mpi processes."
-    echo "  linearmhd          1d linear MHD equations, dispersion relation, 4 mpi processes."
-    echo "  orbits_tokamak     full-orbit particle trajectories in a tokamak-like static magnetic field, 2 mpi processes."
-    echo "  gc_orbits_tokamak  guiding center particle trajectories in a tokamak-like static magnetic field, 2 mpi processes."
-    echo "  TAE_tokamak        3d linear MHD equations, initialized with m=2,3, n=-2 TAE in toroidal geometry, 2 mpi processes (warning: takes between 30-40 minutes on a laptop)."
+    echo "  maxwell             1d Maxwell equations in vacuum, dispersion relation, 1 MPI process."
+    echo "  maxwell_mpi         1d Maxwell equations in vacuum, dispersion relation, 3 MPI processes."
+    echo "  linearmhd           1d linear ideal MHD equations, dispersion relation, 4 MPI processes."
+    echo "  orbits_tokamak      full-orbit particle trajectories in a tokamak-like static magnetic field, 2 MPI processes."
+    echo "  gc_orbits_tokamak   guiding center particle trajectories in a tokamak-like static magnetic field, 2 MPI processes."
+    echo "  TAE_tokamak         3d linear ideal MHD equations, initialized with m=2,3, n=-2 toroidal Alfvén eigenmode (TAE), 2 MPI processes (takes ~50 minutes on a laptop)."
+    echo "  linearmhdvlasov_cc  1d hybrid linear ideal MHD equations + full-orbit (6d) energetic ions (current coupling model), 2 MPI processes."
 
 }
 
@@ -148,6 +152,17 @@ function test_help {
     echo "  --serial    Run only serial unit tests."
     echo "  --mpi N     Use 'mpirun -n N' to run only parallel unit tests."
     echo "  --codes     Run code tests."
+}
+
+function units_help {
+    echo
+    echo "Usage: struphy units MODEL [-i FILE] [--input-abs FILE]"
+    echo
+    echo "Show units and some import physics quantities of a specific model."
+    echo 
+    echo "Options:"
+    echo "  -i, --input     Parameter FILE (.yml) relative to install_path/struphy/io/inp/, the default is 'parameters.yml'"
+    echo "  --input-abs     Parameter FILE (.yml), absolute path"
 }
 
 # No arguments - display help and exit
@@ -237,6 +252,17 @@ while [[ $# -gt 0 ]]; do
           exit 0
           ;;
       esac
+      shift
+      ;;
+    units)
+      UNITS=true 
+      case $2 in
+        --help)
+          units_help
+          exit 0
+          ;;
+      esac
+      MODEL="$2"
       shift
       ;;
     -a|--all)
@@ -357,6 +383,7 @@ if [ "$COMPILE" = true ]; then
   else
     echo "Start compiling struphy..."
     cd .. # change dir not be in source path
+    compile_gvec_to_python
     command make -f $STRUPHY/compile_struphy.mk struphy_path=$STRUPHY flags_openmp_pic=$CFLAGS flags=$FLAGS
     exit 0
   fi
@@ -454,7 +481,7 @@ if [ "$RUN" = true ] ; then
   echo "INPUT_ABS        = ${INPUT_ABS}"
   echo "OUTPUT_ABS       = ${OUTPUT_ABS}"
   echo "BATCH_SCRIPT_ABS = ${BATCH_SCRIPT_ABS}"
-  echo "RUN_CMD          = ${RUN_CMD}"
+  #echo "RUN_CMD          = ${RUN_CMD}"
   echo "METAFILE         = ${METAFILE}"
 
   # Write to meta.txt
@@ -470,6 +497,25 @@ if [ "$RUN" = true ] ; then
 
   # Start code
   $RUN_CMD
+
+fi
+
+# Model units
+if [ "$UNITS" = true ]; then
+
+  # Input path
+  if [ -z $INPUT_ABS ]; then
+    INPUT_ABS=$STRUPHY/io/inp/$INPUT
+  fi
+  
+  # Print parameters
+  echo "STRUPHY   = ${STRUPHY}"
+  echo "UNITS     = ${UNITS}"
+  echo "MODEL     = ${MODEL}"
+  echo "INPUT_ABS = ${INPUT_ABS}"
+  
+  # Start code
+  $PYTHON $STRUPHY/main.py $MODEL $INPUT_ABS
 
 fi
 
@@ -542,6 +588,8 @@ if [ $EXAMPLE ]; then
     example_gc_orbits_tokamak_mpi_2
   elif [ "$EXAMPLE" == TAE_tokamak ]; then
     example_TAE_tokamak_mpi_2
+  elif [ "$EXAMPLE" == linearmhdvlasov_cc ]; then
+    example_hybridmhdvlasovcc_mpi_2
   else
     echo "Example $EXAMPLE not implemented."
   fi

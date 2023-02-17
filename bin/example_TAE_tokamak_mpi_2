@@ -7,7 +7,7 @@ cd ~
 STRUPHY=$($PYTHON -c "import struphy as _; print(_.__path__[0])")
 
 # run MHD eigenvalue solver
-$PYTHON $STRUPHY/eigenvalue_solvers/mhd_axisymmetric_main.py -2 /io/inp/examples/params_TAE_tokamak.yml /io/out/sim_10 spec
+$PYTHON $STRUPHY/eigenvalue_solvers/mhd_axisymmetric_main.py -1 /io/inp/examples/params_TAE_tokamak.yml /io/out/sim_10 spec
 
 # run LinarMHD model
 struphy run LinearMHD -i ../out/sim_10/parameters.yml -o sim_10 --mpi 2

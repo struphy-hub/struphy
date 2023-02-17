@@ -2,11 +2,12 @@
 
 import numpy as np
 
+
 class ModesSin:
     r'''Defines the callable
-    
+
     .. math::
-    
+
         u(x, y, z) = \sum_{i} A_i \sin \left(l_i \frac{2\pi}{L_x} x + m_i \frac{2\pi}{L_y} y + n_i \frac{2\pi}{L_z} z \right) \,.
     '''
 
@@ -39,20 +40,21 @@ class ModesSin:
         self._Lz = Lz
 
     def __call__(self, x, y, z):
-        
+
         val = 0.
-        
+
         for amp, l, m, n in zip(self._amps, self._ls, self._ms, self._ns):
-            val += amp*np.sin(l*2.*np.pi/self._Lx*x + m*2.*np.pi/self._Ly*y + n*2.*np.pi/self._Lz*z)
+            val += amp*np.sin(l*2.*np.pi/self._Lx*x + m*2. *
+                              np.pi/self._Ly*y + n*2.*np.pi/self._Lz*z)
 
         return val
 
 
 class ModesCos:
     r'''Defines the callable
-    
+
     .. math::
-    
+
         u(x, y, z) = \sum_{i} A_i \cos \left(l_i \frac{2\pi}{L_x} x + m_i \frac{2\pi}{L_y} y + n_i \frac{2\pi}{L_z} z \right) \,.
     '''
 
@@ -85,20 +87,21 @@ class ModesCos:
         self._Lz = Lz
 
     def __call__(self, x, y, z):
-        
+
         val = 0.
-        
+
         for amp, l, m, n in zip(self._amps, self._ls, self._ms, self._ns):
-            val += amp*np.cos(l*2.*np.pi/self._Lx*x + m*2.*np.pi/self._Ly*y + n*2.*np.pi/self._Lz*z)
+            val += amp*np.cos(l*2.*np.pi/self._Lx*x + m*2. *
+                              np.pi/self._Ly*y + n*2.*np.pi/self._Lz*z)
 
         return val
 
 
 class TorusModesSin:
     r'''Defines the callable
-    
+
     .. math::
-    
+
         u(\eta_1, \eta_2, \eta_3) = \sum_{i=0}^N \chi_i(\eta_1) \sin(m_i\,2\pi \eta_2 + n_i\,2\pi \eta_3) 
 
     where :math:`\chi_i(\eta_1)` is one of
@@ -144,9 +147,10 @@ class TorusModesSin:
         self._pfuns = []
         for pfun, params in zip(pfuns, pfun_params):
             if pfun == 'sin':
-                self._pfuns += [lambda eta1 : np.sin(np.pi*eta1)]
+                self._pfuns += [lambda eta1: np.sin(np.pi*eta1)]
             elif pfun == 'exp':
-                self._pfuns += [lambda eta1 : np.exp(-(eta1 - params[0])**2/params[1])]
+                self._pfuns += [lambda eta1:
+                                np.exp(-(eta1 - params[0])**2/params[1])]
             else:
                 raise ValueError('Profile function must be "sin" or "exp".')
 
@@ -154,6 +158,7 @@ class TorusModesSin:
 
         val = 0.
         for mi, ni, pfun, amp in zip(self._ms, self._ns, self._pfuns, self._amps):
-            val += amp * pfun(eta1) * np.sin(mi*2.*np.pi*eta2 + ni*2.*np.pi*eta3)
+            val += amp * pfun(eta1) * np.sin(mi*2.*np.pi *
+                                             eta2 + ni*2.*np.pi*eta3)
 
         return val

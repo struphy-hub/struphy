@@ -1,5 +1,5 @@
 grid :
-    Nel      : [16, 24, 16] # number of grid cells, >p
+    Nel      : [16, 24, 8] # number of grid cells, >p
     p        : [3, 3, 3]  # spline degree, >1
     spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
     bc       : [[d, d], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
@@ -7,11 +7,17 @@ grid :
     nq_pr    : [6, 6, 6] # quadrature points per histopolation cell (for commuting projectors)
     polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
       
+model_units :
+    x : 1. # length scale unit in m
+    B : 1. # magnetic field unit in T
+    n : 0.2 # number density unit of fluid species in 1 x 10^20 m^(-3)
+    A : 1  # mass number of fluid species (1 : Hydrogen, 2 : Deuterium, 3 : Tritium, etc.)
+
 time : 
-      dt         : 0.02  # time step
-      Tend       : 20. # simulation time interval is [0, Tend]
-      max_time   : 300. # maximum runtime of program in minutes
-      split_algo : Strang # LieTrotter | Strang
+    dt         : 0.02  # time step
+    Tend       : 20. # simulation time interval is [0, Tend]
+    max_time   : 300. # maximum runtime of program in minutes
+    split_algo : Strang # LieTrotter | Strang
 
 geometry : 
     type : HollowTorusStraightFieldLine # mapping F (possible types seen below)  
@@ -19,10 +25,11 @@ geometry :
         a1       : 0.1 # inner radius
         a2       : 1.0 # minor radius
         R0       : 5.0 # major radius
+        tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
             
 mhd_equilibrium : 
-    type : analytical # analytical or numerical
-    name : AdhocTorus # (possible choices seen below)
+    type : AdhocTorus # (possible choices seen below)
+    use_equil_domain : False # use the mapping given by the equilibrium (flux aligned) or not
     AdhocTorus :
         a    : 1. # minor radius
         R0   : 5. # major radius
@@ -35,52 +42,42 @@ mhd_equilibrium :
         p_kind : 1 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
         p1     : 0. # shape factor for ad hoc pressure profile
         p2     : 0. # shape factor for ad hoc pressure profile
-        beta : .2 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
-        
+        beta : .2 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)   
         
 em_fields : 
-      init :
-            type   : InitialMHDAxisymHdivEigFun # initial conditions (possible types seen below)
-            coords : logical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
-            comps  : [[False, False, False]] # default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
+    init :
+        type : InitialMHDAxisymHdivEigFun # initial conditions (possible types seen below)
+        InitialMHDAxisymHdivEigFun :
+            spec : '/io/out/sim_10/spec_n_-1.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
+            eig_freq_upper : 0.14855 # upper search limit of squared eigenfrequency to identify eigenfunction
+            eig_freq_lower : 0.14850 # lower search limit of squared eigenfrequency to identify eigenfunction
+            kind : r # real (r) or imaginary (i) part of eigenfunction
+            scaling : 1. # scaling factor to scale the amplitude of the eigenfunction
+
+fluid : 
+    mhd :
+        mhd_u_space : Hdiv # Hdiv | H1vec
+        init :
+            type : InitialMHDAxisymHdivEigFun # initial conditions (possible types seen below)
             InitialMHDAxisymHdivEigFun :
-                spec : '/io/out/sim_10/spec_n_-2.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
+                spec : '/io/out/sim_10/spec_n_-1.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
                 eig_freq_upper : 0.14855 # upper search limit of squared eigenfrequency to identify eigenfunction
                 eig_freq_lower : 0.14850 # lower search limit of squared eigenfrequency to identify eigenfunction
                 kind : r # real (r) or imaginary (i) part of eigenfunction
                 scaling : 1. # scaling factor to scale the amplitude of the eigenfunction
-
-fluid : 
-      mhd :
-            attributes :                           # one entry for each field; put null EM fields (no plasma species)
-                  Z    : 1. # charge number Z = q/e, in units of elementary charge, can have a sign
-                  M    : 1. # mass ratio m/m_p, in units of proton mass
-                  kBT  : 1. # thermal energy in units keV 
-                  beta : .01 # plasma beta = p*2*mu_0/|B|^2
-            init :
-                  type   : InitialMHDAxisymHdivEigFun # initial conditions (possible types seen below)
-                  coords : logical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
-                  comps  : [[False], [True, True, True], [False]] # default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
-                  InitialMHDAxisymHdivEigFun :
-                      spec : '/io/out/sim_10/spec_n_-2.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
-                      eig_freq_upper : 0.14855 # upper search limit of squared eigenfrequency to identify eigenfunction
-                      eig_freq_lower : 0.14850 # lower search limit of squared eigenfrequency to identify eigenfunction
-                      kind : r # real (r) or imaginary (i) part of eigenfunction
-                      scaling : 1. # scaling factor to scale the amplitude of the eigenfunction
-            mhd_u_space : Hdiv # Hdiv | H1vec
-      
+              
 solvers :
-      solver_1 : 
-            type : pcg
-            pc : MassMatrixPreconditioner # null or name of preconditioner class
-            tol : 1.e-8
-            maxiter : 3000
-            info : True
-            verbose : False
-      solver_2 :
-            type : pbicgstab
-            pc : MassMatrixPreconditioner # null or name of preconditioner class
-            tol : 1.e-8
-            maxiter : 3000
-            info : True
-            verbose : False
+    solver_1 : 
+        type : pcg
+        pc : MassMatrixPreconditioner # null or name of preconditioner class
+        tol : 1.e-8
+        maxiter : 3000
+        info : True
+        verbose : False
+    solver_2 :
+        type : pbicgstab
+        pc : MassMatrixPreconditioner # null or name of preconditioner class
+        tol : 1.e-8
+        maxiter : 3000
+        info : True
+        verbose : False

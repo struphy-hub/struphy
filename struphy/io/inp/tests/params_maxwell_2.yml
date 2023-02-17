@@ -1,42 +1,45 @@
 grid :
-      Nel      : [16, 16, 8] # number of grid cells, >p
-      p        : [2, 2, 1]  # spline degree
-      spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
-      bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
-      nq_el    : [2, 2, 2] # quadrature points per grid cell
-      nq_pr    : [2, 2, 2] # quadrature points per histopolation cell (for commuting projectors)
-      polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
+    Nel      : [16, 16, 8] # number of grid cells, >p
+    p        : [2, 2, 1]  # spline degree
+    spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
+    bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
+    nq_el    : [2, 2, 2] # quadrature points per grid cell
+    nq_pr    : [2, 2, 2] # quadrature points per histopolation cell (for commuting projectors)
+    polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
 
 time : 
-      dt         : 0.05 # time step
-      Tend       : .5 # simulation time interval is [0, Tend]
-      max_time   : 300. # maximum runtime of program in minutes
-      split_algo : LieTrotter # LieTrotter | Strang
+    dt         : 0.05 # time step
+    Tend       : .5 # simulation time interval is [0, Tend]
+    max_time   : 300. # maximum runtime of program in minutes
+    split_algo : LieTrotter # LieTrotter | Strang
       
 geometry : 
-      type : HollowTorus # mapping F (possible types seen below)  
-      HollowTorus :
-            a1 : .1 # inner radius
-            a2 : 1. # minor radius
-            R0 : 4. # major radius
+    type : HollowTorus # mapping F (possible types seen below)  
+    HollowTorus :
+        a1 : .1 # inner radius
+        a2 : 1. # minor radius
+        R0 : 4. # major radius
+        tor_period: 1 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
                 
 em_fields : 
-      init :
-            type   : TorusModesSin # initial conditions (possible types seen below)
-            coords : logical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
-            comps  : [[True, True, False], [False, False, False]] # default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
-            TorusModesSin : 
-                  ms : [3] # poloidal mode numbers
-                  ns : [1] # toroidal mode numbers
-                  amp : [0.001] # amplitudes
-                  pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
-                  pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
+    init :
+        type : TorusModesSin # initial conditions (possible types seen below)
+        TorusModesSin : 
+            coords : 'logical' # in which coordinates (logical or physical)
+            comps :
+                e_field : [True, True, False]   # components to be initialized (for scalar fields: no list)
+                b_field : [False, False, False] # components to be initialized (for scalar fields: no list)
+            ms : [3] # poloidal mode numbers
+            ns : [1] # toroidal mode numbers
+            amp : [0.001] # amplitudes
+            pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
+            pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
 
 solvers :
-      solver_1 : 
-            type : pcg
-            pc : MassMatrixPreconditioner # null or name of preconditioner class
-            tol : 1.e-8
-            maxiter : 3000
-            info : False
-            verbose : False
+    solver_1 : 
+        type : pcg
+        pc : MassMatrixPreconditioner # null or name of preconditioner class
+        tol : 1.e-8
+        maxiter : 3000
+        info : False
+        verbose : False

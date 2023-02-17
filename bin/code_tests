@@ -1,18 +1,29 @@
 #!/bin/bash -e
 
 # Test Maxwell
-struphy run Maxwell -i tests/params_maxwell_1.yml -o sim_1
-struphy run Maxwell -i tests/params_maxwell_2.yml -o sim_2
-struphy run Maxwell -i tests/params_maxwell_2.yml -o sim_3 --mpi 2
-struphy profile sim_1 sim_2 sim_3
-struphy pproc sim_1 sim_2 sim_3
+struphy run Maxwell -i tests/params_maxwell_1.yml -o sim_test_1
+struphy run Maxwell -i tests/params_maxwell_2.yml -o sim_test_2
+struphy run Maxwell -i tests/params_maxwell_2.yml -o sim_test_3 --mpi 2
+struphy profile sim_test_1 sim_test_2 sim_test_3
+struphy pproc sim_test_1 sim_test_2 sim_test_3
+
 # Test LinearMHD
-struphy run LinearMHD -i tests/params_linearmhd.yml -o sim_4
-struphy run LinearMHD -i tests/params_linearmhd.yml -o sim_5 --mpi 2
-struphy profile sim_4 sim_5
-struphy pproc sim_4 sim_5
-# Test PC_LinearMHD_Vlasov
-struphy run PC_LinearMHD_Vlasov -i tests/params_pc_linmhd_6d.yml -o sim_6
+struphy run LinearMHD -i tests/params_linearmhd.yml -o sim_test_4
+struphy run LinearMHD -i tests/params_linearmhd.yml -o sim_test_5 --mpi 2
+#struphy run LinearMHD -i tests/params_linearmhd_gvec.yml -o sim_test_6 # TODO: fix gvec current density
+struphy profile sim_test_4 sim_test_5
+struphy pproc sim_test_4 sim_test_5
+
+# Test HybridMHDVlasovPC
+struphy run LinearMHDVlasovPC -i tests/params_pc_linmhd_6d.yml -o sim_test_6
+
 # Test LinearVlasovMaxwell
-struphy run LinearVlasovMaxwell -i tests/params_linvlasovmaxwell.yml -o sim_7
+struphy run LinearVlasovMaxwell -i tests/params_linvlasovmaxwell.yml -o sim_test_7 --mpi 2
+struphy pproc sim_test_7
+
+# Test HybridMHDVlasovCC
+struphy run LinearMHDVlasovCC -i tests/params_hybridmhdvlasovcc.yml -o sim_test_8 --mpi 2
+struphy run LinearMHDVlasovCC -i tests/params_hybridmhdvlasovcc_control.yml -o sim_test_9 --mpi 2
+struphy pproc sim_test_8 sim_test_9
+
 # Add Test for each model

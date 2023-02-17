@@ -120,57 +120,62 @@ class Field:
         """
 
         if isinstance(self._vector, StencilVector):
-            
+
             assert isinstance(value, (StencilVector, np.ndarray))
-            
+
             s1, s2, s3 = self.starts
             e1, e2, e3 = self.ends
-            
-            self._vector[s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = value[s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
-        
+
+            self._vector[s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = \
+                value[s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
+
         elif isinstance(self._vector, BlockVector):
-            
+
             assert isinstance(value, (BlockVector, list, tuple))
-            
+
             for n in range(3):
 
                 s1, s2, s3 = self.starts[n]
                 e1, e2, e3 = self.ends[n]
-                
-                self._vector[n][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = value[n][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
-                
+
+                self._vector[n][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = \
+                    value[n][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
+
         elif isinstance(self._vector, PolarVector):
-            
+
             assert isinstance(value, (PolarVector, list, tuple))
-            
+
             if isinstance(value, PolarVector):
                 self._vector.set_vector(value)
             else:
-                
+
                 if isinstance(self._vector.tp, StencilVector):
-                    
+
                     assert isinstance(value[0], np.ndarray)
                     assert isinstance(value[1], (StencilVector, np.ndarray))
-                    
+
                     self._vector.pol[0][:] = value[0][:]
-                    
+
                     s1, s2, s3 = self.starts
                     e1, e2, e3 = self.ends
 
-                    self._vector.tp[s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = value[1][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
+                    self._vector.tp[s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = \
+                        value[1][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
                 else:
                     for n in range(3):
-                        
+
                         assert isinstance(value[n][0], np.ndarray)
-                        assert isinstance(value[n][1], (StencilVector, np.ndarray))
-                        
+                        assert isinstance(
+                            value[n][1], (StencilVector, np.ndarray))
+
                         self._vector.pol[n][:] = value[n][0][:]
-                        
+
                         s1, s2, s3 = self.starts[n]
                         e1, e2, e3 = self.ends[n]
 
-                        self._vector.tp[n][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = value[n][1][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
-       
+                        self._vector.tp[n][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = \
+                            value[n][1][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
+
     @property
     def starts(self):
         """ Global indices of the first FE coefficient on the process, in each direction.
@@ -219,105 +224,107 @@ class Field:
         if update_ghost_regions:
             self._vector_stencil.update_ghost_regions()
 
-    def initialize_coeffs(self, comps, init_params, domain=None):
+    def initialize_coeffs(self, init_params, domain=None):
         """
         Sets the initial conditions for self.vector.
 
         Parameters
         ----------
-            comps : list[bool]
-                Booleans that specify whether field component(s) has non-zero initial conditions (True).
+        init_params : dict
+            Parameters of initial condition, see from :ref:`params_yml`.
 
-            init_params : dict
-                Parameters of initial condition, see from :ref:`params_yml`.
-
-            domain : struphy.geometry.domains
-                Optional: all things mapping. Needed when init_params['coords'] == 'physical'.
+        domain : struphy.geometry.domains (optional)
+            Domain object for metric coefficients. Needed if init_params[init_params['type']]['coords'] == 'physical'.
         """
-
-        if self._derham.comm is not None:
-            rank = self._derham.comm.Get_rank()
-        else:
-            rank = 0
 
         # set initial conditions for each component
         init_type = init_params['type']
-        init_coords = init_params['coords']
-        init_comps = init_params['comps']
-        fun_params = init_params[init_type]
 
-        # make sure that given comps are part of the comps given in the parameter file
-        assert comps in init_comps
+        if init_type is not None:
+            fun_params = init_params[init_type]
 
-        if init_coords == 'physical':
-            assert domain is not None
+            # white noise in logical space for different components
+            if init_type == 'noise':
 
-        # white noise
-        if init_type == 'noise':
+                # component(s) to perturb
+                if isinstance(fun_params['comps'][self._name], bool):
+                    comps = [fun_params['comps'][self._name]]
+                else:
+                    comps = fun_params['comps'][self._name]
 
-            # set white noise FE coefficients
-            if self.space_id in {'H1', 'L2'}:
-                if comps[0]:
-                    self._add_noise(fun_params)
+                # set white noise FE coefficients
+                if self.space_id in {'H1', 'L2'}:
+                    if comps[0]:
+                        self._add_noise(fun_params)
 
-            elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
+                elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
+                    for n, comp in enumerate(comps):
+                        if comp:
+                            self._add_noise(fun_params, n=n)
+
+            # Fourier modes
+            elif 'ModesSin' in init_type or 'ModesCos' in init_type:
+
+                # component(s) to perturb
+                if isinstance(fun_params['comps'][self._name], bool):
+                    comps = [fun_params['comps'][self._name]]
+                else:
+                    comps = fun_params['comps'][self._name]
+
+                # coordinates: logical or physical
+                coords = fun_params['coords']
+
+                # get callable(s) for specified init type
+                fun_tmp = [None] * len(comps)
                 for n, comp in enumerate(comps):
+                    assert isinstance(comp, bool)
                     if comp:
-                        self._add_noise(fun_params, n=n)
+                        fun_class = getattr(perturbations, init_type)
+                        fun_tmp[n] = fun_class(*list(fun_params.values())[2:])
 
-        # Fourier modes
-        elif 'ModesSin' in init_type or 'ModesCos' in init_type:
+                # pullback callable
+                form_str = self.derham.forms_dict[self.space_id]
 
-            # get callable(s) for specified init type
-            fun_tmp = [None] * len(comps)
-            for n, comp in enumerate(comps):
-                assert isinstance(comp, bool)
-                if comp:
-                    fun_class = getattr(perturbations, init_type)
-                    fun_tmp[n] = fun_class(*list(fun_params.values()))
+                if self.space_id in {'H1', 'L2'}:
+                    fun = PulledPform(coords, fun_tmp,
+                                      domain, form_str)
+                elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
+                    fun = []
 
-            # pullback callable
-            form_str = self.derham.forms_dict[self.space_id]
+                    fun += [PulledPform(coords, fun_tmp, domain,
+                                        form_str + '_1')]
+                    fun += [PulledPform(coords, fun_tmp, domain,
+                                        form_str + '_2')]
+                    fun += [PulledPform(coords, fun_tmp, domain,
+                                        form_str + '_3')]
 
-            if self.space_id in {'H1', 'L2'}:
-                fun = PulledPform(init_coords,
-                                  fun_tmp, domain, form_str)
-            elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
-                fun = []
+                # peform projection
+                self.vector = self.derham.P[self.space_key](fun)
 
-                fun += [PulledPform(init_coords,
-                                    fun_tmp, domain, form_str + '_1')]
-                fun += [PulledPform(init_coords,
-                                    fun_tmp, domain, form_str + '_2')]
-                fun += [PulledPform(init_coords,
-                                    fun_tmp, domain, form_str + '_3')]
+            # loading of eigenfunction
+            elif init_type[-6:] == 'EigFun':
 
-            # peform projection
-            self.vector = self.derham.P[self.space_key](fun)
+                # select class
+                funs = getattr(eigenfunctions, init_type)(
+                    fun_params, self.derham)
 
-        # loading of eigenfunction
-        elif init_type[-6:] == 'EigFun':
+                # select eigenvector and set coefficients
+                if hasattr(funs, self.name):
 
-            # select class
-            funs = getattr(eigenfunctions, init_type)(fun_params, self.derham)
+                    eig_vec = getattr(funs, self.name)
 
-            # select eigenvector and set coefficients
-            if hasattr(funs, self.name):
+                    self.vector = eig_vec
 
-                eig_vec = getattr(funs, self.name)
+            # projection of analytical function
+            else:
 
-                self.vector = eig_vec
+                # select class
+                funs = getattr(analytic, init_type)(fun_params, domain)
 
-        # projection of analytical function
-        else:
-
-            # select class
-            funs = getattr(analytic, init_type)(fun_params, domain)
-
-            # select function and project project
-            if hasattr(funs, self.name):
-                self.vector = self.derham.P[self.space_key](
-                    getattr(funs, self.name))
+                # select function and project project
+                if hasattr(funs, self.name):
+                    self.vector = self.derham.P[self.space_key](
+                        getattr(funs, self.name))
 
         # apply boundary operator (in-place)
         self.derham.B[self.space_key].dot(self._vector, out=self._vector)
@@ -455,7 +462,7 @@ class Field:
                 From parameters/fields/init/noise.
         """
 
-        _direction = fun_params['direction']
+        _direction = fun_params['variation_in']
         _ampsize = fun_params['amp']
 
         if n == None:
@@ -467,7 +474,7 @@ class Field:
             _shape = (self._gl_e[n][0] + 1 - self._gl_s[n][0], self._gl_e[n]
                       [1] + 1 - self._gl_s[n][1], self._gl_e[n][2] + 1 - self._gl_s[n][2])
 
-        if _direction == 'x':
+        if _direction == 'e1':
             _amps = (np.random.rand(_shape_w_pads[0]) - .5) * 2. * _ampsize
             for j in range(_shape[1]):
                 for k in range(_shape[2]):
@@ -478,7 +485,7 @@ class Field:
                         self._vector[n][:, self._gl_s[n][1] +
                                         j, self._gl_s[n][2] + k] = _amps
 
-        elif _direction == 'y':
+        elif _direction == 'e2':
             _amps = (np.random.rand(_shape_w_pads[1]) - .5) * 2. * _ampsize
             for j in range(_shape[0]):
                 for k in range(_shape[2]):
@@ -489,7 +496,7 @@ class Field:
                         self._vector[n][self._gl_s[n][0] + j,
                                         :, self._gl_s[n][2] + k] = _amps
 
-        elif _direction == 'z':
+        elif _direction == 'e3':
             _amps = (np.random.rand(_shape_w_pads[2]) - .5) * 2. * _ampsize
             for j in range(_shape[0]):
                 for k in range(_shape[1]):
@@ -500,7 +507,7 @@ class Field:
                         self._vector[n][self._gl_s[n][0] + j,
                                         self._gl_s[n][1] + k, :] = _amps
 
-        elif _direction == 'xy':
+        elif _direction == 'e1e2':
             _amps = (np.random.rand(
                 _shape_w_pads[0], _shape_w_pads[1]) - .5) * 2. * _ampsize
             for j in range(_shape[2]):
@@ -509,7 +516,7 @@ class Field:
                 else:
                     self._vector[n][:, :, self._gl_s[n][2] + j] = _amps
 
-        elif _direction == 'xz':
+        elif _direction == 'e1e3':
             _amps = (np.random.rand(
                 _shape_w_pads[0], _shape_w_pads[2]) - .5) * 2. * _ampsize
             for j in range(_shape[1]):
@@ -518,7 +525,7 @@ class Field:
                 else:
                     self._vector[n][:, self._gl_s[n][1] + j, :] = _amps
 
-        elif _direction == 'yz':
+        elif _direction == 'e2e3':
             _amps = (np.random.rand(
                 _shape_w_pads[1], _shape_w_pads[2]) - .5) * 2. * _ampsize
             for j in range(_shape[0]):
@@ -527,7 +534,7 @@ class Field:
                 else:
                     self._vector[n][self._gl_s[n][0] + j, :, :] = _amps
 
-        elif _direction == 'xyz':
+        elif _direction == 'e1e2e3':
             _amps = (np.random.rand(
                 _shape_w_pads[0], _shape_w_pads[1], _shape_w_pads[2]) - .5) * 2. * _ampsize
             if n == None:
@@ -597,7 +604,12 @@ class PulledPform:
         if self._coords == 'logical':
             f = self._fun[self._comp](eta1, eta2, eta3)
         elif self._coords == 'physical':
-            self._domain.pull(self._fun, eta1, eta2, eta3, kind=self._form[:-2])[int(self._form[-1]) - 1]
+            if self._form[0] == '0' or self._form[0] == '3':
+                f = self._domain.pull(
+                    self._fun, eta1, eta2, eta3, kind=self._form)
+            else:
+                f = self._domain.pull(
+                    self._fun, eta1, eta2, eta3, kind=self._form[:-2])[self._comp]
         else:
             raise ValueError(
                 'Coordinates to be used for p-form pullback not properly specified.')

@@ -50,29 +50,29 @@ class Propagator(metaclass=ABCMeta):
                 A list [max(abs(self.variables - variables_new)), ...] for all variables in self.variables and variables_new.'''
 
         diffs = []
-        
+
         for i, new in enumerate(variables_new):
-            
+
             assert type(new) is type(self.variables[i])
-            
+
             # calculate maximum of difference abs(old - new)
             diffs += [np.max(np.abs(self.variables[i].toarray() - new.toarray()))]
-            
+
             # in-place update
             if isinstance(new, StencilVector):
                 self.variables[i][:] = new[:]
-                
+
             elif isinstance(new, BlockVector):
                 for n in range(3):
                     self.variables[i][n][:] = new[n][:]
-                    
+
             elif isinstance(new, PolarVector):
                 self.variables[i].set_vector(new)
-                
+
             else:
                 raise NotImplementedError(
-                    f'Update of variable type {type(arg)} not implemented.')
-                
+                    f'Update of variable type {type(new)} not implemented.')
+
             # important: sync processes!
             self.variables[i].update_ghost_regions()
 

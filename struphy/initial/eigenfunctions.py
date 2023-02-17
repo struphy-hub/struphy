@@ -7,8 +7,6 @@ from sympde.topology import Line, Derham
 
 from psydac.api.discretization import discretize
 
-from struphy.initial.base import InitialMHD
-
 
 class InitialMHDAxisymHdivEigFun:
     r"""
@@ -60,8 +58,8 @@ class InitialMHDAxisymHdivEigFun:
         domain_log = Line('L', bounds=(0, 1))
         derham_sym = Derham(domain_log)
         
-        domain_log_h = discretize(domain_log, ncells=[derham.Nel[2]])
-        derham_1d = discretize(derham_sym, domain_log_h, degree=[derham.p[2]], periodic=[True], quad_order=[derham.quad_order[2]])
+        domain_log_h = discretize(domain_log, ncells=[derham.Nel[2]], periodic=[True])
+        derham_1d = discretize(derham_sym, domain_log_h, degree=[derham.p[2]], quad_order=[derham.quad_order[2]])
         
         p0, p1 = derham_1d.projectors(nquads=[derham.nq_pr[2]])
         
