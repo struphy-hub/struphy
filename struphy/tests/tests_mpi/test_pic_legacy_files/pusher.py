@@ -20,16 +20,16 @@ class Pusher:
         if self.domain.pole:
             
             # IGA straight
-            if self.domain.kind_map ==  1: self.map_pseudo, self.R0_pseudo = 11, self.domain.cx[0, 0, 0]
+            if self.domain.kind_map ==  1: self.map_pseudo, self.R0_pseudo = 20, self.domain.cx[0, 0, 0]
                 
             # IGA toroidal
-            if self.domain.kind_map ==  2: self.map_pseudo, self.R0_pseudo = 14, self.domain.cx[0, 0, 0]
+            if self.domain.kind_map ==  2: self.map_pseudo, self.R0_pseudo = 22, self.domain.cx[0, 0, 0]
             
             # analytical hollow cylinder 
-            if self.domain.kind_map == 11: self.map_pseudo, self.R0_pseudo = 11, self.domain.params_map[2]
+            if self.domain.kind_map == 20: self.map_pseudo, self.R0_pseudo = 20, self.domain.params_numpy[2]
                 
             # analytical hollow torus
-            if self.domain.kind_map == 14: self.map_pseudo, self.R0_pseudo = 14, self.domain.params_map[2]
+            if self.domain.kind_map == 22: self.map_pseudo, self.R0_pseudo = 22, self.domain.params_numpy[2]
         
         # FEM space for perturbed fields
         self.fem_space = fem_space
@@ -74,11 +74,11 @@ class Pusher:
         # push particles
         if self.fem_space.dim == 2:
 
-            push_vel_2d.pusher_step3(particles, dt, self.fem_space.T[0], self.fem_space.T[1], self.fem_space.p, self.fem_space.Nel, self.fem_space.NbaseN, self.fem_space.NbaseD, particles.shape[1], self.b2_eq[0], self.b2_eq[1], self.b2_eq[2], b2[0], b2[1], b2[2], self.b0_eq, up[0], up[1], up[2], self.basis_u, self.domain.kind_map, self.domain.params_map, self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, mu_0, power, self.fem_space.n_tor)
+            push_vel_2d.pusher_step3(particles, dt, self.fem_space.T[0], self.fem_space.T[1], self.fem_space.p, self.fem_space.Nel, self.fem_space.NbaseN, self.fem_space.NbaseD, particles.shape[1], self.b2_eq[0], self.b2_eq[1], self.b2_eq[2], b2[0], b2[1], b2[2], self.b0_eq, up[0], up[1], up[2], self.basis_u, self.domain.kind_map, self.domain.params_numpy, self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, mu_0, power, self.fem_space.n_tor)
             
         else:
 
-            push_vel_3d.pusher_step3(particles, dt, self.fem_space.T[0], self.fem_space.T[1], self.fem_space.T[2], self.fem_space.p, self.fem_space.Nel, self.fem_space.NbaseN, self.fem_space.NbaseD, particles.shape[1], self.b2_eq[0] + b2[0], self.b2_eq[1] + b2[1], self.b2_eq[2] + b2[2], self.b0_eq, up[0], up[1], up[2], self.basis_u, self.domain.kind_map, self.domain.params_map, self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, mu_0, power)
+            push_vel_3d.pusher_step3(particles, dt, self.fem_space.T[0], self.fem_space.T[1], self.fem_space.T[2], self.fem_space.p, self.fem_space.Nel, self.fem_space.NbaseN, self.fem_space.NbaseD, particles.shape[1], self.b2_eq[0] + b2[0], self.b2_eq[1] + b2[1], self.b2_eq[2] + b2[2], self.b0_eq, up[0], up[1], up[2], self.basis_u, self.domain.kind_map, self.domain.params_numpy, self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, mu_0, power)
     
     
     
@@ -91,12 +91,12 @@ class Pusher:
         # modified pusher in pseudo cartesian coordinates (for polar domain)
         if self.domain.pole:
 
-            push_pos.pusher_step4_pcart(particles, dt, particles.shape[1], self.domain.kind_map, self.domain.params_map, self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, self.map_pseudo, self.R0_pseudo)
+            push_pos.pusher_step4_pcart(particles, dt, particles.shape[1], self.domain.kind_map, self.domain.params_numpy, self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, self.map_pseudo, self.R0_pseudo)
             
         # standard pusher in logical coordinates (for domains without a pole)
         else:
 
-            push_pos.pusher_step4(particles, dt, particles.shape[1], self.domain.kind_map, self.domain.params_map, self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, self.bc_pos)
+            push_pos.pusher_step4(particles, dt, particles.shape[1], self.domain.kind_map, self.domain.params_numpy, self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, self.bc_pos)
 
     
     
@@ -112,11 +112,11 @@ class Pusher:
         # push particles
         if self.fem_space.dim == 2:
 
-            push_vel_2d.pusher_step5(particles, dt, self.fem_space.T[0], self.fem_space.T[1], self.fem_space.p, self.fem_space.Nel, self.fem_space.NbaseN, self.fem_space.NbaseD, particles.shape[1], self.b2_eq[0], self.b2_eq[1], self.b2_eq[2], b2[0], b2[1], b2[2], self.domain.kind_map, self.domain.params_map, self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, self.fem_space.n_tor)
+            push_vel_2d.pusher_step5(particles, dt, self.fem_space.T[0], self.fem_space.T[1], self.fem_space.p, self.fem_space.Nel, self.fem_space.NbaseN, self.fem_space.NbaseD, particles.shape[1], self.b2_eq[0], self.b2_eq[1], self.b2_eq[2], b2[0], b2[1], b2[2], self.domain.kind_map, self.domain.params_numpy, self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, self.fem_space.n_tor)
 
         else:
 
-            push_vel_3d.pusher_step5(particles, dt, self.fem_space.T[0], self.fem_space.T[1], self.fem_space.T[2], self.fem_space.p, self.fem_space.Nel, self.fem_space.NbaseN, self.fem_space.NbaseD, particles.shape[1], self.b2_eq[0] + b2[0], self.b2_eq[1] + b2[1], self.b2_eq[2] + b2[2], self.domain.kind_map, self.domain.params_map, self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz)
+            push_vel_3d.pusher_step5(particles, dt, self.fem_space.T[0], self.fem_space.T[1], self.fem_space.T[2], self.fem_space.p, self.fem_space.Nel, self.fem_space.NbaseN, self.fem_space.NbaseD, particles.shape[1], self.b2_eq[0] + b2[0], self.b2_eq[1] + b2[1], self.b2_eq[2] + b2[2], self.domain.kind_map, self.domain.params_numpy, self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz)
 
 
     
@@ -138,7 +138,7 @@ class Pusher:
         push_pos.pusher_rk4_pc_full(particles, dt, self.fem_space.T[0], self.fem_space.T[1], self.fem_space.T[2], 
                                     self.fem_space.p, self.fem_space.Nel, self.fem_space.NbaseN, self.fem_space.NbaseD, particles.shape[1], 
                                     up[0], up[1], up[2], 
-                                    self.basis_u, self.domain.kind_map, self.domain.params_map, 
+                                    self.basis_u, self.domain.kind_map, self.domain.params_numpy, 
                                     self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, 
                                     self.domain.Nel, self.domain.NbaseN, 
                                     self.domain.cx, self.domain.cy, self.domain.cz, 
@@ -167,7 +167,7 @@ class Pusher:
         push_pos.pusher_rk4_pc_perp(particles, dt, self.fem_space.T[0], self.fem_space.T[1], self.fem_space.T[2], 
                                     self.fem_space.p, self.fem_space.Nel, self.fem_space.NbaseN, self.fem_space.NbaseD, particles.shape[1], 
                                     up[0], up[1], up[2], 
-                                    self.basis_u, self.domain.kind_map, self.domain.params_map, 
+                                    self.basis_u, self.domain.kind_map, self.domain.params_numpy, 
                                     self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, 
                                     self.domain.Nel, self.domain.NbaseN, 
                                     self.domain.cx, self.domain.cy, self.domain.cz, self.bc_pos)
@@ -192,7 +192,7 @@ class Pusher:
                                            GXu_1_1, GXu_1_2, GXu_1_3, 
                                            GXu_2_1, GXu_2_2, GXu_2_3, 
                                            GXu_3_1, GXu_3_2, GXu_3_3, 
-                                           self.domain.kind_map, self.domain.params_map, 
+                                           self.domain.kind_map, self.domain.params_numpy, 
                                            self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, 
                                            self.domain.Nel, self.domain.NbaseN, 
                                            self.domain.cx, self.domain.cy, self.domain.cz)
@@ -217,7 +217,7 @@ class Pusher:
                                            GXu_1_1, GXu_1_2, GXu_1_3, 
                                            GXu_2_1, GXu_2_2, GXu_2_3, 
                                            GXu_3_1, GXu_3_2, GXu_3_3, 
-                                           self.domain.kind_map, self.domain.params_map, 
+                                           self.domain.kind_map, self.domain.params_numpy, 
                                            self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, 
                                            self.domain.Nel, self.domain.NbaseN, 
                                            self.domain.cx, self.domain.cy, self.domain.cz)

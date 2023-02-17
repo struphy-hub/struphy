@@ -10,12 +10,15 @@ import pytest
     ['Colella', {
         'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}],
     ['HollowTorus', {
-        'a1': 1., 'a2': 2., 'R0': 3.}],
+        'a1': 1., 'a2': 2., 'R0': 3., 'tor_period': 1}],
     ['ShafranovDshapedCylinder', {
-        'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}],
+        'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}],
 ])
 def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
-    
+    """
+    TODO
+    """
+
     from mpi4py import MPI
     import numpy as np
 
@@ -35,7 +38,7 @@ def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
     dom_params = mapping[1]
 
     domain_class = getattr(domains, dom_type)
-    domain = domain_class(dom_params)
+    domain = domain_class(**dom_params)
 
     derham = Derham(Nel, p, spl_kind, comm=MPI.COMM_WORLD)
 
@@ -97,4 +100,4 @@ def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
 if __name__ == '__main__':
     test_composite_sum_scalar_inverse(
         [8, 10, 4], [2, 3, 2], [False, True, True], ['Colella', {
-        'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}])
+            'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}])

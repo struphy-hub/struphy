@@ -7,14 +7,34 @@ from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Mul
 
 
 class SchurSolver:
-    '''Solves for x in the block system
+    '''Solves for :math:`x^{n+1}` in the block system
 
-    [[A B], [C Id]] [x, y] = [[A -B], [-C Id]] [xn, yn] ,
+    .. math::
 
-    using the Schur complement S=A-BC, where Id is the identity matrix and [xn, yn] is given.
-    The solution is given by
+        \left( \matrix{
+            A & \Delta t B \cr
+            \Delta t C & \\text{Id}
+        } \\right)
+        \left( \matrix{
+            x^{n+1} \cr y^{n+1}
+        } \\right)
+        =
+        \left( \matrix{
+            A & - \Delta t B \cr
+            - \Delta t C & \\text{Id}
+        } \\right)
+        \left( \matrix{
+            x^n \cr y^n
+        } \\right)
 
-    x = S^{-1}[(A + BC)*xn - 2B*yn] .'''
+    using the Schur complement :math:`S = A - \Delta t^2 BC`, where Id is the identity matrix
+    and :math:`(x^n, y^n)^T` is given. The solution is given by
+
+    .. math::
+
+        x^{n+1} = S^{-1} \left[ (A + \Delta t^2 BC) \, x^n - 2 \Delta t B \, y^n \\right] \,.
+
+    '''
 
     def __init__(self, A, BC, pc, solver_type, tol, maxiter, verbose):
         '''
@@ -115,7 +135,7 @@ class SchurSolver:
         assert xn.space == self._rhs_mat.domain
         assert Byn.space == self._rhs_mat.codomain
 
-        _rhs = self._rhs_mat.dot(xn) - dt*2.*Byn
+        _rhs = self._rhs_mat.dot(xn) - 2. * dt * Byn
 
         if self._solver_type == 'pcg':
 

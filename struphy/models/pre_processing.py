@@ -45,16 +45,16 @@ def plasma_params(Z, M, kBT, beta, size_params):
     pparams['v_th [10^6 m/s]'] = np.sqrt(kBT*1000*e/(M*m_p))*1e-6
 
     # cyclotron frequency (MHz)
-    pparams['omega_c/(2*pi) [MHz]'] = Z*e*size_params['B_abs [T]']/(M*m_p)/(2*np.pi)*1e-6
+    pparams['omega_c/(2*pi) [MHz]'] = Z*e*size_params['B_abs [B\u0302]']/(M*m_p)/(2*np.pi)*1e-6
 
     # transit frequency (MHz)
-    pparams['omega_th/(2*pi) [MHz]'] = pparams['v_th [10^6 m/s]']*size_params['transit k [1/m]']/(2*np.pi)
+    pparams['omega_th/(2*pi) [MHz]'] = pparams['v_th [10^6 m/s]']*size_params['transit k [x\u0302⁻¹]']/(2*np.pi)
 
     # epsilon = omega_th/omega_c = k*rho = rhostar
     pparams['epsilon'] = pparams['omega_th/(2*pi) [MHz]'] / pparams['omega_c/(2*pi) [MHz]']
 
     # pressure (bar)
-    pparams['p [bar]'] = beta*size_params['B_abs [T]']**2/(2*mu0)*1e-5
+    pparams['p [bar]'] = beta*size_params['B_abs [B\u0302]']**2/(2*mu0)*1e-5
 
     # density (10^20/m^3)
     pparams['n [10^20/m^3]'] = pparams['p [bar]']*1e5/(kBT*1000*e)*1e-20
@@ -64,6 +64,15 @@ def plasma_params(Z, M, kBT, beta, size_params):
 
     # alpha = omega_p/omega_c
     pparams['alpha'] = pparams['omega_p/(2*pi) [MHz]'] / pparams['omega_c/(2*pi) [MHz]']
+    
+    # Alfvén velocity vA = B/sqrt(M*n*mu0)
+    pparams['v_A [10⁶ m/s]'] = size_params['B_abs [B\u0302]']/np.sqrt(mu0*M*pparams['n [10^20/m^3]']*1e20*m_p)*1e-6
+    
+    # kappa = e/(m_p*vA)
+    pparams['kappa'] = e/(m_p*pparams['v_A [10⁶ m/s]']*1e6)
+    
+    if abs(pparams['kappa'] - 1) < 1e-6:
+        pparams['kappa'] = 1.
 
     return pparams
 

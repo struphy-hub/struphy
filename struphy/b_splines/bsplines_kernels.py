@@ -177,6 +177,109 @@ def basis_funs_all(t: 'float[:]', p: 'int', eta: 'float', span: 'int', left: 'fl
 
 
 @pure
+def basis_funs_all_ders(knots: 'float[:]', degree: int, eta: float, span: int, left: 'float[:]', right: 'float[:]', n: int, ders: 'float[:, :]'):
+    """
+    Copied from gvec_to_python, where it is tested.
+
+    Evaluate value and n derivatives at eta of all basis functions with
+    support in interval [x_{span-1}, x_{span}].
+
+    ders[i,j] = (d/deta)^i B_k(eta) with k=(span-degree+j),
+                for 0 <= i <= n and 0 <= j <= degree+1.
+
+    Parameters
+    ----------
+    knots : array_like
+        Knots sequence.
+
+    degree : int
+        Polynomial degree of B-splines.
+
+    eta : float
+        Evaluation point.
+
+    span : int
+        Knot span index.
+
+    n : int
+        Max derivative of interest.
+
+    Results
+    -------
+    ders : numpy.ndarray (n+1,degree+1)
+        2D array of n+1 (from 0-th to n-th) derivatives at eta of all (degree+1)
+        non-vanishing basis functions in given span.
+
+    Notes
+    -----
+    The original Algorithm A2.3 in The NURBS Book [1] is here improved:
+        - 'left' and 'right' arrays are 1 element shorter;
+        - inverse of knot differences are saved to avoid unnecessary divisions;
+        - innermost loops are replaced with vector operations on slices.
+    """
+    #left = empty(degree)
+    #right = empty(degree)
+    ndu = empty((degree+1, degree+1))
+    a = empty((2, degree+1))
+    #ders = zeros((n+1, degree+1))  # output array
+
+    # Number of derivatives that need to be effectively computed
+    # Derivatives higher than degree are = 0.
+    ne = min(n, degree)
+
+    # Compute nonzero basis functions and knot differences for splines
+    # up to degree, which are needed to compute derivatives.
+    # Store values in 2D temporary array 'ndu' (square matrix).
+    ndu[0, 0] = 1.0
+    for j in range(0, degree):
+        left[j] = eta - knots[span-j]
+        right[j] = knots[span+1+j] - eta
+        saved = 0.0
+        for r in range(0, j+1):
+            # compute inverse of knot differences and save them into lower triangular part of ndu
+            ndu[j+1, r] = 1.0 / (right[r] + left[j-r])
+            # compute basis functions and save them into upper triangular part of ndu
+            temp = ndu[r, j] * ndu[j+1, r]
+            ndu[r, j+1] = saved + right[r] * temp
+            saved = left[j-r] * temp
+        ndu[j+1, j+1] = saved
+
+    # Compute derivatives in 2D output array 'ders'
+    ders[0, :] = ndu[:, degree]
+    for r in range(0, degree+1):
+        s1 = 0
+        s2 = 1
+        a[0, 0] = 1.0
+        for k in range(1, ne+1):
+            d = 0.0
+            rk = r-k
+            pk = degree-k
+            if r >= k:
+                a[s2, 0] = a[s1, 0] * ndu[pk+1, rk]
+                d = a[s2, 0] * ndu[rk, pk]
+            j1 = 1 if (rk > -1) else -rk
+            j2 = k-1 if (r-1 <= pk) else degree-r
+            a[s2, j1:j2+1] = (a[s1, j1:j2+1] - a[s1, j1-1:j2]
+                              ) * ndu[pk+1, rk+j1:rk+j2+1]
+            for l in range(j2 + 1 - j1):
+                d += a[s2, j1 + l] * ndu[rk + j1 + l, pk]
+            #d += dot(a[s2, j1:j2+1], ndu[rk+j1:rk+j2+1, pk])
+            if r <= pk:
+                a[s2, k] = - a[s1, k-1] * ndu[pk+1, r]
+                d += a[s2, k] * ndu[r, pk]
+            ders[k, r] = d
+            j = s1
+            s1 = s2
+            s2 = j
+
+    # Multiply derivatives by correct factors
+    r = degree
+    for k in range(1, ne+1):
+        ders[k, :] = ders[k, :] * r
+        r = r * (degree-k)
+
+
+@pure
 @stack_array('left', 'right')
 def b_splines_slim(tn: 'float[:]', pn: 'int', eta: 'float', span: 'int', values: 'float[:]'):
     """

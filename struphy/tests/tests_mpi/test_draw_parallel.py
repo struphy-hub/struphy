@@ -9,7 +9,7 @@ import pytest
     ['Cuboid', {
         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}],
     ['ShafranovDshapedCylinder', {
-        'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
+        'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
 ])
 def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     '''Asserts whether all particles are on the correct process after `particles.mpi_sort_markers()`.'''
@@ -35,7 +35,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
 
     # Domain object
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(mapping[1])
+    domain = domain_class(**mapping[1])
 
     # Psydac discrete Derham sequence
     derham = Derham(Nel, p, spl_kind, comm=comm)
@@ -46,8 +46,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
         print(derham.domain_array)
 
     # create particles
-    particles = Particles6D('energetic_ions', marker_params,
-                            domain, derham.domain_array, comm)
+    particles = Particles6D('energetic_ions', marker_params, derham.domain_array, comm)
 
     comm.Barrier()
     print('Number of particles w/wo holes on each process before sorting : ')

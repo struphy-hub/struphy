@@ -141,14 +141,17 @@ Two dependencies have to be installed "by hand":
 
     curl -O --header "PRIVATE-TOKEN: glpat-5QH11Kx-65GGiykzR5xo" "https://gitlab.mpcdf.mpg.de/api/v4/projects/5368/jobs/1679220/artifacts/dist/gvec_to_python-0.1.2-py3-none-any.whl"
     pip install gvec_to_python-0.1.2-py3-none-any.whl
+    compile_gvec_to_python
 
 2. Install ``psydac`` package::
 
     git clone https://github.com/pyccel/psydac.git
     cd psydac
+    pip install h5py
     python3 -m pip install -r requirements.txt
     python3 -m pip install -r requirements_extra.txt --no-build-isolation
     pip install --no-build-isolation .
+    pip install sympy==1.6.1
 
 3. Install ``struphy``::
 

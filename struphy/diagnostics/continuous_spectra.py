@@ -97,11 +97,11 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
             U2_1_fft = np.fft.fft(U2_1_coeff)
             
             # determine m by looking for peak in Fourier spectrum at singularity
-            m = np.argmax(abs(U2_1_fft[s_ind]))
+            m = int((np.fft.fftfreq(U2_1_fft[s_ind].size)*U2_1_fft[s_ind].size)[np.argmax(abs(U2_1_fft[s_ind]))])
             
-            # perform shift for negative m
-            if m >= (space.Nel[1] + 1)//2:
-                m -= space.Nel[1]
+            ## perform shift for negative m
+            #if m >= (space.Nel[1] + 1)//2:
+            #    m -= space.Nel[1]
             
             # add to spectrum if found m is inside m_range
             for j in range(ms.size):
@@ -129,11 +129,11 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
             U2_fft = np.fft.fft(U2_coeff)
             
             # determine m by looking for peak in Fourier spectrum at singularity
-            m = np.argmax(abs(U2_fft[s_ind]))
+            m = int((np.fft.fftfreq(U2_fft[s_ind].size)*U2_fft[s_ind].size)[np.argmax(abs(U2_fft[s_ind]))])
             
-            # perform shift for negative m
-            if m >= (space.Nel[1] + 1)//2:
-                m -= space.Nel[1]
+            ## perform shift for negative m
+            #if m >= (space.Nel[1] + 1)//2:
+            #    m -= space.Nel[1]
             
             # add to spectrum if found m is inside m_range
             for j in range(ms.size):
@@ -188,16 +188,23 @@ if __name__ == '__main__':
     dom_params = params['geometry'][dom_type]
 
     domain_class = getattr(domains, dom_type)
-    domain = domain_class(dom_params)
+    domain = domain_class(**dom_params)
     
     # load appropriate MHD equilibrium
-    from struphy.fields_background.mhd_equil import analytical
+    from struphy.fields_background.mhd_equil import equils
     
     equil_params = params['mhd_equilibrium']
-    params_mhd = equil_params[equil_params['type']]
     
-    mhd_equil_class = getattr(analytical, equil_params['type'])
-    mhd_equil = mhd_equil_class(params_mhd, domain)
+    mhd_equil_class = getattr(equils, equil_params['type'])
+    mhd_equil = mhd_equil_class(**equil_params[equil_params['type']])
+
+    if equil_params['use_equil_domain']:
+        assert mhd_equil.domain is not None
+        domain = mhd_equil.domain
+    else:
+        mhd_equil.domain = domain
+        
+    params_mhd = equil_params[equil_params['type']]
     
     # set up spline spaces
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space

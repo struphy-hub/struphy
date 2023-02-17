@@ -12,6 +12,8 @@ __all__ = [ 'fill_mat',
 """
 
 from pyccel.decorators import pure
+import struphy.b_splines.bsplines_kernels_particles as bsp
+
 
 @pure
 def fill_mat(pi1 : int, pi2 : int, pi3 : int, pj1 : int, pj2 : int, pj3 : int, bi1 : 'float[:]', bi2 : 'float[:]', bi3 : 'float[:]', bj1 : 'float[:]', bj2 : 'float[:]', bj3 : 'float[:]', span1 : int, span2 : int, span3 : int, starts : 'int[:]', pads : 'int[:]', mat : 'float[:,:,:,:,:,:]', filling : float):
@@ -450,75 +452,38 @@ def fill_mat_vec_pressure(pi1 : int, pi2 : int, pi3 : int, pj1 : int, pj2 : int,
 
                             mat_11[i1, i2, i3, j1, j2, j3] += b6 * vx * vx
                             mat_12[i1, i2, i3, j1, j2, j3] += b6 * vx * vy
-                            mat_22[i1, i2, i3, j1, j2, j3] += b6 * vy * vy      
+                            mat_22[i1, i2, i3, j1, j2, j3] += b6 * vy * vy    
 
 
 
 
 
 @pure
-def fill_density_hybrid(pi1 : int, pi2 : int, pi3 : int, pj1 : int, pj2 : int, pj3 : int, bi1 : 'float[:]', bi2 : 'float[:]', bi3 : 'float[:]', bj1 : 'float[:]', bj2 : 'float[:]', bj3 : 'float[:]', span1 : int, span2 : int, span3 : int, starts : 'int[:]', pads : 'int[:]', mat : 'float[:,:,:,:,:,:]'):
-    """
-    Computes the entries of the matrix mu=1,nu=1 in V1 and fills it with basis functions times filling
+def hy_density(Nel: 'int[:]', pn: 'int[:]', cell_left: 'int[:]', cell_number: 'int[:]', span1: 'int', span2: 'int', span3: 'int', starts0: 'int[:]', ie1: 'int', ie2: 'int', ie3: 'int', temp1: 'float[:]', temp4: 'float[:]', quad: 'int[:]', quad_pts_x: 'float[:]', quad_pts_y: 'float[:]', quad_pts_z: 'float[:]', compact: 'float[:]', eta1: 'float', eta2: 'float', eta3: 'float', mat: 'float[:,:,:,:,:,:]', weight: 'float', p_shape: 'int[:]', p_size: 'float[:]', grids_shapex: 'float[:]', grids_shapey: 'float[:]', grids_shapez: 'float[:]'):
 
-    Parameters To DO :
-    ------------
-        pi1, pi2, pi3 : int
-            Spline degrees of the codomain (row indices).
-            
-        pj1, pj2, pj3 : int
-            Spline degrees of the domain (column indices).
+    for il1 in range(cell_number[0]):
+        i1 = span1 + il1 - starts0[0] - (ie1 - cell_left[0])
+        for il2 in range(cell_number[1]):
+            i2 = span2 + il2 - starts0[1] - (ie2 - cell_left[1])
+            for il3 in range(cell_number[2]):
+                i3 = span3 + il3 - starts0[2] - (ie3 - cell_left[2])
 
-        bi1, bi2, bi3 : array[float]
-            Contain the values of non-vanishing N/D-splines corresponding to the codomain.
+                for jl1 in range(quad[0]):
+                    temp1[0] = ((ie1 - pn[0] + 1 + i1) % Nel[0]) / Nel[0] + quad_pts_x[jl1] # quad_pts_x contains the quadrature points in x direction.
+                    temp4[0] = abs(temp1[0] - eta1) - compact[0]/2.0 # if > 0, result is 0
+                    for jl2 in range(quad[1]):
+                        temp1[1] = ((ie2 - pn[1] + 1 + i2) % Nel[1]) / Nel[1] + quad_pts_y[jl2]
+                        temp4[1] = abs(temp1[1] - eta2) - compact[1]/2.0 # if > 0, result is 0
+                        for jl3 in range(quad[2]):
+                            temp1[2] = ((ie3 - pn[2] + 1 + i3) % Nel[2]) / Nel[2] + quad_pts_z[jl3]
+                            temp4[2] = abs(temp1[2] - eta3) - compact[2]/2.0 # if > 0, result is 0
 
-        bj1, bj2, bj3 : array[float]
-            Contains the values of non-vanishing N/D-splines corresponding to the domain.
-            
-        span1, span2, span3 : int
-            Knot span index in each direction.
-        
-        starts : array[int]
-            Start indices of the codomain.
-        
-        pads : array[int]
-            Paddings of the codomain.
-        
-        mat_.. : array[float]
-            Matrices in which the basis functions times filling times velocity components v_a*v_b are to be written.
-        
-        filling_mat : float
-            Number which will be multiplied by the basis functions and written into mat.
-        
-        vec_. : array[float]
-            Vectors in which the basis functions times filling times velocity components v_a are to be written.
-        
-        filling_vec : float
-            Number which will be multiplied by the basis functions and written into vec.
-        
-        vx, vy, vz : float
-            Component of the particle velocity.
-    """
+                            if temp4[0] < 0.0 and temp4[1] < 0.0 and temp4[2] < 0.0:
+                                value_x = bsp.convolution(p_shape[0], grids_shapex, temp1[0])
+                                value_y = bsp.piecewise(p_shape[1], p_size[1], temp1[1] - eta2)
+                                value_z = bsp.piecewise(p_shape[2], p_size[2], temp1[2] - eta3)
+                                    
+                                mat[i1, i2, i3, jl1, jl2, jl3] += weight * value_x * value_y * value_z
 
-    #for il1 in range(cell_number[0]):
-    #    for il2 in range(cell_number[1]):
-    #        for il3 in range(cell_number[2]):
-    #            for q1 in range(n_quad[0]):
-    #                for q2 in range(n_quad[1]):
-    #                    for q3 in range(n_quad[2]):
 
-    #                        temp1[0] = (cell_left[0] + il1)/Nel[0] + pts1[0,q1] # quadrature points in the cell x direction
-    #                        temp4[0] = abs(temp1[0] - eta1) - compact[0]/2.0 # if > 0, result is 0
 
-     #                       temp1[1] = (cell_left[1] + il2)/Nel[1] + pts2[0,q2] 
-     #                       temp4[1] = abs(temp1[1] - eta2) - compact[1]/2.0 # if > 0, result is 0
-
-     #                       temp1[2] = (cell_left[2] + il3)/Nel[2] + pts3[0,q3] 
-     #                       temp4[2] = abs(temp1[2] - eta3) - compact[2]/2.0 # if > 0, result is 0
-
-     #                       if temp4[0] < 0.0 and temp4[1] < 0.0 and temp4[2] < 0.0:
-     #                           value_x = bsp.convolution(p_shape[0], grids_shapex, temp1[0])
-     #                           value_y = bsp.piecewise(p_shape[1], p_size[1], temp1[1] - eta2)
-     #                           value_z = bsp.piecewise(p_shape[2], p_size[2], temp1[2] - eta3)
-     #                           mat[index_shapex[cell_left[0] + il1 + index_diffx], index_shapey[cell_left[1] + il2 + index_diffy], index_shapez[cell_left[2] + il3 + index_diffz], q1, q2, q3] += weight_p * value_x * value_y * value_z / det_df
-    mat[0,0,0,0,0,0] = 0.0      

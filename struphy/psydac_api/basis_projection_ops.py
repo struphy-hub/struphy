@@ -85,16 +85,15 @@ class BasisProjectionOperators:
                     [eq_mhd.b2_3, lambda e1, e2, e3: 0*e2, eq_mhd.b2_1],
                     [eq_mhd.b2_2, eq_mhd.b2_1, lambda e1, e2, e3: 0*e3]]
 
-        # Scalar functions
-        fun_K0 = [[lambda e1, e2, e3: eq_mhd.p3(
-            e1, e2, e3) / sqrt_g(e1, e2, e3)]]
+        b1_vec = [eq_mhd.unit_b1_1, eq_mhd.unit_b1_2, eq_mhd.unit_b1_3]
 
-        fun_K1 = [[lambda e1, e2, e3: eq_mhd.p3(
-            e1, e2, e3) / sqrt_g(e1, e2, e3)]]
+        # Scalar functions
+        fun_K0 = [[lambda e1, e2, e3: eq_mhd.p3(e1, e2, e3) / sqrt_g(e1, e2, e3)]]
+
+        fun_K1 = [[lambda e1, e2, e3: eq_mhd.p3(e1, e2, e3) / sqrt_g(e1, e2, e3)]]
         fun_K10 = [[lambda e1, e2, e3: eq_mhd.p0(e1, e2, e3)]]
 
-        fun_K2 = [[lambda e1, e2, e3: eq_mhd.p3(
-            e1, e2, e3) / sqrt_g(e1, e2, e3)]]
+        fun_K2 = [[lambda e1, e2, e3: eq_mhd.p3(e1, e2, e3) / sqrt_g(e1, e2, e3)]]
         fun_Y20 = [[lambda e1, e2, e3: sqrt_g(e1, e2, e3)]]
 
         # 'Matrix' functions
@@ -103,6 +102,8 @@ class BasisProjectionOperators:
         fun_Q1, fun_W1, fun_U1, fun_R1, fun_S1, fun_T1, fun_X1, fun_S10 = [], [], [], [], [], [], [], []
         
         fun_Q2, fun_T2, fun_R2, fun_S2, fun_X2, fun_Z20, fun_S20 = [], [], [], [], [], [], []
+
+        fun_PB = [[]]
 
         for m in range(3):
             fun_Q0 += [[]]
@@ -127,6 +128,8 @@ class BasisProjectionOperators:
             fun_X2 += [[]]
             fun_Z20 += [[]]
             fun_S20 += [[]]
+        
+            fun_PB[-1] += [lambda e1, e2, e3, m=m: b1_vec[m](e1, e2, e3) / sqrt_g(e1, e2, e3)]
 
             for n in range(3):
                 # See documentation in `struphy.feec.projectors.pro_global.mhd_operators_MF_for_tests.projectors_dot_x`.
@@ -205,6 +208,8 @@ class BasisProjectionOperators:
         self._fun_X2 = fun_X2
         self._fun_Z20 = fun_Z20
         self._fun_S20 = fun_S20
+
+        self._fun_PB = fun_PB
 
     @property
     def derham(self):
@@ -660,6 +665,21 @@ class BasisProjectionOperators:
 
         return self._S20
 
+
+    ###################################################
+    # Basis projection operators for driftkinetic:
+    ###################################################
+
+    @property
+    def PB(self):
+        r'''
+        '''
+        if not hasattr(self, '_PB'):
+            self._PB = BasisProjectionOperator(self.derham.P['0'], self.derham.Vh_fem['2'], self._fun_PB,
+                                               self.derham.E['2'], self.derham.B['2'],
+                                               transposed=False, polar_shift=self.domain.pole)
+            
+        return self._PB
 
 class BasisProjectionOperator( LinOpWithTransp ):
     """

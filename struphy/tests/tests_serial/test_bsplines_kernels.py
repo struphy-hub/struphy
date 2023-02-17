@@ -1,9 +1,8 @@
 import pytest
+import numpy as np
 
 import struphy.b_splines.bsplines_kernels as bsp
 from struphy.eigenvalue_solvers import spline_space
-
-import numpy as np
 
 
 @pytest.mark.parametrize('Nel', [[8, 5, 6], [4, 3, 128]])
@@ -11,6 +10,9 @@ import numpy as np
 @pytest.mark.parametrize('spl_kind', [[True, True, True], [False, False, True]])
 @pytest.mark.parametrize('N', [100])
 def test_bsplines_kernels(Nel, p, spl_kind, N):
+    """
+    TODO
+    """
 
     # =========================================================================================
     # FEEC SPACES Object & related quantities
@@ -126,9 +128,93 @@ def test_bsplines_kernels(Nel, p, spl_kind, N):
     print('test_bsplines_kernels passed!')
 
 
+@pytest.mark.parametrize('Nel', [10, 11, 12, 13])
+@pytest.mark.parametrize('p', [1, 2, 3, 4, 5])
+@pytest.mark.parametrize('spl_kind', [False])
+def test_spline_derivatives(Nel, p, spl_kind):
+    '''Test spline evaluations and 1st/2nd derivatives for clamped splines.'''
+
+    space0 = spline_space.Spline_space_1d(Nel, p, spl_kind)
+    knots = space0.T
+    dim = space0.NbaseN
+
+    s = np.random.rand(30)
+
+    if p == 1:
+        for i in range(dim):
+            coef = np.zeros(dim)
+            coef[i] = 1.
+            assert np.all(space0.evaluate_N(s, coef, 3) == 0.*s)
+        return
+    elif p == 2:
+        return
+
+    space1 = spline_space.Spline_space_1d(Nel, p - 1, spl_kind)
+    space2 = spline_space.Spline_space_1d(Nel, p - 2, spl_kind)
+
+    s = np.random.rand(30)
+
+    print(knots)
+    print(space1.T)
+    print(space2.T)
+
+    # weights for first derivative
+    w1 = [None]
+    for i in range(1, dim):
+        w1 += [p / (knots[i + p] - knots[i])] 
+
+    # weights for second derivative
+    w2 = [None]
+    for i in range(1, space1.NbaseN):
+        w2 += [(p - 1) / (space1.T[i + p - 1] - space1.T[i])] 
+
+    for i in range(dim):
+        coef = np.zeros(dim)
+        coef[i] = 1.
+
+        coef1 = np.zeros(dim - 1)
+
+        coef2 = np.zeros(dim - 2)
+
+        if i == 0:
+            coef1[i] = - w1[i + 1]
+
+            coef2[i] = w1[i + 1] * w2[i + 1]
+        elif i == 1:
+            coef1[i - 1] = w1[i]
+            coef1[i] = -w1[i + 1]
+
+            coef2[i - 1] = - w1[i] * w2[i] - w1[i + 1] * w2[i]
+            coef2[i] = w1[i + 1] * w2[i + 1]
+        elif i == dim - 2:
+            coef1[i - 1] = w1[i]
+            coef1[i] = -w1[i + 1]
+
+            coef2[i - 2] = w1[i] * w2[i-1]
+            coef2[i - 1] = - w1[i] * w2[i] - w1[i + 1] * w2[i]
+        elif i == dim - 1:
+            coef1[i - 1] = w1[i]
+
+            coef2[i - 2] = w1[i] * w2[i-1]
+        else:
+            coef1[i - 1] = w1[i]
+            coef1[i] = -w1[i + 1]
+
+            coef2[i - 2] = w1[i] * w2[i-1]
+            coef2[i - 1] = - w1[i] * w2[i] - w1[i + 1] * w2[i]
+            coef2[i] = w1[i + 1] * w2[i + 1] 
+            
+        vals1 = space1.evaluate_N(s.flatten(), coef1).reshape(s.shape)
+        vals2 = space2.evaluate_N(s.flatten(), coef2).reshape(s.shape)
+
+        assert np.allclose(space0.evaluate_N(s, coef, 2), vals1)
+        assert np.allclose(space0.evaluate_N(s, coef, 3), vals2)
+
+
 if __name__ == '__main__':
-    Nel = [14, 5, 6]
-    p = [6, 2, 3]
-    spl_kind = [True, False, True]
-    N = 100
-    test_bsplines_kernels(Nel, p, spl_kind, N)
+    # Nel = [14, 5, 6]
+    # p = [6, 2, 3]
+    # spl_kind = [True, False, True]
+    # N = 100
+    # test_bsplines_kernels(Nel, p, spl_kind, N)
+    test_spline_derivatives(10, 3, True)

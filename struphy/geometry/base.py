@@ -5,7 +5,7 @@ from abc import ABCMeta, abstractmethod
 from sympde.topology import Mapping
 
 from struphy.geometry import map_eval, transform
-from struphy.linear_algebra import linalg_kron 
+from struphy.linear_algebra import linalg_kron
 import struphy.b_splines.bsplines as bsp
 
 from scipy.sparse import csc_matrix, kron
@@ -23,22 +23,25 @@ class Domain(metaclass=ABCMeta):
 
         # create IGA attributes for IGA mappings
         if self.kind_map < 10:
-            
+
             Nel = self.params_map['Nel']
-            p   = self.params_map['p']
+            p = self.params_map['p']
             spl = self.params_map['spl_kind']
 
             self._Nel = Nel
             self._p = p
             self._spl_kind = spl
 
-            self._NbaseN = [Nel + p - kind*p for Nel, p, kind in zip(Nel, p, spl)]
+            self._NbaseN = [Nel + p - kind*p for Nel,
+                            p, kind in zip(Nel, p, spl)]
 
             el_b = [np.linspace(0., 1., Nel + 1) for Nel in Nel]
-            
-            self._T = [bsp.make_knots(el_b, p, kind) for el_b, p, kind in zip(el_b, p, spl)]
-            
-            self._indN = [(np.indices((Nel, p + 1))[1] + np.arange(Nel)[:, None])%NbaseN for Nel, p, NbaseN in zip(Nel, p, self._NbaseN)] 
+
+            self._T = [bsp.make_knots(el_b, p, kind)
+                       for el_b, p, kind in zip(el_b, p, spl)]
+
+            self._indN = [(np.indices((Nel, p + 1))[1] + np.arange(Nel)[:, None]) %
+                          NbaseN for Nel, p, NbaseN in zip(Nel, p, self._NbaseN)]
 
             # extend to 3d for 2d IGA mappings
             if self._kind_map != 0:
@@ -48,7 +51,7 @@ class Domain(metaclass=ABCMeta):
                 self._NbaseN = self._NbaseN + [0]
 
                 self._T = self._T + [np.zeros((1,), dtype=float)]
-                
+
                 self._indN = self._indN + [np.zeros((1, 1), dtype=int)]
 
         # create dummy attributes for analytical mappings
@@ -57,13 +60,13 @@ class Domain(metaclass=ABCMeta):
             self._Nel = [0, 0, 0]
             self._p = [0, 0, 0]
             self._spl_kind = [True, True, True]
-            
+
             self._NbaseN = [0, 0, 0]
 
             self._T = [np.zeros((1,), dtype=float),
                        np.zeros((1,), dtype=float),
                        np.zeros((1,), dtype=float)]
-            
+
             self._indN = [np.zeros((1, 1), dtype=int),
                           np.zeros((1, 1), dtype=int),
                           np.zeros((1, 1), dtype=int)]
@@ -72,11 +75,10 @@ class Domain(metaclass=ABCMeta):
             self._cy = np.zeros((1, 1, 1), dtype=float)
             self._cz = np.zeros((1, 1, 1), dtype=float)
 
-        
-        self._transformation_ids = {'pull' : 0,
-                                    'push' : 1,
-                                    'tran' : 2}
-        
+        self._transformation_ids = {'pull': 0,
+                                    'push': 1,
+                                    'tran': 2}
+
         # keys for performing pull-backs
         dict_pull = {
             '0_form': 0,
@@ -104,17 +106,16 @@ class Domain(metaclass=ABCMeta):
             'norm_to_v': 12,
             'norm_to_1': 13,
             'norm_to_2': 14,
-            'v_to_1' : 15,
-            'v_to_2' : 16,
-            '1_to_v' : 17,
-            '2_to_v' : 18
+            'v_to_1': 15,
+            'v_to_2': 16,
+            '1_to_v': 17,
+            '2_to_v': 18
         }
-        
-        self._dict_transformations = {'pull' : dict_pull,
-                                      'push' : dict_push,
-                                      'tran' : dict_tran}
 
-    
+        self._dict_transformations = {'pull': dict_pull,
+                                      'push': dict_push,
+                                      'tran': dict_tran}
+
     class PsydacMapping(Mapping):
         """
         Class to create a psydac domain.
@@ -127,16 +128,25 @@ class Domain(metaclass=ABCMeta):
     @property
     @abstractmethod
     def kind_map(self):
-        '''Integer defining the mapping; must be <10 for spline mappings and >=10 otherwise.'''
+        '''Integer defining the mapping: 
+            * <=9: spline mappings
+            * >=10 and <=19: analytical mappings with cubic domain boundary
+            * >=20 and <=29: analytical cylinder and torus mappings 
+            * >=30 and <=39: Shafranov mappings (cylinder)'''
         pass
 
     @property
     @abstractmethod
     def params_map(self):
-        '''Mapping parameters: as numpy array for analytical mappings, as dict for spline mappings.
-        Needs to be manually reset to numpy array after __init__ for the latter.'''
+        '''Mapping parameters as dictionary.'''
         pass
-    
+
+    @property
+    @abstractmethod
+    def params_numpy(self):
+        '''Mapping parameters as numpy array (can be empty).'''
+        pass
+
     @property
     @abstractmethod
     def F_psy(self):
@@ -194,219 +204,219 @@ class Domain(metaclass=ABCMeta):
     def T(self):
         '''List of knot vectors for N-splines in each direction.'''
         return self._T
-    
+
     @property
     def indN(self):
         '''Global indices of non-vanishing splines in each element. Can be accessed via (element index, local spline index).'''
         return self._indN
-    
+
     @property
     def args_map(self):
         '''Tuple of all parameters needed for evaluation of metric coefficients.'''
-        
-        _args_map = (self._kind_map, self._params_map,
-                     np.array(self._p), self._T[0], self._T[1], self._T[2],
-                     self._indN[0], self._indN[1], self._indN[2],
-                     self._cx, self._cy, self._cz)
-        
+
+        _args_map = (self.kind_map, self.params_numpy,
+                     np.array(self.p), self.T[0], self.T[1], self.T[2],
+                     self.indN[0], self.indN[1], self.indN[2],
+                     self.cx, self.cy, self.cz)
+
         return _args_map
 
     @property
     def dict_transformations(self):
         '''Dictionary of str->int for pull, push and transformation functions.'''
-        return self._dict_transformations    
-    
+        return self._dict_transformations
+
     # ========================
     def __call__(self, *etas, change_out_order=False, squeeze_out=True, remove_outside=True, identity_map=False):
         """
         Evaluates the mapping F : [0, 1]^d --> R^d. Logical coordinates outside of [0, 1]^d are evaluated to -1.
-        
+
         Parameters
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-            
+
         change_out_order : bool
             If True, the axis corresponding to x, y, z coordinates in the output array is the last one, otherwise the first one.
 
         squeeze_out : bool
             Whether to remove singleton dimensions in output array.
-            
+
         remove_outside : bool
             If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
-            
+
         identity_map : bool
             If True, not the mapping F, but the identity map [0, 1]^d --> [0, 1]^d is evaluated
-                
+
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             The Cartesian coordinates corresponding to the given logical ones.
         """
-        
+
         if identity_map:
             which = -1
         else:
             which = 0
-        
+
         return self._evaluate_metric_coefficient(*etas, which=which, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside)
-    
+
     # ========================
     def jacobian(self, *etas, transposed=False, change_out_order=False, squeeze_out=True, remove_outside=True):
         """
         Evaluates the Jacobian matrix. Logical coordinates outside of [0, 1]^d are evaluated to -1.
-        
+
         Parameters
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-            
+
         transposed : bool
             If True, the transposed Jacobian matrix is evaluated.
-            
+
         change_out_order : bool
             If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two. 
-        
+
         squeeze_out : bool
             Whether to remove singleton dimensions in output array.
-            
+
         remove_outside : bool
             If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
-        
+
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             The Jacobian matrix evaluated at given logical coordinates.
         """
-        
+
         return self._evaluate_metric_coefficient(*etas, which=1, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
-    
+
     # ========================
     def jacobian_det(self, *etas, squeeze_out=True, remove_outside=True):
         """
         Evaluates the Jacobian determinant. Logical coordinates outside of [0, 1]^d are evaluated to -1.
-        
+
         Parameters
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-                       
+
         squeeze_out : bool, optional
             Whether to remove singleton dimensions in output array.
-            
+
         remove_outside : bool, optional
             If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
-                
+
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             The Jacobian determinant evaluated at given logical coordinates.
         """
-        
+
         return self._evaluate_metric_coefficient(*etas, which=2, squeeze_out=squeeze_out, remove_outside=remove_outside)
-    
+
     # ========================
     def jacobian_inv(self, *etas, transposed=False, change_out_order=False, squeeze_out=True, remove_outside=True):
         """
         Evaluates the inverse Jacobian matrix. Logical coordinates outside of [0, 1]^d are evaluated to -1.
-        
+
         Parameters
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-            
+
         transposed : bool, optional
             If True, the transposed Jacobian matrix is evaluated.
-            
+
         change_out_order : bool, optional
             If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two. 
-        
+
         squeeze_out : bool, optional
             Whether to remove singleton dimensions in output array.
-            
+
         remove_outside : bool, optional
             If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
-        
+
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             The inverse Jacobian matrix evaluated at given logical coordinates.
         """
-        
+
         return self._evaluate_metric_coefficient(*etas, which=3, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
-    
+
     # ========================
     def metric(self, *etas, transposed=False, change_out_order=False, squeeze_out=True, remove_outside=True):
         """
         Evaluates the metric tensor. Logical coordinates outside of [0, 1]^d are evaluated to -1.
-        
+
         Parameters
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-            
+
         transposed : bool, optional
             If True, the transposed Jacobian matrix is evaluated.
-            
+
         change_out_order : bool, optional
             If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two. 
-        
+
         squeeze_out : bool, optional
             Whether to remove singleton dimensions in output array.
-            
+
         remove_outside : bool, optional
             If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
-        
+
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             The metric tensor evaluated at given logical coordinates.
         """
-        
+
         return self._evaluate_metric_coefficient(*etas, which=4, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
-    
+
     # ========================
     def metric_inv(self, *etas, transposed=False, change_out_order=False, squeeze_out=True, remove_outside=True):
         """
         Evaluates the inverse metric tensor. Logical coordinates outside of [0, 1]^d are evaluated to -1.
-        
+
         Parameters
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-            
+
         transposed : bool, optional
             If True, the transposed Jacobian matrix is evaluated.
-            
+
         change_out_order : bool, optional
             If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two. 
-        
+
         squeeze_out : bool, optional
             Whether to remove singleton dimensions in output array.
-            
+
         remove_outside : bool, optional
             If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
-        
+
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             The inverse metric tensor evaluated at given logical coordinates.
         """
-        
+
         return self._evaluate_metric_coefficient(*etas, which=5, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
-    
+
     # ================================
     def pull(self, a, *etas, kind='0_form', a_kwargs={}, change_out_order=False, squeeze_out=True, remove_outside=True, coordinates='physical'):
         """
@@ -424,16 +434,16 @@ class Domain(metaclass=ABCMeta):
 
         kind : str
             Which pull-back to apply, see dict_transformations['pull'].
-            
+
         a_kwargs : dict
             Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
 
         change_out_order : bool, optional
             If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two. 
-        
+
         squeeze_out : bool, optional
             Whether to remove singleton dimensions in output array.
-            
+
         remove_outside : bool, optional
             If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
 
@@ -444,16 +454,16 @@ class Domain(metaclass=ABCMeta):
 
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             Pullback of Cartesian vector/scalar field to p-form evaluated at given logical coordinates.
 
         Notes
         -----
         Possible choices for kind are '0_form', '1_form', '2_form', '3_form' and 'vector'.
         """
-        
-        return self._pull_push_transform('pull', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside, coordinates=coordinates)
-        
+
+        return self._pull_push_transform('pull', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside, coordinates=coordinates, a_kwargs=a_kwargs)
+
     # ================================
     def push(self, a, *etas, kind='0_form', a_kwargs={}, change_out_order=False, squeeze_out=True, remove_outside=True):
         """
@@ -471,22 +481,22 @@ class Domain(metaclass=ABCMeta):
 
         kind : str
             Which pushforward to apply, see dict_transformations['push'].
-            
+
         a_kwargs : dict
             Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
 
         change_out_order : bool, optional
             If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two. 
-        
+
         squeeze_out : bool, optional
             Whether to remove singleton dimensions in output array.
-            
+
         remove_outside : bool, optional
             If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
 
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             Pushforward of p-form to Cartesian vector/scalar field evaluated at given logical coordinates.
 
         Notes
@@ -494,7 +504,7 @@ class Domain(metaclass=ABCMeta):
         Possible choices for kind are '0_form', '1_form', '2_form', '3_form' and 'vector'.
         """
 
-        return self._pull_push_transform('push', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside)
+        return self._pull_push_transform('push', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside, a_kwargs=a_kwargs)
 
     # ================================
     def transform(self, a, *etas, kind='0_to_3', a_kwargs={}, change_out_order=False, squeeze_out=True, remove_outside=True):
@@ -513,22 +523,22 @@ class Domain(metaclass=ABCMeta):
 
         kind : str
             Which transformation to apply, see see dict_transformations['tran'].
-            
+
         a_kwargs : dict
             Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
 
         change_out_order : bool, optional
             If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two. 
-        
+
         squeeze_out : bool, optional
             Whether to remove singleton dimensions in output array.
-            
+
         remove_outside : bool, optional
             If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
 
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             Transformed p-form evaluated at given logical coordinates.
 
         Notes
@@ -537,229 +547,246 @@ class Domain(metaclass=ABCMeta):
         """
 
         return self._pull_push_transform('tran', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside, a_kwargs=a_kwargs)
-    
+
     # ========================
     # private methods :
     # ========================
-    
+
     # ================================
     def _evaluate_metric_coefficient(self, *etas, which=0, **kwargs):
         """
         Evaluates metric coefficients. Logical coordinates outside of [0, 1]^d are evaluated to -1 for markers evaluation.
-        
+
         Parameters
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-                
+
         which : int
             Which metric coefficients to be evaluated (0 : F, 1 : DF, 2 : det(DF), 3 : DF^(-1), 4 : G, 5 : G^(-1)).
-            
+
         **kwargs
             Addtional boolean keyword arguments (transposed, change_out_order, squeeze_out, remove_outside).
-        
+
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             The metric coefficient evaluated at the given logical coordinates.
         """
-        
+
         # set default values
         transposed = kwargs.get('transposed', False)
         change_out_order = kwargs.get('change_out_order', False)
         squeeze_out = kwargs.get('squeeze_out', True)
         remove_outside = kwargs.get('remove_outside', False)
-        
+
         # markers evaluation
         if len(etas) == 1:
-            
+
             markers = etas[0]
-            
+
             out = np.empty((3, 3, markers.shape[0]), dtype=float)
-            
-            n_inside = map_eval.kernel_evaluate_pic(markers, which, *self.args_map, out, remove_outside)
-            
+
+            n_inside = map_eval.kernel_evaluate_pic(
+                markers, which, *self.args_map, out, remove_outside)
+
             # remove holes
             out = out[:, :, :n_inside]
-            
-            if transposed: out = np.transpose(out, axes=(1, 0, 2))
-            
-            if   which == 0 or which == -1:
+
+            if transposed:
+                out = np.transpose(out, axes=(1, 0, 2))
+
+            if which == 0 or which == -1:
                 out = out[:, 0, :]
-                if change_out_order: out = np.transpose(out, axes=(1, 0)) 
+                if change_out_order:
+                    out = np.transpose(out, axes=(1, 0))
             elif which == 2:
                 out = out[0, 0, :]
             else:
-                if change_out_order: out = np.transpose(out, axes=(2, 0, 1)) 
-            
+                if change_out_order:
+                    out = np.transpose(out, axes=(2, 0, 1))
+
         # tensor-product/slice evaluation
         else:
-            
+
             E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
                 etas[0], etas[1], etas[2], flat_eval=False)
 
-            out = np.empty((3, 3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+            out = np.empty(
+                (3, 3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
 
-            map_eval.kernel_evaluate(E1, E2, E3, which, *self.args_map, out, is_sparse_meshgrid)
-            
-            if transposed: out = np.transpose(out, axes=(1, 0, 2, 3, 4))
-            
-            if   which == 0:
+            map_eval.kernel_evaluate(
+                E1, E2, E3, which, *self.args_map, out, is_sparse_meshgrid)
+
+            if transposed:
+                out = np.transpose(out, axes=(1, 0, 2, 3, 4))
+
+            if which == 0:
                 out = out[:, 0, :, :, :]
-                if change_out_order: out = np.transpose(out, axes=(1, 2, 3, 0))
+                if change_out_order:
+                    out = np.transpose(out, axes=(1, 2, 3, 0))
             elif which == 2:
                 out = out[0, 0, :, :, :]
-            else:    
-                if change_out_order: out = np.transpose(out, axes=(2, 3, 4, 0, 1))
+            else:
+                if change_out_order:
+                    out = np.transpose(out, axes=(2, 3, 4, 0, 1))
 
             # remove singleton dimensions for slice evaluation
-            if squeeze_out: 
+            if squeeze_out:
                 out = out.squeeze()
 
             # remove all "dimensions" for point-wise evaluation
-            if out.ndim == 0: 
+            if out.ndim == 0:
                 out = out.item()
 
         if isinstance(out, float):
             return out
         else:
             return out.copy()
-        
+
     # ================================
     def _pull_push_transform(self, which, a, kind_fun, *etas, **kwargs):
         """
         Evaluates metric coefficients. Logical coordinates outside of [0, 1]^d are evaluated to -1 for markers evaluation.
-        
+
         Parameters
         ----------
         which : str
             Which transformation to apply (one of "pull", "push" or "tran").
-            
+
         a : callable | list | tuple | array-like
             The function/values to be transformed.
-            
+
         kind_fun : str
             The kind of transformation (e.g. "0_form" or "1_form" in case of which="pull").
-        
+
         *etas : array-like| tuple
             Logical coordinates at which to evaluate. Two cases are possible:
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-            
+
         **kwargs
-            Addtional keyword arguments (transposed, change_out_order, squeeze_out, remove_outside, a_kwargs).
-        
+            Addtional keyword arguments (coordinates, change_out_order, squeeze_out, remove_outside, a_kwargs).
+
         Returns
         -------
-        out : array-like | float
+        out : ndarray | float
             The metric coefficient evaluated at the given logical coordinates.
         """
-        
+
         # set default values
         coordinates = kwargs.get('coordinates', 'logical')
         change_out_order = kwargs.get('change_out_order', False)
         squeeze_out = kwargs.get('squeeze_out', True)
         remove_outside = kwargs.get('remove_outside', False)
         a_kwargs = kwargs.get('a_kwargs', {})
-        
+
         # kind of transformation
         kind_int = self.dict_transformations[which][kind_fun]
-        
+
         # markers evaluation
         if len(etas) == 1:
-            
+
             markers = etas[0]
-            
+
             # coordinates (:, 3) and argument evaluation (without holes)
             if callable(a):
                 if coordinates == 'logical':
-                    A = Domain.prepare_arg(a, self(markers, change_out_order=True, remove_outside=remove_outside, identity_map=True)) 
+                    A = Domain.prepare_arg(a, self(
+                        markers, change_out_order=True, remove_outside=remove_outside, identity_map=True))
                 else:
-                    A = Domain.prepare_arg(a, self(markers, change_out_order=True, remove_outside=remove_outside))
-            
+                    A = Domain.prepare_arg(
+                        a, self(markers, change_out_order=True, remove_outside=remove_outside))
+
             elif isinstance(a, (list, tuple)):
-                
+
                 if callable(a[0]):
                     if coordinates == 'logical':
-                        A = Domain.prepare_arg(a, self(markers, change_out_order=True, remove_outside=remove_outside, identity_map=True)) 
+                        A = Domain.prepare_arg(a, self(
+                            markers, change_out_order=True, remove_outside=remove_outside, identity_map=True))
                     else:
-                        A = Domain.prepare_arg(a, self(markers, change_out_order=True, remove_outside=remove_outside))
+                        A = Domain.prepare_arg(
+                            a, self(markers, change_out_order=True, remove_outside=remove_outside))
                 else:
                     A = Domain.prepare_arg(a, markers)
-                
+
             else:
                 A = Domain.prepare_arg(a, markers)
-            
+
             # check if A includes holes or not
             if A.shape[1] == markers.shape[0]:
                 A_has_holes = True
             else:
                 A_has_holes = False
-            
+
             # call evaluation kernel
             out = np.empty((3, markers.shape[0]), dtype=float)
-            
-            n_inside = transform.kernel_evaluate_pic(A, markers, self._transformation_ids[which], kind_int, *self.args_map, out, remove_outside)
-            
+
+            n_inside = transform.kernel_evaluate_pic(
+                A, markers, self._transformation_ids[which], kind_int, *self.args_map, out, remove_outside)
+
             # remove holes
             out = out[:, :n_inside]
-            
+
             # check if A has correct shape
             if not A_has_holes and remove_outside:
                 assert A.shape[1] == out.shape[1]
-            
+
             # change output order
             if kind_int < 10:
                 out = out[0, :]
             else:
                 if change_out_order:
                     out = np.transpose(out, axes=(1, 0))
-                
+
         # tensor-product/slice evaluation
         else:
-        
+
             # convert evaluation points to 3d array of appropriate shape
             E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
                 etas[0], etas[1], etas[2], flat_eval=False)
-            
+
             # convert input to be transformed (a) to 4d array of appropriate shape
             if coordinates == 'logical':
-                A = Domain.prepare_arg(a, E1, E2, E3, is_sparse_meshgrid=is_sparse_meshgrid, a_kwargs=a_kwargs) 
+                A = Domain.prepare_arg(
+                    a, E1, E2, E3, is_sparse_meshgrid=is_sparse_meshgrid, a_kwargs=a_kwargs)
             else:
                 X = self(E1, E2, E3, squeeze_out=False)
                 A = Domain.prepare_arg(a, X[0], X[1], X[2], a_kwargs=a_kwargs)
-                
+
             # call evaluation kernel
-            out = np.empty((3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
-            
-            transform.kernel_evaluate(A, E1, E2, E3, self._transformation_ids[which], kind_int, *self.args_map, is_sparse_meshgrid, out)
-                
+            out = np.empty(
+                (3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+
+            transform.kernel_evaluate(
+                A, E1, E2, E3, self._transformation_ids[which], kind_int, *self.args_map, is_sparse_meshgrid, out)
+
             # change output order
             if kind_int < 10:
                 out = out[0, :, :, :]
             else:
                 if change_out_order:
                     out = np.transpose(out, axes=(1, 2, 3, 0))
-                    
+
             # remove singleton dimensions for slice evaluation
-            if squeeze_out: 
+            if squeeze_out:
                 out = out.squeeze()
 
             # remove all "dimensions" for point-wise evaluation
-            if out.ndim == 0: 
+            if out.ndim == 0:
                 out = out.item()
-                
+
         if isinstance(out, float):
             return out
         else:
             return out.copy()
-    
+
     # ========================
     # static methods :
     # ========================
-    
+
     # ================================
     @staticmethod
     def prepare_eval_pts(x, y, z, flat_eval=False):
@@ -844,7 +871,7 @@ class Domain(metaclass=ABCMeta):
                 arg_y = y
             else:
                 raise ValueError(f'data type {type(y)} not supported')
-
+    
             if isinstance(z, float):
                 arg_z = np.array([z])
             elif isinstance(z, int):
@@ -893,7 +920,7 @@ class Domain(metaclass=ABCMeta):
                 raise ValueError('Argument dimensions not supported')
 
             return E1, E2, E3, is_sparse_meshgrid
-    
+
     # ================================
     @staticmethod
     def prepare_arg(a_in, *Xs, is_sparse_meshgrid=False, a_kwargs={}):
@@ -910,7 +937,7 @@ class Domain(metaclass=ABCMeta):
 
         is_sparse_meshgrid : bool
             Whether arguments fit sparse_meshgrid shape. Obtained from prepare_eval_pts function.
-            
+
         a_kwargs : dict
             Keyword arguments passed to parameter "a_in" if "a_in" is a callable: is called as a_in(*etas, **a_kwargs).
 
@@ -919,16 +946,20 @@ class Domain(metaclass=ABCMeta):
         a_out : array-like
             The 2d/4d array suitable for evaluation kernels.
         """
-        
+
         if len(Xs) == 1:
             flat_eval = True
         else:
             flat_eval = False
 
+        # float (point-wise, scalar function)
+        if isinstance(a_in, float):
+            a_out = np.array([[[[a_in]]]])
+        
         # single callable:
         # scalar function -> must return a 3d array for 3d evaluation points
         # vector-valued function -> must return a 4d array of shape (3,:,:,:)
-        if callable(a_in):
+        elif callable(a_in):
 
             if flat_eval:
                 a_out = a_in(Xs[0][:, 0], Xs[0][:, 1], Xs[0][:, 2], **a_kwargs)
@@ -936,7 +967,8 @@ class Domain(metaclass=ABCMeta):
                     a_out = a_out[None, :]
             else:
                 if is_sparse_meshgrid:
-                    a_out = a_in(*np.meshgrid(Xs[0][:, 0, 0], Xs[1][0, :, 0], Xs[2][0, 0, :], indexing='ij'), **a_kwargs)
+                    a_out = a_in(
+                        *np.meshgrid(Xs[0][:, 0, 0], Xs[1][0, :, 0], Xs[2][0, 0, :], indexing='ij'), **a_kwargs)
                 else:
                     a_out = a_in(*Xs, **a_kwargs)
                 if a_out.ndim == 3:
@@ -947,19 +979,21 @@ class Domain(metaclass=ABCMeta):
         # 1d array(s) (flat_eval=True)
         # 3d array(s) (flat eval=False)
         elif isinstance(a_in, (list, tuple)):
-            
+
             assert len(a_in) == 1 or len(a_in) == 3
 
             a_out = []
             for component in a_in:
 
                 if callable(component):
-                    
+
                     if flat_eval:
-                        a_out += [component(Xs[0][:, 0], Xs[0][:, 1], Xs[0][:, 2], **a_kwargs)]
+                        a_out += [component(Xs[0][:, 0], Xs[0]
+                                            [:, 1], Xs[0][:, 2], **a_kwargs)]
                     else:
                         if is_sparse_meshgrid:
-                            a_out += [component(*np.meshgrid(Xs[0][:, 0, 0], Xs[1][0, :, 0], Xs[2][0, 0, :], indexing='ij'), **a_kwargs)]
+                            a_out += [component(*np.meshgrid(Xs[0][:, 0, 0], Xs[1]
+                                                [0, :, 0], Xs[2][0, 0, :], indexing='ij'), **a_kwargs)]
                         else:
                             a_out += [component(*Xs, **a_kwargs)]
 
@@ -969,20 +1003,24 @@ class Domain(metaclass=ABCMeta):
                         assert component.ndim == 1
                     else:
                         assert component.ndim == 3
-                    
+
                     a_out += [component]
 
-            a_out = np.array(a_out, dtype=float)
+                elif isinstance(component, float):
 
+                    a_out += [np.array([component])[:, None, None]]
+
+            a_out = np.array(a_out, dtype=float)
+        
         # numpy array:
-        # 1d array (flat_eval=True and scalar input)
-        # 2d array (flat_eval=True and vector-valued input of shape (3,:)) 
-        # 3d array (flat_eval=False and scalar input) 
-        # 4d array (flat_eval=False and vector-valued input of shape (3,:,:,:)) 
+        # 1d array (flat_eval=True and scalar input or flat_eval=False and length 1 (scalar) or length 3 (vector))
+        # 2d array (flat_eval=True and vector-valued input of shape (3,:))
+        # 3d array (flat_eval=False and scalar input)
+        # 4d array (flat_eval=False and vector-valued input of shape (3,:,:,:))
         elif isinstance(a_in, np.ndarray):
 
             if flat_eval:
-                if   a_in.ndim == 1: 
+                if a_in.ndim == 1:
                     a_out = a_in[None, :]
                 elif a_in.ndim == 2:
                     a_out = a_in[:, :]
@@ -991,8 +1029,17 @@ class Domain(metaclass=ABCMeta):
                     2d (vector-valued, shape (3,:)) for flat evaluation!')
 
             else:
-                if   a_in.ndim == 3:
+                
+                # point-wise evaluation for scalar (len=1) or vector (len=3) input
+                if a_in.ndim == 1:
+                    assert a_in.size == 1 or a_in.size == 3
+                    a_out = a_in[:, None, None, None]
+                
+                # tensor-product evaluation (scalar)
+                elif a_in.ndim == 3:
                     a_out = a_in[None, :, :, :]
+                
+                # tensor-product evaluation (vector)
                 elif a_in.ndim == 4:
                     a_out = a_in[:, :, :, :]
                 else:
@@ -1000,14 +1047,14 @@ class Domain(metaclass=ABCMeta):
                     4d (vector-valued, shape (3,:,:,:)) for non-flat evaluation!')
 
         else:
-            raise TypeError('Argument a must be either a list/tuple of 1/3 callable(s)/numpy array(s) \
+            raise TypeError('Argument a must be either a float OR a list/tuple of 1 or 3 callable(s)/numpy array(s)/float(s) \
             OR a single numpy array OR a single callable!')
 
         # make sure that output array is 2d and of shape (1,:) or (3,:) for flat evaluation
         if flat_eval:
             assert a_out.ndim == 2
             assert a_out.shape[0] == 1 or a_out.shape[0] == 3
-        
+
         # make sure that output array is 4d and of shape (1,:,:,:) or (3,:,:,:) for tensor-product/slice evaluation
         else:
             assert a_out.ndim == 4
@@ -1015,6 +1062,52 @@ class Domain(metaclass=ABCMeta):
 
         return a_out
 
+    # ================================
+    @staticmethod
+    def prepare_params_map(params_user, params_default, return_numpy=True):
+        """
+        Sets missing default key-value pairs in dictionary "params_user" according to "params_default".
+        
+        Parameters
+        ----------
+        params_user : dict
+            Dictionary which is compared to the dictionary "params_default" and to which missing defaults are added.
+            
+        params_default : dict
+            Dictionary with default values.
+            
+        return_numpy : bool
+            Whether to return a numpy parameter array in addition to the always returned parameter dictionary.
+            
+        Returns
+        -------
+        params_map : dict
+            Dictionary with same keys as "params_default" and default values for missing keys.
+            
+        params_numpy : np.ndarray
+            Numpy array with parameters in params_map (if parameter is a float or int).
+        """
+        
+        # check for correct keys in params_user
+        for key in params_user:
+            assert key in params_default, f'Unknown key "{key}". Please choose one of {[*params_default]}.'
+        
+        # set default values if key is missing
+        params_map = params_user
+        
+        for key, val in params_default.items():
+            params_map.setdefault(key, val)
+
+        # parameter numpy array for pyccel kernel (order matters!)
+        if return_numpy:
+            params_numpy = []
+            for key in params_default.keys():
+                params_numpy.append(params_map[key])
+                
+            return params_map, np.array(params_numpy)
+        else:
+            return params_map
+            
     # ================================
     def show(self, logical=False, grid_info=None, markers=None, marker_coords='logical', save_dir=None):
         """
@@ -1025,6 +1118,9 @@ class Domain(metaclass=ABCMeta):
         ----------
         logical : bool
             Whether to plot the physical domain (False) or logical domain (True).
+            
+        plane : str
+            Which physical coordinates to plot (xy, xz or yz) in case of logical=False.
 
         grid_info : array-like, optional
             Information about the grid. If not given, the domain is shown with high resolution. If given, can be either
@@ -1043,10 +1139,216 @@ class Domain(metaclass=ABCMeta):
 
         import matplotlib.pyplot as plt
         
+        is_not_cube = self.kind_map < 10 or self.kind_map > 19    
+            
+        # plot domain without MPI decomposition and high resolution
+        if grid_info is None:
+
+            e1 = np.linspace(0., 1., 16)
+            e2 = np.linspace(0., 1., 65)
+
+            if logical:
+                E1, E2 = np.meshgrid(e1, e2, indexing='ij')
+                X = np.stack((E1, E2), axis=0)
+            else:
+                XYZ = self(e1, e2, 0.)
+
+            X = XYZ[0]
+            if self.__class__.__name__ == 'GVECunit' or 'Torus' in self.__class__.__name__:
+                Y = XYZ[2]
+            else:
+                Y = XYZ[1]
+
+            fig = plt.figure(figsize=(12, 5))
+            ax = fig.add_subplot(1, 2, 1)
+
+            # eta1-isolines
+            for i in range(e1.size):
+                ax.plot(X[i, :], Y[i, :], 'tab:blue', alpha=.5, zorder=0)
+
+            # eta2-isolines
+            for j in range(e2.size - int(is_not_cube)):
+                ax.plot(X[:, j], Y[:, j], 'tab:blue', alpha=.5, zorder=0)
+
+            ax.scatter(X[0, 0], Y[0, 0], 20, 'red', zorder=10)
+            if is_not_cube:
+                ax.scatter(X[0, 32], Y[0, 32], 20, 'red', zorder=10)
+
+            tstr = ''
+            for key, val in self.params_map.items():
+                if key not in {'cx', 'cy', 'cz'}:
+                    tstr += key + ': ' + str(val) + '\n'
+            ax.set_title(self.__class__.__name__ + ' at $\\eta_3=0$')
+            ax.text(.01, .99, tstr, ha='left',
+                    va='top', transform=ax.transAxes)
+
+            # Jacobian determinant
+            # ax3 = fig.add_subplot(2, 2, 3)
+            # mp = ax3.contourf(X, Y, self.jacobian_det(e1, e2, 0.), levels=50)
+            # ax3.axis('equal')
+            # ax3.set_title('det(DF)')
+            # plt.colorbar(mappable=mp, format="%3.1f")
+
+            # top view
+            e3 = np.linspace(0., 1., 65)
+
+            if logical:
+                E1, E2 = np.meshgrid(e1, e2, indexing='ij')
+                X = np.stack((E1, E2), axis=0)
+            else:
+                theta_0 = self(e1, 0., e3)
+                theta_pi = self(e1, .5, e3)
+
+            X_0 = theta_0[0]
+            X_pi = theta_pi[0]
+            if self.__class__.__name__ == 'GVECunit' or 'Torus' in self.__class__.__name__:
+                Z_0 = theta_0[1]
+                Z_pi = theta_pi[1]
+            else:
+                Z_0 = theta_0[2]
+                Z_pi = theta_pi[2]
+
+            ax2 = fig.add_subplot(1, 2, 2)
+
+            # eta1-isolines
+            for i in range(e1.size):
+                ax2.plot(X_0[i, :], Z_0[i, :], 'tab:blue', alpha=.5, zorder=0)
+
+            # eta3-isolines
+            for j in range(e2.size):
+                ax2.plot(X_0[:, j], Z_0[:, j], 'tab:blue', alpha=.5, zorder=0)
+
+            if is_not_cube:
+                # eta1-isolines
+                for i in range(e1.size):
+                    ax2.plot(X_pi[i, :], Z_pi[i, :],
+                             'tab:blue', alpha=.5, zorder=0)
+
+                # eta3-isolines
+                for j in range(e2.size):
+                    ax2.plot(X_pi[:, j], Z_pi[:, j],
+                             'tab:blue', alpha=.5, zorder=0)
+
+            # magnetic axis
+            ax2.plot(X_0[0, :], Z_0[0, :], 'tab:red', alpha=1., zorder=10)
+            ax2.plot(X_pi[0, :], Z_pi[0, :], 'tab:red', alpha=1., zorder=10)
+
+            if self.__class__.__name__ == 'GVECunit' or 'Torus' in self.__class__.__name__:
+                ylab = 'y'
+            else:
+                ylab = 'z'
+            ax2.set_xlabel('x')
+            ax2.set_ylabel(ylab)
+            ax2.set_title('top view')
+            ax2.axis('equal')
+
+        # plot domain according to given grid [nel1, nel2, (nel3)]
+        elif isinstance(grid_info, list):
+
+            assert len(grid_info) > 1
+
+            e1 = np.linspace(0., 1., grid_info[0] + 1)
+            e2 = np.linspace(0., 1., grid_info[1] + 1)
+            
+            fig = plt.figure(figsize=(6, 5))
+            ax = fig.add_subplot(1, 1, 1)
+            
+            if logical:
+                E1, E2 = np.meshgrid(e1, e2, indexing='ij')
+                
+                # eta1-isolines
+                for i in range(e1.size):
+                    ax.plot(E1[i, :], E2[i, :], 'tab:blue', alpha=.5)
+
+                # eta2-isolines
+                for j in range(e2.size):
+                    ax.plot(E1[:, j], E2[:, j], 'tab:blue', alpha=.5)
+                
+            else:
+                X = self(e1, e2, 0.)
+            
+                # plot xz-plane for torus mappings, xy-plane else
+                if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit':
+                    co1, co2 = 0, 2
+                else:
+                    co1, co2 = 0, 1
+                    
+                # eta1-isolines
+                for i in range(e1.size):
+                    ax.plot(X[co1, i, :], X[co2, i, :], 'tab:blue', alpha=.5)
+
+                # eta2-isolines
+                for j in range(e2.size):
+                    ax.plot(X[co1, :, j], X[co2, :, j], 'tab:blue', alpha=.5)
+        
+        # plot domain with MPI decomposition
+        elif isinstance(grid_info, np.ndarray):
+
+            assert grid_info.ndim == 2
+            assert grid_info.shape[1] > 5
+            
+            fig = plt.figure(figsize=(6, 5))
+            ax = fig.add_subplot(1, 1, 1)
+            
+            for i in range(grid_info.shape[0]):
+
+                e1 = np.linspace(grid_info[i, 0], grid_info[i, 1], int(
+                    grid_info[i, 2]) + 1)
+                e2 = np.linspace(grid_info[i, 3], grid_info[i, 4], int(
+                    grid_info[i, 5]) + 1)
+
+                if logical:
+                    E1, E2 = np.meshgrid(e1, e2, indexing='ij')
+                    
+                    # eta1-isolines
+                    first_line = ax.plot(E1[0, :], E2[0, :], label='rank=' + str(i), alpha=.5)
+
+                    for j in range(e1.size):
+                        ax.plot(E1[j, :], E2[j, :], color=first_line[0].get_color(), alpha=.5)
+
+                    # eta2-isolines
+                    for k in range(e2.size):
+                        ax.plot(E1[:, k], E2[:, k], color=first_line[0].get_color(), alpha=.5)
+                    
+                else:
+                    X = self(e1, e2, 0.)
+                    
+                    # plot xz-plane for torus mappings, xy-plane else
+                    if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit':
+                        co1, co2 = 0, 2
+                    else:
+                        co1, co2 = 0, 1
+
+                    # eta1-isolines
+                    first_line = ax.plot(X[co1, 0, :], X[co2, 0, :], label='rank=' + str(i), alpha=.5)
+
+                    for j in range(e1.size):
+                        ax.plot(X[co1, j, :], X[co2, j, :], color=first_line[0].get_color(), alpha=.5)
+
+                    # eta2-isolines
+                    for k in range(e2.size):
+                        ax.plot(X[co1, :, k], X[co2, :, k], color=first_line[0].get_color(), alpha=.5)
+                    
+        else:
+            raise ValueError('given grid_info is not supported!')
+
+        # plot control points in case of IGA mappings
+        if not logical and self.kind_map < 10:
+            if self.__class__.__name__ == 'GVECunit':
+                Yc = self.cz[:, :, 0].flatten()
+            else:
+                Yc = self.cy[:, :, 0].flatten()
+            ax.scatter(self.cx[:, :, 0].flatten(), Yc, s=3, color='b')
+             
         # plot given markers
         if markers is not None:
             
             assert not (logical and marker_coords != 'logical')
+            
+            if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit':
+                co1, co2 = 0, 2
+            else:
+                co1, co2 = 0, 1
             
             # no time series: plot all markers with the same color
             if markers.ndim == 2:
@@ -1056,9 +1358,9 @@ class Domain(metaclass=ABCMeta):
                     tmp[:, 2] = 0. # TODO: needed for eta3=0
                     X = self(tmp, remove_outside=True)
                 else:
-                    X = (markers[:, 0].copy(), markers[:, 1].copy())
+                    X = (markers[:, 0].copy(), markers[:, 1].copy(), markers[:, 2].copy())
                 
-                plt.scatter(X[0], X[1], s=1, color='b')
+                ax.scatter(X[co1], X[co2], s=1, color='b')
                 
             # time series: plot markers with different colors
             elif markers.ndim == 3:
@@ -1070,97 +1372,21 @@ class Domain(metaclass=ABCMeta):
                         tmp[:, 2] = 0. # TODO: needed for eta3 = 0
                         X = self(tmp, remove_outside=True)
                     else:
-                        X = (markers[:, i, 0].copy(), markers[:, i, 1].copy())
+                        X = (markers[:, i, 0].copy(), markers[:, i, 1].copy(), markers[:, i, 2].copy())
                         
-                    plt.scatter(X[0], X[1], s=1)    
-            
-        # plot domain without MPI decomposition and high resolution
-        if grid_info is None:
+                    ax.scatter(X[co1], X[co2], s=1)
 
-            e1 = np.linspace(0., 1., 101)
-            e2 = np.linspace(0., 1., 101)
+        ax.axis('equal')
 
-            if logical:
-                E1, E2 = np.meshgrid(e1, e2, indexing='ij')
-                X = np.stack((E1, E2), axis=0)
-            else:
-                X = self(e1, e2, 0.)
+        if isinstance(grid_info, np.ndarray):
+            plt.legend()
 
-            # eta1-isolines
-            for i in range(e1.size//5 + 1):
-                plt.plot(X[0, i*5, :], X[1, i*5, :], 'tab:blue', alpha=.5)
-
-            # eta2-isolines
-            for j in range(e2.size//5 + 1):
-                plt.plot(X[0, :, j*5], X[1, :, j*5], 'tab:blue', alpha=.5)
-                
-        # plot domain according to given grid [nel1, nel2, (nel3)]
-        elif isinstance(grid_info, list):
-            
-            assert len(grid_info) > 1
-            
-            e1 = np.linspace(0., 1., grid_info[0] + 1)
-            e2 = np.linspace(0., 1., grid_info[1] + 1)
-            
-            if logical:
-                E1, E2 = np.meshgrid(e1, e2, indexing='ij')
-                X = np.stack((E1, E2), axis=0)
-            else:
-                X = self(e1, e2, 0.)
-
-            # eta1-isolines
-            for i in range(e1.size):
-                plt.plot(X[0, i, :], X[1, i, :], 'tab:blue', alpha=.5)
-
-            # eta2-isolines
-            for j in range(e2.size):
-                plt.plot(X[0, :, j], X[1, :, j], 'tab:blue', alpha=.5)
-        
-        # plot domain with MPI decomposition
-        elif isinstance(grid_info, np.ndarray):
-            
-            assert grid_info.ndim == 2
-            assert grid_info.shape[1] > 5
-            
-            for i in range(grid_info.shape[0]):
-                
-                e1 = np.linspace(grid_info[i, 0], grid_info[i, 1], int(
-                    grid_info[i, 2]) + 1)
-                e2 = np.linspace(grid_info[i, 3], grid_info[i, 4], int(
-                    grid_info[i, 5]) + 1)
-
-                if logical:
-                    E1, E2 = np.meshgrid(e1, e2, indexing='ij')
-                    X = np.stack((E1, E2), axis=0)
-                else:
-                    X = self(e1, e2, 0.)
-
-                # eta1-isolines
-                first_line = plt.plot(X[0, 0, :], X[1, 0, :], label='rank=' + str(i), alpha=.5)
-
-                for j in range(e1.size):
-                    plt.plot(X[0, j, :], X[1, j, :], color=first_line[0].get_color(), alpha=.5)
-
-                # eta2-isolines
-                for k in range(e2.size):
-                    plt.plot(X[0, :, k], X[1, :, k], color=first_line[0].get_color(), alpha=.5)
-                    
+        if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit':
+            ylab = 'z'
         else:
-            raise ValueError('given grid_info is not supported!')
-            
-
-        # plot control points in case of IGA mappings
-        if not logical and self.kind_map < 10:
-            plt.scatter(self.cx[:, :, 0].flatten(),
-                        self.cy[:, :, 0].flatten(),
-                        s=3, color='b')
-
-        plt.axis('square')
-        
-        if isinstance(grid_info, np.ndarray): plt.legend()
-        
-        plt.xlabel('x')
-        plt.ylabel('y')
+            ylab = 'y'
+        ax.set_xlabel('x')
+        ax.set_ylabel(ylab)
 
         if save_dir is not None:
             plt.savefig(save_dir)
@@ -1168,10 +1394,300 @@ class Domain(metaclass=ABCMeta):
             plt.show()
 
 
+class Spline(Domain):
+    r'''
+    .. math:: 
+
+        F: (\eta_1, \eta_2, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
+        x &= \sum_{ijk} c^x_{ijk} N_i(\eta_1) N_j(\eta_2) N_k(\eta_3)\,, 
+
+        y &= \sum_{ijk} c^y_{ijk} N_i(\eta_1) N_j(\eta_2) N_k(\eta_3)\,, 
+
+        z &= \sum_{ijk} c^z_{ijk} N_i(\eta_1) N_j(\eta_2) N_k(\eta_3)\,.
+        \end{aligned}\right.
+
+    .. image:: ../pics/mappings/spline.png'''
+
+    def __init__(self, **params):
+
+        self._kind_map = 0
+        
+        # set default 
+        params_default = {'Nel': None, 'p': None, 'spl_kind': None, 'cx': None, 'cy': None, 'cz': None}
+        
+        params_map = Domain.prepare_params_map(params, params_default, return_numpy=False)
+        
+        # get default control points from default GVEC equilibrium
+        if params_map['cx'] is None or params_map['cy'] is None or params_map['cz'] is None:
+
+            from struphy.fields_background.mhd_equil.equils import GVECequilibrium
+
+            mhd_equil = GVECequilibrium()
             
+            for key in params_map.keys():
+                params_map[key] = getattr(mhd_equil.domain, key)
+        
+        self._params_map = params_map
+
+        # assign control points
+        self._cx = self._params_map['cx']
+        self._cy = self._params_map['cy']
+        self._cz = self._params_map['cz']
+
+        # check dimensions
+        assert self.cx.ndim == 3
+        assert self.cy.ndim == 3
+        assert self.cz.ndim == 3
+
+        # make sure that control points are compatible with given spline data
+        expected_shape = tuple([self._params_map['Nel'][n] + 
+                                (not self._params_map['spl_kind'][n])*self._params_map['p'][n] for n in range(3)])
+        
+        assert self.cx.shape == expected_shape
+        assert self.cy.shape == expected_shape
+        assert self.cz.shape == expected_shape
+
+        # identify polar singularity at eta1=0
+        if np.all(self.cx[0, :, 0] == self.cx[0, 0, 0]):
+            self._pole = True
+        else:
+            self._pole = False
+
+        self._periodic_eta3 = self._params_map['spl_kind'][-1]
+
+        # init base class
+        self._params_numpy = np.array([])
+        super().__init__()
+
+    @property
+    def kind_map(self):
+        return self._kind_map
+
+    @property
+    def params_map(self):
+        return self._params_map
+
+    @property
+    def params_numpy(self):
+        return self._params_numpy
+
+    @property
+    def F_psy(self):
+        return None
+
+    @property
+    def pole(self):
+        return self._pole
+
+    @property
+    def periodic_eta3(self):
+        return self._periodic_eta3
+
+
+class PoloidalSpline(Domain):
+    r'''
+    Base class for all mappings that use a 2D spline representation :math:`S:(\eta_1, \eta_2) \to (q_1, q_2) \in \mathbb R^2` in the poloidal plane.
+    The full map F is obtained by defining :math:`(q_1, q_2, \eta_3) \mapsto (x, y, z)` in the sub-class.
+
+    .. math:: 
+
+        S: (\eta_1, \eta_2) \mapsto (q_1, q_2) \textnormal{ as } \left\{\begin{aligned}
+        q_1 &= \sum_{ij} c^x_{ij} N_i(\eta_1) N_j(\eta_2) \,, 
+
+        q_2 &= \sum_{ij} c^y_{ij} N_i(\eta_1) N_j(\eta_2) \,.
+        \end{aligned}\right.
+
+    .. image:: ../pics/mappings/xxx.png'''
+
+    def __init__(self, **params):
+        
+        # set default 
+        params_default = {'Nel': [8, 24], 'p': [2, 3], 'spl_kind': [False, True],
+                          'cx': None, 'cy': None}
+        
+        params_map = Domain.prepare_params_map(params, params_default, return_numpy=False)
+        
+        # get default control points
+        if params_map['cx'] is None or params_map['cy'] is None:
+            
+            def X(eta1, eta2): return eta1 * np.cos(2*np.pi * eta2) + 3.
+            def Y(eta1, eta2): return eta1 * np.sin(2*np.pi * eta2)
+
+            cx, cy = interp_mapping(params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y)
+
+            # make sure that control points at pole are all the same (eta1=0 there)
+            cx[0] = 3.
+            cy[0] = 0.
+
+            # add control points to parameters dictionary
+            params_map['cx'] = cx
+            params_map['cy'] = cy 
+        
+        self._params_map = params_map
+
+        # set control point properties
+        self._cx = self._params_map['cx']
+        self._cy = self._params_map['cy']
+
+        # make sure that control points are 2D
+        assert self.cx.ndim == 2
+        assert self.cy.ndim == 2
+
+        # make sure that control points are compatible with given spline data
+        expected_shape = tuple([self._params_map['Nel'][n] + 
+                                (not self._params_map['spl_kind'][n])*self._params_map['p'][n] for n in range(2)])
+        
+        assert self.cx.shape == expected_shape
+        assert self.cy.shape == expected_shape
+
+        # identify polar singularity at eta1=0
+        if np.all(self.cx[0, :] == self.cx[0, 0]):
+            self._pole = True
+        else:
+            self._pole = False
+
+        # reshape control points to 3D
+        self._cx = self.cx[:, :, None]
+        self._cy = self.cy[:, :, None]
+        self._cz = np.zeros((1, 1, 1), dtype=float)
+
+        # init base class
+        super().__init__()
+
+    @property
+    def kind_map(self):
+        return self._kind_map
+
+    @property
+    def params_map(self):
+        return self._params_map
+
+    @property
+    def params_numpy(self):
+        return self._params_numpy
+
+    @property
+    def F_psy(self):
+        return None
+
+    @property
+    def pole(self):
+        return self._pole
+
+    @property
+    def periodic_eta3(self):
+        return self._periodic_eta3
+
+
+class PoloidalSplineStraight(PoloidalSpline):
+    r'''
+    .. math:: 
+
+        F: (\eta_1, \eta_2, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
+        x &= \sum_{ij} c^x_{ij} N_i(\eta_1) N_j(\eta_2) \,, 
+
+        y &= \sum_{ij} c^y_{ij} N_i(\eta_1) N_j(\eta_2) \,, 
+
+        z &= L_z\eta_3\,.
+        \end{aligned}\right.
+
+    .. image:: ../pics/mappings/poloidal_spline_straight.png'''
+
+    def __init__(self, **params):
+
+        self._kind_map = 1
+        
+        # set default 
+        params_default = {'Nel': [8, 24], 'p': [2, 3], 'spl_kind': [False, True],
+                          'cx': None, 'cy': None, 'Lz': 4.}
+        
+        params_map = Domain.prepare_params_map(params, params_default, return_numpy=False)
+        
+        # get default control points
+        if params_map['cx'] is None or params_map['cy'] is None:
+            
+            def X(eta1, eta2): return eta1 * np.cos(2*np.pi * eta2) 
+            def Y(eta1, eta2): return eta1 * np.sin(2*np.pi * eta2)
+
+            cx, cy = interp_mapping(params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y)
+
+            # make sure that control points at pole are all 0 (eta1=0 there)
+            cx[0] = 0.
+            cy[0] = 0.
+
+            # add control points to parameters dictionary
+            params_map['cx'] = cx
+            params_map['cy'] = cy 
+        
+        self._params_numpy = np.array([params_map['Lz']])
+        self._periodic_eta3 = False
+        
+        # remove "Lz" temporarily from params_map dictionary (is not a parameter of PoloidalSpline)
+        Lz = params_map['Lz']
+        params_map.pop('Lz')
+
+        # init base class
+        super().__init__(**params_map)
+        
+        self._params_map['Lz'] = Lz
+        
+
+class PoloidalSplineTorus(PoloidalSpline):
+    r'''
+    .. math:: 
+
+        F: (\eta_1, \eta_2, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
+        x &= \sum_{ij} c^{R}_{ij} N_i(\eta_1) N_j(\eta_2) \cos(2\pi\eta_3)  \,, 
+
+        y &= \sum_{ij} c^{R}_{ij} N_i(\eta_1) N_j(\eta_2) \sin(2\pi\eta_3) \,, 
+
+        z &= \sum_{ij} c^{z}_{ij} N_i(\eta_1) N_j(\eta_2) \,.
+        \end{aligned}\right.
+
+    .. image:: ../pics/mappings/poloidal_spline_torus.png'''
+
+    def __init__(self, **params):
+
+        self._kind_map = 2
+
+        # set default 
+        params_default = {'Nel': [8, 24], 'p': [2, 3], 'spl_kind': [False, True],
+                          'cx': None, 'cy': None, 'tor_period' : 3}
+        
+        params_map = Domain.prepare_params_map(params, params_default, return_numpy=False)
+        
+        # get default control points
+        if params_map['cx'] is None or params_map['cy'] is None:
+            
+            def X(eta1, eta2): return eta1 * np.cos(2*np.pi * eta2) + 3.
+            def Y(eta1, eta2): return eta1 * np.sin(2*np.pi * eta2)
+
+            cx, cy = interp_mapping(params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y)
+
+            # make sure that control points at pole are all 0 (eta1=0 there)
+            cx[0] = 3.
+            cy[0] = 0.
+
+            # add control points to parameters dictionary
+            params_map['cx'] = cx
+            params_map['cy'] = cy 
+        
+        self._params_numpy = np.array([float(params_map['tor_period'])])
+        self._periodic_eta3 = True
+        
+        # remove "tor_period" temporarily from params_map dictionary (is not a parameter of PoloidalSpline)
+        tor_period = params_map['tor_period']
+        params_map.pop('tor_period')
+
+        # init base class
+        super().__init__(**params_map)
+        
+        self._params_map['tor_period'] = tor_period
+
+
 def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
     """
-    Interpolates the mapping (eta1, eta2, eta3) --> (X, Y, Z) on the given spline space.
+    Interpolates the mapping (eta1, eta2, eta3) in [0, 1]^3 --> (X, Y, Z) on the given spline space.
 
     Parameters
     -----------
@@ -1241,21 +1757,25 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
         return 0.
 
 
-def spline_interpolation_nd(p, grids_1d, values):
+def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: np.ndarray):
     """
-    nd spline interpolation with discrete input (nonuniform).
+    n-dimensional tensor-product spline interpolation with discrete input. 
 
-    The knot vector for the clamped spline interpolant is constructed from grids_1d.
+    The interpolation points are passed as a list of 1d arrays, each array with increasing entries g[0]=0 < g[1] < ...
+    The last element must be g[-1] = 1 for clamped interpolation and g[-1] < 1 for periodic interpolation.
 
     Parameters
     -----------
-    p : list 
+    p : list[int]
         Spline degree.
 
-    grids_1d : list of np.arrays
-        Interpolation points.
+    grids_1d : list[array]
+        Interpolation points in [0, 1].
 
-    values: np.array
+    spl_kind : list[bool]
+        True: periodic splines, False: clamped splines.
+
+    values: array
         Function values at interpolation points. values.shape = (grid1.size, ..., gridn.size).
 
     Returns
@@ -1263,41 +1783,56 @@ def spline_interpolation_nd(p, grids_1d, values):
     coeffs : np.array
         spline coefficients as nd array.
 
-    T : list
+    T : list[array]
         Knot vector of spline interpolant.
+
+    indN : list[array]
+        Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
     """
 
-    # dimension check
-    for sh, x_grid in zip(values.shape, grids_1d):
+    T = []
+    indN = []
+    I_mat = []
+    I_LU = []
+    for sh, x_grid, p_i, kind_i in zip(values.shape, grids_1d, p, spl_kind):
+        assert isinstance(x_grid, np.ndarray)
         assert sh == x_grid.size
+        assert np.all(np.roll(x_grid, 1)[1:] < x_grid[1:]) and x_grid[-1] > x_grid[-2]
+        assert x_grid[0] == 0. 
 
-    # list of break point arrays
-    breaks = []
+        if kind_i:
+            assert x_grid[-1] < 1. , 'Interpolation points must be <1 for periodic interpolation.'
+            breaks = np.ones(x_grid.size + 1)
 
-    for x_grid, p_i in zip(grids_1d, p):
+            if p_i % 2 == 0:
+                breaks[1:-1] = (x_grid[1:] + np.roll(x_grid, 1)[1:]) / 2.
+                breaks[0] = 0.
+            else:
+                breaks[:-1] = x_grid
 
-        # dimension of the 1d spline spaces: dim = breaks.size - 1 + p = x_grid.size
-        if p_i == 1:
-            breaks.append(x_grid)
-        elif p_i % 2 == 0:
-            breaks.append(x_grid[p_i//2 - 1:-p_i//2].copy())
         else:
-            breaks.append(x_grid[(p_i - 1)//2:-(p_i - 1)//2].copy())
+            assert np.abs(x_grid[-1] - 1.) < 1e-14, 'Interpolation points must include x=1 for clamped interpolation.'
+            # dimension of the 1d spline spaces: dim = breaks.size - 1 + p = x_grid.size
+            if p_i == 1:
+                breaks = x_grid
+            elif p_i % 2 == 0:
+                breaks = x_grid[p_i//2 - 1:-p_i//2].copy()
+            else:
+                breaks = x_grid[(p_i - 1)//2:-(p_i - 1)//2].copy()
 
-        # cells must be in interval [0, 1]
-        breaks[-1][0] = 0.
-        breaks[-1][-1] = 1.
+            # cells must be in interval [0, 1]
+            breaks[0] = 0.
+            breaks[-1] = 1.
 
-    # interpolation with clamped splines (periodic=False)
-    T = [bsp.make_knots(breaks_i, p_i, periodic=False)
-         for breaks_i, p_i in zip(breaks, p)]
-    
-    indN = [(np.indices((breaks_i.size - 1, p_i + 1))[1] + np.arange(breaks_i.size - 1)[:, None])%grids_1d_i.size for breaks_i, p_i, grids_1d_i in zip(breaks, p, grids_1d)]
+        #breaks = np.linspace(0., 1., x_grid.size - (not kind_i)*p_i + 1)
 
-    I_mat = [bsp.collocation_matrix(T_i, p_i, grids_1d_i, periodic=False)
-             for T_i, p_i, grids_1d_i in zip(T, p, grids_1d)]
+        T += [bsp.make_knots(breaks, p_i, periodic=kind_i)]
 
-    I_LU = [splu(csc_matrix(I_mat_i)) for I_mat_i in I_mat]
+        indN += [(np.indices((breaks.size - 1, p_i + 1))[1] + np.arange(breaks.size - 1)[:, None]) % x_grid.size]
+
+        I_mat += [bsp.collocation_matrix(T[-1], p_i, x_grid, periodic=kind_i)]
+
+        I_LU += [splu(csc_matrix(I_mat[-1]))]
 
     # dimension check
     for I, x_grid in zip(I_mat, grids_1d):

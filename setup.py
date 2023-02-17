@@ -8,10 +8,16 @@ setup(
     version=__version__, # auto-detected from struphy/version.py
     packages=find_packages(),
     package_data={
-        'struphy.mhd_equil': [
-            'gvec/*.dat',
-            'gvec/*.json',
-            'gvec/*.hdf5',
+        'struphy.fields_background.mhd_equil.eqdsk': [
+            'data/*.high',
+        ],
+        'struphy.fields_background.mhd_equil.gvec': [
+            'ellipstell_v2/newBC_E1D6_M6N6/*.dat',
+            'ellipstell_v2/newBC_E1D6_M6N6/*.ini',
+            'ellipstell_v2/newBC_E4D6_M6N6/*.dat',
+            'ellipstell_v2/newBC_E4D6_M6N6/*.ini',
+            'ellipstell_v2/oldBC_E40D5M6N6/*.dat',
+            'ellipstell_v2/oldBC_E40D5M6N6/*.ini',
         ],
         'struphy.io': ['batch/*.sh'],
         'struphy.io.inp': ['parameters.yml',
@@ -28,7 +34,8 @@ setup(
              'bin/example_linearmhd_mpi_4',
              'bin/example_orbits_tokamak_mpi_2',
              'bin/example_gc_orbits_tokamak_mpi_2',
-             'bin/example_TAE_tokamak_mpi_2'
+             'bin/example_TAE_tokamak_mpi_2',
+             'bin/example_hybridmhdvlasovcc_mpi_2'
              ],
     # list of package dependencies (if necessary)
     install_requires=[

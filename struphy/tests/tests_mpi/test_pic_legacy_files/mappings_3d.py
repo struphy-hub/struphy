@@ -17,15 +17,13 @@ The following mappings are implemented:
 - kind_map = 2  : 2d spline mapping with control points cx, cy: F_pol = (eta_1, eta_2) --> (R, y), curvature in 3rd direction
 
 - kind_map = 10 : cuboid,             params_map = [l1, r1, l2, r2, l3, r3].
-- kind_map = 11 : hollow cylinder,    params_map = [a1, a2, R0].
+- kind_map = 11 : orthogonal,         params_map = [Lx, Ly, alpha, Lz].
 - kind_map = 12 : colella,            params_map = [Lx, Ly, alpha, Lz].
-- kind_map = 13 : orthogonal,         params_map = [Lx, Ly, alpha, Lz].
-- kind_map = 14 : hollow torus,       params_map = [a1, a2, R0].
-- kind_map = 15 : ellipse,            params_map = [x0, y0, z0, rx, ry, Lz].
-- kind_map = 16 : rotated ellipse,    params_map = [x0, y0, z0, r1, r2, Lz, th].
-- kind_map = 17 : shafranov shift,    params_map = [x0, y0, z0, rx, ry, Lz, delta].
-- kind_map = 18 : shafranov sqrt,     params_map = [x0, y0, z0, rx, ry, Lz, delta].
-- kind_map = 19 : shafranov D-shaped, params_map = [x0, y0, z0, R0, Lz, delta_x, delta_y, delta_gs, epsilon_gs, kappa_gs].
+- kind_map = 20 : hollow cylinder,    params_map = [a1, a2, R0].
+- kind_map = 22 : hollow torus,       params_map = [a1, a2, R0].
+- kind_map = 30 : shafranov shift,    params_map = [x0, y0, z0, rx, ry, Lz, delta].
+- kind_map = 31 : shafranov sqrt,     params_map = [x0, y0, z0, rx, ry, Lz, delta].
+- kind_map = 32 : shafranov D-shaped, params_map = [x0, y0, z0, R0, Lz, delta_x, delta_y, delta_gs, epsilon_gs, kappa_gs].
 """
 
 from numpy import shape
@@ -74,7 +72,7 @@ def f(eta1 : 'float', eta2 : 'float', eta3 : 'float', component : 'int', kind_ma
     # ==== 2d spline (straight in 3rd direction) ===
     elif kind_map == 1:
 
-        Lz = 2*pi*cx[0, 0, 0]
+        Lz = params_map[0]
 
         if   component == 1:
             value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2)
@@ -131,20 +129,20 @@ def f(eta1 : 'float', eta2 : 'float', eta3 : 'float', component : 'int', kind_ma
             value = b3 + (e3 - b3) * eta3
 
     # ========= hollow cylinder =====================
-    elif kind_map == 11:
+    elif kind_map == 20:
 
         a1 = params_map[0]
         a2 = params_map[1]
-        r0 = params_map[2]
+        lz = params_map[2]
 
         da = a2 - a1
 
         if   component == 1:
-            value = (a1 + eta1 * da) * cos(2*pi*eta2) + r0
+            value = (a1 + eta1 * da) * cos(2*pi*eta2) 
         elif component == 2:
             value = (a1 + eta1 * da) * sin(2*pi*eta2)
         elif component == 3:
-            value = 2*pi*r0 * eta3
+            value = lz * eta3
 
     # ============ colella ==========================
     elif kind_map == 12:
@@ -162,7 +160,7 @@ def f(eta1 : 'float', eta2 : 'float', eta3 : 'float', component : 'int', kind_ma
             value = Lz * eta3
 
     # =========== orthogonal ========================
-    elif kind_map == 13:
+    elif kind_map == 11:
 
         Lx    = params_map[0]
         Ly    = params_map[1]
@@ -177,7 +175,7 @@ def f(eta1 : 'float', eta2 : 'float', eta3 : 'float', component : 'int', kind_ma
             value = Lz * eta3
 
     # ========= hollow torus ========================
-    elif kind_map == 14:
+    elif kind_map == 22:
 
         a1 = params_map[0]
         a2 = params_map[1]
@@ -192,97 +190,53 @@ def f(eta1 : 'float', eta2 : 'float', eta3 : 'float', component : 'int', kind_ma
         elif component == 3:
             value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * sin(2*pi*eta3)
 
-    # ========= ellipse =====================
-    elif kind_map == 15:
-
-        x0 = params_map[0]
-        y0 = params_map[1]
-        z0 = params_map[2]
-        rx = params_map[3]
-        ry = params_map[4]
-        Lz = params_map[5]
-
-        if   component == 1:
-            value = x0 + (eta1 * rx) * cos(2*pi*eta2)
-        elif component == 2:
-            value = y0 + (eta1 * ry) * sin(2*pi*eta2)
-        elif component == 3:
-            value = z0 + (eta3 * Lz)
-
-    # ========= rotated ellipse =====================
-    elif kind_map == 16:
-
-        x0 = params_map[0]
-        y0 = params_map[1]
-        z0 = params_map[2]
-        r1 = params_map[3]
-        r2 = params_map[4]
-        Lz = params_map[5]
-        th = params_map[6] # Domain: [0,1)
-
-        if   component == 1:
-            value = x0 + (eta1 * r1) * cos(2*pi*th) * cos(2*pi*eta2) - (eta1 * r2) * sin(2*pi*th) * sin(2*pi*eta2)
-        elif component == 2:
-            value = y0 + (eta1 * r1) * sin(2*pi*th) * cos(2*pi*eta2) + (eta1 * r2) * cos(2*pi*th) * sin(2*pi*eta2)
-        elif component == 3:
-            value = z0 + (eta3 * Lz)
-
     # ========= shafranov shift =====================
-    elif kind_map == 17:
+    elif kind_map == 30:
 
-        x0 = params_map[0]
-        y0 = params_map[1]
-        z0 = params_map[2]
-        rx = params_map[3]
-        ry = params_map[4]
-        Lz = params_map[5]
-        de = params_map[6] # Domain: [0,0.1]
+        rx = params_map[0]
+        ry = params_map[1]
+        Lz = params_map[2]
+        de = params_map[3] # Domain: [0,0.1]
 
         if   component == 1:
-            value = x0 + (eta1 * rx) * cos(2*pi*eta2) + (1-eta1**2) * rx * de
+            value = (eta1 * rx) * cos(2*pi*eta2) + (1-eta1**2) * rx * de
         elif component == 2:
-            value = y0 + (eta1 * ry) * sin(2*pi*eta2)
+            value = (eta1 * ry) * sin(2*pi*eta2)
         elif component == 3:
-            value = z0 + (eta3 * Lz)
+            value = (eta3 * Lz)
 
     # ========= shafranov sqrt =====================
-    elif kind_map == 18:
+    elif kind_map == 31:
 
-        x0 = params_map[0]
-        y0 = params_map[1]
-        z0 = params_map[2]
-        rx = params_map[3]
-        ry = params_map[4]
-        Lz = params_map[5]
-        de = params_map[6] # Domain: [0,0.1]
+        rx = params_map[0]
+        ry = params_map[1]
+        Lz = params_map[2]
+        de = params_map[3] # Domain: [0,0.1]
 
         if   component == 1:
-            value = x0 + (eta1 * rx) * cos(2*pi*eta2) + (1-sqrt(eta1)) * rx * de
+            value = (eta1 * rx) * cos(2*pi*eta2) + (1-sqrt(eta1)) * rx * de
         elif component == 2:
-            value = y0 + (eta1 * ry) * sin(2*pi*eta2)
+            value = (eta1 * ry) * sin(2*pi*eta2)
         elif component == 3:
-            value = z0 + (eta3 * Lz)
+            value = (eta3 * Lz)
 
     # ========= shafranov D-shaped =====================
-    elif kind_map == 19:
+    elif kind_map == 32:
 
-        x0 = params_map[0]
-        y0 = params_map[1]
-        z0 = params_map[2]
-        r0 = params_map[3]
-        Lz = params_map[4]
-        dx = params_map[5] # Grad-Shafranov shift along x-axis.
-        dy = params_map[6] # Grad-Shafranov shift along y-axis.
-        dg = params_map[7] # Delta = sin(alpha): Triangularity, shift of high point.
-        eg = params_map[8] # Epsilon: Inverse aspect ratio a/r0.
-        kg = params_map[9] # Kappa: Ellipticity (elongation).
+        r0 = params_map[0]
+        Lz = params_map[1]
+        dx = params_map[2] # Grad-Shafranov shift along x-axis.
+        dy = params_map[3] # Grad-Shafranov shift along y-axis.
+        dg = params_map[4] # Delta = sin(alpha): Triangularity, shift of high point.
+        eg = params_map[5] # Epsilon: Inverse aspect ratio a/r0.
+        kg = params_map[6] # Kappa: Ellipticity (elongation).
 
         if   component == 1:
-            value = x0 + r0 * (1 + (1 - eta1**2) * dx + eg *      eta1 * cos(2*pi*eta2 + arcsin(dg)*eta1*sin(2*pi*eta2)))
+            value = r0 * (1 + (1 - eta1**2) * dx + eg *      eta1 * cos(2*pi*eta2 + arcsin(dg)*eta1*sin(2*pi*eta2)))
         elif component == 2:
-            value = y0 + r0 * (    (1 - eta1**2) * dy + eg * kg * eta1 * sin(2*pi*eta2))
+            value = r0 * (    (1 - eta1**2) * dy + eg * kg * eta1 * sin(2*pi*eta2))
         elif component == 3:
-            value = z0 + (eta3 * Lz)
+            value = (eta3 * Lz)
 
     return value
 
@@ -430,11 +384,11 @@ def df(eta1 : 'float', eta2 : 'float', eta3 : 'float', component : 'int', kind_m
             value = e3 - b3
             
     # ======== hollow cylinder =================
-    elif kind_map == 11:
+    elif kind_map == 20:
 
         a1 = params_map[0]
         a2 = params_map[1]
-        r0 = params_map[2]
+        lz = params_map[2]
 
         da = a2 - a1
 
@@ -455,7 +409,7 @@ def df(eta1 : 'float', eta2 : 'float', eta3 : 'float', component : 'int', kind_m
         elif component == 32:
             value = 0.
         elif component == 33:
-            value = 2*pi*r0
+            value = lz
 
     # ============ colella =================
     elif kind_map == 12:
@@ -485,7 +439,7 @@ def df(eta1 : 'float', eta2 : 'float', eta3 : 'float', component : 'int', kind_m
             value = Lz
 
     # =========== orthogonal ================
-    elif kind_map == 13:
+    elif kind_map == 11:
 
         Lx    = params_map[0]
         Ly    = params_map[1]
@@ -512,7 +466,7 @@ def df(eta1 : 'float', eta2 : 'float', eta3 : 'float', component : 'int', kind_m
             value = Lz
 
     # ========= hollow torus ==================
-    elif kind_map == 14:
+    elif kind_map == 22:
 
         a1 = params_map[0]
         a2 = params_map[1]
@@ -539,75 +493,13 @@ def df(eta1 : 'float', eta2 : 'float', eta3 : 'float', component : 'int', kind_m
         elif component == 33:
             value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * cos(2*pi*eta3) * 2*pi
 
-    # ========= ellipse =====================
-    elif kind_map == 15:
-
-        x0 = params_map[0]
-        y0 = params_map[1]
-        z0 = params_map[2]
-        rx = params_map[3]
-        ry = params_map[4]
-        Lz = params_map[5]
-
-        if   component == 11:
-            value = rx * cos(2*pi*eta2)
-        elif component == 12:
-            value = -2*pi * (eta1 * rx) * sin(2*pi*eta2)
-        elif component == 13:
-            value = 0.
-        elif component == 21:
-            value = ry * sin(2*pi*eta2)
-        elif component == 22:
-            value =  2*pi * (eta1 * ry) * cos(2*pi*eta2)
-        elif component == 23:
-            value = 0.
-        elif component == 31:
-            value = 0.
-        elif component == 32:
-            value = 0.
-        elif component == 33:
-            value = Lz
-
-    # ========= rotated ellipse =====================
-    elif kind_map == 16:
-
-        x0 = params_map[0]
-        y0 = params_map[1]
-        z0 = params_map[2]
-        r1 = params_map[3]
-        r2 = params_map[4]
-        Lz = params_map[5]
-        th = params_map[6] # Domain: [0,1)
-
-        if   component == 11:
-            value = r1 * cos(2*pi*th) * cos(2*pi*eta2) - r2 * sin(2*pi*th) * sin(2*pi*eta2)
-        elif component == 12:
-            value = -2*pi * (eta1 * r1) * cos(2*pi*th) * sin(2*pi*eta2) - 2*pi * (eta1 * r2) * sin(2*pi*th) * cos(2*pi*eta2)
-        elif component == 13:
-            value = 0.
-        elif component == 21:
-            value = r1 * sin(2*pi*th) * cos(2*pi*eta2) + r2 * cos(2*pi*th) * sin(2*pi*eta2)
-        elif component == 22:
-            value = -2*pi * (eta1 * r1) * sin(2*pi*th) * sin(2*pi*eta2) + 2*pi * (eta1 * r2) * cos(2*pi*th) * cos(2*pi*eta2)
-        elif component == 23:
-            value = 0.
-        elif component == 31:
-            value = 0.
-        elif component == 32:
-            value = 0.
-        elif component == 33:
-            value = Lz
-
     # ========= shafranov shift =====================
-    elif kind_map == 17:
+    elif kind_map == 30:
 
-        x0 = params_map[0]
-        y0 = params_map[1]
-        z0 = params_map[2]
-        rx = params_map[3]
-        ry = params_map[4]
-        Lz = params_map[5]
-        de = params_map[6] # Domain: [0,0.1]
+        rx = params_map[0]
+        ry = params_map[1]
+        Lz = params_map[2]
+        de = params_map[3] # Domain: [0,0.1]
 
         if   component == 11:
             value = rx * cos(2*pi*eta2) - 2 * eta1 * rx * de
@@ -629,15 +521,12 @@ def df(eta1 : 'float', eta2 : 'float', eta3 : 'float', component : 'int', kind_m
             value = Lz
 
     # ========= shafranov sqrt =====================
-    elif kind_map == 18:
+    elif kind_map == 31:
 
-        x0 = params_map[0]
-        y0 = params_map[1]
-        z0 = params_map[2]
-        rx = params_map[3]
-        ry = params_map[4]
-        Lz = params_map[5]
-        de = params_map[6] # Domain: [0,0.1]
+        rx = params_map[0]
+        ry = params_map[1]
+        Lz = params_map[2]
+        de = params_map[3] # Domain: [0,0.1]
 
         if   component == 11:
             value = rx * cos(2*pi*eta2) - 0.5 / sqrt(eta1) * rx * de
@@ -659,18 +548,15 @@ def df(eta1 : 'float', eta2 : 'float', eta3 : 'float', component : 'int', kind_m
             value = Lz
 
     # ========= shafranov D-shaped =====================
-    elif kind_map == 19:
+    elif kind_map == 32:
 
-        x0 = params_map[0]
-        y0 = params_map[1]
-        z0 = params_map[2]
-        r0 = params_map[3]
-        Lz = params_map[4]
-        dx = params_map[5] # Grad-Shafranov shift along x-axis.
-        dy = params_map[6] # Grad-Shafranov shift along y-axis.
-        dg = params_map[7] # Delta = sin(alpha): Triangularity, shift of high point.
-        eg = params_map[8] # Epsilon: Inverse aspect ratio a/R0.
-        kg = params_map[9] # Kappa: Ellipticity (elongation).
+        r0 = params_map[0]
+        Lz = params_map[1]
+        dx = params_map[2] # Grad-Shafranov shift along x-axis.
+        dy = params_map[3] # Grad-Shafranov shift along y-axis.
+        dg = params_map[4] # Delta = sin(alpha): Triangularity, shift of high point.
+        eg = params_map[5] # Epsilon: Inverse aspect ratio a/R0.
+        kg = params_map[6] # Kappa: Ellipticity (elongation).
 
         if   component == 11:
             value = r0 * (- 2 * dx * eta1 - eg * eta1 * sin(2*pi*eta2) * arcsin(dg) * sin(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2) + eg * cos(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2))
