@@ -35,7 +35,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
 
     # Domain object
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(mapping[1])
+    domain = domain_class(**mapping[1])
 
     # Psydac discrete Derham sequence
     derham = Derham(Nel, p, spl_kind, comm=comm)

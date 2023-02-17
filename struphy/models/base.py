@@ -39,7 +39,7 @@ class StruphyModel(metaclass=ABCMeta):
         dom_params = params['geometry'][dom_type]
 
         domain_class = getattr(domains, dom_type)
-        self._domain = domain_class(dom_params)
+        self._domain = domain_class(**dom_params)
 
         # mhd equilibrium
         if 'mhd_equilibrium' in params:
@@ -47,7 +47,7 @@ class StruphyModel(metaclass=ABCMeta):
 
             mhd_equil_class = getattr(equils, equil_params['type'])
             self._mhd_equil = mhd_equil_class(
-                equil_params[equil_params['type']])
+                **equil_params[equil_params['type']])
 
             if equil_params['use_equil_domain']:
                 assert self.mhd_equil.domain is not None

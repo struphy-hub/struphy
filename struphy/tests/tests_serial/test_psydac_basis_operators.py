@@ -39,7 +39,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 
     # Domain object
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(mapping[1])
+    domain = domain_class(**mapping[1])
 
     # de Rham object
     n_quad_el = [5, 5, 5]
@@ -59,7 +59,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     mhd_equil_params = {'B0x': 0., 'B0y': 0.,
                         'B0z': 1., 'beta': 200., 'n0': 1.}
 
-    EQ_MHD = HomogenSlab(mhd_equil_params)
+    EQ_MHD = HomogenSlab(**mhd_equil_params)
     EQ_MHD.domain = domain
 
     # Psydac spline spaces

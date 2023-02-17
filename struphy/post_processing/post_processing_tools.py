@@ -194,7 +194,7 @@ def eval_femfields(path, fields, space_ids, cell_divide=None):
     dom_params = params['geometry'][dom_type]
 
     domain_class = getattr(domains, dom_type)
-    domain = domain_class(dom_params)
+    domain = domain_class(**dom_params)
 
     Nel = params['grid']['Nel']
 
@@ -314,7 +314,7 @@ def post_process_markers(path, species):
     dom_params = params['geometry'][dom_type]
 
     domain_class = getattr(domains, dom_type)
-    domain = domain_class(dom_params)
+    domain = domain_class(**dom_params)
 
     # open hdf5 files and get names and number of saved markers of kinetic species
     files = [h5py.File(path + f'data_proc{i}.hdf5', 'r') for i in range(nproc)]

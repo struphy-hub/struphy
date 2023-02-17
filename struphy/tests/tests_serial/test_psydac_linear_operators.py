@@ -38,7 +38,7 @@ def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
     dom_params = mapping[1]
 
     domain_class = getattr(domains, dom_type)
-    domain = domain_class(dom_params)
+    domain = domain_class(**dom_params)
 
     derham = Derham(Nel, p, spl_kind, comm=MPI.COMM_WORLD)
 

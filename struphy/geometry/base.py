@@ -1063,6 +1063,52 @@ class Domain(metaclass=ABCMeta):
         return a_out
 
     # ================================
+    @staticmethod
+    def prepare_params_map(params_user, params_default, return_numpy=True):
+        """
+        Sets missing default key-value pairs in dictionary "params_user" according to "params_default".
+        
+        Parameters
+        ----------
+        params_user : dict
+            Dictionary which is compared to the dictionary "params_default" and to which missing defaults are added.
+            
+        params_default : dict
+            Dictionary with default values.
+            
+        return_numpy : bool
+            Whether to return a numpy parameter array in addition to the always returned parameter dictionary.
+            
+        Returns
+        -------
+        params_map : dict
+            Dictionary with same keys as "params_default" and default values for missing keys.
+            
+        params_numpy : np.ndarray
+            Numpy array with parameters in params_map (if parameter is a float or int).
+        """
+        
+        # check for correct keys in params_user
+        for key in params_user:
+            assert key in params_default, f'Unknown key "{key}". Please choose one of {[*params_default]}.'
+        
+        # set default values if key is missing
+        params_map = params_user
+        
+        for key, val in params_default.items():
+            params_map.setdefault(key, val)
+
+        # parameter numpy array for pyccel kernel (order matters!)
+        if return_numpy:
+            params_numpy = []
+            for key in params_default.keys():
+                params_numpy.append(params_map[key])
+                
+            return params_map, np.array(params_numpy)
+        else:
+            return params_map
+            
+    # ================================
     def show(self, logical=False, grid_info=None, markers=None, marker_coords='logical', save_dir=None):
         """
         Plots isolines (and control point in case on spline mappings) of the 2D physical domain for eta3 = 0.
@@ -1362,57 +1408,54 @@ class Spline(Domain):
 
     .. image:: ../pics/mappings/spline.png'''
 
-    def __init__(self, params_map=None):
+    def __init__(self, **params):
 
         self._kind_map = 0
-
-        # set a default
-        if params_map is None:
+        
+        # set default 
+        params_default = {'Nel': None, 'p': None, 'spl_kind': None, 'cx': None, 'cy': None, 'cz': None}
+        
+        params_map = Domain.prepare_params_map(params, params_default, return_numpy=False)
+        
+        # get default control points from default GVEC equilibrium
+        if params_map['cx'] is None or params_map['cy'] is None or params_map['cz'] is None:
 
             from struphy.fields_background.mhd_equil.equils import GVECequilibrium
 
             mhd_equil = GVECequilibrium()
+            
+            for key in params_map.keys():
+                params_map[key] = getattr(mhd_equil.domain, key)
+        
+        self._params_map = params_map
 
-            params_map = {'cx': mhd_equil.domain.cx,
-                          'cy': mhd_equil.domain.cy,
-                          'cz': mhd_equil.domain.cz,
-                          'Nel': mhd_equil.domain.Nel,
-                          'p': mhd_equil.domain.p,
-                          'spl_kind': mhd_equil.domain.spl_kind}
-
-        else:
-            assert 'cx' in params_map
-            assert 'cy' in params_map
-            assert 'cz' in params_map
-            assert 'Nel' in params_map
-            assert 'p' in params_map
-            assert 'spl_kind' in params_map
-
-        # assign coefficients
-        self._cx = params_map['cx']
-        self._cy = params_map['cy']
-        self._cz = params_map['cz']
+        # assign control points
+        self._cx = self._params_map['cx']
+        self._cy = self._params_map['cy']
+        self._cz = self._params_map['cz']
 
         # check dimensions
         assert self.cx.ndim == 3
         assert self.cy.ndim == 3
         assert self.cz.ndim == 3
 
-        assert all([self.cx.shape[n] == params_map['Nel'][n] +
-                   (not params_map['spl_kind'][n])*params_map['p'][n] for n in range(3)])
-        assert self.cy.shape == self.cx.shape
-        assert self.cz.shape == self.cx.shape
+        # make sure that control points are compatible with given spline data
+        expected_shape = tuple([self._params_map['Nel'][n] + 
+                                (not self._params_map['spl_kind'][n])*self._params_map['p'][n] for n in range(3)])
+        
+        assert self.cx.shape == expected_shape
+        assert self.cy.shape == expected_shape
+        assert self.cz.shape == expected_shape
 
-        # check polar singularity
+        # identify polar singularity at eta1=0
         if np.all(self.cx[0, :, 0] == self.cx[0, 0, 0]):
             self._pole = True
         else:
             self._pole = False
 
-        self._periodic_eta3 = params_map['spl_kind'][-1]
+        self._periodic_eta3 = self._params_map['spl_kind'][-1]
 
         # init base class
-        self._params_map = params_map
         self._params_numpy = np.array([])
         super().__init__()
 
@@ -1456,59 +1499,59 @@ class PoloidalSpline(Domain):
 
     .. image:: ../pics/mappings/xxx.png'''
 
-    def __init__(self, params_map=None):
-
-        # set a default
-        if params_map is None:
-
-            params_map = {
-                'Nel': [8, 24],
-                'p': [2, 3],
-                'spl_kind': [False, True]
-            }
-
+    def __init__(self, **params):
+        
+        # set default 
+        params_default = {'Nel': [8, 24], 'p': [2, 3], 'spl_kind': [False, True],
+                          'cx': None, 'cy': None}
+        
+        params_map = Domain.prepare_params_map(params, params_default, return_numpy=False)
+        
+        # get default control points
+        if params_map['cx'] is None or params_map['cy'] is None:
+            
             def X(eta1, eta2): return eta1 * np.cos(2*np.pi * eta2) + 3.
             def Y(eta1, eta2): return eta1 * np.sin(2*np.pi * eta2)
 
             cx, cy = interp_mapping(params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y)
-            
-            # make sure that control points at pole are all the same
+
+            # make sure that control points at pole are all the same (eta1=0 there)
             cx[0] = 3.
             cy[0] = 0.
 
+            # add control points to parameters dictionary
             params_map['cx'] = cx
-            params_map['cy'] = cy
+            params_map['cy'] = cy 
+        
+        self._params_map = params_map
 
-        else:
-            assert 'cx' in params_map
-            assert 'cy' in params_map
-            assert 'Nel' in params_map
-            assert 'p' in params_map
-            assert 'spl_kind' in params_map
+        # set control point properties
+        self._cx = self._params_map['cx']
+        self._cy = self._params_map['cy']
 
-        self._cx = params_map['cx']
-        self._cy = params_map['cy']
-
+        # make sure that control points are 2D
         assert self.cx.ndim == 2
         assert self.cy.ndim == 2
 
-        assert all([self.cx.shape[n] == params_map['Nel'][n] +
-                   (not params_map['spl_kind'][n])*params_map['p'][n] for n in range(2)])
-        assert self.cy.shape == self.cx.shape
+        # make sure that control points are compatible with given spline data
+        expected_shape = tuple([self._params_map['Nel'][n] + 
+                                (not self._params_map['spl_kind'][n])*self._params_map['p'][n] for n in range(2)])
+        
+        assert self.cx.shape == expected_shape
+        assert self.cy.shape == expected_shape
 
+        # identify polar singularity at eta1=0
         if np.all(self.cx[0, :] == self.cx[0, 0]):
             self._pole = True
         else:
             self._pole = False
 
+        # reshape control points to 3D
         self._cx = self.cx[:, :, None]
         self._cy = self.cy[:, :, None]
         self._cz = np.zeros((1, 1, 1), dtype=float)
 
         # init base class
-        self._params_map = params_map
-        self._params_numpy = None
-        self._periodic_eta3 = None
         super().__init__()
 
     @property
@@ -1550,30 +1593,44 @@ class PoloidalSplineStraight(PoloidalSpline):
 
     .. image:: ../pics/mappings/poloidal_spline_straight.png'''
 
-    def __init__(self, params_map=None):
+    def __init__(self, **params):
 
         self._kind_map = 1
+        
+        # set default 
+        params_default = {'Nel': [8, 24], 'p': [2, 3], 'spl_kind': [False, True],
+                          'cx': None, 'cy': None, 'Lz': 4.}
+        
+        params_map = Domain.prepare_params_map(params, params_default, return_numpy=False)
+        
+        # get default control points
+        if params_map['cx'] is None or params_map['cy'] is None:
+            
+            def X(eta1, eta2): return eta1 * np.cos(2*np.pi * eta2) 
+            def Y(eta1, eta2): return eta1 * np.sin(2*np.pi * eta2)
 
-        # set a default
-        if params_map is not None:
-            assert 'cx' in params_map
-            assert 'cy' in params_map
-            assert 'Nel' in params_map
-            assert 'p' in params_map
-            assert 'spl_kind' in params_map
-            assert 'Lz' in params_map
+            cx, cy = interp_mapping(params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y)
 
-        # init base class and set class specific properties
-        super().__init__(params_map)
+            # make sure that control points at pole are all 0 (eta1=0 there)
+            cx[0] = 0.
+            cy[0] = 0.
 
-        # set default
-        if params_map is None:
-            self._params_map['Lz'] = 4.
-            self._params_map['cx'][:, :] = self._params_map['cx'] - 3.
-
-        self._params_numpy = np.array([self.params_map['Lz']])
+            # add control points to parameters dictionary
+            params_map['cx'] = cx
+            params_map['cy'] = cy 
+        
+        self._params_numpy = np.array([params_map['Lz']])
         self._periodic_eta3 = False
+        
+        # remove "Lz" temporarily from params_map dictionary (is not a parameter of PoloidalSpline)
+        Lz = params_map['Lz']
+        params_map.pop('Lz')
 
+        # init base class
+        super().__init__(**params_map)
+        
+        self._params_map['Lz'] = Lz
+        
 
 class PoloidalSplineTorus(PoloidalSpline):
     r'''
@@ -1589,29 +1646,43 @@ class PoloidalSplineTorus(PoloidalSpline):
 
     .. image:: ../pics/mappings/poloidal_spline_torus.png'''
 
-    def __init__(self, params_map=None):
+    def __init__(self, **params):
 
         self._kind_map = 2
 
-        # set a default
-        if params_map is not None:
-            assert 'cx' in params_map
-            assert 'cy' in params_map
-            assert 'Nel' in params_map
-            assert 'p' in params_map
-            assert 'spl_kind' in params_map
-            assert 'tor_period' in params_map
+        # set default 
+        params_default = {'Nel': [8, 24], 'p': [2, 3], 'spl_kind': [False, True],
+                          'cx': None, 'cy': None, 'tor_period' : 3}
+        
+        params_map = Domain.prepare_params_map(params, params_default, return_numpy=False)
+        
+        # get default control points
+        if params_map['cx'] is None or params_map['cy'] is None:
+            
+            def X(eta1, eta2): return eta1 * np.cos(2*np.pi * eta2) + 3.
+            def Y(eta1, eta2): return eta1 * np.sin(2*np.pi * eta2)
 
-        # init base class and set class specific properties
-        super().__init__(params_map)
+            cx, cy = interp_mapping(params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y)
 
-        # set default
-        if params_map is None:
-            self._params_map['tor_period'] = 3
-            self._params_map['cy'][:, :] = self._params_map['cy']
+            # make sure that control points at pole are all 0 (eta1=0 there)
+            cx[0] = 3.
+            cy[0] = 0.
 
-        self._params_numpy = np.array([float(self.params_map['tor_period'])])
+            # add control points to parameters dictionary
+            params_map['cx'] = cx
+            params_map['cy'] = cy 
+        
+        self._params_numpy = np.array([float(params_map['tor_period'])])
         self._periodic_eta3 = True
+        
+        # remove "tor_period" temporarily from params_map dictionary (is not a parameter of PoloidalSpline)
+        tor_period = params_map['tor_period']
+        params_map.pop('tor_period')
+
+        # init base class
+        super().__init__(**params_map)
+        
+        self._params_map['tor_period'] = tor_period
 
 
 def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):

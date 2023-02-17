@@ -36,7 +36,7 @@ def test_polar_splines_2D(plot=False):
     dom_type = 'IGAPolarCylinder'
     dom_params = {'a': a, 'Lz': R0, 'Nel': Nel, 'p': p}
     domain_class = getattr(domains, dom_type)
-    domain = domain_class(dom_params)
+    domain = domain_class(**dom_params)
 
     # plot the control points and the grid
     fig = plt.figure()

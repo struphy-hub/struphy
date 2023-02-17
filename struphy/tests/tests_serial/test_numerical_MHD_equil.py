@@ -23,7 +23,7 @@ def test_transformations(mapping, mhd_equil):
     dom_type = mapping[0]
     dom_params = mapping[1]
     domain_class = getattr(domains, dom_type)
-    domain = domain_class(dom_params)
+    domain = domain_class(**dom_params)
 
     # analytical mhd equilibrium
     mhd_equil_class = getattr(equils, mhd_equil)

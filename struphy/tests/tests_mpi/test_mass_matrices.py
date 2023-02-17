@@ -40,7 +40,7 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
 
     # mapping
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(mapping[1])
+    domain = domain_class(**mapping[1])
 
     if show_plots:
         import matplotlib.pyplot as plt
@@ -48,7 +48,7 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
 
     # load MHD equilibrium
     if mapping[0] == 'Cuboid':
-        eq_mhd = ShearedSlab({'a': (mapping[1]['r1'] - mapping[1]['l1']),
+        eq_mhd = ShearedSlab(**{'a': (mapping[1]['r1'] - mapping[1]['l1']),
                               'R0': (mapping[1]['r3'] - mapping[1]['l3'])/(2*np.pi),
                               'B0': 1.0, 'q0': 1.05,
                               'q1': 1.8, 'n1': 3.0,
@@ -56,7 +56,7 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
                               'beta': 10.0})
 
     elif mapping[0] == 'Colella':
-        eq_mhd = ShearedSlab({'a': mapping[1]['Lx'],
+        eq_mhd = ShearedSlab(**{'a': mapping[1]['Lx'],
                               'R0': mapping[1]['Lz']/(2*np.pi),
                               'B0': 1.0,
                               'q0': 1.05,
@@ -70,7 +70,7 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
             eq_mhd.plot_profiles()
 
     elif mapping[0] == 'HollowCylinder':
-        eq_mhd = ScrewPinch({'a': mapping[1]['a2'],
+        eq_mhd = ScrewPinch(**{'a': mapping[1]['a2'],
                              'R0': 3.,
                              'B0': 1.0,
                              'q0': 1.05,
@@ -246,14 +246,14 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     # mapping
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(
-        {'Nel': Nel[:2], 'p': p[:2], 'a': mapping[1]['a'], 'Lz': mapping[1]['Lz']})
+        **{'Nel': Nel[:2], 'p': p[:2], 'a': mapping[1]['a'], 'Lz': mapping[1]['Lz']})
 
     if show_plots:
         import matplotlib.pyplot as plt
         domain.show(grid_info=Nel)
 
     # load MHD equilibrium
-    eq_mhd = ScrewPinch({'a': mapping[1]['a'],
+    eq_mhd = ScrewPinch(**{'a': mapping[1]['a'],
                          'R0': mapping[1]['Lz'],
                          'B0': 1.0,
                          'q0': 1.05,
@@ -442,7 +442,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
 
     # mapping
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(mapping[1])
+    domain = domain_class(**mapping[1])
 
     if show_plots:
         import matplotlib.pyplot as plt
@@ -450,7 +450,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
 
     # load MHD equilibrium
     if mapping[0] == 'Cuboid':
-        eq_mhd = ShearedSlab({'a': (mapping[1]['r1'] - mapping[1]['l1']),
+        eq_mhd = ShearedSlab(**{'a': (mapping[1]['r1'] - mapping[1]['l1']),
                               'R0': (mapping[1]['r3'] - mapping[1]['l3'])/(2*np.pi),
                               'B0': 1.0, 'q0': 1.05,
                               'q1': 1.8, 'n1': 3.0,
@@ -458,7 +458,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
                               'beta': 10.0})
 
     elif mapping[0] == 'Colella':
-        eq_mhd = ShearedSlab({'a': mapping[1]['Lx'],
+        eq_mhd = ShearedSlab(**{'a': mapping[1]['Lx'],
                               'R0': mapping[1]['Lz']/(2*np.pi),
                               'B0': 1.0,
                               'q0': 1.05,
@@ -472,7 +472,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
             eq_mhd.plot_profiles()
 
     elif mapping[0] == 'HollowCylinder':
-        eq_mhd = ScrewPinch({'a': mapping[1]['a2'],
+        eq_mhd = ScrewPinch(**{'a': mapping[1]['a2'],
                              'R0': 3.,
                              'B0': 1.0,
                              'q0': 1.05,
@@ -751,14 +751,14 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     # mapping
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(
-        {'Nel': Nel[:2], 'p': p[:2], 'a': mapping[1]['a'], 'Lz': mapping[1]['Lz']})
+        **{'Nel': Nel[:2], 'p': p[:2], 'a': mapping[1]['a'], 'Lz': mapping[1]['Lz']})
 
     if show_plots:
         import matplotlib.pyplot as plt
         domain.show()
 
     # load MHD equilibrium
-    eq_mhd = ScrewPinch({'a': mapping[1]['a'],
+    eq_mhd = ScrewPinch(**{'a': mapping[1]['a'],
                          'R0': mapping[1]['Lz'],
                          'B0': 1.0,
                          'q0': 1.05,
