@@ -136,7 +136,7 @@ function example_help {
     echo "  maxwell_mpi         1d Maxwell equations in vacuum, dispersion relation, 3 MPI processes."
     echo "  linearmhd           1d linear ideal MHD equations, dispersion relation, 4 MPI processes."
     echo "  orbits_tokamak      full-orbit particle trajectories in a tokamak-like static magnetic field, 2 MPI processes."
-    echo "  gc_orbits_tokamak   guiding center particle trajectories in a tokamak-like static magnetic field, 2 MPI processes."
+    echo "  gc_orbits_tokamak   guiding center particle trajectories in a tokamak-like static magnetic field, 4 MPI processes."
     echo "  TAE_tokamak         3d linear ideal MHD equations, initialized with m=2,3, n=-2 toroidal Alfvén eigenmode (TAE), 2 MPI processes (takes ~50 minutes on a laptop)."
     echo "  linearmhdvlasov_cc  1d hybrid linear ideal MHD equations + full-orbit (6d) energetic ions (current coupling model), 2 MPI processes."
 

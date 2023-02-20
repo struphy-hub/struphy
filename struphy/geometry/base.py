@@ -1287,7 +1287,7 @@ class Domain(metaclass=ABCMeta):
             assert grid_info.ndim == 2
             assert grid_info.shape[1] > 5
             
-            fig = plt.figure(figsize=(6, 5))
+            fig = plt.figure(figsize=(12, 12))
             ax = fig.add_subplot(1, 1, 1)
             
             for i in range(grid_info.shape[0]):
@@ -1301,14 +1301,14 @@ class Domain(metaclass=ABCMeta):
                     E1, E2 = np.meshgrid(e1, e2, indexing='ij')
                     
                     # eta1-isolines
-                    first_line = ax.plot(E1[0, :], E2[0, :], label='rank=' + str(i), alpha=.5)
+                    first_line = ax.plot(E1[0, :], E2[0, :], label='rank=' + str(i), alpha=.25)
 
                     for j in range(e1.size):
-                        ax.plot(E1[j, :], E2[j, :], color=first_line[0].get_color(), alpha=.5)
+                        ax.plot(E1[j, :], E2[j, :], color=first_line[0].get_color(), alpha=.25)
 
                     # eta2-isolines
                     for k in range(e2.size):
-                        ax.plot(E1[:, k], E2[:, k], color=first_line[0].get_color(), alpha=.5)
+                        ax.plot(E1[:, k], E2[:, k], color=first_line[0].get_color(), alpha=.25)
                     
                 else:
                     X = self(e1, e2, 0.)
@@ -1320,14 +1320,14 @@ class Domain(metaclass=ABCMeta):
                         co1, co2 = 0, 1
 
                     # eta1-isolines
-                    first_line = ax.plot(X[co1, 0, :], X[co2, 0, :], label='rank=' + str(i), alpha=.5)
+                    first_line = ax.plot(X[co1, 0, :], X[co2, 0, :], label='rank=' + str(i), alpha=.25)
 
                     for j in range(e1.size):
-                        ax.plot(X[co1, j, :], X[co2, j, :], color=first_line[0].get_color(), alpha=.5)
+                        ax.plot(X[co1, j, :], X[co2, j, :], color=first_line[0].get_color(), alpha=.25)
 
                     # eta2-isolines
                     for k in range(e2.size):
-                        ax.plot(X[co1, :, k], X[co2, :, k], color=first_line[0].get_color(), alpha=.5)
+                        ax.plot(X[co1, :, k], X[co2, :, k], color=first_line[0].get_color(), alpha=.25)
                     
         else:
             raise ValueError('given grid_info is not supported!')
@@ -1365,6 +1365,8 @@ class Domain(metaclass=ABCMeta):
             # time series: plot markers with different colors
             elif markers.ndim == 3:
                 
+                colors = ['k', 'm', 'b', 'g', 'r', 'c', 'y']
+                
                 for i in range(markers.shape[1]):
                     
                     if not logical and marker_coords == 'logical':
@@ -1374,7 +1376,8 @@ class Domain(metaclass=ABCMeta):
                     else:
                         X = (markers[:, i, 0].copy(), markers[:, i, 1].copy(), markers[:, i, 2].copy())
                         
-                    ax.scatter(X[co1], X[co2], s=1)
+                    #ax.scatter(X[co1], X[co2], s=2, color=colors[i%len(colors)])
+                    ax.scatter(X[co1], X[co2], s=2)
 
         ax.axis('equal')
 
