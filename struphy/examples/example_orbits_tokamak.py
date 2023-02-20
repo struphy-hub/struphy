@@ -50,6 +50,7 @@ def main():
 
     pos = np.zeros((Nt + 1, Np, 3), dtype=float)
 
+    # load orbits
     print('Load ion orbits ...')
     for n in tqdm(range(Nt + 1)):
 
@@ -59,19 +60,13 @@ def main():
         # convert to R, y, z, coordinates
         pos[n, :, 0] = np.sqrt(pos[n, :, 0]**2 + pos[n, :, 1]**2)
 
+    # plot results
     fig = plt.figure()
-    fig.set_figheight(4)
-    fig.set_figwidth(12)
-
-    # plot safety factor
-    plt.subplot(1, 2, 1)
-    r = np.linspace(0., 1., 101)
-    plt.plot(r, mhd_equil.q(r))
-    plt.xlabel('r [m]')
-    plt.ylabel('safety factor')
+    fig.set_figheight(8)
+    fig.set_figwidth(16)
 
     # plot absolute value of magnetic field in poloidal plane
-    plt.subplot(1, 2, 2)
+    plt.subplot(1, 2, 1)
     e1 = np.linspace(0., 1., 101)
     e2 = np.linspace(0., 1., 101)
 
@@ -79,18 +74,96 @@ def main():
 
     e1[0] += 1e-5
 
-    plt.contourf(X[0], X[2], mhd_equil.absB0(e1, e2, 0.), levels=50, cmap='inferno')
+    plt.contourf(X[0], X[2], mhd_equil.absB0(e1, e2, 0.), levels=51)
 
-    plt.xlabel('x [m]')
-    plt.ylabel('z [m]')
+    
+    for i in range(grid_info.shape[0]):
 
-    plt.axis('square')
+        e1 = np.linspace(grid_info[i, 0], grid_info[i, 1], int(
+            grid_info[i, 2]) + 1)
+        e2 = np.linspace(grid_info[i, 3], grid_info[i, 4], int(
+            grid_info[i, 5]) + 1)
+
+        X = domain(e1, e2, 0.)
+
+        # plot xz-plane for torus mappings, xy-plane else
+        if 'Torus' in domain.__class__.__name__ or domain.__class__.__name__ == 'GVECunit':
+            co1, co2 = 0, 2
+        else:
+            co1, co2 = 0, 1
+
+        # eta1-isolines
+        for j in range(e1.size):
+            if j == 0:
+                if i == 0:
+                    plt.plot(X[co1, j, :], X[co2, j, :], color='k', label='domain decomposition for ' + str(grid_info.shape[0]) + ' MPI processes')
+                else:
+                    plt.plot(X[co1, j, :], X[co2, j, :], color='k')
+            elif j == e1.size - 1:
+                plt.plot(X[co1, j, :], X[co2, j, :], color='k')
+            else:
+                plt.plot(X[co1, j, :], X[co2, j, :], color='tab:blue', alpha=.25)
+
+        # eta2-isolines
+        for k in range(e2.size):
+            if k == 0:
+                plt.plot(X[co1, :, k], X[co2, :, k], color='k')
+            elif k == e2.size - 1:
+                plt.plot(X[co1, :, k], X[co2, :, k], color='k')
+            else:
+                plt.plot(X[co1, :, k], X[co2, :, k], color='tab:blue', alpha=.25)
+    
+
+    plt.xlabel('R [m]')
+    plt.ylabel('Z [m]')
+    plt.legend()
+    plt.axis('equal')
     plt.colorbar()
     plt.title(r'$|\mathbf{B}|$ [T]')
 
-    # plot particle orbits
-    domain.show(grid_info=grid_info, markers=pos, marker_coords='phy')
-    plt.title('Passing, co-passing and trapped particle')
+    # plot domain and particle orbits
+    plt.subplot(1, 2, 2)
+    
+    for i in range(grid_info.shape[0]):
+
+        e1 = np.linspace(grid_info[i, 0], grid_info[i, 1], int(
+            grid_info[i, 2]) + 1)
+        e2 = np.linspace(grid_info[i, 3], grid_info[i, 4], int(
+            grid_info[i, 5]) + 1)
+
+        X = domain(e1, e2, 0.)
+
+        # plot xz-plane for torus mappings, xy-plane else
+        if 'Torus' in domain.__class__.__name__ or domain.__class__.__name__ == 'GVECunit':
+            co1, co2 = 0, 2
+        else:
+            co1, co2 = 0, 1
+
+        # eta1-isolines
+        for j in range(e1.size):
+            if e1[j] == 0.:
+                plt.plot(X[co1, j, :], X[co2, j, :], color='k')
+            elif e1[j] == 1.:
+                plt.plot(X[co1, j, :], X[co2, j, :], color='k')
+            else:
+                plt.plot(X[co1, j, :], X[co2, j, :], color='tab:blue', alpha=.25)
+
+        # eta2-isolines
+        for k in range(e2.size):
+            plt.plot(X[co1, :, k], X[co2, :, k], color='tab:blue', alpha=.25)
+    
+    if domain.kind_map < 10:
+        plt.scatter(domain.cx[:, :, 0], domain.cy[:, :, 0], s=2, color='b')
+    
+    for i in range(pos.shape[1]):
+        plt.scatter(pos[:, i, 0], pos[:, i, 2], s=2)
+    
+    plt.axis('equal')
+    plt.xlabel('R [m]')
+    plt.ylabel('Z [m]')
+    plt.title('Passing and trapped particles (co- and counter direction)')
+    
+    plt.show()
     
 if __name__ == '__main__':
     main()

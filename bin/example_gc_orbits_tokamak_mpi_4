@@ -3,7 +3,7 @@
 PYTHON=python3
 
 # run
-struphy run DriftKinetic --mpi 2 -i examples/params_gc_orbits_tokamak.yml -o sim_3
+struphy run DriftKinetic --mpi 4 -i examples/params_gc_orbits_tokamak.yml -o sim_3
 
 # post process
 struphy pproc sim_3

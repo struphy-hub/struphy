@@ -520,9 +520,9 @@ class AdhocTorus(CartesianMHDequilibrium):
         # inverse toroidal coordinate transformation (x, y, z) --> (r, theta, phi)
         self.r = lambda x, y, z: np.sqrt(
             (np.sqrt(x**2 + y**2) - self.params['R0'])**2 + z**2)
-        self.theta = lambda x, y, z: -np.arctan2(
+        self.theta = lambda x, y, z: np.arctan2(
             z, np.sqrt(x**2 + y**2) - self.params['R0'])
-        self.phi = lambda x, y, z: np.arctan2(y, x)
+        self.phi = lambda x, y, z: -np.arctan2(y, x)
 
         # local inverse aspect ratio
         self.eps_loc = lambda r: r/self.params['R0']
@@ -640,8 +640,8 @@ class AdhocTorus(CartesianMHDequilibrium):
 
         # Cartesian components
         bx = -b_theta*np.sin(theta)*np.cos(phi) - b_phi*np.sin(phi)
-        by = -b_theta*np.sin(theta)*np.sin(phi) + b_phi*np.cos(phi)
-        bz = -b_theta*np.cos(theta)
+        by =  b_theta*np.sin(theta)*np.sin(phi) - b_phi*np.cos(phi)
+        bz =  b_theta*np.cos(theta)
 
         return bx, by, bz
 
@@ -669,7 +669,7 @@ class AdhocTorus(CartesianMHDequilibrium):
 
         # Cartesian x-components
         jx = -j_phi*np.sin(phi)
-        jy = j_phi*np.cos(phi)
+        jy = -j_phi*np.cos(phi)
         jz = 0*x
 
         return jx, jy, jz
@@ -1218,14 +1218,16 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
         phi = np.arctan2(y, x)
         z = z + 0*r  # broadcasting happens here
 
-        r2 = r[:, 0, :]
-        z2 = z[:, 0, :]
+        #r2 = r[:, 0, :]
+        #z2 = z[:, 0, :]
+        r2 = r[:, :, 0]
+        z2 = z[:, :, 0]
 
         # B as 2-form (second component is already multiplied by r)
         # TODO: remove is_sparse_meshgrid (not necessary anymore)
-        b2_1_tmp = self.psi_fun(r2, z2, 'z', is_sparse_meshgrid)
-        b2_2_tmp = self.g_fun(r2, z2, None, is_sparse_meshgrid)
-        b2_3_tmp = - self.psi_fun(r2, z2, 'r', is_sparse_meshgrid)
+        b2_1_tmp =  self.psi_fun(r2, z2, 'z', is_sparse_meshgrid)
+        b2_2_tmp = -self.g_fun(r2, z2, None, is_sparse_meshgrid)
+        b2_3_tmp = -self.psi_fun(r2, z2, 'r', is_sparse_meshgrid)
 
         if is_sparse_meshgrid:
             shp = (r.shape[0], phi.shape[1], z.shape[2])
@@ -1236,9 +1238,12 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
         b2_2 = np.empty(shp)
         b2_3 = np.empty(shp)
 
-        b2_1[:] = b2_1_tmp[:, None, :]
-        b2_2[:] = b2_2_tmp[:, None, :]
-        b2_3[:] = b2_3_tmp[:, None, :]
+        #b2_1[:] = b2_1_tmp[:, None, :]
+        #b2_2[:] = b2_2_tmp[:, None, :]
+        #b2_3[:] = b2_3_tmp[:, None, :]
+        b2_1[:] = b2_1_tmp[:, :, None]
+        b2_2[:] = b2_2_tmp[:, :, None]
+        b2_3[:] = b2_3_tmp[:, :, None]
 
         # push-forward of b2
         b_x = (np.cos(phi)*b2_1 - np.sin(phi)*b2_2) / r
