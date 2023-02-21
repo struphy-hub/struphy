@@ -1560,7 +1560,7 @@ class DriftKinetic(StruphyModel):
                                                                          ions_params['markers']['bc_type'],
                                                                          ions_params['push_algos']['maxiter'],
                                                                          ions_params['push_algos']['tol'])]
-        # self._propagators += [propagators_markers.StepPushGuidingCenter(ions, self.derham, self.domain,
+        # self._propagators += [propagators_markers.StepPushGuidingCenter(self._ions, self.derham, self.domain,
         #                                                                 epsilon, b, unit_b1, unit_b2, abs_b,
         #                                                                 ions_params['push_algos']['method'],
         #                                                                 ions_params['push_algos']['integrator'],

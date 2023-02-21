@@ -574,7 +574,11 @@ class StepPushGuidingCenter1(Propagator):
 
             if algo == 'discrete_gradients':
                 self._pusher = Pusher_iteration(
-                    derham, domain, 'push_gc1_discrete_gradients_stage', maxiter, tol)
+                    derham, domain, 'push_gc1_discrete_gradients', maxiter, tol)
+                
+            elif algo == 'discrete_gradients_faster':
+                self._pusher = Pusher_iteration(
+                    derham, domain, 'push_gc1_discrete_gradients_faster', maxiter, tol)
 
             else:
                 raise NotImplementedError(
@@ -599,7 +603,7 @@ class StepPushGuidingCenter1(Propagator):
         TODO
         """
         self._pusher(self._particles, dt, self._epsilon,
-                     *self._pusher_inputs,
+                    *self._pusher_inputs,
                      bc=self._bc, mpi_sort='each', verbose=False)
 
         # save magnetic field at each particles' position
@@ -721,7 +725,11 @@ class StepPushGuidingCenter2(Propagator):
 
             if algo == 'discrete_gradients':
                 self._pusher = Pusher_iteration(
-                    derham, domain, 'push_gc2_discrete_gradients_stage', maxiter, tol)
+                    derham, domain, 'push_gc2_discrete_gradients', maxiter, tol)
+                
+            elif algo == 'discrete_gradients_faster':
+                self._pusher = Pusher_iteration(
+                    derham, domain, 'push_gc2_discrete_gradients_faster', maxiter, tol)
 
             else:
                 raise NotImplementedError(
@@ -746,7 +754,7 @@ class StepPushGuidingCenter2(Propagator):
         TODO
         """
         self._pusher(self._particles, dt, self._epsilon,
-                     *self._pusher_inputs,
+                    *self._pusher_inputs,
                      bc=self._bc, mpi_sort='each', verbose=False)
 
         # save magnetic field at each particles' position
@@ -855,7 +863,7 @@ class StepPushGuidingCenter(Propagator):
 
             if algo == 'discrete_gradients':
                 self._pusher = Pusher_iteration(
-                    derham, domain, 'push_gc_discrete_gradients_stage', maxiter, tol)
+                    derham, domain, 'push_gc_discrete_gradients', maxiter, tol)
 
             else:
                 raise NotImplementedError(
@@ -884,7 +892,7 @@ class StepPushGuidingCenter(Propagator):
                      bc=self._bc, mpi_sort='each', verbose=False)
 
         # save magnetic field at each particles' position
-        self._particles.save_magnetic_field
+        self._particles.save_magnetic_energy(self._derham, self._abs_b)
 
 
 class StepStaticEfield(Propagator):
@@ -1095,7 +1103,11 @@ class StepPushDriftkinetic1(Propagator):
 
             if self._method == 'discrete_gradients':
                 self._pusher = Pusher_iteration(
-                    derham, domain, 'push_gc1_discrete_gradients_stage', self._maxiter, self._tol)
+                    derham, domain, 'push_gc1_discrete_gradients', self._maxiter, self._tol)
+            
+            elif self._method == 'discrete_gradients_faster':
+                self._pusher = Pusher_iteration(
+                    derham, domain, 'push_gc1_discrete_gradients_faster', self._maxiter, self._tol)
 
             else:
                 raise NotImplementedError(
@@ -1253,7 +1265,11 @@ class StepPushDriftkinetic2(Propagator):
 
             if self._method == 'discrete_gradients':
                 self._pusher = Pusher_iteration(
-                    derham, domain, 'push_gc2_discrete_gradients_stage', self._maxiter, self._tol)
+                    derham, domain, 'push_gc2_discrete_gradients', self._maxiter, self._tol)
+            
+            elif self._method == 'discrete_gradients_faster':
+                self._pusher = Pusher_iteration(
+                    derham, domain, 'push_gc2_discrete_gradients_faster', self._maxiter, self._tol)
 
             else:
                 raise NotImplementedError(
