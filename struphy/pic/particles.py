@@ -539,7 +539,7 @@ class Particles5D(Particles):
 
     def __init__(self, name, params_markers, domain_decomp, comm):
 
-        super().__init__(name, params_markers, domain_decomp, comm, 24)
+        super().__init__(name, params_markers, domain_decomp, comm, 25)
 
     def save_magnetic_moment(self, derham, absB0):
         r"""
@@ -753,7 +753,7 @@ def sendrecv_markers(send_list, recv_info, hole_inds_after_send, markers, comm):
                     reqs[i] = None
 
 
-def apply_kinetic_bc(markers, holes, domain, bc_type):
+def apply_kinetic_bc(markers, holes, domain, bc_type, comm):
     """
     Apply boundary conditions to markers that are outside of the logical unit cube.
 
@@ -770,7 +770,11 @@ def apply_kinetic_bc(markers, holes, domain, bc_type):
 
         bc_type : list[str]
             Kinetic boundary conditions in each direction.
+
+        comm : Intracomm
+            MPI communicator from mpi4py.MPI.Intracomm.
     """
+    comm.Barrier()
 
     for axis, bc in enumerate(bc_type):
 
@@ -796,3 +800,5 @@ def apply_kinetic_bc(markers, holes, domain, bc_type):
 
         else:
             raise NotImplementedError('Given bc_type is not implemented!')
+
+    comm.Barrier()
