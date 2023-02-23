@@ -3,6 +3,8 @@ from mpi4py import MPI
 
 from struphy.models.base import StruphyModel
 from struphy.polar.basic import PolarVector
+from struphy.propagators.base import Propagator
+from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
 from struphy.models.pre_processing import plasma_params
 
 
@@ -48,10 +50,9 @@ class LinearMHD(StruphyModel):
 
     def __init__(self, params, comm):
 
-        from struphy.psydac_api.mass import WeightedMassOperators
         from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
-        from struphy.propagators import propagators_fields
 
+        # init base class
         self._u_space = params['fluid']['mhd']['mhd_u_space']
 
         if self._u_space == 'Hdiv':
@@ -74,16 +75,14 @@ class LinearMHD(StruphyModel):
         self._p = self.fluid['mhd']['p3']['obj'].vector
 
         # extract necessary parameters
-        shearalfven_solver = params['solvers']['solver_1']
-        magnetosonic_solver = params['solvers']['solver_2']
+        alfven_solver = params['solvers']['solver_1']
+        sonic_solver = params['solvers']['solver_2']
 
         # project background magnetic field (2-form) and pressure (3-form)
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
                                          self.mhd_equil.b2_2,
                                          self.mhd_equil.b2_3])
-
         self._p_eq = self.derham.P['3'](self.mhd_equil.p3)
-
         self._ones = self._p_eq.space.zeros()
 
         if isinstance(self._ones, PolarVector):
@@ -91,27 +90,30 @@ class LinearMHD(StruphyModel):
         else:
             self._ones[:] = 1.
 
-        # Assemble necessary mass matrices
-        self._mass_ops = WeightedMassOperators(
-            self.derham, self.domain, eq_mhd=self.mhd_equil)
-
-        # Assemble necessary linear basis projection operators
-        self._basis_ops = BasisProjectionOperators(
+        # set propagators base class attributes (available to all propagators)
+        Propagator.derham = self.derham
+        Propagator.domain = self.domain
+        Propagator.mass_ops = self.mass_ops
+        Propagator.basis_ops = BasisProjectionOperators(
             self.derham, self.domain, self.mhd_equil)
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-        self._propagators += [propagators_fields.ShearAlfvén(self._u, self._b, self._u_space, self.derham,
-                                                             self._mass_ops, self._basis_ops, shearalfven_solver)]
-        self._propagators += [propagators_fields.Magnetosonic(self._n, self._u, self._p, self._b, self._u_space,
-                                                              self.derham, self._mass_ops, self._basis_ops, magnetosonic_solver)]
+        self._propagators += [propagators_fields.ShearAlfvén(
+            self._u,
+            self._b,
+            u_space=self._u_space,
+            **alfven_solver)]
+        self._propagators += [propagators_fields.Magnetosonic(
+            self._n,
+            self._u,
+            self._p,
+            self._b,
+            u_space=self._u_space,
+            **sonic_solver)]
 
         # Scalar variables to be saved during simulation
-
-        # time
         self._scalar_quantities['time'] = np.empty(1, dtype=float)
-
-        # energies
         self._scalar_quantities['en_U'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_p'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
@@ -149,18 +151,23 @@ class LinearMHD(StruphyModel):
         print()
         print()
         print('------- MODEL UNITS (PRESCRIBED) -------')
-        print('x\u0302 [m]        :', '{:16.13f}'.format(model_units_params['x']))
-        print('B\u0302 [T]        :', '{:16.13f}'.format(model_units_params['B']))
-        print('n\u0302 [10²⁰ m⁻³] :', '{:16.13f}'.format(model_units_params['n']))
+        print('x\u0302 [m]        :', '{:16.13f}'.format(
+            model_units_params['x']))
+        print('B\u0302 [T]        :', '{:16.13f}'.format(
+            model_units_params['B']))
+        print('n\u0302 [10²⁰ m⁻³] :', '{:16.13f}'.format(
+            model_units_params['n']))
         print('A            :', '{:2d}'.format(model_units_params['A']))
         print()
         print('------- MODEL UNITS (DERIVED) ----------')
         print('r\u0302ho [10⁷ kg/m³] :', '{:16.13f}'.format(model_units_params['n'] *
               1e20*model_units_params['A']*1.67262192369e-27*1e7))
-        print('p\u0302   [bar]       :', '{:16.13f}'.format(pressure_unit*1e-5))
+        print('p\u0302   [bar]       :',
+              '{:16.13f}'.format(pressure_unit*1e-5))
         print('t\u0302   [µs]        :', '{:16.13f}'.format(model_units_params['x'] /
               pparams['v_A [10⁶ m/s]']))
-        print('v\u0302   [10⁶ m/s]   :', '{:16.13f}'.format(pparams['v_A [10⁶ m/s]']))
+        print('v\u0302   [10⁶ m/s]   :',
+              '{:16.13f}'.format(pparams['v_A [10⁶ m/s]']))
         print()
         print('------- OTHER QUANTITIES _--------------')
 
@@ -350,12 +357,10 @@ class LinearMHDVlasovCC(StruphyModel):
 
     def __init__(self, params, comm):
 
-        from struphy.psydac_api.mass import WeightedMassOperators
-        from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
-        from struphy.propagators import propagators_fields, propagators_markers, propagators_coupling
-
         from struphy.kinetic_background import analytical as kin_ana
+        from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
 
+        # init base class
         self._u_space = params['fluid']['mhd']['mhd_u_space']
 
         if self._u_space == 'Hdiv':
@@ -390,13 +395,13 @@ class LinearMHDVlasovCC(StruphyModel):
         solver_params_4 = params['solvers']['solver_4']
 
         # model units
-        L   = params['model_units']['x']
-        B   = params['model_units']['B']
-        nb  = params['model_units']['nb']
+        L = params['model_units']['x']
+        B = params['model_units']['B']
+        nb = params['model_units']['nb']
         nuh = params['model_units']['nuh']*0.01
-        Ab  = params['model_units']['Ab']
-        Ah  = params['model_units']['Ah']
-        Zh  = params['model_units']['Zh']
+        Ab = params['model_units']['Ab']
+        Ah = params['model_units']['Ah']
+        Zh = params['model_units']['Zh']
 
         kappa = 1.602176634e-19*L * \
             np.sqrt(1.25663706212e-6*Ab*nb*1e20/1.67262192369e-27)
@@ -422,9 +427,7 @@ class LinearMHDVlasovCC(StruphyModel):
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
                                          self.mhd_equil.b2_2,
                                          self.mhd_equil.b2_3])
-
         self._p_eq = self.derham.P['3'](self.mhd_equil.p3)
-
         self._ones = self._p_eq.space.zeros()
 
         if isinstance(self._ones, PolarVector):
@@ -432,15 +435,15 @@ class LinearMHDVlasovCC(StruphyModel):
         else:
             self._ones[:] = 1.
 
-        # mass and basis projection operators
+        # add control variate to mass_ops object
         if control:
-            self._mass_ops = WeightedMassOperators(
-                self.derham, self.domain, eq_mhd=self.mhd_equil, kinetic_fun=f0)
-        else:
-            self._mass_ops = WeightedMassOperators(
-                self.derham, self.domain, eq_mhd=self.mhd_equil)
+            self.mass_ops.weights['f0'] = f0
 
-        self._base_ops = BasisProjectionOperators(
+        # set propagators base class attributes (available to all propagators)
+        Propagator.derham = self.derham
+        Propagator.domain = self.domain
+        Propagator.mass_ops = self.mass_ops
+        Propagator.basis_ops = BasisProjectionOperators(
             self.derham, self.domain, self.mhd_equil)
 
         # Initialize propagators/integrators used in splitting substeps
@@ -448,27 +451,57 @@ class LinearMHDVlasovCC(StruphyModel):
 
         # updates u
         self._propagators += [propagators_fields.CurrentCoupling6DDensity(
-            self._e_ions, self.derham, self.domain, self._mass_ops, solver_params_1, self._coupling_params, self._u, self._u_space, self._b_eq, self._b, f0=f0)]
+            self._u,
+            particles=self._e_ions,
+            u_space=self._u_space,
+            b_eq=self._b_eq,
+            b_tilde=self._b,
+            f0=f0,
+            **solver_params_1,
+            **self._coupling_params)]
 
         # updates u and b
         self._propagators += [propagators_fields.ShearAlfvén(
-            self._u, self._b, self._u_space, self.derham, self._mass_ops, self._base_ops, solver_params_2)]
+            self._u,
+            self._b,
+            u_space=self._u_space,
+            **solver_params_2)]
 
         # updates u and v (and weights for control variate)
         self._propagators += [propagators_coupling.CurrentCoupling6DCurrent(
-            self._e_ions, self.derham, self.domain, self._mass_ops, solver_params_3, self._coupling_params, self._u, self._u_space, self._b_eq, self._b, f0=f0)]
+            self._e_ions,
+            self._u,
+            u_space=self._u_space,
+            b_eq=self._b_eq,
+            b_tilde=self._b,
+            f0=f0,
+            **solver_params_3,
+            **self._coupling_params)]
 
         # updates eta
-        self._propagators += [propagators_markers.StepPushEta(
-            self._e_ions, self.derham, self.domain, e_ions_params['push_algos']['eta'], e_ions_params['markers']['bc_type'], f0=f0)]
+        self._propagators += [propagators_markers.PushEta(
+            self._e_ions,
+            algo=e_ions_params['push_algos']['eta'],
+            bc_type=e_ions_params['markers']['bc_type'],
+            f0=f0)]
 
         # updates v
-        self._propagators += [propagators_markers.StepPushVxB(
-            self._e_ions, self.derham, self.domain, e_ions_params['push_algos']['vxb'], kappa*Zh/Ah, self._b_eq, self._b, f0=f0)]
+        self._propagators += [propagators_markers.PushVxB(
+            self._e_ions,
+            algo=e_ions_params['push_algos']['vxb'],
+            scale_fac=kappa*Zh/Ah,
+            b_eq=self._b_eq,
+            b_tilde=self._b,
+            f0=f0)]
 
         # updates u and p
         self._propagators += [propagators_fields.Magnetosonic(
-            self._n, self._u, self._p, self._b, self._u_space, self.derham, self._mass_ops, self._base_ops, solver_params_4)]
+            self._n,
+            self._u,
+            self._p,
+            self._b,
+            u_space=self._u_space,
+            **solver_params_4)]
 
         # Scalar variables to be saved during simulation:
 
@@ -514,9 +547,12 @@ class LinearMHDVlasovCC(StruphyModel):
         print()
         print()
         print('------- MODEL UNITS (PRESCRIBED) -------')
-        print('x\u0302  [m]        : ', '{:16.13f}'.format(model_units_params['x']))
-        print('B\u0302  [T]        : ', '{:16.13f}'.format(model_units_params['B']))
-        print('n\u0302b [10²⁰ m⁻³] : ', '{:16.13f}'.format(model_units_params['nb']))
+        print('x\u0302  [m]        : ',
+              '{:16.13f}'.format(model_units_params['x']))
+        print('B\u0302  [T]        : ',
+              '{:16.13f}'.format(model_units_params['B']))
+        print('n\u0302b [10²⁰ m⁻³] : ',
+              '{:16.13f}'.format(model_units_params['nb']))
         print('Ab            : ', '{:2d}'.format(model_units_params['Ab']))
         print('n\u0302h [10²⁰ m⁻³] : ', '{:16.13f}'.format(model_units_params['nb']
               * model_units_params['nuh']*0.01))
@@ -526,13 +562,16 @@ class LinearMHDVlasovCC(StruphyModel):
         print('------- MODEL UNITS (DERIVED) ----------')
         print('r\u0302ho_b [10⁷ kg/m⁻³] : ', '{:16.13f}'.format(model_units_params['nb']
               * 1e20*model_units_params['Ab']*1.67262192369e-27*1e7))
-        print('p\u0302     [bar]        : ', '{:16.13f}'.format(pressure_unit*1e-5))
+        print('p\u0302     [bar]        : ',
+              '{:16.13f}'.format(pressure_unit*1e-5))
         print('t\u0302     [µs]         : ',
               '{:16.13f}'.format(model_units_params['x']/pparams['v_A [10⁶ m/s]']))
-        print('v\u0302     [10⁶ m/s]    : ', '{:16.13f}'.format(pparams['v_A [10⁶ m/s]']))
+        print('v\u0302     [10⁶ m/s]    : ',
+              '{:16.13f}'.format(pparams['v_A [10⁶ m/s]']))
         print()
         print('------- OTHER QUANTITIES ---------------')
-        print('nuh                 : ', '{:16.13f}'.format(model_units_params['nuh']*0.01))
+        print('nuh                 : ', '{:16.13f}'.format(
+            model_units_params['nuh']*0.01))
         print('kappa               : ', '{:16.13f}'.format(pparams['kappa']))
         print('EP gyro period [µs] : ', '{:16.13f}'.format(2*np.pi*model_units_params['Ah']*1.67262192369e-27/(
             model_units_params['Zh']*1.602176634e-19*model_units_params['B'])*1e6))
@@ -655,10 +694,9 @@ class LinearMHDVlasovPC(StruphyModel):
 
     def __init__(self, params, comm):
 
-        from struphy.psydac_api.mass import WeightedMassOperators
         from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
-        from struphy.propagators import propagators_fields, propagators_markers, propagators_coupling
 
+        # init base class
         self._u_space = params['fluid']['mhd']['mhd_u_space']
 
         if self._u_space == 'Hdiv':
@@ -669,8 +707,10 @@ class LinearMHDVlasovPC(StruphyModel):
             raise ValueError(
                 f'MHD velocity must be in Hdiv or in H1vec, but has been specified in {self._u_space}.')
 
-        super().__init__(params, comm, b2='Hdiv', mhd={
-            'n3': 'L2', u_name: self._u_space, 'p3': 'L2'}, energetic_ions='Particles6D')
+        super().__init__(params, comm,
+                         b2='Hdiv',
+                         mhd={'n3': 'L2', u_name: self._u_space, 'p3': 'L2'},
+                         energetic_ions='Particles6D')
 
         # pointers to em-field variables
         self._b = self.em_fields['b2']['obj'].vector
@@ -688,8 +728,7 @@ class LinearMHDVlasovPC(StruphyModel):
         alfven_solver = params['solvers']['solver_1']
         magnetosonic_solver = params['solvers']['solver_2']
         coupling_solver = params['solvers']['solver_3']
-        coupling = ions_params['pc']
-        #self._nuh = self.kinetic['energetic_ions']['plasma_params']['n [10^20/m^3]'] / \
+        # self._nuh = self.kinetic['energetic_ions']['plasma_params']['n [10^20/m^3]'] / \
         #    self.fluid['mhd']['plasma_params']['n [10^20/m^3]']
         self._nuh = params['model_units']['nuh']*0.01
 
@@ -700,26 +739,50 @@ class LinearMHDVlasovPC(StruphyModel):
                                          self.mhd_equil.b2_2,
                                          self.mhd_equil.b2_3])
 
-        # Assemble necessary mass matrices
-        self._mass_ops = WeightedMassOperators(
-            self.derham, self.domain, eq_mhd=self.mhd_equil)
-
-        # Assemble necessary linear basis projection operators
-        self._basis_ops = BasisProjectionOperators(
+        # set propagators base class attributes (available to all propagators)
+        Propagator.derham = self.derham
+        Propagator.domain = self.domain
+        Propagator.mass_ops = self.mass_ops
+        Propagator.basis_ops = BasisProjectionOperators(
             self.derham, self.domain, self.mhd_equil)
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
+
         self._propagators += [propagators_fields.ShearAlfvén(
-            self._u, self._b, self._u_space, self.derham, self._mass_ops, self._basis_ops, alfven_solver)]
+            self._u, 
+            self._b, 
+            u_space=self._u_space, 
+            **alfven_solver)]
+        
         self._propagators += [propagators_fields.Magnetosonic(
-            self._n, self._u, self._p, self._b, self._u_space, self.derham, self._mass_ops, self._basis_ops, magnetosonic_solver)]
-        self._propagators += [propagators_markers.StepPushEtaPC(
-            self._ions, self.derham, self.domain, self._u, self._u_space, coupling, ions_params['markers']['bc_type'])]
-        self._propagators += [propagators_coupling.StepPressurecoupling(
-            self._u, self._u_space, coupling, self._ions, self.derham, self.domain, self._mass_ops, self._basis_ops, coupling_solver)]
-        self._propagators += [propagators_markers.StepPushVxB(
-            self._ions, self.derham, self.domain, ions_params['push_algos']['vxb'], 1., self._b, self._b_eq)]
+            self._n, 
+            self._u, 
+            self._p, 
+            self._b, 
+            u_space=self._u_space,
+            **magnetosonic_solver)]
+        
+        self._propagators += [propagators_markers.PushEtaPC(
+            self._ions, 
+            u_mhd=self._u, 
+            u_space=self._u_space, 
+            bc_type=ions_params['markers']['bc_type'],
+            use_perp_model=ions_params['use_perp_model'])]
+        
+        self._propagators += [propagators_coupling.PressureCoupling6D(
+            self._ions,
+            self._u, 
+            u_space=self._u_space, 
+            use_perp_model=ions_params['use_perp_model'], 
+            **coupling_solver)]
+        
+        self._propagators += [propagators_markers.PushVxB(
+            self._ions, 
+            algo=ions_params['push_algos']['vxb'], 
+            scale_fac=1., 
+            b_eq=self._b_eq,
+            b_tilde=self._b)]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities['time'] = np.empty(1, dtype=float)
@@ -835,7 +898,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         from struphy.psydac_api.mass import WeightedMassOperators
         from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
-        from struphy.propagators import propagators_fields, propagators_markers, propagators_coupling
 
         self._u_space = params['fluid']['mhd']['mhd_u_space']
 
@@ -869,15 +931,15 @@ class LinearMHDDriftkineticCC(StruphyModel):
         alfven_solver = params['solvers']['solver_1']
         magnetosonic_solver = params['solvers']['solver_2']
         coupling_solver = params['solvers']['solver_3']
-        #self._nuh = self.kinetic['energetic_ions']['plasma_params']['n [10^20/m^3]'] / \
+        # self._nuh = self.kinetic['energetic_ions']['plasma_params']['n [10^20/m^3]'] / \
         #    self.fluid['mhd']['plasma_params']['n [10^20/m^3]']
         self._nuh = params['model_units']['nh']/params['model_units']['nb']
 
         print('Coupling parameter nu_h = n_h/n = ' + str(self._nuh) + '\n')
 
-        #coupling_params = {'nuh': self._nuh, 'Ab': 1., 'Ah': 1., 'Zh': 1.,
+        # coupling_params = {'nuh': self._nuh, 'Ab': 1., 'Ah': 1., 'Zh': 1.,
         #
-        coupling_params = {'nuh': self._nuh, 'Ab': 1., 'Ah': 1., 'Zh': 1., 
+        coupling_params = {'nuh': self._nuh, 'Ab': 1., 'Ah': 1., 'Zh': 1.,
                            'kappa': 1.}
 
         # Project magnetic field
@@ -1144,8 +1206,7 @@ class LinearVlasovMaxwell(StruphyModel):
 
     def __init__(self, params, comm):
 
-        from struphy.psydac_api.mass import WeightedMassOperators
-        from struphy.propagators import propagators_fields, propagators_markers, propagators_coupling
+        from struphy.kinetic_background import analytical as kin_ana
 
         super().__init__(params, comm, e_field='Hcurl',
                          b_field='Hdiv', electrons='Particles6D')
@@ -1156,18 +1217,19 @@ class LinearVlasovMaxwell(StruphyModel):
 
         # pointer to electrons
         self._electrons = self.kinetic['electrons']['obj']
-        self.electron_params = params['kinetic']['electrons']
+        electron_params = params['kinetic']['electrons']
 
-        assert self.electron_params['background']['type'] == 'Maxwellian6DUniform', \
+        # kinetic background
+        assert electron_params['background']['type'] == 'Maxwellian6DUniform', \
             "The background distribution function must be a uniform Maxwellian!"
-        self._maxwellian_params = self.electron_params['background']['Maxwellian6DUniform']
+
+        self._maxwellian_params = electron_params['background']['Maxwellian6DUniform']
+        self._f0 = getattr(kin_ana, 'Maxwellian6DUniform')(
+            **self._maxwellian_params)
 
         # Get coupling strength
         #self.alpha = self.kinetic['electrons']['plasma_params']['alpha']
         self.alpha = plasma_params(1, 1, 1., 0.01, self.size_params)['alpha']
-
-        # Assemble necessary mass matrices
-        self._mass_ops = WeightedMassOperators(self.derham, self.domain)
 
         # ====================================================================================
         # Initialize background magnetic field from MHD equilibrium
@@ -1180,30 +1242,46 @@ class LinearVlasovMaxwell(StruphyModel):
         self._e_background = self.derham.grad.dot(self._phi_background)
         # ====================================================================================
 
+        # set propagators base class attributes (available to all propagators)
+        Propagator.derham = self.derham
+        Propagator.domain = self.domain
+        Propagator.mass_ops = self.mass_ops
+
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
 
         # Only add StepStaticEfield if efield is non-zero, otherwise it is more expensive
         if np.all(self._e_background[0]._data < 1e-14) and np.all(self._e_background[1]._data < 1e-14) and np.all(self._e_background[2]._data < 1e-14):
-            self._propagators += [propagators_markers.StepPushEta(
-                self._electrons, self.derham, self.domain,
-                self.electron_params['push_algos']['eta'],
-                self.electron_params['markers']['bc_type'])]
-
+            self._propagators += [propagators_markers.PushEta(
+                self._electrons,
+                algo=electron_params['push_algos']['eta'],
+                bc_type=electron_params['markers']['bc_type'],
+                f0=None)]  # no conventional weights update here, thus f0=None
         else:
             self._propagators += [propagators_markers.StepStaticEfield(
-                self._electrons, self.derham, self.domain, self._e_background)]
+                self._electrons,
+                e_eq=self._e_background)]
 
-        self._propagators += [propagators_markers.StepPushVxB(
-            self._electrons, self.derham, self.domain, self.electron_params['push_algos']['vxb'], 1., self._b_background)]
+        self._propagators += [propagators_markers.PushVxB(
+            self._electrons,
+            algo=electron_params['push_algos']['vxb'],
+            scale_fac=1.,
+            b_eq=self._b_background,
+            b_tilde=None,
+            f0=None)]  # no conventional weights update here, thus f0=None
 
-        self._propagators += [propagators_coupling.StepEfieldWeights(self.domain, self.derham,
-                                                                     self._e, self._electrons, self._mass_ops,
-                                                                     self.electron_params['background'], params['solvers']['solver_ew'],
-                                                                     self.alpha)]
+        self._propagators += [propagators_coupling.EfieldWeights(
+            self._e,
+            self._electrons,
+            alpha=self.alpha,
+            f0=self._f0,
+            **params['solvers']['solver_ew']
+        )]
 
-        self._propagators += [propagators_fields.Maxwell(self._e, self._b,
-                                                         self.derham, self._mass_ops, params['solvers']['solver_eb'])]
+        self._propagators += [propagators_fields.Maxwell(
+            self._e,
+            self._b,
+            **params['solvers']['solver_eb'])]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities['time'] = np.empty(1, dtype=float)
@@ -1217,21 +1295,10 @@ class LinearVlasovMaxwell(StruphyModel):
         return self._propagators
 
     def set_initial_conditions(self):
-        from struphy.kinetic_background import analytical
-
         super().set_initial_conditions()
-
-        fun_name = 'Maxwellian6DUniform'
-
-        if fun_name in self._maxwellian_params:
-            f_bckgr = getattr(analytical, fun_name)(
-                **self._maxwellian_params[fun_name])
-        else:
-            f_bckgr = getattr(analytical, fun_name)()
-
         # Correct initialization weights by dividing by N*sqrt(f_0)
         self._electrons.markers[~self._electrons.holes, 6] /= (self._electrons.n_mks *
-                                                               np.sqrt(f_bckgr(*self._electrons.markers_wo_holes[:, :6].T)))
+                                                               np.sqrt(self._f0(*self._electrons.markers_wo_holes[:, :6].T)))
 
     @staticmethod
     def print_units(model_units_params):
@@ -1272,15 +1339,15 @@ class LinearVlasovMaxwell(StruphyModel):
               * 1e20*model_units_params['Ab']*1.67262192369e-27*1e7)
         print('p     [bar]        : ', pressure_unit*1e-5)
         print('t     [µs]         : ',
-              model_units_params['L']/pparams['v_A [10^6 m/s]'])
-        print('v     [10⁶ m/s]    : ', pparams['v_A [10^6 m/s]'])
+              model_units_params['L']/pparams['v_A [10⁶ m/s]'])
+        print('v     [10⁶ m/s]    : ', pparams['v_A [10⁶ m/s]'])
         print()
         print('------- OTHER QUANTITIES ---------------')
         print('nuh                 : ', model_units_params['nuh']*0.01)
         print('kappa               : ', pparams['kappa'])
         print('EP gyro period [µs] : ', 2*np.pi*model_units_params['Ah']*1.67262192369e-27/(
             model_units_params['Zh']*1.602176634e-19*model_units_params['B'])*1e6)
-        print('EP gyro radius [cm] : ', pparams['v_A [10^6 m/s]']*1e6*model_units_params['Ah'] *
+        print('EP gyro radius [cm] : ', pparams['v_A [10⁶ m/s]']*1e6*model_units_params['Ah'] *
               1.67262192369e-27/(model_units_params['Zh']*1.602176634e-19*model_units_params['B'])*100)
 
     def update_scalar_quantities(self, time):
@@ -1344,9 +1411,6 @@ class Maxwell(StruphyModel):
 
     def __init__(self, params, comm):
 
-        from struphy.psydac_api.mass import WeightedMassOperators
-        from struphy.propagators import propagators_fields
-
         super().__init__(params, comm, e_field='Hcurl', b_field='Hdiv')
 
         # Pointers to em-field variables
@@ -1356,13 +1420,17 @@ class Maxwell(StruphyModel):
         # extract necessary parameters
         solver_params = params['solvers']['solver_1']
 
-        # Assemble necessary mass matrices
-        self._mass_ops = WeightedMassOperators(self.derham, self.domain)
+        # set propagators base class attributes
+        Propagator.derham = self.derham
+        Propagator.domain = self.domain
+        Propagator.mass_ops = self.mass_ops
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
         self._propagators += [propagators_fields.Maxwell(
-            self._e, self._b, self.derham, self._mass_ops, solver_params)]
+            self._e,
+            self._b,
+            **solver_params)]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities['time'] = np.empty(1, dtype=float)
@@ -1412,8 +1480,6 @@ class Vlasov(StruphyModel):
 
     def __init__(self, params, comm):
 
-        from struphy.propagators import propagators_markers
-
         super().__init__(params, comm, ions='Particles6D')
 
         # pointer to ions
@@ -1423,20 +1489,35 @@ class Vlasov(StruphyModel):
         print(
             f'Total number of markers : {ions.n_mks}, shape of markers array on rank {self.derham.comm.Get_rank()} : {ions.markers.shape}')
 
-        A = params['model_units']['A']
         Z = params['model_units']['Z']
+        A = params['model_units']['A']
 
         # project magnetic background
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
                                          self.mhd_equil.b2_2,
                                          self.mhd_equil.b2_3])
 
+        # set propagators base class attributes
+        Propagator.derham = self.derham
+        Propagator.domain = self.domain
+        Propagator.mass_ops = self.mass_ops
+
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-        self._propagators += [propagators_markers.StepPushVxB(
-            ions, self.derham, self.domain, ions_params['push_algos']['vxb'], Z/A, self._b_eq)]
-        self._propagators += [propagators_markers.StepPushEta(
-            ions, self.derham, self.domain, ions_params['push_algos']['eta'], ions_params['markers']['bc_type'])]
+
+        self._propagators += [propagators_markers.PushVxB(
+            ions,
+            algo=ions_params['push_algos']['vxb'],
+            scale_fac=Z/A,
+            b_eq=self._b_eq,
+            b_tilde=None,
+            f0=None)]
+
+        self._propagators += [propagators_markers.PushEta(
+            ions,
+            algo=ions_params['push_algos']['eta'],
+            bc_type=ions_params['markers']['bc_type'],
+            f0=None)]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities['time'] = np.empty(1, dtype=float)
@@ -1450,18 +1531,20 @@ class Vlasov(StruphyModel):
     @property
     def propagators(self):
         return self._propagators
-    
+
     @staticmethod
     def print_units(model_units_params):
         """
         TODO
         """
-        
+
         print()
         print()
         print('------- MODEL UNITS (PRESCRIBED) -------')
-        print('x\u0302  [m]      : ', '{:16.13f}'.format(model_units_params['x']))
-        print('B\u0302  [T]      : ', '{:16.13f}'.format(model_units_params['B']))
+        print('x\u0302  [m]      : ', '{:16.13f}'.format(
+            model_units_params['x']))
+        print('B\u0302  [T]      : ', '{:16.13f}'.format(
+            model_units_params['B']))
         print('A           : ', '{:2d}'.format(model_units_params['A']))
         print('Z           : ', '{:2d}'.format(model_units_params['Z']))
         print()
@@ -1638,7 +1721,6 @@ class Hybrid_fA(StruphyModel):
 
         from struphy.psydac_api.mass import WeightedMassOperators
         from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
-        from struphy.propagators import propagators_fields, propagators_markers, propagators_coupling
         from psydac.linalg.stencil import StencilVector, StencilMatrix
         from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 

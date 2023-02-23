@@ -1,16 +1,18 @@
 from numpy import array, polynomial
 
-from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
+from struphy.pic.particles import Particles6D, Particles5D
 from struphy.pic.pusher import Pusher, Pusher_iteration
 from struphy.pic.pusher import ButcherTableau
 from struphy.pic.particles_to_grid import Accumulator
+from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.kinetic_background.analytical import Maxwellian6DUniform
 
 
-class StepPushEta(Propagator):
+class PushEta(Propagator):
     r"""Solves
 
     .. math::
@@ -30,44 +32,47 @@ class StepPushEta(Propagator):
     particles : struphy.pic.particles.Particles6D
         Holdes the markers to push.
 
-    derham : struphy.psydac_api.psydac_derham.Derham
-        Discrete Derham complex.
-
-    domain : struphy.geometry.domains
-        Mapping info for evaluating metric coefficients.
-
-    algo : str
-        The used algorithm.
-
-    bc : list[str]
-        Kinetic boundary conditions in each direction.
-
-    f0 : callable | NoneType
-        Distribution function used to update weights if control variate is used. Is called as f0(eta1, eta2, eta3, vx, vy, vz).
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
     """
 
-    def __init__(self, particles, derham, domain, algo, bc, f0=None):
+    def __init__(self, particles, **params):
 
+        # pointer to variable
+        assert isinstance(particles, Particles6D)
         self._particles = particles
-        self._bc = bc
 
-        if algo == 'forward_euler':
+        # parameters
+        params_default = {'algo': 'rk4',
+                          'bc_type': ['reflect', 'periodic', 'periodic'],
+                          'f0': Maxwellian6DUniform()}
+        
+        params = set_defaults(params, params_default)
+
+        if params['f0'] is not None:
+            assert callable(params['f0'])
+
+        self._bc_type = params['bc_type']
+        self._f0 = params['f0']
+
+        # choose algorithm
+        if params['algo'] == 'forward_euler':
             a = []
             b = [1.]
             c = [0.]
-        elif algo == 'heun2':
+        elif params['algo'] == 'heun2':
             a = [1.]
             b = [1/2, 1/2]
             c = [0., 1.]
-        elif algo == 'rk2':
+        elif params['algo'] == 'rk2':
             a = [1/2]
             b = [0., 1.]
             c = [0., 1/2]
-        elif algo == 'heun3':
+        elif params['algo'] == 'heun3':
             a = [1/3, 2/3]
             b = [1/4, 0., 3/4]
             c = [0., 1/3, 2/3]
-        elif algo == 'rk4':
+        elif params['algo'] == 'rk4':
             a = [1/2, 1/2, 1.]
             b = [1/6, 1/3, 1/3, 1/6]
             c = [0., 1/2, 1/2, 1.]
@@ -75,14 +80,9 @@ class StepPushEta(Propagator):
             raise NotImplementedError('Chosen algorithm is not implemented.')
 
         self._butcher = ButcherTableau(a, b, c)
-        self._pusher = Pusher(derham, domain,
+        self._pusher = Pusher(self.derham, self.domain,
                               'push_eta_stage', self._butcher.n_stages)
-
-        # distribution function (control variate)
-        if f0 is not None:
-            assert callable(f0)
-
-        self._f0 = f0
+  
 
     @property
     def variables(self):
@@ -96,14 +96,14 @@ class StepPushEta(Propagator):
         # push markers
         self._pusher(self._particles, dt,
                      self._butcher.a, self._butcher.b, self._butcher.c,
-                     bc=self._bc, mpi_sort='last')
+                     bc=self._bc_type, mpi_sort='last')
 
         # update_weights
         if self._f0 is not None:
             self._particles.update_weights(self._f0)
 
 
-class StepPushVxB(Propagator):
+class PushVxB(Propagator):
     r"""Solves
 
     .. math::
@@ -120,50 +120,44 @@ class StepPushVxB(Propagator):
     particles : struphy.pic.particles.Particles6D
         Holdes the markers to push.
 
-    derham : struphy.psydac_api.psydac_derham.Derham
-        Discrete Derham complex.
-
-    domain : struphy.geometry.domains
-        Mapping info for evaluating metric coefficients.
-
-    algo : str
-        The used algorithm.
-        
-    scaling_dt : float
-        Scaling factor for time step : scaling_dt * dt
-
-    *b_vectors : psydac.linalg.block.BlockVector | struphy.polar.basic.PolarVector
-        FE coefficients of several magnetic fields (2-form) (typically static and dynamical magnetic field).
-
-    f0 : callable | NoneType
-        Distribution function used to update weights if control variate is used. Is called as f0(eta1, eta2, eta3, vx, vy, vz).
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
     """
 
-    def __init__(self, particles, derham, domain, algo, scaling_dt, *b_vectors, f0=None):
+    def __init__(self, particles, **params):
 
+        # pointer to variable
+        assert isinstance(particles, Particles6D)
         self._particles = particles
 
+        # parameters
+        params_default = {'algo': 'analytic',
+                          'scale_fac': ['reflect', 'periodic', 'periodic'],
+                          'b_eq': None,
+                          'b_tilde': None,
+                          'f0': Maxwellian6DUniform()}
+        
+        params = set_defaults(params, params_default)
+
+        assert isinstance(params['b_eq'], (BlockVector, PolarVector))
+
+        if params['b_tilde'] is not None:
+            assert isinstance(params['b_tilde'], (BlockVector, PolarVector))
+
+        if params['f0'] is not None:
+            assert callable(params['f0'])
+
+        self._scale_fac = params['scale_fac']
+        self._b_eq = params['b_eq']
+        self._b_tilde = params['b_tilde']
+        self._f0 = params['f0']
+
         # load pusher
-        kernel_name = 'push_vxb_' + algo
-
-        self._pusher = Pusher(derham, domain, kernel_name)
-
-        # magnetic field vectors
-        for b in b_vectors:
-            assert isinstance(b, (BlockVector, PolarVector))
-
-        self._b_vectors = b_vectors
+        kernel_name = 'push_vxb_' + params['algo']
+        self._pusher = Pusher(self.derham, self.domain, kernel_name)
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        self._E2T = derham.E['2'].transpose()
-
-        # distribution function (control variate)
-        if f0 is not None:
-            assert callable(f0)
-
-        self._f0 = f0
-        
-        self._scaling_dt = scaling_dt
+        self._E2T = self.derham.E['2'].transpose()
 
     @property
     def variables(self):
@@ -175,10 +169,9 @@ class StepPushVxB(Propagator):
         """
 
         # sum up total magnetic field
-        b_full = self._b_vectors[0].space.zeros()
-
-        for b in self._b_vectors:
-            b_full += b
+        b_full = self._b_eq.copy()
+        if self._b_tilde is not None:
+            b_full += self._b_tilde
 
         # extract coefficients to tensor product space
         b_full = self._E2T.dot(b_full)
@@ -187,7 +180,7 @@ class StepPushVxB(Propagator):
         b_full.update_ghost_regions()
 
         # call pusher kernel
-        self._pusher(self._particles, self._scaling_dt*dt,
+        self._pusher(self._particles, self._scale_fac*dt,
                      b_full[0]._data,
                      b_full[1]._data,
                      b_full[2]._data)
@@ -354,8 +347,7 @@ class StepHybridXP_symplectic(Propagator):
         self._pusher_ap(self._particles, dt, self._a[0]._data, self._a[1]._data, self._a[2]._data, mpi_sort='last')
         
 
-
-class StepPushEtaPC(Propagator):
+class PushEtaPC(Propagator):
     r'''Step for the update of particles' positions with the RK4 method which solves
 
     .. math::
@@ -389,53 +381,34 @@ class StepPushEtaPC(Propagator):
         Kinetic boundary conditions in each direction.
     '''
 
-    def __init__(self, particles, derham, domain, u, u_space, coupling, bc):
+    def __init__(self, particles, **params): 
 
-        assert isinstance(u, BlockVector)
-
-        self._derham = derham
-        self._domain = domain
-        self._u = u
+        # pointer to variable
+        assert isinstance(particles, Particles6D)
         self._particles = particles
-        self._u_space = u_space
-        self._bc = bc
+
+        # parameters
+        params_default = {'u_mhd': None,
+                          'u_space': 'Hdiv',
+                          'bc_type': ['reflect', 'periodic', 'periodic'],
+                          'use_perp_model': True
+                          }
+
+        params = set_defaults(params, params_default)
+
+        assert isinstance(params['u_mhd'], (BlockVector, PolarVector))
+
+        self._u = params['u_mhd']
+        self._u_space = params['u_space']
+        self._bc = params['bc_type']
 
         # call Pusher class
-        if coupling == 'full':
-            if self._u_space == 'Hcurl':
-                self._pusher = Pusher(
-                    self._derham, self._domain, 'push_pc_eta_rk4_Hcurl_full', n_stages=4)
+        pusher_ker = 'push_pc_eta_rk4_' + self._u_space 
+        if not params['use_perp_model']:
+            pusher_ker += '_full'
 
-            elif self._u_space == 'Hdiv':
-                self._pusher = Pusher(
-                    self._derham, self._domain, 'push_pc_eta_rk4_Hdiv_full', n_stages=4)
-
-            elif self._u_space == 'H1vec':
-                self._pusher = Pusher(
-                    self._derham, self._domain, 'push_pc_eta_rk4_H1vec_full', n_stages=4)
-
-            else:
-                raise ValueError('Given u_space does not exist!')
-
-        elif coupling == 'perp':
-            if self._u_space == 'Hcurl':
-                self._pusher = Pusher(
-                    self._derham, self._domain, 'push_pc_eta_rk4_Hcurl', n_stages=4)
-
-            elif self._u_space == 'Hdiv':
-                self._pusher = Pusher(
-                    self._derham, self._domain, 'push_pc_eta_rk4_Hdiv', n_stages=4)
-
-            elif self._u_space == 'H1vec':
-                self._pusher = Pusher(
-                    self._derham, self._domain, 'push_pc_eta_rk4_H1vec', n_stages=4)
-
-            else:
-                raise ValueError('Given u_space does not exist!')
-
-        else:
-            raise NotImplementedError(
-                'Given coupling scheme is not implemented!')
+        self._pusher = Pusher(
+            self.derham, self.domain, pusher_ker, n_stages=4)
 
     @property
     def variables(self):
@@ -920,29 +893,31 @@ class StepStaticEfield(Propagator):
     particles : struphy.pic.particles.Particles6D
         Holdes the markers to push.
 
-    derham : struphy.psydac_api.psydac_derham.Derham
-        Discrete Derham complex.
-
-    domain : struphy.geometry.domains
-        Mapping info for evaluating metric coefficients.
-
-    e_background : TODO
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
     '''
 
-    def __init__(self, particles, derham, domain, e_background):
+    def __init__(self, particles, **params):
 
         from numpy import polynomial, floor
 
-        self._domain = domain
-        self._derham = derham
+        # pointer to variable
+        assert isinstance(particles, Particles6D)
         self._particles = particles
-        self._e_bg = e_background
 
-        pn1 = derham.p[0]
+        # parameters
+        params_default = {'e_eq': BlockVector(self.derham.Vh_fem['1'].vector_space)}
+
+        params = set_defaults(params, params_default)
+
+        assert isinstance(params['e_eq'], (BlockVector, PolarVector))
+        self._e_eq = params['e_eq']
+
+        pn1 = self.derham.p[0]
         pd1 = pn1 - 1
-        pn2 = derham.p[1]
+        pn2 = self.derham.p[1]
         pd2 = pn2 - 1
-        pn3 = derham.p[2]
+        pn3 = self.derham.p[2]
         pd3 = pn3 - 1
 
         # number of quadrature points in direction 1
@@ -957,7 +932,7 @@ class StepStaticEfield(Propagator):
         self._loc2, self._weight2 = polynomial.legendre.leggauss(n_quad2)
         self._loc3, self._weight3 = polynomial.legendre.leggauss(n_quad3)
 
-        self._pusher = Pusher(derham, domain, 'push_x_v_static_efield')
+        self._pusher = Pusher(self.derham, self.domain, 'push_x_v_static_efield')
 
     @property
     def variables(self):
@@ -969,7 +944,7 @@ class StepStaticEfield(Propagator):
         """
         self._pusher(self._particles, dt,
                      self._loc1, self._loc2, self._loc3, self._weight1, self._weight2, self._weight3,
-                     self._e_bg.blocks[0]._data, self._e_bg.blocks[1]._data, self._e_bg.blocks[2]._data,
+                     self._e_eq.blocks[0]._data, self._e_eq.blocks[1]._data, self._e_eq.blocks[2]._data,
                      array([1e-10, 1e-10]), 100)
 
 

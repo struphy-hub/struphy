@@ -7,32 +7,45 @@ import scipy.special as sp
 from struphy.pic import sampling, sobol_seq
 from struphy.pic.pusher_utilities import reflect
 from struphy.kinetic_background import analytical
+from struphy.fields_background.mhd_equil.equils import set_defaults
 
 
 class Particles(metaclass=ABCMeta):
     """
     Base class for a particle based kinetic species.
+
+    Parameters
+    ----------
+    name : str
+        Name of particle species.
+
+    n_cols : int
+        Number of columns (attributes) for each marker.
+
+    **params : dict
+        Marker parameters (defaults must be checked in the child classes).    
     """
 
-    def __init__(self, name, params_markers, domain_decomp, comm, n_cols):
+    def __init__(self, name: str, n_cols: int, **params):
 
         self._name = name
-        self._params = params_markers
+        self._params = params
 
         # Assume full-f if type is not in parameters
-        if 'type' in params_markers.keys():
-            if params_markers['type'] == 'control_variate':
+        if 'type' in params.keys():
+            if params['type'] == 'control_variate':
                 self._use_control_variate = True
             else:
                 self._use_control_variate = False
         else:
             self._use_control_variate = False
 
-        self._domain_decomp = domain_decomp
+        self._domain_decomp = params['domain_array']
 
-        self._mpi_comm = comm
-        self._mpi_size = comm.Get_size()
-        self._mpi_rank = comm.Get_rank()
+        assert params['comm'] is not None
+        self._mpi_comm = params['comm']
+        self._mpi_size = params['comm'].Get_size()
+        self._mpi_rank = params['comm'].Get_rank()
 
         # number of cells on current process
         n_cells_loc = np.prod(
@@ -43,12 +56,12 @@ class Particles(metaclass=ABCMeta):
             np.prod(self._domain_decomp[:, 2::3], axis=1, dtype=int))
 
         # number of markers to load on each process (depending on relative domain size)
-        if 'ppc' in params_markers:
-            ppc = params_markers['ppc']
-            assert isinstance(ppc, int)
+        if params['ppc'] is not None:
+            assert isinstance(params['ppc'], int)
+            ppc = params['ppc']
             Np = ppc*n_cells
         else:
-            Np = params_markers['Np']
+            Np = params['Np']
             assert isinstance(Np, int)
             ppc = Np/n_cells
 
@@ -69,13 +82,13 @@ class Particles(metaclass=ABCMeta):
         n_mks_load_loc = n_mks_load[self._mpi_rank]
 
         markers_size = round(
-            n_mks_load_loc*(1 + 1/np.sqrt(n_mks_load_loc) + params_markers['eps']))
+            n_mks_load_loc*(1 + 1/np.sqrt(n_mks_load_loc) + params['eps']))
 
         self._markers = np.zeros((markers_size, n_cols), dtype=float)
 
         n_mks_load_cum_sum = np.cumsum(n_mks_load)
 
-        loading_params = params_markers['loading']
+        loading_params = params['loading']
 
         # load markers from external .hdf5 file
         if loading_params['type'] == 'external':
@@ -500,19 +513,25 @@ class Particles6D(Particles):
     name : str
         Name of the particle species.
 
-    params_markers : dict
-        Parameters under key-word markers in the parameter file.
-
-    domain_decomp : array[float]
-        2d array of shape (comm_size, 9) defining the domain of each process.
-
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator.
+    **params : dict
+        Parameters for markers.
     """
 
-    def __init__(self, name, params_markers, domain_decomp, comm):
+    def __init__(self, name, **params):
 
-        super().__init__(name, params_markers, domain_decomp, comm, 16)
+        params_default = {'type': 'full_f',
+                          'ppc': None,
+                          'Np': 3,
+                          'eps': .25,
+                          'bc_type': ['periodic', 'periodic', 'periodic'],
+                          'loading': {'type': 'pseudo:random', 'seed': 1234, 'dir_particles': None, 'moments': [0., 0., 0., 1., 1., 1.]},
+                          'comm': None,
+                          'domain_array': None
+                          }
+
+        params = set_defaults(params, params_default)
+
+        super().__init__(name, 16, **params)
 
 
 class Particles5D(Particles):

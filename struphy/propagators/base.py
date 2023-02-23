@@ -35,6 +35,50 @@ class Propagator(metaclass=ABCMeta):
         '''
         pass
 
+    @property
+    def derham(self):
+        """ Derham spaces and projectors.
+        """
+        assert hasattr(self, '_derham'), 'Derham not set. Please do obj.deram = ...'
+        return self._derham
+
+    @derham.setter
+    def derham(self, derham):
+        self._derham = derham
+
+    @property
+    def domain(self):
+        """ Domain object that characterizes the mapping from the logical to the physical domain.
+        """
+        assert hasattr(self, '_domain'), 'Domain for analytical MHD equilibrium not set. Please do obj.domain = ...'
+        return self._domain
+
+    @domain.setter
+    def domain(self, domain):
+        self._domain = domain
+
+    @property
+    def mass_ops(self):
+        """ Weighted mass operators.
+        """
+        assert hasattr(self, '_mass_ops'), 'Weighted mass operators not set. Please do obj.mass_ops = ...'
+        return self._mass_ops
+
+    @mass_ops.setter
+    def mass_ops(self, mass_ops):
+        self._mass_ops = mass_ops
+
+    @property
+    def basis_ops(self):
+        """ Basis projection operators.
+        """
+        assert hasattr(self, '_basis_ops'), 'Basis projection operators not set. Please do obj.basis_ops = ...'
+        return self._basis_ops
+
+    @basis_ops.setter
+    def basis_ops(self, basis_ops):
+        self._basis_ops = basis_ops
+
     def in_place_update(self, *variables_new):
         '''Writes new entries into ``Propagator.variables``.
 

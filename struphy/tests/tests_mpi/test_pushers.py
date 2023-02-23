@@ -54,7 +54,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
                      'bc_type': ['periodic', 'periodic', 'periodic']}
 
     particles = Particles6D(
-        'energetic_ions', marker_params, derham.domain_array, comm)
+        'energetic_ions', **marker_params, domain_array=derham.domain_array, comm=comm)
 
     if show_plots:
         particles.show_physical()
@@ -148,7 +148,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
                      'bc_type': ['periodic', 'periodic', 'periodic']}
 
     particles = Particles6D(
-        'energetic_ions', marker_params, derham.domain_array, comm)
+        'energetic_ions', **marker_params, domain_array=derham.domain_array, comm=comm)
 
     if show_plots:
         particles.show_physical()
@@ -249,7 +249,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
                      'bc_type': ['periodic', 'periodic', 'periodic']}
 
     particles = Particles6D(
-        'energetic_ions', marker_params, derham.domain_array, comm)
+        'energetic_ions', **marker_params, domain_array=derham.domain_array, comm=comm)
 
     if show_plots:
         particles.show_physical()
@@ -350,7 +350,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
                      'bc_type': ['periodic', 'periodic', 'periodic']}
 
     particles = Particles6D(
-        'energetic_ions', marker_params, derham.domain_array, comm)
+        'energetic_ions', **marker_params, domain_array=derham.domain_array, comm=comm)
 
     if show_plots:
         particles.show_physical()
@@ -451,7 +451,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
                      'bc_type': ['periodic', 'periodic', 'periodic']}
 
     particles = Particles6D(
-        'energetic_ions', marker_params, derham.domain_array, comm)
+        'energetic_ions', **marker_params, domain_array=derham.domain_array, comm=comm)
 
     if show_plots:
         particles.show_physical()
@@ -555,7 +555,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
                      'bc_type': ['periodic', 'periodic', 'periodic']}
 
     particles = Particles6D(
-        'energetic_ions', marker_params, derham.domain_array, comm)
+        'energetic_ions', **marker_params, domain_array=derham.domain_array, comm=comm)
 
     if show_plots:
         particles.show_physical()
