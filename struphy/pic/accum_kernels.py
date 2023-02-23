@@ -306,7 +306,7 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                           vec1: 'float[:,:,:]',
                           vec2: 'float[:,:,:]',
                           vec3: 'float[:,:,:]',
-                          moms_spec: 'int[:]',     # model specific argument
+                          f0_values: 'float[:]',     # model specific argument
                           f0_params: 'float[:]',   # model specific argument
                           alpha: 'float'):  # model specific argument
     r"""
@@ -321,12 +321,8 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
 
     Parameters
     ----------
-        f0_spec : int
-            Specifier for kinetic background, see :ref:`kinetic_backgrounds`  
-
-        moms_spec : array[int]
-            Specifier for the seven moments n0, u0x, u0y, u0z, vth0x, vth0y, vth0z (in this order).
-            Is 0 for constant moment, for more see :meth:`struphy.kinetic_background.moments_kernels.moments`.
+        f0_values ; array[float]
+            Value of f0 for each particle.
 
         f0_params : array[float]
             Parameters needed to specify the moments; the order is specified in :ref:`kinetic_moments` for the respective functions available.
@@ -365,8 +361,7 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        f0 = maxwellian_6d(markers[ip, 0:3], markers[ip, 3:6],
-                           moms_spec, f0_params)
+        f0 = f0_values[ip]
 
         # evaluate Jacobian, result in df
         map_eval.df(eta1, eta2, eta3,

@@ -209,6 +209,7 @@ class Derham:
         if self.polar_ck == -1:
             ck_blocks = None
         else:
+            assert domain is not None
             ck_blocks = PolarExtractionBlocksC1(domain, self)
         
         self._Vh_pol = {}

@@ -2440,7 +2440,7 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
                              ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                              cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                              e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
-                             moms_spec: 'int[:]', f0_params: 'float[:]',
+                             f0_values: 'float[:]', f0_params: 'float[:]',
                              n_markers_tot: 'int'):
     r'''
     updates the single weights in the e_W substep of the linearized Vlasov Maxwell system;
@@ -2451,18 +2451,14 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
         e1_1, e1_2, e1_3: array[float]
             3d array of FE coeffs of E-field as 1-form.
 
-        f0_spec : int
-            Specifier for kinetic background, 0 -> maxwellian_6d. See Notes.
+        f0_values ; array[float]
+            Value of f0 for each particle.
 
-        moms_spec : array[int]
-            Specifier for the seven moments n0, u0x, u0y, u0z, vth0x, vth0y, vth0z (in this order).
-            Is 0 for constant moment, for more see :meth:`struphy.kinetic_background.moments_kernels.moments`.
-
-        params : array[float]
+        f0_params : array[float]
             Parameters needed to specify the moments; the order is specified in :ref:`struphy.kinetic_background.moments_kernels`
             for the respective functions available.
 
-        n_markers : int
+        n_markers_tot : int
             total number of particles
     '''
 
@@ -2510,8 +2506,7 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
         bsp.b_d_splines_slim(tn2, pn2, eta2, span2, bn2, bd2)
         bsp.b_d_splines_slim(tn3, pn3, eta3, span3, bn3, bd3)
 
-        f0 = maxwellian_6d(markers[ip, 0:3], markers[ip, 3:6],
-                           moms_spec, f0_params)
+        f0 = f0_values[ip]
 
         # Compute Jacobian matrix
         map_eval.df(eta1, eta2, eta3,

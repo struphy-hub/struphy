@@ -1,6 +1,8 @@
 from abc import ABCMeta, abstractmethod
 import numpy as np
 
+from struphy.fields_background.mhd_equil.equils import set_defaults
+
 
 class Maxwellian6D(metaclass=ABCMeta):
     r"""
@@ -119,18 +121,16 @@ class Maxwellian6DUniform(Maxwellian6D):
 
     def __init__(self, **params):
 
-        # set default parameters if a key is missing
-        keys = ['n', 'ux', 'uy', 'uz', 'vthx', 'vthy', 'vthz']
-
-        params[keys[0]] = 1. if keys[0] not in params.keys() else params[keys[0]]
-
-        params[keys[1]] = 0. if keys[1] not in params.keys() else params[keys[1]]
-        params[keys[2]] = 0. if keys[2] not in params.keys() else params[keys[2]]
-        params[keys[3]] = 0. if keys[3] not in params.keys() else params[keys[3]]
-
-        params[keys[4]] = 1. if keys[4] not in params.keys() else params[keys[4]]
-        params[keys[5]] = 1. if keys[5] not in params.keys() else params[keys[5]]
-        params[keys[6]] = 1. if keys[6] not in params.keys() else params[keys[6]]
+        # default parameters
+        params_default = {'n': 1.,
+                          'ux': 0.,
+                          'uy': 0.,
+                          'uz': 0.,
+                          'vthx': 1.,
+                          'vthy': 1.,
+                          'vthz': 1.}
+        
+        params = set_defaults(params, params_default)
 
         super().__init__(params)
 

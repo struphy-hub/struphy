@@ -46,7 +46,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
         print(derham.domain_array)
 
     # create particles
-    particles = Particles6D('energetic_ions', marker_params, derham.domain_array, comm)
+    particles = Particles6D('energetic_ions', **marker_params, domain_array=derham.domain_array, comm=comm)
 
     comm.Barrier()
     print('Number of particles w/wo holes on each process before sorting : ')

@@ -5,9 +5,9 @@ from struphy.geometry import domains
 from struphy.psydac_api.psydac_derham import Derham
 from struphy.psydac_api.fields import Field
 from struphy.pic import particles
-from struphy.models.pre_processing import plasma_params
 from struphy.fields_background.mhd_equil import equils
 from struphy.fields_background.electric_equil import analytical as analytical_electric
+from struphy.psydac_api.mass import WeightedMassOperators
 
 
 class StruphyModel(metaclass=ABCMeta):
@@ -96,14 +96,14 @@ class StruphyModel(metaclass=ABCMeta):
             eta1 = np.linspace(0., 1., 20)
             eta2 = np.linspace(0., 1., 20)
             eta3 = np.linspace(0., 1., 20)
-            
+
             # shift away point from pole!
             if self.mhd_equil.domain.pole:
                 eta1[0] += 1e-10
-            
+
             self._size_params['B_abs [B\u0302]'] = np.mean(
                 self.mhd_equil.absB0(eta1, eta2, eta3))
-        
+
         # 3d Derham sequence
         Nel = params['grid']['Nel']  # Number of grid cells
         p = params['grid']['p']  # spline degrees
@@ -129,6 +129,10 @@ class StruphyModel(metaclass=ABCMeta):
                               with_projectors=True,
                               polar_ck=polar_ck,
                               domain=self.domain)
+
+        # weighted mass operators
+        self._mass_ops = WeightedMassOperators(
+            self.derham, self.domain, eq_mhd=self.mhd_equil)
 
         # electromagnetic fields, fluid and/or kinetic species
         self._em_fields = {}
@@ -192,10 +196,10 @@ class StruphyModel(metaclass=ABCMeta):
                 assert species in params['fluid']
                 val['params'] = params['fluid'][species]
 
-                #Z, M, kBT, beta = params['fluid'][species]['attributes'].values(
-                #)
-                
-                #val['plasma_params'] = plasma_params(Z, M,
+                # Z, M, kBT, beta = params['fluid'][species]['attributes'].values(
+                # )
+
+                # val['plasma_params'] = plasma_params(Z, M,
                 #                                     kBT, beta,
                 #                                     self.size_params)
 
@@ -219,11 +223,13 @@ class StruphyModel(metaclass=ABCMeta):
 
                 kinetic_class = getattr(particles, val['space'])
 
-                val['obj'] = kinetic_class(species, val['params']['markers'],
-                                           self.derham.domain_array, self.derham.comm)
+                val['obj'] = kinetic_class(species,
+                                           **val['params']['markers'],
+                                           comm=self.derham.comm,
+                                           domain_array=self.derham.domain_array)
 
                 #Z, M, kBT, beta = val['params']['attributes'].values()
-                #val['plasma_params'] = plasma_params(
+                # val['plasma_params'] = plasma_params(
                 #    Z, M, kBT, beta, self.size_params)
 
                 # for storing markers
@@ -275,43 +281,48 @@ class StruphyModel(metaclass=ABCMeta):
                                self.derham.quad_order[2] + 1]
             print(f'GL quad pts (L2)        : {_gl_quad_pts_l2}')
             print(f'GL quad pts (hist)      : {self.derham.nq_pr}')
-            print(f'N-spline indices rank 0 : {self.derham.index_array_N[0]}\n')
+            print(
+                f'N-spline indices rank 0 : {self.derham.index_array_N[0]}\n')
 
             print('DOMAIN parameters:')
             print(f'domain type       : {self.domain.__class__.__name__}')
-            print(f'domain parameters : {self.domain.params_map}\n')
-            
-            n_longest_key = len(max(self.size_params.keys(), key=len)) 
+            print(f'domain parameters :')
+            for key, val in self.domain.params_map.items():
+                if key not in {'cx', 'cy', 'cz'}:
+                    print(key, ': ', val)
+            print('')
+
+            n_longest_key = len(max(self.size_params.keys(), key=len))
             for key, val in self.size_params.items():
                 if key != 'eps_key':
                     diff = n_longest_key - len(key)
-                    
+
                     key_str = key
                     for i in range(diff):
                         key_str += ' '
-                    
+
                     if isinstance(val, float):
                         print(key_str + ' :', '{:16.13f}'.format(val))
                     else:
                         print(key_str + ' :', val)
-                    
+
             if hasattr(self, 'print_units') and 'model_units' in params:
                 self.print_units(params['model_units'])
 
             #print('PLASMA parameters:')
-            #print('size:')
-            #print('-----')
-            #for key, val in self.size_params.items():
+            # print('size:')
+            # print('-----')
+            # for key, val in self.size_params.items():
             #    if key != 'eps_key':
             #        print(key + ': ', val)
             #print('\nelectromagnetic fields/potentials:')
-            #print('----------------------------------')
-            #for key, val in self.em_fields.items():
+            # print('----------------------------------')
+            # for key, val in self.em_fields.items():
             #    if 'params' not in key:
             #        print(key + ': ' + val['space'])
             #print('\nfluid species:')
-            #print('--------------')
-            #for species, val in self.fluid.items():
+            # print('--------------')
+            # for species, val in self.fluid.items():
             #    print(species + ':')
             #    for variable, subval in val.items():
             #        if 'params' not in variable:
@@ -319,8 +330,8 @@ class StruphyModel(metaclass=ABCMeta):
             #    for p, pv in val['plasma_params'].items():
             #        print(p + ': ', pv)
             #print('\nkinetic species:')
-            #print('----------------')
-            #for species, val in self.kinetic.items():
+            # print('----------------')
+            # for species, val in self.kinetic.items():
             #    print(species + ': ' + val['space'] + ' with '
             #          + str(val['obj'].n_mks) + ' markers initialized, shape='
             #          + str(val['obj'].markers.shape) + ' on rank 0.')
@@ -342,6 +353,11 @@ class StruphyModel(metaclass=ABCMeta):
     def mhd_equil(self):
         '''MHD equilibrium object, see :ref:`mhd_equil`.'''
         return self._mhd_equil
+
+    @property
+    def mass_ops(self):
+        '''WeighteMassOperators object, see :ref:`mass_ops`.'''
+        return self._mass_ops
 
     @property
     def electric_equil(self):

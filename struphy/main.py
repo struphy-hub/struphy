@@ -58,8 +58,7 @@ def main():
     with open(file_in) as file:
         params = yaml.load(file, Loader=yaml.FullLoader)
 
-    # load STRUPHY model
-    model_class = getattr(models, model_name)
+    # instantiate STRUPHY model
     model = model_class(params, comm)
     model.set_initial_conditions()
 
