@@ -1,7 +1,7 @@
 import numpy as np
 
 from psydac.linalg.stencil import StencilVector, StencilMatrix
-from psydac.linalg.block import BlockVector, BlockMatrix
+from psydac.linalg.block import BlockVector
 
 from struphy.psydac_api.mass import WeightedMassOperator
 

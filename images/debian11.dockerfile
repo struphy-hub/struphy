@@ -17,7 +17,7 @@ RUN curl -O --header "PRIVATE-TOKEN: glpat-5QH11Kx-65GGiykzR5xo" "https://gitlab
 
 # install psydac from submodule
 RUN git clone https://github.com/pyccel/psydac.git \
-    && echo 'change something here if not using the cache' \
+    && echo 'change something here not using the cache' \
     && cd psydac \
     && git checkout 0be048d57040dc6b62b5d901f9805bcd30e35537 \
     && python3 -m pip install -r requirements.txt \

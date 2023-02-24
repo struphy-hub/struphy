@@ -245,7 +245,7 @@ class Field:
 
             # white noise in logical space for different components
             if init_type == 'noise':
-
+                
                 # component(s) to perturb
                 if isinstance(fun_params['comps'][self._name], bool):
                     comps = [fun_params['comps'][self._name]]
@@ -327,7 +327,7 @@ class Field:
                         getattr(funs, self.name))
 
         # apply boundary operator (in-place)
-        self.derham.B[self.space_key].dot(self._vector, out=self._vector)
+        self.derham.B[self.space_key].dot(self._vector.copy(), out=self._vector)
 
         # update ghost regions
         self._vector.update_ghost_regions()

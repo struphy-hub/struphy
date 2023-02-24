@@ -1,7 +1,8 @@
 import numpy as np
 
 from psydac.linalg.stencil import StencilVector, StencilMatrix
-from psydac.linalg.block import BlockVector, BlockMatrix
+from psydac.linalg.block import BlockVector, BlockLinearOperator
+from psydac.linalg.basic import Vector
 
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace
@@ -9,9 +10,9 @@ from psydac.fem.vector import ProductFemSpace
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
 from struphy.psydac_api import mass_kernels
-from struphy.psydac_api.linear_operators import LinOpWithTransp, CompositeLinearOperator, IdentityOperator, BoundaryOperator
+from struphy.psydac_api.linear_operators import LinOpWithTransp, BoundaryOperator, IdentityOperator
+from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
 
-from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 
 
@@ -517,8 +518,8 @@ class WeightedMassOperator(LinOpWithTransp):
             self._codomain_femspace = W
             self._codomain_symbolic_name = W_name
 
-        # ====== initialize Stencil-/BlockMatrix ====
-
+        # ====== initialize Stencil-/BlockLinearOperator ====
+        
         # collect TensorFemSpaces for each component in tuple
         if isinstance(V, TensorFemSpace):
             Vspaces = (V,)
@@ -554,7 +555,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 blocks = [[StencilMatrix(Vs.vector_space, Ws.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
                            if i <= j else None for j, Vs in enumerate(V.spaces)] for i, Ws in enumerate(W.spaces)]
 
-            self._mat = BlockMatrix(
+            self._mat = BlockLinearOperator(
                 V.vector_space, W.vector_space, blocks=blocks)
 
             # set default identity weights if not given
@@ -628,7 +629,7 @@ class WeightedMassOperator(LinOpWithTransp):
             if len(blocks) == len(blocks[0]) == 1:
                 self._mat = blocks[0][0]
             else:
-                self._mat = BlockMatrix(
+                self._mat = BlockLinearOperator(
                     V.vector_space, W.vector_space, blocks=blocks)
 
         # transpose of matrix and weights
@@ -661,16 +662,12 @@ class WeightedMassOperator(LinOpWithTransp):
 
         # build composite linear operators BW * EW * M * EV^T * BV^T, resp. IDV * EV * M^T * EW^T * IDW^T
         if transposed:
-            self._M = CompositeLinearOperator(IdentityOperator(
-                EV.codomain), EV, self._mat, EW.transpose(), IdentityOperator(EW.codomain).transpose())
-            self._M0 = CompositeLinearOperator(
-                BV, EV, self._mat, EW.transpose(), BW.transpose())
+            self._M  = Compose(IdentityOperator(EV.codomain), EV, self._mat, EW.T, IdentityOperator(EW.codomain).T)
+            self._M0 = Compose(BV, EV, self._mat, EW.T, BW.T)
         else:
-            self._M = CompositeLinearOperator(IdentityOperator(
-                EW.codomain), EW, self._mat, EV.transpose(), IdentityOperator(EV.codomain).transpose())
-            self._M0 = CompositeLinearOperator(
-                BW, EW, self._mat, EV.transpose(), BV.transpose())
-
+            self._M  = Compose(IdentityOperator(EW.codomain), EW, self._mat, EV.T, IdentityOperator(EV.codomain).T)
+            self._M0 = Compose(BW, EW, self._mat, EV.T, BV.T)
+        
         # set domain and codomain
         self._domain = self._M.domain
         self._codomain = self._M.codomain
@@ -700,6 +697,14 @@ class WeightedMassOperator(LinOpWithTransp):
         return self._dtype
 
     @property
+    def tosparse(self):
+        raise NotImplementedError()
+        
+    @property
+    def toarray(self):
+        raise NotImplementedError()
+    
+    @property
     def M(self):
         return self._M
 
@@ -717,22 +722,26 @@ class WeightedMassOperator(LinOpWithTransp):
 
     def dot(self, v, out=None, apply_bc=True):
         """
-        Applies the weighted mass operator to the FE coefficients v.
-
+        Dot product of the operator with a vector.
+        
         Parameters
         ----------
-        v : StencilVector | BlockVector | PolarVector
-            Input FE coefficients the mass operator is applied to.
+        v : psydac.linalg.basic.Vector
+            The input (domain) vector.
 
+        out : psydac.linalg.basic.Vector, optional
+            If given, the output will be written in-place into this vector.
+            
         apply_bc : bool
-            Whether to apply boundary operators to input/output.
-
+            Whether to apply the boundary operators (True) or not (False).
+            
         Returns
         -------
-        out : StencilVector | BlockVector | PolarVector
-            Output FE coefficients.
+        out : psydac.linalg.basic.Vector
+            The output (codomain) vector.
         """
 
+        assert isinstance(v, Vector)
         assert v.space == self.domain
 
         # newly created output vector
@@ -745,23 +754,13 @@ class WeightedMassOperator(LinOpWithTransp):
         # in-place dot-product (result is written to out)
         else:
 
-            assert isinstance(out, (StencilVector, BlockVector, PolarVector))
+            assert isinstance(out, Vector)
+            assert out.space == self.codomain
 
             if apply_bc:
-                tmp = self._M0.dot(v)
+                self._M0.dot(v, out=out)
             else:
-                tmp = self._M.dot(v)
-
-            if isinstance(tmp, PolarVector):
-                out.set_vector(tmp)
-            elif isinstance(tmp, StencilVector):
-                out[:] = tmp[:]
-            elif isinstance(tmp, BlockVector):
-                out[0][:] = tmp[0][:]
-                out[1][:] = tmp[1][:]
-                out[2][:] = tmp[2][:]
-
-        assert out.space == self.codomain
+                self._M.dot(v, out=out)
 
         return out
 
@@ -799,8 +798,8 @@ class WeightedMassOperator(LinOpWithTransp):
 
     def assemble(self, weights=None, verbose=True):
         """
-        Assembles a weighted mass matrix (StencilMatrix/BlockMatrix) corresponding to given domain/codomain spline spaces.
-
+        Assembles a weighted mass matrix (StencilMatrix/BlockLinearOperator) corresponding to given domain/codomain spline spaces.
+        
         General form (in 3d) is mat_(ijk,lmn) = integral[ Lambda_ijk * weight * Lambda_lmn ],
         where Lambda_ijk are the basis functions of the spline space and weight is some weight function.
 

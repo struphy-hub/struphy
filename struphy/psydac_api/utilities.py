@@ -1,5 +1,5 @@
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
-from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockMatrix
+from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockLinearOperator
 
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace
@@ -158,7 +158,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
 
         assert np.allclose(tmp1, tmp2, atol=atol)
 
-    elif isinstance(arr_psy, BlockMatrix):
+    elif isinstance(arr_psy, BlockLinearOperator):
 
         for row_psy, row in zip(arr_psy.blocks, arr):
             for mat_psy, mat in zip(row_psy, row):

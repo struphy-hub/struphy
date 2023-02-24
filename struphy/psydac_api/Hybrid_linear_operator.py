@@ -1,7 +1,7 @@
 import numpy as np
 
 from psydac.linalg.stencil import StencilVector, StencilMatrix
-from psydac.linalg.block import BlockVector, BlockMatrix
+from psydac.linalg.block import BlockVector, BlockLinearOperator
 
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
@@ -183,7 +183,7 @@ class HybridOperator:
     @staticmethod
     def assemble_mat(V, W, U, density, derham, b_value, domain):
         """
-        Assembles weighted mass matrix as StencilMatrix/BlockMatrix corresponding to given domain/codomain spline spaces.
+        Assembles weighted mass matrix as StencilMatrix/BlockLinearOperator corresponding to given domain/codomain spline spaces.
         
         Parameters
         ----------
@@ -199,7 +199,7 @@ class HybridOperator:
                 
         Returns
         -------
-            mat : StencilMatrix | BlockMatrix
+            mat : StencilMatrix | BlockLinearOperator
                 Weighted mass matrix in the full tensor product FEM space.
         """
         
@@ -317,4 +317,4 @@ class HybridOperator:
         if len(blocks) == len(blocks[0]) == 1:
             return blocks[0][0] 
         else:
-            return BlockMatrix(V.vector_space, W.vector_space, blocks)
+            return BlockLinearOperator(V.vector_space, W.vector_space, blocks)
