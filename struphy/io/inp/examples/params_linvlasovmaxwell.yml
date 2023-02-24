@@ -155,14 +155,14 @@ kinetic :
 
 solvers :
     solver_ew :
-        type : pcg
+        type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-10
         maxiter : 3000
         info : False
         verbose : False
     solver_eb :
-        type : pcg
+        type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-10
         maxiter : 3000

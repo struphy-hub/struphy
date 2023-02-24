@@ -1,25 +1,19 @@
-from sympde.topology import Line, Derham
-
-from psydac.linalg.basic import LinearSolver
+from psydac.linalg.basic import Vector, LinearSolver
 from psydac.linalg.direct_solvers import DirectSolver, SparseSolver
 from psydac.linalg.stencil import StencilMatrix, StencilVector, StencilVectorSpace
-from psydac.linalg.block import BlockVector, BlockMatrix, BlockDiagonalSolver
+from psydac.linalg.block import BlockLinearOperator, BlockDiagonalSolver
 from psydac.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace
 
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
-
 from psydac.api.essential_bc import apply_essential_bc_stencil
 
 from struphy.psydac_api.linear_operators import CompositeLinearOperator, BoundaryOperator, IdentityOperator
 from struphy.psydac_api.mass import WeightedMassOperator
 
-from struphy.polar.basic import PolarVector
-
 from scipy.linalg import solve_circulant
-
 import numpy as np
 
 
@@ -35,13 +29,13 @@ class MassMatrixPreconditioner(LinearSolver):
         The weighted mass operator for which the approximate inverse is needed.
 
     apply_bc : bool
-        Wether to include boundary operators.
+        Whether to include boundary operators.
     """
     
     def __init__(self, mass_operator, apply_bc=True):
         
         assert isinstance(mass_operator, WeightedMassOperator)
-        assert mass_operator.domain == mass_operator.codomain, 'Only square mass marices can be inverted!'
+        assert mass_operator.domain == mass_operator.codomain, 'Only square mass matrices can be inverted!'
         
         self._femspace = mass_operator.domain_femspace
         self._space = mass_operator.domain
@@ -61,7 +55,7 @@ class MassMatrixPreconditioner(LinearSolver):
 
         assert n_dims == 3 # other dims not yet implemented
         
-        # get boundary conditions list from BoundaryOperator in CompositeLinearOperator M0 of mass operator
+        # get boundary conditions list from BoundaryOperator in ComposedLinearOperator M0 of mass operator
         if isinstance(mass_operator.M0.operators[0], BoundaryOperator):
             bc = mass_operator.M0.operators[0].bc
         else:
@@ -164,7 +158,7 @@ class MassMatrixPreconditioner(LinearSolver):
                       [None, matrixblocks[1], None],
                       [None, None, matrixblocks[2]]]
             
-            self._matrix = BlockMatrix(self._femspace.vector_space, self._femspace.vector_space, blocks=blocks)
+            self._matrix = BlockLinearOperator(self._femspace.vector_space, self._femspace.vector_space, blocks=blocks)
             self._solver = BlockDiagonalSolver(self._femspace.vector_space, solverblocks)
             
         # save mass operator to be inverted (needed in solve method)
@@ -172,6 +166,13 @@ class MassMatrixPreconditioner(LinearSolver):
             self._M = mass_operator.M0
         else:
             self._M = mass_operator.M
+            
+        # temporary vectors for dot product
+        tmp_vectors = []
+        for op in self._M._operators[:-1]:
+            tmp_vectors.append(op.codomain.zeros())
+            
+        self._tmp_vectors = tuple(tmp_vectors)
         
     @property
     def space(self):
@@ -181,43 +182,57 @@ class MassMatrixPreconditioner(LinearSolver):
 
     @property
     def matrix(self):
-        """ Approximation of mass matrix as KroneckerStencilMatrix or BlockMatrix with KroneckerStencilMatrix on diagonal.
+        """ Approximation of the input mass matrix as KroneckerStencilMatrix.
         """
         return self._matrix
     
     @property
     def solver(self):
-        """ KroneckerLinearSolver or BlockDiagonalSolver for exactly inverting the approximate mass matrix.
+        """ KroneckerLinearSolver or BlockDiagonalSolver for exactly inverting the approximate mass matrix self.matrix.
         """
         return self._solver
     
     def solve(self, rhs, out=None):
         """
-        Computes (B * E * M^(-1) * E^T * B^T) * rhs as an approximation for inverse mass matrix.
+        Computes (B * E * M^(-1) * E^T * B^T) * rhs as an approximation for an inverse mass matrix.
         
         Parameters
         ----------
-        rhs : StencilVector | BlockVector | PolarVector
+        rhs : psydac.linalg.basic.Vector
             The right-hand side vector.
-                
+            
+        out : psydac.linalg.basic.Vector, optional
+            If given, the output vector will be written into this vector in-place.
+        
         Returns
         -------
-        out : StencilVector | BlockVector | PolarVector
-            The approximate solution to the inverse mass matrix problem.
+        out : psydac.linalg.basic.Vector
+            The result of (B * E * M^(-1) * E^T * B^T) * rhs.
         """
         
-        assert isinstance(rhs, (StencilVector, BlockVector, PolarVector))
-        assert rhs.space == self.space
-        
-        out = rhs.copy()
-        
-        # apply operators in self._M and replace Stencil-/BlockMatrix dot product with self.solver.solve
-        for op in self._M.operators:
-            if isinstance(op, (StencilMatrix, BlockMatrix)):
-                out = self.solver.solve(out)
+        assert isinstance(rhs, Vector)
+        assert rhs.space == self._space
+            
+        # successive dot products with all but last operator
+        x = rhs
+        for i in range(len(self._tmp_vectors)):
+            y = self._tmp_vectors[i]
+            A = self._M._operators[i]
+            if isinstance(A, (StencilMatrix, BlockLinearOperator)):
+                self.solver.solve(x, out=y)
             else:
-                out = op.dot(out)
-        
+                A.dot(x, out=y)
+            x = y
+
+        # last operator
+        A = self._M.operators[-1]
+        if out is None:
+            out = A.dot(x)
+        else:
+            assert isinstance(out, Vector)
+            assert out.space == self._space
+            A.dot(x, out=out)
+            
         return out
     
     
@@ -231,13 +246,13 @@ class ProjectorPreconditioner(LinearSolver):
     
     Parameters
     ----------
-    projector : Projector
+    projector : struphy.psydac_api.projectors.Projector
         The global commuting projector for which the inter-/histopolation matrix shall be inverted. 
 
-    transposed : bool
+    transposed : bool, optional
         Whether to invert the transposed inter-/histopolation matrix.
 
-    apply_bc : bool
+    apply_bc : bool, optional
         Whether to include the boundary operators.
     """
     
@@ -262,6 +277,13 @@ class ProjectorPreconditioner(LinearSolver):
                 self._I = projector.I0
             else:
                 self._I = projector.I
+                
+        # temporary vectors for dot product
+        tmp_vectors = []
+        for op in self._I._operators[:-1]:
+            tmp_vectors.append(op.codomain.zeros())
+            
+        self._tmp_vectors = tuple(tmp_vectors)
         
     @property
     def space(self):
@@ -283,33 +305,47 @@ class ProjectorPreconditioner(LinearSolver):
     
     def solve(self, rhs, out=None):
         """
-        Computes (B * P * I^(-1) * E^T * B^T) * rhs, resp. (B * P * I^(-T) * E^T * B^T) * rhs as an approximation for inverse inter-/histopolation matrix.
+        Computes (B * P * I^(-1) * E^T * B^T) * rhs, resp. (B * P * I^(-T) * E^T * B^T) * rhs (transposed=True) as an approximation for an inverse inter-/histopolation matrix.
         
         Parameters
         ----------
-        rhs : StencilVector | BlockVector | PolarVector
-            The right-hand side of the inter-/histopolation problem.
-                
+        rhs : psydac.linalg.basic.Vector
+            The right-hand side vector.
+            
+        out : psydac.linalg.basic.Vector, optional
+            If given, the output vector will be written into this vector in-place.
+        
         Returns
         -------
-        out : StencilVector | BlockVector | PolarVector
-            The approximate solution to the inter-/histopolation problem.
+        out : psydac.linalg.basic.Vector
+            The result of (B * E * M^(-1) * E^T * B^T) * rhs, resp. (B * P * I^(-T) * E^T * B^T) * rhs (transposed=True).
         """
         
-        assert isinstance(rhs, (StencilVector, BlockVector, PolarVector))
-        assert rhs.space == self.space
-        
-        out = rhs.copy()
-        
-        # apply operators in self._I.operators and replace Stencil-/KroneckerStencil-/BlockMatrix with tensor product self.solver
-        for op in self._I.operators:
-            if isinstance(op, (StencilMatrix, KroneckerStencilMatrix, BlockMatrix)):
-                out = self.solver.solve(out, transposed=self.transposed)
+        assert isinstance(rhs, Vector)
+        assert rhs.space == self._space
+            
+        # successive dot products with all but last operator
+        x = rhs
+        for i in range(len(self._tmp_vectors)):
+            y = self._tmp_vectors[i]
+            A = self._I._operators[i]
+            if isinstance(A, (StencilMatrix, KroneckerStencilMatrix, BlockLinearOperator)):
+                self.solver.solve(x, out=y, transposed=self._transposed)
             else:
-                out = op.dot(out)
+                A.dot(x, out=y)
+            x = y
+
+        # last operator
+        A = self._I.operators[-1]
+        if out is None:
+            out = A.dot(x)
+        else:
+            assert isinstance(out, Vector)
+            assert out.space == self._space
+            A.dot(x, out=out)
         
         return out
-    
+        
     
 class FFTSolver(DirectSolver):
     """
@@ -318,7 +354,7 @@ class FFTSolver(DirectSolver):
 
     Parameters
     ----------
-    circmat : array[float]
+    circmat : np.ndarray
         Generic circulant matrix.
     """
     
@@ -344,13 +380,13 @@ class FFTSolver(DirectSolver):
 
         Parameters
         ----------
-        rhs : array[float]
+        rhs : np.ndarray
             The right-hand sides to solve for. The vectors are assumed to be given in C-contiguous order, 
             i.e. if multiple right-hand sides are given, then rhs is a two-dimensional array with the 0-th 
             index denoting the number of the right-hand side, and the 1-st index denoting the element inside 
             a right-hand side.
 
-        out : array[float] | NoneType
+        out : np.ndarray, optional
             Output vector. If given, it has to have the same shape and datatype as rhs.
 
         transposed : bool
@@ -366,11 +402,9 @@ class FFTSolver(DirectSolver):
             assert out.shape == rhs.shape
             assert out.dtype == rhs.dtype
 
-            # currently no in-place solve exposed
             out[:] = solve_circulant(self._column, rhs.T).T
 
         return out
-
 
 def is_circulant(mat):
     """ 

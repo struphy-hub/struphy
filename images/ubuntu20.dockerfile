@@ -21,7 +21,7 @@ RUN curl -O --header "PRIVATE-TOKEN: glpat-5QH11Kx-65GGiykzR5xo" "https://gitlab
 
 # install psydac from submodule
 RUN git clone https://github.com/pyccel/psydac.git \
-    && echo 'change something here if not using the cache' \
+    && echo 'change something here not using the cache' \
     && cd psydac \
     && git checkout struphy-branch \
     && git pull \ 

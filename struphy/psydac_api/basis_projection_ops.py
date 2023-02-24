@@ -1,7 +1,8 @@
 import numpy as np
 
 from psydac.linalg.stencil import StencilMatrix
-from psydac.linalg.block import BlockMatrix
+from psydac.linalg.block import BlockLinearOperator
+from psydac.linalg.basic import Vector
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from psydac.feec.global_projectors import GlobalProjector
@@ -20,14 +21,14 @@ class BasisProjectionOperators:
 
     Parameters
     ----------
-        derham : struphy.psydac_api.psydac_derham.Derham
-            Discrete de Rham sequence on the logical unit cube.
+    derham : struphy.psydac_api.psydac_derham.Derham
+        Discrete de Rham sequence on the logical unit cube.
 
-        domain : struphy.geometry.domains
-            All things mapping.
+    domain : struphy.geometry.domains
+        All things mapping.
 
-        eq_mhd : EquilibriumMHD
-            MHD equilibrium from struphy.fields_background.mhd_equil (pullbacks must be enabled).
+    eq_mhd : struphy.fields_background.mhd_equil.base.MHDequilibrium
+        MHD equilibrium from struphy.fields_background.mhd_equil (pullbacks must be enabled).
 
     Notes
     -----
@@ -687,26 +688,26 @@ class BasisProjectionOperator( LinOpWithTransp ):
 
     Parameters
     ----------
-        P : Projector
-            Global commuting projector mapping into TensorFemSpace/ProductFemSpace W = P.space (codomain of operator).
+    P : struphy.psydac_api.projectors.Projector
+        Global commuting projector mapping into TensorFemSpace/ProductFemSpace W = P.space (codomain of operator).
 
-        V : TensorFemSpace | ProductFemSpace
-            Tensor product spline space from psydac.fem.tensor (domain, input space).
+    V : psydac.fem.basic.FemSpace
+        Finite element spline space (domain, input space).
 
-        fun : list
-            Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
-            
-        V_extraction_op : PolarExtractionOperator | IdentityOperator
-            Extraction operator to polar sub-space of V.
-            
-        V_boundary_op : BoundaryOperator | IdentityOperator
-            Boundary operator that sets essential boundary conditions.
+    fun : list
+        Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
 
-        transposed : bool
-            Whether to assemble the transposed operator.
-            
-        polar_shift : bool
-                Whether there are metric coefficients contained in "fun" which are singular at eta1=0. If True, interpolation points at eta1=0 are shifted away from the singularity by 1e-5.
+    V_extraction_op : PolarExtractionOperator | IdentityOperator
+        Extraction operator to polar sub-space of V.
+
+    V_boundary_op : BoundaryOperator | IdentityOperator
+        Boundary operator that sets essential boundary conditions.
+
+    transposed : bool
+        Whether to assemble the transposed operator.
+
+    polar_shift : bool
+            Whether there are metric coefficients contained in "fun" which are singular at eta1=0. If True, interpolation points at eta1=0 are shifted away from the singularity by 1e-5.
     """
 
     def __init__(self, P, V, fun, V_extraction_op=None, V_boundary_op=None, transposed=False, polar_shift=False):
@@ -766,7 +767,8 @@ class BasisProjectionOperator( LinOpWithTransp ):
         # ========================================================
         
         # build composite linear operator BP * P * DOF * EV^T * BV^T
-        self._dof_operator = CompositeLinearOperator(self._P_boundary_op, self._P_extraction_op, dof_mat, self._V_extraction_op.transpose(), self._V_boundary_op.transpose())
+        self._dof_operator = CompositeLinearOperator(self._P_boundary_op, self._P_extraction_op, dof_mat,
+                                                     self._V_extraction_op.T, self._V_boundary_op.T)
         
         if transposed:
             self._dof_operator = self._dof_operator.transpose()
@@ -774,6 +776,10 @@ class BasisProjectionOperator( LinOpWithTransp ):
         # set domain and codomain
         self._domain = self.dof_operator.domain
         self._codomain = self.dof_operator.codomain
+        
+        # temporary vectors for dot product
+        self._tmp_dom = self._dof_operator.domain.zeros()
+        self._tmp_codom = self._dof_operator.codomain.zeros()
 
     @property
     def domain(self):
@@ -792,6 +798,14 @@ class BasisProjectionOperator( LinOpWithTransp ):
         """ Datatype of the operator.
         """
         return self._dtype
+    
+    @property
+    def tosparse(self):
+        raise NotImplementedError()
+        
+    @property
+    def toarray(self):
+        raise NotImplementedError()
 
     @property
     def transposed(self):
@@ -811,34 +825,52 @@ class BasisProjectionOperator( LinOpWithTransp ):
 
         Parameters
         ----------
-            v : StencilVector | BlockVector | PolarVector
-                Vector the operator shall be applied to.
-                
-            tol : float
-                Stop tolerance in iterative solve (only used in polar case).
-                
-            maxiter : int
-                Maximum number of iterations in iterative solve (only used in polar case).
-                
-            verbose : bool
-                Whether to print some information in each iteration in iterative solve (only used in polar case).
+        v : psydac.linalg.basic.Vector
+            Vector the operator shall be applied to.
+            
+        out : psydac.linalg.basic.Vector, optional
+            If given, the output will be written in-place into this vector.
+
+        tol : float, optional
+            Stop tolerance in iterative solve (only used in polar case).
+
+        maxiter : int, optional
+            Maximum number of iterations in iterative solve (only used in polar case).
+
+        verbose : bool, optional
+            Whether to print some information in each iteration in iterative solve (only used in polar case).
 
         Returns
         -------
-            out : StencilVector | BlockVector | PolarVector
-                The result of the dot product.
+         out : psydac.linalg.basic.Vector
+            The output (codomain) vector.
         """
 
+        assert isinstance(v, Vector)
         assert v.space == self.domain
         
-        if self.transposed:
-            # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
-            out = self.dof_operator.dot(self._P.solve(v, True, apply_bc=True, tol=tol, maxiter=maxiter, verbose=verbose))
+        if out is None:
+        
+            if self.transposed:
+                # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
+                out = self.dof_operator.dot(self._P.solve(v, True, apply_bc=True, tol=tol, maxiter=maxiter, verbose=verbose))
+            else:
+                # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
+                out = self._P.solve(self.dof_operator.dot(v), False, apply_bc=True, tol=tol, maxiter=maxiter, verbose=verbose)
+                
         else:
-            # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
-            out = self._P.solve(self.dof_operator.dot(v), False, apply_bc=True, tol=tol, maxiter=maxiter, verbose=verbose)
-
-        assert out.space == self.codomain
+            
+            assert isinstance(out, Vector)
+            assert out.space == self.codomain
+            
+            if self.transposed:
+                # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
+                self._P.solve(v, True, apply_bc=True, tol=tol, maxiter=maxiter, verbose=verbose, out=self._tmp_dom)
+                self.dof_operator.dot(self._tmp_dom, out=out)
+            else:
+                # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
+                self.dof_operator.dot(v, out=self._tmp_codom)
+                self._P.solve(self._tmp_codom, False, apply_bc=True, tol=tol, maxiter=maxiter, verbose=verbose, out=out)
 
         return out
         
@@ -857,22 +889,22 @@ class BasisProjectionOperator( LinOpWithTransp ):
         
         Parameters
         ----------
-            P : GlobalProjector
-                The psydac global tensor product projector defining the space onto which the input shall be projected.
-                
-            V : TensorFemSpace | ProductFemSpace
-                The spline space which shall be projected.
-                
-            fun : list
-                Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
-                
-            polar_shift : bool
-                Whether there are metric coefficients contained in "fun" which are singular at eta1=0. If True, interpolation points at eta1=0 are shifted away from the singularity by 1e-5.
+        P : GlobalProjector
+            The psydac global tensor product projector defining the space onto which the input shall be projected.
+
+        V : TensorFemSpace | ProductFemSpace
+            The spline space which shall be projected.
+
+        fun : list
+            Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
+
+        polar_shift : bool
+            Whether there are metric coefficients contained in "fun" which are singular at eta1=0. If True, interpolation points at eta1=0 are shifted away from the singularity by 1e-5.
                 
         Returns
         -------
-            dof_mat : StencilMatrix | BlockMatrix
-                Degrees of freedom matrix in the full tensor product setting.
+        dof_mat : StencilMatrix | BlockLinearOperator
+            Degrees of freedom matrix in the full tensor product setting.
         """
         
         # input space: 3d StencilVectorSpaces and 1d SplineSpaces of each component 
@@ -939,14 +971,14 @@ class BasisProjectionOperator( LinOpWithTransp ):
                 else:
                     blocks[-1] += [None]
         
-        # build BlockMatrix (if necessary) and return
+        # build BlockLinearOperator (if necessary) and return
         if len(blocks) == len(blocks[0]) == 1:
             if blocks[0][0] is not None:
                 return blocks[0][0]
             else:
                 return dofs_mat
         else:
-            return BlockMatrix(V.vector_space, P.space.vector_space, blocks)
+            return BlockLinearOperator(V.vector_space, P.space.vector_space, blocks)
 
 
 def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, polar_shift=False):
@@ -954,34 +986,34 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
 
     Parameters
     ----------
-        V1d : 3-list
-            Three SplineSpace objects from Psydac from the input space (to be projected).
+    V1d : 3-list
+        Three SplineSpace objects from Psydac from the input space (to be projected).
 
-        W1d : 3-list
-            Three SplineSpace objects from Psydac from the output space (projected onto).
+    W1d : 3-list
+        Three SplineSpace objects from Psydac from the output space (projected onto).
 
-        starts_out : 3-list
-            Global starting indices of process. 
+    starts_out : 3-list
+        Global starting indices of process. 
 
-        ends_out : 3-list
-            Global ending indices of process.
+    ends_out : 3-list
+        Global ending indices of process.
 
-        n_quad : 3_list
-            Number of quadrature points per histpolation interval. If not given, is set to V1d.degree + 1.
+    n_quad : 3_list
+        Number of quadrature points per histpolation interval. If not given, is set to V1d.degree + 1.
 
     Returns
     -------
-        ptsG : 3-tuple of 2d float arrays
-            Quadrature points (or Greville points for interpolation) in each dimension in format (interval, quadrature point).
+    ptsG : 3-tuple of 2d float arrays
+        Quadrature points (or Greville points for interpolation) in each dimension in format (interval, quadrature point).
 
-        wtsG : 3-tuple of 2d float arrays
-            Quadrature weights (or ones for interpolation) in each dimension in format (interval, quadrature point).
+    wtsG : 3-tuple of 2d float arrays
+        Quadrature weights (or ones for interpolation) in each dimension in format (interval, quadrature point).
 
-        spans : 3-tuple of 2d int arrays
-            Knot span indices in each direction in format (n, nq).
+    spans : 3-tuple of 2d int arrays
+        Knot span indices in each direction in format (n, nq).
 
-        bases : 3-tuple of 3d float arrays
-            Values of p + 1 non-zero eta basis functions at quadrature points in format (n, nq, basis).'''
+    bases : 3-tuple of 3d float arrays
+        Values of p + 1 non-zero eta basis functions at quadrature points in format (n, nq, basis).'''
 
     import psydac.core.bsplines as bsp
 
@@ -1084,19 +1116,19 @@ def get_span_and_basis(pts, space):
 
     Parameters
     ----------
-        pts : np.array
-            2d array of points (interval, quadrature point).
+    pts : np.array
+        2d array of points (interval, quadrature point).
 
-        space : SplineSpace
-            Psydac object, the 1d spline space to be projected.
+    space : SplineSpace
+        Psydac object, the 1d spline space to be projected.
 
     Returns
     -------
-        span : np.array
-            2d array indexed by (n, nq), where n is the interval and nq is the quadrature point in the interval.
+    span : np.array
+        2d array indexed by (n, nq), where n is the interval and nq is the quadrature point in the interval.
 
-        basis : np.array
-            3d array of values of basis functions indexed by (n, nq, basis function). 
+    basis : np.array
+        3d array of values of basis functions indexed by (n, nq, basis function). 
     '''
 
     import psydac.core.bsplines as bsp

@@ -77,7 +77,7 @@ class EfieldWeights(Propagator):
         # parameters
         params_default = {'alpha': 1e2,
                           'f0': Maxwellian6DUniform(),
-                          'type': 'pcg',
+                          'type': 'PConjugateGradient',
                           'pc': 'MassMatrixPreconditioner',
                           'tol': 1e-8,
                           'maxiter': 3000,
@@ -127,7 +127,7 @@ class EfieldWeights(Propagator):
         _BC = - self._accum.operators[0].matrix / 4.
 
         # Instantiate Schur solver
-        self._schur_solver = SchurSolver(_A, _BC, pc=self._pc, solver_type=params['type'],
+        self._schur_solver = SchurSolver(_A, _BC, pc=self._pc, solver_name=params['type'],
                                          tol=params['tol'], maxiter=params['maxiter'],
                                          verbose=params['verbose'])
 
@@ -238,7 +238,7 @@ class PressureCoupling6D(Propagator):
         # parameters
         params_default = {'u_space': 'Hdiv',
                           'use_perp_model': True,
-                          'type': 'pcg',
+                          'type': 'PConjugateGradient',
                           'pc': 'MassMatrixPreconditioner',
                           'tol': 1e-8,
                           'maxiter': 3000,
@@ -325,7 +325,7 @@ class PressureCoupling6D(Propagator):
         BV = Multiply(-1/2, self._XT).dot(GT_VEC)
 
         # call SchurSolver class
-        schur_solver = SchurSolver(self._A, BC, pc=self._pc, solver_type=self._type,
+        schur_solver = SchurSolver(self._A, BC, pc=self._pc, solver_name=self._type,
                                    tol=self._tol, maxiter=self._maxiter,
                                    verbose=self._verbose)
 
@@ -402,6 +402,14 @@ class PressureCoupling6D(Propagator):
         @property
         def dtype(self):
             return self.derham.Vh['v'].dtype
+        
+        @property
+        def tosparse(self):
+            raise NotImplementedError()
+
+        @property
+        def toarray(self):
+            raise NotImplementedError()
 
         @property
         def transposed(self):
@@ -468,7 +476,7 @@ class CurrentCoupling6DCurrent(Propagator):
                           'b_eq': None,
                           'b_tilde': None,
                           'f0': Maxwellian6DUniform(),
-                          'type': 'pcg',
+                          'type': 'PConjugateGradient',
                           'pc': 'MassMatrixPreconditioner',
                           'tol': 1e-8,
                           'maxiter': 3000,
@@ -555,7 +563,7 @@ class CurrentCoupling6DCurrent(Propagator):
 
         _BC = Multiply(-1/4, self._accumulator.operators[0])
 
-        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_type=params['type'],
+        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'],
                                          tol=params['tol'], maxiter=params['maxiter'],
                                          verbose=params['verbose'])
 
@@ -864,7 +872,7 @@ class CurrentCoupling5DCurrent2(Propagator):
         BC = Multiply(-1/4, self._ACC.operators[0])
 
         # call SchurSolver class
-        schur_solver = SchurSolver(self._A, BC, pc=self._pc, solver_type=self._coupling_solver['type'],
+        schur_solver = SchurSolver(self._A, BC, pc=self._pc, solver_name=self._coupling_solver['type'],
                                    tol=self._coupling_solver['tol'], maxiter=self._coupling_solver['maxiter'],
                                    verbose=self._coupling_solver['verbose'])
 

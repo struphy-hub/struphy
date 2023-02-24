@@ -1,9 +1,9 @@
-from psydac.linalg.iterative_solvers import pcg
-
-from struphy.linear_algebra.iterative_solvers import pbicgstab
+from psydac.linalg.basic import Vector, LinearOperator, LinearSolver
 
 from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
 from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
+
+import struphy.linear_algebra.iterative_solvers as it_solvers
 
 
 class SchurSolver:
@@ -33,122 +33,141 @@ class SchurSolver:
     .. math::
 
         x^{n+1} = S^{-1} \left[ (A + \Delta t^2 BC) \, x^n - 2 \Delta t B \, y^n \\right] \,.
+        
+    Parameters
+    ----------
+    A : psydac.linalg.basic.LinearOperator
+        Upper left block from [[A B], [C Id]].
 
+    BC : psydac.linalg.basic.LinearOperator
+        Product from [[A B], [C Id]].
+
+    pc : NoneType | psydac.linalg.basic.LinearSolver
+         Preconditioner for "operator", it should approximate the inverse of "operator". Must have a "solve(rhs, out)" method.
+
+    solver_name : str
+        The name of the iterative solver used for inverting S. Currently available:
+            * ConjugateGradient (for positive-definite S, pc=None possible in this case)
+            * PConjugateGradient (for positive-definite S, recommended in this case)
+            * BiConjugateGradientStab (for general S, pc=None possible in this case)
+            * PBiConjugateGradientStab (for general S)
+
+    tol : float
+        Absolute tolerance for L2-norm of residual r = A*x - b.
+
+    maxiter : int
+        Maximum number of iterations.
+
+    verbose : bool
+        If True, L2-norm of residual r is printed at each iteration. 
     '''
 
-    def __init__(self, A, BC, pc, solver_type, tol, maxiter, verbose):
-        '''
-        Parameters
-        ----------
-            A : LinearOperator
-                Upper left block from [[A B], [C Id]].
-
-            BC : LinearOperator
-                Product from [[A B], [C Id]].
-
-            pc : NoneType | str | psydac.linalg.basic.LinearSolver | Callable
-                Preconditioner for S=A-BC, it should approximate the inverse of S.
-                Can either be:
-                * None, i.e. not pre-conditioning (this calls the standard `cg` method)
-                * The strings 'jacobi' or 'weighted_jacobi'. (rather obsolete, supply a callable instead, if possible)
-                * A LinearSolver object (in which case the out parameter is used)
-                * A callable with two parameters (S, r), where S is the LinearOperator from above, and r is the residual.
-
-            solver_type : str
-                Which iterative solver to use for S^{-1}.
-                Can either be:
-                * 'pcg', if S is symmetric and positive-definite (recommended in this case).
-                * 'pbicgstab' for general S.
-
-            tol : float
-                Absolute tolerance for L2-norm of residual r = A*x - b.
-
-            maxiter : int
-                Maximum number of iterations.
-
-            verbose : bool
-                If True, L2-norm of residual r is printed at each iteration. 
-
-        Arguments
-        ---------
-            xn : StencilVector
-                Solution from previous time step.
-
-            Byn : StencilVector
-                The product B*yn.
-
-            dt: float
-                Time step size.
-
-        Returns
-        -------
-            x : StencilVector
-                Converged solution.
-
-            info : dict
-                Convergence information.
-        '''
-
-        self._A = A
-        self._BC = BC
-        self._domain = A.domain
-        self._codomain = A.codomain
-        self._dtype = A.dtype
+    def __init__(self, A, BC, pc, solver_name, tol, maxiter, verbose):
+        
+        assert isinstance(A, LinearOperator)
+        assert isinstance(BC, LinearOperator)
 
         assert A.domain == BC.domain
         assert A.codomain == BC.codomain
-
+        
+        # linear operators
+        self._A = A
+        self._BC = BC
+        
+        # preconditioner
+        if pc is not None:
+            assert isinstance(pc, LinearSolver)
         self._pc = pc
-        self._solver_type = solver_type
+        
+        # stop tolerance, maximum number of iterations and printing
         self._tol = tol
         self._maxiter = maxiter
         self._verbose = verbose
+        
+        # load linear solver
+        self._solver_name = solver_name
+        self._solver = getattr(it_solvers, solver_name)(A.domain)
+        
+        # right-hand side vector (avoids temporary memory allocation!)
+        self._rhs = A.codomain.zeros()
 
     @property
     def A(self):
-        """Upper left block from [[A B], [C Id]]."""
+        """ Upper left block from [[A B], [C Id]].
+        """
         return self._A
 
     @property
     def BC(self):
-        """Product from [[A B], [C Id]]."""
+        """ Product from [[A B], [C Id]].
+        """
         return self._BC
-
+    
     @A.setter
     def A(self, a):
-        """Upper left block from [[A B], [C Id]]."""
+        """ Upper left block from [[A B], [C Id]].
+        """
         self._A = a
 
     @BC.setter
     def BC(self, bc):
-        """Product from [[A B], [C Id]]."""
+        """ Product from [[A B], [C Id]].
+        """
         self._BC = bc
 
-    def __call__(self, xn, Byn, dt):
+    def __call__(self, xn, Byn, dt, out=None):
         """
-        TODO
+        Solves the 2x2 block matrix linear system.
+        
+        Parameters
+        ----------
+        xn : psydac.linalg.basic.Vector
+            Solution from previous time step.
+
+        Byn : psydac.linalg.basic.Vector
+            The product B*yn.
+
+        dt : float
+            Time step size.
+            
+        out : psydac.linalg.basic.Vector, optional
+            If given, the converged solution will be written into this vector (in-place).
+
+        Returns
+        -------
+        out : psydac.linalg.basic.Vector
+            Converged solution.
+
+        info : dict
+            Convergence information.
         """
+        
+        assert isinstance(xn, Vector)
+        assert isinstance(Byn, Vector)
+        assert xn.space == self._A.domain
+        assert Byn.space == self._A.codomain
 
-        self._schur = Sum(self._A, Multiply(-dt**2, self._BC))
-        self._rhs_mat = Sum(self._A, Multiply(dt**2, self._BC))
-
-        assert xn.space == self._rhs_mat.domain
-        assert Byn.space == self._rhs_mat.codomain
-
-        _rhs = self._rhs_mat.dot(xn) - 2. * dt * Byn
-
-        if self._solver_type == 'pcg':
-
-            x, info = pcg(self._schur, _rhs, self._pc, x0=xn, tol=self._tol,
-                          maxiter=self._maxiter, verbose=self._verbose)
-
-        elif self._solver_type == 'pbicgstab':
-
-            x, info = pbicgstab(self._schur, _rhs, self._pc, x0=xn, tol=self._tol,
-                                maxiter=self._maxiter, verbose=self._verbose)
-
+        # left- and right-hand side operators
+        schur = Sum(self._A, Multiply(-dt**2, self._BC))
+        rhs_m = Sum(self._A, Multiply( dt**2, self._BC))
+        
+        # right-hand side vector (in-place!)
+        Byn *= 2*dt
+        rhs_m.dot(xn, out=self._rhs)
+        self._rhs -= Byn
+        
+        # solve linear system (in-place if out is not None)
+        
+        # solvers with preconditioner (must start with a 'P')
+        if self._solver_name[0] == 'P':
+            x, info = self._solver.solve(schur, self._rhs, self._pc, 
+                                         x0=xn, tol=self._tol, 
+                                         maxiter=self._maxiter, 
+                                         verbose=self._verbose, out=out)
         else:
-            raise NotImplementedError(
-                f'Solver type {self._solver_type} is not implemented.')
-
+            x, info = self._solver.solve(schur, self._rhs, 
+                                         x0=xn, tol=self._tol, 
+                                         maxiter=self._maxiter, 
+                                         verbose=self._verbose, out=out)
+            
         return x, info
