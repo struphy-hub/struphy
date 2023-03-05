@@ -38,6 +38,7 @@ BEV3 := $(struphy_path)/b_splines/bspline_evaluation_3d
 MAFA := $(struphy_path)/geometry/mappings_fast
 MEVA := $(struphy_path)/geometry/map_eval
 TR3  := $(struphy_path)/geometry/transform
+MK   := $(struphy_path)/geometry/kernels
 
 # Kinetic background
 MOMK := $(struphy_path)/kinetic_background/moments_kernels
@@ -67,7 +68,7 @@ KM3  := $(struphy_path)/eigenvalue_solvers/kernels_3d
 KPG  := $(struphy_path)/eigenvalue_solvers/kernels_projectors_global
 KPGM := $(struphy_path)/eigenvalue_solvers/kernels_projectors_global_mhd
 
-SOURCES := $(LAC).py $(BK).py $(BKP).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(TR3).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(PUTL).py $(PUSH).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py $(PSY3).py $(PSY4).py
+SOURCES := $(LAC).py $(BK).py $(BKP).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(TR3).py $(MK).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(PUTL).py $(PUSH).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py $(PSY3).py $(PSY4).py
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
@@ -118,6 +119,9 @@ $(MEVA)$(SO_EXT) : $(MEVA).py $(MAFA)$(SO_EXT) $(LAC)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
 $(TR3)$(SO_EXT) : $(TR3).py $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT)
+	pyccel $< $(FLAGS)
+    
+$(MK)$(SO_EXT) : $(MK).py
 	pyccel $< $(FLAGS)
 
 $(MOMK)$(SO_EXT) : $(MOMK).py

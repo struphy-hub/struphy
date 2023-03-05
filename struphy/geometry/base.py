@@ -1109,7 +1109,7 @@ class Domain(metaclass=ABCMeta):
             return params_map
             
     # ================================
-    def show(self, logical=False, grid_info=None, markers=None, marker_coords='logical', save_dir=None):
+    def show(self, logical=False, grid_info=None, markers=None, marker_coords='logical', show_control_pts=False, figsize=(12, 5), save_dir=None):
         """
         Plots isolines (and control point in case on spline mappings) of the 2D physical domain for eta3 = 0.
         Markers can be plotted as well (optional).
@@ -1154,12 +1154,12 @@ class Domain(metaclass=ABCMeta):
                 XYZ = self(e1, e2, 0.)
 
             X = XYZ[0]
-            if self.__class__.__name__ == 'GVECunit' or 'Torus' in self.__class__.__name__:
+            if self.__class__.__name__ == 'GVECunit' or 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'Tokamak':
                 Y = XYZ[2]
             else:
                 Y = XYZ[1]
 
-            fig = plt.figure(figsize=(12, 5))
+            fig = plt.figure(figsize=figsize)
             ax = fig.add_subplot(1, 2, 1)
 
             # eta1-isolines
@@ -1201,7 +1201,7 @@ class Domain(metaclass=ABCMeta):
 
             X_0 = theta_0[0]
             X_pi = theta_pi[0]
-            if self.__class__.__name__ == 'GVECunit' or 'Torus' in self.__class__.__name__:
+            if self.__class__.__name__ == 'GVECunit' or 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'Tokamak':
                 Z_0 = theta_0[1]
                 Z_pi = theta_pi[1]
             else:
@@ -1233,7 +1233,7 @@ class Domain(metaclass=ABCMeta):
             ax2.plot(X_0[0, :], Z_0[0, :], 'tab:red', alpha=1., zorder=10)
             ax2.plot(X_pi[0, :], Z_pi[0, :], 'tab:red', alpha=1., zorder=10)
 
-            if self.__class__.__name__ == 'GVECunit' or 'Torus' in self.__class__.__name__:
+            if self.__class__.__name__ == 'GVECunit' or 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'Tokamak':
                 ylab = 'y'
             else:
                 ylab = 'z'
@@ -1250,7 +1250,7 @@ class Domain(metaclass=ABCMeta):
             e1 = np.linspace(0., 1., grid_info[0] + 1)
             e2 = np.linspace(0., 1., grid_info[1] + 1)
             
-            fig = plt.figure(figsize=(6, 5))
+            fig = plt.figure(figsize=figsize)
             ax = fig.add_subplot(1, 1, 1)
             
             if logical:
@@ -1268,7 +1268,7 @@ class Domain(metaclass=ABCMeta):
                 X = self(e1, e2, 0.)
             
                 # plot xz-plane for torus mappings, xy-plane else
-                if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit':
+                if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit' or self.__class__.__name__ == 'Tokamak':
                     co1, co2 = 0, 2
                 else:
                     co1, co2 = 0, 1
@@ -1287,7 +1287,7 @@ class Domain(metaclass=ABCMeta):
             assert grid_info.ndim == 2
             assert grid_info.shape[1] > 5
             
-            fig = plt.figure(figsize=(12, 12))
+            fig = plt.figure(figsize=figsize)
             ax = fig.add_subplot(1, 1, 1)
             
             for i in range(grid_info.shape[0]):
@@ -1314,7 +1314,7 @@ class Domain(metaclass=ABCMeta):
                     X = self(e1, e2, 0.)
                     
                     # plot xz-plane for torus mappings, xy-plane else
-                    if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit':
+                    if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit' or self.__class__.__name__ == 'Tokamak':
                         co1, co2 = 0, 2
                     else:
                         co1, co2 = 0, 1
@@ -1333,7 +1333,7 @@ class Domain(metaclass=ABCMeta):
             raise ValueError('given grid_info is not supported!')
 
         # plot control points in case of IGA mappings
-        if not logical and self.kind_map < 10:
+        if not logical and self.kind_map < 10 and show_control_pts:
             if self.__class__.__name__ == 'GVECunit':
                 Yc = self.cz[:, :, 0].flatten()
             else:
@@ -1345,7 +1345,7 @@ class Domain(metaclass=ABCMeta):
             
             assert not (logical and marker_coords != 'logical')
             
-            if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit':
+            if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit' or self.__class__.__name__ == 'Tokamak':
                 co1, co2 = 0, 2
             else:
                 co1, co2 = 0, 1
@@ -1384,7 +1384,7 @@ class Domain(metaclass=ABCMeta):
         if isinstance(grid_info, np.ndarray):
             plt.legend()
 
-        if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit':
+        if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit' or self.__class__.__name__ == 'Tokamak':
             ylab = 'z'
         else:
             ylab = 'y'

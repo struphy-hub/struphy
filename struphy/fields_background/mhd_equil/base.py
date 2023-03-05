@@ -436,3 +436,133 @@ class LogicalMHDequilibrium(MHDequilibrium):
         """0-form equilibrium density on logical cube [0, 1]^3.
         """
         pass
+
+
+class AxisymmMHDequilibrium(CartesianMHDequilibrium):
+    """
+    Base class for ideal axisymmetric MHD equilibria based on a poloidal flux function psi = psi(R, Z) and a toroidal field function g_tor = g_tor(R, Z) in a cylindrical coordinate system (R, phi, Z).
+    
+    The magnetic field and current density are then given by
+        
+        * B = grad(psi) x grad(phi) + g_tor * grad(phi),
+        * j = curl(B).
+        
+    The pressure and density profiles need to be implemented by child classes.
+    """
+    
+    @abstractmethod
+    def psi(self, R, Z, dR=0, dZ=0):
+        """ Poloidal flux function per radian. First AND second derivatives dR=0,1,2 and dZ=0,1,2 must be implemented.
+        """
+        pass
+    
+    @abstractmethod
+    def g_tor(self, R, Z, dR=0, dZ=0):
+        """ Toroidal field function. First derivatives dR=0,1 and dZ=0,1 must be implemented.
+        """
+        pass
+    
+    @property
+    @abstractmethod
+    def psi_range(self):
+        """ Psi on-axis and at plasma boundary returned as list [psi_axis, psi_boundary].
+        """
+        pass
+    
+    @property
+    @abstractmethod
+    def psi_axis_RZ(self):
+        """ Location of magnetic axis in R-Z-coordinates returned as list [psi_axis_R, psi_axis_Z].
+        """
+        pass
+    
+    @abstractmethod
+    def p_xyz(self, x, y, z):
+        """ Equilibrium pressure in physical space.
+        """
+        pass
+
+    @abstractmethod
+    def n_xyz(self, x, y, z):
+        """ Equilibrium number density in physical space.
+        """
+        pass
+    
+    def b_xyz(self, x, y, z):
+        """ Cartesian B-field components calculated as BR = -(dpsi/dZ)/R, BPhi = g_tor/R, BZ = (dpsi/dR)/R.
+        """
+        
+        from struphy.geometry.base import Domain
+        
+        # check for point-wise evaluation and broadcast input to 3d numpy arrays.
+        is_float = all(isinstance(v, (int, float)) for v in [x, y, z])
+        
+        x, y, z, is_sparse_meshgrid = Domain.prepare_eval_pts(x, y, z)
+        
+        R, Phi, Z = self.inverse_map(x, y, z)
+        
+        # at phi = 0°
+        BR = -self.psi(R, Z, dZ=1)/R
+        BP = self.g_tor(R, Z)/R
+        BZ =  self.psi(R, Z, dR=1)/R
+        
+        # push-forward to Cartesian components
+        Bx = BR*np.cos(Phi) - BP*np.sin(Phi)
+        By = BR*np.sin(Phi) + BP*np.cos(Phi)
+        Bz = 1*BZ
+        
+        # remove all "dimensions" for point-wise evaluation
+        if is_float:
+            assert Bx.ndim == 3
+            assert By.ndim == 3
+            assert Bz.ndim == 3
+            Bx = Bx.item()
+            By = By.item()
+            Bz = Bz.item()
+
+        return Bx, By, Bz
+
+    def j_xyz(self, x, y, z):
+        """ Cartesian current density components calculated as curl(B).
+        """
+        
+        from struphy.geometry.base import Domain
+        
+        # check for point-wise evaluation and broadcast input to 3d numpy arrays.
+        is_float = all(isinstance(v, (int, float)) for v in [x, y, z])
+        
+        x, y, z, is_sparse_meshgrid = Domain.prepare_eval_pts(x, y, z)
+        
+        R, Phi, Z = self.inverse_map(x, y, z)
+        
+        # at phi = 0° (j = curl(B))
+        jR = -self.g_tor(R, Z, dZ=1)/R
+        jP = -self.psi(R, Z, dZ=2)/R + self.psi(R, Z, dR=1)/R**2 - self.psi(R, Z, dR=2)/R
+        jZ =  self.g_tor(R, Z, dR=1)/R
+        
+        # push-forward to Cartesian components
+        jx = jR*np.cos(Phi) - jP*np.sin(Phi)
+        jy = jR*np.sin(Phi) + jP*np.cos(Phi)
+        jz = 1*jZ
+
+        # remove all "dimensions" for point-wise evaluation
+        if is_float:
+            assert jx.ndim == 3
+            assert jy.ndim == 3
+            assert jz.ndim == 3
+            jx = jx.item()
+            jy = jy.item()
+            jz = jz.item()
+
+        return jx, jy, jz
+    
+    @staticmethod
+    def inverse_map(x, y, z):
+        """ Inverse cylindrical mapping.
+        """
+        
+        R = np.sqrt(x**2 + y**2)
+        P = np.arctan2(y, x)
+        Z = 1*z
+        
+        return R, P, Z
