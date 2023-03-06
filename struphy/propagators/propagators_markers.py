@@ -96,7 +96,7 @@ class PushEta(Propagator):
         # push markers
         self._pusher(self._particles, dt,
                      self._butcher.a, self._butcher.b, self._butcher.c,
-                     bc=self._bc_type, mpi_sort='last')
+                     mpi_sort='last')
 
         # update_weights
         if self._f0 is not None:
@@ -429,7 +429,7 @@ class PushEtaPC(Propagator):
 
         self._pusher(self._particles, dt,
                      self._u[0]._data, self._u[1]._data, self._u[2]._data,
-                     bc=self._bc, mpi_sort='last')
+                     mpi_sort='last')
 
 
 class StepPushGuidingCenter1(Propagator):
@@ -452,6 +452,7 @@ class StepPushGuidingCenter1(Propagator):
 
         Implicit:
         * discrete_gradients
+        * discrete_gradients_faster
 
     Parameters
     ----------
@@ -471,60 +472,57 @@ class StepPushGuidingCenter1(Propagator):
         Kinetic boundary conditions in each direction.
     """
 
-    def __init__(self, particles, derham, domain, epsilon, b, norm_b1, norm_b2, abs_b, algo, integrator, bc, maxiter=100, tol=1.e-8):
+    def __init__(self, particles, **params): 
 
+        # pointer to variable
+        assert isinstance(particles, Particles5D)
         self._particles = particles
-        self._epsilon = epsilon
-        self._bc = bc
-        self._b = b
-        self._norm_b1 = norm_b1
-        self._norm_b2 = norm_b2
-        self._abs_b = abs_b
-        self._derham = derham
 
-        self._curl_norm_b = derham.curl.dot(norm_b1)
-        self._grad_abs_b = derham.grad.dot(abs_b)
+        # parameters
+        params_default = {'epsilon': .01,
+                          'b_eq': None,
+                          'unit_b1': None,
+                          'unit_b2': None,
+                          'abs_b': None,
+                          'integrator': 'implicit',
+                          'method': 'discrete_gradient_faster',
+                          'maxiter': 10,
+                          'tol': 1e-12, 
+                          }
 
-        if not self._b[0].ghost_regions_in_sync:
-            self._b[0].update_ghost_regions()
-        if not self._b[1].ghost_regions_in_sync:
-            self._b[1].update_ghost_regions()
-        if not self._b[2].ghost_regions_in_sync:
-            self._b[2].update_ghost_regions()
-        if not self._abs_b.ghost_regions_in_sync:
-            self._abs_b.update_ghost_regions()
-        if not self._curl_norm_b[0].ghost_regions_in_sync:
-            self._curl_norm_b[0].update_ghost_regions()
-        if not self._curl_norm_b[1].ghost_regions_in_sync:
-            self._curl_norm_b[1].update_ghost_regions()
-        if not self._curl_norm_b[2].ghost_regions_in_sync:
-            self._curl_norm_b[2].update_ghost_regions()
-        if not self._grad_abs_b[0].ghost_regions_in_sync:
-            self._grad_abs_b[0].update_ghost_regions()
-        if not self._grad_abs_b[1].ghost_regions_in_sync:
-            self._grad_abs_b[1].update_ghost_regions()
-        if not self._grad_abs_b[2].ghost_regions_in_sync:
-            self._grad_abs_b[2].update_ghost_regions()
+        params = set_defaults(params, params_default)
 
-        if integrator == 'explicit':
+        self._epsilon = params['epsilon']
+        self._b_eq = params['b_eq']
+        self._unit_b1 = params['unit_b1']
+        self._unit_b2 = params['unit_b2']
+        self._abs_b = params['abs_b']
 
-            if algo == 'forward_euler':
+        self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
+        self._grad_abs_b = self.derham.grad.dot(self._abs_b)
+
+        self._curl_norm_b.update_ghost_regions()
+        self._grad_abs_b.update_ghost_regions()
+
+        if params['integrator'] == 'explicit':
+
+            if params['method'] == 'forward_euler':
                 a = []
                 b = [1.]
                 c = [0.]
-            elif algo == 'heun2':
+            elif params['method'] == 'heun2':
                 a = [1.]
                 b = [1/2, 1/2]
                 c = [0., 1.]
-            elif algo == 'rk2':
+            elif params['method'] == 'rk2':
                 a = [1/2]
                 b = [0., 1.]
                 c = [0., 1/2]
-            elif algo == 'heun3':
+            elif params['method'] == 'heun3':
                 a = [1/3, 2/3]
                 b = [1/4, 0., 3/4]
                 c = [0., 1/3, 2/3]
-            elif algo == 'rk4':
+            elif params['method'] == 'rk4':
                 a = [1/2, 1/2, 1.]
                 b = [1/6, 1/3, 1/3, 1/6]
                 c = [0., 1/2, 1/2, 1.]
@@ -534,33 +532,33 @@ class StepPushGuidingCenter1(Propagator):
 
             self._butcher = ButcherTableau(a, b, c)
             self._pusher = Pusher(
-                derham, domain, 'push_gc1_explicit_stage', self._butcher.n_stages)
+                self.derham, self.domain, 'push_gc1_explicit_stage', self._butcher.n_stages)
 
-            self._pusher_inputs = (self._b[0]._data, self._b[1]._data, self._b[2]._data,
-                                   self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
-                                   self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
+            self._pusher_inputs = (self._epsilon, self._b_eq[0]._data, self._b_eq[1]._data, self._b_eq[2]._data,
+                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
                                    self._grad_abs_b[0]._data, self._grad_abs_b[1]._data, self._grad_abs_b[2]._data,
                                    self._butcher.a, self._butcher.b, self._butcher.c)
 
-        elif integrator == 'implicit':
+        elif params['integrator'] == 'implicit':
 
-            if algo == 'discrete_gradients':
+            if params['method'] == 'discrete_gradients':
                 self._pusher = Pusher_iteration(
-                    derham, domain, 'push_gc1_discrete_gradients', maxiter, tol)
+                    self.derham, self.domain, 'push_gc1_discrete_gradients', params['maxiter'], params['tol'])
                 
-            elif algo == 'discrete_gradients_faster':
+            elif params['method'] == 'discrete_gradients_faster':
                 self._pusher = Pusher_iteration(
-                    derham, domain, 'push_gc1_discrete_gradients_faster', maxiter, tol)
+                    self.derham, self.domain, 'push_gc1_discrete_gradients_faster',params['maxiter'], params['tol'])
 
             else:
                 raise NotImplementedError(
                     'Chosen implicit method is not implemented.')
 
-            self._pusher_inputs = (self._abs_b._data,
-                                   self._b[0]._data, self._b[1]._data, self._b[2]._data,
-                                   self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
-                                   self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
+            self._pusher_inputs = (self._epsilon, self._abs_b._data,
+                                   self._b_eq[0]._data, self._b_eq[1]._data, self._b_eq[2]._data,
+                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
                                    self._grad_abs_b[0]._data, self._grad_abs_b[1]._data, self._grad_abs_b[2]._data)
 
@@ -575,12 +573,11 @@ class StepPushGuidingCenter1(Propagator):
         """
         TODO
         """
-        self._pusher(self._particles, dt, self._epsilon,
-                    *self._pusher_inputs,
-                     bc=self._bc, mpi_sort='each', verbose=False)
+        self._pusher(self._particles, dt,
+                    *self._pusher_inputs, verbose=False)
 
         # save magnetic field at each particles' position
-        self._particles.save_magnetic_energy(self._derham, self._abs_b)
+        self._particles.save_magnetic_energy(self.derham, self._abs_b)
 
 
 class StepPushGuidingCenter2(Propagator):
@@ -603,6 +600,7 @@ class StepPushGuidingCenter2(Propagator):
 
         Implicit:
         * discrete_gradients
+        * discrete_gradients_faster
 
     Parameters
     ----------
@@ -622,96 +620,93 @@ class StepPushGuidingCenter2(Propagator):
         Kinetic boundary conditions in each direction.
     """
 
-    def __init__(self, particles, derham, domain, epsilon, b, norm_b1, norm_b2, abs_b, algo, integrator, bc, maxiter=100, tol=1.e-8):
+    def __init__(self, particles, **params): 
 
+        # pointer to variable
+        assert isinstance(particles, Particles5D)
         self._particles = particles
-        self._epsilon = epsilon
-        self._bc = bc
-        self._b = b
-        self._norm_b1 = norm_b1
-        self._norm_b2 = norm_b2
-        self._abs_b = abs_b
-        self._derham = derham
 
-        self._curl_norm_b = derham.curl.dot(norm_b1)
-        self._grad_abs_b = derham.grad.dot(abs_b)
+        # parameters
+        params_default = {'epsilon': .01,
+                          'b_eq': None,
+                          'unit_b1': None,
+                          'unit_b2': None,
+                          'abs_b': None,
+                          'integrator': 'implicit',
+                          'method': 'discrete_gradient_faster',
+                          'maxiter': 10,
+                          'tol': 1e-12, 
+                          }
 
-        if not self._b[0].ghost_regions_in_sync:
-            self._b[0].update_ghost_regions()
-        if not self._b[1].ghost_regions_in_sync:
-            self._b[1].update_ghost_regions()
-        if not self._b[2].ghost_regions_in_sync:
-            self._b[2].update_ghost_regions()
-        if not self._abs_b.ghost_regions_in_sync:
-            self._abs_b.update_ghost_regions()
-        if not self._curl_norm_b[0].ghost_regions_in_sync:
-            self._curl_norm_b[0].update_ghost_regions()
-        if not self._curl_norm_b[1].ghost_regions_in_sync:
-            self._curl_norm_b[1].update_ghost_regions()
-        if not self._curl_norm_b[2].ghost_regions_in_sync:
-            self._curl_norm_b[2].update_ghost_regions()
-        if not self._grad_abs_b[0].ghost_regions_in_sync:
-            self._grad_abs_b[0].update_ghost_regions()
-        if not self._grad_abs_b[1].ghost_regions_in_sync:
-            self._grad_abs_b[1].update_ghost_regions()
-        if not self._grad_abs_b[2].ghost_regions_in_sync:
-            self._grad_abs_b[2].update_ghost_regions()
+        params = set_defaults(params, params_default)
 
-        if integrator == 'explicit':
+        self._epsilon = params['epsilon']
+        self._b_eq = params['b_eq']
+        self._unit_b1 = params['unit_b1']
+        self._unit_b2 = params['unit_b2']
+        self._abs_b = params['abs_b']
 
-            if algo == 'forward_euler':
+        self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
+        self._grad_abs_b = self.derham.grad.dot(self._abs_b)
+
+        self._curl_norm_b.update_ghost_regions()
+        self._grad_abs_b.update_ghost_regions()
+
+        if params['integrator'] == 'explicit':
+
+            if params['method'] == 'forward_euler':
                 a = []
                 b = [1.]
                 c = [0.]
-            elif algo == 'heun2':
+            elif params['method'] == 'heun2':
                 a = [1.]
                 b = [1/2, 1/2]
                 c = [0., 1.]
-            elif algo == 'rk2':
+            elif params['method'] == 'rk2':
                 a = [1/2]
                 b = [0., 1.]
                 c = [0., 1/2]
-            elif algo == 'heun3':
+            elif params['method'] == 'heun3':
                 a = [1/3, 2/3]
                 b = [1/4, 0., 3/4]
                 c = [0., 1/3, 2/3]
-            elif algo == 'rk4':
+            elif params['method'] == 'rk4':
                 a = [1/2, 1/2, 1.]
                 b = [1/6, 1/3, 1/3, 1/6]
                 c = [0., 1/2, 1/2, 1.]
             else:
                 raise NotImplementedError(
                     'Chosen algorithm is not implemented.')
-
+            
             self._butcher = ButcherTableau(a, b, c)
             self._pusher = Pusher(
-                derham, domain, 'push_gc2_explicit_stage', self._butcher.n_stages)
+                self.derham, self.domain, 'push_gc2_explicit_stage', self._butcher.n_stages)
 
-            self._pusher_inputs = (self._b[0]._data, self._b[1]._data, self._b[2]._data,
-                                   self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
-                                   self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
+            self._pusher_inputs = (self._epsilon, self._b_eq[0]._data, self._b_eq[1]._data, self._b_eq[2]._data,
+                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
                                    self._grad_abs_b[0]._data, self._grad_abs_b[1]._data, self._grad_abs_b[2]._data,
                                    self._butcher.a, self._butcher.b, self._butcher.c)
 
-        elif integrator == 'implicit':
+        elif params['integrator'] == 'implicit':
 
-            if algo == 'discrete_gradients':
+            if params['method'] == 'discrete_gradients':
                 self._pusher = Pusher_iteration(
-                    derham, domain, 'push_gc2_discrete_gradients', maxiter, tol)
+                    self.derham, self.domain, 'push_gc2_discrete_gradients', params['maxiter'], params['tol'])
                 
-            elif algo == 'discrete_gradients_faster':
+            elif params['method'] == 'discrete_gradients_faster':
                 self._pusher = Pusher_iteration(
-                    derham, domain, 'push_gc2_discrete_gradients_faster', maxiter, tol)
+                    self.derham, self.domain, 'push_gc2_discrete_gradients_faster',params['maxiter'], params['tol'])
 
             else:
                 raise NotImplementedError(
                     'Chosen implicit method is not implemented.')
 
-            self._pusher_inputs = (self._abs_b._data,
-                                   self._b[0]._data, self._b[1]._data, self._b[2]._data,
-                                   self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
-                                   self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
+            self._pusher_inputs = (self._epsilon, self._abs_b._data,
+                                   self._b_eq[0]._data, self._b_eq[1]._data, self._b_eq[2]._data,
+                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
                                    self._grad_abs_b[0]._data, self._grad_abs_b[1]._data, self._grad_abs_b[2]._data)
 
@@ -726,146 +721,11 @@ class StepPushGuidingCenter2(Propagator):
         """
         TODO
         """
-        self._pusher(self._particles, dt, self._epsilon,
-                    *self._pusher_inputs,
-                     bc=self._bc, mpi_sort='each', verbose=False)
+        self._pusher(self._particles, dt,
+                    *self._pusher_inputs, verbose=False)
 
         # save magnetic field at each particles' position
-        self._particles.save_magnetic_energy(self._derham, self._abs_b)
-
-
-class StepPushGuidingCenter(Propagator):
-    r"""Solves
-
-    .. math::
-
-        \dot{\mathbf X} &= \frac{1}{B^*_\parallel} \mathbf{B}^* v_\parallel + \frac{\varepsilon \mu}{B^*_\parallel}  G^{-1} \mathbb{b}_{0, \otimes}G^{-1} \hat \nabla |\hat B_0|^0 \,,
-
-        \dot v_\parallel &= - \mu \frac{1}{B^*_\parallel} \mathbf{B}^* \cdot \nabla |B_0| \,.
-
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant. Available algorithms:
-
-        * forward_euler (1st order)
-        * heun2 (2nd order)
-        * rk2 (2nd order)
-        * heun3 (3rd order)
-        * rk4 (4th order)
-
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles6D
-        Holdes the markers to push.
-
-    derham : struphy.psydac_api.psydac_derham.Derham
-        Discrete Derham complex.
-
-    domain : struphy.geometry.domains
-        Mapping info for evaluating metric coefficients.
-
-    algo : str
-        The used algorithm.
-
-    bc : list[str]
-        Kinetic boundary conditions in each direction.
-    """
-
-    def __init__(self, particles, derham, domain, epsilon, b, norm_b1, norm_b2, abs_b, algo, integrator, bc, maxiter=100, tol=1.e-8):
-
-        self._particles = particles
-        self._epsilon = epsilon
-        self._bc = bc
-        self._b = b
-        self._norm_b1 = norm_b1
-        self._norm_b2 = norm_b2
-        self._abs_b = abs_b
-        self._derham = derham
-
-        self._curl_norm_b = derham.curl.dot(norm_b1)
-        self._grad_abs_b = derham.grad.dot(abs_b)
-
-        if not self._curl_norm_b[0].ghost_regions_in_sync:
-            self._curl_norm_b[0].update_ghost_regions()
-        if not self._curl_norm_b[1].ghost_regions_in_sync:
-            self._curl_norm_b[1].update_ghost_regions()
-        if not self._curl_norm_b[2].ghost_regions_in_sync:
-            self._curl_norm_b[2].update_ghost_regions()
-        if not self._grad_abs_b[0].ghost_regions_in_sync:
-            self._grad_abs_b[0].update_ghost_regions()
-        if not self._grad_abs_b[1].ghost_regions_in_sync:
-            self._grad_abs_b[1].update_ghost_regions()
-        if not self._grad_abs_b[2].ghost_regions_in_sync:
-            self._grad_abs_b[2].update_ghost_regions()
-
-        if integrator == 'explicit':
-            if algo == 'forward_euler':
-                a = []
-                b = [1.]
-                c = [0.]
-            elif algo == 'heun2':
-                a = [1.]
-                b = [1/2, 1/2]
-                c = [0., 1.]
-            elif algo == 'rk2':
-                a = [1/2]
-                b = [0., 1.]
-                c = [0., 1/2]
-            elif algo == 'heun3':
-                a = [1/3, 2/3]
-                b = [1/4, 0., 3/4]
-                c = [0., 1/3, 2/3]
-            elif algo == 'rk4':
-                a = [1/2, 1/2, 1.]
-                b = [1/6, 1/3, 1/3, 1/6]
-                c = [0., 1/2, 1/2, 1.]
-            else:
-                raise NotImplementedError(
-                    'Chosen algorithm is not implemented.')
-
-            self._butcher = ButcherTableau(a, b, c)
-            self._pusher = Pusher(
-                derham, domain, 'push_gc_explicit_stage', self._butcher.n_stages)
-
-            self._pusher_inputs = (self._b[0]._data, self._b[1]._data, self._b[2]._data,
-                                   self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
-                                   self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
-                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_abs_b[0]._data, self._grad_abs_b[1]._data, self._grad_abs_b[2]._data,
-                                   self._butcher.a, self._butcher.b, self._butcher.c)
-
-        elif integrator == 'implicit':
-
-            if algo == 'discrete_gradients':
-                self._pusher = Pusher_iteration(
-                    derham, domain, 'push_gc_discrete_gradients', maxiter, tol)
-
-            else:
-                raise NotImplementedError(
-                    'Chosen implicit method is not implemented.')
-
-            self._pusher_inputs = (self._abs_b._data,
-                                   self._b[0]._data, self._b[1]._data, self._b[2]._data,
-                                   self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
-                                   self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
-                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_abs_b[0]._data, self._grad_abs_b[1]._data, self._grad_abs_b[2]._data)
-
-        else:
-            raise NotImplementedError('Chosen integrator is not implemented.')
-
-    @property
-    def variables(self):
-        return self._particles
-
-    def __call__(self, dt):
-        """
-        TODO
-        """
-        self._pusher(self._particles, dt, self._epsilon,
-                     *self._pusher_inputs,
-                     bc=self._bc, mpi_sort='each', verbose=False)
-
-        # save magnetic field at each particles' position
-        self._particles.save_magnetic_energy(self._derham, self._abs_b)
+        self._particles.save_magnetic_energy(self.derham, self._abs_b)
 
 
 class StepStaticEfield(Propagator):
@@ -948,7 +808,7 @@ class StepStaticEfield(Propagator):
                      array([1e-10, 1e-10]), 100)
 
 
-class StepPushDriftkinetic1(Propagator):
+class StepPushDriftKinetic1(Propagator):
     r"""Solves
 
     .. math::
@@ -999,63 +859,70 @@ class StepPushDriftkinetic1(Propagator):
         Kinetic boundary conditions in each direction.
     """
 
-    def __init__(self, particles, derham, domain, basis_ops, epsilon, b, push_algos, bc, *mhd_equil):
+    def __init__(self, particles, b, **params): 
 
+        # pointer to variable
+        assert isinstance(particles, Particles5D)
         self._particles = particles
-        self._derham = derham
-        self._epsilon = epsilon
+        assert isinstance(b, (BlockVector, PolarVector))
+        self._b = b
 
-        self._method = push_algos['method']
-        self._integrator = push_algos['integrator']
-        self._maxiter = push_algos['maxiter']
-        self._tol = push_algos['tol']
-        self._bc = bc
-        self._derham = derham
+        # parameters
+        params_default = {'epsilon': .01,
+                          'b_eq': None,
+                          'unit_b1': None,
+                          'unit_b2': None,
+                          'abs_b': None,
+                          'integrator': 'implicit',
+                          'method': 'discrete_gradient_faster',
+                          'maxiter': 10,
+                          'tol': 1e-12, 
+                          }
 
-        # define equilibrium fields
-        self._b_eq = mhd_equil[0]
-        self._norm_b1 = mhd_equil[1]
-        self._norm_b2 = mhd_equil[2]
-        self._abs_b = mhd_equil[3]
-        self._curl_norm_b = derham.curl.dot(self._norm_b1)
+        params = set_defaults(params, params_default)
 
-        self._abs_b.update_ghost_regions()
-        self._norm_b1.update_ghost_regions()
-        self._norm_b2.update_ghost_regions()
+        self._epsilon = params['epsilon']
+        self._b_eq = params['b_eq']
+        self._unit_b1 = params['unit_b1']
+        self._unit_b2 = params['unit_b2']
+        self._abs_b = params['abs_b']
+
+        self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
+        self._grad_abs_b = self.derham.grad.dot(self._abs_b)
+
         self._curl_norm_b.update_ghost_regions()
+        self._grad_abs_b.update_ghost_regions()
 
         # define full magnetic field
         self._b_full = b + self._b_eq
 
-        self._b_full.update_ghost_regions()
-
         # define gradient of absolute value of parallel magnetic field
-        PB = getattr(basis_ops, 'PB')
+        PB = getattr(self.basis_ops, 'PB')
         self._PB = PB.dot(self._b_full)
         self._PB.update_ghost_regions()
 
-        self._grad_PB = derham.grad.dot(self._PB)
+        self._grad_PB = self.derham.grad.dot(self._PB)
         self._grad_PB.update_ghost_regions()
 
-        if self._integrator == 'explicit':
+        if params['integrator'] == 'explicit':
 
-            if self._method == 'forward_euler':
+            if params['method'] == 'forward_euler':
                 a = []
                 b = [1.]
                 c = [0.]
-            elif self._method == 'heun2':
+            elif params['method'] == 'heun2':
                 a = [1.]
                 b = [1/2, 1/2]
                 c = [0., 1.]
-            elif self._method == 'rk2':
+            elif params['method'] == 'rk2':
                 a = [1/2]
                 b = [0., 1.]
                 c = [0., 1/2]
-            elif self._method == 'heun3':
+            elif params['method'] == 'heun3':
                 a = [1/3, 2/3]
                 b = [1/4, 0., 3/4]
                 c = [0., 1/3, 2/3]
-            elif self._method == 'rk4':
+            elif params['method'] == 'rk4':
                 a = [1/2, 1/2, 1.]
                 b = [1/6, 1/3, 1/3, 1/6]
                 c = [0., 1/2, 1/2, 1.]
@@ -1065,33 +932,33 @@ class StepPushDriftkinetic1(Propagator):
 
             self._butcher = ButcherTableau(a, b, c)
             self._pusher = Pusher(
-                derham, domain, 'push_gc1_explicit_stage', self._butcher.n_stages)
+                self.derham, self.domain, 'push_gc1_explicit_stage', self._butcher.n_stages)
 
-            self._pusher_inputs = (self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
-                                   self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
-                                   self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
+            self._pusher_inputs = (self._epsilon, self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
+                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
                                    self._grad_PB[0]._data, self._grad_PB[1]._data, self._grad_PB[2]._data,
                                    self._butcher.a, self._butcher.b, self._butcher.c)
 
-        elif self._integrator == 'implicit':
+        elif params['integrator'] == 'implicit':
 
-            if self._method == 'discrete_gradients':
+            if params['method'] == 'discrete_gradients':
                 self._pusher = Pusher_iteration(
-                    derham, domain, 'push_gc1_discrete_gradients', self._maxiter, self._tol)
-            
-            elif self._method == 'discrete_gradients_faster':
+                    self.derham, self.domain, 'push_gc1_discrete_gradients', params['maxiter'], params['tol'])
+                
+            elif params['method'] == 'discrete_gradients_faster':
                 self._pusher = Pusher_iteration(
-                    derham, domain, 'push_gc1_discrete_gradients_faster', self._maxiter, self._tol)
+                    self.derham, self.domain, 'push_gc1_discrete_gradients_faster',params['maxiter'], params['tol'])
 
             else:
                 raise NotImplementedError(
                     'Chosen implicit method is not implemented.')
-
-            self._pusher_inputs = (self._PB._data,
+            
+            self._pusher_inputs = (self._epsilon, self._PB._data,
                                    self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
-                                   self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
-                                   self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
+                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
                                    self._grad_PB[0]._data, self._grad_PB[1]._data, self._grad_PB[2]._data)
 
@@ -1106,14 +973,13 @@ class StepPushDriftkinetic1(Propagator):
         """
         TODO
         """
-        self._pusher(self._particles, dt, self._epsilon,
-                    *self._pusher_inputs,
-                     bc=self._bc, mpi_sort='each', verbose=False)
+        self._pusher(self._particles, dt,
+                    *self._pusher_inputs, verbose=False)
                      
-        self._particles.save_magnetic_energy(self._derham, self._PB)
+        self._particles.save_magnetic_energy(self.derham, self._PB)
 
 
-class StepPushDriftkinetic2(Propagator):
+class StepPushDriftKinetic2(Propagator):
     r"""Solves
 
     .. math::
@@ -1160,64 +1026,70 @@ class StepPushDriftkinetic2(Propagator):
         Kinetic boundary conditions in each direction.
     """
 
-    def __init__(self, particles, derham, domain, basis_ops, epsilon, b, push_algos, bc, *mhd_equil):
+    def __init__(self, particles, b, **params): 
 
+        # pointer to variable
+        assert isinstance(particles, Particles5D)
         self._particles = particles
-        self._derham = derham
-        self._epsilon = epsilon
+        assert isinstance(b, (BlockVector, PolarVector))
+        self._b = b
 
-        self._method = push_algos['method']
-        self._integrator = push_algos['integrator']
-        self._maxiter = push_algos['maxiter']
-        self._tol = push_algos['tol']
-        self._bc = bc
+        # parameters
+        params_default = {'epsilon': .01,
+                          'b_eq': None,
+                          'unit_b1': None,
+                          'unit_b2': None,
+                          'abs_b': None,
+                          'integrator': 'implicit',
+                          'method': 'discrete_gradient_faster',
+                          'maxiter': 10,
+                          'tol': 1e-12, 
+                          }
 
-        self._derham = derham
+        params = set_defaults(params, params_default)
 
-        # define equilibrium fields
-        self._b_eq = mhd_equil[0]
-        self._norm_b1 = mhd_equil[1]
-        self._norm_b2 = mhd_equil[2]
-        self._abs_b = mhd_equil[3]
-        self._curl_norm_b = derham.curl.dot(self._norm_b1)
+        self._epsilon = params['epsilon']
+        self._b_eq = params['b_eq']
+        self._unit_b1 = params['unit_b1']
+        self._unit_b2 = params['unit_b2']
+        self._abs_b = params['abs_b']
 
-        self._abs_b.update_ghost_regions()
-        self._norm_b1.update_ghost_regions()
-        self._norm_b2.update_ghost_regions()
+        self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
+        self._grad_abs_b = self.derham.grad.dot(self._abs_b)
+
         self._curl_norm_b.update_ghost_regions()
+        self._grad_abs_b.update_ghost_regions()
 
         # define full magnetic field
         self._b_full = b + self._b_eq
 
-        self._b_full.update_ghost_regions()
-
         # define gradient of absolute value of parallel magnetic field
-        PB = getattr(basis_ops, 'PB')
+        PB = getattr(self.basis_ops, 'PB')
         self._PB = PB.dot(self._b_full)
         self._PB.update_ghost_regions()
 
-        self._grad_PB = derham.grad.dot(self._PB)
+        self._grad_PB = self.derham.grad.dot(self._PB)
         self._grad_PB.update_ghost_regions()
 
-        if self._integrator == 'explicit':
+        if params['integrator'] == 'explicit':
 
-            if self._method == 'forward_euler':
+            if params['method'] == 'forward_euler':
                 a = []
                 b = [1.]
                 c = [0.]
-            elif self._method == 'heun2':
+            elif params['method'] == 'heun2':
                 a = [1.]
                 b = [1/2, 1/2]
                 c = [0., 1.]
-            elif self._method == 'rk2':
+            elif params['method'] == 'rk2':
                 a = [1/2]
                 b = [0., 1.]
                 c = [0., 1/2]
-            elif self._method == 'heun3':
+            elif params['method'] == 'heun3':
                 a = [1/3, 2/3]
                 b = [1/4, 0., 3/4]
                 c = [0., 1/3, 2/3]
-            elif self._method == 'rk4':
+            elif params['method'] == 'rk4':
                 a = [1/2, 1/2, 1.]
                 b = [1/6, 1/3, 1/3, 1/6]
                 c = [0., 1/2, 1/2, 1.]
@@ -1227,38 +1099,39 @@ class StepPushDriftkinetic2(Propagator):
 
             self._butcher = ButcherTableau(a, b, c)
             self._pusher = Pusher(
-                derham, domain, 'push_gc2_explicit_stage', self._butcher.n_stages)
+                self.derham, self.domain, 'push_gc2_explicit_stage', self._butcher.n_stages)
 
-            self._pusher_inputs = (self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
-                                   self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
-                                   self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
+            self._pusher_inputs = (self._epsilon, self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
+                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
                                    self._grad_PB[0]._data, self._grad_PB[1]._data, self._grad_PB[2]._data,
                                    self._butcher.a, self._butcher.b, self._butcher.c)
 
-        elif self._integrator == 'implicit':
+        elif params['integrator'] == 'implicit':
 
-            if self._method == 'discrete_gradients':
+            if params['method'] == 'discrete_gradients':
                 self._pusher = Pusher_iteration(
-                    derham, domain, 'push_gc2_discrete_gradients', self._maxiter, self._tol)
-            
-            elif self._method == 'discrete_gradients_faster':
+                    self.derham, self.domain, 'push_gc2_discrete_gradients', params['maxiter'], params['tol'])
+                
+            elif params['method'] == 'discrete_gradients_faster':
                 self._pusher = Pusher_iteration(
-                    derham, domain, 'push_gc2_discrete_gradients_faster', self._maxiter, self._tol)
+                    self.derham, self.domain, 'push_gc2_discrete_gradients_faster',params['maxiter'], params['tol'])
 
             else:
                 raise NotImplementedError(
                     'Chosen implicit method is not implemented.')
-
-            self._pusher_inputs = (self._PB._data,
+            
+            self._pusher_inputs = (self._epsilon, self._PB._data,
                                    self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
-                                   self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
-                                   self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
+                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
                                    self._grad_PB[0]._data, self._grad_PB[1]._data, self._grad_PB[2]._data)
 
         else:
             raise NotImplementedError('Chosen integrator is not implemented.')
+
 
     @property
     def variables(self):
@@ -1268,8 +1141,7 @@ class StepPushDriftkinetic2(Propagator):
         """
         TODO
         """
-        self._pusher(self._particles, dt, self._epsilon,
-                    *self._pusher_inputs,
-                     bc=self._bc, mpi_sort='each', verbose=False)
+        self._pusher(self._particles, dt,
+                    *self._pusher_inputs, verbose=False)
                      
-        self._particles.save_magnetic_energy(self._derham, self._PB)
+        self._particles.save_magnetic_energy(self.derham, self._PB)

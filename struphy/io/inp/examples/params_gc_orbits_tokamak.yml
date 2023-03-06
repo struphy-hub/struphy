@@ -42,8 +42,8 @@ kinetic :
     ions :
         markers :
             type    : full_f # full_f, control_variate, or delta_f
-            Np      : 10 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
-            eps     : 1.0 # MPI send/receive buffer (0.1 <= eps <= 1.0)
+            Np      : 4 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
+            eps     : 2.0 # MPI send/receive buffer (0.1 <= eps <= 1.0)
             bc_type : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
             loading :
                 type    : pseudo_random # particle loading mechanism 
@@ -62,4 +62,3 @@ kinetic :
             method : discrete_gradients_faster # possible choices: discrete_gradients, discrete_gradients_faster, forward_euler, heun2, rk2, heun3, rk4
             maxiter : 10
             tol : 1.e-15
-        pc : full # for pressure coupling: full or perp

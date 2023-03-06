@@ -585,7 +585,7 @@ if [ $EXAMPLE ]; then
   elif [ "$EXAMPLE" == orbits_tokamak ]; then
     example_orbits_tokamak_mpi_2
   elif [ "$EXAMPLE" == gc_orbits_tokamak ]; then
-    example_gc_orbits_tokamak_mpi_2
+    example_gc_orbits_tokamak_mpi_4
   elif [ "$EXAMPLE" == TAE_tokamak ]; then
     example_TAE_tokamak_mpi_2
   elif [ "$EXAMPLE" == linearmhdvlasov_cc ]; then

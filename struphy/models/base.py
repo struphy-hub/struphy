@@ -226,7 +226,8 @@ class StruphyModel(metaclass=ABCMeta):
                 val['obj'] = kinetic_class(species,
                                            **val['params']['markers'],
                                            comm=self.derham.comm,
-                                           domain_array=self.derham.domain_array)
+                                           domain_array=self.derham.domain_array,
+                                           domain=self.domain)
 
                 #Z, M, kBT, beta = val['params']['attributes'].values()
                 # val['plasma_params'] = plasma_params(

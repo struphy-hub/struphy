@@ -593,8 +593,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 
     pusher_str.push_step4(markers_str, dt)
     pusher_psy(particles, dt,
-               butcher.a, butcher.b, butcher.c,
-               bc=['periodic', 'periodic', 'periodic'])
+               butcher.a, butcher.b, butcher.c)
 
     # compare if markers are the same AFTER push
     assert np.allclose(particles.markers, markers_str.T)

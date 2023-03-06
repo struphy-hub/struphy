@@ -1,6 +1,5 @@
 import struphy.pic.pusher_kernels as pushers
 import struphy.pic.utilities_kernels as utilities
-from struphy.pic.particles import apply_kinetic_bc
 
 import numpy as np
 
@@ -42,7 +41,7 @@ class Pusher:
         self._pusher_name = pusher_name
         self._pusher = getattr(pushers, self._pusher_name)
 
-    def __call__(self, particles, dt, *args_opt, bc=None, mpi_sort=None, verbose=False):
+    def __call__(self, particles, dt, *args_opt, mpi_sort=None, verbose=False):
         """
         Applies the chosen pusher kernel by a time step dt, applies kinetic boundary conditions and performs MPI sorting.
 
@@ -56,9 +55,6 @@ class Pusher:
 
             args_opt : tuple
                 Optional arguments needed for the pushing (typically spline coefficients for field evaluation).
-
-            bc : list[str]
-                Kinetic boundary conditions in each direction (periodic, reflect or remove).
 
             mpi_sort : str
                 When to do MPI sorting:
@@ -80,11 +76,9 @@ class Pusher:
             self._pusher(particles.markers, dt, stage, *
                          self.args_fem, *self.domain.args_map, *args_opt)
 
-            # apply boundary conditions to markers
-            if bc is not None:
-                apply_kinetic_bc(particles.markers,
-                                 particles.holes, self.domain, bc, self._derham.comm)
-
+            # applying kinetic boundary condition
+            particles.apply_kinetic_bc()
+            
             # sort markers according to domain decomposition
             if mpi_sort == 'each':
                 particles.mpi_sort_markers()
@@ -220,7 +214,7 @@ class Pusher_iteration:
             Number of stages of the pusher (e.g. 4 for RK4)
     """
 
-    def __init__(self, derham, domain, pusher_name, maxiter=100, tol=1.e-8):
+    def __init__(self, derham, domain, pusher_name, maxiter=10, tol=1.e-12):
 
         self._derham = derham
         self._domain = domain
@@ -242,7 +236,7 @@ class Pusher_iteration:
         self._pusher_eval_gradI = getattr(utilities, self._pusher_name + '_eval_gradI')
 
 
-    def __call__(self, particles, dt, *args_opt, bc=None, mpi_sort=None, verbose=False):
+    def __call__(self, particles, dt, *args_opt, verbose=False):
         """
         Applies the chosen pusher kernel by a time step dt, applies kinetic boundary conditions and performs MPI sorting.
 
@@ -257,53 +251,30 @@ class Pusher_iteration:
             args_opt : tuple
                 Optional arguments needed for the pushing (typically spline coefficients for field evaluation).
 
-            bc : list[str]
-                Kinetic boundary conditions in each direction (periodic, reflect or remove).
-
-            mpi_sort : str
-                When to do MPI sorting:
-                    * None : no sorting at all.
-                    * each : sort markers after each stage.
-                    * last : sort markers after last stage.
-
             verbose : bool
                 Whether to print some info or not.
         """
         # TODO: only applicable to Particle5D case! if we have any iterative solver with Particle6D then we should generalize
         # TODO: maybe we can modulize ... discrete gradient method, fixed-point iterative solver ...
 
-        assert bc is not None
-
         # save initial etas in columns 9:12
         particles.markers[~particles.holes, 9:13] = particles.markers[~particles.holes, 0:4]
 
         # prepare the iteration:
         self._pusher_prepare(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
-        
-        # sorting
-        apply_kinetic_bc(particles.markers, particles.holes, self.domain, bc, self._derham.comm)
         particles.mpi_sort_markers()
 
         # eval gradI 
         self._pusher_eval_gradI(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
-        
-        # sorting
-        apply_kinetic_bc(particles.markers, particles.holes, self.domain, bc, self._derham.comm)
         particles.mpi_sort_markers()
 
         # start iteration
         for stage in range(self._maxiter):
 
             self._pusher(particles.markers, dt, stage, self._tol, *self.args_fem, *self.domain.args_map, *args_opt)
-
-            # sorting
-            apply_kinetic_bc(particles.markers, particles.holes, self.domain, bc, self._derham.comm)
             particles.mpi_sort_markers()
 
             self._pusher_eval_gradI(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
-
-            # sorting
-            apply_kinetic_bc(particles.markers, particles.holes, self.domain, bc, self._derham.comm)
             particles.mpi_sort_markers()
 
             # print stage info

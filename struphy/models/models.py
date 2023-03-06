@@ -694,6 +694,7 @@ class LinearMHDVlasovPC(StruphyModel):
 
     def __init__(self, params, comm):
 
+        from struphy.kinetic_background import analytical as kin_ana
         from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
 
         # init base class
@@ -728,16 +729,51 @@ class LinearMHDVlasovPC(StruphyModel):
         alfven_solver = params['solvers']['solver_1']
         magnetosonic_solver = params['solvers']['solver_2']
         coupling_solver = params['solvers']['solver_3']
-        # self._nuh = self.kinetic['energetic_ions']['plasma_params']['n [10^20/m^3]'] / \
-        #    self.fluid['mhd']['plasma_params']['n [10^20/m^3]']
-        self._nuh = params['model_units']['nuh']*0.01
 
-        print('Coupling parameter nu_h = n_h/n = ' + str(self._nuh) + '\n')
+        # model units
+        L = params['model_units']['x']
+        B = params['model_units']['B']
+        nb = params['model_units']['nb']
+        nuh = params['model_units']['nuh']*0.01
+        Ab = params['model_units']['Ab']
+        Ah = params['model_units']['Ah']
+        Zh = params['model_units']['Zh']
+
+        kappa = 1.602176634e-19*L * \
+            np.sqrt(1.25663706212e-6*Ab*nb*1e20/1.67262192369e-27)
+
+        if abs(kappa - 1) < 1e-6:
+            kappa = 1.
+
+        self._coupling_params = {'nuh': nuh, 'Ab': Ab,
+                                 'Ah': Ah, 'Zh': Zh, 'kappa': kappa}
+        
+        # background distribution function used as control variate
+        if params['kinetic']['energetic_ions']['markers']['type'] == 'control_variate':
+            assert 'background' in params['kinetic']['energetic_ions'], 'no background distribution function for control variate specified'
+            control = True
+            f0_name = params['kinetic']['energetic_ions']['background']['type']
+            f0 = getattr(kin_ana, f0_name)(
+                **params['kinetic']['energetic_ions']['background'][f0_name])
+        else:
+            control = False
+            f0 = None
 
         # Project magnetic field
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
                                          self.mhd_equil.b2_2,
                                          self.mhd_equil.b2_3])
+        self._p_eq = self.derham.P['3'](self.mhd_equil.p3)
+        self._ones = self._p_eq.space.zeros()
+
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.
+        else:
+            self._ones[:] = 1.
+
+        # add control variate to mass_ops object
+        if control:
+            self.mass_ops.weights['f0'] = f0
 
         # set propagators base class attributes (available to all propagators)
         Propagator.derham = self.derham
@@ -755,6 +791,29 @@ class LinearMHDVlasovPC(StruphyModel):
             u_space=self._u_space, 
             **alfven_solver)]
         
+        # self._propagators += [propagators_coupling.PressureCoupling6D(
+        #     self._ions,
+        #     self._u, 
+        #     u_space=self._u_space, 
+        #     use_perp_model=ions_params['use_perp_model'], 
+        #     **coupling_solver,
+        #     **self._coupling_params)]
+        
+        # self._propagators += [propagators_markers.PushEtaPC(
+        #     self._ions, 
+        #     u_mhd=self._u, 
+        #     u_space=self._u_space, 
+        #     bc_type=ions_params['markers']['bc_type'],
+        #     use_perp_model=ions_params['use_perp_model'])]
+        
+        self._propagators += [propagators_markers.PushVxB(
+            self._ions, 
+            algo=ions_params['push_algos']['vxb'], 
+            scale_fac=1., 
+            b_eq=self._b_eq,
+            b_tilde=self._b,
+            f0=f0)]
+        
         self._propagators += [propagators_fields.Magnetosonic(
             self._n, 
             self._u, 
@@ -762,27 +821,6 @@ class LinearMHDVlasovPC(StruphyModel):
             self._b, 
             u_space=self._u_space,
             **magnetosonic_solver)]
-        
-        self._propagators += [propagators_markers.PushEtaPC(
-            self._ions, 
-            u_mhd=self._u, 
-            u_space=self._u_space, 
-            bc_type=ions_params['markers']['bc_type'],
-            use_perp_model=ions_params['use_perp_model'])]
-        
-        self._propagators += [propagators_coupling.PressureCoupling6D(
-            self._ions,
-            self._u, 
-            u_space=self._u_space, 
-            use_perp_model=ions_params['use_perp_model'], 
-            **coupling_solver)]
-        
-        self._propagators += [propagators_markers.PushVxB(
-            self._ions, 
-            algo=ions_params['push_algos']['vxb'], 
-            scale_fac=1., 
-            b_eq=self._b_eq,
-            b_tilde=self._b)]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities['time'] = np.empty(1, dtype=float)
@@ -820,7 +858,7 @@ class LinearMHDVlasovPC(StruphyModel):
         self._scalar_quantities['en_B'][0] = self._b.dot(
             self._mass_ops.M2.dot(self._b))/2
 
-        self._en_f_loc = self._ions.markers[~self._ions.holes, 8].dot(self._ions.markers[~self._ions.holes, 3]**2
+        self._en_f_loc = self._coupling_params['nuh']*self._ions.markers[~self._ions.holes, 8].dot(self._ions.markers[~self._ions.holes, 3]**2
                                                                       + self._ions.markers[~self._ions.holes, 4]**2
                                                                       + self._ions.markers[~self._ions.holes, 5]**2)/(2. * self._ions.n_mks)
 
@@ -896,7 +934,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
     def __init__(self, params, comm):
 
-        from struphy.psydac_api.mass import WeightedMassOperators
+        from struphy.kinetic_background import analytical as kin_ana
         from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
 
         self._u_space = params['fluid']['mhd']['mhd_u_space']
@@ -924,23 +962,44 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._p = self.fluid['mhd']['p3']['obj'].vector
 
         # pointer to kinetic variables
-        self._ions = self.kinetic['energetic_ions']['obj']
+        self._e_ions = self.kinetic['energetic_ions']['obj']
         ions_params = self.kinetic['energetic_ions']['params']
 
         # extract necessary parameters
-        alfven_solver = params['solvers']['solver_1']
-        magnetosonic_solver = params['solvers']['solver_2']
-        coupling_solver = params['solvers']['solver_3']
-        # self._nuh = self.kinetic['energetic_ions']['plasma_params']['n [10^20/m^3]'] / \
-        #    self.fluid['mhd']['plasma_params']['n [10^20/m^3]']
-        self._nuh = params['model_units']['nh']/params['model_units']['nb']
+        solver_params_1 = params['solvers']['solver_1']
+        solver_params_2 = params['solvers']['solver_2']
+        solver_params_3 = params['solvers']['solver_3']
+        solver_params_4 = params['solvers']['solver_4']
+        solver_params_5 = params['solvers']['solver_5']
 
-        print('Coupling parameter nu_h = n_h/n = ' + str(self._nuh) + '\n')
+        # model units
+        L   = params['model_units']['x']
+        B   = params['model_units']['B']
+        nb  = params['model_units']['nb']
+        nuh = params['model_units']['nuh']*0.01
+        Ab  = params['model_units']['Ab']
+        Ah  = params['model_units']['Ah']
+        Zh  = params['model_units']['Zh']
 
-        # coupling_params = {'nuh': self._nuh, 'Ab': 1., 'Ah': 1., 'Zh': 1.,
-        #
-        coupling_params = {'nuh': self._nuh, 'Ab': 1., 'Ah': 1., 'Zh': 1.,
-                           'kappa': 1.}
+        kappa = 1.602176634e-19*L * \
+            np.sqrt(1.25663706212e-6*Ab*nb*1e20/1.67262192369e-27)
+
+        if abs(kappa - 1) < 1e-6:
+            kappa = 1.
+
+        self._coupling_params = {'nuh': nuh, 'Ab': Ab,
+                                 'Ah': Ah, 'Zh': Zh, 'kappa': kappa}
+
+        # background distribution function used as control variate
+        if params['kinetic']['energetic_ions']['markers']['type'] == 'control_variate':
+            assert 'background' in params['kinetic']['energetic_ions'], 'no background distribution function for control variate specified'
+            control = True
+            f0_name = params['kinetic']['energetic_ions']['background']['type']
+            f0 = getattr(kin_ana, f0_name)(
+                **params['kinetic']['energetic_ions']['background'][f0_name])
+        else:
+            control = False
+            f0 = None
 
         # Project magnetic field
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
@@ -956,42 +1015,108 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._unit_b2 = self.derham.P['2']([self.mhd_equil.unit_b2_1,
                                            self.mhd_equil.unit_b2_2,
                                            self.mhd_equil.unit_b2_3])
+        self._p_eq = self.derham.P['3'](self.mhd_equil.p3)
+        self._ones = self._p_eq.space.zeros()
 
-        # Assemble necessary mass matrices
-        self._mass_ops = WeightedMassOperators(
-            self.derham, self.domain, eq_mhd=self.mhd_equil)
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.
+        else:
+            self._ones[:] = 1.
 
-        # Assemble necessary linear basis projection operators
-        self._basis_ops = BasisProjectionOperators(
+        # add control variate to mass_ops object
+        if control:
+            self.mass_ops.weights['f0'] = f0
+
+        # set propagators base class attributes (available to all propagators)
+        Propagator.derham = self.derham
+        Propagator.domain = self.domain
+        Propagator.mass_ops = self.mass_ops
+        Propagator.basis_ops = BasisProjectionOperators(
             self.derham, self.domain, self.mhd_equil)
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-        self._propagators += [propagators_fields.ShearAlfvén_CurrentCoupling5D(self._ions, self.derham, self.domain,  self._mass_ops, self._basis_ops,
-                                                                               self._u, self._u_space, self._b, self._b_eq,
-                                                                               alfven_solver)]
-        self._propagators += [propagators_fields.Magnetosonic_CurrentCoupling5D(self._ions, self.derham, self.domain, self._mass_ops, self._basis_ops,
-                                                                                self._n, self._u, self._p, self._b, self._unit_b1, self._u_space,
-                                                                                magnetosonic_solver)]
-        self._propagators += [propagators_markers.StepPushDriftkinetic1(self._ions, self.derham, self.domain, self._basis_ops,
-                                                                        epsilon, self._b,
-                                                                        ions_params['push_algos'],
-                                                                        ions_params['markers']['bc_type'],
-                                                                        self._b_eq, self._unit_b1, self._unit_b2, self._abs_b)]
-        self._propagators += [propagators_markers.StepPushDriftkinetic2(self._ions, self.derham, self.domain, self._basis_ops,
-                                                                        epsilon, self._b,
-                                                                        ions_params['push_algos'],
-                                                                        ions_params['markers']['bc_type'],
-                                                                        self._b_eq, self._unit_b1, self._unit_b2, self._abs_b)]
-        self._propagators += [propagators_coupling.CurrentCoupling5DCurrent1(self._ions, self.derham, self.domain, self._mass_ops,
-                                                                             epsilon, self._u, self._u_space, self._b, ions_params[
-                                                                                 'markers']['bc_type'], coupling_solver, coupling_params,
-                                                                             self._b_eq, self._unit_b1)]
-        # self._propagators += [propagators_coupling.CurrentCoupling5DCurrent2(self._ions, self.derham, self.domain, self._mass_ops, self._basis_ops,
-        #                                                                      epsilon, self._u, self._u_space, self._b, ions_params['markers']['bc_type'], coupling_solver,
-        #                                                                      self._b_eq, self._unit_b1, self._unit_b2, self._abs_b)]
+        # updates u and b
+        self._propagators += [propagators_fields.ShearAlfvén_CurrentCoupling5D(
+            self._u,
+            self._b,
+            particles=self._e_ions,
+            b_eq=self._b_eq,
+            f0=f0,
+            u_space=self._u_space,
+            **solver_params_1,
+            **self._coupling_params)]
+        # updates u and p
+        self._propagators += [propagators_fields.Magnetosonic_CurrentCoupling5D(
+            self._n,
+            self._u,
+            self._p,
+            self._b,
+            particles=self._e_ions,
+            unit_b1=self._unit_b1,
+            f0=f0,
+            u_space=self._u_space,
+            **solver_params_2,
+            **self._coupling_params)] 
+        # update H       
+        self._propagators += [propagators_markers.StepPushDriftKinetic1(
+            self._e_ions,
+            self._b,
+            epsilon=epsilon,
+            b_eq=self._b_eq, 
+            unit_b1=self._unit_b1, 
+            unit_b2=self._unit_b2, 
+            abs_b=self._abs_b,
+            integrator=ions_params['push_algos']['integrator'],
+            method=ions_params['push_algos']['method'],
+            maxiter=ions_params['push_algos']['maxiter'],
+            tol=ions_params['push_algos']['tol'])]
+        # update H and v parallel
+        self._propagators += [propagators_markers.StepPushDriftKinetic2(
+            self._e_ions,
+            self._b,
+            epsilon=epsilon,
+            b_eq=self._b_eq, 
+            unit_b1=self._unit_b1, 
+            unit_b2=self._unit_b2, 
+            abs_b=self._abs_b,
+            method=ions_params['push_algos']['method'],
+            integrator=ions_params['push_algos']['integrator'],
+            maxiter=ions_params['push_algos']['maxiter'],
+            tol=ions_params['push_algos']['tol'])]        
+        self._propagators += [propagators_coupling.CurrentCoupling5DCurrent1(
+            self._e_ions,
+            self._b,
+            self._u, 
+            epsilon=epsilon,
+            b_eq=self._b_eq,
+            unit_b1=self._unit_b1,
+            f0=f0, 
+            u_space=self._u_space, 
+          **solver_params_3,
+          **self._coupling_params)]
+        # self._propagators += [propagators_coupling.CurrentCoupling5DCurrent2_mpi1(
+        #     self._e_ions,
+        #     self._b,
+        #     self._u, 
+        #     epsilon=epsilon,
+        #     b_eq=self._b_eq,
+        #     unit_b1=self._unit_b1,
+        #     unit_b2=self._unit_b2,
+        #     abs_b=self._abs_b,
+        #     f0=f0, 
+        #     u_space=self._u_space, 
+        #   **solver_params_4,
+        #   **self._coupling_params)]
         self._propagators += [propagators_fields.CurrentCoupling6DDensity(
-            self._ions, self.derham, self.domain, self._mass_ops, coupling_solver, coupling_params, self._u, self._u_space, self._b_eq, self._b, f0=None)]
+            self._u,
+            particles=self._e_ions,
+            u_space=self._u_space,
+            b_eq=self._b_eq,
+            b_tilde=self._b,
+            f0=f0,
+            **solver_params_5,
+            **self._coupling_params)]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities['time'] = np.empty(1, dtype=float)
@@ -1031,19 +1156,15 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._scalar_quantities['en_B'][0] = self._b.dot(
             self._mass_ops.M2.dot(self._b))/2
 
-        self._en_fv_loc = self._nuh * self._ions.markers[~self._ions.holes, 8].dot(
-            self._ions.markers[~self._ions.holes, 3]**2) / (2*self._ions.n_mks)
-        self.derham.comm.Reduce(self._en_fv_loc, self._scalar_quantities['en_fv'],
-                                op=MPI.SUM, root=0)
+        self._en_fv_loc = self._coupling_params['nuh'] * self._e_ions.markers[~self._e_ions.holes, 8].dot(self._e_ions.markers[~self._e_ions.holes, 3]**2) / (2*self._e_ions.n_mks)
+        self.derham.comm.Reduce(self._en_fv_loc, self._scalar_quantities['en_fv'], op=MPI.SUM, root=0)
 
         # calculate particle magnetic energy
-        self._ions.save_magnetic_energy(
-            self._derham, self._basis_ops.PB.dot(self._b + self._b_eq))
+        self._e_ions.save_magnetic_energy(self._derham, Propagator.basis_ops.PB.dot(self._b + self._b_eq))
 
-        self._en_fB_loc = self._ions.markers[~self._ions.holes, 8].dot(
-            self._ions.markers[~self._ions.holes, 5])/self._ions.n_mks
-        self.derham.comm.Reduce(self._en_fB_loc, self._scalar_quantities['en_fB'],
-                                op=MPI.SUM, root=0)
+        self._en_fB_loc = self._coupling_params['nuh'] * self._e_ions.markers[~self._e_ions.holes, 8].dot(self._e_ions.markers[~self._e_ions.holes, 5])/self._e_ions.n_mks
+        self.derham.comm.Reduce(self._en_fB_loc, self._scalar_quantities['en_fB'], op=MPI.SUM, root=0)
+
 
         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_U'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_p'][0]
@@ -1601,9 +1722,7 @@ class DriftKinetic(StruphyModel):
 
     def __init__(self, params, comm):
 
-        from struphy.propagators import propagators_markers
-
-        super().__init__(params, comm, ions='Particles5D')  # TODO:particles.Particles5D
+        super().__init__(params, comm, ions='Particles5D')
 
         # pointer to ions
         self._ions = self.kinetic['ions']['obj']
@@ -1613,43 +1732,48 @@ class DriftKinetic(StruphyModel):
         epsilon = plasma_params(1, 1, 1., 0.01, self.size_params)['epsilon']
 
         # project magnetic background
-        b = self.derham.P['2']([self.mhd_equil.b2_1,
+        self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
                                 self.mhd_equil.b2_2,
                                 self.mhd_equil.b2_3])
 
-        abs_b = self.derham.P['0'](self.mhd_equil.absB0)
+        self._abs_b = self.derham.P['0'](self.mhd_equil.absB0)
 
-        unit_b1 = self.derham.P['1']([self.mhd_equil.unit_b1_1,
+        self._unit_b1 = self.derham.P['1']([self.mhd_equil.unit_b1_1,
                                       self.mhd_equil.unit_b1_2,
                                       self.mhd_equil.unit_b1_3])
 
-        unit_b2 = self.derham.P['2']([self.mhd_equil.unit_b2_1,
+        self._unit_b2 = self.derham.P['2']([self.mhd_equil.unit_b2_1,
                                       self.mhd_equil.unit_b2_2,
                                       self.mhd_equil.unit_b2_3])
 
+        # set propagators base class attributes
+        Propagator.derham = self.derham
+        Propagator.domain = self.domain
+
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-        self._propagators += [propagators_markers.StepPushGuidingCenter1(self._ions, self.derham, self.domain,
-                                                                         epsilon, b, unit_b1, unit_b2, abs_b,
-                                                                         ions_params['push_algos']['method'],
-                                                                         ions_params['push_algos']['integrator'],
-                                                                         ions_params['markers']['bc_type'],
-                                                                         ions_params['push_algos']['maxiter'],
-                                                                         ions_params['push_algos']['tol'])]
-        self._propagators += [propagators_markers.StepPushGuidingCenter2(self._ions, self.derham, self.domain,
-                                                                         epsilon, b, unit_b1, unit_b2, abs_b,
-                                                                         ions_params['push_algos']['method'],
-                                                                         ions_params['push_algos']['integrator'],
-                                                                         ions_params['markers']['bc_type'],
-                                                                         ions_params['push_algos']['maxiter'],
-                                                                         ions_params['push_algos']['tol'])]
-        # self._propagators += [propagators_markers.StepPushGuidingCenter(self._ions, self.derham, self.domain,
-        #                                                                 epsilon, b, unit_b1, unit_b2, abs_b,
-        #                                                                 ions_params['push_algos']['method'],
-        #                                                                 ions_params['push_algos']['integrator'],
-        #                                                                 ions_params['markers']['bc_type'],
-        #                                                                 ions_params['push_algos']['maxiter'],
-        #                                                                 ions_params['push_algos']['tol'])]
+        self._propagators += [propagators_markers.StepPushGuidingCenter1(
+            self._ions,
+            epsilon=epsilon,
+            b_eq=self._b_eq, 
+            unit_b1=self._unit_b1, 
+            unit_b2=self._unit_b2, 
+            abs_b=self._abs_b,
+            integrator=ions_params['push_algos']['integrator'],
+            method=ions_params['push_algos']['method'],
+            maxiter=ions_params['push_algos']['maxiter'],
+            tol=ions_params['push_algos']['tol'])]
+        self._propagators += [propagators_markers.StepPushGuidingCenter2(
+            self._ions,
+            epsilon=epsilon,
+            b_eq=self._b_eq, 
+            unit_b1=self._unit_b1, 
+            unit_b2=self._unit_b2, 
+            abs_b=self._abs_b,
+            method=ions_params['push_algos']['method'],
+            integrator=ions_params['push_algos']['integrator'],
+            maxiter=ions_params['push_algos']['maxiter'],
+            tol=ions_params['push_algos']['tol'])]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities['time'] = np.empty(1, dtype=float)

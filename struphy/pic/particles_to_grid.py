@@ -254,6 +254,12 @@ class Accumulator:
             self._operators[0].matrix[2, 0]._data[:] = -self._operators[0].matrix[0, 2].T._data
             self._operators[0].matrix[2, 1]._data[:] = -self._operators[0].matrix[1, 2].T._data
 
+        # elif self.symmetry == 'pressure':
+        #     for i in range(6):
+        #         self._operators[i].matrix[1, 0]._data[:] = self._operators[i].matrix[0, 1].T._data
+        #         self._operators[i].matrix[2, 0]._data[:] = self._operators[i].matrix[0, 2].T._data
+        #         self._operators[i].matrix[2, 1]._data[:] = self._operators[i].matrix[1, 2].T._data
+
         # update ghot regions of matrices
-        #for op in self._operators:
+        # for op in self._operators:
         #    op.matrix.update_ghost_regions()
