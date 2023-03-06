@@ -490,6 +490,8 @@ def push_gc1_discrete_gradients_prepare(markers: 'float[:,:]', dt: float,
     bd3 = empty(pn[2], dtype=float)
 
     # containers 
+    b = empty(3, dtype=float)
+    curl_norm_b = empty(3, dtype=float)
     S = empty((3, 3), dtype=float)
     temp = empty(3, dtype=float)
     bcross = empty((3, 3), dtype=float)
@@ -555,10 +557,15 @@ def push_gc1_discrete_gradients_prepare(markers: 'float[:,:]', dt: float,
         norm_b2[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
         norm_b2[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
 
-        # b_star; 2form
-        b_star[0] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + epsilon*v*curl_norm_b1, starts2[0])
-        b_star[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + epsilon*v*curl_norm_b2, starts2[1])
-        b_star[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + epsilon*v*curl_norm_b3, starts2[2])
+        # b; 2form
+        b[0] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
+        b[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
+        b[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
+
+        # curl_norm_b; 2form
+        curl_norm_b[0] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
+        curl_norm_b[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
+        curl_norm_b[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # grad_abs_b; 1form
         grad_abs_b[0] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
@@ -566,6 +573,7 @@ def push_gc1_discrete_gradients_prepare(markers: 'float[:,:]', dt: float,
         grad_abs_b[2] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
+        b_star[:] = b + epsilon*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -590,10 +598,10 @@ def push_gc1_discrete_gradients_prepare(markers: 'float[:,:]', dt: float,
         markers[ip, 19]    = abs_b0*mu
 
         # calculate S1 * grad I1
-        linalg.matrix_vector(S, mu*grad_abs_b, temp)
+        linalg.matrix_vector(S, grad_abs_b, temp)
 
         # save at the markers
-        markers[ip, 0:3] = markers[ip, 0:3] + dt*temp[:]
+        markers[ip, 0:3] = markers[ip, 0:3] + dt*temp[:]*mu
 
         markers[ip, 20:24] = markers[ip, 0:4]
         markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 9:13])/2.
@@ -630,6 +638,8 @@ def push_gc2_discrete_gradients_prepare(markers: 'float[:,:]', dt: float,
     bd3 = empty(pn[2], dtype=float)
 
     # containers 
+    b = empty(3, dtype=float)
+    curl_norm_b = empty(3, dtype=float)
     grad_abs_b = empty(3, dtype=float)
     b_star = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
@@ -679,10 +689,15 @@ def push_gc2_discrete_gradients_prepare(markers: 'float[:,:]', dt: float,
         norm_b1[1] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
         norm_b1[2] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
 
-        # b_star; 2form
-        b_star[0] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + epsilon*v*curl_norm_b1, starts2[0])
-        b_star[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + epsilon*v*curl_norm_b2, starts2[1])
-        b_star[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + epsilon*v*curl_norm_b3, starts2[2])
+        # b; 2form
+        b[0] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
+        b[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
+        b[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
+
+        # curl_norm_b; 2form
+        curl_norm_b[0] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
+        curl_norm_b[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
+        curl_norm_b[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # grad_abs_b; 1form
         grad_abs_b[0] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
@@ -690,6 +705,7 @@ def push_gc2_discrete_gradients_prepare(markers: 'float[:,:]', dt: float,
         grad_abs_b[2] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
+        b_star[:] = b + epsilon*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -700,7 +716,7 @@ def push_gc2_discrete_gradients_prepare(markers: 'float[:,:]', dt: float,
         markers[ip, 19] = mu*abs_b0
 
         # calculate b_star . grad_abs_b
-        b_star_dot_grad_abs_b = linalg.scalar_dot(b_star, mu*grad_abs_b)
+        b_star_dot_grad_abs_b = linalg.scalar_dot(b_star, grad_abs_b)*mu
 
         # save at the markers
         markers[ip, 0:3] = markers[ip, 9:12] + dt*b_star[:]/abs_b_star_para*v
@@ -743,7 +759,9 @@ def push_gc1_discrete_gradients_faster_prepare(markers: 'float[:,:]', dt: float,
     bd2 = empty(pn[1], dtype=float)
     bd3 = empty(pn[2], dtype=float)
 
-    # containers 
+    # containers
+    b = empty(3, dtype=float)
+    curl_norm_b = empty(3, dtype=float)
     S = empty((3, 3), dtype=float)
     temp = empty(3, dtype=float)
     bcross = empty((3, 3), dtype=float)
@@ -809,10 +827,15 @@ def push_gc1_discrete_gradients_faster_prepare(markers: 'float[:,:]', dt: float,
         norm_b2[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
         norm_b2[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
 
-        # b_star; 2form
-        b_star[0] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + epsilon*v*curl_norm_b1, starts2[0])
-        b_star[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + epsilon*v*curl_norm_b2, starts2[1])
-        b_star[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + epsilon*v*curl_norm_b3, starts2[2])
+        # b; 2form
+        b[0] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
+        b[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
+        b[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
+
+        # curl_norm_b; 2form
+        curl_norm_b[0] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
+        curl_norm_b[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
+        curl_norm_b[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # grad_abs_b; 1form
         grad_abs_b[0] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
@@ -820,6 +843,7 @@ def push_gc1_discrete_gradients_faster_prepare(markers: 'float[:,:]', dt: float,
         grad_abs_b[2] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
+        b_star[:] = b + epsilon*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -844,10 +868,10 @@ def push_gc1_discrete_gradients_faster_prepare(markers: 'float[:,:]', dt: float,
         markers[ip, 19]    = abs_b0*mu
 
         # calculate S1 * grad I1
-        linalg.matrix_vector(S, mu*grad_abs_b, temp) #TODO does not work!
+        linalg.matrix_vector(S, grad_abs_b, temp)
 
         # save at the markers
-        markers[ip, 0:3] = markers[ip, 0:3] + dt*temp[:]
+        markers[ip, 0:3] = markers[ip, 0:3] + dt*temp[:]*mu
 
         markers[ip, 20:23] = markers[ip, 0:3]
         markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 9:12])/2.
@@ -884,7 +908,9 @@ def push_gc2_discrete_gradients_faster_prepare(markers: 'float[:,:]', dt: float,
     bd2 = empty(pn[1], dtype=float)
     bd3 = empty(pn[2], dtype=float)
 
-    # containers 
+    # containers
+    b = empty(3, dtype=float)
+    curl_norm_b = empty(3, dtype=float)
     grad_abs_b = empty(3, dtype=float)
     b_star = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
@@ -934,10 +960,15 @@ def push_gc2_discrete_gradients_faster_prepare(markers: 'float[:,:]', dt: float,
         norm_b1[1] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
         norm_b1[2] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
 
-        # b_star; 2form
-        b_star[0] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + epsilon*v*curl_norm_b1, starts2[0])
-        b_star[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + epsilon*v*curl_norm_b2, starts2[1])
-        b_star[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + epsilon*v*curl_norm_b3, starts2[2])
+        # b; 2form
+        b[0] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
+        b[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
+        b[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
+
+        # curl_norm_b; 2form
+        curl_norm_b[0] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
+        curl_norm_b[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
+        curl_norm_b[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # grad_abs_b; 1form
         grad_abs_b[0] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
@@ -945,6 +976,7 @@ def push_gc2_discrete_gradients_faster_prepare(markers: 'float[:,:]', dt: float,
         grad_abs_b[2] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
+        b_star[:] = b + epsilon*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -955,7 +987,7 @@ def push_gc2_discrete_gradients_faster_prepare(markers: 'float[:,:]', dt: float,
         markers[ip, 19] = mu*abs_b0
 
         # calculate b_star . grad_abs_b
-        b_star_dot_grad_abs_b = linalg.scalar_dot(b_star, mu*grad_abs_b)
+        b_star_dot_grad_abs_b = linalg.scalar_dot(b_star, grad_abs_b)*mu
 
         # save at the markers
         markers[ip, 0:3] = markers[ip, 9:12] + dt*b_star[:]/abs_b_star_para*v
@@ -1140,6 +1172,8 @@ def push_gc1_discrete_gradients_eval_gradI(markers: 'float[:,:]', dt: float,
     grad_abs_b = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
     norm_b2 = empty(3, dtype=float)
+    b = empty(3, dtype=float)
+    curl_norm_b = empty(3, dtype=float)
     b_star = empty(3, dtype=float)
 
     # marker position e
@@ -1198,10 +1232,15 @@ def push_gc1_discrete_gradients_eval_gradI(markers: 'float[:,:]', dt: float,
         norm_b2[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
         norm_b2[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
 
-        # b_star; 2form
-        b_star[0] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + epsilon*v_mid*curl_norm_b1, starts2[0])
-        b_star[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + epsilon*v_mid*curl_norm_b2, starts2[1])
-        b_star[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + epsilon*v_mid*curl_norm_b3, starts2[2])
+        # b; 2form
+        b[0] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
+        b[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
+        b[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
+
+        # curl_norm_b; 2form
+        curl_norm_b[0] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
+        curl_norm_b[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
+        curl_norm_b[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # grad_abs_b; 1form
         grad_abs_b[0] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
@@ -1209,6 +1248,7 @@ def push_gc1_discrete_gradients_eval_gradI(markers: 'float[:,:]', dt: float,
         grad_abs_b[2] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
+        b_star[:] = b + epsilon*v_mid*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -1268,6 +1308,8 @@ def push_gc2_discrete_gradients_eval_gradI(markers: 'float[:,:]', dt: float,
     grad_abs_b = empty(3, dtype=float)
     b_star = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
+    b = empty(3, dtype=float)
+    curl_norm_b = empty(3, dtype=float)
 
     # marker position e
     e_mid = empty(3, dtype=float)
@@ -1315,10 +1357,15 @@ def push_gc2_discrete_gradients_eval_gradI(markers: 'float[:,:]', dt: float,
         norm_b1[1] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
         norm_b1[2] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
 
-        # b_star; 2form
-        b_star[0] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + epsilon*v_mid*curl_norm_b1, starts2[0])
-        b_star[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + epsilon*v_mid*curl_norm_b2, starts2[1])
-        b_star[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + epsilon*v_mid*curl_norm_b3, starts2[2])
+        # b; 2form
+        b[0] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
+        b[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
+        b[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
+
+        # curl_norm_b; 2form
+        curl_norm_b[0] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
+        curl_norm_b[1] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
+        curl_norm_b[2] = eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # grad_abs_b; 1form
         grad_abs_b[0] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
@@ -1326,6 +1373,7 @@ def push_gc2_discrete_gradients_eval_gradI(markers: 'float[:,:]', dt: float,
         grad_abs_b[2] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
+        b_star[:] = b + epsilon*v_mid*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -1334,3 +1382,121 @@ def push_gc2_discrete_gradients_eval_gradI(markers: 'float[:,:]', dt: float,
         # save at the markers
         markers[ip, 13:16] = b_star[:]/abs_b_star_para
         markers[ip, 20:23] = mu*grad_abs_b[:]
+
+
+@stack_array('grad_PB', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+def accum_gradI_const(markers: 'float[:,:]', n_markers_tot: 'int',
+                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                      starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                      grad_PB1: 'float[:,:,:]', grad_PB2: 'float[:,:,:]', grad_PB3: 'float[:,:,:]',
+                      scale: 'float'):
+    
+    r"""TODO
+    """
+    # allocate for magnetic field evaluation
+    grad_PB = empty(3, dtype=float)
+
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    # allocate for filling
+    res = zeros(1, dtype=float)
+
+    # get number of markers
+    n_markers_loc = shape(markers)[0]
+    
+    for ip in range(n_markers_loc):
+        
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0] # mid
+        eta2 = markers[ip, 1] # mid
+        eta3 = markers[ip, 2] # mid
+
+        # marker weight and velocity
+        weight = markers[ip, 6]
+        mu = markers[ip, 4]
+
+        # b-field evaluation
+        span1 = bsp.find_span(tn1, pn[0], eta1)
+        span2 = bsp.find_span(tn2, pn[1], eta2)
+        span3 = bsp.find_span(tn3, pn[2], eta3)
+
+        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
+
+        # grad_PB; 1form
+        grad_PB[0] = eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts1[0])
+        grad_PB[1] = eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts1[1])
+        grad_PB[2] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
+
+        res += linalg.scalar_dot(markers[ip, 15:18] , grad_PB) * weight * mu * scale
+        
+    return res/n_markers_tot
+
+@stack_array('e', 'e_diff')
+def check_eta_diff(markers: 'float[:,:]'):
+    r'''TODO
+    '''
+    # marker position e
+    e = empty(3, dtype=float)
+    e_diff = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers_loc = shape(markers)[0]
+
+    for ip in range(n_markers_loc):
+        
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        e[:] = markers[ip, 0:3]
+        e_diff[:] = e[:] - markers[ip, 9:12]
+
+        for axis in range(3):
+            if e_diff[axis] > 0.5:
+                e_diff[axis] -= 1.
+            elif e_diff[axis] < -0.5:
+                e_diff[axis] += 1.
+
+        markers[ip,15:18] = e_diff[:]
+
+@stack_array('e', 'e_diff', 'e_mid')
+def check_eta_mid(markers: 'float[:,:]'):
+    r'''TODO
+    '''
+    # marker position e
+    e = empty(3, dtype=float)
+    e_diff = empty(3, dtype=float)
+    e_mid = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers_loc = shape(markers)[0]
+
+    for ip in range(n_markers_loc):
+        
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        e[:] = markers[ip, 0:3]
+        e_diff[:] = e[:] - markers[ip, 9:12]
+        e_mid[:] = (e[:] + markers[ip, 9:12])/2.
+
+        for axis in range(3):
+            if e_diff[axis] > 0.5:
+                e_mid[axis] += 0.5
+            elif e_diff[axis] < -0.5:
+                e_mid[axis] += 0.5
+
+        markers[ip,12:15] = e_mid[:]

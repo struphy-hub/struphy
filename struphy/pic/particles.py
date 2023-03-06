@@ -47,6 +47,9 @@ class Particles(metaclass=ABCMeta):
         self._mpi_size = params['comm'].Get_size()
         self._mpi_rank = params['comm'].Get_rank()
 
+        self._domain = params['domain']
+        self._bc = params['bc_type']
+
         # number of cells on current process
         n_cells_loc = np.prod(
             self._domain_decomp[self._mpi_rank, 2::3], dtype=int)
@@ -277,6 +280,18 @@ class Particles(metaclass=ABCMeta):
         """
         return self._s3
 
+    @property
+    def domain(self):
+        """ struphy.geometry.domains
+        """
+        return self._domain
+    
+    @property
+    def bc(self):
+        """ Kinetic boundary conditions in each direction.
+        """
+        return self._bc
+
     def s0(self, eta1, eta2, eta3, vx, vy, vz, domain, remove_holes=True):
         """ 
         Sampling density transformed from 3-form to 0-form (division by Jacobian determinant).
@@ -313,6 +328,9 @@ class Particles(metaclass=ABCMeta):
         """
 
         self.comm.Barrier()
+
+        # before sorting, apply kinetic bc
+        self.apply_kinetic_bc()
 
         # create new markers_to_be_sent array and make corresponding holes in markers array
         markers_to_be_sent, hole_inds_after_send = sendrecv_determine_mtbs(
@@ -503,6 +521,43 @@ class Particles(metaclass=ABCMeta):
 
         plt.show()
 
+    def apply_kinetic_bc(self):
+        """
+        Apply boundary conditions to markers that are outside of the logical unit cube.
+
+        Parameters
+        ----------
+        """
+
+        self.comm.Barrier()
+
+        for axis, bc in enumerate(self.bc):
+
+            # sorting out particles outside of the logical unit cube
+            is_outside_cube = np.logical_or(self.markers[:,axis] > 1.,
+                                            self.markers[:,axis] < 0.)
+            
+            # exclude holes
+            is_outside_cube[self.holes] = False
+
+            # indices or particles that are outside of the logical unit cube
+            outside_inds = np.nonzero(is_outside_cube)[0]
+
+            # apply boundary conditions
+            if bc == 'remove':
+                self.markers[outside_inds, :-1] = -1.
+
+            elif bc == 'periodic':
+                self.markers[outside_inds, axis] = self.markers[outside_inds, axis]%1.
+
+            elif bc == 'reflect':
+                reflect(self.markers, *self.domain.args_map, outside_inds, axis)
+
+            else:
+                raise NotImplementedError('Given bc_type is not implemented!')
+
+        self.comm.Barrier()
+
 
 class Particles6D(Particles):
     """
@@ -526,7 +581,8 @@ class Particles6D(Particles):
                           'bc_type': ['periodic', 'periodic', 'periodic'],
                           'loading': {'type': 'pseudo:random', 'seed': 1234, 'dir_particles': None, 'moments': [0., 0., 0., 1., 1., 1.]},
                           'comm': None,
-                          'domain_array': None
+                          'domain_array': None,
+                          'domain': None
                           }
 
         params = set_defaults(params, params_default)
@@ -556,9 +612,22 @@ class Particles5D(Particles):
         MPI communicator from mpi4py.MPI.Intracomm.
     """
 
-    def __init__(self, name, params_markers, domain_decomp, comm):
+    def __init__(self, name, **params):
 
-        super().__init__(name, params_markers, domain_decomp, comm, 25)
+        params_default = {'type': 'full_f',
+                          'ppc': None,
+                          'Np': 3,
+                          'eps': .25,
+                          'bc_type': ['periodic', 'periodic', 'periodic'],
+                          'loading': {'type': 'pseudo:random', 'seed': 1234, 'dir_particles': None, 'moments': [0., 0., 0., 1., 1., 1.]},
+                          'comm': None,
+                          'domain_array': None,
+                          'domain': None
+                          }
+
+        params = set_defaults(params, params_default)
+
+        super().__init__(name, 25, **params)
 
     def save_magnetic_moment(self, derham, absB0):
         r"""
@@ -770,54 +839,3 @@ def sendrecv_markers(send_list, recv_info, hole_inds_after_send, markers, comm):
 
                     test_reqs.pop()
                     reqs[i] = None
-
-
-def apply_kinetic_bc(markers, holes, domain, bc_type, comm):
-    """
-    Apply boundary conditions to markers that are outside of the logical unit cube.
-
-    Parameters
-    ----------
-        markers : array[float]
-            The markers array to which the boundary conditions shall be applied. Positions are the first three columns.
-
-        holes : array[float]
-            1d array of same length as number of rows of markers stating whether a row in markers is a hole or not.
-
-        domain : struphy.geometry.domains
-            All things mapping.
-
-        bc_type : list[str]
-            Kinetic boundary conditions in each direction.
-
-        comm : Intracomm
-            MPI communicator from mpi4py.MPI.Intracomm.
-    """
-    comm.Barrier()
-
-    for axis, bc in enumerate(bc_type):
-
-        # sorting out particles outside of the logical unit cube
-        is_outside_cube = np.logical_or(markers[:, axis] > 1.,
-                                        markers[:, axis] < 0.)
-
-        # exclude holes
-        is_outside_cube[holes] = False
-
-        # indices or particles that are outside of the logical unit cube
-        outside_inds = np.nonzero(is_outside_cube)[0]
-
-        # apply boundary conditions
-        if bc == 'remove':
-            markers[outside_inds, :-1] = -1.
-
-        elif bc == 'periodic':
-            markers[outside_inds, axis] = (markers[outside_inds, axis]) % 1.
-
-        elif bc == 'reflect':
-            reflect(markers, *domain.args_map, outside_inds, axis)
-
-        else:
-            raise NotImplementedError('Given bc_type is not implemented!')
-
-    comm.Barrier()

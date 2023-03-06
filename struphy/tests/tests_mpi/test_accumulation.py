@@ -505,7 +505,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
                       add_vector=True, symmetry='pressure')
 
     start_time = time()
-    ACC.accumulate(particles)
+    ACC.accumulate(particles, 1., 1.)
 
     end_time = time()
     tot_time = np.round(end_time - start_time, 3)
