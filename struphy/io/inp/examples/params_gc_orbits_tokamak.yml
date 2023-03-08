@@ -23,7 +23,6 @@ geometry :
 
 mhd_equilibrium : 
     type : AdhocTorus # (possible choices seen below)
-    use_equil_domain : False # use the mapping given by the equilibrium (flux aligned) or not
     AdhocTorus :
         a      : 1. # minor radius (radius of cylinder)
         R0     : 4. # major radius (Lz = 2*pi*R0)

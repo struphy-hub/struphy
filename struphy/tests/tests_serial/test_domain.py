@@ -110,7 +110,8 @@ def test_prepare_arg():
     'ShafranovDshapedCylinder',
     'GVECunit',
     'IGAPolarCylinder',
-    'IGAPolarTorus'])
+    'IGAPolarTorus',
+    'Tokamak'])
 def test_evaluation_mappings(mapping):
     """ Tests domain object creation with default parameters and evaluation of metric coefficients.
     """

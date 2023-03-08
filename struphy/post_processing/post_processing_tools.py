@@ -11,6 +11,7 @@ from struphy.fields_background.mhd_equil import equils
 from struphy.psydac_api.psydac_derham import Derham
 from struphy.psydac_api.fields import Field
 from struphy.kinetic_background import analytical
+from struphy.models.base import setup_domain_mhd
 
 from pyevtk.hl import gridToVTK
 
@@ -310,21 +311,25 @@ def post_process_markers(path, species):
     with open(path + 'parameters.yml', 'r') as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
 
-    # domain object
-    dom_type = params['geometry']['type']
-    dom_params = params['geometry'][dom_type]
-
-    domain_class = getattr(domains, dom_type)
-    domain = domain_class(**dom_params)
     
-    # load MHD equilibrium
-    equil_params = params['mhd_equilibrium']
-    mhd_equil_class = getattr(equils, equil_params['type'])
-    mhd_equil = mhd_equil_class(**equil_params[equil_params['type']])
-
-    if equil_params['use_equil_domain']:
-        assert mhd_equil.domain is not None
-        domain = mhd_equil.domain
+    # create domain and MHD equilibrium
+    domain, mhd_equil = setup_domain_mhd(params)
+    
+    ## domain object
+    #dom_type = params['geometry']['type']
+    #dom_params = params['geometry'][dom_type]
+#
+    #domain_class = getattr(domains, dom_type)
+    #domain = domain_class(**dom_params)
+    #
+    ## load MHD equilibrium
+    #equil_params = params['mhd_equilibrium']
+    #mhd_equil_class = getattr(equils, equil_params['type'])
+    #mhd_equil = mhd_equil_class(**equil_params[equil_params['type']])
+#
+    #if equil_params['use_equil_domain']:
+    #    assert mhd_equil.domain is not None
+    #    domain = mhd_equil.domain
 
     # open hdf5 files and get names and number of saved markers of kinetic species
     files = [h5py.File(path + f'data_proc{i}.hdf5', 'r') for i in range(nproc)]

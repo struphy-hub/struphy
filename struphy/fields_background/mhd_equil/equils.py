@@ -743,7 +743,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
         return nn
 
 
-class EQDSKequilibriumSimpler(AxisymmMHDequilibrium):
+class EQDSKequilibrium(AxisymmMHDequilibrium):
     """
     Interface to `EQDSK file format <https://w3.pppl.gov/ntcc/TORAY/G_EQDSK.pdf>`_.
 
@@ -788,7 +788,7 @@ class EQDSKequilibriumSimpler(AxisymmMHDequilibrium):
                           'p_for_psi': [3, 3],
                           'psi_resolution': [25., 6.25],
                           'p_for_flux': 3,
-                          'flux_resolution' : 50.,
+                          'flux_resolution': 50.,
                           'n1': 0.,
                           'n2': 0.,
                           'na': 1., 
@@ -1072,7 +1072,7 @@ class EQDSKequilibriumSimpler(AxisymmMHDequilibrium):
         return out 
     
      
-class EQDSKequilibrium(CartesianMHDequilibrium):
+class EQDSKequilibriumWithDomain(CartesianMHDequilibrium):
     '''Interface to `EQDSK file format <https://w3.pppl.gov/ntcc/TORAY/G_EQDSK.pdf>`_.
 
     Parameters

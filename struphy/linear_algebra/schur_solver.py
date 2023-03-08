@@ -151,10 +151,11 @@ class SchurSolver:
         schur = Sum(self._A, Multiply(-dt**2, self._BC))
         rhs_m = Sum(self._A, Multiply( dt**2, self._BC))
         
-        # right-hand side vector (in-place!)
-        Byn *= 2*dt
+        # right-hand side vector rhs = 2*dt*[ rhs_m/(2*dt) @ xn - Byn ] (in-place!)
         rhs_m.dot(xn, out=self._rhs)
+        self._rhs /= 2*dt
         self._rhs -= Byn
+        self._rhs *= 2*dt
         
         # solve linear system (in-place if out is not None)
         

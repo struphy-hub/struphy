@@ -21,7 +21,7 @@ def test_solvers(Nel, p, spl_kind, mapping, show_plots=False, verbose=False):
     from struphy.psydac_api.mass import WeightedMassOperators
     from struphy.fields_background.mhd_equil.equils import ShearedSlab
     
-    from struphy.linear_algebra.iterative_solvers import bicgstab, pbicgstab, ConjugateGradient, PConjugateGradient, BiConjugateGradientStab, PBiConjugateGradientStab
+    from struphy.linear_algebra.iterative_solvers import ConjugateGradient, PConjugateGradient, BiConjugateGradientStab, PBiConjugateGradientStab
     from struphy.psydac_api.preconditioner import MassMatrixPreconditioner
     
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
@@ -113,26 +113,22 @@ def test_solvers(Nel, p, spl_kind, mapping, show_plots=False, verbose=False):
     # ============ solve systems (M0) ==============
     res, info0_1 = cg(M0, b0)
     res, info0_2 = pcg(M0, b0, pc0)
-    res, info0_3 = bicgstab(M0, b0)
-    res, info0_4 = pbicgstab(M0, b0, pc0)
-    res, info0_5 = minres(M0, b0)
+    res, info0_3 = minres(M0, b0)
     
-    res, info0_6 = cg_solver0.solve(M0, b0)
-    res, info0_7 = pcg_solver0.solve(M0, b0, pc0)
-    res, info0_8 = bicgstab_solver0.solve(M0, b0)
-    res, info0_9 = pbicgstab_solver0.solve(M0, b0, pc0)
+    res, info0_4 = cg_solver0.solve(M0, b0)
+    res, info0_5 = pcg_solver0.solve(M0, b0, pc0)
+    res, info0_6 = bicgstab_solver0.solve(M0, b0)
+    res, info0_7 = pbicgstab_solver0.solve(M0, b0, pc0)
     
     # ============ solve systems (M1) (only ones with preconditioner) ============
     #res, info1_1 = cg(M1, b1)
     res, info1_2 = pcg(M1, b1, pc1)
-    #res, info1_3 = bicgstab(M1, b1)
-    res, info1_4 = pbicgstab(M1, b1, pc1)
-    #res, info1_5 = minres(M1, b1)
+    #res, info1_3 = minres(M1, b1)
     
-    #res, info1_6 = cg_solver1.solve(M1, b1)
-    res, info1_7 = pcg_solver1.solve(M1, b1, pc1)
-    #res, info1_8 = bicgstab_solver1.solve(M1, b1)
-    res, info1_9 = pbicgstab_solver1.solve(M1, b1, pc1)
+    #res, info1_4 = cg_solver1.solve(M1, b1)
+    res, info1_5 = pcg_solver1.solve(M1, b1, pc1)
+    #res, info1_6 = bicgstab_solver1.solve(M1, b1)
+    res, info1_7 = pbicgstab_solver1.solve(M1, b1, pc1)
 
     assert info0_1['success']
     assert info0_2['success']
@@ -141,47 +137,39 @@ def test_solvers(Nel, p, spl_kind, mapping, show_plots=False, verbose=False):
     assert info0_5['success']
     assert info0_6['success']
     assert info0_7['success']
-    assert info0_8['success']
-    assert info0_9['success']
 
     #assert info1_1['success']
     assert info1_2['success']
     #assert info1_3['success']
-    assert info1_4['success']
-    #assert info1_5['success']
+    #assert info1_4['success']
+    assert info1_5['success']
     #assert info1_6['success']
     assert info1_7['success']
-    #assert info1_8['success']
-    assert info1_9['success']
 
     if verbose and mpi_rank == 0:
         print('info for cg                       (M0) : ', info0_1)
         print('info for pcg                      (M0) : ', info0_2)
-        print('info for bicgstab                 (M0) : ', info0_3)
-        print('info for pbicgstab                (M0) : ', info0_4)
-        print('info for minres                   (M0) : ', info0_5)
+        print('info for minres                   (M0) : ', info0_3)
         
         print()
         
-        print('info for ConjugateGradient        (M0) : ', info0_6)
-        print('info for PConjugateGradient       (M0) : ', info0_7)
-        print('info for BiConjugateGradientStab  (M0) : ', info0_8)
-        print('info for PBiConjugateGradientStab (M0) : ', info0_9)
+        print('info for ConjugateGradient        (M0) : ', info0_4)
+        print('info for PConjugateGradient       (M0) : ', info0_5)
+        print('info for BiConjugateGradientStab  (M0) : ', info0_6)
+        print('info for PBiConjugateGradientStab (M0) : ', info0_7)
         
         print('-----------------------------')
         
         #print('info for cg                       (M1) : ', info1_1)
         print('info for pcg                      (M1) : ', info1_2)
-        #print('info for bicgstab                 (M1) : ', info1_3)
-        print('info for pbicgstab                (M1) : ', info1_4)
-        #print('info for minres                   (M1) : ', info1_5)
+        #print('info for minres                   (M1) : ', info1_3)
         
         print()
         
-        #print('info for ConjugateGradient        (M1) : ', info1_6)
-        print('info for PConjugateGradient       (M1) : ', info1_7)
-        #print('info for BiConjugateGradientStab  (M1) : ', info1_8)
-        print('info for PBiConjugateGradientStab (M1) : ', info1_9)
+        #print('info for ConjugateGradient        (M1) : ', info1_4)
+        print('info for PConjugateGradient       (M1) : ', info1_5)
+        #print('info for BiConjugateGradientStab  (M1) : ', info1_6)
+        print('info for PBiConjugateGradientStab (M1) : ', info1_7)
 
 
 if __name__ == '__main__':

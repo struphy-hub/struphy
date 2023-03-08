@@ -246,7 +246,7 @@ class Projector:
             
         if transposed:
             
-            # polar case (iterative solve with pbicgstab)
+            # polar case (iterative solve with PBiConjugateGradientStab)
             if self.is_polar:
                 if apply_bc:
                     x, self._polar_info = self._polar_solver.solve(
@@ -268,7 +268,7 @@ class Projector:
             
         else:
 
-            # polar case (iterative solve with pbicgstab)
+            # polar case (iterative solve with PBiConjugateGradientStab)
             if self.is_polar:
                 if apply_bc:
                     x, self._polar_info = self._polar_solver.solve(
