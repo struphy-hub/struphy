@@ -1,5 +1,5 @@
 grid :
-    Nel      : [24, 33, 2] # number of grid cells, >p
+    Nel      : [32, 72, 2] # number of grid cells, >p
     p        : [3, 3, 1]  # spline degree
     spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
     bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
@@ -15,52 +15,36 @@ model_units :
 
 time :
     dt         : 0.2  # time step
-    Tend       : 2000. # simulation time interval is [0, Tend]
+    Tend       : 3000. # simulation time interval is [0, Tend]
     max_time   : 300. # maximum runtime of program in minutes
     split_algo : LieTrotter # LieTrotter | Strang
 
 geometry :
-    type : IGAPolarTorus # mapping F (possible types seen below)
-    HollowTorus :
-        a1 : .05 # inner radius
-        a2 : 1. # minor radius
-        R0 : 4. # major radius
-        tor_period: 1 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
-    IGAPolarTorus :
-        a   : 1. # minor radius
-        R0  : 4. # major radius
-        Nel : [16, 33] # number of grid cells, >p
-        p   : [3, 3] # spline degree, >1
+    type : Tokamak # mapping F (possible types seen below)
+    Tokamak :
+        Nel        : [32, 72] # number of poloidal grid cells, >p
+        p          : [3, 3] # poloidal spline degrees, >1
+        psi_power  : 0.6 # parametrization of radial flux coordinate eta1=psi_norm^psi_power, where psi_norm is normalized flux
+        psi_shifts : [0., 1.] # start and end shifts of polidal flux in % --> cuts away regions at the axis and edge
+        xi_param   : sfl # parametrization of angular coordinate (equal_angle, equal_arc_length or sfl (straight field line))
+        r0         : 0.3 # initial guess for radial distance from axis used in Newton root-finding method for flux surfaces
+        Nel_pre    : [64, 256] # number of poloidal grid cells of pre-mapping needed for equal_arc_length and sfl
+        p_pre      : [3, 3] # poloidal spline degrees of pre-mapping needed for equal_arc_length and sfl
         tor_period : 1 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
-        sfl : True # whether to use straight field line coordinates (particular theta parametrization) 
 
 mhd_equilibrium :
     type : EQDSKequilibrium # (possible choices seen below)
-    use_equil_domain : True # use the mapping given by the equilibrium (flux aligned) or not
-    AdhocTorus :
-        a      : 1. # minor radius (radius of cylinder)
-        R0     : 4. # major radius (Lz = 2*pi*R0)
-        B0     : 3. # on-axis toroidal magnetic field
-        q0     : 1.71 # safety factor at r=0
-        q1     : 1.87 # safety factor at r=a
-        n1     : 0. # shape factor for number density profile
-        n2     : 0. # shape factor for number density profile
-        na     : 1. # number density at r=a
-        p_kind : 1 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
-        p1     : .1 # shape factor for ad hoc pressure profile
-        p2     : .1 # shape factor for ad hoc pressure profile
-        beta   : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
     EQDSKequilibrium :
-        rel_path : True # whether eqdsk file path relative to "<struphy_path>/fields_background/mhd_equil/gvec", or the absolute path
-        file : 'AUGNLED_g031213.00830.high' # path to eqdsk file
-        data_type : 0 # 0: there is no space between data, 1: there is space between data
-        flux_resolution: 64 # number of cells for profile interpolation
-        psi_resolution: [128, 128] # number of cells for psi interpolation
-        p_for_psi : [3, 3] # spline degree in each direction used for interpolation of psi data.
-        Nel : [24, 33] # number of cells in each direction used for field line tracing
-        p : [3, 3] # spline degree in each direction used for field line tracing
-        theta : 'equal_angle' # choose theta parametrization: 'equal_angle', 'equal_arc_length' or 'sfl' (PEST)
-        tor_period : 1 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
+        rel_path        : True # whether eqdsk file path relative to "<struphy_path>/fields_background/mhd_equil/gvec", or the absolute path
+        file            : 'AUGNLED_g031213.00830.high' # path to eqdsk file
+        data_type       : 0 # 0: there is no space between data, 1: there is space between data
+        p_for_psi       : [3, 3] # spline degrees used in interpolation of poloidal flux function grid data
+        psi_resolution  : [25., 6.25] # resolution used in interpolation of poloidal flux function grid data in %, i.e. [100., 100.] uses all grid points
+        p_for_flux      : 3 # spline degree used in interpolation of 1d functions f=f(psi) (e.g. toroidal field function)
+        flux_resolution : 50. # resolution used in interpolation of of 1d functions f=f(psi) in %
+        n1              : 0. # 1st shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
+        n2              : 0. # 2nd shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
+        na              : 1. # number density at last closed flux surface
 
 kinetic :
     ions :
@@ -74,10 +58,10 @@ kinetic :
                 type    : pseudo_random # particle loading mechanism 
                 seed    : 1608 # seed for random number generator
                 moments : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
-                initial : [[.501, 0.001, 0.001, 0., -0.0750, -0.06],
-                           [.501, 0.001, 0.001, 0.,  0.0450, -0.06], 
-                           [.501, 0.001, 0.001, 0., -0.0225, -0.06],
-                           [.501, 0.001, 0.001, 0.,  0.0125, -0.06]]
+                initial : [[.501, 0.001, 0.001, 0.,  0.0450, -0.04], # co-passing particle
+                           [.501, 0.001, 0.001, 0., -0.0450, -0.04], # counter passing particle
+                           [.501, 0.001, 0.001, 0.,  0.0105, -0.04], # co-trapped particle
+                           [.501, 0.001, 0.001, 0., -0.0155, -0.04]] # counter-trapped particle
         init : 
             type : Maxwellian6DUniform
         save_data :

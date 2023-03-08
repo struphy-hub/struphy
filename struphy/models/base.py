@@ -5,6 +5,7 @@ from struphy.geometry import domains
 from struphy.psydac_api.psydac_derham import Derham
 from struphy.psydac_api.fields import Field
 from struphy.pic import particles
+from struphy.fields_background.mhd_equil.base import CartesianMHDequilibrium, LogicalMHDequilibrium
 from struphy.fields_background.mhd_equil import equils
 from struphy.fields_background.electric_equil import analytical as analytical_electric
 from struphy.psydac_api.mass import WeightedMassOperators
@@ -34,29 +35,8 @@ class StruphyModel(metaclass=ABCMeta):
 
     def __init__(self, params, mpi_comm=None, **kwargs):
 
-        # domain (mapping from logical unit cube to physical domain)
-        dom_type = params['geometry']['type']
-        dom_params = params['geometry'][dom_type]
-
-        domain_class = getattr(domains, dom_type)
-        self._domain = domain_class(**dom_params)
-
-        # mhd equilibrium
-        if 'mhd_equilibrium' in params:
-            equil_params = params['mhd_equilibrium']
-
-            mhd_equil_class = getattr(equils, equil_params['type'])
-            self._mhd_equil = mhd_equil_class(
-                **equil_params[equil_params['type']])
-
-            if equil_params['use_equil_domain']:
-                assert self.mhd_equil.domain is not None
-                self._domain = self.mhd_equil.domain
-            else:
-                self._mhd_equil.domain = self.domain
-
-        else:
-            self._mhd_equil = None
+        # domain and MHD equilibrium (latter is None if there is no MHD equilibrium)
+        self._domain, self._mhd_equil = setup_domain_mhd(params)
 
         # electric equilibrium
         if 'electric_equilibrium' in params:
@@ -517,3 +497,61 @@ class StruphyModel(metaclass=ABCMeta):
 
             self.update_markers_to_be_saved()
             self.update_distr_function()
+
+            
+###########################
+#  Helper functions
+###########################
+def setup_domain_mhd(params):
+    """
+    Creates the domain object and MHD equilibrium for a given parameter file.
+    
+    Parameters
+    ----------
+    params : dict
+        The full simulation parameter dictionary.
+        
+    Returns
+    -------
+    domain : struphy.geometry.base.Domain
+        The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
+        
+    mhd : struphy.fields_background.base.MHDequilibrium
+        The ideal MHD equilibrium object.
+    """
+    
+    # MHD equilibrium given (load equilibrium first, then set domain)
+    if 'mhd_equilibrium' in params:
+        
+        mhd_type = params['mhd_equilibrium']['type']
+        mhd_class = getattr(equils, mhd_type)
+        mhd = mhd_class(**params['mhd_equilibrium'][mhd_type])
+
+        # for logical MHD equilibria, the domain comes with the equilibrium
+        if isinstance(mhd, LogicalMHDequilibrium):
+            domain = mhd.domain
+        
+        # for cartesian MHD equilibria, the domain can be chosen idependently
+        else:
+            dom_type = params['geometry']['type']
+            dom_class = getattr(domains, dom_type)
+
+            if dom_type == 'Tokamak':
+                domain = dom_class(**params['geometry'][dom_type], equilibrium=mhd)
+            else:
+                domain = dom_class(**params['geometry'][dom_type])
+                
+            # set domain attribute in mhd object
+            mhd.domain = domain
+
+    # no MHD equilibrium (load domain)
+    else:
+
+        dom_type = params['geometry']['type']
+        dom_class = getattr(domains, dom_type)
+        domain = dom_class(**params['geometry'][dom_type])
+        
+        mhd = None
+            
+    return domain, mhd
+    

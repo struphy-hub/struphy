@@ -29,20 +29,19 @@ geometry :
             
 mhd_equilibrium : 
     type : AdhocTorus # (possible choices seen below)
-    use_equil_domain : False # use the mapping given by the equilibrium (flux aligned) or not
     AdhocTorus :
-        a    : 1. # minor radius
-        R0   : 5. # major radius
-        B0   : 5. # on-axis toroidal magnetic field
-        q0   : 1.15 # safety factor at r=0
-        q1   : 1.60 # safety factor at r=a
-        n1   : 0. # shape factor for number density profile 
-        n2   : 0. # shape factor for number density profile 
-        na   : 1. # number density at r=a
+        a      : 1. # minor radius
+        R0     : 5. # major radius
+        B0     : 5. # on-axis toroidal magnetic field
+        q0     : 1.15 # safety factor at r=0
+        q1     : 1.60 # safety factor at r=a
+        n1     : 0. # shape factor for number density profile 
+        n2     : 0. # shape factor for number density profile 
+        na     : 1. # number density at r=a
         p_kind : 1 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
         p1     : 0. # shape factor for ad hoc pressure profile
         p2     : 0. # shape factor for ad hoc pressure profile
-        beta : .2 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)   
+        beta   : .2 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)   
         
 em_fields : 
     init :

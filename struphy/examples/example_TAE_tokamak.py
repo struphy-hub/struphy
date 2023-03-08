@@ -11,6 +11,7 @@ from struphy.fields_background.mhd_equil import equils
 from struphy.diagnostics.continuous_spectra import get_mhd_continua_2d
 from struphy.dispersion_relations.analytic import MhdContinousSpectraCylinder
 from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
+from struphy.models.base import setup_domain_mhd
 
 
 def main():
@@ -19,41 +20,29 @@ def main():
     """
     sim_path = sys.argv[1]
 
-    # read in parameters
+    # load parameter file
     with open(sim_path + '/parameters.yml') as file:
         params = yaml.load(file, Loader=yaml.FullLoader)
 
+    # load grid data
     Nel = params['grid']['Nel']
     p = params['grid']['p']
     spl_kind = params['grid']['spl_kind']
     nq_el = params['grid']['nq_el']
     bc = params['grid']['bc']
     polar_ck = params['grid']['polar_ck']
+    
+    # create domain and MHD equilibrium
+    domain, mhd_equil = setup_domain_mhd(params)
+    
+    # get MHD equilibrium parameters
+    mhd_params = params['mhd_equilibrium'][params['mhd_equilibrium']['type']]
 
-    # load domain and evaluate mapped grid
-    dom_type = params['geometry']['type']
-    dom_params = params['geometry'][dom_type]
-
-    domain_class = getattr(domains, dom_type)
-    domain = domain_class(**dom_params)
-
+    # evaluate mapped grid
     etaplot = [np.linspace(0., 1., 101),
                np.linspace(0., 1., 101),
                np.linspace(0., 1.,  21)]
-
-    # load MHD equilibrium
-    mhd_name = params['mhd_equilibrium']['type']
-    mhd_params = params['mhd_equilibrium'][mhd_name]
-
-    mhd_class = getattr(equils, mhd_name)
-    mhd_equil = mhd_class(**mhd_params)
-
-    if params['mhd_equilibrium']['use_equil_domain']:
-        assert mhd_equil.domain is not None
-        domain = mhd_equil.domain
-    else:
-        mhd_equil.domain = domain
-
+    
     xplot = domain(*etaplot)
 
     # field names, grid info and energies
@@ -135,7 +124,7 @@ def main():
     # plot U2_1(t=0) on mapped grid
     plt.subplot(2, 2, 3)
     plt.contourf(xplot[0][:, :, 0], xplot[2][:, :, 0], fields[0][names[3]](
-        *etaplot)[0][:, :, 6], levels=51, cmap='coolwarm')
+        *etaplot)[0][:, :, 4], levels=51, cmap='coolwarm')
     plt.axis('square')
     plt.colorbar()
     plt.title('$U^2_1(t=0)$', pad=10, fontsize=f_size)

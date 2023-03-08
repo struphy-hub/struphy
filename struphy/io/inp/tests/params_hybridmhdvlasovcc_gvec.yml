@@ -34,7 +34,6 @@ geometry :
             
 mhd_equilibrium : 
     type : GVECequilibrium # (possible choices seen below)
-    use_equil_domain : True # use the mapping given by the equilibrium (flux aligned) or not
     GVECequilibrium : 
         rel_path  : True # whether to state dat_file (json_file) relative to "<struphy_path>/fields_background/mhd_equil/gvec", or give the absolute path
         dat_file  : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file 

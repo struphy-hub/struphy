@@ -34,7 +34,6 @@ geometry :
 
 mhd_equilibrium :
     type : HomogenSlab # (possible choices seen below)
-    use_equil_domain : False # use the mapping given by the equilibrium (flux aligned) or not
     HomogenSlab :
         B0x  : 0. # magnetic field in x
         B0y  : 0. # magnetic field in y
