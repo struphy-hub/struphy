@@ -47,20 +47,29 @@ em_fields :
 
 fluid :
     mhd :
-        mhd_u_space : H1vec # H1vec, Hcurl or Hdiv
+        mhd_u_space : H1vec # Hdiv | H1vec
         init :
             type : null # type of initialization
             ModesCos :
                 coords : 'physical' # in which coordinates (logical or physical)
                 comps :
                     n3 : False                # components to be initialized (for scalar fields: no list)
-                    uv : [True, False, False] # components to be initialized (for scalar fields: no list)
+                    uv : [False, True, False] # components to be initialized (for scalar fields: no list)
                     p3 : False                # components to be initialized (for scalar fields: no list)
                 ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
                 ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
                 ns : [-1] # Integer mode numbers in z or eta_3 (depending on coords)
-                amp : [0.001] # amplitudes of each mode
-
+                amp : [0.0001] # amplitudes of each mode
+                Lx : 1.
+                Ly : 1.
+                Lz : 10.
+            InitialMHDSlab :
+                a  : 1.
+                R0 : 1.
+                m  : 0
+                n  : -1
+                U  : 0.001
+                A  : 0.
 
 kinetic :
     energetic_ions :
@@ -101,7 +110,7 @@ solvers :
         info : False
         verbose : False
     solver_2 :
-        type : PConjugateGradient
+        type : PBiConjugateGradientStab
         pc : MassMatrixPreconditioner # null or fft
         tol : 1.e-12
         maxiter : 3000

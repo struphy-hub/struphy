@@ -574,7 +574,7 @@ class StepPushGuidingCenter1(Propagator):
         TODO
         """
         self._pusher(self._particles, dt,
-                    *self._pusher_inputs, verbose=False)
+                    *self._pusher_inputs, mpi_sort='each', verbose=False)
 
         # save magnetic field at each particles' position
         self._particles.save_magnetic_energy(self.derham, self._abs_b)
@@ -722,7 +722,7 @@ class StepPushGuidingCenter2(Propagator):
         TODO
         """
         self._pusher(self._particles, dt,
-                    *self._pusher_inputs, verbose=False)
+                    *self._pusher_inputs, mpi_sort='each', verbose=False)
 
         # save magnetic field at each particles' position
         self._particles.save_magnetic_energy(self.derham, self._abs_b)
@@ -859,16 +859,15 @@ class StepPushDriftKinetic1(Propagator):
         Kinetic boundary conditions in each direction.
     """
 
-    def __init__(self, particles, b, **params): 
+    def __init__(self, particles, **params): 
 
         # pointer to variable
         assert isinstance(particles, Particles5D)
         self._particles = particles
-        assert isinstance(b, (BlockVector, PolarVector))
-        self._b = b
 
         # parameters
         params_default = {'epsilon': .01,
+                          'b' : None,
                           'b_eq': None,
                           'unit_b1': None,
                           'unit_b2': None,
@@ -882,6 +881,7 @@ class StepPushDriftKinetic1(Propagator):
         params = set_defaults(params, params_default)
 
         self._epsilon = params['epsilon']
+        self._b = params['b']
         self._b_eq = params['b_eq']
         self._unit_b1 = params['unit_b1']
         self._unit_b2 = params['unit_b2']
@@ -893,16 +893,20 @@ class StepPushDriftKinetic1(Propagator):
         self._curl_norm_b.update_ghost_regions()
         self._grad_abs_b.update_ghost_regions()
 
-        # define full magnetic field
-        self._b_full = b + self._b_eq
+        # sum up total magnetic field
+        self._b_full = self._b_eq.copy()
+        if self._b is not None:
+            self._b_full += self._b
+
+        self._b_full.update_ghost_regions()
 
         # define gradient of absolute value of parallel magnetic field
         PB = getattr(self.basis_ops, 'PB')
-        self._PB = PB.dot(self._b_full)
-        self._PB.update_ghost_regions()
+        self._PBb = PB.dot(self._b_full)
+        self._PBb.update_ghost_regions()
 
-        self._grad_PB = self.derham.grad.dot(self._PB)
-        self._grad_PB.update_ghost_regions()
+        self._grad_PBb = self.derham.grad.dot(self._PBb)
+        self._grad_PBb.update_ghost_regions()
 
         if params['integrator'] == 'explicit':
 
@@ -938,7 +942,7 @@ class StepPushDriftKinetic1(Propagator):
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_PB[0]._data, self._grad_PB[1]._data, self._grad_PB[2]._data,
+                                   self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data,
                                    self._butcher.a, self._butcher.b, self._butcher.c)
 
         elif params['integrator'] == 'implicit':
@@ -955,12 +959,12 @@ class StepPushDriftKinetic1(Propagator):
                 raise NotImplementedError(
                     'Chosen implicit method is not implemented.')
             
-            self._pusher_inputs = (self._epsilon, self._PB._data,
+            self._pusher_inputs = (self._epsilon, self._PBb._data,
                                    self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_PB[0]._data, self._grad_PB[1]._data, self._grad_PB[2]._data)
+                                   self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data)
 
         else:
             raise NotImplementedError('Chosen integrator is not implemented.')
@@ -974,9 +978,9 @@ class StepPushDriftKinetic1(Propagator):
         TODO
         """
         self._pusher(self._particles, dt,
-                    *self._pusher_inputs, verbose=False)
+                    *self._pusher_inputs, mpi_sort='each', verbose=False)
                      
-        self._particles.save_magnetic_energy(self.derham, self._PB)
+        self._particles.save_magnetic_energy(self.derham, self._PBb)
 
 
 class StepPushDriftKinetic2(Propagator):
@@ -1026,16 +1030,15 @@ class StepPushDriftKinetic2(Propagator):
         Kinetic boundary conditions in each direction.
     """
 
-    def __init__(self, particles, b, **params): 
+    def __init__(self, particles, **params): 
 
         # pointer to variable
         assert isinstance(particles, Particles5D)
         self._particles = particles
-        assert isinstance(b, (BlockVector, PolarVector))
-        self._b = b
 
         # parameters
         params_default = {'epsilon': .01,
+                          'b' : None,
                           'b_eq': None,
                           'unit_b1': None,
                           'unit_b2': None,
@@ -1049,6 +1052,7 @@ class StepPushDriftKinetic2(Propagator):
         params = set_defaults(params, params_default)
 
         self._epsilon = params['epsilon']
+        self._b = params['b']
         self._b_eq = params['b_eq']
         self._unit_b1 = params['unit_b1']
         self._unit_b2 = params['unit_b2']
@@ -1060,16 +1064,20 @@ class StepPushDriftKinetic2(Propagator):
         self._curl_norm_b.update_ghost_regions()
         self._grad_abs_b.update_ghost_regions()
 
-        # define full magnetic field
-        self._b_full = b + self._b_eq
+        # sum up total magnetic field
+        self._b_full = self._b_eq.copy()
+        if self._b is not None:
+            self._b_full += self._b
+
+        self._b_full.update_ghost_regions()
 
         # define gradient of absolute value of parallel magnetic field
         PB = getattr(self.basis_ops, 'PB')
-        self._PB = PB.dot(self._b_full)
-        self._PB.update_ghost_regions()
+        self._PBb = PB.dot(self._b_full)
+        self._PBb.update_ghost_regions()
 
-        self._grad_PB = self.derham.grad.dot(self._PB)
-        self._grad_PB.update_ghost_regions()
+        self._grad_PBb = self.derham.grad.dot(self._PBb)
+        self._grad_PBb.update_ghost_regions()
 
         if params['integrator'] == 'explicit':
 
@@ -1105,7 +1113,7 @@ class StepPushDriftKinetic2(Propagator):
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_PB[0]._data, self._grad_PB[1]._data, self._grad_PB[2]._data,
+                                   self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data,
                                    self._butcher.a, self._butcher.b, self._butcher.c)
 
         elif params['integrator'] == 'implicit':
@@ -1122,12 +1130,12 @@ class StepPushDriftKinetic2(Propagator):
                 raise NotImplementedError(
                     'Chosen implicit method is not implemented.')
             
-            self._pusher_inputs = (self._epsilon, self._PB._data,
+            self._pusher_inputs = (self._epsilon, self._PBb._data,
                                    self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_PB[0]._data, self._grad_PB[1]._data, self._grad_PB[2]._data)
+                                   self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data)
 
         else:
             raise NotImplementedError('Chosen integrator is not implemented.')
@@ -1142,6 +1150,6 @@ class StepPushDriftKinetic2(Propagator):
         TODO
         """
         self._pusher(self._particles, dt,
-                    *self._pusher_inputs, verbose=False)
+                    *self._pusher_inputs, mpi_sort='each', verbose=False)
                      
-        self._particles.save_magnetic_energy(self.derham, self._PB)
+        self._particles.save_magnetic_energy(self.derham, self._PBb)

@@ -832,21 +832,6 @@ class ShearAlfvén_CurrentCoupling5D(Propagator):
         assert isinstance(params['b_eq'], (BlockVector, PolarVector))
         self._b_eq = params['b_eq']
 
-        if self._f0 is not None:
-
-            assert isinstance(self._f0, Maxwellian6D)
-
-            # evaluate and save nh0*|det(DF)| (H1vec) or nh0/|det(DF)| (Hdiv) at quadrature points for control variate
-            quad_pts = [quad_grid.points.flatten()
-                        for quad_grid in self.derham.Vh_fem['0'].quad_grids]
-
-            if params['u_space'] == 'H1vec':
-                self._nh0_at_quad = self.domain.pull(
-                    [self._f0.n], *quad_pts, kind='3_form', squeeze_out=False, coordinates='logical')
-            else:
-                self._nh0_at_quad = self.domain.push(
-                    [self._f0.n], *quad_pts, kind='3_form', squeeze_out=False)
-
         self._type = params['type']
         self._tol = params['tol']
         self._maxiter = params['maxiter']
@@ -941,21 +926,20 @@ class ShearAlfvén_CurrentCoupling5D(Propagator):
 class Magnetosonic_CurrentCoupling5D(Propagator):
     r'''TODO'''
 
-    def __init__(self, n, u, p, b, **params):
+    def __init__(self, n, u, p, **params):
 
         from struphy.pic.particles import Particles5D
 
         assert isinstance(n, (StencilVector, PolarVector))
         assert isinstance(u, (BlockVector, PolarVector))
         assert isinstance(p, (StencilVector, PolarVector))
-        assert isinstance(b, (BlockVector, PolarVector))
         self._n = n
         self._u = u
         self._p = p
-        self._b = b
 
         # parameters
-        params_default = {'particles': None,
+        params_default = {'b' : None,
+                          'particles': None,
                           'u_space': 'Hdiv',
                           'unit_b1': None,
                           'f0': Maxwellian6DUniform(),
@@ -983,9 +967,10 @@ class Magnetosonic_CurrentCoupling5D(Propagator):
             self._space_key_int = int(
                 self.derham.spaces_dict[params['u_space']])
 
-        assert isinstance(params['unit_b1'], (BlockVector, PolarVector))
-
         self._f0 = params['f0']
+        assert isinstance(params['b'], (BlockVector, PolarVector))
+        self._b = params['b']
+        assert isinstance(params['unit_b1'], (BlockVector, PolarVector))
         self._unit_b1 = params['unit_b1']
 
         assert params['u_space'] in {'Hcurl', 'Hdiv', 'H1vec'}
@@ -1050,7 +1035,7 @@ class Magnetosonic_CurrentCoupling5D(Propagator):
         self._u_tmp2 = u.space.zeros()
         self._p_tmp1 = p.space.zeros()
         self._n_tmp1 = n.space.zeros()
-        self._b_tmp1 = b.space.zeros()
+        self._b_tmp1 = self._b.space.zeros()
         
         self._byn1 = self._B.codomain.zeros()
         self._byn2 = self._B.codomain.zeros() 

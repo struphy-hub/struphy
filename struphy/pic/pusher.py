@@ -236,7 +236,7 @@ class Pusher_iteration:
         self._pusher_eval_gradI = getattr(utilities, self._pusher_name + '_eval_gradI')
 
 
-    def __call__(self, particles, dt, *args_opt, verbose=False):
+    def __call__(self, particles, dt, *args_opt, mpi_sort=None, verbose=False):
         """
         Applies the chosen pusher kernel by a time step dt, applies kinetic boundary conditions and performs MPI sorting.
 
