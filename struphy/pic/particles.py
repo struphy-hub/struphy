@@ -629,29 +629,40 @@ class Particles5D(Particles):
 
         super().__init__(name, 25, **params)
 
-    def save_magnetic_moment(self, derham, absB0):
+    def save_magnetic_moment(self, derham, b_cart):
         r"""
         Calculate magnetic moment of each particles :math:`\mu = \frac{m v_\perp^2}{2B}` and asign it into markers[:,4].
         """
         from struphy.pic.utilities_kernels import eval_magnetic_moment
 
-        absB0.update_ghost_regions()
-
-        # save the calculated magnetic moments in markers[:,4]
         T1, T2, T3 = derham.Vh_fem['0'].knots
 
         eval_magnetic_moment(self._markers,
                              np.array(derham.p), T1, T2, T3,
                              np.array(derham.Vh['0'].starts),
-                             absB0._data)
+                             b_cart[0]._data, b_cart[1]._data, b_cart[2]._data)
+
+
+    # temporary function. Will be removed.
+    def transform_6D_to_5D(self, epsilon, derham, b_cart):
+        r"""
+        Calculate magnetic moment of each particles :math:`\mu = \frac{m v_\perp^2}{2B}` and asign it into markers[:,4].
+        """
+        from struphy.pic.utilities_kernels import transform_6D_to_5D
+
+        T1, T2, T3 = derham.Vh_fem['0'].knots
+
+        transform_6D_to_5D(self._markers, epsilon,
+                           np.array(derham.p), T1, T2, T3,
+                           np.array(derham.Vh['0'].starts),
+                           b_cart[0]._data, b_cart[1]._data, b_cart[2]._data)
+
 
     def save_magnetic_energy(self, derham, PB):
         r"""
         Calculate magnetic field energy at each particles' position and asign it into markers[:,5].
         """
         from struphy.pic.utilities_kernels import eval_magnetic_energy
-
-        PB.update_ghost_regions()
 
         T1, T2, T3 = derham.Vh_fem['0'].knots
 

@@ -145,6 +145,15 @@ class MHDequilibrium(metaclass=ABCMeta):
     def unit_b2_3(self, *etas, squeeze_out=True):
         return self.unit_b2(*etas, squeeze_out=squeeze_out)[2]
 
+    def b_cart_1(self, *etas, squeeze_out=True):
+        return self.b_cart(*etas, squeeze_out=squeeze_out)[0][0]
+
+    def b_cart_2(self, *etas, squeeze_out=True):
+        return self.b_cart(*etas, squeeze_out=squeeze_out)[0][1]
+
+    def b_cart_3(self, *etas, squeeze_out=True):
+        return self.b_cart(*etas, squeeze_out=squeeze_out)[0][2]
+
     def j1_1(self, *etas, squeeze_out=True):
         return self.j1(*etas, squeeze_out=squeeze_out)[0]
 

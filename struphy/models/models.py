@@ -791,20 +791,20 @@ class LinearMHDVlasovPC(StruphyModel):
             u_space=self._u_space, 
             **alfven_solver)]
         
-        # self._propagators += [propagators_coupling.PressureCoupling6D(
-        #     self._ions,
-        #     self._u, 
-        #     u_space=self._u_space, 
-        #     use_perp_model=ions_params['use_perp_model'], 
-        #     **coupling_solver,
-        #     **self._coupling_params)]
+        self._propagators += [propagators_coupling.PressureCoupling6D(
+            self._ions,
+            self._u, 
+            u_space=self._u_space, 
+            use_perp_model=ions_params['use_perp_model'], 
+            **coupling_solver,
+            **self._coupling_params)]
         
-        # self._propagators += [propagators_markers.PushEtaPC(
-        #     self._ions, 
-        #     u_mhd=self._u, 
-        #     u_space=self._u_space, 
-        #     bc_type=ions_params['markers']['bc_type'],
-        #     use_perp_model=ions_params['use_perp_model'])]
+        self._propagators += [propagators_markers.PushEtaPC(
+            self._ions, 
+            u_mhd=self._u, 
+            u_space=self._u_space, 
+            bc_type=ions_params['markers']['bc_type'],
+            use_perp_model=ions_params['use_perp_model'])]
         
         self._propagators += [propagators_markers.PushVxB(
             self._ions, 
@@ -839,26 +839,20 @@ class LinearMHDVlasovPC(StruphyModel):
         self._scalar_quantities['time'][0] = time
 
         if self._u_space == 'Hcurl':
-            self._en_U_loc = self._u.dot(self._mass_ops.M1n.dot(self._u))/2
-            self._scalar_quantities['en_U'][0] = self._u.dot(
-                self._mass_ops.M1n.dot(self._u))/2
-            self._scalar_quantities['en_p'][0] = self._p.toarray(
-            ).sum()/(5/3 - 1)
+            self._scalar_quantities['en_U'][0] = self._u.dot(self._mass_ops.M1n.dot(self._u))/2
+            self._scalar_quantities['en_p'][0] = self._p.toarray().sum()/(5/3 - 1)
         elif self._u_space == 'Hdiv':
-            self._scalar_quantities['en_U'][0] = self._u.dot(
-                self._mass_ops.M2n.dot(self._u))/2
-            self._scalar_quantities['en_p'][0] = self._p.toarray(
-            ).sum()/(5/3 - 1)
+            self._scalar_quantities['en_U'][0] = self._u.dot(self._mass_ops.M2n.dot(self._u))/2
+            self._scalar_quantities['en_p'][0] = self._p.toarray( ).sum()/(5/3 - 1)
         else:
-            self._scalar_quantities['en_U'][0] = self._u.dot(
-                self._mass_ops.Mvn.dot(self._u))/2
-            self._scalar_quantities['en_p'][0] = self._p.toarray(
-            ).sum()/(5/3 - 1)
+            self._scalar_quantities['en_U'][0] = self._u.dot( self._mass_ops.Mvn.dot(self._u))/2
+            self._scalar_quantities['en_p'][0] = self._p.toarray().sum()/(5/3 - 1)
 
         self._scalar_quantities['en_B'][0] = self._b.dot(
             self._mass_ops.M2.dot(self._b))/2
 
-        self._en_f_loc = self._coupling_params['nuh']*self._ions.markers[~self._ions.holes, 8].dot(self._ions.markers[~self._ions.holes, 3]**2
+        self._en_f_loc = self._coupling_params['nuh']*self._ions.markers[~self._ions.holes, 6].dot(
+                                                                        self._ions.markers[~self._ions.holes, 3]**2
                                                                       + self._ions.markers[~self._ions.holes, 4]**2
                                                                       + self._ions.markers[~self._ions.holes, 5]**2)/(2. * self._ions.n_mks)
 
@@ -1018,6 +1012,14 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._p_eq = self.derham.P['3'](self.mhd_equil.p3)
         self._ones = self._p_eq.space.zeros()
 
+        self._b_cart = self.derham.P['v']([self.mhd_equil.b_cart_1,
+                                                self.mhd_equil.b_cart_2,
+                                                self.mhd_equil.b_cart_3])                   
+
+        # Transform 6D to 5D
+        self._e_ions.transform_6D_to_5D(epsilon, self.derham, self._b_cart)
+
+
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.
         else:
@@ -1051,7 +1053,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             self._n,
             self._u,
             self._p,
-            self._b,
+            b=self._b,
             particles=self._e_ions,
             unit_b1=self._unit_b1,
             f0=f0,
@@ -1061,8 +1063,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # update H       
         self._propagators += [propagators_markers.StepPushDriftKinetic1(
             self._e_ions,
-            self._b,
             epsilon=epsilon,
+            b=self._b,
             b_eq=self._b_eq, 
             unit_b1=self._unit_b1, 
             unit_b2=self._unit_b2, 
@@ -1074,8 +1076,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # update H and v parallel
         self._propagators += [propagators_markers.StepPushDriftKinetic2(
             self._e_ions,
-            self._b,
             epsilon=epsilon,
+            b=self._b,
             b_eq=self._b_eq, 
             unit_b1=self._unit_b1, 
             unit_b2=self._unit_b2, 
@@ -1086,28 +1088,28 @@ class LinearMHDDriftkineticCC(StruphyModel):
             tol=ions_params['push_algos']['tol'])]        
         self._propagators += [propagators_coupling.CurrentCoupling5DCurrent1(
             self._e_ions,
-            self._b,
             self._u, 
             epsilon=epsilon,
+            b=self._b,
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
             f0=f0, 
             u_space=self._u_space, 
           **solver_params_3,
           **self._coupling_params)]
-        # self._propagators += [propagators_coupling.CurrentCoupling5DCurrent2_mpi1(
-        #     self._e_ions,
-        #     self._b,
-        #     self._u, 
-        #     epsilon=epsilon,
-        #     b_eq=self._b_eq,
-        #     unit_b1=self._unit_b1,
-        #     unit_b2=self._unit_b2,
-        #     abs_b=self._abs_b,
-        #     f0=f0, 
-        #     u_space=self._u_space, 
-        #   **solver_params_4,
-        #   **self._coupling_params)]
+        self._propagators += [propagators_coupling.CurrentCoupling5DCurrent2(
+            self._e_ions,
+            self._u,
+            epsilon=epsilon,
+            b=self._b, 
+            b_eq=self._b_eq,
+            unit_b1=self._unit_b1,
+            unit_b2=self._unit_b2,
+            abs_b=self._abs_b,
+            f0=f0, 
+            u_space=self._u_space, 
+          **solver_params_4,
+          **self._coupling_params)]
         self._propagators += [propagators_fields.CurrentCoupling6DDensity(
             self._u,
             particles=self._e_ions,
@@ -1137,32 +1139,25 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._scalar_quantities['time'][0] = time
 
         if self._u_space == 'Hcurl':
-            self._en_U_loc = self._u.dot(self._mass_ops.M1n.dot(self._u))/2
-            self._scalar_quantities['en_U'][0] = self._u.dot(
-                self._mass_ops.M1n.dot(self._u))/2
-            self._scalar_quantities['en_p'][0] = self._p.toarray(
-            ).sum()/(5/3 - 1)
+            self._scalar_quantities['en_U'][0] = self._u.dot(self._mass_ops.M1n.dot(self._u))/2
+
         elif self._u_space == 'Hdiv':
-            self._scalar_quantities['en_U'][0] = self._u.dot(
-                self._mass_ops.M2n.dot(self._u))/2
-            self._scalar_quantities['en_p'][0] = self._p.toarray(
-            ).sum()/(5/3 - 1)
+            self._scalar_quantities['en_U'][0] = self._u.dot(self._mass_ops.M2n.dot(self._u))/2
+
         else:
-            self._scalar_quantities['en_U'][0] = self._u.dot(
-                self._mass_ops.Mvn.dot(self._u))/2
-            self._scalar_quantities['en_p'][0] = self._p.toarray(
-            ).sum()/(5/3 - 1)
+            self._scalar_quantities['en_U'][0] = self._u.dot(self._mass_ops.Mvn.dot(self._u))/2
 
-        self._scalar_quantities['en_B'][0] = self._b.dot(
-            self._mass_ops.M2.dot(self._b))/2
 
-        self._en_fv_loc = self._coupling_params['nuh'] * self._e_ions.markers[~self._e_ions.holes, 8].dot(self._e_ions.markers[~self._e_ions.holes, 3]**2) / (2*self._e_ions.n_mks)
+        self._scalar_quantities['en_p'][0] = self._p.toarray().sum()/(5/3 - 1)
+        self._scalar_quantities['en_B'][0] = self._b.dot(self._mass_ops.M2.dot(self._b))/2
+
+        self._en_fv_loc = self._coupling_params['nuh'] * self._e_ions.markers[~self._e_ions.holes, 6].dot(self._e_ions.markers[~self._e_ions.holes, 3]**2) / (2*self._e_ions.n_mks)
         self.derham.comm.Reduce(self._en_fv_loc, self._scalar_quantities['en_fv'], op=MPI.SUM, root=0)
 
         # calculate particle magnetic energy
         self._e_ions.save_magnetic_energy(self._derham, Propagator.basis_ops.PB.dot(self._b + self._b_eq))
 
-        self._en_fB_loc = self._coupling_params['nuh'] * self._e_ions.markers[~self._e_ions.holes, 8].dot(self._e_ions.markers[~self._e_ions.holes, 5])/self._e_ions.n_mks
+        self._en_fB_loc = self._coupling_params['nuh'] * self._e_ions.markers[~self._e_ions.holes, 6].dot(self._e_ions.markers[~self._e_ions.holes, 5])/self._e_ions.n_mks
         self.derham.comm.Reduce(self._en_fB_loc, self._scalar_quantities['en_fB'], op=MPI.SUM, root=0)
 
 
@@ -1745,6 +1740,13 @@ class DriftKinetic(StruphyModel):
         self._unit_b2 = self.derham.P['2']([self.mhd_equil.unit_b2_1,
                                       self.mhd_equil.unit_b2_2,
                                       self.mhd_equil.unit_b2_3])
+
+        self._b_cart = self.derham.P['v']([self.mhd_equil.b_cart_1,
+                                                self.mhd_equil.b_cart_2,
+                                                self.mhd_equil.b_cart_3])                   
+
+        # Transform 6D to 5D
+        self._ions.transform_6D_to_5D(epsilon, self.derham, self._b_cart)
 
         # set propagators base class attributes
         Propagator.derham = self.derham

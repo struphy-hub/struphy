@@ -48,16 +48,17 @@ kinetic :
                 type    : pseudo_random # particle loading mechanism 
                 seed    : 1608 # seed for random number generator
                 moments : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
-                initial : [[.52, 0.001, 0.001, -4.50, 6., 0.], # counter-passing particle
-                           [.52, 0.001, 0.001,  4.50, 6., 0.], # co-passing particle
-                           [.52, 0.001, 0.001, -2.75, 6., 0.], # counter-trapped particle
-                           [.52, 0.001, 0.001,  1.85, 6., 0.]] # co-trapped particle
+                initial : [[.52, 0.001, 0.001, 0., -0.0750, -0.06], # counter-passing particle
+                           [.52, 0.001, 0.001, 0.,  0.0400, -0.06], # co-passing particle
+                           [.52, 0.001, 0.001, 0., -0.0225, -0.06], # counter-trapped particle
+                           [.52, 0.001, 0.001, 0.,  0.0125, -0.06]] # co-trapped particle
+
         init : 
             type : Maxwellian6DUniform
         save_data :
             n_markers : 4 # number of markers to be save during simulation
         push_algos :
             integrator : implicit # explicit or implicit
-            method : discrete_gradients_faster # possible choices: discrete_gradients, discrete_gradients_faster, forward_euler, heun2, rk2, heun3, rk4
+            method : discrete_gradients # possible choices: discrete_gradients, discrete_gradients_faster, forward_euler, heun2, rk2, heun3, rk4
             maxiter : 10
             tol : 1.e-15

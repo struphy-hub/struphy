@@ -5,7 +5,7 @@ from struphy.b_splines.bspline_evaluation_3d import eval_spline_mpi_kernel
 import struphy.linear_algebra.core as linalg
 import struphy.geometry.map_eval as map_eval
 
-from numpy import empty, shape, zeros
+from numpy import empty, shape, zeros, sqrt
 
 
 @stack_array('bn1', 'bn2', 'bn3')
@@ -339,19 +339,24 @@ def eval_H1vec_at_particles(markers: 'float[:,:]',
     #$ omp end parallel
 
 
-@stack_array('bn1', 'bn2', 'bn3')
+@stack_array('bn1', 'bn2', 'bn3', 'b_cart', 'norm_b_cart', 'v', 'temp', 'v_perp')
 def eval_magnetic_moment(markers: 'float[:,:]',
                          pn: 'int[:]',
                          tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                          starts0: 'int[:]',
-                         b0: 'float[:,:,:]'):
+                         b_cart_1: 'float[:,:,:]',        
+                         b_cart_2: 'float[:,:,:]',      
+                         b_cart_3: 'float[:,:,:]'):
     """
-    Evaluate magnetic moments of each particles
+    Evaluate parallel velocity and magnetic moment of each particles and asign it into markers[ip,3] and markers[ip,4] respectively.
 
     Parameters
     ----------
         markers : array[float]
             .markers attribute of a struphy.pic.particles.Particles object
+
+        epsilon : array[float]
+            omega_th/omega_c = k*rho = rhostar
 
         pn : array[int]
             spline degrees
@@ -362,13 +367,18 @@ def eval_magnetic_moment(markers: 'float[:,:]',
         starts0 : array[int]
             starts of the stencil objects (0-form)
 
-        b0 : array[float]
-            3d array of FE coeffs of the absolute value of static magnetic field (0-form).
+        unit_b_cart_x : array[float]
+            3d array of FE coeffs of the x component of unit cartesian equilibrium magnetic field 
     """
-    # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
     bn2 = empty(pn[1] + 1, dtype=float)
     bn3 = empty(pn[2] + 1, dtype=float)
+
+    b_cart = empty(3, dtype=float)
+    norm_b_cart = empty(3, dtype=float)
+    v = empty(3, dtype=float)
+    temp = empty(3, dtype=float)
+    v_perp = empty(3, dtype=float)
 
     # get number of markers
     n_markers = shape(markers)[0]
@@ -382,7 +392,7 @@ def eval_magnetic_moment(markers: 'float[:,:]',
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        vperp_square = markers[ip,4]**2 + markers[ip,5]**2
+        v[:] = markers[ip, 3:6]
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], eta1)
@@ -393,10 +403,131 @@ def eval_magnetic_moment(markers: 'float[:,:]',
         bsp.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
         bsp.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
 
-        b = eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b0, starts0)
+        # b_cart
+        b_cart[0] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b_cart_1, starts0)
+        b_cart[1] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b_cart_2, starts0)
+        b_cart[2] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b_cart_3, starts0)
 
-        markers[ip,4] = 1/2 * vperp_square / b
+        # calculate absB
+        absB = sqrt(b_cart[0]**2 + b_cart[1]**2 + b_cart[2]**2)
 
+        if absB != 0.:
+            norm_b_cart[:] = b_cart/absB
+        else:
+            norm_b_cart[:] = b_cart
+
+        # calculate parallel velocity
+        v_parallel = linalg.scalar_dot(norm_b_cart, v)
+
+        # extract perpendicular velocity
+        linalg.cross(v, norm_b_cart, temp)
+        linalg.cross(norm_b_cart, temp, v_perp)
+
+        v_perp_square = (v_perp[0]**2 + v_perp[1]**2 +v_perp[2]**2)
+
+        # parallel velocity
+        markers[ip,3] = v_parallel
+        # magnetic moment
+        markers[ip,4] = 1/2 * v_perp_square / absB
+        # empty leftovers
+        markers[ip,5] = 0.
+
+@stack_array('bn1', 'bn2', 'bn3', 'b_cart', 'norm_b_cart', 'v', 'temp', 'v_perp')
+def transform_6D_to_5D(markers: 'float[:,:]', epsilon: 'float',
+                         pn: 'int[:]',
+                         tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                         starts0: 'int[:]',
+                         b_cart_1: 'float[:,:,:]',        
+                         b_cart_2: 'float[:,:,:]',      
+                         b_cart_3: 'float[:,:,:]'):
+    """
+    Evaluate parallel velocity and magnetic moment of each particles and asign it into markers[ip,3] and markers[ip,4] respectively.
+
+    Parameters
+    ----------
+        markers : array[float]
+            .markers attribute of a struphy.pic.particles.Particles object
+
+        epsilon : array[float]
+            omega_th/omega_c = k*rho = rhostar
+
+        pn : array[int]
+            spline degrees
+
+        tn1, tn2, tn3 : array[float]
+            knot vectors
+
+        starts0 : array[int]
+            starts of the stencil objects (0-form)
+
+        unit_b_cart_x : array[float]
+            3d array of FE coeffs of the x component of unit cartesian equilibrium magnetic field 
+    """
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    b_cart = empty(3, dtype=float)
+    norm_b_cart = empty(3, dtype=float)
+    v = empty(3, dtype=float)
+    temp = empty(3, dtype=float)
+    v_perp = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        v[:] = markers[ip, 3:6]
+
+        # spline evaluation
+        span1 = bsp.find_span(tn1, pn[0], eta1)
+        span2 = bsp.find_span(tn2, pn[1], eta2)
+        span3 = bsp.find_span(tn3, pn[2], eta3)
+
+        bsp.b_splines_slim(tn1, pn[0], eta1, span1, bn1)
+        bsp.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
+        bsp.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
+
+        # b_cart
+        b_cart[0] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b_cart_1, starts0)
+        b_cart[1] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b_cart_2, starts0)
+        b_cart[2] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b_cart_3, starts0)
+
+        # calculate absB
+        absB = sqrt(b_cart[0]**2 + b_cart[1]**2 + b_cart[2]**2)
+
+        if absB != 0.:
+            norm_b_cart[:] = b_cart/absB
+        else:
+            norm_b_cart[:] = b_cart
+
+        # calculate parallel velocity
+        v_parallel = linalg.scalar_dot(norm_b_cart, v)
+
+        # extract perpendicular velocity
+        linalg.cross(v, norm_b_cart, temp)
+        linalg.cross(norm_b_cart, temp, v_perp)
+
+        # applying epsilon
+        v_parallel /= epsilon
+        v_perp /= epsilon
+
+        v_perp_square = (v_perp[0]**2 + v_perp[1]**2 +v_perp[2]**2)
+
+        # parallel velocity
+        markers[ip,3] = v_parallel
+        # magnetic moment
+        markers[ip,4] = 1/2 * v_perp_square / absB
+        # empty leftovers
+        markers[ip,5] = 0.
 
 @stack_array('bn1', 'bn2', 'bn3')
 def eval_magnetic_energy(markers: 'float[:,:]',
