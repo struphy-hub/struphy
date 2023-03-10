@@ -18,6 +18,10 @@ from struphy.models import models
 def main():
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
+    
+    # synchronize MPI processes and set start time of simulation
+    comm.Barrier()
+    start_simulation = time.time()
 
     # get arguments
     model_name = sys.argv[1]
@@ -28,7 +32,15 @@ def main():
         exit_flag = False
         path_out = sys.argv[3]
         file_meta = sys.argv[5]
+        restart = sys.argv[6]
+        max_sim_time = float(sys.argv[7])
 
+    # convert restart string "false" or "true" to boolean
+    if restart == 'true':
+        restart = True
+    else:
+        restart = False
+    
     # load simulation parameters
     with open(file_in) as file:
         params = yaml.load(file, Loader=yaml.FullLoader)
@@ -58,16 +70,27 @@ def main():
     with open(file_in) as file:
         params = yaml.load(file, Loader=yaml.FullLoader)
 
-    # instantiate STRUPHY model
+    # instantiate STRUPHY model (will only allocate model objects and associated memory)
     model = model_class(params, comm)
-    model.set_initial_conditions()
-
-    # Compute scalar quantities at time t=0
-    model.update_scalar_quantities(0.)
-
-    # data object for saving
+    
+    # data object for saving (will either create new hdf5 files if restart=False or open existing files if restart=True)
     data = DataContainer(path_out, comm=comm)
 
+    # start of a new simulation (set initial conditions according to parameter file)
+    if not restart:
+        time_steps_done = 0
+        model.initialize_from_params()
+        
+        # initial diagnostic data (will be saved in hdf5 file)
+        model.update_scalar_quantities(0.)
+        model.update_markers_to_be_saved()
+        model.update_distr_function()
+    
+    # restart of an existing simulation (load restart data from hdf5 files, no diagnostics needed at this stage)
+    else:
+        time_steps_done = data.file['scalar/time'].size - 1
+        model.initialize_from_restart(data.file)
+        
     # save scalar quantities in group 'scalar/'
     for key, val in model.scalar_quantities.items():
         key_scalar = 'scalar/' + key
@@ -83,6 +106,7 @@ def main():
     for key, val in model.em_fields.items():
         if 'params' not in key:
             key_field = 'feec/' + key
+            key_field_restart = 'restart/' + key
 
             # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
             val['obj'].extract_coeffs(update_ghost_regions=False)
@@ -90,11 +114,15 @@ def main():
             # save numpy array to be updated each time step.
             if isinstance(val['obj'].vector_stencil, StencilVector):
                 data.add_data({key_field: val['obj'].vector_stencil._data})
+                data.add_data({key_field_restart: val['obj'].vector_stencil._data})
             else:
                 for n in range(3):
                     key_component = key_field + '/' + str(n + 1)
+                    key_component_restart = key_field_restart + '/' + str(n + 1)
                     data.add_data(
                         {key_component: val['obj'].vector_stencil[n]._data})
+                    data.add_data(
+                        {key_component_restart: val['obj'].vector_stencil[n]._data})
 
             # save field meta data
             data.file[key_field].attrs['space_id'] = val['obj'].space_id
@@ -106,10 +134,12 @@ def main():
     for species, val in model.fluid.items():
 
         species_path = 'feec/' + species + '_'
+        species_path_restart = 'restart/' + species + '_'
 
         for variable, subval in val.items():
             if 'params' not in variable:
                 key_field = species_path + variable
+                key_field_restart = species_path_restart + variable
 
                 # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
                 subval['obj'].extract_coeffs(update_ghost_regions=False)
@@ -118,11 +148,16 @@ def main():
                 if isinstance(subval['obj'].vector_stencil, StencilVector):
                     data.add_data(
                         {key_field: subval['obj'].vector_stencil._data})
+                    data.add_data(
+                        {key_field_restart: subval['obj'].vector_stencil._data})
                 else:
                     for n in range(3):
                         key_component = key_field + '/' + str(n + 1)
+                        key_component_restart = key_field_restart + '/' + str(n + 1)
                         data.add_data(
                             {key_component: subval['obj'].vector_stencil[n]._data})
+                        data.add_data(
+                            {key_component_restart: subval['obj'].vector_stencil[n]._data})
 
                 # save field meta data
                 data.file[key_field].attrs['space_id'] = subval['obj'].space_id
@@ -130,8 +165,12 @@ def main():
                 data.file[key_field].attrs['ends'] = subval['obj'].ends
                 data.file[key_field].attrs['pads'] = subval['obj'].pads
 
+    # save kinetic data in group 'kinetic/'
     for key, val in model.kinetic.items():
         key_spec = 'kinetic/' + key
+        key_spec_restart = 'restart/' + key
+        
+        data.add_data({key_spec_restart: val['obj']._markers})
 
         for key1, val1 in val['kinetic_data'].items():
             key_dat = key_spec + '/' + key1
@@ -147,8 +186,21 @@ def main():
                             val['bin_edges'][key2][dim][1] - val['bin_edges'][key2][dim][0])/2
 
             else:
-                data.add_data({key_dat: val1})
+                data.add_data({key_dat: val1})   
 
+    # keys to be saved at each time step and only at end (restart)
+    save_keys_each = []
+    save_keys_end = []
+    
+    for key in data.dset_dict:
+        if len(key) <= 7:
+            save_keys_each.append(key)
+        else:
+            if key[:7] == 'restart':
+                save_keys_end.append(key)
+            else:
+                save_keys_each.append(key)
+    
     if rank == 0:
         print(f'\nRank: {rank} | Initial time series saved.')
         model.print_scalar_quantities()
@@ -185,10 +237,7 @@ def main():
         print('\nStart time integration: ' + split_algo)
         print()
 
-    start_simulation = time.time()
-
     # time loop
-    time_steps_done = 0
     while True:
 
         # synchronize MPI processes and check if simulation end is reached
@@ -197,10 +246,12 @@ def main():
         break_cond_1 = time_steps_done * \
             params['time']['dt'] >= params['time']['Tend']
         break_cond_2 = (time.time() - start_simulation) / \
-            60 > params['time']['max_time']
+            60 > max_sim_time
 
         # stop time loop?
         if break_cond_1 or break_cond_2:
+            # save restart data
+            data.save_data(keys=save_keys_end)
             # close output file and time loop
             data.file.close()
             # om.export_space_info() TODO: Psydac Derham functionaltiy not yet implemented.
@@ -232,8 +283,8 @@ def main():
                     # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
                     subval['obj'].extract_coeffs(update_ghost_regions=False)
 
-        # save data
-        data.save_data()
+        # save data (everything but restart data)
+        data.save_data(keys=save_keys_each)
 
         # print number of finished time steps and current energies
         if rank == 0 and time_steps_done % 1 == 0:

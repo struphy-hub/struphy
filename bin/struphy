@@ -26,7 +26,8 @@ OUTPUT_ABS=
 BATCH=false            
 BATCH_SCRIPT=     
 BATCH_SCRIPT_ABS=         
-RESTART_DIR=          
+RESTART=false
+RUNTIME=300
 MPI_SIZE=1
 DEBUG=
 CELLDIVIDE=1
@@ -75,7 +76,8 @@ function run_help {
     echo "Usage: struphy run MODEL [-i FILE] [-o DIR]"
     echo "                         [--input-abs FILE] [--output-abs DIR]"
     echo "                         [-b FILE] [--batch-abs FILE]"
-    echo "                         [--restart DIR]"
+    echo "                         [-r] [--restart]"
+    echo "                         [--run-time TIME]"
     echo "                         [--mpi N]"
     echo
     echo "Run a struphy model."
@@ -95,7 +97,8 @@ function run_help {
     echo "  --output-abs    Output directory DIR, absolute path"  
     echo "  -b, --batch     Batch script FILE relative to install_path/struphy/io/batch/"
     echo "  --batch-abs     Batch script FILE, absolute path"
-    echo "  --restart       Run with restart, give absolute path to restart DIR"
+    echo "  --run-time      Maximum run time of program in minutes. Will stop the simulation after this time even if Tend in parameter file is not reached, default is 300 (5 hours)"
+    echo "  -r, --restart   Restart an exisiting simulation, number of MPI processes must be compatible"
     echo "  --mpi           Use 'mpirun -n N' to launch struphy"
     echo "  --debug         Launch a Cobra debug run, see https://docs.mpcdf.mpg.de/doc/computing/cobra-user-guide.html#interactive-debug-runs"
 }
@@ -333,7 +336,11 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     -r|--restart)
-      RESTART_DIR="$2"
+      RESTART=true
+      shift
+      ;;
+    --run-time)
+      RUNTIME="$2"
       shift
       shift
       ;;
@@ -393,19 +400,18 @@ fi
 # Run
 if [ "$RUN" = true ] ; then
 
-  # Restart
-  if [ $RESTART_DIR ]; then
-    echo "Restart not yet implemented."
-    exit 0
-  fi
-
   # In-/output paths
   if [ -z $INPUT_ABS ]; then
     INPUT_ABS=$STRUPHY/io/inp/$INPUT
   fi
-
+  
   if [ -z $OUTPUT_ABS ]; then
     OUTPUT_ABS=$STRUPHY/io/out/$OUTPUT
+  fi
+  
+  # For restarts, take the parameter file in the output folder as an input
+  if [ "$RESTART" = true ] ; then
+    INPUT_ABS=$OUTPUT_ABS/parameters.yml
   fi
 
   # Create ouput folder OR clear output folder if it already exists
@@ -414,7 +420,11 @@ if [ "$RUN" = true ] ; then
     tmp_path=$(pwd)
     cd $OUTPUT_ABS
     rm -rf */
-    find . -type f -not \( -name '*.yml' -or -name '*.npy' \) -delete
+    if [ "$RESTART" = true ] ; then
+      find . -type f -not \( -name '*.yml' -or -name '*.npy' -or -name '*.hdf5' \) -delete
+    else
+      find . -type f -not \( -name '*.yml' -or -name '*.npy' \) -delete
+    fi
     cd $tmp_path
   else
     mkdir $OUTPUT_ABS
@@ -430,7 +440,7 @@ if [ "$RUN" = true ] ; then
 
   # Run flags
   CPROFILE="-m cProfile -o $OUTPUT_ABS/profile_tmp -s time $STRUPHY/main.py"
-  ARGS="$MODEL $INPUT_ABS $OUTPUT_ABS/ None $METAFILE $RESTART_DIR"
+  ARGS="$MODEL $INPUT_ABS $OUTPUT_ABS/ None $METAFILE $RESTART $RUNTIME"
 
   # Normal run  
   RUN_CMD="$PYTHON $CPROFILE $ARGS"  
@@ -476,7 +486,8 @@ if [ "$RUN" = true ] ; then
   echo "STRUPHY          = ${STRUPHY}"
   echo "RUN              = ${RUN}"
   echo "MODEL            = ${MODEL}"
-  echo "RESTART_DIR      = ${RESTART_DIR}"
+  echo "RESTART          = ${RESTART}"
+  echo "RUNTIME          = ${RUNTIME}"
   echo "MPI_SIZE         = ${MPI_SIZE}"
   echo "INPUT_ABS        = ${INPUT_ABS}"
   echo "OUTPUT_ABS       = ${OUTPUT_ABS}"
@@ -487,7 +498,7 @@ if [ "$RUN" = true ] ; then
   # Write to meta.txt
   echo "STRUPHY          = ${STRUPHY}" >> $METAFILE
   echo "MODEL            = ${MODEL}" >> $METAFILE
-  echo "RESTART_DIR      = ${RESTART_DIR}" >> $METAFILE
+  echo "RESTART          = ${RESTART}" >> $METAFILE
   echo "MPI_SIZE         = ${MPI_SIZE}" >> $METAFILE
   echo "INPUT_ABS        = ${INPUT_ABS}" >> $METAFILE
   echo "OUTPUT_ABS       = ${OUTPUT_ABS}" >> $METAFILE

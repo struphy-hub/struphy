@@ -1,6 +1,6 @@
-# some hints:
+# some hints on how to use this parameter file:
 # 1. Strings can either be set as e.g. 'Cuboid' or Cuboid. Both works
-# 2. null will be transformed to Python's None
+# 2. null will be transformed to Python's None type
 
 grid :
     Nel      : [2, 2, 64] # number of grid cells, >p
@@ -14,7 +14,6 @@ grid :
 time :
     dt         : 0.05 # time step
     Tend       : 0.5 # simulation time interval is [0, Tend]
-    max_time   : 300. # maximum runtime of program in minutes
     split_algo : LieTrotter # LieTrotter | Strang
 
 geometry :

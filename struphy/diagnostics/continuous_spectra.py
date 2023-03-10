@@ -235,8 +235,8 @@ if __name__ == '__main__':
     
     # plot equilibrium profiles for (s, chi=0)
     ax[0, 0].plot(etaplot[0], mhd_equil.b2_3(etaplot[0], 0., 0.)/mhd_equil.b2_2(etaplot[0], 0., 0.))
-    ax[0, 1].plot(etaplot[0], mhd_equil.p(xplot[:, 0], 0., 0.))
-    ax[0, 2].plot(etaplot[0], mhd_equil.n(xplot[:, 0], 0., 0.))
+    ax[0, 1].plot(etaplot[0], mhd_equil.p_xyz(xplot[:, 0], 0., 0.).squeeze())
+    ax[0, 2].plot(etaplot[0], mhd_equil.n_xyz(xplot[:, 0], 0., 0.).squeeze())
 
     ax[0, 0].set_xlabel('$s$')
     ax[0, 1].set_xlabel('$s$')

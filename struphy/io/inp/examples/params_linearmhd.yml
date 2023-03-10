@@ -16,7 +16,6 @@ model_units :
 time :
     dt         : 0.15 # time step
     Tend       : 180. # simulation time interval is [0, Tend]
-    max_time   : 300. # maximum runtime of program in minutes
     split_algo : LieTrotter # LieTrotter | Strang
 
 geometry :
