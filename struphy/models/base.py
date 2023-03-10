@@ -376,7 +376,7 @@ class StruphyModel(metaclass=ABCMeta):
         '''Dictionary of scalar quantities to be saved during simulation. 
         Must be initialized as empty np.array of size 1::
 
-            self._scalar_quantities['time'] = np.empty(1, dtype=float)'''
+            The time series self._scalar_quantities['time'] = np.empty(1, dtype=float) must be contained.'''
         return self._scalar_quantities
 
     @abstractmethod
@@ -438,18 +438,13 @@ class StruphyModel(metaclass=ABCMeta):
             sq_str += key + ': {:16.12f}'.format(val[0]) + '     '
         print(sq_str)
 
-    def set_initial_conditions(self):
+    def initialize_from_params(self):
         '''
-        Set initial conditions for FE coefficients, fluid fields, and marker weights.
+        Set initial conditions for FE coefficients (electromagnetic and fluid) and markers.
         '''
 
         # initialize em fields
         if len(self.em_fields) > 0:
-
-            # if self.em_fields['params']['init']['coords'] == 'physical':
-            #    dom_arg = self.domain
-            # else:
-            #    dom_arg = None
 
             for key, val in self.em_fields.items():
                 if 'params' not in key:
@@ -460,11 +455,6 @@ class StruphyModel(metaclass=ABCMeta):
         if len(self.fluid) > 0:
 
             for val in self.fluid.values():
-
-                # if val['params']['init']['coords'] == 'physical':
-                #    dom_arg = self.domain
-                # else:
-                #    dom_arg = None
 
                 for variable, subval in val.items():
                     if 'params' not in variable:
@@ -491,12 +481,39 @@ class StruphyModel(metaclass=ABCMeta):
                     raise NotImplementedError(
                         f'Type {typ} for distribution function is not known!')
 
-                # if val['space'] == 'Particles5D':
-                #     val['obj'].save_magnetic_moment(
-                #         self.derham, self.derham.P['0'](self.mhd_equil.absB0))
+                #if val['space'] == 'Particles5D':
+                #    val['obj'].save_magnetic_moment(
+                #        self.derham, self.derham.P['0'](self.mhd_equil.absB0))
+            
+    def initialize_from_restart(self, file):
+        '''
+        Load restart data for FE coefficients (electromagnetic and fluid) and markers from restart group in hdf5 output files.
+        '''
+        
+        # initialize em fields
+        if len(self.em_fields) > 0:
 
-            self.update_markers_to_be_saved()
-            self.update_distr_function()
+            for key, val in self.em_fields.items():
+                if 'params' not in key:
+                    val['obj'].initialize_coeffs_from_restart_file(file)
+                    
+        # initialize fields
+        if len(self.fluid) > 0:
+
+            for species, val in self.fluid.items():
+
+                for variable, subval in val.items():
+                    if 'params' not in variable:
+                        subval['obj'].initialize_coeffs_from_restart_file(file, species)
+                        
+        # initialize particles
+        if len(self.kinetic) > 0:
+            
+            for key, val in self.kinetic.items():
+                val['obj']._markers[:, :] = file['restart/' + key][-1, :, :]
+                
+                # important: sets holes attribute of markers!
+                val['obj'].mpi_sort_markers(do_test=True)
 
             
 ###########################

@@ -332,6 +332,25 @@ class Field:
         # update ghost regions
         self._vector.update_ghost_regions()
 
+    def initialize_coeffs_from_restart_file(self, file, species=None):
+        """
+        TODO
+        """
+        
+        if species is None:
+            key = 'restart/' + self.name
+        else:
+            key = 'restart/' + species + '_' + self.name
+        
+        if isinstance(self.vector, StencilVector):
+            self.vector._data[:] = file[key][-1]
+        else:
+            for n in range(3):
+                self.vector[n]._data[:] = file[key + '/' + str(n + 1)][-1]
+            
+        self._vector.update_ghost_regions()
+    
+    
     def __call__(self, eta1, eta2, eta3, squeeze_output=False):
         """
         Evaluates the spline function on the local domain.
