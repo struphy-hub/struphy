@@ -570,8 +570,19 @@ class CurrentCoupling6DCurrent(Propagator):
                 [self._f0.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
             self._nuh0_at_quad[2] *= self.domain.pull(
                 [self._f0.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
+            
+            # memory allocation for magnetic field at quadrature points
+            self._b_quad1 = np.zeros_like(self._nuh0_at_quad[0])
+            self._b_quad2 = np.zeros_like(self._nuh0_at_quad[0])
+            self._b_quad3 = np.zeros_like(self._nuh0_at_quad[0])
+            
+            # memory allocation for (self._b_quad x self._nuh0_at_quad) * self._coupling_vec
+            self._vec1 = np.zeros_like(self._nuh0_at_quad[0])
+            self._vec2 = np.zeros_like(self._nuh0_at_quad[0])
+            self._vec3 = np.zeros_like(self._nuh0_at_quad[0])
 
         self._info = params['info']
+        self._rank = self.derham.comm.Get_rank()
 
         self._coupling_mat = params['nuh'] * params['kappa']**2 * \
             params['Zh']**2 / (params['Ab'] * params['Ah'])
@@ -607,8 +618,15 @@ class CurrentCoupling6DCurrent(Propagator):
         self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'],
                                          tol=params['tol'], maxiter=params['maxiter'],
                                          verbose=params['verbose'])
-
-        self._rank = self.derham.comm.Get_rank()
+        
+        # temporary vectors to avoid memory allocation
+        self._b_full1 = self._b_eq.space.zeros()
+        self._b_full2 = self._EbT.codomain.zeros()
+        
+        self._u_new = self._u.space.zeros()
+        
+        self._u_avg1 = self._u.space.zeros()
+        self._u_avg2 = self._EuT.codomain.zeros()
 
     @property
     def variables(self):
@@ -619,58 +637,61 @@ class CurrentCoupling6DCurrent(Propagator):
         TODO
         """
 
-        # old coefficients
-        u_old = self.variables[0]
+        # pointer to old coefficients
+        un = self.variables[0]
 
-        # sum up total magnetic field
-        b_full = self._b_eq.copy()
+        # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
+        self._b_eq.copy(out=self._b_full1)
+        
         if self._b_tilde is not None:
-            b_full += self._b_tilde
+            self._b_full1 += self._b_tilde
 
-        # extract coefficients to tensor product space
-        b_full = self._EbT.dot(b_full)
+        # extract coefficients to tensor product space (in-place)
+        self._EbT.dot(self._b_full1, out=self._b_full2)
 
-        # update ghost regions because of non-local access in pusher kernel
-        b_full.update_ghost_regions()
+        # update ghost regions because of non-local access in accumulation kernel!
+        self._b_full2.update_ghost_regions()
 
         # perform accumulation (either with or without control variate)
         if self._f0 is not None:
 
-            # evaluate total magnetic field at quadrature points
-            b_quad = WeightedMassOperator.eval_quad(
-                self.derham.Vh_fem['2'], b_full)
-
-            control_vec_at_quad = [self._coupling_vec*(b_quad[1]*self._nuh0_at_quad[2] - b_quad[2]*self._nuh0_at_quad[1]),
-                                   self._coupling_vec *
-                                   (b_quad[2]*self._nuh0_at_quad[0] -
-                                    b_quad[0]*self._nuh0_at_quad[2]),
-                                   self._coupling_vec*(b_quad[0]*self._nuh0_at_quad[1] - b_quad[1]*self._nuh0_at_quad[0])]
+            # evaluate magnetic field at quadrature points (in-place)
+            WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
+                                           out=[self._b_quad1, self._b_quad2, self._b_quad3])
+            
+            self._vec1[:, :, :] = self._coupling_vec*(self._b_quad2*self._nuh0_at_quad[2] - self._b_quad3*self._nuh0_at_quad[1])
+            self._vec2[:, :, :] = self._coupling_vec*(self._b_quad3*self._nuh0_at_quad[0] - self._b_quad1*self._nuh0_at_quad[2])
+            self._vec3[:, :, :] = self._coupling_vec*(self._b_quad1*self._nuh0_at_quad[1] - self._b_quad2*self._nuh0_at_quad[0])
 
             self._accumulator.accumulate(self._particles,
-                                         b_full[0]._data, b_full[1]._data, b_full[2]._data,
+                                         self._b_full2[0]._data, self._b_full2[1]._data, self._b_full2[2]._data,
                                          self._space_key_int, self._coupling_mat, self._coupling_vec,
-                                         control_vec=control_vec_at_quad)
+                                         control_vec=[self._vec1, self._vec2, self._vec3])
         else:
             self._accumulator.accumulate(self._particles,
-                                         b_full[0]._data, b_full[1]._data, b_full[2]._data,
+                                         self._b_full2[0]._data, self._b_full2[1]._data, self._b_full2[2]._data,
                                          self._space_key_int, self._coupling_mat, self._coupling_vec)
 
-        # solve linear system for updated u coefficients
-        u_new, info = self._schur_solver(
-            u_old, -self._accumulator.vectors[0]/2, dt)
+        # solve linear system for updated u coefficients (in-place)
+        info = self._schur_solver(un, -self._accumulator.vectors[0]/2, dt,
+                                  out=self._u_new)[1]
 
         # call pusher kernel with average field (u_new + u_old)/2 and update ghost regions because of non-local access in kernel
-        u_avg = self._EuT.dot((u_old + u_new)/2)
+        un.copy(out=self._u_avg1)
+        self._u_avg1 += self._u_new
+        self._u_avg1 /= 2
+        
+        self._EuT.dot(self._u_avg1, out=self._u_avg2)
 
-        u_avg.update_ghost_regions()
+        self._u_avg2.update_ghost_regions()
 
         # push particles
         self._pusher(self._particles, self._scale_push*dt,
-                     b_full[0]._data, b_full[1]._data, b_full[2]._data,
-                     u_avg[0]._data, u_avg[1]._data, u_avg[2]._data)
+                     self._b_full2[0]._data, self._b_full2[1]._data, self._b_full2[2]._data,
+                     self._u_avg2[0]._data, self._u_avg2[1]._data, self._u_avg2[2]._data)
 
         # write new coeffs into Propagator.variables
-        max_du = self.in_place_update(u_new)
+        max_du = self.in_place_update(self._u_new)
 
         # update weights in case of control variate
         if self._f0 is not None:
@@ -1032,7 +1053,7 @@ class CurrentCoupling5DCurrent2( Propagator ):
             print()
 
 
-class CurrentCoupling5DCurrent2_dg( Propagator ):
+class CurrentCoupling5DCurrent2Dg( Propagator ):
     r'''
     TODO
     '''

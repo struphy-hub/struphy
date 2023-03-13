@@ -190,7 +190,7 @@ class PushVxB(Propagator):
             self._particles.update_weights(self._f0)
 
 
-class StepPushpxB_hybrid(Propagator):
+class StepPushpxBHybrid(Propagator):
     r"""Solves
 
     .. math::
@@ -270,7 +270,7 @@ class StepPushpxB_hybrid(Propagator):
                      self._field_vectors[0][2]._data)
 
 
-class StepHybridXP_symplectic(Propagator):
+class StepHybridXPSymplectic(Propagator):
     r'''Step for the update of particles' positions and canonical momentum with symplectic methods (only in Cartesian coordinates) which solve the following Hamiltonian system
 
     .. math::

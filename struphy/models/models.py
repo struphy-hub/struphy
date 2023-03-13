@@ -108,8 +108,8 @@ class LinearMHD(StruphyModel):
             self._n,
             self._u,
             self._p,
-            self._b,
             u_space=self._u_space,
+            b=self._b,
             **sonic_solver)]
 
         # Scalar variables to be saved during simulation
@@ -499,8 +499,8 @@ class LinearMHDVlasovCC(StruphyModel):
             self._n,
             self._u,
             self._p,
-            self._b,
             u_space=self._u_space,
+            b=self._b,
             **solver_params_4)]
 
         # Scalar variables to be saved during simulation:
@@ -817,9 +817,9 @@ class LinearMHDVlasovPC(StruphyModel):
         self._propagators += [propagators_fields.Magnetosonic(
             self._n, 
             self._u, 
-            self._p, 
-            self._b, 
+            self._p,
             u_space=self._u_space,
+            b=self._b,
             **magnetosonic_solver)]
 
         # Scalar variables to be saved during simulation
@@ -1039,7 +1039,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
         # updates u and b
-        self._propagators += [propagators_fields.ShearAlfvén_CurrentCoupling5D(
+        self._propagators += [propagators_fields.ShearAlfvénCurrentCoupling5D(
             self._u,
             self._b,
             particles=self._e_ions,
@@ -1049,7 +1049,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             **solver_params_1,
             **self._coupling_params)]
         # updates u and p
-        self._propagators += [propagators_fields.Magnetosonic_CurrentCoupling5D(
+        self._propagators += [propagators_fields.MagnetosonicCurrentCoupling5D(
             self._n,
             self._u,
             self._p,
@@ -1410,8 +1410,8 @@ class LinearVlasovMaxwell(StruphyModel):
     def propagators(self):
         return self._propagators
 
-    def set_initial_conditions(self):
-        super().set_initial_conditions()
+    def initialize_from_params(self):
+        super().initialize_from_params()
         # Correct initialization weights by dividing by N*sqrt(f_0)
         self._electrons.markers[~self._electrons.holes, 6] /= (self._electrons.n_mks *
                                                                np.sqrt(self._f0(*self._electrons.markers_wo_holes[:, :6].T)))
@@ -1813,7 +1813,7 @@ class DriftKinetic(StruphyModel):
 ########################################################
 # Hybrid models with kinetic ions and massless electrons
 ########################################################
-class Hybrid_fA(StruphyModel):
+class HybridFA(StruphyModel):
     r'''Hybrid (kinetic ions + massless electrons) equations with quasi-neutrality condition. 
     Unknowns: distribution function for ions, and vector potential.
 
@@ -1885,11 +1885,11 @@ class Hybrid_fA(StruphyModel):
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-        self._propagators += [propagators_markers.StepHybridXP_symplectic(self._a, self._ions, self.derham, self.domain, ions_params['markers']['bc_type'], nqs, np.array(
+        self._propagators += [propagators_markers.StepHybridXPSymplectic(self._a, self._ions, self.derham, self.domain, ions_params['markers']['bc_type'], nqs, np.array(
             shape_params['degree']), np.array(shape_params['size']), thermal, np.array(params['grid']['nq_el']))]
-        self._propagators += [propagators_markers.StepPushpxB_hybrid(
+        self._propagators += [propagators_markers.StepPushpxBHybrid(
             self._ions, self.derham, self.domain, ions_params['push_algos']['pxb'], self._a, self._b_eq)]
-        self._propagators += [propagators_fields.Hybrid_potential(self._a, 'Hcurl', self._b_eq, self.derham, self._mass_ops,
+        self._propagators += [propagators_fields.HybridPotential(self._a, 'Hcurl', self._b_eq, self.derham, self._mass_ops,
                                                                   self.domain, self._ions, nqs, np.array(shape_params['degree']), np.array(shape_params['size']))]
 
         # Scalar variables to be saved during simulation
