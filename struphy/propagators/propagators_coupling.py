@@ -278,7 +278,7 @@ class PressureCoupling6D(Propagator):
             id_X = 'X2'
         elif params['u_space'] == 'H1vec':
             id_Mn = 'Mvn'
-            id_X = 'X0'
+            id_X = 'Xv'
 
         if params['u_space'] == 'H1vec':
             self._space_key_int = 0

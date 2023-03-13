@@ -1,7 +1,7 @@
 .. _quickstart:
 
-Quickstart
-==========
+Quickstart guide
+================
 
 Get help::
 

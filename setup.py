@@ -46,8 +46,6 @@ setup(
         'pyccel',
         'PyYAML',
         'scipy',
-        'sympy<1.7,>=1.2',
-        'sympde',
         'pytest',
         'pytest-mpi',
         'mistune<2',
@@ -59,8 +57,8 @@ setup(
         'docutils==0.15',
         'wheel',
         'tqdm',
-        'psydac',
         'gvec_to_python',
+        'psydac @ git+https://github.com/pyccel/psydac@struphy-branch',
     ],
     # more information, necessary for an upload to PyPI
     author="Max Planck Institute for Plasma Physics",

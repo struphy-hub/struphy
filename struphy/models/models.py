@@ -95,7 +95,7 @@ class LinearMHD(StruphyModel):
         Propagator.domain = self.domain
         Propagator.mass_ops = self.mass_ops
         Propagator.basis_ops = BasisProjectionOperators(
-            self.derham, self.domain, self.mhd_equil)
+            self.derham, self.domain, eq_mhd=self.mhd_equil)
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
@@ -319,7 +319,7 @@ class LinearMHDVlasovCC(StruphyModel):
     .. math::
 
         \begin{align}
-        \textnormal{linear MHD}\,\, &\left\{\,\,
+        \textnormal{MHD}\,\, &\left\{\,\,
         \begin{aligned}
         &\frac{\partial \tilde{n}_\textnormal{b}}{\partial t}+\nabla\cdot(n_\textnormal{b0} \tilde{\mathbf{U}})=0\,, 
         \\
@@ -444,7 +444,7 @@ class LinearMHDVlasovCC(StruphyModel):
         Propagator.domain = self.domain
         Propagator.mass_ops = self.mass_ops
         Propagator.basis_ops = BasisProjectionOperators(
-            self.derham, self.domain, self.mhd_equil)
+            self.derham, self.domain, eq_mhd=self.mhd_equil)
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
@@ -630,7 +630,7 @@ class LinearMHDVlasovPC(StruphyModel):
     .. math::
 
         \begin{align}
-        \textnormal{linear MHD} &\left\{
+        \textnormal{MHD} &\left\{
         \begin{aligned}
         &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
         \\
@@ -659,7 +659,7 @@ class LinearMHDVlasovPC(StruphyModel):
     .. math::
 
         \begin{align}
-        \textnormal{linear MHD} &\left\{
+        \textnormal{MHD} &\left\{
         \begin{aligned}
         &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
         \\
@@ -780,7 +780,7 @@ class LinearMHDVlasovPC(StruphyModel):
         Propagator.domain = self.domain
         Propagator.mass_ops = self.mass_ops
         Propagator.basis_ops = BasisProjectionOperators(
-            self.derham, self.domain, self.mhd_equil)
+            self.derham, self.domain, eq_mhd=self.mhd_equil)
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
@@ -881,7 +881,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
     .. math::
 
         \begin{align}
-        \textnormal{linear MHD} &\left\{
+        &\textnormal{MHD} \left\{
         \begin{aligned}
         &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
         \\
@@ -896,7 +896,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         \end{aligned}
         \right.
         \\[2mm]
-        \textnormal{Driftkinetic}\qquad& \frac{\partial F_h}{\partial t} + \frac{1}{B_\parallel^*}(v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^*)\cdot\frac{\partial F_h}{\partial \mathbf{x}}
+        &\textnormal{Drift-kinetic}\qquad \frac{\partial F_h}{\partial t} + \frac{1}{B_\parallel^*}(v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^*)\cdot\frac{\partial F_h}{\partial \mathbf{x}}
         + \frac{q_h}{m_h} \frac{1}{B_\parallel^*} (\mathbf{B}^* \cdot \mathbf{E}^*)\cdot\frac{\partial F_h}{\partial v_\parallel}
         = 0\,,
         \\
@@ -1034,7 +1034,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         Propagator.domain = self.domain
         Propagator.mass_ops = self.mass_ops
         Propagator.basis_ops = BasisProjectionOperators(
-            self.derham, self.domain, self.mhd_equil)
+            self.derham, self.domain, eq_mhd=self.mhd_equil)
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
@@ -1881,7 +1881,7 @@ class Hybrid_fA(StruphyModel):
 
         # Assemble necessary linear basis projection operators
         self._basis_ops = BasisProjectionOperators(
-            self.derham, self.domain, self.mhd_equil)
+            self.derham, self.domain, eq_mhd=self.mhd_equil)
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []

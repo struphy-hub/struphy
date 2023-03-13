@@ -20,24 +20,11 @@ import numpy as np
 
 class Derham:
     """
-    Psydac API for the discrete Derham sequence on the logical unit cube (3d): Polar sub-spaces can be added.
+    Psydac API for the discrete Derham sequence on the logical unit cube (3d).
+    Polar sub-spaces (indicated by a bar) can be added.
     
-         V0 ----- d0 ----> V1 ----- d1 ----> V2 ----- d1 ----> V3
-          |                 |                 |                 |
-          |                 |                 |                 |
-          | P0              | P1              | P2              | P3
-          |                 |                 |                 |
-          v                 v                 v                 v
-         V0h ---- d0 ----> V1h ---- d1 ----> V2h ---- d2 ----> V3h
-          ^                 ^                 ^                 ^
-          |                 |                 |                 |
-          | (E0)^T          | (E1)^T          | (E2)^T          | (E3)^T
-          |                 |                 |                 |
-          |                 |                 |                 |
-       V0h_pol -- d0 --> V1h_pol -- d1 --> V2h_pol -- d2 --> V3h_pol
-       
-    In above diagram, d0 <-> grad, d1 <-> curl and d2 <-> div. If polar sub-spaces are added, Pk (k = 0,1,2,3) map to Vkh_pol.
-    
+    .. image:: ../pics/polar_derham.png
+           
     Parameters
     ----------
     Nel : list[int]

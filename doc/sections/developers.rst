@@ -3,6 +3,203 @@
 Developer's guide
 =================
 
+*Struphy* is open source *and* open development, and thus thrives on the contributions of its users.
+In order to maintain a sustainable software framework, :ref:`conventions` have to be followed
+to achieve successful pull requests. Suggestions for a standard :ref:`git_workflow` are also available.
+
+A comprehensive documentation is vital for the usability of *Struphy*; any developer should therefore 
+check out the hints for :ref:`change_doc`.
+
+Developers can contribute to *Struphy* in multiple ways.
+Single physics features or algorithmic novelties can be added 
+via the available :ref:`base_classes`. For FEEC discretizations,
+the most relevant classes are
+
+    * :ref:`weighted_mass`
+    * :ref:`basis_ops`
+
+For PIC, the most relevant classes are
+
+    * :ref:`pusher`
+    * :ref:`accumulator`
+
+Useful models for linear algebra, preconditioners, stencil data objects
+and PIC routines can be found under :ref:`utilities`.
+
+In case you want to add a new solver for a PDE or a system of PDEs, 
+please follow :ref:`add_model`.
+
+
+.. _conventions:
+
+Struphy coding conventions
+--------------------------
+
+*Struphy* follows the `Python PEP 8 style guide <https://peps.python.org/pep-0008/>`_.
+If you use VScode, the format conventions can be automatically applied by choosing "format document"
+after right-click on the source.
+
+Every class and functions must have a docstring that explains its functionalty.
+*Struphy* uses numpy-style docstrings with "Parameters", "Returns" and "Note" keywords.
+
+
+.. _base_classes:
+
+Struphy base classes
+--------------------
+
+Derham sequence (3D) 
+^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: struphy.psydac_api.psydac_derham.Derham
+    :members:
+
+Mapped domain
+^^^^^^^^^^^^^
+
+.. autoclass:: struphy.geometry.base.Domain
+    :members:
+
+.. _weighted_mass:
+
+Weighted mass operators
+^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: struphy.psydac_api.mass.WeightedMassOperators
+    :members:
+
+.. _basis_ops:
+
+Basis projection operators
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: struphy.psydac_api.basis_projection_ops.BasisProjectionOperators
+    :members:
+
+.. _particles:
+
+Particles
+^^^^^^^^^
+
+.. autoclass:: struphy.pic.particles.Particles
+    :members:
+
+.. _pusher:
+
+Particle pusher
+^^^^^^^^^^^^^^^
+
+.. autoclass:: struphy.pic.pusher.Pusher
+    :members:
+
+.. _accumulator:
+
+Particle-to-grid accumulator
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: struphy.pic.particles_to_grid.Accumulator
+    :members:
+
+
+.. _utilities:
+
+Utilities
+---------
+
+Linear algebra
+^^^^^^^^^^^^^^
+
+.. automodule:: struphy.linear_algebra.core
+    :members: 
+    :undoc-members:
+
+.. automodule:: struphy.linear_algebra.iterative_solvers
+    :members: 
+    :undoc-members:
+
+.. automodule:: struphy.linear_algebra.schur_solver
+    :members: 
+    :undoc-members:
+
+Linear operators
+^^^^^^^^^^^^^^^^
+
+.. automodule:: struphy.psydac_api.linear_operators
+    :members: 
+    :undoc-members:
+
+Preconditioners
+^^^^^^^^^^^^^^^
+
+.. automodule:: struphy.psydac_api.preconditioner
+    :members: 
+    :undoc-members:
+
+Stencil data objects
+^^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: struphy.psydac_api.utilities
+    :members: 
+    :undoc-members:
+
+PIC
+^^^
+
+.. automodule:: struphy.pic.utilities
+    :members: 
+    :undoc-members:
+
+
+.. _add_model:
+
+Adding a new Struphy model
+--------------------------
+
+*Struphy* provides an extensive framework for adding new model equations.
+A model consists of a set of PDEs togehter with a chosen discretization scheme.
+
+Struphy models must be added to :mod:`struphy.models.models` as child classes of 
+the :class:`struphy.models.base.StruphyModel`. **Please refer to existing models for templates.**
+
+A Struphy model s defined by 
+
+    a. unknowns: *field* (FEEC), *fluid* (FEEC), or *kinetic* (PIC) variables
+    b. :ref:`propagators` to update the unknowns 
+    c. scalar quantities depending on the uknowns tracked during the simulation (e.g. total energy)
+ 
+These three categories must be provided to :class:`struphy.models.base.StruphyModel`.  
+A typical initialization of the unknowns looks like::
+
+    super().__init__(params, comm, b2='Hdiv', mhd={'n3': 'L2', u_name: self._u_space, 'p3': 'L2'}, energetic_ions='Particles5D')
+
+This example is taken from :class:`struphy.models.models.LinearMHDDriftkineticCC`. Here,
+one field variable (``b2``), one fluid species (``mhd``) and one kinetic species (``energetic_ions``)
+are initialized.
+
+Regarding the propagators, it is important to expose the base class :class:`struphy.propagators.base.Propagator`
+to the current instances of the de Rham complex, domain, weighted mass operators and (if needed)
+basis projection operators, BEFORE instantiating the model-specific propagators::
+
+    Propagator.derham = self.derham
+    Propagator.domain = self.domain
+    Propagator.mass_ops = self.mass_ops
+    Propagator.basis_ops = BasisProjectionOperators(
+        self.derham, self.domain, eq_mhd=self.mhd_equil)
+
+**Please refer to** :ref:`propagators` **for propagator templates.**
+
+Once you added a model to ``struphy/models/models.py`` and re-installed struphy (``pip install -e .``), 
+you can run the model with ``struphy run YOUR_MODEL``, where ``YOUR_MODEL`` is the name you gave to 
+the model class (it must start with a capital letter).
+
+.. autoclass:: struphy.models.base.StruphyModel
+    :members:
+    :undoc-members:
+
+.. autoclass:: struphy.propagators.base.Propagator
+    :members:
+    :undoc-members:
+
 
 .. _git_workflow:
 
@@ -187,234 +384,6 @@ In this way they are recognized by ``pytest`` in ``.gitlab-ci.yml``:
 Please consult existing tests as templates.
 
 
-.. _add_model:
-
-How to add a new model
-----------------------
-
-Struphy models can be composed of **fluid/field variables** (3D in space) and **kinetic variables** (5D or 6D in phase space).
-
-The discretization is performed according to the GEMPIC (Geometric ElectroMagnetic Particle-In-Cell) framework.
-The relevant publications are listed in :ref:`gempic`.
-
-Field variables are discretized with :ref:`geomFE`. 
-Kinetic variables are discretized within the Particles-In-Cell (PIC) method, which is described in :ref:`particle_discrete`.
-
-Struphy models must be added to the module ``struphy/models/models.py``. 
-They inherit the :ref:`model_base_class` and must define the abstract properties 
-:ref:`propagators <add_propagator>`, ``scalar_quantities`` as well as the abstract method  ``update_scalar_quantities``.
-You are advised to use :ref:`existing model classes <models>` as templates.
-
-Once you added a model to ``struphy/models/models.py`` and re-installed struphy (``pip install -e .``), 
-you can run the model with ``struphy run YOUR_MODEL``, where ``YOUR_MODEL`` is the name you gave to 
-the model class (it must start with a capital letter).
-
-
-.. _add_field:
-
-Adding field variables
-^^^^^^^^^^^^^^^^^^^^^^
-
-.. highlight:: python
-
-Each instance of a model class gets initialized with a parameter dictionary ``params`` and the MPI communicator ``comm``::
-
-    def __init__(self, params, comm):
-
-In the scope of this ``__init__`` function, field variables are added by calling upon the base class::
-
-    super().__init__(params, comm, e_field='Hcurl', b_field='Hdiv')
-
-The above example stems from the model ``Maxwell``, where two fields are implemented:
-the electric field ``e_field`` in the space :math:`H(\textnormal{curl},\Omega)`
-and the magnetic field ``b_field`` in the space :math:`H(\textnormal{div},\Omega)`.
-The base class then creates two instances of the :ref:`struphy_field`. 
-It is convenient to create pointers to the actual ``StencilVectors`` (or in this case
-``BlockVectors``, which are 3-lists of ``StencilVectors``)::
-
-    self._e = self.fields[0].vector
-    self._b = self.fields[1].vector
-
-``StencilVectors`` are the basic `psydac <https://github.com/pyccel/psydac>`_ objects in which distributed vectors are stored. 
-These pointers can then be passed to one or more propagators (in this case just one)::
-
-    self._propagators = []
-    self._propagators += [StepMaxwell(self._e, self._b, self.derham, self._mass_ops, solver_params)]
-
-    @property
-    def propagators(self):
-        return self._propagators
-
-Here, the abstract method ``propagators`` has been defined as a list of all propagator of the model;
-this is demanded by the ``StruphyModel`` base class.
-
-
-.. _add_particles:
-
-Adding kinetic species
-^^^^^^^^^^^^^^^^^^^^^^
-
-Similar to field variables, kinetic variables are added within the scope of a models's ``__init__`` function,
-by calling upon the base class::
-
-    super().__init__(params, comm, ions='Particles6D')
-
-Here, a species named ``ions`` is added; this automatically creates an instance of the :ref:`Particles6D <particles>` class.
-The kinetic objects are stored as a list in ``self.kinetic_species``. 
-It is convenient to define a pointer to each species (just one species in this case)::
-
-    self._ions = self.kinetic_species[0]
-
-These pointers can then be passed to one or more propagators::
-
-    self._propagators = []
-    self._propagators += [StepPushVxB(self._ions, self.derham, 'analytic', self._b)]
-    self._propagators += [StepPushEta(self._ions, self.derham, 'rk4')]
-
-    @property
-    def propagators(self):
-        return self._propagators
-
-Here, the abstract method ``propagators`` has been defined as a list of all propagator of the model;
-this is demanded by the ``StruphyModel`` base class.
-
-
-.. _add_propagator:
-
-How to add a new propagator
----------------------------
-
-Struphy :ref:`propagators` refer to the splitting steps of time marching algorithms.
-They are the basic building blocks of all :ref:`struphy models <models>`.
-
-Propagators must be added to the module ``struphy.propagators.propagators.py``.
-They inherit the :ref:`prop_base_class` and must define the abstract property
-``variables`` and the abstract method ``__call__``.
-You are advised to use :ref:`existing propagator classes <propagators>` as templates.
-Names should start with ``Step``.
-
-.. note::
-
-    :ref:`propagators` are modular and can be used in different models. Please check for
-    exisitng propagators before implementing your own. 
-
-The one propagator used in the model ``Maxwell`` is called ``StepMaxwell``:
-
-.. literalinclude:: ../../struphy/propagators/propagators_fields.py
-    :language: python
-    :linenos: 
-    :lineno-start: 23
-    :lines: 23-100
-
-The propagator ``StepMaxwell`` inherits all members of the base class :ref:`prop_base_class`.
-Hence, in lines 70-92 the abstract objects ``variables`` and ``__call__`` are defined.
-Otherwise, an error message would occur.
-
-The ``__call__`` method takes the time step ``dt`` as argument and updates the variables specified in ``self.variables``.
-Note that the function ``self.in_place_update``  from the base class ``Propagators`` can be used 
-to perform the in-place update of the variables.
-
-The ``__init__`` call is model-specific (not done by the base class).
-The present propagator needs a :ref:`preconditioner`, one 2x2 block matrix and a :ref:`schur_solver`
-
-Moreover, we note that the docstring contains the 
-propagator equations (in latex format). This is necessary for the correct documentation of the propagator.
-
-
-.. _how_to_add:
-
-How to add ... 
---------------
-
-.. _add_mapping:
-
-Mapped domains 
-^^^^^^^^^^^^^^^
-
-New domains have to be added to ``struphy/geometry/domains.py`` and are sub-classes of the :ref:`domain_base`.
-You are advised to use existing domains as templates. 
-
-The actual formulas defining the mapping and its Jacobian matrix
-must be implemented in ``struphy/geometry/mappings_fast.py``, which gets pyccelized (compiled).
-These accelerated functions get called in ``struphy.geometry.map_eval.f`` and ``struphy.geometry.map_eval.df``, respectively.
-The ``kind_map`` attribute (``int``) of the domain class serves as the identifier of the mapping in ``f`` and ``df``.
-Note that ``kind_map < 10`` must be used for spline mappings, and ``kind_map >= 10`` must be used
-for analytical mappings. Make sure that your identifier is not already used by another mapping. 
-
-Implemented domains are listed in :ref:`avail_mappings`. 
-
-
-.. _add_equil:
-
-Backgrounds
-^^^^^^^^^^^^
-
-Implemented backgrounds listed in :ref:`backgrounds`. 
-You are advised to use existing backgrounds as templates.
-
-
-.. _add_dispersion:
-
-Dispersion relations 
-^^^^^^^^^^^^^^^^^^^^^
-
-Implemented dispersion relations that inherit the base class are listed in :ref:`dispersion_base`. 
-You are advised to use existing dispersion relations as templates.
-
-As an example, consider the dispersion relation for light waves in vacuum:
-
-.. literalinclude:: ../../struphy/dispersion_relations/analytic.py
-    :language: python
-    :linenos: 
-    :lineno-start: 8
-    :lines: 8-36  
-
-
-.. _add_pusher:
-
-Particle pushers
-^^^^^^^^^^^^^^^^^
-
-Implemented pusher routines are listed in :ref:`pushers`. 
-You are advised to use existing pushers as templates.
-
-
-.. _add_accum:
-
-PIC accumulation routines 
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Implemented accumulation functions are listed in :ref:`accumulators`. 
-You are advised to use existing accumulation as templates.
-
-Accumulation matrices/vectors are usually defined within a propagator, 
-for instance in ``StepEfieldWeights``::
-
-    self._accum = Accumulator(domain, derham, 'Hcurl', 'linear_vlasov_maxwell',
-                                self.f0_spec, array(self.moms_spec), array(self.f0_params), do_vector=True)
-
-Each accumulator is an instance of the :ref:`accumulator_class`. The name of the accumulation function
-has to be passed as the fourth argument (here ``linear_vlasov_maxwell``).
-
-
-.. _weighted_mass:
-
-Weighted mass matrices 
-^^^^^^^^^^^^^^^^^^^^^^
-
-Weighted mass matrices are methods of :ref:`weighted_mass_class`.
-You are advised to use existing mass matrices as templates.
-
-
-.. _add_mhd_ops:
-
-Basis projection operators 
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Implemented basis projection operators are listed in :ref:`mhd_ops`.
-You are advised to use existing basis projection operators as templates.
-
-
 .. _change_doc:
 
 Changing the documentation 
@@ -428,6 +397,11 @@ If you make changes to these files, you can review them in your browser (e.g. fi
     firefox _build/html/index.html
 
 When making further changes, just do ``make html`` and refresh the window in your browser.
+
+
+
+
+
 
 
 

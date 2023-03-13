@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
-'''
-STRUPHY main execution file.
-'''
+import argparse
+import inspect
 import time
 import yaml
 import datetime
@@ -15,7 +14,55 @@ from struphy.post_processing.output_handling import DataContainer
 from struphy.models import models
 
 
+def main_test(run='Maxwell', compile=None):
+    '''
+    STRUPHY main execution file.
+    '''
+
+    # get arguments
+    parser = argparse.ArgumentParser(
+        prog = 'struphy',
+        description = 'STRUcture-Preserving HYbrid codes',
+        epilog = 'See https://gitlab.mpcdf.mpg.de/struphy/struphy for more information.',
+        )
+    
+    list_models = []
+    for name, obj in inspect.getmembers(models):
+        if inspect.isclass(obj):
+            if name not in {'StruphyModel', 'Propagator', 'PolarVector'}:
+                list_models += [name]
+
+    parser.add_argument('--run',
+                        type=str,
+                        choices=list_models,
+                        metavar='<name>',
+                        help='Which model to run: <name> in ' + str(list_models))
+    
+    parser.add_argument('--compile',
+                        type=str,
+                        choices=['all', 'no-openmp', 'delete', 'verbose'],
+                        metavar='<opt>',
+                        help='Compile kernels with or without openmp, with verbose screen output, or delete all .so files: <opt> in ' + str(['all', 'no-openmp', 'delete', 'verbose'])
+                        )
+    
+    args = parser.parse_args()
+    print(args.run)
+    print(args.compile)
+
+    if args.run is not None:
+        run = args.run
+
+    if args.compile is not None:
+        compile = args.compile
+
+    print(run)
+    print(compile)
+
+
 def main():
+    '''
+    Run a STRUPHY model.
+    '''
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     
@@ -299,4 +346,5 @@ def main():
 
 
 if __name__ == '__main__':
+    #run()
     main()

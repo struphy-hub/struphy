@@ -1,6 +1,6 @@
 .. _avail_mappings:
 
-Available domains
+3D curved domains
 =================
 
 A manual for adding new domains is given in :ref:`add_mapping`.

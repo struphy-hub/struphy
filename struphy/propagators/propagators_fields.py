@@ -428,11 +428,11 @@ class Magnetosonic(Propagator):
         id_MJ = 'M' + self.derham.spaces_dict[params['u_space']] + 'J'
         
         if params['u_space'] == 'Hcurl':
-            id_S, id_U, id_K, id_Q = 'S1', 'U1', 'K1', 'Q1'
+            id_S, id_U, id_K, id_Q = 'S1', 'U1', 'K3', 'Q1'
         elif params['u_space'] == 'Hdiv':
-            id_S, id_U, id_K, id_Q = 'S2', None, 'K2', 'Q2'
+            id_S, id_U, id_K, id_Q = 'S2', None, 'K3', 'Q2'
         elif params['u_space'] == 'H1vec':
-            id_S, id_U, id_K, id_Q = 'S0', 'Uv', 'K0', 'Q0'
+            id_S, id_U, id_K, id_Q = 'Sv', 'Uv', 'K3', 'Qv'
 
         _A = getattr(self.mass_ops, id_Mn)
         _S = getattr(self.basis_ops, id_S)
@@ -992,11 +992,11 @@ class Magnetosonic_CurrentCoupling5D(Propagator):
         id_MJ = 'M' + self.derham.spaces_dict[params['u_space']] + 'J'
         
         if params['u_space'] == 'Hcurl':
-            id_S, id_U, id_K, id_Q = 'S1', 'U1', 'K1', 'Q1'
+            id_S, id_U, id_K, id_Q = 'S1', 'U1', 'K3', 'Q1'
         elif params['u_space'] == 'Hdiv':
-            id_S, id_U, id_K, id_Q = 'S2', None, 'K2', 'Q2'
+            id_S, id_U, id_K, id_Q = 'S2', None, 'K3', 'Q2'
         elif params['u_space'] == 'H1vec':
-            id_S, id_U, id_K, id_Q = 'S0', 'Uv', 'K0', 'Q0'
+            id_S, id_U, id_K, id_Q = 'Sv', 'Uv', 'K3', 'Qv'
 
         _A = getattr(self.mass_ops, id_Mn)
         _S = getattr(self.basis_ops, id_S)
