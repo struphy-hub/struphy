@@ -306,7 +306,7 @@ def kernel_3d_eval(spans1 : 'int[:]', spans2 : 'int[:]', spans3 : 'int[:]', pi1 
     The results are written into values.
     """
     
-    values[:, :] = 0.
+    values[:, :, :] = 0.
                 
     ne1 = spans1.size
     ne2 = spans2.size

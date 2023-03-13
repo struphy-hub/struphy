@@ -387,27 +387,23 @@ class Magnetosonic(Propagator):
     p : psydac.linalg.stencil.StencilVector
         FE coefficients of a discrete 3-form.
 
-    b : psydac.linalg.block.BlockVector
-        FE coefficients of a discrete 2-form.
-
         **params : dict
             Solver- and/or other parameters for this splitting step.
     '''
 
-    def __init__(self, n, u, p, b, **params):
+    def __init__(self, n, u, p, **params):
 
         # pointers to variables
         assert isinstance(n, (StencilVector, PolarVector))
         assert isinstance(u, (BlockVector, PolarVector))
         assert isinstance(p, (StencilVector, PolarVector))
-        assert isinstance(b, (BlockVector, PolarVector))
         self._n = n
         self._u = u
         self._p = p
-        self._b = b
 
         # parameters
         params_default = {'u_space': 'Hdiv',
+                          'b': self.derham.Vh['2'].zeros(),
                           'type': 'PBiConjugateGradientStab',
                           'pc': 'MassMatrixPreconditioner',
                           'tol': 1e-8,
@@ -451,6 +447,8 @@ class Magnetosonic(Propagator):
 
         self._MJ = getattr(self.mass_ops, id_MJ)
         self._DQ = Compose(self.derham.div, getattr(self.basis_ops, id_Q))
+        
+        self._b = params['b']
 
         # preconditioner
         if params['pc'] is None:
@@ -471,14 +469,14 @@ class Magnetosonic(Propagator):
         self._u_tmp2 = u.space.zeros()
         self._p_tmp1 = p.space.zeros()
         self._n_tmp1 = n.space.zeros()
-        self._b_tmp1 = b.space.zeros()
+        self._b_tmp1 = self._b.space.zeros()
         
         self._byn1 = self._B.codomain.zeros()
         self._byn2 = self._B.codomain.zeros() 
 
     @property
     def variables(self):
-        return [self._n, self._u, self._p, self._b]
+        return [self._n, self._u, self._p]
 
     def __call__(self, dt):
 
@@ -486,11 +484,10 @@ class Magnetosonic(Propagator):
         nn = self.variables[0]
         un = self.variables[1]
         pn = self.variables[2]
-        bn = self.variables[3]
         
         # solve for new u coeffs
         self._B.dot(pn, out=self._byn1)
-        self._MJ.dot(bn, out=self._byn2)
+        self._MJ.dot(self._b, out=self._byn2)
         self._byn2 *= 1/2
         self._byn1 -= self._byn2
         
@@ -506,14 +503,11 @@ class Magnetosonic(Propagator):
         self._DQ.dot(self._u_tmp2, out=self._n_tmp1)
         self._n_tmp1 *= -dt/2
         self._n_tmp1 += nn
-
-        bn.copy(out=self._b_tmp1)
         
         # write new coeffs into self.variables
-        max_dn, max_du, max_dp, max_db = self.in_place_update(self._n_tmp1,
-                                                              self._u_tmp1,
-                                                              self._p_tmp1,
-                                                              self._b_tmp1)
+        max_dn, max_du, max_dp = self.in_place_update(self._n_tmp1,
+                                                      self._u_tmp1,
+                                                      self._p_tmp1)
 
         if self._info and self._rank == 0:
             print('Status     for Magnetosonic:', info['success'])
@@ -521,11 +515,10 @@ class Magnetosonic(Propagator):
             print('Maxdiff n3 for Magnetosonic:', max_dn)
             print('Maxdiff up for Magnetosonic:', max_du)
             print('Maxdiff p3 for Magnetosonic:', max_dp)
-            print('Maxdiff b2 for Magnetosonic:', max_db)
             print()
 
 
-class Hybrid_potential(Propagator):
+class HybridPotential(Propagator):
     r'''Crank-Nicolson step for the Faraday's law.
 
     math::
@@ -690,12 +683,23 @@ class CurrentCoupling6DDensity(Propagator):
             else:
                 self._nh0_at_quad = self.domain.push(
                     [self._f0.n], *quad_pts, kind='3_form', squeeze_out=False)
+                
+            # memory allocation of magnetic field at quadrature points
+            self._b_quad1 = np.zeros_like(self._nh0_at_quad)
+            self._b_quad2 = np.zeros_like(self._nh0_at_quad)
+            self._b_quad3 = np.zeros_like(self._nh0_at_quad)
+            
+            # memory allocation for self._b_quad x self._nh0_at_quad * self._coupling_const
+            self._mat12 = np.zeros_like(self._nh0_at_quad)
+            self._mat13 = np.zeros_like(self._nh0_at_quad)
+            self._mat23 = np.zeros_like(self._nh0_at_quad)
 
         self._type = params['type']
         self._tol = params['tol']
         self._maxiter = params['maxiter']
         self._info = params['info']
         self._verbose = params['verbose']
+        self._rank = self.derham.comm.Get_rank()
 
         self._coupling_const = params['nuh'] * \
             params['kappa'] * params['Zh'] / params['Ab']
@@ -720,8 +724,13 @@ class CurrentCoupling6DDensity(Propagator):
             
         # linear solver 
         self._solver = getattr(it_solvers, params['type'])(self._M.domain)
-
-        self._rank = self.derham.comm.Get_rank()
+        
+        # temporary vectors to avoid memory allocation
+        self._b_full1 = self._b_eq.space.zeros()
+        self._b_full2 = self._E2T.codomain.zeros()
+        
+        self._rhs_v = self._u.space.zeros()
+        self._u_new = self._u.space.zeros()
 
     @property
     def variables(self):
@@ -732,56 +741,57 @@ class CurrentCoupling6DDensity(Propagator):
         TODO
         """
 
-        # old coefficients
-        u_old = self.variables[0]
+        # pointer to old coefficients
+        un = self.variables[0]
 
-        # sum up total magnetic field
-        b_full = self._b_eq.copy()
+        # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
+        self._b_eq.copy(out=self._b_full1)
+        
         if self._b_tilde is not None:
-            b_full += self._b_tilde
+            self._b_full1 += self._b_tilde
 
-        # extract coefficients to tensor product space
-        b_full = self._E2T.dot(b_full)
+        # extract coefficients to tensor product space (in-place)
+        self._E2T.dot(self._b_full1, out=self._b_full2)
 
-        # update ghost regions because of non-local access in pusher kernel
-        b_full.update_ghost_regions()
+        # update ghost regions because of non-local access in accumulation kernel!
+        self._b_full2.update_ghost_regions()
 
         # perform accumulation (either with or without control variate)
         if self._f0 is not None:
 
-            # evaluate magnetic field at quadrature points
-            b_quad = WeightedMassOperator.eval_quad(
-                self.derham.Vh_fem['2'], b_full)
+            # evaluate magnetic field at quadrature points (in-place)
+            WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
+                                           out=[self._b_quad1, self._b_quad2, self._b_quad3])
 
-            mat12 = self._coupling_const * b_quad[2] * self._nh0_at_quad
-            mat13 = -self._coupling_const * b_quad[1] * self._nh0_at_quad
-            mat23 = self._coupling_const * b_quad[0] * self._nh0_at_quad
-
-            control_mat_at_quad = [[None, mat12, mat13],
-                                   [None,  None, mat23],
-                                   [None,  None,  None]]
+            self._mat12[:, :, :] =  self._coupling_const * self._b_quad3 * self._nh0_at_quad
+            self._mat13[:, :, :] = -self._coupling_const * self._b_quad2 * self._nh0_at_quad
+            self._mat23[:, :, :] =  self._coupling_const * self._b_quad1 * self._nh0_at_quad
 
             self._accumulator.accumulate(self._particles,
-                                         b_full[0]._data, b_full[1]._data, b_full[2]._data,
+                                         self._b_full2[0]._data, self._b_full2[1]._data, self._b_full2[2]._data,
                                          self._space_key_int, self._coupling_const,
-                                         control_mat=control_mat_at_quad)
+                                         control_mat=[[None, self._mat12, self._mat13],
+                                                      [None, None, self._mat23],
+                                                      [None, None, None]])
         else:
             self._accumulator.accumulate(self._particles,
-                                         b_full[0]._data, b_full[1]._data, b_full[2]._data,
+                                         self._b_full2[0]._data, self._b_full2[1]._data, self._b_full2[2]._data,
                                          self._space_key_int, self._coupling_const)
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
         lhs = Sum(self._M, Multiply(-dt/2, self._accumulator.operators[0]))
-        rhs = Sum(self._M, Multiply(
-            dt/2, self._accumulator.operators[0])).dot(u_old)
+        rhs = Sum(self._M, Multiply( dt/2, self._accumulator.operators[0]))
 
-        # solve linear system for updated u coefficients
-        u_new, info = self._solver.solve(lhs, rhs, self._pc,
-                                         x0=u_old, tol=self._tol,
-                                         maxiter=self._maxiter, verbose=self._verbose)
+        # solve linear system for updated u coefficients (in-place)
+        rhs.dot(un, out=self._rhs_v)
+        
+        info = self._solver.solve(lhs, self._rhs_v, self._pc,
+                                  x0=un, tol=self._tol,
+                                  maxiter=self._maxiter, verbose=self._verbose,
+                                  out=self._u_new)[1]
 
         # write new coeffs into Propagator.variables
-        max_du = self.in_place_update(u_new)
+        max_du = self.in_place_update(self._u_new)
 
         if self._info and self._rank == 0:
             print('Status     for CurrentCoupling6DDensity:', info['success'])
@@ -790,7 +800,7 @@ class CurrentCoupling6DDensity(Propagator):
             print()
 
 
-class ShearAlfvén_CurrentCoupling5D(Propagator):
+class ShearAlfvénCurrentCoupling5D(Propagator):
     r'''TODO
     '''
 
@@ -923,7 +933,7 @@ class ShearAlfvén_CurrentCoupling5D(Propagator):
             print()
 
 
-class Magnetosonic_CurrentCoupling5D(Propagator):
+class MagnetosonicCurrentCoupling5D(Propagator):
     r'''TODO'''
 
     def __init__(self, n, u, p, **params):

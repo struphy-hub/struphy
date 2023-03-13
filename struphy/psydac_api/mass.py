@@ -1019,7 +1019,7 @@ class WeightedMassOperator(LinOpWithTransp):
                            *wts, *basis, mat_w, vec[a]._data)
 
     @staticmethod
-    def eval_quad(W, coeffs):
+    def eval_quad(W, coeffs, out=None):
         """
         Evaluates a given FEM field defined by its coefficients at the L2 quadrature points.
 
@@ -1030,6 +1030,14 @@ class WeightedMassOperator(LinOpWithTransp):
 
         coeffs : StencilVector | BlockVector
             The coefficient vector corresponding to the FEM field. Ghost regions must be up-to-date!
+            
+        out : np.ndarray | list/tuple of np.ndarrays, optional
+            If given, the result will be written into these arrays in-place. Number of outs must be compatible with number of components of FEM field.
+            
+        Returns
+        -------
+        out : np.ndarray | list/tuple of np.ndarrays
+            The values of the FEM field at the quadrature points.
         """
 
         assert isinstance(W, (TensorFemSpace, ProductFemSpace))
@@ -1041,12 +1049,26 @@ class WeightedMassOperator(LinOpWithTransp):
             Wspaces = (W,)
         else:
             Wspaces = W.spaces
+            
+        # prepare output
+        if out is None:
+            out = ()
+            if isinstance(W, TensorFemSpace):
+                out += (np.zeros([q_grid.points.size for q_grid in W.quad_grids], dtype=float),)
+            else:
+                for space in W.spaces:
+                    out += (np.zeros([q_grid.points.size for q_grid in space.quad_grids], dtype=float),)
+                    
+        else:
+            if isinstance(W, TensorFemSpace):
+                assert isinstance(out, np.ndarray)
+                out = (out,)
+            else:
+                assert isinstance(out, (list, tuple))
 
-        # loag assembly kernel
+        # load assembly kernel
         kernel = getattr(mass_kernels, 'kernel_' + str(W.ldim) + 'd_eval')
-
-        blocks = []
-
+        
         # loop over components
         for a, wspace in enumerate(Wspaces):
 
@@ -1067,19 +1089,14 @@ class WeightedMassOperator(LinOpWithTransp):
             # evaluated basis functions at quadrature points of codomain space
             basis = [quad_grid.basis for quad_grid in wspace.quad_grids]
 
-            # perform evaluation by calling the appropriate kernel (1d, 2d or 3d)
-            values = np.zeros([pt.size for pt in pts], dtype=float)
-
             if isinstance(coeffs, StencilVector):
                 kernel(*spans, *wspace.degree, *starts, *
-                       pads, *basis, coeffs._data, values)
+                       pads, *basis, coeffs._data, out[a])
             else:
                 kernel(*spans, *wspace.degree, *starts, *
-                       pads, *basis, coeffs[a]._data, values)
-
-            blocks += [values]
-
-        if len(blocks) == 1:
-            return blocks[0]
+                       pads, *basis, coeffs[a]._data, out[a])
+        
+        if len(out) == 1:
+            return out[0]
         else:
-            return blocks
+            return out
