@@ -23,10 +23,11 @@ class StruphyModel(metaclass=ABCMeta):
         MPI communicator for parallel runs (=None for serial runs).
 
     kwargs : dict
-        The dynamical fields and kinetic species of the model. Keys are either 
-            * a) the electromagnetic field/potential names, then values are the space IDs ("H1", "Hcurl", "Hdiv", "L2" or "H1vec"), OR
-            * b) the fluid species names, then the value is a dict with key=var_name (n, U, p, ...) and value=space ID ("H1", "Hcurl", "Hdiv", "L2" or "H1vec"), OR
-            * c) the names of the kinetic species, then values are the type of particles ("Particles6D", "Particles5D", ...).
+        The dynamical fields and kinetic species of the model. Keys are either:
+        
+        a. the electromagnetic field/potential names, then values are the space IDs ("H1", "Hcurl", "Hdiv", "L2" or "H1vec"), 
+        b. the fluid species names, then the value is a dict with key=var_name (n, U, p, ...) and value=space ID ("H1", "Hcurl", "Hdiv", "L2" or "H1vec"),
+        c. the names of the kinetic species, then values are the type of particles ("Particles6D", "Particles5D", ...).
 
     Note
     ----

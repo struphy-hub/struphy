@@ -1,7 +1,7 @@
 .. _models:
 
-Available models
-================
+Struphy models
+==============
 
 .. note::
 
@@ -10,11 +10,25 @@ Available models
     :math:`1/\hat \omega` denotes the time unit, :math:`1/\hat k` is the unit of length and :math:`\hat B` 
     stands for the unit of the magnetic field.
 
+.. .. automodule:: struphy.models.models
+..     :members:
+..     :undoc-members:
+..     :exclude-members: propagators, scalar_quantities, update_scalar_quantities
+
 
 Fluid models
 ------------
 
 .. autoclass:: struphy.models.models.LinearMHD
+    :members:
+    :undoc-members:
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
+
+
+Kinetic models
+--------------
+
+.. autoclass:: struphy.models.models.LinearVlasovMaxwell
     :members:
     :undoc-members:
     :exclude-members: propagators, scalar_quantities, update_scalar_quantities
@@ -34,15 +48,6 @@ Fluid-kinetic hybrid models
     :exclude-members: propagators, scalar_quantities, update_scalar_quantities
 
 .. autoclass:: struphy.models.models.LinearMHDDriftkineticCC
-    :members:
-    :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
-
-
-Kinetic models
---------------
-
-.. autoclass:: struphy.models.models.LinearVlasovMaxwell
     :members:
     :undoc-members:
     :exclude-members: propagators, scalar_quantities, update_scalar_quantities

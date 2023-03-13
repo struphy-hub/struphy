@@ -429,8 +429,9 @@ class Domain(metaclass=ABCMeta):
 
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
-                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
-                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
+            
+            1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+            2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
         kind : str
             Which pull-back to apply, see dict_transformations['pull'].
@@ -448,17 +449,16 @@ class Domain(metaclass=ABCMeta):
             If True, logical coordinates outside of [0, 1]^d are NOT evaluated to -1 and are removed in the output array.
 
         coordinates : str, optional
-            In which coordinates the input "a" is given (in case of callables).
-                * "physical" : a = a(x, y, z)
-                * "logical"  : a = a(eta1, eta2, eta3)
+            In which coordinates the input "a" is given (in case of callables). "physical" : a = a(x, y, z). 
+            "logical"  : a = a(eta1, eta2, eta3).
 
         Returns
         -------
         out : ndarray | float
             Pullback of Cartesian vector/scalar field to p-form evaluated at given logical coordinates.
 
-        Notes
-        -----
+        Note
+        ----
         Possible choices for kind are '0_form', '1_form', '2_form', '3_form' and 'vector'.
         """
 
@@ -476,6 +476,7 @@ class Domain(metaclass=ABCMeta):
 
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
+            
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
@@ -518,6 +519,7 @@ class Domain(metaclass=ABCMeta):
 
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
+            
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
@@ -561,6 +563,7 @@ class Domain(metaclass=ABCMeta):
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
+            
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
@@ -664,6 +667,7 @@ class Domain(metaclass=ABCMeta):
 
         *etas : array-like| tuple
             Logical coordinates at which to evaluate. Two cases are possible:
+            
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 

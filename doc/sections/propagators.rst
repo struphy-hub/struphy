@@ -1,7 +1,7 @@
 .. _propagators:
 
-Available propagators
-=====================
+Propagators
+===========
 
 Notation:
 
