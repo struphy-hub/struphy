@@ -204,12 +204,12 @@ class ScalarTimesLinearOperator(LinOpWithTransp):
         
         if out is None:
             out = self._operator.dot(v)
-            v *= self._a
         else:
             assert isinstance(out, Vector)
             assert out.space == self._codomain
             self._operator.dot(v, out=out)
-            out *= self._a
+        
+        out *= self._a
 
         return out
 
