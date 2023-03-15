@@ -256,7 +256,7 @@ class PressureCoupling6D(Propagator):
                           'kappa': 1.}
 
         params = set_defaults(params, params_default)
-
+        
         self._G = self.derham.grad
         self._GT = self.derham.grad.transpose()
 
@@ -308,8 +308,6 @@ class PressureCoupling6D(Propagator):
             params['kappa'] * params['Zh'] / params['Ab']
         self._scale_push = params['kappa'] * params['Zh'] / params['Ah']
 
-        print(self._coupling_mat, self._scale_push)
-
         self._ACC = Accumulator(self.derham, self.domain, 'Hcurl',
                                 accum_ker, add_vector=True, 
                                 symmetry='pressure')
@@ -320,28 +318,8 @@ class PressureCoupling6D(Propagator):
         self._X = getattr(self.basis_ops, id_X)
         self._XT = self._X.transpose()
 
-        # acuumulate MAT and VEC
-        self._ACC.accumulate(self._particles, self._coupling_mat, self._coupling_vec)
-
-        MAT = [[self._ACC.operators[0].matrix, self._ACC.operators[1].matrix, self._ACC.operators[2].matrix],
-               [self._ACC.operators[1].matrix, self._ACC.operators[3].matrix, self._ACC.operators[4].matrix],
-               [self._ACC.operators[2].matrix, self._ACC.operators[4].matrix, self._ACC.operators[5].matrix]]
-        VEC = [self._ACC.vectors[0], self._ACC.vectors[1], self._ACC.vectors[2]]
-
-        GT_VEC = BlockVector(self.derham.Vh['v'],
-                             blocks=[self._GT.dot(VEC[0]),
-                                     self._GT.dot(VEC[1]),
-                                     self._GT.dot(VEC[2])])
-
-        # define BC and B dot V of the Schur block matrix [[A, B], [C, I]]
-        BC = Multiply(-1/4, Compose(self._XT, self.GT_MAT_G(self.derham, MAT), self._X))
-
-        self._BV = Multiply(-1/2, self._XT).dot(GT_VEC)
-
-        # call SchurSolver class
-        self._schur_solver = SchurSolver(self._A, BC, pc=self._pc, solver_name=self._type,
-                                   tol=self._tol, maxiter=self._maxiter,
-                                   verbose=self._verbose)
+        self.u_temp = u.space.zeros()
+        self._BV = u.space.zeros()
 
     @property
     def variables(self):
@@ -349,6 +327,7 @@ class PressureCoupling6D(Propagator):
 
     def __call__(self, dt):
         un = self.variables[0]
+        un.update_ghost_regions()
 
         # acuumulate MAT and VEC
         self._ACC.accumulate(self._particles, self._coupling_mat, self._coupling_vec)
@@ -365,21 +344,22 @@ class PressureCoupling6D(Propagator):
 
         # define BC and B dot V of the Schur block matrix [[A, B], [C, I]]
         BC = Multiply(-1/4, Compose(self._XT, self.GT_MAT_G(self.derham, MAT), self._X))
+        # BC = Compose(self._XT, self.GT_MAT_G(self.derham, MAT), self._X)*(-1/4)
 
-        BV = Multiply(-1/2, self._XT).dot(GT_VEC)
+        self._BV = self._XT.dot(GT_VEC)*(-1/2)
 
         # call SchurSolver class
         schur_solver = SchurSolver(self._A, BC, pc=self._pc, solver_name=self._type,
                                    tol=self._tol, maxiter=self._maxiter,
-                                   verbose=self._verbose)
+                                   verbose=False)
 
         # allocate temporary FemFields _u during solution
-        _u, info = schur_solver(un, BV, dt)
+        info = schur_solver(un, self._BV, dt, out=self.u_temp)[1]
 
         # calculate GXu
-        GXu_1 = self._G.dot(self._X.dot(un + _u)[0])
-        GXu_2 = self._G.dot(self._X.dot(un + _u)[1])
-        GXu_3 = self._G.dot(self._X.dot(un + _u)[2])
+        GXu_1 = self._G.dot(self._X.dot((un + self.u_temp))[0])
+        GXu_2 = self._G.dot(self._X.dot((un + self.u_temp))[1])
+        GXu_3 = self._G.dot(self._X.dot((un + self.u_temp))[2])
 
         GXu_1.update_ghost_regions()
         GXu_2.update_ghost_regions()
@@ -392,7 +372,7 @@ class PressureCoupling6D(Propagator):
                      GXu_3[0]._data, GXu_3[1]._data, GXu_3[2]._data)
 
         # write new coeffs into Propagator.variables
-        max_du, = self.in_place_update(_u)
+        max_du, = self.in_place_update(self.u_temp)
 
         if self._info and self._rank == 0:
             print('Status     for StepPressurecoupling:', info['success'])
@@ -424,11 +404,8 @@ class PressureCoupling6D(Propagator):
             self._codomain = derham.Vh['v']
             self._MAT = MAT
 
-            v1 = StencilVector(derham.Vh['v'].spaces[0])
-            v2 = StencilVector(derham.Vh['v'].spaces[1])
-            v3 = StencilVector(derham.Vh['v'].spaces[2])
-            list_blocks = [v1, v2, v3]
-            self._vector = BlockVector(derham.Vh['v'], blocks=list_blocks)
+            self._vector = BlockVector(derham.Vh['v'])
+            self._temp = BlockVector(derham.Vh['1'])
 
         @property
         def domain(self):
@@ -440,7 +417,7 @@ class PressureCoupling6D(Propagator):
 
         @property
         def dtype(self):
-            return self.derham.Vh['v'].dtype
+            return self._derham.Vh['v'].dtype
         
         @property
         def tosparse(self):
@@ -455,7 +432,7 @@ class PressureCoupling6D(Propagator):
             return self._transposed
 
         def transpose(self):
-            return self.GT_MAT_G(self.derham, self._MAT, True)
+            return self.GT_MAT_G(self._derham, self._MAT, True)
 
         def dot(self, v, out=None):
             '''dot product between GT_MAT_G and v.
@@ -472,17 +449,18 @@ class PressureCoupling6D(Propagator):
             assert v.space == self.domain
 
             v.update_ghost_regions()
-            
-            temp = [None, None, None]
 
             for i in range(3):
                 for j in range(3):
-                    temp[j] = self._MAT[i][j].dot(self._G.dot(v[j]))
-                self._vector[i] = self._GT.dot(temp[0] + temp[1] + temp[2])
+                    self._temp += self._MAT[i][j].dot(self._G.dot(v[j]))
+
+                self._vector[i] = self._GT.dot(self._temp)
+                self._temp *= 0.
 
             self._vector.update_ghost_regions()
 
-            del temp
+            if out is not None:
+                self._vector.copy(out=out)
 
             assert self._vector.space == self.codomain
 

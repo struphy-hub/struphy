@@ -893,8 +893,6 @@ def pc_lin_mhd_6d_full(markers: 'float[:,:]', n_markers_tot: 'int',
     # get number of markers
     n_markers = shape(markers)[0]
     
-    #$ omp parallel private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, df, df_inv, df_t, df_inv_t, v, tmp1, tmp_v, weight, filling_m, filling_v) 
-    #$ omp for reduction ( + : mat11_11, mat11_12, mat11_13, mat11_22, mat11_23, mat11_33, mat12_11, mat12_12, mat12_13, mat12_22, mat12_23, mat12_33, mat13_11, mat13_12, mat13_13, mat13_22, mat13_23, mat13_33, mat22_11, mat22_12, mat22_13, mat22_22, mat22_23, mat22_33, mat23_11, mat23_12, mat23_13, mat23_22, mat23_23, mat23_33, mat33_11, mat33_12, mat33_13, mat33_22, mat33_23, mat33_33, vec1_1, vec1_2, vec1_3, vec2_1, vec2_2, vec2_3, vec3_1, vec3_2, vec3_3)
     for ip in range(n_markers):
         
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -970,9 +968,8 @@ def pc_lin_mhd_6d_full(markers: 'float[:,:]', n_markers_tot: 'int',
                                       vec1_3, vec2_3, vec3_3,
                                       filling_v[0], filling_v[1], filling_v[2],
                                       v[0], v[1], v[2])
-    #$ omp end parallel
 
-@stack_array('df', 'df_t', 'df_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+@stack_array('df', 'df_inv_t', 'df_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def pc_lin_mhd_6d(markers: 'float[:,:]', n_markers_tot: 'int',
                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1044,7 +1041,6 @@ def pc_lin_mhd_6d(markers: 'float[:,:]', n_markers_tot: 'int',
 
     # allocate for metric coeffs
     df = empty((3, 3), dtype=float)
-    df_t = empty((3, 3), dtype=float)
     df_inv = empty((3, 3), dtype=float)
     df_inv_t = empty((3, 3), dtype=float)
 
@@ -1077,8 +1073,12 @@ def pc_lin_mhd_6d(markers: 'float[:,:]', n_markers_tot: 'int',
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
+
+        # marker weight and velocity
+        weight = markers[ip, 6]
+        v = markers[ip, 3:6]
         
-        # b-field evaluation
+        # evaluation
         span1 = bsp.find_span(tn1, pn[0], eta1)
         span2 = bsp.find_span(tn2, pn[1], eta2)
         span3 = bsp.find_span(tn3, pn[2], eta3)
@@ -1095,21 +1095,17 @@ def pc_lin_mhd_6d(markers: 'float[:,:]', n_markers_tot: 'int',
                     cx, cy, cz,
                     df)
 
-        # Avoid second computation of df, use linear_algebra.core routines to get g_inv:
-        linalg.matrix_inv(df, df_inv)
-        linalg.transpose(df, df_t)
-        linalg.transpose(df_inv, df_inv_t)
+        det_df = linalg.det(df)
 
-        # filling functions
-        v = markers[ip, 3:6]
+        # Avoid second computation of df, use linear_algebra.core routines to get g_inv:
+        linalg.matrix_inv_with_det(df, det_df, df_inv)
+        linalg.transpose(df_inv, df_inv_t)
         
         linalg.matrix_matrix(df_inv, df_inv_t, tmp1)
         linalg.matrix_vector(df_inv, v, tmp_v)
-
-        weight = markers[ip, 8]
         
-        filling_m[:,:] = weight * tmp1 / n_markers_tot * scale_mat
-        filling_v[:] = weight * tmp_v / n_markers_tot * scale_vec
+        filling_m[:,:] = weight * tmp1 * scale_mat
+        filling_v[:] = weight * tmp_v * scale_vec
 
         # call the appropriate matvec filler
         mvf.m_v_fill_v1_pressure(pn, span1, span2, span3,
@@ -1132,7 +1128,34 @@ def pc_lin_mhd_6d(markers: 'float[:,:]', n_markers_tot: 'int',
                                  vec1_2, vec2_2, vec3_2,
                                  filling_v[0], filling_v[1], filling_v[2],
                                  v[0], v[1])
+
     #$ omp end parallel
+    
+    mat11_11 /= n_markers_tot
+    mat12_11 /= n_markers_tot
+    mat13_11 /= n_markers_tot
+    mat22_11 /= n_markers_tot
+    mat23_11 /= n_markers_tot
+    mat33_11 /= n_markers_tot
+    mat11_12 /= n_markers_tot
+    mat12_12 /= n_markers_tot
+    mat13_12 /= n_markers_tot
+    mat22_12 /= n_markers_tot
+    mat23_12 /= n_markers_tot
+    mat33_12 /= n_markers_tot
+    mat11_22 /= n_markers_tot
+    mat12_22 /= n_markers_tot
+    mat13_22 /= n_markers_tot
+    mat22_22 /= n_markers_tot
+    mat23_22 /= n_markers_tot
+    mat33_22 /= n_markers_tot
+    
+    vec1_1 /= n_markers_tot
+    vec2_1 /= n_markers_tot
+    vec3_1 /= n_markers_tot
+    vec1_2 /= n_markers_tot
+    vec2_2 /= n_markers_tot
+    vec3_2 /= n_markers_tot
 
 @stack_array('df', 'df_t', 'df_inv', 'g_inv', 'filling_m', 'filling_v', 'tmp', 'tmp1', 'tmp2', 'tmp_m', 'tmp_v', 'b', 'b_prod', 'b_star', 'norm_b1', 'curl_norm_b', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',

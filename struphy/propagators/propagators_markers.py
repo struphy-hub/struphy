@@ -501,8 +501,21 @@ class StepPushGuidingCenter1(Propagator):
         self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
         self._grad_abs_b = self.derham.grad.dot(self._abs_b)
 
+        # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
+        self._E0T = self.derham.E['0'].transpose()
+        self._E1T = self.derham.E['1'].transpose()
+        self._E2T = self.derham.E['2'].transpose()
+
+        self._b_eq = self._E2T.dot(self._b_eq)
+        self._unit_b1 = self._E1T.dot(self._unit_b1)
+        self._unit_b2 = self._E2T.dot(self._unit_b2)
+        self._abs_b = self._E0T.dot(self._abs_b)
+        self._curl_norm_b = self._E2T.dot(self._curl_norm_b)
+        self._grad_abs_b = self._E1T.dot(self._grad_abs_b)
+
         self._curl_norm_b.update_ghost_regions()
         self._grad_abs_b.update_ghost_regions()
+
 
         if params['integrator'] == 'explicit':
 
@@ -648,6 +661,18 @@ class StepPushGuidingCenter2(Propagator):
 
         self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
         self._grad_abs_b = self.derham.grad.dot(self._abs_b)
+
+        # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
+        self._E0T = self.derham.E['0'].transpose()
+        self._E1T = self.derham.E['1'].transpose()
+        self._E2T = self.derham.E['2'].transpose()
+
+        self._b_eq = self._E2T.dot(self._b_eq)
+        self._unit_b1 = self._E1T.dot(self._unit_b1)
+        self._unit_b2 = self._E2T.dot(self._unit_b2)
+        self._abs_b = self._E0T.dot(self._abs_b)
+        self._curl_norm_b = self._E2T.dot(self._curl_norm_b)
+        self._grad_abs_b = self._E1T.dot(self._grad_abs_b)
 
         self._curl_norm_b.update_ghost_regions()
         self._grad_abs_b.update_ghost_regions()

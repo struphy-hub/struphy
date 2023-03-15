@@ -4,7 +4,7 @@ grid :
     spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
     bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
     nq_el    : [6, 6, 6] # quadrature points per grid cell
-    nq_pr    : [4, 4, 4] # quadrature points per histopolation cell (for commuting projectors)
+    nq_pr    : [6, 6, 6] # quadrature points per histopolation cell (for commuting projectors)
     polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
 
 model_units :
@@ -17,8 +17,9 @@ model_units :
     Zh  : 1 # charge number of energetic ion species (1 : Hydrogen, 2 : Helium, etc.)
 
 time :
-    dt         : 0.01 # time step
-    Tend       : 0.05 # simulation time interval is [0, Tend]
+    dt         : 0.2  # time step
+    Tend       : 120. # simulation time interval is [0, Tend]
+    max_time   : 300. # maximum runtime of program in minutes
     split_algo : LieTrotter # LieTrotter | Strang
 
 geometry :
@@ -74,7 +75,7 @@ kinetic :
     energetic_ions :
         markers :
             type    : full_f # full_f, control_variate, or delta_f
-            ppc     : 10 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
+            ppc     : 800 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
             eps     : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
             bc_type : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
             loading :
@@ -90,7 +91,7 @@ kinetic :
             Maxwellian6DUniform :
                 uz : 2.5
         save_data :
-            n_markers : 3 # number of markers to be save during simulation
+            n_markers : 10 # number of markers to be save during simulation
             f :
                 slices : [vz] # in which directions to bin (e.g. [e1_e2, vx_vy_vz])
                 n_bins : [[32]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
@@ -98,27 +99,27 @@ kinetic :
         push_algos :
             vxb : analytic # possible choices: analytic, implicit
             eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4
-        use_perp_model : False # for pressure coupling
+        use_perp_model : True # for pressure coupling
 
 solvers :
     solver_1 :
         type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or fft
-        tol : 1.e-12
+        tol : 1.e-14
         maxiter : 3000
         info : False
         verbose : False
     solver_2 :
-        type : PBiConjugateGradientStab
+        type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or fft
-        tol : 1.e-12
+        tol : 1.e-14
         maxiter : 3000
         info : False
         verbose : False
     solver_3 :
-        type : PConjugateGradient
+        type : PBiConjugateGradientStab
         pc : MassMatrixPreconditioner # null or fft
-        tol : 1.e-12
+        tol : 1.e-14
         maxiter : 3000
         info : False
         verbose : False

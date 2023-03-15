@@ -70,7 +70,7 @@ class Accumulator:
                     derham.Vh_fem[space_key], derham.Vh_fem[space_key], 
                     V_extraction_op=derham.E[space_key], W_extraction_op=derham.E[space_key], 
                     V_boundary_op=derham.B[space_key], W_boundary_op=derham.B[space_key], 
-                    symmetry='upper_tri', transposed=False)]
+                    symmetry='symm', transposed=False)]
         
         # "normal" treatment (just one matrix)
         else:
@@ -254,11 +254,11 @@ class Accumulator:
             self._operators[0].matrix[2, 0]._data[:] = -self._operators[0].matrix[0, 2].T._data
             self._operators[0].matrix[2, 1]._data[:] = -self._operators[0].matrix[1, 2].T._data
 
-        # elif self.symmetry == 'pressure':
-        #     for i in range(6):
-        #         self._operators[i].matrix[1, 0]._data[:] = self._operators[i].matrix[0, 1].T._data
-        #         self._operators[i].matrix[2, 0]._data[:] = self._operators[i].matrix[0, 2].T._data
-        #         self._operators[i].matrix[2, 1]._data[:] = self._operators[i].matrix[1, 2].T._data
+        elif self.symmetry == 'pressure':
+            for i in range(6):
+                self._operators[i].matrix[1, 0]._data[:] = self._operators[i].matrix[0, 1].T._data
+                self._operators[i].matrix[2, 0]._data[:] = self._operators[i].matrix[0, 2].T._data
+                self._operators[i].matrix[2, 1]._data[:] = self._operators[i].matrix[1, 2].T._data
 
         # update ghot regions of matrices
         # for op in self._operators:
