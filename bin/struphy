@@ -142,6 +142,8 @@ function example_help {
     echo "  gc_orbits_tokamak   guiding center particle trajectories in a tokamak-like static magnetic field, 4 MPI processes."
     echo "  TAE_tokamak         3d linear ideal MHD equations, initialized with m=2,3, n=-2 toroidal Alfvén eigenmode (TAE), 2 MPI processes (takes ~50 minutes on a laptop)."
     echo "  linearmhdvlasov_cc  1d hybrid linear ideal MHD equations + full-orbit (6d) energetic ions (current coupling model), 2 MPI processes."
+    echo "  linearmhdvlasov_pc  1d hybrid linear ideal MHD equations + full-orbit (6d) energetic ions (pressure coupling model), 2 MPI processes."
+
 
 }
 
@@ -601,6 +603,8 @@ if [ $EXAMPLE ]; then
     example_TAE_tokamak_mpi_2
   elif [ "$EXAMPLE" == linearmhdvlasov_cc ]; then
     example_hybridmhdvlasovcc_mpi_2
+  elif [ "$EXAMPLE" == linearmhdvlasov_pc ]; then
+    example_hybridmhdvlasovpc_mpi_2
   else
     echo "Example $EXAMPLE not implemented."
   fi

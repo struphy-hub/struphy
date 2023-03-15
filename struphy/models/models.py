@@ -722,13 +722,13 @@ class LinearMHDVlasovPC(StruphyModel):
         self._p = self.fluid['mhd']['p3']['obj'].vector
 
         # pointer to kinetic variables
-        self._ions = self.kinetic['energetic_ions']['obj']
+        self._e_ions = self.kinetic['energetic_ions']['obj']
         ions_params = self.kinetic['energetic_ions']['params']
 
         # extract necessary parameters
-        alfven_solver = params['solvers']['solver_1']
-        magnetosonic_solver = params['solvers']['solver_2']
-        coupling_solver = params['solvers']['solver_3']
+        solver_params_1 = params['solvers']['solver_1']
+        solver_params_2 = params['solvers']['solver_2']
+        solver_params_3 = params['solvers']['solver_3']
 
         # model units
         L = params['model_units']['x']
@@ -789,25 +789,25 @@ class LinearMHDVlasovPC(StruphyModel):
             self._u, 
             self._b, 
             u_space=self._u_space, 
-            **alfven_solver)]
+          **solver_params_1,)]
         
         self._propagators += [propagators_coupling.PressureCoupling6D(
-            self._ions,
+            self._e_ions,
             self._u, 
             u_space=self._u_space, 
             use_perp_model=ions_params['use_perp_model'], 
-            **coupling_solver,
-            **self._coupling_params)]
+          **solver_params_2,
+          **self._coupling_params)]
         
         self._propagators += [propagators_markers.PushEtaPC(
-            self._ions, 
+            self._e_ions, 
             u_mhd=self._u, 
             u_space=self._u_space, 
             bc_type=ions_params['markers']['bc_type'],
             use_perp_model=ions_params['use_perp_model'])]
         
         self._propagators += [propagators_markers.PushVxB(
-            self._ions, 
+            self._e_ions, 
             algo=ions_params['push_algos']['vxb'], 
             scale_fac=1., 
             b_eq=self._b_eq,
@@ -820,44 +820,103 @@ class LinearMHDVlasovPC(StruphyModel):
             self._p,
             u_space=self._u_space,
             b=self._b,
-            **magnetosonic_solver)]
+            **solver_params_3)]
 
-        # Scalar variables to be saved during simulation
+        # Scalar variables to be saved during simulation:
+
+        # 1. time
         self._scalar_quantities['time'] = np.empty(1, dtype=float)
+
+        # 2. energies
         self._scalar_quantities['en_U'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_p'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
-        self._en_f_loc = np.empty(1, dtype=float)
         self._scalar_quantities['en_f'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_p_eq'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B_eq'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B_tot'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
 
     @property
     def propagators(self):
         return self._propagators
 
+    @staticmethod
+    def print_units(model_units_params):
+        """
+        TODO
+        """
+
+        # pressure unit in Pascal (B^2/mu_0)
+        pressure_unit = model_units_params['B']**2/1.25663706212e-6
+
+        # beta 2*mu0*p/B^2 (always 2)
+        beta = 2.
+
+        # bulk temperature unit kBT = p/nb in keV
+        temperature_unit = pressure_unit / \
+            (model_units_params['nb']*1e20)/(1000*1.602176634e-19)
+
+        size_params = {'B_abs [B\u0302]': model_units_params['B'],
+                       'transit k [x\u0302⁻¹]': 2*np.pi/model_units_params['x']}
+
+        pparams = plasma_params(
+            1, model_units_params['Ab'], temperature_unit, 2, size_params)
+
+        print()
+        print()
+        print('------- MODEL UNITS (PRESCRIBED) -------')
+        print('x\u0302  [m]        : ',
+              '{:16.13f}'.format(model_units_params['x']))
+        print('B\u0302  [T]        : ',
+              '{:16.13f}'.format(model_units_params['B']))
+        print('n\u0302b [10²⁰ m⁻³] : ',
+              '{:16.13f}'.format(model_units_params['nb']))
+        print('Ab            : ', '{:2d}'.format(model_units_params['Ab']))
+        print('n\u0302h [10²⁰ m⁻³] : ', '{:16.13f}'.format(model_units_params['nb']
+              * model_units_params['nuh']*0.01))
+        print('Ah            : ', '{:2d}'.format(model_units_params['Ah']))
+        print('Zh            : ', '{:2d}'.format(model_units_params['Zh']))
+        print()
+        print('------- MODEL UNITS (DERIVED) ----------')
+        print('r\u0302ho_b [10⁷ kg/m⁻³] : ', '{:16.13f}'.format(model_units_params['nb']
+              * 1e20*model_units_params['Ab']*1.67262192369e-27*1e7))
+        print('p\u0302     [bar]        : ',
+              '{:16.13f}'.format(pressure_unit*1e-5))
+        print('t\u0302     [µs]         : ',
+              '{:16.13f}'.format(model_units_params['x']/pparams['v_A [10⁶ m/s]']))
+        print('v\u0302     [10⁶ m/s]    : ',
+              '{:16.13f}'.format(pparams['v_A [10⁶ m/s]']))
+        print()
+        print('------- OTHER QUANTITIES ---------------')
+        print('nuh                 : ', '{:16.13f}'.format(
+            model_units_params['nuh']*0.01))
+        print('kappa               : ', '{:16.13f}'.format(pparams['kappa']))
+        print('EP gyro period [µs] : ', '{:16.13f}'.format(2*np.pi*model_units_params['Ah']*1.67262192369e-27/(
+            model_units_params['Zh']*1.602176634e-19*model_units_params['B'])*1e6))
+        print('EP gyro radius [cm] : ', '{:16.13f}'.format(pparams['v_A [10⁶ m/s]']*1e6*model_units_params['Ah'] *
+              1.67262192369e-27/(model_units_params['Zh']*1.602176634e-19*model_units_params['B'])*100), '(for v = v\u0302)')
+
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
 
-        if self._u_space == 'Hcurl':
-            self._scalar_quantities['en_U'][0] = self._u.dot(self._mass_ops.M1n.dot(self._u))/2
-            self._scalar_quantities['en_p'][0] = self._p.toarray().sum()/(5/3 - 1)
-        elif self._u_space == 'Hdiv':
-            self._scalar_quantities['en_U'][0] = self._u.dot(self._mass_ops.M2n.dot(self._u))/2
-            self._scalar_quantities['en_p'][0] = self._p.toarray( ).sum()/(5/3 - 1)
+        if self._u_space == 'Hdiv':
+            self._scalar_quantities['en_U'][0] = self._u.dot(self._mass_ops.M2n.dot(self._u))/2.
         else:
-            self._scalar_quantities['en_U'][0] = self._u.dot( self._mass_ops.Mvn.dot(self._u))/2
-            self._scalar_quantities['en_p'][0] = self._p.toarray().sum()/(5/3 - 1)
+            self._scalar_quantities['en_U'][0] = self._u.dot(self._mass_ops.Mvn.dot(self._u))/2.
 
-        self._scalar_quantities['en_B'][0] = self._b.dot(
-            self._mass_ops.M2.dot(self._b))/2
+        self._scalar_quantities['en_p'][0] = self._p.dot(self._ones)/(5/3 - 1)
+        self._scalar_quantities['en_B'][0] = self._b.dot(self._mass_ops.M2.dot(self._b))/2.
 
-        self._en_f_loc = self._coupling_params['nuh']*self._ions.markers[~self._ions.holes, 6].dot(
-                                                                        self._ions.markers[~self._ions.holes, 3]**2
-                                                                      + self._ions.markers[~self._ions.holes, 4]**2
-                                                                      + self._ions.markers[~self._ions.holes, 5]**2)/(2. * self._ions.n_mks)
+        self._scalar_quantities['en_B_tot'][0] = (
+            self._b_eq + self._b).dot(self._mass_ops.M2.dot(self._b_eq + self._b, apply_bc=False))/2
 
-        self.derham.comm.Reduce(
-            self._en_f_loc, self._scalar_quantities['en_f'], op=MPI.SUM, root=0)
+        self._scalar_quantities['en_f'][0] = self._coupling_params['nuh']*self._coupling_params['Ah']/self._coupling_params['Ab']*self._e_ions.markers_wo_holes[:, 6].dot(
+            self._e_ions.markers_wo_holes[:, 3]**2 +
+            self._e_ions.markers_wo_holes[:, 4]**2 +
+            self._e_ions.markers_wo_holes[:, 5]**2)/(2*self._e_ions.n_mks)
+
+        self.derham.comm.Allreduce(MPI.IN_PLACE, self._scalar_quantities['en_f'], op=MPI.SUM)
 
         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_U'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_p'][0]
@@ -1743,7 +1802,11 @@ class DriftKinetic(StruphyModel):
 
         self._b_cart = self.derham.P['v']([self.mhd_equil.b_cart_1,
                                                 self.mhd_equil.b_cart_2,
-                                                self.mhd_equil.b_cart_3])                   
+                                                self.mhd_equil.b_cart_3])
+
+        self._E0T = self.derham.E['0'].transpose()
+        self._EvT = self.derham.E['v'].transpose()
+        self._b_cart = self._EvT.dot(self._b_cart)                   
 
         # Transform 6D to 5D
         self._ions.transform_6D_to_5D(epsilon, self.derham, self._b_cart)
@@ -1798,13 +1861,10 @@ class DriftKinetic(StruphyModel):
                                 op=MPI.SUM, root=0)
 
         # calculate particle magnetic energy
-        self._ions.save_magnetic_energy(
-            self._derham, self.derham.P['0'](self.mhd_equil.absB0))
+        self._ions.save_magnetic_energy(self._derham, self._E0T.dot(self.derham.P['0'](self.mhd_equil.absB0)))
 
-        self._en_fB_loc = self._ions.markers[~self._ions.holes, 8].dot(
-            self._ions.markers[~self._ions.holes, 5]) / self._ions.n_mks
-        self.derham.comm.Reduce(self._en_fB_loc, self._scalar_quantities['en_fB'],
-                                op=MPI.SUM, root=0)
+        self._en_fB_loc = self._ions.markers[~self._ions.holes, 8].dot(self._ions.markers[~self._ions.holes, 5]) / self._ions.n_mks
+        self.derham.comm.Reduce(self._en_fB_loc, self._scalar_quantities['en_fB'], op=MPI.SUM, root=0)
 
         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_fv'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fB'][0]

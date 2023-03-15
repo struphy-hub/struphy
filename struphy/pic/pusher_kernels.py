@@ -1458,23 +1458,22 @@ def push_pc_GXu_full(markers: 'float[:,:]', dt: float, stage: int,
         # Evaluate grad(X(u, v)) at the particle positions
         GXu[0,0] =eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_11, starts1[0])
         GXu[1,0] =eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_21, starts1[0])
-        GXu[2,0] =eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_21, starts1[0])
+        GXu[2,0] =eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_31, starts1[0])
         GXu[0,1] =eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_12, starts1[1])
         GXu[1,1] =eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_22, starts1[1])
-        GXu[2,1] =eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_21, starts1[1])
+        GXu[2,1] =eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_32, starts1[1])
         GXu[0,2] =eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_13, starts1[2])
         GXu[1,2] =eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_23, starts1[2])
-        GXu[3,2] =eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_21, starts1[2])
+        GXu[2,2] =eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_33, starts1[2])
 
         e[0] = GXu[0,0] * v[0] + GXu[1,0] * v[1] + GXu[2,0] * v[2]
         e[1] = GXu[0,1] * v[0] + GXu[1,1] * v[1] + GXu[2,1] * v[2]
         e[2] = GXu[0,2] * v[0] + GXu[1,2] * v[1] + GXu[2,2] * v[2]
 
-        # electric field in Cartesian coordinates
         linalg.matrix_vector(dfinv_t, e, e_cart)
 
         # update velocities
-        markers[ip, 3:6] -= dt*e_cart[:]/2.
+        markers[ip, 3:6] -= dt*e_cart/2.
 
 
 def push_pc_GXu(markers: 'float[:,:]', dt: float, stage: int,
@@ -1513,6 +1512,7 @@ def push_pc_GXu(markers: 'float[:,:]', dt: float, stage: int,
     e = empty(3, dtype=float)
     e_cart = empty(3, dtype=float)
     GXu = empty((3,3), dtype=float)
+    GXu_t = empty((3,3), dtype=float)
 
     # particle velocity
     v = empty(3, dtype=float)
@@ -1571,7 +1571,6 @@ def push_pc_GXu(markers: 'float[:,:]', dt: float, stage: int,
         e[1] = GXu[0,1] * v[0] + GXu[1,1] * v[1]
         e[2] = GXu[0,2] * v[0] + GXu[1,2] * v[1]
 
-        # electric field in Cartesian coordinates
         linalg.matrix_vector(dfinv_t, e, e_cart)
 
         # update velocities

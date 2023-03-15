@@ -35,7 +35,8 @@ setup(
              'bin/example_orbits_tokamak_mpi_2',
              'bin/example_gc_orbits_tokamak_mpi_4',
              'bin/example_TAE_tokamak_mpi_2',
-             'bin/example_hybridmhdvlasovcc_mpi_2'
+             'bin/example_hybridmhdvlasovcc_mpi_2',
+             'bin/example_hybridmhdvlasovpc_mpi_2'
              ],
     # list of package dependencies (if necessary)
     install_requires=[
