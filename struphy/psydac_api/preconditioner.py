@@ -76,7 +76,7 @@ class MassMatrixPreconditioner(LinearSolver):
                     #pts = [0.5] * (n_dims - 1)
                     fun = [[lambda e1 : mass_operator.weights[c][c](e1, np.array([.5]), np.array([.5])).squeeze()]]
                 else:
-                    fun = None
+                    fun = [[lambda e : np.ones(e.size, dtype=float)]]
                     
                 # get 1D FEM space (serial, not distributed) and quadrature order
                 femspace_1d = femspaces[c].spaces[d]
@@ -86,9 +86,8 @@ class MassMatrixPreconditioner(LinearSolver):
                 domain_decompos_1d = DomainDecomposition([femspace_1d.ncells], [femspace_1d.periodic])
                 femspace_1d_tensor = TensorFemSpace(domain_decompos_1d, femspace_1d, quad_order=[qu_order_1d])
                 
-                M = WeightedMassOperator(femspace_1d_tensor, femspace_1d_tensor, weights=fun)
+                M = WeightedMassOperator(femspace_1d_tensor, femspace_1d_tensor, weights_info=fun)
                 M.assemble(verbose=False)
-                M.matrix.exchange_assembly_data()
                 M = M.matrix
                 
                 # apply boundary conditions
