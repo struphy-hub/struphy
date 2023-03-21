@@ -693,6 +693,10 @@ class CurrentCoupling6DDensity(Propagator):
             self._mat12 = np.zeros_like(self._nh0_at_quad)
             self._mat13 = np.zeros_like(self._nh0_at_quad)
             self._mat23 = np.zeros_like(self._nh0_at_quad)
+            
+            self._mat21 = np.zeros_like(self._nh0_at_quad)
+            self._mat31 = np.zeros_like(self._nh0_at_quad)
+            self._mat32 = np.zeros_like(self._nh0_at_quad)
 
         self._type = params['type']
         self._tol = params['tol']
@@ -766,13 +770,17 @@ class CurrentCoupling6DDensity(Propagator):
             self._mat12[:, :, :] =  self._coupling_const * self._b_quad3 * self._nh0_at_quad
             self._mat13[:, :, :] = -self._coupling_const * self._b_quad2 * self._nh0_at_quad
             self._mat23[:, :, :] =  self._coupling_const * self._b_quad1 * self._nh0_at_quad
+            
+            self._mat21[:, :, :] = -self._mat12
+            self._mat31[:, :, :] = -self._mat13
+            self._mat32[:, :, :] = -self._mat23
 
             self._accumulator.accumulate(self._particles,
                                          self._b_full2[0]._data, self._b_full2[1]._data, self._b_full2[2]._data,
                                          self._space_key_int, self._coupling_const,
                                          control_mat=[[None, self._mat12, self._mat13],
-                                                      [None, None, self._mat23],
-                                                      [None, None, None]])
+                                                      [self._mat21, None, self._mat23],
+                                                      [self._mat31, self._mat32, None]])
         else:
             self._accumulator.accumulate(self._particles,
                                          self._b_full2[0]._data, self._b_full2[1]._data, self._b_full2[2]._data,
