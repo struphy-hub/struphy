@@ -583,7 +583,7 @@ class HybridPotential(Propagator):
 
         # for testing of hybrid linear operators
         self._density = StencilMatrix(self._derham.Vh[self._derham.spaces_dict['H1']],
-                                      self._derham.Vh[self._derham.spaces_dict['H1']], backend=PSYDAC_BACKEND_GPYCCEL)
+                                      self._derham.Vh[self._derham.spaces_dict['H1']], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
         self._hybrid_ops = HybridOperators(
             self._derham, self._domain, self._density, self._a, self._beq)
 

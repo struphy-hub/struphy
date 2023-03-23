@@ -75,10 +75,10 @@ def test_mat_vec_filler(Nel, p, spl_kind, n_markers=1):
     mat = {}
     vec = {}
 
-    mat['v0'] = StencilMatrix(DR.Vh['0'], DR.Vh['0'], backend=PSYDAC_BACKEND_GPYCCEL)._data
+    mat['v0'] = StencilMatrix(DR.Vh['0'], DR.Vh['0'], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data
     vec['v0'] = StencilVector(DR.Vh['0'])._data
 
-    mat['v3'] = StencilMatrix(DR.Vh['3'], DR.Vh['3'], backend=PSYDAC_BACKEND_GPYCCEL)._data
+    mat['v3'] = StencilMatrix(DR.Vh['3'], DR.Vh['3'], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data
     vec['v3'] = StencilVector(DR.Vh['3'])._data
 
     mat['v1'] = []
@@ -86,7 +86,7 @@ def test_mat_vec_filler(Nel, p, spl_kind, n_markers=1):
         mat['v1'] += [[]]
         for j in range(3):
             mat['v1'][-1] += [StencilMatrix(
-        DR.Vh['1'].spaces[i], DR.Vh['1'].spaces[j], backend=PSYDAC_BACKEND_GPYCCEL)._data]
+        DR.Vh['1'].spaces[i], DR.Vh['1'].spaces[j], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data]
 
     vec['v1'] = []
     for i in range(3):
@@ -97,7 +97,7 @@ def test_mat_vec_filler(Nel, p, spl_kind, n_markers=1):
         mat['v2'] += [[]]
         for j in range(3):
             mat['v2'][-1] += [StencilMatrix(
-        DR.Vh['2'].spaces[i], DR.Vh['2'].spaces[j], backend=PSYDAC_BACKEND_GPYCCEL)._data]
+        DR.Vh['2'].spaces[i], DR.Vh['2'].spaces[j], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data]
 
     vec['v2'] = []
     for i in range(3):

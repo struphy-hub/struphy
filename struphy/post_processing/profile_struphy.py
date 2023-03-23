@@ -28,7 +28,7 @@ def main():
                          'stencil',
                          'block',
                          'integrate_in_time']
-        print('\nKeyword search enabled:')
+        print('\nKeyword search enabled with keywords\n')
         print(list_of_funcs)
 
     # replace propagator keys or not
@@ -65,7 +65,8 @@ def main():
 
         tmp = {}
         for key, val in d.items():
-            tmp[key] = float(val['cumtime'])
+            #tmp[key] = float(val['cumtime'])
+            tmp[key] = val
 
         if do_replace_keys:
             tmp2 = replace_keys(tmp)
@@ -76,29 +77,47 @@ def main():
 
     # loop over keys (should be same in each dict)
     d_saved = {}
-    for count, key in enumerate(dicts[0].keys()):
+    print('#processes \tpos  \t\tfunction\t\t\t\t\t\t\t\t\t  ncalls\t totime\t\tpercall\t       cumtime')
+    print('----------------------------------------------------------------------------------------------------------------------------------------------------------------------')
+    for position, key in enumerate(dicts[0].keys()):
 
         if list_of_funcs == None:
 
             for dict, path, n, dim in zip(dicts, sys.argv[4:], nproc, Nel):
-                print(f'# processes: {n:4d}, count: {count:2d}  ', key.ljust(
-                    60), dict[key])
 
-            if count == 60:
+                string = f'{n:4d}\t\t{position:2d}\t' + str(key.ljust(90))
+                for value in dict[key].values():
+                    string += str(value).ljust(15)
+                    # if len(str(value)) < 7:
+                    #     string += '\t\t'
+                    # else:
+                    #     string += '\t'
+                print(string)
+            print('')
+
+            if position == 50:
+
                 exit()
 
         elif any(func in key for func in list_of_funcs) and 'dependencies_' not in key and '_dot' not in key:
 
             d_saved[key] = {'mpi_size': [], 'Nel': [], 'time': []}
 
-            print('')
-
             for dict, path, n, dim in zip(dicts, sys.argv[4:], nproc, Nel):
+
+                string = f'{n:4d}\t\t{position:2d}\t' + str(key.ljust(90))
+                for value in dict[key].values():
+                    string += str(value).ljust(15)
+                    #string += '\t\t'
+                print(string)
+
                 d_saved[key]['mpi_size'] += [n]
                 d_saved[key]['Nel'] += [dim]
                 d_saved[key]['time'] += [dict[key]]
-                print(f'# processes: {n:4d}, Nel: {dim}  ',
-                      key.ljust(60), dict[key])
+            print('')
+
+            if position >= 200:
+                exit()
 
     # save profiling date in each sim path
     for path in sys.argv[4:]:

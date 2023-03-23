@@ -965,7 +965,7 @@ class BasisProjectionOperator(LinOpWithTransp):
 
                 # instantiate cell of block matrix
                 dofs_mat = StencilMatrix(
-                    Vspace, Wspace, backend=PSYDAC_BACKEND_GPYCCEL)
+                    Vspace, Wspace, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
 
                 _starts_in = np.array(dofs_mat.domain.starts)
                 _ends_in = np.array(dofs_mat.domain.ends)

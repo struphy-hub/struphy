@@ -299,7 +299,7 @@ class HybridOperator:
                 if np.any(np.abs(weight_blocks[c]) > 1e-14):
 
                     if a != b:
-                        M = StencilMatrix(vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
+                        M = StencilMatrix(vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
                     
                         #kernel = getattr(mass_kernels, 'kernel_' + str(V.ldim) + 'd')
                     
@@ -309,7 +309,7 @@ class HybridOperator:
                         blocks[-1] += [np.sign(a-b)*M]
                     else:
                         # when a = b, values are 0 in this block
-                        M = StencilMatrix(vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
+                        M = StencilMatrix(vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
                         blocks[-1] += [M]
                 else:
                     blocks[-1] += [None]
