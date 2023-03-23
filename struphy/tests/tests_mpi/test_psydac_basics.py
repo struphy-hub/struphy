@@ -142,10 +142,10 @@ def test_psydac_basics(Nel, p, spl_kind, mapping):
 
     # Stencil objects (distributed)
     x0 = StencilVector(DR.Vh['0'])
-    A0 = StencilMatrix(DR.Vh['0'], DR.Vh['0'], backend=PSYDAC_BACKEND_GPYCCEL)
+    A0 = StencilMatrix(DR.Vh['0'], DR.Vh['0'], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
 
     x1 = BlockVector(DR.Vh['1'])
-    A1 = BlockLinearOperator(DR.Vh['1'], DR.Vh['1'], blocks=[[StencilMatrix(Vs, Ws, backend=PSYDAC_BACKEND_GPYCCEL) for Vs in DR.Vh['1'].spaces] for Ws in DR.Vh['1'].spaces])
+    A1 = BlockLinearOperator(DR.Vh['1'], DR.Vh['1'], blocks=[[StencilMatrix(Vs, Ws, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True) for Vs in DR.Vh['1'].spaces] for Ws in DR.Vh['1'].spaces])
 
     starts = DR.Vh['0'].starts
     ends = DR.Vh['0'].ends

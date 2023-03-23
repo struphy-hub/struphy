@@ -263,8 +263,11 @@ class StruphyModel(metaclass=ABCMeta):
                                self.derham.quad_order[2] + 1]
             print(f'GL quad pts (L2)        : {_gl_quad_pts_l2}')
             print(f'GL quad pts (hist)      : {self.derham.nq_pr}')
-            print(
-                f'N-spline indices rank 0 : {self.derham.index_array_N[0]}\n')
+            for n, decomp in enumerate(self.derham.index_array_N):
+                print(
+                    f'N-spline indices rank {n} : {decomp}')
+                print(
+                    f'D-spline indices rank {n} : {self.derham.index_array_D[n]}\n')
 
             print('DOMAIN parameters:')
             print(f'domain type       : {self.domain.__class__.__name__}')

@@ -26,6 +26,8 @@ PSY4  := $(psydac_path)/feec/dof_kernels
 
 # Linear algebra
 LAC  := $(struphy_path)/linear_algebra/core
+LAMV  := $(struphy_path)/linear_algebra/stencil_dot_kernels
+LATR  := $(struphy_path)/linear_algebra/stencil_transpose_kernels
 
 # Splines
 BK   := $(struphy_path)/b_splines/bsplines_kernels
@@ -68,7 +70,7 @@ KM3  := $(struphy_path)/eigenvalue_solvers/kernels_3d
 KPG  := $(struphy_path)/eigenvalue_solvers/kernels_projectors_global
 KPGM := $(struphy_path)/eigenvalue_solvers/kernels_projectors_global_mhd
 
-SOURCES := $(LAC).py $(BK).py $(BKP).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(TR3).py $(MK).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(PUTL).py $(PUSH).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py $(PSY3).py $(PSY4).py
+SOURCES := $(LAC).py $(LAMV).py $(LATR).py $(BK).py $(BKP).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(TR3).py $(MK).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(PUTL).py $(PUSH).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py $(PSY3).py $(PSY4).py
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
@@ -95,6 +97,12 @@ $(PSY4)$(SO_EXT) : $(PSY4).py
 
 # Struphy:
 $(LAC)$(SO_EXT) : $(LAC).py
+	pyccel $< $(FLAGS)
+
+$(LAMV)$(SO_EXT) : $(LAMV).py
+	pyccel $< $(FLAGS)
+
+$(LATR)$(SO_EXT) : $(LATR).py
 	pyccel $< $(FLAGS)
 
 $(BK)$(SO_EXT) : $(BK).py

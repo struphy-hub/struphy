@@ -22,6 +22,10 @@ def test_psydac_derham(Nel, p, spl_kind):
     assert comm.size >= 2
     rank = comm.Get_rank()
 
+    print('Nel=', Nel)
+    print('p=', p)
+    print('spl_kind=', spl_kind)
+
     # Psydac discrete Derham sequence
     derham = Derham(Nel, p, spl_kind, comm=comm)
 

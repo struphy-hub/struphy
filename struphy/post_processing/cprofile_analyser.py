@@ -130,6 +130,8 @@ def replace_keys(d):
 
             p1 = key.find(':')
             p2 = key.find('(')
+            if p1 == -1 or p2 == -1:
+                continue
             f_name = key[:p1]
             l_nr = int(key[p1 + 1:p2])
             new_routine = key[p2:]
@@ -178,4 +180,4 @@ def replace_keys(d):
                 d[new_key] = d.pop(key)
 
     # sort dictionary by cumulative time
-    return dict(sorted(d.items(), key=lambda item: item[1], reverse=True))
+    return dict(sorted(d.items(), key=lambda item: float(item[1]['cumtime']), reverse=True))

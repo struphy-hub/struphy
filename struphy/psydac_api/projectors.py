@@ -74,16 +74,21 @@ class Projector:
             
             if isinstance(projector_tensor.imat_kronecker, KroneckerStencilMatrix):
                 self._imat = projector_tensor.imat_kronecker.tostencil()
+                self._imat.set_backend(PSYDAC_BACKEND_GPYCCEL, precompiled=True)
             else:
                 
-                blocks = [[projector_tensor.imat_kronecker.blocks[0][0].tostencil(), None, None],
-                          [None, projector_tensor.imat_kronecker.blocks[1][1].tostencil(), None],
-                          [None, None, projector_tensor.imat_kronecker.blocks[2][2].tostencil()]]
+                b11 = projector_tensor.imat_kronecker.blocks[0][0].tostencil()
+                b11.set_backend(PSYDAC_BACKEND_GPYCCEL, precompiled=True)
+                b22 = projector_tensor.imat_kronecker.blocks[1][1].tostencil()
+                b22.set_backend(PSYDAC_BACKEND_GPYCCEL, precompiled=True)
+                b33 = projector_tensor.imat_kronecker.blocks[2][2].tostencil()
+                b33.set_backend(PSYDAC_BACKEND_GPYCCEL, precompiled=True)
+                
+                blocks = [[b11, None, None],
+                          [None, b22, None],
+                          [None, None, b33]]
                 
                 self._imat = BlockLinearOperator(self.space.vector_space, self.space.vector_space, blocks)
-
-            # set backend for acceleration
-            self._imat.set_backend(PSYDAC_BACKEND_GPYCCEL)
             
         else:
             

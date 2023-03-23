@@ -567,13 +567,13 @@ class WeightedMassOperator(LinOpWithTransp):
             assert len(V_name) > 2, 'only block matrices with domain/codomain spaces Hcurl, Hdiv and H1vec are allowed!'
 
             if   weights_info == 'symm':
-                blocks = [[StencilMatrix(Vs.vector_space, Ws.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
+                blocks = [[StencilMatrix(Vs.vector_space, Ws.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
                            for Vs in V.spaces] for Ws in W.spaces]
             elif weights_info == 'asym':
-                blocks = [[StencilMatrix(Vs.vector_space, Ws.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
+                blocks = [[StencilMatrix(Vs.vector_space, Ws.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
                            if i != j else None for j, Vs in enumerate(V.spaces)] for i, Ws in enumerate(W.spaces)]
             elif weights_info == 'diag':
-                blocks = [[StencilMatrix(Vs.vector_space, Ws.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
+                blocks = [[StencilMatrix(Vs.vector_space, Ws.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
                            if i == j else None for j, Vs in enumerate(V.spaces)] for i, Ws in enumerate(W.spaces)]
             else:
                 raise NotImplementedError(f'given symmetry {weights_info} is not implemented!')
@@ -610,7 +610,7 @@ class WeightedMassOperator(LinOpWithTransp):
                     # set zero default weights if weights is None
                     if weights_info is None:
                         blocks[-1] += [StencilMatrix(
-                            vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)]
+                            vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)]
                         self._weights[-1] += [lambda *etas: 0*etas[0]]
 
                     else:
@@ -636,7 +636,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
                             if np.any(np.abs(mat_w) > 1e-14):
                                 blocks[-1] += [StencilMatrix(
-                                    vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)]
+                                    vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)]
                                 self._weights[-1] += [weights_info[a][b]]
                             else:
                                 blocks[-1] += [None]
