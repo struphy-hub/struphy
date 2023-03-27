@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 from struphy.geometry import domains
 from struphy.fields_background.mhd_equil import equils
-from struphy.models.base import setup_domain_mhd
+from struphy.models.utilities import setup_domain_mhd
 
 from struphy.dispersion_relations.analytic import PC_LinMHD_6d_full1D
 

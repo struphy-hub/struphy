@@ -8,13 +8,13 @@ grid :
     polar_ck : 1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
 
 units : # units not stated here can be viewed via "struphy units -h"
-    x  : 1. # length scale unit in m
-    B  : 1. # magnetic field unit in T
-    n  : 1. # number density unit in 10^20 m^(-3)
+    x      : 1. # length scale unit in m
+    B      : 1. # magnetic field unit in T
+    n      : 1. # number density unit in 10^20 m^(-3)
 
 time :
-    dt         : 0.2  # time step
-    Tend       : 3000. # simulation time interval is [0, Tend]
+    dt         : 0.1  # time step
+    Tend       : 30. # simulation time interval is [0, Tend]
     split_algo : LieTrotter # LieTrotter | Strang
 
 geometry :
@@ -44,14 +44,14 @@ mhd_equilibrium :
         n2              : 0. # 2nd shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
         na              : 1. # number density at last closed flux surface
 
+
 kinetic :
     ions :
         phys_params:
-            A : 1 # mass number in units of proton mass
+            A : 1  # mass number in units of proton mass
             Z : 1 # signed charge number in units of elementary charge
         markers :
             type    : full_f # full_f, control_variate, or delta_f
-            ppc     : null
             Np      : 4 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
             eps     : 2.0 # MPI send/receive buffer (0.1 <= eps <= 1.0)
             bc_type : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
@@ -59,14 +59,17 @@ kinetic :
                 type    : pseudo_random # particle loading mechanism 
                 seed    : 1608 # seed for random number generator
                 moments : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
-                initial : [[.501, 0.001, 0.001, 0.,  0.0450, -0.04], # co-passing particle
-                           [.501, 0.001, 0.001, 0., -0.0450, -0.04], # counter passing particle
-                           [.501, 0.001, 0.001, 0.,  0.0105, -0.04], # co-trapped particle
-                           [.501, 0.001, 0.001, 0., -0.0155, -0.04]] # counter-trapped particle
+                initial : [[.501, 0.001, 0.001, 0.,  0.0450, -0.04], # counter-passing particle
+                           [.501, 0.001, 0.001, 0., -0.0450, -0.04], # co-passing particle
+                           [.501, 0.001, 0.001, 0.,  0.0105, -0.04], # counter-trapped particle
+                           [.501, 0.001, 0.001, 0., -0.0155, -0.04]] # co-trapped particle
+
         init : 
             type : Maxwellian6DUniform
         save_data :
             n_markers : 4 # number of markers to be save during simulation
         push_algos :
-            vxb : analytic # possible choices: analytic, implicit
-            eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4
+            integrator : implicit # explicit or implicit
+            method : discrete_gradients # possible choices: discrete_gradients, discrete_gradients_faster, forward_euler, heun2, rk2, heun3, rk4
+            maxiter : 10
+            tol : 1.e-15

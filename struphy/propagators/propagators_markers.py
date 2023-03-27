@@ -132,7 +132,7 @@ class PushVxB(Propagator):
 
         # parameters
         params_default = {'algo': 'analytic',
-                          'scale_fac': ['reflect', 'periodic', 'periodic'],
+                          'scale_fac': 1.,
                           'b_eq': None,
                           'b_tilde': None,
                           'f0': Maxwellian6DUniform()}

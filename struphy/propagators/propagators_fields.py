@@ -641,10 +641,8 @@ class CurrentCoupling6DDensity(Propagator):
                           'maxiter': 3000,
                           'info': False,
                           'verbose': False,
-                          'nuh': 5.,
                           'Ab': 1,
                           'Ah': 1,
-                          'Zh': 1,
                           'kappa': 1.}
 
         params = set_defaults(params, params_default)
@@ -705,9 +703,7 @@ class CurrentCoupling6DDensity(Propagator):
         self._verbose = params['verbose']
         self._rank = self.derham.comm.Get_rank()
 
-        self._coupling_const = params['nuh'] * \
-            params['kappa'] * params['Zh'] / params['Ab']
-
+        self._coupling_const = params['Ah'] * params['kappa'] / params['Ab'] 
         # load accumulator
         self._accumulator = Accumulator(
             self.derham, self.domain, params['u_space'], 'cc_lin_mhd_6d_1', add_vector=False, symmetry='asym')

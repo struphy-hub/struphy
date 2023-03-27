@@ -7,14 +7,14 @@ grid :
     nq_pr    : [4, 4, 4] # quadrature points per histopolation cell (for commuting projectors)
     polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
 
-units :
-    x : 1. # length scale unit in m
-    B : 1. # magnetic field unit in T
-    n : 1. # number density unit of fluid species in 1 x 10^20 m^(-3)
+units : # units not stated here can be viewed via "struphy units -h"
+    x      : 1. # length scale unit in m
+    B      : 1. # magnetic field unit in T
+    n      : 1. # number density unit in 10^20 m^(-3)
 
 time :
     dt         : 0.15 # time step
-    Tend       : 180. # simulation time interval is [0, Tend]
+    Tend       : 1.5 # simulation time interval is [0, Tend]
     split_algo : LieTrotter # LieTrotter | Strang
 
 geometry :

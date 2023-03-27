@@ -6,10 +6,15 @@ PYTHON  := python3
 SO_EXT  := $(shell $(PYTHON) -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")
 LIBDIR  := $(shell $(PYTHON) -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")
 psydac_path := $(shell $(PYTHON) -c "import psydac as _; print(_.__path__[0])")
+struphy_path := $(shell $(PYTHON) -c "import struphy as _; print(_.__path__[0])")
 
+# Arguments to this script are: 
+# flags
+# flags_openmp_pic
+# flags_openmp_mhd
 FLAGS            := --libdir $(LIBDIR) $(flags)
-FLAGS_openmp_mhd := $(flags_openmp_mhd)
 FLAGS_openmp_pic := $(flags_openmp_pic)
+FLAGS_openmp_mhd := $(flags_openmp_mhd)
 
 #--------------------------------------
 # SOURCE FILES PSYDAC
