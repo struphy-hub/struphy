@@ -302,11 +302,11 @@ class PressureCoupling6D(Propagator):
 
         self._info = params['info']
 
-        self._coupling_mat = params['nuh'] * params['kappa']**2 * \
-            params['Zh']**2 / (params['Ab'] * params['Ah'])
-        self._coupling_vec = params['nuh'] * \
-            params['kappa'] * params['Zh'] / params['Ab']
-        self._scale_push = params['kappa'] * params['Zh'] / params['Ah']
+        # ============= TODO ======== 
+        self._coupling_mat = 1.
+        self._coupling_vec = 1.
+        self._scale_push = 1.
+        # ===========================
 
         self._ACC = Accumulator(self.derham, self.domain, 'Hcurl',
                                 accum_ker, add_vector=True, 
@@ -501,10 +501,8 @@ class CurrentCoupling6DCurrent(Propagator):
                           'maxiter': 3000,
                           'info': False,
                           'verbose': False,
-                          'nuh': 5.,
                           'Ab': 1,
                           'Ah': 1,
-                          'Zh': 1,
                           'kappa': 1.}
 
         params = set_defaults(params, params_default)
@@ -562,11 +560,9 @@ class CurrentCoupling6DCurrent(Propagator):
         self._info = params['info']
         self._rank = self.derham.comm.Get_rank()
 
-        self._coupling_mat = params['nuh'] * params['kappa']**2 * \
-            params['Zh']**2 / (params['Ab'] * params['Ah'])
-        self._coupling_vec = params['nuh'] * \
-            params['kappa'] * params['Zh'] / params['Ab']
-        self._scale_push = params['kappa'] * params['Zh'] / params['Ah']
+        self._coupling_mat = params['Ah'] / params['Ab'] * params['kappa']**2 
+        self._coupling_vec = params['Ah'] / params['Ab'] * params['kappa'] 
+        self._scale_push = 1*params['kappa']
 
         # load accumulator
         self._accumulator = Accumulator(

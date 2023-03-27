@@ -8,9 +8,9 @@ grid :
     polar_ck : 1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
 
 units : # units not stated here can be viewed via "struphy units -h"
-    x  : 1. # length scale unit in m
-    B  : 1. # magnetic field unit in T
-    n  : 1. # number density unit in 10^20 m^(-3)
+    x      : 1. # length scale unit in m
+    B      : 1. # magnetic field unit in T
+    n      : 1. # number density unit in 10^20 m^(-3)
 
 time :
     dt         : 0.2  # time step
@@ -47,7 +47,7 @@ mhd_equilibrium :
 kinetic :
     ions :
         phys_params:
-            A : 1 # mass number in units of proton mass
+            A : 1  # mass number in units of proton mass
             Z : 1 # signed charge number in units of elementary charge
         markers :
             type    : full_f # full_f, control_variate, or delta_f

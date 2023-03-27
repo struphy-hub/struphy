@@ -27,17 +27,8 @@ setup(
         'struphy': ['compile_struphy.mk'],
     },
     # list of executable(s) that come with the package (if applicable)s
-    scripts=['bin/struphy',
-             'bin/code_tests',
-             'bin/example_maxwell_serial',
-             'bin/example_maxwell_mpi_3',
-             'bin/example_linearmhd_mpi_4',
-             'bin/example_orbits_tokamak_mpi_2',
-             'bin/example_gc_orbits_tokamak_mpi_4',
-             'bin/example_TAE_tokamak_mpi_2',
-             'bin/example_hybridmhdvlasovcc_mpi_2',
-             'bin/example_hybridmhdvlasovpc_mpi_2'
-             ],
+    #scripts=['bin/struphy_leg',
+    #         ],
     # list of package dependencies (if necessary)
     install_requires=[
         'h5py',

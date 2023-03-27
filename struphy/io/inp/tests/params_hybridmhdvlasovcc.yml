@@ -7,14 +7,10 @@ grid :
     nq_pr    : [6, 6, 6] # quadrature points per histopolation cell (for commuting projectors)
     polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
 
-model_units :
-    x   : 1. # length scale unit in m
-    B   : 1. # magnetic field unit in T
-    nb  : 0.0005185219355 # bulk number density unit in 1 x 10^20 m^(-3)
-    nuh : 5. # ratio of hot/bulk number density units in %
-    Ab  : 1 # mass number of bulk ion species (1 : Hydrogen, 2 : Deuterium, 3 : Tritium, etc.)
-    Ah  : 1 # mass number of energetic ion species (1 : Hydrogen, 2 : Deuterium, 3 : Tritium, etc.)
-    Zh  : 1 # charge number of energetic ion species (1 : Hydrogen, 2 : Helium, etc.)
+units :
+    x  : 1. # length scale unit in m
+    B  : 1. # magnetic field unit in T
+    n  : 0.0005185219355 # bulk number density unit in 1 x 10^20 m^(-3)
 
 time : 
     dt         : 0.1  # time step
@@ -46,6 +42,9 @@ em_fields :
 
 fluid :
     mhd :
+        phys_params:
+            A : 1 # mass number in units of proton mass
+            Z : 1 # signed charge number in units of elementary charge
         mhd_u_space : H1vec # Hdiv | H1vec
         init :
             type : ModesCos # type of initialization
@@ -72,6 +71,9 @@ fluid :
 
 kinetic :
     energetic_ions :
+        phys_params:
+            A : 1  # mass number in units of proton mass
+            Z : 1 # signed charge number in units of elementary charge
         markers :
             type    : full_f # full_f, control_variate, or delta_f
             Np      : 6400 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
@@ -84,6 +86,7 @@ kinetic :
         init :
             type : Maxwellian6DUniform
             Maxwellian6DUniform :
+                n  : 0.05
                 uz : 2.5
         save_data :
             n_markers : 10 # number of markers to be save during simulation

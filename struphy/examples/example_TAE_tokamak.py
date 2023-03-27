@@ -11,7 +11,7 @@ from struphy.fields_background.mhd_equil import equils
 from struphy.diagnostics.continuous_spectra import get_mhd_continua_2d
 from struphy.dispersion_relations.analytic import MhdContinousSpectraCylinder
 from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-from struphy.models.base import setup_domain_mhd
+from struphy.models.utilities import setup_domain_mhd
 
 
 def main():

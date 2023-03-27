@@ -6,7 +6,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
-from struphy.models.base import setup_domain_mhd
+from struphy.models.utilities import setup_domain_mhd
 from struphy.fields_background.mhd_equil.equils import EQDSKequilibrium
 
 

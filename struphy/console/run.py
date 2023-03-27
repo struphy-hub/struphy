@@ -1,0 +1,153 @@
+def struphy_run(model='Maxwell', 
+                input='parameters.yml', 
+                input_abs=None, 
+                output='sim_1',
+                output_abs=None,
+                batch=None,
+                batch_abs=None,
+                runtime=300,
+                restart=False,
+                mpi=1,
+                debug=False):
+    """
+    Run a Struphy model: prepare arguments, output folder and execute main().
+    
+    Parameters
+    ----------
+    model : str
+        The name of the Struphy model.
+        
+    input : str
+        The .yml input paramter file relative to <struphy_path>/io/inp.
+        
+    input_abs : str
+        The absolute path to the .yml input parameter file.
+        
+    output : str
+        Name of the output folder in <struphy_path>/io/out.
+        
+    output_abs : str
+        Absolute path to the output folder.
+        
+    batch : str
+        Name of the batch script for runs on a cluster.
+        
+    batch_abs : str
+        Absolute path to the batch scripts for runs on a cluster.
+        
+    runtime : int
+        Maximum runtime of the simulation in minutes. Will complete the time step and exit after this time is reached.
+        
+    restart : bool
+        Wether to restart an existing simulation.
+        
+    mpi : int
+        Number of MPI processes for runs with "mpirun".
+        
+    debug : bool
+        Wether to run in Cobra debug mode.
+    """
+    
+    import subprocess
+    import os
+    import glob
+    import struphy
+
+    libpath = struphy.__path__[0]
+    
+    # create absolute i/o paths
+    if input_abs is None:
+        input_abs = os.path.join(libpath, 'io/inp/', input)
+        
+    if output_abs is None:
+        output_abs = os.path.join(libpath, 'io/out/', output)
+        
+    if batch_abs is None:
+        if batch is not None:
+            batch_abs = os.path.join(libpath, 'io/batch/', batch)
+     
+    # take existing parameter file for restart   
+    if restart:
+        input_abs = os.path.join(output_abs, 'parameters.yml')
+    
+    # run in normal or debug mode
+    if batch_abs is None:
+
+        if debug:
+            print('\nLaunching main() in Cobra debug mode ...')
+            subprocess.run(['srun', # use mpi
+                            '-n',
+                            str(mpi),
+                            '-p', # interactive commands
+                            'interactive',
+                            '--time',
+                            '119',
+                            '--mem',
+                            '2000',
+                            'python3', # use python3 
+                            '-m', 
+                            'cProfile', # start the profiler
+                            '-o', 
+                            os.path.join(output_abs, 'profile_tmp'), # location of profiling data
+                            '-s',
+                            'time', # sort profile data according to runtime
+                            'main.py', # run main.main()
+                            model, # from here on, command line arguments for main()
+                            input_abs,
+                            output_abs,
+                            str(restart),
+                            str(runtime)
+                            ], 
+                            check=True, cwd=libpath)
+        else:
+            print('\nLaunching main() in normal mode ...')
+            subprocess.run(['mpirun', # always use mpi
+                            '-n',
+                            str(mpi),
+                            'python3', # use python3 
+                            '-m', 
+                            'cProfile', # start the profiler
+                            '-o', 
+                            os.path.join(output_abs, 'profile_tmp'), # location of profiling data
+                            '-s',
+                            'time', # sort profile data according to runtime
+                            'main.py', # run main.main()
+                            model, # from here on, command line arguments for main()
+                            input_abs,
+                            output_abs,
+                            str(restart),
+                            str(runtime)
+                            ], 
+                            check=True, cwd=libpath)
+    # run in batch mode
+    else:
+        
+        # delete srun command from batch script
+        with open(batch_abs, 'r') as f:
+            lines = f.readlines()
+            if 'srun' in lines[-1]:
+                lines = lines[:-2]
+            
+        # add new srun command
+        with open(batch_abs, 'w') as f:
+            for line in lines:
+                f.write(line)
+            f.write('\n# Run command added by Struphy')
+            f.write('\nsrun python3 -m cProfile -o ' + os.path.join(output_abs, 'profile_tmp') + ' -s time '\
+                    + libpath + '/main.py '\
+                    + model + ' '\
+                    + input_abs + ' '\
+                    + output_abs + ' '\
+                    + str(restart) + ' '\
+                    + str(runtime) + ' '\
+                    + '> ' + os.path.join(output_abs, 'struphy.out')
+                    )
+        
+        # call batch system
+        print('\nLaunching main() in batch mode ...')
+        subprocess.run(['sbatch', 
+                        batch_abs,
+                        ], 
+                        check=True, cwd=libpath)
+
+        

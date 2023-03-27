@@ -11,7 +11,7 @@ from struphy.fields_background.mhd_equil import equils
 from struphy.psydac_api.psydac_derham import Derham
 from struphy.psydac_api.fields import Field
 from struphy.kinetic_background import analytical
-from struphy.models.base import setup_domain_mhd
+from struphy.models.utilities import setup_domain_mhd
 
 from pyevtk.hl import gridToVTK
 
@@ -474,7 +474,7 @@ def post_process_f(path, species, marker_type='full_f'):
                 data_delta_f = data
 
             elif marker_type == 'delta_f':
-                model = str(lines[-2].split()[-1])
+                model = str(lines[3].split()[-1])
 
                 # Linearized Vlasov-Maxwell system
                 if model == "LinearVlasovMaxwell":
