@@ -20,8 +20,8 @@ from struphy.version import __version__
 # -- Project information -----------------------------------------------------
 
 project = 'struphy'
-copyright = 'Copyright 2022 (c) struphy dev team | CONTRIBUTING.md | Max Planck Institute for Plasma Physics'
-author = 'struphy dev team | CONTRIBUTING.md | Max Planck Institute for Plasma Physics'
+copyright = '2022 (c) Struphy dev team | Max Planck Institute for Plasma Physics'
+author = 'Struphy dev team | Max Planck Institute for Plasma Physics'
 version = __version__ + ' beta'
 
 # The full version, including alpha/beta/rc tags

@@ -28,8 +28,8 @@ fields :
         TorusModesSin :
             coords : 'logical'
             comps :
-                e_field : [True, True, False]
-                b_field : [False, False, False]
+                e1 : [True, True, False]
+                b2 : [False, False, False]
             ms : [1] # poloidal mode numbers
             ns : [1] # toroidal mode numbers
             amp : [0.001] # amplitudes

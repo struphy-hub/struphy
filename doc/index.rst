@@ -12,7 +12,7 @@ Struphy documentation
    sections/domains
    sections/mhd_equils
    sections/kinetic_backgrounds
-   sections/dispersions
+   sections/diagnostics
    sections/developers
    sections/discretization
    sections/propagators

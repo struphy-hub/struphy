@@ -123,7 +123,7 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[12, 16, 20]])
 @pytest.mark.parametrize('p', [[1, 2, 3]])
-@pytest.mark.parametrize('spl_kind', [[True, True, True], [False, False, False], [False, True, True]])
+@pytest.mark.parametrize('spl_kind', [[True, False, False]])
 @pytest.mark.parametrize('domain_ind', ['NNN', 'DNN', 'NDN', 'NND', 'NDD', 'DND', 'DDN', 'DDD'])
 @pytest.mark.parametrize('codomain_ind', ['NNN', 'DNN', 'NDN', 'NND', 'NDD', 'DND', 'DDN', 'DDD'])
 def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):

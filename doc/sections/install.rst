@@ -56,7 +56,7 @@ Required Linux packages (``.deb``)::
     sudo apt install -y libhdf5-openmpi-dev
     sudo apt install -y python3-pip python3-mpi4py
 
-Clone the `struphy repository <https://gitlab.mpcdf.mpg.de/struphy/struphy>`_, update submodules 
+Clone the `Struphy repository <https://gitlab.mpcdf.mpg.de/struphy/struphy>`_, update submodules 
 and name the repo ``<name>`` via::
 
     git clone --recurse-submodules git@gitlab.mpcdf.mpg.de:struphy/struphy.git <name>
@@ -166,17 +166,21 @@ You can now install *struphy* in developer mode::
 
     git clone --recurse-submodules git@gitlab.mpcdf.mpg.de:struphy/struphy.git <name>
     cd <name>
-    pip install -e .
+    pip install .
     struphy
 
 In order to develop inside the container, we recommend to use `Visual Studio Code <https://code.visualstudio.com/>`_.
-Once installed, you can click on **Extensions** (red circle below) and install the ``Remote - Containers``
+Once installed, you can click on **Extensions** (red circle below) and install the ``Dev Containers``
 extension (green box). Now you will be able to edit container files in VScode by clicking on the green symbol
 in the bottom-left corner (yellow circle). Choose ``Attach to a running container ...`` and select 
 the container in which you want to edit. By doing ``File - Open Folder...`` you are able to
 open any folder from the container.
 
-In order to have Python highlighting we recommend to install the ``Python`` extension in VScode.
+We recommend to install the following VScode extensions inside the container:
+
+    - ``Python`` extension 
+    - ``Python Extensions`` extension
+    - ``Jupyter`` extension  
 
 .. image:: ../pics/vscode_docker_red.png
 
@@ -234,9 +238,7 @@ Enter the shell::
 
     multipass shell <VM-name>
 
-Continue with the installation of :ref:`linux_packages`, then proceed to :ref:`source_install`.
-
-To shut down the VM::
+Continue with the installation of :ref:`source_install`. To shut down the VM::
 
     exit
 
@@ -244,7 +246,8 @@ and stop it from the host machine::
 
     multipass stop <VM-name>
 
-In order to have access to the `Gitlab.mpcdf <https://gitlab.mpcdf.mpg.de/>`_ repositories, in case there is none, generate an ssh key::
+In order to have access to the `Struphy repository <https://gitlab.mpcdf.mpg.de/struphy/struphy>`_, 
+generate an ssh key (if you do not already have one)::
 
     ssh-keygen
 

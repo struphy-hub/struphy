@@ -28,8 +28,12 @@ def main():
                          'stencil',
                          'block',
                          'integrate_in_time']
-        print('\nKeyword search enabled with keywords\n')
+        print('\nKeyword search enabled with keywords:')
+        print('-------------------------------------')
         print(list_of_funcs)
+        
+    print('\nLoad profiling data:')
+    print('--------------------')
 
     # replace propagator keys or not
     do_replace_keys = sys.argv[2] == 'true'
@@ -38,6 +42,7 @@ def main():
     n_lines = int(sys.argv[3])
 
     # load data
+    sim_names = []
     dicts_pre = []
     nproc = []
     Nel = []
@@ -45,6 +50,8 @@ def main():
 
         print('')
         get_cprofile_data(path)
+        
+        sim_names += [path.split('/')[-2]]
 
         with open(path + 'profile_dict.sav', 'rb') as f:
             dicts_pre += [pickle.load(f)]
@@ -77,15 +84,15 @@ def main():
 
     # loop over keys (should be same in each dict)
     d_saved = {}
-    print('#processes \tpos  \t\tfunction\t\t\t\t\t\t\t\t\t  ncalls\t totime\t\tpercall\t       cumtime')
-    print('----------------------------------------------------------------------------------------------------------------------------------------------------------------------')
+    print('simulation'.ljust(20) + '#proc'.ljust(7) + 'pos'.ljust(5) + 'function'.ljust(70) + 'ncalls'.ljust(15) + 'totime'.ljust(15) + 'percall'.ljust(15) + 'cumtime'.ljust(15))
+    print('-'*154)
     for position, key in enumerate(dicts[0].keys()):
 
         if list_of_funcs == None:
 
-            for dict, path, n, dim in zip(dicts, sys.argv[4:], nproc, Nel):
+            for dict, sim_name, n, dim in zip(dicts, sim_names, nproc, Nel):
 
-                string = f'{n:4d}\t\t{position:2d}\t' + str(key.ljust(90))
+                string = f'{sim_name}'.ljust(20) + f'{n}'.ljust(7) + f'{position:2d}'.ljust(5) + str(key.ljust(70))
                 for value in dict[key].values():
                     string += str(value).ljust(15)
                     # if len(str(value)) < 7:
@@ -103,9 +110,9 @@ def main():
 
             d_saved[key] = {'mpi_size': [], 'Nel': [], 'time': []}
 
-            for dict, path, n, dim in zip(dicts, sys.argv[4:], nproc, Nel):
+            for dict, sim_name, n, dim in zip(dicts, sim_names, nproc, Nel):
 
-                string = f'{n:4d}\t\t{position:2d}\t' + str(key.ljust(90))
+                string = f'{sim_name}'.ljust(20) + f'{n}'.ljust(7) + f'{position:2d}'.ljust(5) + str(key.ljust(70))
                 for value in dict[key].values():
                     string += str(value).ljust(15)
                     #string += '\t\t'
