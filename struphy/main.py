@@ -86,11 +86,11 @@ def struphy():
         if inspect.isclass(obj):
             if name not in {'StruphyModel', }:
                 list_models += [name]
-                
+
     models_string = ''
     for mod in list_models[:-1]:
         models_string += '"' + mod + '", '
-        
+
     models_string += 'or "' + list_models[-1] + '"'
 
     parser_run.add_argument('model',
@@ -155,45 +155,72 @@ def struphy():
     parser_units = subparsers.add_parser(
         'units',
         formatter_class=lambda prog: argparse.HelpFormatter(
-                                           prog, max_help_position=30),
+            prog, max_help_position=30),
         help='show physical units of a Struphy model',
         description='Show physical units of a Struphy model.',
         epilog='For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html')
-    
+
     parser_units.add_argument('model',
-                            type=str,
-                            choices=list_models,
-                            metavar='model',
-                            help='which model to look at (must be one of ' + models_string + ')',)
+                              type=str,
+                              choices=list_models,
+                              metavar='model',
+                              help='which model to look at (must be one of ' + models_string + ')',)
 
     parser_units.add_argument('-i', '--input',
-                            type=str,
-                            metavar='FILE',
-                            help='parameter file (.yml) relative to <install_path>/struphy/io/inp/ (default=parameters.yml)',
-                            default='parameters.yml',)
+                              type=str,
+                              metavar='FILE',
+                              help='parameter file (.yml) relative to <install_path>/struphy/io/inp/ (default=parameters.yml)',
+                              default='parameters.yml',)
 
     parser_units.add_argument('--input-abs',
-                            type=str,
-                            metavar='FILE',
-                            help='parameter file (.yml), absolute path',)
+                              type=str,
+                              metavar='FILE',
+                              help='parameter file (.yml), absolute path',)
 
     # 4. "profile" sub-command
     parser_profile = subparsers.add_parser(
-        'profile', help='profile finished Struphy runs')
-    # TODO
+        'profile',
+        help='profile finished Struphy runs',
+        description='Compare profiling data of finished Struphy runs. For each function in a predefined filter, displays: ncalls, tottime, percall and cumtime.')
+
+    parser_profile.add_argument('dirs',
+                                type=str,
+                                nargs='+',
+                                metavar='DIR',
+                                help='simulation ouput folders')
+    
+    parser_profile.add_argument('--replace',
+                            help='replace module names with class names for better info',
+                            action='store_true',)
+    
+    parser_profile.add_argument('--all',
+                            help='display the 50 most expensive function calls, without applying the predefined filter',
+                            action='store_true',)
+    
+    parser_profile.add_argument('--n-lines',
+                            type=int,
+                            metavar='N',
+                            help='plot the N most time consuming calls in profiling analysis (default=6)',
+                            default=6,)
+    
+    parser_profile.add_argument('--print-callers',
+                                type=str,
+                                metavar='STR',
+                                help='string STR that identifies functions for which to print callers (default=None)',
+                                default=None)
 
     # 5. "pproc" sub-command
     parser_pproc = subparsers.add_parser(
-        'pproc', 
+        'pproc',
         help='post process data of finished Struphy runs',
         description='Post-process data of finished Struphy runs to prepare for diagnostics.')
-    
+
     parser_pproc.add_argument('dirs',
                               type=str,
                               nargs='+',
                               metavar='DIR',
                               help='simulation ouput folders')
-    
+
     parser_pproc.add_argument('--celldivide',
                               type=int,
                               metavar='N',
@@ -202,27 +229,27 @@ def struphy():
 
     # 6. "example" sub-command
     parser_example = subparsers.add_parser(
-        'example', 
+        'example',
         help='run a Struphy example',
         description='Run a complete Struphy example including prost-processing and plots.')
-    
+
     list_examples = []
     for name, obj in inspect.getmembers(example):
         if inspect.isfunction(obj):
             if name not in {'struphy_example', }:
                 list_examples += [name]
-                
+
     examples_string = ''
     for ex in list_examples[:-1]:
         examples_string += '"' + ex + '", '
-        
+
     examples_string += 'or "' + list_examples[-1] + '"'
-    
+
     parser_example.add_argument('case',
                                 type=str,
                                 metavar='case',
                                 help='which example to run (must be one of ' + examples_string + ')')
-    
+
     parser_example.add_argument('--mpi',
                                 type=int,
                                 metavar='N',
@@ -230,41 +257,41 @@ def struphy():
                                 default=1)
 
     # 7. "test" sub-command
-    parser_test = subparsers.add_parser('test', 
+    parser_test = subparsers.add_parser('test',
                                         help='run Struphy units tests',
                                         description='Run available tests. If no options are given, all units tests (serial and parallel) are run (2 processes for parallel tests).')
-    
+
     parser_test.add_argument('--serial',
                              help='run serial unit tests only',
                              action='store_true')
-    
+
     parser_test.add_argument('--mpi',
                              type=int,
                              metavar='N',
                              help='run parallel units tests only (with N number of processes)',
                              default=0)
-    
+
     parser_test.add_argument('--codes',
                              help='run code tests',
                              action='store_true')
 
     # parse argument
     args = parser.parse_args()
-    
+
     # if no arguments are passed, print help and exit
     if args.command is None:
         parser.print_help()
         exit()
-    
+
     # handle argument dependencies in "sub-command"
     if args.command == 'test':
-        
+
         # set default case "struphy test"
         if args.serial == False and args.mpi == 0:
             args.serial = True
             args.mpi = 2
 
-        # if codes is given, don't run unit tests    
+        # if codes is given, don't run unit tests
         if args.codes:
             args.serial = False
             args.mpi = 0
@@ -283,34 +310,37 @@ def struphy():
 def main(model_name, parameters, path_out, restart=False, max_sim_time=300):
     """
     Run a Struphy model.
-    
+
     Parameters
     ----------
     model_name : str
         The name of the model to run.
-        
+
     parameters : dict | str
         The simulation parameters. Can either be a dictionary OR a string (path of .yml parameter file)
-        
+
     path_out : str
         The output directory. Will create a folder if it does not exist OR cleans the folder for new runs.
-        
+
     restart : bool
         Whether to restart a run.
-        
+
     max_sim_time : int
         Maximum run time of simulation in minutes. Will finish the time integration once this limit is reached.
     """
 
     from struphy.models import models
     from struphy.post_processing.output_handling import DataContainer
-    
+
     from psydac.linalg.stencil import StencilVector
-    
-    import os, time, yaml, sys
+
+    import os
+    import time
+    import yaml
+    import sys
 
     from mpi4py import MPI
-    
+
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
@@ -326,9 +356,10 @@ def main(model_name, parameters, path_out, restart=False, max_sim_time=300):
         path_out = sys.argv[3]
         restart = sys.argv[4] == 'True'
         max_sim_time = float(sys.argv[5])
-    
+
     # call pre-processing (preparation of output folder, information printing etc.)
-    params = pre_processing(model_name, parameters, path_out, restart, max_sim_time, rank, size)
+    params = pre_processing(model_name, parameters,
+                            path_out, restart, max_sim_time, rank, size)
 
     # instantiate STRUPHY model (will only allocate model objects and associated memory)
     model_class = getattr(models, model_name)
@@ -473,9 +504,10 @@ def main(model_name, parameters, path_out, restart=False, max_sim_time=300):
     dt = params['time']['dt']
     Tend = params['time']['Tend']
     split_algo = params['time']['split_algo']
-    
+
     if rank == 0:
-        print(f'\nStart time integration with {split_algo} splitting algorithm')
+        print(
+            f'\nStart time integration with {split_algo} splitting algorithm')
         print()
 
     # time loop
@@ -532,13 +564,14 @@ def main(model_name, parameters, path_out, restart=False, max_sim_time=300):
             str_len = len(total_steps)
             step = str(time_steps_done).zfill(str_len)
             message = 'time steps finished : ' + step + '/' + total_steps
-            print('\r', message, end='\n')
+            print(message, end='\n')
             model.print_scalar_quantities()
             print()
 
 #########################
 ##### Helper functions ##
 #########################
+
 
 class NoSubparsersMetavarFormatter(HelpFormatter):
     """
@@ -581,31 +614,31 @@ class CustomFormatter(NoSubparsersMetavarFormatter, RawTextHelpFormatter):
 def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_rank, mpi_size):
     """
     Prepares simulation parameters, output folder and prints some information of the run to the screen. 
-    
+
     Parameters
     ----------
     model_name : str
         The name of the model to run.
-        
+
     parameters : dict | str
         The simulation parameters. Can either be a dictionary OR a string (path of .yml parameter file)
-        
+
     path_out : str
         The output directory. Will create a folder if it does not exist OR cleans the folder for new runs.
-        
+
     restart : bool
         Whether to restart a run.
-        
+
     max_sim_time : int
         Maximum run time of simulation in minutes. Will finish the time integration once this limit is reached.
-        
+
     mpi_rank : int
         The rank of the calling process.
-        
+
     mpi_size : int
         Total number of MPI processes of the run.
     """
-    
+
     import os
     import shutil
     import datetime
@@ -613,7 +646,7 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
     import glob
     import yaml
     from struphy.models import models
-    
+
     # prepare output folder
     if mpi_rank == 0:
         print('')
@@ -624,7 +657,7 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
             print('\nCreated folder ' + path_out)
 
         # clean output folder if it already exists
-        else :
+        else:
 
             # remove eval_fields folder
             folder = os.path.join(path_out, 'eval_fields')
@@ -661,34 +694,35 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
                 files = glob.glob(os.path.join(path_out, '*.hdf5'))
                 for n, file in enumerate(files):
                     os.remove(file)
-                    if n < 10: # print only forty statements in case of many processes
+                    if n < 10:  # print only forty statements in case of many processes
                         print('Removed file ' + file)
 
     # save "parameters" dictionary as .yml file
     if isinstance(parameters, dict):
         parameters_path = os.path.join(path_out, 'parameters.yml')
-        
+
         # write parameters to file
         if mpi_rank == 0:
-            params_file=open(parameters_path, 'w')
+            params_file = open(parameters_path, 'w')
             yaml.dump(parameters, params_file)
             params_file.close()
-        
+
         params = parameters
-    
+
     # OR load parameters if "parameters" is a string (path)
     else:
         parameters_path = parameters
         with open(parameters) as file:
             params = yaml.load(file, Loader=yaml.FullLoader)
-            
+
     if mpi_rank == 0:
         # copy parameter file (if it does not already exist in output folder)
         if not os.path.exists(os.path.join(path_out, 'parameters.yml')):
-            shutil.copy2(parameters_path, os.path.join(path_out, 'parameters.yml'))
-    
+            shutil.copy2(parameters_path, os.path.join(
+                path_out, 'parameters.yml'))
+
     if mpi_rank == 0:
-        
+
         # print simulation info
         print('')
         print('model:'.ljust(30), model_name)
@@ -733,25 +767,26 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
             f.write(
                 'max wall-clock time [min]:'.ljust(30) + str(max_sim_time) + '\n')
             f.write('# processes: '.ljust(30) + str(mpi_size) + '\n')
-        
+
     return params
 
+
 if __name__ == '__main__':
-    
+
     import os
     import struphy
-    
+
     libpath = struphy.__path__[0]
     print(libpath)
-    
+
     # default model
     model = 'Maxwell'
-    
+
     # default parameter file
     input_file = os.path.join(libpath, 'io/inp/parameters.yml')
-    
+
     # default output
     output_folder = os.path.join(libpath, 'io/out/sim_1')
-    
+
     # run model
     main(model, input_file, output_folder, restart=False, max_sim_time=15)

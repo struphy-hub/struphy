@@ -1516,14 +1516,14 @@ class Maxwell(StruphyModel):
     
     def __init__(self, params, comm):
 
-        super().__init__(params, comm, e_field='Hcurl', b_field='Hdiv')
+        super().__init__(params, comm, e1='Hcurl', b2='Hdiv')
             
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_fields
 
         # Pointers to em-field variables
-        self._e = self.em_fields['e_field']['obj'].vector
-        self._b = self.em_fields['b_field']['obj'].vector
+        self._e = self.em_fields['e1']['obj'].vector
+        self._b = self.em_fields['b2']['obj'].vector
 
         # extract necessary parameters
         solver_params = params['solvers']['solver_1']
