@@ -1,6 +1,6 @@
-.. _examples:
+.. _gallery:
 
-Pictures
-========
+Struphy gallery
+===============
 
 Coming soon !

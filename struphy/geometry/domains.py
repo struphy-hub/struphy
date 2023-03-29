@@ -1,5 +1,85 @@
 from struphy.geometry.base import Domain, Spline, PoloidalSplineStraight, PoloidalSplineTorus
+from struphy.geometry.utilities import field_line_tracing
 import numpy as np
+
+
+class Tokamak(PoloidalSplineTorus):
+    '''Mappings for Tokamak MHD equilibria constructed via field line tracing of a poloidal flux function.'''
+    
+    def __init__(self, **params):
+        
+        from struphy.fields_background.mhd_equil.base import AxisymmMHDequilibrium
+        from struphy.fields_background.mhd_equil.equils import EQDSKequilibrium
+        
+        # set default
+        eq_default = EQDSKequilibrium()
+        
+        params_default = {'equilibrium': eq_default,
+                          'Nel': [8, 32], 
+                          'p': [2, 3], 
+                          'psi_power': 0.75,
+                          'psi_shifts': [2., 2.],
+                          'xi_param': 'equal_angle',
+                          'r0': 0.3,
+                          'Nel_pre': [64, 256],
+                          'p_pre': [3, 3], 
+                          'tor_period': 1}
+        
+        # check for compatibility of given MHD equilibrium
+        if 'equilibrium' in params:
+            assert isinstance(params['equilibrium'], AxisymmMHDequilibrium)
+        
+        params_map = Domain.prepare_params_map(params, params_default, return_numpy=False)
+        
+        # get control points via field tracing beetwenn fluxes [psi_s, psi_e)]
+        
+        # flux boundaries of mapping
+        eq_mhd = params_map['equilibrium']
+        
+        psi0, psi1 = eq_mhd.psi_range[0], eq_mhd.psi_range[1]
+
+        psi_s = psi0 + params_map['psi_shifts'][0]*0.01*(psi1 - psi0)
+        psi_e = psi1 - params_map['psi_shifts'][1]*0.01*(psi1 - psi0)
+
+        cx, cy = field_line_tracing(eq_mhd.psi, eq_mhd.psi_axis_RZ[0], eq_mhd.psi_axis_RZ[1], 
+                                    psi_s, psi_e, 
+                                    params_map['Nel'], params_map['p'], 
+                                    psi_power=params_map['psi_power'], xi_param=params_map['xi_param'],
+                                    Nel_pre=params_map['Nel_pre'], p_pre=params_map['p_pre'], r0=params_map['r0'])
+        
+        # add control points to parameters dictionary
+        params_map['cx'] = cx
+        params_map['cy'] = cy
+        
+        # add spline types to parameters dictionary
+        params_map['spl_kind'] = [False, True]
+        
+        # remove temporarily parameters from params_map dictionary which are not parameters of PoloidalSplineTorus
+        equilibrium = params_map['equilibrium']
+        psi_power = params_map['psi_power']
+        psi_shifts = params_map['psi_shifts']
+        xi_param = params_map['xi_param']
+        r0 = params_map['r0']
+        Nel_pre = params_map['Nel_pre']
+        p_pre = params_map['p_pre']
+        
+        params_map.pop('equilibrium')
+        params_map.pop('psi_power')
+        params_map.pop('psi_shifts')
+        params_map.pop('xi_param')
+        params_map.pop('r0')
+        params_map.pop('Nel_pre')
+        params_map.pop('p_pre')
+
+        # init base class
+        super().__init__(**params_map)
+        
+        self._params_map['equilibrium'] = equilibrium
+        self._params_map['psi_power'] = psi_power
+        self._params_map['psi_shifts'] = psi_shifts
+        self._params_map['xi_param'] = xi_param
+        self._params_map['Nel_pre'] = Nel_pre
+        self._params_map['p_pre'] = p_pre
 
 
 class EQDSKTorus(PoloidalSplineTorus):
@@ -13,9 +93,9 @@ class EQDSKTorus(PoloidalSplineTorus):
 
     def __init__(self, **params):
 
-        from struphy.fields_background.mhd_equil.equils import EQDSKequilibrium
+        from struphy.fields_background.mhd_equil.equils import EQDSKequilibriumWithDomain
 
-        eqdsk = EQDSKequilibrium(**params)
+        eqdsk = EQDSKequilibriumWithDomain(**params)
 
         new_params = {}
         new_params['cx'] = eqdsk.domain.cx[:, :, 0].squeeze()

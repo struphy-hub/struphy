@@ -1,5 +1,5 @@
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
-from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockMatrix
+from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockLinearOperator
 
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace
@@ -10,6 +10,41 @@ from struphy.polar.basic import PolarVector
 from struphy.psydac_api import banded_to_stencil_kernels as bts
 
 import numpy as np
+
+
+class RotationMatrix:
+    '''For a given vector-valued function a(e1, e2, e3), creates the callable matrix R(e1, e2, e3) 
+    that represents the local rotation Rv = a x v at (e1, e2, e3) for any vector v in R^3. 
+
+    When called, R(e1, e2, e3) is a five-dimensional array, with the 3x3 matrix in the last two indices.
+
+    Parameters
+    ----------
+    *vec_fun : list
+        Three callables that represent the vector-valued function a. 
+    '''
+
+    def __init__(self, *vec_fun):
+
+        assert len(vec_fun) == 3
+        assert all([callable(fun) for fun in vec_fun])
+
+        self._cross_mask = [[0, -1,  1],
+                            [1,  0, -1],
+                            [-1,  1,  0]]
+
+        self._funs = [[lambda e1, e2, e3: 0*e1, vec_fun[2], vec_fun[1]],
+                      [vec_fun[2], lambda e1, e2, e3: 0*e2, vec_fun[0]],
+                      [vec_fun[1], vec_fun[0], lambda e1, e2, e3: 0*e3]]
+
+    def __call__(self, e1, e2, e3):
+
+        # array from 2d list gives 3x3 array is in the first two indices
+        tmp = np.array([[self._cross_mask[m][n] * fun(e1, e2, e3) for n, fun in enumerate(row)] for m, row in enumerate(
+            self._funs)])
+
+        # numpy operates on the last two indices with @
+        return np.transpose(tmp, axes=(2, 3, 4, 0, 1))
 
 
 def create_equal_random_arrays(V, seed=123, flattened=False):
@@ -36,28 +71,29 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
     '''
 
     assert isinstance(V, (TensorFemSpace, ProductFemSpace))
-    
+
     np.random.seed(seed)
 
     arr = []
-    
+
     if hasattr(V.symbolic_space, 'name'):
         V_name = V.symbolic_space.name
     else:
-        V_name = 'H1vec' 
+        V_name = 'H1vec'
 
     if V_name in {'H1', 'L2'}:
-        
+
         arr_psy = StencilVector(V.vector_space)
 
         dims = V.vector_space.npts
-        
+
         arr += [np.random.rand(*dims)]
 
         s = arr_psy.starts
         e = arr_psy.ends
 
-        arr_psy[s[0]:e[0] + 1, s[1]:e[1] + 1, s[2]:e[2] + 1] = arr[-1][s[0]:e[0] + 1, s[1]:e[1] + 1, s[2]:e[2] + 1]
+        arr_psy[s[0]:e[0] + 1, s[1]:e[1] + 1, s[2]:e[2] +
+                1] = arr[-1][s[0]:e[0] + 1, s[1]:e[1] + 1, s[2]:e[2] + 1]
 
         if flattened:
             arr = arr[-1].flatten()
@@ -69,17 +105,19 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
         for d, block in enumerate(arr_psy.blocks):
 
             dims = V.spaces[d].vector_space.npts
-        
+
             arr += [np.random.rand(*dims)]
 
             s = block.starts
             e = block.ends
 
-            arr_psy[d][s[0]:e[0] + 1, s[1]:e[1] + 1, s[2]:e[2] + 1] = arr[-1][s[0]:e[0] + 1, s[1]:e[1] + 1, s[2]:e[2] + 1]
+            arr_psy[d][s[0]:e[0] + 1, s[1]:e[1] + 1, s[2]:e[2] +
+                       1] = arr[-1][s[0]:e[0] + 1, s[1]:e[1] + 1, s[2]:e[2] + 1]
 
         if flattened:
-            arr = np.concatenate((arr[0].flatten(), arr[1].flatten(), arr[2].flatten()))
-    
+            arr = np.concatenate(
+                (arr[0].flatten(), arr[1].flatten(), arr[2].flatten()))
+
     arr_psy.update_ghost_regions()
 
     return arr, arr_psy
@@ -147,7 +185,8 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
         e = arr_psy.codomain.ends
         p = arr_psy.pads
         tmp_arr = arr[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1, :, :, :]
-        tmp1 = arr_psy[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1, -p[0]: p[0] + 1, -p[1]: p[1] + 1, -p[2]: p[2] + 1]
+        tmp1 = arr_psy[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] +
+                       1, -p[0]: p[0] + 1, -p[1]: p[1] + 1, -p[2]: p[2] + 1]
 
         if tmp_arr.shape == tmp1.shape:
             tmp2 = tmp_arr
@@ -158,7 +197,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
 
         assert np.allclose(tmp1, tmp2, atol=atol)
 
-    elif isinstance(arr_psy, BlockMatrix):
+    elif isinstance(arr_psy, BlockLinearOperator):
 
         for row_psy, row in zip(arr_psy.blocks, arr):
             for mat_psy, mat in zip(row_psy, row):
@@ -168,8 +207,9 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
                 s = mat_psy.codomain.starts
                 e = mat_psy.codomain.ends
                 p = mat_psy.pads
-                tmp_mat = mat[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1, :, :, :]
-                tmp1 = mat_psy[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1, -p[0]: p[0] + 1, -p[1]: p[1] + 1, -p[2]: p[2] + 1]
+                tmp_mat = mat[s[0]: e[0] + 1, s[1]                              : e[1] + 1, s[2]: e[2] + 1, :, :, :]
+                tmp1 = mat_psy[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] +
+                               1, -p[0]: p[0] + 1, -p[1]: p[1] + 1, -p[2]: p[2] + 1]
 
                 if tmp_mat.shape == tmp1.shape:
                     tmp2 = tmp_mat
@@ -184,158 +224,156 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
         raise AssertionError('Wrong input type.')
 
     if verbose:
-        print(f'Rank {rank}: Assertion for array comparison passed with atol={atol}.')
-        
-        
-        
+        print(
+            f'Rank {rank}: Assertion for array comparison passed with atol={atol}.')
+
+
 def apply_essential_bc_to_array(space_id, vector, bc=None):
     """
     Sets entries corresponding to boundary B-splines to zero.
-    
+
     Parameters
     ----------
         space_id : str
             The name of the continuous functions space the given vector belongs to (H1, Hcurl, Hdiv, L2 or H1vec).
-            
+
         vector : StencilVector | BlockVector
             The vector whose boundary values shall be set to zero.
-            
+
         bc : list
             List containing boundary conditions in each direction of the form [[eta1_0, eta1_1], [eta2_0, eta2_1], [eta3_0, eta3_1]]).
     """
-    
+
     assert isinstance(vector, (StencilVector, BlockVector, PolarVector))
-    
+
     if bc is None:
         return
-    
+
     if isinstance(vector, PolarVector):
         vec_tp = vector.tp
     else:
         vec_tp = vector
-        
-    
+
     if space_id == 'H1':
-        
+
         assert isinstance(vec_tp, StencilVector)
-        
+
         # eta1-direction
-        if bc[0][0] == 'd': 
+        if bc[0][0] == 'd':
             apply_essential_bc_stencil(vec_tp, axis=0, ext=-1, order=0)
-        if bc[0][1] == 'd': 
+        if bc[0][1] == 'd':
             apply_essential_bc_stencil(vec_tp, axis=0, ext=+1, order=0)
-            
+
         # eta2-direction
-        if bc[1][0] == 'd': 
+        if bc[1][0] == 'd':
             apply_essential_bc_stencil(vec_tp, axis=1, ext=-1, order=0)
-        if bc[1][1] == 'd': 
+        if bc[1][1] == 'd':
             apply_essential_bc_stencil(vec_tp, axis=1, ext=+1, order=0)
-            
+
         # eta3-direction
-        if bc[2][0] == 'd': 
+        if bc[2][0] == 'd':
             apply_essential_bc_stencil(vec_tp, axis=2, ext=-1, order=0)
-            
+
             if isinstance(vector, PolarVector):
                 vector.pol[0][:,  0] = 0.
-            
-        if bc[2][1] == 'd': 
+
+        if bc[2][1] == 'd':
             apply_essential_bc_stencil(vec_tp, axis=2, ext=+1, order=0)
-            
+
             if isinstance(vector, PolarVector):
                 vector.pol[0][:, -1] = 0.
 
     elif space_id == 'Hcurl':
-        
+
         assert isinstance(vec_tp, BlockVector)
-        
+
         # eta1-direction
-        if bc[0][0] == 'd': 
+        if bc[0][0] == 'd':
             apply_essential_bc_stencil(vec_tp[1], axis=0, ext=-1, order=0)
             apply_essential_bc_stencil(vec_tp[2], axis=0, ext=-1, order=0)
-        if bc[0][1] == 'd': 
+        if bc[0][1] == 'd':
             apply_essential_bc_stencil(vec_tp[1], axis=0, ext=+1, order=0)
             apply_essential_bc_stencil(vec_tp[2], axis=0, ext=+1, order=0)
-            
+
         # eta2-direction
-        if bc[1][0] == 'd': 
+        if bc[1][0] == 'd':
             apply_essential_bc_stencil(vec_tp[0], axis=1, ext=-1, order=0)
             apply_essential_bc_stencil(vec_tp[2], axis=1, ext=-1, order=0)
-        if bc[1][1] == 'd': 
+        if bc[1][1] == 'd':
             apply_essential_bc_stencil(vec_tp[0], axis=1, ext=+1, order=0)
             apply_essential_bc_stencil(vec_tp[2], axis=1, ext=+1, order=0)
-            
+
         # eta3-direction
-        if bc[2][0] == 'd': 
+        if bc[2][0] == 'd':
             apply_essential_bc_stencil(vec_tp[0], axis=2, ext=-1, order=0)
             apply_essential_bc_stencil(vec_tp[1], axis=2, ext=-1, order=0)
-            
+
             if isinstance(vector, PolarVector):
                 vector.pol[0][:,  0] = 0.
                 vector.pol[1][:,  0] = 0.
-            
-        if bc[2][1] == 'd': 
+
+        if bc[2][1] == 'd':
             apply_essential_bc_stencil(vec_tp[0], axis=2, ext=+1, order=0)
             apply_essential_bc_stencil(vec_tp[1], axis=2, ext=+1, order=0)
-            
+
             if isinstance(vector, PolarVector):
                 vector.pol[0][:, -1] = 0.
                 vector.pol[1][:, -1] = 0.
 
     elif space_id == 'Hdiv':
-        
+
         assert isinstance(vec_tp, BlockVector)
-        
+
         # eta1-direction
-        if bc[0][0] == 'd': 
+        if bc[0][0] == 'd':
             apply_essential_bc_stencil(vec_tp[0], axis=0, ext=-1, order=0)
-        if bc[0][1] == 'd': 
+        if bc[0][1] == 'd':
             apply_essential_bc_stencil(vec_tp[0], axis=0, ext=+1, order=0)
-            
+
         # eta2-direction
-        if bc[1][0] == 'd': 
+        if bc[1][0] == 'd':
             apply_essential_bc_stencil(vec_tp[1], axis=1, ext=-1, order=0)
-        if bc[1][1] == 'd': 
+        if bc[1][1] == 'd':
             apply_essential_bc_stencil(vec_tp[1], axis=1, ext=+1, order=0)
-            
+
         # eta3-direction
-        if bc[2][0] == 'd': 
+        if bc[2][0] == 'd':
             apply_essential_bc_stencil(vec_tp[2], axis=2, ext=-1, order=0)
-            
+
             if isinstance(vector, PolarVector):
                 vector.pol[2][:,  0] = 0.
-                
-        if bc[2][1] == 'd': 
+
+        if bc[2][1] == 'd':
             apply_essential_bc_stencil(vec_tp[2], axis=2, ext=+1, order=0)
-            
+
             if isinstance(vector, PolarVector):
                 vector.pol[2][:, -1] = 0.
 
     elif space_id == 'H1vec':
-        
+
         assert isinstance(vec_tp, BlockVector)
-        
+
         # eta1-direction
-        if bc[0][0] == 'd': 
+        if bc[0][0] == 'd':
             apply_essential_bc_stencil(vec_tp[0], axis=0, ext=-1, order=0)
-        if bc[0][1] == 'd': 
+        if bc[0][1] == 'd':
             apply_essential_bc_stencil(vec_tp[0], axis=0, ext=+1, order=0)
-            
+
         # eta2-direction
-        if bc[1][0] == 'd': 
+        if bc[1][0] == 'd':
             apply_essential_bc_stencil(vec_tp[1], axis=1, ext=-1, order=0)
-        if bc[1][1] == 'd': 
+        if bc[1][1] == 'd':
             apply_essential_bc_stencil(vec_tp[1], axis=1, ext=+1, order=0)
-            
+
         # eta3-direction
-        if bc[2][0] == 'd': 
+        if bc[2][0] == 'd':
             apply_essential_bc_stencil(vec_tp[2], axis=2, ext=-1, order=0)
-            
+
             if isinstance(vector, PolarVector):
                 vector.pol[2][:,  0] = 0.
-                
-        if bc[2][1] == 'd': 
+
+        if bc[2][1] == 'd':
             apply_essential_bc_stencil(vec_tp[2], axis=2, ext=+1, order=0)
-            
+
             if isinstance(vector, PolarVector):
                 vector.pol[2][:, -1] = 0.
-            

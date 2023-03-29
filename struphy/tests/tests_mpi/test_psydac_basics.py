@@ -19,7 +19,7 @@ def test_psydac_basics(Nel, p, spl_kind, mapping):
 
     from psydac.fem.basic import FemField
     from psydac.linalg.stencil import StencilVector, StencilMatrix
-    from psydac.linalg.block import BlockVector, BlockMatrix
+    from psydac.linalg.block import BlockVector, BlockLinearOperator
     from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
     comm = MPI.COMM_WORLD
@@ -52,7 +52,7 @@ def test_psydac_basics(Nel, p, spl_kind, mapping):
         print('- Attributes of BlockVector x1')
         print('- Data of Stencil Vector x0')
         print('- Attributes of StencilMatrix A0')
-        print('- Attributes of BlockMatrix A1')
+        print('- Attributes of BlockLinearOperator A1')
         print('- Data of StencilMatrix A0')
         print('- StencilVector and StencilMatrix local output before/after update_ghost_regions.')
 
@@ -142,10 +142,10 @@ def test_psydac_basics(Nel, p, spl_kind, mapping):
 
     # Stencil objects (distributed)
     x0 = StencilVector(DR.Vh['0'])
-    A0 = StencilMatrix(DR.Vh['0'], DR.Vh['0'], backend=PSYDAC_BACKEND_GPYCCEL)
+    A0 = StencilMatrix(DR.Vh['0'], DR.Vh['0'], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
 
     x1 = BlockVector(DR.Vh['1'])
-    A1 = BlockMatrix(DR.Vh['1'], DR.Vh['1'])
+    A1 = BlockLinearOperator(DR.Vh['1'], DR.Vh['1'], blocks=[[StencilMatrix(Vs, Ws, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True) for Vs in DR.Vh['1'].spaces] for Ws in DR.Vh['1'].spaces])
 
     starts = DR.Vh['0'].starts
     ends = DR.Vh['0'].ends
@@ -217,7 +217,7 @@ def test_psydac_basics(Nel, p, spl_kind, mapping):
                 else:
                     v = getattr(A0, k)
                 print(k, v)
-        print('\n###### Attributes of BlockMatrix A1 (rank 0) ######')
+        print('\n###### Attributes of BlockLinearOperator A1 (rank 0) ######')
         for k in dir(A1):
             if (k[0] != '_' or k == '_data'):
                 if k == '_data':

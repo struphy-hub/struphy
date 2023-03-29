@@ -1,77 +1,112 @@
-import yaml
-import h5py
-import sys
-import glob
-import numpy as np
-import matplotlib.pyplot as plt
-
-from struphy.post_processing.post_processing_tools import create_femfields
-from struphy.geometry import domains
-from struphy.fields_background.mhd_equil import equils
-from struphy.diagnostics.continuous_spectra import get_mhd_continua_2d
-from struphy.dispersion_relations.analytic import MhdContinousSpectraCylinder
-from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-
-
-def main():
+def run(n_procs):
     """
-    TODO
+    Run a TAE example for the model "LinearMHD", including post-processing.
+    
+    Parameters
+    ----------
+    n_procs : int
+        Number of MPI processes to run the model.
     """
-    sim_path = sys.argv[1]
+    
+    import os
+    import subprocess
+    import struphy
 
-    # read in parameters
-    with open(sim_path + '/parameters.yml') as file:
+    libpath = struphy.__path__[0]
+
+    # name of simulation output folder
+    out_name = 'sim_example_TAE_tokamak'
+    
+    # run MHD eigenvalue solver
+    subprocess.run(['python3',
+                    'eigenvalue_solvers/mhd_axisymmetric_main.py',
+                    '-1',
+                    '/io/inp/examples/params_TAE_tokamak.yml',
+                    '/io/out/sim_example_TAE_tokamak',
+                    'spec'], 
+                    check=True, cwd=libpath)
+    
+    # run the model
+    subprocess.run(['struphy', 
+                    'run', 
+                    'LinearMHD',
+                    '--input-abs',
+                    os.path.join(libpath, 'io/out', out_name, 'parameters.yml'),
+                    '-o',
+                    out_name,
+                    '--mpi',
+                    str(n_procs)], check=True)
+    
+    # perform post-processing
+    subprocess.run(['struphy',
+                    'pproc',
+                    out_name], check=True)
+    
+    
+def diagnostics():
+    """
+    Perform diagnostics and plot results for the example run.
+    """
+    
+    import os, yaml, h5py, glob
+    
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    from struphy.models.utilities import setup_domain_mhd
+    from struphy.post_processing.post_processing_tools import create_femfields
+    from struphy.diagnostics.continuous_spectra import get_mhd_continua_2d
+    from struphy.dispersion_relations.analytic import MhdContinousSpectraCylinder
+    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
+    
+    import struphy
+
+    libpath = struphy.__path__[0]
+    
+    out_name = 'sim_example_TAE_tokamak'
+    out_path = os.path.join(libpath, 'io/out', out_name)
+
+    # load simulation parameters
+    with open(os.path.join(out_path, 'parameters.yml')) as file:
         params = yaml.load(file, Loader=yaml.FullLoader)
 
+    # load grid data
     Nel = params['grid']['Nel']
     p = params['grid']['p']
     spl_kind = params['grid']['spl_kind']
     nq_el = params['grid']['nq_el']
     bc = params['grid']['bc']
     polar_ck = params['grid']['polar_ck']
+    
+    # create domain and MHD equilibrium
+    domain, mhd_equil = setup_domain_mhd(params)
+    
+    # get MHD equilibrium parameters
+    mhd_params = params['mhd_equilibrium'][params['mhd_equilibrium']['type']]
 
-    # load domain and evaluate mapped grid
-    dom_type = params['geometry']['type']
-    dom_params = params['geometry'][dom_type]
-
-    domain_class = getattr(domains, dom_type)
-    domain = domain_class(**dom_params)
-
+    # evaluate mapped grid
     etaplot = [np.linspace(0., 1., 101),
                np.linspace(0., 1., 101),
                np.linspace(0., 1.,  21)]
-
-    # load MHD equilibrium
-    mhd_name = params['mhd_equilibrium']['type']
-    mhd_params = params['mhd_equilibrium'][mhd_name]
-
-    mhd_class = getattr(equils, mhd_name)
-    mhd_equil = mhd_class(**mhd_params)
-
-    if params['mhd_equilibrium']['use_equil_domain']:
-        assert mhd_equil.domain is not None
-        domain = mhd_equil.domain
-    else:
-        mhd_equil.domain = domain
-
+    
     xplot = domain(*etaplot)
 
     # field names, grid info and energies
-    file = h5py.File(sim_path + '/data_proc0.hdf5', 'r')
+    file = h5py.File(os.path.join(out_path, 'data_proc0.hdf5'), 'r')
 
     names = list(file['feec'].keys())
 
-    t = file['scalar']['time'][:]
+    t  = file['scalar']['time'][:]
     eU = file['scalar']['en_U'][:]
     eB = file['scalar']['en_B'][:]
 
     file.close()
 
     # FEM fields at t=0
-    fields, space_ids, code = create_femfields(sim_path + '/', snapshots=[0])
+    fields, space_ids, code = create_femfields(out_path + '/', snapshots=[0])
 
     # perform continuous spectra diagnostics
-    spec_path = glob.glob(sim_path + '/*.npy')[0]
+    spec_path = glob.glob(out_path + '/*.npy')[0]
     n_tor = int(spec_path[-6:-4])
 
     fem_1d_1 = Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0], bc[0])
@@ -135,7 +170,7 @@ def main():
     # plot U2_1(t=0) on mapped grid
     plt.subplot(2, 2, 3)
     plt.contourf(xplot[0][:, :, 0], xplot[2][:, :, 0], fields[0][names[3]](
-        *etaplot)[0][:, :, 6], levels=51, cmap='coolwarm')
+        *etaplot)[0][:, :, 4], levels=51, cmap='coolwarm')
     plt.axis('square')
     plt.colorbar()
     plt.title('$U^2_1(t=0)$', pad=10, fontsize=f_size)
@@ -153,7 +188,28 @@ def main():
     plt.subplots_adjust(wspace=0.3, hspace=0.5)
 
     plt.show()
-
-
+       
+    
 if __name__ == '__main__':
-    main()
+    
+    import argparse
+    
+    # get number of MPI processes
+    parser = argparse.ArgumentParser(description='Run a TAE (Toroidal Alfvén eigenmode) example for the model "LinearMHD".')
+    
+    parser.add_argument('--mpi',
+                        type=int,
+                        metavar='N',
+                        help='number of MPI processes used to run the model (default=1)',
+                        default=1)
+    
+    parser.add_argument('-d', '--diagnostics',
+                        help='run diagnostics only, if output folder of example already exists',
+                        action='store_true')
+    
+    args = parser.parse_args()
+    
+    if not args.diagnostics:
+        run(args.mpi)
+        
+    diagnostics()

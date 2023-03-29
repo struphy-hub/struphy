@@ -177,34 +177,17 @@ if __name__ == '__main__':
     
     inp_path = struphy_path + args_dict['path']
     
-    # read in parameters file
+    # load parameter file
     with open(inp_path + '/parameters.yml') as file:
         params = yaml.load(file, Loader=yaml.FullLoader)
        
-    # create domain (mapping from logical unit cube to physical domain)
-    from struphy.geometry import domains
+    # create domain and MHD equilibrium
+    from struphy.models.utilities import setup_domain_mhd
     
-    dom_type = params['geometry']['type']
-    dom_params = params['geometry'][dom_type]
-
-    domain_class = getattr(domains, dom_type)
-    domain = domain_class(**dom_params)
-    
-    # load appropriate MHD equilibrium
-    from struphy.fields_background.mhd_equil import equils
-    
-    equil_params = params['mhd_equilibrium']
-    
-    mhd_equil_class = getattr(equils, equil_params['type'])
-    mhd_equil = mhd_equil_class(**equil_params[equil_params['type']])
-
-    if equil_params['use_equil_domain']:
-        assert mhd_equil.domain is not None
-        domain = mhd_equil.domain
-    else:
-        mhd_equil.domain = domain
-        
-    params_mhd = equil_params[equil_params['type']]
+    domain, mhd_equil = setup_domain_mhd(params)
+       
+    # get MHD equilibrium parameters
+    params_mhd = params['mhd_equilibrium'][params['mhd_equilibrium']['type']]
     
     # set up spline spaces
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
@@ -252,8 +235,8 @@ if __name__ == '__main__':
     
     # plot equilibrium profiles for (s, chi=0)
     ax[0, 0].plot(etaplot[0], mhd_equil.b2_3(etaplot[0], 0., 0.)/mhd_equil.b2_2(etaplot[0], 0., 0.))
-    ax[0, 1].plot(etaplot[0], mhd_equil.p(xplot[:, 0], 0., 0.))
-    ax[0, 2].plot(etaplot[0], mhd_equil.n(xplot[:, 0], 0., 0.))
+    ax[0, 1].plot(etaplot[0], mhd_equil.p_xyz(xplot[:, 0], 0., 0.).squeeze())
+    ax[0, 2].plot(etaplot[0], mhd_equil.n_xyz(xplot[:, 0], 0., 0.).squeeze())
 
     ax[0, 0].set_xlabel('$s$')
     ax[0, 1].set_xlabel('$s$')

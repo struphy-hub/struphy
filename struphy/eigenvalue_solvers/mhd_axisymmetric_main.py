@@ -179,33 +179,15 @@ if __name__ == '__main__':
     
     inp_path = struphy_path + args_dict['path_in']
     
-    # read in domain, grid and MHD equilibrium parameters
+    # load parameter file
     with open(inp_path) as file:
         params = yaml.load(file, Loader=yaml.FullLoader)
+        
+    # create domain and MHD equilibrium
+    from struphy.models.utilities import setup_domain_mhd
+    
+    domain, mhd_equil = setup_domain_mhd(params)
        
-    # create domain (mapping from logical unit cube to physical domain)
-    from struphy.geometry import domains
-    
-    dom_type = params['geometry']['type']
-    dom_params = params['geometry'][dom_type]
-
-    domain_class = getattr(domains, dom_type)
-    domain = domain_class(**dom_params)
-    
-    # load appropriate MHD equilibrium
-    from struphy.fields_background.mhd_equil import equils
-    
-    equil_params = params['mhd_equilibrium']
-    
-    mhd_equil_class = getattr(equils, equil_params['type'])
-    mhd_equil = mhd_equil_class(**equil_params[equil_params['type']])
-
-    if equil_params['use_equil_domain']:
-        assert mhd_equil.domain is not None
-        domain = mhd_equil.domain
-    else:
-        mhd_equil.domain = domain
-    
     # load grid parameters
     num_params = {'Nel'     : params['grid']['Nel'][:2],
                   'p'       : params['grid']['p'][:2],

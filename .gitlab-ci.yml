@@ -227,17 +227,15 @@ default_build:
     - if: $CI_PIPELINE_SOURCE == "push"
   needs: ["default_venv"]
   script:
-    - cd psydac
-    - git checkout struphy-branch # our own dedicated branch
-    - git pull # go to latest commit in our own branch (why is this needed?)  
-    - python3 -m pip install -r requirements.txt
-    - python3 -m pip install -r requirements_extra.txt --no-build-isolation
-    - pip install --no-build-isolation .
-    - pip install sympy==1.6.1
-    - cd ..
+    # - cd psydac
+    # - git checkout struphy-branch # our own dedicated branch
+    # - git pull # go to latest commit in our own branch (why is this needed?)  
+    # - python3 -m pip install -r requirements.txt
+    # - python3 -m pip install -r requirements_extra.txt 
+    # - pip install .
+    # - cd ..
     - cd gvec_to_python
     - pip install . 
-    - compile_gvec_to_python # is also compile soth struphy compile, but just to show here
     - cd ..
     - python -m build # build struphy (.whl) 
   artifacts:
@@ -328,7 +326,7 @@ default_install:
     - struphy
     - pyccel --version
     - struphy compile --delete
-    - struphy compile --verbose # compiles struphy, psydac and gvec_to_python
+    - struphy compile # compiles struphy, psydac and gvec_to_python
     - ./struphy/verify_compilation.sh
     - pip list
 
@@ -343,7 +341,7 @@ default_unit_tests:
   script:
     - pwd
     - ls -1
-    - struphy test --mpi 2
+    - struphy test --mpi 2 
     # run unit tests with coverage
     - cd ${ENV_PATH}/struphy/tests/tests_serial/
     - coverage run --omit="*/tests*" --data-file=$CI_PROJECT_DIR/.coverage -m pytest 

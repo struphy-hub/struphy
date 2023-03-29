@@ -20,8 +20,8 @@ from struphy.version import __version__
 # -- Project information -----------------------------------------------------
 
 project = 'struphy'
-copyright = 'Copyright 2022 (c) struphy dev team | CONTRIBUTING.md | Max Planck Institute for Plasma Physics'
-author = 'struphy dev team | CONTRIBUTING.md | Max Planck Institute for Plasma Physics'
+copyright = '2022 (c) Struphy dev team | Max Planck Institute for Plasma Physics'
+author = 'Struphy dev team | Max Planck Institute for Plasma Physics'
 version = __version__ + ' beta'
 
 # The full version, including alpha/beta/rc tags
@@ -61,7 +61,20 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+#html_theme = 'sphinx_rtd_theme'
+html_theme = 'classic'
+
+html_theme_options = {
+    "rightsidebar": "false",
+    "stickysidebar": "true",
+    "footerbgcolor": "Coral",
+    "externalrefs": "true",
+    #"body_min_width": 800,
+}
+
+html_sidebars = {
+   '**': ['localtoc.html', 'relations.html', 'searchbox.html'],
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -79,10 +92,10 @@ highlight_language = 'none'
 
 autodoc_member_order = 'bysource'
 
-html_logo = 'dog-cartoon-struphy-vsmall.jpg'
-html_theme_options = {
-    'display_version': True,
-    'style_external_links': True,
-}
+html_logo = 'dog-cartoon-struphy.jpg'
+# html_theme_options = {
+#     'display_version': True,
+#     'style_external_links': True,
+# }
 
 

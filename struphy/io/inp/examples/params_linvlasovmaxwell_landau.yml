@@ -19,7 +19,6 @@ model_units :
 time :
     dt         : 0.01 # time step
     Tend       : 30. # simulation time interval is [0, Tend]
-    max_time   : 300. # maximum runtime of program in minutes
     split_algo : LieTrotter # LieTrotter | Strang
 
 geometry :
@@ -34,7 +33,6 @@ geometry :
 
 mhd_equilibrium :
     type : HomogenSlab # (possible choices seen below)
-    use_equil_domain : False # use the mapping given by the equilibrium (flux aligned) or not
     HomogenSlab :
         B0x  : 0.5 # magnetic field in x
         B0y  : 0. # magnetic field in y
@@ -109,14 +107,14 @@ kinetic :
 
 solvers :
     solver_ew :
-        type : pcg
+        type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-10
         maxiter : 3000
         info : False
         verbose : False
     solver_eb :
-        type : pcg
+        type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-10
         maxiter : 3000

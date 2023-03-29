@@ -1,4 +1,4 @@
-def get_cprofile_data(path, n_stats=None):
+def get_cprofile_data(path, print_callers=None):
     '''Prepare Cprofile data and save to "profile_dict.sav".
 
     Parameters
@@ -6,28 +6,30 @@ def get_cprofile_data(path, n_stats=None):
         path : str
             Path to file "profile_tmp" (usually in output folder).
 
-        n_stats : int
-            Number of stats to show and save (cumtime ordered).
+        print_callers : str
+            Part of function name for which to show calling functions.
     '''
 
     import pstats
     from pstats import SortKey
-    import time
+    import os
     import pickle
 
-    p = pstats.Stats(path + 'profile_tmp')
+    p = pstats.Stats(os.path.join(path, 'profile_tmp'))
     p.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_stats(0)
-    # p.strip_dirs().sort_stats(SortKey.TIME).print_stats(n_stats)
-    # p.print_title()
+    
+    if print_callers is not None:
+        print('Print callers:')
+        print('--------------')
+        p.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_callers(print_callers)
 
-    stdout = open(path + "profile_out.txt", "w+")
-    p = pstats.Stats(path + 'profile_tmp', stream=stdout)
-    p.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_stats(n_stats)
-    # p.strip_dirs().sort_stats(SortKey.TIME).print_stats(n_stats)
+    stdout = open(os.path.join(path, 'profile_out.txt'), "w+")
+    p = pstats.Stats(os.path.join(path, 'profile_tmp'), stream=stdout)
+    p.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_stats()
     stdout.close()
 
     data_cprofile = dict()
-    with open(path + 'profile_out.txt') as f:
+    with open(os.path.join(path, 'profile_out.txt')) as f:
         lines = f.readlines()
         # print(len(lines))
         search = False
@@ -57,7 +59,7 @@ def get_cprofile_data(path, n_stats=None):
                 # print(name_li)
                 search = True
 
-    with open(path + 'profile_dict.sav', 'w+b') as f:
+    with open(os.path.join(path, 'profile_dict.sav'), 'w+b') as f:
         pickle.dump(data_cprofile, f)
 
 
@@ -75,8 +77,9 @@ def compare_cprofile_data(path, list_of_funcs=None):
     '''
 
     import pickle
+    import os
 
-    with open(path + 'profile_dict.sav', 'rb') as f:
+    with open(os.path.join(path, 'profile_dict.sav'), 'rb') as f:
         data_cprofile = pickle.load(f)
 
     if list_of_funcs == None:
@@ -130,6 +133,8 @@ def replace_keys(d):
 
             p1 = key.find(':')
             p2 = key.find('(')
+            if p1 == -1 or p2 == -1:
+                continue
             f_name = key[:p1]
             l_nr = int(key[p1 + 1:p2])
             new_routine = key[p2:]
@@ -178,4 +183,4 @@ def replace_keys(d):
                 d[new_key] = d.pop(key)
 
     # sort dictionary by cumulative time
-    return dict(sorted(d.items(), key=lambda item: item[1], reverse=True))
+    return dict(sorted(d.items(), key=lambda item: float(item[1]['cumtime']), reverse=True))

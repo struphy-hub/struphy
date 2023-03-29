@@ -7,10 +7,13 @@ grid :
     nq_pr    : [2, 2, 2] # quadrature points per histopolation cell (for commuting projectors)
     polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
 
+units : # units not stated here can be viewed via "struphy units -h"
+    x : 1. # length scale unit in m
+    B : 1. # magnetic field unit in T
+
 time : 
     dt         : 0.05 # time step
     Tend       : .5 # simulation time interval is [0, Tend]
-    max_time   : 300. # maximum runtime of program in minutes
     split_algo : LieTrotter # LieTrotter | Strang
       
 geometry : 
@@ -27,8 +30,8 @@ em_fields :
         TorusModesSin : 
             coords : 'logical' # in which coordinates (logical or physical)
             comps :
-                e_field : [True, True, False]   # components to be initialized (for scalar fields: no list)
-                b_field : [False, False, False] # components to be initialized (for scalar fields: no list)
+                e1 : [True, True, False]   # components to be initialized (for scalar fields: no list)
+                b2 : [False, False, False] # components to be initialized (for scalar fields: no list)
             ms : [3] # poloidal mode numbers
             ns : [1] # toroidal mode numbers
             amp : [0.001] # amplitudes
@@ -37,7 +40,7 @@ em_fields :
 
 solvers :
     solver_1 : 
-        type : pcg
+        type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-8
         maxiter : 3000

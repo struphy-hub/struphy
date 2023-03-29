@@ -37,5 +37,6 @@ export OMP_PLACES=cores
 OMPI_MCA_mpi_warn_on_fork=0
 export OMPI_MCA_mpi_warn_on_fork
 
-# Run command automatically added by Struphy
-srun python3 -m cProfile -o /cobra/u/spossann/struphy/env/lib/python3.9/site-packages/struphy/io/out/sim_1/profile_tmp -s time /cobra/u/spossann/struphy/env/lib/python3.9/site-packages/struphy/main.py Maxwell /cobra/u/spossann/struphy/env/lib/python3.9/site-packages/struphy/io/inp/tests/params_maxwell_1.yml /cobra/u/spossann/struphy/env/lib/python3.9/site-packages/struphy/io/out/sim_1/ None /cobra/u/spossann/struphy/env/lib/python3.9/site-packages/struphy/io/out/sim_1/meta.txt > /cobra/u/spossann/struphy/env/lib/python3.9/site-packages/struphy/io/out/sim_1/struphy.out
+
+# Run command added by Struphy
+srun python3 -m cProfile -o /home/spossann/git_repos/struphy/struphy/io/out/sim_1/profile_tmp -s time /home/spossann/git_repos/struphy/struphy/console/run.py Maxwell /home/spossann/git_repos/struphy/struphy/io/inp/parameters.yml /home/spossann/git_repos/struphy/struphy/io/out/sim_1 False 300 > /home/spossann/git_repos/struphy/struphy/io/out/sim_1/struphy.out

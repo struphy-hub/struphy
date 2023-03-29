@@ -118,7 +118,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     SPACES.set_projectors('tensor')
 
     # Psydac MHD operators
-    OPS_PSY = BasisProjectionOperators(DERHAM_PSY, domain, EQ_MHD)
+    OPS_PSY = BasisProjectionOperators(DERHAM_PSY, domain, eq_mhd=EQ_MHD)
 
     # Struphy matrix-free MHD operators
     print(f'Rank {mpi_rank} | Init STRUPHY `projectors_dot_x`...')
@@ -229,70 +229,47 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     # Compare to Struphy matrix-free operators
     # See struphy.feec.projectors.pro_global.mhd_operators_MF.projectors_dot_x for the definition of these operators
 
-    # operator K1 (V3 --> V3)
+    # operator K3 (V3 --> V3)
     if mpi_rank == 0:
-        print('\nK1 (V3 --> V3, Identity operator in this case):')
+        print('\nK3 (V3 --> V3, Identity operator in this case):')
 
-    res_PSY = OPS_PSY.K1.dot(x3_st)
+    res_PSY = OPS_PSY.K3.dot(x3_st)
     res_STR = OPS_STR.K1_dot(x3.flatten())
     res_STR = SPACES.extract_3(res_STR)
 
-    print(f'Rank {mpi_rank} | Asserting MHD operator K1.')
+    print(f'Rank {mpi_rank} | Asserting MHD operator K3.')
     assert_ops(mpi_rank, res_PSY, res_STR, verbose=True)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    K1T = OPS_PSY.K1.transpose()
-    res_PSY = K1T.dot(x3_st)
+    K3T = OPS_PSY.K3.transpose()
+    res_PSY = K3T.dot(x3_st)
     res_STR = OPS_STR.transpose_K1_dot(x3.flatten())
     res_STR = SPACES.extract_3(res_STR)
 
-    print(f'Rank {mpi_rank} | Asserting TRANSPOSE MHD operator K1T.')
+    print(f'Rank {mpi_rank} | Asserting TRANSPOSE MHD operator K3T.')
     assert_ops(mpi_rank, res_PSY, res_STR, verbose=True)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
     MPI_COMM.Barrier()
 
-    # operator K10 (V0 --> V0)
+    # operator K0 (V0 --> V0)
     if mpi_rank == 0:
-        print('\nK10 (V0 --> V0, Identity operator in this case):')
+        print('\nK0 (V0 --> V0, Identity operator in this case):')
 
-    res_PSY = OPS_PSY.K10.dot(x0_st)
+    res_PSY = OPS_PSY.K0.dot(x0_st)
     res_STR = OPS_STR.K10_dot(x0.flatten())
     res_STR = SPACES.extract_0(res_STR)
 
-    print(f'Rank {mpi_rank} | Asserting MHD operator K10.')
+    print(f'Rank {mpi_rank} | Asserting MHD operator K0.')
     assert_ops(mpi_rank, res_PSY, res_STR, verbose=True)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    K10T = OPS_PSY.K10.transpose()
+    K10T = OPS_PSY.K0.transpose()
     res_PSY = K10T.dot(x0_st)
     res_STR = OPS_STR.transpose_K10_dot(x0.flatten())
     res_STR = SPACES.extract_0(res_STR)
 
     print(f'Rank {mpi_rank} | Asserting TRANSPOSE MHD operator K10T.')
-    assert_ops(mpi_rank, res_PSY, res_STR, verbose=True)
-    print(f'Rank {mpi_rank} | Assertion passed.')
-
-    MPI_COMM.Barrier()
-
-    # operator Y20 (V0 --> V3)
-    if mpi_rank == 0:
-        print('\nY20 (V0 --> V3):')
-
-    res_PSY = OPS_PSY.Y20.dot(x0_st)
-    res_STR = OPS_STR.Y20_dot(x0.flatten())
-    res_STR = SPACES.extract_3(res_STR)
-
-    print(f'Rank {mpi_rank} | Asserting MHD operator Y20.')
-    assert_ops(mpi_rank, res_PSY, res_STR, verbose=True)
-    print(f'Rank {mpi_rank} | Assertion passed.')
-
-    Y20T = OPS_PSY.Y20.transpose()
-    res_PSY = Y20T.dot(x3_st)
-    res_STR = OPS_STR.transpose_Y20_dot(x3.flatten())
-    res_STR = SPACES.extract_0(res_STR)
-
-    print(f'Rank {mpi_rank} | Asserting TRANSPOSE MHD operator Y20T.')
     assert_ops(mpi_rank, res_PSY, res_STR, verbose=True)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
