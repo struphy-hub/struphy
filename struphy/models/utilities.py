@@ -231,3 +231,163 @@ def setup_derham(params_grid, comm, domain=None):
                     domain=domain)   
 
     return derham
+
+
+def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_rank, mpi_size):
+    """
+    Prepares simulation parameters, output folder and prints some information of the run to the screen. 
+
+    Parameters
+    ----------
+    model_name : str
+        The name of the model to run.
+
+    parameters : dict | str
+        The simulation parameters. Can either be a dictionary OR a string (path of .yml parameter file)
+
+    path_out : str
+        The output directory. Will create a folder if it does not exist OR cleans the folder for new runs.
+
+    restart : bool
+        Whether to restart a run.
+
+    max_sim_time : int
+        Maximum run time of simulation in minutes. Will finish the time integration once this limit is reached.
+
+    mpi_rank : int
+        The rank of the calling process.
+
+    mpi_size : int
+        Total number of MPI processes of the run.
+    """
+
+    import os
+    import shutil
+    import datetime
+    import sysconfig
+    import glob
+    import yaml
+    from struphy.models import models
+
+    # prepare output folder
+    if mpi_rank == 0:
+        print('')
+
+        # create output folder if it does not exit
+        if not os.path.exists(path_out):
+            os.mkdir(path_out)
+            print('\nCreated folder ' + path_out)
+
+        # clean output folder if it already exists
+        else:
+
+            # remove eval_fields folder
+            folder = os.path.join(path_out, 'eval_fields')
+            if os.path.exists(folder):
+                shutil.rmtree(folder)
+                print('Removed folder ' + folder)
+
+            # remove vtk folder
+            folder = os.path.join(path_out, 'vtk')
+            if os.path.exists(folder):
+                shutil.rmtree(folder)
+                print('Removed folder ' + folder)
+
+            # remove kinetic_data folder
+            folder = os.path.join(path_out, 'kinetic_data')
+            if os.path.exists(folder):
+                shutil.rmtree(folder)
+                print('Removed folder ' + folder)
+
+            # remove meta file
+            file = os.path.join(path_out, 'meta.txt')
+            if os.path.exists(file):
+                os.remove(file)
+                print('Removed file ' + file)
+
+            # remove profiling file
+            file = os.path.join(path_out, 'profile_tmp')
+            if os.path.exists(file):
+                os.remove(file)
+                print('Removed file ' + file)
+
+            # remove hdf5 files (if NOT a restart)
+            if not restart:
+                files = glob.glob(os.path.join(path_out, '*.hdf5'))
+                for n, file in enumerate(files):
+                    os.remove(file)
+                    if n < 10:  # print only forty statements in case of many processes
+                        print('Removed file ' + file)
+
+    # save "parameters" dictionary as .yml file
+    if isinstance(parameters, dict):
+        parameters_path = os.path.join(path_out, 'parameters.yml')
+
+        # write parameters to file and save it in output folder
+        if mpi_rank == 0:
+            params_file = open(parameters_path, 'w')
+            yaml.dump(parameters, params_file)
+            params_file.close()
+
+        params = parameters
+
+    # OR load parameters if "parameters" is a string (path)
+    else:
+        parameters_path = parameters
+        
+        with open(parameters) as file:
+            params = yaml.load(file, Loader=yaml.FullLoader)
+
+    if mpi_rank == 0:
+        
+        # copy parameter file (if it does not already exist in output folder)
+        if not os.path.exists(os.path.join(path_out, 'parameters.yml')):
+            shutil.copy2(parameters_path, os.path.join(
+                path_out, 'parameters.yml'))
+
+        # print simulation info
+        print('')
+        print('model:'.ljust(30), model_name)
+        print('parameter file:'.ljust(30), parameters_path)
+        print('output folder:'.ljust(30), path_out)
+        print('restart:'.ljust(30), restart)
+        print('max wall-clock time [min]:'.ljust(30), max_sim_time)
+        print('number of MPI processes:'.ljust(30), mpi_size)
+
+        # print domain info
+        print('\nDOMAIN parameters:')
+        print(f'domain type :', params['geometry']['type'])
+        print(f'domain parameters :')
+        for key, val in params['geometry'][params['geometry']['type']].items():
+            if key not in {'cx', 'cy', 'cz'}:
+                print(key, ':', val)
+
+        # print grid info
+        print('\nGRID parameters:')
+        print(f'number of elements  :', params['grid']['Nel'])
+        print(f'spline degrees      :', params['grid']['p'])
+        print(f'periodic bcs        :', params['grid']['spl_kind'])
+        print(f'hom. Dirichlet bc   :', params['grid']['bc'])
+        print(f'GL quad pts (L2)    :', params['grid']['nq_el'])
+        print(f'GL quad pts (hist)  :', params['grid']['nq_pr'])
+
+        # print units info
+        getattr(models, model_name).model_units(params, verbose=True)
+        print('')
+
+        # write meta data to output folder
+        with open(path_out + '/meta.txt', 'w') as f:
+            f.write('date of simulation: '.ljust(30) +
+                    str(datetime.datetime.now()) + '\n')
+            f.write('platform: '.ljust(30) + sysconfig.get_platform() + '\n')
+            f.write('python version: '.ljust(30) +
+                    sysconfig.get_python_version() + '\n')
+            f.write('model_name: '.ljust(30) + model_name + '\n')
+            f.write('processes: '.ljust(30) + str(mpi_size) + '\n')
+            f.write('output folder:'.ljust(30) + path_out + '\n')
+            f.write('restart:'.ljust(30) + str(restart) + '\n')
+            f.write(
+                'max wall-clock time [min]:'.ljust(30) + str(max_sim_time) + '\n')
+            f.write('# processes: '.ljust(30) + str(mpi_size) + '\n')
+
+    return params

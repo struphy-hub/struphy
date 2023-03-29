@@ -1,24 +1,17 @@
-def main(mpi=1):
+def run(n_procs):
     """
-    Run an example for the model "Maxwell", including post-processing, diagnostics and plots.
+    Run an example for the model "Maxwell", including post-processing.
     
     Parameters
     ----------
-    mpi : int
+    n_procs : int
         Number of MPI processes to run the model.
     """
     
-    from struphy.diagnostics.diagn_tools import fourier_1d
-    
-    import os, yaml, h5py, pickle
     import subprocess
-    import struphy
-
-    libpath = struphy.__path__[0]
-    
-    # output path
+       
+    # name of simulation output folder
     out_name = 'sim_example_maxwell'
-    out_path = os.path.join(libpath, 'io/out', out_name)    
     
     # run the model (could also call main() directly, but to enable parallel runs, use Struphy's command line interface)
     subprocess.run(['struphy', 
@@ -29,12 +22,30 @@ def main(mpi=1):
                     '-o',
                     out_name,
                     '--mpi',
-                    str(mpi)], check=True)
+                    str(n_procs)], check=True)
     
     # perform post-processing
     subprocess.run(['struphy',
                     'pproc',
                     out_name], check=True)
+    
+    
+def diagnostics():
+    """
+    Perform diagnostics and plot results for the example run.
+    """
+    
+    import os, yaml, h5py, pickle
+    
+    from struphy.diagnostics.diagn_tools import fourier_1d
+    
+    import struphy
+
+    libpath = struphy.__path__[0]
+    
+    # output path
+    out_name = 'sim_example_maxwell'
+    out_path = os.path.join(libpath, 'io/out', out_name) 
     
     # code name
     with open(os.path.join(out_path, 'meta.txt'), 'r') as f:
@@ -74,4 +85,25 @@ def main(mpi=1):
     
     
 if __name__ == '__main__':
-    main()
+    
+    import argparse
+    
+    # get number of MPI processes
+    parser = argparse.ArgumentParser(description='Run an example for the model "Maxwell".')
+    
+    parser.add_argument('--mpi',
+                        type=int,
+                        metavar='N',
+                        help='number of MPI processes used to run the model (default=1)',
+                        default=1)
+    
+    parser.add_argument('-d', '--diagnostics',
+                        help='run diagnostics only, if output folder of example already exists',
+                        action='store_true')
+    
+    args = parser.parse_args()
+    
+    if not args.diagnostics:
+        run(args.mpi)
+        
+    diagnostics()
