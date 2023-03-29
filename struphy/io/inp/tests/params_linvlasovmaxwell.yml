@@ -7,10 +7,14 @@ grid :
     nq_pr    : [2, 2, 2] # quadrature points per histopolation cell (for commuting projectors)
     polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
 
+units :
+    x : 1. # length scale unit in m
+    B : 1. # magnetic field unit in T
+    n : 1. # number density unit of fluid species in 1 x 10^20 m^(-3)
+
 time :
     dt         : 0.05 # time step
     Tend       : 0.5 # simulation time interval is [0, Tend]
-    max_time   : 300. # maximum runtime of program in minutes
     split_algo : LieTrotter # LieTrotter | Strang
 
 geometry :
@@ -25,7 +29,6 @@ geometry :
 
 mhd_equilibrium :
     type : HomogenSlab # (possible choices seen below)
-    use_equil_domain : False # use the mapping given by the equilibrium (flux aligned) or not
     HomogenSlab :
         B0x  : 0. # magnetic field in x
         B0y  : 0. # magnetic field in y
@@ -50,6 +53,9 @@ em_fields :
 
 kinetic :
     electrons :
+        phys_params:
+            A : 1  # mass number in units of proton mass
+            Z : -1 # signed charge number in units of elementary charge
         markers :
             type    : delta_f # full_f, control_variate, or delta_f
             ppc     : 10  # number of markers per 3d grid cell
@@ -106,14 +112,14 @@ kinetic :
 
 solvers :
     solver_ew :
-        type : pcg
+        type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-10
         maxiter : 3000
         info : False
         verbose : False
     solver_eb :
-        type : pcg
+        type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-10
         maxiter : 3000

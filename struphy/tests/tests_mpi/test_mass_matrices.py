@@ -631,7 +631,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
         r0 = M0inv.dot(derham.B['0'].dot(x0), verbose=False)
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
-        assert M0inv.info['niter'] == 2
+        assert M0inv.info['niter'] == 1
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
@@ -641,7 +641,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
         r1 = M1inv.dot(derham.B['1'].dot(x1), verbose=False)
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
-        assert M1inv.info['niter'] == 2
+        assert M1inv.info['niter'] == 1
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
@@ -651,7 +651,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
         r2 = M2inv.dot(derham.B['2'].dot(x2), verbose=False)
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
-        assert M2inv.info['niter'] == 2
+        assert M2inv.info['niter'] == 1
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
@@ -661,7 +661,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
         r3 = M3inv.dot(derham.B['3'].dot(x3), verbose=False)
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
-        assert M3inv.info['niter'] == 2
+        assert M3inv.info['niter'] == 1
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
@@ -671,7 +671,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
         rv = Mvinv.dot(derham.B['v'].dot(xv), verbose=False)
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
-        assert Mvinv.info['niter'] == 2
+        assert Mvinv.info['niter'] == 1
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
@@ -681,7 +681,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
         r1n = M1ninv.dot(derham.B['1'].dot(x1), verbose=False)
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
-        assert M1ninv.info['niter'] == 2
+        assert M1ninv.info['niter'] == 1
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
@@ -691,7 +691,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
         r2n = M2ninv.dot(derham.B['2'].dot(x2), verbose=False)
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
-        assert M2ninv.info['niter'] == 2
+        assert M2ninv.info['niter'] == 1
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
@@ -701,7 +701,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
         rvn = Mvninv.dot(derham.B['v'].dot(xv), verbose=False)
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
-        assert Mvninv.info['niter'] == 2
+        assert Mvninv.info['niter'] == 1
 
     time.sleep(2)
     print(f'Rank {mpi_rank} | All tests passed!')

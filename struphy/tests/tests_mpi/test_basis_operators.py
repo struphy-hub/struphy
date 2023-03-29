@@ -89,7 +89,7 @@ def test_basis_ops(Nel, p, spl_kind, mapping, show_plots=False):
     space_str2.set_projectors('tensor')
 
     # MHD operator objects
-    basis_psy = BasisProjectionOperators(derham, domain, eq_mhd)
+    basis_psy = BasisProjectionOperators(derham, domain, eq_mhd=eq_mhd)
 
     basis_str10 = basis_ops_str1.MHDOperators(
         space_str1, eq_mhd, basis_u=0)  # MHD velocity is 0-form^3
@@ -126,49 +126,49 @@ def test_basis_ops(Nel, p, spl_kind, mapping, show_plots=False):
     #                              MHD velocity is a 0-form^3
     # ================================================================================
 
-    # ===== operator K0 (V3 --> V3) ============
+    # ===== operator K3 (V3 --> V3) ============
     mpi_comm.Barrier()
 
     if mpi_rank == 0:
-        print('\nOperator K0 (V3 --> V3):')
+        print('\nOperator K3 (V3 --> V3):')
 
-    r_psy = basis_psy.K0.dot(x3_psy)
+    r_psy = basis_psy.K3.dot(x3_psy)
     r_str1 = basis_str10.PR(x3_str)
 
-    print(f'Rank {mpi_rank} | Asserting MHD operator K0.')
+    print(f'Rank {mpi_rank} | Asserting MHD operator K3.')
     compare_arrays(r_psy, r_str1, mpi_rank, atol=1e-14)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
     mpi_comm.Barrier()
 
-    K0T = basis_psy.K0.transpose()
-    r_psy = K0T.dot(x3_psy)
+    K3T = basis_psy.K3.transpose()
+    r_psy = K3T.dot(x3_psy)
     r_str1 = basis_str10.PR.T(x3_str)
 
-    print(f'Rank {mpi_rank} | Asserting transposed MHD operator K0T.')
+    print(f'Rank {mpi_rank} | Asserting transposed MHD operator K3T.')
     compare_arrays(r_psy, r_str1, mpi_rank, atol=1e-14)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    # ===== operator Q0 (V0vec --> V2) ============
+    # ===== operator Qv (V0vec --> V2) ============
     mpi_comm.Barrier()
 
     if mpi_rank == 0:
-        print('\nOperator Q0 (V0vec --> V2):')
+        print('\nOperator Qv (V0vec --> V2):')
 
-    r_psy = basis_psy.Q0.dot(xv_psy)
+    r_psy = basis_psy.Qv.dot(xv_psy)
     r_str1 = basis_str10.MF(xv_str)
 
-    print(f'Rank {mpi_rank} | Asserting MHD operator Q0.')
+    print(f'Rank {mpi_rank} | Asserting MHD operator Qv.')
     compare_arrays(r_psy, r_str1, mpi_rank, atol=1e-14)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
     mpi_comm.Barrier()
 
-    Q0T = basis_psy.Q0.transpose()
-    r_psy = Q0T.dot(x2_psy)
+    QvT = basis_psy.Qv.transpose()
+    r_psy = QvT.dot(x2_psy)
     r_str1 = basis_str10.MF.T(x2_str)
 
-    print(f'Rank {mpi_rank} | Asserting transposed MHD operator Q0T.')
+    print(f'Rank {mpi_rank} | Asserting transposed MHD operator QvT.')
     compare_arrays(r_psy, r_str1, mpi_rank, atol=1e-14)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
@@ -195,22 +195,22 @@ def test_basis_ops(Nel, p, spl_kind, mapping, show_plots=False):
     compare_arrays(r_psy, r_str1, mpi_rank, atol=1e-14)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    # ===== operator S0 (V0vec --> V2) ============
+    # ===== operator Sv (V0vec --> V2) ============
     mpi_comm.Barrier()
 
     if mpi_rank == 0:
-        print('\nOperator S0 (V0vec --> V2):')
+        print('\nOperator Sv (V0vec --> V2):')
 
-    r_psy = basis_psy.S0.dot(xv_psy)
+    r_psy = basis_psy.Sv.dot(xv_psy)
     r_str1 = basis_str10.PF(xv_str)
 
-    print(f'Rank {mpi_rank} | Asserting MHD operator S0.')
+    print(f'Rank {mpi_rank} | Asserting MHD operator Sv.')
     compare_arrays(r_psy, r_str1, mpi_rank, atol=1e-14)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
     mpi_comm.Barrier()
 
-    S0T = basis_psy.S0.transpose()
+    S0T = basis_psy.Sv.transpose()
     r_psy = S0T.dot(x2_psy)
     r_str1 = basis_str10.PF.T(x2_str)
 
@@ -245,29 +245,29 @@ def test_basis_ops(Nel, p, spl_kind, mapping, show_plots=False):
     #                              MHD velocity is a 2-form
     # ================================================================================
 
-    # ===== operator K2 (V3 --> V3) ============
+    # ===== operator K3 (V3 --> V3) ============
     mpi_comm.Barrier()
 
     if mpi_rank == 0:
-        print('\nOperator K2 (V3 --> V3):')
+        print('\nOperator K3 (V3 --> V3):')
 
-    r_psy = basis_psy.K2.dot(x3_psy)
+    r_psy = basis_psy.K3.dot(x3_psy)
     r_str1 = basis_str12.PR(x3_str)
     r_str2 = basis_str2.K2_dot(x3_str)
 
-    print(f'Rank {mpi_rank} | Asserting MHD operator K2.')
+    print(f'Rank {mpi_rank} | Asserting MHD operator K3.')
     compare_arrays(r_psy, r_str1, mpi_rank, atol=1e-14)
     compare_arrays(r_psy, r_str2, mpi_rank, atol=1e-14)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
     mpi_comm.Barrier()
 
-    K2T = basis_psy.K2.transpose()
-    r_psy = K2T.dot(x3_psy)
+    K3T = basis_psy.K3.transpose()
+    r_psy = K3T.dot(x3_psy)
     r_str1 = basis_str12.PR.T(x3_str)
     r_str2 = basis_str2.transpose_K2_dot(x3_str)
 
-    print(f'Rank {mpi_rank} | Asserting transposed MHD operator K2T.')
+    print(f'Rank {mpi_rank} | Asserting transposed MHD operator K3T.')
     compare_arrays(r_psy, r_str1, mpi_rank, atol=1e-14)
     compare_arrays(r_psy, r_str2, mpi_rank, atol=1e-14)
     print(f'Rank {mpi_rank} | Assertion passed.')
@@ -506,7 +506,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
         print()
         print(derham.domain_array)
 
-    mhd_ops_psy = BasisProjectionOperators(derham, domain, eq_mhd)
+    mhd_ops_psy = BasisProjectionOperators(derham, domain, eq_mhd=eq_mhd)
 
     # compare to old STRUPHY
     spaces = [Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0], bc_compatible[0]),
@@ -572,33 +572,33 @@ def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     #                              MHD velocity is a 2-form
     # ================================================================================
 
-    # ===== operator K2 (V3 --> V3) ============
+    # ===== operator K3 (V3 --> V3) ============
     mpi_comm.Barrier()
 
     if mpi_rank == 0:
-        print('\nOperator K2 (V3 --> V3):')
+        print('\nOperator K (V3 --> V3):')
 
     if mpi_rank == 0:
-        r_psy = mhd_ops_psy.K2.dot(x3_pol_psy, tol=1e-10, verbose=True)
+        r_psy = mhd_ops_psy.K3.dot(x3_pol_psy, tol=1e-10, verbose=True)
     else:
-        r_psy = mhd_ops_psy.K2.dot(x3_pol_psy, tol=1e-10, verbose=False)
+        r_psy = mhd_ops_psy.K3.dot(x3_pol_psy, tol=1e-10, verbose=False)
 
     r_str = mhd_ops_str.PR(x3_pol_str)
 
-    print(f'Rank {mpi_rank} | Asserting MHD operator K2.')
+    print(f'Rank {mpi_rank} | Asserting MHD operator K3.')
     np.allclose(space.B3.T.dot(r_str), r_psy.toarray(True))
     print(f'Rank {mpi_rank} | Assertion passed.')
 
     mpi_comm.Barrier()
 
     if mpi_rank == 0:
-        r_psy = mhd_ops_psy.K2.transpose().dot(x3_pol_psy, tol=1e-10, verbose=True)
+        r_psy = mhd_ops_psy.K3.transpose().dot(x3_pol_psy, tol=1e-10, verbose=True)
     else:
-        r_psy = mhd_ops_psy.K2.transpose().dot(x3_pol_psy, tol=1e-10, verbose=False)
+        r_psy = mhd_ops_psy.K3.transpose().dot(x3_pol_psy, tol=1e-10, verbose=False)
 
     r_str = mhd_ops_str.PR.T(x3_pol_str)
 
-    print(f'Rank {mpi_rank} | Asserting transpose MHD operator K2.T.')
+    print(f'Rank {mpi_rank} | Asserting transpose MHD operator K3.T.')
     np.allclose(space.B3.T.dot(r_str), r_psy.toarray(True))
     print(f'Rank {mpi_rank} | Assertion passed.')
 
@@ -696,7 +696,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
 if __name__ == '__main__':
     #test_basis_ops([8, 6, 4], [2, 2, 2], [False, True, True], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
     #test_basis_ops([8, 6, 4], [2, 2, 2], [False, True, True], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False)
-    #test_basis_ops([6, 7, 4], [2, 3, 2], [False, True, True], ['HollowCylinder', {'a1': .1, 'a2': 1., 'Lz': 2*np.pi*3.}], False)
+    test_basis_ops([6, 7, 4], [2, 3, 2], [False, True, True], ['HollowCylinder', {'a1': .1, 'a2': 1., 'Lz': 2*np.pi*3.}], False)
 
-    test_basis_ops_polar([5, 9, 6], [2, 3, 2], [False, True, False], [[None, 'd'], [
-                         None, None], ['d', None]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)
+    # test_basis_ops_polar([5, 9, 6], [2, 3, 2], [False, True, False], [[None, 'd'], [
+                        #  None, None], ['d', None]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)

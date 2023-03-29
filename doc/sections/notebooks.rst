@@ -1,6 +1,6 @@
-.. _notebooks:
+.. _tutorials:
 
-Jupyter notebooks
-=================
+Tutorials
+=========
 
 * `Derham complex <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/notebooks/derham_complex.ipynb>`_

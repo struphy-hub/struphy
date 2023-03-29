@@ -7,16 +7,14 @@ grid :
     nq_pr    : [6, 6, 6] # quadrature points per histopolation cell (for commuting projectors)
     polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
       
-model_units :
+units : # units not stated here can be viewed via "struphy units -h"
     x : 1. # length scale unit in m
     B : 1. # magnetic field unit in T
-    n : 0.2 # number density unit of fluid species in 1 x 10^20 m^(-3)
-    A : 1  # mass number of fluid species (1 : Hydrogen, 2 : Deuterium, 3 : Tritium, etc.)
+    n : 0.2 # number density unit in 10^20 m^(-3)
 
 time : 
     dt         : 0.02  # time step
     Tend       : 20. # simulation time interval is [0, Tend]
-    max_time   : 300. # maximum runtime of program in minutes
     split_algo : Strang # LieTrotter | Strang
 
 geometry : 
@@ -29,26 +27,25 @@ geometry :
             
 mhd_equilibrium : 
     type : AdhocTorus # (possible choices seen below)
-    use_equil_domain : False # use the mapping given by the equilibrium (flux aligned) or not
     AdhocTorus :
-        a    : 1. # minor radius
-        R0   : 5. # major radius
-        B0   : 5. # on-axis toroidal magnetic field
-        q0   : 1.15 # safety factor at r=0
-        q1   : 1.60 # safety factor at r=a
-        n1   : 0. # shape factor for number density profile 
-        n2   : 0. # shape factor for number density profile 
-        na   : 1. # number density at r=a
+        a      : 1. # minor radius
+        R0     : 5. # major radius
+        B0     : 5. # on-axis toroidal magnetic field
+        q0     : 1.15 # safety factor at r=0
+        q1     : 1.60 # safety factor at r=a
+        n1     : 0. # shape factor for number density profile 
+        n2     : 0. # shape factor for number density profile 
+        na     : 1. # number density at r=a
         p_kind : 1 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
         p1     : 0. # shape factor for ad hoc pressure profile
         p2     : 0. # shape factor for ad hoc pressure profile
-        beta : .2 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)   
+        beta   : .2 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)   
         
 em_fields : 
     init :
         type : InitialMHDAxisymHdivEigFun # initial conditions (possible types seen below)
         InitialMHDAxisymHdivEigFun :
-            spec : '/io/out/sim_10/spec_n_-1.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
+            spec : '/io/out/sim_example_TAE_tokamak/spec_n_-1.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
             eig_freq_upper : 0.14855 # upper search limit of squared eigenfrequency to identify eigenfunction
             eig_freq_lower : 0.14850 # lower search limit of squared eigenfrequency to identify eigenfunction
             kind : r # real (r) or imaginary (i) part of eigenfunction
@@ -56,11 +53,14 @@ em_fields :
 
 fluid : 
     mhd :
+        phys_params:
+            A : 1 # mass number in units of proton mass
+            Z : 1 # signed charge number in units of elementary charge
         mhd_u_space : Hdiv # Hdiv | H1vec
         init :
             type : InitialMHDAxisymHdivEigFun # initial conditions (possible types seen below)
             InitialMHDAxisymHdivEigFun :
-                spec : '/io/out/sim_10/spec_n_-1.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
+                spec : '/io/out/sim_example_TAE_tokamak/spec_n_-1.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
                 eig_freq_upper : 0.14855 # upper search limit of squared eigenfrequency to identify eigenfunction
                 eig_freq_lower : 0.14850 # lower search limit of squared eigenfrequency to identify eigenfunction
                 kind : r # real (r) or imaginary (i) part of eigenfunction
@@ -68,14 +68,14 @@ fluid :
               
 solvers :
     solver_1 : 
-        type : pcg
+        type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-8
         maxiter : 3000
         info : True
         verbose : False
     solver_2 :
-        type : pbicgstab
+        type : PBiConjugateGradientStab
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-8
         maxiter : 3000

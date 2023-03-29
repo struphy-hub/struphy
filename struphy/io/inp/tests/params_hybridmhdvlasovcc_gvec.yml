@@ -19,7 +19,6 @@ model_units :
 time : 
     dt         : 0.1  # time step
     Tend       : 1. # simulation time interval is [0, Tend]
-    max_time   : 300. # maximum runtime of program in minutes
     split_algo : LieTrotter # LieTrotter | Strang
       
 geometry : 
@@ -34,7 +33,6 @@ geometry :
             
 mhd_equilibrium : 
     type : GVECequilibrium # (possible choices seen below)
-    use_equil_domain : True # use the mapping given by the equilibrium (flux aligned) or not
     GVECequilibrium : 
         rel_path  : True # whether to state dat_file (json_file) relative to "<struphy_path>/fields_background/mhd_equil/gvec", or give the absolute path
         dat_file  : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file 
@@ -96,28 +94,28 @@ kinetic :
       
 solvers :
     solver_1 : 
-        type : pbicgstab
+        type : PBiConjugateGradientStab
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-14
         maxiter : 3000
         info : False
         verbose : False
     solver_2 :
-        type : pcg
+        type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-14
         maxiter : 3000
         info : False
         verbose : False
     solver_3 : 
-        type : pcg
+        type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-14
         maxiter : 3000
         info : False
         verbose : False
     solver_4 :
-        type : pbicgstab
+        type : PBiConjugateGradientStab
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-14
         maxiter : 3000

@@ -43,24 +43,24 @@ class PolarExtractionOperator(LinOpWithTransp):
     
     Parameters
     ----------
-        V : StencilVectorSpace | BlockVectorSpace
-            Domain of the operator (always corresponding to the case transpose=False).
+    V : StencilVectorSpace | BlockVectorSpace
+        Domain of the operator (always corresponding to the case transpose=False).
 
-        W : PolarDerhamSpace
-            Codomain of the operator (always corresponding to the case transpose=False).
+    W : PolarDerhamSpace
+        Codomain of the operator (always corresponding to the case transpose=False).
 
-        blocks_ten_to_pol : list
-            2D nested list with matrices that map inner most n_rings tp rings to n_polar polar basis functions/DOFs. 
-                * shape[m][n] = (n_polar[m], n_rings[n]*n2) if transposed=False.
-                * shape[m][n] = (n_rings[m]*n2, n_polar[n]) if transposed=True.
+    blocks_ten_to_pol : list
+        2D nested list with matrices that map inner most n_rings tp rings to n_polar polar basis functions/DOFs. 
+            * shape[m][n] = (n_polar[m], n_rings[n]*n2) if transposed=False.
+            * shape[m][n] = (n_rings[m]*n2, n_polar[n]) if transposed=True.
 
-        blocks_ten_to_ten : list
-            2D nested list with matrices that map inner most n_rings + 1 tp rings to n2 tp basis functions/DOF on "first tp ring". 
-                * shape[m][n] = (n2, (n_rings[n] + 1)*n2) if transposed=False.
-                * shape[m][n] = ((n_rings[m] + 1)*n2, n2) if transposed=True.
-        
-        transposed : bool
-            Whether the transposed extraction operator shall be constructed.
+    blocks_ten_to_ten : list
+        2D nested list with matrices that map inner most n_rings + 1 tp rings to n2 tp basis functions/DOF on "first tp ring". 
+            * shape[m][n] = (n2, (n_rings[n] + 1)*n2) if transposed=False.
+            * shape[m][n] = ((n_rings[m] + 1)*n2, n2) if transposed=True.
+
+    transposed : bool
+        Whether the transposed extraction operator shall be constructed.
     """
 
     def __init__(self, V, W, blocks_ten_to_pol=None, blocks_ten_to_ten=None, transposed=False):
@@ -135,6 +135,14 @@ class PolarExtractionOperator(LinOpWithTransp):
     @property
     def dtype(self):
         return self._dtype
+    
+    @property
+    def tosparse(self):
+        raise NotImplementedError()
+        
+    @property
+    def toarray(self):
+        raise NotImplementedError()
 
     @property
     def transposed(self):
@@ -190,29 +198,31 @@ class PolarExtractionOperator(LinOpWithTransp):
 
         Parameters
         ----------
-            v : StencilVector | BlockVector | (PolarVector, if transposed)
-                Input vector.
+        v : StencilVector | BlockVector | (PolarVector, if transposed)
+            Input (domain) vector.
 
-            out : PolarVector | (StencilVector | BlockVector, if transposed) 
-                Optional output vector the result will be written to. If not given, a vector is returned. 
+        out : PolarVector | (StencilVector | BlockVector, if transposed), optional 
+            Optional output vector the result will be written to in-place.
+            
+        Returns
+        -------
+        out : PolarVector | (StencilVector | BlockVector, if transposed)
+            Output (codomain) vector.
         """
-        
-        assert v.space == self.domain
 
         # transposed operator (polar vector --> tensor-product vector)
         if self.transposed:
+            
+            assert isinstance(v, PolarVector)
+            assert v.space == self._domain
 
             # 1. identity operation on outer tp zone
             if out is None:
-                do_return = True
                 out = v.tp.copy()
             else:
-                do_return = False
-                if isinstance(out, StencilVector):
-                    out[:] = v.tp[:]
-                elif isinstance(out, BlockVector):
-                    for n in range(3):
-                        out[n][:] = v.tp[n][:]
+                assert isinstance(out, (StencilVector, BlockVector))
+                assert out.space == self._codomain
+                v.tp.copy(out=out)
             
             # 2. map "first tp ring" to "polar rings" + "first tp ring"
             if self.blocks_ten_to_ten is not None:
@@ -229,12 +239,14 @@ class PolarExtractionOperator(LinOpWithTransp):
         # "standard" operator (tensor-product vector --> polar vector)
         else:
             
+            assert isinstance(v, (StencilVector, BlockVector))
+            assert v.space == self._domain
+            
             if out is None:
-                do_return = True
-                out = PolarVector(self.codomain)
+                out = PolarVector(self._codomain)
             else:
-                do_return = False
                 assert isinstance(out, PolarVector)
+                assert out.space == self._codomain
             
             # 1. identity operation on outer tp zone
             out.tp = v
@@ -247,8 +259,7 @@ class PolarExtractionOperator(LinOpWithTransp):
             if self.blocks_ten_to_ten is not None:
                 dot_inner_tp_rings(self.blocks_ten_to_ten, self.blocks_e3, v, out)
 
-        if do_return:
-            return out
+        return out
 
     def transpose(self):
         """
@@ -304,29 +315,29 @@ class PolarLinearOperator(LinOpWithTransp):
 
     Parameters
     ----------
-        V : PolarDerhamSpace
-            Domain of the operator (always corresponding to the case transposed=False).
+    V : PolarDerhamSpace
+        Domain of the operator (always corresponding to the case transposed=False).
 
-        W : PolarDerhamSpace
-            Codomain of the operator (always corresponding to the case transposed=False).
-            
-        tp_operator : LinOpWithTransp
-            Standard (stencil) linear operator on the outer tp zone. 
+    W : PolarDerhamSpace
+        Codomain of the operator (always corresponding to the case transposed=False).
 
-        blocks_pol_to_ten : list
-            2D nested list with matrices that map polar coeffs to "first tp ring". 
-                * shape[m][n] = ((n_rings[m] + 1)*n2, n_polar[n]) if transposed=False.
-                * shape[m][n] = (n_polar[m], (n_rings[n] + 1)*n2) if transposed=True.
+    tp_operator : LinOpWithTransp
+        Standard (stencil) linear operator on the outer tp zone. 
 
-        blocks_pol_to_pol : list
-            2D nested list with matrices that map polar coeffs to polar coeffs. 
-                * shape[m][n] = (n_polar[m], n_polar[n]).
-            
-        blocks_e3 : list
-            2D nested list with matrices that map in eta_3 direction.
-        
-        transposed : bool
-            Whether to create the transposed extraction operator.
+    blocks_pol_to_ten : list
+        2D nested list with matrices that map polar coeffs to "first tp ring". 
+            * shape[m][n] = ((n_rings[m] + 1)*n2, n_polar[n]) if transposed=False.
+            * shape[m][n] = (n_polar[m], (n_rings[n] + 1)*n2) if transposed=True.
+
+    blocks_pol_to_pol : list
+        2D nested list with matrices that map polar coeffs to polar coeffs. 
+            * shape[m][n] = (n_polar[m], n_polar[n]).
+
+    blocks_e3 : list
+        2D nested list with matrices that map in eta_3 direction.
+
+    transposed : bool
+        Whether to create the transposed extraction operator.
     """
 
     def __init__(self, V, W, tp_operator=None, blocks_pol_to_ten=None, blocks_pol_to_pol=None, blocks_e3=None, transposed=False):
@@ -400,6 +411,14 @@ class PolarLinearOperator(LinOpWithTransp):
     @property
     def dtype(self):
         return self._dtype
+    
+    @property
+    def tosparse(self):
+        raise NotImplementedError()
+        
+    @property
+    def toarray(self):
+        raise NotImplementedError()
 
     @property
     def transposed(self):
@@ -499,63 +518,51 @@ class PolarLinearOperator(LinOpWithTransp):
 
         Parameters
         ----------
-            v : PolarVector
-                Input vector.
+        v : struphy.polar.basic.PolarVector
+            Input (domain) vector.
 
-            out : PolarVector
-                Optional output vector the result will be written to. 
+        out : struphy.polar.basic.PolarVector, optional
+            If given, the result will be written into this vector in-place.
+            
+        Returns
+        -------
+        out : struphy.polar.basic.PolarVector
+            Output (codomain) vector.
         """
         
-        assert v.space == self.domain
+        assert isinstance(v, PolarVector)
+        assert v.space == self._domain
+        
+        if out is None:
+            out = PolarVector(self._codomain)
+        else:
+            assert isinstance(out, PolarVector)
+            assert out.space == self._codomain
+            
+        # 1. total tp zone to total tp zone (stencil)
+        out.tp = self.tp_operator.dot(v.tp)
+            
+        # 2. polar to polar (dense)
+        dot_pol_pol(self.blocks_pol_to_pol, self.blocks_e3, v, out)
+        
+        out2 = PolarVector(self.codomain)
 
         # transposed operator
         if self.transposed:
 
-            if out is None:
-                do_return = True
-                out = PolarVector(self.codomain)
-            else:
-                do_return = False
-                assert isinstance(out, PolarVector)
-            
-            # 1. total tp zone to total tp zone (stencil)
-            out.tp = self.tp_operator.dot(v.tp)
-            
-            # 2. polar to polar (dense)
-            dot_pol_pol(self.blocks_pol_to_pol, self.blocks_e3, v, out)
-
             # 3. "first tp ring" to polar
-            out2 = PolarVector(self.codomain)
             dot_inner_tp_rings(self.blocks_pol_to_ten, self.blocks_e3, v.tp, out2)
-
-            # sum up contributions
-            out += out2
 
         # "standard" operator
         else:
             
-            if out is None:
-                do_return = True
-                out = PolarVector(self.codomain)
-            else:
-                do_return = False
-                assert isinstance(out, PolarVector)
-            
-            # 1. total tp zone to total tp zone (stencil)
-            out.tp = self.tp_operator.dot(v.tp)
-            
-            # 2. polar to polar (dense)
-            dot_pol_pol(self.blocks_pol_to_pol, self.blocks_e3, v, out)
-            
             # 3. polar to "first tp ring"
-            out2 = PolarVector(self.codomain)
             dot_parts_of_polar(self.blocks_pol_to_ten, self.blocks_e3, v, out2.tp)
             
-            # sum up contributions
-            out += out2
+        # sum up contributions
+        out += out2
 
-        if do_return:
-            return out
+        return out
 
     def transpose(self):
         """
@@ -603,17 +610,17 @@ def dot_inner_tp_rings(blocks_e1_e2, blocks_e3, v, out):
 
     Parameters
     ----------
-        blocks_e1_e2 : list
-            2D nested list with matrices that map inner tp rings to polar coeffs or "first tp ring" depending on shape. 
-            
-        blocks_e3 : list
-            2D nested list with matrices that solely act along eta_3 direction.
-        
-        v : StencilVector | BlockVector
-            Input vector.
+    blocks_e1_e2 : list
+        2D nested list with matrices that map inner tp rings to polar coeffs or "first tp ring" depending on shape. 
 
-        out : PolarVector
-            Output vector that is written to. 
+    blocks_e3 : list
+        2D nested list with matrices that solely act along eta_3 direction.
+
+    v : StencilVector | BlockVector
+        Input vector.
+
+    out : PolarVector
+        Output vector that is written to. 
     """
 
     assert isinstance(blocks_e1_e2, list)
@@ -721,17 +728,17 @@ def dot_parts_of_polar(blocks_e1_e2, blocks_e3, v, out):
 
     Parameters
     ----------
-        blocks_e1_e2 : list
-            2D nested list with matrices that map polar coeffs or "first tp ring" to inner to rings depending on shape. 
-            
-        blocks_e3 : list
-            2D nested list with matrices that solely act along eta_3 direction.
-        
-        v : StencilVector | BlockVector
-            Input vector.
+    blocks_e1_e2 : list
+        2D nested list with matrices that map polar coeffs or "first tp ring" to inner to rings depending on shape. 
 
-        out : PolarVector
-            Output vector that is written to. 
+    blocks_e3 : list
+        2D nested list with matrices that solely act along eta_3 direction.
+
+    v : StencilVector | BlockVector
+        Input vector.
+
+    out : PolarVector
+        Output vector that is written to. 
     """
 
     assert isinstance(blocks_e1_e2, list)
@@ -819,14 +826,14 @@ def dot_pol_pol(blocks_e1_e2, blocks_e3, v, out):
 
     Parameters
     ----------
-        blocks_e1_e2 : list[list[ndarray]]
-            blocks_e1_e2[m][n].shape = (out.pol[m].shape[0], v.pol[n].shape[0])
+    blocks_e1_e2 : list[list[ndarray]]
+        blocks_e1_e2[m][n].shape = (out.pol[m].shape[0], v.pol[n].shape[0])
 
-        v : PolarVector
-            Input vector.
+    v : PolarVector
+        Input vector.
 
-        out : PolarVector
-            output vector.
+    out : PolarVector
+        output vector.
     """
 
     assert isinstance(v, PolarVector)
@@ -844,13 +851,13 @@ def transpose_block_mat(blocks):
 
     Parameters
     ----------
-        blocks : list[list[ndarray]]
-            Block matrix.
+    blocks : list[list[ndarray]]
+        Block matrix.
 
     Returns
     -------
-        out : list[list[ndarray]]
-            Transposed block matrix. 
+    out : list[list[ndarray]]
+        Transposed block matrix. 
     """
 
     n_rows = len(blocks)
@@ -874,13 +881,13 @@ def set_blocks(shapes):
     
     Parameters
     ----------
-        shapes : list
-            2D list of tuples (.,.) holding the shape of individual blocks (shapes[m][n] = (.,.)).
+    shapes : list
+        2D list of tuples (.,.) holding the shape of individual blocks (shapes[m][n] = (.,.)).
             
     Returns
     -------
-        blocks : list
-            2D list of 2D matrices (scipy.sparse or nd.ndarray) filled with zeros.
+    blocks : list
+        2D list of 2D matrices (scipy.sparse or nd.ndarray) filled with zeros.
     """
     
     assert isinstance(shapes, list)
@@ -903,11 +910,11 @@ def check_blocks(blocks, shapes):
     
     Parameters
     ----------
-        blocks : list
-            2D list of 2D matrices (scipy.sparse or nd.ndarray).
-    
-        shapes : list
-            2D list of tuples (.,.) holding the shape of individual blocks (shapes[m][n] = (.,.)).
+    blocks : list
+        2D list of 2D matrices (scipy.sparse or nd.ndarray).
+
+    shapes : list
+        2D list of tuples (.,.) holding the shape of individual blocks (shapes[m][n] = (.,.)).
     """
     
     assert isinstance(shapes, list)

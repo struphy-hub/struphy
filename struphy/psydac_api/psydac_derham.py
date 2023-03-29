@@ -9,7 +9,6 @@ from psydac.feec.global_projectors import Projector_H1vec
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 
 from struphy.psydac_api.linear_operators import BoundaryOperator, CompositeLinearOperator, IdentityOperator
-
 from struphy.psydac_api.projectors import Projector
 
 from struphy.polar.basic import PolarDerhamSpace
@@ -21,24 +20,11 @@ import numpy as np
 
 class Derham:
     """
-    Psydac API for the discrete Derham sequence on the logical unit cube (3d): Polar sub-spaces can be added.
+    Psydac API for the discrete Derham sequence on the logical unit cube (3d).
+    Polar sub-spaces (indicated by a bar) can be added.
     
-         V0 ----- d0 ----> V1 ----- d1 ----> V2 ----- d1 ----> V3
-          |                 |                 |                 |
-          |                 |                 |                 |
-          | P0              | P1              | P2              | P3
-          |                 |                 |                 |
-          v                 v                 v                 v
-         V0h ---- d0 ----> V1h ---- d1 ----> V2h ---- d2 ----> V3h
-          ^                 ^                 ^                 ^
-          |                 |                 |                 |
-          | (E0)^T          | (E1)^T          | (E2)^T          | (E3)^T
-          |                 |                 |                 |
-          |                 |                 |                 |
-       V0h_pol -- d0 --> V1h_pol -- d1 --> V2h_pol -- d2 --> V3h_pol
-       
-    In above diagram, d0 <-> grad, d1 <-> curl and d2 <-> div. If polar sub-spaces are added, Pk (k = 0,1,2,3) map to Vkh_pol.
-    
+    .. image:: ../pics/polar_derham.png
+           
     Parameters
     ----------
     Nel : list[int]
@@ -127,7 +113,7 @@ class Derham:
         self._domain_log_h = discretize(
             self._domain_log, ncells=Nel, comm=self._comm, periodic=self.spl_kind)
 
-        # Psydac discrete de Rham, projectors and derivatives (as Stencil-/BlockMatrix)
+        # Psydac discrete de Rham, projectors and derivatives
         _derham = discretize(self._derham_symb, self._domain_log_h,
                              degree=self.p, quad_order=self.quad_order)
         
@@ -209,6 +195,7 @@ class Derham:
         if self.polar_ck == -1:
             ck_blocks = None
         else:
+            assert domain is not None
             ck_blocks = PolarExtractionBlocksC1(domain, self)
         
         self._Vh_pol = {}
@@ -248,9 +235,9 @@ class Derham:
             self._curl = PolarLinearOperator(self._Vh_pol['1'], self._Vh_pol['2'], self._curl, ck_blocks.curl_pol_to_ten, ck_blocks.curl_pol_to_pol, ck_blocks.curl_e3)
             self._div  = PolarLinearOperator(self._Vh_pol['2'], self._Vh_pol['3'], self._div , ck_blocks.div_pol_to_ten , ck_blocks.div_pol_to_pol , ck_blocks.div_e3 )
             
-        self._grad = CompositeLinearOperator(self._B['1'], self._grad, self._B['0'].transpose())
-        self._curl = CompositeLinearOperator(self._B['2'], self._curl, self._B['1'].transpose())
-        self._div  = CompositeLinearOperator(self._B['3'], self._div , self._B['2'].transpose())      
+        self._grad = CompositeLinearOperator(self._B['1'], self._grad, self._B['0'].T)
+        self._curl = CompositeLinearOperator(self._B['2'], self._curl, self._B['1'].T)
+        self._div  = CompositeLinearOperator(self._B['3'], self._div , self._B['2'].T)
    
     @property
     def Nel(self):

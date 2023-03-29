@@ -1,7 +1,7 @@
 import numpy as np
 
 from psydac.linalg.stencil import StencilVector, StencilMatrix
-from psydac.linalg.block import BlockVector, BlockMatrix
+from psydac.linalg.block import BlockVector, BlockLinearOperator
 
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
@@ -183,7 +183,7 @@ class HybridOperator:
     @staticmethod
     def assemble_mat(V, W, U, density, derham, b_value, domain):
         """
-        Assembles weighted mass matrix as StencilMatrix/BlockMatrix corresponding to given domain/codomain spline spaces.
+        Assembles weighted mass matrix as StencilMatrix/BlockLinearOperator corresponding to given domain/codomain spline spaces.
         
         Parameters
         ----------
@@ -199,7 +199,7 @@ class HybridOperator:
                 
         Returns
         -------
-            mat : StencilMatrix | BlockMatrix
+            mat : StencilMatrix | BlockLinearOperator
                 Weighted mass matrix in the full tensor product FEM space.
         """
         
@@ -299,7 +299,7 @@ class HybridOperator:
                 if np.any(np.abs(weight_blocks[c]) > 1e-14):
 
                     if a != b:
-                        M = StencilMatrix(vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
+                        M = StencilMatrix(vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
                     
                         #kernel = getattr(mass_kernels, 'kernel_' + str(V.ldim) + 'd')
                     
@@ -309,7 +309,7 @@ class HybridOperator:
                         blocks[-1] += [np.sign(a-b)*M]
                     else:
                         # when a = b, values are 0 in this block
-                        M = StencilMatrix(vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
+                        M = StencilMatrix(vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
                         blocks[-1] += [M]
                 else:
                     blocks[-1] += [None]
@@ -317,4 +317,4 @@ class HybridOperator:
         if len(blocks) == len(blocks[0]) == 1:
             return blocks[0][0] 
         else:
-            return BlockMatrix(V.vector_space, W.vector_space, blocks)
+            return BlockLinearOperator(V.vector_space, W.vector_space, blocks)

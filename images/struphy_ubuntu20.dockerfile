@@ -1,6 +1,6 @@
 FROM gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu20_test
 
-# install struphy in dev mode
+# install struphy and remove source code
 COPY . .
 RUN pip install . \
     && cd .. \

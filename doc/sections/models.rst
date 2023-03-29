@@ -1,15 +1,81 @@
 .. _models:
 
-Available models
-================
+Struphy models
+==============
 
-.. note::
+.. _normalization:
 
-    All models are implemented with a special STRUPHY normalization stated with the model equations. 
-    The notation is such that hat quantities like :math:`\hat \omega` denote the unit of a quantity, i.e.
-    :math:`1/\hat \omega` denotes the time unit, :math:`1/\hat k` is the unit of length and :math:`\hat B` 
-    stands for the unit of the magnetic field.
+Normalization
+-------------
 
+In Struphy, models are implemented in normalized variables. 
+Each particular normalization is stated with the model equations in the docstring (see below).
+For any dependent or independent variable :math:`X`, we write 
+
+.. math::
+
+    X = \hat X\, X'\,,
+
+where :math:`\hat X` is the unit (for instance 0.1 meter) and :math:`X'` is the numerical value
+appearing in the code. Choosing a normalization means that units of different variables
+are not independent anymore. For instance, choosing
+
+.. math::
+
+    \frac{\hat v \hat k}{\hat \omega} = 1
+
+means that the time unit :math:`\hat t = 2\pi/\hat\omega` is fixed once the units of velocity :math:`\hat v`
+and the unit of length :math:`\hat x = 2\pi/\hat k` have been chosen. In this case we say that
+:math:`\hat t` is a "derived unit" and :math:`\hat v` and :math:`\hat x` are "prescribed units".
+
+In Struphy, only three units can be prescribed (in the :code:`parameter.yml` file):
+
+.. math::
+
+    \hat x = 2\pi/\hat k \quad \ldots \quad & \textnormal{the unit of length, expressed in meter}
+
+    \hat B \quad \ldots \quad & \textnormal{the unit of the magnetic field strength, expressed in Tesla}
+
+    \hat n \quad \ldots \quad & \textnormal{the unit of number density, expressed in } 10^{20}\,m^{-3}
+
+All other units are "derived units", such as
+
+.. math::
+
+    \hat t = 2\pi/\hat \omega \quad \ldots \quad & \textnormal{the unit of time}
+
+    \hat U \quad \ldots \quad & \textnormal{the unit of fluid velocity} 
+
+    \hat p \quad \ldots \quad & \textnormal{the unit of pressure} 
+
+    \hat E \quad \ldots \quad & \textnormal{the unit of electric field} 
+
+    \hat v \quad \ldots \quad & \textnormal{the unit of particle velocity (in phase space)} 
+
+    \hat f_\textnormal{h} \quad \ldots \quad & \textnormal{the unit of hot particle distribution function} 
+
+    \hat n_\textnormal{h} \quad \ldots \quad & \textnormal{the unit of hot particle number density} 
+
+    \hat u_\textnormal{h} \quad \ldots \quad & \textnormal{the unit of hot particle mean velocity} 
+
+The numerical values of these units, for any :code:`MODEL` with species defined in :code:`FILE`, can be inspected via::
+
+    struphy units MODEL -i FILE
+
+For the derivation of these units, several physics parameters are needed, of which 
+the notation is summarized in the following table:
+
+======================== =================================================== 
+Symbol                   Meaning                                      
+======================== ===================================================
+:math:`\mu_0`            magnetic constant             
+:math:`m_\textnormal{H}` proton mass     
+:math:`A_\textnormal{b}` mass number of bulk species (in units of proton mass)   
+:math:`e`                elementary charge (positive)
+:math:`Z_\textnormal{b}` charge number of bulk species (in units of elementary charge)
+:math:`c`                vacuum speed of light
+======================== ===================================================          
+ 
 
 Fluid models
 ------------

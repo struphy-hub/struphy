@@ -6,10 +6,15 @@ PYTHON  := python3
 SO_EXT  := $(shell $(PYTHON) -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")
 LIBDIR  := $(shell $(PYTHON) -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")
 psydac_path := $(shell $(PYTHON) -c "import psydac as _; print(_.__path__[0])")
+struphy_path := $(shell $(PYTHON) -c "import struphy as _; print(_.__path__[0])")
 
+# Arguments to this script are: 
+# flags
+# flags_openmp_pic
+# flags_openmp_mhd
 FLAGS            := --libdir $(LIBDIR) $(flags)
-FLAGS_openmp_mhd := $(flags_openmp_mhd)
 FLAGS_openmp_pic := $(flags_openmp_pic)
+FLAGS_openmp_mhd := $(flags_openmp_mhd)
 
 #--------------------------------------
 # SOURCE FILES PSYDAC
@@ -26,6 +31,8 @@ PSY4  := $(psydac_path)/feec/dof_kernels
 
 # Linear algebra
 LAC  := $(struphy_path)/linear_algebra/core
+LAMV  := $(struphy_path)/linear_algebra/stencil_dot_kernels
+LATR  := $(struphy_path)/linear_algebra/stencil_transpose_kernels
 
 # Splines
 BK   := $(struphy_path)/b_splines/bsplines_kernels
@@ -38,6 +45,7 @@ BEV3 := $(struphy_path)/b_splines/bspline_evaluation_3d
 MAFA := $(struphy_path)/geometry/mappings_fast
 MEVA := $(struphy_path)/geometry/map_eval
 TR3  := $(struphy_path)/geometry/transform
+MK   := $(struphy_path)/geometry/kernels
 
 # Kinetic background
 MOMK := $(struphy_path)/kinetic_background/moments_kernels
@@ -67,7 +75,7 @@ KM3  := $(struphy_path)/eigenvalue_solvers/kernels_3d
 KPG  := $(struphy_path)/eigenvalue_solvers/kernels_projectors_global
 KPGM := $(struphy_path)/eigenvalue_solvers/kernels_projectors_global_mhd
 
-SOURCES := $(LAC).py $(BK).py $(BKP).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(TR3).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(PUTL).py $(PUSH).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py $(PSY3).py $(PSY4).py
+SOURCES := $(LAC).py $(LAMV).py $(LATR).py $(BK).py $(BKP).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(TR3).py $(MK).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(PUTL).py $(PUSH).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py $(PSY3).py $(PSY4).py
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
@@ -96,6 +104,12 @@ $(PSY4)$(SO_EXT) : $(PSY4).py
 $(LAC)$(SO_EXT) : $(LAC).py
 	pyccel $< $(FLAGS)
 
+$(LAMV)$(SO_EXT) : $(LAMV).py
+	pyccel $< $(FLAGS)
+
+$(LATR)$(SO_EXT) : $(LATR).py
+	pyccel $< $(FLAGS)
+
 $(BK)$(SO_EXT) : $(BK).py
 	pyccel $< $(FLAGS)
 
@@ -118,6 +132,9 @@ $(MEVA)$(SO_EXT) : $(MEVA).py $(MAFA)$(SO_EXT) $(LAC)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
 $(TR3)$(SO_EXT) : $(TR3).py $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT)
+	pyccel $< $(FLAGS)
+    
+$(MK)$(SO_EXT) : $(MK).py
 	pyccel $< $(FLAGS)
 
 $(MOMK)$(SO_EXT) : $(MOMK).py

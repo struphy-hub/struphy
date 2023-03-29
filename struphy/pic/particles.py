@@ -7,32 +7,48 @@ import scipy.special as sp
 from struphy.pic import sampling, sobol_seq
 from struphy.pic.pusher_utilities import reflect
 from struphy.kinetic_background import analytical
+from struphy.fields_background.mhd_equil.equils import set_defaults
 
 
 class Particles(metaclass=ABCMeta):
     """
     Base class for a particle based kinetic species.
+
+    Parameters
+    ----------
+    name : str
+        Name of particle species.
+
+    n_cols : int
+        Number of columns (attributes) for each marker.
+
+    **params : dict
+        Marker parameters (defaults must be checked in the child classes).    
     """
 
-    def __init__(self, name, params_markers, domain_decomp, comm, n_cols):
+    def __init__(self, name: str, n_cols: int, **params):
 
         self._name = name
-        self._params = params_markers
+        self._params = params
 
         # Assume full-f if type is not in parameters
-        if 'type' in params_markers.keys():
-            if params_markers['type'] == 'control_variate':
+        if 'type' in params.keys():
+            if params['type'] == 'control_variate':
                 self._use_control_variate = True
             else:
                 self._use_control_variate = False
         else:
             self._use_control_variate = False
 
-        self._domain_decomp = domain_decomp
+        self._domain_decomp = params['domain_array']
 
-        self._mpi_comm = comm
-        self._mpi_size = comm.Get_size()
-        self._mpi_rank = comm.Get_rank()
+        assert params['comm'] is not None
+        self._mpi_comm = params['comm']
+        self._mpi_size = params['comm'].Get_size()
+        self._mpi_rank = params['comm'].Get_rank()
+
+        self._domain = params['domain']
+        self._bc = params['bc_type']
 
         # number of cells on current process
         n_cells_loc = np.prod(
@@ -43,12 +59,12 @@ class Particles(metaclass=ABCMeta):
             np.prod(self._domain_decomp[:, 2::3], axis=1, dtype=int))
 
         # number of markers to load on each process (depending on relative domain size)
-        if 'ppc' in params_markers:
-            ppc = params_markers['ppc']
-            assert isinstance(ppc, int)
+        if params['ppc'] is not None:
+            assert isinstance(params['ppc'], int)
+            ppc = params['ppc']
             Np = ppc*n_cells
         else:
-            Np = params_markers['Np']
+            Np = params['Np']
             assert isinstance(Np, int)
             ppc = Np/n_cells
 
@@ -69,13 +85,13 @@ class Particles(metaclass=ABCMeta):
         n_mks_load_loc = n_mks_load[self._mpi_rank]
 
         markers_size = round(
-            n_mks_load_loc*(1 + 1/np.sqrt(n_mks_load_loc) + params_markers['eps']))
+            n_mks_load_loc*(1 + 1/np.sqrt(n_mks_load_loc) + params['eps']))
 
         self._markers = np.zeros((markers_size, n_cols), dtype=float)
 
         n_mks_load_cum_sum = np.cumsum(n_mks_load)
 
-        loading_params = params_markers['loading']
+        loading_params = params['loading']
 
         # load markers from external .hdf5 file
         if loading_params['type'] == 'external':
@@ -264,6 +280,18 @@ class Particles(metaclass=ABCMeta):
         """
         return self._s3
 
+    @property
+    def domain(self):
+        """ struphy.geometry.domains
+        """
+        return self._domain
+    
+    @property
+    def bc(self):
+        """ Kinetic boundary conditions in each direction.
+        """
+        return self._bc
+
     def s0(self, eta1, eta2, eta3, vx, vy, vz, domain, remove_holes=True):
         """ 
         Sampling density transformed from 3-form to 0-form (division by Jacobian determinant).
@@ -300,6 +328,9 @@ class Particles(metaclass=ABCMeta):
         """
 
         self.comm.Barrier()
+
+        # before sorting, apply kinetic bc
+        self.apply_kinetic_bc()
 
         # create new markers_to_be_sent array and make corresponding holes in markers array
         markers_to_be_sent, hole_inds_after_send = sendrecv_determine_mtbs(
@@ -490,6 +521,43 @@ class Particles(metaclass=ABCMeta):
 
         plt.show()
 
+    def apply_kinetic_bc(self):
+        """
+        Apply boundary conditions to markers that are outside of the logical unit cube.
+
+        Parameters
+        ----------
+        """
+
+        self.comm.Barrier()
+
+        for axis, bc in enumerate(self.bc):
+
+            # sorting out particles outside of the logical unit cube
+            is_outside_cube = np.logical_or(self.markers[:,axis] > 1.,
+                                            self.markers[:,axis] < 0.)
+            
+            # exclude holes
+            is_outside_cube[self.holes] = False
+
+            # indices or particles that are outside of the logical unit cube
+            outside_inds = np.nonzero(is_outside_cube)[0]
+
+            # apply boundary conditions
+            if bc == 'remove':
+                self.markers[outside_inds, :-1] = -1.
+
+            elif bc == 'periodic':
+                self.markers[outside_inds, axis] = self.markers[outside_inds, axis]%1.
+
+            elif bc == 'reflect':
+                reflect(self.markers, *self.domain.args_map, outside_inds, axis)
+
+            else:
+                raise NotImplementedError('Given bc_type is not implemented!')
+
+        self.comm.Barrier()
+
 
 class Particles6D(Particles):
     """
@@ -500,19 +568,26 @@ class Particles6D(Particles):
     name : str
         Name of the particle species.
 
-    params_markers : dict
-        Parameters under key-word markers in the parameter file.
-
-    domain_decomp : array[float]
-        2d array of shape (comm_size, 9) defining the domain of each process.
-
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator.
+    **params : dict
+        Parameters for markers.
     """
 
-    def __init__(self, name, params_markers, domain_decomp, comm):
+    def __init__(self, name, **params):
 
-        super().__init__(name, params_markers, domain_decomp, comm, 16)
+        params_default = {'type': 'full_f',
+                          'ppc': None,
+                          'Np': 3,
+                          'eps': .25,
+                          'bc_type': ['periodic', 'periodic', 'periodic'],
+                          'loading': {'type': 'pseudo:random', 'seed': 1234, 'dir_particles': None, 'moments': [0., 0., 0., 1., 1., 1.]},
+                          'comm': None,
+                          'domain_array': None,
+                          'domain': None
+                          }
+
+        params = set_defaults(params, params_default)
+
+        super().__init__(name, 16, **params)
 
 
 class Particles5D(Particles):
@@ -537,33 +612,57 @@ class Particles5D(Particles):
         MPI communicator from mpi4py.MPI.Intracomm.
     """
 
-    def __init__(self, name, params_markers, domain_decomp, comm):
+    def __init__(self, name, **params):
 
-        super().__init__(name, params_markers, domain_decomp, comm, 24)
+        params_default = {'type': 'full_f',
+                          'ppc': None,
+                          'Np': 3,
+                          'eps': .25,
+                          'bc_type': ['periodic', 'periodic', 'periodic'],
+                          'loading': {'type': 'pseudo:random', 'seed': 1234, 'dir_particles': None, 'moments': [0., 0., 0., 1., 1., 1.]},
+                          'comm': None,
+                          'domain_array': None,
+                          'domain': None
+                          }
 
-    def save_magnetic_moment(self, derham, absB0):
+        params = set_defaults(params, params_default)
+
+        super().__init__(name, 25, **params)
+
+    def save_magnetic_moment(self, derham, b_cart):
         r"""
         Calculate magnetic moment of each particles :math:`\mu = \frac{m v_\perp^2}{2B}` and asign it into markers[:,4].
         """
         from struphy.pic.utilities_kernels import eval_magnetic_moment
 
-        absB0.update_ghost_regions()
-
-        # save the calculated magnetic moments in markers[:,4]
         T1, T2, T3 = derham.Vh_fem['0'].knots
 
         eval_magnetic_moment(self._markers,
                              np.array(derham.p), T1, T2, T3,
                              np.array(derham.Vh['0'].starts),
-                             absB0._data)
+                             b_cart[0]._data, b_cart[1]._data, b_cart[2]._data)
+
+
+    # temporary function. Will be removed.
+    def transform_6D_to_5D(self, epsilon, derham, b_cart):
+        r"""
+        Calculate magnetic moment of each particles :math:`\mu = \frac{m v_\perp^2}{2B}` and asign it into markers[:,4].
+        """
+        from struphy.pic.utilities_kernels import transform_6D_to_5D
+
+        T1, T2, T3 = derham.Vh_fem['0'].knots
+
+        transform_6D_to_5D(self._markers, epsilon,
+                           np.array(derham.p), T1, T2, T3,
+                           np.array(derham.Vh['0'].starts),
+                           b_cart[0]._data, b_cart[1]._data, b_cart[2]._data)
+
 
     def save_magnetic_energy(self, derham, PB):
         r"""
         Calculate magnetic field energy at each particles' position and asign it into markers[:,5].
         """
         from struphy.pic.utilities_kernels import eval_magnetic_energy
-
-        PB.update_ghost_regions()
 
         T1, T2, T3 = derham.Vh_fem['0'].knots
 
@@ -751,48 +850,3 @@ def sendrecv_markers(send_list, recv_info, hole_inds_after_send, markers, comm):
 
                     test_reqs.pop()
                     reqs[i] = None
-
-
-def apply_kinetic_bc(markers, holes, domain, bc_type):
-    """
-    Apply boundary conditions to markers that are outside of the logical unit cube.
-
-    Parameters
-    ----------
-        markers : array[float]
-            The markers array to which the boundary conditions shall be applied. Positions are the first three columns.
-
-        holes : array[float]
-            1d array of same length as number of rows of markers stating whether a row in markers is a hole or not.
-
-        domain : struphy.geometry.domains
-            All things mapping.
-
-        bc_type : list[str]
-            Kinetic boundary conditions in each direction.
-    """
-
-    for axis, bc in enumerate(bc_type):
-
-        # sorting out particles outside of the logical unit cube
-        is_outside_cube = np.logical_or(markers[:, axis] > 1.,
-                                        markers[:, axis] < 0.)
-
-        # exclude holes
-        is_outside_cube[holes] = False
-
-        # indices or particles that are outside of the logical unit cube
-        outside_inds = np.nonzero(is_outside_cube)[0]
-
-        # apply boundary conditions
-        if bc == 'remove':
-            markers[outside_inds, :-1] = -1.
-
-        elif bc == 'periodic':
-            markers[outside_inds, axis] = (markers[outside_inds, axis]) % 1.
-
-        elif bc == 'reflect':
-            reflect(markers, *domain.args_map, outside_inds, axis)
-
-        else:
-            raise NotImplementedError('Given bc_type is not implemented!')

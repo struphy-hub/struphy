@@ -150,32 +150,13 @@ def main():
 
     if 'plot_distr' in actions:
         for species in params['kinetic'].keys():
-            time_idx = find_index(time, saved_scalars['time'][:])
+            time_idx = np.argmin(np.abs(time - saved_scalars['time'][:]))
             plot_distr_fun(path=os.path.join(path, 'kinetic_data', species),
                            time_idx=time_idx,
                            grid_slices=grid_slices,
                            save_plot=True, savepath=path)
 
     file.close()
-
-
-def find_index(value, array):
-    """
-    Find the index of the 1d array in which the value is closest to the given value.
-
-    Parameters
-    ----------
-    value : float
-        The value which should be found in the array
-
-    array : array-like
-        Array (1d) of values which should be searched
-    """
-    arr = np.asarray(array)
-    assert len(arr.shape) == 1, 'Array must have only one axis!'
-
-    idx = np.argmin(np.abs(arr - value))
-    return idx
 
 
 def fourier_1d(values, name, code, grids,
@@ -423,7 +404,7 @@ def plot_scalars(scalar_quantities, scalars_plot=[], do_log=False, save_plot=Fal
 
 def plot_distr_fun(path, time_idx, grid_slices, save_plot=False, savepath=None, file_format='png'):
     """
-    Plot the scalar quantities and the relative error in the total energy for a simulation.
+    Plot the binned distribution function at given slices of the phase space.
 
     Parameters
     ----------

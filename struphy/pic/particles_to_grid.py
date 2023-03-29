@@ -1,7 +1,7 @@
 import numpy as np
 
 from psydac.linalg.stencil import StencilVector, StencilMatrix
-from psydac.linalg.block import BlockVector, BlockMatrix
+from psydac.linalg.block import BlockVector
 
 from struphy.psydac_api.mass import WeightedMassOperator
 
@@ -70,7 +70,7 @@ class Accumulator:
                     derham.Vh_fem[space_key], derham.Vh_fem[space_key], 
                     V_extraction_op=derham.E[space_key], W_extraction_op=derham.E[space_key], 
                     V_boundary_op=derham.B[space_key], W_boundary_op=derham.B[space_key], 
-                    symmetry='upper_tri', transposed=False)]
+                    weights_info='symm', transposed=False)]
         
         # "normal" treatment (just one matrix)
         else:
@@ -78,7 +78,7 @@ class Accumulator:
                 derham.Vh_fem[space_key], derham.Vh_fem[space_key], 
                 V_extraction_op=derham.E[space_key], W_extraction_op=derham.E[space_key], 
                 V_boundary_op=derham.B[space_key], W_boundary_op=derham.B[space_key], 
-                symmetry=symmetry, transposed=False)]   
+                weights_info=symmetry, transposed=False)]   
         
         # collect all _data attributes needed in accumulation kernel
         self._args_data = ()
@@ -209,7 +209,11 @@ class Accumulator:
             Keyword arguments for an analytical control variate correction in the accumulation step. Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction. Values are a 1d (vector) or 2d (matrix) list with callables or np.ndarrays used for the correction.
         """
 
-        # reset arrays
+        # flags for break
+        vec_finished = False
+        mat_finished = False
+        
+        # reset data
         for dat in self._args_data:
             dat[:] = 0.
 
@@ -218,42 +222,46 @@ class Accumulator:
                                  *self._args_fem, *self._domain.args_map,
                                  *self._args_data, *args_add)
         
-        # add analytical contribution (control variate) to matrix
-        if 'control_mat' in args_control:
-            self._operators[0].assemble(weights=args_control['control_mat'])
-        
-        # add analytical contribution (control variate) to vector
+        # add analytical contribution (control variate) to vector and finish
         if 'control_vec' in args_control and len(self._vectors) > 0:
             WeightedMassOperator.assemble_vec(self._derham.Vh_fem[self._derham.spaces_dict[self._space_id]],
-                                              self._vectors[0], weight=args_control['control_vec'])
-
-        # accumulate ghost regions
-        for op in self._operators:
-            op.matrix.exchange_assembly_data()
+                                              self._vectors[0], weight=args_control['control_vec'],
+                                              clear=False)
             
-        for vec in self._vectors:
-            vec.exchange_assembly_data()
+            vec_finished = True
         
-        # update ghost regions to make sure that transposed works correctly (needed for symm and asym)
-        for op in self._operators:
-            op.matrix.update_ghost_regions()
-            
-        for vec in self._vectors:
-            vec.update_ghost_regions()
+        # add analytical contribution (control variate) to matrix and finish
+        if 'control_mat' in args_control:
+            self._operators[0].assemble(weights=args_control['control_mat'],
+                                        clear=False, verbose=False)
+            mat_finished = True
+        
+        # finish vector: accumulate ghost regions and update ghost regions
+        if not vec_finished:
+            for vec in self._vectors:
+                vec.exchange_assembly_data()
+                vec.update_ghost_regions()
+        
+        # finish matrix: accumulate ghost regions, update ghost regions and copy data for symmetric/antisymmetric block matrices
+        if not mat_finished:
+            for op in self._operators:
+                op.matrix.exchange_assembly_data()
+                op.matrix.update_ghost_regions()
 
-        # copy data for symmetric and antisymmetric block matrices
-        if self.symmetry == 'symm':
+            if self.symmetry == 'symm':
 
-            self._operators[0].matrix[1, 0]._data[:] = self._operators[0].matrix[0, 1].T._data
-            self._operators[0].matrix[2, 0]._data[:] = self._operators[0].matrix[0, 2].T._data
-            self._operators[0].matrix[2, 1]._data[:] = self._operators[0].matrix[1, 2].T._data
+                self._operators[0].matrix[1, 0]._data[:] = self._operators[0].matrix[0, 1].T._data
+                self._operators[0].matrix[2, 0]._data[:] = self._operators[0].matrix[0, 2].T._data
+                self._operators[0].matrix[2, 1]._data[:] = self._operators[0].matrix[1, 2].T._data
 
-        elif self.symmetry == 'asym':
+            elif self.symmetry == 'asym':
 
-            self._operators[0].matrix[1, 0]._data[:] = -self._operators[0].matrix[0, 1].T._data
-            self._operators[0].matrix[2, 0]._data[:] = -self._operators[0].matrix[0, 2].T._data
-            self._operators[0].matrix[2, 1]._data[:] = -self._operators[0].matrix[1, 2].T._data
+                self._operators[0].matrix[1, 0]._data[:] = -self._operators[0].matrix[0, 1].T._data
+                self._operators[0].matrix[2, 0]._data[:] = -self._operators[0].matrix[0, 2].T._data
+                self._operators[0].matrix[2, 1]._data[:] = -self._operators[0].matrix[1, 2].T._data
 
-        # update ghot regions of matrices
-        #for op in self._operators:
-        #    op.matrix.update_ghost_regions()
+            elif self.symmetry == 'pressure':
+                for i in range(6):
+                    self._operators[i].matrix[1, 0]._data[:] = self._operators[i].matrix[0, 1].T._data
+                    self._operators[i].matrix[2, 0]._data[:] = self._operators[i].matrix[0, 2].T._data
+                    self._operators[i].matrix[2, 1]._data[:] = self._operators[i].matrix[1, 2].T._data

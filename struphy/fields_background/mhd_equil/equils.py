@@ -1,6 +1,6 @@
 import numpy as np
 
-from struphy.fields_background.mhd_equil.base import CartesianMHDequilibrium, LogicalMHDequilibrium
+from struphy.fields_background.mhd_equil.base import CartesianMHDequilibrium, LogicalMHDequilibrium, AxisymmMHDequilibrium
 
 
 class HomogenSlab(CartesianMHDequilibrium):
@@ -452,7 +452,7 @@ class ScrewPinch(CartesianMHDequilibrium):
         return nn
 
 
-class AdhocTorus(CartesianMHDequilibrium):
+class AdhocTorus(AxisymmMHDequilibrium):
     r"""
     Ad hoc tokamak MHD equilibrium with circular concentric flux surfaces for a torus with minor radius :math:`a` and major radius :math:`R_0`.
 
@@ -517,25 +517,52 @@ class AdhocTorus(CartesianMHDequilibrium):
         
         self._params = set_defaults(params, params_default)
 
-        # inverse toroidal coordinate transformation (x, y, z) --> (r, theta, phi)
-        self.r = lambda x, y, z: np.sqrt(
-            (np.sqrt(x**2 + y**2) - self.params['R0'])**2 + z**2)
-        self.theta = lambda x, y, z: -np.arctan2(
-            z, np.sqrt(x**2 + y**2) - self.params['R0'])
-        self.phi = lambda x, y, z: np.arctan2(y, x)
 
-        # local inverse aspect ratio
+        # local inverse aspect ratio and distance from axis of symmetry
         self.eps_loc = lambda r: r/self.params['R0']
 
-        # distance from axis of symmetry
         self.R = lambda r, theta: self.params['R0'] * \
             (1 + self.eps_loc(r)*np.cos(theta))
+        
+        # plasma boundary contour
+        ths = np.linspace(0., 2*np.pi, 201)
+        
+        self._rbs = self.R(self.params['a'], ths)
+        self._zbs = self.params['a']*np.sin(ths)
+        
+        # set on-axis and boundary fluxes
+        self._psi0 = self.psi(self.params['R0'], 0.)
+        self._psi1 = self.psi(self.params['R0'] + self.params['a'], 0.)
 
     @property
     def params(self):
         '''Parameters describing the equilibrium.'''
         return self._params
 
+    @property
+    def boundary_pts_R(self):
+        """ R-coordinates of plasma boundary contour.
+        """
+        return self._rbs
+    
+    @property
+    def boundary_pts_Z(self):
+        """ Z-coordinates of plasma boundary contour.
+        """
+        return self._zbs
+    
+    @property
+    def psi_range(self):
+        """ Psi on-axis and at plasma boundary.
+        """
+        return [self._psi0, self._psi1]
+    
+    @property
+    def psi_axis_RZ(self):
+        """ Location of magnetic axis in R-Z-coordinates.
+        """
+        return [self.params['R0'], 0.]
+    
     # ===============================================================
     #           profiles for an ad hoc tokamak equilibrium
     # ===============================================================
@@ -583,6 +610,39 @@ class AdhocTorus(CartesianMHDequilibrium):
 
         return pout
 
+    def psi_r(self, r, der=0):
+        """ Ad hoc poloidal flux function dpsi/dr(r) = B0*r/( q(r) * sqrt(1 - (r/R0)^2) ).
+        """
+        
+        eps = self.params['a']/self.params['R0']
+        
+        q0 = self.params['q0']
+        q1 = self.params['q1']
+        dq = q1 - q0
+        
+        # geometric correction factor and its first derivative
+        gf_0 = np.sqrt(1 - self.eps_loc(r)**2)
+        gf_1 = -r/(self.params['R0']**2*gf_0) 
+        
+        # safety factors
+        q_0 = self.q(r)
+        q_1 = self.q_p(r)
+        
+        q_bar_0 = q_0*gf_0
+        q_bar_1 = q_1*gf_0 + q_0*gf_1
+        
+        if der == 0:
+            out  = -self.params['B0']*self.params['a']**2/np.sqrt( dq*q0*eps**2 + dq**2 )
+            out *= np.arctanh(np.sqrt( (dq - dq*self.eps_loc(r)**2)/(q0*eps**2 + dq) ))
+        elif der == 1:
+            out = self.params['B0']*r/q_bar_0
+        elif der == 2:
+            out = self.params['B0']*(q_bar_0 - r*q_bar_1)/q_bar_0**2
+        else:
+            raise NotImplementedError('Only first and second derivatives available')
+            
+        return out
+    
     def plot_profiles(self, n_pts=501):
         """ Plots radial profiles.
         """
@@ -613,72 +673,62 @@ class AdhocTorus(CartesianMHDequilibrium):
         plt.subplots_adjust(wspace=0.4)
 
         plt.show()
-
+    
     # ===============================================================
-    #                  profiles on physical domain
+    #           Abstract interface
     # ===============================================================
-
-    # equilibrium magnetic field
-    def b_xyz(self, x, y, z):
-        """ Equilibrium magnetic field.
+    
+    def psi(self, R, Z, dR=0, dZ=0):
+        """ Poloidal flux function psi = psi(R, Z).
         """
-        r = self.r(x, y, z)
-        theta = self.theta(x, y, z)
-        phi = self.phi(x, y, z)
 
-        q = self.q(r)
-        q_bar = q*np.sqrt(1 - self.eps_loc(r)**2)
-
-        # poloidal component
-        if np.all(q >= 100.):
-            b_theta = 0*r
+        r = np.sqrt(Z**2 + (R - self.params['R0'])**2)
+        
+        if dR == 0 and dZ == 0:
+            out = self.psi_r(r, der=0)
         else:
-            b_theta = self.params['B0']*r/(self.R(r, theta)*q_bar)
+            
+            dr_dR = (R - self.params['R0'])/r
+            dr_dZ = Z/r
 
-        # toroidal component
-        b_phi = self.params['B0']*self.params['R0']/self.R(r, theta)
-
-        # Cartesian components
-        bx = -b_theta*np.sin(theta)*np.cos(phi) - b_phi*np.sin(phi)
-        by = -b_theta*np.sin(theta)*np.sin(phi) + b_phi*np.cos(phi)
-        bz = -b_theta*np.cos(theta)
-
-        return bx, by, bz
-
-    # equilibrium current (curl of equilibrium magnetic field)
-    def j_xyz(self, x, y, z):
-        """ Equilibrium current.
+            d2r_dR2 = (r - (R - self.params['R0'])*dr_dR)/r**2
+            d2r_dZ2 = (r - Z*dr_dZ)/r**2
+            
+            if   dR == 1 and dZ == 0:
+                out = self.psi_r(r, der=1) * dr_dR
+            elif dR == 0 and dZ == 1:
+                out = self.psi_r(r, der=1) * dr_dZ
+            elif dR == 2 and dZ == 0:
+                out = self.psi_r(r, der=2) * dr_dR**2 + self.psi_r(r, der=1) * d2r_dR2
+            elif dR == 0 and dZ == 2:
+                out = self.psi_r(r, der=2) * dr_dZ**2 + self.psi_r(r, der=1) * d2r_dZ2 
+            else:
+                raise NotImplementedError('Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0) and (dR=0, dZ=2) possible!')
+        
+        return out
+    
+    def g_tor(self, R, Z, dR=0, dZ=0):
+        """ Toroidal field function g = g(R, Z).
         """
-        r = self.r(x, y, z)
-        theta = self.theta(x, y, z)
-        phi = self.phi(x, y, z)
-
-        q = self.q(r)
-        q_p = self.q_p(r)
-
-        q_bar = q*np.sqrt(1 - self.eps_loc(r)**2)
-        q_bar_p = q_p*np.sqrt(1 - self.eps_loc(r)**2) - q*self.eps_loc(r) / \
-            (self.params['R0']*np.sqrt(1 - self.eps_loc(r)**2))
-
-        # toroidal component
-        if np.all(q >= 100.):
-            j_phi = 0*r
+        
+        if   dR == 0 and dZ == 0:
+            out = -self._params['B0']*self._params['R0'] - 0*R
+        elif dR == 1 and dZ == 0:
+            out = 0*R
+        elif dR == 0 and dZ == 1:
+            out = 0*Z
         else:
-            j_phi = self.params['B0']/(self.R(r, theta)*q_bar**2)*(
-                2*q_bar - r*q_bar_p - r/self.R(r, theta)*q_bar*np.cos(theta))
+            raise NotImplementedError('Only combinations (dR=0, dZ=0), (dR=1, dZ=0) and (dR=0, dZ=1) possible!')
 
-        # Cartesian x-components
-        jx = -j_phi*np.sin(phi)
-        jy = j_phi*np.cos(phi)
-        jz = 0*x
-
-        return jx, jy, jz
+        return out
 
     # equilibrium pressure
     def p_xyz(self, x, y, z):
         """ Equilibrium pressure.
         """
-        pp = self.pr(self.r(x, y, z))
+        r = np.sqrt((np.sqrt(x**2 + y**2) - self._params['R0'])**2 + z**2)
+        
+        pp = self.pr(r)
 
         return pp
 
@@ -686,12 +736,343 @@ class AdhocTorus(CartesianMHDequilibrium):
     def n_xyz(self, x, y, z):
         """ Equilibrium number density.
         """
-        nn = self.nr(self.r(x, y, z))
+        r = np.sqrt((np.sqrt(x**2 + y**2) - self._params['R0'])**2 + z**2)
+        
+        nn = self.nr(r)
 
         return nn
 
 
-class EQDSKequilibrium(CartesianMHDequilibrium):
+class EQDSKequilibrium(AxisymmMHDequilibrium):
+    """
+    Interface to `EQDSK file format <https://w3.pppl.gov/ntcc/TORAY/G_EQDSK.pdf>`_.
+
+    Parameters
+    ----------
+    **params
+        Parameters that characterize the MHD equilibrium. Possible keys are
+            * rel_path : str
+                Whether file is relative to "<struphy_path>/fields_background/mhd_equil/gvec", or is an absolute path.
+            * file : str
+                Path to eqdsk file.
+            * data_type : int
+                0: there is no space between data, 1: there is space between data.
+            * p_for_psi : list[int]
+                Spline degrees in (R, Z) directions used for interpolation of psi data.
+            * psi_resolution : list[float]
+                Resolution of psi data in (R, Z) directions in %, e.g. [50., 50.] uses every second psi data point.
+            * p_for_flux : int
+                Spline degree in psi direction used for interpolation of 1d functions that depend on psi: f=f(psi).
+            * flux_resolution : float
+                Resolution of 1d f=f(psi) data in %, e.g. 25. uses every forth data point.
+            * n1 : float
+                1st shape factor for number density profile n = n(psi).
+            * n2 : float
+                2nd shape factor for number density profile n = n(psi).
+            * na : float
+                Number density at plasma boundary.
+    """
+
+    def __init__(self, **params):
+
+        from scipy.interpolate import UnivariateSpline, RectBivariateSpline
+        from scipy.optimize import minimize
+        
+        from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
+        
+        import struphy
+        
+        params_default = {'rel_path': True,
+                          'file': 'AUGNLED_g031213.00830.high',
+                          'data_type': 0,
+                          'p_for_psi': [3, 3],
+                          'psi_resolution': [25., 6.25],
+                          'p_for_flux': 3,
+                          'flux_resolution': 50.,
+                          'n1': 0.,
+                          'n2': 0.,
+                          'na': 1., 
+                          }
+        
+        self._params = set_defaults(params, params_default)
+
+        if self._params['rel_path']:
+            _path = struphy.__path__[0] + \
+                '/fields_background/mhd_equil/eqdsk/data/' + self._params['file']
+        else:
+            _path = self._params['file']
+
+        eqdsk = readeqdsk.Geqdsk()
+        eqdsk.openFile(_path, data_type=self._params['data_type'])
+
+        # Number of horizontal R grid points
+        nR = eqdsk.data['nw'][0]
+        # Number of vertical Z grid points
+        nZ = eqdsk.data['nh'][0]
+        # toroidal field function in m-T on flux grid, g = B^1_phi
+        g_profile = eqdsk.data['fpol'][0]
+        # plasma pressure in Nt/m^2 on uniform flux grid
+        p_profile = eqdsk.data['pres'][0]
+        # poloidal flux in Weber/rad on the rectangular grid points
+        psi = eqdsk.data['psirz'][0].T
+        # poloidal flux in Weber/rad at the plasma boundary
+        psi_edge = eqdsk.data['sibry'][0]
+        # q values on uniform flux grid from axis to boundary
+        q_profile = eqdsk.data['qpsi'][0]
+        # Horizontal dimension in meter of computational box
+        rdim = eqdsk.data['rdim'][0]
+        # Vertical dimension in meter of computational box
+        zdim = eqdsk.data['zdim'][0]
+        # Minimum R in meter of rectangular computational box
+        rleft = eqdsk.data['rleft'][0]
+        # Z of center of computational box in meter
+        zmid = eqdsk.data['zmid'][0]
+        # R of magnetic axis in meter
+        R_at_axis = eqdsk.data['rmaxis'][0]
+        # Z of magnetic axis in meter
+        Z_at_axis = eqdsk.data['zmaxis'][0]
+        # R of boundary points in meter
+        self._rbs = eqdsk.data['rbbbs'][0]
+        # Z of boundary points in meter
+        self._zbs = eqdsk.data['zbbbs'][0]
+        # R of limiter contour in meter
+        self._rlims = eqdsk.data['rlim'][0]
+        # Z of limiter contour in meter
+        self._zlims = eqdsk.data['zlim'][0]
+        
+        assert g_profile.size == p_profile.size
+        assert g_profile.size == q_profile.size
+        assert psi.shape == (nR, nZ)
+        
+        # normalize pressure profile to pressure unit 1 Tesla/mu_0
+        p_profile *= 1.25663706212e-6
+        
+        # spline interpolation of smoothed flux function
+        self._r_range = [rleft, rleft + rdim]
+        self._z_range = [zmid - zdim/2, zmid + zdim/2]
+        
+        R = np.linspace(self._r_range[0], self._r_range[1], nR)
+        Z = np.linspace(self._z_range[0], self._z_range[1], nZ)
+        
+        smooth_steps = [int(1/(self._params['psi_resolution'][0]*0.01)), int(1/(self._params['psi_resolution'][1]*0.01))]
+        
+        self._psi_i = RectBivariateSpline(R[::smooth_steps[0]], Z[::smooth_steps[1]], psi[::smooth_steps[0], ::smooth_steps[1]], 
+                                          kx=self._params['p_for_psi'][0], ky=self._params['p_for_psi'][1],
+                                          s=0.)
+        
+        # find minimum of interpolated flux function (is not the same as (R_at_axis, Z_at_axis) and psi.min()!)
+        self._psi_i_min = minimize(lambda x : self.psi(x[0], x[1]), x0=[R_at_axis, Z_at_axis])
+        
+        # set on-axis and boundary fluxes
+        self._psi0 = self._psi_i_min['fun']
+        self._psi1 = psi_edge
+        
+        # interpolate toroidal field function, pressure profile and q-profile on unifrom flux grid from axis to boundary
+        flux_grid = np.linspace(self._psi0, self._psi1, g_profile.size)
+        
+        smooth_step = int(1/(self._params['flux_resolution']*0.01))
+        
+        self._g_i = UnivariateSpline(flux_grid[::smooth_step], g_profile[::smooth_step], 
+                                     k=self._params['p_for_flux'], s=0., ext=3)
+        self._p_i = UnivariateSpline(flux_grid[::smooth_step], p_profile[::smooth_step], 
+                                     k=self._params['p_for_flux'], s=0., ext=3)
+        self._q_i = UnivariateSpline(flux_grid[::smooth_step], q_profile[::smooth_step], 
+                                     k=self._params['p_for_flux'], s=0., ext=3)
+
+    @property
+    def params(self):
+        """ Parameters describing the equilibrium.
+        """
+        return self._params
+    
+    @property
+    def boundary_pts_R(self):
+        """ R-coordinates of plasma boundary contour.
+        """
+        return self._rbs
+    
+    @property
+    def boundary_pts_Z(self):
+        """ Z-coordinates of plasma boundary contour.
+        """
+        return self._zbs
+    
+    @property
+    def limiter_pts_R(self):
+        """ R-coordinates of limiter contour.
+        """
+        return self._rlims
+    
+    @property
+    def limiter_pts_Z(self):
+        """ Z-coordinates of limiter contour.
+        """
+        return self._zlims
+    
+    @property
+    def range_R(self):
+        """ range of R of flux data.
+        """
+        return self._r_range
+    
+    @property
+    def range_Z(self):
+        """ range of Z of flux data.
+        """
+        return self._z_range
+    
+    @property
+    def psi_range(self):
+        """ Psi on-axis and at plasma boundary.
+        """
+        return [self._psi0, self._psi1]
+    
+    @property
+    def psi_axis_RZ(self):
+        """ Location of magnetic axis in R-Z-coordinates.
+        """
+        return list(self._psi_i_min['x'])
+
+    # ===============================================================
+    #           1d flux function profiles f = f(psi)
+    # ===============================================================
+    
+    def g_psi(self, psi, der=0):
+        """ Toroidal field function g = g(psi).
+        """
+        out = self._g_i(psi, nu=der)
+        
+        # remove all "dimensions" for point-wise evaluation
+        if isinstance(psi, (int, float)):
+            assert out.ndim == 0
+            out = out.item()
+
+        return out
+
+    def p_psi(self, psi, der=0):
+        """ Pressure profile g = g(psi).
+        """
+        out = self._p_i(psi, nu=der)
+        
+        # remove all "dimensions" for point-wise evaluation
+        if isinstance(psi, (int, float)):
+            assert out.ndim == 0
+            out = out.item()
+
+        return out
+
+    def q_psi(self, psi, der=0):
+        """ Toroidal field function g = g(psi).
+        """
+        out = self._q_i(psi, nu=der)
+        
+        # remove all "dimensions" for point-wise evaluation
+        if isinstance(psi, (int, float)):
+            assert out.ndim == 0
+            out = out.item()
+
+        return out
+    
+    def n_psi(self, psi, der=0):
+        """ Number density profile n = n(psi).
+        """
+        
+        n1, n2, na = self._params['n1'], self._params['n2'], self._params['na']
+        
+        psi_norm = (psi - self._psi0)/(self._psi1 - self._psi0)
+        
+        if der == 0:
+            out = (1 - na)*(1 - psi_norm**n1)**n2 + na
+        elif der == 1:
+            out = -(1 - na)*n1*n2/(self._psi1 - self._psi0)*(1 - psi_norm**n1)**(n2 - 1)*psi_norm**(n1 - 1)
+        else:
+            raise NotImplementedError('only first derivative available!')
+
+        return out
+    
+    # ===============================================================
+    #           Abstract interface
+    # ===============================================================
+    
+    def psi(self, R, Z, dR=0, dZ=0):
+        """ Poloidal flux function psi = psi(R, Z).
+        """
+        
+        is_float = all(isinstance(v, (int, float)) for v in [R, Z])
+        
+        out = self._psi_i(R, Z, dx=dR, dy=dZ, grid=False)
+        
+        # remove all "dimensions" for point-wise evaluation
+        if is_float:
+            assert out.ndim == 0
+            out = out.item()
+        
+        return out
+    
+    def g_tor(self, R, Z, dR=0, dZ=0):
+        """ Toroidal field function g = g(R, Z).
+        """
+        
+        is_float = all(isinstance(v, (int, float)) for v in [R, Z])
+        
+        if   dR == 0 and dZ == 0:
+            out = self._g_i(self.psi(R, Z, dR=0, dZ=0), nu=0)
+        elif dR == 1 and dZ == 0:
+            out = self._g_i(self.psi(R, Z, dR=0, dZ=0), nu=1) * self.psi(R, Z, dR=1, dZ=0)
+        elif dR == 0 and dZ == 1:
+            out = self._g_i(self.psi(R, Z, dR=0, dZ=0), nu=1) * self.psi(R, Z, dR=0, dZ=1)
+        
+        # remove all "dimensions" for point-wise evaluation
+        if is_float:
+            assert out.ndim == 0
+            out = out.item()
+
+        return out
+    
+    def p_xyz(self, x, y, z):
+        """ Pressure in Cartesian coordinates.
+        """
+        from struphy.geometry.base import Domain
+        
+        is_float = all(isinstance(v, (int, float)) for v in [x, y, z])
+        
+        x, y, z, is_sparse_meshgrid = Domain.prepare_eval_pts(x, y, z)
+        
+        R = np.sqrt(x**2 + y**2)
+        Z = z + 0*R
+        
+        out = self.p_psi(self.psi(R, Z))
+        
+        # remove all "dimensions" for point-wise evaluation
+        if is_float:
+            assert out.ndim == 3
+            out = out.item()
+
+        return out
+
+    def n_xyz(self, x, y, z):
+        """ Equilibrium number density in physical space.
+        """
+        from struphy.geometry.base import Domain
+        
+        is_float = all(isinstance(v, (int, float)) for v in [x, y, z])
+        
+        x, y, z, is_sparse_meshgrid = Domain.prepare_eval_pts(x, y, z)
+        
+        R = np.sqrt(x**2 + y**2)
+        Z = z + 0*R
+        
+        out = self.n_psi(self.psi(R, Z))
+        
+        # remove all "dimensions" for point-wise evaluation
+        if is_float:
+            assert out.ndim == 3
+            out = out.item()
+        
+        return out 
+    
+     
+class EQDSKequilibriumWithDomain(CartesianMHDequilibrium):
     '''Interface to `EQDSK file format <https://w3.pppl.gov/ntcc/TORAY/G_EQDSK.pdf>`_.
 
     Parameters
@@ -1218,14 +1599,16 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
         phi = np.arctan2(y, x)
         z = z + 0*r  # broadcasting happens here
 
-        r2 = r[:, 0, :]
-        z2 = z[:, 0, :]
+        #r2 = r[:, 0, :]
+        #z2 = z[:, 0, :]
+        r2 = r[:, :, 0]
+        z2 = z[:, :, 0]
 
         # B as 2-form (second component is already multiplied by r)
         # TODO: remove is_sparse_meshgrid (not necessary anymore)
-        b2_1_tmp = self.psi_fun(r2, z2, 'z', is_sparse_meshgrid)
-        b2_2_tmp = self.g_fun(r2, z2, None, is_sparse_meshgrid)
-        b2_3_tmp = - self.psi_fun(r2, z2, 'r', is_sparse_meshgrid)
+        b2_1_tmp =  self.psi_fun(r2, z2, 'z', is_sparse_meshgrid)
+        b2_2_tmp = -self.g_fun(r2, z2, None, is_sparse_meshgrid)
+        b2_3_tmp = -self.psi_fun(r2, z2, 'r', is_sparse_meshgrid)
 
         if is_sparse_meshgrid:
             shp = (r.shape[0], phi.shape[1], z.shape[2])
@@ -1236,9 +1619,12 @@ class EQDSKequilibrium(CartesianMHDequilibrium):
         b2_2 = np.empty(shp)
         b2_3 = np.empty(shp)
 
-        b2_1[:] = b2_1_tmp[:, None, :]
-        b2_2[:] = b2_2_tmp[:, None, :]
-        b2_3[:] = b2_3_tmp[:, None, :]
+        #b2_1[:] = b2_1_tmp[:, None, :]
+        #b2_2[:] = b2_2_tmp[:, None, :]
+        #b2_3[:] = b2_3_tmp[:, None, :]
+        b2_1[:] = b2_1_tmp[:, :, None]
+        b2_2[:] = b2_2_tmp[:, :, None]
+        b2_3[:] = b2_3_tmp[:, :, None]
 
         # push-forward of b2
         b_x = (np.cos(phi)*b2_1 - np.sin(phi)*b2_2) / r

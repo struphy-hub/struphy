@@ -13,11 +13,11 @@ class PolarDerhamSpace(VectorSpace):
 
     Parameters
     ----------
-        derham : struphy.psydac_api.psydac_derham.Derham
-            Discrete Derham complex.
+    derham : struphy.psydac_api.psydac_derham.Derham
+        Discrete Derham complex.
 
-        space_id : str
-            Space identifier for the field (H1, Hcurl, Hdiv, L2 or H1vec).
+    space_id : str
+        Space identifier for the field (H1, Hcurl, Hdiv, L2 or H1vec).
     """
 
     def __init__(self, derham, space_id):
@@ -220,8 +220,8 @@ class PolarVector(Vector):
     
     Parameters
     ----------
-        V : PolarDerhamSpace
-            Vector space which the polar vector to be created belongs to.
+    V : PolarDerhamSpace
+        Vector space which the polar vector to be created belongs to.
     """
 
     def __init__(self, V):
@@ -368,17 +368,15 @@ class PolarVector(Vector):
         """
         return self.pol, self.tp.toarray()
 
-    def copy(self):
+    def copy(self, out=None):
         """ TODO 
         """
-        w = PolarVector(self.space)
-        if isinstance(w.tp, StencilVector):
-            w._pol[0][:] = self.pol[0]
-            w._tp[:] = self.tp[:]
-        else:
-            for n in range(3):
-                w._pol[n][:] = self.pol[n]
-                w._tp[n][:] = self.tp[n][:]
+        w = out or PolarVector(self.space)
+        # copy stencil part
+        self._tp.copy(out=w.tp)
+        # copy polar part
+        for n, pl in enumerate(self._pol):
+            np.copyto(w._pol[n], pl, casting='no')
         return w
 
     def __neg__(self):
@@ -501,8 +499,8 @@ class PolarVector(Vector):
 
         Parameters
         ----------
-            direction : int
-                Single direction along which to operate (if not specified, all of them).
+        direction : int
+            Single direction along which to operate (if not specified, all of them).
 
         """
         self._tp.update_ghost_regions(direction=direction)
@@ -514,11 +512,11 @@ def set_tp_rings_to_zero(v, n_rings):
     
     Parameters
     ----------
-        v : StencilVector | BlockVector
-            The vector whose inner rings shall be set to zero.
-            
-        n_rings : tuple
-            The number of rings that shall be set to zero (has length 1 for StencilVector and 3 for BlockVector).
+    v : StencilVector | BlockVector
+        The vector whose inner rings shall be set to zero.
+
+    n_rings : tuple
+        The number of rings that shall be set to zero (has length 1 for StencilVector and 3 for BlockVector).
     """
     assert isinstance(n_rings, tuple)
 
