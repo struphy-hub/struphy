@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from argparse import HelpFormatter, _SubParsersAction, RawTextHelpFormatter
 
-__version__ = "1.9.7"
+__version__ = "1.9.8"
 
 def struphy():
     '''

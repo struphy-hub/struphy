@@ -1,3 +1,23 @@
+## Version 1.9.8
+
+* Additional examples `struphy example orbits_tokamak` and `struphy example gc_orbits_tokamak` using `EQDSKequilibrium` and geometry `Tokamak`. !297
+* Two discrete gradients methods for particle pushing: `discrete_gradients` and `discrete_gradients_faster`. !298
+* Added setters for `self.domain`, `self.derham`, `self_mass_ops` and `self.basis_ops` to the `Propagator` base class. !299
+* Input to each propagator is `(var1, var2, ... , **params)` where everything other than updated variables must get a keyword. !299
+* Added new iterative solver classes `ConjugateGradient`, `PConjugateGradient`, `BiConjugateGradientStab` and `PBiConjugateGradientStab` which create temporary vectors needed in the iteration loop at the `__init__()` stage and use in-place operations in the iteration loop. !300
+* Remove all temporary vectors in `ShurSolver` and propagators `Maxwell`, `ShearAlfvén` and `Magnetosonic` and use in-place updates where possible. !300
+* Enhanced field line tracing and MHD inheritance structure for axisymmetric MHD equilibria: different parametrizations for the angular coordinate are now possible (e.g. straight field line coordinates). !301
+* New domain class `Tokamak` which accepts as an input any instance of AxisymmMHDequilibrium and it performs the desired field line tracing at the initialization step. !301
+* New propagators `CurrentCoupling5DCurrent1`, `CurrentCoupling5DCurrent2`. !302
+* Helper function `setup_domain_mhd()` for creation of the domain and MHD equilibrium form simulation parmeters. !303
+* Added notebook for 1d mass and collocation matrices. !304
+* Restart of simulations are now possible: e.g. `struphy run Maxwell -o sim_1 -r` will restart the simulatinn in `sim_1` if the simulation time wants to be increased for instance. !307
+* Improve Basis projection operators, new doc style. !308
+* `WeightedMassOperator` now has a single flag `weights_info` in `__init__()` which allows for three different kinds of initializations as described in the docstring: `None` for all blocks, a string for symmetry block matirces, or callables for identifying zero blocks. !314
+* Added kernels for the `StencilMatrix` methods `.dot` and `.transpose` that can be pre-compiled. !315
+* New Python based command line interface using `argparse` which replaces the old binary file `struphy`. !316
+* Improved profiling `struphy profile`. !317
+
 ## Version 1.9.7
 
 * Three types of kinetic species possible (full_f, control_variate, delta_f). Model using control variate must implement the background function in the accumulation. Delta-f models are initialized as full-f and then lets the developer overwrite/extend the set_initial_conditions() function of the base class. !269 !283
