@@ -180,7 +180,7 @@ def setup_electric_background(params, domain):
     return electric_background
 
 
-def setup_derham(params_grid, comm, domain=None):
+def setup_derham(params_grid, comm, domain=None, mpi_dims_mask=None):
     """
     Creates the 3d derham sequence for given grid parameters.
     
@@ -194,6 +194,10 @@ def setup_derham(params_grid, comm, domain=None):
         
     domain : struphy.geometry.base.Domain, optional
         The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
+        
+    mpi_dims_mask: list of bool
+        True if the dimension is to be used in the domain decomposition (=default for each dimension). 
+        If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
         
     Returns
     -------
@@ -226,9 +230,14 @@ def setup_derham(params_grid, comm, domain=None):
                     quad_order=quad_order,
                     nq_pr=nq_pr,
                     comm=comm,
+                    mpi_dims_mask=mpi_dims_mask,
                     with_projectors=True,
                     polar_ck=polar_ck,
                     domain=domain)   
+
+    if comm.Get_rank() == 0:
+        print('MPI processes per direction:', derham.domain_decomposition.nprocs)
+        print('')
 
     return derham
 

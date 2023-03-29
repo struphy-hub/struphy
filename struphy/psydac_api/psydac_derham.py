@@ -48,6 +48,10 @@ class Derham:
     comm : mpi4py.MPI.Intracomm
         MPI communicator.
 
+    mpi_dims_mask: list of bool
+        True if the dimension is to be used in the domain decomposition (=default for each dimension). 
+        If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
+
     with_projectors : bool
         Whether to add global commuting projectors to the diagram.
 
@@ -58,7 +62,7 @@ class Derham:
         Mapping from logical unit cube to physical domain (only needed in case of polar splines polar_ck=1).
     """
 
-    def __init__(self, Nel, p, spl_kind, bc=None, quad_order=None, nq_pr=None, comm=None, with_projectors=True, polar_ck=-1, domain=None):
+    def __init__(self, Nel, p, spl_kind, bc=None, quad_order=None, nq_pr=None, comm=None, mpi_dims_mask=None, with_projectors=True, polar_ck=-1, domain=None):
  
         # number of elements, spline degrees and kind of splines in each direction (periodic vs. clamped)
         assert len(Nel) == 3
@@ -111,7 +115,11 @@ class Derham:
         
         # discrete logical domain : the parallelism is initiated here.
         self._domain_log_h = discretize(
-            self._domain_log, ncells=Nel, comm=self._comm, periodic=self.spl_kind)
+            self._domain_log, 
+            ncells=Nel, 
+            comm=self._comm, 
+            periodic=self.spl_kind, 
+            mpi_dims_mask=mpi_dims_mask)
 
         # Psydac discrete de Rham, projectors and derivatives
         _derham = discretize(self._derham_symb, self._domain_log_h,
@@ -188,7 +196,7 @@ class Derham:
         
         self._index_array_N = self._get_index_array(self._Vh['0'].cart)
         self._index_array_D = self._get_index_array(self._Vh['3'].cart)
-        
+ 
         self._neighbours = self._get_neighbours()
         
         # set polar sub-spaces, polar basis extraction operators, polar DOF extraction operators and boundary operators
