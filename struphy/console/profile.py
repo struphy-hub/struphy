@@ -52,7 +52,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers):
         print('')
         get_cprofile_data(path, print_callers)
 
-        sim_names += [path.split('/')[-2]]
+        sim_names += [path.split('/')[-1]]
 
         with open(os.path.join(path, 'profile_dict.sav'), 'rb') as f:
             dicts_pre += [pickle.load(f)]
@@ -138,7 +138,6 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers):
     fig = plt.figure(figsize=(10, 10))
     for n, (key, val) in enumerate(d_saved.items()):
         if n < n_lines and '__init__' not in key and 'mass' not in key and 'set_backend' not in key:
-            print(key, val)
 
             # strong scaling plot
             if np.all([Nel == val['Nel'][0] for Nel in val['Nel']]):
@@ -148,7 +147,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers):
                 plt.title('Strong scaling for Nel=' +
                           str(val['Nel'][0]) + ' cells')
                 plt.legend(loc='lower left')
-                plt.loglog(val['mpi_size'], val['time'][0]/2 **
+                plt.loglog(val['mpi_size'], float(val['time'][0])/2 **
                            np.arange(len(val['time'])), 'k--', alpha=0.3)
             # weak scaling plot
             else:

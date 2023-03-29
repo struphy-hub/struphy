@@ -51,7 +51,11 @@ class StruphyModel(metaclass=ABCMeta):
         self._electric_equil = setup_electric_background(params, self.domain)
         
         # create discrete derham sequence
-        self._derham = setup_derham(params['grid'], comm=comm, domain=self.domain)
+        dims_mask = params['grid']['dims_mask']
+        if dims_mask is None:
+            dims_mask = [True]*3
+            
+        self._derham = setup_derham(params['grid'], comm=comm, domain=self.domain, mpi_dims_mask=dims_mask)
         
         # create weighted mass operators
         self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.mhd_equil)

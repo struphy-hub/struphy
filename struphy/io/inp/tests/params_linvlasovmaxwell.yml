@@ -3,6 +3,7 @@ grid :
     p        : [1, 1, 3]  # spline degree
     spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
     bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
+    dims_mask : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
     nq_el    : [2, 2, 2] # quadrature points per grid cell
     nq_pr    : [2, 2, 2] # quadrature points per histopolation cell (for commuting projectors)
     polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
