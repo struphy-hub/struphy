@@ -49,6 +49,7 @@ def struphy_run(model='Maxwell',
     """
     
     import subprocess
+    import shutil
     import os
     import glob
     import struphy
@@ -130,18 +131,50 @@ def struphy_run(model='Maxwell',
     
     # run in batch mode
     else:
+
+        # create output folder if it does not exit
+        if not os.path.exists(output_abs):
+            os.mkdir(output_abs)
+
+        # remove sim.out file
+        file = os.path.join(output_abs, 'sim.out')
+        if os.path.exists(file):
+            os.remove(file)
+            print('Removed file ' + file)
+
+        # remove sim.err file
+        file = os.path.join(output_abs, 'sim.err')
+        if os.path.exists(file):
+            os.remove(file)
+            print('Removed file ' + file)
+
+        # remove old batch script
+        file = os.path.join(output_abs, 'batch_script.sh')
+        if os.path.exists(file):
+            os.remove(file)
+            print('Removed file ' + file)
+
+        # remove struphy.out file
+        file = os.path.join(output_abs, 'sim.out')
+        if os.path.exists(file):
+            os.remove(file)
+            print('Removed file ' + file)
+
+        # copy batch script to output folder
+        batch_abs_new = os.path.join(output_abs, 'batch_script.sh')
+        shutil.copy2(batch_abs, batch_abs_new)
         
         # delete srun command from batch script
-        with open(batch_abs, 'r') as f:
+        with open(batch_abs_new, 'r') as f:
             lines = f.readlines()
             if 'srun' in lines[-1]:
                 lines = lines[:-2]
             
         # add new srun command
-        with open(batch_abs, 'w') as f:
+        with open(batch_abs_new, 'w') as f:
             for line in lines:
                 f.write(line)
-            f.write('\n# Run command added by Struphy')
+            f.write('# Run command added by Struphy')
             
             command_string  = '\nsrun python3 -m cProfile -o ' + os.path.join(output_abs, 'profile_tmp') + ' -s time '
             command_string += libpath + '/models/main.py '
@@ -157,9 +190,9 @@ def struphy_run(model='Maxwell',
             
             f.write(command_string)
         
-        # call batch system
+        # submit batch script in output folder
         print('\nLaunching main() in batch mode ...')
         subprocess.run(['sbatch', 
-                        batch_abs,
+                        'batch_script.sh',
                         ], 
-                        check=True, cwd=libpath)
+                        check=True, cwd=output_abs)
