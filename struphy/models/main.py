@@ -63,6 +63,10 @@ def main(model_name, parameters, path_out, restart=False, runtime=300):
         time_steps_done = data.file['scalar/time'].size - 1
         model.initialize_from_restart(data.file)
 
+    # print plasma params
+    if rank == 0:
+        model.print_plasma_params()
+
     # initial diagnostic data (will be saved in hdf5 file)
     model.update_scalar_quantities(0.)
     model.update_markers_to_be_saved()

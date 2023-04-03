@@ -548,3 +548,169 @@ class StruphyModel(metaclass=ABCMeta):
                 # other data (wave-particle power exchange, etc.)
                 # TODO
     
+    
+    def print_plasma_params(self):
+        """
+        Compute and print volume averaged plasma parameters for each species of the model.
+
+        Global parameters:
+        - plasma volume
+        - transit length
+        - magnetic field
+
+        Species dependent parameters:
+        - mass
+        - charge
+        - density
+        - pressure
+        - thermal energy
+        - thermal speed
+        - thermal frequency
+        - cyclotron frequency
+        - Larmor radius
+        - rho/L
+        - plasma frequency
+
+        in case of MHD species
+        - alfven speed
+        - alfven frequency
+        """
+
+        characteristics = {}
+
+        # physics constants
+        e = 1.602176634e-19 # elementary charge (C)
+        m_p = 1.67262192369e-27 # proton mass (kg)
+        mu0 = 1.25663706212e-6 # magnetic constant (N*A^-2)
+        eps0 = 8.8541878128e-12 # vacuum permittivity (F*m^-1)
+        kB = 1.380649e-23 # Boltzmann constant (J*K^-1)
+
+        # exit when there is not any plasma species
+        if len(self.fluid) == 0 and len(self.kinetic) == 0:
+            return
+
+        # compute model units
+        units_basic, units_der, unidts_dimless = self.model_units(self.params, verbose=False)
+
+        # SI units
+        units = {}
+        units['plasma volume'] = ' m³'
+        units['transit length'] = ' m'
+        units['magnetic field'] = ' T'
+        units['mass'] = ' kg'
+        units['charge'] = ' C'
+        units['density'] = ' m⁻³'
+        units['pressure'] = ' bar'
+        units['thermal energy'] = ' keV'
+        units['thermal speed'] = ' m/s'
+        units['thermal speed_eta1'] = ' m/s'
+        units['thermal speed_eta2'] = ' m/s'
+        units['thermal speed_eta3'] = ' m/s'
+        units['thermal frequency'] = ' MHz'
+        units['cyclotron frequency'] = ' MHz'
+        units['Larmor radius'] = ' m'
+        units['rho/L'] = ''
+        units['plasma frequency'] = ' MHz'
+        units['alfvén speed'] = ' m/s'
+        units['alfvén frequency'] = ' MHz'
+
+        h = 1/20
+        eta1 = np.linspace(h/2., 1.-h/2., 20)
+        eta2 = np.linspace(h/2., 1.-h/2., 20)
+        eta3 = np.linspace(h/2., 1.-h/2., 20)
+
+        # global parameters
+        # plasma volume (m⁻³)
+        plasma_volume = np.mean(np.abs(self.domain.jacobian_det(eta1, eta2, eta3)))*units_basic['x']**3
+        # transit length (m)
+        transit_length = plasma_volume**(1/3)
+        # magnetic field (T)
+        magnetic_field = np.mean(self.mhd_equil.absB0(eta1,eta2,eta3)*np.abs(self.domain.jacobian_det(eta1, eta2, eta3)))/plasma_volume*units_basic['B']
+
+        print('\nGlobal characteristics of the simulation:')
+        print(f'Plasma volume:'.ljust(25), '{:4.3e}'.format(plasma_volume) + units['plasma volume'])
+        print(f'Transit length:'.ljust(25), '{:4.3e}'.format(transit_length) + units['transit length'])
+        print(f'Magnetic field:'.ljust(25), '{:4.3e}'.format(magnetic_field) + units['magnetic field'])
+
+        # species dependent parameters
+        if len(self.fluid) > 0:
+        
+            for species, val in self.fluid.items():
+                characteristics[species] = {}
+                # mass (kg)
+                characteristics[species]['mass'] = val['params']['phys_params']['A']*m_p
+                # charge (C)
+                characteristics[species]['charge'] = val['params']['phys_params']['Z']*e
+                # density (m⁻³)
+                characteristics[species]['density'] = np.mean(self.mhd_equil.n0(eta1,eta2,eta3)*np.abs(self.domain.jacobian_det(eta1, eta2, eta3)))/plasma_volume*units_der['n']
+                # pressure (bar)
+                characteristics[species]['pressure'] = np.mean(self.mhd_equil.p0(eta1,eta2,eta3)*np.abs(self.domain.jacobian_det(eta1, eta2, eta3)))/plasma_volume*units_der['p']
+                # thermal energy (keV)
+                characteristics[species]['thermal energy'] = characteristics[species]['pressure']*1e5/characteristics[species]['density']/e*1e-3
+                # thermal speed (m/s)
+                characteristics[species]['thermal speed'] = np.sqrt(characteristics[species]['thermal energy']*1e3*e/characteristics[species]['mass'])
+                # thermal frequency (MHz)
+                characteristics[species]['thermal frequency'] = characteristics[species]['thermal speed']/transit_length/(2*np.pi)*1e-6
+                # cyclotron frequency (MHz)
+                characteristics[species]['cyclotron frequency'] = characteristics[species]['charge']*magnetic_field/characteristics[species]['mass']/(2*np.pi)*1e-6
+                # Larmor radius (m)
+                characteristics[species]['Larmor radius'] = characteristics[species]['mass']*characteristics[species]['thermal speed']/(characteristics[species]['charge']*magnetic_field)
+                # rho/L (unitless)
+                characteristics[species]['rho/L'] = characteristics[species]['Larmor radius']/transit_length
+                # plasma frequency (MHz)
+                characteristics[species]['plasma frequency'] = np.sqrt(characteristics[species]['density']*(characteristics[species]['charge'])**2/eps0/characteristics[species]['mass'])/(2*np.pi)*1e-6
+                # alfvén speed (m/s)
+                characteristics[species]['alfvén speed'] = magnetic_field/np.sqrt(mu0*characteristics[species]['mass']*characteristics[species]['density']) 
+                # alfvén frequency (MHz)
+                characteristics[species]['alfvén frequency'] = characteristics[species]['alfvén speed']/transit_length/(2*np.pi)*1e-6
+
+        if len(self.kinetic) > 0:
+        
+            for species, val in self.kinetic.items():
+                characteristics[species] = {}
+
+                # mass (kg)
+                characteristics[species]['mass'] = val['params']['phys_params']['A']*m_p
+                # charge (C)
+                characteristics[species]['charge'] = val['params']['phys_params']['Z']*e
+                # density (m⁻³)
+                if 'background' in val['params']:
+
+                    type = val['params']['background']['type']
+                    characteristics[species]['density'] = val['params']['background'][type]['n']*units_der['n']
+
+                else:
+                    type = val['params']['init']['type']
+
+                    if type in val['params']['init'] and 'n' in val['params']['init'][type]:
+
+                        characteristics[species]['density'] = val['params']['init'][type]['n']*units_der['n']
+
+                    # When density is not specified, assume density = 1*density unit
+                    else:
+                        characteristics[species]['density'] = units_der['n']
+                # thermal speed (m/s)
+                characteristics[species]['thermal speed_eta1'] = val['params']['markers']['loading']['moments'][3]*units_der['v']
+                characteristics[species]['thermal speed_eta2'] = val['params']['markers']['loading']['moments'][4]*units_der['v']
+                characteristics[species]['thermal speed_eta3'] = val['params']['markers']['loading']['moments'][5]*units_der['v']
+                characteristics[species]['thermal speed'] = np.mean((characteristics[species]['thermal speed_eta1'], characteristics[species]['thermal speed_eta2'], characteristics[species]['thermal speed_eta3']))
+                # thermal energy (keV)
+                characteristics[species]['thermal energy'] = characteristics[species]['mass']*characteristics[species]['thermal speed']**2/e*1e-3
+                # pressure (bar)
+                characteristics[species]['pressure'] = characteristics[species]['thermal energy']*e*1e3*characteristics[species]['density']*1e-5
+                # thermal frequency (MHz)
+                characteristics[species]['thermal frequency'] = characteristics[species]['thermal speed']/transit_length/(2*np.pi)*1e-6
+                # cyclotron frequency (MHz)
+                characteristics[species]['cyclotron frequency'] = characteristics[species]['charge']*magnetic_field/characteristics[species]['mass']/(2*np.pi)*1e-6
+                # Larmor radius (m)
+                characteristics[species]['Larmor radius'] = characteristics[species]['mass']*characteristics[species]['thermal speed']/(characteristics[species]['charge']*magnetic_field)
+                # rho/L (unitless)
+                characteristics[species]['rho/L'] = characteristics[species]['Larmor radius']/transit_length
+                # plasma frequency (MHz)
+                characteristics[species]['plasma frequency'] = np.sqrt(characteristics[species]['density']*(characteristics[species]['charge'])**2/eps0/characteristics[species]['mass'])/(2*np.pi)*1e-6
+
+        print('\nSpecies dependent characteristics of the simulation:')
+        for species, ch in characteristics.items():
+            print(f'\nspecies: ' + species)
+            for kinds, vals in ch.items():
+                print(kinds.ljust(25), '{:4.3e}'.format(vals), units[kinds])
