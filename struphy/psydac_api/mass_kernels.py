@@ -338,4 +338,3 @@ def kernel_3d_eval(spans1 : 'int[:]', spans2 : 'int[:]', spans3 : 'int[:]', pi1 
                                 for q2 in range(nq2):
                                     for q3 in range(nq3):
                                         values[iel1*nq1 + q1, iel2*nq2 + q2, iel3*nq3 + q3] += coeffs_data[pads1 + i_local1, pads2 + i_local2, pads3 + i_local3] * bi1[iel1, il1, 0, q1] * bi2[iel2, il2, 0, q2] * bi3[iel3, il3, 0, q3]
-                                        

@@ -55,6 +55,7 @@ BEVA := $(struphy_path)/kinetic_background/background_eval
 # FEM kernels
 PLP  := $(struphy_path)/psydac_api/basis_projection_kernels
 PLM  := $(struphy_path)/psydac_api/mass_kernels
+PLMH := $(struphy_path)/psydac_api/utilities_kernels
 BTS  := $(struphy_path)/psydac_api/banded_to_stencil_kernels
 
 # PIC
@@ -150,6 +151,9 @@ $(PLP)$(SO_EXT) : $(PLP).py
 	pyccel $< $(FLAGS)
 
 $(PLM)$(SO_EXT) : $(PLM).py
+	pyccel $< $(FLAGS)
+
+$(PLMH)$(SO_EXT) : $(PLMH).py $(MEVA)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
 $(BTS)$(SO_EXT) : $(BTS).py

@@ -1823,7 +1823,7 @@ class DriftKinetic(StruphyModel):
 ########################################################
 # Hybrid models with kinetic ions and massless electrons
 ########################################################
-class HybridFA(StruphyModel):
+class VlasovMasslessElectrons(StruphyModel):
     r'''Hybrid (kinetic ions + massless electrons) equations with quasi-neutrality condition. 
     Unknowns: distribution function for ions, and vector potential.
 
@@ -1863,15 +1863,13 @@ class HybridFA(StruphyModel):
     
     def __init__(self, params, comm):
 
-        super().__init__(params, comm, 
-                         a1='Hcurl', 
-                         ions='Particles6D')
-        
-        from struphy.propagators import propagators_fields, propagators_markers
-        from struphy.psydac_api.mass import WeightedMassOperators
-        from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
         from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+        from struphy.propagators.base import Propagator
+        from struphy.propagators import propagators_fields, propagators_markers
         from mpi4py.MPI import SUM, IN_PLACE
+        from struphy.pic.particles_to_grid import Accumulator
+
+        super().__init__(params, comm, a1='Hcurl', ions='Particles6D')
 
         # pointers to em-field variables
         self._a = self.em_fields['a1']['obj'].vector
@@ -1881,44 +1879,67 @@ class HybridFA(StruphyModel):
         ions_params = self.kinetic['ions']['params']
 
         # extract necessary parameters
-        shape_params = params['kinetic']['ions']['ionsshape']
-        thermal = 1.0  # electron temperature
+        shape_params = params['kinetic']['ions']['ionsshape'] # shape function info, degree and support size
+        self.thermal = params['kinetic']['electrons']['temperature'] # electron temperature 
 
-        nqs = [quad_grid.num_quad_pts for quad_grid in self.derham.Vh_fem['0'].quad_grids]
-        pts = [quad_grid.points for quad_grid in self.derham.Vh_fem['0'].quad_grids]
-        wts = [quad_grid.weights for quad_grid in self.derham.Vh_fem['0'].quad_grids]
-        el_indices = [
-            quad_grid.indices for quad_grid in self.derham.Vh_fem['0'].quad_grids]
-        #basis = [quad_grid.basis          for quad_grid in self.derham.Vh_fem['0'].quad_grids]
-
-        # Project magnetic field
-        self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
-                                         self.mhd_equil.b2_2,
+        # extract necessary parameters
+        solver_params_1 = params['solvers']['solver_1']
+        
+        # Project background magnetic field
+        self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1, 
+                                         self.mhd_equil.b2_2, 
                                          self.mhd_equil.b2_3])
 
-        # Assemble necessary mass matrices
-        self._mass_ops = WeightedMassOperators(
-            self.derham, self.domain, eq_mhd=self.mhd_equil)
+        # set propagators base class attributes
+        Propagator.derham = self.derham
+        Propagator.domain = self.domain
+        Propagator.mass_ops = self.mass_ops
 
-        # Assemble necessary linear basis projection operators
-        self._basis_ops = BasisProjectionOperators(
-            self.derham, self.domain, eq_mhd=self.mhd_equil)
+        self._accum_density = Accumulator(self.derham, 
+                                          self.domain, 
+                                          'H1', 
+                                          'hybrid_fA_density', 
+                                          add_vector=False)
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-        self._propagators += [propagators_markers.StepHybridXPSymplectic(self._a, self._ions, self.derham, self.domain, ions_params['markers']['bc_type'], nqs, np.array(
-            shape_params['degree']), np.array(shape_params['size']), thermal, np.array(params['grid']['nq_el']))]
-        self._propagators += [propagators_markers.StepPushpxBHybrid(
-            self._ions, self.derham, self.domain, ions_params['push_algos']['pxb'], self._a, self._b_eq)]
-        self._propagators += [propagators_fields.HybridPotential(self._a, 'Hcurl', self._b_eq, self.derham, self._mass_ops,
-                                                                  self.domain, self._ions, nqs, np.array(shape_params['degree']), np.array(shape_params['size']))]
 
+        
+        self._propagators += [propagators_markers.StepHybridXPSymplectic(
+                              self._ions, 
+                              a = self._a, 
+                              particle_bc = ions_params['markers']['bc_type'], 
+                              quad_number = params['grid']['nq_el'], 
+                              shape_degree = np.array(shape_params['degree']), 
+                              shape_size = np.array(shape_params['size']), 
+                              electron_temperature = self.thermal, 
+                              accumulate_density = self._accum_density)]
+
+        self._propagators += [propagators_markers.StepPushpxBHybrid(
+                              self._ions, 
+                              method = ions_params['push_algos']['pxb'], 
+                              a = self._a, 
+                              b_eq = self._b_eq)]
+        
+        self._propagators += [propagators_fields.FaradayExtended(
+                              self._a, 
+                              a_space = 'Hcurl', 
+                              beq = self._b_eq, 
+                              particles = self._ions, 
+                              quad_number = params['grid']['nq_el'], 
+                              shape_degree = np.array(shape_params['degree']), 
+                              shape_size = np.array(shape_params['size']), 
+                              solver_params = solver_params_1, 
+                              accumulate_density = self._accum_density)]
+        
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
         self._scalar_quantities['time'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
         self._en_f_loc = np.empty(1, dtype=float)
         self._scalar_quantities['en_f'] = np.empty(1, dtype=float)
+        self._en_thermal_loc = np.empty(1, dtype=float)
+        self._scalar_quantities['en_thermal'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
 
         # MPI operations needed for scalar variables
@@ -1933,17 +1954,25 @@ class HybridFA(StruphyModel):
         return self._scalar_quantities
 
     def update_scalar_quantities(self, time):
+        import struphy.pic.utilities as pic_util
+
+        rank = self._derham.comm.Get_rank()
+
         self._scalar_quantities['time'][0] = time
 
-        self._scalar_quantities['en_B'][0] = self._a.dot(
-            self._mass_ops.M1.dot(self._a))/2
+        self._curla = self._derham.curl.dot(self._a)
 
-        self._en_f_loc = self._ions.markers[~self._ions.holes, 8].dot(self._ions.markers[~self._ions.holes, 3]**2
-                                                                      + self._ions.markers[~self._ions.holes, 4]**2
-                                                                      + self._ions.markers[~self._ions.holes, 5]**2)/(2. * self._ions.n_mks)
+        self._scalar_quantities['en_B'][0] = (self._curla + self._b_eq).dot(
+            self._mass_ops.M2.dot(self._curla + self._b_eq))/2
 
-        self.derham.comm.Reduce(
-            self._en_f_loc, self._scalar_quantities['en_f'], op=self._mpi_sum, root=0)
+        self._en_f_loc = pic_util.get_kinetic_energy_particles(self._a, self._derham, self._domain, self._ions)/self._ions.n_mks
+
+        self.derham.comm.Reduce(self._en_f_loc, self._scalar_quantities['en_f'], op=self._mpi_sum, root=0)
+
+        self._en_thermal_loc = pic_util.get_electron_thermal_energy(self._accum_density, self._derham, self._domain, int(self._derham.domain_array[int(rank), 2]), int(self._derham.domain_array[int(rank), 5]), int(self._derham.domain_array[int(rank), 8]), int(self._derham.quad_order[0]+1), int(self._derham.quad_order[1]+1), int(self._derham.quad_order[2]+1) )
+
+        self.derham.comm.Reduce(self.thermal*self._en_thermal_loc, self._scalar_quantities['en_thermal'], op=self._mpi_sum, root=0)
 
         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_B'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_f'][0]
+        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_thermal'][0]

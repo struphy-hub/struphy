@@ -512,6 +512,7 @@ def push_hybrid_xp_lnn(markers: 'float[:,:]', dt: float, stage: int,
                       cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                       p_shape: 'int[:]', p_size: 'float[:]', Nel: 'int[:]', 
                       pts1: 'float[:]', pts2: 'float[:]', pts3: 'float[:]',
+                      wts1: 'float[:]', wts2: 'float[:]', wts3: 'float[:]',
                       weight: 'float[:,:,:,:,:,:]', thermal: 'float', n_quad: 'int[:]'):
     r'''Solves exactly the rotation
 
@@ -520,11 +521,6 @@ def push_hybrid_xp_lnn(markers: 'float[:,:]', dt: float, stage: int,
         \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \mathbf v_p(t) \times \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}
 
     for each marker :math:`p` in markers array, with fixed rotation vector.
-
-    Parameters
-    ----------
-        b2_1, b2_2, b2_3: array[float]
-            3d array of FE coeffs of B-field as 2-form.
     '''
 
     # allocate metric coeffs
@@ -560,7 +556,7 @@ def push_hybrid_xp_lnn(markers: 'float[:,:]', dt: float, stage: int,
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, df, dfinv, dfinv_t, det_df, weight_p, point_left, point_right, cell_left, cell_number, i, grids_shapex, grids_shapey, grids_shapez, x_ii, y_ii, z_ii, il1, il2, il3, q1, q2, q3, temp1, temp4, temp6, valuexyz, dvaluexyz, temp8, ww)
+    #$ omp parallel private (ip, eta1, eta2, eta3, df, dfinv, dfinv_t, det_df, point_left, point_right, cell_left, cell_number, i, grids_shapex, grids_shapey, grids_shapez, x_ii, y_ii, z_ii, il1, il2, il3, q1, q2, q3, temp1, temp4, temp6, valuexyz, dvaluexyz, temp8, ww)
     #$ omp for
     for ip in range(n_markers):
 
@@ -584,8 +580,6 @@ def push_hybrid_xp_lnn(markers: 'float[:,:]', dt: float, stage: int,
         linalg.transpose(dfinv, dfinv_t)
         # metric coeffs
         det_df = linalg.det(df)
-
-        weight_p = 1.0/(p_size[0]*p_size[1]*p_size[2])
 
         point_left[0]  = eta1 - 0.5*compact[0]
         point_right[0] = eta1 + 0.5*compact[0]
@@ -615,9 +609,9 @@ def push_hybrid_xp_lnn(markers: 'float[:,:]', dt: float, stage: int,
         grids_shapez[p_shape[2] + 1] = point_right[2]
 
         # if periodic 
-        x_ii = pn[0] - (int(floor(eta1*Nel[0])) - cell_left[0])
-        y_ii = pn[1] - (int(floor(eta2*Nel[1])) - cell_left[1])
-        z_ii = pn[2] - (int(floor(eta3*Nel[2])) - cell_left[2])
+        x_ii = pn[0] + cell_left[0] - starts0[0]
+        y_ii = pn[1] + cell_left[1] - starts0[1]
+        z_ii = pn[2] + cell_left[2] - starts0[2]
 
         #======================================
         for il1 in range(cell_number[0]):
@@ -639,21 +633,26 @@ def push_hybrid_xp_lnn(markers: 'float[:,:]', dt: float, stage: int,
 
                                     valuexyz[0] = bspparticle.convolution(p_shape[0], grids_shapex, temp1[0])
                                     dvaluexyz[0] = bspparticle.convolution_der(p_shape[0], grids_shapex, temp1[0])
+                                    
                                     valuexyz[1] = bspparticle.piecewise(p_shape[1], p_size[1], temp1[1] - eta2)
                                     dvaluexyz[1] = bspparticle.piecewise(p_shape[2], p_size[2], temp1[2] - eta3)
+                                    
                                     valuexyz[2] = bspparticle.piecewise_der(p_shape[1], p_size[1], temp1[1] - eta2)
                                     dvaluexyz[2] = bspparticle.piecewise_der(p_shape[2], p_size[2], temp1[2] - eta3)
+
                                     temp8[0] = dvaluexyz[0] * valuexyz[1] * valuexyz[2]
                                     temp8[1] = valuexyz[0] * dvaluexyz[1] * valuexyz[2]
                                     temp8[2] = valuexyz[0] * valuexyz[1] * dvaluexyz[2]
-                                    ww[0] = weight[x_ii + il1, y_ii + il2, z_ii + il3, q1, q2, q3]
+
+                                    ww[0] = weight[x_ii + il1, y_ii + il2, z_ii + il3, q1, q2, q3] * wts1[q1] * wts2[q2] * wts3[q3]
+
                                     temp6[0] = dfinv_t[0,0]*temp8[0] + dfinv_t[0,1]*temp8[1] + dfinv_t[0,2]*temp8[2] 
                                     temp6[1] = dfinv_t[1,0]*temp8[0] + dfinv_t[1,1]*temp8[1] + dfinv_t[1,2]*temp8[2] 
                                     temp6[2] = dfinv_t[2,0]*temp8[0] + dfinv_t[2,1]*temp8[1] + dfinv_t[2,2]*temp8[2] 
                                     # check weight_123 index
-                                    markers[ip, 3] += dt * ww[0] * thermal * weight_p * temp6[0]
-                                    markers[ip, 4] += dt * ww[0] * thermal * weight_p * temp6[1]
-                                    markers[ip, 5] += dt * ww[0] * thermal * weight_p * temp6[2]
+                                    markers[ip, 3] += dt * ww[0] * thermal * temp6[0]
+                                    markers[ip, 4] += dt * ww[0] * thermal * temp6[1]
+                                    markers[ip, 5] += dt * ww[0] * thermal * temp6[2]
 
 
     #$ omp end parallel
@@ -677,11 +676,6 @@ def push_hybrid_xp_ap(markers: 'float[:,:]', dt: float, stage: int,
         \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \mathbf v_p(t) \times \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}
 
     for each marker :math:`p` in markers array, with fixed rotation vector.
-
-    Parameters
-    ----------
-        b2_1, b2_2, b2_3: array[float]
-            3d array of FE coeffs of B-field as 2-form.
     '''
 
     # allocate metric coeffs
@@ -807,26 +801,26 @@ def push_hybrid_xp_ap(markers: 'float[:,:]', dt: float, stage: int,
         a_form[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, a1_3, starts1[2])
 
-        a_xx[0,0] = eval_3d.eval_spline_mpi_kernel_hybrid_x(
-            pn[0] - 2, pn[1], pn[2], bdd1, bn2, bn3, span1, span2, span3, a1_1, starts1[0])
-        a_xx[0,1] = eval_3d.eval_spline_mpi_kernel_hybrid_y(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, a1_1, starts1[1])
-        a_xx[0,2] = eval_3d.eval_spline_mpi_kernel_hybrid_z(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, a1_1, starts1[2])
+        a_xx[0,0] = eval_3d.eval_spline_derivative_mpi_kernel(
+            pn[0] - 2, pn[1], pn[2], bdd1, bn2, bn3, span1, span2, span3, a1_1, starts1[0], int(1))
+        a_xx[0,1] = eval_3d.eval_spline_derivative_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, a1_1, starts1[1], int(2))
+        a_xx[0,2] = eval_3d.eval_spline_derivative_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, a1_1, starts1[2], int(3))
 
-        a_xx[1,0] = eval_3d.eval_spline_mpi_kernel_hybrid_x(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, a1_2, starts1[0])
-        a_xx[1,1] = eval_3d.eval_spline_mpi_kernel_hybrid_y(
-            pn[0], pn[1] - 2, pn[2], bn1, bdd2, bn3, span1, span2, span3, a1_2, starts1[1])
-        a_xx[1,2] = eval_3d.eval_spline_mpi_kernel_hybrid_z(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, a1_2, starts1[2])
+        a_xx[1,0] = eval_3d.eval_spline_derivative_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, a1_2, starts1[0], int(1))
+        a_xx[1,1] = eval_3d.eval_spline_derivative_mpi_kernel(
+            pn[0], pn[1] - 2, pn[2], bn1, bdd2, bn3, span1, span2, span3, a1_2, starts1[1], int(2))
+        a_xx[1,2] = eval_3d.eval_spline_derivative_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, a1_2, starts1[2], int(3))
 
-        a_xx[2,0] = eval_3d.eval_spline_mpi_kernel_hybrid_x(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, a1_3, starts1[0])
-        a_xx[2,1] = eval_3d.eval_spline_mpi_kernel_hybrid_y(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, a1_3, starts1[1])
-        a_xx[2,2] = eval_3d.eval_spline_mpi_kernel_hybrid_z(
-            pn[0], pn[1], pn[2] - 2, bn1, bn2, bdd3, span1, span2, span3, a1_3, starts1[2])
+        a_xx[2,0] = eval_3d.eval_spline_derivative_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, a1_3, starts1[0], int(1))
+        a_xx[2,1] = eval_3d.eval_spline_derivative_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, a1_3, starts1[1], int(2))
+        a_xx[2,2] = eval_3d.eval_spline_derivative_mpi_kernel(
+            pn[0], pn[1], pn[2] - 2, bn1, bn2, bdd3, span1, span2, span3, a1_3, starts1[2], int(3))
 
         linalg.transpose(a_xx, a_xxtrans)
         linalg.matrix_matrix(a_xxtrans, dfinv, matrixp)

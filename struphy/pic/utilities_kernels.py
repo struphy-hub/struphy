@@ -5,7 +5,7 @@ from struphy.b_splines.bspline_evaluation_3d import eval_spline_mpi_kernel
 import struphy.linear_algebra.core as linalg
 import struphy.geometry.map_eval as map_eval
 
-from numpy import empty, shape, zeros, sqrt
+from numpy import empty, shape, zeros, sqrt, log
 
 
 @stack_array('bn1', 'bn2', 'bn3')
@@ -1631,3 +1631,210 @@ def check_eta_mid(markers: 'float[:,:]'):
                 e_mid[axis] += 0.5
 
         markers[ip,12:15] = e_mid[:]
+
+
+
+
+@stack_array('df', 'dfinv', 'dfinv_t', 'e', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'a_form', 'dfta_form')
+def canonical_kinetic_particles(res: 'float[:]', markers: 'float[:,:]',
+                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                      starts1: 'int[:,:]',
+                      kind_map: int, params_map: 'float[:]',
+                      p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                      ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                      cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                      a1_1: 'float[:,:,:]', a1_2: 'float[:,:,:]', a1_3: 'float[:,:,:]'):
+    
+    r'''
+    Calculate kinetic energy of each particle and sum up the result.
+
+    Parameters
+    ----------
+    	res : array[float]
+    		array to store the sum of kinetic energy of particles
+
+        markers : array[float]
+            markers attribute of a struphy.pic.particles.Particles object
+
+        pn : array[int]
+            spline degrees
+
+        tn1, tn2, tn3 : array[float]
+            knot vectors
+
+        starts1 : array[int]
+            starts of the stencil objects
+
+        kind_map ->  cz:
+            domain information
+
+        a1_1, a1_2, a1_3 : array[float]
+        	coefficients of one form (vector potential)
+
+    .. math:: 
+    	\begin{align*}
+			\frac{1}{2} \sum_p w_p |{\mathbf p} -  \hat{\mathbf A}^1({\boldsymbol \eta}_p)|^2.
+        \end{align*}
+    '''
+
+    res[:] = 0.0 
+    # allocate metric coeffs
+    df = empty((3, 3), dtype=float)
+    dfinv = empty((3, 3), dtype=float)
+    dfinv_t = empty((3, 3), dtype=float)
+
+    # allocate for field evaluations (1-form components)
+    a_form = empty(3, dtype=float)
+    dfta_form =  empty(3, dtype=float)
+    # particle position and velocity
+    e = empty(3, dtype=float)
+    v = empty(3, dtype=float)
+
+    # allocate spline values
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    #$ omp parallel private (ip, e, v, w, df, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, a_form, dfta_form)
+    #$ omp for reduction( + : res)
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        e[:] = markers[ip, 0:3]
+        v[:] = markers[ip, 3:6]
+        w    = markers[ip,   6]
+        # evaluate Jacobian, result in df
+        map_eval.df(e[0], e[1], e[2],
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        linalg.matrix_inv(df, dfinv)
+        linalg.transpose(dfinv, dfinv_t)
+
+        # spline evaluation
+        span1 = bsp.find_span(tn1, pn[0], e[0])
+        span2 = bsp.find_span(tn2, pn[1], e[1])
+        span3 = bsp.find_span(tn3, pn[2], e[2])
+
+        bsp.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
+
+        # magnetic field: 2-form components
+        a_form[0] = eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, a1_1, starts1[0])
+        a_form[1] = eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, a1_2, starts1[1])
+        a_form[2] = eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, a1_3, starts1[2])
+
+        dfta_form[0] = dfinv_t[0,0] * a_form[0] + dfinv_t[0,1] * a_form[1] + dfinv_t[0,2] * a_form[2]
+        dfta_form[1] = dfinv_t[1,0] * a_form[0] + dfinv_t[1,1] * a_form[1] + dfinv_t[1,2] * a_form[2]
+        dfta_form[2] = dfinv_t[2,0] * a_form[0] + dfinv_t[2,1] * a_form[1] + dfinv_t[2,2] * a_form[2]
+
+        res[0] += 0.5 * w * ( (v[0] - dfta_form[0]) ** 2.0 + (v[1] - dfta_form[1]) ** 2.0 + (v[2] - dfta_form[2]) ** 2.0 )
+
+    #$ omp end parallel
+
+
+
+
+
+@stack_array('det_df', 'df')
+def thermal_energy(res: 'float[:]', density: 'float[:,:,:,:,:,:]', 
+                  pads1 : int, pads2 : int, pads3 : int,
+                  nel1 : 'int', nel2 : 'int', nel3 : 'int', 
+                  nq1 : int, nq2 : int, nq3 : int, 
+                  w1 : 'float[:,:]', w2 : 'float[:,:]', w3 : 'float[:,:]', 
+                  pts1 : 'float[:,:]', pts2 : 'float[:,:]', pts3 : 'float[:,:]', 
+                  kind_map: int, params_map: 'float[:]',
+                  p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                  ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                  cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]'):
+    
+    r'''
+    Calculate thermal energy of electron.
+
+    Parameters
+    ----------
+        res : array[float]
+            array to store the thermal energy of electrons
+
+        density : array[float]
+            array to store values of density at quadrature points in each cell
+
+        pads1 - pads3 : int
+            size of ghost region in each direction
+
+        nel1 - nel3 : array[int]
+            number of cells in each direction
+
+        nq1 - nq3 : array[int]
+            number of quadrature points in each direction of each cell
+
+        w1 - w3: array[float]
+            quadrature weights in each cell 
+
+        pts1 - pts3: array[float]
+            quadrature points in each cell 
+
+        starts1 : array[int]
+            starts of the stencil objects
+
+        kind_map ->  cz:
+            domain information
+
+    .. math:: 
+        \begin{align*}
+            \int \hat{n}^0 \ln \hat{n}^0 \sqrt{g} \mathrm{d}{\boldsymbol \eta}.
+        \end{align*}
+    '''
+
+    res[:] = 0.0
+
+    # allocate metric coeffs
+    df = empty((3, 3), dtype=float)
+
+    #$ omp parallel private (iel1, iel2, iel3, q1, q2, q3, eta1, eta2, eta3, wvol, vv, df, det_df)
+    #$ omp for reduction( + : res)
+
+    for iel1 in range(nel1):
+        for iel2 in range(nel2):
+            for iel3 in range(nel3):
+
+                for q1 in range(nq1):
+                    for q2 in range(nq2):
+                        for q3 in range(nq3):
+
+                            eta1 = pts1[iel1, q1]
+                            eta2 = pts2[iel2, q2]
+                            eta3 = pts3[iel3, q3]
+
+                            wvol = w1[iel1, q1] * w2[iel2, q2] * w3[iel3, q3]
+
+                            vv   = density[pads1 + iel1, pads2 + iel2, pads3 + iel3, q1, q2, q3]
+                                
+                            if abs(vv) < 0.00001:
+                                vv = 1.0 
+
+                            # evaluate Jacobian, result in df
+                            map_eval.df(eta1, eta2, eta3, kind_map, params_map, t1_map, t2_map, t3_map, p_map, ind1_map, ind2_map, ind3_map, cx, cy, cz, df)
+
+                            det_df = linalg.det(df)
+
+                            res[0] += vv * det_df * log(vv) * wvol
+
+    #$ omp end parallel

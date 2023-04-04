@@ -8,6 +8,7 @@ from psydac.api.essential_bc import apply_essential_bc_stencil
 
 from struphy.polar.basic import PolarVector
 from struphy.psydac_api import banded_to_stencil_kernels as bts
+import struphy.psydac_api.utilities_kernels as kernels
 
 import numpy as np
 
@@ -377,3 +378,52 @@ def apply_essential_bc_to_array(space_id, vector, bc=None):
 
             if isinstance(vector, PolarVector):
                 vector.pol[2][:, -1] = 0.
+
+
+def create_weight_weightedmatrix_hybrid(b, weight_pre, derham, accum_density, domain):
+    '''Creates weights needed for asembling matrix of hybrid model with kinetic ions and massless electrons
+
+    Parameters
+    ----------
+        b : Stencilvector
+            finite element coefficients of magnetic fields.
+
+        self._weight_pre : list of 3D arrays storing weights
+
+        derham : derham class
+
+        accum_density : StencilMatrix 
+            the density obtained by deposition of particles
+
+        domain : domain class
+
+    Returns
+    -------
+        self._weight_pre : list of 3D arrays storing weights
+
+    '''
+
+    nqs = [quad_grid.num_quad_pts   for quad_grid in derham.Vh_fem['0'].quad_grids]
+
+    for aa, wspace in enumerate(derham.Vh_fem['2'].spaces): 
+        # knot span indices of elements of local domain
+        spans_out = [quad_grid.spans for quad_grid in wspace.quad_grids]
+        # global start spline index on process
+        starts_out = [int(start) for start in wspace.vector_space.starts]
+
+        # Iniitialize hybrid linear operators 
+        # global quadrature points (flattened) and weights in format (local element, local weight)
+        pts = [quad_grid.points           for quad_grid in wspace.quad_grids]
+        wts = [quad_grid.weights          for quad_grid in wspace.quad_grids]
+
+        p   = wspace.degree
+
+        # evaluated basis functions at quadrature points of the space
+        basis_o = [quad_grid.basis for quad_grid in wspace.quad_grids]
+
+        pads_out = wspace.vector_space.pads
+
+        kernels.hybrid_curlA(*starts_out, *spans_out, p[0], p[1], p[2], nqs[0], nqs[1], nqs[2], *basis_o, weight_pre[aa], b[aa]._data)
+    # generate the weight for generating the matrix 
+    kernels.hybrid_weight(*pads_out, *pts, *spans_out, nqs[0], nqs[1], nqs[2], wts[0], wts[1], wts[2], weight_pre[0], weight_pre[1], weight_pre[2], accum_density._operators[0].matrix._data, *domain.args_map)
+            
