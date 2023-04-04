@@ -206,38 +206,38 @@ class StepPushpxBHybrid(Propagator):
     particles : struphy.pic.particles.Particles6D
         Holdes the markers to push.
 
-    derham : struphy.psydac_api.psydac_derham.Derham
-        Discrete Derham complex.
-
-    domain : struphy.geometry.domains
-        Mapping info for evaluating metric coefficients.
-
-    algo : str
-        The used algorithm.
-
-    *b_vectors : psydac.linalg.block.BlockVector | struphy.polar.basic.PolarVector
-        FE coefficients of brackground magnetic fields (2-form) and vector potential (1-form).
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
     """
 
-    def __init__(self, particles, derham, domain, algo, *field_vectors):
+    def __init__(self, particles, **params):
 
-        self._C = derham.curl
+        # parameters
+        params_default = {'b_eq': None,
+                          'a': None,
+                          'method': None
+                          }
+
+        params = set_defaults(params, params_default)
+
+        self._b_eq = params['b_eq']
+        self._a    = params['a']
+        self._algo = params['method']
+
+        self._C = self.derham.curl
 
         self._particles = particles
 
         # load pusher
-        kernel_name = 'push_pxb_' + algo
+        kernel_name = 'push_pxb_' + self._algo
 
-        self._pusher = Pusher(derham, domain, kernel_name)
+        self._pusher = Pusher(self.derham, self.domain, kernel_name)
 
-        # magnetic field vectors
-        for b in field_vectors:
-            assert isinstance(b, (BlockVector, PolarVector))
-
-        self._field_vectors = field_vectors
+        assert isinstance(self._b_eq, (BlockVector, PolarVector))
+        assert isinstance(self._a,    (BlockVector, PolarVector))
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        self._E2T = derham.E['2'].transpose()
+        self._E2T = self.derham.E['2'].transpose()
 
     @property
     def variables(self):
@@ -249,25 +249,25 @@ class StepPushpxBHybrid(Propagator):
         """
 
         # sum up total magnetic field
-        b_full = self._field_vectors[1].space.zeros()
+        b_full = self._b_eq.space.zeros()
 
-        b_full += self._field_vectors[1]
+        b_full += self._b_eq
 
         # extract coefficients to tensor product space
         b_full = self._E2T.dot(b_full)
 
         # update ghost regions because of non-local access in pusher kernel
         b_full.update_ghost_regions()
-        self._field_vectors[0].update_ghost_regions()
+        self._a.update_ghost_regions()
 
         # call pusher kernel
         self._pusher(self._particles, dt,
                      b_full[0]._data,
                      b_full[1]._data,
                      b_full[2]._data,
-                     self._field_vectors[0][0]._data,
-                     self._field_vectors[0][1]._data,
-                     self._field_vectors[0][2]._data)
+                     self._a[0]._data,
+                     self._a[1]._data,
+                     self._a[2]._data)
 
 
 class StepHybridXPSymplectic(Propagator):
@@ -281,49 +281,52 @@ class StepHybridXPSymplectic(Propagator):
 
     Parameters
     ----------
-        density : psydac stencil matrix type
-            values of density at all the quadrature points obtained from depositions of all particles.
-
-        a : psydac stencil vector (1 form)
-            finite element coefficients of vector potential
-
         particles : struphy.pic.particles.Particles6D
 
-        derham : struphy.psydac_api.psydac_derham.Derham
-        Discrete Derham complex.
-
-        domain : struphy.geometry.base.Domain
-            Infos regarding mapping.
-
-        bc : list[str]
-            Kinetic boundary conditions in each direction.
+        **params : dict
+        Solver- and/or other parameters for this splitting step.
     '''
 
-    def __init__(self, a, particles, derham, domain, bc, nqs, p_shape, p_size, thermal, n_quad):
+    def __init__(self, particles, **params):
 
-        assert isinstance(a, BlockVector)
-
-        self._derham = derham
-        self._domain = domain
-        self._a = a
         self._particles = particles
-        self._bc = bc
-        self._thermal = thermal
-        self._n_quad = n_quad
+
+        # parameters
+        params_default = {'a': None,
+                          'particle_bc': None,
+                          'quad_number': None,
+                          'shape_degree' : None,
+                          'shape_size' : None,
+                          'electron_temperature' : None,
+                          'accumulate_density' : None
+                          }
+
+        params = set_defaults(params, params_default)
+
+        self._a = params['a']
+        self._bc = params['particle_bc']
+        self._thermal = params['electron_temperature']
+
+
+        assert isinstance(self._a, BlockVector)
+
+        self._nqs   = params['quad_number']
+        self._p_shape = params['shape_degree']
+        self._p_size = params['shape_size']
+        self._accum_density = params['accumulate_density']
 
         # Initialize Accumulator object for getting density from particles
-        self._pts_x = 1.0 / (2.0*derham.Nel[0]) * polynomial.legendre.leggauss(nqs[0])[0] + 1.0 / (2.0*derham.Nel[0])
-        self._pts_y = 1.0 / (2.0*derham.Nel[1]) * polynomial.legendre.leggauss(nqs[1])[0] + 1.0 / (2.0*derham.Nel[1])
-        self._pts_z = 1.0 / (2.0*derham.Nel[2]) * polynomial.legendre.leggauss(nqs[2])[0] + 1.0 / (2.0*derham.Nel[2])
-        self._nqs   = nqs 
-        self._p_shape = p_shape
-        self._p_size = p_size
-        self._accum_density = Accumulator(derham, domain, 'H1', 'hybrid_fA_density',
-                                  do_vector=False, symmetry='None')
+        self._pts_x = 1.0 / (2.0*self.derham.Nel[0]) * polynomial.legendre.leggauss(self._nqs[0])[0] + 1.0 / (2.0*self.derham.Nel[0])
+        self._pts_y = 1.0 / (2.0*self.derham.Nel[1]) * polynomial.legendre.leggauss(self._nqs[1])[0] + 1.0 / (2.0*self.derham.Nel[1])
+        self._pts_z = 1.0 / (2.0*self.derham.Nel[2]) * polynomial.legendre.leggauss(self._nqs[2])[0] + 1.0 / (2.0*self.derham.Nel[2])
+
+        self._wts_x = 1.0 / (2.0*self.derham.Nel[0]) * polynomial.legendre.leggauss(self._nqs[0])[1]
+        self._wts_y = 1.0 / (2.0*self.derham.Nel[0]) * polynomial.legendre.leggauss(self._nqs[1])[1]
+        self._wts_z = 1.0 / (2.0*self.derham.Nel[0]) * polynomial.legendre.leggauss(self._nqs[2])[1]
 
         # set kernel function
-        self._pusher_lnn = Pusher(derham, domain, 'push_hybrid_xp_lnn')
-        self._pusher_ap = Pusher(derham, domain, 'push_hybrid_xp_ap')
+        self._pusher_lnn = Pusher(self.derham, self.domain, 'push_hybrid_xp_lnn')
+        self._pusher_ap  = Pusher(self.derham, self.domain, 'push_hybrid_xp_ap')
 
         self._pusher_inputs = (self._a[0]._data, self._a[1]._data, self._a[2]._data)
 
@@ -337,9 +340,10 @@ class StepHybridXPSymplectic(Propagator):
         TODO
         """
         # get density from particles
-        self._accum_density.accumulate(self._particles, array(self._derham.Nel), array(self._nqs), array(self._pts_x), array(self._pts_y), array(self._pts_z), array(self._p_shape), array(self._p_size))
-        if not self._accum_density._matrix.ghost_regions_in_sync: self._accum_density._matrix.update_ghost_regions()
-        self._pusher_lnn(self._particles, dt, array(self._p_shape), array(self._p_size), array(self._derham.Nel), array(self._pts_x), array(self._pts_y), array(self._pts_z), self._accum_density._matrix._data, self._thermal, self._n_quad)
+        self._accum_density.accumulate(self._particles, array(self.derham.Nel), array(self._nqs), array(self._pts_x), array(self._pts_y), array(self._pts_z), array(self._p_shape), array(self._p_size))
+        if not self._accum_density._operators[0].matrix.ghost_regions_in_sync: self._accum_density._operators[0].matrix.update_ghost_regions()
+        #print('++++++check_density+++++++++', self._accum_density._operators[0].matrix._data)
+        self._pusher_lnn(self._particles, dt, array(self._p_shape), array(self._p_size), array(self.derham.Nel), array(self._pts_x), array(self._pts_y), array(self._pts_z), array(self._wts_x), array(self._wts_y), array(self._wts_z), self._accum_density._operators[0].matrix._data, self._thermal, array(self._nqs))
 
         if not self._a[0].ghost_regions_in_sync: self._a[0].update_ghost_regions()
         if not self._a[1].ghost_regions_in_sync: self._a[1].update_ghost_regions()

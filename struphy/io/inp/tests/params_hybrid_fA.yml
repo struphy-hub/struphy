@@ -4,10 +4,15 @@ grid :
     spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
     bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
     dims_mask : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
-    nq_el    : [4, 4, 4] # quadrature points per grid cell
+    nq_el    : [5, 4, 4] # quadrature points per grid cell
     nq_pr    : [4, 4, 4] # quadrature points per histopolation cell (for commuting projectors)
     polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
       
+units :
+    x  : 1. # length scale unit in m
+    B  : 1. # magnetic field unit in T
+    n  : 0.0005185219355 # bulk number density unit in 1 x 10^20 m^(-3)
+
 time : 
     dt         : 0.01 # time step
     Tend       : 0.05 # simulation time interval is [0, Tend]
@@ -39,7 +44,7 @@ em_fields :
             comps :
                 a1 : [True, True, True]  # components to be initialized (for scalar fields: no list)
             variation_in : e1e2e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
-            amp : 0.1   # noise amplitude
+            amp : 0.   # noise amplitude
         ModesSin : 
             coords : 'logical' # in which coordinates (logical or physical)
             comps :
@@ -81,21 +86,25 @@ em_fields :
       
 
 kinetic :
+    electrons :
+        temperature : 1.0
     ions :
         ionsshape :
-            degree : [3, 3, 3]
+            degree : [2, 2, 2]
             size   : [0.25, 0.25, 0.03125]
+        phys_params:
+            A : 1 # mass number in units of proton mass
+            Z : 1 # signed charge number in units of elementary charge
         markers :
             type        : full_f # full_f or delta_f
-            ppc         : 2  # particles per 3d grid cell
+            ppc         : 20  # particles per 3d grid cell
             eps         : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
-            control_var : False # control variate (use delta-f)?
             bc_type     : [periodic, periodic, periodic] # remove, reflect or periodic
             loading :
                 type          : pseudo_random # particle loading mechanism 
                 seed          : 1234 # seed for random number generator
                 dir_particles : path_to_particles # directory of particles if loaded externally
-                moments   : [1., 0., 0., 2.5, 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
+                moments   : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
         init :
             type : Maxwellian6DUniform
             Maxwellian6DUniform :

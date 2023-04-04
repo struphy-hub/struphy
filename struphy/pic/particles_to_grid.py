@@ -221,8 +221,11 @@ class Accumulator:
         self._accumulator_kernel(particles.markers, particles.n_mks, 
                                  *self._args_fem, *self._domain.args_map,
                                  *self._args_data, *args_add)
+        # add analytical contribution (control variate) to matrix
+        if 'control_mat' in args_control:
+            self._operators[0].assemble(weights=args_control['control_mat'])
         
-        # add analytical contribution (control variate) to vector and finish
+        # add analytical contribution (control variate) to vector
         if 'control_vec' in args_control and len(self._vectors) > 0:
             WeightedMassOperator.assemble_vec(self._derham.Vh_fem[self._derham.spaces_dict[self._space_id]],
                                               self._vectors[0], weight=args_control['control_vec'],

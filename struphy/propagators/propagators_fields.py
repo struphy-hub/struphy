@@ -1,4 +1,5 @@
 import numpy as np
+from numpy import array, zeros
 
 from struphy.propagators.base import Propagator
 from struphy.linear_algebra.schur_solver import SchurSolver
@@ -10,14 +11,16 @@ from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
 from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
 from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
+from struphy.psydac_api.linear_operators import InverseLinearOperator as Inverse
 from struphy.psydac_api import preconditioner
 from struphy.psydac_api.mass import WeightedMassOperator
-from struphy.psydac_api.Hybrid_linear_operator import HybridOperators
 import struphy.linear_algebra.iterative_solvers as it_solvers
+from psydac.linalg.iterative_solvers import pcg
 
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.block import BlockVector
+import struphy.psydac_api.utilities as util
 
 
 class Maxwell(Propagator):
@@ -518,97 +521,142 @@ class Magnetosonic(Propagator):
             print()
 
 
-class HybridPotential(Propagator):
-    r'''Crank-Nicolson step for the Faraday's law.
+class FaradayExtended(Propagator):
+    r'''Equations: Faraday's law
 
-    math::
+    .. math::
+        \begin{align*}
+        & \frac{\partial {\mathbf A}}{\partial t} = - \frac{\nabla \times (\nabla \times {\mathbf A} + {\mathbf B}_0) }{n} \times (\nabla \times {\mathbf A} + {\mathbf B}_0) - \frac{\int ({\mathbf A} - {\mathbf p}f \mathrm{d}{\mathbf p})}{n} \times (\nabla \times {\mathbf A} + {\mathbf B}_0), \\
+        & n = \int f \mathrm{d}{\mathbf p}.
+        \end{align*}
+    
+    Mid-point rule:
 
-        \begin{align}
-        \textnormal{Faraday's law}\qquad& \frac{\partial {\mathbf A}}{\partial t} = - \frac{\nabla \times \nabla \times A}{n} \times \nabla \times {\mathbf A} - \frac{\int ({\mathbf A} - {\mathbf p}f \mathrm{d}{\mathbf p})}{n} \times \nabla \times {\mathbf A}, \quad n = \int f \mathrm{d}{\mathbf p}.
-        \end{align}
+    .. math::
+        \begin{align*}
+        & \left[ \mathbb{M}_1 - \frac{\Delta t}{2} \mathbb{F}(\hat{n}^0_h, {\mathbf a}^{n+\frac{1}{2}}) \mathbb{M}_1^{-1} (\mathbb{P}_1^\top \mathbb{W} \mathbb{P}_1 + \mathbb{C}^\top \mathbb{M}_2 \mathbb{C} ) \right] {\mathbf a}^{n+1} \\
+        & = \mathbb{M}_1 {\mathbf a}^n + \frac{\Delta t}{2} \mathbb{F}(\hat{n}^0_h, {\mathbf a}^{n+\frac{1}{2}}) \mathbb{M}_1^{-1} (\mathbb{P}_1^\top \mathbb{W} \mathbb{P}_1 + \mathbb{C}^\top \mathbb{M}_2 \mathbb{C} ) {\mathbf a}^{n+1} \\
+        & - \Delta t \mathbb{F}(\hat{n}^0_h, {\mathbf a}^{n+\frac{1}{2}})  \mathbb{M}_1^{-1} \mathbb{P}_1^\top \mathbb{W} {\mathbf P}^n\\
+        & + \Delta t \mathbb{F}(\hat{n}^0_h, {\mathbf a}^{n+\frac{1}{2}}) \mathbb{M}_1^{-1} \mathbb{C}^\top \mathbb{M}_2 {\mathbf b}_0\\
+        & \mathbb{F}_{ij} = - \int \frac{1}{\hat{n}^0_h \sqrt{g}} G (\nabla \times {\mathbf A} + {\mathbf B}_0) \cdot (\Lambda^1_i \times \Lambda^1_j) \mathrm{d}{\boldsymbol \eta}.
+        \end{align*}
 
     Parameters
     ---------- 
-    a : psydac.linalg.block.BlockVector
-        FE coefficients of vector potential as 1-form
+        a : psydac.linalg.block.BlockVector
+            FE coefficients of vector potential.
 
-    a_space : str
-        Space identifier of vector potential: 'Hcurl.
-
-    derham : struphy.psydac_api.psydac_derham.Derham
-        Discrete Derham complex.
-
-    mass_ops : struphy.psydac_api.mass.WeightedMassOperators
-        Weighted mass matrices from struphy.psydac_api.mass. 
+        **params : dict
+            Solver- and/or other parameters for this splitting step.
     '''
-
-    def __init__(self, a, a_space, beq, derham, mass_ops, domain, particles, nqs, p_shape, p_size):
+    def __init__(self, a, **params):
 
         assert isinstance(a, (BlockVector, PolarVector))
-        assert a_space in {'Hcurl', 'Hdiv', 'H1vec'}
+
+        # parameters
+        params_default = {'a_space': None,
+                          'beq': None,
+                          'particles': None,
+                          'quad_number': None,
+                          'shape_degree' : None,
+                          'shape_size' : None,
+                          'solver_params' : None,
+                          'accumulate_density' : None
+                          }
+
+        params = set_defaults(params, params_default)
 
         self._a = a
-        self._rank = derham.comm.Get_rank()
-        self._beq = beq
+        self._a_old = self._a.copy()
 
-        self._particles = particles
+        self._a_space = params['a_space']
+        assert self._a_space in {'Hcurl'}
 
-        self._domain = domain
-        self._derham = derham
+        self._rank = self.derham.comm.Get_rank()
+        self._beq = params['beq']
+
+        self._particles = params['particles']
+
+        self._nqs   = params['quad_number']    
+
+        self.size1 = int(self.derham.domain_array[self._rank, int(2)])
+        self.size2 = int(self.derham.domain_array[self._rank, int(5)])
+        self.size3 = int(self.derham.domain_array[self._rank, int(8)])
+
+        self.weight_1 = zeros((self.size1*self._nqs[0], self.size2*self._nqs[1], self.size3*self._nqs[2]), dtype=float)
+        self.weight_2 = zeros((self.size1*self._nqs[0], self.size2*self._nqs[1], self.size3*self._nqs[2]), dtype=float)
+        self.weight_3 = zeros((self.size1*self._nqs[0], self.size2*self._nqs[1], self.size3*self._nqs[2]), dtype=float)
+
+        self._weight_pre = [self.weight_1, self.weight_2, self.weight_3]
+
+        self._ind = [[self.derham.indN[0], self.derham.indD[1], self.derham.indD[2]], 
+                     [self.derham.indD[0], self.derham.indN[1], self.derham.indD[2]],
+                     [self.derham.indD[0], self.derham.indD[1], self.derham.indN[2]]]
 
         # Initialize Accumulator object for getting density from particles
-        self._pts_x = 1.0 / \
-            (2.0*derham.Nel[0]) * np.polynomial.legendre.leggauss(nqs[0]
-                                                                  )[0] + 1.0 / (2.0*derham.Nel[0])
-        self._pts_y = 1.0 / \
-            (2.0*derham.Nel[1]) * np.polynomial.legendre.leggauss(nqs[1]
-                                                                  )[0] + 1.0 / (2.0*derham.Nel[1])
-        self._pts_z = 1.0 / \
-            (2.0*derham.Nel[2]) * np.polynomial.legendre.leggauss(nqs[2]
-                                                                  )[0] + 1.0 / (2.0*derham.Nel[2])
-        self._nqs = nqs
-        self._p_shape = p_shape
-        self._p_size = p_size
-        self._accum_density = Accumulator(derham, domain, 'H1', 'hybrid_fA_density',
-                                          add_vector=False, symmetry='None')
-
-        self._accum_density.accumulate(self._particles, np.array(self._derham.Nel), np.array(self._nqs), np.array(
-            self._pts_x), np.array(self._pts_y), np.array(self._pts_z), np.array(self._p_shape), np.array(self._p_size))
-
+        self._pts_x = 1.0 / (2.0*self.derham.Nel[0]) * np.polynomial.legendre.leggauss(self._nqs[0])[0] + 1.0 / (2.0*self.derham.Nel[0])
+        self._pts_y = 1.0 / (2.0*self.derham.Nel[1]) * np.polynomial.legendre.leggauss(self._nqs[1])[0] + 1.0 / (2.0*self.derham.Nel[1])
+        self._pts_z = 1.0 / (2.0*self.derham.Nel[2]) * np.polynomial.legendre.leggauss(self._nqs[2])[0] + 1.0 / (2.0*self.derham.Nel[2])
+        
+        self._p_shape = params['shape_degree']
+        self._p_size =  params['shape_size']
+        self._accum_density = params['accumulate_density']
+  
         # Initialize Accumulator object for getting the matrix and vector related with vector potential
-        self._accum_potential = Accumulator(derham, domain, 'Hcurl', 'hybrid_fA_Arelated',
-                                            add_vector=True, symmetry='symm')
+        self._accum_potential = Accumulator(self.derham, self.domain, self._a_space, 'hybrid_fA_Arelated', add_vector=True, symmetry='symm')
+   
+        self._solver_params = params['solver_params']
+        # preconditioner
+        if self._solver_params['pc'] is None:
+            self._pc = None
+        else:
+            pc_class = getattr(preconditioner, self._solver_params['pc'])
+            self._pc = pc_class(self.mass_ops.M1)
 
-        self._accum_potential.accumulate(self._particles)
-
-        # for testing of hybrid linear operators
-        self._density = StencilMatrix(self._derham.Vh[self._derham.spaces_dict['H1']],
-                                      self._derham.Vh[self._derham.spaces_dict['H1']], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
-        self._hybrid_ops = HybridOperators(
-            self._derham, self._domain, self._density, self._a, self._beq)
+        self._Minv = Inverse(self.mass_ops.M1, tol=1e-8) 
+        self._CMC = Compose(self.derham.curl.transpose(), Compose(self.mass_ops.M2, self.derham.curl))
+        self._M1   = self.mass_ops.M1
+        self._M2   = self.mass_ops.M2
 
     @property
     def variables(self):
-        return self._a
+        return [self._a]
 
     def __call__(self, dt):
 
-        # for getting density from particles.
-        self._accum_density.accumulate(self._particles, np.array(self._derham.Nel), np.array(self._nqs), np.array(
-            self._pts_x), np.array(self._pts_y), np.array(self._pts_z), np.array(self._p_shape), np.array(self._p_size))
-        # for getting the matrix and vector related with vector potential
+        # the loop of fixed point iteration, 100 iterations at most.
+
+        self._accum_density.accumulate(self._particles, np.array(self.derham.Nel), np.array(self._nqs), np.array(self._pts_x), np.array(self._pts_y), np.array(self._pts_z), np.array(self._p_shape), np.array(self._p_size))
         self._accum_potential.accumulate(self._particles)
-        # Iniitialize hybrid linear operators
-        self._hybrid_ops.HybridM1
-        # current variables
-        an = self.variables[0]
 
-        # allocate temporary FemFields _u, _b during solution
-        #_a, info = self._schur_solver(un, self._B.dot(bn), dt)
+        self._L2  = Multiply(-dt/2, Compose(self._Minv, Sum(self._accum_potential._operators[0].matrix, self._CMC)))
+        self._RHS = -(self._L2.dot(self._a)) - dt*(self._Minv.dot(self._accum_potential._vectors[0] - Compose(self.derham.curl.transpose(), self._M2).dot(self._beq)))
+        self._rhs = self._M1.dot(self._a)
 
-        # write new coeffs into Propagator.variables
-        #max_du, max_db = self.in_place_update(_u, _b)
+        for loop in range(10):
+            #print('+++++=====++++++', self._accum_density._operators[0].matrix._data)
+            curla_mid = self.derham.curl.dot( 0.5*(self._a_old + self._a)) + self._beq # set mid-value used in the fixed iteration
+            curla_mid.update_ghost_regions()
+            # initialize the curl A 
+            # remember to check ghost region of curla_mid
+            util.create_weight_weightedmatrix_hybrid(curla_mid, self._weight_pre, self.derham, self._accum_density, self.domain)
+            #self._weight = [[None, self._weight_pre[2], -self._weight_pre[1]], [None, None, self._weight_pre[0]], [None, None, None]]
+            self._weight = [[0.0*self._weight_pre[0], 0.0*self._weight_pre[2], 0.0*self._weight_pre[1]], [0.0*self._weight_pre[2], 0.0*self._weight_pre[1], 0.0*self._weight_pre[0]], [0.0*self._weight_pre[1], 0.0*self._weight_pre[0], 0.0*self._weight_pre[2]]]
+            #self._weight = [[self._weight_pre[0], self._weight_pre[2], self._weight_pre[1]], [self._weight_pre[2], self._weight_pre[1], self._weight_pre[0]], [self._weight_pre[1], self._weight_pre[0], self._weight_pre[2]]]
+            HybridM1 = self.mass_ops.assemble_weighted_mass(self._weight, 'Hcurl', 'Hcurl')
 
+            # next prepare for solving linear system 
+            _LHS = Sum(self._M1, Compose(HybridM1, self._L2))
+            _RHS2 = HybridM1.dot(self._RHS) + self._rhs
+
+            a_new, info = pcg(_LHS, _RHS2, self._pc, x0=self._a, tol=self._solver_params['tol'],
+                              maxiter=self._solver_params['maxiter'], verbose=self._solver_params['verbose'])
+
+            # write new coeffs into Propagator.variables
+            max_da = self.in_place_update(a_new)
+            print('++++====check_iteration_error=====+++++', max_da)
+            if max_da[0] < 10**(-6): # we can modify the diff function in in_place_update to get another type errors
+                break
 
 class CurrentCoupling6DDensity(Propagator):
     """

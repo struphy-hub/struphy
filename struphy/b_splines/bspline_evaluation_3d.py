@@ -430,14 +430,14 @@ def eval_spline_mpi_kernel(p1: 'int', p2: 'int', p3: 'int', basis1: 'float[:]', 
 
 
 
-def eval_spline_mpi_kernel_hybrid_x(p1: 'int', p2: 'int', p3: 'int', basis1: 'float[:]', basis2: 'float[:]', basis3: 'float[:]', span1: 'int', span2: 'int', span3: 'int', _data: 'float[:,:,:]', starts: 'int[:]') -> float:
+def eval_spline_derivative_mpi_kernel(p1: 'int', p2: 'int', p3: 'int', basis1: 'float[:]', basis2: 'float[:]', basis3: 'float[:]', span1: 'int', span2: 'int', span3: 'int', _data: 'float[:,:,:]', starts: 'int[:]', direction: 'int') -> float:
     """
-    Kernel for getting the value of eta1-derivative of a 0, 1, 2, 3-form
+    Kernel for the derivative of a spline in one direction (distributed).
 
     Parameters
     ----------
         p1, p2, p3 : int                 
-            Degrees of the univariate splines of the eta1-derivative in each direction.
+            Degrees of the univariate splines in each direction.
 
         basis1, basis2, basis3 : array[float]           
             The p + 1 values of non-zero basis splines at one point (eta1, eta2, eta3) in each direction.
@@ -446,7 +446,7 @@ def eval_spline_mpi_kernel_hybrid_x(p1: 'int', p2: 'int', p3: 'int', basis1: 'fl
             Knot span index in each direction.
 
         _data : array[float]
-            The spline coefficients c_ijk of the original form in current process, ie. the _data attribute of a StencilVector.  
+            The spline coefficients c_ijk in current process, ie. the _data attribute of a StencilVector.  
 
         starts : array[int]
             Starting indices of current process.
@@ -454,105 +454,43 @@ def eval_spline_mpi_kernel_hybrid_x(p1: 'int', p2: 'int', p3: 'int', basis1: 'fl
     Returns
     -------
         spline_value : float
-            Value of tensor-product spline at point (eta1, eta2, eta3).
+            Derivative in one direction of tensor-product spline at point (eta1, eta2, eta3).
     """
 
     spline_value = 0.
 
-    for il1 in range(p1 + 1):
-        i1 = span1 + il1 - starts[0]
-        for il2 in range(p2 + 1):
-            i2 = span2 + il2 - starts[1]
-            for il3 in range(p3 + 1):
-                i3 = span3 + il3 - starts[2]
+    if direction == int(1):
+        for il1 in range(p1 + 1):
+            i1 = span1 + il1 - starts[0]
+            for il2 in range(p2 + 1):
+                i2 = span2 + il2 - starts[1]
+                for il3 in range(p3 + 1):
+                    i3 = span3 + il3 - starts[2]
 
-                spline_value += (_data[i1+1, i2, i3] - _data[i1, i2, i3]) * \
-                    basis1[il1] * basis2[il2] * basis3[il3]
+                    spline_value += (_data[i1+1, i2, i3] - _data[i1, i2, i3]) * \
+                        basis1[il1] * basis2[il2] * basis3[il3]
 
-    return spline_value
+    if direction == int(2):
+        for il1 in range(p1 + 1):
+            i1 = span1 + il1 - starts[0]
+            for il2 in range(p2 + 1):
+                i2 = span2 + il2 - starts[1]
+                for il3 in range(p3 + 1):
+                    i3 = span3 + il3 - starts[2]
 
+                    spline_value += (_data[i1, i2+1, i3] - _data[i1, i2, i3]) * \
+                        basis1[il1] * basis2[il2] * basis3[il3]
 
+    if direction == int(3):
+        for il1 in range(p1 + 1):
+            i1 = span1 + il1 - starts[0]
+            for il2 in range(p2 + 1):
+                i2 = span2 + il2 - starts[1]
+                for il3 in range(p3 + 1):
+                    i3 = span3 + il3 - starts[2]
 
-def eval_spline_mpi_kernel_hybrid_y(p1: 'int', p2: 'int', p3: 'int', basis1: 'float[:]', basis2: 'float[:]', basis3: 'float[:]', span1: 'int', span2: 'int', span3: 'int', _data: 'float[:,:,:]', starts: 'int[:]') -> float:
-    """
-    Kernel for getting the value of eta2-derivative of a 0, 1, 2, 3-form
-
-    Parameters
-    ----------
-        p1, p2, p3 : int                 
-            Degrees of the univariate splines of the eta2-derivative in each direction.
-
-        basis1, basis2, basis3 : array[float]           
-            The p + 1 values of non-zero basis splines at one point (eta1, eta2, eta3) in each direction.
-
-        span1, span2, span3: int
-            Knot span index in each direction.
-
-        _data : array[float]
-            The spline coefficients c_ijk of the original form in current process, ie. the _data attribute of a StencilVector.  
-
-        starts : array[int]
-            Starting indices of current process.
-
-    Returns
-    -------
-        spline_value : float
-            Value of tensor-product spline at point (eta1, eta2, eta3).
-    """
-
-    spline_value = 0.
-
-    for il1 in range(p1 + 1):
-        i1 = span1 + il1 - starts[0]
-        for il2 in range(p2 + 1):
-            i2 = span2 + il2 - starts[1]
-            for il3 in range(p3 + 1):
-                i3 = span3 + il3 - starts[2]
-
-                spline_value += (_data[i1, i2+1, i3] - _data[i1, i2, i3]) * \
-                    basis1[il1] * basis2[il2] * basis3[il3]
-
-    return spline_value
-
-
-def eval_spline_mpi_kernel_hybrid_z(p1: 'int', p2: 'int', p3: 'int', basis1: 'float[:]', basis2: 'float[:]', basis3: 'float[:]', span1: 'int', span2: 'int', span3: 'int', _data: 'float[:,:,:]', starts: 'int[:]') -> float:
-    """
-    Kernel for getting the value of eta3-derivative of a 0, 1, 2, 3-form
-
-    Parameters
-    ----------
-        p1, p2, p3 : int                 
-            Degrees of the univariate splines of the eta3-derivative in each direction.
-
-        basis1, basis2, basis3 : array[float]           
-            The p + 1 values of non-zero basis splines at one point (eta1, eta2, eta3) in each direction.
-
-        span1, span2, span3: int
-            Knot span index in each direction.
-
-        _data : array[float]
-            The spline coefficients c_ijk of the original form in current process, ie. the _data attribute of a StencilVector.  
-
-        starts : array[int]
-            Starting indices of current process.
-
-    Returns
-    -------
-        spline_value : float
-            Value of tensor-product spline at point (eta1, eta2, eta3).
-    """
-
-    spline_value = 0.
-
-    for il1 in range(p1 + 1):
-        i1 = span1 + il1 - starts[0]
-        for il2 in range(p2 + 1):
-            i2 = span2 + il2 - starts[1]
-            for il3 in range(p3 + 1):
-                i3 = span3 + il3 - starts[2]
-
-                spline_value += (_data[i1, i2, i3+1] - _data[i1, i2, i3]) * \
-                    basis1[il1] * basis2[il2] * basis3[il3]
+                    spline_value += (_data[i1, i2, i3+1] - _data[i1, i2, i3]) * \
+                        basis1[il1] * basis2[il2] * basis3[il3]
 
     return spline_value
     

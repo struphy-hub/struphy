@@ -119,11 +119,13 @@ def hybrid_fA_density(markers: 'float[:,:]', n_markers_tot: 'int',
     grids_shapex = zeros(p_shape[0] + 2, dtype=float)
     grids_shapey = zeros(p_shape[1] + 2, dtype=float)
     grids_shapez = zeros(p_shape[2] + 2, dtype=float)
+
+    df           = zeros((3, 3), dtype=float)
     
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private (cell_left, point_left, point_right, cell_number, temp1, temp4, compact, grids_shapex, grids_shapey, grids_shapez, n_markers, ip, eta1, eta2, eta3, weight, ie1, ie2, ie3, il1, il2, il3, jl1, jl2, jl3, i1, i2, i3, value_x, value_y, value_z, span1, span2, span3)
+    #$ omp parallel private (df, det_df, cell_left, point_left, point_right, cell_number, temp1, temp4, compact, grids_shapex, grids_shapey, grids_shapez, n_markers, ip, eta1, eta2, eta3, weight, ie1, ie2, ie3, il1, il2, il3, jl1, jl2, jl3, i1, i2, i3, value_x, value_y, value_z, span1, span2, span3)
     #$ omp for reduction ( + : mat)
     for ip in range(n_markers):
 
@@ -136,8 +138,19 @@ def hybrid_fA_density(markers: 'float[:,:]', n_markers_tot: 'int',
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        weight = markers[ip, 6]/(p_size[0]*p_size[1]*p_size[2])/n_markers_tot
+        # evaluate Jacobian, result in df
+        map_eval.df(eta1, eta2, eta3,
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
 
+        # metric coeffs
+        det_df = linalg.det(df)
+
+        weight = markers[ip, 6]/(p_size[0]*p_size[1]*p_size[2])/n_markers_tot/det_df
+        
         ie1 = int(eta1*Nel[0])
         ie2 = int(eta2*Nel[1])
         ie3 = int(eta3*Nel[2])

@@ -88,9 +88,9 @@ def hybrid_weight(pads1 : int, pads2 : int, pads3 : int, pts1: 'float[:,:]', pts
                             else:
                                 overn = 1.0 / n_data[pads1 + iel1, pads2 + iel2, pads3 + iel3, q1, q2, q3]
 
-                            value_new[0] = (G[0,0]*value1 + G[0,1]*value2 + G[0,2]*value3)*wvol*overn
-                            value_new[1] = (G[1,0]*value1 + G[1,1]*value2 + G[1,2]*value3)*wvol*overn
-                            value_new[2] = (G[2,0]*value1 + G[2,1]*value2 + G[2,2]*value3)*wvol*overn
+                            value_new[0] = (G[0,0]*value1 + G[0,1]*value2 + G[0,2]*value3)*overn
+                            value_new[1] = (G[1,0]*value1 + G[1,1]*value2 + G[1,2]*value3)*overn
+                            value_new[2] = (G[2,0]*value1 + G[2,1]*value2 + G[2,2]*value3)*overn
 
                             data1[iel1*nq1+q1, iel2*nq2+q2, iel3*nq3+q3] = value_new[0]
                             data2[iel1*nq1+q1, iel2*nq2+q2, iel3*nq3+q3] = value_new[1]
