@@ -355,8 +355,8 @@ def eval_magnetic_moment(markers: 'float[:,:]',
         markers : array[float]
             .markers attribute of a struphy.pic.particles.Particles object
 
-        epsilon : array[float]
-            omega_th/omega_c = k*rho = rhostar
+        kappa : array[float]
+            omega_c/omega_unit
 
         pn : array[int]
             spline degrees
@@ -433,13 +433,13 @@ def eval_magnetic_moment(markers: 'float[:,:]',
         markers[ip,5] = 0.
 
 @stack_array('bn1', 'bn2', 'bn3', 'b_cart', 'norm_b_cart', 'v', 'temp', 'v_perp')
-def transform_6D_to_5D(markers: 'float[:,:]', epsilon: 'float',
-                         pn: 'int[:]',
-                         tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                         starts0: 'int[:]',
-                         b_cart_1: 'float[:,:,:]',        
-                         b_cart_2: 'float[:,:,:]',      
-                         b_cart_3: 'float[:,:,:]'):
+def transform_6D_to_5D(markers: 'float[:,:]', kappa: 'float',
+                       pn: 'int[:]',
+                       tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                       starts0: 'int[:]',
+                       b_cart_1: 'float[:,:,:]',        
+                       b_cart_2: 'float[:,:,:]',      
+                       b_cart_3: 'float[:,:,:]'):
     """
     Evaluate parallel velocity and magnetic moment of each particles and asign it into markers[ip,3] and markers[ip,4] respectively.
 
@@ -448,8 +448,8 @@ def transform_6D_to_5D(markers: 'float[:,:]', epsilon: 'float',
         markers : array[float]
             .markers attribute of a struphy.pic.particles.Particles object
 
-        epsilon : array[float]
-            omega_th/omega_c = k*rho = rhostar
+        kappa : array[float]
+            omega_c/omega_unit
 
         pn : array[int]
             spline degrees
@@ -516,9 +516,9 @@ def transform_6D_to_5D(markers: 'float[:,:]', epsilon: 'float',
         linalg.cross(v, norm_b_cart, temp)
         linalg.cross(norm_b_cart, temp, v_perp)
 
-        # applying epsilon
-        v_parallel /= epsilon
-        v_perp /= epsilon
+        # applying kappa
+        v_parallel *= kappa
+        v_perp *= kappa
 
         v_perp_square = (v_perp[0]**2 + v_perp[1]**2 +v_perp[2]**2)
 
@@ -595,7 +595,7 @@ def push_gc1_discrete_gradients_prepare(markers: 'float[:,:]', dt: float,
                                         p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                         ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                         cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                        epsilon: float, 
+                                        kappa: float, 
                                         abs_b: 'float[:,:,:]',
                                         b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                         norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -704,7 +704,7 @@ def push_gc1_discrete_gradients_prepare(markers: 'float[:,:]', dt: float,
         grad_abs_b[2] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
-        b_star[:] = b + epsilon*v*curl_norm_b
+        b_star[:] = b + 1/kappa*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -720,7 +720,7 @@ def push_gc1_discrete_gradients_prepare(markers: 'float[:,:]', dt: float,
         linalg.matrix_matrix(g_inv, temp1, temp2)
 
         # calculate S
-        S[:,:] = (epsilon*temp2)/abs_b_star_para
+        S[:,:] = (1/kappa*temp2)/abs_b_star_para
 
         # save at the markers
         markers[ip, 13:16] = S[0,:]
@@ -746,7 +746,7 @@ def push_gc2_discrete_gradients_prepare(markers: 'float[:,:]', dt: float,
                                         p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                         ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                         cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                        epsilon: float, 
+                                        kappa: float, 
                                         abs_b: 'float[:,:,:]',
                                         b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                         norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -836,7 +836,7 @@ def push_gc2_discrete_gradients_prepare(markers: 'float[:,:]', dt: float,
         grad_abs_b[2] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
-        b_star[:] = b + epsilon*v*curl_norm_b
+        b_star[:] = b + 1/kappa*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -865,7 +865,7 @@ def push_gc1_discrete_gradients_faster_prepare(markers: 'float[:,:]', dt: float,
                                                p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                                ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                                cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                               epsilon: float, 
+                                               kappa: float, 
                                                abs_b: 'float[:,:,:]',
                                                b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                                norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -974,7 +974,7 @@ def push_gc1_discrete_gradients_faster_prepare(markers: 'float[:,:]', dt: float,
         grad_abs_b[2] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
-        b_star[:] = b + epsilon*v*curl_norm_b
+        b_star[:] = b + 1/kappa*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -990,7 +990,7 @@ def push_gc1_discrete_gradients_faster_prepare(markers: 'float[:,:]', dt: float,
         linalg.matrix_matrix(g_inv, temp1, temp2)
 
         # calculate S
-        S[:,:] = (epsilon*temp2)/abs_b_star_para
+        S[:,:] = (1/kappa*temp2)/abs_b_star_para
 
         # save at the markers
         markers[ip, 13:16] = S[0,:]
@@ -1016,7 +1016,7 @@ def push_gc2_discrete_gradients_faster_prepare(markers: 'float[:,:]', dt: float,
                                                p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                                ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                                cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                               epsilon: float, 
+                                               kappa: float, 
                                                abs_b: 'float[:,:,:]',
                                                b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                                norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -1107,7 +1107,7 @@ def push_gc2_discrete_gradients_faster_prepare(markers: 'float[:,:]', dt: float,
         grad_abs_b[2] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
-        b_star[:] = b + epsilon*v*curl_norm_b
+        b_star[:] = b + 1/kappa*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -1136,7 +1136,7 @@ def push_gc1_discrete_gradients_faster_eval_gradI(markers: 'float[:,:]', dt: flo
                                                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                                   cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                  epsilon: float, 
+                                                  kappa: float, 
                                                   abs_b: 'float[:,:,:]',
                                                   b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                                   norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -1203,7 +1203,7 @@ def push_gc2_discrete_gradients_faster_eval_gradI(markers: 'float[:,:]', dt: flo
                                                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                                   cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                  epsilon: float, 
+                                                  kappa: float, 
                                                   abs_b: 'float[:,:,:]',
                                                   b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                                   norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -1270,7 +1270,7 @@ def push_gc1_discrete_gradients_eval_gradI(markers: 'float[:,:]', dt: float,
                                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                           epsilon: float, 
+                                           kappa: float, 
                                            abs_b: 'float[:,:,:]',
                                            b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                            norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -1379,7 +1379,7 @@ def push_gc1_discrete_gradients_eval_gradI(markers: 'float[:,:]', dt: float,
         grad_abs_b[2] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
-        b_star[:] = b + epsilon*v_mid*curl_norm_b
+        b_star[:] = b + 1/kappa*v_mid*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -1395,7 +1395,7 @@ def push_gc1_discrete_gradients_eval_gradI(markers: 'float[:,:]', dt: float,
         linalg.matrix_matrix(g_inv, temp1, temp2)
 
         # calculate S
-        S[:,:] = (epsilon*temp2)/abs_b_star_para
+        S[:,:] = (1/kappa*temp2)/abs_b_star_para
 
         # save at the markers
         markers[ip, 13:16] = S[0,:]
@@ -1413,7 +1413,7 @@ def push_gc2_discrete_gradients_eval_gradI(markers: 'float[:,:]', dt: float,
                                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                           epsilon: float, 
+                                           kappa: float, 
                                            abs_b: 'float[:,:,:]',
                                            b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                            norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -1504,7 +1504,7 @@ def push_gc2_discrete_gradients_eval_gradI(markers: 'float[:,:]', dt: float,
         grad_abs_b[2] = eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
-        b_star[:] = b + epsilon*v_mid*curl_norm_b
+        b_star[:] = b + 1/kappa*v_mid*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para

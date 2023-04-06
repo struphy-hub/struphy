@@ -441,11 +441,11 @@ class StepPushGuidingCenter1(Propagator):
 
     .. math::
 
-        \dot{\mathbf X} &= \frac{\varepsilon \mu}{B^*_\parallel}  G^{-1} \mathbb{b}_{0, \otimes}G^{-1} \hat \nabla |\hat B_0|^0 \,,
+        \dot{\mathbf X} &= \frac{\mu}{\kappa B^*_\parallel}  G^{-1}(\eta_p(t)) \hat{\mathbb{b}}^2_0 \times G^{-1}(\eta_p(t)) \hat \nabla |\hat{B}^0_0| \,,
 
         \dot v_\parallel &= 0 \,.
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant. Available algorithms:
+    for each marker :math:`p` in markers array. Available algorithms:
 
         Explicit:
         * forward_euler (1st order)
@@ -463,17 +463,8 @@ class StepPushGuidingCenter1(Propagator):
     particles : struphy.pic.particles.Particles6D
         Holdes the markers to push.
 
-    derham : struphy.psydac_api.psydac_derham.Derham
-        Discrete Derham complex.
-
-    domain : struphy.geometry.domains
-        Mapping info for evaluating metric coefficients.
-
-    algo : str
-        The used algorithm.
-
-    bc : list[str]
-        Kinetic boundary conditions in each direction.
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
     """
 
     def __init__(self, particles, **params): 
@@ -483,7 +474,7 @@ class StepPushGuidingCenter1(Propagator):
         self._particles = particles
 
         # parameters
-        params_default = {'epsilon': .01,
+        params_default = {'kappa': 100.,
                           'b_eq': None,
                           'unit_b1': None,
                           'unit_b2': None,
@@ -496,7 +487,7 @@ class StepPushGuidingCenter1(Propagator):
 
         params = set_defaults(params, params_default)
 
-        self._epsilon = params['epsilon']
+        self._kappa = params['kappa']
         self._b_eq = params['b_eq']
         self._unit_b1 = params['unit_b1']
         self._unit_b2 = params['unit_b2']
@@ -551,7 +542,7 @@ class StepPushGuidingCenter1(Propagator):
             self._pusher = Pusher(
                 self.derham, self.domain, 'push_gc1_explicit_stage', self._butcher.n_stages)
 
-            self._pusher_inputs = (self._epsilon, self._b_eq[0]._data, self._b_eq[1]._data, self._b_eq[2]._data,
+            self._pusher_inputs = (self._kappa, self._b_eq[0]._data, self._b_eq[1]._data, self._b_eq[2]._data,
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
@@ -572,7 +563,7 @@ class StepPushGuidingCenter1(Propagator):
                 raise NotImplementedError(
                     'Chosen implicit method is not implemented.')
 
-            self._pusher_inputs = (self._epsilon, self._abs_b._data,
+            self._pusher_inputs = (self._kappa, self._abs_b._data,
                                    self._b_eq[0]._data, self._b_eq[1]._data, self._b_eq[2]._data,
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
@@ -602,39 +593,25 @@ class StepPushGuidingCenter2(Propagator):
 
     .. math::
 
-        \dot{\mathbf X} &= \frac{1}{B^*_\parallel} \mathbf{B}^* v_\parallel \,,
+        \dot{\mathbf X} &= \frac{1}{B^*_\parallel} \frac{1}{\sqrt{g}(\eta_p(t))}\hat{\mathbf{B}}^{*2} v_\parallel \,,
 
-        \dot v_\parallel &= - \mu \frac{1}{B^*_\parallel} \mathbf{B}^* \cdot \nabla |B_0| \,.
+        \dot v_\parallel &= - \frac{\mu}{B^*_\parallel} \frac{1}{\sqrt{g}(\eta_p(t))}\hat{\mathbf{B}}^{*2} \cdot \hat \nabla |\hat{B}^0_0| \,.
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant. Available algorithms:
+    for each marker :math:`p` in markers array. Available algorithms:
 
-        Explicit:
         * forward_euler (1st order)
         * heun2 (2nd order)
         * rk2 (2nd order)
         * heun3 (3rd order)
         * rk4 (4th order)
 
-        Implicit:
-        * discrete_gradients
-        * discrete_gradients_faster
-
     Parameters
     ----------
     particles : struphy.pic.particles.Particles6D
         Holdes the markers to push.
 
-    derham : struphy.psydac_api.psydac_derham.Derham
-        Discrete Derham complex.
-
-    domain : struphy.geometry.domains
-        Mapping info for evaluating metric coefficients.
-
-    algo : str
-        The used algorithm.
-
-    bc : list[str]
-        Kinetic boundary conditions in each direction.
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
     """
 
     def __init__(self, particles, **params): 
@@ -644,7 +621,7 @@ class StepPushGuidingCenter2(Propagator):
         self._particles = particles
 
         # parameters
-        params_default = {'epsilon': .01,
+        params_default = {'kappa': 100.,
                           'b_eq': None,
                           'unit_b1': None,
                           'unit_b2': None,
@@ -657,7 +634,7 @@ class StepPushGuidingCenter2(Propagator):
 
         params = set_defaults(params, params_default)
 
-        self._epsilon = params['epsilon']
+        self._kappa = params['kappa']
         self._b_eq = params['b_eq']
         self._unit_b1 = params['unit_b1']
         self._unit_b2 = params['unit_b2']
@@ -711,7 +688,7 @@ class StepPushGuidingCenter2(Propagator):
             self._pusher = Pusher(
                 self.derham, self.domain, 'push_gc2_explicit_stage', self._butcher.n_stages)
 
-            self._pusher_inputs = (self._epsilon, self._b_eq[0]._data, self._b_eq[1]._data, self._b_eq[2]._data,
+            self._pusher_inputs = (self._kappa, self._b_eq[0]._data, self._b_eq[1]._data, self._b_eq[2]._data,
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
@@ -732,7 +709,7 @@ class StepPushGuidingCenter2(Propagator):
                 raise NotImplementedError(
                     'Chosen implicit method is not implemented.')
 
-            self._pusher_inputs = (self._epsilon, self._abs_b._data,
+            self._pusher_inputs = (self._kappa, self._abs_b._data,
                                    self._b_eq[0]._data, self._b_eq[1]._data, self._b_eq[2]._data,
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
@@ -842,11 +819,11 @@ class StepPushDriftKinetic1(Propagator):
 
     .. math::
 
-        \dot{\mathbf X} &= \frac{1}{B^*_\parallel} \mathbf{b}_0 \times \frac{\mu}{q} \nabla B_\parallel\,,
+        \dot{\mathbf X} &= \frac{\mu}{\kappa B^*_\parallel}  G^{-1}(\eta_p(t)) \hat{\mathbf{b}}^2_0 \times G^{-1}(\eta_p(t)) \hat \nabla |\mathcal{P}^B \hat{\mathbf{B}}^2| \,,
 
         \dot v_\parallel &= 0 \,.
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant. Available algorithms:
+    for each marker :math:`p` in markers array. Available algorithms:
 
         Explicit:
         * forward_euler (1st order)
@@ -857,35 +834,15 @@ class StepPushDriftKinetic1(Propagator):
 
         Implicit:
         * discrete_gradients
+        * discrete_gradients_faster
 
     Parameters
     ----------
     particles : struphy.pic.particles.Particles6D
         Holdes the markers to push.
 
-    derham : struphy.psydac_api.psydac_derham.Derham
-        Discrete Derham complex.
-
-    domain : struphy.geometry.domains
-        Mapping info for evaluating metric coefficients.
-
-    basis_ops : struphy.psydac_api.basis_projection_ops.BasisProjectionOperators
-        A class for all the basis projection operators.
-
-    epsilon : float
-        Guiding center asymptotic parameter
-
-    b : psydac.linalg.block.BlockVector
-        FE coefficients of magnetic field as a 2-form.
-
-    mhd_equil : list[psydac.linalg.block.BlockVector]
-        FE coefficients of various equilibrium fields
-
-    push_algos : dict
-        dictionary for push algorithms
-
-    bc : list[str]
-        Kinetic boundary conditions in each direction.
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
     """
 
     def __init__(self, particles, **params): 
@@ -895,7 +852,7 @@ class StepPushDriftKinetic1(Propagator):
         self._particles = particles
 
         # parameters
-        params_default = {'epsilon': .01,
+        params_default = {'kappa': 100.,
                           'b' : None,
                           'b_eq': None,
                           'unit_b1': None,
@@ -909,7 +866,7 @@ class StepPushDriftKinetic1(Propagator):
 
         params = set_defaults(params, params_default)
 
-        self._epsilon = params['epsilon']
+        self._kappa = params['kappa']
         self._b = params['b']
         self._b_eq = params['b_eq']
         self._unit_b1 = params['unit_b1']
@@ -967,7 +924,7 @@ class StepPushDriftKinetic1(Propagator):
             self._pusher = Pusher(
                 self.derham, self.domain, 'push_gc1_explicit_stage', self._butcher.n_stages)
 
-            self._pusher_inputs = (self._epsilon, self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
+            self._pusher_inputs = (self._kappa, self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
@@ -988,7 +945,7 @@ class StepPushDriftKinetic1(Propagator):
                 raise NotImplementedError(
                     'Chosen implicit method is not implemented.')
             
-            self._pusher_inputs = (self._epsilon, self._PBb._data,
+            self._pusher_inputs = (self._kappa, self._PBb._data,
                                    self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
@@ -1017,11 +974,11 @@ class StepPushDriftKinetic2(Propagator):
 
     .. math::
 
-        \dot{\mathbf X} &= \frac{1}{B^*_\parallel} \mathbf{B}^* v_\parallel \,,
+        \dot{\mathbf X} &= \frac{1}{B^*_\parallel} \frac{1}{\sqrt{g}(\eta_p(t))}\hat{\mathbf{B}}^{*2} v_\parallel \,,
 
-        \dot v_\parallel &= - \mu \frac{1}{B^*_\parallel} \mathbf{B}^* \cdot \nabla B_\parallel \,.
+        \dot v_\parallel &= - \frac{\mu}{B^*_\parallel} \frac{1}{\sqrt{g}(\eta_p(t))}\hat{\mathbf{B}}^{*2} \cdot \hat \nabla \hat \nabla |\mathcal{P}^B \hat{\mathbf{B}}^2| \,.
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant. Available algorithms:
+    for each marker :math:`p` in markers array. Available algorithms:
 
         * forward_euler (1st order)
         * heun2 (2nd order)
@@ -1034,29 +991,8 @@ class StepPushDriftKinetic2(Propagator):
     particles : struphy.pic.particles.Particles6D
         Holdes the markers to push.
 
-    derham : struphy.psydac_api.psydac_derham.Derham
-        Discrete Derham complex.
-
-    domain : struphy.geometry.domains
-        Mapping info for evaluating metric coefficients.
-
-    basis_ops : struphy.psydac_api.basis_projection_ops.BasisProjectionOperators
-        A class for all the basis projection operators.
-
-    epsilon : float
-        Guiding center asymptotic parameter
-
-    b : psydac.linalg.block.BlockVector
-        FE coefficients of magnetic field as a 2-form.
-
-    mhd_equil : list[psydac.linalg.block.BlockVector]
-        FE coefficients of various equilibrium fields
-
-    push_algos : dict
-        dictionary for push algorithms
-
-    bc : list[str]
-        Kinetic boundary conditions in each direction.
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
     """
 
     def __init__(self, particles, **params): 
@@ -1066,7 +1002,7 @@ class StepPushDriftKinetic2(Propagator):
         self._particles = particles
 
         # parameters
-        params_default = {'epsilon': .01,
+        params_default = {'kappa': 100.,
                           'b' : None,
                           'b_eq': None,
                           'unit_b1': None,
@@ -1080,7 +1016,7 @@ class StepPushDriftKinetic2(Propagator):
 
         params = set_defaults(params, params_default)
 
-        self._epsilon = params['epsilon']
+        self._kappa = params['kappa']
         self._b = params['b']
         self._b_eq = params['b_eq']
         self._unit_b1 = params['unit_b1']
@@ -1138,7 +1074,7 @@ class StepPushDriftKinetic2(Propagator):
             self._pusher = Pusher(
                 self.derham, self.domain, 'push_gc2_explicit_stage', self._butcher.n_stages)
 
-            self._pusher_inputs = (self._epsilon, self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
+            self._pusher_inputs = (self._kappa, self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
@@ -1159,7 +1095,7 @@ class StepPushDriftKinetic2(Propagator):
                 raise NotImplementedError(
                     'Chosen implicit method is not implemented.')
             
-            self._pusher_inputs = (self._epsilon, self._PBb._data,
+            self._pusher_inputs = (self._kappa, self._PBb._data,
                                    self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,

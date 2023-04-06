@@ -694,8 +694,7 @@ class CurrentCoupling5DCurrent1(Propagator):
         self._u = u
 
         # parameters
-        params_default = {'epsilon': 0.01,
-                          'u_space': 'Hdiv',
+        params_default = {'u_space': 'Hdiv',
                           'b' : None,
                           'b_eq': None,
                           'unit_b1': None,
@@ -706,11 +705,9 @@ class CurrentCoupling5DCurrent1(Propagator):
                           'maxiter': 3000,
                           'info': False,
                           'verbose': False,
-                          'nuh': 0.05,
                           'Ab': 1,
                           'Ah': 1,
-                          'Zh': 1,
-                          'kappa': 1.}
+                          'kappa': 100.}
         
         params = set_defaults(params, params_default)
         
@@ -722,7 +719,7 @@ class CurrentCoupling5DCurrent1(Propagator):
             self._space_key_int = int(
                 self.derham.spaces_dict[params['u_space']])
 
-        self._epsilon = params['epsilon']
+        self._kappa = params['kappa']
         self._f0 = params['f0']
 
         assert isinstance(params['b'], (BlockVector, PolarVector))
@@ -742,11 +739,9 @@ class CurrentCoupling5DCurrent1(Propagator):
         self._verbose = params['verbose']
         self._rank = self.derham.comm.Get_rank()
 
-        self._coupling_mat = params['nuh'] * params['kappa']**2 * \
-            params['Zh']**2 / (params['Ab'] * params['Ah'])
-        self._coupling_vec = params['nuh'] * \
-            params['kappa'] * params['Zh'] / params['Ab']
-        self._scale_push = params['kappa'] * params['Zh'] / params['Ah']
+        self._coupling_mat = params['Ah'] / params['Ab'] * params['kappa']**2 
+        self._coupling_vec = params['Ah'] / params['Ab'] * params['kappa'] 
+        self._scale_push = 1*params['kappa']
 
         self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
         self._curl_norm_b.update_ghost_regions()
@@ -790,7 +785,7 @@ class CurrentCoupling5DCurrent1(Propagator):
         b_full.update_ghost_regions()
 
         # acuumulate MAT and VEC
-        self._ACC.accumulate(self._particles, self._epsilon,
+        self._ACC.accumulate(self._particles, self._kappa,
                              b_full[0]._data, b_full[1]._data, b_full[2]._data,
                              self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                              self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
@@ -812,7 +807,7 @@ class CurrentCoupling5DCurrent1(Propagator):
         u_avg.update_ghost_regions()
 
         self._pusher(self._particles, dt,
-                     self._epsilon,
+                     self._kappa,
                      b_full[0]._data, b_full[1]._data, b_full[2]._data,
                      self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                      self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
@@ -846,7 +841,6 @@ class CurrentCoupling5DCurrent2( Propagator ):
 
         # parameters
         params_default = {'b': None,
-                          'epsilon': 0.01,
                           'u_space': 'Hdiv',
                           'b_eq': None,
                           'unit_b1': None,
@@ -859,11 +853,9 @@ class CurrentCoupling5DCurrent2( Propagator ):
                           'maxiter': 3000,
                           'info': False,
                           'verbose': False,
-                          'nuh': 0.05,
                           'Ab': 1,
                           'Ah': 1,
-                          'Zh': 1,
-                          'kappa': 1.,
+                          'kappa': 100.,
                           'integrator':'explicit',
                           'method':'rk4'}
         
@@ -876,7 +868,7 @@ class CurrentCoupling5DCurrent2( Propagator ):
             self._space_key_int = int(
                 self.derham.spaces_dict[params['u_space']])
 
-        self._epsilon = params['epsilon']
+        self._kappa = params['kappa']
         self._f0 = params['f0']
         assert isinstance(params['b'], (BlockVector, PolarVector))
         self._b = params['b']
@@ -899,9 +891,9 @@ class CurrentCoupling5DCurrent2( Propagator ):
         self._verbose = params['verbose']
         self._rank = self.derham.comm.Get_rank()
 
-        self._coupling_mat = params['nuh'] * params['kappa']**2 * params['Zh']**2 / (params['Ab'] * params['Ah'])
-        self._coupling_vec = params['nuh'] * params['kappa'] * params['Zh'] / params['Ab']
-        self._scale_push = params['kappa'] * params['Zh'] / params['Ah']
+        self._coupling_mat = params['Ah'] / params['Ab'] * params['kappa']**2 
+        self._coupling_vec = params['Ah'] / params['Ab'] * params['kappa'] 
+        self._scale_push = 1*params['kappa']
 
         u_id = self.derham.spaces_dict[params['u_space']]
 
@@ -991,7 +983,7 @@ class CurrentCoupling5DCurrent2( Propagator ):
 
         # acuumulate MAT and VEC
         self._ACC.accumulate(self._particles,
-                             self._epsilon,
+                             self._kappa,
                              b_full[0]._data, b_full[1]._data, b_full[2]._data,
                              self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                              self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
@@ -1007,7 +999,7 @@ class CurrentCoupling5DCurrent2( Propagator ):
         u_avg.update_ghost_regions()
 
         self._pusher(self._particles, dt,
-                     self._epsilon,
+                     self._kappa,
                      b_full[0]._data, b_full[1]._data, b_full[2]._data,
                      self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                      self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
@@ -1027,7 +1019,7 @@ class CurrentCoupling5DCurrent2( Propagator ):
             print()
 
 
-class CurrentCoupling5DCurrent2Dg( Propagator ):
+class CurrentCoupling5DCurrent2dg( Propagator ):
     r'''
     TODO
     '''
@@ -1044,7 +1036,6 @@ class CurrentCoupling5DCurrent2Dg( Propagator ):
 
         # parameters
         params_default = {'b': None,
-                          'epsilon': 0.01,
                           'u_space': 'Hdiv',
                           'b_eq': None,
                           'unit_b1': None,
@@ -1057,11 +1048,9 @@ class CurrentCoupling5DCurrent2Dg( Propagator ):
                           'maxiter': 3000,
                           'info': False,
                           'verbose': False,
-                          'nuh': 0.05,
                           'Ab': 1,
                           'Ah': 1,
-                          'Zh': 1,
-                          'kappa': 1.,
+                          'kappa': 100.,
                           'integrator':'explicit',
                           'method':'rk4'}
         
@@ -1074,7 +1063,7 @@ class CurrentCoupling5DCurrent2Dg( Propagator ):
             self._space_key_int = int(
                 self.derham.spaces_dict[params['u_space']])
 
-        self._epsilon = params['epsilon']
+        self._kappa = params['kappa']
         self._f0 = params['f0']
         assert isinstance(params['b'], (BlockVector, PolarVector))
         self._b = params['b']
@@ -1097,9 +1086,9 @@ class CurrentCoupling5DCurrent2Dg( Propagator ):
         self._verbose = params['verbose']
         self._rank = self.derham.comm.Get_rank()
 
-        self._coupling_vec = params['nuh'] * \
-            params['kappa'] * params['Zh'] / params['Ab']
-        self._scale_push = params['kappa'] * params['Zh'] / params['Ah']
+        self._coupling_mat = params['Ah'] / params['Ab'] * params['kappa']**2 
+        self._coupling_vec = params['Ah'] / params['Ab'] * params['kappa'] 
+        self._scale_push = 1*params['kappa']
 
         u_id = self.derham.spaces_dict[params['u_space']]
 
@@ -1182,7 +1171,7 @@ class CurrentCoupling5DCurrent2Dg( Propagator ):
         
         # ------------ initial guess of u ------------#
         # accumulate S*gradI
-        self._ACC_prepare.accumulate(self._particles, self._epsilon,
+        self._ACC_prepare.accumulate(self._particles, self._kappa,
                                      b_full[0]._data, b_full[1]._data, b_full[2]._data,
                                      self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                      self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
@@ -1211,7 +1200,7 @@ class CurrentCoupling5DCurrent2Dg( Propagator ):
 
         # initial guess of eta is stored in columns 0:3
         self._pusher._pusher(self._particles.markers, dt, 0, *self._pusher._args_fem, *self.domain.args_map,
-                             self._epsilon,
+                             self._kappa,
                              b_full[0]._data, b_full[1]._data, b_full[2]._data,
                              self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                              self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
@@ -1253,7 +1242,7 @@ class CurrentCoupling5DCurrent2Dg( Propagator ):
             gradI_const = (en_fB_loc - en_fB_old - accum_gradI_const_loc)/denominator
 
             # Accumulate
-            self._ACC.accumulate(self._particles, self._epsilon,
+            self._ACC.accumulate(self._particles, self._kappa,
                                  b_full[0]._data, b_full[1]._data, b_full[2]._data,
                                  self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                  self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
@@ -1297,7 +1286,7 @@ class CurrentCoupling5DCurrent2Dg( Propagator ):
             self._u_pusher.update_ghost_regions()
 
             self._pusher._pusher(self._particles.markers, dt, 0, *self._pusher._args_fem, *self.domain.args_map,
-                                 self._epsilon,
+                                 self._kappa,
                                  b_full[0]._data, b_full[1]._data, b_full[2]._data,
                                  self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                  self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
