@@ -853,7 +853,27 @@ class CurrentCoupling6DDensity(Propagator):
 
 
 class ShearAlfvénCurrentCoupling5D(Propagator):
-    r'''TODO
+    r'''Crank-Nicolson step for shear Alfvén part in LinearMHDDriftkineticCC,
+
+    .. math::
+
+        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf b^{n+1} - \mathbf b^n \end{bmatrix} 
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^\rho_\alpha)^{-1} \mathcal {T^\alpha}^\top \mathbb C^\top \\ - \mathbb C \mathcal {T^\alpha} (\mathbb M^\rho_\alpha)^{-1} & 0 \end{bmatrix} 
+        \begin{bmatrix} {\mathbb M^\rho_\alpha}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_2(\mathbf b^{n+1} + \mathbf b^n) + \mathcal{P}^{B\top} \sum_k^{N_p} \omega_k \mu_k \Lambda^0(\mathbf{\eta}_k) \ \end{bmatrix} ,
+
+    where :math:`\mathcal{P}^B = \hat \Pi^0 \left[ \frac{\hat b^1}{\sqrt g} \Lambda^2\right]`, :math:`\alpha \in \{1, 2, v\}` and :math:`\mathbb M^\rho_\alpha` is a weighted mass matrix in :math:`\alpha`-space, the weight being :math:`\rho_0`,
+    the MHD equilibirum density. The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
+
+    Parameters
+    ---------- 
+    u : psydac.linalg.block.BlockVector
+        FE coefficients of MHD velocity.
+
+    b : psydac.linalg.block.BlockVector
+        FE coefficients of magnetic field as 2-form.
+
+        **params : dict
+            Solver- and/or other parameters for this splitting step.
     '''
 
     def __init__(self, u, b, **params):
@@ -877,11 +897,9 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
                           'maxiter': 3000,
                           'info': False,
                           'verbose': False,
-                          'nuh': 0.05,
                           'Ab': 1,
                           'Ah': 1,
-                          'Zh': 1,
-                          'kappa': 1.}
+                          'kappa': 100}
 
         params = set_defaults(params, params_default)
 
@@ -901,7 +919,7 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
         self._verbose = params['verbose']
         self._rank = self.derham.comm.Get_rank()
 
-        self._coupling_const = params['nuh'] * params['kappa'] * params['Zh'] / params['Ab']
+        self._coupling_const = params['Ah'] / params['Ab']
 
         self._PB = getattr(self.basis_ops, 'PB')
         self._ACC = Accumulator(self.derham, self.domain, 'H1', 'cc_lin_mhd_5d_mu', add_vector=True)
@@ -1000,7 +1018,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._p = p
 
         # parameters
-        params_default = {'b' : None,
+        params_default = {'b' : self.derham.Vh['2'].zeros(),
                           'particles': None,
                           'u_space': 'Hdiv',
                           'unit_b1': None,
@@ -1011,11 +1029,9 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                           'maxiter': 3000,
                           'info': False,
                           'verbose': False,
-                          'nuh': 0.05,
                           'Ab': 1,
                           'Ah': 1,
-                          'Zh': 1,
-                          'kappa': 1.}
+                          'kappa': 100}
 
         params = set_defaults(params, params_default)
 
@@ -1043,8 +1059,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._info = params['info']
         self._rank = self.derham.comm.Get_rank()
 
-        # TODO
-        self._scale_vec = params['nuh'] * params['kappa'] * params['Zh'] / params['Ab']
+        self._scale_vec = params['Ah'] / params['Ab']
 
         self._ACC = Accumulator(self.derham, self.domain,
                                 params['u_space'], 'cc_lin_mhd_5d_M', add_vector=True)
@@ -1104,7 +1119,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
 
     @property
     def variables(self):
-        return [self._n, self._u, self._p, self._b]
+        return [self._n, self._u, self._p]
     
     def __call__(self, dt):
 
@@ -1112,7 +1127,6 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         nn = self.variables[0]
         un = self.variables[1]
         pn = self.variables[2]
-        bn = self.variables[3]
 
         # accumulate
         self._ACC.accumulate(self._particles,
@@ -1122,8 +1136,8 @@ class MagnetosonicCurrentCoupling5D(Propagator):
 
         # solve for new u coeffs
         self._B.dot(pn, out=self._byn1)
-        self._MJ.dot(bn, out=self._byn2)
-        self._byn2 += self._ACC.vectors[0]
+        self._MJ.dot(self._b, out=self._byn2)
+        self._byn2 -= self._ACC.vectors[0]
         self._byn2 *= 1/2
         self._byn1 -= self._byn2
         
@@ -1139,14 +1153,11 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._DQ.dot(self._u_tmp2, out=self._n_tmp1)
         self._n_tmp1 *= -dt/2
         self._n_tmp1 += nn
-
-        bn.copy(out=self._b_tmp1)
         
         # write new coeffs into self.variables
-        max_dn, max_du, max_dp, max_db = self.in_place_update(self._n_tmp1,
-                                                              self._u_tmp1,
-                                                              self._p_tmp1,
-                                                              self._b_tmp1)
+        max_dn, max_du, max_dp = self.in_place_update(self._n_tmp1,
+                                                      self._u_tmp1,
+                                                      self._p_tmp1)
 
         if self._info and self._rank == 0:
             print('Status     for Magnetosonic:', info['success'])
@@ -1154,5 +1165,4 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             print('Maxdiff n3 for Magnetosonic:', max_dn)
             print('Maxdiff up for Magnetosonic:', max_du)
             print('Maxdiff p3 for Magnetosonic:', max_dp)
-            print('Maxdiff b2 for Magnetosonic:', max_db)
             print()

@@ -2668,7 +2668,7 @@ def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
                             p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                             ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                             cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                            epsilon: float,
+                            kappa: float,
                             b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                             norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                             norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
@@ -2679,9 +2679,11 @@ def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
 
     .. math::
 
-        \dot{\mathbf H}_p = \frac{\epsilon \mu_p}{|B^*_{p,\parallel}|}  G_p^{-1} \mathbb{b}_{p,0, \otimes}G_p^{-1} \hat \nabla |\hat B^0_{p,0}| \,,
+        \dot{\mathbf X} &= \frac{\mu}{\kappa B^*_\parallel}  G^{-1}(\eta_p(t)) \hat{\mathbb{b}}^2_0 \times G^{-1}(\eta_p(t)) \hat \nabla |\mathcal{P}^B \hat{\mathbb{B}}^2| \,,
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant.
+        \dot v_\parallel &= 0 \,.
+
+    for each marker :math:`p` in markers array.
     '''
 
     # allocate metric coeffs
@@ -2797,7 +2799,7 @@ def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
         curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # transform to H1vec
-        b_star[:] = bb + epsilon*v*curl_norm_b
+        b_star[:] = bb + 1/kappa*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -2811,7 +2813,7 @@ def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
         linalg.matrix_vector(g_inv, temp2, temp1)
 
         # calculate k
-        k[:] = epsilon*mu/abs_b_star_para*temp1
+        k[:] = 1/kappa*mu/abs_b_star_para*temp1
 
         # accumulation for last stage
         markers[ip, 13:16] += dt*b[stage]*k
@@ -2820,7 +2822,6 @@ def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
         markers[ip, 0:3] = markers[ip, 9:12] + \
             dt*a[stage]*k + last*markers[ip, 13:16]
 
-
 def push_gc2_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
                             pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                             starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -2828,7 +2829,7 @@ def push_gc2_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
                             p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                             ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                             cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                            epsilon: float,
+                            kappa: float,
                             b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                             norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                             norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
@@ -2940,7 +2941,7 @@ def push_gc2_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
         curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # transform to H1vec
-        b_star[:] = bb + epsilon*v*curl_norm_b
+        b_star[:] = bb + 1/kappa*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -2963,7 +2964,6 @@ def push_gc2_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
         markers[ip, 3] = markers[ip, 12] + dt * \
             a[stage]*k_v + last*markers[ip, 16]
 
-
 def push_gc_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -2971,7 +2971,7 @@ def push_gc_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                           epsilon: float,
+                           kappa: float,
                            b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                            norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                            norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
@@ -3103,7 +3103,7 @@ def push_gc_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
         curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # transform to H1vec
-        b_star[:] = bb + epsilon*v*curl_norm_b
+        b_star[:] = bb + 1/kappa*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -3117,7 +3117,7 @@ def push_gc_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
         linalg.matrix_vector(g_inv, temp2, temp3)
 
         # calculate k
-        k[:] = (epsilon*mu*temp3 + b_star*v)/abs_b_star_para
+        k[:] = (1/kappa*mu*temp3 + b_star*v)/abs_b_star_para
 
         # calculate k_v for v
         temp = linalg.scalar_dot(b_star, grad_abs_b)
@@ -3142,7 +3142,7 @@ def push_gc1_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, to
                                 p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                 ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                 cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                epsilon: float,
+                                kappa: float,
                                 abs_b: 'float[:,:,:]',
                                 b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                 norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -3255,7 +3255,7 @@ def push_gc2_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, to
                                 p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                 ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                 cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                epsilon: float,
+                                kappa: float,
                                 abs_b: 'float[:,:,:]',
                                 b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                 norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -3358,7 +3358,7 @@ def push_gc1_discrete_gradients_faster(markers: 'float[:,:]', dt: float, stage: 
                                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                       epsilon: float,
+                                       kappa: float,
                                        abs_b: 'float[:,:,:]',
                                        b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                        norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -3470,7 +3470,7 @@ def push_gc2_discrete_gradients_faster(markers: 'float[:,:]', dt: float, stage: 
                                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                       epsilon: float,
+                                       kappa: float,
                                        abs_b: 'float[:,:,:]',
                                        b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                        norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -3573,7 +3573,7 @@ def push_gc_cc_J1_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                       epsilon: float,
+                       kappa: float,
                        b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                        norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                        curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
@@ -3660,7 +3660,7 @@ def push_gc_cc_J1_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # b_star; 2form in H1vec
-        b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
+        b_star[:] = (b + curl_norm_b*v/kappa)/det_df
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
@@ -3680,7 +3680,7 @@ def push_gc_cc_J1_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                       epsilon: float,
+                       kappa: float,
                        b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                        norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                        curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
@@ -3776,7 +3776,7 @@ def push_gc_cc_J1_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
         curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # b_star; 2form in H1vec
-        b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
+        b_star[:] = (b + curl_norm_b*v/kappa)/det_df
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
@@ -3799,7 +3799,7 @@ def push_gc_cc_J1_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                       epsilon: float,
+                       kappa: float,
                        b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                        norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                        curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
@@ -3886,7 +3886,7 @@ def push_gc_cc_J1_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
         curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # b_star; 2form in H1vec
-        b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
+        b_star[:] = (b + curl_norm_b*v/kappa)/det_df
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
@@ -3909,7 +3909,7 @@ def push_gc_cc_J2_dg_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                       epsilon: float,
+                       kappa: float,
                        b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                        norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                        norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
@@ -4027,7 +4027,7 @@ def push_gc_cc_J2_dg_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         norm_b2_prod[2, 1] = +norm_b2[0]
 
         # b_star; 2form in H1vec
-        b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
+        b_star[:] = (b + curl_norm_b*v/kappa)/det_df
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
@@ -4047,7 +4047,7 @@ def push_gc_cc_J2_dg_faster_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                       epsilon: float,
+                       kappa: float,
                        b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                        norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                        norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
@@ -4114,7 +4114,7 @@ def push_gc_cc_J2_dg_faster_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                       epsilon: float,
+                       kappa: float,
                        b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                        norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                        norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
@@ -4181,7 +4181,7 @@ def push_gc_cc_J2_dg_faster_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                       epsilon: float,
+                       kappa: float,
                        b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                        norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                        norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
@@ -4248,7 +4248,7 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                       epsilon: float,
+                       kappa: float,
                        b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                        norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                        norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
@@ -4375,7 +4375,7 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         norm_b2_prod[2, 1] = +norm_b2[0]
 
         # b_star; 2form in H1vec
-        b_star[:] = (bb + curl_norm_b*v*epsilon)/det_df
+        b_star[:] = (bb + curl_norm_b*v/kappa)/det_df
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)

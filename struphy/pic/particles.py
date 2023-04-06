@@ -644,7 +644,7 @@ class Particles5D(Particles):
 
 
     # temporary function. Will be removed.
-    def transform_6D_to_5D(self, epsilon, derham, b_cart):
+    def transform_6D_to_5D(self, kappa, derham, b_cart):
         r"""
         Calculate magnetic moment of each particles :math:`\mu = \frac{m v_\perp^2}{2B}` and asign it into markers[:,4].
         """
@@ -652,7 +652,7 @@ class Particles5D(Particles):
 
         T1, T2, T3 = derham.Vh_fem['0'].knots
 
-        transform_6D_to_5D(self._markers, epsilon,
+        transform_6D_to_5D(self._markers, kappa,
                            np.array(derham.p), T1, T2, T3,
                            np.array(derham.Vh['0'].starts),
                            b_cart[0]._data, b_cart[1]._data, b_cart[2]._data)

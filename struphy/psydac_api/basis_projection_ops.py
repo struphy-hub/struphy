@@ -633,7 +633,7 @@ class BasisProjectionOperators:
             fun = [[]]
             for m in range(3):
                 fun[-1] += [lambda e1, e2, e3,
-                            m=m: self.weights['eq_mhd'].b1(e1, e2, e3)[m] / self.sqrt_g(e1, e2, e3)]
+                            m=m: self.weights['eq_mhd'].unit_b1(e1, e2, e3)[m] / self.sqrt_g(e1, e2, e3)]
 
             self._PB = self.assemble_basis_projection_operator(
                 fun, 'Hdiv', 'H1')

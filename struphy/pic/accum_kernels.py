@@ -1187,7 +1187,7 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
                      vec1: 'float[:,:,:]',
                      vec2: 'float[:,:,:]',
                      vec3: 'float[:,:,:]',
-                     epsilon: float,    # model specific argument
+                     kappa: float,    # model specific argument
                      b1: 'float[:,:,:]',          # model specific argument
                      b2: 'float[:,:,:]',          # model specific argument 
                      b3: 'float[:,:,:]',          # model specific argument 
@@ -1312,7 +1312,7 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
         curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # b_star; 2form in H1vec
-        b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
+        b_star[:] = (b + curl_norm_b*v/kappa)/det_df
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
@@ -1432,7 +1432,7 @@ def cc_lin_mhd_5d_J2_dg(markers: 'float[:,:]', n_markers_tot: 'int',
                     vec1: 'float[:,:,:]',
                     vec2: 'float[:,:,:]',
                     vec3: 'float[:,:,:]',
-                    epsilon: float,               # model specific argument
+                    kappa: float,               # model specific argument
                     b1: 'float[:,:,:]',           # model specific argument
                     b2: 'float[:,:,:]',           # model specific argument
                     b3: 'float[:,:,:]',           # model specific argument
@@ -1557,10 +1557,10 @@ def cc_lin_mhd_5d_J2_dg(markers: 'float[:,:]', n_markers_tot: 'int',
         grad_PB[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
 
         #TODO:check
-        grad_PB *= epsilon
+        grad_PB /= kappa
 
         # b_star; 2form transformed into H1vec
-        b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
+        b_star[:] = (b + curl_norm_b*v/kappa)/det_df
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
@@ -1654,7 +1654,7 @@ def cc_lin_mhd_5d_J2_dg_prepare(markers: 'float[:,:]', n_markers_tot: 'int',
                              vec1: 'float[:,:,:]',
                              vec2: 'float[:,:,:]',
                              vec3: 'float[:,:,:]',
-                             epsilon: float,    # model specific argument
+                             kappa: float,    # model specific argument
                              b1: 'float[:,:,:]',   # model specific argument
                              b2: 'float[:,:,:]',   # model specific argument
                              b3: 'float[:,:,:]',   # model specific argument
@@ -1804,10 +1804,10 @@ def cc_lin_mhd_5d_J2_dg_prepare(markers: 'float[:,:]', n_markers_tot: 'int',
         grad_PB[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
 
         #TODO:check
-        grad_PB *= epsilon
+        grad_PB /= kappa
 
         # b_star; 2form transformed into H1vec
-        b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
+        b_star[:] = (b + curl_norm_b*v/kappa)/det_df
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
@@ -1897,7 +1897,7 @@ def cc_lin_mhd_5d_J2_dg_faster(markers: 'float[:,:]', n_markers_tot: 'int',
                     vec1: 'float[:,:,:]',
                     vec2: 'float[:,:,:]',
                     vec3: 'float[:,:,:]',
-                    epsilon: float,               # model specific argument
+                    kappa: float,               # model specific argument
                     b1: 'float[:,:,:]',           # model specific argument
                     b2: 'float[:,:,:]',           # model specific argument
                     b3: 'float[:,:,:]',           # model specific argument
@@ -1969,7 +1969,7 @@ def cc_lin_mhd_5d_J2_dg_faster(markers: 'float[:,:]', n_markers_tot: 'int',
         grad_PB[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
 
         #TODO:check
-        grad_PB *= epsilon
+        grad_PB /= kappa
 
         tmp[:,:] = ((markers[ip, 18], markers[ip, 19], markers[ip, 20]),
                     (markers[ip, 19], markers[ip, 21], markers[ip, 22]),
@@ -2039,7 +2039,7 @@ def cc_lin_mhd_5d_J2_dg_prepare_faster(markers: 'float[:,:]', n_markers_tot: 'in
                              vec1: 'float[:,:,:]',
                              vec2: 'float[:,:,:]',
                              vec3: 'float[:,:,:]',
-                             epsilon: float,    # model specific argument
+                             kappa: float,    # model specific argument
                              b1: 'float[:,:,:]',   # model specific argument
                              b2: 'float[:,:,:]',   # model specific argument
                              b3: 'float[:,:,:]',   # model specific argument
@@ -2189,10 +2189,10 @@ def cc_lin_mhd_5d_J2_dg_prepare_faster(markers: 'float[:,:]', n_markers_tot: 'in
         grad_PB[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
 
         #TODO:check
-        grad_PB *= epsilon
+        grad_PB /= kappa
 
         # b_star; 2form transformed into H1vec
-        b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
+        b_star[:] = (b + curl_norm_b*v/kappa)/det_df
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
@@ -2294,7 +2294,15 @@ def cc_lin_mhd_5d_mu(markers: 'float[:,:]', n_markers_tot: 'int',
                      vec: 'float[:,:,:]',
                      coupling_const: 'float'):
     
-    r"""TODO
+    r"""Accumulates into V0 with the filling functions
+
+    .. math::
+
+        A_p= w_p * \mu_p \,.
+
+    Parameters
+    ----------
+
     """
     bn1 = empty(pn[0] + 1, dtype=float)
     bn2 = empty(pn[1] + 1, dtype=float)
@@ -2446,14 +2454,6 @@ def cc_lin_mhd_5d_M(markers: 'float[:,:]', n_markers_tot: 'int',
         curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
         curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
-        # operator bx() as matrix
-        b_prod[0, 1] = -b[2]
-        b_prod[0, 2] = +b[1]
-        b_prod[1, 0] = +b[2]
-        b_prod[1, 2] = -b[0]
-        b_prod[2, 0] = -b[1]
-        b_prod[2, 1] = +b[0]
-
         linalg.cross(curl_norm_b, b, tmp_v1)
         tmp_v1 /= det_df
 
@@ -2511,7 +2511,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
                     vec1: 'float[:,:,:]',
                     vec2: 'float[:,:,:]',
                     vec3: 'float[:,:,:]',
-                    epsilon: float,    # model specific argument
+                    kappa: float,    # model specific argument
                     b1: 'float[:,:,:]',   # model specific argument
                     b2: 'float[:,:,:]',   # model specific argument
                     b3: 'float[:,:,:]',   # model specific argument
@@ -2665,10 +2665,10 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
         grad_PB[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
 
         #TODO:check
-        grad_PB *= epsilon
+        grad_PB /= kappa
         
         # b_star; 2form transformed into H1vec
-        b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
+        b_star[:] = (b + curl_norm_b*v/kappa)/det_df
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)

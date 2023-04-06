@@ -863,7 +863,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         &\frac{\partial \tilde n}{\partial t}+\nabla\cdot(n_0 \tilde{\mathbf{U}})=0\,, 
         \\
         n_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p
-        =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf J_0 \times \tilde{\mathbf{B}} \color{blue} + \frac{A_\textnormal{h}}{A_\textnormal{b}}\kappa \,(n_\textnormal{h} \tilde{\mathbf{U}} - \mathbf{J}_\textnormal{gc} - \nabla \times \mathbf{M}_\textnormal{gc}) \times (\mathbf{B}_0 + \tilde{\mathbf{B}}) \color{black}\,,
+        =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf J_0 \times \tilde{\mathbf{B}} \color{blue} + \frac{A_\textnormal{h}}{A_\textnormal{b}}\kappa \,(n_\textnormal{h} \tilde{\mathbf{U}} - \mathbf{J}_\textnormal{gc} - \frac{1}{\kappa}\nabla \times \mathbf{M}_\textnormal{gc}) \times (\mathbf{B}_0 + \tilde{\mathbf{B}}) \color{black}\,,
         \\
         &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
         + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,, 
@@ -970,23 +970,29 @@ class LinearMHDDriftkineticCC(StruphyModel):
         solver_params_4 = params['solvers']['solver_4']
         solver_params_5 = params['solvers']['solver_5']
 
-        # model units
-        L   = params['model_units']['x']
-        B   = params['model_units']['B']
-        nb  = params['model_units']['nb']
-        nuh = params['model_units']['nuh']*0.01
-        Ab  = params['model_units']['Ab']
-        Ah  = params['model_units']['Ah']
-        Zh  = params['model_units']['Zh']
-
-        kappa = 1.602176634e-19*L * \
-            np.sqrt(1.25663706212e-6*Ab*nb*1e20/1.67262192369e-27)
-
+        # compute coupling parameter kappa
+        units_basic, units_der, units_dimless = self.model_units(params, verbose=False)
+        
+        ee = 1.602176634e-19 # elementary charge (C)
+        mH = 1.67262192369e-27 # proton mass (kg)
+        
+        Ab = params['fluid']['mhd']['phys_params']['A']
+        Zb = params['fluid']['mhd']['phys_params']['Z']
+        Ah = params['kinetic']['energetic_ions']['phys_params']['A']
+        Zh = params['kinetic']['energetic_ions']['phys_params']['Z']
+        
+        omega_ch = (Zh*ee**units_basic['B'])/(Ah*mH)
+        kappa = omega_ch*units_basic['t']
+        
         if abs(kappa - 1) < 1e-6:
             kappa = 1.
 
-        self._coupling_params = {'nuh': nuh, 'Ab': Ab,
-                                 'Ah': Ah, 'Zh': Zh, 'kappa': kappa}
+        print('kappa', kappa)
+        
+        self._coupling_params = {}
+        self._coupling_params['Ab'] = Ab
+        self._coupling_params['Ah'] = Ah
+        self._coupling_params['kappa'] = kappa
 
         # background distribution function used as control variate
         if params['kinetic']['energetic_ions']['markers']['type'] == 'control_variate':
@@ -1021,7 +1027,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                                                 self.mhd_equil.b_cart_3])                   
 
         # Transform 6D to 5D
-        self._e_ions.transform_6D_to_5D(epsilon, self.derham, self._b_cart)
+        self._e_ions.save_magnetic_moment(self.derham, self._b_cart)
 
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.
@@ -1041,69 +1047,67 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-        # updates u and b
-        self._propagators += [propagators_fields.ShearAlfvénCurrentCoupling5D(
-            self._u,
-            self._b,
-            particles=self._e_ions,
-            b_eq=self._b_eq,
-            f0=f0,
-            u_space=self._u_space,
-            **solver_params_1,
-            **self._coupling_params)]
-        # updates u and p
-        self._propagators += [propagators_fields.MagnetosonicCurrentCoupling5D(
-            self._n,
-            self._u,
-            self._p,
-            b=self._b,
-            particles=self._e_ions,
-            unit_b1=self._unit_b1,
-            f0=f0,
-            u_space=self._u_space,
-            **solver_params_2,
-            **self._coupling_params)] 
-        # update H       
-        self._propagators += [propagators_markers.StepPushDriftKinetic1(
-            self._e_ions,
-            epsilon=epsilon,
-            b=self._b,
-            b_eq=self._b_eq, 
-            unit_b1=self._unit_b1, 
-            unit_b2=self._unit_b2, 
-            abs_b=self._abs_b,
-            integrator=ions_params['push_algos']['integrator'],
-            method=ions_params['push_algos']['method'],
-            maxiter=ions_params['push_algos']['maxiter'],
-            tol=ions_params['push_algos']['tol'])]
-        # update H and v parallel
-        self._propagators += [propagators_markers.StepPushDriftKinetic2(
-            self._e_ions,
-            epsilon=epsilon,
-            b=self._b,
-            b_eq=self._b_eq, 
-            unit_b1=self._unit_b1, 
-            unit_b2=self._unit_b2, 
-            abs_b=self._abs_b,
-            method=ions_params['push_algos']['method'],
-            integrator=ions_params['push_algos']['integrator'],
-            maxiter=ions_params['push_algos']['maxiter'],
-            tol=ions_params['push_algos']['tol'])]        
-        self._propagators += [propagators_coupling.CurrentCoupling5DCurrent1(
-            self._e_ions,
-            self._u, 
-            epsilon=epsilon,
-            b=self._b,
-            b_eq=self._b_eq,
-            unit_b1=self._unit_b1,
-            f0=f0, 
-            u_space=self._u_space, 
-          **solver_params_3,
-          **self._coupling_params)]
+        # # updates u and b
+        # self._propagators += [propagators_fields.ShearAlfvénCurrentCoupling5D(
+        #     self._u,
+        #     self._b,
+        #     particles=self._e_ions,
+        #     b_eq=self._b_eq,
+        #     f0=f0,
+        #     u_space=self._u_space,
+        #     **solver_params_1,
+        #     **self._coupling_params)]
+        # # updates u and p
+        # self._propagators += [propagators_fields.MagnetosonicCurrentCoupling5D(
+        #     self._n,
+        #     self._u,
+        #     self._p,
+        #     b=self._b,
+        #     particles=self._e_ions,
+        #     unit_b1=self._unit_b1,
+        #     f0=f0,
+        #     u_space=self._u_space,
+        #     **solver_params_2,
+        #     **self._coupling_params)] 
+        # # update H       
+        # self._propagators += [propagators_markers.StepPushDriftKinetic1(
+        #     self._e_ions,
+        #     kappa=kappa,
+        #     b=self._b,
+        #     b_eq=self._b_eq, 
+        #     unit_b1=self._unit_b1, 
+        #     unit_b2=self._unit_b2, 
+        #     abs_b=self._abs_b,
+        #     integrator=ions_params['push_algos']['integrator'],
+        #     method=ions_params['push_algos']['method'],
+        #     maxiter=ions_params['push_algos']['maxiter'],
+        #     tol=ions_params['push_algos']['tol'])]
+        # # update H and v parallel
+        # self._propagators += [propagators_markers.StepPushDriftKinetic2(
+        #     self._e_ions,
+        #     kappa=kappa,
+        #     b=self._b,
+        #     b_eq=self._b_eq, 
+        #     unit_b1=self._unit_b1, 
+        #     unit_b2=self._unit_b2, 
+        #     abs_b=self._abs_b,
+        #     method=ions_params['push_algos']['method'],
+        #     integrator=ions_params['push_algos']['integrator'],
+        #     maxiter=ions_params['push_algos']['maxiter'],
+        #     tol=ions_params['push_algos']['tol'])]        
+        # self._propagators += [propagators_coupling.CurrentCoupling5DCurrent1(
+        #     self._e_ions,
+        #     self._u, 
+        #     b=self._b,
+        #     b_eq=self._b_eq,
+        #     unit_b1=self._unit_b1,
+        #     f0=f0, 
+        #     u_space=self._u_space, 
+        #   **solver_params_3,
+        #   **self._coupling_params)]
         self._propagators += [propagators_coupling.CurrentCoupling5DCurrent2(
             self._e_ions,
             self._u,
-            epsilon=epsilon,
             b=self._b, 
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
@@ -1113,15 +1117,15 @@ class LinearMHDDriftkineticCC(StruphyModel):
             u_space=self._u_space, 
           **solver_params_4,
           **self._coupling_params)]
-        self._propagators += [propagators_fields.CurrentCoupling6DDensity(
-            self._u,
-            particles=self._e_ions,
-            u_space=self._u_space,
-            b_eq=self._b_eq,
-            b_tilde=self._b,
-            f0=f0,
-            **solver_params_5,
-            **self._coupling_params)]
+        # self._propagators += [propagators_fields.CurrentCoupling6DDensity(
+        #     self._u,
+        #     particles=self._e_ions,
+        #     u_space=self._u_space,
+        #     b_eq=self._b_eq,
+        #     b_tilde=self._b,
+        #     f0=f0,
+        #     **solver_params_5,
+        #     **self._coupling_params)]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
@@ -1163,13 +1167,13 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._scalar_quantities['en_p'][0] = self._p.toarray().sum()/(5/3 - 1)
         self._scalar_quantities['en_B'][0] = self._b.dot(self._mass_ops.M2.dot(self._b))/2
 
-        self._en_fv_loc = self._coupling_params['nuh'] * self._e_ions.markers[~self._e_ions.holes, 6].dot(self._e_ions.markers[~self._e_ions.holes, 3]**2) / (2*self._e_ions.n_mks)
+        self._en_fv_loc = self._e_ions.markers[~self._e_ions.holes, 6].dot(self._e_ions.markers[~self._e_ions.holes, 3]**2) / (2*self._e_ions.n_mks)
         self.derham.comm.Reduce(self._en_fv_loc, self._scalar_quantities['en_fv'], op=self._mpi_sum, root=0)
 
         # calculate particle magnetic energy
         self._e_ions.save_magnetic_energy(self._derham, self._prop.basis_ops.PB.dot(self._b + self._b_eq))
 
-        self._en_fB_loc = self._coupling_params['nuh'] * self._e_ions.markers[~self._e_ions.holes, 6].dot(self._e_ions.markers[~self._e_ions.holes, 5])/self._e_ions.n_mks
+        self._en_fB_loc = self._e_ions.markers[~self._e_ions.holes, 6].dot(self._e_ions.markers[~self._e_ions.holes, 5])/self._e_ions.n_mks
         self.derham.comm.Reduce(self._en_fB_loc, self._scalar_quantities['en_fB'], op=self._mpi_sum, root=0)
 
 
@@ -1675,19 +1679,19 @@ class DriftKinetic(StruphyModel):
 
     .. math::
 
-        \frac{\hat \omega}{\hat k} = \hat v = v_{\textnormal{th}}:= \sqrt{\frac{k_\textnormal{B} T}{A m_\textnormal{H}}}\,,\qquad \frac{\hat E^*}{\hat B} = \frac{\hat v}{\kappa}\,.
+        \frac{\hat B}{\sqrt{A_\textnormal{b} m_\textnormal{H} \hat n \mu_0}} =: \hat v_\textnormal{A} = \frac{\hat \omega}{\hat k}
     
     Implemented equations:
 
     .. math::
 
-        \frac{\partial f}{\partial t} + \left[ v_\parallel \frac{\mathbf{B}^*}{B^*_\parallel} + \frac{1}{\kappa} \frac{\mathbf{E}^* \times \mathbf{b}_0}{B^*_\parallel}\right] \cdot \frac{\partial f}{\partial \mathbf{X}} + \left[ \frac{\mathbf{B}^*}{B^*_\parallel} \cdot \mathbf{E}^*\right] \cdot \frac{\partial f}{\partial v_\parallel} = 0\,.
+        \frac{\partial f}{\partial t} + \left[ v_\parallel \frac{\mathbf{B}^*}{B^*_\parallel} + \frac{\mathbf{E}^* \times \mathbf{b}_0}{B^*_\parallel}\right] \cdot \frac{\partial f}{\partial \mathbf{X}} + \left[ \frac{\mathbf{B}^*}{B^*_\parallel} \cdot \mathbf{E}^*\right] \cdot \frac{\partial f}{\partial v_\parallel} = 0\,.
 
     where :math:`f(\mathbf{X}, v_\parallel, \mu, t)` is the guiding center distribution and 
 
     .. math::
 
-        \mathbf{E}^* = - \mu \nabla |B_0| \,,  \qquad \mathbf{B}^* = \mathbf{B}_0 + \frac{1}{\kappa} v_\parallel \nabla \times \mathbf{b}_0 \,,\qquad B^*_\parallel = \mathbf B^* \cdot \mathbf b_0  \,.
+        \mathbf{E}^* = - \frac{\mu}{\kappa} \nabla |B_0| \,,  \qquad \mathbf{B}^* = \mathbf{B}_0 + \frac{1}{\kappa} v_\parallel \nabla \times \mathbf{b}_0 \,,\qquad B^*_\parallel = \mathbf B^* \cdot \mathbf b_0  \,.
 
     Moreover, 
     
@@ -1724,34 +1728,49 @@ class DriftKinetic(StruphyModel):
         self._ions = self.kinetic['ions']['obj']
         ions_params = self.kinetic['ions']['params']
 
-        # guiding center asymptotic parameter (rhostar)
-        epsilon = .002 # TODO
-
         # project magnetic background
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
-                                self.mhd_equil.b2_2,
-                                self.mhd_equil.b2_3])
+                                         self.mhd_equil.b2_2,
+                                         self.mhd_equil.b2_3])
 
         self._abs_b = self.derham.P['0'](self.mhd_equil.absB0)
 
         self._unit_b1 = self.derham.P['1']([self.mhd_equil.unit_b1_1,
-                                      self.mhd_equil.unit_b1_2,
-                                      self.mhd_equil.unit_b1_3])
+                                            self.mhd_equil.unit_b1_2,
+                                            self.mhd_equil.unit_b1_3])
 
         self._unit_b2 = self.derham.P['2']([self.mhd_equil.unit_b2_1,
-                                      self.mhd_equil.unit_b2_2,
-                                      self.mhd_equil.unit_b2_3])
+                                            self.mhd_equil.unit_b2_2,
+                                            self.mhd_equil.unit_b2_3])
 
         self._b_cart = self.derham.P['v']([self.mhd_equil.b_cart_1,
-                                                self.mhd_equil.b_cart_2,
-                                                self.mhd_equil.b_cart_3])
+                                           self.mhd_equil.b_cart_2,
+                                           self.mhd_equil.b_cart_3])
 
         self._E0T = self.derham.E['0'].transpose()
         self._EvT = self.derham.E['v'].transpose()
         self._b_cart = self._EvT.dot(self._b_cart)                   
 
+        # compute coupling parameter kappa
+        units_basic, units_der, units_dimless = self.model_units(params, verbose=False)
+
+        ee = 1.602176634e-19 # elementary charge (C)
+        mH = 1.67262192369e-27 # proton mass (kg)
+
+        Ah = params['kinetic']['ions']['phys_params']['A']
+        Zh = params['kinetic']['ions']['phys_params']['Z']
+        
+        omega_ch = (Zh*ee**units_basic['B'])/(Ah*mH)
+        kappa = omega_ch*units_basic['t']
+
+        if abs(kappa - 1) < 1e-6:
+            kappa = 1.
+
+        print('kappa:', kappa)
+
         # Transform 6D to 5D
-        self._ions.transform_6D_to_5D(epsilon, self.derham, self._b_cart)
+        self._ions.save_magnetic_moment(self.derham, self._b_cart)
+        #self._ions.transform_6D_to_5D(kappa, self.derham, self._b_cart)
 
         # set propagators base class attributes
         Propagator.derham = self.derham
@@ -1761,7 +1780,7 @@ class DriftKinetic(StruphyModel):
         self._propagators = []
         self._propagators += [propagators_markers.StepPushGuidingCenter1(
             self._ions,
-            epsilon=epsilon,
+            kappa=kappa,
             b_eq=self._b_eq, 
             unit_b1=self._unit_b1, 
             unit_b2=self._unit_b2, 
@@ -1772,7 +1791,7 @@ class DriftKinetic(StruphyModel):
             tol=ions_params['push_algos']['tol'])]
         self._propagators += [propagators_markers.StepPushGuidingCenter2(
             self._ions,
-            epsilon=epsilon,
+            kappa=kappa,
             b_eq=self._b_eq, 
             unit_b1=self._unit_b1, 
             unit_b2=self._unit_b2, 
