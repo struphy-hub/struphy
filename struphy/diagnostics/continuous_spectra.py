@@ -1,15 +1,10 @@
-import numpy as np
-
-import struphy.b_splines.bsplines as bsp
-
-
 def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol, comp_sound):
     """
     Get the eigenfrequencies omega^2/omega_A^2 in the range (0, 1) sorted by shear Alfvén modes and slow sound modes.
     
     Parameters
     ----------
-    space : struphy object
+    space : struphy.eigenvalue_solvers.spline_space.Tensor_spline_space
         2d finite element B-spline space.
         
     domain : struphy.geometry.base.Domain
@@ -35,12 +30,16 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
         
     Returns
     -------
-        a_spec : list of 2d numpy arrays
-            the radial location a_spec[m][0], squared eigenfrequencis a_spec[m][1] and global mode index a_spec[m][2] corresponding to shear Alfvén modes for each poloidal mode number m in m_range.
-            
-        s_spec : list of 2d numpy arrays
-            the radial location s_spec[m][0], squared eigenfrequencis s_spec[m][1] and global mode index s_spec[m][2] corresponding to slow sound modes for each poloidal mode number m in m_range.
+    a_spec : list of 2d numpy arrays
+        the radial location a_spec[m][0], squared eigenfrequencis a_spec[m][1] and global mode index a_spec[m][2] corresponding to shear Alfvén modes for each poloidal mode number m in m_range.
+
+    s_spec : list of 2d numpy arrays
+        the radial location s_spec[m][0], squared eigenfrequencis s_spec[m][1] and global mode index s_spec[m][2] corresponding to slow sound modes for each poloidal mode number m in m_range.
     """
+    
+    import numpy as np
+
+    import struphy.b_splines.bsplines as bsp
     
     # greville points in radial direction (s)
     gN_1 = bsp.greville(space.T[0], space.p[0]    , space.spl_kind[0])
@@ -154,31 +153,75 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
 # command line interface
 if __name__ == '__main__':
     
-    import sys, yaml, shutil, glob
+    import numpy as np
+    import os, yaml, shutil, glob
     import argparse
     
     # parse arguments
     parser = argparse.ArgumentParser(description='Looks for eigenmodes in a given MHD eigenspectrum in a certain poloidal mode number range and plots the continuous shear Alfvén and slow sound spectra (frequency versus radial-like coordinate).')
     
-    parser.add_argument('path', type=str, help='the directory (relative to relative to <install_path>/struphy) containing the parameter .yml file and a single .npy eigenspectrum (must end without "/")')
-    parser.add_argument('m_l_alfvén', type=int, help='the lower bound of poloidal mode numbers that shall be identified for Alfvénic modes')
-    parser.add_argument('m_u_alfvén', type=int, help='the upper bound of poloidal mode numbers that shall be identified for Alfvénic modes')
-    parser.add_argument('m_l_sound', type=int, help='the lower bound of poloidal mode numbers that shall be identified for slow sound modes')
-    parser.add_argument('m_u_sound', type=int, help='the upper bound of poloidal mode numbers that shall be identified for slow sound modes')
-    parser.add_argument('div_tol', type=float, help='threshold for the maximum divergence of an eigenmode below which it is considered to be an Alfvénic mode (typically < 0.1)')
-    parser.add_argument('comp_sound', type=int, help='the component that is used for the slow sound mode analysis (2 : 2nd component or 3 : 3rd component)')
+    parser.add_argument('m_l_alfvén', 
+                        type=int,
+                        help='lower bound of poloidal mode number range for Alfvénic modes')
+    
+    parser.add_argument('m_u_alfvén', 
+                        type=int, 
+                        help='upper bound of poloidal mode number range for Alfvénic modes')
+    
+    parser.add_argument('m_l_sound', 
+                        type=int, 
+                        help='lower bound of poloidal mode number range for slow sound modes')
+    
+    parser.add_argument('m_u_sound', 
+                        type=int, 
+                        help='upper bound of poloidal mode number range for slow sound modes')
+    
+    parser.add_argument('-n', '--name', 
+                        type=str,
+                        metavar='FILE',
+                        help='name of .npy file to analyze',
+                        required=True)
+    
+    parser.add_argument('-i', '--input',
+                        type=str,
+                        metavar='DIR',
+                        help='directory with eigenspectrum (.npy) and parameter (.yml) file, relative to <install_path>/struphy/io/out/ (default=sim_1)',
+                        default='sim_1')
+
+    parser.add_argument('--input-abs',
+                        type=str,
+                        metavar='DIR',
+                        help='directory with eigenspectrum (.npy) and parameter (.yml) file, absolute path')
+    
+    parser.add_argument('-t', '--tol', 
+                        type=float,
+                        metavar='tol',
+                        help='threshold for the maximum divergence of an eigenmode below which it is considered to be an Alfvénic mode (default=0.05)',
+                        default=0.05)
+    
+    parser.add_argument('-c', '--comp-sound', 
+                        type=int,
+                        metavar='n',
+                        help='the component that is used for the slow sound mode analysis (2 : 2nd component or 3 : 3rd component, default=3)',
+                        default=3)
 
     args = parser.parse_args()
-    args_dict = vars(args)
     
-    # ansolute path to yaml file and eigenspectrum
-    import struphy as _
-    struphy_path = _.__path__[0]
+    import struphy
+    libpath = struphy.__path__[0]
     
-    inp_path = struphy_path + args_dict['path']
+    # create absolute input folder path
+    if args.input_abs is None:
+        input_path = os.path.join(libpath, 'io/out', args.input)
+    else:
+        input_path = args.input_abs
+        
+    # absolute path of .npy spectrum and toroidal mode number
+    spec_path = os.path.join(input_path, args.name)
+    n_tor = int(os.path.split(spec_path)[-1][-6:-4])
     
     # load parameter file
-    with open(inp_path + '/parameters.yml') as file:
+    with open(os.path.join(input_path, 'parameters.yml')) as file:
         params = yaml.load(file, Loader=yaml.FullLoader)
        
     # create domain and MHD equilibrium
@@ -191,9 +234,6 @@ if __name__ == '__main__':
     
     # set up spline spaces
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-    
-    spec_path = glob.glob(inp_path + '/*.npy')[0]
-    n_tor = int(spec_path[-6:-4])
     
     print('Toroidal mode number : ', n_tor)
     
@@ -209,15 +249,23 @@ if __name__ == '__main__':
 
     fem_2d = Tensor_spline_space([fem_1d_1, fem_1d_2], polar_ck, domain.cx[:, :, 0], domain.cy[:, :, 0], n_tor=n_tor, basis_tor='i')
     
-    # load and analyze spectrum
-    omega2, U2_eig = np.split(np.load(spec_path), [1], axis=1)
+    # load and analyze spectrum    
+    omega2, U2_eig = np.split(np.load(spec_path), [1], axis=0)
     omega2 = omega2.flatten()
     
-    m_range_alfven = [args_dict['m_l_alfvén'], args_dict['m_u_alfvén']]
-    m_range_sound = [args_dict['m_l_sound'], args_dict['m_u_sound']]
+    m_range_alfven = [args.m_l_alfvén, args.m_u_alfvén]
+    m_range_sound = [args.m_l_sound, args.m_u_sound]
     
     omegaA = params_mhd['B0']/params_mhd['R0']
-    A, S = get_mhd_continua_2d(fem_2d, domain, omega2, U2_eig, [min(m_range_alfven[0], m_range_sound[0]), max(m_range_alfven[1], m_range_sound[1])], omegaA, args_dict['div_tol'], args_dict['comp_sound'])
+    
+    A, S = get_mhd_continua_2d(fem_2d,
+                               domain, 
+                               omega2, 
+                               U2_eig, 
+                               [min(m_range_alfven[0], m_range_sound[0]), max(m_range_alfven[1], m_range_sound[1])],
+                               omegaA,
+                               args.tol,
+                               args.comp_sound)
     
     # plot results
     import matplotlib.pyplot as plt
@@ -251,17 +299,30 @@ if __name__ == '__main__':
     ax[0, 2].set_title('Number density')
 
     # plot grid
-    xgrid = domain(fem_2d.el_b[0], fem_2d.el_b[1], 0.)[0]
-    ygrid = domain(fem_2d.el_b[0], fem_2d.el_b[1], 0.)[1]
+    domain_name = domain.__class__.__name__
+    
+    xgrid = domain(fem_2d.el_b[0], fem_2d.el_b[1], 0.)
 
-    for i in range(xgrid.shape[0]):
-        ax[1, 0].plot(xgrid[i, :], ygrid[i, :], 'tab:blue', alpha=0.5)
+    if 'Torus' in domain_name or domain_name == 'GVECunit' or domain_name == 'Tokamak':
+        for i in range(xgrid[0].shape[0]):
+            ax[1, 0].plot(xgrid[0][i, :], xgrid[2][i, :], 'tab:blue', alpha=0.5)
 
-    for i in range(xgrid.shape[1]):
-        ax[1, 0].plot(xgrid[:, i], ygrid[:, i], 'tab:blue', alpha=0.5)
+        for i in range(xgrid[0].shape[1]):
+            ax[1, 0].plot(xgrid[0][:, i], xgrid[2][:, i], 'tab:blue', alpha=0.5)
 
-    ax[1, 0].set_xlabel('x [m]')
-    ax[1, 0].set_ylabel('y [m]')
+        ax[1, 0].set_xlabel('x [m]')
+        ax[1, 0].set_ylabel('z [m]')
+        
+    else:
+        for i in range(xgrid[0].shape[0]):
+            ax[1, 0].plot(xgrid[0][i, :], xgrid[1][i, :], 'tab:blue', alpha=0.5)
+
+        for i in range(xgrid[0].shape[1]):
+            ax[1, 0].plot(xgrid[0][:, i], xgrid[1][:, i], 'tab:blue', alpha=0.5)
+
+        ax[1, 0].set_xlabel('x [m]')
+        ax[1, 0].set_ylabel('y [m]')
+    
     ax[1, 0].set_title(r'Grid : $N_\mathrm{el}=$' + str(fem_2d.Nel[:2]), pad=10)
 
     # plot shear Alfvén continuum in range omega^2 = [0, omega_A^2]

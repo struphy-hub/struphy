@@ -21,9 +21,21 @@ def run(n_procs):
     subprocess.run(['python3',
                     'eigenvalue_solvers/mhd_axisymmetric_main.py',
                     '-1',
-                    '/io/inp/examples/params_TAE_tokamak.yml',
-                    '/io/out/sim_example_TAE_tokamak',
-                    'spec'], 
+                    '-i'
+                    'examples/params_TAE_tokamak.yml',
+                    '-o'
+                    'sim_example_TAE_tokamak'], 
+                    check=True, cwd=libpath)
+    
+    # make the .npy eigenspectrum smaller (just for testing)
+    subprocess.run(['python3',
+                    'eigenvalue_solvers/mhd_axisymmetric_pproc.py',
+                    '-n',
+                    '-1',
+                    '-i',
+                    out_name,
+                    '0.1',
+                    '0.2'], 
                     check=True, cwd=libpath)
     
     # run the model
@@ -40,7 +52,12 @@ def run(n_procs):
     # perform post-processing
     subprocess.run(['struphy',
                     'pproc',
-                    out_name], check=True)
+                    '-d',
+                    out_name,
+                    '-s',
+                    '500',
+                    '--celldivide',
+                    '5'], check=True)
     
     
 def diagnostics():
@@ -48,13 +65,12 @@ def diagnostics():
     Perform diagnostics and plot results for the example run.
     """
     
-    import os, yaml, h5py, glob
+    import os, yaml, h5py, pickle
     
     import numpy as np
     import matplotlib.pyplot as plt
 
     from struphy.models.utilities import setup_domain_mhd
-    from struphy.post_processing.post_processing_tools import create_femfields
     from struphy.diagnostics.continuous_spectra import get_mhd_continua_2d
     from struphy.dispersion_relations.analytic import MhdContinousSpectraCylinder
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
@@ -84,29 +100,30 @@ def diagnostics():
     # get MHD equilibrium parameters
     mhd_params = params['mhd_equilibrium'][params['mhd_equilibrium']['type']]
 
-    # evaluate mapped grid
-    etaplot = [np.linspace(0., 1., 101),
-               np.linspace(0., 1., 101),
-               np.linspace(0., 1.,  21)]
-    
-    xplot = domain(*etaplot)
-
     # field names, grid info and energies
     file = h5py.File(os.path.join(out_path, 'data_proc0.hdf5'), 'r')
 
     names = list(file['feec'].keys())
 
-    t  = file['scalar']['time'][:]
+    t  = file['time/value'][:]
     eU = file['scalar']['en_U'][:]
     eB = file['scalar']['en_B'][:]
 
     file.close()
+    
+    # load logical and physical grids
+    with open(os.path.join(out_path, 'post_processing/fields_data/grids_log.bin'), 'rb') as handle:
+        grids_log = pickle.load(handle)
 
-    # FEM fields at t=0
-    fields, space_ids, code = create_femfields(out_path + '/', snapshots=[0])
+    with open(os.path.join(out_path, 'post_processing/fields_data/grids_phy.bin'), 'rb') as handle:
+        grids_phy = pickle.load(handle)
+
+    # load data dicts for logical u_field
+    with open(os.path.join(out_path, 'post_processing/fields_data', names[3] + '_log.bin'), 'rb') as handle:
+        u_field_log = pickle.load(handle)
 
     # perform continuous spectra diagnostics
-    spec_path = glob.glob(out_path + '/*.npy')[0]
+    spec_path = os.path.join(out_path, 'spec_n_-1.npy')
     n_tor = int(spec_path[-6:-4])
 
     fem_1d_1 = Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0], bc[0])
@@ -117,7 +134,7 @@ def diagnostics():
                                  n_tor=n_tor, basis_tor='i')
 
     # load and analyze .npy spectrum
-    omega2, U2_eig = np.split(np.load(spec_path), [1], axis=1)
+    omega2, U2_eig = np.split(np.load(spec_path), [1], axis=0)
     omega2 = omega2.flatten()
 
     omegaA = mhd_params['B0']/mhd_params['R0']
@@ -151,8 +168,8 @@ def diagnostics():
     for m in range(2, 4 + 1):
         plt.plot(0.1 + 0.9*A[m][0], A[m][1]/omegaA **2,
                  '+', label='m = ' + str(m))
-        plt.plot(domain(etaplot[0], 0., 0.)[0] - mhd_params['R0'],
-                 spec_calc(domain(etaplot[0], 0., 0.)[0] \
+        plt.plot(domain(grids_log[0], 0., 0.)[0] - mhd_params['R0'],
+                 spec_calc(domain(grids_log[0], 0., 0.)[0] \
                  - mhd_params['R0'], m, -2)['shear_Alfvén']**2/omegaA**2,
                  'k--', linewidth=0.5)
 
@@ -169,8 +186,10 @@ def diagnostics():
 
     # plot U2_1(t=0) on mapped grid
     plt.subplot(2, 2, 3)
-    plt.contourf(xplot[0][:, :, 0], xplot[2][:, :, 0], fields[0][names[3]](
-        *etaplot)[0][:, :, 4], levels=51, cmap='coolwarm')
+    
+    plt.contourf(grids_phy[0][:, :, 0], grids_phy[2][:, :, 0],
+                 u_field_log[0.][0][:, :, 8], levels=51, cmap='coolwarm')
+    
     plt.axis('square')
     plt.colorbar()
     plt.title('$U^2_1(t=0)$', pad=10, fontsize=f_size)

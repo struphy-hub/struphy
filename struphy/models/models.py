@@ -116,7 +116,6 @@ class LinearMHD(StruphyModel):
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
-        self._scalar_quantities['time'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_U'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_p'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
@@ -142,8 +141,7 @@ class LinearMHD(StruphyModel):
     def scalar_quantities(self):
         return self._scalar_quantities      
 
-    def update_scalar_quantities(self, time):
-        self._scalar_quantities['time'][0] = time
+    def update_scalar_quantities(self):
 
         # perturbed fields
         if self._u_space == 'Hdiv':
@@ -507,10 +505,6 @@ class LinearMHDVlasovCC(StruphyModel):
         # Scalar variables to be saved during simulation:
         self._scalar_quantities = {}
 
-        # 1. time
-        self._scalar_quantities['time'] = np.empty(1, dtype=float)
-
-        # 2. energies
         self._scalar_quantities['en_U'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_p'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
@@ -532,8 +526,7 @@ class LinearMHDVlasovCC(StruphyModel):
     def scalar_quantities(self):
         return self._scalar_quantities
 
-    def update_scalar_quantities(self, time):
-        self._scalar_quantities['time'][0] = time
+    def update_scalar_quantities(self):
 
         if self._u_space == 'Hdiv':
             self._scalar_quantities['en_U'][0] = self._u.dot(
@@ -783,10 +776,6 @@ class LinearMHDVlasovPC(StruphyModel):
         # Scalar variables to be saved during simulation:
         self._scalar_quantities = {}
 
-        # 1. time
-        self._scalar_quantities['time'] = np.empty(1, dtype=float)
-
-        # 2. energies
         self._scalar_quantities['en_U'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_p'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
@@ -808,8 +797,7 @@ class LinearMHDVlasovPC(StruphyModel):
     def scalar_quantities(self):
         return self._scalar_quantities
     
-    def update_scalar_quantities(self, time):
-        self._scalar_quantities['time'][0] = time
+    def update_scalar_quantities(self):
 
         if self._u_space == 'Hdiv':
             self._scalar_quantities['en_U'][0] = self._u.dot(
@@ -1129,7 +1117,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
-        self._scalar_quantities['time'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_U'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_p'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
@@ -1151,9 +1138,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
     def scalar_quantities(self):
         return self._scalar_quantities
 
-    def update_scalar_quantities(self, time):
-        self._scalar_quantities['time'][0] = time
-
+    def update_scalar_quantities(self):
+        
         if self._u_space == 'Hcurl':
             self._scalar_quantities['en_U'][0] = self._u.dot(self._mass_ops.M1n.dot(self._u))/2
 
@@ -1427,7 +1413,6 @@ class LinearVlasovMaxwell(StruphyModel):
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
-        self._scalar_quantities['time'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_e'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_b'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_w'] = np.empty(1, dtype=float)
@@ -1451,8 +1436,7 @@ class LinearVlasovMaxwell(StruphyModel):
         self._electrons.markers[~self._electrons.holes, 6] /= (self._electrons.n_mks *
                                                                np.sqrt(self._f0(*self._electrons.markers_wo_holes[:, :6].T)))
 
-    def update_scalar_quantities(self, time):
-        self._scalar_quantities['time'][0] = time
+    def update_scalar_quantities(self):
 
         # e^T * M_1 * e
         self._scalar_quantities['en_e'][0] = self._e.dot(
@@ -1546,7 +1530,6 @@ class Maxwell(StruphyModel):
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
-        self._scalar_quantities['time'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_E'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
@@ -1563,9 +1546,7 @@ class Maxwell(StruphyModel):
     def scalar_quantities(self):
         return self._scalar_quantities
 
-    def update_scalar_quantities(self, time):
-        self._scalar_quantities['time'][0] = time
-        
+    def update_scalar_quantities(self):
         self._mass_ops.M1.dot(self._e, out=self._tmp_e)
         self._mass_ops.M2.dot(self._b, out=self._tmp_b)
         
@@ -1652,7 +1633,6 @@ class Vlasov(StruphyModel):
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
-        self._scalar_quantities['time'] = np.empty(1, dtype=float)
 
         self._en_fv_loc = np.empty(1, dtype=float)
         self._scalar_quantities['en_fv'] = np.empty(1, dtype=float)
@@ -1668,8 +1648,8 @@ class Vlasov(StruphyModel):
     def scalar_quantities(self):
         return self._scalar_quantities
 
-    def update_scalar_quantities(self, time):
-        self._scalar_quantities['time'][0] = time
+    def update_scalar_quantities(self):
+        pass
 
 
 class DriftKinetic(StruphyModel):
@@ -1803,7 +1783,6 @@ class DriftKinetic(StruphyModel):
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
-        self._scalar_quantities['time'] = np.empty(1, dtype=float)
         self._en_fv_loc = np.empty(1, dtype=float)
         self._scalar_quantities['en_fv'] = np.empty(1, dtype=float)
         self._en_fB_loc = np.empty(1, dtype=float)
@@ -1821,8 +1800,7 @@ class DriftKinetic(StruphyModel):
     def scalar_quantities(self):
         return self._scalar_quantities
 
-    def update_scalar_quantities(self, time):
-        self._scalar_quantities['time'][0] = time
+    def update_scalar_quantities(self):
 
         self._en_fv_loc = self._ions.markers[~self._ions.holes, 8].dot(
             self._ions.markers[~self._ions.holes, 3]**2) / (2*self._ions.n_mks)
@@ -1953,7 +1931,6 @@ class VlasovMasslessElectrons(StruphyModel):
         
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
-        self._scalar_quantities['time'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
         self._en_f_loc = np.empty(1, dtype=float)
         self._scalar_quantities['en_f'] = np.empty(1, dtype=float)
@@ -1972,12 +1949,10 @@ class VlasovMasslessElectrons(StruphyModel):
     def scalar_quantities(self):
         return self._scalar_quantities
 
-    def update_scalar_quantities(self, time):
+    def update_scalar_quantities(self):
         import struphy.pic.utilities as pic_util
 
         rank = self._derham.comm.Get_rank()
-
-        self._scalar_quantities['time'][0] = time
 
         self._curla = self._derham.curl.dot(self._a)
 

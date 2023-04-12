@@ -27,6 +27,7 @@ def run(n_procs):
     # perform post-processing
     subprocess.run(['struphy',
                     'pproc',
+                    '-d',
                     out_name], check=True)
     
 
@@ -78,17 +79,17 @@ def diagnostics():
     file.close()
 
     # load grids
-    with open(os.path.join(out_path, 'eval_fields/grids_log.bin'), 'rb') as handle:
+    with open(os.path.join(out_path, 'post_processing/fields_data/grids_log.bin'), 'rb') as handle:
         grids_log = pickle.load(handle)
 
-    with open(os.path.join(out_path, 'eval_fields/grids_phy.bin'), 'rb') as handle:
+    with open(os.path.join(out_path, 'post_processing/fields_data/grids_phy.bin'), 'rb') as handle:
         grids_phy = pickle.load(handle)
 
     # load data dicts for u_field
-    with open(os.path.join(out_path, 'eval_fields', names[3] + '_log.bin'), 'rb') as handle:
+    with open(os.path.join(out_path, 'post_processing/fields_data', names[3] + '_log.bin'), 'rb') as handle:
         point_data_log = pickle.load(handle)
 
-    with open(os.path.join(out_path, 'eval_fields', names[3] + '_phy.bin'), 'rb') as handle:
+    with open(os.path.join(out_path, 'post_processing/fields_data', names[3] + '_phy.bin'), 'rb') as handle:
         point_data_phy = pickle.load(handle)
 
     # fft in (t, z) of first component of u_field on physical grid
@@ -104,10 +105,10 @@ def diagnostics():
                disp_params=disp_params)
 
     # load data dicts for pressure
-    with open(os.path.join(out_path, 'eval_fields', names[2] + '_log.bin'), 'rb') as handle:
+    with open(os.path.join(out_path, 'post_processing/fields_data', names[2] + '_log.bin'), 'rb') as handle:
         point_data_log = pickle.load(handle)
 
-    with open(os.path.join(out_path, 'eval_fields', names[2] + '_phy.bin'), 'rb') as handle:
+    with open(os.path.join(out_path, 'post_processing/fields_data', names[2] + '_phy.bin'), 'rb') as handle:
         point_data_phy = pickle.load(handle)
 
     # fft in (t, z) of pressure on physical grid

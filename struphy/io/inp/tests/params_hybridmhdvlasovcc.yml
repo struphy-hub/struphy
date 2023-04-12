@@ -91,6 +91,10 @@ kinetic :
                 uz : 2.5
         save_data :
             n_markers : 10 # number of markers to be save during simulation
+            f :
+                slices : [vz] # in which directions to bin (e.g. [e1_e2, vx_vy_vz])
+                n_bins : [[32]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
+                ranges : [[[-0.5, 5.5]]] # bin range in each direction
         push_algos :
             vxb : analytic # possible choices: analytic, implicit
             eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4

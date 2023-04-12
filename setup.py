@@ -1,11 +1,11 @@
 from setuptools import setup, find_packages
 
-with open('struphy/version.py') as f:  
+with open('struphy/console/main.py') as f:  
     exec(f.read())
 
 setup(
     name="struphy",
-    version=__version__, # auto-detected from struphy/version.py
+    version=__version__, # auto-detected from struphy/console/main.py
     packages=find_packages(),
     package_data={
         'struphy.fields_background.mhd_equil.eqdsk': [
@@ -26,9 +26,6 @@ setup(
                            ],
         'struphy': ['compile_struphy.mk'],
     },
-    # list of executable(s) that come with the package (if applicable)s
-    #scripts=['bin/struphy_leg',
-    #         ],
     # list of package dependencies (if necessary)
     install_requires=[
         'h5py',

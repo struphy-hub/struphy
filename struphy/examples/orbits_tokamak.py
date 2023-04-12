@@ -27,6 +27,7 @@ def run(n_procs):
     # perform post-processing
     subprocess.run(['struphy',
                     'pproc',
+                    '-d',
                     out_name], check=True)
     
     
@@ -64,17 +65,21 @@ def diagnostics():
     grid_info = file['scalar'].attrs['grid_info']
     file.close()
 
-    Nt = int(params['time']['Tend']/params['time']['dt'])
-    Np = params['kinetic']['ions']['save_data']['n_markers']
+    # load time grid info
+    tgrid = np.load(os.path.join(out_path, 'post_processing/t_grid.npy'))
+    Nt = len(tgrid) - 1
+    
     log_Nt = int(np.log10(Nt)) + 1
 
     # load orbits
+    Np = params['kinetic']['ions']['save_data']['n_markers']
+    
     pos = np.zeros((Nt + 1, Np, 3), dtype=float)
     print('Load ion orbits ...')
     for n in tqdm(range(Nt + 1)):
 
         # load x, y, z coordinates
-        orbits_path = os.path.join(out_path, 'kinetic_data/ions/orbits', 'ions_{0:0{1}d}.txt'.format(n, log_Nt))
+        orbits_path = os.path.join(out_path, 'post_processing/kinetic_data/ions/orbits', 'ions_{0:0{1}d}.txt'.format(n, log_Nt))
         pos[n] = np.loadtxt(orbits_path, delimiter=',')[:, 1:]
 
         # convert to R, y, z, coordinates

@@ -27,6 +27,7 @@ def run(n_procs):
     # perform post-processing
     subprocess.run(['struphy',
                     'pproc',
+                    '-d',
                     out_name], check=True)
     
     
@@ -59,17 +60,17 @@ def diagnostics():
     file.close()
 
     # load data dicts for e_field
-    with open(os.path.join(out_path, 'eval_fields', names[1] + '_log.bin'), 'rb') as handle:
+    with open(os.path.join(out_path, 'post_processing/fields_data', names[1] + '_log.bin'), 'rb') as handle:
         point_data_log = pickle.load(handle)
 
-    with open(os.path.join(out_path, 'eval_fields', names[1] + '_phy.bin'), 'rb') as handle:
+    with open(os.path.join(out_path, 'post_processing/fields_data', names[1] + '_phy.bin'), 'rb') as handle:
         point_data_phy = pickle.load(handle)
 
     # load grids
-    with open(os.path.join(out_path, 'eval_fields/grids_log.bin'), 'rb') as handle:
+    with open(os.path.join(out_path, 'post_processing/fields_data/grids_log.bin'), 'rb') as handle:
         grids_log = pickle.load(handle)
 
-    with open(os.path.join(out_path, 'eval_fields/grids_phy.bin'), 'rb') as handle:
+    with open(os.path.join(out_path, 'post_processing/fields_data/grids_phy.bin'), 'rb') as handle:
         grids_phy = pickle.load(handle)
 
     # fft in (t, z) of first component of e_field on physical grid

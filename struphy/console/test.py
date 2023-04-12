@@ -21,7 +21,6 @@ def struphy_test(serial=True, mpi=0, codes=False):
     libpath = struphy.__path__[0]
     
     if serial:
-        print('hello')
         subprocess.run(['pytest',
                         'tests/tests_serial'], 
                         check=True, cwd=libpath)
@@ -49,8 +48,12 @@ def struphy_test(serial=True, mpi=0, codes=False):
                         '-o', 'sim_test_3',
                         '--mpi', '2'], check=True)
         
+        subprocess.run(['struphy', 'pproc',
+                        '-d', 'sim_test_1'], check=True)
         subprocess.run(['struphy', 'pproc', 
-                        'sim_test_1', 'sim_test_2', 'sim_test_3'], check=True)
+                        '-d', 'sim_test_2'], check=True)
+        subprocess.run(['struphy', 'pproc', 
+                        '-d', 'sim_test_3'], check=True)
         
         # test LinearMHD
         subprocess.run(['struphy', 'run', 'LinearMHD',
@@ -62,7 +65,13 @@ def struphy_test(serial=True, mpi=0, codes=False):
                         '--mpi', '2'], check=True)
         
         subprocess.run(['struphy', 'pproc', 
-                        'sim_test_4', 'sim_test_5'], check=True)
+                        '-d', 'sim_test_4', 
+                        '-s', '2',
+                        '--celldivide', '3'], check=True)
+        subprocess.run(['struphy', 'pproc', 
+                        '-d', 'sim_test_5',
+                        '-s', '3',
+                        '--celldivide', '2'], check=True)
         
         # test LinearMHDVlasovCC
         subprocess.run(['struphy', 'run', 'LinearMHDVlasovCC',
@@ -75,7 +84,9 @@ def struphy_test(serial=True, mpi=0, codes=False):
                         '--mpi', '2'], check=True)
         
         subprocess.run(['struphy', 'pproc', 
-                        'sim_test_6', 'sim_test_7'], check=True)
+                        '-d', 'sim_test_6'], check=True)
+        subprocess.run(['struphy', 'pproc',
+                        '-d', 'sim_test_7'], check=True)
        
         # test LinearMHDVlasovPC
         subprocess.run(['struphy', 'run', 'LinearMHDVlasovPC',
@@ -90,6 +101,5 @@ def struphy_test(serial=True, mpi=0, codes=False):
                         '--mpi', '2'], check=True)
         
         subprocess.run(['struphy', 'pproc', 
-                        'sim_test_9'], check=True)
-        
+                        '-d', 'sim_test_9'], check=True)
         

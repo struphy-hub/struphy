@@ -92,14 +92,8 @@ class StruphyModel(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def update_scalar_quantities(self, time):
-        '''
-        Specify an update rule for each item in scalar_quantities.
-
-        Parameters
-        ----------
-        time : float
-            Time at which to update.
+    def update_scalar_quantities(self):
+        ''' Specify an update rule for each item in scalar_quantities.
         '''
         pass
 
@@ -228,7 +222,7 @@ class StruphyModel(metaclass=ABCMeta):
 
                     val['kinetic_data']['f'][slice_i][:] = val['obj'].binning(
                         components, edges, self.domain)
-
+    
     def print_scalar_quantities(self):
         '''
         Print quantities saved in scalar_quantities to screen.
@@ -239,9 +233,9 @@ class StruphyModel(metaclass=ABCMeta):
         print(sq_str)
 
     def initialize_from_params(self):
-        '''
-        Set initial conditions for FE coefficients (electromagnetic and fluid) and markers.
-        '''
+        """
+        Set initial conditions for FE coefficients (electromagnetic and fluid) and markers according to parameter file.
+        """
 
         # initialize em fields
         if len(self.em_fields) > 0:
@@ -285,17 +279,22 @@ class StruphyModel(metaclass=ABCMeta):
                 #    val['obj'].save_magnetic_moment(
                 #        self.derham, self.derham.P['0'](self.mhd_equil.absB0))
             
-    def initialize_from_restart(self, file):
-        '''
-        Load restart data for FE coefficients (electromagnetic and fluid) and markers from restart group in hdf5 output files.
-        '''
+    def initialize_from_restart(self, data):
+        """
+        Set initial conditions for FE coefficients (electromagnetic and fluid) and markers from restart group in hdf5 files.
+        
+        Parameters
+        ----------
+        data : struphy.models.output_handling.DataContainer
+            The data object that links to the hdf5 files.
+        """
         
         # initialize em fields
         if len(self.em_fields) > 0:
 
             for key, val in self.em_fields.items():
                 if 'params' not in key:
-                    val['obj'].initialize_coeffs_from_restart_file(file)
+                    val['obj'].initialize_coeffs_from_restart_file(data.file)
                     
         # initialize fields
         if len(self.fluid) > 0:
@@ -304,17 +303,152 @@ class StruphyModel(metaclass=ABCMeta):
 
                 for variable, subval in val.items():
                     if 'params' not in variable:
-                        subval['obj'].initialize_coeffs_from_restart_file(file, species)
+                        subval['obj'].initialize_coeffs_from_restart_file(data.file, species)
                         
         # initialize particles
         if len(self.kinetic) > 0:
             
             for key, val in self.kinetic.items():
-                val['obj']._markers[:, :] = file['restart/' + key][-1, :, :]
+                val['obj']._markers[:, :] = data.file['restart/' + key][-1, :, :]
                 
                 # important: sets holes attribute of markers!
                 val['obj'].mpi_sort_markers(do_test=True)
         
+    def initialize_data_output(self, data, size):
+        """
+        Create datasets in hdf5 files according to model unknowns and diagnostics data.
+        
+        Parameters
+        ----------
+        data : struphy.models.output_handling.DataContainer
+            The data object that links to the hdf5 files.
+            
+        size : int
+            Number of MPI processes of the model run.
+            
+        Returns
+        -------
+        save_keys_all : list
+            Keys of datasets which are saved during the simulation.
+            
+        save_keys_end : list
+            Keys of datasets which are saved at the end of a simulation to enable restarts.
+        """
+        
+        from psydac.linalg.stencil import StencilVector
+        
+        # save scalar quantities in group 'scalar/'
+        for key, val in self.scalar_quantities.items():
+            key_scalar = 'scalar/' + key
+            data.add_data({key_scalar: val})
+
+        # store grid_info only for runs with 512 ranks or smaller
+        if size <= 512:
+            data.file['scalar'].attrs['grid_info'] = self.derham.domain_array
+        else:
+            data.file['scalar'].attrs['grid_info'] = self.derham.domain_array[0]
+
+        # save electromagentic fields/potentials data in group 'feec/'
+        for key, val in self.em_fields.items():
+            if 'params' not in key:
+                key_field = 'feec/' + key
+                key_field_restart = 'restart/' + key
+
+                # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
+                val['obj'].extract_coeffs(update_ghost_regions=False)
+
+                # save numpy array to be updated each time step.
+                if isinstance(val['obj'].vector_stencil, StencilVector):
+                    data.add_data({key_field: val['obj'].vector_stencil._data})
+                    data.add_data(
+                        {key_field_restart: val['obj'].vector_stencil._data})
+                else:
+                    for n in range(3):
+                        key_component = key_field + '/' + str(n + 1)
+                        key_component_restart = key_field_restart + \
+                            '/' + str(n + 1)
+                        data.add_data(
+                            {key_component: val['obj'].vector_stencil[n]._data})
+                        data.add_data(
+                            {key_component_restart: val['obj'].vector_stencil[n]._data})
+
+                # save field meta data
+                data.file[key_field].attrs['space_id'] = val['obj'].space_id
+                data.file[key_field].attrs['starts'] = val['obj'].starts
+                data.file[key_field].attrs['ends'] = val['obj'].ends
+                data.file[key_field].attrs['pads'] = val['obj'].pads
+
+        # save fluid data in group 'feec/'
+        for species, val in self.fluid.items():
+
+            species_path = 'feec/' + species + '_'
+            species_path_restart = 'restart/' + species + '_'
+
+            for variable, subval in val.items():
+                if 'params' not in variable:
+                    key_field = species_path + variable
+                    key_field_restart = species_path_restart + variable
+
+                    # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
+                    subval['obj'].extract_coeffs(update_ghost_regions=False)
+
+                    # save numpy array to be updated each time step.
+                    if isinstance(subval['obj'].vector_stencil, StencilVector):
+                        data.add_data(
+                            {key_field: subval['obj'].vector_stencil._data})
+                        data.add_data(
+                            {key_field_restart: subval['obj'].vector_stencil._data})
+                    else:
+                        for n in range(3):
+                            key_component = key_field + '/' + str(n + 1)
+                            key_component_restart = key_field_restart + \
+                                '/' + str(n + 1)
+                            data.add_data(
+                                {key_component: subval['obj'].vector_stencil[n]._data})
+                            data.add_data(
+                                {key_component_restart: subval['obj'].vector_stencil[n]._data})
+
+                    # save field meta data
+                    data.file[key_field].attrs['space_id'] = subval['obj'].space_id
+                    data.file[key_field].attrs['starts'] = subval['obj'].starts
+                    data.file[key_field].attrs['ends'] = subval['obj'].ends
+                    data.file[key_field].attrs['pads'] = subval['obj'].pads
+
+        # save kinetic data in group 'kinetic/'
+        for key, val in self.kinetic.items():
+            key_spec = 'kinetic/' + key
+            key_spec_restart = 'restart/' + key
+
+            data.add_data({key_spec_restart: val['obj']._markers})
+
+            for key1, val1 in val['kinetic_data'].items():
+                key_dat = key_spec + '/' + key1
+
+                if isinstance(val1, dict):
+                    for key2, val2 in val1.items():
+                        key_f = key_dat + '/' + key2
+                        data.add_data({key_f: val2})
+
+                        dims = (len(key2) - 2)//3 + 1
+                        for dim in range(dims):
+                            data.file[key_f].attrs['bin_centers' + '_' + str(dim + 1)] = val['bin_edges'][key2][dim][:-1] + (
+                                val['bin_edges'][key2][dim][1] - val['bin_edges'][key2][dim][0])/2
+
+                else:
+                    data.add_data({key_dat: val1})
+
+        # keys to be saved at each time step and only at end (restart)
+        save_keys_all = []
+        save_keys_end = []
+
+        for key in data.dset_dict:
+            if 'restart' in key:
+                save_keys_end.append(key)
+            else:
+                save_keys_all.append(key)
+                
+        return save_keys_all, save_keys_end
+    
     ###################
     # Class methods :
     ###################

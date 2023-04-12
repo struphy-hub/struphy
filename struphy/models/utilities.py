@@ -290,20 +290,8 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
         # clean output folder if it already exists
         else:
 
-            # remove eval_fields folder
-            folder = os.path.join(path_out, 'eval_fields')
-            if os.path.exists(folder):
-                shutil.rmtree(folder)
-                print('Removed folder ' + folder)
-
-            # remove vtk folder
-            folder = os.path.join(path_out, 'vtk')
-            if os.path.exists(folder):
-                shutil.rmtree(folder)
-                print('Removed folder ' + folder)
-
-            # remove kinetic_data folder
-            folder = os.path.join(path_out, 'kinetic_data')
+            # remove post_processing folder
+            folder = os.path.join(path_out, 'post_processing')
             if os.path.exists(folder):
                 shutil.rmtree(folder)
                 print('Removed folder ' + folder)
@@ -349,8 +337,8 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
 
     if mpi_rank == 0:
         
-        # copy parameter file (if it does not already exist in output folder)
-        if not os.path.exists(os.path.join(path_out, 'parameters.yml')):
+        # copy parameter file to output folder
+        if parameters_path != os.path.join(path_out, 'parameters.yml'):
             shutil.copy2(parameters_path, os.path.join(
                 path_out, 'parameters.yml'))
 

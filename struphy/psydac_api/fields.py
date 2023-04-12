@@ -306,7 +306,7 @@ class Field:
 
                 # select class
                 funs = getattr(eigenfunctions, init_type)(
-                    fun_params, self.derham)
+                    self.derham, **fun_params)
 
                 # select eigenvector and set coefficients
                 if hasattr(funs, self.name):
