@@ -6,6 +6,7 @@ def struphy_run(model='Maxwell',
                 batch=None,
                 batch_abs=None,
                 runtime=300,
+                save_step=1,
                 restart=False,
                 mpi=1,
                 debug=False):
@@ -37,6 +38,9 @@ def struphy_run(model='Maxwell',
         
     runtime : int
         Maximum runtime of the simulation in minutes. Will complete the time step and exit after this time is reached.
+        
+    save_step : int
+        How often to save data in hdf5 file, i.e. every "save_step" time step.
         
     restart : bool
         Wether to restart an existing simulation.
@@ -99,7 +103,9 @@ def struphy_run(model='Maxwell',
                        '-o',
                        output_abs,
                        '--runtime',
-                       str(runtime)]
+                       str(runtime),
+                       '-s',
+                       str(save_step)]
 
         else:
             print('\nLaunching main() in normal mode ...')
@@ -120,7 +126,9 @@ def struphy_run(model='Maxwell',
                        '-o',
                        output_abs,
                        '--runtime',
-                       str(runtime)]
+                       str(runtime),
+                       '-s',
+                       str(save_step)]
             
         # add restart flag
         if restart:
@@ -182,6 +190,7 @@ def struphy_run(model='Maxwell',
             command_string += '-i ' + input_abs + ' '
             command_string += '-o ' + output_abs + ' '
             command_string += '--runtime ' + str(runtime) + ' '
+            command_string += '-s ' + str(save_step) + ' '
             
             if restart:
                 command_string += '-r '

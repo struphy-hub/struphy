@@ -132,6 +132,12 @@ def struphy():
                             metavar='N',
                             help='maximum wall-clock time of program in minutes (default=300)',
                             default=300,)
+    
+    parser_run.add_argument('-s', '--save-step',
+                            type=int,
+                            metavar='N',
+                            help='how often to save data in hdf5 file, i.e. every "save-step" time step (default=1, which is every time step)',
+                            default=1,)
 
     parser_run.add_argument('-r', '--restart',
                             help='restart the simulation in the output folder specified under -o',
@@ -208,14 +214,25 @@ def struphy():
     # 5. "pproc" sub-command
     parser_pproc = subparsers.add_parser(
         'pproc',
-        help='post process data of finished Struphy runs',
-        description='Post-process data of finished Struphy runs to prepare for diagnostics.')
+        help='post process data of a finished Struphy run',
+        description='Post-process data of a finished Struphy run to prepare for diagnostics.')
 
-    parser_pproc.add_argument('dirs',
+    parser_pproc.add_argument('-d', '--dirr',
                               type=str,
-                              nargs='+',
                               metavar='DIR',
-                              help='simulation ouput folders')
+                              help='simulation output folder to post-process relative to <install_path>/struphy/io/out/ (default=sim_1)',
+                              default='sim_1',)
+
+    parser_pproc.add_argument('--dir-abs',
+                              type=str,
+                              metavar='DIR',
+                              help='simulation output folder to post-process, absolute path',)
+    
+    parser_pproc.add_argument('-s', '--step',
+                              type=int,
+                              metavar='N',
+                              help='do post-processing every N-th time step (default=1).',
+                              default=1)
 
     parser_pproc.add_argument('--celldivide',
                               type=int,

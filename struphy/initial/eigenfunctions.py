@@ -1,7 +1,8 @@
 import os
 
 import numpy as np
-import struphy as _
+
+from struphy.fields_background.mhd_equil.equils import set_defaults
 
 from sympde.topology import Line, Derham
 
@@ -14,25 +15,42 @@ class InitialMHDAxisymHdivEigFun:
     
     Parameters
     ----------
-        params : dict
-            Parameters for loading and selecting the desired eigenfunction.
-            
-            * spec : str, path of the .npy eigenspectrum relative to install_path/struphy
-            * eig_freq_upper : float, upper search limit of squared eigenfrequency
-            * eig_freq_lower : float, lower search limit of squared eigenfrequency
-            * kind : str, whether to use real (r) or imaginary (i) part of eigenfunction
-            * scaling : float, scaling factor that is multiplied with the eigenfunction
-        
-        derham : struphy.psydac_api.psydac_derham.Derham
-            Discrete Derham complex.
+    derham : struphy.psydac_api.psydac_derham.Derham
+        Discrete Derham complex.
+    
+    **params
+        Parameters for loading and selecting the desired eigenfunction.
+
+        * spec : str, path of the .npy eigenspectrum relative to <install_path>/io/out/
+        * spec_abs : str, absolute path of the .npy eigenspectrum
+        * eig_freq_upper : float, upper search limit of squared eigenfrequency
+        * eig_freq_lower : float, lower search limit of squared eigenfrequency
+        * kind : str, whether to use real (r) or imaginary (i) part of eigenfunction
+        * scaling : float, scaling factor that is multiplied with the eigenfunction
     """
     
-    def __init__(self, params, derham):
+    def __init__(self, derham, **params):
+        
+        import struphy
+        libpath = struphy.__path__[0]
+        
+        params_default = {'spec': 'sim_1/spec_n_-1.npy',
+                          'spec_abs': None,
+                          'eig_freq_upper': 0.02, 
+                          'eig_freq_lower': 0.03,
+                          'kind': 'r',
+                          'scaling': 1.}
+        
+        params = set_defaults(params, params_default)
+        
+        # absolute path of spectrum
+        if params['spec_abs'] is None:
+            spec_path = os.path.join(libpath, 'io/out', params['spec'])
+        else:
+            spec_path = params['spec_abs']
         
         # load eigenvector for velocity field
-        struphy_path = _.__path__[0]
-        
-        omega2, U2_eig = np.split(np.load(struphy_path + params['spec']), [1], axis=1)
+        omega2, U2_eig = np.split(np.load(spec_path), [1], axis=0)
         omega2 = omega2.flatten()
 
         # find eigenvector corresponding to given squared eigenfrequency range
@@ -41,9 +59,6 @@ class InitialMHDAxisymHdivEigFun:
         
         assert mode.size == 1
         mode = mode[0]
-        
-        print('Load eigenfunction with global mode number ' + str(mode) + 
-              ' and squared eigenfrequency ' + str(np.real(omega2)[mode]) + ' ...')
         
         nnz_pol = derham.B['2'].dim_nz_pol
         nnz_tor = derham.B['2'].dim_nz_tor
@@ -63,7 +78,7 @@ class InitialMHDAxisymHdivEigFun:
         
         p0, p1 = derham_1d.projectors(nquads=[derham.nq_pr[2]])
         
-        n_tor = int(params['spec'][-6:-4])
+        n_tor = int(os.path.split(spec_path)[-1][-6:-4])
         
         N_cos = p0(lambda phi : np.cos(2*np.pi*n_tor*phi)).coeffs.toarray()
         N_sin = p0(lambda phi : np.sin(2*np.pi*n_tor*phi)).coeffs.toarray()

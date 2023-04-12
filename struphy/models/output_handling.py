@@ -104,9 +104,6 @@ class DataContainer:
                 else:
                     assert dataset_shape[1:] == val.shape
                 
-                # set object ID
-                self._dset_dict[key] = id(val)
-                
             # create new dataset otherwise and save array
             else:
             
@@ -114,11 +111,11 @@ class DataContainer:
                 if val.size == 1:
                     assert val.ndim == 1
                     self._file.create_dataset(
-                        key, (1,), maxshape=(None,), dtype=float, chunks=True)
+                        key, (1,), maxshape=(None,), dtype=val.dtype, chunks=True)
                     self._file[key][0] = val[0]
                 else:
                     self._file.create_dataset(
-                        key, (1,) + val.shape, maxshape=(None,) + val.shape, dtype=float, chunks=True)
+                        key, (1,) + val.shape, maxshape=(None,) + val.shape, dtype=val.dtype, chunks=True)
                     self._file[key][0] = val
 
             # set object ID

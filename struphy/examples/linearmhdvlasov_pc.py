@@ -27,6 +27,7 @@ def run(n_procs):
     # perform post-processing
     subprocess.run(['struphy',
                     'pproc',
+                    '-d',
                     out_name], check=True)
     
 
@@ -50,7 +51,7 @@ def diagnostics():
     # load data
     file = h5py.File(os.path.join(out_path, 'data_proc0.hdf5'), 'r')
 
-    t  = file['scalar/time'][:]
+    t  = file['time/value'][:]
     eu = file['scalar/en_U'][:]
     eb = file['scalar/en_B'][:]
     ef = file['scalar/en_f'][:]
@@ -60,18 +61,18 @@ def diagnostics():
     file.close()
 
     # load grid
-    with open(os.path.join(out_path, 'eval_fields/grids_phy.bin'), 'rb') as handle:
+    with open(os.path.join(out_path, 'post_processing/fields_data/grids_phy.bin'), 'rb') as handle:
         grids_phy = pickle.load(handle)
 
     Lz = grids_phy[2][0, 0, -1]
 
     # load data dict for u_field
-    with open(os.path.join(out_path, 'eval_fields/' + field_names[3] + '_phy.bin'), 'rb') as handle:
+    with open(os.path.join(out_path, 'post_processing/fields_data/' + field_names[3] + '_phy.bin'), 'rb') as handle:
         point_data_phys = pickle.load(handle)
 
     # load distriution function
-    f  = np.load(os.path.join(out_path, 'kinetic_data/energetic_ions/f/f_vz.npy'))
-    vz = np.load(os.path.join(out_path, 'kinetic_data/energetic_ions/f/grid_vz_1.npy'))
+    f  = np.load(os.path.join(out_path, 'post_processing/kinetic_data/energetic_ions/distribution_function/f_vz.npy'))
+    vz = np.load(os.path.join(out_path, 'post_processing/kinetic_data/energetic_ions/distribution_function/grid_vz_1.npy'))
 
     fig = plt.figure()
     fig.set_figheight(3.5)

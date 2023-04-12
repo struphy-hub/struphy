@@ -1,15 +1,4 @@
-import time
-
-import numpy        as np
-import scipy.sparse as spa
-
-from struphy.eigenvalue_solvers.spline_space import Spline_space_1d
-from struphy.eigenvalue_solvers.spline_space import Tensor_spline_space
-
-from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
-
-
-def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor='i', dir_out=None):
+def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor='i', path_out=None):
     """
     Numerical solution of the ideal MHD eigenvalue problem for a given 2D axisymmetric equilibrium and a fixed toroial mode number.
     
@@ -36,11 +25,35 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor='i', dir_out=No
             * r : A(s, chi)*cos(n_tor*2*pi*phi) + B(s, chi)*sin(n_tor*2*pi*phi), 
             * i : A(s, chi)*exp(n_tor*2*pi*phi*i) 
         
-    dir_out : string (optional)
-        if given, directory to save the full spectrum as .npy
+    path_out : string, optional
+        if given, directory where to save the .npy eigenspectrum.
     """
     
-    print('Start of eigenspectrum calculation for MHD equilibrium and domain : ', eq_mhd, eq_mhd.domain)
+    import time, os
+
+    import numpy        as np
+    import scipy.sparse as spa
+
+    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d
+    from struphy.eigenvalue_solvers.spline_space import Tensor_spline_space
+
+    from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
+    
+    print('\nStart of eigenspectrum calculation for toroidal mode number', n_tor)
+    print('')
+    print('MHD equilibrium:'.ljust(20), eq_mhd)
+    print('domain:'.ljust(20), eq_mhd.domain)
+    
+    # print grid info
+    print('\nGrid parameters:')
+    print(f'number of elements :', num_params['Nel'])
+    print(f'spline degrees     :', num_params['p'])
+    print(f'periodic bcs       :', num_params['spl_kind'])
+    print(f'hom. Dirichlet bc  :', num_params['bc'])
+    print(f'GL quad pts (L2)   :', num_params['nq_el'])
+    print(f'GL quad pts (hist) :', num_params['nq_pr'])
+    print(f'polar Ck           :', num_params['polar_ck'])
+    print('')
     
     # extract numerical parameters
     Nel      = num_params['Nel']
@@ -50,8 +63,6 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor='i', dir_out=No
     nq_pr    = num_params['nq_pr']
     bc       = num_params['bc']
     polar_ck = num_params['polar_ck']
-    
-    print('Numerical parameters : ', num_params)
    
     # set up 1d spline spaces and corresponding projectors 
     space_1d_1 = Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0], bc[0])
@@ -61,7 +72,9 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor='i', dir_out=No
     space_1d_2.set_projectors(nq_pr[1])
     
     # set up 2d tensor-product space    
-    space_2d = Tensor_spline_space([space_1d_1, space_1d_2], polar_ck, eq_mhd.domain.cx[:, :, 0], eq_mhd.domain.cy[:, :, 0], n_tor, basis_tor)
+    space_2d = Tensor_spline_space([space_1d_1, space_1d_2], 
+                                   polar_ck, eq_mhd.domain.cx[:, :, 0], eq_mhd.domain.cy[:, :, 0], 
+                                   n_tor, basis_tor)
     
     # set up 2d projectors
     space_2d.set_projectors('general')
@@ -74,9 +87,6 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor='i', dir_out=No
     
     M2_0 = space_2d.B2.dot(space_2d.M2_mat.dot(space_2d.B2.T))
     M3_0 = space_2d.B3.dot(space_2d.M3_mat.dot(space_2d.B3.T))
-    
-    #print(M2_0.toarray())
-    #print(M3_0.toarray())
     
     print('Assembly of mass matrices done')
     
@@ -136,19 +146,16 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor='i', dir_out=No
     print('Eigenstates calculated')
     
     # save spectrum as .npy 
-    if dir_out != None: 
+    if path_out is not None:
+        
+        assert isinstance(path_out, str)
        
         if n_tor < 0:
             n_tor_str = str(n_tor)
         else:
             n_tor_str = '+' + str(n_tor)
             
-        if polar_ck < 0:
-            polar_ck_str = str(polar_ck)
-        else:
-            polar_ck_str = '+' + str(polar_ck)
-            
-        np.save(dir_out + '_n_' + n_tor_str + '.npy', np.hstack((omega2.reshape(omega2.size, 1), U2_eig)))
+        np.save(os.path.join(path_out, 'spec_n_' + n_tor_str + '.npy'), np.vstack((omega2.reshape(1, omega2.size), U2_eig)))
     
     # or return eigenfrequencies, eigenvectors and system matrix
     else:
@@ -159,28 +166,65 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor='i', dir_out=No
 # command line interface
 if __name__ == '__main__':
     
-    import sys, os, yaml, shutil
+    import os, yaml, shutil
     import argparse
 
     # parse arguments
-    parser = argparse.ArgumentParser(description='Computes the complete eigenspectrum of a given axisymmetric MHD equilibrium.')
+    parser = argparse.ArgumentParser(description='Computes the complete eigenspectrum for a given axisymmetric MHD equilibrium.')
     
-    parser.add_argument('n_tor', type=int, help='the toroidal mode number')
-    parser.add_argument('path_in', type=str, help='the path of the input .yml file (relative to <install_path>/struphy)')
-    parser.add_argument('path_out', type=str, help='the path of the output folder (relative to <install_path>/struphy, must end without "/")')
-    parser.add_argument('name_spectrum', type=str, help='the full name of the spectrum (must end without .npy) that will be saved in the given ouput folder')
+    parser.add_argument('n_tor', 
+                        type=int, 
+                        help='the toroidal mode number')
+    
+    parser.add_argument('-i', '--input',
+                        type=str,
+                        metavar='FILE',
+                        help='parameter file (.yml) relative to <install_path>/struphy/io/inp/ (default=parameters.yml)',
+                        default='parameters.yml')
+
+    parser.add_argument('--input-abs',
+                        type=str,
+                        metavar='FILE',
+                        help='parameter file (.yml), absolute path')
+
+    parser.add_argument('-o', '--output',
+                        type=str,
+                        metavar='DIR',
+                        help='output directory relative to <install_path>/struphy/io/out/ (default=sim_1)',
+                        default='sim_1')
+
+    parser.add_argument('--output-abs',
+                        type=str,
+                        metavar='DIR',
+                        help='output directory, absolute path')    
 
     args = parser.parse_args()
-    args_dict = vars(args)
     
-    # relative path to yaml file for which the MHD eigenspectrum shall be computed (relative to working directory)
-    import struphy as _
-    struphy_path = _.__path__[0]
+    import struphy
+    libpath = struphy.__path__[0]
     
-    inp_path = struphy_path + args_dict['path_in']
+    # create absolute i/o paths
+    if args.input_abs is None:
+        input_abs = os.path.join(libpath, 'io/inp', args.input)
+    else:
+        input_abs = args.input_abs
+        
+    if args.output_abs is None:
+        output_abs = os.path.join(libpath, 'io/out', args.output)
+    else:
+        output_abs = args.output_abs
+        
+    # create output folder (if it does not already exist)
+    if not os.path.exists(output_abs):
+        os.mkdir(output_abs)
+        print('\nCreated folder ' + output_abs)
+        
+    # copy parameter file to output folder
+    if input_abs != os.path.join(output_abs, 'parameters.yml'):
+        shutil.copy2(input_abs, os.path.join(output_abs, 'parameters.yml'))
     
     # load parameter file
-    with open(inp_path) as file:
+    with open(input_abs) as file:
         params = yaml.load(file, Loader=yaml.FullLoader)
         
     # create domain and MHD equilibrium
@@ -198,16 +242,10 @@ if __name__ == '__main__':
                   'polar_ck': params['grid']['polar_ck']
                  }
     
-    # create output folder if it does not already exist
-    out_path = struphy_path + args_dict['path_out']
-    
-    try:
-        os.mkdir(out_path)
-    except:
-        pass
-    
     # calculate eigenspectrum for given toroidal mode number and save result
-    solve_mhd_ev_problem_2d(num_params, mhd_equil, n_tor=args_dict['n_tor'], basis_tor='i', dir_out=out_path + '/' + args_dict['name_spectrum'])
+    solve_mhd_ev_problem_2d(num_params, 
+                            mhd_equil, 
+                            n_tor=args.n_tor, 
+                            basis_tor='i', 
+                            path_out=output_abs)
     
-    # save parameter file
-    shutil.copy2(inp_path, out_path + '/parameters.yml')
