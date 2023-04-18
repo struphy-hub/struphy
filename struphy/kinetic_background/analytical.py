@@ -2,110 +2,129 @@ from abc import ABCMeta, abstractmethod
 import numpy as np
 
 from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.geometry.base import Domain
 
 
-class Maxwellian6D(metaclass=ABCMeta):
+class Maxwellian(metaclass=ABCMeta):
     r"""
-    Base class for a 6d Maxwellian distribution function defined on [0, 1]^3 x R^3, with logical position and Cartesian velocity coordinates, defined by its velocity moments.
-
+    Base class for a Maxwellian distribution function defined on :math:`[0, 1]^3 \times \mathbb R^n, n \geq 1,` 
+    with logical position coordinates :math:`\boldsymbol{\eta} \in [0, 1]^3`:
+    
     .. math::
 
-        f(\boldsymbol{\eta}, \mathbf v) = n(\boldsymbol{\eta})\frac{1}{\pi^{3/2}\,v_{\mathrm{th},x}(\boldsymbol{\eta})v_{\mathrm{th},y}(\boldsymbol{\eta})v_{\mathrm{th},z}(\boldsymbol{\eta})}\exp\left[-\frac{(v_x-u_x(\boldsymbol{\eta}))^2}{v_{\mathrm{th},x}(\boldsymbol{\eta})^2}-\frac{(v_y-u_y(\boldsymbol{\eta}))^2}{v_{\mathrm{th},y}(\boldsymbol{\eta})^2}-\frac{(v_z-u_z(\boldsymbol{\eta}))^2}{v_{\mathrm{th},z}(\boldsymbol{\eta})^2}\right]. 
-
-    Parameters
-    ----------
-    **params
-        Paramters defining the moments of the 6d Maxwellian.
+        f(\boldsymbol{\eta}, v_1,\ldots,v_n) = n(\boldsymbol{\eta}) \prod_{i=1}^n \frac{1}{\sqrt{\pi}\,v_{\mathrm{th},i}(\boldsymbol{\eta})}
+        \exp\left[-\frac{(v_i-u_i(\boldsymbol{\eta}))^2}{v_{\mathrm{th},i}(\boldsymbol{\eta})^2}\right],
+        
+    defined by its velocity moments: the density :math:`n(\boldsymbol{\eta})`, 
+    the mean-velocities :math:`u_i(\boldsymbol{\eta})`, 
+    and the thermal velocities :math:`v_{\mathrm{th},i}(\boldsymbol{\eta})`. 
     """
 
-    def __init__(self, params):
-
-        self._params = params
-
     @property
-    def params(self):
-        """ Parameters dictionary defining the moments of the 6d Maxwellian.
+    @abstractmethod
+    def vdim(self):
+        """Dimension of the velocity space (vdim = n).
         """
-        return self._params
+        pass
 
     @abstractmethod
-    def n(self, eta1, eta2, eta3):
-        """ Number density (0-form).
+    def n(self, *etas):
+        """ Number density (0-form). 
+        
+        Parameters
+        ----------
+        etas : numpy.arrays
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+            
+        Returns
+        -------
+        A numpy.array with the density evaluated at evaluation points (same shape as etas).
         """
+        pass
 
     @abstractmethod
-    def ux(self, eta1, eta2, eta3):
-        """ Mean velocity (Cartesian x-component, but dependent on logical coordinates).
+    def u(self, *etas):
+        """ Mean velocities (Cartesian components evaluated at x = F(eta)).
+        
+        Parameters
+        ----------
+        etas : numpy.arrays
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+            
+        Returns
+        -------
+        A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
+        The additional dimension is in the first index.
         """
+        pass
 
     @abstractmethod
-    def uy(self, eta1, eta2, eta3):
-        """ Mean velocity (Cartesian y-component, but dependent on logical coordinates).
+    def vth(self, *etas):
+        """ Thermal velocities (0-forms).
+        
+        Parameters
+        ----------
+        etas : numpy.arrays
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+            
+        Returns
+        -------
+        A numpy.array with the thermal velocity evaluated at evaluation points (one dimension more than etas).
+        The additional dimension is in the first index.
         """
+        pass
 
-    @abstractmethod
-    def uz(self, eta1, eta2, eta3):
-        """ Mean velocity (Cartesian z-component, but dependent on logical coordinates).
+    def gaussian(self, v, u=0., vth=1.):
+        """1D Gaussian, to which array-valued mean- and thermal velocities can be passed.
+        
+        Parameters
+        ----------
+        v : float | array-like
+            Velocits coordinate(s).
+            
+        u : float | array-like
+            Mean velocity evaluated at position array.
+            
+        vth : float | array-like
+            Thermal velocity evaluated at position array, same shape as u.
+            
+        Returns
+        -------
+        An array of size(u).
         """
+        
+        if isinstance(v, np.ndarray) and isinstance(u, np.ndarray):
+            assert v.shape == u.shape
+        
+        return 1./(np.sqrt(np.pi) * vth) * np.exp(-(v - u)**2/vth**2)
 
-    @abstractmethod
-    def vthx(self, eta1, eta2, eta3):
-        """ Thermal velocity (Cartesian x-component, but dependent on logical coordinates).
-        """
 
-    @abstractmethod
-    def vthy(self, eta1, eta2, eta3):
-        """ Thermal velocity (Cartesian y-component, but dependent on logical coordinates).
+    def __call__(self, *args):
         """
-
-    @abstractmethod
-    def vthz(self, eta1, eta2, eta3):
-        """ Thermal velocity (Cartesian z-component, but dependent on logical coordinates).
-        """
-
-    def mx(self, eta1, eta2, eta3, vx):
-        """ The Maxwellian integrated over vy-vz space.
-        """
-        return 1/(np.sqrt(np.pi)*self.vthx(eta1, eta2, eta3))*np.exp(-(vx - self.ux(eta1, eta2, eta3))**2/self.vthx(eta1, eta2, eta3)**2)
-
-    def my(self, eta1, eta2, eta3, vy):
-        """ The Maxwellian integrated over vx-vz space.
-        """
-        return 1/(np.sqrt(np.pi)*self.vthy(eta1, eta2, eta3))*np.exp(-(vy - self.uy(eta1, eta2, eta3))**2/self.vthy(eta1, eta2, eta3)**2)
-
-    def mz(self, eta1, eta2, eta3, vz):
-        """ The Maxwellian integrated over vx-vy space.
-        """
-        return 1/(np.sqrt(np.pi)*self.vthz(eta1, eta2, eta3))*np.exp(-(vz - self.uz(eta1, eta2, eta3))**2/self.vthz(eta1, eta2, eta3)**2)
-
-    def __call__(self, eta1, eta2, eta3, vx, vy, vz):
-        """
-        Evaluates the 6d Maxwellian.
+        Evaluates the Maxwellian distribution function M(etas, v1,..., vn).
 
         Parameters
         ----------
-        eta1, eta2, eta3 : array_like
-            Logical coordinates.
-
-        vx, vy, vz : array_like
-            Velocity coordinates
+        *args : array_like
+            Position-velocity arguments in the order etas, v1,..., vn.
 
         Returns
         -------
         f : np.ndarray
             The evaluated Maxwellian.
-        """
+        """ 
 
-        f = self.n(eta1, eta2, eta3)
+        res = self.n(*args[:-self.vdim])
+        us = self.u(*args[:-self.vdim])
+        vths = self.vth(*args[:-self.vdim])
 
-        f *= self.mx(eta1, eta2, eta3, vx)
-        f *= self.my(eta1, eta2, eta3, vy)
-        f *= self.mz(eta1, eta2, eta3, vz)
+        for i, v in enumerate(args[-self.vdim:]):
+            res *= self.gaussian(v, u=us[i], vth=vths[i])
 
-        return f
+        return res
 
 
-class Maxwellian6DUniform(Maxwellian6D):
+class Maxwellian6DUniform(Maxwellian):
     r"""
     6d Maxwellian distribution function defined on [0, 1]^3 x R^3, with logical position and Cartesian velocity coordinates, with uniform velocity moments.
 
@@ -130,47 +149,77 @@ class Maxwellian6DUniform(Maxwellian6D):
                           'vthy': 1.,
                           'vthz': 1.}
         
-        params = set_defaults(params, params_default)
+        self._params = set_defaults(params, params_default)
 
-        super().__init__(params)
+    @property
+    def params(self):
+        """ Parameters dictionary defining the moments of the Maxwellian.
+        """
+        return self._params
+
+    @property
+    def vdim(self):
+        """Dimension of the velocity space.
+        """
+        return 3
 
     def n(self, eta1, eta2, eta3):
-        """ Number density (0-form).
+        """ Number density (0-form). 
+        
+        Parameters
+        ----------
+        eta1, eta2, eta3 : numpy.array
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+            
+        Returns
+        -------
+        A numpy.array with the density evaluated at evaluation points (same shape as etas).
         """
         return self.params['n'] - 0*eta1
 
-    def ux(self, eta1, eta2, eta3):
-        """ Mean velocity (Cartesian x-component, but dependent on logical coordinates).
+    def vth(self, eta1, eta2, eta3):
+        """ Thermal velocities (0-forms).
+        
+        Parameters
+        ----------
+        etas : numpy.arrays
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+            
+        Returns
+        -------
+        A numpy.array with the thermal velocity evaluated at evaluation points (one dimension more than etas).
+        The additional dimension is in the first index.
         """
-        return self.params['ux'] - 0*eta1
+        res_list = []
 
-    def uy(self, eta1, eta2, eta3):
-        """ Mean velocity (Cartesian y-component, but dependent on logical coordinates).
+        res_list += [self.params['vthx'] - 0*eta1]
+        res_list += [self.params['vthy'] - 0*eta1]
+        res_list += [self.params['vthz'] - 0*eta1]
+
+        return np.array(res_list)
+
+    def u(self, eta1, eta2, eta3):
+        """ Mean velocities (Cartesian components evaluated at x = F(eta)).
+        
+        Parameters
+        ----------
+        eta1, eta2, eta3  : numpy.array
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+            
+        Returns
+        -------
+        A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
+        The additional dimension is in the first index.
         """
-        return self.params['uy'] - 0*eta1
+        res_list = []
 
-    def uz(self, eta1, eta2, eta3):
-        """ Mean velocity (Cartesian z-component, but dependent on logical coordinates).
-        """
-        return self.params['uz'] - 0*eta1
+        res_list += [self.params['ux'] - 0*eta1]
+        res_list += [self.params['uy'] - 0*eta1]
+        res_list += [self.params['uz'] - 0*eta1]
 
-    def vthx(self, eta1, eta2, eta3):
-        """ Thermal velocity (Cartesian x-component, but dependent on logical coordinates).
-        """
-        return self.params['vthx'] - 0*eta1
+        return np.array(res_list)
 
-    def vthy(self, eta1, eta2, eta3):
-        """ Thermal velocity (Cartesian y-component, but dependent on logical coordinates).
-        """
-        return self.params['vthy'] - 0*eta1
-
-    def vthz(self, eta1, eta2, eta3):
-        """ Thermal velocity (Cartesian z-component, but dependent on logical coordinates).
-        """
-        return self.params['vthz'] - 0*eta1
-
-
-class Maxwellian6DPerturbed(Maxwellian6D):
+class Maxwellian6DPerturbed(Maxwellian):
     r"""
     6d Maxwellian distribution function defined on [0, 1]^3 x R^3, with logical position and Cartesian velocity coordinates, with sin/cos perturbed velocity moments.
 
@@ -220,7 +269,19 @@ class Maxwellian6DPerturbed(Maxwellian6D):
                 params[moment_key]['perturbation']['amps_sin'] = [0]
                 params[moment_key]['perturbation']['amps_cos'] = [0]
 
-        super().__init__(params)
+        self._params = params
+
+    @property
+    def params(self):
+        """Parameters dictionary defining the moments of the Maxwellian.
+        """
+        return self._params
+
+    @property
+    def vdim(self):
+        """Dimension of the velocity space.
+        """
+        return 3
 
     def modes_sin(self, eta1, eta2, eta3, l, m, n, amps):
         """
@@ -281,7 +342,17 @@ class Maxwellian6DPerturbed(Maxwellian6D):
         return value
 
     def n(self, eta1, eta2, eta3):
-        """ Number density (0-form).
+        """ Mean velocities (Cartesian components evaluated at x = F(eta)).
+        
+        Parameters
+        ----------
+        eta1, eta2, eta3 : numpy.arrays
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+            
+        Returns
+        -------
+        A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
+        The additional dimension is in the first index.
         """
 
         ls = self.params['n']['perturbation']['l']
@@ -297,9 +368,21 @@ class Maxwellian6DPerturbed(Maxwellian6D):
 
         return res
 
-    def ux(self, eta1, eta2, eta3):
-        """ Mean velocity (Cartesian x-component, but dependent on logical coordinates).
+    def u(self, eta1, eta2, eta3):
+        """ Mean velocities (Cartesian components evaluated at x = F(eta)).
+        
+        Parameters
+        ----------
+        eta1, eta2, eta3  : numpy.array
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+            
+        Returns
+        -------
+        A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
+        The additional dimension is in the first index.
         """
+
+        res_list = []
 
         ls = self.params['ux']['perturbation']['l']
         ms = self.params['ux']['perturbation']['m']
@@ -312,11 +395,7 @@ class Maxwellian6DPerturbed(Maxwellian6D):
         res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
         res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
 
-        return res
-
-    def uy(self, eta1, eta2, eta3):
-        """ Mean velocity (Cartesian y-component, but dependent on logical coordinates).
-        """
+        res_list += [res]
 
         ls = self.params['uy']['perturbation']['l']
         ms = self.params['uy']['perturbation']['m']
@@ -329,11 +408,7 @@ class Maxwellian6DPerturbed(Maxwellian6D):
         res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
         res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
 
-        return res
-
-    def uz(self, eta1, eta2, eta3):
-        """ Mean velocity (Cartesian z-component, but dependent on logical coordinates).
-        """
+        res_list += [res]
 
         ls = self.params['uz']['perturbation']['l']
         ms = self.params['uz']['perturbation']['m']
@@ -346,11 +421,25 @@ class Maxwellian6DPerturbed(Maxwellian6D):
         res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
         res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
 
-        return res
+        res_list += [res]
 
-    def vthx(self, eta1, eta2, eta3):
-        """ Thermal velocity (Cartesian x-component, but dependent on logical coordinates).
+        return np.array(res_list)
+
+    def vth(self, eta1, eta2, eta3):
+        """ Thermal velocities (0-forms).
+        
+        Parameters
+        ----------
+        etas : numpy.arrays
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+            
+        Returns
+        -------
+        A numpy.array with the thermal velocity evaluated at evaluation points (one dimension more than etas).
+        The additional dimension is in the first index.
         """
+
+        res_list = []
 
         ls = self.params['vthx']['perturbation']['l']
         ms = self.params['vthx']['perturbation']['m']
@@ -363,11 +452,7 @@ class Maxwellian6DPerturbed(Maxwellian6D):
         res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
         res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
 
-        return res
-
-    def vthy(self, eta1, eta2, eta3):
-        """ Thermal velocity (Cartesian y-component, but dependent on logical coordinates).
-        """
+        res_list += [res]
 
         ls = self.params['vthy']['perturbation']['l']
         ms = self.params['vthy']['perturbation']['m']
@@ -380,11 +465,7 @@ class Maxwellian6DPerturbed(Maxwellian6D):
         res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
         res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
 
-        return res
-
-    def vthz(self, eta1, eta2, eta3):
-        """ Thermal velocity (Cartesian z-component, but dependent on logical coordinates).
-        """
+        res_list += [res]
 
         ls = self.params['vthz']['perturbation']['l']
         ms = self.params['vthz']['perturbation']['m']
@@ -397,10 +478,11 @@ class Maxwellian6DPerturbed(Maxwellian6D):
         res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
         res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
 
-        return res
+        res_list += [res]
 
+        return np.array(res_list)
 
-class Maxwellian6DITPA(Maxwellian6D):
+class Maxwellian6DITPA(Maxwellian):
     r"""
     6d Maxwellian distribution function defined on [0, 1]^3 x R^3, with logical position and Cartesian velocity coordinates, with isotropic, shifted distribution in velocity space and 1d density variation in first direction.
 
@@ -432,8 +514,29 @@ class Maxwellian6DITPA(Maxwellian6D):
 
         self._params = params
 
+    @property
+    def params(self):
+        """Parameters dictionary defining the moments of the Maxwellian.
+        """
+        return self._params
+
+    @property
+    def vdim(self):
+        """Dimension of the velocity space.
+        """
+        return 3
+
     def n(self, eta1, eta2, eta3):
-        """ Number density (0-form).
+        """ Number density (0-form). 
+        
+        Parameters
+        ----------
+        eta1, eta2, eta3 : numpy.array
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+            
+        Returns
+        -------
+        A numpy.array with the density evaluated at evaluation points (same shape as etas).
         """
 
         c0 = self.params['n']['c0']
@@ -448,32 +551,137 @@ class Maxwellian6DITPA(Maxwellian6D):
 
         return res
 
-    def ux(self, eta1, eta2, eta3):
-        """ Mean velocity (Cartesian x-component, but dependent on logical coordinates).
+    def vth(self, eta1, eta2, eta3):
+        """ Thermal velocities (0-forms).
+        
+        Parameters
+        ----------
+        etas : numpy.arrays
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+            
+        Returns
+        -------
+        A numpy.array with the thermal velocity evaluated at evaluation points (one dimension more than etas).
+        The additional dimension is in the first index.
         """
-        return 0*eta1
 
-    def uy(self, eta1, eta2, eta3):
-        """ Mean velocity (Cartesian y-component, but dependent on logical coordinates).
-        """
-        return 0*eta1
+        res_list = []
 
-    def uz(self, eta1, eta2, eta3):
-        """ Mean velocity (Cartesian z-component, but dependent on logical coordinates).
-        """
-        return 0*eta1
+        res_list += [self.params['vthx'] - 0*eta1]
+        res_list += [self.params['vthy'] - 0*eta1]
+        res_list += [self.params['vthz'] - 0*eta1]
 
-    def vthx(self, eta1, eta2, eta3):
-        """ Thermal velocity (Cartesian x-component, but dependent on logical coordinates).
-        """
-        return self.params['vth'] - 0*eta1
+        return np.array(res_list)
 
-    def vthy(self, eta1, eta2, eta3):
-        """ Thermal velocity (Cartesian y-component, but dependent on logical coordinates).
+    def u(self, eta1, eta2, eta3):
+        """ Mean velocities (Cartesian components evaluated at x = F(eta)).
+        
+        Parameters
+        ----------
+        eta1, eta2, eta3  : numpy.array
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+            
+        Returns
+        -------
+        A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
+        The additional dimension is in the first index.
         """
-        return self.params['vth'] - 0*eta1
+        res_list = []
 
-    def vthz(self, eta1, eta2, eta3):
-        """ Thermal velocity (Cartesian z-component, but dependent on logical coordinates).
+        res_list += [0*eta1]
+        res_list += [0*eta1]
+        res_list += [0*eta1]
+
+        return np.array(res_list)
+
+class Maxwellian5DUniform(Maxwellian):
+    r"""
+    5d Maxwellian distribution function defined on [0, 1]^3 x R^2, with logical position and Cartesian velocity coordinates, with uniform velocity moments.
+
+    .. math::
+
+        f(\boldsymbol{\eta}, v_\parallel, v_\perp) = n(\boldsymbol{\eta})\frac{1}{\pi\,v_{\mathrm{th},\parallel}(\boldsymbol{\eta})v_{\mathrm{th},\perp}(\boldsymbol{\eta})}\exp\left[-\frac{(v_\parallel-u_\parallel(\boldsymbol{\eta}))^2}{v_{\mathrm{th},\parallel}(\boldsymbol{\eta})^2}-\frac{(v_\perp-u_\perp(\boldsymbol{\eta}))^2}{v_{\mathrm{th},\perp}(\boldsymbol{\eta})^2}}\right]. 
+
+    Parameters
+    ----------
+    **params
+        Keyword arguments (n= , u_parallel=, etc.) defining the moments of the 6d Maxwellian.
+    """
+
+    def __init__(self, **params):
+
+        # default parameters
+        params_default = {'n': 1.,
+                          'u_parallel': 0.,
+                          'u_perp': 0.,
+                          'vth_parallel': 1.,
+                          'vth_perp': 1.}
+        
+        self._params = set_defaults(params, params_default)
+
+    @property
+    def params(self):
+        """Parameters dictionary defining the moments of the Maxwellian.
         """
-        return self.params['vth'] - 0*eta1
+        return self._params
+
+    @property
+    def vdim(self):
+        """Dimension of the velocity space.
+        """
+        return 2
+
+    def n(self, eta1, eta2, eta3):
+        """ Number density (0-form). 
+        
+        Parameters
+        ----------
+        eta1, eta2, eta3 : numpy.array
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+            
+        Returns
+        -------
+        A numpy.array with the density evaluated at evaluation points (same shape as etas).
+        """
+        return self.params['n'] - 0*eta1
+
+    def vth(self, eta1, eta2, eta3):
+        """ Thermal velocities (0-forms).
+        
+        Parameters
+        ----------
+        etas : numpy.arrays
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+            
+        Returns
+        -------
+        A numpy.array with the thermal velocity evaluated at evaluation points (one dimension more than etas).
+        The additional dimension is in the first index.
+        """
+        res_list = []
+
+        res_list += [self.params['vth_parallel'] - 0*eta1]
+        res_list += [self.params['vth_perp'] - 0*eta1]
+
+        return np.array(res_list)
+
+    def u(self, eta1, eta2, eta3):
+        """ Mean velocities (Cartesian components evaluated at x = F(eta)).
+        
+        Parameters
+        ----------
+        eta1, eta2, eta3  : numpy.array
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+            
+        Returns
+        -------
+        A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
+        The additional dimension is in the first index.
+        """
+        res_list = []
+
+        res_list += [self.params['u_parallel'] - 0*eta1]
+        res_list += [self.params['u_perp'] - 0*eta1]
+
+        return np.array(res_list)
+

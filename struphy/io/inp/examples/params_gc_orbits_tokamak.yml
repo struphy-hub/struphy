@@ -60,20 +60,20 @@ kinetic :
             loading :
                 type    : pseudo_random # particle loading mechanism 
                 seed    : 1608 # seed for random number generator
-                moments : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
-                initial : [[.501, 0.001, 0.001, 0.,  1.80, -1.60], # counter-passing particle
-                           [.501, 0.001, 0.001, 0., -1.80, -1.60], # co-passing particle
-                           [.501, 0.001, 0.001, 0.,  0.42, -1.60], # counter-trapped particle
-                           [.501, 0.001, 0.001, 0., -0.62, -1.60]] # co-trapped particle
+                moments : [0., 0., 1., 1.] # moments of Gaussian s3, see background/moms_spec
+                initial : [[.501, 0.001, 0.001,  1.935 , -1.72], # counter-passing particle
+                           [.501, 0.001, 0.001, -1.935 , -1.72], # co-passing particle
+                           [.501, 0.001, 0.001,  0.4515, -1.72], # counter-trapped particle
+                           [.501, 0.001, 0.001, -0.6665, -1.72]] # co-trapped particle
 
         init : 
-            type : Maxwellian6DUniform
-            Maxwellian6DUniform:
+            type : Maxwellian5DUniform
+            Maxwellian5DUniform:
                 n : 0.05
         save_data :
             n_markers : 4 # number of markers to be save during simulation
         push_algos :
             integrator : implicit # explicit or implicit
-            method : discrete_gradients_faster # possible choices: discrete_gradients, discrete_gradients_faster, forward_euler, heun2, rk2, heun3, rk4
+            method : discrete_gradients # possible choices: discrete_gradients, discrete_gradients_faster, forward_euler, heun2, rk2, heun3, rk4
             maxiter : 10
             tol : 1.e-15
