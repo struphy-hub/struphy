@@ -1,4 +1,4 @@
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod
 
 import numpy as np
 import h5py
@@ -14,22 +14,60 @@ class Particles(metaclass=ABCMeta):
     """
     Base class for a particle based kinetic species.
 
+    Loading and compute initial particles and save the values at the corresponding column of markers array.
+    | 0 | 1 | 2 | 3 | ... | 3+(vdim-1) | 3+vdim | 4+vdim | 5+vdim |
+    |    eta    |      velocities      | weight |   s0   |   w0   |
+
     Parameters
     ----------
     name : str
         Name of particle species.
 
-    n_cols : int
-        Number of columns (attributes) for each marker.
-
     **params : dict
-        Marker parameters (defaults must be checked in the child classes).    
+        Marker parameters.
     """
 
-    def __init__(self, name: str, n_cols: int, **params):
+    def __init__(self, name: str, **params):
+
+        params_default = {'type': 'full_f',
+                          'ppc': None,
+                          'Np': 4,
+                          'eps': .25,
+                          'bc_type': ['periodic', 'periodic', 'periodic'],
+                          'loading': {'type': 'pseudo:random', 'seed': 1234, 'dir_particles': None, 'moments': [0., 0., 0., 1., 1., 1.]},
+                          'comm': None,
+                          'domain': None,
+                          'domain_array': None
+                          }
+
+        self._params = set_defaults(params, params_default)
 
         self._name = name
-        self._params = params
+        self._domain = params['domain']
+        self._bc =     params['bc_type']
+        self._domain_decomp = params['domain_array']
+
+        assert params['comm'] is not None
+        self._mpi_comm = params['comm']
+        self._mpi_size = params['comm'].Get_size()
+        self._mpi_rank = params['comm'].Get_rank()
+
+        # create marker array
+        self.create_marker_array()
+
+        # draw markers
+        self.draw_markers()
+
+        # number of holes and markers on process
+        self._holes = self._markers[:, 0] == -1.
+        self._n_holes_loc = np.count_nonzero(self._holes)
+        self._n_mks_loc = self._markers.shape[0] - self._n_holes_loc
+
+        # check if all particle positions are inside the unit cube [0, 1]^3
+        n_mks_load_loc = self._n_mks_load[self._mpi_rank]
+
+        assert np.all(~self._holes[:n_mks_load_loc]) and np.all(
+            self._holes[n_mks_load_loc:])
 
         # Assume full-f if type is not in parameters
         if 'type' in params.keys():
@@ -40,161 +78,31 @@ class Particles(metaclass=ABCMeta):
         else:
             self._use_control_variate = False
 
-        self._domain_decomp = params['domain_array']
+    @abstractmethod
+    def svol(self, eta1, eta2, eta3, *v):
+        """ Sampling density function as volume form.
+        """
+        pass
 
-        assert params['comm'] is not None
-        self._mpi_comm = params['comm']
-        self._mpi_size = params['comm'].Get_size()
-        self._mpi_rank = params['comm'].Get_rank()
+    @abstractmethod
+    def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
+        """ Sampling density function as 0 form.
+        """
+        pass
 
-        self._domain = params['domain']
-        self._bc = params['bc_type']
+    @property
+    @abstractmethod
+    def n_cols(self):
+        """Number of the columns at each markers.
+        """
+        pass
 
-        # number of cells on current process
-        n_cells_loc = np.prod(
-            self._domain_decomp[self._mpi_rank, 2::3], dtype=int)
-
-        # total number of cells
-        n_cells = np.sum(
-            np.prod(self._domain_decomp[:, 2::3], axis=1, dtype=int))
-
-        # number of markers to load on each process (depending on relative domain size)
-        if params['ppc'] is not None:
-            assert isinstance(params['ppc'], int)
-            ppc = params['ppc']
-            Np = ppc*n_cells
-        else:
-            Np = params['Np']
-            assert isinstance(Np, int)
-            ppc = Np/n_cells
-
-        Np = int(Np)
-        assert Np >= self._mpi_size
-
-        n_mks_load = np.zeros(self._mpi_size, dtype=int)
-        self._mpi_comm.Allgather(np.array([int(ppc*n_cells_loc)]), n_mks_load)
-
-        # add deviation from Np to rank 0
-        n_mks_load[0] += Np - np.sum(n_mks_load)
-
-        # check if all markers are there
-        assert np.sum(n_mks_load) == Np
-        self._n_mks = Np
-
-        # initialize markers array (3 x positions, 3 x velocities, weight, ...) with eps send/receive buffer
-        n_mks_load_loc = n_mks_load[self._mpi_rank]
-
-        markers_size = round(
-            n_mks_load_loc*(1 + 1/np.sqrt(n_mks_load_loc) + params['eps']))
-
-        self._markers = np.zeros((markers_size, n_cols), dtype=float)
-
-        n_mks_load_cum_sum = np.cumsum(n_mks_load)
-
-        loading_params = params['loading']
-
-        # load markers from external .hdf5 file
-        if loading_params['type'] == 'external':
-
-            if self._mpi_rank == 0:
-                file = h5py.File(loading_params['dir_markers'], 'r')
-
-                self._markers[:n_mks_load_cum_sum[0], :
-                              ] = file['markers'][:n_mks_load_cum_sum[0], :]
-
-                for i in range(1, self._mpi_size):
-                    self._mpi_comm.Send(
-                        file['markers'][n_mks_load_cum_sum[i - 1]:n_mks_load_cum_sum[i], :], dest=i, tag=123)
-
-                file.close()
-            else:
-                recvbuf = np.zeros(
-                    (n_mks_load_loc, self._markers.shape[1]), dtype=float)
-                self._mpi_comm.Recv(recvbuf, source=0, tag=123)
-                self._markers[:n_mks_load_loc, :] = recvbuf
-
-        # load fresh markers
-        else:
-
-            # 1. standard random number generator (pseudo-random)
-            if loading_params['type'] == 'pseudo_random':
-
-                np.random.seed(loading_params['seed'])
-
-                for i in range(self._mpi_size):
-                    temp = np.random.rand(n_mks_load[i], 6)
-
-                    if i == self._mpi_rank:
-                        self._markers[:n_mks_load_loc, :6] = temp
-                        break
-
-                del temp
-
-            # 2. plain sobol numbers with skip of first 1000 numbers
-            elif loading_params['type'] == 'sobol_standard':
-
-                self._markers[:n_mks_load_loc, :6] = sobol_seq.i4_sobol_generate(
-                    6, n_mks_load_loc, 1000 + (n_mks_load_cum_sum - n_mks_load)[self._mpi_rank])
-
-            # 3. symmetric sobol numbers in all 6 dimensions with skip of first 1000 numbers
-            elif loading_params['type'] == 'sobol_antithetic':
-
-                temp_markers = sobol_seq.i4_sobol_generate(
-                    6, n_mks_load_loc//64, 1000 + (n_mks_load_cum_sum - n_mks_load)[self._mpi_rank]//64)
-
-                sampling.set_particles_symmetric_3d_3v(
-                    temp_markers, self._markers)
-
-            # 4. Wrong specification
-            else:
-                raise ValueError(
-                    'Specified particle loading method does not exist!')
-
-            # inversion of Gaussian in velocity space
-            for i in range(3):
-                self._markers[:n_mks_load_loc, i + 3] = sp.erfinv(
-                    2*self._markers[:n_mks_load_loc, i + 3] - 1)*loading_params['moments'][i + 3] + loading_params['moments'][i]
-
-        # fill holes in markers array with -1
-        self._markers[n_mks_load_loc:] = -1.
-
-        # set markers ID in last column
-        self._markers[:n_mks_load_loc, -1] = (n_mks_load_cum_sum - n_mks_load)[
-            self._mpi_rank] + np.arange(n_mks_load_loc, dtype=float)
-
-        # set specific initial condition for some particles
-        if 'initial' in loading_params:
-            specific_markers = loading_params['initial']
-
-            counter = 0
-            for i in range(len(specific_markers)):
-                if i == int(self._markers[counter, -1]):
-
-                    for j in range(6):
-                        if specific_markers[i][j] is not None:
-                            self._markers[counter, j] = specific_markers[i][j]
-
-                    counter += 1
-
-        # number of holes and markers on process
-        self._holes = self._markers[:, 0] == -1.
-        self._n_holes_loc = np.count_nonzero(self._holes)
-        self._n_mks_loc = self._markers.shape[0] - self._n_holes_loc
-
-        # load sampling density s3 (normalized to 1 in logical space!)
-        Maxwellian6DUniform = getattr(analytical, 'Maxwellian6DUniform')
-
-        self._s3 = Maxwellian6DUniform(n=1.,
-                                       ux=loading_params['moments'][0],
-                                       uy=loading_params['moments'][1],
-                                       uz=loading_params['moments'][2],
-                                       vthx=loading_params['moments'][3],
-                                       vthy=loading_params['moments'][4],
-                                       vthz=loading_params['moments'][5])
-
-        # check if all particle positions are inside the unit cube [0, 1]^3
-        assert np.all(~self._holes[:n_mks_load_loc]) and np.all(
-            self._holes[n_mks_load_loc:])
+    @property
+    @abstractmethod
+    def vdim(self):
+        """Dimension of the velocity space.
+        """
+        pass
 
     @property
     def kinds(self):
@@ -240,7 +148,7 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def n_mks(self):
-        """ Total number of markers at loading stage.
+        """ Total number of markers.
         """
         return self._n_mks
 
@@ -249,6 +157,12 @@ class Particles(metaclass=ABCMeta):
         """ Number of markers on process (without holes).
         """
         return self._n_mks_loc
+
+    @property
+    def n_mks_load(self):
+        """ Array of number of markers on each process at loading stage
+        """
+        return self._n_mks_load
 
     @property
     def markers(self):
@@ -275,12 +189,6 @@ class Particles(metaclass=ABCMeta):
         return self._markers[~self._holes]
 
     @property
-    def s3(self):
-        """ Sampling density function for markers (3-form, normalized to 1, constant moments).
-        """
-        return self._s3
-
-    @property
     def domain(self):
         """ struphy.geometry.domains
         """
@@ -292,30 +200,141 @@ class Particles(metaclass=ABCMeta):
         """
         return self._bc
 
-    def s0(self, eta1, eta2, eta3, vx, vy, vz, domain, remove_holes=True):
-        """ 
-        Sampling density transformed from 3-form to 0-form (division by Jacobian determinant).
-
-        Parameters
-        ----------
-        eta1, eta2, eta3 : array_like
-            Logical evaluation points.
-
-        vx, vy, vz : array_like
-            Velocity evaluation points.
-
-        domain : struphy.geometry.domains
-            Mapping info for evaluating metric coefficients.
-
-        remove_holes : bool
-            If True, holes are removed from the returned array. If False, holes are evaluated to -1.
-
-        Returns
-        -------
-        out : array-like
-            The 0-form sampling density.
+    def create_marker_array(self):
+        """Create marker array. (self.markers)
         """
-        return domain.transform(self.s3(eta1, eta2, eta3, vx, vy, vz), self.markers, kind='3_to_0', remove_outside=remove_holes)
+
+        # number of cells on current process
+        n_cells_loc = np.prod(
+            self._domain_decomp[self._mpi_rank, 2::3], dtype=int)
+
+        # total number of cells
+        n_cells = np.sum(
+            np.prod(self._domain_decomp[:, 2::3], axis=1, dtype=int))
+
+        # number of markers to load on each process (depending on relative domain size)
+        if self.params['ppc'] is not None:
+            assert isinstance(self.params['ppc'], int)
+            ppc = self.params['ppc']
+            Np = ppc*n_cells
+        else:
+            Np = self.params['Np']
+            assert isinstance(Np, int)
+            ppc = Np/n_cells
+
+        Np = int(Np)
+        assert Np >= self._mpi_size
+
+        # array of number of markers on each process at loading stage
+        self._n_mks_load = np.zeros(self._mpi_size, dtype=int)
+        self._mpi_comm.Allgather(np.array([int(ppc*n_cells_loc)]), self._n_mks_load)
+
+        # add deviation from Np to rank 0
+        self._n_mks_load[0] += Np - np.sum(self._n_mks_load)
+
+        # check if all markers are there
+        assert np.sum(self._n_mks_load) == Np
+        self._n_mks = Np
+
+        # number of markers on the local process at loading stage
+        n_mks_load_loc = self._n_mks_load[self._mpi_rank]
+
+        # create markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with eps send/receive buffer
+        markers_size = round(n_mks_load_loc*(1 + 1/np.sqrt(n_mks_load_loc) + self.params['eps']))
+        self._markers = np.zeros((markers_size, self.n_cols), dtype=float)
+
+    def draw_markers(self):
+        """ Draw markers. 
+        """
+
+        # number of markers on the local process at loading stage
+        n_mks_load_loc = self.n_mks_load[self._mpi_rank]
+
+        # cumulative sum of number of markers on each process at loading stage. 
+        n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
+
+        # load markers from external .hdf5 file
+        if self._params['loading']['type'] == 'external':
+
+            if self._mpi_rank == 0:
+                file = h5py.File(self._params['loading']['dir_markers'], 'r')
+
+                self._markers[:n_mks_load_cum_sum[0], :
+                              ] = file['markers'][:n_mks_load_cum_sum[0], :]
+
+                for i in range(1, self._mpi_size):
+                    self._mpi_comm.Send(
+                        file['markers'][n_mks_load_cum_sum[i - 1]:n_mks_load_cum_sum[i], :], dest=i, tag=123)
+
+                file.close()
+            else:
+                recvbuf = np.zeros(
+                    (n_mks_load_loc, self._markers.shape[1]), dtype=float)
+                self._mpi_comm.Recv(recvbuf, source=0, tag=123)
+                self._markers[:n_mks_load_loc, :] = recvbuf
+
+        # load fresh markers
+        else:
+
+            # 1. standard random number generator (pseudo-random)
+            if self._params['loading']['type'] == 'pseudo_random':
+
+                np.random.seed(self._params['loading']['seed'])
+
+                for i in range(self._mpi_size):
+                    temp = np.random.rand(self.n_mks_load[i], 3+self.vdim)
+
+                    if i == self._mpi_rank:
+                        self._markers[:n_mks_load_loc, :3+self.vdim] = temp
+                        break
+
+                del temp
+
+            # 2. plain sobol numbers with skip of first 1000 numbers
+            elif self._params['loading']['type'] == 'sobol_standard':
+
+                self._markers[:n_mks_load_loc, :6] = sobol_seq.i4_sobol_generate(
+                    3+self.vdim, n_mks_load_loc, 1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank])
+
+            # 3. symmetric sobol numbers in all 6 dimensions with skip of first 1000 numbers
+            elif self._params['loading']['type'] == 'sobol_antithetic':
+
+                temp_markers = sobol_seq.i4_sobol_generate(
+                    3+self.vdim, n_mks_load_loc//64, 1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank]//64)
+
+                sampling.set_particles_symmetric_3d_3v(
+                    temp_markers, self._markers)
+
+            # 4. Wrong specification
+            else:
+                raise ValueError(
+                    'Specified particle loading method does not exist!')
+
+            # inversion of Gaussian in velocity space
+            for i in range(self.vdim):
+                self._markers[:n_mks_load_loc, 3 + i] = sp.erfinv(
+                    2*self._markers[:n_mks_load_loc, 3 + i] - 1)*self._params['loading']['moments'][self.vdim + i] + self._params['loading']['moments'][i]
+
+        # fill holes in markers array with -1
+        self._markers[n_mks_load_loc:] = -1.
+
+        # set markers ID in last column
+        self._markers[:n_mks_load_loc, -1] = (n_mks_load_cum_sum - self.n_mks_load)[
+            self._mpi_rank] + np.arange(n_mks_load_loc, dtype=float)
+
+        # set specific initial condition for some particles
+        if 'initial' in self.params['loading']:
+            specific_markers = self.params['loading']['initial']
+
+            counter = 0
+            for i in range(len(specific_markers)):
+                if i == int(self._markers[counter, -1]):
+
+                    for j in range(3+self.vdim):
+                        if specific_markers[i][j] is not None:
+                            self._markers[counter, j] = specific_markers[i][j]
+
+                    counter += 1
 
     def mpi_sort_markers(self, do_test=False):
         """ 
@@ -359,14 +378,11 @@ class Particles(metaclass=ABCMeta):
                              :3] > self.domain_decomp[self.mpi_rank, 0::3],
                 self.markers[~self._holes, :3] < self.domain_decomp[self.mpi_rank, 1::3]))
 
-            #print(self.mpi_rank, all_on_right_proc)
             assert all_on_right_proc
 
         self.comm.Barrier()
 
-        #print(self.mpi_rank, self._n_mks_loc)
-
-    def initialize_weights(self, fun_params, domain, bckgr_params=None):
+    def initialize_weights(self, fun_params, bckgr_params=None):
         """
         Computes w0 = f0(t=0, eta(t=0), v(t=0)) / s0(t=0, eta(t=0), v(t=0)) from the initial
         distribution function and sets the corresponding columns for w0, s0 and weights in markers array.
@@ -377,18 +393,14 @@ class Particles(metaclass=ABCMeta):
         fun_params : dict
             Dictionary of the form {type : class_name, class_name : params_dict} defining the initial condition.
 
-        domain : struphy.geometry.domains
-            Mapping info for evaluating metric coefficients.
-
         bckgr_params : dict (optional)
             Dictionary of the form {type : class_name, class_name : params_dict} defining the background.
         """
         if self._use_control_variate:
             assert bckgr_params is not None, 'When control variate is used, background parameters must be given!'
 
-        # compute s0
-        self._markers[~self._holes, 7] = self.s0(*self._markers[:, :6].T,
-                                                 domain)
+        # compute s0 and save at vdim+4
+        self._markers[~self._holes, self.vdim+4] = self.s0(*self.markers_wo_holes[:, :self.vdim+3].T)
 
         # load distribution function (with given parameters or default parameters)
         fun_name = fun_params['type']
@@ -398,11 +410,11 @@ class Particles(metaclass=ABCMeta):
         else:
             f_init = getattr(analytical, fun_name)()
 
-        # compute w0
-        self._markers[~self._holes, 8] = f_init(
-            *self.markers_wo_holes[:, :6].T)/self.markers_wo_holes[:, 7]
+        # compute w0 and save at vdim+5
+        self._markers[~self._holes, self.vdim+5] = f_init(
+            *self.markers_wo_holes[:, :self.vdim+3].T)/self.markers_wo_holes[:, self.vdim+4]
 
-        # set weights
+        # compute weights and save at vdim+3
         if self._use_control_variate:
             fun_name = bckgr_params['type']
 
@@ -412,11 +424,11 @@ class Particles(metaclass=ABCMeta):
             else:
                 f_bckgr = getattr(analytical, fun_name)()
 
-            self._markers[~self._holes, 6] = self.markers_wo_holes[:, 8] - \
-                f_bckgr(*self.markers_wo_holes[:, :6].T) / \
-                self.markers_wo_holes[:, 7]
+            self._markers[~self._holes, self.vdim+3] = self.markers_wo_holes[:, self.vdim+5] - \
+                f_bckgr(*self.markers_wo_holes[:, :self.vdim+3].T) / \
+                self.markers_wo_holes[:, self.vdim+4]
         else:
-            self._markers[~self._holes, 6] = self.markers_wo_holes[:, 8]
+            self._markers[~self._holes, self.vdim+3] = self.markers_wo_holes[:, self.vdim+5]
 
     def update_weights(self, f0):
         """
@@ -429,8 +441,8 @@ class Particles(metaclass=ABCMeta):
         """
 
         if self._use_control_variate:
-            self._markers[~self._holes, 6] = self.markers_wo_holes[:, 8] - \
-                f0(*self.markers_wo_holes[:, :6].T)/self.markers_wo_holes[:, 7]
+            self._markers[~self._holes, self.vdim+3] = self.markers_wo_holes[:, self.vdim+5] - \
+                f0(*self.markers_wo_holes[:, :self.vdim+3].T)/self.markers_wo_holes[:, self.vdim+4]
 
     def binning(self, components, bin_edges, domain=None):
         """
@@ -563,6 +575,9 @@ class Particles6D(Particles):
     """
     A class for initializing particles in models that use the full 6D phase space.
 
+    | 0 | 1 | 2 | 3 | 4 | 5 |   6  | 7  | 8  |
+    |    eta    |     v     |weight| s0 | w0 |
+
     Parameters
     ----------
     name : str
@@ -574,93 +589,260 @@ class Particles6D(Particles):
 
     def __init__(self, name, **params):
 
-        params_default = {'type': 'full_f',
-                          'ppc': None,
-                          'Np': 3,
-                          'eps': .25,
-                          'bc_type': ['periodic', 'periodic', 'periodic'],
-                          'loading': {'type': 'pseudo:random', 'seed': 1234, 'dir_particles': None, 'moments': [0., 0., 0., 1., 1., 1.]},
-                          'comm': None,
-                          'domain_array': None,
-                          'domain': None
-                          }
+        # base class params
+        base_params = {}
 
-        params = set_defaults(params, params_default)
+        list_base_params = ['type', 'ppc', 'Np', 'eps', 'bc_type', 'loading', 'comm', 'domain', 'domain_array']
 
-        super().__init__(name, 16, **params)
+        for key, val in params.items():
+            if key in list_base_params:
+                base_params[key] = val
+
+        super().__init__(name, **base_params)
+
+    @property
+    def n_cols(self):
+        """Number of the columns at each markers.
+        """
+        return 16
+    
+    @property
+    def vdim(self):
+        """Dimension of the velocity space.
+        """
+        return 3
+    
+    def svol(self, eta1, eta2, eta3, *v):
+        """ 
+        Sampling density function as volume form.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+
+        *v : array_like
+            Velocity evaluation points.
+
+        Returns
+        -------
+        out : array-like
+            The volume-form sampling density.
+        -------
+        """
+        # load sampling density svol = s6 = s3 (normalized to 1 in logical space!)
+        Maxwellian6DUniform = getattr(analytical, 'Maxwellian6DUniform')
+
+        s3 = Maxwellian6DUniform(n=1.,
+                                 ux=self._params['loading']['moments'][0],
+                                 uy=self._params['loading']['moments'][1],
+                                 uz=self._params['loading']['moments'][2],
+                                 vthx=self._params['loading']['moments'][3],
+                                 vthy=self._params['loading']['moments'][4],
+                                 vthz=self._params['loading']['moments'][5])
+        
+        return s3(eta1, eta2, eta3, *v)
+
+    def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
+        """ 
+        Sampling density function as 0 form.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+
+        *v : array_like
+            Velocity evaluation points.
+
+        remove_holes : bool
+            If True, holes are removed from the returned array. If False, holes are evaluated to -1.
+
+        Returns
+        -------
+        out : array-like
+            The 0-form sampling density.
+        -------
+        """
+        return self.domain.transform(self.svol(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
 
 
 class Particles5D(Particles):
     """
     A class for initializing particles in guiding-center, drift-kinetic or gyro-kinetic models that use the 5D phase space.
 
-         0     1     2                3                  4       
-    guiding center position   parallel velocity   magnetic moment           
+    | 0 | 1 | 2 |     3      |        4        |  5   | 6  | 7  |
+    |    eta    | v_parallel | magnetic moment |weight| s0 | w0 |         
 
     Parameters
     ----------
     name : str
         Name of the particle species.
 
-    params_markers : dict
-        Parameters under key-word markers in the parameter file.
-
-    domain_decomp : array[float]
-        2d array of shape (comm_size, 6) defining the domain of each process.
-
-    comm : Intracomm
-        MPI communicator from mpi4py.MPI.Intracomm.
+    **params : dict
+        Parameters for markers.
     """
 
     def __init__(self, name, **params):
 
-        params_default = {'type': 'full_f',
-                          'ppc': None,
-                          'Np': 3,
-                          'eps': .25,
-                          'bc_type': ['periodic', 'periodic', 'periodic'],
-                          'loading': {'type': 'pseudo:random', 'seed': 1234, 'dir_particles': None, 'moments': [0., 0., 0., 1., 1., 1.]},
-                          'comm': None,
-                          'domain_array': None,
-                          'domain': None
+        # base class params
+        base_params = {}
+
+        list_base_params = ['type', 'ppc', 'Np', 'eps', 'bc_type', 'loading', 'comm', 'domain', 'domain_array']
+
+        for key, val in params.items():
+            if key in list_base_params:
+                base_params[key] = val
+
+        super().__init__(name, **base_params)
+
+        # child class params
+        child_params = {}
+
+        list_child_params = ['A', 'Z', 'mhd_equil', 'units_basic']
+
+        for key, val in params.items():
+            if key in list_child_params:
+                child_params[key] = val
+
+        params_default = {'A': 1, 
+                          'Z': 1,
+                          'mhd_equil': None,
+                          'units_basic': None
                           }
 
-        params = set_defaults(params, params_default)
+        child_params = set_defaults(child_params, params_default)
 
-        super().__init__(name, 25, **params)
+        self._mhd_equil = params['mhd_equil']
 
-    def save_magnetic_moment(self, derham, b_cart):
+        # compute kappa
+        ee = 1.602176634e-19 # elementary charge (C)
+        mH = 1.67262192369e-27 # proton mass (kg)
+
+        Ah = child_params['A']
+        Zh = child_params['Z']
+        
+        omega_ch = (Zh*ee*child_params['units_basic']['B'])/(Ah*mH)
+        self._kappa = omega_ch*child_params['units_basic']['t']
+
+    @property
+    def n_cols(self):
+        """Number of the columns at each markers.
+        """
+        return 25
+    
+    @property
+    def vdim(self):
+        """Dimension of the velocity space.
+        """
+        return 2
+    
+    def svol(self, eta1, eta2, eta3, *v):
+        """ 
+        Sampling density function as volume-form.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+
+        *v : array_like
+            Velocity evaluation points.
+
+        Returns
+        -------
+        out : array-like
+            The volume-form sampling density.
+        -------
+        """
+        # load sampling density svol = s5 (normalized to 1 in logical space!)
+        Maxwellian5DUniform = getattr(analytical, 'Maxwellian5DUniform')
+
+        s5 = Maxwellian5DUniform(n=1.,
+                                 u_parallel=self.params['loading']['moments'][0],
+                                 u_perp=self.params['loading']['moments'][1],
+                                 vth_parallel=self.params['loading']['moments'][2],
+                                 vth_perp=self.params['loading']['moments'][3])
+        
+        return s5(eta1, eta2, eta3, *v)
+
+    def s3(self, eta1, eta2, eta3, *v):
+        """
+        Sampling density function as 3-form.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+
+        *v : array_like
+            Velocity evaluation points.
+
+        Returns
+        -------
+        out : array-like
+            The 3-form sampling density.
+        -------
+        """
+        # call equilibrium arrays
+        etas = (np.vstack((eta1, eta2, eta3)).T).copy()
+        bv = self._mhd_equil.bv(etas)
+        curlb = self._mhd_equil.jv(etas)/self._mhd_equil.absB0(etas)
+        unit_b1 = self._mhd_equil.unit_b1(etas)
+
+        # contra-variant components of B* = B + 1/kappa*v_parallel*curlb0
+        bstar = bv + 1/self._kappa*v[0]*curlb
+
+        # B*_parallel = b0 . B*
+        jacobian_det = np.einsum('ij,ij->j',unit_b1, bstar)/v[1]
+
+        return self.svol(eta1, eta2, eta3, *v)/np.abs(jacobian_det)
+
+    def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
+        """ 
+        Sampling density function as 0-form.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+
+        v_parallel, v_perp : array_like
+            Velocity evaluation points.
+
+        remove_holes : bool
+            If True, holes are removed from the returned array. If False, holes are evaluated to -1.
+
+        Returns
+        -------
+        out : array-like
+            The 0-form sampling density.
+        -------
+        """
+        return self.domain.transform(self.s3(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
+
+    def save_magnetic_moment(self, derham):
         r"""
         Calculate magnetic moment of each particles :math:`\mu = \frac{m v_\perp^2}{2B}` and asign it into markers[:,4].
         """
-        from struphy.pic.utilities_kernels import eval_magnetic_moment
+        from struphy.pic.utilities_kernels import eval_magnetic_moment_5d
 
         T1, T2, T3 = derham.Vh_fem['0'].knots
 
-        eval_magnetic_moment(self._markers,
-                             np.array(derham.p), T1, T2, T3,
-                             np.array(derham.Vh['0'].starts),
-                             b_cart[0]._data, b_cart[1]._data, b_cart[2]._data)
+        absB = derham.P['0'](self._mhd_equil.absB0)
 
+        E0T = derham.E['0'].transpose()
 
-    # temporary function. Will be removed.
-    def transform_6D_to_5D(self, kappa, derham, b_cart):
-        r"""
-        Calculate magnetic moment of each particles :math:`\mu = \frac{m v_\perp^2}{2B}` and asign it into markers[:,4].
-        """
-        from struphy.pic.utilities_kernels import transform_6D_to_5D
+        absB = E0T.dot(absB)
 
-        T1, T2, T3 = derham.Vh_fem['0'].knots
-
-        transform_6D_to_5D(self._markers, kappa,
-                           np.array(derham.p), T1, T2, T3,
-                           np.array(derham.Vh['0'].starts),
-                           b_cart[0]._data, b_cart[1]._data, b_cart[2]._data)
-
+        eval_magnetic_moment_5d(self._markers,
+                                np.array(derham.p), T1, T2, T3,
+                                np.array(derham.Vh['0'].starts),
+                                absB._data)
 
     def save_magnetic_energy(self, derham, PB):
         r"""
-        Calculate magnetic field energy at each particles' position and asign it into markers[:,5].
+        Calculate magnetic field energy at each particles' position and asign it into markers[:,8].
         """
         from struphy.pic.utilities_kernels import eval_magnetic_energy
 

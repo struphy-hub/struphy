@@ -2314,6 +2314,8 @@ def cc_lin_mhd_5d_mu(markers: 'float[:,:]', n_markers_tot: 'int',
 
     # get number of markers
     n_markers_loc = shape(markers)[0]
+
+    mH = 1.67262192369e-27 # proton mass (kg)
     
     for ip in range(n_markers_loc):
         
@@ -2327,7 +2329,7 @@ def cc_lin_mhd_5d_mu(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # marker weight and velocity
-        weight = markers[ip, 6]
+        weight = markers[ip, 5]
         mu = markers[ip, 4]
 
         # b-field evaluation

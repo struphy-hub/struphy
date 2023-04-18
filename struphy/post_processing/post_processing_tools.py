@@ -476,11 +476,13 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
             if isinstance(f_bckgr, analytical.Maxwellian6DUniform):
                 for direction in slice_name.split('_'):
                     if direction[0] == 'v':
+
                         for k in range(len(slice_name.split('_'))):
                             slicing = [None] * len(data.shape)
                             slicing[k + 1] = slice(None)
                             grid_v = files[0]['kinetic/' + species + '/f/' + slice_name].attrs['bin_centers_' + str(k+1)]
-                            data_bckgr *= getattr(f_bckgr, 'm' + direction[1])(0, 0, 0, grid_v)[tuple(slicing)]
+                            data_bckgr *= getattr(f_bckgr, 'gaussian')(grid_v, u=f_bckgr.params['u' + direction[1]], 
+                                                                       vth=f_bckgr.params['vth' + direction[1]])[tuple(slicing)]
 
             else:
                 raise NotImplementedError(f'Post-processing is not yet available for background of type {fun_name}')

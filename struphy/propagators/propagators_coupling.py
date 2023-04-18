@@ -10,7 +10,7 @@ from struphy.pic.particles_to_grid import Accumulator
 from struphy.pic.pusher import Pusher
 import struphy.pic.utilities_kernels as utilities
 from struphy.polar.basic import PolarVector
-from struphy.kinetic_background.analytical import Maxwellian6D, Maxwellian6DUniform
+from struphy.kinetic_background.analytical import Maxwellian, Maxwellian6DUniform, Maxwellian5DUniform
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
 from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
@@ -525,13 +525,13 @@ class CurrentCoupling6DCurrent(Propagator):
         self._f0 = params['f0']
 
         if self._f0 is not None:
-            assert isinstance(self._f0, Maxwellian6D)
+            assert isinstance(self._f0, Maxwellian)
 
             # evaluate and save nh0 (0-form) * uh0 (2-form if H1vec or vector if Hdiv) at quadrature points for control variate
             quad_pts = [quad_grid.points.flatten()
                         for quad_grid in self.derham.Vh_fem['0'].quad_grids]
 
-            uh0_cart = [self._f0.ux, self._f0.uy, self._f0.uz]
+            uh0_cart = self._f0.u
 
             if params['u_space'] == 'H1vec':
                 self._nuh0_at_quad = self.domain.pull(

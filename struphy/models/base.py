@@ -45,6 +45,9 @@ class StruphyModel(metaclass=ABCMeta):
         
         # initialize model variable dictionaries
         self._init_variable_dicts()
+
+        # compute model units
+        self._units_basic, self._units_der, self._units_dimless = self.model_units(self.params, verbose=False)
         
         # create domain, MHD equilibrium, background electric field
         self._domain, self._mhd_equil = setup_domain_mhd(params)
@@ -146,6 +149,24 @@ class StruphyModel(metaclass=ABCMeta):
     def derham(self):
         '''3d Derham sequence, see :ref:`derham`.'''
         return self._derham
+
+    @property
+    def units_basic(self):
+        '''Basic units of the model.
+        '''
+        return self._units_basic
+
+    @property
+    def units_der(self):
+        '''Derived units of the model.
+        '''
+        return self._units_der
+
+    @property
+    def units_dimless(self):
+        '''Dimensionless qunatities of the model.
+        '''
+        return self._units_dimless
 
     @property
     def mass_ops(self):
@@ -262,22 +283,18 @@ class StruphyModel(metaclass=ABCMeta):
                 val['obj'].mpi_sort_markers(do_test=True)
 
                 if val['params']['markers']['type'] == 'full_f':
-                    val['obj'].initialize_weights(val['params']['init'],
-                                                  self.domain)
+                    val['obj'].initialize_weights(val['params']['init'])
                 elif val['params']['markers']['type'] == 'delta_f':
-                    val['obj'].initialize_weights(val['params']['init'],
-                                                  self.domain)
+                    val['obj'].initialize_weights(val['params']['init'])
                 elif val['params']['markers']['type'] == 'control_variate':
-                    val['obj'].initialize_weights(val['params']['init'], self.domain,
-                                                  val['params']['background'])
+                    val['obj'].initialize_weights(val['params']['init'], val['params']['background'])
                 else:
                     typ = val['params']['markers']['type']
                     raise NotImplementedError(
                         f'Type {typ} for distribution function is not known!')
 
-                #if val['space'] == 'Particles5D':
-                #    val['obj'].save_magnetic_moment(
-                #        self.derham, self.derham.P['0'](self.mhd_equil.absB0))
+                if val['space'] == 'Particles5D':
+                   val['obj'].save_magnetic_moment(self.derham)
             
     def initialize_from_restart(self, data):
         """
@@ -483,6 +500,13 @@ class StruphyModel(metaclass=ABCMeta):
                 print(f'Unit of velocity:'.ljust(25), '{:4.3e}'.format(299792458) + ' m/s')
                 print(f'Unit of magnetic field:'.ljust(25), '{:4.3e}'.format(B_unit) + ' T')
                 print(f'Unit of electric field:'.ljust(25), '{:4.3e}'.format(299792458*B_unit) + ' V/m')
+
+            units_basic = {}
+            units_basic['t'] = x_unit / 299792458
+            units_basic['x'] = x_unit
+            units_basic['B'] = B_unit
+
+            return units_basic, {}, {}
         else:
             
             # look for bulk species in fluid OR kinetic parameter dictionaries
@@ -646,10 +670,13 @@ class StruphyModel(metaclass=ABCMeta):
                 kinetic_class = getattr(particles, val['space'])
 
                 val['obj'] = kinetic_class(species,
+                                           **val['params']['phys_params'],
                                            **val['params']['markers'],
                                            comm=self.derham.comm,
                                            domain_array=self.derham.domain_array,
-                                           domain=self.domain)
+                                           domain=self.domain,
+                                           mhd_equil=self.mhd_equil,
+                                           units_basic=self.units_basic)
 
                 # for storing markers
                 n_markers = val['params']['save_data']['n_markers']
@@ -737,9 +764,9 @@ class StruphyModel(metaclass=ABCMeta):
         units['pressure'] = ' bar'
         units['thermal energy'] = ' keV'
         units['thermal speed'] = ' m/s'
-        units['thermal speed_eta1'] = ' m/s'
-        units['thermal speed_eta2'] = ' m/s'
-        units['thermal speed_eta3'] = ' m/s'
+        units['thermal speed eta1'] = ' m/s'
+        units['thermal speed eta2'] = ' m/s'
+        units['thermal speed eta3'] = ' m/s'
         units['thermal frequency'] = ' MHz'
         units['cyclotron frequency'] = ' MHz'
         units['Larmor radius'] = ' m'
@@ -824,10 +851,12 @@ class StruphyModel(metaclass=ABCMeta):
                     else:
                         characteristics[species]['density'] = units_der['n']
                 # thermal speed (m/s)
-                characteristics[species]['thermal speed_eta1'] = val['params']['markers']['loading']['moments'][3]*units_der['v']
-                characteristics[species]['thermal speed_eta2'] = val['params']['markers']['loading']['moments'][4]*units_der['v']
-                characteristics[species]['thermal speed_eta3'] = val['params']['markers']['loading']['moments'][5]*units_der['v']
-                characteristics[species]['thermal speed'] = np.mean((characteristics[species]['thermal speed_eta1'], characteristics[species]['thermal speed_eta2'], characteristics[species]['thermal speed_eta3']))
+                thermal_speed=0.
+                for dir in range(val['obj'].vdim):
+                    thermal_kinds = 'thermal speed eta' + str(dir + 1)
+                    characteristics[species][thermal_kinds] = val['params']['markers']['loading']['moments'][dir+val['obj'].vdim]*units_der['v']
+                    thermal_speed += characteristics[species][thermal_kinds]
+                characteristics[species]['thermal speed'] = thermal_speed/val['obj'].vdim
                 # thermal energy (keV)
                 characteristics[species]['thermal energy'] = characteristics[species]['mass']*characteristics[species]['thermal speed']**2/e*1e-3
                 # pressure (bar)

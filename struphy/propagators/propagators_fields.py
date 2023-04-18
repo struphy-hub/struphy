@@ -5,7 +5,7 @@ from struphy.propagators.base import Propagator
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.pic.particles_to_grid import Accumulator
 from struphy.polar.basic import PolarVector
-from struphy.kinetic_background.analytical import Maxwellian6D, Maxwellian6DUniform
+from struphy.kinetic_background.analytical import Maxwellian, Maxwellian6DUniform, Maxwellian5DUniform
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
 from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
@@ -717,7 +717,7 @@ class CurrentCoupling6DDensity(Propagator):
 
         if self._f0 is not None:
 
-            assert isinstance(self._f0, Maxwellian6D)
+            assert isinstance(self._f0, Maxwellian)
 
             # evaluate and save nh0*|det(DF)| (H1vec) or nh0/|det(DF)| (Hdiv) at quadrature points for control variate
             quad_pts = [quad_grid.points.flatten()

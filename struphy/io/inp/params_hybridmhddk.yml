@@ -1,5 +1,5 @@
 grid :
-    Nel      : [12, 12, 12] # number of grid cells, >p
+    Nel      : [16, 4, 4] # number of grid cells, >p
     p        : [3, 3, 3]  # spline degree
     spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
     bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
@@ -69,20 +69,22 @@ kinetic :
             Z : 1 # signed charge number in units of elementary charge
         markers :
             type    : full_f # full_f or delta_f
+            ppc     : 10
             Np      : 4 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
             eps     : 1.0 # MPI send/receive buffer (0.1 <= eps <= 1.0)
             bc_type : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
             loading :
                 type    : pseudo_random # particle loading mechanism 
                 seed    : 1608 # seed for random number generator
-                moments : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
-                initial : [[.52, 0.001, 0.001, 0., -0.0750, -0.06], # counter-passing particle
-                           [.52, 0.001, 0.001, 0.,  0.0400, -0.06], # co-passing particle
-                           [.52, 0.001, 0.001, 0., -0.0225, -0.06], # counter-trapped particle
-                           [.52, 0.001, 0.001, 0.,  0.0125, -0.06]] # co-trapped particle
+                moments : [0., 0., 1., 1.] # moments of Gaussian s3, see background/moms_spec
+                initial : [[.501, 0.001, 0.001,  1.935 , -1.72], # counter-passing particle
+                           [.501, 0.001, 0.001, -1.935 , -1.72], # co-passing particle
+                           [.501, 0.001, 0.001,  0.4515, -1.72], # counter-trapped particle
+                           [.501, 0.001, 0.001, -0.6665, -1.72]] # co-trapped particle
+
         init : 
-            type : Maxwellian6DUniform
-            Maxwellian6DUniform :
+            type : Maxwellian5DUniform
+            Maxwellian5DUniform :
                 n  : 0.05
         save_data :
             n_markers : 4 # number of markers to be save during simulation

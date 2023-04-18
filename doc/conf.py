@@ -14,8 +14,8 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
-import sphinx_rtd_theme
-from struphy.version import __version__
+with open('../struphy/console/main.py') as f:  
+    exec(f.read())
 
 # -- Project information -----------------------------------------------------
 

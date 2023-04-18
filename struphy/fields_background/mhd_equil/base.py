@@ -490,7 +490,7 @@ class AxisymmMHDequilibrium(CartesianMHDequilibrium):
         # check for point-wise evaluation and broadcast input to 3d numpy arrays.
         is_float = all(isinstance(v, (int, float)) for v in [x, y, z])
         
-        x, y, z, is_sparse_meshgrid = Domain.prepare_eval_pts(x, y, z)
+        # x, y, z, is_sparse_meshgrid = Domain.prepare_eval_pts(x, y, z)
         
         R, Phi, Z = self.inverse_map(x, y, z)
         
@@ -524,7 +524,7 @@ class AxisymmMHDequilibrium(CartesianMHDequilibrium):
         # check for point-wise evaluation and broadcast input to 3d numpy arrays.
         is_float = all(isinstance(v, (int, float)) for v in [x, y, z])
         
-        x, y, z, is_sparse_meshgrid = Domain.prepare_eval_pts(x, y, z)
+        # x, y, z, is_sparse_meshgrid = Domain.prepare_eval_pts(x, y, z)
         
         R, Phi, Z = self.inverse_map(x, y, z)
         
