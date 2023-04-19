@@ -39,7 +39,8 @@ class Propagator(metaclass=ABCMeta):
     def derham(self):
         """ Derham spaces and projectors.
         """
-        assert hasattr(self, '_derham'), 'Derham not set. Please do obj.deram = ...'
+        assert hasattr(
+            self, '_derham'), 'Derham not set. Please do obj.deram = ...'
         return self._derham
 
     @derham.setter
@@ -50,7 +51,8 @@ class Propagator(metaclass=ABCMeta):
     def domain(self):
         """ Domain object that characterizes the mapping from the logical to the physical domain.
         """
-        assert hasattr(self, '_domain'), 'Domain for analytical MHD equilibrium not set. Please do obj.domain = ...'
+        assert hasattr(self, '_domain'), \
+            'Domain for analytical MHD equilibrium not set. Please do obj.domain = ...'
         return self._domain
 
     @domain.setter
@@ -61,7 +63,8 @@ class Propagator(metaclass=ABCMeta):
     def mass_ops(self):
         """ Weighted mass operators.
         """
-        assert hasattr(self, '_mass_ops'), 'Weighted mass operators not set. Please do obj.mass_ops = ...'
+        assert hasattr(self, '_mass_ops'), \
+            'Weighted mass operators not set. Please do obj.mass_ops = ...'
         return self._mass_ops
 
     @mass_ops.setter
@@ -72,7 +75,8 @@ class Propagator(metaclass=ABCMeta):
     def basis_ops(self):
         """ Basis projection operators.
         """
-        assert hasattr(self, '_basis_ops'), 'Basis projection operators not set. Please do obj.basis_ops = ...'
+        assert hasattr(self, '_basis_ops'), \
+            'Basis projection operators not set. Please do obj.basis_ops = ...'
         return self._basis_ops
 
     @basis_ops.setter
@@ -104,7 +108,7 @@ class Propagator(metaclass=ABCMeta):
 
             # copy new variables into self.variables
             new.copy(out=self.variables[i])
-            
+
             # important: sync processes!
             self.variables[i].update_ghost_regions()
 

@@ -1,16 +1,15 @@
 import numpy as np
 
-from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 
 from struphy.propagators.base import Propagator
 from struphy.linear_algebra.schur_solver import SchurSolver
-from struphy.pic.particles import Particles6D, Particles5D
+from struphy.pic.particles import Particles6D
 from struphy.pic.particles_to_grid import Accumulator
 from struphy.pic.pusher import Pusher
 import struphy.pic.utilities_kernels as utilities
 from struphy.polar.basic import PolarVector
-from struphy.kinetic_background.analytical import Maxwellian, Maxwellian6DUniform, Maxwellian5DUniform
+from struphy.kinetic_background.analytical import Maxwellian, Maxwellian6DUniform
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
 from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
@@ -256,7 +255,7 @@ class PressureCoupling6D(Propagator):
                           'kappa': 1.}
 
         params = set_defaults(params, params_default)
-        
+
         self._G = self.derham.grad
         self._GT = self.derham.grad.transpose()
 
@@ -298,18 +297,18 @@ class PressureCoupling6D(Propagator):
         pusher_ker = 'push_pc_GXu'
         if not params['use_perp_model']:
             accum_ker += '_full'
-            pusher_ker +='_full'
+            pusher_ker += '_full'
 
         self._info = params['info']
 
-        # ============= TODO ======== 
+        # ============= TODO ========
         self._coupling_mat = 1.
         self._coupling_vec = 1.
         self._scale_push = 1.
         # ===========================
 
         self._ACC = Accumulator(self.derham, self.domain, 'Hcurl',
-                                accum_ker, add_vector=True, 
+                                accum_ker, add_vector=True,
                                 symmetry='pressure')
         self._pusher = Pusher(self.derham, self.domain, pusher_ker)
 
@@ -330,10 +329,12 @@ class PressureCoupling6D(Propagator):
         un.update_ghost_regions()
 
         # acuumulate MAT and VEC
-        self._ACC.accumulate(self._particles, self._coupling_mat, self._coupling_vec)
+        self._ACC.accumulate(
+            self._particles, self._coupling_mat, self._coupling_vec)
 
         MAT = [[self._ACC.operators[0].matrix, self._ACC.operators[1].matrix, self._ACC.operators[2].matrix],
-               [self._ACC.operators[1].matrix, self._ACC.operators[3].matrix, self._ACC.operators[4].matrix],
+               [self._ACC.operators[1].matrix, self._ACC.operators[3].matrix,
+                   self._ACC.operators[4].matrix],
                [self._ACC.operators[2].matrix, self._ACC.operators[4].matrix, self._ACC.operators[5].matrix]]
         VEC = [self._ACC.vectors[0], self._ACC.vectors[1], self._ACC.vectors[2]]
 
@@ -343,7 +344,8 @@ class PressureCoupling6D(Propagator):
                                      self._GT.dot(VEC[2])])
 
         # define BC and B dot V of the Schur block matrix [[A, B], [C, I]]
-        BC = Multiply(-1/4, Compose(self._XT, self.GT_MAT_G(self.derham, MAT), self._X))
+        BC = Multiply(-1/4, Compose(self._XT,
+                      self.GT_MAT_G(self.derham, MAT), self._X))
         # BC = Compose(self._XT, self.GT_MAT_G(self.derham, MAT), self._X)*(-1/4)
 
         self._BV = self._XT.dot(GT_VEC)*(-1/2)
@@ -418,7 +420,7 @@ class PressureCoupling6D(Propagator):
         @property
         def dtype(self):
             return self._derham.Vh['v'].dtype
-        
+
         @property
         def tosparse(self):
             raise NotImplementedError()
@@ -546,12 +548,12 @@ class CurrentCoupling6DCurrent(Propagator):
                 [self._f0.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
             self._nuh0_at_quad[2] *= self.domain.pull(
                 [self._f0.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
-            
+
             # memory allocation for magnetic field at quadrature points
             self._b_quad1 = np.zeros_like(self._nuh0_at_quad[0])
             self._b_quad2 = np.zeros_like(self._nuh0_at_quad[0])
             self._b_quad3 = np.zeros_like(self._nuh0_at_quad[0])
-            
+
             # memory allocation for (self._b_quad x self._nuh0_at_quad) * self._coupling_vec
             self._vec1 = np.zeros_like(self._nuh0_at_quad[0])
             self._vec2 = np.zeros_like(self._nuh0_at_quad[0])
@@ -560,8 +562,8 @@ class CurrentCoupling6DCurrent(Propagator):
         self._info = params['info']
         self._rank = self.derham.comm.Get_rank()
 
-        self._coupling_mat = params['Ah'] / params['Ab'] * params['kappa']**2 
-        self._coupling_vec = params['Ah'] / params['Ab'] * params['kappa'] 
+        self._coupling_mat = params['Ah'] / params['Ab'] * params['kappa']**2
+        self._coupling_vec = params['Ah'] / params['Ab'] * params['kappa']
         self._scale_push = 1*params['kappa']
 
         # load accumulator
@@ -592,13 +594,13 @@ class CurrentCoupling6DCurrent(Propagator):
         self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'],
                                          tol=params['tol'], maxiter=params['maxiter'],
                                          verbose=params['verbose'])
-        
+
         # temporary vectors to avoid memory allocation
         self._b_full1 = self._b_eq.space.zeros()
         self._b_full2 = self._EbT.codomain.zeros()
-        
+
         self._u_new = self._u.space.zeros()
-        
+
         self._u_avg1 = self._u.space.zeros()
         self._u_avg2 = self._EuT.codomain.zeros()
 
@@ -616,7 +618,7 @@ class CurrentCoupling6DCurrent(Propagator):
 
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         self._b_eq.copy(out=self._b_full1)
-        
+
         if self._b_tilde is not None:
             self._b_full1 += self._b_tilde
 
@@ -632,10 +634,16 @@ class CurrentCoupling6DCurrent(Propagator):
             # evaluate magnetic field at quadrature points (in-place)
             WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
                                            out=[self._b_quad1, self._b_quad2, self._b_quad3])
-            
-            self._vec1[:, :, :] = self._coupling_vec*(self._b_quad2*self._nuh0_at_quad[2] - self._b_quad3*self._nuh0_at_quad[1])
-            self._vec2[:, :, :] = self._coupling_vec*(self._b_quad3*self._nuh0_at_quad[0] - self._b_quad1*self._nuh0_at_quad[2])
-            self._vec3[:, :, :] = self._coupling_vec*(self._b_quad1*self._nuh0_at_quad[1] - self._b_quad2*self._nuh0_at_quad[0])
+
+            self._vec1[:, :, :] = self._coupling_vec * \
+                (self._b_quad2 *
+                 self._nuh0_at_quad[2] - self._b_quad3*self._nuh0_at_quad[1])
+            self._vec2[:, :, :] = self._coupling_vec * \
+                (self._b_quad3 *
+                 self._nuh0_at_quad[0] - self._b_quad1*self._nuh0_at_quad[2])
+            self._vec3[:, :, :] = self._coupling_vec * \
+                (self._b_quad1 *
+                 self._nuh0_at_quad[1] - self._b_quad2*self._nuh0_at_quad[0])
 
             self._accumulator.accumulate(self._particles,
                                          self._b_full2[0]._data, self._b_full2[1]._data, self._b_full2[2]._data,
@@ -654,7 +662,7 @@ class CurrentCoupling6DCurrent(Propagator):
         un.copy(out=self._u_avg1)
         self._u_avg1 += self._u_new
         self._u_avg1 /= 2
-        
+
         self._EuT.dot(self._u_avg1, out=self._u_avg2)
 
         self._u_avg2.update_ghost_regions()
@@ -695,7 +703,7 @@ class CurrentCoupling5DCurrent1(Propagator):
 
         # parameters
         params_default = {'u_space': 'Hdiv',
-                          'b' : None,
+                          'b': None,
                           'b_eq': None,
                           'unit_b1': None,
                           'f0': Maxwellian6DUniform(),
@@ -708,9 +716,9 @@ class CurrentCoupling5DCurrent1(Propagator):
                           'Ab': 1,
                           'Ah': 1,
                           'kappa': 100.}
-        
+
         params = set_defaults(params, params_default)
-        
+
         assert params['u_space'] in {'Hcurl', 'Hdiv', 'H1vec'}
 
         if params['u_space'] == 'H1vec':
@@ -739,13 +747,13 @@ class CurrentCoupling5DCurrent1(Propagator):
         self._verbose = params['verbose']
         self._rank = self.derham.comm.Get_rank()
 
-        self._coupling_mat = params['Ah'] / params['Ab'] * params['kappa']**2 
-        self._coupling_vec = params['Ah'] / params['Ab'] * params['kappa'] 
+        self._coupling_mat = params['Ah'] / params['Ab'] * params['kappa']**2
+        self._coupling_vec = params['Ah'] / params['Ab'] * params['kappa']
         self._scale_push = 1*params['kappa']
 
         self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
         self._curl_norm_b.update_ghost_regions()
-        
+
         b_full = self._b_eq.copy()
         if self._b is not None:
             b_full += self._b
@@ -767,7 +775,8 @@ class CurrentCoupling5DCurrent1(Propagator):
         # Call the accumulation and Pusher class
         self._ACC = Accumulator(self.derham, self.domain, params['u_space'],
                                 'cc_lin_mhd_5d_J1', add_vector=True, symmetry='symm')
-        self._pusher = Pusher(self.derham, self.domain, 'push_gc_cc_J1_' + params['u_space'])
+        self._pusher = Pusher(self.derham, self.domain,
+                              'push_gc_cc_J1_' + params['u_space'])
 
     @property
     def variables(self):
@@ -823,7 +832,7 @@ class CurrentCoupling5DCurrent1(Propagator):
             print()
 
 
-class CurrentCoupling5DCurrent2( Propagator ):
+class CurrentCoupling5DCurrent2(Propagator):
     r'''
     TODO
     '''
@@ -856,9 +865,9 @@ class CurrentCoupling5DCurrent2( Propagator ):
                           'Ab': 1,
                           'Ah': 1,
                           'kappa': 100.,
-                          'integrator':'explicit',
-                          'method':'rk4'}
-        
+                          'integrator': 'explicit',
+                          'method': 'rk4'}
+
         params = set_defaults(params, params_default)
 
         assert params['u_space'] in {'Hcurl', 'Hdiv', 'H1vec'}
@@ -891,8 +900,8 @@ class CurrentCoupling5DCurrent2( Propagator ):
         self._verbose = params['verbose']
         self._rank = self.derham.comm.Get_rank()
 
-        self._coupling_mat = params['Ah'] / params['Ab'] * params['kappa']**2 
-        self._coupling_vec = params['Ah'] / params['Ab'] * params['kappa'] 
+        self._coupling_mat = params['Ah'] / params['Ab'] * params['kappa']**2
+        self._coupling_vec = params['Ah'] / params['Ab'] * params['kappa']
         self._scale_push = 1*params['kappa']
 
         u_id = self.derham.spaces_dict[params['u_space']]
@@ -921,7 +930,8 @@ class CurrentCoupling5DCurrent2( Propagator ):
             pc = pc_class(_A)
 
         # Call the accumulation and Pusher class
-        self._ACC = Accumulator(self.derham, self.domain,  params['u_space'], 'cc_lin_mhd_5d_J2', add_vector=True, symmetry='symm')
+        self._ACC = Accumulator(
+            self.derham, self.domain,  params['u_space'], 'cc_lin_mhd_5d_J2', add_vector=True, symmetry='symm')
         # self._pusher = Pusher(self.derham, self.domain, 'push_gc_cc_J2_' +  params['u_space'])
 
         # choose algorithm
@@ -950,7 +960,7 @@ class CurrentCoupling5DCurrent2( Propagator ):
 
         self._butcher = ButcherTableau(a, b, c)
         self._pusher = Pusher(self.derham, self.domain,
-                              'push_gc_cc_J2_stage_' +  params['u_space'], self._butcher.n_stages)
+                              'push_gc_cc_J2_stage_' + params['u_space'], self._butcher.n_stages)
 
         _BC = Multiply(-1/4, self._ACC.operators[0])
 
@@ -965,7 +975,7 @@ class CurrentCoupling5DCurrent2( Propagator ):
         return [self._u]
 
     def __call__(self, dt):
-    
+
         un = self.variables[0]
 
         # sum up total magnetic field
@@ -1006,7 +1016,7 @@ class CurrentCoupling5DCurrent2( Propagator ):
                      self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
                      u_avg[0]._data, u_avg[1]._data, u_avg[2]._data,
                      self._butcher.a, self._butcher.b, self._butcher.c)
-                     
+
         self._particles.save_magnetic_energy(self.derham, self._PBb)
 
         # write new coeffs into Propagator.variables
@@ -1019,7 +1029,7 @@ class CurrentCoupling5DCurrent2( Propagator ):
             print()
 
 
-class CurrentCoupling5DCurrent2dg( Propagator ):
+class CurrentCoupling5DCurrent2dg(Propagator):
     r'''
     TODO
     '''
@@ -1051,9 +1061,9 @@ class CurrentCoupling5DCurrent2dg( Propagator ):
                           'Ab': 1,
                           'Ah': 1,
                           'kappa': 100.,
-                          'integrator':'explicit',
-                          'method':'rk4'}
-        
+                          'integrator': 'explicit',
+                          'method': 'rk4'}
+
         params = set_defaults(params, params_default)
 
         assert params['u_space'] in {'Hcurl', 'Hdiv', 'H1vec'}
@@ -1086,8 +1096,8 @@ class CurrentCoupling5DCurrent2dg( Propagator ):
         self._verbose = params['verbose']
         self._rank = self.derham.comm.Get_rank()
 
-        self._coupling_mat = params['Ah'] / params['Ab'] * params['kappa']**2 
-        self._coupling_vec = params['Ah'] / params['Ab'] * params['kappa'] 
+        self._coupling_mat = params['Ah'] / params['Ab'] * params['kappa']**2
+        self._coupling_vec = params['Ah'] / params['Ab'] * params['kappa']
         self._scale_push = 1*params['kappa']
 
         u_id = self.derham.spaces_dict[params['u_space']]
@@ -1119,11 +1129,14 @@ class CurrentCoupling5DCurrent2dg( Propagator ):
         # self._ACC = Accumulator(self.derham, self.domain, params['u_space'], 'cc_lin_mhd_5d_J2_dg', add_vector=True, symmetry='symm')
         # self._pusher = Pusher(self.derham, self.domain, 'push_gc_cc_J2_dg_' + params['u_space'])
 
-        self._ACC_prepare = Accumulator(self.derham, self.domain, params['u_space'], 'cc_lin_mhd_5d_J2_dg_prepare_faster', add_vector=True, symmetry='symm')
-        self._ACC = Accumulator(self.derham, self.domain,  params['u_space'], 'cc_lin_mhd_5d_J2_dg_faster', add_vector=True, symmetry='symm')
-        self._pusher = Pusher(self.derham, self.domain, 'push_gc_cc_J2_dg_faster_' +  params['u_space'])
+        self._ACC_prepare = Accumulator(
+            self.derham, self.domain, params['u_space'], 'cc_lin_mhd_5d_J2_dg_prepare_faster', add_vector=True, symmetry='symm')
+        self._ACC = Accumulator(
+            self.derham, self.domain,  params['u_space'], 'cc_lin_mhd_5d_J2_dg_faster', add_vector=True, symmetry='symm')
+        self._pusher = Pusher(self.derham, self.domain,
+                              'push_gc_cc_J2_dg_faster_' + params['u_space'])
 
-        # linear solver 
+        # linear solver
         self._solver = getattr(it_solvers, params['type'])(self._A.domain)
 
         # allocate dummy vectors to avoid temporary array allocations
@@ -1140,7 +1153,7 @@ class CurrentCoupling5DCurrent2dg( Propagator ):
         return [self._u]
 
     def __call__(self, dt):
-        
+
         # save old u
         self.variables[0].copy(out=self._u_old)
 
@@ -1166,9 +1179,8 @@ class CurrentCoupling5DCurrent2dg( Propagator ):
         # eval initial particle energy
         self._particles.save_magnetic_energy(self.derham, self._PBb)
         en_fB_old = self._particles.markers[~self._particles.holes, 6].dot(
-                    self._particles.markers[~self._particles.holes, 5])/self._particles.n_mks*self._coupling_vec 
+            self._particles.markers[~self._particles.holes, 5])/self._particles.n_mks*self._coupling_vec
 
-        
         # ------------ initial guess of u ------------#
         # accumulate S*gradI
         self._ACC_prepare.accumulate(self._particles, self._kappa,
@@ -1187,7 +1199,7 @@ class CurrentCoupling5DCurrent2dg( Propagator ):
 
         self._rhs1.update_ghost_regions()
 
-        info = self._solver.solve(self._A, self._rhs1, self._pc, 
+        info = self._solver.solve(self._A, self._rhs1, self._pc,
                                   x0=self._u_old, tol=self._tol,
                                   maxiter=self._maxiter, verbose=self._verbose,
                                   out=self._u_new)[1]
@@ -1196,7 +1208,8 @@ class CurrentCoupling5DCurrent2dg( Propagator ):
 
         # ------------ initial guess of H ------------#
         # save old etas in columns 9-11
-        self._particles.markers[~self._particles.holes, 9:12] = self._particles.markers[~self._particles.holes, 0:3]
+        self._particles.markers[~self._particles.holes,
+                                9:12] = self._particles.markers[~self._particles.holes, 0:3]
 
         # initial guess of eta is stored in columns 0:3
         self._pusher._pusher(self._particles.markers, dt, 0, *self._pusher._args_fem, *self.domain.args_map,
@@ -1219,18 +1232,22 @@ class CurrentCoupling5DCurrent2dg( Propagator ):
             # save eta diff at markers[ip, 15:18]
             utilities.check_eta_diff(self._particles.markers)
             # self._particles.markers[~self._particles.holes, 15:18] = self._particles.markers[~self._particles.holes, 0:3] - self._particles.markers[~self._particles.holes, 9:12]
-            
-            sum_H_diff_loc = np.sum(self._particles.markers[~self._particles.holes, 15:18]**2)
-            u_norm_loc = np.sum((self._u_new.toarray_local() - self._u_old.toarray_local())**2)
+
+            sum_H_diff_loc = np.sum(
+                self._particles.markers[~self._particles.holes, 15:18]**2)
+            u_norm_loc = np.sum(
+                (self._u_new.toarray_local() - self._u_old.toarray_local())**2)
             denominator = sum_H_diff_loc + u_norm_loc
 
             # eval particle magnetic energy
             self._particles.save_magnetic_energy(self.derham, self._PBb)
-            en_fB_loc = self._particles.markers[~self._particles.holes, 6].dot(self._particles.markers[~self._particles.holes, 5])/self._particles.n_mks*self._coupling_vec 
+            en_fB_loc = self._particles.markers[~self._particles.holes, 6].dot(
+                self._particles.markers[~self._particles.holes, 5])/self._particles.n_mks*self._coupling_vec
 
             # move particle to the mid point position and then the real position is saved at markers[ip, 12:15]
             utilities.check_eta_mid(self._particles.markers)
-            self._particles.markers[~self._particles.holes, 0:3], self._particles.markers[~self._particles.holes, 12:15] = self._particles.markers[~self._particles.holes, 12:15].copy(), self._particles.markers[~self._particles.holes, 0:3].copy()
+            self._particles.markers[~self._particles.holes, 0:3], self._particles.markers[~self._particles.holes,
+                                                                                          12:15] = self._particles.markers[~self._particles.holes, 12:15].copy(), self._particles.markers[~self._particles.holes, 0:3].copy()
             self._particles.mpi_sort_markers()
 
             # Accumulate
@@ -1239,7 +1256,8 @@ class CurrentCoupling5DCurrent2dg( Propagator ):
                                                                 self._coupling_vec)[0]
 
             # gradI_const = (en_u - en_u_old - u_diff.dot(self._A.dot(u_mid)) + np.sum(en_fB) - np.sum(en_fB_old) - np.sum(accum_gradI_const))/denominator
-            gradI_const = (en_fB_loc - en_fB_old - accum_gradI_const_loc)/denominator
+            gradI_const = (en_fB_loc - en_fB_old -
+                           accum_gradI_const_loc)/denominator
 
             # Accumulate
             self._ACC.accumulate(self._particles, self._kappa,
@@ -1256,7 +1274,7 @@ class CurrentCoupling5DCurrent2dg( Propagator ):
             self._A.dot(self._u_old, out=self._rhs1)
             self._rhs1 += dt*self._ACC.vectors[0]
 
-            info = self._solver.solve(self._A, self._rhs1, self._pc, 
+            info = self._solver.solve(self._A, self._rhs1, self._pc,
                                       x0=self._u_temp, tol=self._tol,
                                       maxiter=self._maxiter, verbose=self._verbose,
                                       out=self._u_new)[1]
@@ -1264,10 +1282,12 @@ class CurrentCoupling5DCurrent2dg( Propagator ):
             self._u_new.update_ghost_regions()
 
             # send particle back to the real position
-            self._particles.markers[~self._particles.holes, 0:3], self._particles.markers[~self._particles.holes, 12:15] = self._particles.markers[~self._particles.holes, 12:15].copy(), self._particles.markers[~self._particles.holes, 0:3].copy()
+            self._particles.markers[~self._particles.holes, 0:3], self._particles.markers[~self._particles.holes,
+                                                                                          12:15] = self._particles.markers[~self._particles.holes, 12:15].copy(), self._particles.markers[~self._particles.holes, 0:3].copy()
             self._particles.mpi_sort_markers()
 
-            self._particles.markers[~self._particles.holes, 12:15] = self._particles.markers[~self._particles.holes, 0:3]
+            self._particles.markers[~self._particles.holes,
+                                    12:15] = self._particles.markers[~self._particles.holes, 0:3]
 
             # update H (1 step ealiler u is needed, u_temp)
             # calculate average u
@@ -1281,7 +1301,8 @@ class CurrentCoupling5DCurrent2dg( Propagator ):
 
             self._u_diff.update_ghost_regions()
 
-            self._u_pusher += Inverse(self._A, pc=self._pc, tol=1e-18).dot(self._u_diff)
+            self._u_pusher += Inverse(self._A, pc=self._pc,
+                                      tol=1e-18).dot(self._u_diff)
 
             self._u_pusher.update_ghost_regions()
 
@@ -1297,10 +1318,12 @@ class CurrentCoupling5DCurrent2dg( Propagator ):
 
             print('stage', stage+1)
 
-            u_norm_loc = np.sum((self._u_new.toarray_local() - self._u_temp.toarray_local())**2)
+            u_norm_loc = np.sum(
+                (self._u_new.toarray_local() - self._u_temp.toarray_local())**2)
             print('u differences',  np.sqrt(u_norm_loc))
-          
-            sum_H_diff_loc = np.sum((self._particles.markers[~self._particles.holes, 0:3] - self._particles.markers[~self._particles.holes, 12:15])**2)
+
+            sum_H_diff_loc = np.sum(
+                (self._particles.markers[~self._particles.holes, 0:3] - self._particles.markers[~self._particles.holes, 12:15])**2)
             print('H differences', np.sqrt(sum_H_diff_loc))
 
             diff = np.sqrt(u_norm_loc + sum_H_diff_loc)
