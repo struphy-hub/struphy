@@ -1,11 +1,11 @@
 import numpy as np
-from numpy import array, zeros
+from numpy import zeros
 
 from struphy.propagators.base import Propagator
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.pic.particles_to_grid import Accumulator
 from struphy.polar.basic import PolarVector
-from struphy.kinetic_background.analytical import Maxwellian, Maxwellian6DUniform, Maxwellian5DUniform
+from struphy.kinetic_background.analytical import Maxwellian, Maxwellian6DUniform
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
 from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
@@ -18,7 +18,7 @@ import struphy.linear_algebra.iterative_solvers as it_solvers
 from psydac.linalg.iterative_solvers import pcg
 
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
-from psydac.linalg.stencil import StencilVector, StencilMatrix
+from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 import struphy.psydac_api.utilities as util
 
@@ -71,7 +71,7 @@ class Maxwell(Propagator):
 
         # no dt
         self._B = Multiply(-1/2, Compose(self.derham.curl.T, self.mass_ops.M2))
-        self._C = Multiply( 1/2, self.derham.curl)
+        self._C = Multiply(1/2, self.derham.curl)
 
         # Preconditioner
         if params['pc'] is None:
@@ -86,12 +86,12 @@ class Maxwell(Propagator):
         self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'],
                                          tol=params['tol'], maxiter=params['maxiter'],
                                          verbose=params['verbose'])
-        
+
         # allocate place-holder vectors to avoid temporary array allocations in __call__
         self._e_tmp1 = e.space.zeros()
         self._e_tmp2 = e.space.zeros()
         self._b_tmp1 = b.space.zeros()
-        
+
         self._byn = self._B.codomain.zeros()
 
     @property
@@ -106,9 +106,9 @@ class Maxwell(Propagator):
 
         # solve for new e coeffs
         self._B.dot(bn, out=self._byn)
-        
+
         info = self._schur_solver(en, self._byn, dt, out=self._e_tmp1)[1]
-        
+
         # new b coeffs
         en.copy(out=self._e_tmp2)
         self._e_tmp2 += self._e_tmp1
@@ -126,7 +126,7 @@ class Maxwell(Propagator):
             print('Maxdiff b2 for Maxwell:', max_db)
             print()
 
-            
+
 class OhmCold(Propagator):
     r'''Crank-Nicolson step
 
@@ -300,9 +300,10 @@ class ShearAlfvén(Propagator):
 
         _A = getattr(self.mass_ops, id_M)
         _T = getattr(self.basis_ops, id_T)
-        
-        self._B = Multiply(-1/2, Compose(_T.T, self.derham.curl.T, self.mass_ops.M2))
-        self._C = Multiply( 1/2, Compose(self.derham.curl, _T))
+
+        self._B = Multiply(-1/2, Compose(_T.T,
+                           self.derham.curl.T, self.mass_ops.M2))
+        self._C = Multiply(1/2, Compose(self.derham.curl, _T))
 
         # Preconditioner
         if params['pc'] is None:
@@ -317,13 +318,13 @@ class ShearAlfvén(Propagator):
         self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'],
                                          tol=params['tol'], maxiter=params['maxiter'],
                                          verbose=params['verbose'])
-        
+
         # allocate dummy vectors to avoid temporary array allocations
         self._u_tmp1 = u.space.zeros()
         self._u_tmp2 = u.space.zeros()
         self._b_tmp1 = b.space.zeros()
-        
-        self._byn = self._B.codomain.zeros() 
+
+        self._byn = self._B.codomain.zeros()
 
     @property
     def variables(self):
@@ -337,9 +338,9 @@ class ShearAlfvén(Propagator):
 
         # solve for new u coeffs
         self._B.dot(bn, out=self._byn)
-        
+
         info = self._schur_solver(un, self._byn, dt, out=self._u_tmp1)[1]
-        
+
         # new b coeffs
         un.copy(out=self._u_tmp2)
         self._u_tmp2 += self._u_tmp1
@@ -425,7 +426,7 @@ class Magnetosonic(Propagator):
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         id_Mn = 'M' + self.derham.spaces_dict[params['u_space']] + 'n'
         id_MJ = 'M' + self.derham.spaces_dict[params['u_space']] + 'J'
-        
+
         if params['u_space'] == 'Hcurl':
             id_S, id_U, id_K, id_Q = 'S1', 'U1', 'K3', 'Q1'
         elif params['u_space'] == 'Hdiv':
@@ -436,13 +437,13 @@ class Magnetosonic(Propagator):
         _A = getattr(self.mass_ops, id_Mn)
         _S = getattr(self.basis_ops, id_S)
         _K = getattr(self.basis_ops, id_K)
-        
+
         if id_U is None:
             _U, _UT = None, None
         else:
             _U = getattr(self.basis_ops, id_U)
             _UT = _U.T
-        
+
         self._B = Multiply(-1/2., Compose(_UT,
                            self.derham.div.T, self.mass_ops.M3))
         self._C = Multiply(1/2., Sum(Compose(self.derham.div, _S),
@@ -450,7 +451,7 @@ class Magnetosonic(Propagator):
 
         self._MJ = getattr(self.mass_ops, id_MJ)
         self._DQ = Compose(self.derham.div, getattr(self.basis_ops, id_Q))
-        
+
         self._b = params['b']
 
         # preconditioner
@@ -466,16 +467,16 @@ class Magnetosonic(Propagator):
         self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'],
                                          tol=params['tol'], maxiter=params['maxiter'],
                                          verbose=params['verbose'])
-        
+
         # allocate dummy vectors to avoid temporary array allocations
         self._u_tmp1 = u.space.zeros()
         self._u_tmp2 = u.space.zeros()
         self._p_tmp1 = p.space.zeros()
         self._n_tmp1 = n.space.zeros()
         self._b_tmp1 = self._b.space.zeros()
-        
+
         self._byn1 = self._B.codomain.zeros()
-        self._byn2 = self._B.codomain.zeros() 
+        self._byn2 = self._B.codomain.zeros()
 
     @property
     def variables(self):
@@ -487,26 +488,26 @@ class Magnetosonic(Propagator):
         nn = self.variables[0]
         un = self.variables[1]
         pn = self.variables[2]
-        
+
         # solve for new u coeffs
         self._B.dot(pn, out=self._byn1)
         self._MJ.dot(self._b, out=self._byn2)
         self._byn2 *= 1/2
         self._byn1 -= self._byn2
-        
+
         info = self._schur_solver(un, self._byn1, dt, out=self._u_tmp1)[1]
-        
+
         # new p, n, b coeffs
         un.copy(out=self._u_tmp2)
         self._u_tmp2 += self._u_tmp1
         self._C.dot(self._u_tmp2, out=self._p_tmp1)
         self._p_tmp1 *= -dt
         self._p_tmp1 += pn
-        
+
         self._DQ.dot(self._u_tmp2, out=self._n_tmp1)
         self._n_tmp1 *= -dt/2
         self._n_tmp1 += nn
-        
+
         # write new coeffs into self.variables
         max_dn, max_du, max_dp = self.in_place_update(self._n_tmp1,
                                                       self._u_tmp1,
@@ -529,7 +530,7 @@ class FaradayExtended(Propagator):
         & \frac{\partial {\mathbf A}}{\partial t} = - \frac{\nabla \times (\nabla \times {\mathbf A} + {\mathbf B}_0) }{n} \times (\nabla \times {\mathbf A} + {\mathbf B}_0) - \frac{\int ({\mathbf A} - {\mathbf p}f \mathrm{d}{\mathbf p})}{n} \times (\nabla \times {\mathbf A} + {\mathbf B}_0), \\
         & n = \int f \mathrm{d}{\mathbf p}.
         \end{align*}
-    
+
     Mid-point rule:
 
     .. math::
@@ -549,6 +550,7 @@ class FaradayExtended(Propagator):
         **params : dict
             Solver- and/or other parameters for this splitting step.
     '''
+
     def __init__(self, a, **params):
 
         assert isinstance(a, (BlockVector, PolarVector))
@@ -558,10 +560,10 @@ class FaradayExtended(Propagator):
                           'beq': None,
                           'particles': None,
                           'quad_number': None,
-                          'shape_degree' : None,
-                          'shape_size' : None,
-                          'solver_params' : None,
-                          'accumulate_density' : None
+                          'shape_degree': None,
+                          'shape_size': None,
+                          'solver_params': None,
+                          'accumulate_density': None
                           }
 
         params = set_defaults(params, params_default)
@@ -577,34 +579,41 @@ class FaradayExtended(Propagator):
 
         self._particles = params['particles']
 
-        self._nqs   = params['quad_number']    
+        self._nqs = params['quad_number']
 
         self.size1 = int(self.derham.domain_array[self._rank, int(2)])
         self.size2 = int(self.derham.domain_array[self._rank, int(5)])
         self.size3 = int(self.derham.domain_array[self._rank, int(8)])
 
-        self.weight_1 = zeros((self.size1*self._nqs[0], self.size2*self._nqs[1], self.size3*self._nqs[2]), dtype=float)
-        self.weight_2 = zeros((self.size1*self._nqs[0], self.size2*self._nqs[1], self.size3*self._nqs[2]), dtype=float)
-        self.weight_3 = zeros((self.size1*self._nqs[0], self.size2*self._nqs[1], self.size3*self._nqs[2]), dtype=float)
+        self.weight_1 = zeros(
+            (self.size1*self._nqs[0], self.size2*self._nqs[1], self.size3*self._nqs[2]), dtype=float)
+        self.weight_2 = zeros(
+            (self.size1*self._nqs[0], self.size2*self._nqs[1], self.size3*self._nqs[2]), dtype=float)
+        self.weight_3 = zeros(
+            (self.size1*self._nqs[0], self.size2*self._nqs[1], self.size3*self._nqs[2]), dtype=float)
 
         self._weight_pre = [self.weight_1, self.weight_2, self.weight_3]
 
-        self._ind = [[self.derham.indN[0], self.derham.indD[1], self.derham.indD[2]], 
+        self._ind = [[self.derham.indN[0], self.derham.indD[1], self.derham.indD[2]],
                      [self.derham.indD[0], self.derham.indN[1], self.derham.indD[2]],
                      [self.derham.indD[0], self.derham.indD[1], self.derham.indN[2]]]
 
         # Initialize Accumulator object for getting density from particles
-        self._pts_x = 1.0 / (2.0*self.derham.Nel[0]) * np.polynomial.legendre.leggauss(self._nqs[0])[0] + 1.0 / (2.0*self.derham.Nel[0])
-        self._pts_y = 1.0 / (2.0*self.derham.Nel[1]) * np.polynomial.legendre.leggauss(self._nqs[1])[0] + 1.0 / (2.0*self.derham.Nel[1])
-        self._pts_z = 1.0 / (2.0*self.derham.Nel[2]) * np.polynomial.legendre.leggauss(self._nqs[2])[0] + 1.0 / (2.0*self.derham.Nel[2])
-        
+        self._pts_x = 1.0 / (2.0*self.derham.Nel[0]) * np.polynomial.legendre.leggauss(
+            self._nqs[0])[0] + 1.0 / (2.0*self.derham.Nel[0])
+        self._pts_y = 1.0 / (2.0*self.derham.Nel[1]) * np.polynomial.legendre.leggauss(
+            self._nqs[1])[0] + 1.0 / (2.0*self.derham.Nel[1])
+        self._pts_z = 1.0 / (2.0*self.derham.Nel[2]) * np.polynomial.legendre.leggauss(
+            self._nqs[2])[0] + 1.0 / (2.0*self.derham.Nel[2])
+
         self._p_shape = params['shape_degree']
-        self._p_size =  params['shape_size']
+        self._p_size = params['shape_size']
         self._accum_density = params['accumulate_density']
-  
+
         # Initialize Accumulator object for getting the matrix and vector related with vector potential
-        self._accum_potential = Accumulator(self.derham, self.domain, self._a_space, 'hybrid_fA_Arelated', add_vector=True, symmetry='symm')
-   
+        self._accum_potential = Accumulator(
+            self.derham, self.domain, self._a_space, 'hybrid_fA_Arelated', add_vector=True, symmetry='symm')
+
         self._solver_params = params['solver_params']
         # preconditioner
         if self._solver_params['pc'] is None:
@@ -613,10 +622,11 @@ class FaradayExtended(Propagator):
             pc_class = getattr(preconditioner, self._solver_params['pc'])
             self._pc = pc_class(self.mass_ops.M1)
 
-        self._Minv = Inverse(self.mass_ops.M1, tol=1e-8) 
-        self._CMC = Compose(self.derham.curl.transpose(), Compose(self.mass_ops.M2, self.derham.curl))
-        self._M1   = self.mass_ops.M1
-        self._M2   = self.mass_ops.M2
+        self._Minv = Inverse(self.mass_ops.M1, tol=1e-8)
+        self._CMC = Compose(self.derham.curl.transpose(),
+                            Compose(self.mass_ops.M2, self.derham.curl))
+        self._M1 = self.mass_ops.M1
+        self._M2 = self.mass_ops.M2
 
     @property
     def variables(self):
@@ -626,26 +636,34 @@ class FaradayExtended(Propagator):
 
         # the loop of fixed point iteration, 100 iterations at most.
 
-        self._accum_density.accumulate(self._particles, np.array(self.derham.Nel), np.array(self._nqs), np.array(self._pts_x), np.array(self._pts_y), np.array(self._pts_z), np.array(self._p_shape), np.array(self._p_size))
+        self._accum_density.accumulate(self._particles, np.array(self.derham.Nel), np.array(self._nqs), np.array(
+            self._pts_x), np.array(self._pts_y), np.array(self._pts_z), np.array(self._p_shape), np.array(self._p_size))
         self._accum_potential.accumulate(self._particles)
 
-        self._L2  = Multiply(-dt/2, Compose(self._Minv, Sum(self._accum_potential._operators[0].matrix, self._CMC)))
-        self._RHS = -(self._L2.dot(self._a)) - dt*(self._Minv.dot(self._accum_potential._vectors[0] - Compose(self.derham.curl.transpose(), self._M2).dot(self._beq)))
+        self._L2 = Multiply(-dt/2, Compose(self._Minv,
+                            Sum(self._accum_potential._operators[0].matrix, self._CMC)))
+        self._RHS = -(self._L2.dot(self._a)) - dt*(self._Minv.dot(
+            self._accum_potential._vectors[0] - Compose(self.derham.curl.transpose(), self._M2).dot(self._beq)))
         self._rhs = self._M1.dot(self._a)
 
         for loop in range(10):
             #print('+++++=====++++++', self._accum_density._operators[0].matrix._data)
-            curla_mid = self.derham.curl.dot( 0.5*(self._a_old + self._a)) + self._beq # set mid-value used in the fixed iteration
+            # set mid-value used in the fixed iteration
+            curla_mid = self.derham.curl.dot(
+                0.5*(self._a_old + self._a)) + self._beq
             curla_mid.update_ghost_regions()
-            # initialize the curl A 
+            # initialize the curl A
             # remember to check ghost region of curla_mid
-            util.create_weight_weightedmatrix_hybrid(curla_mid, self._weight_pre, self.derham, self._accum_density, self.domain)
+            util.create_weight_weightedmatrix_hybrid(
+                curla_mid, self._weight_pre, self.derham, self._accum_density, self.domain)
             #self._weight = [[None, self._weight_pre[2], -self._weight_pre[1]], [None, None, self._weight_pre[0]], [None, None, None]]
-            self._weight = [[0.0*self._weight_pre[0], 0.0*self._weight_pre[2], 0.0*self._weight_pre[1]], [0.0*self._weight_pre[2], 0.0*self._weight_pre[1], 0.0*self._weight_pre[0]], [0.0*self._weight_pre[1], 0.0*self._weight_pre[0], 0.0*self._weight_pre[2]]]
+            self._weight = [[0.0*self._weight_pre[0], 0.0*self._weight_pre[2], 0.0*self._weight_pre[1]], [0.0*self._weight_pre[2], 0.0 *
+                                                                                                          self._weight_pre[1], 0.0*self._weight_pre[0]], [0.0*self._weight_pre[1], 0.0*self._weight_pre[0], 0.0*self._weight_pre[2]]]
             #self._weight = [[self._weight_pre[0], self._weight_pre[2], self._weight_pre[1]], [self._weight_pre[2], self._weight_pre[1], self._weight_pre[0]], [self._weight_pre[1], self._weight_pre[0], self._weight_pre[2]]]
-            HybridM1 = self.mass_ops.assemble_weighted_mass(self._weight, 'Hcurl', 'Hcurl')
+            HybridM1 = self.mass_ops.assemble_weighted_mass(
+                self._weight, 'Hcurl', 'Hcurl')
 
-            # next prepare for solving linear system 
+            # next prepare for solving linear system
             _LHS = Sum(self._M1, Compose(HybridM1, self._L2))
             _RHS2 = HybridM1.dot(self._RHS) + self._rhs
 
@@ -655,8 +673,10 @@ class FaradayExtended(Propagator):
             # write new coeffs into Propagator.variables
             max_da = self.in_place_update(a_new)
             print('++++====check_iteration_error=====+++++', max_da)
-            if max_da[0] < 10**(-6): # we can modify the diff function in in_place_update to get another type errors
+            # we can modify the diff function in in_place_update to get another type errors
+            if max_da[0] < 10**(-6):
                 break
+
 
 class CurrentCoupling6DDensity(Propagator):
     """
@@ -729,17 +749,17 @@ class CurrentCoupling6DDensity(Propagator):
             else:
                 self._nh0_at_quad = self.domain.push(
                     [self._f0.n], *quad_pts, kind='3_form', squeeze_out=False)
-                
+
             # memory allocation of magnetic field at quadrature points
             self._b_quad1 = np.zeros_like(self._nh0_at_quad)
             self._b_quad2 = np.zeros_like(self._nh0_at_quad)
             self._b_quad3 = np.zeros_like(self._nh0_at_quad)
-            
+
             # memory allocation for self._b_quad x self._nh0_at_quad * self._coupling_const
             self._mat12 = np.zeros_like(self._nh0_at_quad)
             self._mat13 = np.zeros_like(self._nh0_at_quad)
             self._mat23 = np.zeros_like(self._nh0_at_quad)
-            
+
             self._mat21 = np.zeros_like(self._nh0_at_quad)
             self._mat31 = np.zeros_like(self._nh0_at_quad)
             self._mat32 = np.zeros_like(self._nh0_at_quad)
@@ -751,7 +771,7 @@ class CurrentCoupling6DDensity(Propagator):
         self._verbose = params['verbose']
         self._rank = self.derham.comm.Get_rank()
 
-        self._coupling_const = params['Ah'] * params['kappa'] / params['Ab'] 
+        self._coupling_const = params['Ah'] * params['kappa'] / params['Ab']
         # load accumulator
         self._accumulator = Accumulator(
             self.derham, self.domain, params['u_space'], 'cc_lin_mhd_6d_1', add_vector=False, symmetry='asym')
@@ -769,14 +789,14 @@ class CurrentCoupling6DDensity(Propagator):
         else:
             pc_class = getattr(preconditioner, params['pc'])
             self._pc = pc_class(self._M)
-            
-        # linear solver 
+
+        # linear solver
         self._solver = getattr(it_solvers, params['type'])(self._M.domain)
-        
+
         # temporary vectors to avoid memory allocation
         self._b_full1 = self._b_eq.space.zeros()
         self._b_full2 = self._E2T.codomain.zeros()
-        
+
         self._rhs_v = self._u.space.zeros()
         self._u_new = self._u.space.zeros()
 
@@ -794,7 +814,7 @@ class CurrentCoupling6DDensity(Propagator):
 
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         self._b_eq.copy(out=self._b_full1)
-        
+
         if self._b_tilde is not None:
             self._b_full1 += self._b_tilde
 
@@ -811,10 +831,13 @@ class CurrentCoupling6DDensity(Propagator):
             WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
                                            out=[self._b_quad1, self._b_quad2, self._b_quad3])
 
-            self._mat12[:, :, :] =  self._coupling_const * self._b_quad3 * self._nh0_at_quad
-            self._mat13[:, :, :] = -self._coupling_const * self._b_quad2 * self._nh0_at_quad
-            self._mat23[:, :, :] =  self._coupling_const * self._b_quad1 * self._nh0_at_quad
-            
+            self._mat12[:, :, :] = self._coupling_const * \
+                self._b_quad3 * self._nh0_at_quad
+            self._mat13[:, :, :] = -self._coupling_const * \
+                self._b_quad2 * self._nh0_at_quad
+            self._mat23[:, :, :] = self._coupling_const * \
+                self._b_quad1 * self._nh0_at_quad
+
             self._mat21[:, :, :] = -self._mat12
             self._mat31[:, :, :] = -self._mat13
             self._mat32[:, :, :] = -self._mat23
@@ -823,7 +846,8 @@ class CurrentCoupling6DDensity(Propagator):
                                          self._b_full2[0]._data, self._b_full2[1]._data, self._b_full2[2]._data,
                                          self._space_key_int, self._coupling_const,
                                          control_mat=[[None, self._mat12, self._mat13],
-                                                      [self._mat21, None, self._mat23],
+                                                      [self._mat21, None,
+                                                          self._mat23],
                                                       [self._mat31, self._mat32, None]])
         else:
             self._accumulator.accumulate(self._particles,
@@ -832,11 +856,11 @@ class CurrentCoupling6DDensity(Propagator):
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
         lhs = Sum(self._M, Multiply(-dt/2, self._accumulator.operators[0]))
-        rhs = Sum(self._M, Multiply( dt/2, self._accumulator.operators[0]))
+        rhs = Sum(self._M, Multiply(dt/2, self._accumulator.operators[0]))
 
         # solve linear system for updated u coefficients (in-place)
         rhs.dot(un, out=self._rhs_v)
-        
+
         info = self._solver.solve(lhs, self._rhs_v, self._pc,
                                   x0=un, tol=self._tol,
                                   maxiter=self._maxiter, verbose=self._verbose,
@@ -922,7 +946,8 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
         self._coupling_const = params['Ah'] / params['Ab']
 
         self._PB = getattr(self.basis_ops, 'PB')
-        self._ACC = Accumulator(self.derham, self.domain, 'H1', 'cc_lin_mhd_5d_mu', add_vector=True)
+        self._ACC = Accumulator(self.derham, self.domain,
+                                'H1', 'cc_lin_mhd_5d_mu', add_vector=True)
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         id_M = 'M' + self.derham.spaces_dict[params['u_space']] + 'n'
@@ -930,10 +955,12 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
 
         _A = getattr(self.mass_ops, id_M)
         _T = getattr(self.basis_ops, id_T)
-        
-        self._B = Multiply(-1/2, Compose(_T.T, self.derham.curl.T, self.mass_ops.M2))
-        self._C = Multiply( 1/2, Compose(self.derham.curl, _T))
-        self._B2 = Multiply(-1/2., Compose(_T.T, self.derham.curl.T, self._PB.T))
+
+        self._B = Multiply(-1/2, Compose(_T.T,
+                           self.derham.curl.T, self.mass_ops.M2))
+        self._C = Multiply(1/2, Compose(self.derham.curl, _T))
+        self._B2 = Multiply(-1/2., Compose(_T.T,
+                            self.derham.curl.T, self._PB.T))
 
         # Preconditioner
         if params['pc'] is None:
@@ -948,20 +975,20 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
         self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'],
                                          tol=params['tol'], maxiter=params['maxiter'],
                                          verbose=params['verbose'])
-        
-        # allocate dummy vectors to avoid temporary array allocations
-        self._u_tmp1 = u.space.zeros()
-        self._u_tmp2 = u.space.zeros()
-        self._b_tmp1 = b.space.zeros()
-        
-        self._byn = self._B.codomain.zeros() 
 
         # allocate dummy vectors to avoid temporary array allocations
         self._u_tmp1 = u.space.zeros()
         self._u_tmp2 = u.space.zeros()
         self._b_tmp1 = b.space.zeros()
-        
-        self._byn = self._B.codomain.zeros() 
+
+        self._byn = self._B.codomain.zeros()
+
+        # allocate dummy vectors to avoid temporary array allocations
+        self._u_tmp1 = u.space.zeros()
+        self._u_tmp2 = u.space.zeros()
+        self._b_tmp1 = b.space.zeros()
+
+        self._byn = self._B.codomain.zeros()
 
     @property
     def variables(self):
@@ -979,7 +1006,7 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
         # solve for new u coeffs
         self._B.dot(bn, out=self._byn)
         self._byn += self._B2.dot(self._ACC.vectors[0])
-                                   
+
         info = self._schur_solver(un, self._byn, dt, out=self._u_tmp1)[1]
 
         # new b coeffs
@@ -1018,7 +1045,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._p = p
 
         # parameters
-        params_default = {'b' : self.derham.Vh['2'].zeros(),
+        params_default = {'b': self.derham.Vh['2'].zeros(),
                           'particles': None,
                           'u_space': 'Hdiv',
                           'unit_b1': None,
@@ -1067,7 +1094,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         id_Mn = 'M' + self.derham.spaces_dict[params['u_space']] + 'n'
         id_MJ = 'M' + self.derham.spaces_dict[params['u_space']] + 'J'
-        
+
         if params['u_space'] == 'Hcurl':
             id_S, id_U, id_K, id_Q = 'S1', 'U1', 'K3', 'Q1'
         elif params['u_space'] == 'Hdiv':
@@ -1113,14 +1140,14 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._p_tmp1 = p.space.zeros()
         self._n_tmp1 = n.space.zeros()
         self._b_tmp1 = self._b.space.zeros()
-        
+
         self._byn1 = self._B.codomain.zeros()
-        self._byn2 = self._B.codomain.zeros() 
+        self._byn2 = self._B.codomain.zeros()
 
     @property
     def variables(self):
         return [self._n, self._u, self._p]
-    
+
     def __call__(self, dt):
 
         # current variables
@@ -1140,20 +1167,20 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._byn2 -= self._ACC.vectors[0]
         self._byn2 *= 1/2
         self._byn1 -= self._byn2
-        
+
         info = self._schur_solver(un, self._byn1, dt, out=self._u_tmp1)[1]
-        
+
         # new p, n, b coeffs
         un.copy(out=self._u_tmp2)
         self._u_tmp2 += self._u_tmp1
         self._C.dot(self._u_tmp2, out=self._p_tmp1)
         self._p_tmp1 *= -dt
         self._p_tmp1 += pn
-        
+
         self._DQ.dot(self._u_tmp2, out=self._n_tmp1)
         self._n_tmp1 *= -dt/2
         self._n_tmp1 += nn
-        
+
         # write new coeffs into self.variables
         max_dn, max_du, max_dp = self.in_place_update(self._n_tmp1,
                                                       self._u_tmp1,
