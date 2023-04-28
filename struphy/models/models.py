@@ -1320,21 +1320,20 @@ class LinearVlasovMaxwell(StruphyModel):
     @classmethod
     def bulk_species(cls):
         return 'electrons'
-    
+
     @classmethod
     def timescale(cls):
         return 'light'
-    
+
     def __init__(self, params, comm):
 
         super().__init__(params, comm, 
                          e_field='Hcurl', b_field='Hdiv',
                          electrons='Particles6D')
-            
+
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
         from struphy.kinetic_background import analytical as kin_ana
-        from struphy.models.utilities import derive_units
         from mpi4py.MPI import SUM, IN_PLACE
 
         # pointers to em-field variables
@@ -1355,6 +1354,9 @@ class LinearVlasovMaxwell(StruphyModel):
 
         # Get coupling strength
         self.alpha = 1. # TODO
+
+        # Get Poisson solver params
+        self._poisson_params = params['solvers']['solver_poisson']
 
         # ====================================================================================
         # Initialize background magnetic field from MHD equilibrium
@@ -1422,16 +1424,45 @@ class LinearVlasovMaxwell(StruphyModel):
     @property
     def propagators(self):
         return self._propagators  
-    
+
     @property
     def scalar_quantities(self):
         return self._scalar_quantities
 
     def initialize_from_params(self):
+        from struphy.propagators import solvers
+        from struphy.pic.particles_to_grid import AccumulatorVector
+
+        # Initialize fields and particles
         super().initialize_from_params()
+
         # Correct initialization weights by dividing by N*sqrt(f_0)
         self._electrons.markers[~self._electrons.holes, 6] /= (self._electrons.n_mks *
                                                                np.sqrt(self._f0(*self._electrons.markers_wo_holes[:, :6].T)))
+
+        # evaluate f0
+        f0_values = self._f0(self._electrons.markers[:, 0],
+                             self._electrons.markers[:, 1],
+                             self._electrons.markers[:, 2],
+                             self._electrons.markers[:, 3],
+                             self._electrons.markers[:, 4],
+                             self._electrons.markers[:, 5])
+
+        # Accumulate charge density
+        charge_accum = AccumulatorVector(self.derham, self.domain, "H1", "linear_vlasov_maxwell_poisson")
+        charge_accum.accumulate(self._electrons, f0_values)
+
+        # compute ion charge to have charge neutral rhs of Poisson solver
+        charge = np.zeros(1)
+        self.derham.comm.Allreduce(np.sum(charge_accum.vectors[0].toarray()), charge, op=self._mpi_sum)
+
+        # Subtract the total charge local to each process
+        charge_accum._vectors[0][:] -= np.sum(charge_accum.vectors[0].toarray())
+
+        # Then solve Poisson equation
+        poisson_solver = solvers.PoissonSolver(rho=charge_accum.vectors[0], **self._poisson_params)
+        poisson_solver(0.)
+        self.derham.grad.dot(-poisson_solver._phi, out=self._e)
 
     def update_scalar_quantities(self):
 
@@ -1554,6 +1585,7 @@ class Maxwell(StruphyModel):
         self._scalar_quantities['en_B'][0] = en_B
         
         self._scalar_quantities['en_tot'][0] = en_E + en_B
+
 
 class Vlasov(StruphyModel):
     r'''Vlasov equation in static background magnetic field.

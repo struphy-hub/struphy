@@ -7,6 +7,7 @@ import struphy.b_splines.bsplines_kernels as bsp
 import struphy.b_splines.bspline_evaluation_3d as eval_3d
 import struphy.linear_algebra.core as linalg
 import struphy.pic.mat_vec_filler as mvf
+import struphy.pic.filler_kernels as fk
 
 from struphy.kinetic_background.f0_kernels import maxwellian_6d
 
@@ -302,6 +303,82 @@ def hybrid_fA_Arelated(markers: 'float[:,:]', n_markers_tot: 'int',
     #$ omp end parallel
 
 
+@stack_array('bn1', 'bn2', 'bn3')
+def linear_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
+                                  pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                  starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                  kind_map: 'int', params_map: 'float[:]',
+                                  p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                                  ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                                  cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                                  vec: 'float[:,:,:]',
+                                  f0_values: 'float[:]'):  # model specific argument
+    r"""
+    Accumulates the charge density in V0 
+
+    .. math::
+
+        \rho_p^\mu &= \alpha^2 \sqrt{f_0(\mathbf{\eta}_p, \mathbf{v}_p)} w_p [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\mu \,.
+
+    Parameters
+    ----------
+        f0_values ; array[float]
+            Value of f0 for each particle.
+
+        f0_params : array[float]
+            Parameters needed to specify the moments; the order is specified in :ref:`kinetic_moments` for the respective functions available.
+
+        alpha : float
+            = Omega_c / Omega_p ; Parameter determining the coupling strength between particles and fields
+
+    Note
+    ----
+        The above parameter list contains only the model specific input arguments.
+    """
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    # non-vanishing B-splines at particle position
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    #$ omp parallel private (ip, eta1, eta2, eta3, f0, filling)
+    #$ omp for reduction ( + :vec)
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        f0 = f0_values[ip]
+
+        # filling = w_p * sqrt{f_0} / N
+        filling = markers[ip, 6] * sqrt(f0) / n_markers_tot
+
+        # spans (i.e. index for non-vanishing B-spline basis functions)
+        span1 = bsp.find_span(tn1, pn[0], eta1)
+        span2 = bsp.find_span(tn2, pn[1], eta2)
+        span3 = bsp.find_span(tn3, pn[2], eta3)
+
+        # compute bn, bd, i.e. values for non-vanishing B-/splines at position eta
+        bsp.b_splines_slim(tn1, pn[0], eta1, span1, bn1)
+        bsp.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
+        bsp.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
+
+        # call the appropriate matvec filler
+        fk.fill_vec(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3,
+                    starts0, vec, filling)
+
+    #$ omp end parallel
+
+
 @stack_array('df', 'df_t', 'df_inv', 'v', 'df_inv_times_v', 'filling_m', 'filling_v')
 def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -576,6 +653,7 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
     mat13 /= n_markers_tot
     mat23 /= n_markers_tot
 
+
 @stack_array('df', 'df_t', 'df_inv', 'g', 'g_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp1_t', 'tmp2', 'tmp3', 'tmp_v', 'df_inv_times_v', 'b', 'b_prod', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -810,6 +888,7 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
     vec2 /= n_markers_tot
     vec3 /= n_markers_tot
 
+
 @stack_array('df', 'df_t', 'df_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def pc_lin_mhd_6d_full(markers: 'float[:,:]', n_markers_tot: 'int',
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -981,6 +1060,7 @@ def pc_lin_mhd_6d_full(markers: 'float[:,:]', n_markers_tot: 'int',
                                       vec1_3, vec2_3, vec3_3,
                                       filling_v[0], filling_v[1], filling_v[2],
                                       v[0], v[1], v[2])
+
 
 @stack_array('df', 'df_inv_t', 'df_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def pc_lin_mhd_6d(markers: 'float[:,:]', n_markers_tot: 'int',
@@ -1169,6 +1249,7 @@ def pc_lin_mhd_6d(markers: 'float[:,:]', n_markers_tot: 'int',
     vec1_2 /= n_markers_tot
     vec2_2 /= n_markers_tot
     vec3_2 /= n_markers_tot
+
 
 @stack_array('df', 'df_t', 'df_inv', 'g_inv', 'filling_m', 'filling_v', 'tmp', 'tmp1', 'tmp2', 'tmp_m', 'tmp_v', 'b', 'b_prod', 'b_star', 'norm_b1', 'curl_norm_b', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
@@ -1416,6 +1497,7 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
     vec2 /= n_markers_tot
     vec3 /= n_markers_tot
 
+
 def cc_lin_mhd_5d_J2_dg(markers: 'float[:,:]', n_markers_tot: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                     starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1637,6 +1719,7 @@ def cc_lin_mhd_5d_J2_dg(markers: 'float[:,:]', n_markers_tot: 'int',
     vec1 /= n_markers_tot
     vec2 /= n_markers_tot
     vec3 /= n_markers_tot
+
 
 def cc_lin_mhd_5d_J2_dg_prepare(markers: 'float[:,:]', n_markers_tot: 'int',
                              pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -1881,6 +1964,7 @@ def cc_lin_mhd_5d_J2_dg_prepare(markers: 'float[:,:]', n_markers_tot: 'int',
     vec2 /= n_markers_tot
     vec3 /= n_markers_tot
 
+
 def cc_lin_mhd_5d_J2_dg_faster(markers: 'float[:,:]', n_markers_tot: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                     starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -2022,6 +2106,7 @@ def cc_lin_mhd_5d_J2_dg_faster(markers: 'float[:,:]', n_markers_tot: 'int',
     vec1 /= n_markers_tot
     vec2 /= n_markers_tot
     vec3 /= n_markers_tot
+
 
 def cc_lin_mhd_5d_J2_dg_prepare_faster(markers: 'float[:,:]', n_markers_tot: 'int',
                              pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -2282,6 +2367,7 @@ def cc_lin_mhd_5d_J2_dg_prepare_faster(markers: 'float[:,:]', n_markers_tot: 'in
     vec2 /= n_markers_tot
     vec3 /= n_markers_tot
 
+
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def cc_lin_mhd_5d_mu(markers: 'float[:,:]', n_markers_tot: 'int',
                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -2347,6 +2433,7 @@ def cc_lin_mhd_5d_mu(markers: 'float[:,:]', n_markers_tot: 'int',
         mvf.scalar_fill_v0(pn, span1, span2, span3, bn1, bn2, bn3, starts0, vec, filling)
 
     vec /= n_markers_tot
+
 
 @stack_array('df', 'df_t', 'df_inv', 'g_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp2', 'tmp_t', 'tmp_m', 'tmp_v', 'b', 'b_prod', 'norm_b2_prod', 'b_star', 'curl_norm_b', 'norm_b1', 'norm_b2', 'grad_PB', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def cc_lin_mhd_5d_M(markers: 'float[:,:]', n_markers_tot: 'int',

@@ -35,15 +35,15 @@ class Maxwell(Propagator):
     based on the :ref:`Schur complement <schur_solver>`.
 
     Parameters
-    ---------- 
+    ----------
     e : psydac.linalg.block.BlockVector
         FE coefficients of a 1-form.
 
     b : psydac.linalg.block.BlockVector
         FE coefficients of a 2-form.
 
-        **params : dict
-            Solver- and/or other parameters for this splitting step. 
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
     '''
 
     def __init__(self, e, b, **params):
@@ -66,7 +66,7 @@ class Maxwell(Propagator):
 
         self._info = params['info']
 
-        # Define block matrix [[A B], [C I]] (without time step size dt in the diangonals)
+        # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = self.mass_ops.M1
 
         # no dt

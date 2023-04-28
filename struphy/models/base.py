@@ -16,15 +16,15 @@ class StruphyModel(metaclass=ABCMeta):
 
     species : dict
         The dynamical fields and kinetic species of the model. 
-        
+
         Keys are either:
-        
+
         a) the electromagnetic field/potential names (b_field=, e_field=) 
         b) the fluid species names (e.g. mhd=)
         c) the names of the kinetic species (e.g. electrons=, energetic_ions=)
-        
+
         Corresponding values are:
-        
+
         a) a space ID ("H1", "Hcurl", "Hdiv", "L2" or "H1vec"),
         b) a dict with key=variable_name (e.g. n, U, p, ...) and value=space ID ("H1", "Hcurl", "Hdiv", "L2" or "H1vec"),
         c) the type of particles ("Particles6D", "Particles5D", ...).
@@ -35,34 +35,37 @@ class StruphyModel(metaclass=ABCMeta):
     """
 
     def __init__(self, params, comm, **species):
-        
+
         from struphy.models.utilities import setup_domain_mhd, setup_electric_background, setup_derham
         from struphy.psydac_api.mass import WeightedMassOperators
-        
+
         self._params = params
         self._comm = comm
         self._species = species
-        
+
         # initialize model variable dictionaries
         self._init_variable_dicts()
 
         # compute model units
-        self._units_basic, self._units_der, self._units_dimless = self.model_units(self.params, verbose=False)
-        
+        self._units_basic, self._units_der, self._units_dimless = self.model_units(
+            self.params, verbose=False)
+
         # create domain, MHD equilibrium, background electric field
         self._domain, self._mhd_equil = setup_domain_mhd(params)
         self._electric_equil = setup_electric_background(params, self.domain)
-        
+
         # create discrete derham sequence
         dims_mask = params['grid']['dims_mask']
         if dims_mask is None:
             dims_mask = [True]*3
-            
-        self._derham = setup_derham(params['grid'], comm=comm, domain=self.domain, mpi_dims_mask=dims_mask)
-        
+
+        self._derham = setup_derham(
+            params['grid'], comm=comm, domain=self.domain, mpi_dims_mask=dims_mask)
+
         # create weighted mass operators
-        self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.mhd_equil)
-        
+        self._mass_ops = WeightedMassOperators(
+            self.derham, self.domain, eq_mhd=self.mhd_equil)
+
         # allocate memory for variables
         self._allocate_variables()
 
@@ -71,7 +74,7 @@ class StruphyModel(metaclass=ABCMeta):
     def bulk_species(cls):
         '''Object identifying the bulk species of the plasma. Must be a value of self.fluid or self.kinetic, or None.'''
         pass
-    
+
     @classmethod
     @abstractmethod
     def timescale(cls):
@@ -104,12 +107,12 @@ class StruphyModel(metaclass=ABCMeta):
     def params(self):
         '''Model parameters from :code:`parameters.yml`.'''
         return self._params
-    
+
     @property
     def comm(self):
         '''MPI communicator.'''
         return self._comm
-    
+
     @property
     def species(self):
         '''Species dictionary.'''
@@ -129,22 +132,22 @@ class StruphyModel(metaclass=ABCMeta):
     def kinetic(self):
         '''Dictionary of kinetic species.'''
         return self._kinetic
-    
+
     @property
     def domain(self):
         '''Domain object, see :ref:`avail_mappings`.'''
         return self._domain
-    
+
     @property
     def mhd_equil(self):
         '''MHD equilibrium object, see :ref:`mhd_equil`.'''
         return self._mhd_equil
-    
+
     @property
     def electric_equil(self):
         '''Eelctric equilibrium object, see :ref:`electric_equil`.'''
         return self._electric_equil
-    
+
     @property
     def derham(self):
         '''3d Derham sequence, see :ref:`derham`.'''
@@ -176,16 +179,16 @@ class StruphyModel(metaclass=ABCMeta):
     def integrate(self, dt, split_algo='LieTrotter'):
         """
         Advance the model by a time step dt.
-        
+
         Parameters
         ----------
         dt : float
             Time step of time integration.
-            
+
         split_algo : str
             Splitting algorithm. Currently available: "LieTrotter" and "Strang".
         """
-        
+
         # first order in time
         if split_algo == 'LieTrotter':
 
@@ -204,8 +207,9 @@ class StruphyModel(metaclass=ABCMeta):
                 propagator(dt/2)
 
         else:
-            raise NotImplementedError(f'Splitting scheme {split_algo} not available.')
-    
+            raise NotImplementedError(
+                f'Splitting scheme {split_algo} not available.')
+
     def update_markers_to_be_saved(self):
         '''
         Writes markers with IDs that are supposed to be saved into corresponding array.
@@ -243,7 +247,7 @@ class StruphyModel(metaclass=ABCMeta):
 
                     val['kinetic_data']['f'][slice_i][:] = val['obj'].binning(
                         components, edges, self.domain)
-    
+
     def print_scalar_quantities(self):
         '''
         Print quantities saved in scalar_quantities to screen.
@@ -287,32 +291,33 @@ class StruphyModel(metaclass=ABCMeta):
                 elif val['params']['markers']['type'] == 'delta_f':
                     val['obj'].initialize_weights(val['params']['init'])
                 elif val['params']['markers']['type'] == 'control_variate':
-                    val['obj'].initialize_weights(val['params']['init'], val['params']['background'])
+                    val['obj'].initialize_weights(
+                        val['params']['init'], val['params']['background'])
                 else:
                     typ = val['params']['markers']['type']
                     raise NotImplementedError(
                         f'Type {typ} for distribution function is not known!')
 
                 if val['space'] == 'Particles5D':
-                   val['obj'].save_magnetic_moment(self.derham)
-            
+                    val['obj'].save_magnetic_moment(self.derham)
+
     def initialize_from_restart(self, data):
         """
         Set initial conditions for FE coefficients (electromagnetic and fluid) and markers from restart group in hdf5 files.
-        
+
         Parameters
         ----------
         data : struphy.models.output_handling.DataContainer
             The data object that links to the hdf5 files.
         """
-        
+
         # initialize em fields
         if len(self.em_fields) > 0:
 
             for key, val in self.em_fields.items():
                 if 'params' not in key:
                     val['obj'].initialize_coeffs_from_restart_file(data.file)
-                    
+
         # initialize fields
         if len(self.fluid) > 0:
 
@@ -320,40 +325,41 @@ class StruphyModel(metaclass=ABCMeta):
 
                 for variable, subval in val.items():
                     if 'params' not in variable:
-                        subval['obj'].initialize_coeffs_from_restart_file(data.file, species)
-                        
+                        subval['obj'].initialize_coeffs_from_restart_file(
+                            data.file, species)
+
         # initialize particles
         if len(self.kinetic) > 0:
-            
+
             for key, val in self.kinetic.items():
                 val['obj']._markers[:, :] = data.file['restart/' + key][-1, :, :]
-                
+
                 # important: sets holes attribute of markers!
                 val['obj'].mpi_sort_markers(do_test=True)
-        
+
     def initialize_data_output(self, data, size):
         """
         Create datasets in hdf5 files according to model unknowns and diagnostics data.
-        
+
         Parameters
         ----------
         data : struphy.models.output_handling.DataContainer
             The data object that links to the hdf5 files.
-            
+
         size : int
             Number of MPI processes of the model run.
-            
+
         Returns
         -------
         save_keys_all : list
             Keys of datasets which are saved during the simulation.
-            
+
         save_keys_end : list
             Keys of datasets which are saved at the end of a simulation to enable restarts.
         """
-        
+
         from psydac.linalg.stencil import StencilVector
-        
+
         # save scalar quantities in group 'scalar/'
         for key, val in self.scalar_quantities.items():
             key_scalar = 'scalar/' + key
@@ -463,43 +469,48 @@ class StruphyModel(metaclass=ABCMeta):
                 save_keys_end.append(key)
             else:
                 save_keys_all.append(key)
-                
+
         return save_keys_all, save_keys_end
-    
+
     ###################
     # Class methods :
     ###################
-    
+
     @classmethod
     def model_units(cls, params, verbose=False):
         """
         Compute model units and print them to screen.
-        
+
         Parameters
         ----------
         params : dict
             model parameters.
-            
+
         verbose : bool, optional
             print model units to screen.
         """
 
         from struphy.models.utilities import derive_units
-        
+
         x_unit = params['units']['x']
         B_unit = params['units']['B']
 
         if verbose:
             print('\nNumerical values of variables are expressed in the following units:')
-            print(f'Unit of length:'.ljust(25), '{:4.3e}'.format(x_unit) + ' m')
-        
+            print(f'Unit of length:'.ljust(25),
+                  '{:4.3e}'.format(x_unit) + ' m')
+
         # special case for model Maxwell (no plasma species)
         if cls.bulk_species() is None:
             if verbose:
-                print(f'Unit of time:'.ljust(25), '{:4.3e}'.format(x_unit / 299792458) + ' s')
-                print(f'Unit of velocity:'.ljust(25), '{:4.3e}'.format(299792458) + ' m/s')
-                print(f'Unit of magnetic field:'.ljust(25), '{:4.3e}'.format(B_unit) + ' T')
-                print(f'Unit of electric field:'.ljust(25), '{:4.3e}'.format(299792458*B_unit) + ' V/m')
+                print(f'Unit of time:'.ljust(25),
+                      '{:4.3e}'.format(x_unit / 299792458) + ' s')
+                print(f'Unit of velocity:'.ljust(25),
+                      '{:4.3e}'.format(299792458) + ' m/s')
+                print(f'Unit of magnetic field:'.ljust(
+                    25), '{:4.3e}'.format(B_unit) + ' T')
+                print(f'Unit of electric field:'.ljust(25),
+                      '{:4.3e}'.format(299792458*B_unit) + ' V/m')
 
             units_basic = {}
             units_basic['t'] = x_unit / 299792458
@@ -508,39 +519,51 @@ class StruphyModel(metaclass=ABCMeta):
 
             return units_basic, {}, {}
         else:
-            
+
             # look for bulk species in fluid OR kinetic parameter dictionaries
             if 'fluid' in params:
                 if cls.bulk_species() in params['fluid']:
-                    Z_bulk = params['fluid'][cls.bulk_species()]['phys_params']['Z']
-                    A_bulk = params['fluid'][cls.bulk_species()]['phys_params']['A']
+                    Z_bulk = params['fluid'][cls.bulk_species()
+                                             ]['phys_params']['Z']
+                    A_bulk = params['fluid'][cls.bulk_species()
+                                             ]['phys_params']['A']
             else:
-                Z_bulk = params['kinetic'][cls.bulk_species()]['phys_params']['Z']
-                A_bulk = params['kinetic'][cls.bulk_species()]['phys_params']['A']          
-            
+                Z_bulk = params['kinetic'][cls.bulk_species()
+                                           ]['phys_params']['Z']
+                A_bulk = params['kinetic'][cls.bulk_species()
+                                           ]['phys_params']['A']
+
             # compute units
             units_basic, units_der, units_dimless = derive_units(
                 Z_bulk, A_bulk, params['units']['x'], params['units']['x'], params['units']['n'], cls.timescale())
-            
+
             if verbose:
-                print(f'Unit of time:'.ljust(25), '{:4.3e}'.format(units_basic['t']) + ' s')
-                print(f'Unit of velocity:'.ljust(25), '{:4.3e}'.format(units_der['v']) + ' m/s')
-                print(f'Unit of magnetic field:'.ljust(25), '{:4.3e}'.format(units_basic['B']) + ' T')
-                print(f'Unit of particle density:'.ljust(25), '{:4.3e}'.format(units_der['n']) + ' m⁻³')
-                print(f'Unit of mass:'.ljust(25), '{:4.3e}'.format(units_basic['m']) + ' kg')
-                print(f'Unit of mass density:'.ljust(25), '{:4.3e}'.format(units_der['rho']) + ' kg/m³')
-                print(f'Unit of pressure:'.ljust(25), '{:4.3e}'.format(units_der['p'] * 1e-5) + ' bar')
+                print(f'Unit of time:'.ljust(25),
+                      '{:4.3e}'.format(units_basic['t']) + ' s')
+                print(f'Unit of velocity:'.ljust(25),
+                      '{:4.3e}'.format(units_der['v']) + ' m/s')
+                print(f'Unit of magnetic field:'.ljust(25),
+                      '{:4.3e}'.format(units_basic['B']) + ' T')
+                print(f'Unit of particle density:'.ljust(25),
+                      '{:4.3e}'.format(units_der['n']) + ' m⁻³')
+                print(f'Unit of mass:'.ljust(25),
+                      '{:4.3e}'.format(units_basic['m']) + ' kg')
+                print(f'Unit of mass density:'.ljust(25),
+                      '{:4.3e}'.format(units_der['rho']) + ' kg/m³')
+                print(f'Unit of pressure:'.ljust(25),
+                      '{:4.3e}'.format(units_der['p'] * 1e-5) + ' bar')
 
                 # dimensionless quantities
                 print('\nRelevant dimensionless quantities:')
-                print(f'alpha:'.ljust(25), '{:7.3f}'.format(units_dimless['alpha']))
-                
+                print(f'alpha:'.ljust(25), '{:7.3f}'.format(
+                    units_dimless['alpha']))
+
             return units_basic, units_der, units_dimless
-    
-    #def print_species_params(self):
+
+    # def print_species_params(self):
     #    '''Compute and print plasma parameters for each species of the model.
-    #    Computed are min, max and volume average of 
-    #    
+    #    Computed are min, max and volume average of
+    #
     #        - pressure
     #        - temperature
     #        - thermal speed
@@ -558,12 +581,12 @@ class StruphyModel(metaclass=ABCMeta):
     #    eta1 = np.linspace(h/2., 1.-h/2., 20)
     #    eta2 = np.linspace(h/2., 1.-h/2., 20)
     #    eta3 = np.linspace(h/2., 1.-h/2., 20)
-    #    
+    #
     #    plasma_volume = np.mean(
     #        np.abs(self.domain.jacobian_det(eta1, eta2, eta3)))
-    #    
+    #
     #    transit_length = plasma_volume**(1/3)
-    #    
+    #
     #    species_params['plasma volume'] = plasma_volume
     #    species_params['transit length'] = transit_length
 #
@@ -573,10 +596,10 @@ class StruphyModel(metaclass=ABCMeta):
     #    mu0 = 1.25663706212e-6  # magnetic constant (N*A^-2)
     #    eps0 = 8.8541878128e-12  # vacuum permittivity (F*m^-1)
     #    kB = 1.380649e-23  # Boltzmann constant (J*K^-1)
-    #    
+    #
     #    # species parameters
     #    # TODO
-    
+
     ###################
     # Private methods :
     ###################
@@ -585,7 +608,7 @@ class StruphyModel(metaclass=ABCMeta):
         """
         Initialize em-fields, fluid and kinetic dictionaries for information on the model variables.
         """
-        
+
         # electromagnetic fields, fluid and/or kinetic species
         self._em_fields = {}
         self._fluid = {}
@@ -606,37 +629,40 @@ class StruphyModel(metaclass=ABCMeta):
                 elif space in {'Particles6D', 'Particles5D'}:
 
                     assert 'kinetic' in self.params, 'Top-level key "kinetic" is missing in parameter file.'
-                    assert var_name in self.params['kinetic'], f'Kinetic species {var_name} is missing in parameter file.'
-                    
+                    assert var_name in self.params[
+                        'kinetic'], f'Kinetic species {var_name} is missing in parameter file.'
+
                     self._kinetic[var_name] = {}
                     self._kinetic[var_name]['space'] = space
                     self._kinetic[var_name]['params'] = self.params['kinetic'][var_name]
 
                 else:
-                    raise ValueError(f'The given value string {space} is not supported!')
+                    raise ValueError(
+                        f'The given value string {space} is not supported!')
 
             elif isinstance(space, dict):
 
                 assert 'fluid' in self.params, 'Top-level key "fluid" is missing in parameter file.'
-                assert var_name in self.params['fluid'], f'Fluid species {var_name} is missing in parameter file.'
-                
+                assert var_name in self.params[
+                    'fluid'], f'Fluid species {var_name} is missing in parameter file.'
+
                 self._fluid[var_name] = {}
-                
+
                 for sub_var_name, sub_space in space.items():
                     self._fluid[var_name][sub_var_name] = {}
                     self._fluid[var_name][sub_var_name]['space'] = sub_space
-                
+
                 self._fluid[var_name]['params'] = self.params['fluid'][var_name]
 
             else:
                 raise ValueError(f'Type {type(space)} not supported as value.')
-                
+
     def _allocate_variables(self):
         """
         Allocate memory for model variables. 
         Creates FEM fields for em-fields and fluid variables and a particle class for kinetic species.
         """
-        
+
         from struphy.psydac_api.fields import Field
         from struphy.pic import particles
 
@@ -656,7 +682,8 @@ class StruphyModel(metaclass=ABCMeta):
                 for variable, subval in val.items():
 
                     if 'params' not in variable:
-                        subval['obj'] = Field(variable, subval['space'], self.derham)
+                        subval['obj'] = Field(
+                            variable, subval['space'], self.derham)
 
         # marker arrays and plasma parameters of kinetic species
         if 'kinetic' in self.params:
@@ -708,8 +735,7 @@ class StruphyModel(metaclass=ABCMeta):
 
                 # other data (wave-particle power exchange, etc.)
                 # TODO
-    
-    
+
     def print_plasma_params(self):
         """
         Compute and print volume averaged plasma parameters for each species of the model.
@@ -740,18 +766,19 @@ class StruphyModel(metaclass=ABCMeta):
         characteristics = {}
 
         # physics constants
-        e = 1.602176634e-19 # elementary charge (C)
-        m_p = 1.67262192369e-27 # proton mass (kg)
-        mu0 = 1.25663706212e-6 # magnetic constant (N*A^-2)
-        eps0 = 8.8541878128e-12 # vacuum permittivity (F*m^-1)
-        kB = 1.380649e-23 # Boltzmann constant (J*K^-1)
+        e = 1.602176634e-19  # elementary charge (C)
+        m_p = 1.67262192369e-27  # proton mass (kg)
+        mu0 = 1.25663706212e-6  # magnetic constant (N*A^-2)
+        eps0 = 8.8541878128e-12  # vacuum permittivity (F*m^-1)
+        kB = 1.380649e-23  # Boltzmann constant (J*K^-1)
 
         # exit when there is not any plasma species
         if len(self.fluid) == 0 and len(self.kinetic) == 0:
             return
 
         # compute model units
-        units_basic, units_der, unidts_dimless = self.model_units(self.params, verbose=False)
+        units_basic, units_der, unidts_dimless = self.model_units(
+            self.params, verbose=False)
 
         # SI units
         units = {}
@@ -782,20 +809,26 @@ class StruphyModel(metaclass=ABCMeta):
 
         # global parameters
         # plasma volume (m⁻³)
-        plasma_volume = np.mean(np.abs(self.domain.jacobian_det(eta1, eta2, eta3)))*units_basic['x']**3
+        plasma_volume = np.mean(np.abs(self.domain.jacobian_det(eta1, eta2, eta3))) \
+            * units_basic['x']**3
         # transit length (m)
         transit_length = plasma_volume**(1/3)
         # magnetic field (T)
-        magnetic_field = np.mean(self.mhd_equil.absB0(eta1,eta2,eta3)*np.abs(self.domain.jacobian_det(eta1, eta2, eta3)))/plasma_volume*units_basic['B']
+        magnetic_field = np.mean(self.mhd_equil.absB0(eta1, eta2, eta3)
+                                 * np.abs(self.domain.jacobian_det(eta1, eta2, eta3))) \
+            / plasma_volume*units_basic['B']
 
         print('\nGlobal characteristics of the simulation:')
-        print(f'Plasma volume:'.ljust(25), '{:4.3e}'.format(plasma_volume) + units['plasma volume'])
-        print(f'Transit length:'.ljust(25), '{:4.3e}'.format(transit_length) + units['transit length'])
-        print(f'Magnetic field:'.ljust(25), '{:4.3e}'.format(magnetic_field) + units['magnetic field'])
+        print(f'Plasma volume:'.ljust(25),
+              '{:4.3e}'.format(plasma_volume) + units['plasma volume'])
+        print(f'Transit length:'.ljust(25),
+              '{:4.3e}'.format(transit_length) + units['transit length'])
+        print(f'Magnetic field:'.ljust(25),
+              '{:4.3e}'.format(magnetic_field) + units['magnetic field'])
 
         # species dependent parameters
         if len(self.fluid) > 0:
-        
+
             for species, val in self.fluid.items():
                 characteristics[species] = {}
                 # mass (kg)
@@ -803,30 +836,42 @@ class StruphyModel(metaclass=ABCMeta):
                 # charge (C)
                 characteristics[species]['charge'] = val['params']['phys_params']['Z']*e
                 # density (m⁻³)
-                characteristics[species]['density'] = np.mean(self.mhd_equil.n0(eta1,eta2,eta3)*np.abs(self.domain.jacobian_det(eta1, eta2, eta3)))/plasma_volume*units_der['n']
+                characteristics[species]['density'] = np.mean(self.mhd_equil.n0(eta1, eta2, eta3)
+                                                              * np.abs(self.domain.jacobian_det(eta1, eta2, eta3))) / plasma_volume*units_der['n']
                 # pressure (bar)
-                characteristics[species]['pressure'] = np.mean(self.mhd_equil.p0(eta1,eta2,eta3)*np.abs(self.domain.jacobian_det(eta1, eta2, eta3)))/plasma_volume*units_der['p']
+                characteristics[species]['pressure'] = np.mean(self.mhd_equil.p0(eta1, eta2, eta3)
+                                                               * np.abs(self.domain.jacobian_det(eta1, eta2, eta3))) / plasma_volume*units_der['p']
                 # thermal energy (keV)
-                characteristics[species]['thermal energy'] = characteristics[species]['pressure']*1e5/characteristics[species]['density']/e*1e-3
+                characteristics[species]['thermal energy'] = characteristics[species]['pressure'] * \
+                    1e5/characteristics[species]['density']/e*1e-3
                 # thermal speed (m/s)
-                characteristics[species]['thermal speed'] = np.sqrt(characteristics[species]['thermal energy']*1e3*e/characteristics[species]['mass'])
+                characteristics[species]['thermal speed'] = np.sqrt(
+                    characteristics[species]['thermal energy'] * 1e3 * e / characteristics[species]['mass'])
                 # thermal frequency (MHz)
-                characteristics[species]['thermal frequency'] = characteristics[species]['thermal speed']/transit_length/(2*np.pi)*1e-6
+                characteristics[species]['thermal frequency'] = characteristics[species]['thermal speed'] / \
+                    transit_length/(2*np.pi)*1e-6
                 # cyclotron frequency (MHz)
-                characteristics[species]['cyclotron frequency'] = characteristics[species]['charge']*magnetic_field/characteristics[species]['mass']/(2*np.pi)*1e-6
+                characteristics[species]['cyclotron frequency'] = characteristics[species]['charge'] * \
+                    magnetic_field / \
+                    characteristics[species]['mass'] / (2*np.pi) * 1e-6
                 # Larmor radius (m)
-                characteristics[species]['Larmor radius'] = characteristics[species]['mass']*characteristics[species]['thermal speed']/(characteristics[species]['charge']*magnetic_field)
+                characteristics[species]['Larmor radius'] = characteristics[species]['mass'] * \
+                    characteristics[species]['thermal speed'] / \
+                    (characteristics[species]['charge'] * magnetic_field)
                 # rho/L (unitless)
                 characteristics[species]['rho/L'] = characteristics[species]['Larmor radius']/transit_length
                 # plasma frequency (MHz)
-                characteristics[species]['plasma frequency'] = np.sqrt(characteristics[species]['density']*(characteristics[species]['charge'])**2/eps0/characteristics[species]['mass'])/(2*np.pi)*1e-6
+                characteristics[species]['plasma frequency'] = np.sqrt(characteristics[species]['density']
+                                                                       * (characteristics[species]['charge'])**2 / eps0 / characteristics[species]['mass']) / (2*np.pi) * 1e-6
                 # alfvén speed (m/s)
-                characteristics[species]['alfvén speed'] = magnetic_field/np.sqrt(mu0*characteristics[species]['mass']*characteristics[species]['density']) 
+                characteristics[species]['alfvén speed'] = magnetic_field / np.sqrt(
+                    mu0 * characteristics[species]['mass'] * characteristics[species]['density'])
                 # alfvén frequency (MHz)
-                characteristics[species]['alfvén frequency'] = characteristics[species]['alfvén speed']/transit_length/(2*np.pi)*1e-6
+                characteristics[species]['alfvén frequency'] = characteristics[species]['alfvén speed'] / \
+                    transit_length / (2*np.pi) * 1e-6
 
         if len(self.kinetic) > 0:
-        
+
             for species, val in self.kinetic.items():
                 characteristics[species] = {}
 
@@ -836,7 +881,6 @@ class StruphyModel(metaclass=ABCMeta):
                 characteristics[species]['charge'] = val['params']['phys_params']['Z']*e
                 # density (m⁻³)
                 if 'background' in val['params']:
-
                     type = val['params']['background']['type']
                     characteristics[species]['density'] = val['params']['background'][type]['n']*units_der['n']
 
@@ -844,33 +888,45 @@ class StruphyModel(metaclass=ABCMeta):
                     type = val['params']['init']['type']
 
                     if type in val['params']['init'] and 'n' in val['params']['init'][type]:
-
                         characteristics[species]['density'] = val['params']['init'][type]['n']*units_der['n']
 
                     # When density is not specified, assume density = 1*density unit
                     else:
                         characteristics[species]['density'] = units_der['n']
+
                 # thermal speed (m/s)
-                thermal_speed=0.
+                thermal_speed = 0.
                 for dir in range(val['obj'].vdim):
                     thermal_kinds = 'thermal speed eta' + str(dir + 1)
-                    characteristics[species][thermal_kinds] = val['params']['markers']['loading']['moments'][dir+val['obj'].vdim]*units_der['v']
+                    characteristics[species][thermal_kinds] = \
+                        val['params']['markers']['loading']['moments'][dir +
+                                                                       val['obj'].vdim] * units_der['v']
                     thermal_speed += characteristics[species][thermal_kinds]
-                characteristics[species]['thermal speed'] = thermal_speed/val['obj'].vdim
+
+                characteristics[species]['thermal speed'] = thermal_speed / \
+                    val['obj'].vdim
                 # thermal energy (keV)
-                characteristics[species]['thermal energy'] = characteristics[species]['mass']*characteristics[species]['thermal speed']**2/e*1e-3
+                characteristics[species]['thermal energy'] = characteristics[species]['mass'] * \
+                    characteristics[species]['thermal speed']**2 / e * 1e-3
                 # pressure (bar)
-                characteristics[species]['pressure'] = characteristics[species]['thermal energy']*e*1e3*characteristics[species]['density']*1e-5
+                characteristics[species]['pressure'] = characteristics[species]['thermal energy'] * \
+                    e*1e3*characteristics[species]['density'] * 1e-5
                 # thermal frequency (MHz)
-                characteristics[species]['thermal frequency'] = characteristics[species]['thermal speed']/transit_length/(2*np.pi)*1e-6
+                characteristics[species]['thermal frequency'] = characteristics[species]['thermal speed'] / \
+                    transit_length / (2*np.pi) * 1e-6
                 # cyclotron frequency (MHz)
-                characteristics[species]['cyclotron frequency'] = characteristics[species]['charge']*magnetic_field/characteristics[species]['mass']/(2*np.pi)*1e-6
+                characteristics[species]['cyclotron frequency'] = characteristics[species]['charge'] * \
+                    magnetic_field / \
+                    characteristics[species]['mass'] / (2*np.pi) * 1e-6
                 # Larmor radius (m)
-                characteristics[species]['Larmor radius'] = characteristics[species]['mass']*characteristics[species]['thermal speed']/(characteristics[species]['charge']*magnetic_field)
+                characteristics[species]['Larmor radius'] = characteristics[species]['mass'] * \
+                    characteristics[species]['thermal speed'] / \
+                    (characteristics[species]['charge'] * magnetic_field)
                 # rho/L (unitless)
                 characteristics[species]['rho/L'] = characteristics[species]['Larmor radius']/transit_length
                 # plasma frequency (MHz)
-                characteristics[species]['plasma frequency'] = np.sqrt(characteristics[species]['density']*(characteristics[species]['charge'])**2/eps0/characteristics[species]['mass'])/(2*np.pi)*1e-6
+                characteristics[species]['plasma frequency'] = np.sqrt(characteristics[species]['density'] *
+                                                                       (characteristics[species]['charge'])**2 / eps0 / characteristics[species]['mass']) / (2*np.pi) * 1e-6
 
         print('\nSpecies dependent characteristics of the simulation:')
         for species, ch in characteristics.items():
