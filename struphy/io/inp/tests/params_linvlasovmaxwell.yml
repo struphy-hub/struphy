@@ -55,7 +55,7 @@ em_fields :
 kinetic :
     electrons :
         phys_params:
-            A : 1  # mass number in units of proton mass
+            A : 0.0005446170214876324  # electron mass number in units of proton mass
             Z : -1 # signed charge number in units of elementary charge
         markers :
             type    : delta_f # full_f, control_variate, or delta_f
@@ -98,20 +98,27 @@ kinetic :
                 ux : 1.9
                 uy : 2.3
                 uz : 1.1
-                vthx : 1.6
-                vthy : 1.4
-                vthz : 0.3
+                vthx : 5.6
+                vthy : 5.4
+                vthz : 5.3
         save_data :
             n_markers : 3 # number of markers to be save during simulation
             f :
                 slices : [vz] # in which directions to bin (e.g. [e1_e2, vx_vy_vz])
                 n_bins : [[32]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
-                ranges : [[[-3., 3.]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
+                ranges : [[[-10., 10.]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
         push_algos :
             vxb : analytic # possible choices: analytic, implicit
             eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4
 
 solvers :
+    solver_poisson :
+        type : PConjugateGradient
+        pc : null # MassMatrixPreconditioner # null or name of preconditioner class
+        tol : 1.e-10
+        maxiter : 3000
+        info : False
+        verbose : False
     solver_ew :
         type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or name of preconditioner class

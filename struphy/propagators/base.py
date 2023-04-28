@@ -1,17 +1,14 @@
 from abc import ABCMeta, abstractmethod
 import numpy as np
 
-from psydac.linalg.stencil import StencilVector
-from psydac.linalg.block import BlockVector
-from struphy.polar.basic import PolarVector
-
 
 class Propagator(metaclass=ABCMeta):
     '''Base class for Struphy propagators used in Struphy models.
 
     Note
     ---- 
-        All Struphy propagators are subclasses of ``Propagator`` and should be added to ``struphy/models/codes/propagators.py``'''
+        All Struphy propagators are subclasses of ``Propagator``. This parent class is also used
+        for solvers.'''
 
     @property
     @abstractmethod

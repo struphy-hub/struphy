@@ -9,12 +9,12 @@ class Maxwellian(metaclass=ABCMeta):
     r"""
     Base class for a Maxwellian distribution function defined on :math:`[0, 1]^3 \times \mathbb R^n, n \geq 1,` 
     with logical position coordinates :math:`\boldsymbol{\eta} \in [0, 1]^3`:
-    
+
     .. math::
 
         f(\boldsymbol{\eta}, v_1,\ldots,v_n) = n(\boldsymbol{\eta}) \prod_{i=1}^n \frac{1}{\sqrt{\pi}\,v_{\mathrm{th},i}(\boldsymbol{\eta})}
         \exp\left[-\frac{(v_i-u_i(\boldsymbol{\eta}))^2}{v_{\mathrm{th},i}(\boldsymbol{\eta})^2}\right],
-        
+
     defined by its velocity moments: the density :math:`n(\boldsymbol{\eta})`, 
     the mean-velocities :math:`u_i(\boldsymbol{\eta})`, 
     and the thermal velocities :math:`v_{\mathrm{th},i}(\boldsymbol{\eta})`. 
@@ -30,12 +30,12 @@ class Maxwellian(metaclass=ABCMeta):
     @abstractmethod
     def n(self, *etas):
         """ Number density (0-form). 
-        
+
         Parameters
         ----------
         etas : numpy.arrays
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-            
+
         Returns
         -------
         A numpy.array with the density evaluated at evaluation points (same shape as etas).
@@ -45,12 +45,12 @@ class Maxwellian(metaclass=ABCMeta):
     @abstractmethod
     def u(self, *etas):
         """ Mean velocities (Cartesian components evaluated at x = F(eta)).
-        
+
         Parameters
         ----------
         etas : numpy.arrays
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-            
+
         Returns
         -------
         A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
@@ -61,12 +61,12 @@ class Maxwellian(metaclass=ABCMeta):
     @abstractmethod
     def vth(self, *etas):
         """ Thermal velocities (0-forms).
-        
+
         Parameters
         ----------
         etas : numpy.arrays
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-            
+
         Returns
         -------
         A numpy.array with the thermal velocity evaluated at evaluation points (one dimension more than etas).
@@ -76,28 +76,27 @@ class Maxwellian(metaclass=ABCMeta):
 
     def gaussian(self, v, u=0., vth=1.):
         """1D Gaussian, to which array-valued mean- and thermal velocities can be passed.
-        
+
         Parameters
         ----------
         v : float | array-like
             Velocits coordinate(s).
-            
+
         u : float | array-like
             Mean velocity evaluated at position array.
-            
+
         vth : float | array-like
             Thermal velocity evaluated at position array, same shape as u.
-            
+
         Returns
         -------
         An array of size(u).
         """
-        
+
         if isinstance(v, np.ndarray) and isinstance(u, np.ndarray):
             assert v.shape == u.shape
-        
-        return 1./(np.sqrt(np.pi) * vth) * np.exp(-(v - u)**2/vth**2)
 
+        return 1./(np.sqrt(np.pi) * vth) * np.exp(-(v - u)**2/vth**2)
 
     def __call__(self, *args):
         """
@@ -112,7 +111,7 @@ class Maxwellian(metaclass=ABCMeta):
         -------
         f : np.ndarray
             The evaluated Maxwellian.
-        """ 
+        """
 
         res = self.n(*args[:-self.vdim])
         us = self.u(*args[:-self.vdim])
@@ -148,7 +147,7 @@ class Maxwellian6DUniform(Maxwellian):
                           'vthx': 1.,
                           'vthy': 1.,
                           'vthz': 1.}
-        
+
         self._params = set_defaults(params, params_default)
 
     @property
@@ -165,12 +164,12 @@ class Maxwellian6DUniform(Maxwellian):
 
     def n(self, eta1, eta2, eta3):
         """ Number density (0-form). 
-        
+
         Parameters
         ----------
         eta1, eta2, eta3 : numpy.array
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-            
+
         Returns
         -------
         A numpy.array with the density evaluated at evaluation points (same shape as etas).
@@ -179,12 +178,12 @@ class Maxwellian6DUniform(Maxwellian):
 
     def vth(self, eta1, eta2, eta3):
         """ Thermal velocities (0-forms).
-        
+
         Parameters
         ----------
         etas : numpy.arrays
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-            
+
         Returns
         -------
         A numpy.array with the thermal velocity evaluated at evaluation points (one dimension more than etas).
@@ -200,12 +199,12 @@ class Maxwellian6DUniform(Maxwellian):
 
     def u(self, eta1, eta2, eta3):
         """ Mean velocities (Cartesian components evaluated at x = F(eta)).
-        
+
         Parameters
         ----------
         eta1, eta2, eta3  : numpy.array
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-            
+
         Returns
         -------
         A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
@@ -218,6 +217,7 @@ class Maxwellian6DUniform(Maxwellian):
         res_list += [self.params['uz'] - 0*eta1]
 
         return np.array(res_list)
+
 
 class Maxwellian6DPerturbed(Maxwellian):
     r"""
@@ -343,12 +343,12 @@ class Maxwellian6DPerturbed(Maxwellian):
 
     def n(self, eta1, eta2, eta3):
         """ Mean velocities (Cartesian components evaluated at x = F(eta)).
-        
+
         Parameters
         ----------
         eta1, eta2, eta3 : numpy.arrays
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-            
+
         Returns
         -------
         A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
@@ -370,12 +370,12 @@ class Maxwellian6DPerturbed(Maxwellian):
 
     def u(self, eta1, eta2, eta3):
         """ Mean velocities (Cartesian components evaluated at x = F(eta)).
-        
+
         Parameters
         ----------
         eta1, eta2, eta3  : numpy.array
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-            
+
         Returns
         -------
         A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
@@ -427,12 +427,12 @@ class Maxwellian6DPerturbed(Maxwellian):
 
     def vth(self, eta1, eta2, eta3):
         """ Thermal velocities (0-forms).
-        
+
         Parameters
         ----------
         etas : numpy.arrays
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-            
+
         Returns
         -------
         A numpy.array with the thermal velocity evaluated at evaluation points (one dimension more than etas).
@@ -482,6 +482,7 @@ class Maxwellian6DPerturbed(Maxwellian):
 
         return np.array(res_list)
 
+
 class Maxwellian6DITPA(Maxwellian):
     r"""
     6d Maxwellian distribution function defined on [0, 1]^3 x R^3, with logical position and Cartesian velocity coordinates, with isotropic, shifted distribution in velocity space and 1d density variation in first direction.
@@ -528,12 +529,12 @@ class Maxwellian6DITPA(Maxwellian):
 
     def n(self, eta1, eta2, eta3):
         """ Number density (0-form). 
-        
+
         Parameters
         ----------
         eta1, eta2, eta3 : numpy.array
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-            
+
         Returns
         -------
         A numpy.array with the density evaluated at evaluation points (same shape as etas).
@@ -553,12 +554,12 @@ class Maxwellian6DITPA(Maxwellian):
 
     def vth(self, eta1, eta2, eta3):
         """ Thermal velocities (0-forms).
-        
+
         Parameters
         ----------
         etas : numpy.arrays
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-            
+
         Returns
         -------
         A numpy.array with the thermal velocity evaluated at evaluation points (one dimension more than etas).
@@ -575,12 +576,12 @@ class Maxwellian6DITPA(Maxwellian):
 
     def u(self, eta1, eta2, eta3):
         """ Mean velocities (Cartesian components evaluated at x = F(eta)).
-        
+
         Parameters
         ----------
         eta1, eta2, eta3  : numpy.array
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-            
+
         Returns
         -------
         A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
@@ -593,6 +594,7 @@ class Maxwellian6DITPA(Maxwellian):
         res_list += [0*eta1]
 
         return np.array(res_list)
+
 
 class Maxwellian5DUniform(Maxwellian):
     r"""
@@ -616,7 +618,7 @@ class Maxwellian5DUniform(Maxwellian):
                           'u_perp': 0.,
                           'vth_parallel': 1.,
                           'vth_perp': 1.}
-        
+
         self._params = set_defaults(params, params_default)
 
     @property
@@ -633,12 +635,12 @@ class Maxwellian5DUniform(Maxwellian):
 
     def n(self, eta1, eta2, eta3):
         """ Number density (0-form). 
-        
+
         Parameters
         ----------
         eta1, eta2, eta3 : numpy.array
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-            
+
         Returns
         -------
         A numpy.array with the density evaluated at evaluation points (same shape as etas).
@@ -647,12 +649,12 @@ class Maxwellian5DUniform(Maxwellian):
 
     def vth(self, eta1, eta2, eta3):
         """ Thermal velocities (0-forms).
-        
+
         Parameters
         ----------
         etas : numpy.arrays
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-            
+
         Returns
         -------
         A numpy.array with the thermal velocity evaluated at evaluation points (one dimension more than etas).
@@ -667,12 +669,12 @@ class Maxwellian5DUniform(Maxwellian):
 
     def u(self, eta1, eta2, eta3):
         """ Mean velocities (Cartesian components evaluated at x = F(eta)).
-        
+
         Parameters
         ----------
         eta1, eta2, eta3  : numpy.array
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-            
+
         Returns
         -------
         A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
@@ -684,4 +686,3 @@ class Maxwellian5DUniform(Maxwellian):
         res_list += [self.params['u_perp'] - 0*eta1]
 
         return np.array(res_list)
-

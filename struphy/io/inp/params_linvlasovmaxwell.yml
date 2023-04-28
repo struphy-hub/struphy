@@ -15,7 +15,7 @@ units : # units not stated here can be viewed via "struphy units -h"
 
 time :
     dt         : 0.01 # time step
-    Tend       : 5. # simulation time interval is [0, Tend]
+    Tend       : 0.1 # simulation time interval is [0, Tend]
     split_algo : LieTrotter # LieTrotter | Strang
 
 geometry :
@@ -96,8 +96,8 @@ em_fields :
 kinetic :
     electrons :
         phys_params:
-            A : 1  # mass number in units of proton mass
-            Z : 1 # signed charge number in units of elementary charge
+            A : 0.0005446170214876324  # electron mass number in units of proton mass
+            Z : -1 # signed charge number in units of elementary charge
         markers :
             type    : delta_f # full_f, control_variate, or delta_f
             Np      : 50000 # alternative if ppc not given (total number of markers, Np must be >= # MPI processes)
@@ -152,6 +152,13 @@ kinetic :
             eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4
 
 solvers :
+    solver_poisson :
+        type : PConjugateGradient
+        pc : null # MassMatrixPreconditioner # null or name of preconditioner class
+        tol : 1.e-10
+        maxiter : 3000
+        info : False
+        verbose : False
     solver_ew :
         type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or name of preconditioner class
