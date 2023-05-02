@@ -5,8 +5,8 @@ Installation
 
 *Struphy* can be installed in the following ways:
 
-1. From :ref:`PyPI <pypi_install>` :math:`\to` ``pip install struphy``
-2. From :ref:`source <source_install>` 
+1. From :ref:`PyPI <pypi_install>` :math:`\to` ``pip install struphy``, for running the latest release
+2. From :ref:`source <source_install>`, for running or adding code 
 3. Using :ref:`Docker images <docker_install>`, also suited :ref:`for developers <docker_devs>`
 
 
@@ -24,28 +24,28 @@ Requirements
 
 Sample environment on **Debian-Ubuntu-Mint**::
 
-    apt update
-    apt install -y python3-pip
-    apt install -y gcc
-    apt install -y gfortran
-    apt install -y libblas-dev liblapack-dev
-    apt install -y libopenmpi-dev openmpi-bin
-    apt install -y libomp-dev libomp5
-    apt install -y git
+    sudo apt update
+    sudo apt install -y python3-pip
+    sudo apt install -y gcc
+    sudo apt install -y gfortran
+    sudo apt install -y libblas-dev liblapack-dev
+    sudo apt install -y libopenmpi-dev openmpi-bin
+    sudo apt install -y libomp-dev libomp5
+    sudo apt install -y git
 
 Sample environment on **Fedora-CentOS-RHEL**::
 
-    dnf check-update
-    dnf install -y python3-pip
-    dnf install -y gcc
-    dnf install -y gfortran
-    dnf install -y blas-devel lapack-devel
-    dnf install -y openmpi openmpi-devel
-    dnf install -y libgomp
-    dnf install -y git
-    dnf install -y environment-modules
-    dnf install -y python3-mpi4py-openmpi
-    dnf install -y python3-devel
+    sudo dnf check-update
+    sudo dnf install -y python3-pip
+    sudo dnf install -y gcc
+    sudo dnf install -y gfortran
+    sudo dnf install -y blas-devel lapack-devel
+    sudo dnf install -y openmpi openmpi-devel
+    sudo dnf install -y libgomp
+    sudo dnf install -y git
+    sudo dnf install -y environment-modules
+    sudo dnf install -y python3-mpi4py-openmpi
+    sudo dnf install -y python3-devel
 
 Sample environment on **Mac OS**::
 

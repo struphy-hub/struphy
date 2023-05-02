@@ -28,13 +28,11 @@ written in ``Python 3`` to maintain a low entry barrier for new contributors. Al
 :ref:`avail_mappings` and can load a variety of :ref:`mhd_equil`.
 
 **How to contribute:** The *Struphy* repository lies on the Gitlab instance of Max Planck Computing and Data Facility (MPCDF) https://gitlab.mpcdf.mpg.de/struphy/struphy.
-Therefore, you need an MPCDF Gitlab account. Please contact one of
+To add code, you need an MPCDF Gitlab account. For the necessary invitation, please contact a Max Planck member, e.g. one of
 
    * florian.holderied@ipp.mpg.de
    * stefan.possanner@ipp.mpg.de
    * eric.sonnendruecker@ipp.mpg.de
-
-for an invitation.
 
 Performance is important in *Struphy*. It is achieved using three building blocks:
 
