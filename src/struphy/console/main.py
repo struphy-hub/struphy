@@ -39,7 +39,7 @@ def struphy():
     libpath = struphy.__path__[0]
     path_message = f'Struphy installation path: {libpath}\n'
     path_message += f'default input:             {libpath}/io/inp\n'
-    path_message += f'default input:             {libpath}/io/out\n'
+    path_message += f'default output:            {libpath}/io/out\n'
     path_message += f'template batch scripts:    {libpath}/io/batch'
 
     parser.add_argument('-v', '--version', action='version',

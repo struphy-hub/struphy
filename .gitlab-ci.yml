@@ -392,10 +392,11 @@ pages:
   rules:
     - if: $CI_COMMIT_TAG
       when: never
-    - if: $CI_COMMIT_REF_NAME == "master" 
+    - if: $CI_COMMIT_REF_PROTECTED == "true"  
   needs: ["default_build"]
   script:
     - pip install dist/struphy*.whl
+    - pip install src/struphy/psydac*.whl
     - pip show struphy
     - struphy
     - cd doc ; make html
