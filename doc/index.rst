@@ -27,6 +27,15 @@ for the description of nonlinear wave-particle resonances.
 written in ``Python 3`` to maintain a low entry barrier for new contributors. All models are implemented on 
 :ref:`avail_mappings` and can load a variety of :ref:`mhd_equil`.
 
+**How to contribute:** The *Struphy* repository lies on the Gitlab instance of Max Planck Computing and Data Facility (MPCDF) https://gitlab.mpcdf.mpg.de/struphy/struphy.
+Therefore, you need an MPCDF Gitlab account. Please contact one of
+
+   * florian.holderied@ipp.mpg.de
+   * stefan.possanner@ipp.mpg.de
+   * eric.sonnendruecker@ipp.mpg.de
+
+for an invitation.
+
 Performance is important in *Struphy*. It is achieved using three building blocks:
 
    * `numpy <https://numpy.org/>`_ (vectorization)
@@ -63,8 +72,8 @@ Contact
 
 The *Struphy* code base is constantly maintained. Please contact 
 
-   * <florian.holderied@ipp.mpg.de>
-   * <stefan.possanner@ipp.mpg.de>
+   * florian.holderied@ipp.mpg.de
+   * stefan.possanner@ipp.mpg.de
 
 for questions.
 

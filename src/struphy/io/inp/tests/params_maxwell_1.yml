@@ -1,0 +1,48 @@
+grid :
+    Nel      : [32, 32, 32] # number of grid cells, >p
+    p        : [3, 2, 1]  # spline degree
+    spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
+    bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
+    dims_mask : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
+    nq_el    : [2, 2, 2] # quadrature points per grid cell
+    nq_pr    : [2, 2, 2] # quadrature points per histopolation cell (for commuting projectors)
+    polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
+
+units : # units not stated here can be viewed via "struphy units -h"
+    x : 1. # length scale unit in m
+    B : 1. # magnetic field unit in T
+
+time : 
+    dt         : 0.05 # time step
+    Tend       : 0.5 # simulation time interval is [0, Tend]
+    split_algo : LieTrotter # LieTrotter | Strang
+      
+geometry : 
+    type : HollowCylinder # mapping F (possible types seen below)  
+    HollowCylinder :
+        a1 : .1 # inner radius
+        a2 : 1. # outer radius
+        Lz : 6. # length in third direction   
+                 
+em_fields : 
+    init :
+        type : TorusModesSin # initial conditions (possible types seen below)
+        TorusModesSin :
+            coords : 'logical' # in which coordinates (logical or physical)
+            comps :
+                e1 : [True, True, False]   # components to be initialized (for scalar fields: no list)
+                b2 : [False, False, False] # components to be initialized (for scalar fields: no list)
+            ms : [1] # poloidal mode numbers
+            ns : [0] # toroidal mode numbers
+            amp : [0.001] # amplitudes
+            pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
+            pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
+
+solvers :
+    solver_1 : 
+        type : PConjugateGradient
+        pc : MassMatrixPreconditioner # null or name of preconditioner class
+        tol : 1.e-8
+        maxiter : 3000
+        info : False
+        verbose : False

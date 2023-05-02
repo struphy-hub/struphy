@@ -1,0 +1,169 @@
+grid :
+    Nel      : [2, 2, 64] # number of grid cells, >p
+    p        : [1, 1, 3]  # spline degree
+    spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
+    bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
+    dims_mask : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
+    nq_el    : [2, 2, 2] # quadrature points per grid cell
+    nq_pr    : [2, 2, 2] # quadrature points per histopolation cell (for commuting projectors)
+    polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
+
+model_units :
+    B   : 1. # magnetic field unit in T
+    L   : 1. # length scale unit in m
+    nb  : 0.0005185219355 # bulk number density unit in 1 x 10^20 m^(-3)
+    nuh : 5. # ratio of hot/bulk number density units in %
+    Ab  : 1 # mass number of bulk ion species
+    Ah  : 1 # mass number of energetic ion species
+    Zh  : 1 # charge number of energetic ion species
+
+time :
+    dt         : 0.01 # time step
+    Tend       : 5. # simulation time interval is [0, Tend]
+    split_algo : LieTrotter # LieTrotter | Strang
+
+geometry :
+    type : Cuboid # mapping F (possible types seen below)
+    Cuboid :
+        l1       : 0. # start of interval in eta1
+        r1       : 2. # end of interval in eta1, r1>l1
+        l2       : 0. # start of interval in eta2
+        r2       : 2. # end of interval in eta2, r2>l2
+        l3       : 0. # start of interval in eta3
+        r3       : 20. # end of interval in eta3, r3>l3
+
+mhd_equilibrium :
+    type : HomogenSlab # (possible choices seen below)
+    HomogenSlab :
+        B0x  : 0.5 # magnetic field in x
+        B0y  : 0. # magnetic field in y
+        B0z  : 1.4 # magnetic field in z
+        beta : 0. # plasma beta = 2*p*mu_0/B^2
+        n0   : 1. # number density
+
+electric_equilibrium :
+    type : HomogenSlab # (possible choices seen below)
+    HomogenSlab :
+        phi0  : 1. # constant electric potential
+
+em_fields :
+    init :
+        type : ModesSin # initial conditions (possible types seen below)
+        noise :
+            comps :
+                e_field : [True, False, False]  # components to be initialized (for scalar fields: no list)
+                b_field : [False, False, False] # components to be initialized (for scalar fields: no list)
+            variation_in : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
+            amp : 0.1   # noise amplitude
+        ModesSin : 
+            coords : 'logical' # in which coordinates (logical or physical)
+            comps :
+                e_field : [True, False, False]  # components to be initialized (for scalar fields: no list)
+                b_field : [False, False, False] # components to be initialized (for scalar fields: no list)
+            ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
+            ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
+            ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
+            amp : [2.1] # amplitudes of each mode
+        ModesCos :
+            coords : 'logical' # in which coordinates (logical or physical)
+            comps :
+                e_field : [True, False, False]  # components to be initialized (for scalar fields: no list)
+                b_field : [False, False, False] # components to be initialized (for scalar fields: no list)
+            ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
+            ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
+            ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
+            amp : [0.001] # amplitudes of each mode
+        TorusModesSin :
+            coords : 'logical' # in which coordinates (logical or physical)
+            comps :
+                e_field : [True, False, False]  # components to be initialized (for scalar fields: no list)
+                b_field : [False, False, False] # components to be initialized (for scalar fields: no list)
+            ms : [1] # poloidal mode numbers
+            ns : [0] # toroidal mode numbers
+            amp : [0.001] # amplitudes of each mode
+            pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
+            pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
+        InitialMHDSlab :
+            a  : 1. # minor radius (Lx=a, Ly=2*pi*a)
+            R0 : 3. # major radius (Lz=2*pi*R0)
+            m  : 0  # poloidal (y) mode number
+            n  : 1  # toroidal (z) mode number
+            U  : 0.1 # amplitude of Ux/Uy
+            A  : 0. # amplitude of Uz
+        InitialMHDAxisymHdivEigFun :
+            spec : '/path_to_spec/spec.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
+            eig_freq_upper : 0.15 # upper search limit of squared eigenfrequency to identify eigenfunction
+            eig_freq_lower : 0.14 # lower search limit of squared eigenfrequency to identify eigenfunction
+            kind : r # real (r) or imaginary (i) part of eigenfunction
+            scaling : 1. # scaling factor to scale the amplitude of the eigenfunction
+
+kinetic :
+    electrons :
+        markers :
+            type    : delta_f # full_f, control_variate, or delta_f
+            Np      : 50000 # alternative if ppc not given (total number of markers, Np must be >= # MPI processes)
+            eps     : 0.5 # MPI send/receive buffer (0.1 <= eps <= 1.0)
+            bc_type : [periodic, periodic, periodic] # remove, reflect or periodic
+            loading :
+                type          : pseudo_random # particle loading mechanism
+                seed          : 1234 # seed for random number generator
+                dir_particles : path_to_particles # directory of particles if loaded externally
+                moments       : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
+        init :
+            type : Maxwellian6DPerturbed
+            Maxwellian6DPerturbed :
+                n :
+                    n0 : 0.
+                    perturbation :
+                        l : [0.07957747154594767] # 0.5 / (2 * pi)
+                        m : [0]
+                        n : [0]
+                        amps_sin : [0.]
+                        amps_cos : [1.5]
+                ux :
+                    ux0 : 0.
+                uy :
+                    uy0 : 0.
+                uz :
+                    uz0 : 0.
+                vthx :
+                    vthx0 : 1.
+                vthy :
+                    vthy0 : 1.
+                vthy :
+                    vthz0 : 1.
+        background :
+            type : Maxwellian6DUniform
+            Maxwellian6DUniform :
+                n  : 1.
+                ux : 0.
+                uy : 0.
+                uz : 0.
+                vthx : 1.
+                vthy : 1.
+                vthz : 1.
+        save_data :
+            n_markers : 10 # number of markers to be saved during simulation
+            f :
+                slices : [e3, vx_vy_vz] # in which directions to bin (e.g. [e1_e2, vx_vy_vz])
+                n_bins : [[64], [64, 64, 64]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
+                ranges : [[[0., 1.]], [[-5., 5.], [-5., 5.], [-5., 5.]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
+        push_algos :
+            vxb : analytic # possible choices: analytic, implicit
+            eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4
+
+solvers :
+    solver_ew :
+        type : PConjugateGradient
+        pc : MassMatrixPreconditioner # null or name of preconditioner class
+        tol : 1.e-10
+        maxiter : 3000
+        info : False
+        verbose : False
+    solver_eb :
+        type : PConjugateGradient
+        pc : MassMatrixPreconditioner # null or name of preconditioner class
+        tol : 1.e-10
+        maxiter : 3000
+        info : False
+        verbose : False
