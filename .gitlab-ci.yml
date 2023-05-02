@@ -19,23 +19,26 @@ default:
     #- export PYTHONPATH="${PYTHONPATH}:$(python3 -m site --user-site)"
     - echo $PYTHONPATH 
     - echo $PATH
+    - ls
 
   tags:
     - ipp_vm_linux_struphy
   
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
-  GIT_SUBMODULE_STRATEGY: recursive
+  #GIT_SUBMODULE_STRATEGY: recursive
   GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/struphy_${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
   UBUNTU20_TEST_IMAGE: $CI_REGISTRY/struphy/struphy/ubuntu20_test
-  RELEASE_TEST_IMAGE: $CI_REGISTRY/struphy/struphy/release_test
+  FEDORA36_TEST_IMAGE: $CI_REGISTRY/struphy/struphy/fedora36_test
   UBUNTU20_IMAGE: $CI_REGISTRY/struphy/struphy/ubuntu20
-  RELEASE_IMAGE: $CI_REGISTRY/struphy/struphy/release
+  FEDORA36_IMAGE: $CI_REGISTRY/struphy/struphy/fedora36
+  TWINE_USERNAME: __token__
+  TWINE_PASSWORD: pypi-AgEIcHlwaS5vcmcCJDE4YzU1YzIwLWVhY2QtNDQyZS04ODRjLTJjYTE3OTI3MDQ4YgACKlszLCI4NzYzODllYi05NWE4LTRlOTktYjg2Ny0zNDcwNDM5NjI2ZjciXQAABiD3B8VE_t8BNsezFEMcF2ZLblhgufgnrfXgCSmGuW5H4w
 
 stages:
   - startup
   - build
-  - test_image
+  - test_images
   - install
   - test_default
   - release 
@@ -64,7 +67,7 @@ default_venv:
     - python3 -m venv ${GLOBAL_CACHE_PATH}/env
     - source ${GLOBAL_CACHE_PATH}/env/bin/activate
     - python3 -m pip install --upgrade pip
-    - pip install -U pytest coverage h5py build wheel # somehow the build package is not cached
+    - pip install -U pytest coverage build twine # somehow the build package is not cached
     - pip list
 
 # Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
@@ -227,22 +230,13 @@ default_build:
     - if: $CI_PIPELINE_SOURCE == "push"
   needs: ["default_venv"]
   script:
-    # - cd psydac
-    # - git checkout struphy-branch # our own dedicated branch
-    # - git pull # go to latest commit in our own branch (why is this needed?)  
-    # - python3 -m pip install -r requirements.txt
-    # - python3 -m pip install -r requirements_extra.txt 
-    # - pip install .
-    # - cd ..
-    - cd gvec_to_python
-    - pip install . 
-    - cd ..
-    - python -m build # build struphy (.whl) 
+    - pip list
+    - python3 -m build # build struphy (.whl) 
   artifacts:
     paths:
       - dist/
 
-# build environment image (no struphy installed)
+# build environment images (no struphy installed)
 ubuntu20_image_build:
   stage: build
   needs: []
@@ -254,13 +248,12 @@ ubuntu20_image_build:
     - docker info
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - docker build -t $UBUNTU20_TEST_IMAGE -f images/ubuntu20.dockerfile .
+    - docker build -t $UBUNTU20_TEST_IMAGE -f images/ubuntu20.dockerfile . --no-cache
     - docker push $UBUNTU20_TEST_IMAGE
 
-# build release image (struphy installed and compiled)
-release_image_build:
+fedora36_image_build:
   stage: build
-  needs: ["ubuntu20_image_build"]
+  needs: []
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -269,13 +262,13 @@ release_image_build:
     - docker info
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - docker build -t $RELEASE_TEST_IMAGE -f images/struphy_ubuntu20.dockerfile .
-    - docker push $RELEASE_TEST_IMAGE
+    - docker build -t $FEDORA36_TEST_IMAGE -f images/fedora36.dockerfile . --no-cache
+    - docker push $FEDORA36_TEST_IMAGE
 
-# image tests (when not merged to master)
-image_unit_tests:
-  stage: test_image
-  needs: ["release_image_build"]
+# image tests (only codes, when not merged to master)
+ubuntu20_tests:
+  stage: test_images
+  needs: ["default_build", "ubuntu20_image_build"]
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -284,17 +277,20 @@ image_unit_tests:
     - docker info
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - docker rm -f unit
-    - docker run -d -t --name unit $RELEASE_TEST_IMAGE
+    - docker rm -f ubuntu_tests
+    - docker run -d -t -v $CI_PROJECT_DIR/dist:/struphy/dist --name ubuntu_tests $UBUNTU20_TEST_IMAGE
     - docker images
     - docker container ls --all
-    - docker exec unit struphy test
-    - docker stop unit
-    - docker rm -f unit 
+    - docker exec ubuntu_tests pip list
+    - docker exec ubuntu_tests pip install dist/struphy*.whl
+    - docker exec ubuntu_tests struphy compile
+    - docker exec ubuntu_tests struphy test --codes
+    - docker stop ubuntu_tests
+    - docker rm -f ubuntu_tests 
 
-image_code_tests:
-  stage: test_image
-  needs: ["release_image_build"]
+fedora36_tests:
+  stage: test_images
+  needs: ["default_build", "fedora36_image_build"]
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -303,14 +299,14 @@ image_code_tests:
     - docker info
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - docker rm -f codes
-    - docker run -d -t --name codes $RELEASE_TEST_IMAGE
+    - docker rm -f fedora_tests
+    - docker run -d -t -v $CI_PROJECT_DIR/dist:/struphy/dist --name fedora_tests $FEDORA36_TEST_IMAGE
     - docker images
     - docker container ls --all
-    - docker exec codes struphy -p
-    - docker exec codes struphy test --codes
-    - docker stop codes
-    - docker rm -f codes
+    - docker exec fedora_tests pip list
+    - docker exec fedora_tests bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install dist/struphy*.whl && struphy compile && struphy test --codes" 
+    - docker stop fedora_tests
+    - docker rm -f fedora_tests
 
 # Install from wheel and compile on mpcdf cluster arch
 default_install:
@@ -327,7 +323,7 @@ default_install:
     - pyccel --version
     - struphy compile --delete
     - struphy compile # compiles struphy, psydac and gvec_to_python
-    - ./struphy/verify_compilation.sh
+    - ./src/struphy/verify_compilation.sh
     - pip list
 
 # default tests (always)
@@ -364,6 +360,16 @@ default_code_tests:
     - struphy test --codes
 
 # release
+deploy:
+  stage: release
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_NAME == "master" 
+  needs: ["default_build"]
+  script:
+    - twine upload dist/*
+
 release_images:
   stage: release
   rules:
@@ -377,9 +383,9 @@ release_images:
     - docker pull $UBUNTU20_TEST_IMAGE
     - docker tag $UBUNTU20_TEST_IMAGE $UBUNTU20_IMAGE
     - docker push $UBUNTU20_IMAGE
-    - docker pull $RELEASE_TEST_IMAGE
-    - docker tag $RELEASE_TEST_IMAGE $RELEASE_IMAGE
-    - docker push $RELEASE_IMAGE
+    - docker pull $FEDORA36_TEST_IMAGE
+    - docker tag $FEDORA36_TEST_IMAGE $FEDORA36_IMAGE
+    - docker push $FEDORA36_IMAGE
 
 pages:
   stage: release
@@ -414,6 +420,6 @@ cleanup:
     - echo "on ${CI_RUNNER_DESCRIPTION}."
     - echo "remove:" ${GLOBAL_CACHE_PATH}
     - rm -rf ${GLOBAL_CACHE_PATH}
-    - docker image rm -f $UBUNTU20_TEST_IMAGE $RELEASE_TEST_IMAGE
+    - docker image rm -f $UBUNTU20_TEST_IMAGE $FEDORA36_TEST_IMAGE
     - docker images
 

@@ -16,6 +16,7 @@ def struphy_compile(no_openmp=False, delete=False, verbose=False):
     
     import subprocess
     import struphy
+    import os
 
     libpath = struphy.__path__[0]
         
@@ -32,11 +33,6 @@ def struphy_compile(no_openmp=False, delete=False, verbose=False):
         
     else:
         
-        # gvec_to_python (change dir not to be in source path)
-        print('\nCompiling gvec_to_python kernels ...')
-        subprocess.run(['compile_gvec_to_python'], check=True, cwd=libpath)
-        print('Done.')
-        
         # struphy and psydac (change dir not to be in source path)
         flag_omp_pic = '--openmp'
         flag_omp_mhd = ''
@@ -46,6 +42,19 @@ def struphy_compile(no_openmp=False, delete=False, verbose=False):
         flag_verb = ''
         if verbose:
             flag_verb = '--verbose'
+            
+        try:
+            import psydac.api
+        except:
+            print('\nInstalling Psydac ...')
+            subprocess.run(['pip', 
+                            'install', 
+                            os.path.join(libpath, 'psydac-0.1-py3-none-any.whl'),
+                            ], check=True)
+            print('Done.') 
+            
+        # gvec_to_python (change dir not to be in source path)
+        subprocess.run(['compile-gvec-tp'], check=True, cwd=libpath) 
             
         print('\nCompiling Struphy and Psydac kernels ...')
         subprocess.run(['make', 

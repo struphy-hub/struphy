@@ -14,7 +14,7 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
-with open('../struphy/console/main.py') as f:  
+with open('../src/struphy/console/main.py') as f:  
     exec(f.read())
 
 # -- Project information -----------------------------------------------------
