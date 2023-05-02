@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 from argparse import HelpFormatter, _SubParsersAction, RawTextHelpFormatter
+import importlib.metadata
 
-__version__ = "1.9.8"
+__version__ = importlib.metadata.version("struphy")
 
 def struphy():
     '''
@@ -30,7 +31,7 @@ def struphy():
 
     # version message
     version_message = f'Struphy {__version__}\n'
-    version_message += 'Copyright 2022 (c) struphy dev team | CONTRIBUTING.md | Max Planck Institute for Plasma Physics\n'
+    version_message += 'Copyright 2019 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n'
     version_message += 'MIT license\n'
 
     # path message

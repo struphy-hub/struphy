@@ -66,6 +66,10 @@ On Windows systems we recommend the use of a virtual machine, for instance the :
 PyPI
 ----
 
+On **Fedora-CentOS-RHEL** you must::
+
+    module load mpi/openmpi-$(arch)
+
 Install package::
 
     pip install struphy
@@ -73,10 +77,6 @@ Install package::
 Compile kernels::
 
     struphy compile
-
-On **Fedora-CentOS-RHEL** you must::
-
-    module load mpi/openmpi-$(arch)
 
 
 .. _source_install:
@@ -89,8 +89,9 @@ Clone the `Struphy repository <https://gitlab.mpcdf.mpg.de/struphy/struphy>`_ an
     git clone --recurse-submodules git@gitlab.mpcdf.mpg.de:struphy/struphy.git 
     cd struphy
 
-Install *struphy*::
+Update pip and install package::
 
+    pip install --upgrade pip
     pip install <option> .
 
 where ``<option>`` is either empty (Python environment installation), ``--user`` (installation in ``.local/lib``) or ``-e`` (installation in development mode).
