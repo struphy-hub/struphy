@@ -3,10 +3,80 @@
 Struphy models
 ==============
 
+.. toctree::
+   :maxdepth: 2
+
+   models
+
+
+.. _fluid_models:
+
+Fluid models
+------------
+
+.. autoclass:: struphy.models.models.LinearMHD
+    :members:
+    :undoc-members:
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
+
+
+.. _hybrid_models:
+
+Fluid-kinetic hybrid models
+---------------------------
+
+.. autoclass:: struphy.models.models.LinearMHDVlasovCC
+    :members:
+    :undoc-members:
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
+
+.. autoclass:: struphy.models.models.LinearMHDVlasovPC
+    :members:
+    :undoc-members:
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
+
+.. autoclass:: struphy.models.models.LinearMHDDriftkineticCC
+    :members:
+    :undoc-members:
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
+
+
+.. _kinetic_models:
+
+Kinetic models
+--------------
+
+.. autoclass:: struphy.models.models.LinearVlasovMaxwell
+    :members:
+    :undoc-members:
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
+
+
+.. _toy_models:
+
+Toy models
+----------
+
+.. autoclass:: struphy.models.models.Maxwell
+    :members:
+    :undoc-members:
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
+
+.. autoclass:: struphy.models.models.Vlasov
+    :members:
+    :undoc-members:
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
+
+.. autoclass:: struphy.models.models.DriftKinetic
+    :members:
+    :undoc-members:
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
+
+
 .. _normalization:
 
 Normalization
--------------
+=============
 
 In Struphy, models are implemented in normalized variables. 
 Each particular normalization is stated with the model equations in the docstring (see below).
@@ -74,63 +144,7 @@ Symbol                   Meaning
 :math:`e`                elementary charge (positive)
 :math:`Z_\textnormal{b}` charge number of bulk species (in units of elementary charge)
 :math:`c`                vacuum speed of light
-======================== ===================================================          
- 
-
-Fluid models
-------------
-
-.. autoclass:: struphy.models.models.LinearMHD
-    :members:
-    :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
-
-
-Fluid-kinetic hybrid models
----------------------------
-
-.. autoclass:: struphy.models.models.LinearMHDVlasovCC
-    :members:
-    :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
-
-.. autoclass:: struphy.models.models.LinearMHDVlasovPC
-    :members:
-    :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
-
-.. autoclass:: struphy.models.models.LinearMHDDriftkineticCC
-    :members:
-    :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
-
-
-Kinetic models
---------------
-
-.. autoclass:: struphy.models.models.LinearVlasovMaxwell
-    :members:
-    :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
-
-
-Toy models
-----------
-
-.. autoclass:: struphy.models.models.Maxwell
-    :members:
-    :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
-
-.. autoclass:: struphy.models.models.Vlasov
-    :members:
-    :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
-
-.. autoclass:: struphy.models.models.DriftKinetic
-    :members:
-    :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
+======================== ===================================================  
 
 
 .. .. _cc_lin_mhd_6d:

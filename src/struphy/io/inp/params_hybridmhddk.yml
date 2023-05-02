@@ -1,0 +1,136 @@
+grid :
+    Nel      : [16, 4, 4] # number of grid cells, >p
+    p        : [3, 3, 3]  # spline degree
+    spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
+    bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
+    dims_mask : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
+    nq_el    : [6, 6, 6] # quadrature points per grid cell
+    nq_pr    : [4, 4, 4] # quadrature points per histopolation cell (for commuting projectors)
+    polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
+
+units : # units not stated here can be viewed via "struphy units -h"
+    x      : 1. # length scale unit in m
+    B      : 1. # magnetic field unit in T
+    n      : 1. # number density unit in 10^20 m^(-3)
+
+time : 
+    dt         : 0.2  # time step
+    Tend       : 1. # simulation time interval is [0, Tend]
+    split_algo : LieTrotter # LieTrotter | Strang
+      
+geometry : 
+    type : HollowTorus # mapping F (possible types seen below)  
+    HollowTorus :
+        a1 : .05 # inner radius
+        a2 : 1. # minor radius
+        R0 : 4. # major radius
+        tor_period: 1 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
+            
+mhd_equilibrium : 
+    type : AdhocTorus # (possible choices seen below)
+    AdhocTorus :
+        a      : 1. # minor radius (radius of cylinder)
+        R0     : 4. # major radius (Lz = 2*pi*R0)
+        B0     : 3. # on-axis toroidal magnetic field
+        q0     : 1.71 # safety factor at r=0
+        q1     : 1.87 # safety factor at r=a
+        n1     : 0. # shape factor for number density profile 
+        n2     : 0. # shape factor for number density profile 
+        na     : 1. # number density at r=a
+        p_kind : 1 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
+        p1     : .1 # shape factor for ad hoc pressure profile
+        p2     : .1 # shape factor for ad hoc pressure profile
+        beta   : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
+
+em_fields : 
+    init :
+        type : null # type of initialization
+      
+fluid : 
+    mhd :
+        phys_params:
+            A : 1  # mass number in units of proton mass
+            Z : 1 # signed charge number in units of elementary charge
+        mhd_u_space : H1vec # Hdiv | H1vec
+        init :
+            type : noise # initial conditions (possible types seen below)
+            noise :
+                comps : 
+                    n3 : False
+                    uv : [True, True, True]
+                    p3 : False
+                variation_in : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
+                amp : 0.0001   # noise amplitude
+
+kinetic :
+    energetic_ions :
+        phys_params:
+            A : 1  # mass number in units of proton mass
+            Z : 1 # signed charge number in units of elementary charge
+        markers :
+            type    : full_f # full_f or delta_f
+            ppc     : 10
+            Np      : 4 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
+            eps     : 1.0 # MPI send/receive buffer (0.1 <= eps <= 1.0)
+            bc_type : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
+            loading :
+                type    : pseudo_random # particle loading mechanism 
+                seed    : 1608 # seed for random number generator
+                moments : [0., 0., 1., 1.] # moments of Gaussian s3, see background/moms_spec
+                initial : [[.501, 0.001, 0.001,  1.935 , -1.72], # counter-passing particle
+                           [.501, 0.001, 0.001, -1.935 , -1.72], # co-passing particle
+                           [.501, 0.001, 0.001,  0.4515, -1.72], # counter-trapped particle
+                           [.501, 0.001, 0.001, -0.6665, -1.72]] # co-trapped particle
+
+        init : 
+            type : Maxwellian5DUniform
+            Maxwellian5DUniform :
+                n  : 0.05
+        save_data :
+            n_markers : 4 # number of markers to be save during simulation
+            f :
+                slices : [vz]
+                n_bins : [[32]]
+                ranges : [[[-3., 3.]]]
+        push_algos :
+            integrator : implicit # explicit or implicit
+            method : discrete_gradients # possible choices: discrete_gradients, forward_euler, heun2, rk2, heun3, rk4
+            maxiter : 10
+            tol : 1.e-15
+            
+solvers :
+    solver_1 : 
+        type : PConjugateGradient
+        pc : MassMatrixPreconditioner # null or fft
+        tol : 1.e-12
+        maxiter : 3000
+        info : False
+        verbose : False
+    solver_2 :
+        type : PBiConjugateGradientStab
+        pc : MassMatrixPreconditioner # null or fft
+        tol : 1.e-12
+        maxiter : 3000
+        info : False
+        verbose : False
+    solver_3 :
+        type : PConjugateGradient
+        pc : MassMatrixPreconditioner # null or fft
+        tol : 1.e-12
+        maxiter : 3000
+        info : False
+        verbose : False
+    solver_4 :
+        type : PConjugateGradient
+        pc : MassMatrixPreconditioner # null or fft
+        tol : 1.e-12
+        maxiter : 3000
+        info : False
+        verbose : False
+    solver_5 :
+        type : PBiConjugateGradientStab
+        pc : MassMatrixPreconditioner # null or fft
+        tol : 1.e-12
+        maxiter : 3000
+        info : False
+        verbose : False
