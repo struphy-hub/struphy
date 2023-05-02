@@ -19,7 +19,6 @@ def struphy():
     from struphy.console.example import struphy_example
     from struphy.console.test import struphy_test
     
-
     # create argument parser
     epilog_message = 'Run "struphy COMMAND --help" for more information on a command.\n\n'
     epilog_message += 'For more help on how to use Struphy, see https://struphy.pages.mpcdf.de/struphy/index.html'
@@ -54,7 +53,7 @@ def struphy():
 
     # 1. "compile" sub-command
     parser_compile = subparsers.add_parser('compile',
-                                           help='compile computational kernels',
+                                           help='compile computational kernels, install psydac',
                                            description='Compile Struphy kernels using pyccel, https://github.com/pyccel/pyccel.')
 
     parser_compile.add_argument('--no-openmp',

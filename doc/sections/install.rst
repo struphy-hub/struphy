@@ -5,15 +5,60 @@ Installation
 
 *Struphy* can be installed in the following ways:
 
-    1. Coming soon: from :ref:`PyPI <pypi_install>` (:command:`pip install struphy`)
-    2. From :ref:`source <source_install>` 
-    3. Using :ref:`Docker images <docker_install>`, also suited :ref:`for developers <docker_devs>`
+1. From :ref:`PyPI <pypi_install>` :math:`\to` ``pip install struphy``
+2. From :ref:`source <source_install>` 
+3. Using :ref:`Docker images <docker_install>`, also suited :ref:`for developers <docker_devs>`
 
-Options 1 and 2 are tested on ``x86_64`` with ``Ubuntu 20.04`` 
-and on the `MPCDF HPC facilities <https://docs.mpcdf.mpg.de/doc/computing/index.html>`_.
-Option 3 works on all `docker-viable architectures <https://www.docker.com/>`_.
 
-On non-Linux systems we recommend the use of a virtual machine, for instance the :ref:`multipass`.
+.. _require:
+
+Requirements
+------------
+
+- Python 3 and pip3
+- A Fortran compiler like gfortran, gcc
+- Linear algebra packages BLAS and LAPACK
+- An MPI library like open-mpi, mpich
+- OpenMP
+- Git version control system
+
+Sample environment on **Debian-Ubuntu-Mint**::
+
+    apt update
+    apt install -y python3-pip
+    apt install -y gcc
+    apt install -y gfortran
+    apt install -y libblas-dev liblapack-dev
+    apt install -y libopenmpi-dev openmpi-bin
+    apt install -y libomp-dev libomp5
+    apt install -y git
+
+Sample environment on **Fedora-CentOS-RHEL**::
+
+    dnf check-update
+    dnf install -y python3-pip
+    dnf install -y gcc
+    dnf install -y gfortran
+    dnf install -y blas-devel lapack-devel
+    dnf install -y openmpi openmpi-devel
+    dnf install -y libgomp
+    dnf install -y git
+    dnf install -y environment-modules
+    dnf install -y python3-mpi4py-openmpi
+    dnf install -y python3-devel
+
+Sample environment on **Mac OS**::
+
+    brew update
+    brew install -y python3-pip
+    brew install -y gcc
+    brew install -y openblas
+    brew install -y lapack
+    brew install -y open-mpi
+    brew install -y libomp
+    brew install -y git
+
+On Windows systems we recommend the use of a virtual machine, for instance the :ref:`multipass`.
 
 
 .. _pypi_install:
@@ -21,21 +66,7 @@ On non-Linux systems we recommend the use of a virtual machine, for instance the
 PyPI
 ----
 
-WARNING: *Struphy* is not yet released on the `Python Packaging Index <https://pypi.org/>`_, coming soon! 
-
-Required Linux packages (``.deb``)::
-
-    sudo apt update -y
-    sudo apt install -y gfortran gcc libblas-dev liblapack-dev libopenmpi-dev openmpi-bin libomp-dev libomp5
-    sudo apt install -y libhdf5-openmpi-dev
-    sudo apt install -y python3-pip python3-mpi4py
-
-Install private repository ``gvec_to_python`` from wheel file (also public soon):: 
-
-    curl -O --header "PRIVATE-TOKEN: glpat-5QH11Kx-65GGiykzR5xo" "https://gitlab.mpcdf.mpg.de/api/v4/projects/5368/jobs/2080073/artifacts/dist/gvec_to_python-1.0.2-py3-none-any.whl"
-    pip install gvec_to_python-1.0.2-py3-none-any.whl
-
-Install *struphy*::
+Install package::
 
     pip install struphy
 
@@ -43,36 +74,26 @@ Compile kernels::
 
     struphy compile
 
+On **Fedora-CentOS-RHEL** you must::
+
+    module load mpi/openmpi-$(arch)
+
 
 .. _source_install:
 
 Source
 ------
 
-Required Linux packages (``.deb``)::
+Clone the `Struphy repository <https://gitlab.mpcdf.mpg.de/struphy/struphy>`_ and update submodules::
 
-    sudo apt update -y
-    sudo apt install -y gfortran gcc libblas-dev liblapack-dev libopenmpi-dev openmpi-bin libomp-dev libomp5
-    sudo apt install -y libhdf5-openmpi-dev
-    sudo apt install -y python3-pip python3-mpi4py
-
-Clone the `Struphy repository <https://gitlab.mpcdf.mpg.de/struphy/struphy>`_, update submodules 
-and name the repo ``<name>`` via::
-
-    git clone --recurse-submodules git@gitlab.mpcdf.mpg.de:struphy/struphy.git <name>
-    cd <name>
-
-Install the submodule in ``<name>/gvec_to_python``::
-
-    cd gvec_to_python
-    pip install .
-    cd ..
+    git clone --recurse-submodules git@gitlab.mpcdf.mpg.de:struphy/struphy.git 
+    cd struphy
 
 Install *struphy*::
 
     pip install <option> .
 
-where ``<option>`` is either empty (Python environment installation), ``--user`` (installation in ``.local/lib``) or ``-e`` (installation in editable mode).
+where ``<option>`` is either empty (Python environment installation), ``--user`` (installation in ``.local/lib``) or ``-e`` (installation in development mode).
 
 Compile kernels::
 
@@ -113,17 +134,18 @@ If you are uncomfortable with running `sudo`, you can `run docker in "rootless" 
 
     docker login gitlab-registry.mpcdf.mpg.de -u struphy_group_api -p glpat-JW4kjd_YMvRinSzKxSxs
 
-3. Pull the latest release of *struphy* (about 2 GB in size)::
+3. Pull one of the following environment images (< 1 GB in size)::
 
-    docker pull gitlab-registry.mpcdf.mpg.de/struphy/struphy/release:latest
+    docker pull gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu20:latest
+    docker pull gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora36:latest
 
-4. Run the latest release of *struphy* in a container::
+4. Run the container::
 
-    docker run -it gitlab-registry.mpcdf.mpg.de/struphy/struphy/release:latest
+    docker run -it gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu20:latest
 
-The option ``-i`` stands for interactive while ``-t`` gives you a terminal. Test the container by typing :command:`struphy`,
-which should display the struphy help. :command:`struphy compile` will show that all kernels are already compiled. 
-:command:`struphy -p` gives you the installation paths. Type :command:`exit` to exit and close the container.
+The option ``-i`` stands for interactive while ``-t`` gives you a terminal.
+
+5. Continue with one of the installation methods above (PyPI or source).
 
 
 Important docker commands
@@ -147,14 +169,6 @@ Docker for devs
 ^^^^^^^^^^^^^^^
 
 Docker is well-suited for developers on any kind of platform. 
-After installing and launching docker desktop (1. from above) and logging in to the registry (2. from above),
-the relevant docker image to pull is:: 
-    
-    docker pull gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu20:latest
-
-It contains the recommended dev environment for *struphy* (``Ubuntu 20.04``) 
-with all dependencies installed and compiled. 
-
 In order to interact with ``gitlab.mpcdf`` you need to mirror your **private ssh key** into the container 
 with the ``-v`` option. For a ``rsa`` key this is done with::
 
@@ -162,12 +176,7 @@ with the ``-v`` option. For a ``rsa`` key this is done with::
 
 On OS other than Linux ``~/.ssh/id_rsa`` must be replaced with the path to the private rsa key.
 
-You can now install *struphy* in developer mode::
-
-    git clone --recurse-submodules git@gitlab.mpcdf.mpg.de:struphy/struphy.git <name>
-    cd <name>
-    pip install .
-    struphy
+You can now install *struphy* from source (see above).
 
 In order to develop inside the container, we recommend to use `Visual Studio Code <https://code.visualstudio.com/>`_.
 Once installed, you can click on **Extensions** (red circle below) and install the ``Dev Containers``
@@ -203,7 +212,7 @@ Some specifics for the HPC systems ``cobra`` and ``draco`` at `MPCDF HPC facilit
     source <some_name>/bin/activate
     python3 -m pip install --upgrade pip
 
-3. Continue with one of the three install methods from above.
+3. Continue with one of the install methods from above.
 
 4. Test your installation with a debug run using up to 8 mpi processes (only on nodes ``cobra03-cobra06``)::
 
