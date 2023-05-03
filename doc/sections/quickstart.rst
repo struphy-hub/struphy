@@ -25,9 +25,9 @@ Run the model ``LinearMHD`` with default input parameters, on two processes, and
 
 Post process data::
 
-    struphy pproc sim_mhd
+    struphy pproc -d sim_mhd
 
-You can now open ``paraview`` and load the data from the folder ``<install_path>/io/out/sim_mhd/vtk/``.
+You can now open ``paraview`` and load the data from the folder ``<install_path>/io/out/sim_mhd/post_processing/fields_data/vtk/``.
 Let us do a second run with different parameters. Open the default parameter file (for example with ``vim``)::
 
     vi <install_path>/io/in/parameters.yml
