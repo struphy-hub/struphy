@@ -182,6 +182,179 @@ class LinearMHD(StruphyModel):
 
         self._scalar_quantities['en_B_tot'][0] = en_Btot
         
+        
+class LinearExtendedMHD(StruphyModel):
+    r'''Linear extended MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
+
+    :ref:`normalization`:
+
+    .. math::
+
+        \frac{\hat B}{\sqrt{A_\textnormal{b} m_\textnormal{H} \hat n \mu_0}} =: \hat v_\textnormal{A} = \frac{\hat \omega}{\hat k} = \hat U \,, \qquad \hat p = \frac{\hat B^2}{\mu_0}\,.
+
+    Implemented equations:
+
+    .. math::
+
+        &\frac{\partial \tilde n}{\partial t}+\nabla\cdot(n_0 \tilde{\mathbf{U}})=0\,, 
+
+        n_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p
+        =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf{J}_0\times \tilde{\mathbf{B}}
+        \,, \qquad
+        \mathbf{J}_0 = \nabla\times\mathbf{B}_0\,,
+
+        &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
+        + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,,
+
+        &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
+        = 0\,.
+
+    Parameters
+    ----------
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
+
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
+    '''
+    
+    @classmethod
+    def bulk_species(cls):
+        return 'mhd'
+    
+    @classmethod
+    def timescale(cls):
+        return 'alfvén'
+
+    def __init__(self, params, comm):
+
+        # initialize base class
+        super().__init__(params, comm, 
+                         b1='Hcurl',
+                         mhd={'n3': 'L2', 'u2': 'Hdiv', 'pi3': 'L2', 'pe3': 'L2'})
+            
+        from struphy.polar.basic import PolarVector
+        from struphy.propagators.base import Propagator
+        from struphy.propagators import propagators_fields
+        from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
+
+        # pointers to em-field variables
+        self._b = self.em_fields['b1']['obj'].vector
+
+        # pointers to fluid variables
+        self._n = self.fluid['mhd']['n3']['obj'].vector
+        self._u = self.fluid['mhd']['u2']['obj'].vector
+        self._p_i = self.fluid['mhd']['pi3']['obj'].vector
+        self._p_e = self.fluid['mhd']['pe3']['obj'].vector
+
+        # extract necessary parameters
+        alfven_solver = params['solvers']['solver_1']
+        sonic_solver = params['solvers']['solver_2']
+
+        # project background magnetic field (1-form) and pressure (3-form)
+        self._b_eq = self.derham.P['1']([self.mhd_equil.b1_1,
+                                         self.mhd_equil.b1_2,
+                                         self.mhd_equil.b1_3])
+        self._p_i_eq = self.derham.P['3'](self.mhd_equil.p3)
+        self._p_e_eq = self.derham.P['3'](self.mhd_equil.p3)
+        self._ones = self._p_i_eq.space.zeros()
+
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.
+        else:
+            self._ones[:] = 1.
+
+        # set propagators base class attributes (available to all propagators)
+        Propagator.derham = self.derham
+        Propagator.domain = self.domain
+        Propagator.mass_ops = self.mass_ops
+        Propagator.basis_ops = BasisProjectionOperators(
+            self.derham, self.domain, eq_mhd=self.mhd_equil)
+
+        # Initialize propagators/integrators used in splitting substeps
+        self._propagators = []
+        self._propagators += [propagators_fields.ShearAlfvénB1(
+            self._u,
+            self._b,
+            **alfven_solver)]
+        #self._propagators += [propagators_fields.Magnetosonic(
+            #self._n,
+            #self._u,
+            #self._p,
+            #u_space=self._u_space,
+            #b=self._b,
+            #**sonic_solver)]
+
+        # Scalar variables to be saved during simulation
+        self._scalar_quantities = {}
+        self._scalar_quantities['en_U'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_p_i'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_p_e'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_p_i_eq'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_p_e_eq'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B_eq'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B_tot'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+        
+        # temporary vectors for scalar quantities
+        self._tmp_u1 = self.derham.Vh['2'].zeros()
+            
+        self._tmp_b1 = self.derham.Vh['1'].zeros()
+        self._tmp_b2 = self.derham.Vh['1'].zeros()
+
+    @property
+    def propagators(self):
+        return self._propagators  
+    
+    @property
+    def scalar_quantities(self):
+        return self._scalar_quantities      
+
+    def update_scalar_quantities(self):
+
+        # perturbed fields
+        self._mass_ops.M2n.dot(self._u, out=self._tmp_u1)
+        
+            
+        self._mass_ops.M1.dot(self._b, out=self._tmp_b1)
+        
+        en_U = self._u.dot(self._tmp_u1)/2
+        en_B = self._b.dot(self._tmp_b1)/2
+        en_p_i = self._p_i.dot(self._ones)/(5/3 - 1)
+        en_p_e = self._p_e.dot(self._ones)/(5/3 - 1)
+        
+        self._scalar_quantities['en_U'][0] = en_U
+        self._scalar_quantities['en_B'][0] = en_B
+        self._scalar_quantities['en_p_i'][0] = en_p_i
+        self._scalar_quantities['en_p_e'][0] = en_p_e
+        
+        self._scalar_quantities['en_tot'][0]  = en_U
+        self._scalar_quantities['en_tot'][0] += en_B
+        self._scalar_quantities['en_tot'][0] += en_p_i
+        self._scalar_quantities['en_tot'][0] += en_p_e
+
+        # background fields
+        self._mass_ops.M1.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
+        
+        en_B0 = self._b_eq.dot(self._tmp_b1)/2
+        en_p0_i = self._p_i_eq.dot(self._ones)/(5/3 - 1)
+        en_p0_e = self._p_e_eq.dot(self._ones)/(5/3 - 1)
+        
+        self._scalar_quantities['en_B_eq'][0] = en_B0
+        self._scalar_quantities['en_p_i_eq'][0] = en_p0_i
+        self._scalar_quantities['en_p_e_eq'][0] = en_p0_e
+        
+        # total magnetic field
+        self._b_eq.copy(out=self._tmp_b1)
+        self._tmp_b1 += self._b
+        
+        self._mass_ops.M1.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
+        
+        en_Btot = self._tmp_b1.dot(self._tmp_b2)/2
+
+        self._scalar_quantities['en_B_tot'][0] = en_Btot
+        
 
 # class ColdPlasma(StruphyModel):
 #     r'''Cold plasma model

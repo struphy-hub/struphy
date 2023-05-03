@@ -367,6 +367,74 @@ class WeightedMassOperators:
             self._MvJ = self.assemble_weighted_mass(fun, 'Hdiv', 'H1vec')
 
         return self._MvJ
+    
+    @property
+    def M2B(self):
+        r"""
+        Mass matrix 
+
+        .. math::
+
+            \mathbb M^{2,B}_{(\mu,ijk), (\nu,mno)} = \int \Lambda^2_{\mu,ijk}\, \mathcal R^J_{\alpha, \nu}\, \Lambda^2_{\nu, mno} \, \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
+
+        with the rotation matrix
+
+        .. math::
+
+            \mathcal R^J_{\alpha, \nu} := \epsilon_{\alpha \beta \nu}\, B^2_{\textnormal{eq}, \beta}\,,\qquad s.t. \qquad \mathcal R^J \vec v = \vec B^2_{\textnormal{eq}} \times \vec v\,,
+
+        where :math:`\epsilon_{\alpha \beta \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \beta}` is the :math:`\beta`-component of the MHD equilibrium magnetic field (2-form).
+        """
+
+        if not hasattr(self, '_M2B'):
+
+            rot_B = RotationMatrix(
+                self.weights['eq_mhd'].b2_1, self.weights['eq_mhd'].b2_2, self.weights['eq_mhd'].b2_3)
+
+            fun = []
+            for m in range(3):
+                fun += [[]]
+                for n in range(3):
+                    fun[-1] += [lambda e1, e2, e3, m=m,
+                                n=n: rot_B(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3)]
+
+            self._M2B = self.assemble_weighted_mass(fun, 'Hdiv', 'Hdiv')
+
+        return self._M2B
+    
+    @property
+    def M2Bn(self):
+        r"""
+        Mass matrix 
+
+        .. math::
+
+            \mathbb M^{2,BN}_{(\mu,ijk), (\nu,mno)} = \int \Lambda^2_{\mu,ijk}\, \mathcal R^J_{\alpha, \nu}\, \Lambda^2_{\nu, mno} \, \frac{1}{n^0_{\textnormal{eq}}(\boldsymbol \eta)}\, \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
+
+        with the rotation matrix
+
+        .. math::
+
+            \mathcal R^J_{\alpha, \nu} := \epsilon_{\alpha \beta \nu}\, B^2_{\textnormal{eq}, \beta}\,,\qquad s.t. \qquad \mathcal R^J \vec v = \vec B^2_{\textnormal{eq}} \times \vec v\,,
+
+        where :math:`\epsilon_{\alpha \beta \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \beta}` is the :math:`\beta`-component of the MHD equilibrium magnetic field (2-form).
+        """
+
+        if not hasattr(self, '_M2BN'):
+
+            rot_B = RotationMatrix(
+                self.weights['eq_mhd'].b2_1, self.weights['eq_mhd'].b2_2, self.weights['eq_mhd'].b2_3)
+
+            fun = []
+            for m in range(3):
+                fun += [[]]
+                for n in range(3):
+                    fun[-1] += [lambda e1, e2, e3, m=m,
+                                n=n: rot_B(e1, e2, e3)[:, :, :, m, n] / (self.sqrt_g(e1, e2, e3) * self.weights['eq_mhd'].n0(e1, e2, e3, squeeze_out=False))]
+
+            self._M2BN = self.assemble_weighted_mass(fun, 'Hdiv', 'Hdiv')
+
+        return self._M2BN
 
     #######################################
     # Wrapper around WeightedMassOperator #

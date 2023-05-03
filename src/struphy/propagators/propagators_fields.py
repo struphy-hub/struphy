@@ -359,6 +359,113 @@ class ShearAlfvén(Propagator):
             print()
 
 
+class ShearAlfvénB1(Propagator):
+    r'''Crank-Nicolson step for shear Alfvén part in MHD equations,
+
+    .. math::
+
+        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf b^{n+1} - \mathbf b^n \end{bmatrix} 
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^\rho_\alpha)^{-1} \mathcal {T^\alpha}^\top \mathbb C^\top \\ - \mathbb C \mathcal {T^\alpha} (\mathbb M^\rho_\alpha)^{-1} & 0 \end{bmatrix} 
+        \begin{bmatrix} {\mathbb M^\rho_\alpha}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_2(\mathbf b^{n+1} + \mathbf b^n) \end{bmatrix} ,
+
+    where :math:`\alpha \in \{1, 2, v\}` and :math:`\mathbb M^\rho_\alpha` is a weighted mass matrix in :math:`\alpha`-space, the weight being :math:`\rho_0`,
+    the MHD equilibirum density. The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
+
+    Parameters
+    ---------- 
+    u : psydac.linalg.block.BlockVector
+        FE coefficients of MHD velocity as 2-form.
+
+    b : psydac.linalg.block.BlockVector
+        FE coefficients of magnetic field as 1-form.
+
+        **params : dict
+            Solver- and/or other parameters for this splitting step.
+    '''
+
+    def __init__(self, u, b, **params):
+
+        # pointers to variables
+        assert isinstance(u, (BlockVector, PolarVector))
+        assert isinstance(b, (BlockVector, PolarVector))
+        self._u = u
+        self._b = b
+
+        # parameters
+        params_default = {'type': 'PConjugateGradient',
+                          'pc': 'MassMatrixPreconditioner',
+                          'tol': 1e-8,
+                          'maxiter': 3000,
+                          'info': False,
+                          'verbose': False}
+
+        params = set_defaults(params, params_default)
+
+        self._info = params['info']
+        self._rank = self.derham.comm.Get_rank()
+
+        # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
+        _A = self.mass_ops.M2n
+        self._M1inv = Inverse(self.mass_ops.M1, tol=1e-8)
+        self._B = Multiply(1/2, Compose(self.mass_ops.M2B,
+                           self.derham.curl))
+        #I still have to invert M1
+        self._C = Multiply(1/2, Compose(self._M1inv,self.derham.curl.T, self.mass_ops.M2B))
+
+        # Preconditioner
+        if params['pc'] is None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            pc = pc_class(getattr(self.mass_ops, 'M2n'))
+
+        # instantiate Schur solver (constant in this case)
+        _BC = Compose(self._B, self._C)
+
+        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'],
+                                         tol=params['tol'], maxiter=params['maxiter'],
+                                         verbose=params['verbose'])
+
+        # allocate dummy vectors to avoid temporary array allocations
+        self._u_tmp1 = u.space.zeros()
+        self._u_tmp2 = u.space.zeros()
+        self._b_tmp1 = b.space.zeros()
+
+        self._byn = self._B.codomain.zeros()
+
+    @property
+    def variables(self):
+        return [self._u, self._b]
+
+    def __call__(self, dt):
+
+        # current variables
+        un = self.variables[0]
+        bn = self.variables[1]
+
+        # solve for new u coeffs
+        self._B.dot(bn, out=self._byn)
+
+        info = self._schur_solver(un, self._byn, dt, out=self._u_tmp1)[1]
+
+        # new b coeffs
+        un.copy(out=self._u_tmp2)
+        self._u_tmp2 += self._u_tmp1
+        self._C.dot(self._u_tmp2, out=self._b_tmp1)
+        self._b_tmp1 *= -dt
+        self._b_tmp1 += bn
+
+        # write new coeffs into self.variables
+        max_du, max_db = self.in_place_update(self._u_tmp1, self._b_tmp1)
+
+        if self._info and self._rank == 0:
+            print('Status     for ShearAlfvén:', info['success'])
+            print('Iterations for ShearAlfvén:', info['niter'])
+            print('Maxdiff up for ShearAlfvén:', max_du)
+            print('Maxdiff b2 for ShearAlfvén:', max_db)
+            print()
+
+
 class Magnetosonic(Propagator):
     r'''Crank-Nicolson step for magnetosonic part in MHD equations:
 
