@@ -682,8 +682,8 @@ class LinearMHDVlasovCC(StruphyModel):
         self._scalar_quantities['en_p'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_f'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_p_eq'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B_eq'] = np.empty(1, dtype=float)
+        # self._scalar_quantities['en_p_eq'] = np.empty(1, dtype=float)
+        # self._scalar_quantities['en_B_eq'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B_tot'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
 
@@ -712,10 +712,10 @@ class LinearMHDVlasovCC(StruphyModel):
         self._scalar_quantities['en_B'][0] = self._b.dot(
             self._mass_ops.M2.dot(self._b))/2
 
-        self._scalar_quantities['en_p_eq'][0] = self._p_eq.dot(
-            self._ones)/(5/3 - 1)
-        self._scalar_quantities['en_B_eq'][0] = self._b_eq.dot(
-            self._mass_ops.M2.dot(self._b_eq, apply_bc=False))/2
+        # self._scalar_quantities['en_p_eq'][0] = self._p_eq.dot(
+        #     self._ones)/(5/3 - 1)
+        # self._scalar_quantities['en_B_eq'][0] = self._b_eq.dot(
+        #     self._mass_ops.M2.dot(self._b_eq, apply_bc=False))/2
 
         self._scalar_quantities['en_B_tot'][0] = (
             self._b_eq + self._b).dot(self._mass_ops.M2.dot(self._b_eq + self._b, apply_bc=False))/2

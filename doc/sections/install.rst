@@ -15,7 +15,7 @@ Installation
 Requirements
 ------------
 
-- Python 3 and pip3
+- Python >3.7 and <=3.10 and pip3
 - A Fortran compiler like gfortran, gcc
 - Linear algebra packages BLAS and LAPACK
 - An MPI library like open-mpi, mpich
@@ -50,15 +50,19 @@ Sample environment on **Fedora-CentOS-RHEL**::
 Sample environment on **Mac OS**::
 
     brew update
-    brew install -y python3-pip
-    brew install -y gcc
-    brew install -y openblas
-    brew install -y lapack
-    brew install -y open-mpi
-    brew install -y libomp
-    brew install -y git
+    brew install python3
+    brew install gcc
+    brew install openblas
+    brew install lapack
+    brew install open-mpi
+    brew install libomp
+    brew install git
 
-On Windows systems we recommend the use of a virtual machine, for instance the :ref:`multipass`.
+In case you see problems with the `mpi4py` build on **Mac OS**, you can try to install the Xcode command line tools (160 MB)::
+
+    xcode-select --install
+
+On **Windows systems** we recommend the use of a virtual machine, for instance the :ref:`multipass`.
 
 
 .. _pypi_install:

@@ -1,5 +1,5 @@
 grid :
-    Nel      : [3, 3, 10] # number of grid cells, >p
+    Nel      : [3, 3, 64] # number of grid cells, >p
     p        : [2, 2, 3]  # spline degree
     spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
     bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
@@ -15,7 +15,7 @@ units : # units not stated here can be viewed via "struphy units -h"
 
 time :
     dt         : 0.2  # time step
-    Tend       : 120. # simulation time interval is [0, Tend]
+    Tend       : 1.0 # simulation time interval is [0, Tend]
     split_algo : Strang # LieTrotter | Strang
 
 geometry :
@@ -77,7 +77,7 @@ kinetic :
             Z : 1 # signed charge number in units of elementary charge
         markers :
             type    : full_f # full_f, control_variate, or delta_f
-            ppc     : 800 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
+            ppc     : 200 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
             eps     : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
             bc_type : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
             loading :
@@ -91,7 +91,13 @@ kinetic :
         background :
             type : Maxwellian6DUniform
             Maxwellian6DUniform :
-                uz : 2.5
+                n  : 1.
+                ux : 0.
+                uy : 0.
+                uz : 0.
+                vthx : 1.
+                vthy : 1.
+                vthz : 1.
         save_data :
             n_markers : 10 # number of markers to be save during simulation
             f :

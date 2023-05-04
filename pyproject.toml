@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "struphy"
 version = "1.9.9"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.7, <3.11"
 license = {file = "LICENSE"}
 authors = [
   { name = "Max Planck Institute for Plasma Physics"},
