@@ -248,7 +248,7 @@ ubuntu20_image_build:
     - docker info
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - docker build -t $UBUNTU20_TEST_IMAGE -f images/ubuntu20.dockerfile . --no-cache
+    - docker build -t $UBUNTU20_TEST_IMAGE -f images/ubuntu20.dockerfile . 
     - docker push $UBUNTU20_TEST_IMAGE
 
 fedora36_image_build:
@@ -262,7 +262,7 @@ fedora36_image_build:
     - docker info
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - docker build -t $FEDORA36_TEST_IMAGE -f images/fedora36.dockerfile . --no-cache
+    - docker build -t $FEDORA36_TEST_IMAGE -f images/fedora36.dockerfile . 
     - docker push $FEDORA36_TEST_IMAGE
 
 # image tests (only codes, when not merged to master)

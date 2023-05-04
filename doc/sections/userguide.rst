@@ -24,7 +24,7 @@ where ``<install_path>`` is obtained from::
     struphy -p
 
 The default parameter file ``<install_path>/io/inp/parameters.yml`` provides an overview of simulation parameters
-that can be passed to Struphy models. Model specific parameter templates can be found under ``<install_path>/io/inp/params_MODEL.yml``.
+that can be passed to Struphy models. Model specific parameter templates can be found under ``<install_path>/io/inp/params_*.yml``.
 Possible parameters are discussed in more detail in :ref:`params_yml`.
 
 By default, simulation data is written to ``<install_path>/io/out/sim_1/``. 
@@ -60,6 +60,10 @@ Struphy ``[OPTIONS]`` can be combined (the order is not important).
 Code profiling
 --------------
 
+Access help::
+
+    struphy profile -h
+
 Each Struphy run is by default profiled with the Python profiler `cProfile <https://docs.python.org/3/library/profile.html>`_.
 In order to see profiling results type::
 
@@ -76,20 +80,18 @@ they all have to be from the same ``MODEL``. To get more info on possible ``OPTI
 Post processing
 ---------------
 
+Access help::
+
+    struphy pproc -h
+
 The basic command for Struphy post-processing is::
 
-    struphy pproc sim_1 [sim_2 ...]
+    struphy pproc -d <sim_name> 
 
-Here, ``sim_1``, ``sim_2`` etc. are relative to ``<install_path>/io/out/``. 
-For each simulation, the command generates the following data in ``<install_path>/io/out/<sim_name>``:
-
-    1. ``vtk`` files of FE fields for each time step in ``/vtk`` 
-    2. numpy arrays of evaluated FE fields and grids in ``/eval_fields`` 
-    3. marker trajectories in coniguration space in ``/kinetic_data/<species>/orbits``
-    4. distribution function from saved binning data in ``/kinetic_data/<species>/distribution_function``
-
-The number of marker trajectories and the type of binning data is specified before the simulation
-in the parameter file, see :ref:`params_yml`.
+Here, ``<sim_name>`` is relative to ``<install_path>/io/out/``. 
+The generated output data can be inspected at:: 
+    
+    cd <install_path>/io/out/<sim_name>/post_processing/
 
 
 .. _params_yml:
@@ -120,13 +122,14 @@ grid
 
 ::
 
-    Nel      : [16, 32, 32] # number of grid cells, >p
-    p        : [2, 3, 4]  # spline degree
-    spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
-    bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
-    nq_el    : [2, 2, 2] # quadrature points per grid cell
-    nq_pr    : [2, 2, 2] # quadrature points per histopolation cell (for commuting projectors)
-    polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
+    Nel       : [16, 32, 32] # number of grid cells, >p
+    p         : [2, 3, 4]  # spline degree
+    spl_kind  : [False, True, True] # spline type: True=periodic, False=clamped
+    bc        : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
+    dims_mask : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
+    nq_el     : [2, 2, 2] # quadrature points per grid cell
+    nq_pr     : [2, 2, 2] # quadrature points per histopolation cell (for commuting projectors)
+    polar_ck  : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
 
 .. _time:
 

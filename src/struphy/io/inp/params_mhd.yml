@@ -1,0 +1,86 @@
+grid :
+    Nel      : [8, 32, 4] # number of grid cells, >p
+    p        : [2, 2, 2]  # spline degree
+    spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
+    bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
+    dims_mask : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
+    nq_el    : [6, 6, 6] # quadrature points per grid cell
+    nq_pr    : [4, 4, 4] # quadrature points per histopolation cell (for commuting projectors)
+    polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
+
+units : # units not stated here can be viewed via "struphy units -h"
+    x      : 1. # length scale unit in m
+    B      : 1. # magnetic field unit in T
+    n      : 1. # number density unit in 10^20 m^(-3)
+
+time :
+    dt         : 0.15 # time step
+    Tend       : 0.75 # simulation time interval is [0, Tend]
+    split_algo : LieTrotter # LieTrotter | Strang
+
+geometry :
+    type : Tokamak # mapping F (possible types seen below)
+    Tokamak : # the mapping is defined from the mhd equilibrium below
+        Nel        : [8, 32] # number of poloidal grid cells for spline mapping, >p
+        p          : [3, 3] # poloidal spline degrees for spline mapping, >1
+        psi_power  : 0.7 # parametrization of radial flux coordinate eta1=psi_norm^psi_power, where psi_norm is normalized flux
+        psi_shifts : [2., 2.] # start and end shifts of polidal flux in % --> cuts away regions at the axis and edge
+        xi_param   : equal_angle # parametrization of angular coordinate (equal_angle, equal_arc_length or sfl (straight field line))
+        r0         : 0.3 # initial guess for radial distance from axis used in Newton root-finding method for flux surfaces
+        Nel_pre    : [64, 256] # number of poloidal grid cells of pre-mapping needed for equal_arc_length and sfl
+        p_pre      : [3, 3] # poloidal spline degrees of pre-mapping needed for equal_arc_length and sfl
+        tor_period : 3 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
+
+mhd_equilibrium :
+    type : EQDSKequilibrium # (possible choices seen below)
+    EQDSKequilibrium :
+        rel_path        : True # whether eqdsk file path relative to "<struphy_path>/fields_background/mhd_equil/gvec", or the absolute path
+        file            : 'AUGNLED_g031213.00830.high' # path to eqdsk file
+        data_type       : 0 # 0: there is no space between data, 1: there is space between data
+        p_for_psi       : [3, 3] # spline degrees used in interpolation of poloidal flux function grid data
+        psi_resolution  : [25., 6.25] # resolution used in interpolation of poloidal flux function grid data in %, i.e. [100., 100.] uses all grid points
+        p_for_flux      : 3 # spline degree used in interpolation of 1d functions f=f(psi) (e.g. toroidal field function)
+        flux_resolution : 50. # resolution used in interpolation of of 1d functions f=f(psi) in %
+        n1              : 0. # 1st shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
+        n2              : 0. # 2nd shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
+        na              : 1. # number density at last closed flux surface
+
+em_fields :
+    init :
+        type : null # initialization
+
+fluid :
+    mhd :
+        phys_params:
+            A : 1  # mass number in units of proton mass
+            Z : 1 # signed charge number in units of elementary charge
+        mhd_u_space : H1vec # Hdiv | H1vec
+        init :
+            type : TorusModesSin # initialization
+            TorusModesSin :
+                coords : 'logical' # in which coordinates (logical or physical)
+                comps :
+                    n3 : False              # components to be initialized (for scalar fields: no list)
+                    uv : [True, True, True] # components to be initialized (for scalar fields: no list)
+                    p3 : False              # components to be initialized (for scalar fields: no list)
+                ms : [3] # poloidal mode numbers
+                ns : [0] # toroidal mode numbers
+                amp : [0.001] # amplitudes of each mode
+                pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
+                pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
+
+solvers :
+    solver_1 :
+        type : PConjugateGradient
+        pc : MassMatrixPreconditioner # null or name of preconditioner class
+        tol : 1.e-8
+        maxiter : 3000
+        info : False
+        verbose : False
+    solver_2 :
+        type : PBiConjugateGradientStab
+        pc : MassMatrixPreconditioner # null or name of preconditioner class
+        tol : 1.e-8
+        maxiter : 3000
+        info : False
+        verbose : False
