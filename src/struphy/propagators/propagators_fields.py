@@ -5,7 +5,7 @@ from struphy.propagators.base import Propagator
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.pic.particles_to_grid import Accumulator
 from struphy.polar.basic import PolarVector
-from struphy.kinetic_background.analytical import Maxwellian, Maxwellian6DUniform
+from struphy.kinetic_background.analytical import Maxwellian, Maxwellian6DUniform, Maxwellian5DUniform
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
 from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
@@ -1021,7 +1021,7 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
         params_default = {'particles': None,
                           'u_space': 'Hdiv',
                           'b_eq': None,
-                          'f0': Maxwellian6DUniform(),
+                          'f0': Maxwellian5DUniform(),
                           'type': 'PConjugateGradient',
                           'pc': 'MassMatrixPreconditioner',
                           'tol': 1e-8,
@@ -1030,7 +1030,7 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
                           'verbose': False,
                           'Ab': 1,
                           'Ah': 1,
-                          'kappa': 100}
+                          'kappa': 1.}
 
         params = set_defaults(params, params_default)
 
@@ -1090,13 +1090,6 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
 
         self._byn = self._B.codomain.zeros()
 
-        # allocate dummy vectors to avoid temporary array allocations
-        self._u_tmp1 = u.space.zeros()
-        self._u_tmp2 = u.space.zeros()
-        self._b_tmp1 = b.space.zeros()
-
-        self._byn = self._B.codomain.zeros()
-
     @property
     def variables(self):
         return [self._u, self._b]
@@ -1126,9 +1119,6 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
         # write new coeffs into self.variables
         max_du, max_db = self.in_place_update(self._u_tmp1, self._b_tmp1)
 
-        self._particles.save_magnetic_energy(
-            self.derham, self._PB.dot(self._b + self._b_eq))
-
         if self._info and self._rank == 0:
             print('Status     for ShearAlfvén:', info['success'])
             print('Iterations for ShearAlfvén:', info['niter'])
@@ -1156,7 +1146,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                           'particles': None,
                           'u_space': 'Hdiv',
                           'unit_b1': None,
-                          'f0': Maxwellian6DUniform(),
+                          'f0': Maxwellian5DUniform(),
                           'type': 'PBiConjugateGradientStab',
                           'pc': 'MassMatrixPreconditioner',
                           'tol': 1e-8,
@@ -1165,7 +1155,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                           'verbose': False,
                           'Ab': 1,
                           'Ah': 1,
-                          'kappa': 100}
+                          'kappa': 1}
 
         params = set_defaults(params, params_default)
 
@@ -1180,8 +1170,10 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                 self.derham.spaces_dict[params['u_space']])
 
         self._f0 = params['f0']
+
         assert isinstance(params['b'], (BlockVector, PolarVector))
         self._b = params['b']
+
         assert isinstance(params['unit_b1'], (BlockVector, PolarVector))
         self._unit_b1 = params['unit_b1']
 
@@ -1193,10 +1185,10 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._info = params['info']
         self._rank = self.derham.comm.Get_rank()
 
-        self._scale_vec = params['Ah'] / params['Ab']
+        self._coupling_const = params['Ah'] / params['Ab']
 
         self._ACC = Accumulator(self.derham, self.domain,
-                                params['u_space'], 'cc_lin_mhd_5d_M', add_vector=True)
+                                params['u_space'], 'cc_lin_mhd_5d_curlM', add_vector=False)
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         id_Mn = 'M' + self.derham.spaces_dict[params['u_space']] + 'n'
@@ -1266,12 +1258,12 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._ACC.accumulate(self._particles,
                              self._b[0]._data, self._b[1]._data, self._b[2]._data,
                              self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                             self._space_key_int, self._scale_vec)
+                             self._space_key_int, self._coupling_const)
 
         # solve for new u coeffs
         self._B.dot(pn, out=self._byn1)
         self._MJ.dot(self._b, out=self._byn2)
-        self._byn2 -= self._ACC.vectors[0]
+        self._byn2 -= self._ACC.vectors[0].dot(self._b)
         self._byn2 *= 1/2
         self._byn1 -= self._byn2
 

@@ -1109,9 +1109,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
         from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
         from mpi4py.MPI import SUM
 
-        # guiding center asymptotic parameter (rhostar)
-        epsilon = 1. # TODO
-
         # pointers to em-field variables
         self._b = self.em_fields['b2']['obj'].vector
 
@@ -1144,11 +1141,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
         
         omega_ch = (Zh*ee*units_basic['B'])/(Ah*mH)
         kappa = omega_ch*units_basic['t']
-        
-        if abs(kappa - 1) < 1e-6:
-            kappa = 1.
-
-        print('kappa', kappa)
         
         self._coupling_params = {}
         self._coupling_params['Ab'] = Ab
@@ -1183,9 +1175,16 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._p_eq = self.derham.P['3'](self.mhd_equil.p3)
         self._ones = self._p_eq.space.zeros()
 
-        self._b_cart = self.derham.P['v']([self.mhd_equil.b_cart_1,
-                                                self.mhd_equil.b_cart_2,
-                                                self.mhd_equil.b_cart_3])                   
+        # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
+        self._E0T = self.derham.E['0'].transpose()
+        self._EvT = self.derham.E['v'].transpose()
+        self._E2T = self.derham.E['2'].transpose()
+
+        # temporary vectors to avoid memory allocation
+        self._b_full1 = self._b_eq.space.zeros()
+        self._b_full2 = self._E2T.codomain.zeros()
+        self._PBb1 = self._abs_b.space.zeros()
+        self._PBb2 = self._E0T.codomain.zeros()                     
 
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.
@@ -1215,6 +1214,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             u_space=self._u_space,
             **solver_params_1,
             **self._coupling_params)]
+        
         # # updates u and p
         # self._propagators += [propagators_fields.MagnetosonicCurrentCoupling5D(
         #     self._n,
@@ -1227,69 +1227,82 @@ class LinearMHDDriftkineticCC(StruphyModel):
         #     u_space=self._u_space,
         #     **solver_params_2,
         #     **self._coupling_params)] 
-        # # update H       
-        # self._propagators += [propagators_markers.StepPushDriftKinetic1(
-        #     self._e_ions,
-        #     kappa=kappa,
-        #     b=self._b,
-        #     b_eq=self._b_eq, 
-        #     unit_b1=self._unit_b1, 
-        #     unit_b2=self._unit_b2, 
-        #     abs_b=self._abs_b,
-        #     integrator=ions_params['push_algos']['integrator'],
-        #     method=ions_params['push_algos']['method'],
-        #     maxiter=ions_params['push_algos']['maxiter'],
-        #     tol=ions_params['push_algos']['tol'])]
-        # # update H and v parallel
-        # self._propagators += [propagators_markers.StepPushDriftKinetic2(
-        #     self._e_ions,
-        #     kappa=kappa,
-        #     b=self._b,
-        #     b_eq=self._b_eq, 
-        #     unit_b1=self._unit_b1, 
-        #     unit_b2=self._unit_b2, 
-        #     abs_b=self._abs_b,
-        #     method=ions_params['push_algos']['method'],
-        #     integrator=ions_params['push_algos']['integrator'],
-        #     maxiter=ions_params['push_algos']['maxiter'],
-        #     tol=ions_params['push_algos']['tol'])]        
-        # self._propagators += [propagators_coupling.CurrentCoupling5DCurrent1(
-        #     self._e_ions,
-        #     self._u, 
-        #     b=self._b,
-        #     b_eq=self._b_eq,
-        #     unit_b1=self._unit_b1,
-        #     f0=f0, 
-        #     u_space=self._u_space, 
-        #   **solver_params_3,
-        #   **self._coupling_params)]
-        # self._propagators += [propagators_coupling.CurrentCoupling5DCurrent2(
-        #     self._e_ions,
-        #     self._u,
-        #     b=self._b, 
-        #     b_eq=self._b_eq,
-        #     unit_b1=self._unit_b1,
-        #     unit_b2=self._unit_b2,
-        #     abs_b=self._abs_b,
-        #     f0=f0, 
-        #     u_space=self._u_space, 
-        #   **solver_params_4,
-        #   **self._coupling_params)]
-        # self._propagators += [propagators_fields.CurrentCoupling6DDensity(
-        #     self._u,
-        #     particles=self._e_ions,
-        #     u_space=self._u_space,
-        #     b_eq=self._b_eq,
-        #     b_tilde=self._b,
-        #     f0=f0,
-        #     **solver_params_5,
-        #     **self._coupling_params)]
+
+        # update H       
+        self._propagators += [propagators_markers.StepPushDriftKinetic1(
+            self._e_ions,
+            kappa=kappa,
+            b=self._b,
+            b_eq=self._b_eq, 
+            unit_b1=self._unit_b1, 
+            unit_b2=self._unit_b2, 
+            abs_b=self._abs_b,
+            integrator=ions_params['push_algos']['integrator'],
+            method=ions_params['push_algos']['method'],
+            maxiter=ions_params['push_algos']['maxiter'],
+            tol=ions_params['push_algos']['tol'])]
+        
+        # update H and v parallel
+        self._propagators += [propagators_markers.StepPushDriftKinetic2(
+            self._e_ions,
+            kappa=kappa,
+            b=self._b,
+            b_eq=self._b_eq, 
+            unit_b1=self._unit_b1, 
+            unit_b2=self._unit_b2, 
+            abs_b=self._abs_b,
+            method=ions_params['push_algos']['method'],
+            integrator=ions_params['push_algos']['integrator'],
+            maxiter=ions_params['push_algos']['maxiter'],
+            tol=ions_params['push_algos']['tol'])]
+
+        # update u and v parallel
+        self._propagators += [propagators_coupling.CurrentCoupling5DCurrent1(
+            self._e_ions,
+            self._u, 
+            b=self._b,
+            b_eq=self._b_eq,
+            unit_b1=self._unit_b1,
+            f0=f0, 
+            u_space=self._u_space, 
+          **solver_params_3,
+          **self._coupling_params)]
+        
+        # update u and H
+        self._propagators += [propagators_coupling.CurrentCoupling5DCurrent2(
+            self._e_ions,
+            self._u,
+            b=self._b, 
+            b_eq=self._b_eq,
+            unit_b1=self._unit_b1,
+            unit_b2=self._unit_b2,
+            abs_b=self._abs_b,
+            f0=f0, 
+            u_space=self._u_space,
+          **solver_params_4,
+          **self._coupling_params,
+            integrator='explicit',
+            method='rk4')]
+
+        # update u
+        self._propagators += [propagators_fields.CurrentCoupling6DDensity(
+            self._u,
+            particles=self._e_ions,
+            u_space=self._u_space,
+            b_eq=self._b_eq,
+            b_tilde=self._b,
+            f0=f0,
+            **solver_params_5,
+            **self._coupling_params)]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
         self._scalar_quantities['en_U'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_p'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_p_eq'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B_eq'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B_tot'] = np.empty(1, dtype=float)
         self._en_fv_loc = np.empty(1, dtype=float)
         self._scalar_quantities['en_fv'] = np.empty(1, dtype=float)
         self._en_fB_loc = np.empty(1, dtype=float)
@@ -1323,15 +1336,28 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._scalar_quantities['en_p'][0] = self._p.toarray().sum()/(5/3 - 1)
         self._scalar_quantities['en_B'][0] = self._b.dot(self._mass_ops.M2.dot(self._b))/2
 
+        self._scalar_quantities['en_p_eq'][0] = self._p_eq.dot(self._ones)/(5/3 - 1)
+        self._scalar_quantities['en_B_eq'][0] = self._b_eq.dot(self._mass_ops.M2.dot(self._b_eq, apply_bc=False))/2
+
+        # calculate particle kinetic energy
         self._en_fv_loc = self._e_ions.markers[~self._e_ions.holes, 5].dot(self._e_ions.markers[~self._e_ions.holes, 3]**2) / (2*self._e_ions.n_mks)
         self.derham.comm.Reduce(self._en_fv_loc, self._scalar_quantities['en_fv'], op=self._mpi_sum, root=0)
 
-        # calculate particle magnetic energy
-        self._e_ions.save_magnetic_energy(self._derham, self._prop.basis_ops.PB.dot(self._b + self._b_eq))
+        # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
+        self._b_eq.copy(out=self._b_full1)
+        self._b_full1 += self._b
+        self._b_full1.update_ghost_regions()
 
+        self._scalar_quantities['en_B_tot'][0] = (self._b_full1).dot(self._mass_ops.M2.dot(self._b_full1, apply_bc=False))/2
+
+        # absolute value of parallel magnetic field
+        self._prop.basis_ops.PB.dot(self._b_full1, out=self._PBb1)
+        self._E0T.dot(self._PBb1, out=self._PBb2)
+        self._PBb2.update_ghost_regions()
+
+        self._e_ions.save_magnetic_energy(self._derham, self._PBb2)
         self._en_fB_loc = self._e_ions.markers[~self._e_ions.holes, 5].dot(self._e_ions.markers[~self._e_ions.holes, 8])/self._e_ions.n_mks
         self.derham.comm.Reduce(self._en_fB_loc, self._scalar_quantities['en_fB'], op=self._mpi_sum, root=0)
-
 
         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_U'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_p'][0]
@@ -1925,13 +1951,8 @@ class DriftKinetic(StruphyModel):
                                             self.mhd_equil.unit_b2_2,
                                             self.mhd_equil.unit_b2_3])
 
-        self._b_cart = self.derham.P['v']([self.mhd_equil.b_cart_1,
-                                           self.mhd_equil.b_cart_2,
-                                           self.mhd_equil.b_cart_3])
-
         self._E0T = self.derham.E['0'].transpose()
         self._EvT = self.derham.E['v'].transpose()
-        self._b_cart = self._EvT.dot(self._b_cart)     
         
         ee = 1.602176634e-19 # elementary charge (C)
         mH = 1.67262192369e-27 # proton mass (kg)
