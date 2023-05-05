@@ -867,7 +867,7 @@ class StepPushDriftKinetic1(Propagator):
         self._particles = particles
 
         # parameters
-        params_default = {'kappa': 100.,
+        params_default = {'kappa': 1.,
                           'b': None,
                           'b_eq': None,
                           'unit_b1': None,
@@ -902,8 +902,8 @@ class StepPushDriftKinetic1(Propagator):
         self._b_full.update_ghost_regions()
 
         # define gradient of absolute value of parallel magnetic field
-        PB = getattr(self.basis_ops, 'PB')
-        self._PBb = PB.dot(self._b_full)
+        self._PB = getattr(self.basis_ops, 'PB')
+        self._PBb = self._PB.dot(self._b_full)
         self._PBb.update_ghost_regions()
 
         self._grad_PBb = self.derham.grad.dot(self._PBb)
@@ -978,10 +978,30 @@ class StepPushDriftKinetic1(Propagator):
         """
         TODO
         """
+
+        # sum up total magnetic field
+        self._b_full = self._b_eq.copy()
+        if self._b is not None:
+            self._b_full += self._b
+
+        self._b_full.update_ghost_regions()
+
+        # define gradient of absolute value of parallel magnetic field
+        self._PBb = self._PB.dot(self._b_full)
+        self._PBb.update_ghost_regions()
+
+        self._grad_PBb = self.derham.grad.dot(self._PBb)
+        self._grad_PBb.update_ghost_regions()
+
+        self._pusher_inputs = (self._kappa, self._PBb._data,
+                               self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
+                               self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                               self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
+                               self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                               self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data)
+
         self._pusher(self._particles, dt,
                      *self._pusher_inputs, mpi_sort='each', verbose=False)
-
-        self._particles.save_magnetic_energy(self.derham, self._PBb)
 
 
 class StepPushDriftKinetic2(Propagator):
@@ -1017,7 +1037,7 @@ class StepPushDriftKinetic2(Propagator):
         self._particles = particles
 
         # parameters
-        params_default = {'kappa': 100.,
+        params_default = {'kappa': 1.,
                           'b': None,
                           'b_eq': None,
                           'unit_b1': None,
@@ -1052,8 +1072,8 @@ class StepPushDriftKinetic2(Propagator):
         self._b_full.update_ghost_regions()
 
         # define gradient of absolute value of parallel magnetic field
-        PB = getattr(self.basis_ops, 'PB')
-        self._PBb = PB.dot(self._b_full)
+        self._PB = getattr(self.basis_ops, 'PB')
+        self._PBb = self._PB.dot(self._b_full)
         self._PBb.update_ghost_regions()
 
         self._grad_PBb = self.derham.grad.dot(self._PBb)
@@ -1128,7 +1148,26 @@ class StepPushDriftKinetic2(Propagator):
         """
         TODO
         """
+        # sum up total magnetic field
+        self._b_full = self._b_eq.copy()
+        if self._b is not None:
+            self._b_full += self._b
+
+        self._b_full.update_ghost_regions()
+
+        # define gradient of absolute value of parallel magnetic field
+        self._PBb = self._PB.dot(self._b_full)
+        self._PBb.update_ghost_regions()
+
+        self._grad_PBb = self.derham.grad.dot(self._PBb)
+        self._grad_PBb.update_ghost_regions()
+
+        self._pusher_inputs = (self._kappa, self._PBb._data,
+                               self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
+                               self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                               self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
+                               self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                               self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data)
+
         self._pusher(self._particles, dt,
                      *self._pusher_inputs, mpi_sort='each', verbose=False)
-
-        self._particles.save_magnetic_energy(self.derham, self._PBb)

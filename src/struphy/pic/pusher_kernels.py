@@ -3616,7 +3616,6 @@ def push_gc_cc_J1_H1vec(markers: 'float[:,:]', dt: float, stage: int,
 
         eta[:] = markers[ip, 0:3]
         v = markers[ip, 3]
-        mu = markers[ip, 4]
 
         # evaluate Jacobian, result in df
         map_eval.df(eta[0], eta[1], eta[2],
@@ -3727,7 +3726,6 @@ def push_gc_cc_J1_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
 
         eta[:] = markers[ip, 0:3]
         v = markers[ip, 3]
-        mu = markers[ip, 4]
 
         # evaluate Jacobian, result in df
         map_eval.df(eta[0], eta[1], eta[2],
@@ -3842,7 +3840,6 @@ def push_gc_cc_J1_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 
         eta[:] = markers[ip, 0:3]
         v = markers[ip, 3]
-        mu = markers[ip, 4]
 
         # evaluate Jacobian, result in df
         map_eval.df(eta[0], eta[1], eta[2],
@@ -3937,8 +3934,8 @@ def push_gc_cc_J2_dg_H1vec(markers: 'float[:,:]', dt: float, stage: int,
     # containers for fields
     tmp1 = empty((3,3), dtype=float)
     tmp2 = empty((3,3), dtype=float)
-    b_prod = empty((3,3), dtype=float)
-    norm_b2_prod = empty((3,3), dtype=float)
+    b_prod = zeros((3,3), dtype=float)
+    norm_b2_prod = zeros((3,3), dtype=float)
     e = empty(3, dtype=float)
     u = empty(3, dtype=float)
     b = empty(3, dtype=float)
@@ -4242,19 +4239,19 @@ def push_gc_cc_J2_dg_faster_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
         markers[ip, 0:3] = markers[ip, 9:12] - e*dt
 
 def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
-                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                       kind_map: int, params_map: 'float[:]',
-                       p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                       ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                       cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                       kappa: float,
-                       b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                       norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                       norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                       curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                       u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]',
-                       a: 'float[:]', b: 'float[:]', c: 'float[:]'):
+                              pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                              starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                              kind_map: int, params_map: 'float[:]',
+                              p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                              ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                              cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                              kappa: float,
+                              b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+                              norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+                              norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+                              curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+                              u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]',
+                              a: 'float[:]', b: 'float[:]', c: 'float[:]'):
     r'''
     TODO
     '''
@@ -4277,7 +4274,7 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
     # containers for fields
     tmp1 = empty((3,3), dtype=float)
     tmp2 = empty((3,3), dtype=float)
-    b_prod = empty((3,3), dtype=float)
+    b_prod = zeros((3,3), dtype=float)
     norm_b2_prod = empty((3,3), dtype=float)
     e = empty(3, dtype=float)
     u = empty(3, dtype=float)
@@ -4390,5 +4387,5 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
 
         # markers[ip, :3] -= e/abs_b_star_para*dt
 
-        markers[ip, 12:15] -= dt*b[stage]*e
-        markers[ip, 0:3] = markers[ip, 9:12] + dt*a[stage]*e + last*markers[ip, 12:15]
+        markers[ip, 13:16] -= dt*b[stage]*e
+        markers[ip, 0:3] = markers[ip, 9:12] + dt*a[stage]*e + last*markers[ip, 13:16]

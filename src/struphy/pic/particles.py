@@ -792,7 +792,7 @@ class Particles5D(Particles):
 
         # contra-variant components of B* = B + 1/kappa*v_parallel*curlb0
         bstar = bv + 1/self._kappa*v[0]*curlb
-
+        
         # B*_parallel = b0 . B*
         jacobian_det = np.einsum('ij,ij->j',unit_b1, bstar)/v[1]
 

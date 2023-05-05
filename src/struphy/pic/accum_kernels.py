@@ -1268,17 +1268,19 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
                      vec1: 'float[:,:,:]',
                      vec2: 'float[:,:,:]',
                      vec3: 'float[:,:,:]',
-                     kappa: float,    # model specific argument
-                     b1: 'float[:,:,:]',          # model specific argument
-                     b2: 'float[:,:,:]',          # model specific argument 
-                     b3: 'float[:,:,:]',          # model specific argument 
-                     norm_b11: 'float[:,:,:]',       # model specific argument    
-                     norm_b12: 'float[:,:,:]',       # model specific argument
-                     norm_b13: 'float[:,:,:]',       # model specific argument
+                     kappa: float,                  # model specific argument
+                     b1: 'float[:,:,:]',            # model specific argument
+                     b2: 'float[:,:,:]',            # model specific argument 
+                     b3: 'float[:,:,:]',            # model specific argument 
+                     norm_b11: 'float[:,:,:]',      # model specific argument    
+                     norm_b12: 'float[:,:,:]',      # model specific argument
+                     norm_b13: 'float[:,:,:]',      # model specific argument
                      curl_norm_b1: 'float[:,:,:]',  # model specific argument
                      curl_norm_b2: 'float[:,:,:]',  # model specific argument
                      curl_norm_b3: 'float[:,:,:]',  # model specific argument
-                     basis_u : 'int', scale_mat : 'float', scale_vec : 'float'): # model specific argument
+                     basis_u : 'int',               # model specific argument
+                     scale_mat : 'float',           # model specific argument
+                     scale_vec : 'float'):          # model specific argument
 
     r"""Accumulates into V1 with the filling functions
 
@@ -1341,8 +1343,6 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
     # get number of markers
     n_markers_loc = shape(markers)[0]
     
-    #$ omp parallel firstprivate(b_prod) private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, b_Star, norm_b1, curl_norm_b, df, det_df, weight, v, df_inv, df_inv_t, g_inv, tmp1, tmp2, tmp_t, tmp_m, tmp_v, filling_m, filling_v) 
-    #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33)
     for ip in range(n_markers_loc):
         
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1355,7 +1355,7 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # marker weight and velocity
-        weight = markers[ip, 6]
+        weight = markers[ip, 5]
         v = markers[ip, 3]
 
         # b-field evaluation
@@ -1483,8 +1483,6 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
                                  filling_m[2, 2],
                                  vec1, vec2, vec3,
                                  filling_v[0], filling_v[1], filling_v[2])
-            
-    #$ omp end parallel
     
     mat11 /= n_markers_tot
     mat12 /= n_markers_tot
@@ -1585,7 +1583,7 @@ def cc_lin_mhd_5d_J2_dg(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # marker weight and velocity
-        weight = markers[ip, 6]
+        weight = markers[ip, 5]
         v = markers[ip, 3]
         mu = markers[ip, 4]
 
@@ -1637,9 +1635,6 @@ def cc_lin_mhd_5d_J2_dg(markers: 'float[:,:]', n_markers_tot: 'int',
         grad_PB[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts1[0])
         grad_PB[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts1[1])
         grad_PB[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
-
-        #TODO:check
-        grad_PB /= kappa
 
         # b_star; 2form transformed into H1vec
         b_star[:] = (b + curl_norm_b*v/kappa)/det_df
@@ -1833,7 +1828,7 @@ def cc_lin_mhd_5d_J2_dg_prepare(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # marker weight and velocity
-        weight = markers[ip, 6]
+        weight = markers[ip, 5]
         v = markers[ip, 3]
         mu = markers[ip, 4]
 
@@ -1885,9 +1880,6 @@ def cc_lin_mhd_5d_J2_dg_prepare(markers: 'float[:,:]', n_markers_tot: 'int',
         grad_PB[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts1[0])
         grad_PB[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts1[1])
         grad_PB[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
-
-        #TODO:check
-        grad_PB /= kappa
 
         # b_star; 2form transformed into H1vec
         b_star[:] = (b + curl_norm_b*v/kappa)/det_df
@@ -2035,7 +2027,7 @@ def cc_lin_mhd_5d_J2_dg_faster(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2] # mid
 
         # marker weight and velocity
-        weight = markers[ip, 6]
+        weight = markers[ip, 5]
         mu = markers[ip, 4]
 
         # b-field evaluation
@@ -2051,9 +2043,6 @@ def cc_lin_mhd_5d_J2_dg_faster(markers: 'float[:,:]', n_markers_tot: 'int',
         grad_PB[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts1[0])
         grad_PB[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts1[1])
         grad_PB[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
-
-        #TODO:check
-        grad_PB /= kappa
 
         tmp[:,:] = ((markers[ip, 18], markers[ip, 19], markers[ip, 20]),
                     (markers[ip, 19], markers[ip, 21], markers[ip, 22]),
@@ -2220,7 +2209,7 @@ def cc_lin_mhd_5d_J2_dg_prepare_faster(markers: 'float[:,:]', n_markers_tot: 'in
         eta3 = markers[ip, 2]
 
         # marker weight and velocity
-        weight = markers[ip, 6]
+        weight = markers[ip, 5]
         v = markers[ip, 3]
         mu = markers[ip, 4]
 
@@ -2272,9 +2261,6 @@ def cc_lin_mhd_5d_J2_dg_prepare_faster(markers: 'float[:,:]', n_markers_tot: 'in
         grad_PB[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts1[0])
         grad_PB[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts1[1])
         grad_PB[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
-
-        #TODO:check
-        grad_PB /= kappa
 
         # b_star; 2form transformed into H1vec
         b_star[:] = (b + curl_norm_b*v/kappa)/det_df
@@ -2400,8 +2386,6 @@ def cc_lin_mhd_5d_mu(markers: 'float[:,:]', n_markers_tot: 'int',
 
     # get number of markers
     n_markers_loc = shape(markers)[0]
-
-    mH = 1.67262192369e-27 # proton mass (kg)
     
     for ip in range(n_markers_loc):
         
@@ -2506,7 +2490,7 @@ def cc_lin_mhd_5d_M(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # marker weight and velocity
-        weight = markers[ip, 6]
+        weight = markers[ip, 5]
         mu = markers[ip, 4]
 
         # b-field evaluation
@@ -2581,7 +2565,6 @@ def cc_lin_mhd_5d_M(markers: 'float[:,:]', n_markers_tot: 'int',
     vec1 /= n_markers_tot
     vec2 /= n_markers_tot
     vec3 /= n_markers_tot
-
 
 @stack_array('df', 'df_t', 'df_inv', 'g_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp2', 'tmp_t', 'tmp_m', 'tmp_v', 'b', 'b_prod', 'norm_b2_prod', 'b_star', 'curl_norm_b', 'norm_b1', 'norm_b2', 'grad_PB', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
@@ -2700,7 +2683,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # marker weight and velocity
-        weight = markers[ip, 6]
+        weight = markers[ip, 5]
         v = markers[ip, 3]
         mu = markers[ip, 4]
 
@@ -2752,9 +2735,6 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
         grad_PB[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts1[0])
         grad_PB[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts1[1])
         grad_PB[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
-
-        #TODO:check
-        grad_PB /= kappa
         
         # b_star; 2form transformed into H1vec
         b_star[:] = (b + curl_norm_b*v/kappa)/det_df
