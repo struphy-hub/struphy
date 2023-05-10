@@ -308,9 +308,15 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
                 os.remove(file)
                 print('Removed file ' + file)
 
-            # remove hdf5 files (if NOT a restart)
+            # remove .hdf5 and .png files (if NOT a restart)
             if not restart:
                 files = glob.glob(os.path.join(path_out, '*.hdf5'))
+                for n, file in enumerate(files):
+                    os.remove(file)
+                    if n < 10:  # print only forty statements in case of many processes
+                        print('Removed file ' + file)
+                
+                files = glob.glob(os.path.join(path_out, '*.png'))
                 for n, file in enumerate(files):
                     os.remove(file)
                     if n < 10:  # print only forty statements in case of many processes
