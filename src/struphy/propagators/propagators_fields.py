@@ -360,15 +360,15 @@ class ShearAlfvén(Propagator):
 
 
 class ShearAlfvénB1(Propagator):
-    r'''Crank-Nicolson step for shear Alfvén part in MHD equations,
+    r'''Crank-Nicolson step for shear Alfvén part in Extended MHD equations,
 
     .. math::
 
         \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf b^{n+1} - \mathbf b^n \end{bmatrix} 
-        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^\rho_\alpha)^{-1} \mathcal {T^\alpha}^\top \mathbb C^\top \\ - \mathbb C \mathcal {T^\alpha} (\mathbb M^\rho_\alpha)^{-1} & 0 \end{bmatrix} 
-        \begin{bmatrix} {\mathbb M^\rho_\alpha}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_2(\mathbf b^{n+1} + \mathbf b^n) \end{bmatrix} ,
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^\rho_2)^{-1} \mathcal {T^2}^\top \mathbb C \mathbb M_1^{-1}\\ - \mathbb M_1^{-1} \mathbb C^\top \mathcal {T^2} (\mathbb M^\rho_2)^{-1} & 0 \end{bmatrix} 
+        \begin{bmatrix} {\mathbb M^\rho_2}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_1(\mathbf b^{n+1} + \mathbf b^n) \end{bmatrix} ,
 
-    where :math:`\alpha \in \{1, 2, v\}` and :math:`\mathbb M^\rho_\alpha` is a weighted mass matrix in :math:`\alpha`-space, the weight being :math:`\rho_0`,
+    where :math:`\mathbb M^\rho_2` is a weighted mass matrix in 2-space, the weight being :math:`\rho_0`,
     the MHD equilibirum density. The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
 
     Parameters
@@ -459,10 +459,107 @@ class ShearAlfvénB1(Propagator):
         max_du, max_db = self.in_place_update(self._u_tmp1, self._b_tmp1)
 
         if self._info and self._rank == 0:
-            print('Status     for ShearAlfvén:', info['success'])
-            print('Iterations for ShearAlfvén:', info['niter'])
-            print('Maxdiff up for ShearAlfvén:', max_du)
-            print('Maxdiff b2 for ShearAlfvén:', max_db)
+            print('Status     for ShearAlfvénB1:', info['success'])
+            print('Iterations for ShearAlfvénB1:', info['niter'])
+            print('Maxdiff up for ShearAlfvénB1:', max_du)
+            print('Maxdiff b2 for ShearAlfvénB1:', max_db)
+            print()
+
+
+class Hall(Propagator):
+    r'''Crank-Nicolson step for Hall part in Extended MHD equations,
+
+    .. math::
+
+        \mathbf b^{n+1} - \mathbf b^n 
+        = \frac{\Delta t}{2} \mathbb M_1^{-1} \mathbb C^\top  \mathbb M^{\mathcal{T},\rho}_2  \mathbb C  (\mathbf b^{n+1} + \mathbf b^n)  ,
+
+    where :math:`\mathbb M^{\mathcal{T},\rho}_2` is a weighted mass matrix in 2-space, the weight being :math:`\frac{\mathcal{T}}{\rho_0}`,
+    the MHD equilibirum density :math:`\rho_0` as a 0-form, and rotation matrix :math:`\mathcal{T} \vec v = \vec B^2_{\textnormal{eq}} \times \vec v\,,`. 
+    The solution of the above system is based on the Pre-conditioned Biconjugate Gradient Stabilized algortihm (PBiConjugateGradientStab).
+
+    Parameters
+    ---------- 
+    b : psydac.linalg.block.BlockVector
+        FE coefficients of magnetic field as 1-form.
+
+        **params : dict
+            Solver- and/or other parameters for this splitting step.
+    '''
+
+    def __init__(self, b, **params):
+
+        # pointers to variables
+        assert isinstance(b, (BlockVector, PolarVector))
+        self._b = b
+
+        # parameters
+        params_default = {'type': 'PBiConjugateGradientStab',
+                          'pc': 'MassMatrixPreconditioner',
+                          'tol': 1e-8,
+                          'maxiter': 3000,
+                          'info': False,
+                          'verbose': False,
+                          'kappa': 1.0}
+
+        params = set_defaults(params, params_default)
+
+        self._info = params['info']
+        self._rank = self.derham.comm.Get_rank()
+        self._tol = params['tol']
+        self._maxiter = params['maxiter']
+        self._verbose = params['verbose']
+        self._kappa = params['kappa']
+
+        # mass matrix in system (M - dt/2 * A)*b^(n + 1) = (M + dt/2 * A)*b^n
+        id_M = 'M1'
+        id_M2Bn = 'M2Bn'
+        self._M = getattr(self.mass_ops, id_M)
+        self._M2Bn = getattr(self.mass_ops, id_M2Bn)
+        self._A = Multiply(self._kappa, Compose(self.derham.curl.T,self._M2Bn,self.derham.curl))
+
+        # Preconditioner
+        if params['pc'] is None:
+            self._pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            self._pc = pc_class(getattr(self.mass_ops, id_M))
+            
+        # Instantiate linear solver
+        self._solver = getattr(it_solvers, params['type'])(self._M.domain)
+
+        # allocate dummy vectors to avoid temporary array allocations
+        self._rhs_b = self._M.codomain.zeros()
+        self._b_new = b.space.zeros()
+
+    @property
+    def variables(self):
+        return [self._b]
+
+    def __call__(self, dt):
+
+        # current variables
+        bn = self.variables[0]
+
+        # define system (M - dt/2 * A)*b^(n + 1) = (M + dt/2 * A)*b^n
+        lhs = Sum(self._M, Multiply(-dt/2.0, self._A))
+        rhs = Sum(self._M, Multiply(dt/2.0, self._A))
+
+        # solve linear system for updated u coefficients (in-place)
+        rhs.dot(bn, out=self._rhs_b)
+
+        info = self._solver.solve(lhs, self._rhs_b, self._pc,
+                                  x0=bn, tol=self._tol,
+                                  maxiter=self._maxiter, verbose=self._verbose,
+                                  out=self._b_new)[1]
+
+        # write new coeffs into self.variables
+        max_db = self.in_place_update(self._b_new)
+
+        if self._info and self._rank == 0:
+            print('Status     for Hall:', info['success'])
+            print('Iterations for Hall:', info['niter'])
+            print('Maxdiff b1 for Hall:', max_db)
             print()
 
 
@@ -613,6 +710,282 @@ class Magnetosonic(Propagator):
 
         self._DQ.dot(self._u_tmp2, out=self._n_tmp1)
         self._n_tmp1 *= -dt/2
+        self._n_tmp1 += nn
+
+        # write new coeffs into self.variables
+        max_dn, max_du, max_dp = self.in_place_update(self._n_tmp1,
+                                                      self._u_tmp1,
+                                                      self._p_tmp1)
+
+        if self._info and self._rank == 0:
+            print('Status     for Magnetosonic:', info['success'])
+            print('Iterations for Magnetosonic:', info['niter'])
+            print('Maxdiff n3 for Magnetosonic:', max_dn)
+            print('Maxdiff up for Magnetosonic:', max_du)
+            print('Maxdiff p3 for Magnetosonic:', max_dp)
+            print()
+
+
+class SonicIon(Propagator):
+    r'''Crank-Nicolson step for Ion sonic part in Extended MHD equations:
+
+    .. math::
+
+        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf p^{n+1}_i - \mathbf p^n_i \end{bmatrix} 
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^\rho_2)^{-1} \mathbb D^\top \mathbb M_3 \\ - \gamma \mathcal K^3 \mathbb D & 0 \end{bmatrix} 
+        \begin{bmatrix} (\mathbf u^{n+1} + \mathbf u^n) \\ (\mathbf p^{n+1}_i + \mathbf p^n_i) \end{bmatrix} ,
+
+    where :math:`\mathbb M^\rho_2`  is a weighted mass matrix in 2-space, 
+    the weight being the MHD equilibirum density :math:`\rho_0`. Furthermore, :math:`\mathcal K^3` is the basis projection operator given by :
+    
+    .. math::
+
+        \mathcal{K}^3_{ijk,mno} := \hat{\Pi}^3_{ijk} \left[ \frac{\hat{p}^3_{\text{eq}}}{\sqrt{g}}\Lambda^3_{mno} \right] \,.
+    The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
+
+    Decoupled density update:
+
+    .. math::
+
+        \boldsymbol{\rho}^{n+1} = \boldsymbol{\rho}^n - \frac{\Delta t}{2} \mathcal Q \mathbb D  (\mathbf u^{n+1} + \mathbf u^n) \,.
+
+    Parameters
+    ---------- 
+    n : psydac.linalg.stencil.StencilVector
+        FE coefficients of a discrete 3-form.
+
+    u : psydac.linalg.block.BlockVector
+        FE coefficients of MHD velocity 2-form.
+
+    p : psydac.linalg.stencil.StencilVector
+        FE coefficients of a discrete 3-form.
+
+        **params : dict
+            Solver- and/or other parameters for this splitting step.
+    '''
+
+    def __init__(self, n, u, p, **params):
+
+        # pointers to variables
+        assert isinstance(n, (StencilVector, PolarVector))
+        assert isinstance(u, (BlockVector, PolarVector))
+        assert isinstance(p, (StencilVector, PolarVector))
+        self._n = n
+        self._u = u
+        self._p = p
+
+        # parameters
+        params_default = {'type': 'PBiConjugateGradientStab',
+                          'pc': 'MassMatrixPreconditioner',
+                          'tol': 1e-8,
+                          'maxiter': 3000,
+                          'info': False,
+                          'verbose': False}
+
+        params = set_defaults(params, params_default)
+
+        self._info = params['info']
+        self._bc = self.derham.bc
+        self._rank = self.derham.comm.Get_rank()
+
+        # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
+        id_Mn = 'M2n' 
+        id_K, id_Q = 'K3', 'Q3'
+        
+        _A = getattr(self.mass_ops, id_Mn)
+        _K = getattr(self.basis_ops, id_K)
+
+        self._B = Multiply(-1/2., Compose(self.derham.div.T, self.mass_ops.M3))
+        self._C = Multiply(5/6., Compose(_K, self.derham.div))
+
+        self._QD = Compose(getattr(self.basis_ops, id_Q) ,self.derham.div)
+
+        # preconditioner
+        if params['pc'] is None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            pc = pc_class(getattr(self.mass_ops, id_Mn))
+
+        # instantiate Schur solver (constant in this case)
+        _BC = Compose(self._B, self._C)
+
+        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'],
+                                         tol=params['tol'], maxiter=params['maxiter'],
+                                         verbose=params['verbose'])
+
+        # allocate dummy vectors to avoid temporary array allocations
+        self._u_tmp1 = u.space.zeros()
+        self._u_tmp2 = u.space.zeros()
+        self._p_tmp1 = p.space.zeros()
+        self._n_tmp1 = n.space.zeros()
+
+        self._byn1 = self._B.codomain.zeros()
+
+    @property
+    def variables(self):
+        return [self._n, self._u, self._p]
+
+    def __call__(self, dt):
+
+        # current variables
+        nn = self.variables[0]
+        un = self.variables[1]
+        pn = self.variables[2]
+
+        # solve for new u coeffs
+        self._B.dot(pn, out=self._byn1)
+
+        info = self._schur_solver(un, self._byn1, dt, out=self._u_tmp1)[1]
+
+        # new p, n, b coeffs
+        un.copy(out=self._u_tmp2)
+        self._u_tmp2 += self._u_tmp1
+        self._C.dot(self._u_tmp2, out=self._p_tmp1)
+        self._p_tmp1 *= -dt
+        self._p_tmp1 += pn
+
+        self._QD.dot(self._u_tmp2, out=self._n_tmp1)
+        self._n_tmp1 *= -dt/2.0
+        self._n_tmp1 += nn
+
+        # write new coeffs into self.variables
+        max_dn, max_du, max_dp = self.in_place_update(self._n_tmp1,
+                                                      self._u_tmp1,
+                                                      self._p_tmp1)
+
+        if self._info and self._rank == 0:
+            print('Status     for Magnetosonic:', info['success'])
+            print('Iterations for Magnetosonic:', info['niter'])
+            print('Maxdiff n3 for Magnetosonic:', max_dn)
+            print('Maxdiff up for Magnetosonic:', max_du)
+            print('Maxdiff p3 for Magnetosonic:', max_dp)
+            print()
+
+
+class SonicElectron(Propagator):
+    r'''Crank-Nicolson step for Electron sonic part in Extended MHD equations:
+
+    .. math::
+
+        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf p^{n+1}_i - \mathbf p^n_i \end{bmatrix} 
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^\rho_2)^{-1} \mathbb D^\top \mathbb M_3 \\ - \gamma \mathcal K^3 \mathbb D & 0 \end{bmatrix} 
+        \begin{bmatrix} (\mathbf u^{n+1} + \mathbf u^n) \\ (\mathbf p^{n+1}_i + \mathbf p^n_i) \end{bmatrix} ,
+
+    where :math:`\mathbb M^\rho_2`  is a weighted mass matrix in 2-space, 
+    the weight being the MHD equilibirum density :math:`\rho_0`. Furthermore, :math:`\mathcal K^3` is the basis projection operator given by :
+    
+    .. math::
+
+        \mathcal{K}^3_{ijk,mno} := \hat{\Pi}^3_{ijk} \left[ \frac{\hat{p}^3_{\text{eq}}}{\sqrt{g}}\Lambda^3_{mno} \right] \,.
+    The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
+
+    Decoupled density update:
+
+    .. math::
+
+        \boldsymbol{\rho}^{n+1} = \boldsymbol{\rho}^n - \frac{\Delta t}{2} \mathcal Q \mathbb D  (\mathbf u^{n+1} + \mathbf u^n) \,.
+
+    Parameters
+    ---------- 
+    n : psydac.linalg.stencil.StencilVector
+        FE coefficients of a discrete 3-form.
+
+    u : psydac.linalg.block.BlockVector
+        FE coefficients of MHD velocity 2-form.
+
+    p : psydac.linalg.stencil.StencilVector
+        FE coefficients of a discrete 3-form.
+
+        **params : dict
+            Solver- and/or other parameters for this splitting step.
+    '''
+
+    def __init__(self, n, u, p, **params):
+
+        # pointers to variables
+        assert isinstance(n, (StencilVector, PolarVector))
+        assert isinstance(u, (BlockVector, PolarVector))
+        assert isinstance(p, (StencilVector, PolarVector))
+        self._n = n
+        self._u = u
+        self._p = p
+
+        # parameters
+        params_default = {'type': 'PBiConjugateGradientStab',
+                          'pc': 'MassMatrixPreconditioner',
+                          'tol': 1e-8,
+                          'maxiter': 3000,
+                          'info': False,
+                          'verbose': False}
+
+        params = set_defaults(params, params_default)
+
+        self._info = params['info']
+        self._bc = self.derham.bc
+        self._rank = self.derham.comm.Get_rank()
+
+        # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
+        id_Mn = 'M2n' 
+        # ONCE THE CODE SUPPORTS HAVING A DIFFERENT EQUILIBRIUM ELECTRON PRESSURE TO THE EQUILIBRIUM ION PRESSURE; WE MUST ADD A NEW PROJECTION MATRIX Ke3 THAT TAKES THE EQUILIBRIUM ELECTRON PRESSURE
+        #INSTEAD OF THE EQUILIBRIUM ION PRESSURE: AND USE HERE Ke3, NOT K3.
+        id_K, id_Q = 'K3', 'Q3'
+        
+        _A = getattr(self.mass_ops, id_Mn)
+        _K = getattr(self.basis_ops, id_K)
+
+        self._B = Multiply(-1/2., Compose(self.derham.div.T, self.mass_ops.M3))
+        self._C = Multiply(5/6., Compose(_K, self.derham.div))
+
+        self._QD = Compose(getattr(self.basis_ops, id_Q) ,self.derham.div)
+
+        # preconditioner
+        if params['pc'] is None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            pc = pc_class(getattr(self.mass_ops, id_Mn))
+
+        # instantiate Schur solver (constant in this case)
+        _BC = Compose(self._B, self._C)
+
+        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'],
+                                         tol=params['tol'], maxiter=params['maxiter'],
+                                         verbose=params['verbose'])
+
+        # allocate dummy vectors to avoid temporary array allocations
+        self._u_tmp1 = u.space.zeros()
+        self._u_tmp2 = u.space.zeros()
+        self._p_tmp1 = p.space.zeros()
+        self._n_tmp1 = n.space.zeros()
+
+        self._byn1 = self._B.codomain.zeros()
+
+    @property
+    def variables(self):
+        return [self._n, self._u, self._p]
+
+    def __call__(self, dt):
+
+        # current variables
+        nn = self.variables[0]
+        un = self.variables[1]
+        pn = self.variables[2]
+
+        # solve for new u coeffs
+        self._B.dot(pn, out=self._byn1)
+
+        info = self._schur_solver(un, self._byn1, dt, out=self._u_tmp1)[1]
+
+        # new p, n, b coeffs
+        un.copy(out=self._u_tmp2)
+        self._u_tmp2 += self._u_tmp1
+        self._C.dot(self._u_tmp2, out=self._p_tmp1)
+        self._p_tmp1 *= -dt
+        self._p_tmp1 += pn
+
+        self._QD.dot(self._u_tmp2, out=self._n_tmp1)
+        self._n_tmp1 *= -dt/2.0
         self._n_tmp1 += nn
 
         # write new coeffs into self.variables
