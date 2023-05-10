@@ -184,13 +184,13 @@ class LinearMHD(StruphyModel):
         
         
 class LinearExtendedMHD(StruphyModel):
-    r'''Linear extended MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
+    r'''Linear extended MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`). For homogenous background conditions.
 
     :ref:`normalization`:
 
     .. math::
 
-        \frac{\hat B}{\sqrt{A_\textnormal{b} m_\textnormal{H} \hat n \mu_0}} =: \hat v_\textnormal{A} = \frac{\hat \omega}{\hat k} = \hat U \,, \qquad \hat p = \frac{\hat B^2}{\mu_0}\,.
+        \frac{\hat B}{\sqrt{A_\textnormal{b} m_\textnormal{H} \hat n \mu_0}} =: \hat v_\textnormal{A} = \frac{\hat \omega}{\hat k} = \hat U \,, \qquad \hat p = \frac{\hat B^2}{\mu_0}  \,.
 
     Implemented equations:
 
@@ -198,17 +198,23 @@ class LinearExtendedMHD(StruphyModel):
 
         &\frac{\partial \tilde n}{\partial t}+\nabla\cdot(n_0 \tilde{\mathbf{U}})=0\,, 
 
-        n_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p
-        =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf{J}_0\times \tilde{\mathbf{B}}
-        \,, \qquad
-        \mathbf{J}_0 = \nabla\times\mathbf{B}_0\,,
+        n_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla (\tilde p_i + \tilde p_e)
+        =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 \,,
+        
+        &\frac{\partial \tilde p_e}{\partial t} + \frac{5}{3}\,p_{e,0}\nabla\cdot \tilde{\mathbf{U}}=0\,,
+        
+        &\frac{\partial \tilde p_i}{\partial t} + \frac{5}{3}\,p_{i,0}\nabla\cdot \tilde{\mathbf{U}}=0\,,
 
-        &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
-        + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,,
-
-        &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
+        &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times \left( \tilde{\mathbf{U}} \times \mathbf{B}_0 - \kappa \frac{\nabla\times \tilde{\mathbf{B}}}{n_0}\times \mathbf{B}_0 \right)
         = 0\,.
 
+    where
+    
+    .. math::
+    
+        \kappa = \frac{\hat \Omega_{\textnormal{ch}}}{\hat \omega}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{ch}} = \frac{Z_\textnormal{h}e \hat B}{A_\textnormal{h} m_\textnormal{H}}\,.
+
+    
     Parameters
     ----------
     params : dict
@@ -249,7 +255,9 @@ class LinearExtendedMHD(StruphyModel):
 
         # extract necessary parameters
         alfven_solver = params['solvers']['solver_1']
-        sonic_solver = params['solvers']['solver_2']
+        Hall_solver = params['solvers']['solver_2']
+        SonicIon_solver = params['solvers']['solver_3']
+        SonicElectron_solver = params['solvers']['solver_4']
 
         # project background magnetic field (1-form) and pressure (3-form)
         self._b_eq = self.derham.P['1']([self.mhd_equil.b1_1,
@@ -257,13 +265,32 @@ class LinearExtendedMHD(StruphyModel):
                                          self.mhd_equil.b1_3])
         self._p_i_eq = self.derham.P['3'](self.mhd_equil.p3)
         self._p_e_eq = self.derham.P['3'](self.mhd_equil.p3)
-        self._ones = self._p_i_eq.space.zeros()
+        self._ones = self._p_i.space.zeros()
 
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.
         else:
             self._ones[:] = 1.
 
+        # compute coupling parameter kappa
+        units_basic, units_der, units_dimless = self.model_units(params, verbose=False)
+        
+        ee = 1.602176634e-19 # elementary charge (C)
+        mH = 1.67262192369e-27 # proton mass (kg)
+        
+        Ab = params['fluid']['mhd']['phys_params']['A']
+        Zb = params['fluid']['mhd']['phys_params']['Z']
+        
+        omega_ch = (Zb*ee*units_basic['B'])/(Ab*mH)
+        kappa = omega_ch*units_basic['t']/(2.0 * 3.141592654)
+        
+        if abs(kappa - 1) < 1e-6:
+            kappa = 1.
+        
+        self._coupling_params = {}
+        self._coupling_params['kappa'] = kappa
+        
+        
         # set propagators base class attributes (available to all propagators)
         Propagator.derham = self.derham
         Propagator.domain = self.domain
@@ -277,13 +304,20 @@ class LinearExtendedMHD(StruphyModel):
             self._u,
             self._b,
             **alfven_solver)]
-        #self._propagators += [propagators_fields.Magnetosonic(
-            #self._n,
-            #self._u,
-            #self._p,
-            #u_space=self._u_space,
-            #b=self._b,
-            #**sonic_solver)]
+        self._propagators += [propagators_fields.Hall(
+            self._b,
+            **Hall_solver,
+            **self._coupling_params)]
+        self._propagators += [propagators_fields.SonicIon(
+            self._n,
+            self._u,
+            self._p_i,
+            **SonicIon_solver)]
+        self._propagators += [propagators_fields.SonicElectron(
+            self._n,
+            self._u,
+            self._p_e,
+            **SonicElectron_solver)]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
@@ -319,10 +353,10 @@ class LinearExtendedMHD(StruphyModel):
             
         self._mass_ops.M1.dot(self._b, out=self._tmp_b1)
         
-        en_U = self._u.dot(self._tmp_u1)/2
-        en_B = self._b.dot(self._tmp_b1)/2
-        en_p_i = self._p_i.dot(self._ones)/(5/3 - 1)
-        en_p_e = self._p_e.dot(self._ones)/(5/3 - 1)
+        en_U = self._u.dot(self._tmp_u1)/2.0
+        en_B = self._b.dot(self._tmp_b1)/2.0
+        en_p_i = self._p_i.dot(self._ones)/(5.0/3.0 - 1.0)
+        en_p_e = self._p_e.dot(self._ones)/(5.0/3.0 - 1.0)
         
         self._scalar_quantities['en_U'][0] = en_U
         self._scalar_quantities['en_B'][0] = en_B
@@ -337,9 +371,9 @@ class LinearExtendedMHD(StruphyModel):
         # background fields
         self._mass_ops.M1.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
         
-        en_B0 = self._b_eq.dot(self._tmp_b1)/2
-        en_p0_i = self._p_i_eq.dot(self._ones)/(5/3 - 1)
-        en_p0_e = self._p_e_eq.dot(self._ones)/(5/3 - 1)
+        en_B0 = self._b_eq.dot(self._tmp_b1)/2.0
+        en_p0_i = self._p_i_eq.dot(self._ones)/(5.0/3.0 - 1.0)
+        en_p0_e = self._p_e_eq.dot(self._ones)/(5.0/3.0 - 1.0)
         
         self._scalar_quantities['en_B_eq'][0] = en_B0
         self._scalar_quantities['en_p_i_eq'][0] = en_p0_i
@@ -351,7 +385,7 @@ class LinearExtendedMHD(StruphyModel):
         
         self._mass_ops.M1.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
         
-        en_Btot = self._tmp_b1.dot(self._tmp_b2)/2
+        en_Btot = self._tmp_b1.dot(self._tmp_b2)/2.0
 
         self._scalar_quantities['en_B_tot'][0] = en_Btot
         
