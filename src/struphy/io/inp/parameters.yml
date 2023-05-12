@@ -150,6 +150,21 @@ mhd_equilibrium :
         p1     : .1 # shape factor for ad hoc pressure profile
         p2     : .1 # shape factor for ad hoc pressure profile
         beta   : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
+    AdhocTorusQPsi :
+        a       : 0.361925 # minor radius
+        R0      : 1. # major radius
+        B0      : 1. # on-axis toroidal magnetic field
+        q0      : 0.6 # safety factor at r=0
+        q1      : 2.5 # safety factor at r=a
+        q0p     : 0.78 # derivative of safety factor at r=0 (w.r.t. to poloidal flux function)
+        q1p     : 5.00 # derivative of safety factor at r=a (w.r.t. to poloidal flux function)
+        n1      : 0. # shape factor for number density profile 
+        n2      : 0. # shape factor for number density profile 
+        na      : 1. # number density at r=a
+        beta    : 4. # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
+        p1      : 0.25 # shape factor of pressure profile
+        psi_k   : 3 # spline degree to be used for interpolation of poloidal flux function
+        psi_nel : 50 # number of cells to be used for interpolation of poloidal flux function
     EQDSKequilibrium :
         rel_path        : True # whether eqdsk file path relative to "<struphy_path>/fields_background/mhd_equil/gvec", or the absolute path
         file            : 'AUGNLED_g031213.00830.high' # path to eqdsk file
