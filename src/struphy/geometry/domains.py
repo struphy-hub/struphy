@@ -4,7 +4,9 @@ import numpy as np
 
 
 class Tokamak(PoloidalSplineTorus):
-    '''Mappings for Tokamak MHD equilibria constructed via field line tracing of a poloidal flux function.'''
+    '''Mappings for Tokamak MHD equilibria constructed via field line tracing of a poloidal flux function.
+    
+    .. image:: ../pics/mappings/tokamak.png'''
     
     def __init__(self, **params):
         
@@ -78,34 +80,35 @@ class Tokamak(PoloidalSplineTorus):
         self._params_map['psi_power'] = psi_power
         self._params_map['psi_shifts'] = psi_shifts
         self._params_map['xi_param'] = xi_param
+        self._params_map['r0'] = r0
         self._params_map['Nel_pre'] = Nel_pre
         self._params_map['p_pre'] = p_pre
 
 
-class EQDSKTorus(PoloidalSplineTorus):
-    '''Mappings constructed via field line tracing from EQDSK data.
-    
-    .. image:: ../pics/mappings/eqdsk_raw.png
-
-    |
-
-    .. image:: ../pics/mappings/eqdsk.png'''
-
-    def __init__(self, **params):
-
-        from struphy.fields_background.mhd_equil.equils import EQDSKequilibriumWithDomain
-
-        eqdsk = EQDSKequilibriumWithDomain(**params)
-
-        new_params = {}
-        new_params['cx'] = eqdsk.domain.cx[:, :, 0].squeeze()
-        new_params['cy'] = eqdsk.domain.cy[:, :, 0].squeeze()
-        new_params['Nel'] = eqdsk.domain.params_map['Nel']
-        new_params['p'] = eqdsk.domain.params_map['p']
-        new_params['spl_kind'] = eqdsk.domain.params_map['spl_kind']
-        new_params['tor_period'] = eqdsk.domain.params_map['tor_period']
-
-        super().__init__(**new_params)
+#class EQDSKTorus(PoloidalSplineTorus):
+#    '''Mappings constructed via field line tracing from EQDSK data.
+#    
+#    .. image:: ../pics/mappings/eqdsk_raw.png
+#
+#    |
+#
+#    .. image:: ../pics/mappings/eqdsk.png'''
+#
+#    def __init__(self, **params):
+#
+#        from struphy.fields_background.mhd_equil.equils import EQDSKequilibriumWithDomain
+#
+#        eqdsk = EQDSKequilibriumWithDomain(**params)
+#
+#        new_params = {}
+#        new_params['cx'] = eqdsk.domain.cx[:, :, 0].squeeze()
+#        new_params['cy'] = eqdsk.domain.cy[:, :, 0].squeeze()
+#        new_params['Nel'] = eqdsk.domain.params_map['Nel']
+#        new_params['p'] = eqdsk.domain.params_map['p']
+#        new_params['spl_kind'] = eqdsk.domain.params_map['spl_kind']
+#        new_params['tor_period'] = eqdsk.domain.params_map['tor_period']
+#
+#        super().__init__(**new_params)
 
 
 class GVECunit(Spline):

@@ -1342,7 +1342,7 @@ class Domain(metaclass=ABCMeta):
                 Yc = self.cz[:, :, 0].flatten()
             else:
                 Yc = self.cy[:, :, 0].flatten()
-            ax.scatter(self.cx[:, :, 0].flatten(), Yc, s=3, color='b')
+            ax.scatter(self.cx[:, :, 0].flatten(), Yc, s=1, color='b')
              
         # plot given markers
         if markers is not None:
@@ -1396,7 +1396,7 @@ class Domain(metaclass=ABCMeta):
         ax.set_ylabel(ylab)
 
         if save_dir is not None:
-            plt.savefig(save_dir)
+            plt.savefig(save_dir, bbox_inches='tight')
         else:
             plt.show()
 
