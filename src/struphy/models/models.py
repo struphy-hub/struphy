@@ -1710,9 +1710,9 @@ class LinearVlasovMaxwell(StruphyModel):
         # alpha^2 * v_th_1^2 * v_th_2^2 * v_th_3^2 * N/2 * sum_p s_0 * w_p^2
         self._scalar_quantities['en_w'][0] = \
             self.alpha**2 * self._electrons.n_mks / 2. * \
-            self._maxwellian_params['vthx']**2 * \
-            self._maxwellian_params['vthy']**2 * \
-            self._maxwellian_params['vthz']**2 * \
+            self._maxwellian_params['vth1']**2 * \
+            self._maxwellian_params['vth2']**2 * \
+            self._maxwellian_params['vth3']**2 * \
             np.dot(self._electrons.markers_wo_holes[:, 6]**2,
                    self._electrons.markers_wo_holes[:, 7])
 

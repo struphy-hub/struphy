@@ -7,7 +7,7 @@ grid :
     nq_el    : [6, 6, 6] # quadrature points per grid cell
     nq_pr    : [4, 4, 4] # quadrature points per histopolation cell (for commuting projectors)
     polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
-          
+
 units :
     x : 1. # length scale unit in m
     B : 1. # magnetic field unit in T
@@ -17,7 +17,7 @@ time :
     dt         : 0.15 # time step
     Tend       : 1.5 # simulation time interval is [0, Tend]
     split_algo : LieTrotter # LieTrotter | Strang
-      
+
 geometry : 
     type : Cuboid # mapping F (possible types seen below)  
     Cuboid : 
@@ -27,7 +27,7 @@ geometry :
         r2 : 1. # end of interval in eta2, r2>l2
         l3 : 0. # start of interval in eta3
         r3 : 60. # end of interval in eta3, r3>l3
-            
+
 mhd_equilibrium : 
     type : HomogenSlab # (possible choices seen below)
     HomogenSlab :
@@ -56,7 +56,7 @@ fluid :
                     p3 : False              # components to be initialized (for scalar fields: no list)
                 variation_in : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
                 amp : 0.1 # noise amplitude
-      
+
 solvers :
     solver_1 : 
         type : PConjugateGradient
@@ -72,4 +72,3 @@ solvers :
         maxiter : 3000
         info : False
         verbose : False
-        

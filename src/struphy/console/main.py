@@ -4,12 +4,14 @@ import importlib.metadata
 
 __version__ = importlib.metadata.version("struphy")
 
+
 def struphy():
     '''
     Struphy main executable. Performs argument parsing and sub-command call.
     '''
 
-    import os, inspect
+    import os
+    import inspect
     import argparse
     from struphy.models import models
     from struphy.console.compile import struphy_compile
@@ -19,7 +21,7 @@ def struphy():
     from struphy.console.pproc import struphy_pproc
     from struphy.console.example import struphy_example
     from struphy.console.test import struphy_test
-    
+
     # create argument parser
     epilog_message = 'Run "struphy COMMAND --help" for more information on a command.\n\n'
     epilog_message += 'For more help on how to use Struphy, see https://struphy.pages.mpcdf.de/struphy/index.html'
@@ -132,7 +134,7 @@ def struphy():
                             metavar='N',
                             help='maximum wall-clock time of program in minutes (default=300)',
                             default=300,)
-    
+
     parser_run.add_argument('-s', '--save-step',
                             type=int,
                             metavar='N',
@@ -190,21 +192,21 @@ def struphy():
                                 nargs='+',
                                 metavar='DIR',
                                 help='simulation ouput folders')
-    
+
     parser_profile.add_argument('--replace',
-                            help='replace module names with class names for better info',
-                            action='store_true',)
-    
+                                help='replace module names with class names for better info',
+                                action='store_true',)
+
     parser_profile.add_argument('--all',
-                            help='display the 50 most expensive function calls, without applying the predefined filter',
-                            action='store_true',)
-    
+                                help='display the 50 most expensive function calls, without applying the predefined filter',
+                                action='store_true',)
+
     parser_profile.add_argument('--n-lines',
-                            type=int,
-                            metavar='N',
-                            help='plot the N most time consuming calls in profiling analysis (default=6)',
-                            default=6,)
-    
+                                type=int,
+                                metavar='N',
+                                help='plot the N most time consuming calls in profiling analysis (default=6)',
+                                default=6,)
+
     parser_profile.add_argument('--print-callers',
                                 type=str,
                                 metavar='STR',
@@ -227,7 +229,7 @@ def struphy():
                               type=str,
                               metavar='DIR',
                               help='simulation output folder to post-process, absolute path',)
-    
+
     parser_pproc.add_argument('-s', '--step',
                               type=int,
                               metavar='N',
@@ -245,16 +247,16 @@ def struphy():
         'example',
         help='run a Struphy example',
         description='Run a complete Struphy example including prost-processing and plots.')
-                
+
     files = os.listdir(os.path.join(libpath, 'examples'))
 
     list_examples = []
     for file in files:
         if file[-3:] == '.py' and file[0] != '_':
             list_examples += [file[:-3]]
-            
+
     list_examples.sort()
-                
+
     examples_string = ''
     for ex in list_examples[:-1]:
         examples_string += '"' + ex + '", '
@@ -271,7 +273,7 @@ def struphy():
                                 metavar='N',
                                 help='use "mpirun -n N" to launch the example in parallel (default=1)',
                                 default=1)
-    
+
     parser_example.add_argument('-d', '--diagnostics',
                                 help='run diagnostics only, if output folder of example already exists',
                                 action='store_true')
@@ -325,8 +327,8 @@ def struphy():
 
     # start sub-command function with all parameters of that function
     func(**kwargs)
-    
-    
+
+
 class NoSubparsersMetavarFormatter(HelpFormatter):
     """
     Removes redundant COMMANDS printing in help message of argument parser.

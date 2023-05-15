@@ -41,11 +41,11 @@ def main():
                         help='(for plot_distr) at which position in eta2 direction to plot')
     parser.add_argument('-e3', nargs=1, type=float, default=[None],
                         help='(for plot_distr) at which position in eta3 direction to plot')
-    parser.add_argument('-vx', nargs=1, type=float, default=[None],
+    parser.add_argument('-v1', nargs=1, type=float, default=[None],
                         help='(for plot_distr) at which point in v1 direction to plot')
-    parser.add_argument('-vy', nargs=1, type=float, default=[None],
+    parser.add_argument('-v2', nargs=1, type=float, default=[None],
                         help='(for plot_distr) at which point in v2 direction to plot')
-    parser.add_argument('-vz', nargs=1, type=float, default=[None],
+    parser.add_argument('-v3', nargs=1, type=float, default=[None],
                         help='(for plot_distr) at which point in v3 direction to plot')
 
     args = parser.parse_args()
@@ -58,7 +58,7 @@ def main():
                         'io/out', foldername)
 
     grid_slices = {'e': {'e1': args.e1[0], 'e2': args.e2[0], 'e3': args.e3[0]},
-                   'v': {'vx': args.vx[0], 'vy': args.vy[0], 'vz': args.vz[0]}}
+                   'v': {'v1': args.v1[0], 'v2': args.v2[0], 'v3': args.v3[0]}}
 
     # code name
     with open(path + '/meta.txt', 'r') as f:

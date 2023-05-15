@@ -85,7 +85,7 @@ kinetic :
         save_data :
             n_markers : 4 # number of markers to be save during simulation
             f :
-                slices : [vz]
+                slices : [v3]
                 n_bins : [[32]]
                 ranges : [[[-3., 3.]]]
         push_algos :

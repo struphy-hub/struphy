@@ -72,39 +72,39 @@ kinetic :
             type : Maxwellian6DPerturbed
             Maxwellian6DPerturbed :
                 n :
-                    n0 : 0.
+                    n0 : 0.2
                     perturbation :
-                        l : [0.5]
+                        l : [1]
                         m : [0]
                         n : [0]
                         amps_sin : [0.]
-                        amps_cos : [0.5]
-                ux :
-                    ux0 : 0.
-                uy :
-                    uy0 : 0.
-                uz :
-                    uz0 : 0.
-                vthx :
-                    vthx0 : 1.
-                vthy :
-                    vthy0 : 1.
-                vthy :
-                    vthz0 : 1.
+                        amps_cos : [0.05]
+                u1 :
+                    u01 : 0.1
+                u2 :
+                    u02 : 0.1
+                u3 :
+                    u03 : 0.1
+                vth1 :
+                    vth01 : 1.
+                vth2 :
+                    vth02 : 1.
+                vth3 :
+                    vth03 : 1.
         background :
             type : Maxwellian6DUniform
             Maxwellian6DUniform :
                 n  : 0.2
-                ux : 1.9
-                uy : 2.3
-                uz : 1.1
-                vthx : 5.6
-                vthy : 5.4
-                vthz : 5.3
+                u1 : 0.1
+                u2 : 0.1
+                u3 : 0.1
+                vth1 : 1.
+                vth2 : 1.
+                vth3 : 1.
         save_data :
             n_markers : 3 # number of markers to be save during simulation
             f :
-                slices : [vz] # in which directions to bin (e.g. [e1_e2, vx_vy_vz])
+                slices : [v3] # in which directions to bin (e.g. [e1_e2, v1_v2_v3])
                 n_bins : [[32]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
                 ranges : [[[-10., 10.]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
         push_algos :

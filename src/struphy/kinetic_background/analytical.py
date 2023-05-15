@@ -2,7 +2,6 @@ from abc import ABCMeta, abstractmethod
 import numpy as np
 
 from struphy.fields_background.mhd_equil.equils import set_defaults
-from struphy.geometry.base import Domain
 
 
 class Maxwellian(metaclass=ABCMeta):
@@ -129,24 +128,27 @@ class Maxwellian6DUniform(Maxwellian):
 
     .. math::
 
-        f(\boldsymbol{\eta}, \mathbf v) = n\,\frac{1}{\pi^{3/2}\,v_{\mathrm{th},x}\,v_{\mathrm{th},y}\,v_{\mathrm{th},z}}\,\exp\left[-\frac{(v_x-u_x)^2}{v_{\mathrm{th},x}^2}-\frac{(v_y-u_y)^2}{v_{\mathrm{th},y}^2}-\frac{(v_z-u_z)^2}{v_{\mathrm{th},z}^2}\right].
+        f(\boldsymbol{\eta}, \mathbf v) = n \, \frac{1}{\pi^{3/2} \, v_{\mathrm{th},1} \, v_{\mathrm{th},2} \, v_{\mathrm{th},3}} \,
+            \exp\left[- \frac{(v_1 - u_1)^2}{v_{\mathrm{th},1}^2}
+                      - \frac{(v_2 - u_2)^2}{v_{\mathrm{th},2}^2}
+                      - \frac{(v_3 - u_3)^2}{v_{\mathrm{th},3}^2}\right].
 
     Parameters
     ----------
     **params
-        Keyword arguments (n= , ux=, etc.) defining the moments of the 6d Maxwellian.
+        Keyword arguments (n= , u1=, etc.) defining the moments of the 6d Maxwellian.
     """
 
     def __init__(self, **params):
 
         # default parameters
         params_default = {'n': 1.,
-                          'ux': 0.,
-                          'uy': 0.,
-                          'uz': 0.,
-                          'vthx': 1.,
-                          'vthy': 1.,
-                          'vthz': 1.}
+                          'u1': 0.,
+                          'u2': 0.,
+                          'u3': 0.,
+                          'vth1': 1.,
+                          'vth2': 1.,
+                          'vth3': 1.}
 
         self._params = set_defaults(params, params_default)
 
@@ -191,9 +193,9 @@ class Maxwellian6DUniform(Maxwellian):
         """
         res_list = []
 
-        res_list += [self.params['vthx'] - 0*eta1]
-        res_list += [self.params['vthy'] - 0*eta1]
-        res_list += [self.params['vthz'] - 0*eta1]
+        res_list += [self.params['vth1'] - 0*eta1]
+        res_list += [self.params['vth2'] - 0*eta1]
+        res_list += [self.params['vth3'] - 0*eta1]
 
         return np.array(res_list)
 
@@ -212,9 +214,9 @@ class Maxwellian6DUniform(Maxwellian):
         """
         res_list = []
 
-        res_list += [self.params['ux'] - 0*eta1]
-        res_list += [self.params['uy'] - 0*eta1]
-        res_list += [self.params['uz'] - 0*eta1]
+        res_list += [self.params['u1'] - 0*eta1]
+        res_list += [self.params['u2'] - 0*eta1]
+        res_list += [self.params['u3'] - 0*eta1]
 
         return np.array(res_list)
 
@@ -239,9 +241,9 @@ class Maxwellian6DPerturbed(Maxwellian):
 
     def __init__(self, **params):
 
-        moment_keys = ['n', 'ux', 'uy', 'uz', 'vthx', 'vthy', 'vthz']
+        moment_keys = ['n', 'u1', 'u2', 'u3', 'vth1', 'vth2', 'vth3']
 
-        backgr_keys = ['n0', 'ux0', 'uy0', 'uz0', 'vthx0', 'vthy0', 'vthz0']
+        backgr_keys = ['n0', 'u01', 'u02', 'u0_3', 'vth01', 'vth02', 'vth03']
 
         # set default background, mode numbers and amplitudes if no perturbation of a moment in given
         for moment_key, backgr_key in zip(moment_keys, backgr_keys):
@@ -384,40 +386,40 @@ class Maxwellian6DPerturbed(Maxwellian):
 
         res_list = []
 
-        ls = self.params['ux']['perturbation']['l']
-        ms = self.params['ux']['perturbation']['m']
-        ns = self.params['ux']['perturbation']['n']
+        ls = self.params['u1']['perturbation']['l']
+        ms = self.params['u1']['perturbation']['m']
+        ns = self.params['u1']['perturbation']['n']
 
-        amps_sin = self.params['ux']['perturbation']['amps_sin']
-        amps_cos = self.params['ux']['perturbation']['amps_cos']
+        amps_sin = self.params['u1']['perturbation']['amps_sin']
+        amps_cos = self.params['u1']['perturbation']['amps_cos']
 
-        res = self.params['ux']['ux0']
+        res = self.params['u1']['u01']
         res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
         res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
 
         res_list += [res]
 
-        ls = self.params['uy']['perturbation']['l']
-        ms = self.params['uy']['perturbation']['m']
-        ns = self.params['uy']['perturbation']['n']
+        ls = self.params['u2']['perturbation']['l']
+        ms = self.params['u2']['perturbation']['m']
+        ns = self.params['u2']['perturbation']['n']
 
-        amps_sin = self.params['uy']['perturbation']['amps_sin']
-        amps_cos = self.params['uy']['perturbation']['amps_cos']
+        amps_sin = self.params['u2']['perturbation']['amps_sin']
+        amps_cos = self.params['u2']['perturbation']['amps_cos']
 
-        res = self.params['uy']['uy0']
+        res = self.params['u2']['u02']
         res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
         res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
 
         res_list += [res]
 
-        ls = self.params['uz']['perturbation']['l']
-        ms = self.params['uz']['perturbation']['m']
-        ns = self.params['uz']['perturbation']['n']
+        ls = self.params['u3']['perturbation']['l']
+        ms = self.params['u3']['perturbation']['m']
+        ns = self.params['u3']['perturbation']['n']
 
-        amps_sin = self.params['uz']['perturbation']['amps_sin']
-        amps_cos = self.params['uz']['perturbation']['amps_cos']
+        amps_sin = self.params['u3']['perturbation']['amps_sin']
+        amps_cos = self.params['u3']['perturbation']['amps_cos']
 
-        res = self.params['uz']['uz0']
+        res = self.params['u3']['u0_3']
         res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
         res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
 
@@ -441,40 +443,40 @@ class Maxwellian6DPerturbed(Maxwellian):
 
         res_list = []
 
-        ls = self.params['vthx']['perturbation']['l']
-        ms = self.params['vthx']['perturbation']['m']
-        ns = self.params['vthx']['perturbation']['n']
+        ls = self.params['vth1']['perturbation']['l']
+        ms = self.params['vth1']['perturbation']['m']
+        ns = self.params['vth1']['perturbation']['n']
 
-        amps_sin = self.params['vthx']['perturbation']['amps_sin']
-        amps_cos = self.params['vthx']['perturbation']['amps_cos']
+        amps_sin = self.params['vth1']['perturbation']['amps_sin']
+        amps_cos = self.params['vth1']['perturbation']['amps_cos']
 
-        res = self.params['vthx']['vthx0']
+        res = self.params['vth1']['vth01']
         res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
         res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
 
         res_list += [res]
 
-        ls = self.params['vthy']['perturbation']['l']
-        ms = self.params['vthy']['perturbation']['m']
-        ns = self.params['vthy']['perturbation']['n']
+        ls = self.params['vth2']['perturbation']['l']
+        ms = self.params['vth2']['perturbation']['m']
+        ns = self.params['vth2']['perturbation']['n']
 
-        amps_sin = self.params['vthy']['perturbation']['amps_sin']
-        amps_cos = self.params['vthy']['perturbation']['amps_cos']
+        amps_sin = self.params['vth2']['perturbation']['amps_sin']
+        amps_cos = self.params['vth2']['perturbation']['amps_cos']
 
-        res = self.params['vthy']['vthy0']
+        res = self.params['vth2']['vth02']
         res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
         res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
 
         res_list += [res]
 
-        ls = self.params['vthz']['perturbation']['l']
-        ms = self.params['vthz']['perturbation']['m']
-        ns = self.params['vthz']['perturbation']['n']
+        ls = self.params['vth3']['perturbation']['l']
+        ms = self.params['vth3']['perturbation']['m']
+        ns = self.params['vth3']['perturbation']['n']
 
-        amps_sin = self.params['vthz']['perturbation']['amps_sin']
-        amps_cos = self.params['vthz']['perturbation']['amps_cos']
+        amps_sin = self.params['vth3']['perturbation']['amps_sin']
+        amps_cos = self.params['vth3']['perturbation']['amps_cos']
 
-        res = self.params['vthz']['vthz0']
+        res = self.params['vth3']['vth03']
         res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
         res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
 
@@ -568,9 +570,9 @@ class Maxwellian6DITPA(Maxwellian):
 
         res_list = []
 
-        res_list += [self.params['vthx'] - 0*eta1]
-        res_list += [self.params['vthy'] - 0*eta1]
-        res_list += [self.params['vthz'] - 0*eta1]
+        res_list += [self.params['vth1'] - 0*eta1]
+        res_list += [self.params['vth2'] - 0*eta1]
+        res_list += [self.params['vth3'] - 0*eta1]
 
         return np.array(res_list)
 

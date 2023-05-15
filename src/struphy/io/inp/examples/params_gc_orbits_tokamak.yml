@@ -66,7 +66,7 @@ kinetic :
                            [.501, 0.001, 0.001,  0.4515, -1.72], # counter-trapped particle
                            [.501, 0.001, 0.001, -0.6665, -1.72]] # co-trapped particle
 
-        init : 
+        init :
             type : Maxwellian5DUniform
             Maxwellian5DUniform:
                 n : 0.05

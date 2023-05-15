@@ -87,7 +87,7 @@ kinetic :
         init :
             type : Maxwellian6DUniform
             Maxwellian6DUniform :
-                uz : 2.5
+                u3 : 2.5
         background :
             type : Maxwellian6DUniform
             Maxwellian6DUniform :
@@ -95,13 +95,13 @@ kinetic :
                 ux : 0.
                 uy : 0.
                 uz : 0.
-                vthx : 1.
-                vthy : 1.
-                vthz : 1.
+                vth1 : 1.
+                vth2 : 1.
+                vth3 : 1.
         save_data :
             n_markers : 10 # number of markers to be save during simulation
             f :
-                slices : [vz] # in which directions to bin (e.g. [e1_e2, vx_vy_vz])
+                slices : [v3] # in which directions to bin (e.g. [e1_e2, v1_v2_v3])
                 n_bins : [[32]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
                 ranges : [[[-0.5, 5.5]]] # bin range in each direction
         push_algos :

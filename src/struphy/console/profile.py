@@ -12,12 +12,12 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers):
     import struphy
 
     libpath = struphy.__path__[0]
-    
+
     # absolute paths
     abs_paths = []
     for d in dirs:
         abs_paths += [os.path.join(libpath, 'io/out/', d)]
-        
+
     # define the function filter
     list_of_funcs = ['assemble_',
                      'propagator',
@@ -73,7 +73,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers):
 
         tmp = {}
         for key, val in d.items():
-            #tmp[key] = float(val['cumtime'])
+            # tmp[key] = float(val['cumtime'])
             tmp[key] = val
 
         if replace:
@@ -118,7 +118,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers):
                     20) + f'{n}'.ljust(7) + f'{position:2d}'.ljust(5) + str(key.ljust(70))
                 for value in dict[key].values():
                     string += str(value).ljust(15)
-                    #string += '\t\t'
+                    # string += '\t\t'
                 print(string)
 
                 d_saved[key]['mpi_size'] += [n]
@@ -157,7 +157,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers):
                 plt.title('Weak scaling for cells/mpi_size=' +
                           str(np.prod(val['Nel'][0])/val['mpi_size'][0]) + '=const.')
                 plt.legend(loc='upper left')
-                #plt.loglog(val['mpi_size'], val['time'][0]*np.ones_like(val['time']), 'k--', alpha=0.3)
+                # plt.loglog(val['mpi_size'], val['time'][0]*np.ones_like(val['time']), 'k--', alpha=0.3)
                 plt.xscale('log')
 
     plt.show()
