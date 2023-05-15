@@ -10,9 +10,9 @@ class HomogenSlab(CartesianMHDequilibrium):
     .. math::
 
         \mathbf B &= B_{0x}\,\mathbf e_x + B_{0y}\,\mathbf e_y + B_{0z}\,\mathbf e_z = const.\,,
-        
+
         p &= \beta \frac{|\mathbf B|^2}{2}=const.\,,
-        
+
         n &= n_0 = const.\,.
 
     Parameters
@@ -461,9 +461,9 @@ class ScrewPinch(CartesianMHDequilibrium):
 class AdhocTorus(AxisymmMHDequilibrium):
     r"""
     Ad hoc tokamak MHD equilibrium with circular concentric flux surfaces.
-    
+
     For a cylindrical coordinate system :math:`(R, \phi, Z)` with transformation formulae
-    
+
     .. math::
 
         x &= R\cos(\phi)\,,     &&R = \sqrt{x^2 + y^2}\,,
@@ -471,19 +471,19 @@ class AdhocTorus(AxisymmMHDequilibrium):
         y &= R\sin(\phi)\,,  &&\phi = \arctan(y/x)\,,
 
         z &= Z\,,               &&Z = z\,,
-        
+
     the magnetic field is given by
-    
+
     .. math::
-    
+
         \mathbf B = \nabla\psi\times\nabla\phi+g\nabla\phi\,,
-        
+
     where :math:`g=g(R, Z)=-B_0R_0=const.` is the toroidal field function, :math:`R_0` the major radius of the torus and :math:`B_0` the on-axis magnetic field. The ad hoc poloidal flux function :math:`\psi=\psi(r)` is the solution of
-    
+
     .. math::
-    
+
         \frac{\textnormal{d}\psi}{\textnormal{d}r}=\frac{B_0r}{q(r)\sqrt{1 - r^2/R_0^2}}\,,\qquad r=\sqrt{Z^2+(R-R_0)^2}\,,
-        
+
     for a parabolic safety factor profile :math:`q=q(r)=q_0 + ( q_1 - q_0 )r^2/a^2` (:math:`a` is the minor radius of the torus).
 
     The pressure and number density profiles are chosen as
@@ -504,7 +504,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
     ----------
     **params
         Parameters that characterize the MHD equilibrium. Possible keys are
-        
+
             * a      : minor radius of torus
             * R0     : major radius of torus
             * B0     : on-axis toroidal magnetic field
@@ -540,7 +540,8 @@ class AdhocTorus(AxisymmMHDequilibrium):
         # plasma boundary contour
         ths = np.linspace(0., 2*np.pi, 201)
 
-        self._rbs = self.params['R0']*(1 + self.params['a']/self.params['R0']*np.cos(ths))
+        self._rbs = self.params['R0'] * \
+            (1 + self.params['a']/self.params['R0']*np.cos(ths))
         self._zbs = self.params['a']*np.sin(ths)
 
         # set on-axis and boundary fluxes
@@ -564,9 +565,9 @@ class AdhocTorus(AxisymmMHDequilibrium):
         """ Z-coordinates of plasma boundary contour.
         """
         return self._zbs
-    
+
     # ===============================================================
-    #           abstract properties 
+    #           abstract properties
     # ===============================================================
 
     @property
@@ -588,7 +589,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
     def psi_r(self, r, der=0):
         """ Ad hoc poloidal flux function psi = psi(r).
         """
-        
+
         assert der >= 0 and der <= 2, 'Only first and second derivative available!'
 
         eps = self.params['a']/self.params['R0']
@@ -622,20 +623,22 @@ class AdhocTorus(AxisymmMHDequilibrium):
                 'Only first and second derivatives available')
 
         return out
-    
+
     def q_r(self, r, der=0):
         """ Radial safety factor profile (and first derivative).
         """
-        
+
         assert der >= 0 and der <= 1, 'Only first derivative available!'
-        
+
         if der == 0:
-            qout = self.params['q0'] + (self.params['q1'] - self.params['q0'])*(r/self.params['a'])**2
+            qout = self.params['q0'] + (self.params['q1'] -
+                                        self.params['q0'])*(r/self.params['a'])**2
         else:
-            qout = 2*(self.params['q1'] - self.params['q0'])*r/self.params['a']**2
+            qout = 2*(self.params['q1'] -
+                      self.params['q0'])*r/self.params['a']**2
 
         return qout
-    
+
     def p_r(self, r):
         """ Radial pressure profile p = p(r).
         """
@@ -655,7 +658,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
                 1 - self.params['p1']*r**2/self.params['a']**2 - self.params['p2']*r**4/self.params['a']**4)
 
         return pout
-    
+
     def n_r(self, r):
         """ Radial number density profile n = n(r).
         """
@@ -680,7 +683,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
         ax[0, 0].plot(r, self.psi_r(r))
         ax[0, 0].set_xlabel('$r$')
         ax[0, 0].set_ylabel('$\psi$')
-        
+
         ax[0, 1].plot(r, self.q_r(r))
         ax[0, 1].set_xlabel('$r$')
         ax[0, 1].set_ylabel('$q$')
@@ -766,14 +769,14 @@ class AdhocTorus(AxisymmMHDequilibrium):
         nn = self.n_r(r)
 
         return nn
-    
+
 
 class AdhocTorusQPsi(AxisymmMHDequilibrium):
     r"""
     Ad hoc tokamak MHD equilibrium with circular concentric flux surfaces.
-    
+
     For a cylindrical coordinate system :math:`(R, \phi, Z)` with transformation formulae
-    
+
     .. math::
 
         x &= R\cos(\phi)\,,     &&R = \sqrt{x^2 + y^2}\,,
@@ -781,31 +784,31 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
         y &= R\sin(\phi)\,,  &&\phi = \arctan(y/x)\,,
 
         z &= Z\,,               &&Z = z\,,
-        
+
     the magnetic field is given by
-    
+
     .. math::
-    
+
         \mathbf B = \nabla\psi\times\nabla\phi+g\nabla\phi\,,
-        
+
     where :math:`g=g(R, Z)=-B_0R_0=const.` is the toroidal field function, :math:`R_0` the major radius of the torus and :math:`B_0` the on-axis magnetic field. The ad hoc poloidal flux function :math:`\psi=\psi(r)` is the solution of
-    
+
     .. math::
-    
+
         \frac{\textnormal{d}\psi}{\textnormal{d}r}=\frac{B_0r}{q(\psi(r))\sqrt{1 - r^2/R_0^2}}\,,\qquad r=\sqrt{Z^2+(R-R_0)^2}\,,
-        
+
     for a safety factor profile
-    
+
     .. math::
-    
+
         q(\psi) &= q_0 + \psi_{\textnormal{norm}}\left[ q_1-q_0+(q_1^\prime-q_1+q_0)\frac{(1-\psi_s)(\psi_{\textnormal{norm}}-1)}{\psi_{\textnormal{norm}}-\psi_s} \right]\,,
-        
+
         \psi_{\textnormal{norm}} &= \frac{\psi-\psi(0)}{\psi(a)-\psi(0)}\,,
-        
+
         \psi_s &= (q_1^\prime-q_1+q_0)/(q_0^\prime+q_1^\prime-2q_1+2q_0)\,,
 
     where :math:`a` is the minor radius of the torus.
-    
+
     The pressure and number density profiles are chosen as
 
     .. math::
@@ -818,7 +821,7 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
     ----------
     **params
         Parameters that characterize the MHD equilibrium. Possible keys are
-        
+
             * a       : minor radius of torus
             * R0      : major radius of torus
             * B0      : on-axis toroidal magnetic field
@@ -834,9 +837,9 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
             * psi_k   : spline degree to be used for interpolation of poloidal flux function
             * psi_nel : number of cells to be used for interpolation of poloidal flux function
     """
-    
+
     def __init__(self, **params):
-        
+
         from scipy.optimize import fsolve
         from scipy.integrate import odeint
         from scipy.interpolate import UnivariateSpline
@@ -858,52 +861,54 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
                           'psi_nel': 50}
 
         self._params = set_defaults(params, params_default)
-        
+
         # plasma boundary contour
         ths = np.linspace(0., 2*np.pi, 201)
 
-        self._rbs = self.params['R0']*(1 + self.params['a']/self.params['R0']*np.cos(ths))
+        self._rbs = self.params['R0'] * \
+            (1 + self.params['a']/self.params['R0']*np.cos(ths))
         self._zbs = self.params['a']*np.sin(ths)
-        
+
         # on-axis flux (arbitrary value)
         self._psi0 = -10.
-        
+
         # poloidal flux function differential equation: dpsi_dr(r) = B0*r/(q(psi(r))*sqrt(1 - r**2/R0**2))
         def dpsi_dr(psi, r, psi1):
-            
+
             q0 = self.params['q0']
             q1 = self.params['q1']
 
             q0p = self.params['q0p']
             q1p = self.params['q1p']
-            
+
             B0 = self.params['B0']
             R0 = self.params['R0']
 
             psi_norm = (psi - self._psi0)/(psi1 - self._psi0)
             psi_s = (q1p - q1 + q0)/(q0p + q1p - 2*q1 + 2*q0)
 
-            q = q0 + psi_norm*(q1 - q0 + (q1p - q1 + q0)*(1 - psi_s)*(psi_norm - 1)/(psi_norm - psi_s))
-            
+            q = q0 + psi_norm*(q1 - q0 + (q1p - q1 + q0) *
+                               (1 - psi_s)*(psi_norm - 1)/(psi_norm - psi_s))
+
             out = B0*r/(q*np.sqrt(1 - r**2/R0**2))
-            
+
             return out
-        
+
         # solve differential equation and fix boundary flux
         r_i = np.linspace(0., self.params['a'], self.params['psi_nel'] + 1)
-        
+
         def fun(psi1):
-            
+
             out = odeint(dpsi_dr, self._psi0, r_i, args=(psi1,)).flatten()
-            
+
             return out[-1] - psi1
-        
+
         self._psi1 = fsolve(fun, -9.5)[0]
-        
+
         # interpolate flux function
         self._psi_i = UnivariateSpline(r_i, odeint(dpsi_dr, self._psi0, r_i, args=(self._psi1,)).flatten(),
                                        k=self.params['psi_k'], s=0., ext=3)
-        
+
     @property
     def params(self):
         """ Parameters dictionary describing the equilibrium.
@@ -921,7 +926,7 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
         """ Z-coordinates of plasma boundary contour.
         """
         return self._zbs
-    
+
     # ===============================================================
     #           abstract properties
     # ===============================================================
@@ -945,7 +950,7 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
     def psi_r(self, r, der=0):
         """ Ad hoc poloidal flux function psi = psi(r).
         """
-        
+
         assert der >= 0 and der <= 2, 'Only first and second derivatives available!'
 
         out = self._psi_i(r, nu=der)
@@ -956,11 +961,11 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
             out = out.item()
 
         return out
-    
+
     def q_psi(self, psi):
         """ Safety factor profile q = q(psi).
         """
-        
+
         q0 = self.params['q0']
         q1 = self.params['q1']
 
@@ -968,34 +973,37 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
         q1p = self.params['q1p']
 
         psi_s = (q1p - q1 + q0)/(q0p + q1p - 2*q1 + 2*q0)
-        
+
         psi_norm = (psi - self._psi0)/(self._psi1 - self._psi0)
 
-        q = q0 + psi_norm*(q1 - q0 + (q1p - q1 + q0)*(1 - psi_s)*(psi_norm - 1)/(psi_norm - psi_s))
-        
+        q = q0 + psi_norm*(q1 - q0 + (q1p - q1 + q0)*(1 - psi_s)
+                           * (psi_norm - 1)/(psi_norm - psi_s))
+
         return q
-    
+
     def p_psi(self, psi, der=0):
         """ Pressure profile p = p(psi).
         """
-        
+
         assert der >= 0 and der <= 1, 'Only first derivative available!'
-        
-        beta, p1, B0 = self.params['beta'], self.params['p1'], self.params['B0'] 
-        
+
+        beta, p1, B0 = self.params['beta'], self.params['p1'], self.params['B0']
+
         psi_norm = (psi - self._psi0)/(self._psi1 - self._psi0)
-        
+
         if der == 0:
-            out = self.params['beta']*self.params['B0']**2/200*np.exp(-psi_norm/p1)
+            out = self.params['beta'] * \
+                self.params['B0']**2/200*np.exp(-psi_norm/p1)
         else:
-            out = -self.params['beta']*self.params['B0']**2/200*np.exp(-psi_norm/p1)/(p1*(self._psi1 - self._psi0))
+            out = -self.params['beta']*self.params['B0']**2/200 * \
+                np.exp(-psi_norm/p1)/(p1*(self._psi1 - self._psi0))
 
         return out
-    
+
     def n_psi(self, psi, der=0):
         """ Number density profile n = n(psi).
         """
-        
+
         assert der >= 0 and der <= 1, 'Only first derivative available!'
 
         n1, n2, na = self.params['n1'], self.params['n2'], self.params['na']
@@ -1005,10 +1013,11 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
         if der == 0:
             out = (1 - na)*(1 - psi_norm**n1)**n2 + na
         else:
-            out = -(1 - na)*n1*n2/(self._psi1 - self._psi0)*(1 - psi_norm**n1)**(n2 - 1)*psi_norm**(n1 - 1)
+            out = -(1 - na)*n1*n2/(self._psi1 - self._psi0) * \
+                (1 - psi_norm**n1)**(n2 - 1)*psi_norm**(n1 - 1)
 
         return out
-    
+
     def plot_profiles(self, n_pts=501):
         """ Plots 1d profiles.
         """
@@ -1026,7 +1035,7 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
         ax[0, 0].plot(r, self.psi_r(r))
         ax[0, 0].set_xlabel('$r$')
         ax[0, 0].set_ylabel('$\psi$')
-        
+
         ax[0, 1].plot(psi, self.q_psi(psi))
         ax[0, 1].set_xlabel('$\psi$')
         ax[0, 1].set_ylabel('$q$')
@@ -1034,7 +1043,7 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
         ax[1, 0].plot(psi, self.p_psi(psi))
         ax[1, 0].set_xlabel('$\psi$')
         ax[1, 0].set_ylabel('$p$')
-        
+
         ax[1, 1].plot(psi, self.n_psi(psi))
         ax[1, 1].set_xlabel('$\psi$')
         ax[1, 1].set_ylabel('$n$')
@@ -1042,11 +1051,11 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
         plt.subplots_adjust(wspace=0.4, hspace=0.4)
 
         plt.show()
-    
+
     # ===============================================================
     #           abstract methods
     # ===============================================================
-    
+
     def psi(self, R, Z, dR=0, dZ=0):
         """ Poloidal flux function psi = psi(R, Z).
         """
@@ -1118,7 +1127,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
     ----------
     **params
         Parameters that characterize the MHD equilibrium. Possible keys are
-        
+
             * rel_path : str
                 Whether file is relative to "<struphy_path>/fields_background/mhd_equil/gvec", or is an absolute path.
             * file : str
@@ -1323,7 +1332,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
             out = out.item()
 
         return out
-    
+
     def g_psi(self, psi, der=0):
         """ Toroidal field function g = g(psi).
         """
@@ -1353,7 +1362,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         """
 
         assert der >= 0 and der <= 1, 'Only first derivative available!'
-        
+
         n1, n2, na = self._params['n1'], self._params['n2'], self._params['na']
 
         psi_norm = (psi - self._psi0)/(self._psi1 - self._psi0)
@@ -1403,7 +1412,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
     def p_xyz(self, x, y, z):
         """ Pressure p = p(x, y, z).
         """
-        
+
         R = np.sqrt(x**2 + y**2)
         Z = 1*z
 
@@ -1414,7 +1423,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
     def n_xyz(self, x, y, z):
         """ Number density in physical space.
         """
-        
+
         R = np.sqrt(x**2 + y**2)
         Z = 1*z
 
@@ -1423,7 +1432,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         return out
 
 
-#class EQDSKequilibriumWithDomain(CartesianMHDequilibrium):
+# class EQDSKequilibriumWithDomain(CartesianMHDequilibrium):
 #    '''Interface to `EQDSK file format <https://w3.pppl.gov/ntcc/TORAY/G_EQDSK.pdf>`_.
 #
 #    Parameters
@@ -1440,7 +1449,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 #        * p_for_psi : list[int]
 #            Spline degree in each direction used for interpolation of psi data.
 #        * Nel : tuple[int]
-#            Number of cells in each direction used for field line tracing.   
+#            Number of cells in each direction used for field line tracing.
 #        * p : tuple[int]
 #            Spline degree in each direction used for field line tracing.
 #        * theta : str
@@ -2139,7 +2148,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 #        return cx, cy
 #
 #    def psi_fun(self, r, z, der=None, is_sparse_meshgrid=False):
-#        '''Interpolated flux function psi(r, z), and its first derivatives. 
+#        '''Interpolated flux function psi(r, z), and its first derivatives.
 #
 #        Parameters
 #        ----------

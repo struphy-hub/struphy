@@ -94,12 +94,12 @@ class EfieldWeights(Propagator):
         self._alpha = params['alpha']
         self._f0 = params['f0']
         self._f0_params = np.array([self._f0.params['n'],
-                                    self._f0.params['ux'],
-                                    self._f0.params['uy'],
-                                    self._f0.params['uz'],
-                                    self._f0.params['vthx'],
-                                    self._f0.params['vthy'],
-                                    self._f0.params['vthz']])
+                                    self._f0.params['u1'],
+                                    self._f0.params['u2'],
+                                    self._f0.params['u3'],
+                                    self._f0.params['vth1'],
+                                    self._f0.params['vth2'],
+                                    self._f0.params['vth3']])
 
         self._info = params['info']
 

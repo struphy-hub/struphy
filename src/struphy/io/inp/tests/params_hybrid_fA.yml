@@ -7,7 +7,7 @@ grid :
     nq_el    : [5, 4, 4] # quadrature points per grid cell
     nq_pr    : [4, 4, 4] # quadrature points per histopolation cell (for commuting projectors)
     polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
-      
+
 units :
     x  : 1. # length scale unit in m
     B  : 1. # magnetic field unit in T
@@ -17,7 +17,7 @@ time :
     dt         : 0.01 # time step
     Tend       : 0.05 # simulation time interval is [0, Tend]
     split_algo : LieTrotter # LieTrotter | Strang
-      
+
 geometry : 
     type : Cuboid # mapping F (possible types seen below)  
     Cuboid : 
@@ -83,7 +83,6 @@ em_fields :
             eig_freq_lower : 0.14 # lower search limit of squared eigenfrequency to identify eigenfunction
             kind : r # real (r) or imaginary (i) part of eigenfunction
             scaling : 1. # scaling factor to scale the amplitude of the eigenfunction
-      
 
 kinetic :
     electrons :
@@ -109,19 +108,19 @@ kinetic :
             type : Maxwellian6DUniform
             Maxwellian6DUniform :
                 n  : 1.
-                ux : 0.
-                uy : 0.
-                uz : 0.
-                vthx : 1.
-                vthy : 1.
-                vthz : 1.
+                u1 : 0.
+                u2 : 0.
+                u3 : 0.
+                vth1 : 1.
+                vth2 : 1.
+                vth3 : 1.
         background :
               type        : 0 # 0: Maxwellian in 6d
               moms_spec   : [0, 0, 0, 0, 0, 0, 0] # Specifier for the moments n0, u0x, u0y, u0z, vth0x, etc. 0 means constant
               moms_params : [1., 0., 0., 2.5, 1., 1., 1.] # parameters needed to specify the moments
         perturbations : # always in logical position space
             type : null # null or possible types seen below
-            moms : [n, uz] # which velocity moment to perturb: n, ux, uy, uz, vthx, vthy, vthz
+            moms : [n, u3] # which velocity moment to perturb: n, u1, u2, u3, vth1, vth2, vth3
             Modes_sin : 
                 k1 : [6.283186] # wave vectors in eta_1 
                 k2 : [0.] # wave vectors in eta_2 
@@ -135,14 +134,13 @@ kinetic :
         save_data :
             n_markers : 3 # number of markers to be save during simulation
             f :
-                slices : [vz]
+                slices : [v3]
                 n_bins : [[32]]
                 ranges : [[[-3., 3.]]]
         push_algos :
             pxb : analytic # possible choices: analytic, implicit
             eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4
         pc : full # for pressure coupling: full or perp
-            
 
 solvers :
     solver_1 : 
@@ -166,5 +164,3 @@ solvers :
         maxiter : 3000
         info : False
         verbose : False
-
-                

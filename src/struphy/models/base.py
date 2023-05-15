@@ -230,7 +230,7 @@ class StruphyModel(metaclass=ABCMeta):
         Writes distribution function slices that are supposed to be saved into corresponding array.
         '''
 
-        dim_to_int = {'e1': 0, 'e2': 1, 'e3': 2, 'vx': 3, 'vy': 4, 'vz': 5}
+        dim_to_int = {'e1': 0, 'e2': 1, 'e3': 2, 'v1': 3, 'v2': 4, 'v3': 5}
 
         for val in self.kinetic.values():
 

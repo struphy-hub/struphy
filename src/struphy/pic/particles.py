@@ -437,7 +437,7 @@ class Particles(metaclass=ABCMeta):
         Parameters
         ----------
         f0 : callable
-            The distribution function used as a control variate. Is called as f0(eta1, eta2, eta3, vx, vy, vz).
+            The distribution function used as a control variate. Is called as f0(eta1, eta2, eta3, v1, v2, v3).
         """
 
         if self._use_control_variate:
@@ -634,12 +634,12 @@ class Particles6D(Particles):
         Maxwellian6DUniform = getattr(analytical, 'Maxwellian6DUniform')
 
         s3 = Maxwellian6DUniform(n=1.,
-                                 ux=self._params['loading']['moments'][0],
-                                 uy=self._params['loading']['moments'][1],
-                                 uz=self._params['loading']['moments'][2],
-                                 vthx=self._params['loading']['moments'][3],
-                                 vthy=self._params['loading']['moments'][4],
-                                 vthz=self._params['loading']['moments'][5])
+                                 u1=self._params['loading']['moments'][0],
+                                 u2=self._params['loading']['moments'][1],
+                                 u3=self._params['loading']['moments'][2],
+                                 vth1=self._params['loading']['moments'][3],
+                                 vth2=self._params['loading']['moments'][4],
+                                 vth3=self._params['loading']['moments'][5])
         
         return s3(eta1, eta2, eta3, *v)
 

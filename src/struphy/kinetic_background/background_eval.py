@@ -17,7 +17,7 @@ def f0(x: 'float[:]', v: 'float[:]', f0_spec: 'int', moms_spec: 'int[:]', params
             Specifier for kinetic background, 0 -> maxwellian_6d. See Notes.
 
         moms_spec : array[int]
-            Specifier for the seven moments n0, u0x, u0y, u0z, vth0x, vth0y, vth0z (in this order).
+            Specifier for the seven moments n0, u01, u02, u03, vth01, vth02, vth03 (in this order).
             Is 0 for constant moment, for more see :meth:`struphy.kinetic_background.moments_kernels.moments`.
 
         params : array[float]
