@@ -44,7 +44,7 @@ class Particles(metaclass=ABCMeta):
 
         self._name = name
         self._domain = params['domain']
-        self._bc =     params['bc_type']
+        self._bc = params['bc_type']
         self._domain_decomp = params['domain_array']
 
         assert params['comm'] is not None
@@ -193,7 +193,7 @@ class Particles(metaclass=ABCMeta):
         """ struphy.geometry.domains
         """
         return self._domain
-    
+
     @property
     def bc(self):
         """ Kinetic boundary conditions in each direction.
@@ -227,7 +227,8 @@ class Particles(metaclass=ABCMeta):
 
         # array of number of markers on each process at loading stage
         self._n_mks_load = np.zeros(self._mpi_size, dtype=int)
-        self._mpi_comm.Allgather(np.array([int(ppc*n_cells_loc)]), self._n_mks_load)
+        self._mpi_comm.Allgather(np.array([int(ppc*n_cells_loc)]),
+                                 self._n_mks_load)
 
         # add deviation from Np to rank 0
         self._n_mks_load[0] += Np - np.sum(self._n_mks_load)
@@ -240,7 +241,8 @@ class Particles(metaclass=ABCMeta):
         n_mks_load_loc = self._n_mks_load[self._mpi_rank]
 
         # create markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with eps send/receive buffer
-        markers_size = round(n_mks_load_loc*(1 + 1/np.sqrt(n_mks_load_loc) + self.params['eps']))
+        markers_size = round(n_mks_load_loc *
+                             (1 + 1/np.sqrt(n_mks_load_loc) + self.params['eps']))
         self._markers = np.zeros((markers_size, self.n_cols), dtype=float)
 
     def draw_markers(self):
@@ -250,7 +252,7 @@ class Particles(metaclass=ABCMeta):
         # number of markers on the local process at loading stage
         n_mks_load_loc = self.n_mks_load[self._mpi_rank]
 
-        # cumulative sum of number of markers on each process at loading stage. 
+        # cumulative sum of number of markers on each process at loading stage.
         n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
 
         # load markers from external .hdf5 file
@@ -399,8 +401,9 @@ class Particles(metaclass=ABCMeta):
         if self._use_control_variate:
             assert bckgr_params is not None, 'When control variate is used, background parameters must be given!'
 
-        # compute s0 and save at vdim+4
-        self._markers[~self._holes, self.vdim+4] = self.s0(*self.markers_wo_holes[:, :self.vdim+3].T)
+        # compute s0 and save at vdim + 4
+        self._markers[~self._holes, self.vdim + 4] = \
+            self.s0(*self.markers_wo_holes[:, :self.vdim + 3].T)
 
         # load distribution function (with given parameters or default parameters)
         fun_name = fun_params['type']
@@ -410,11 +413,11 @@ class Particles(metaclass=ABCMeta):
         else:
             f_init = getattr(analytical, fun_name)()
 
-        # compute w0 and save at vdim+5
-        self._markers[~self._holes, self.vdim+5] = f_init(
-            *self.markers_wo_holes[:, :self.vdim+3].T)/self.markers_wo_holes[:, self.vdim+4]
+        # compute w0 and save at vdim + 5
+        self._markers[~self._holes, self.vdim + 5] = f_init(
+            *self.markers_wo_holes[:, :self.vdim + 3].T) / self.markers_wo_holes[:, self.vdim + 4]
 
-        # compute weights and save at vdim+3
+        # compute weights and save at vdim + 3
         if self._use_control_variate:
             fun_name = bckgr_params['type']
 
@@ -424,11 +427,12 @@ class Particles(metaclass=ABCMeta):
             else:
                 f_bckgr = getattr(analytical, fun_name)()
 
-            self._markers[~self._holes, self.vdim+3] = self.markers_wo_holes[:, self.vdim+5] - \
-                f_bckgr(*self.markers_wo_holes[:, :self.vdim+3].T) / \
-                self.markers_wo_holes[:, self.vdim+4]
+            self._markers[~self._holes, self.vdim + 3] = self.markers_wo_holes[:, self.vdim + 5] - \
+                f_bckgr(*self.markers_wo_holes[:, :self.vdim + 3].T) / \
+                self.markers_wo_holes[:, self.vdim + 4]
         else:
-            self._markers[~self._holes, self.vdim+3] = self.markers_wo_holes[:, self.vdim+5]
+            self._markers[~self._holes, self.vdim + 3] = \
+                self.markers_wo_holes[:, self.vdim + 5]
 
     def update_weights(self, f0):
         """
@@ -441,8 +445,9 @@ class Particles(metaclass=ABCMeta):
         """
 
         if self._use_control_variate:
-            self._markers[~self._holes, self.vdim+3] = self.markers_wo_holes[:, self.vdim+5] - \
-                f0(*self.markers_wo_holes[:, :self.vdim+3].T)/self.markers_wo_holes[:, self.vdim+4]
+            self._markers[~self._holes, self.vdim + 3] = self.markers_wo_holes[:, self.vdim + 5] - \
+                f0(*self.markers_wo_holes[:, :self.vdim + 3].T) / \
+                self.markers_wo_holes[:, self.vdim + 4]
 
     def binning(self, components, bin_edges, domain=None):
         """
@@ -517,9 +522,9 @@ class Particles(metaclass=ABCMeta):
 
         bin_centers = [bi[:-1] + (bi[1] - bi[0])/2 for bi in bin_edges]
 
-        #labels = {0 : '$\eta_1$', 1 : '$\eta_2$', 2 : '$\eta_3$', 3 : '$v_x$', 4 : '$v_y$', 5 : '$v_z$'}
+        # labels = {0 : '$\eta_1$', 1 : '$\eta_2$', 2 : '$\eta_3$', 3 : '$v_x$', 4 : '$v_y$', 5 : '$v_z$'}
 
-        indices = np.nonzero(components)[0]
+        # indices = np.nonzero(components)[0]
 
         if n_dim == 1:
             plt.plot(bin_centers[0], f_slice)
@@ -546,9 +551,9 @@ class Particles(metaclass=ABCMeta):
         for axis, bc in enumerate(self.bc):
 
             # sorting out particles outside of the logical unit cube
-            is_outside_cube = np.logical_or(self.markers[:,axis] > 1.,
-                                            self.markers[:,axis] < 0.)
-            
+            is_outside_cube = np.logical_or(self.markers[:, axis] > 1.,
+                                            self.markers[:, axis] < 0.)
+
             # exclude holes
             is_outside_cube[self.holes] = False
 
@@ -560,7 +565,8 @@ class Particles(metaclass=ABCMeta):
                 self.markers[outside_inds, :-1] = -1.
 
             elif bc == 'periodic':
-                self.markers[outside_inds, axis] = self.markers[outside_inds, axis]%1.
+                self.markers[outside_inds, axis] = \
+                    self.markers[outside_inds, axis] % 1.
 
             elif bc == 'reflect':
                 reflect(self.markers, *self.domain.args_map, outside_inds, axis)
@@ -592,7 +598,8 @@ class Particles6D(Particles):
         # base class params
         base_params = {}
 
-        list_base_params = ['type', 'ppc', 'Np', 'eps', 'bc_type', 'loading', 'comm', 'domain', 'domain_array']
+        list_base_params = ['type', 'ppc', 'Np', 'eps',
+                            'bc_type', 'loading', 'comm', 'domain', 'domain_array']
 
         for key, val in params.items():
             if key in list_base_params:
@@ -605,13 +612,13 @@ class Particles6D(Particles):
         """Number of the columns at each markers.
         """
         return 16
-    
+
     @property
     def vdim(self):
         """Dimension of the velocity space.
         """
         return 3
-    
+
     def svol(self, eta1, eta2, eta3, *v):
         """ 
         Sampling density function as volume form.
@@ -688,7 +695,8 @@ class Particles5D(Particles):
         # base class params
         base_params = {}
 
-        list_base_params = ['type', 'ppc', 'Np', 'eps', 'bc_type', 'loading', 'comm', 'domain', 'domain_array']
+        list_base_params = ['type', 'ppc', 'Np', 'eps',
+                            'bc_type', 'loading', 'comm', 'domain', 'domain_array']
 
         for key, val in params.items():
             if key in list_base_params:
@@ -705,7 +713,7 @@ class Particles5D(Particles):
             if key in list_child_params:
                 child_params[key] = val
 
-        params_default = {'A': 1, 
+        params_default = {'A': 1,
                           'Z': 1,
                           'mhd_equil': None,
                           'units_basic': None
@@ -716,12 +724,12 @@ class Particles5D(Particles):
         self._mhd_equil = params['mhd_equil']
 
         # compute kappa
-        ee = 1.602176634e-19 # elementary charge (C)
-        mH = 1.67262192369e-27 # proton mass (kg)
+        ee = 1.602176634e-19  # elementary charge (C)
+        mH = 1.67262192369e-27  # proton mass (kg)
 
         Ah = child_params['A']
         Zh = child_params['Z']
-        
+
         omega_ch = (Zh*ee*child_params['units_basic']['B'])/(Ah*mH)
         self._kappa = omega_ch*child_params['units_basic']['t']
 
@@ -730,13 +738,13 @@ class Particles5D(Particles):
         """Number of the columns at each markers.
         """
         return 25
-    
+
     @property
     def vdim(self):
         """Dimension of the velocity space.
         """
         return 2
-    
+
     def svol(self, eta1, eta2, eta3, *v):
         """ 
         Sampling density function as volume-form.
@@ -763,7 +771,7 @@ class Particles5D(Particles):
                                  u_perp=self.params['loading']['moments'][1],
                                  vth_parallel=self.params['loading']['moments'][2],
                                  vth_perp=self.params['loading']['moments'][3])
-        
+
         return s5(eta1, eta2, eta3, *v)
 
     def s3(self, eta1, eta2, eta3, *v):
@@ -794,7 +802,7 @@ class Particles5D(Particles):
         bstar = bv + 1/self._kappa*v[0]*curlb
         
         # B*_parallel = b0 . B*
-        jacobian_det = np.einsum('ij,ij->j',unit_b1, bstar)/v[1]
+        jacobian_det = np.einsum('ij,ij->j', unit_b1, bstar)/v[1]
 
         return self.svol(eta1, eta2, eta3, *v)/np.abs(jacobian_det)
 

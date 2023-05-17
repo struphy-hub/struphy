@@ -79,7 +79,7 @@ class Maxwellian(metaclass=ABCMeta):
         Parameters
         ----------
         v : float | array-like
-            Velocits coordinate(s).
+            Velocity coordinate(s).
 
         u : float | array-like
             Mean velocity evaluated at position array.
@@ -99,12 +99,12 @@ class Maxwellian(metaclass=ABCMeta):
 
     def __call__(self, *args):
         """
-        Evaluates the Maxwellian distribution function M(etas, v1,..., vn).
+        Evaluates the Maxwellian distribution function M(etas, v1, ..., vn).
 
         Parameters
         ----------
         *args : array_like
-            Position-velocity arguments in the order etas, v1,..., vn.
+            Position-velocity arguments in the order etas, v1, ..., vn.
 
         Returns
         -------

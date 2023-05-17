@@ -9,8 +9,6 @@ import struphy.linear_algebra.core as linalg
 import struphy.pic.mat_vec_filler as mvf
 import struphy.pic.filler_kernels as fk
 
-from struphy.kinetic_background.f0_kernels import maxwellian_6d
-
 
 def _docstring():
     '''
@@ -312,7 +310,9 @@ def linear_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
                                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                   cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                                   vec: 'float[:,:,:]',
-                                  f0_values: 'float[:]'):  # model specific argument
+                                  f0_values: 'float[:]',  # model specific argument
+                                  alpha: 'float',  # model specific argument
+                                  kappa: 'float'):  # model specific argument
     r"""
     Accumulates the charge density in V0 
 
@@ -359,8 +359,8 @@ def linear_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
 
         f0 = f0_values[ip]
 
-        # filling = w_p * sqrt{f_0} / N
-        filling = markers[ip, 6] * sqrt(f0) / n_markers_tot
+        # filling = alpha^2 * kappa * w_p * sqrt{f_0}
+        filling = alpha**2 * kappa * markers[ip, 6] * sqrt(f0)
 
         # spans (i.e. index for non-vanishing B-spline basis functions)
         span1 = bsp.find_span(tn1, pn[0], eta1)
@@ -396,18 +396,19 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                           vec1: 'float[:,:,:]',
                           vec2: 'float[:,:,:]',
                           vec3: 'float[:,:,:]',
-                          f0_values: 'float[:]',     # model specific argument
-                          f0_params: 'float[:]',   # model specific argument
-                          alpha: 'float'):  # model specific argument
+                          f0_values: 'float[:]',  # model specific argument
+                          f0_params: 'float[:]',  # model specific argument
+                          alpha: 'float',  # model specific argument
+                          kappa: 'float'):  # model specific argument
     r"""
     Accumulates into V1 with the filling functions
 
     .. math::
 
-        A_p^{\mu, \nu} &= \frac{\alpha^2}{v_{\text{th}}^2} \frac{1}{N\, s_0} f_0(\mathbf{\eta}_p, \mathbf{v}_p)
+        A_p^{\mu, \nu} &= \frac{\alpha^2 \kappa^2}{v_{\text{th}}^2} \frac{1}{N\, s_0} f_0(\mathbf{\eta}_p, \mathbf{v}_p)
             [ DF^{-1}(\mathbf{\eta}_p) v_p ]_\mu [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\nu \,,
 
-        B_p^\mu &= \alpha^2 \sqrt{f_0(\mathbf{\eta}_p, \mathbf{v}_p)} w_p [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\mu \,.
+        B_p^\mu &= \alpha^2 \kappa \sqrt{f_0(\mathbf{\eta}_p, \mathbf{v}_p)} w_p [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\mu \,.
 
     Parameters
     ----------
@@ -418,7 +419,10 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
             Parameters needed to specify the moments; the order is specified in :ref:`kinetic_moments` for the respective functions available.
 
         alpha : float
-            = Omega_c / Omega_p ; Parameter determining the coupling strength between particles and fields
+            = Omega_p / Omega_c ; Parameter determining the coupling strength between particles and fields
+
+        kappa : float
+            = 2 * pi * Omega_c / omega ; Parameter determining the coupling strength between particles and fields
 
     Note
     ----
@@ -470,15 +474,17 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
         linalg.matrix_inv(df, df_inv)
         linalg.matrix_vector(df_inv, v, df_inv_times_v)
 
-        # filling_m = alpha^2 * f0 / (N * s_0 * v_th_1^2 * v_th_2^2 * v_th_3^2) * (DF^{-1} v_p)_mu * (DF^{-1} \V_th (v_p - u))_nu
+        # filling_m = alpha^2 * kappa^2 * f0 / (N * s_0 * v_th_1^2 * v_th_2^2 * v_th_3^2) * (DF^{-1} \V_th (v_p - u))_mu * (DF^{-1} \V_th (v_p - u))_nu
         linalg.outer(df_inv_times_v, df_inv_times_v, filling_m)
-        filling_m[:, :] *= alpha**2 * f0 * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2 / (n_markers_tot * markers[ip, 7])
+        filling_m[:, :] *= alpha**2 * kappa**2 * f0 * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2 / (n_markers_tot * markers[ip, 7])
 
-        # filling_v = alpha^2 * w_p * sqrt{f_0} DL^{-1} * \V_th * (v_p - u)
-        filling_v[:] = alpha**2 * sqrt(f0) * markers[ip, 6] * df_inv_times_v[:] * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2
+        # filling_v = alpha^2 * kappa * w_p * sqrt{f_0} DL^{-1} * \V_th * (v_p - u)
+        filling_v[:] = alpha**2 * kappa * sqrt(f0) * markers[ip, 6] * df_inv_times_v[:] * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2
 
         # call the appropriate matvec filler
-        mvf.m_v_fill_b_v1_symm(pn, tn1, tn2, tn3, starts1,
+        mvf.m_v_fill_b_v1_symm(pn,
+                               tn1, tn2, tn3,
+                               starts1,
                                eta1, eta2, eta3,
                                mat11, mat12, mat13, mat22, mat23, mat33,
                                filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],

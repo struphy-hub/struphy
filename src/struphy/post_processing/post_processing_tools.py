@@ -1,9 +1,10 @@
 import numpy as np
 
-import os, shutil, h5py, yaml
+import os
+import shutil
+import h5py
+import yaml
 
-from struphy.geometry import domains
-from struphy.fields_background.mhd_equil import equils
 from struphy.psydac_api.psydac_derham import Derham
 from struphy.psydac_api.fields import Field
 from struphy.kinetic_background import analytical
@@ -46,21 +47,21 @@ def create_femfields(path, step=1):
     # create Derham sequence from grid parameters
     with open(os.path.join(path, 'parameters.yml'), 'r') as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
-    
+
     derham = Derham(params['grid']['Nel'],
                     params['grid']['p'],
                     params['grid']['spl_kind'])
 
     # get fields names, space IDs and time grid from 0-th rank hdf5 file
     file = h5py.File(os.path.join(path, 'data_proc0.hdf5'), 'r')
-    
+
     space_ids = {}
-    
+
     for field_name, dset in file['feec'].items():
         space_ids[field_name] = dset.attrs['space_id']
 
     t_grid = file['time/value'][::step].copy()
-    
+
     file.close()
 
     # create one FemField for each snapshot
@@ -74,7 +75,8 @@ def create_femfields(path, step=1):
     for rank in range(int(nproc)):
 
         # open hdf5 file
-        file = h5py.File(os.path.join(path, 'data_proc' + str(rank) + '.hdf5'), 'r')
+        file = h5py.File(os.path.join(
+            path, 'data_proc' + str(rank) + '.hdf5'), 'r')
 
         for field_name, dset in tqdm(file['feec'].items()):
 
@@ -112,10 +114,14 @@ def create_femfields(path, step=1):
                         e1, e2, e3 = gl_e[comp]
                         p1, p2, p3 = pads[comp]
 
-                        data = dset[str(comp + 1)][n*step, p1:-p1, p2:-p2, p3:-p3].copy()
+                        data = dset[str(comp + 1)][n * step,
+                                                   p1:-p1,
+                                                   p2:-p2,
+                                                   p3:-p3].copy()
 
-                        fields[t][field_name].vector[comp][s1:e1 +
-                                                           1, s2:e2 + 1, s3:e3 + 1] = data
+                        fields[t][field_name].vector[comp][s1:e1 + 1,
+                                                           s2:e2 + 1,
+                                                           s3:e3 + 1] = data
                     # update after each data addition, can be made more efficient
                     fields[t][field_name].vector.update_ghost_regions()
 
@@ -166,16 +172,17 @@ def eval_femfields(path, fields, space_ids, celldivide=[1, 1, 1]):
     # domain object according to parameter file and grids
     with open(os.path.join(path, 'parameters.yml'), 'r') as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
-    
+
     domain = setup_domain_mhd(params)[0]
 
     # create logical and physical grids
     assert isinstance(celldivide, list)
     assert len(celldivide) == 3
-        
+
     Nel = params['grid']['Nel']
-    
-    grids_log = [np.linspace(0., 1., Nel_i*n_i + 1) for Nel_i, n_i in zip(Nel, celldivide)]
+
+    grids_log = [np.linspace(0., 1., Nel_i * n_i + 1)
+                 for Nel_i, n_i in zip(Nel, celldivide)]
     grids_phy = [domain(*grids_log)[0],
                  domain(*grids_log)[1],
                  domain(*grids_log)[2]]
@@ -183,25 +190,25 @@ def eval_femfields(path, fields, space_ids, celldivide=[1, 1, 1]):
     # evaluate fields at evaluation grid and push-forward
     point_data_log = {}
     point_data_phy = {}
-    
+
     # one dict for each field
     for name in space_ids:
         point_data_log[name] = {}
         point_data_phy[name] = {}
-    
+
     # time loop
     print('Evaluating fields ...')
     for t in tqdm(fields):
-        
+
         # field loop
         for name, field in fields[t].items():
-            
+
             # space ID
             space_id = space_ids[name]
 
             # field evaluation
             temp_val = field(*grids_log)
-            
+
             point_data_log[name][t] = []
             point_data_phy[name][t] = []
 
@@ -220,7 +227,7 @@ def eval_femfields(path, fields, space_ids, celldivide=[1, 1, 1]):
 
             # vector-valued spaces
             else:
-                
+
                 for j in range(3):
 
                     point_data_log[name][t].append(temp_val[j])
@@ -242,58 +249,59 @@ def eval_femfields(path, fields, space_ids, celldivide=[1, 1, 1]):
 def create_vtk(path, grids_phy, point_data_phy):
     """
     Creates structured virtual toolkit files (.vts) for Paraview from evaluated field data.
-    
+
     Parameters
     ----------
     path : str
         Absolute path of where to store the .vts files. Will then be in path/vtk/step_<step>.vts.
-        
+
     grids_phy : 3-list
         Mapped (physical) grids obtained from struphy.diagnostics.post_processing.eval_femfields.
-        
+
     point_data_phy : dict
         Pushed-forward field data obtained from struphy.diagnostics.post_processing.eval_femfields.
     """
-    
+
     from pyevtk.hl import gridToVTK
-    
+
     # directory for vtk files
     path_vtk = os.path.join(path, 'vtk')
-    
+
     try:
         os.mkdir(path_vtk)
     except:
         shutil.rmtree(path_vtk)
         os.mkdir(path_vtk)
-        
+
     # field names
     names = list(point_data_phy.keys())
-        
+
     # time loop
     tgrid = list(point_data_phy[names[0]].keys())
-    
+
     nt = len(tgrid) - 1
     log_nt = int(np.log10(nt)) + 1
-    
+
     print('Creating vtk ...')
     for n, t in enumerate(tqdm(tgrid)):
-        
+
         point_data_n = {}
-        
+
         for name in names:
-            
+
             points_list = point_data_phy[name][t]
-            
+
             # scalar
             if len(points_list) == 1:
                 point_data_n[name] = points_list[0]
-                
+
             # vector
             else:
                 for j in range(3):
                     point_data_n[name + f'_{j + 1}'] = points_list[j]
-        
-        gridToVTK(os.path.join(path_vtk, 'step_{0:0{1}d}'.format(n, log_nt)), *grids_phy, pointData=point_data_n)
+
+        gridToVTK(os.path.join(path_vtk, 'step_{0:0{1}d}'.format(n, log_nt)),
+                  *grids_phy, pointData=point_data_n)
 
 
 def post_process_markers(path_in, path_out, species, step=1):
@@ -306,13 +314,13 @@ def post_process_markers(path_in, path_out, species, step=1):
     ----------
     path_in : str
         Absolute path to folder with hdf5 data files.
-        
+
     path_out : str
         Absolute path of where to store the .txt files. Will be in path_out/orbits. 
 
     species : str
         Name of the species for which the post processing should be performed.
-        
+
     step : int, optional
         Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc. 
     """
@@ -326,17 +334,18 @@ def post_process_markers(path_in, path_out, species, step=1):
     # create domain for calculating markers' physical coordinates
     with open(os.path.join(path_in, 'parameters.yml'), 'r') as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
-    
+
     domain = setup_domain_mhd(params)[0]
-    
+
     # open hdf5 files and get names and number of saved markers of kinetic species
-    files = [h5py.File(os.path.join(path_in, f'data_proc{i}.hdf5'), 'r') for i in range(int(nproc))]
+    files = [h5py.File(os.path.join(path_in, f'data_proc{i}.hdf5'), 'r')
+             for i in range(int(nproc))]
 
     n_IDs = files[0]['kinetic/' + species + '/markers'].shape[1]
 
     # directory for .txt files
     path_orbits = os.path.join(path_out, 'orbits')
-    
+
     try:
         os.mkdir(path_orbits)
     except:
@@ -351,7 +360,7 @@ def post_process_markers(path_in, path_out, species, step=1):
     print('Evaluation of marker orbits for ' + str(species))
 
     # loop over time grid
-    for n, t in enumerate(tqdm(t_grid)):
+    for n, _ in enumerate(tqdm(t_grid)):
 
         # create text file for this time step and this species
         with open(os.path.join(path_orbits, species + '_{0:0{1}d}.txt'.format(n, log_nt)), 'w') as f_out:
@@ -374,10 +383,10 @@ def post_process_markers(path_in, path_out, species, step=1):
                             write_string += ',' + str(X[0])
                             write_string += ',' + str(X[1])
                             write_string += ',' + str(X[2])
-                                        
+
                             if int(ID) < n_IDs - 1:
                                 write_string += '\n'
-                            
+
                             f_out.write(write_string)
                             break_flag = True
                             break
@@ -399,16 +408,16 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
     ----------
     path_in : str
         Absolute path to folder with hdf5 data files.
-        
+
     path_out : str
         Absolute path of where to store the .txt files. Will be in path_out/orbits. 
 
     species : str
         Name of the species for which the post processing should be performed.
-        
+
     step : int, optional
         Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
-    
+
     marker_type : str
         Which type of markers were simulated.
     """
@@ -419,17 +428,18 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
 
     model = lines[-6].split()[-1]
     nproc = lines[-1].split()[-1]
-    
+
     # load parameters
     with open(os.path.join(path_in, 'parameters.yml'), 'r') as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
 
     # open hdf5 files
-    files = [h5py.File(os.path.join(path_in, f'data_proc{i}.hdf5'), 'r') for i in range(int(nproc))]
+    files = [h5py.File(os.path.join(
+        path_in, f'data_proc{i}.hdf5'), 'r') for i in range(int(nproc))]
 
     # directory for .npy files
     path_distr = os.path.join(path_out, 'distribution_function')
-    
+
     try:
         os.mkdir(path_distr)
     except:
@@ -438,18 +448,30 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
 
     print('Evaluation of distribution functions for ' + str(species))
 
-    # loop over saved slices and sum up all ranks
+    # Create grids
     for slice_name, dset in tqdm(files[0]['kinetic/' + species + '/f'].items()):
 
+        # Find out all names of slices
+        slice_names = slice_name.split('_')
+
         # save grid
-        for n_gr, (_, gr) in enumerate(files[0]['kinetic/' + species + '/f/' + slice_name].attrs.items()):
-            grid_path = os.path.join(path_distr, 'grid_' + slice_name + '_' + str(n_gr + 1) + '.npy')
-            np.save(grid_path, gr[:])
+        for n_gr, (_, grid) in enumerate(files[0]['kinetic/' + species + '/f/' + slice_name].attrs.items()):
+            grid_path = os.path.join(
+                path_distr, 'grid_' + slice_names[n_gr] + '.npy')
+            np.save(grid_path, grid[:])
+
+    # compute distribution function (and delta f)
+    for k, (slice_name, dset) in enumerate(tqdm(files[0]['kinetic/' + species + '/f'].items())):
+
+        # Find out all names of slices
+        slice_names = slice_name.split('_')
+        nr_slices = len(slice_names)
 
         # load data
         data = dset[::step].copy()
         for rank in range(1, int(nproc)):
-            data += files[rank]['kinetic/' + species + '/f/' + slice_name][::step]
+            data += files[rank]['kinetic/' +
+                                species + '/f/' + slice_name][::step]
 
         assert marker_type in ['full_f', 'control_variate', 'delta_f'], \
             f'Got unexpected marker type: {marker_type}'
@@ -459,33 +481,38 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
             np.save(os.path.join(path_distr, 'f_' + slice_name + '.npy'), data)
 
         else:
-
             fun_name = params['kinetic'][species]['background']['type']
-            bckgr_params = params['kinetic'][species]['background'][fun_name]
+            bckgr_params = params['kinetic'][species]['background']
 
             # Get background function
-            if fun_name in bckgr_params:
+            if fun_name in bckgr_params.keys():
                 f_bckgr = getattr(analytical, fun_name)(
                     **bckgr_params[fun_name])
             else:
                 f_bckgr = getattr(analytical, fun_name)()
 
-            # multiplier collecting all non-integrated slices in velocity space
-            data_bckgr = np.ones(data.shape)
+            # load all grids of the variables of f
+            grid_tot = []
+            for coord in ['e', 'v']:
+                for comp in range(1, 4):
+                    current_slice = coord + str(comp)
+                    filename = os.path.join(
+                        path_distr, 'grid_' + current_slice + '.npy')
 
-            if isinstance(f_bckgr, analytical.Maxwellian6DUniform):
-                for direction in slice_name.split('_'):
-                    if direction[0] == 'v':
+                    # check if file exists and is in slice_name
+                    if os.path.exists(filename) and current_slice in slice_names:
+                        grid_tot += [np.load(filename)]
 
-                        for k in range(len(slice_name.split('_'))):
-                            slicing = [None] * len(data.shape)
-                            slicing[k + 1] = slice(None)
-                            grid_v = files[0]['kinetic/' + species + '/f/' + slice_name].attrs['bin_centers_' + str(k+1)]
-                            data_bckgr *= getattr(f_bckgr, 'gaussian')(grid_v, u=f_bckgr.params['u' + direction[1]], 
-                                                                       vth=f_bckgr.params['vth' + direction[1]])[tuple(slicing)]
+                    # otherwise evaluate at zero for eta or u for v
+                    else:
+                        if coord == 'e':
+                            grid_tot += [np.zeros(1)]
+                        elif coord == 'v':
+                            grid_tot += [np.zeros(1) + bckgr_params[fun_name]['u' + str(comp)]]
 
-            else:
-                raise NotImplementedError(f'Post-processing is not yet available for background of type {fun_name}')
+            grid_eval = np.meshgrid(*grid_tot, indexing='ij')
+
+            data_bckgr = f_bckgr(*grid_eval).squeeze()
 
             if marker_type == 'control_variate':
                 data_delta_f = data
@@ -497,14 +524,19 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
                     assert fun_name == 'Maxwellian6DUniform', \
                         'The linearized Vlasov-Maxwell is only implemented for a uniform Maxwellian background!'
 
-                    data_delta_f = np.multiply(data, np.sqrt(data_bckgr))
+                    # h = f_1 / sqrt{f_0}
+                    data_delta_f = np.multiply(data,
+                                               np.sqrt(data_bckgr[tuple([None])])) # add extra axis at beginning
 
                 else:
-                    raise NotImplementedError(f'Post-processing for the model {model} has not been implemented yet!')
+                    raise NotImplementedError(
+                        f'Post-processing for the model {model} with {marker_type} has not been implemented yet!')
 
             # save distribution function
-            np.save(os.path.join(path_distr, 'delta_f_' + slice_name + '.npy'), data_delta_f)
-            np.save(os.path.join(path_distr, 'f_' + slice_name + '.npy'), data_delta_f + data_bckgr)
+            np.save(os.path.join(path_distr, 'delta_f_' +
+                    slice_name + '.npy'), data_delta_f)
+            np.save(os.path.join(path_distr, 'f_' + slice_name +
+                    '.npy'), data_delta_f + data_bckgr)
 
     # close hdf5 files
     for file in files:

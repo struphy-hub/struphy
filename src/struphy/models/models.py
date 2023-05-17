@@ -4,6 +4,8 @@ from struphy.models.base import StruphyModel
 #############################
 # Fluid models
 #############################
+
+
 class LinearMHD(StruphyModel):
     r'''Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
 
@@ -38,31 +40,32 @@ class LinearMHD(StruphyModel):
     comm : mpi4py.MPI.Intracomm
         MPI communicator used for parallelization.
     '''
-    
+
     @classmethod
     def bulk_species(cls):
         return 'mhd'
-    
+
     @classmethod
     def timescale(cls):
         return 'alfvén'
 
     def __init__(self, params, comm):
-        
+
         # choose MHD veclocity space
         u_space = params['fluid']['mhd']['mhd_u_space']
-         
-        assert u_space in ['Hdiv', 'H1vec'], f'MHD velocity must be Hdiv or H1vec, but was specified {self._u_space}.'
-        
+
+        assert u_space in [
+            'Hdiv', 'H1vec'], f'MHD velocity must be Hdiv or H1vec, but was specified {self._u_space}.'
+
         u_name = 'u2' if u_space == 'Hdiv' else 'uv'
-            
+
         self._u_space = u_space
 
         # initialize base class
-        super().__init__(params, comm, 
+        super().__init__(params, comm,
                          b2='Hdiv',
                          mhd={'n3': 'L2', u_name: u_space, 'p3': 'L2'})
-            
+
         from struphy.polar.basic import PolarVector
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_fields
@@ -123,23 +126,23 @@ class LinearMHD(StruphyModel):
         self._scalar_quantities['en_B_eq'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B_tot'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
-        
+
         # temporary vectors for scalar quantities
         if self._u_space == 'Hdiv':
             self._tmp_u1 = self.derham.Vh['2'].zeros()
         else:
             self._tmp_u1 = self.derham.Vh['v'].zeros()
-            
+
         self._tmp_b1 = self.derham.Vh['2'].zeros()
         self._tmp_b2 = self.derham.Vh['2'].zeros()
 
     @property
     def propagators(self):
-        return self._propagators  
-    
+        return self._propagators
+
     @property
     def scalar_quantities(self):
-        return self._scalar_quantities      
+        return self._scalar_quantities
 
     def update_scalar_quantities(self):
 
@@ -148,41 +151,41 @@ class LinearMHD(StruphyModel):
             self._mass_ops.M2n.dot(self._u, out=self._tmp_u1)
         else:
             self._mass_ops.Mvn.dot(self._u, out=self._tmp_u1)
-            
+
         self._mass_ops.M2.dot(self._b, out=self._tmp_b1)
-        
+
         en_U = self._u.dot(self._tmp_u1)/2
         en_B = self._b.dot(self._tmp_b1)/2
         en_p = self._p.dot(self._ones)/(5/3 - 1)
-        
+
         self._scalar_quantities['en_U'][0] = en_U
         self._scalar_quantities['en_B'][0] = en_B
         self._scalar_quantities['en_p'][0] = en_p
-        
-        self._scalar_quantities['en_tot'][0]  = en_U
+
+        self._scalar_quantities['en_tot'][0] = en_U
         self._scalar_quantities['en_tot'][0] += en_B
         self._scalar_quantities['en_tot'][0] += en_p
 
         # background fields
         self._mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
-        
+
         en_B0 = self._b_eq.dot(self._tmp_b1)/2
         en_p0 = self._p_eq.dot(self._ones)/(5/3 - 1)
-        
+
         self._scalar_quantities['en_B_eq'][0] = en_B0
         self._scalar_quantities['en_p_eq'][0] = en_p0
-        
+
         # total magnetic field
         self._b_eq.copy(out=self._tmp_b1)
         self._tmp_b1 += self._b
-        
+
         self._mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
-        
+
         en_Btot = self._tmp_b1.dot(self._tmp_b2)/2
 
         self._scalar_quantities['en_B_tot'][0] = en_Btot
-        
-        
+
+
 class LinearExtendedMHD(StruphyModel):
     r'''Linear extended MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`). For homogenous background conditions.
 
@@ -200,21 +203,21 @@ class LinearExtendedMHD(StruphyModel):
 
         n_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla (\tilde p_i + \tilde p_e)
         =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 \,,
-        
+
         &\frac{\partial \tilde p_e}{\partial t} + \frac{5}{3}\,p_{e,0}\nabla\cdot \tilde{\mathbf{U}}=0\,,
-        
+
         &\frac{\partial \tilde p_i}{\partial t} + \frac{5}{3}\,p_{i,0}\nabla\cdot \tilde{\mathbf{U}}=0\,,
 
         &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times \left( \tilde{\mathbf{U}} \times \mathbf{B}_0 - \kappa \frac{\nabla\times \tilde{\mathbf{B}}}{n_0}\times \mathbf{B}_0 \right)
         = 0\,.
 
     where
-    
+
     .. math::
-    
+
         \kappa = \frac{\hat \Omega_{\textnormal{ch}}}{\hat \omega}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{ch}} = \frac{Z_\textnormal{h}e \hat B}{A_\textnormal{h} m_\textnormal{H}}\,.
 
-    
+
     Parameters
     ----------
     params : dict
@@ -223,11 +226,11 @@ class LinearExtendedMHD(StruphyModel):
     comm : mpi4py.MPI.Intracomm
         MPI communicator used for parallelization.
     '''
-    
+
     @classmethod
     def bulk_species(cls):
         return 'mhd'
-    
+
     @classmethod
     def timescale(cls):
         return 'alfvén'
@@ -235,10 +238,10 @@ class LinearExtendedMHD(StruphyModel):
     def __init__(self, params, comm):
 
         # initialize base class
-        super().__init__(params, comm, 
+        super().__init__(params, comm,
                          b1='Hcurl',
                          mhd={'n3': 'L2', 'u2': 'Hdiv', 'pi3': 'L2', 'pe3': 'L2'})
-            
+
         from struphy.polar.basic import PolarVector
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_fields
@@ -273,24 +276,24 @@ class LinearExtendedMHD(StruphyModel):
             self._ones[:] = 1.
 
         # compute coupling parameter kappa
-        units_basic, units_der, units_dimless = self.model_units(params, verbose=False)
-        
-        ee = 1.602176634e-19 # elementary charge (C)
-        mH = 1.67262192369e-27 # proton mass (kg)
-        
+        units_basic, units_der, units_dimless = self.model_units(
+            params, verbose=False)
+
+        ee = 1.602176634e-19  # elementary charge (C)
+        mH = 1.67262192369e-27  # proton mass (kg)
+
         Ab = params['fluid']['mhd']['phys_params']['A']
         Zb = params['fluid']['mhd']['phys_params']['Z']
-        
+
         omega_ch = (Zb*ee*units_basic['B'])/(Ab*mH)
         kappa = omega_ch*units_basic['t']/(2.0 * 3.141592654)
-        
+
         if abs(kappa - 1) < 1e-6:
             kappa = 1.
-        
+
         self._coupling_params = {}
         self._coupling_params['kappa'] = kappa
-        
-        
+
         # set propagators base class attributes (available to all propagators)
         Propagator.derham = self.derham
         Propagator.domain = self.domain
@@ -330,65 +333,64 @@ class LinearExtendedMHD(StruphyModel):
         self._scalar_quantities['en_B_eq'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B_tot'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
-        
+
         # temporary vectors for scalar quantities
         self._tmp_u1 = self.derham.Vh['2'].zeros()
-            
+
         self._tmp_b1 = self.derham.Vh['1'].zeros()
         self._tmp_b2 = self.derham.Vh['1'].zeros()
 
     @property
     def propagators(self):
-        return self._propagators  
-    
+        return self._propagators
+
     @property
     def scalar_quantities(self):
-        return self._scalar_quantities      
+        return self._scalar_quantities
 
     def update_scalar_quantities(self):
 
         # perturbed fields
         self._mass_ops.M2n.dot(self._u, out=self._tmp_u1)
-        
-            
+
         self._mass_ops.M1.dot(self._b, out=self._tmp_b1)
-        
+
         en_U = self._u.dot(self._tmp_u1)/2.0
         en_B = self._b.dot(self._tmp_b1)/2.0
         en_p_i = self._p_i.dot(self._ones)/(5.0/3.0 - 1.0)
         en_p_e = self._p_e.dot(self._ones)/(5.0/3.0 - 1.0)
-        
+
         self._scalar_quantities['en_U'][0] = en_U
         self._scalar_quantities['en_B'][0] = en_B
         self._scalar_quantities['en_p_i'][0] = en_p_i
         self._scalar_quantities['en_p_e'][0] = en_p_e
-        
-        self._scalar_quantities['en_tot'][0]  = en_U
+
+        self._scalar_quantities['en_tot'][0] = en_U
         self._scalar_quantities['en_tot'][0] += en_B
         self._scalar_quantities['en_tot'][0] += en_p_i
         self._scalar_quantities['en_tot'][0] += en_p_e
 
         # background fields
         self._mass_ops.M1.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
-        
+
         en_B0 = self._b_eq.dot(self._tmp_b1)/2.0
         en_p0_i = self._p_i_eq.dot(self._ones)/(5.0/3.0 - 1.0)
         en_p0_e = self._p_e_eq.dot(self._ones)/(5.0/3.0 - 1.0)
-        
+
         self._scalar_quantities['en_B_eq'][0] = en_B0
         self._scalar_quantities['en_p_i_eq'][0] = en_p0_i
         self._scalar_quantities['en_p_e_eq'][0] = en_p0_e
-        
+
         # total magnetic field
         self._b_eq.copy(out=self._tmp_b1)
         self._tmp_b1 += self._b
-        
+
         self._mass_ops.M1.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
-        
+
         en_Btot = self._tmp_b1.dot(self._tmp_b2)/2.0
 
         self._scalar_quantities['en_B_tot'][0] = en_Btot
-        
+
 
 # class ColdPlasma(StruphyModel):
 #     r'''Cold plasma model
@@ -529,9 +531,9 @@ class LinearMHDVlasovCC(StruphyModel):
         \end{align}
 
     where :math:`\mathbf{J}_0 = \nabla\times\mathbf{B}_0` and
-    
+
     .. math::
-    
+
         \kappa = 2 \pi \frac{\hat \Omega_{\textnormal{ch}}}{\hat \omega}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{ch}} = \frac{Z_\textnormal{h}e \hat B}{A_\textnormal{h} m_\textnormal{H}}\,.
 
     Parameters
@@ -546,23 +548,24 @@ class LinearMHDVlasovCC(StruphyModel):
     @classmethod
     def bulk_species(cls):
         return 'mhd'
-    
+
     @classmethod
     def timescale(cls):
         return 'alfvén'
-    
+
     def __init__(self, params, comm):
 
         # choose MHD veclocity space
         u_space = params['fluid']['mhd']['mhd_u_space']
-         
-        assert u_space in ['Hdiv', 'H1vec'], f'MHD velocity must be Hdiv or H1vec, but was specified {self._u_space}.'
-        
+
+        assert u_space in ['Hdiv', 'H1vec'], \
+            f'MHD velocity must be Hdiv or H1vec, but was specified {self._u_space}.'
+
         if u_space == 'Hdiv':
             u_name = 'u2'
         else:
             u_name = 'uv'
-            
+
         self._u_space = u_space
 
         # initialize base class
@@ -570,7 +573,7 @@ class LinearMHDVlasovCC(StruphyModel):
                          b2='Hdiv',
                          mhd={'n3': 'L2', u_name: self._u_space, 'p3': 'L2'},
                          energetic_ions='Particles6D')
-            
+
         from struphy.polar.basic import PolarVector
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
@@ -597,27 +600,28 @@ class LinearMHDVlasovCC(StruphyModel):
         solver_params_4 = params['solvers']['solver_4']
 
         # compute coupling parameter kappa
-        units_basic, units_der, units_dimless = self.model_units(params, verbose=False)
-        
-        ee = 1.602176634e-19 # elementary charge (C)
-        mH = 1.67262192369e-27 # proton mass (kg)
-        
+        units_basic, units_der, units_dimless = self.model_units(
+            params, verbose=False)
+
+        ee = 1.602176634e-19  # elementary charge (C)
+        mH = 1.67262192369e-27  # proton mass (kg)
+
         Ab = params['fluid']['mhd']['phys_params']['A']
         Zb = params['fluid']['mhd']['phys_params']['Z']
         Ah = params['kinetic']['energetic_ions']['phys_params']['A']
         Zh = params['kinetic']['energetic_ions']['phys_params']['Z']
-        
+
         omega_ch = (Zh*ee*units_basic['B'])/(Ah*mH)
         kappa = omega_ch*units_basic['t']
-        
+
         if abs(kappa - 1) < 1e-6:
             kappa = 1.
-        
+
         self._coupling_params = {}
         self._coupling_params['Ab'] = Ab
         self._coupling_params['Ah'] = Ah
         self._coupling_params['kappa'] = kappa
-        
+
         # background distribution function used as control variate
         if params['kinetic']['energetic_ions']['markers']['type'] == 'control_variate':
             assert 'background' in params['kinetic']['energetic_ions'], 'no background distribution function for control variate specified'
@@ -727,8 +731,8 @@ class LinearMHDVlasovCC(StruphyModel):
 
     @property
     def propagators(self):
-        return self._propagators  
-    
+        return self._propagators
+
     @property
     def scalar_quantities(self):
         return self._scalar_quantities
@@ -809,11 +813,11 @@ class LinearMHDVlasovPC(StruphyModel):
         \end{aligned}
         \right.
         \end{align}
-        
+
     where 
-    
+
     .. math::
-    
+
         \kappa = 2 \pi \frac{\hat \Omega_{\textnormal{ch}}}{\hat \omega}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{ch}} = \frac{Z_\textnormal{h}e \hat B}{A_\textnormal{h} m_\textnormal{H}}\,.
 
     There is also a version of this model without the :math:`\perp` subscript (can be selected in :code:`parameters.yml`).
@@ -830,23 +834,24 @@ class LinearMHDVlasovPC(StruphyModel):
     @classmethod
     def bulk_species(cls):
         return 'mhd'
-    
+
     @classmethod
     def timescale(cls):
         return 'alfvén'
-    
+
     def __init__(self, params, comm):
 
         # choose MHD veclocity space
         u_space = params['fluid']['mhd']['mhd_u_space']
-         
-        assert u_space in ['Hdiv', 'H1vec'], f'MHD velocity must be Hdiv or H1vec, but was specified {self._u_space}.'
-        
+
+        assert u_space in ['Hdiv', 'H1vec'], \
+            f'MHD velocity must be Hdiv or H1vec, but was specified {self._u_space}.'
+
         if u_space == 'Hdiv':
             u_name = 'u2'
         else:
             u_name = 'uv'
-            
+
         self._u_space = u_space
 
         # initialize base class
@@ -854,7 +859,7 @@ class LinearMHDVlasovPC(StruphyModel):
                          b2='Hdiv',
                          mhd={'n3': 'L2', u_name: self._u_space, 'p3': 'L2'},
                          energetic_ions='Particles6D')
-            
+
         from struphy.polar.basic import PolarVector
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
@@ -881,27 +886,28 @@ class LinearMHDVlasovPC(StruphyModel):
         solver_params_3 = params['solvers']['solver_3']
 
         # compute coupling parameter kappa
-        units_basic, units_der, units_dimless = self.model_units(params, verbose=False)
-        
-        ee = 1.602176634e-19 # elementary charge (C)
-        mH = 1.67262192369e-27 # proton mass (kg)
-        
+        units_basic, units_der, units_dimless = self.model_units(
+            params, verbose=False)
+
+        ee = 1.602176634e-19  # elementary charge (C)
+        mH = 1.67262192369e-27  # proton mass (kg)
+
         Ab = params['fluid']['mhd']['phys_params']['A']
         Zb = params['fluid']['mhd']['phys_params']['Z']
         Ah = params['kinetic']['energetic_ions']['phys_params']['A']
         Zh = params['kinetic']['energetic_ions']['phys_params']['Z']
-        
+
         omega_ch = (Zh*ee*units_basic['B'])/(Ah*mH)
         kappa = omega_ch*units_basic['t']
-        
+
         if abs(kappa - 1) < 1e-6:
             kappa = 1.
-        
+
         self._coupling_params = {}
         self._coupling_params['Ab'] = Ab
         self._coupling_params['Ah'] = Ah
         self._coupling_params['kappa'] = kappa
-        
+
         # background distribution function used as control variate
         if params['kinetic']['energetic_ions']['markers']['type'] == 'control_variate':
             assert 'background' in params['kinetic']['energetic_ions'], 'no background distribution function for control variate specified'
@@ -941,40 +947,40 @@ class LinearMHDVlasovPC(StruphyModel):
 
         # updates u and b
         self._propagators += [propagators_fields.ShearAlfvén(
-            self._u, 
-            self._b, 
-            u_space=self._u_space, 
-          **solver_params_1,)]
-        
+            self._u,
+            self._b,
+            u_space=self._u_space,
+            **solver_params_1,)]
+
         self._propagators += [propagators_coupling.PressureCoupling6D(
             self._e_ions,
-            self._u, 
-            u_space=self._u_space, 
-            use_perp_model=ions_params['use_perp_model'], 
-          **solver_params_2,
-          **self._coupling_params)]
-        
+            self._u,
+            u_space=self._u_space,
+            use_perp_model=ions_params['use_perp_model'],
+            **solver_params_2,
+            **self._coupling_params)]
+
         # updates eta
         self._propagators += [propagators_markers.PushEtaPC(
-            self._e_ions, 
-            u_mhd=self._u, 
-            u_space=self._u_space, 
+            self._e_ions,
+            u_mhd=self._u,
+            u_space=self._u_space,
             bc_type=ions_params['markers']['bc_type'],
             use_perp_model=ions_params['use_perp_model'])]
-        
+
         # updates v
         self._propagators += [propagators_markers.PushVxB(
-            self._e_ions, 
-            algo=ions_params['push_algos']['vxb'], 
-            scale_fac=self._coupling_params['kappa'], 
+            self._e_ions,
+            algo=ions_params['push_algos']['vxb'],
+            scale_fac=self._coupling_params['kappa'],
             b_eq=self._b_eq,
             b_tilde=self._b,
             f0=f0)]
-        
+
         # updates u and p
         self._propagators += [propagators_fields.Magnetosonic(
-            self._n, 
-            self._u, 
+            self._n,
+            self._u,
             self._p,
             u_space=self._u_space,
             b=self._b,
@@ -998,12 +1004,12 @@ class LinearMHDVlasovPC(StruphyModel):
 
     @property
     def propagators(self):
-        return self._propagators  
-    
+        return self._propagators
+
     @property
     def scalar_quantities(self):
         return self._scalar_quantities
-    
+
     def update_scalar_quantities(self):
 
         if self._u_space == 'Hdiv':
@@ -1092,13 +1098,13 @@ class LinearMHDDriftkineticCC(StruphyModel):
         \\
         \mathbf{E}^* &= \color{blue} - \tilde{\mathbf{U}} \times \mathbf{B} \color{black} - \frac{1}{\kappa} \mu \nabla B_\parallel \,.
         \end{align}
-        
+
     Moreover,
-    
+
     .. math::
-    
+
         \kappa = 2 \pi \frac{\hat \Omega_{\textnormal{ch}}}{\hat \omega}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{ch}} = \frac{Z_\textnormal{h}e \hat B}{A_\textnormal{h} m_\textnormal{H}}\,.    
-        
+
     Parameters
     ----------
     params : dict
@@ -1111,31 +1117,32 @@ class LinearMHDDriftkineticCC(StruphyModel):
     @classmethod
     def bulk_species(cls):
         return 'mhd'
-    
+
     @classmethod
     def timescale(cls):
         return 'alfvén'
-    
+
     def __init__(self, params, comm):
 
         # choose MHD veclocity space
         u_space = params['fluid']['mhd']['mhd_u_space']
-         
-        assert u_space in ['Hdiv', 'H1vec'], f'MHD velocity must be Hdiv or H1vec, but was specified {self._u_space}.'
-        
+
+        assert u_space in [
+            'Hdiv', 'H1vec'], f'MHD velocity must be Hdiv or H1vec, but was specified {self._u_space}.'
+
         if u_space == 'Hdiv':
             u_name = 'u2'
         else:
             u_name = 'uv'
-            
+
         self._u_space = u_space
 
         # initialize base class
-        super().__init__(params, comm, 
-                         b2='Hdiv', 
+        super().__init__(params, comm,
+                         b2='Hdiv',
                          mhd={'n3': 'L2', u_name: self._u_space, 'p3': 'L2'},
                          energetic_ions='Particles5D')
-            
+
         from struphy.polar.basic import PolarVector
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
@@ -1163,19 +1170,20 @@ class LinearMHDDriftkineticCC(StruphyModel):
         solver_params_5 = params['solvers']['solver_5']
 
         # compute coupling parameter kappa
-        units_basic, units_der, units_dimless = self.model_units(params, verbose=False)
-        
-        ee = 1.602176634e-19 # elementary charge (C)
-        mH = 1.67262192369e-27 # proton mass (kg)
-        
+        units_basic, units_der, units_dimless = self.model_units(
+            params, verbose=False)
+
+        ee = 1.602176634e-19  # elementary charge (C)
+        mH = 1.67262192369e-27  # proton mass (kg)
+
         Ab = params['fluid']['mhd']['phys_params']['A']
         Zb = params['fluid']['mhd']['phys_params']['Z']
         Ah = params['kinetic']['energetic_ions']['phys_params']['A']
         Zh = params['kinetic']['energetic_ions']['phys_params']['Z']
-        
+
         omega_ch = (Zh*ee*units_basic['B'])/(Ah*mH)
         kappa = omega_ch*units_basic['t']
-        
+
         self._coupling_params = {}
         self._coupling_params['Ab'] = Ab
         self._coupling_params['Ah'] = Ah
@@ -1218,7 +1226,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._b_full1 = self._b_eq.space.zeros()
         self._b_full2 = self._E2T.codomain.zeros()
         self._PBb1 = self._abs_b.space.zeros()
-        self._PBb2 = self._E0T.codomain.zeros()                     
+        self._PBb2 = self._E0T.codomain.zeros()
 
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.
@@ -1248,7 +1256,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             u_space=self._u_space,
             **solver_params_1,
             **self._coupling_params)]
-        
+
         # # updates u and p
         # self._propagators += [propagators_fields.MagnetosonicCurrentCoupling5D(
         #     self._n,
@@ -1260,30 +1268,30 @@ class LinearMHDDriftkineticCC(StruphyModel):
         #     f0=f0,
         #     u_space=self._u_space,
         #     **solver_params_2,
-        #     **self._coupling_params)] 
+        #     **self._coupling_params)]
 
-        # update H       
+        # update H
         self._propagators += [propagators_markers.StepPushDriftKinetic1(
             self._e_ions,
             kappa=kappa,
             b=self._b,
-            b_eq=self._b_eq, 
-            unit_b1=self._unit_b1, 
-            unit_b2=self._unit_b2, 
+            b_eq=self._b_eq,
+            unit_b1=self._unit_b1,
+            unit_b2=self._unit_b2,
             abs_b=self._abs_b,
             integrator=ions_params['push_algos']['integrator'],
             method=ions_params['push_algos']['method'],
             maxiter=ions_params['push_algos']['maxiter'],
             tol=ions_params['push_algos']['tol'])]
-        
+
         # update H and v parallel
         self._propagators += [propagators_markers.StepPushDriftKinetic2(
             self._e_ions,
             kappa=kappa,
             b=self._b,
-            b_eq=self._b_eq, 
-            unit_b1=self._unit_b1, 
-            unit_b2=self._unit_b2, 
+            b_eq=self._b_eq,
+            unit_b1=self._unit_b1,
+            unit_b2=self._unit_b2,
             abs_b=self._abs_b,
             method=ions_params['push_algos']['method'],
             integrator=ions_params['push_algos']['integrator'],
@@ -1293,28 +1301,28 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # update u and v parallel
         self._propagators += [propagators_coupling.CurrentCoupling5DCurrent1(
             self._e_ions,
-            self._u, 
+            self._u,
             b=self._b,
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
-            f0=f0, 
-            u_space=self._u_space, 
-          **solver_params_3,
-          **self._coupling_params)]
-        
+            f0=f0,
+            u_space=self._u_space,
+            **solver_params_3,
+            **self._coupling_params)]
+
         # update u and H
         self._propagators += [propagators_coupling.CurrentCoupling5DCurrent2(
             self._e_ions,
             self._u,
-            b=self._b, 
+            b=self._b,
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
             abs_b=self._abs_b,
-            f0=f0, 
+            f0=f0,
             u_space=self._u_space,
-          **solver_params_4,
-          **self._coupling_params,
+            **solver_params_4,
+            **self._coupling_params,
             integrator='explicit',
             method='rk4')]
 
@@ -1349,40 +1357,48 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
     @property
     def propagators(self):
-        return self._propagators  
-    
+        return self._propagators
+
     @property
     def scalar_quantities(self):
         return self._scalar_quantities
 
     def update_scalar_quantities(self):
-        
+
         if self._u_space == 'Hcurl':
-            self._scalar_quantities['en_U'][0] = self._u.dot(self._mass_ops.M1n.dot(self._u))/2
+            self._scalar_quantities['en_U'][0] = self._u.dot(
+                self._mass_ops.M1n.dot(self._u))/2
 
         elif self._u_space == 'Hdiv':
-            self._scalar_quantities['en_U'][0] = self._u.dot(self._mass_ops.M2n.dot(self._u))/2
+            self._scalar_quantities['en_U'][0] = self._u.dot(
+                self._mass_ops.M2n.dot(self._u))/2
 
         else:
-            self._scalar_quantities['en_U'][0] = self._u.dot(self._mass_ops.Mvn.dot(self._u))/2
-
+            self._scalar_quantities['en_U'][0] = self._u.dot(
+                self._mass_ops.Mvn.dot(self._u))/2
 
         self._scalar_quantities['en_p'][0] = self._p.toarray().sum()/(5/3 - 1)
-        self._scalar_quantities['en_B'][0] = self._b.dot(self._mass_ops.M2.dot(self._b))/2
+        self._scalar_quantities['en_B'][0] = self._b.dot(
+            self._mass_ops.M2.dot(self._b))/2
 
-        self._scalar_quantities['en_p_eq'][0] = self._p_eq.dot(self._ones)/(5/3 - 1)
-        self._scalar_quantities['en_B_eq'][0] = self._b_eq.dot(self._mass_ops.M2.dot(self._b_eq, apply_bc=False))/2
+        self._scalar_quantities['en_p_eq'][0] = self._p_eq.dot(
+            self._ones)/(5/3 - 1)
+        self._scalar_quantities['en_B_eq'][0] = self._b_eq.dot(
+            self._mass_ops.M2.dot(self._b_eq, apply_bc=False))/2
 
         # calculate particle kinetic energy
-        self._en_fv_loc = self._e_ions.markers[~self._e_ions.holes, 5].dot(self._e_ions.markers[~self._e_ions.holes, 3]**2) / (2*self._e_ions.n_mks)
-        self.derham.comm.Reduce(self._en_fv_loc, self._scalar_quantities['en_fv'], op=self._mpi_sum, root=0)
+        self._en_fv_loc = self._e_ions.markers[~self._e_ions.holes, 5].dot(
+            self._e_ions.markers[~self._e_ions.holes, 3]**2) / (2*self._e_ions.n_mks)
+        self.derham.comm.Reduce(
+            self._en_fv_loc, self._scalar_quantities['en_fv'], op=self._mpi_sum, root=0)
 
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         self._b_eq.copy(out=self._b_full1)
         self._b_full1 += self._b
         self._b_full1.update_ghost_regions()
 
-        self._scalar_quantities['en_B_tot'][0] = (self._b_full1).dot(self._mass_ops.M2.dot(self._b_full1, apply_bc=False))/2
+        self._scalar_quantities['en_B_tot'][0] = (self._b_full1).dot(
+            self._mass_ops.M2.dot(self._b_full1, apply_bc=False))/2
 
         # absolute value of parallel magnetic field
         self._prop.basis_ops.PB.dot(self._b_full1, out=self._PBb1)
@@ -1390,8 +1406,10 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._PBb2.update_ghost_regions()
 
         self._e_ions.save_magnetic_energy(self._derham, self._PBb2)
-        self._en_fB_loc = self._e_ions.markers[~self._e_ions.holes, 5].dot(self._e_ions.markers[~self._e_ions.holes, 8])/self._e_ions.n_mks
-        self.derham.comm.Reduce(self._en_fB_loc, self._scalar_quantities['en_fB'], op=self._mpi_sum, root=0)
+        self._en_fB_loc = self._e_ions.markers[~self._e_ions.holes, 5].dot(
+            self._e_ions.markers[~self._e_ions.holes, 8])/self._e_ions.n_mks
+        self.derham.comm.Reduce(
+            self._en_fB_loc, self._scalar_quantities['en_fB'], op=self._mpi_sum, root=0)
 
         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_U'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_p'][0]
@@ -1507,7 +1525,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
 # Kinetic models
 #############################
 class LinearVlasovMaxwell(StruphyModel):
-    r'''Linearized Vlasov Maxwell equations with Maxwellian background.
+    r'''Linearized Vlasov Maxwell equations with a Maxwellian background distribution function :math:`f_0`.
 
     :ref:`normalization`:
 
@@ -1523,7 +1541,7 @@ class LinearVlasovMaxwell(StruphyModel):
 
         \begin{align}
             &\partial_t h + \mathbf{v} \cdot \, \nabla h + \kappa\left( \mathbf{E}_0 + \mathbf{v} \times \mathbf{B}_0 \right)
-            \cdot \frac{\partial h}{\partial \mathbf{v}} = \sqrt{f_0} \, \mathbf{E} \cdot \left( \mathbb{1}_{\text{th}}^2 (\mathbf{v} - \mathbf{u}) \right) \,,
+            \cdot \frac{\partial h}{\partial \mathbf{v}} = \kappa \sqrt{f_0} \, \mathbf{E} \cdot \left( \mathbb{1}_{\text{th}}^2 (\mathbf{v} - \mathbf{u}) \right) \,,
             \\[2mm]
             &\frac{\partial \mathbf{E}}{\partial t} = \nabla \times \mathbf{B} -
             \alpha^2 \kappa \int_{\mathbb{R}^3} \sqrt{f_0} \, h \, \left( \mathbb{1}_{\text{th}}^2 (\mathbf{v} - \mathbf{u}) \right) \, \text{d}^3 \mathbf{v} \,,
@@ -1532,11 +1550,19 @@ class LinearVlasovMaxwell(StruphyModel):
         \end{align}
 
     where
-    
+
     .. math::
-    
+
         \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}\,,\qquad \kappa = 2\pi \frac{\Omega_\textnormal{c}}{\hat \omega} \,,\qquad \textnormal{with} \qquad \hat\Omega_\textnormal{p} = \sqrt{\frac{\hat n (Ze)^2}{\epsilon_0 A m_\textnormal{H}}} \,,\qquad \hat \Omega_{\textnormal{c}} = \frac{Ze \hat B}{A m_\textnormal{H}}\,.
-    
+
+    At initial time the Poisson equation is solved once to satisfy the Gauss law
+
+    .. math::
+
+        \begin{align}
+            \nabla \cdot \mathbf{E} & = \alpha^2 \kappa \int_{\mathbb{R}^3} \sqrt{f_0} \, h \, \text{d}^3 \mathbf{v}
+        \end{align}
+
     Moreover, :math:`f_0` is a Maxwellian background distribution function with constant velocity shift :math:`\mathbf{u}`
     and thermal velocity matrix :math:`\mathbb{1}_{\text{th}} = \text{diag} \left( \frac{1}{v_{\text{th},1}^2}, \frac{1}{v_{\text{th},2}^2}, \frac{1}{v_{\text{th},3}^2} \right)`
     and :math:`h = \frac{\delta f}{\sqrt{f_0}}`.
@@ -1560,7 +1586,7 @@ class LinearVlasovMaxwell(StruphyModel):
 
     def __init__(self, params, comm):
 
-        super().__init__(params, comm, 
+        super().__init__(params, comm,
                          e_field='Hcurl', b_field='Hdiv',
                          electrons='Particles6D')
 
@@ -1572,6 +1598,10 @@ class LinearVlasovMaxwell(StruphyModel):
         # pointers to em-field variables
         self._e = self.em_fields['e_field']['obj'].vector
         self._b = self.em_fields['b_field']['obj'].vector
+
+        # Get rank and size
+        self._rank = comm.Get_rank()
+        self._size = comm.Get_size()
 
         # pointer to electrons
         self._electrons = self.kinetic['electrons']['obj']
@@ -1586,7 +1616,8 @@ class LinearVlasovMaxwell(StruphyModel):
             **self._maxwellian_params)
 
         # Get coupling strength
-        self.alpha = 1. # TODO
+        self.alpha = self.units_dimless['alpha']
+        self.kappa = self.units_dimless['kappa']
 
         # Get Poisson solver params
         self._poisson_params = params['solvers']['solver_poisson']
@@ -1610,44 +1641,61 @@ class LinearVlasovMaxwell(StruphyModel):
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
 
-        # Only add StepStaticEfield if efield is non-zero, otherwise it is more expensive
+        # Only add StepStaticEfield if e-field is non-zero, otherwise it is more expensive
         if np.all(self._e_background[0]._data < 1e-14) and np.all(self._e_background[1]._data < 1e-14) and np.all(self._e_background[2]._data < 1e-14):
             self._propagators += [propagators_markers.PushEta(
                 self._electrons,
                 algo=electron_params['push_algos']['eta'],
                 bc_type=electron_params['markers']['bc_type'],
                 f0=None)]  # no conventional weights update here, thus f0=None
+            if self._rank == 0:
+                print("Added Step PushEta\n")
         else:
             self._propagators += [propagators_markers.StepStaticEfield(
                 self._electrons,
                 e_eq=self._e_background)]
+            if self._rank == 0:
+                print("Added Step StaticEfield\n")
 
-        self._propagators += [propagators_markers.PushVxB(
-            self._electrons,
-            algo=electron_params['push_algos']['vxb'],
-            scale_fac=1.,
-            b_eq=self._b_background,
-            b_tilde=None,
-            f0=None)]  # no conventional weights update here, thus f0=None
+        # Only add VxB Step if b-field is non-zero, otherwise it is more expensive
+        b_bckgr_params = params['mhd_equilibrium'][params['mhd_equilibrium']['type']]
+        if (b_bckgr_params['B0x'] != 0.) or (b_bckgr_params['B0y'] != 0.) or (b_bckgr_params['B0z'] != 0.):
+            self._propagators += [propagators_markers.PushVxB(
+                self._electrons,
+                algo=electron_params['push_algos']['vxb'],
+                scale_fac=1.,
+                b_eq=self._b_background,
+                b_tilde=None,
+                f0=None)]  # no conventional weights update here, thus f0=None
+            if self._rank == 0:
+                print("Added Step VxB\n")
 
         self._propagators += [propagators_coupling.EfieldWeights(
             self._e,
             self._electrons,
             alpha=self.alpha,
+            kappa=self.kappa,
             f0=self._f0,
             **params['solvers']['solver_ew']
         )]
+        if self._rank == 0:
+            print("\nAdded Step EfieldWeights\n")
 
         self._propagators += [propagators_fields.Maxwell(
             self._e,
             self._b,
             **params['solvers']['solver_eb'])]
+        if self._rank == 0:
+            print("\nAdded Step Maxwell\n")
 
-        # Scalar variables to be saved during simulation
+        # Scalar variables to be saved during the simulation
         self._scalar_quantities = {}
         self._scalar_quantities['en_e'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_b'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_w'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_e1'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_e2'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_b3'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
 
         # MPI operations needed for scalar variables
@@ -1656,7 +1704,7 @@ class LinearVlasovMaxwell(StruphyModel):
 
     @property
     def propagators(self):
-        return self._propagators  
+        return self._propagators
 
     @property
     def scalar_quantities(self):
@@ -1670,8 +1718,9 @@ class LinearVlasovMaxwell(StruphyModel):
         super().initialize_from_params()
 
         # Correct initialization weights by dividing by N*sqrt(f_0)
-        self._electrons.markers[~self._electrons.holes, 6] /= (self._electrons.n_mks *
-                                                               np.sqrt(self._f0(*self._electrons.markers_wo_holes[:, :6].T)))
+        self._electrons.markers[~self._electrons.holes, 6] /= \
+            (self._electrons.n_mks *
+             np.sqrt(self._f0(*self._electrons.markers_wo_holes[:, :6].T)))
 
         # evaluate f0
         f0_values = self._f0(self._electrons.markers[:, 0],
@@ -1682,18 +1731,28 @@ class LinearVlasovMaxwell(StruphyModel):
                              self._electrons.markers[:, 5])
 
         # Accumulate charge density
-        charge_accum = AccumulatorVector(self.derham, self.domain, "H1", "linear_vlasov_maxwell_poisson")
-        charge_accum.accumulate(self._electrons, f0_values)
+        charge_accum = AccumulatorVector(self.derham,
+                                         self.domain,
+                                         "H1",
+                                         "linear_vlasov_maxwell_poisson")
+        charge_accum.accumulate(
+            self._electrons, f0_values, self.alpha, self.kappa)
 
-        # compute ion charge to have charge neutral rhs of Poisson solver
-        charge = np.zeros(1)
-        self.derham.comm.Allreduce(np.sum(charge_accum.vectors[0].toarray()), charge, op=self._mpi_sum)
+        # # compute ion charge to have charge neutral rhs of Poisson solver
+        # charge = np.zeros(1)
+        # self.derham.comm.Allreduce(np.sum(charge_accum.vectors[0].toarray()),
+        #                            charge, op=self._mpi_sum)
 
-        # Subtract the total charge local to each process
-        charge_accum._vectors[0][:] -= np.sum(charge_accum.vectors[0].toarray())
+        # Subtract the total charge
+        charge_accum._vectors[0][:, :, :] -= \
+            np.sum(charge_accum.vectors[0].toarray()) / \
+            charge_accum.vectors[0].toarray().size
+        # charge / self._size
 
         # Then solve Poisson equation
-        poisson_solver = solvers.PoissonSolver(rho=charge_accum.vectors[0], **self._poisson_params)
+        poisson_solver = solvers.PoissonSolver(
+            rho=charge_accum.vectors[0],
+            **self._poisson_params)
         poisson_solver(0.)
         self.derham.grad.dot(-poisson_solver._phi, out=self._e)
 
@@ -1703,9 +1762,21 @@ class LinearVlasovMaxwell(StruphyModel):
         self._scalar_quantities['en_e'][0] = self._e.dot(
             self._mass_ops.M1.dot(self._e)) / 2.
 
+        # 0.5 * |e_1|^2
+        self._scalar_quantities['en_e1'][0] = self._e._blocks[0].dot(
+            self._e._blocks[0]) / 2.
+
+        # 0.5 * |e_2|^2
+        self._scalar_quantities['en_e2'][0] = self._e._blocks[1].dot(
+            self._e._blocks[1]) / 2.
+
         # b^T * M_2 * b
         self._scalar_quantities['en_b'][0] = self._b.dot(
             self._mass_ops.M2.dot(self._b)) / 2.
+
+        # 0.5 * |b_3|^2
+        self._scalar_quantities['en_b3'][0] = self._b._blocks[2].dot(
+            self._b._blocks[2]) / 2.
 
         # alpha^2 * v_th_1^2 * v_th_2^2 * v_th_3^2 * N/2 * sum_p s_0 * w_p^2
         self._scalar_quantities['en_w'][0] = \
@@ -1713,8 +1784,8 @@ class LinearVlasovMaxwell(StruphyModel):
             self._maxwellian_params['vth1']**2 * \
             self._maxwellian_params['vth2']**2 * \
             self._maxwellian_params['vth3']**2 * \
-            np.dot(self._electrons.markers_wo_holes[:, 6]**2,
-                   self._electrons.markers_wo_holes[:, 7])
+            np.dot(self._electrons.markers_wo_holes[:, 6]**2,  # w_p^2
+                   self._electrons.markers_wo_holes[:, 7])  # s_{0,p}
 
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._scalar_quantities['en_w'], op=self._mpi_sum)
@@ -1758,15 +1829,15 @@ class Maxwell(StruphyModel):
     @classmethod
     def bulk_species(cls):
         return None
-    
+
     @classmethod
     def timescale(cls):
         return 'light'
-    
+
     def __init__(self, params, comm):
 
         super().__init__(params, comm, e1='Hcurl', b2='Hdiv')
-            
+
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_fields
 
@@ -1794,15 +1865,15 @@ class Maxwell(StruphyModel):
         self._scalar_quantities['en_E'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
-        
+
         # temporary vectors for scalar quantities
         self._tmp_e = self.derham.Vh['1'].zeros()
         self._tmp_b = self.derham.Vh['2'].zeros()
 
     @property
     def propagators(self):
-        return self._propagators  
-    
+        return self._propagators
+
     @property
     def scalar_quantities(self):
         return self._scalar_quantities
@@ -1810,13 +1881,13 @@ class Maxwell(StruphyModel):
     def update_scalar_quantities(self):
         self._mass_ops.M1.dot(self._e, out=self._tmp_e)
         self._mass_ops.M2.dot(self._b, out=self._tmp_b)
-        
+
         en_E = self._e.dot(self._tmp_e)/2
         en_B = self._b.dot(self._tmp_b)/2
-        
+
         self._scalar_quantities['en_E'][0] = en_E
         self._scalar_quantities['en_B'][0] = en_B
-        
+
         self._scalar_quantities['en_tot'][0] = en_E + en_B
 
 
@@ -1828,7 +1899,7 @@ class Vlasov(StruphyModel):
     .. math::
 
         \hat \omega = \hat \Omega_\textnormal{c} := \frac{Ze \hat B}{A m_\textnormal{H}}\,,\qquad \frac{\hat \omega}{\hat k} = \hat v\,,
-        
+
     Implemented equations:
 
     .. math::
@@ -1847,15 +1918,15 @@ class Vlasov(StruphyModel):
     @classmethod
     def bulk_species(cls):
         return 'ions'
-    
+
     @classmethod
     def timescale(cls):
         return 'cyclotron'
-    
+
     def __init__(self, params, comm):
 
         super().__init__(params, comm, ions='Particles6D')
-            
+
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_markers
 
@@ -1904,8 +1975,8 @@ class Vlasov(StruphyModel):
 
     @property
     def propagators(self):
-        return self._propagators  
-    
+        return self._propagators
+
     @property
     def scalar_quantities(self):
         return self._scalar_quantities
@@ -1922,7 +1993,7 @@ class DriftKinetic(StruphyModel):
     .. math::
 
         \frac{\hat B}{\sqrt{A_\textnormal{b} m_\textnormal{H} \hat n \mu_0}} =: \hat v_\textnormal{A} = \frac{\hat \omega}{\hat k}
-    
+
     Implemented equations:
 
     .. math::
@@ -1936,9 +2007,9 @@ class DriftKinetic(StruphyModel):
         \mathbf{E}^* = - \frac{\mu}{\kappa} \nabla |B_0| \,,  \qquad \mathbf{B}^* = \mathbf{B}_0 + \frac{1}{\kappa} v_\parallel \nabla \times \mathbf{b}_0 \,,\qquad B^*_\parallel = \mathbf B^* \cdot \mathbf b_0  \,.
 
     Moreover, 
-    
+
     .. math::
-    
+
         \kappa = 2 \pi \frac{\hat \Omega_{\textnormal{c}}}{\hat \omega}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{c}} = \frac{Ze \hat B}{A m_\textnormal{H}}\,.
 
     Parameters
@@ -1953,15 +2024,15 @@ class DriftKinetic(StruphyModel):
     @classmethod
     def bulk_species(cls):
         return 'ions'
-    
+
     @classmethod
     def timescale(cls):
         return 'alfvén'
-    
+
     def __init__(self, params, comm):
 
         super().__init__(params, comm, ions='Particles5D')
-            
+
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_markers
         from mpi4py.MPI import SUM, IN_PLACE
@@ -1987,18 +2058,18 @@ class DriftKinetic(StruphyModel):
 
         self._E0T = self.derham.E['0'].transpose()
         self._EvT = self.derham.E['v'].transpose()
-        
-        ee = 1.602176634e-19 # elementary charge (C)
-        mH = 1.67262192369e-27 # proton mass (kg)
-        
+
+        ee = 1.602176634e-19  # elementary charge (C)
+        mH = 1.67262192369e-27  # proton mass (kg)
+
         Ah = params['kinetic']['ions']['phys_params']['A']
         Zh = params['kinetic']['ions']['phys_params']['Z']
-        
+
         omega_ch = (Zh*ee*self.units_basic['B'])/(Ah*mH)
         kappa = omega_ch*self.units_basic['t']
-        
+
         if abs(kappa - 1) < 1e-6:
-            kappa = 1.              
+            kappa = 1.
 
         # set propagators base class attributes
         Propagator.derham = self.derham
@@ -2009,9 +2080,9 @@ class DriftKinetic(StruphyModel):
         self._propagators += [propagators_markers.StepPushGuidingCenter1(
             self._ions,
             kappa=kappa,
-            b_eq=self._b_eq, 
-            unit_b1=self._unit_b1, 
-            unit_b2=self._unit_b2, 
+            b_eq=self._b_eq,
+            unit_b1=self._unit_b1,
+            unit_b2=self._unit_b2,
             abs_b=self._abs_b,
             integrator=ions_params['push_algos']['integrator'],
             method=ions_params['push_algos']['method'],
@@ -2020,9 +2091,9 @@ class DriftKinetic(StruphyModel):
         self._propagators += [propagators_markers.StepPushGuidingCenter2(
             self._ions,
             kappa=kappa,
-            b_eq=self._b_eq, 
-            unit_b1=self._unit_b1, 
-            unit_b2=self._unit_b2, 
+            b_eq=self._b_eq,
+            unit_b1=self._unit_b1,
+            unit_b2=self._unit_b2,
             abs_b=self._abs_b,
             method=ions_params['push_algos']['method'],
             integrator=ions_params['push_algos']['integrator'],
@@ -2042,22 +2113,27 @@ class DriftKinetic(StruphyModel):
 
     @property
     def propagators(self):
-        return self._propagators  
-    
+        return self._propagators
+
     @property
     def scalar_quantities(self):
         return self._scalar_quantities
 
     def update_scalar_quantities(self):
 
-        self._en_fv_loc = self._ions.markers[~self._ions.holes, 5].dot(self._ions.markers[~self._ions.holes, 3]**2) / (2*self._ions.n_mks)
-        self.derham.comm.Reduce(self._en_fv_loc, self._scalar_quantities['en_fv'], op=self._mpi_sum, root=0)
+        self._en_fv_loc = self._ions.markers[~self._ions.holes, 5].dot(
+            self._ions.markers[~self._ions.holes, 3]**2) / (2*self._ions.n_mks)
+        self.derham.comm.Reduce(
+            self._en_fv_loc, self._scalar_quantities['en_fv'], op=self._mpi_sum, root=0)
 
         # calculate particle magnetic energy
-        self._ions.save_magnetic_energy(self._derham, self._E0T.dot(self.derham.P['0'](self.mhd_equil.absB0)))
+        self._ions.save_magnetic_energy(self._derham, self._E0T.dot(
+            self.derham.P['0'](self.mhd_equil.absB0)))
 
-        self._en_fB_loc = self._ions.markers[~self._ions.holes, 5].dot(self._ions.markers[~self._ions.holes, 8]) / self._ions.n_mks
-        self.derham.comm.Reduce(self._en_fB_loc, self._scalar_quantities['en_fB'], op=self._mpi_sum, root=0)
+        self._en_fB_loc = self._ions.markers[~self._ions.holes, 5].dot(
+            self._ions.markers[~self._ions.holes, 8]) / self._ions.n_mks
+        self.derham.comm.Reduce(
+            self._en_fB_loc, self._scalar_quantities['en_fB'], op=self._mpi_sum, root=0)
 
         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_fv'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fB'][0]
@@ -2099,11 +2175,11 @@ class VlasovMasslessElectrons(StruphyModel):
     @classmethod
     def bulk_species(cls):
         return 'ions'
-    
+
     @classmethod
     def timescale(cls):
         return 'cyclotron'
-    
+
     def __init__(self, params, comm):
 
         from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
@@ -2122,15 +2198,17 @@ class VlasovMasslessElectrons(StruphyModel):
         ions_params = self.kinetic['ions']['params']
 
         # extract necessary parameters
-        shape_params = params['kinetic']['ions']['ionsshape'] # shape function info, degree and support size
-        self.thermal = params['kinetic']['electrons']['temperature'] # electron temperature 
+        # shape function info, degree and support size
+        shape_params = params['kinetic']['ions']['ionsshape']
+        # electron temperature
+        self.thermal = params['kinetic']['electrons']['temperature']
 
         # extract necessary parameters
         solver_params_1 = params['solvers']['solver_1']
-        
+
         # Project background magnetic field
-        self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1, 
-                                         self.mhd_equil.b2_2, 
+        self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
+                                         self.mhd_equil.b2_2,
                                          self.mhd_equil.b2_3])
 
         # set propagators base class attributes
@@ -2138,43 +2216,42 @@ class VlasovMasslessElectrons(StruphyModel):
         Propagator.domain = self.domain
         Propagator.mass_ops = self.mass_ops
 
-        self._accum_density = Accumulator(self.derham, 
-                                          self.domain, 
-                                          'H1', 
-                                          'hybrid_fA_density', 
+        self._accum_density = Accumulator(self.derham,
+                                          self.domain,
+                                          'H1',
+                                          'hybrid_fA_density',
                                           add_vector=False)
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
 
-        
         self._propagators += [propagators_markers.StepHybridXPSymplectic(
-                              self._ions, 
-                              a = self._a, 
-                              particle_bc = ions_params['markers']['bc_type'], 
-                              quad_number = params['grid']['nq_el'], 
-                              shape_degree = np.array(shape_params['degree']), 
-                              shape_size = np.array(shape_params['size']), 
-                              electron_temperature = self.thermal, 
-                              accumulate_density = self._accum_density)]
+                              self._ions,
+                              a=self._a,
+                              particle_bc=ions_params['markers']['bc_type'],
+                              quad_number=params['grid']['nq_el'],
+                              shape_degree=np.array(shape_params['degree']),
+                              shape_size=np.array(shape_params['size']),
+                              electron_temperature=self.thermal,
+                              accumulate_density=self._accum_density)]
 
         self._propagators += [propagators_markers.StepPushpxBHybrid(
-                              self._ions, 
-                              method = ions_params['push_algos']['pxb'], 
-                              a = self._a, 
-                              b_eq = self._b_eq)]
-        
+                              self._ions,
+                              method=ions_params['push_algos']['pxb'],
+                              a=self._a,
+                              b_eq=self._b_eq)]
+
         self._propagators += [propagators_fields.FaradayExtended(
-                              self._a, 
-                              a_space = 'Hcurl', 
-                              beq = self._b_eq, 
-                              particles = self._ions, 
-                              quad_number = params['grid']['nq_el'], 
-                              shape_degree = np.array(shape_params['degree']), 
-                              shape_size = np.array(shape_params['size']), 
-                              solver_params = solver_params_1, 
-                              accumulate_density = self._accum_density)]
-        
+                              self._a,
+                              a_space='Hcurl',
+                              beq=self._b_eq,
+                              particles=self._ions,
+                              quad_number=params['grid']['nq_el'],
+                              shape_degree=np.array(shape_params['degree']),
+                              shape_size=np.array(shape_params['size']),
+                              solver_params=solver_params_1,
+                              accumulate_density=self._accum_density)]
+
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
@@ -2189,8 +2266,8 @@ class VlasovMasslessElectrons(StruphyModel):
 
     @property
     def propagators(self):
-        return self._propagators  
-    
+        return self._propagators
+
     @property
     def scalar_quantities(self):
         return self._scalar_quantities
@@ -2205,13 +2282,17 @@ class VlasovMasslessElectrons(StruphyModel):
         self._scalar_quantities['en_B'][0] = (self._curla + self._b_eq).dot(
             self._mass_ops.M2.dot(self._curla + self._b_eq))/2
 
-        self._en_f_loc = pic_util.get_kinetic_energy_particles(self._a, self._derham, self._domain, self._ions)/self._ions.n_mks
+        self._en_f_loc = pic_util.get_kinetic_energy_particles(
+            self._a, self._derham, self._domain, self._ions)/self._ions.n_mks
 
-        self.derham.comm.Reduce(self._en_f_loc, self._scalar_quantities['en_f'], op=self._mpi_sum, root=0)
+        self.derham.comm.Reduce(
+            self._en_f_loc, self._scalar_quantities['en_f'], op=self._mpi_sum, root=0)
 
-        self._en_thermal_loc = pic_util.get_electron_thermal_energy(self._accum_density, self._derham, self._domain, int(self._derham.domain_array[int(rank), 2]), int(self._derham.domain_array[int(rank), 5]), int(self._derham.domain_array[int(rank), 8]), int(self._derham.quad_order[0]+1), int(self._derham.quad_order[1]+1), int(self._derham.quad_order[2]+1) )
+        self._en_thermal_loc = pic_util.get_electron_thermal_energy(self._accum_density, self._derham, self._domain, int(self._derham.domain_array[int(rank), 2]), int(
+            self._derham.domain_array[int(rank), 5]), int(self._derham.domain_array[int(rank), 8]), int(self._derham.quad_order[0]+1), int(self._derham.quad_order[1]+1), int(self._derham.quad_order[2]+1))
 
-        self.derham.comm.Reduce(self.thermal*self._en_thermal_loc, self._scalar_quantities['en_thermal'], op=self._mpi_sum, root=0)
+        self.derham.comm.Reduce(self.thermal*self._en_thermal_loc,
+                                self._scalar_quantities['en_thermal'], op=self._mpi_sum, root=0)
 
         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_B'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_f'][0]
