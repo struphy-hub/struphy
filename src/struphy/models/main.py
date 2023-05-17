@@ -29,7 +29,6 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
 
     import numpy as np
     import time
-    import yaml
 
     from mpi4py import MPI
 
@@ -153,7 +152,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
                     # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
                     val['obj'].extract_coeffs(update_ghost_regions=False)
 
-            for species, val in model.fluid.items():
+            for _, val in model.fluid.items():
                 for variable, subval in val.items():
                     if 'params' not in variable:
                         # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!

@@ -1,21 +1,25 @@
 def main(path, step=1, celldivide=1):
     """
     Post-processing of finished Struphy runs.
-    
+
     Parameters
     ----------
     paths : str
         Absolute path of simulation output folder to post-process.
-        
+
     step : int, optional
         Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
-        
+
     celldivide : int, optional
         Grid refinement in evaluation of FEM fields. E.g. celldivide=2 evaluates two points per grid cell. 
     """
-    
-    import os, shutil, h5py, pickle, yaml
-    
+
+    import os
+    import shutil
+    import h5py
+    import pickle
+    import yaml
+
     import numpy as np
 
     import struphy.post_processing.post_processing_tools as pproc
@@ -35,7 +39,8 @@ def main(path, step=1, celldivide=1):
     file = h5py.File(os.path.join(path, 'data_proc0.hdf5'), 'r')
 
     # save time grid at which post-processing data is created
-    np.save(os.path.join(path_pproc, 't_grid.npy'), file['time/value'][::step].copy())
+    np.save(os.path.join(path_pproc, 't_grid.npy'),
+            file['time/value'][::step].copy())
 
     if 'feec' in file.keys():
         exist_fields = True
@@ -68,14 +73,14 @@ def main(path, step=1, celldivide=1):
     # field post-processing
     if exist_fields:
 
-        fields, space_ids, model = pproc.create_femfields(path, step)
+        fields, space_ids, _ = pproc.create_femfields(path, step)
 
         point_data_log, point_data_phy, grids_log, grids_phy = pproc.eval_femfields(
             path, fields, space_ids, [celldivide, celldivide, celldivide])
 
         # directory for field data
         path_fields = os.path.join(path_pproc, 'fields_data')
-        
+
         try:
             os.mkdir(path_fields)
         except:
@@ -110,7 +115,7 @@ def main(path, step=1, celldivide=1):
 
         # directory for kinetic data
         path_kinetics = os.path.join(path_pproc, 'kinetic_data')
-        
+
         try:
             os.mkdir(path_kinetics)
         except:
@@ -122,7 +127,7 @@ def main(path, step=1, celldivide=1):
 
         # directory for each species
         path_kinetics_species = os.path.join(path_kinetics, species)
-        
+
         try:
             os.mkdir(path_kinetics_species)
         except:
@@ -130,8 +135,8 @@ def main(path, step=1, celldivide=1):
             os.mkdir(path_kinetics_species)
 
         # markers
-        if exist_kinetic[0][n]:
-            pproc.post_process_markers(path, path_kinetics_species, species, step)
+        # if exist_kinetic[0][n]:
+        #     pproc.post_process_markers(path, path_kinetics_species, species, step)
 
         # distribution function
         if exist_kinetic[1][n]:
@@ -144,18 +149,20 @@ def main(path, step=1, celldivide=1):
             except:
                 marker_type = 'full_f'
 
-            pproc.post_process_f(path, path_kinetics_species, species, step, marker_type)
+            pproc.post_process_f(path, path_kinetics_species,
+                                 species, step, marker_type)
 
 
 if __name__ == '__main__':
-    
+
     import argparse
     import struphy
 
     libpath = struphy.__path__[0]
-    
-    parser = argparse.ArgumentParser(description='Post-process data of finished Struphy runs to prepare for diagnostics.')
-    
+
+    parser = argparse.ArgumentParser(
+        description='Post-process data of finished Struphy runs to prepare for diagnostics.')
+
     # paths of simulation folders
     parser.add_argument('dir',
                         type=str,
@@ -167,15 +174,15 @@ if __name__ == '__main__':
                         metavar='N',
                         help='do post-processing every N-th time step (default=1)',
                         default=1)
-    
+
     parser.add_argument('--celldivide',
                         type=int,
                         metavar='N',
                         help='divide each grid cell by N for field evaluation (default=1)',
                         default=1)
-    
+
     args = parser.parse_args()
-    
+
     main(args.dir,
          args.step,
          args.celldivide)

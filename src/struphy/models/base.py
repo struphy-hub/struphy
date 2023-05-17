@@ -286,15 +286,15 @@ class StruphyModel(metaclass=ABCMeta):
             for val in self.kinetic.values():
                 val['obj'].mpi_sort_markers(do_test=True)
 
-                if val['params']['markers']['type'] == 'full_f':
+                typ = val['params']['markers']['type']
+                if typ == 'full_f':
                     val['obj'].initialize_weights(val['params']['init'])
-                elif val['params']['markers']['type'] == 'delta_f':
+                elif typ == 'delta_f':
                     val['obj'].initialize_weights(val['params']['init'])
-                elif val['params']['markers']['type'] == 'control_variate':
+                elif typ == 'control_variate':
                     val['obj'].initialize_weights(
                         val['params']['init'], val['params']['background'])
                 else:
-                    typ = val['params']['markers']['type']
                     raise NotImplementedError(
                         f'Type {typ} for distribution function is not known!')
 
@@ -535,7 +535,7 @@ class StruphyModel(metaclass=ABCMeta):
 
             # compute units
             units_basic, units_der, units_dimless = derive_units(
-                Z_bulk, A_bulk, params['units']['x'], params['units']['x'], params['units']['n'], cls.timescale())
+                Z_bulk, A_bulk, params['units']['x'], params['units']['B'], params['units']['n'], cls.timescale())
 
             if verbose:
                 print(f'Unit of time:'.ljust(25),
@@ -557,48 +557,10 @@ class StruphyModel(metaclass=ABCMeta):
                 print('\nRelevant dimensionless quantities:')
                 print(f'alpha:'.ljust(25), '{:7.3f}'.format(
                     units_dimless['alpha']))
+                print(f'kappa:'.ljust(25), '{:7.3f}'.format(
+                    units_dimless['kappa']))
 
             return units_basic, units_der, units_dimless
-
-    # def print_species_params(self):
-    #    '''Compute and print plasma parameters for each species of the model.
-    #    Computed are min, max and volume average of
-    #
-    #        - pressure
-    #        - temperature
-    #        - thermal speed
-    #        - Alfven speed
-    #        - plasma frequency
-    #        - cyclotron frequency
-    #        - transit frequency
-    #        - Alfven frequency
-    #    '''
-#
-    #    species_params = {}
-#
-    #    # plasma size
-    #    h = 1/20
-    #    eta1 = np.linspace(h/2., 1.-h/2., 20)
-    #    eta2 = np.linspace(h/2., 1.-h/2., 20)
-    #    eta3 = np.linspace(h/2., 1.-h/2., 20)
-    #
-    #    plasma_volume = np.mean(
-    #        np.abs(self.domain.jacobian_det(eta1, eta2, eta3)))
-    #
-    #    transit_length = plasma_volume**(1/3)
-    #
-    #    species_params['plasma volume'] = plasma_volume
-    #    species_params['transit length'] = transit_length
-#
-    #    # physics constants
-    #    e = 1.602176634e-19  # elementary charge (C)
-    #    m_p = 1.67262192369e-27  # proton mass (kg)
-    #    mu0 = 1.25663706212e-6  # magnetic constant (N*A^-2)
-    #    eps0 = 8.8541878128e-12  # vacuum permittivity (F*m^-1)
-    #    kB = 1.380649e-23  # Boltzmann constant (J*K^-1)
-    #
-    #    # species parameters
-    #    # TODO
 
     ###################
     # Private methods :

@@ -17,7 +17,6 @@ from struphy.psydac_api.mass import WeightedMassOperator
 import struphy.linear_algebra.iterative_solvers as it_solvers
 from psydac.linalg.iterative_solvers import pcg
 
-from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 import struphy.psydac_api.utilities as util
@@ -1126,8 +1125,8 @@ class FaradayExtended(Propagator):
             self._accum_potential._vectors[0] - Compose(self.derham.curl.transpose(), self._M2).dot(self._beq)))
         self._rhs = self._M1.dot(self._a)
 
-        for loop in range(10):
-            #print('+++++=====++++++', self._accum_density._operators[0].matrix._data)
+        for _ in range(10):
+            # print('+++++=====++++++', self._accum_density._operators[0].matrix._data)
             # set mid-value used in the fixed iteration
             curla_mid = self.derham.curl.dot(
                 0.5*(self._a_old + self._a)) + self._beq
@@ -1136,10 +1135,10 @@ class FaradayExtended(Propagator):
             # remember to check ghost region of curla_mid
             util.create_weight_weightedmatrix_hybrid(
                 curla_mid, self._weight_pre, self.derham, self._accum_density, self.domain)
-            #self._weight = [[None, self._weight_pre[2], -self._weight_pre[1]], [None, None, self._weight_pre[0]], [None, None, None]]
+            # self._weight = [[None, self._weight_pre[2], -self._weight_pre[1]], [None, None, self._weight_pre[0]], [None, None, None]]
             self._weight = [[0.0*self._weight_pre[0], 0.0*self._weight_pre[2], 0.0*self._weight_pre[1]], [0.0*self._weight_pre[2], 0.0 *
                                                                                                           self._weight_pre[1], 0.0*self._weight_pre[0]], [0.0*self._weight_pre[1], 0.0*self._weight_pre[0], 0.0*self._weight_pre[2]]]
-            #self._weight = [[self._weight_pre[0], self._weight_pre[2], self._weight_pre[1]], [self._weight_pre[2], self._weight_pre[1], self._weight_pre[0]], [self._weight_pre[1], self._weight_pre[0], self._weight_pre[2]]]
+            # self._weight = [[self._weight_pre[0], self._weight_pre[2], self._weight_pre[1]], [self._weight_pre[2], self._weight_pre[1], self._weight_pre[0]], [self._weight_pre[1], self._weight_pre[0], self._weight_pre[2]]]
             HybridM1 = self.mass_ops.assemble_weighted_mass(
                 self._weight, 'Hcurl', 'Hcurl')
 

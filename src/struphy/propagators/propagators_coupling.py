@@ -13,7 +13,6 @@ from struphy.kinetic_background.analytical import Maxwellian, Maxwellian6DUnifor
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
 from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
-from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
 from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
 from struphy.psydac_api.linear_operators import InverseLinearOperator as Inverse
 from struphy.psydac_api import preconditioner
@@ -79,6 +78,7 @@ class EfieldWeights(Propagator):
 
         # parameters
         params_default = {'alpha': 1e2,
+                          'kappa': 1.,
                           'f0': Maxwellian6DUniform(),
                           'type': 'PConjugateGradient',
                           'pc': 'MassMatrixPreconditioner',
@@ -92,6 +92,7 @@ class EfieldWeights(Propagator):
         assert isinstance(params['f0'], Maxwellian6DUniform)
 
         self._alpha = params['alpha']
+        self._kappa = params['kappa']
         self._f0 = params['f0']
         self._f0_params = np.array([self._f0.params['n'],
                                     self._f0.params['u1'],
@@ -155,7 +156,7 @@ class EfieldWeights(Propagator):
                              self._particles.markers[:, 5])
 
         self._accum.accumulate(self._particles, f0_values,
-                               self._f0_params, self._alpha)
+                               self._f0_params, self._alpha, self._kappa)
 
         # Update Schur solver
         self._schur_solver.BC = - self._accum.operators[0].matrix / 4
@@ -167,7 +168,12 @@ class EfieldWeights(Propagator):
         # Store old weights
         self._old_weights[~self._particles.holes] = self._particles.markers[~self._particles.holes, 6]
 
-        self._e_sum = self._e_temp + self._e
+        # reset _e_sum
+        self._e_sum -= self._e_sum
+
+        # self._e_sum = self._e_temp + self._e
+        self._e_sum += self._e_temp
+        self._e_sum += self._e
 
         # Update weights
         self._pusher(self._particles, dt,
@@ -176,7 +182,8 @@ class EfieldWeights(Propagator):
                      self._e_temp.blocks[2]._data + self._e.blocks[2]._data,
                      f0_values,
                      self._f0_params,
-                     int(self._particles.n_mks))
+                     int(self._particles.n_mks),
+                     self._kappa)
 
         # write new coeffs into self.variables
         max_de, = self.in_place_update(self._e_temp)
@@ -1200,7 +1207,7 @@ class CurrentCoupling5DCurrent2dg(Propagator):
         self._particles.mpi_sort_markers()
 
         #####################################
-        #discrete gradient solver(mid point)#
+        # discrete gradient solver(mid point)#
         #####################################
         # eval initial particle energy
         self._particles.save_magnetic_energy(self.derham, self._PBb)
