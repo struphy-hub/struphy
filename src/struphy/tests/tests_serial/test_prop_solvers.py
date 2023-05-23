@@ -66,7 +66,7 @@ def test_poisson_solver(Nel, p, spl_kind, mapping):
     Propagator.mass_ops = mass_ops
 
     # Create Poisson solver
-    poisson_solver = PoissonSolver(rho=rho_vec, x0=sol_vec, **solver_params)
+    poisson_solver = PoissonSolver(rho=rho_vec, **solver_params)
 
     # Solve Poisson equation
     poisson_solver(0.1)

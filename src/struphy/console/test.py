@@ -102,3 +102,12 @@ def struphy_test(serial=True, mpi=0, codes=False):
 
         subprocess.run(['struphy', 'pproc',
                         '-d', 'sim_test_9'], check=True)
+
+        # test DeltaFVlasovMaxwell
+        subprocess.run(['struphy', 'run', 'DeltaFVlasovMaxwell',
+                        '-i', 'tests/params_deltafvlasovmaxwell.yml',
+                        '-o', 'sim_test_10',
+                        '--mpi', '2'], check=True)
+
+        subprocess.run(['struphy', 'pproc',
+                        '-d', 'sim_test_10'], check=True)
