@@ -1,6 +1,6 @@
 from pyccel.decorators import stack_array
 
-from numpy import zeros, empty, sqrt, shape, floor
+from numpy import zeros, empty, sqrt, shape, floor, log
 
 import struphy.geometry.map_eval as map_eval
 import struphy.b_splines.bsplines_kernels as bsp
@@ -311,6 +311,7 @@ def linear_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
                                   cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                                   vec: 'float[:,:,:]',
                                   f0_values: 'float[:]',  # model specific argument
+                                  f0_params: 'float[:]',  # model specific argument
                                   alpha: 'float',  # model specific argument
                                   kappa: 'float'):  # model specific argument
     r"""
@@ -360,7 +361,7 @@ def linear_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
         f0 = f0_values[ip]
 
         # filling = alpha^2 * kappa * w_p * sqrt{f_0}
-        filling = alpha**2 * kappa * markers[ip, 6] * sqrt(f0)
+        filling = alpha**2 * kappa * markers[ip, 6] * sqrt(f0) * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2
 
         # spans (i.e. index for non-vanishing B-spline basis functions)
         span1 = bsp.find_span(tn1, pn[0], eta1)
@@ -491,6 +492,167 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                                filling_m[1, 1], filling_m[1, 2], filling_m[2, 2],
                                vec1, vec2, vec3,
                                filling_v[0], filling_v[1], filling_v[2])
+
+    #$ omp end parallel
+
+
+def delta_f_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
+                                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                   kind_map: 'int', params_map: 'float[:]',
+                                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                                   cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                                   vec: 'float[:,:,:]',
+                                   f0_values: 'float[:]',  # model specific argument
+                                   f0_params: 'float[:]',  # model specific argument
+                                   alpha: 'float',  # model specific argument
+                                   kappa: 'float'):  # model specific argument
+    r"""
+    Accumulates the charge density in V0 
+
+    .. math::
+
+        \rho_p^\mu &= \alpha^2 \sqrt{f_0(\mathbf{\eta}_p, \mathbf{v}_p)} w_p [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\mu \,.
+
+    Parameters
+    ----------
+        f0_values ; array[float]
+            Value of f0 for each particle.
+
+        f0_params : array[float]
+            Parameters needed to specify the moments; the order is specified in :ref:`kinetic_moments` for the respective functions available.
+
+        alpha : float
+            = Omega_c / Omega_p ; Parameter determining the coupling strength between particles and fields
+
+    Note
+    ----
+        The above parameter list contains only the model specific input arguments.
+    """
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    #$ omp parallel private (ip, eta1, eta2, eta3, f0, filling)
+    #$ omp for reduction ( + :vec)
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        f0 = f0_values[ip]
+
+        # filling = alpha^2 * kappa * (1 / (N * s_0) * (f_0 / log(f_0) - f_0) - w_p / log(f_0))
+        filling = alpha**2 * kappa * ((f0 / log(f0) - f0) / (n_markers_tot * markers[ip, 7]) - markers[ip, 6] / log(f0))  * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2
+
+        # call the appropriate matvec filler
+        mvf.scalar_fill_b_v0(pn, tn1, tn2, tn3,
+                             starts0, eta1, eta2, eta3,
+                             vec, filling)
+
+    #$ omp end parallel
+
+
+@stack_array('df', 'df_t', 'df_inv', 'v', 'df_inv_times_v', 'filling_v')
+def delta_f_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
+                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                           kind_map: 'int', params_map: 'float[:]',
+                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                           vec1: 'float[:,:,:]',
+                           vec2: 'float[:,:,:]',
+                           vec3: 'float[:,:,:]',
+                           f0_values: 'float[:]',  # model specific argument
+                           f0_params: 'float[:]',  # model specific argument
+                           alpha: 'float',  # model specific argument
+                           kappa: 'float'):  # model specific argument
+    r"""
+    Accumulates into V1 with the filling functions
+
+    .. math::
+
+        A_p^{\mu, \nu} &= \frac{\alpha^2}{v_{\text{th}}^2} \frac{1}{N\, s_0} f_0(\mathbf{\eta}_p, \mathbf{v}_p)
+            [ DF^{-1}(\mathbf{\eta}_p) v_p ]_\mu [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\nu \,,
+
+        B_p^\mu &= \alpha^2 \sqrt{f_0(\mathbf{\eta}_p, \mathbf{v}_p)} w_p [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\mu \,.
+
+    Parameters
+    ----------
+        f0_values ; array[float]
+            Value of f0 for each particle.
+
+        f0_params : array[float]
+            Parameters needed to specify the moments; the order is specified in :ref:`kinetic_moments` for the respective functions available.
+
+        alpha : float
+            = Omega_c / Omega_p ; Parameter determining the coupling strength between particles and fields
+
+    Note
+    ----
+        The above parameter list contains only the model specific input arguments.
+    """
+
+    # allocate for metric coeffs
+    df = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+
+    # allocate for filling
+    v = empty(3, dtype=float)
+    df_inv_times_v = empty(3, dtype=float)
+    filling_v = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    #$ omp parallel private (ip, eta1, eta2, eta3, f0, df, df_inv, v, df_inv_times_v, filling_v)
+    #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        f0 = f0_values[ip]
+
+        # evaluate Jacobian, result in df
+        map_eval.df(eta1, eta2, eta3,
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        # compute shifted and stretched velocity
+        v[0] = (markers[ip, 3] - f0_params[1]) / f0_params[4]**2
+        v[1] = (markers[ip, 4] - f0_params[2]) / f0_params[5]**2
+        v[2] = (markers[ip, 5] - f0_params[3]) / f0_params[6]**2
+
+        # filling functions
+        linalg.matrix_inv(df, df_inv)
+        linalg.matrix_vector(df_inv, v, df_inv_times_v)
+
+        # filling_v = alpha^2 / (N * s_0) * (f_0 / ln(f_0) - f_0) * DL^{-1} * \V_th * (v_p - u)
+        filling_v[:] = alpha**2 * kappa / (n_markers_tot * markers[ip, 7]) * (f0 / log(f0) - f0 ) * df_inv_times_v[:] * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2
+
+        # call the appropriate matvec filler
+        mvf.vec_fill_b_v1(pn, tn1, tn2, tn3, starts1,
+                          eta1, eta2, eta3,
+                          vec1, vec2, vec3,
+                          filling_v[0], filling_v[1], filling_v[2])
 
     #$ omp end parallel
 

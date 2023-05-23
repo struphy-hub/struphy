@@ -8,7 +8,7 @@ import struphy.b_splines.bspline_evaluation_3d as eval_3d
 
 from struphy.pic.pusher_utilities import aux_fun_x_v_stat_e
 
-from numpy import zeros, empty, shape, sqrt, cos, sin, floor
+from numpy import zeros, empty, shape, sqrt, cos, sin, floor, log
 
 
 @stack_array('df', 'df_inv', 'df_inv_t', 'e_form', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
@@ -31,7 +31,7 @@ def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
     Parameters
     ----------
         e1_1, e1_2, e1_3: array[float]
-            3d array of FE coeffs of B-field as 2-form.
+            3d array of FE coeffs of E-field as 1-form.
     '''
 
     # allocate metric coeffs
@@ -2433,18 +2433,18 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
 
 
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'df', 'df_inv', 'v', 'df_inv_v')
-def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
-                             pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                             starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                             kind_map: int, params_map: 'float[:]',
-                             p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                             ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                             cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                             e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
-                             f0_values: 'float[:]', f0_params: 'float[:]',
-                             n_markers_tot: 'int', kappa: 'float'):
+def push_weights_with_efield_lin_vm(markers: 'float[:,:]', dt: float, stage: int,
+                                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                    kind_map: int, params_map: 'float[:]',
+                                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                                    cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                                    e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
+                                    f0_values: 'float[:]', f0_params: 'float[:]',
+                                    n_markers_tot: 'int', kappa: 'float'):
     r'''
-    updates the single weights in the e_W substep of the linearized Vlasov Maxwell system;
+    updates the single weights in the e_W substep of the Vlasov Maxwell system with delta-f;
     c.f. struphy.propagators.propagators.StepEfieldWeights
 
     Parameters :
@@ -2546,6 +2546,120 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
     #$ omp end parallel
 
 
+@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'df', 'df_inv', 'v', 'df_inv_v')
+def push_weights_with_efield_deltaf_vm(markers: 'float[:,:]', dt: float, stage: int,
+                                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                       kind_map: int, params_map: 'float[:]',
+                                       p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                                       ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                                       cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                                       e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
+                                       f0_values: 'float[:]', f0_params: 'float[:]',
+                                       n_markers_tot: 'int', kappa: 'float'):
+    r'''
+    updates the single weights in the e_W substep of the linearized Vlasov Maxwell system;
+    c.f. struphy.propagators.propagators.StepEfieldWeights
+
+    Parameters :
+    ------------
+    e1_1, e1_2, e1_3: array[float]
+        3d array of FE coeffs of E-field as 1-form.
+
+    f0_values ; array[float]
+        Value of f0 for each particle.
+
+    f0_params : array[float]
+        Parameters needed to specify the moments; the order is specified in :ref:`struphy.kinetic_background.moments_kernels`
+        for the respective functions available.
+
+    n_markers_tot : int
+        total number of particles
+
+    kappa : float
+        = 2 * pi * Omega_c / omega ; Parameter determining the coupling strength between particles and fields
+    '''
+
+    # total number of basis functions : B-splines (pn) and D-splines (pn-1)
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pn3 = pn[2]
+
+    # non-vanishing N-splines at particle position
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    # non-vanishing D-splines at particle position
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    df = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    v = empty(3, dtype=float)
+    df_inv_v = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    #$ omp parallel private (ip, eta1, eta2, eta3, df, df_inv, v, df_inv_v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, e_vec_1, e_vec_2, e_vec_3, update)
+    #$ omp for
+    for ip in range(n_markers):
+        if markers[ip, 0] == -1:
+            continue
+
+        # position
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # spans (i.e. index for non-vanishing basis functions)
+        span1 = bsp.find_span(tn1, pn1, eta1)
+        span2 = bsp.find_span(tn2, pn2, eta2)
+        span3 = bsp.find_span(tn3, pn3, eta3)
+
+        # compute bn, bd, i.e. values for non-vanishing B-/D-splines at position eta
+        bsp.b_d_splines_slim(tn1, pn1, eta1, span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn2, eta2, span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn3, eta3, span3, bn3, bd3)
+
+        f0 = f0_values[ip]
+
+        # Compute Jacobian matrix
+        map_eval.df(eta1, eta2, eta3,
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map,
+                    p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        # compute shifted and stretched velocity
+        v[0] = (markers[ip, 3] - f0_params[1]) / f0_params[4]**2
+        v[1] = (markers[ip, 4] - f0_params[2]) / f0_params[5]**2
+        v[2] = (markers[ip, 5] - f0_params[3]) / f0_params[6]**2
+
+        # invert Jacobian matrix
+        linalg.matrix_inv(df, df_inv)
+        linalg.matrix_vector(df_inv, v, df_inv_v)
+
+        # E-field (1-form)
+        e_vec_1 = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3,
+                                                 span1, span2, span3, e1_1, starts1[0])
+        e_vec_2 = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3,
+                                                 span1, span2, span3, e1_2, starts1[1])
+        e_vec_3 = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3,
+                                                 span1, span2, span3, e1_3, starts1[2])
+
+        # w_{n+1} = w_n + dt * kappa / (N * s_0) (e_n - dt^2 / 2 * accum_vec) \cdot (DL^{-1} \V_th (v_p - u)) (f_0 / log(f_0) - f_0)
+        update = (df_inv_v[0] * e_vec_1 + df_inv_v[1] * e_vec_2 + df_inv_v[2] * e_vec_3) * \
+            dt * kappa * (f0 / log(f0) - f0) / (n_markers_tot * markers[ip, 7])
+        markers[ip, 6] += update
+
+    #$ omp end parallel
+
+
 @stack_array('particle', 'df', 'df_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'taus')
 def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -2557,6 +2671,7 @@ def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
                            loc1: 'float[:]', loc2: 'float[:]', loc3: 'float[:]',
                            weight1: 'float[:]', weight2: 'float[:]', weight3: 'float[:]',
                            e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
+                           kappa: 'float',
                            eps: 'float[:]', maxiter: int):
     r"""
     particle pusher for ODE
@@ -2564,24 +2679,27 @@ def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
     .. math::
         \frac{\text{d} \mathbf{\eta}}{\text{d} t} & = DL^{-1} \mathbf{v} \,
 
-        \frac{\text{d} \mathbf{v}}{\text{d} t} & = DL^{-T} \mathbf{E}_0(\mathbf{\eta})
+        \frac{\text{d} \mathbf{v}}{\text{d} t} & = \kappa \, DL^{-T} \mathbf{E}_0(\mathbf{\eta})
 
     Parameters 
     ----------
-        loc1, loc2, loc3 : array
-            contain the positions of the Legendre-Gauss quadrature points of necessary order to integrate basis splines exactly in each direction
+    loc1, loc2, loc3 : array
+        contain the positions of the Legendre-Gauss quadrature points of necessary order to integrate basis splines exactly in each direction
 
-        weight1, weight2, weight3 : array
-            contain the values of the weights for the Legendre-Gauss quadrature in each direction
+    weight1, weight2, weight3 : array
+        contain the values of the weights for the Legendre-Gauss quadrature in each direction
 
-        e1_1, e1_2, e1_3: array[float]
-            3d array of FE coeffs of the background E-field as 1-form.
+    e1_1, e1_2, e1_3: array[float]
+        3d array of FE coeffs of the background E-field as 1-form.
 
-        eps: array
-            determines the accuracy for the position (0th element) and velocity (1st element) with which the implicit scheme is executed
+    kappa : float
+        = 2 * pi * Omega_c / omega ; Parameter determining the coupling strength between particles and fields
 
-        maxiter : integer
-            sets the maximum number of iterations for the iterative scheme
+    eps: array
+        determines the accuracy for the position (0th element) and velocity (1st element) with which the implicit scheme is executed
+
+    maxiter : integer
+        sets the maximum number of iterations for the iterative scheme
     """
 
     particle = zeros(9, dtype=float)
@@ -2652,6 +2770,7 @@ def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
                                           dt2,
                                           loc1, loc2, loc3, weight1, weight2, weight3,
                                           e1_1, e1_2, e1_3,
+                                          kappa,
                                           eps, maxiter)
                 run = run + temp
 

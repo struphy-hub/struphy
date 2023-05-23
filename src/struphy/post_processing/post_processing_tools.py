@@ -508,7 +508,8 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
                         if coord == 'e':
                             grid_tot += [np.zeros(1)]
                         elif coord == 'v':
-                            grid_tot += [np.zeros(1) + bckgr_params[fun_name]['u' + str(comp)]]
+                            grid_tot += [np.zeros(1) +
+                                         bckgr_params[fun_name]['u' + str(comp)]]
 
             grid_eval = np.meshgrid(*grid_tot, indexing='ij')
 
@@ -526,7 +527,17 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
 
                     # h = f_1 / sqrt{f_0}
                     data_delta_f = np.multiply(data,
-                                               np.sqrt(data_bckgr[tuple([None])])) # add extra axis at beginning
+                                               np.sqrt(data_bckgr[tuple([None])]))  # add extra axis at beginning
+
+                # Vlasov-Maxwell system with Delta-f
+                if model == "DeltaFVlasovMaxwell":
+                    assert fun_name == 'Maxwellian6DUniform', \
+                        'The Vlasov-Maxwell system with Delta-f is only implemented for a uniform Maxwellian background!'
+
+                    # h = f_0 - (f_0 + f_1) * ln(f_0)
+                    data_delta_f = data_bckgr[tuple([None])] - \
+                        np.multiply(data_bckgr[tuple([None])] + data,
+                                    np.log(data_bckgr[tuple([None])]))
 
                 else:
                     raise NotImplementedError(

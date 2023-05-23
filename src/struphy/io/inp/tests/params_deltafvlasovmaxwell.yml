@@ -1,6 +1,6 @@
 grid :
-    Nel      : [2, 2, 64] # number of grid cells, >p
-    p        : [1, 1, 3]  # spline degree
+    Nel      : [64, 2, 2] # number of grid cells, >p
+    p        : [3, 1, 1]  # spline degree
     spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
     bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
     dims_mask : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
@@ -9,31 +9,31 @@ grid :
     polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
 
 units :
-    x : 1. # length scale unit in m
-    B : 1. # magnetic field unit in T
-    n : 1. # number density unit of fluid species in 1 x 10^20 m^(-3)
+    x   : 0.0017045090240267625 # c * m_e / e
+    B   : 1. # magnetic field unit in T
+    n   : 0.09719853837468743 # eps_0 / m_e / 1e20 # bulk number density unit in 1 x 10^20 m^(-3)
 
 time :
-    dt         : 0.05 # time step
-    Tend       : 0.5 # simulation time interval is [0, Tend]
+    dt         : 0.01 # time step
+    Tend       : 0.1 # simulation time interval is [0, Tend]
     split_algo : LieTrotter # LieTrotter | Strang
 
 geometry :
     type : Cuboid # mapping F (possible types seen below)
     Cuboid :
         l1       : 0. # start of interval in eta1
-        r1       : 2. # end of interval in eta1, r1>l1
+        r1       : 1. # end of interval in eta1, r1>l1
         l2       : 0. # start of interval in eta2
-        r2       : 2. # end of interval in eta2, r2>l2
+        r2       : 1. # end of interval in eta2, r2>l2
         l3       : 0. # start of interval in eta3
-        r3       : 20. # end of interval in eta3, r3>l3
+        r3       : 1. # end of interval in eta3, r3>l3
 
 mhd_equilibrium :
     type : HomogenSlab # (possible choices seen below)
     HomogenSlab :
-        B0x  : 0. # magnetic field in x
+        B0x  : 0.5 # magnetic field in x
         B0y  : 0. # magnetic field in y
-        B0z  : 1. # magnetic field in z
+        B0z  : 1.4 # magnetic field in z
         beta : 0. # plasma beta = 2*p*mu_0/B^2
         n0   : 1. # number density
 
@@ -44,13 +44,16 @@ electric_equilibrium :
 
 em_fields :
     init :
-        type : noise # initial conditions (possible types seen below)
-        noise :
+        type : ModesSin
+        ModesSin : 
+            coords : 'logical' # in which coordinates (logical or physical)
             comps :
-                e_field : [True, False, False]  # components to be initialized (for scalar fields: no list)
-                b_field : [False, True, True] # components to be initialized (for scalar fields: no list)
-            variation_in : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
-            amp : 0.1   # noise amplitude
+                e_field : [False, False, False]  # components to be initialized
+                b_field : [False, False, True] # components to be initialized
+            ls : [1] # Integer mode numbers in x or eta_1 (depending on coords)
+            ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
+            ns : [0] # Integer mode numbers in z or eta_3 (depending on coords)
+            amp : [0.01] # amplitudes of each mode
 
 kinetic :
     electrons :
@@ -59,9 +62,8 @@ kinetic :
             Z : -1 # signed charge number in units of elementary charge
         markers :
             type    : delta_f # full_f, control_variate, or delta_f
-            ppc     : 10  # number of markers per 3d grid cell
-            Np      : 3 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
-            eps     : .5 # MPI send/receive buffer (0.1 <= eps <= 1.0)
+            Np      : 10000 # alternative if ppc not given (total number of markers, Np must be >= # MPI processes)
+            eps     : 0.25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
             bc_type : [periodic, periodic, periodic] # remove, reflect or periodic
             loading :
                 type          : pseudo_random # particle loading mechanism
@@ -72,41 +74,35 @@ kinetic :
             type : Maxwellian6DPerturbed
             Maxwellian6DPerturbed :
                 n :
-                    n0 : 0.2
-                    perturbation :
-                        l : [1]
-                        m : [0]
-                        n : [0]
-                        amps_sin : [0.]
-                        amps_cos : [0.05]
+                    n0 : 0.
                 u1 :
-                    u01 : 0.1
+                    u01 : 0.
                 u2 :
-                    u02 : 0.1
+                    u02 : 0.
                 u3 :
-                    u03 : 0.1
+                    u03 : 0.
                 vth1 :
-                    vth01 : 0.1
+                    vth01 : 0.5
                 vth2 :
-                    vth02 : 0.1
+                    vth02 : 0.5
                 vth3 :
-                    vth03 : 0.1
+                    vth03 : 0.5
         background :
             type : Maxwellian6DUniform
             Maxwellian6DUniform :
-                n  : 0.2
-                u1 : 0.1
-                u2 : 0.1
-                u3 : 0.1
-                vth1 : 0.1
-                vth2 : 0.1
-                vth3 : 0.1
+                n  : 1.
+                u1 : 0.
+                u2 : 0.
+                u3 : 0.
+                vth1 : 0.5
+                vth2 : 0.5
+                vth3 : 0.5
         save_data :
-            n_markers : 3 # number of markers to be save during simulation
+            n_markers : 10 # number of markers to be saved during simulation
             f :
-                slices : [v3] # in which directions to bin (e.g. [e1_e2, v1_v2_v3])
-                n_bins : [[32]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
-                ranges : [[[-10., 10.]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
+                slices : [e3, v1_v2] # in which directions to bin (e.g. [e1_e2, v1_v2_v3])
+                n_bins : [[64], [64, 64]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
+                ranges : [[[0., 1.]], [[-5., 5.], [-5., 5.]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
         push_algos :
             vxb : analytic # possible choices: analytic, implicit
             eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4

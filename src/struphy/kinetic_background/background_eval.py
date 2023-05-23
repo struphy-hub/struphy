@@ -18,7 +18,7 @@ def f0(x: 'float[:]', v: 'float[:]', f0_spec: 'int', moms_spec: 'int[:]', params
 
         moms_spec : array[int]
             Specifier for the seven moments n0, u01, u02, u03, vth01, vth02, vth03 (in this order).
-            Is 0 for constant moment, for more see :meth:`struphy.kinetic_background.moments_kernels.moments`.
+            Is 0 for constant moment, for more see :math:`struphy.kinetic_background.moments_kernels.moments`.
 
         params : array[float]
             Parameters needed to specify the moments; the order is specified in :ref:`struphy.kinetic_background.moments_kernels` for the respective functions available.

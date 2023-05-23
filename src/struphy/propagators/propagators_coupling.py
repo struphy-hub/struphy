@@ -5,7 +5,7 @@ from psydac.linalg.block import BlockVector
 from struphy.propagators.base import Propagator
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.pic.particles import Particles6D
-from struphy.pic.particles_to_grid import Accumulator
+from struphy.pic.particles_to_grid import Accumulator, AccumulatorVector
 from struphy.pic.pusher import Pusher
 import struphy.pic.utilities_kernels as utilities
 from struphy.polar.basic import PolarVector
@@ -20,8 +20,10 @@ from struphy.psydac_api.linear_operators import LinOpWithTransp
 from struphy.psydac_api.mass import WeightedMassOperator
 import struphy.linear_algebra.iterative_solvers as it_solvers
 
+from psydac.linalg.iterative_solvers import pcg
 
-class EfieldWeights(Propagator):
+
+class EfieldWeightsImplicit(Propagator):
     r'''Solve the following Crank-Nicolson step
 
     .. math::
@@ -137,16 +139,13 @@ class EfieldWeights(Propagator):
 
         # Instantiate particle pusher
         self._pusher = Pusher(self.derham, self.domain,
-                              'push_weights_with_efield')
+                              'push_weights_with_efield_lin_vm')
 
     @property
     def variables(self):
         return [self._e]
 
     def __call__(self, dt):
-        """
-        TODO
-        """
         # evaluate f0 and accumulate
         f0_values = self._f0(self._particles.markers[:, 0],
                              self._particles.markers[:, 1],
@@ -169,7 +168,7 @@ class EfieldWeights(Propagator):
         self._old_weights[~self._particles.holes] = self._particles.markers[~self._particles.holes, 6]
 
         # reset _e_sum
-        self._e_sum -= self._e_sum
+        self._e_sum *= 0.
 
         # self._e_sum = self._e_temp + self._e
         self._e_sum += self._e_temp
@@ -177,9 +176,9 @@ class EfieldWeights(Propagator):
 
         # Update weights
         self._pusher(self._particles, dt,
-                     self._e_temp.blocks[0]._data + self._e.blocks[0]._data,
-                     self._e_temp.blocks[1]._data + self._e.blocks[1]._data,
-                     self._e_temp.blocks[2]._data + self._e.blocks[2]._data,
+                     self._e_sum.blocks[0]._data,
+                     self._e_sum.blocks[1]._data,
+                     self._e_sum.blocks[2]._data,
                      f0_values,
                      self._f0_params,
                      int(self._particles.n_mks),
@@ -188,7 +187,157 @@ class EfieldWeights(Propagator):
         # write new coeffs into self.variables
         max_de, = self.in_place_update(self._e_temp)
 
-        # Print out max differences for weights and efield
+        # Print out max differences for weights and e-field
+        if self._info:
+            print('Status          for StepEfieldWeights:', info['success'])
+            print('Iterations      for StepEfieldWeights:', info['niter'])
+            print('Maxdiff    e1   for StepEfieldWeights:', max_de)
+            max_diff = np.max(np.abs(self._old_weights[~self._particles.holes]
+                                     - self._particles.markers[~self._particles.holes, 6]))
+            print('Maxdiff weights for StepEfieldWeights:', max_diff)
+            print()
+
+
+class EfieldWeightsExplicit(Propagator):
+    r'''Solve the following system analytically
+
+    .. math::
+
+        \begin{align}
+            \frac{\text{d}}{\text{d} t} w_p & = \frac{1}{N \, s_{0, p}} \frac{\kappa}{v_{\text{th}}^2} \left[ DF^{-T} (\mathbb{\Lambda}^1)^T \mathbf{e} \right]
+            \cdot \mathbf{v}_p \left( \frac{f_0}{\ln(f_0)} - f_0 \right) \\[2mm]
+            \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} & = - \alpha^2 \kappa \sum_p \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right)
+            \frac{1}{N \, s_{0, p}} \left( \frac{f_0}{\ln(f_0)} - f_0 \right)
+        \end{align}
+
+    Parameters
+    ---------- 
+    e : psydac.linalg.block.BlockVector
+        FE coefficients of a 1-form.
+
+    particles : struphy.pic.particles.Particles6D
+        Particles object.
+
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
+    '''
+
+    def __init__(self, e, particles, **params):
+
+        from struphy.kinetic_background.analytical import Maxwellian6DUniform
+
+        # pointers to variables
+        assert isinstance(e, (BlockVector, PolarVector))
+        self._e = e
+
+        assert isinstance(particles, Particles6D)
+        self._particles = particles
+
+        # parameters
+        params_default = {'alpha': 1e2,
+                          'kappa': 1.,
+                          'f0': Maxwellian6DUniform(),
+                          'type': 'PConjugateGradient',
+                          'pc': 'MassMatrixPreconditioner',
+                          'tol': 1e-8,
+                          'maxiter': 3000,
+                          'info': False,
+                          'verbose': False}
+
+        params = set_defaults(params, params_default)
+
+        self._params = params
+
+        assert isinstance(params['f0'], Maxwellian6DUniform)
+
+        self._alpha = params['alpha']
+        self._kappa = params['kappa']
+        self._f0 = params['f0']
+        self._f0_params = np.array([self._f0.params['n'],
+                                    self._f0.params['u1'],
+                                    self._f0.params['u2'],
+                                    self._f0.params['u3'],
+                                    self._f0.params['vth1'],
+                                    self._f0.params['vth2'],
+                                    self._f0.params['vth3']])
+
+        self._info = params['info']
+
+        # Initialize Accumulator object
+        self._accum = AccumulatorVector(
+            self.derham, self.domain, 'Hcurl', 'delta_f_vlasov_maxwell')
+
+        # Create buffers to temporarily store _e and its sum with old e
+        self._m1_acc_vec = e.copy()
+        self._e_dt2 = e.copy()
+
+        # store old weights to compute difference
+        self._old_weights = np.empty(particles.markers.shape[0], dtype=float)
+
+        # ================================
+        # ========= Schur Solver =========
+        # ================================
+
+        # Preconditioner
+        if params['pc'] == None:
+            self._pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            self._pc = pc_class(self.mass_ops.M1)
+
+        self._pusher = Pusher(self.derham, self.domain,
+                              'push_weights_with_efield_deltaf_vm')
+
+    @property
+    def variables(self):
+        return [self._e]
+
+    def __call__(self, dt):
+        # evaluate f0 and accumulate
+        f0_values = self._f0(self._particles.markers[:, 0],
+                             self._particles.markers[:, 1],
+                             self._particles.markers[:, 2],
+                             self._particles.markers[:, 3],
+                             self._particles.markers[:, 4],
+                             self._particles.markers[:, 5])
+
+        self._accum.accumulate(self._particles, f0_values,
+                               self._f0_params, self._alpha, self._kappa)
+
+        self._m1_acc_vec, info = pcg(self.mass_ops.M1,
+                                     self._accum.vectors[0],
+                                     self._pc,
+                                     self._e,
+                                     tol=self._params['tol'],
+                                     maxiter=self._params['maxiter'],
+                                     verbose=self._params['verbose']
+                                     )
+
+        # Store old weights
+        self._old_weights[~self._particles.holes] = self._particles.markers[~self._particles.holes, 6]
+
+        # Compute vector for particle pushing
+        self._e_dt2 *= 0.
+        self._e_dt2 -= self._m1_acc_vec
+        self._e_dt2 *= dt / 2
+        self._e_dt2 += self._e
+
+        # Update weights
+        self._pusher(self._particles, dt,
+                     self._e_dt2.blocks[0]._data,
+                     self._e_dt2.blocks[1]._data,
+                     self._e_dt2.blocks[2]._data,
+                     f0_values,
+                     self._f0_params,
+                     int(self._particles.n_mks),
+                     self._kappa)
+
+        # Update e-field and compute max difference
+        self._m1_acc_vec *= dt
+        max_de = np.max(np.abs(self._m1_acc_vec.toarray()))
+        self._e -= self._m1_acc_vec
+
+        # Print out max differences for weights and e-field
         if self._info:
             print('Status          for StepEfieldWeights:', info['success'])
             print('Iterations      for StepEfieldWeights:', info['niter'])
@@ -781,8 +930,8 @@ class CurrentCoupling5DCurrent1(Propagator):
 
         # call SchurSolver class
         self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'],
-                                   tol=params['tol'], maxiter=params['maxiter'],
-                                   verbose=params['verbose'])
+                                         tol=params['tol'], maxiter=params['maxiter'],
+                                         verbose=params['verbose'])
 
         # temporary vectors to avoid memory allocation
         self._b_full1 = self._b_eq.space.zeros()
@@ -821,7 +970,8 @@ class CurrentCoupling5DCurrent1(Propagator):
                              self._space_key_int, self._coupling_mat, self._coupling_vec)
 
         # solve linear system for updated u coefficients
-        info = self._schur_solver(un, -self._ACC.vectors[0]/2, dt, out=self._u_new)[1]
+        info = self._schur_solver(
+            un, -self._ACC.vectors[0]/2, dt, out=self._u_new)[1]
 
         # call pusher kernel with average field (u_new + u_old)/2 and update ghost regions because of non-local access in kernel
         un.copy(out=self._u_avg1)
@@ -941,7 +1091,8 @@ class CurrentCoupling5DCurrent2(Propagator):
             pc = pc_class(_A)
 
         # Call the accumulation and Pusher class
-        self._ACC = Accumulator(self.derham, self.domain,  params['u_space'], 'cc_lin_mhd_5d_J2', add_vector=True, symmetry='symm')
+        self._ACC = Accumulator(
+            self.derham, self.domain,  params['u_space'], 'cc_lin_mhd_5d_J2', add_vector=True, symmetry='symm')
 
         # choose algorithm
         if params['method'] == 'forward_euler':
@@ -1030,7 +1181,8 @@ class CurrentCoupling5DCurrent2(Propagator):
                              self._space_key_int, self._coupling_mat, self._coupling_vec)
 
         # solve linear system for updated u coefficients
-        info = self._schur_solver(un, -self._ACC.vectors[0]/2, dt, out=self._u_new)[1]
+        info = self._schur_solver(
+            un, -self._ACC.vectors[0]/2, dt, out=self._u_new)[1]
 
         # call pusher kernel with average field (u_new + u_old)/2 and update ghost regions because of non-local access in kernel
         un.copy(out=self._u_avg1)
@@ -1154,9 +1306,12 @@ class CurrentCoupling5DCurrent2dg(Propagator):
         # self._ACC = Accumulator(self.derham, self.domain, params['u_space'], 'cc_lin_mhd_5d_J2_dg', add_vector=True, symmetry='symm')
         # self._pusher = Pusher(self.derham, self.domain, 'push_gc_cc_J2_dg_' + params['u_space'])
 
-        self._ACC_prepare = Accumulator(self.derham, self.domain, params['u_space'], 'cc_lin_mhd_5d_J2_dg_prepare_faster', add_vector=True, symmetry='symm')
-        self._ACC = Accumulator(self.derham, self.domain,  params['u_space'], 'cc_lin_mhd_5d_J2_dg_faster', add_vector=True, symmetry='symm')
-        self._pusher = Pusher(self.derham, self.domain,'push_gc_cc_J2_dg_faster_' + params['u_space'])
+        self._ACC_prepare = Accumulator(
+            self.derham, self.domain, params['u_space'], 'cc_lin_mhd_5d_J2_dg_prepare_faster', add_vector=True, symmetry='symm')
+        self._ACC = Accumulator(
+            self.derham, self.domain,  params['u_space'], 'cc_lin_mhd_5d_J2_dg_faster', add_vector=True, symmetry='symm')
+        self._pusher = Pusher(self.derham, self.domain,
+                              'push_gc_cc_J2_dg_faster_' + params['u_space'])
 
         # linear solver
         self._solver = getattr(it_solvers, params['type'])(self._A.domain)
@@ -1179,7 +1334,6 @@ class CurrentCoupling5DCurrent2dg(Propagator):
         self._denominator = np.empty(1, dtype=float)
         self._accum_gradI_const_loc = np.empty(1, dtype=float)
         self._gradI_const = np.empty(1, dtype=float)
-
 
     @property
     def variables(self):
@@ -1260,7 +1414,7 @@ class CurrentCoupling5DCurrent2dg(Propagator):
         # ------------ fixed point iteration ------------#
         for stage in range(20):
 
-            print(self._particles.markers[~self._particles.holes,0:8])
+            print(self._particles.markers[~self._particles.holes, 0:8])
 
             self._u_new.copy(out=self._u_temp)
 
@@ -1287,11 +1441,13 @@ class CurrentCoupling5DCurrent2dg(Propagator):
 
             # Accumulate
             self._accum_gradI_const_loc = utilities.accum_gradI_const(self._particles.markers, self._particles.n_mks, *self._pusher._args_fem,
-                                                                self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data,
-                                                                self._coupling_vec)[0]
+                                                                      self._grad_PBb[0]._data, self._grad_PBb[
+                                                                          1]._data, self._grad_PBb[2]._data,
+                                                                      self._coupling_vec)[0]
 
             # gradI_const = (en_u - en_u_old - u_diff.dot(self._A.dot(u_mid)) + np.sum(en_fB) - np.sum(en_fB_old) - np.sum(accum_gradI_const))/denominator
-            self._gradI_const = (self._en_fB_loc - self._en_fB_old - self._accum_gradI_const_loc)/self._denominator
+            self._gradI_const = (
+                self._en_fB_loc - self._en_fB_old - self._accum_gradI_const_loc)/self._denominator
 
             # Accumulate
             self._ACC.accumulate(self._particles, self._kappa,
