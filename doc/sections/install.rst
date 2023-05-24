@@ -207,7 +207,7 @@ Some specifics for the HPC systems ``cobra`` and ``draco`` at `MPCDF HPC facilit
 1. Load necessary modules::
 
     module purge
-    module load gcc/9 openmpi anaconda/3/2021.11 mpi4py
+    module load gcc/9 openmpi anaconda/3/2021.11 mpi4py git
     module list
 
 2. Create a Python virtual environment::
