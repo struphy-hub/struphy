@@ -101,7 +101,7 @@ def diagnostics():
     mhd_params = params['mhd_equilibrium'][params['mhd_equilibrium']['type']]
 
     # field names, grid info and energies
-    file = h5py.File(os.path.join(out_path, 'data_proc0.hdf5'), 'r')
+    file = h5py.File(os.path.join(out_path, 'data/', 'data_proc0.hdf5'), 'r')
 
     names = list(file['feec'].keys())
 
@@ -119,7 +119,7 @@ def diagnostics():
         grids_phy = pickle.load(handle)
 
     # load data dicts for logical u_field
-    with open(os.path.join(out_path, 'post_processing/fields_data', names[3] + '_log.bin'), 'rb') as handle:
+    with open(os.path.join(out_path, 'post_processing/fields_data/mhd/uv_log.bin'), 'rb') as handle:
         u_field_log = pickle.load(handle)
 
     # perform continuous spectra diagnostics

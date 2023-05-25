@@ -4,7 +4,7 @@ def main(path, step=1, celldivide=1):
 
     Parameters
     ----------
-    paths : str
+    path : str
         Absolute path of simulation output folder to post-process.
 
     step : int, optional
@@ -36,7 +36,7 @@ def main(path, step=1, celldivide=1):
         os.mkdir(path_pproc)
 
     # check for fields and kinetic data in hdf5 file that need post processing
-    file = h5py.File(os.path.join(path, 'data_proc0.hdf5'), 'r')
+    file = h5py.File(os.path.join(path, 'data/', 'data_proc0.hdf5'), 'r')
 
     # save time grid at which post-processing data is created
     np.save(os.path.join(path_pproc, 't_grid.npy'),
@@ -49,24 +49,21 @@ def main(path, step=1, celldivide=1):
 
     kinetic_species = []
     if 'kinetic' in file.keys():
-        exist_kinetic = [[], []]
+        exist_kinetic = {'markers': False, 'f': False}
 
         for name in file['kinetic'].keys():
             kinetic_species += [name]
 
             # check for saved markers
             if 'markers' in file['kinetic'][name]:
-                exist_kinetic[0] += [True]
-            else:
-                exist_kinetic[0] += [False]
+                exist_kinetic['markers'] = True
 
             # check for saved distribution function
             if 'f' in file['kinetic'][name]:
-                exist_kinetic[1] += [True]
-            else:
-                exist_kinetic[1] += [False]
+                exist_kinetic['f'] = True
+
     else:
-        exist_kinetic = False
+        exist_kinetic = None
 
     file.close()
 
@@ -89,12 +86,33 @@ def main(path, step=1, celldivide=1):
 
         # save data dicts for each field
         for name, val in point_data_log.items():
+            
+            aux = name.split('_')
+            # is em field
+            if len(aux) == 1:
+                subfolder = 'em_fields'
+                new_name = name
+                try:
+                    os.mkdir(os.path.join(path_fields, subfolder))
+                except:
+                    pass
+                
+            # is fluid species
+            elif len(aux) == 2:
+                subfolder = aux[0]
+                new_name = aux[1]
+                try:
+                    os.mkdir(os.path.join(path_fields, subfolder))
+                except:
+                    pass
+            else:
+                raise ValueError(f'Naming {name} of feec unknown is not permitted (can only have one underscore).')
 
-            with open(os.path.join(path_fields, name + '_log.bin'), 'wb') as handle:
+            with open(os.path.join(path_fields, subfolder, new_name + '_log.bin'), 'wb') as handle:
                 pickle.dump(val, handle,
                             protocol=pickle.HIGHEST_PROTOCOL)
 
-            with open(os.path.join(path_fields, name + '_phy.bin'), 'wb') as handle:
+            with open(os.path.join(path_fields, subfolder, new_name + '_phy.bin'), 'wb') as handle:
                 pickle.dump(point_data_phy[name], handle,
                             protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -111,7 +129,7 @@ def main(path, step=1, celldivide=1):
         pproc.create_vtk(path_fields, grids_phy, point_data_phy)
 
     # kinetic post-processing
-    if np.any(exist_kinetic):
+    if exist_kinetic is not None:
 
         # directory for kinetic data
         path_kinetics = os.path.join(path_pproc, 'kinetic_data')
@@ -122,35 +140,35 @@ def main(path, step=1, celldivide=1):
             shutil.rmtree(path_kinetics)
             os.mkdir(path_kinetics)
 
-    # kinetic post-processing for each species
-    for n, species in enumerate(kinetic_species):
+        # kinetic post-processing for each species
+        for n, species in enumerate(kinetic_species):
 
-        # directory for each species
-        path_kinetics_species = os.path.join(path_kinetics, species)
-
-        try:
-            os.mkdir(path_kinetics_species)
-        except:
-            shutil.rmtree(path_kinetics_species)
-            os.mkdir(path_kinetics_species)
-
-        # markers
-        # if exist_kinetic[0][n]:
-        #     pproc.post_process_markers(path, path_kinetics_species, species, step)
-
-        # distribution function
-        if exist_kinetic[1][n]:
-
-            with open(os.path.join(path, 'parameters.yml'), 'r') as f:
-                params = yaml.load(f, Loader=yaml.FullLoader)
+            # directory for each species
+            path_kinetics_species = os.path.join(path_kinetics, species)
 
             try:
-                marker_type = params['kinetic'][species]['markers']['type']
+                os.mkdir(path_kinetics_species)
             except:
-                marker_type = 'full_f'
+                shutil.rmtree(path_kinetics_species)
+                os.mkdir(path_kinetics_species)
 
-            pproc.post_process_f(path, path_kinetics_species,
-                                 species, step, marker_type)
+            # markers
+            if exist_kinetic['markers']:
+                pproc.post_process_markers(path, path_kinetics_species, species, step)
+
+            # distribution function
+            if exist_kinetic['f']:
+
+                with open(os.path.join(path, 'parameters.yml'), 'r') as f:
+                    params = yaml.load(f, Loader=yaml.FullLoader)
+
+                try:
+                    marker_type = params['kinetic'][species]['markers']['type']
+                except:
+                    marker_type = 'full_f'
+
+                pproc.post_process_f(path, path_kinetics_species,
+                                    species, step, marker_type)
 
 
 if __name__ == '__main__':

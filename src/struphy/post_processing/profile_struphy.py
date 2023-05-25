@@ -59,7 +59,7 @@ def main():
         with open(path + 'meta.txt', 'r') as f:
             lines = f.readlines()
 
-        nproc += [int(lines[-1].split()[-1])]
+        nproc += [int(lines[4].split()[-1])]
 
         with open(path + 'parameters.yml', 'r') as f:
             params = yaml.load(f, Loader=yaml.FullLoader)

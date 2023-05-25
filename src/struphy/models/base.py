@@ -770,22 +770,23 @@ class StruphyModel(metaclass=ABCMeta):
         eta3 = np.linspace(h/2., 1.-h/2., 20)
 
         # global parameters
+        # plasma volume (hat x^3)
+        vol1 = np.mean(np.abs(self.domain.jacobian_det(eta1, eta2, eta3))) 
         # plasma volume (m⁻³)
-        plasma_volume = np.mean(np.abs(self.domain.jacobian_det(eta1, eta2, eta3))) \
-            * units_basic['x']**3
+        plasma_volume = vol1 * units_basic['x']**3
         # transit length (m)
         transit_length = plasma_volume**(1/3)
         # magnetic field (T)
         magnetic_field = np.mean(self.mhd_equil.absB0(eta1, eta2, eta3)
                                  * np.abs(self.domain.jacobian_det(eta1, eta2, eta3))) \
-            / plasma_volume*units_basic['B']
+            / vol1 * units_basic['B']
 
         print('\nGlobal characteristics of the simulation:')
         print(f'Plasma volume:'.ljust(25),
               '{:4.3e}'.format(plasma_volume) + units['plasma volume'])
         print(f'Transit length:'.ljust(25),
               '{:4.3e}'.format(transit_length) + units['transit length'])
-        print(f'Magnetic field:'.ljust(25),
+        print(f'Volume-averaged magnetic field:'.ljust(25),
               '{:4.3e}'.format(magnetic_field) + units['magnetic field'])
 
         # species dependent parameters

@@ -20,7 +20,7 @@ def create_femfields(path, step=1):
     Parameters
     ----------
     path : str
-        Absolute path to folder with hdf5 data files.
+        Absolute path of simulation output folder.
 
     step : int, optional
         Whether to create FEM fields at every time step (step=1, default), every second time step (step=2), etc. 
@@ -41,8 +41,8 @@ def create_femfields(path, step=1):
     with open(os.path.join(path, 'meta.txt'), 'r') as f:
         lines = f.readlines()
 
-    model = lines[-6].split()[-1]
-    nproc = lines[-1].split()[-1]
+    model = lines[3].split()[-1]
+    nproc = lines[4].split()[-1]
 
     # create Derham sequence from grid parameters
     with open(os.path.join(path, 'parameters.yml'), 'r') as f:
@@ -53,7 +53,7 @@ def create_femfields(path, step=1):
                     params['grid']['spl_kind'])
 
     # get fields names, space IDs and time grid from 0-th rank hdf5 file
-    file = h5py.File(os.path.join(path, 'data_proc0.hdf5'), 'r')
+    file = h5py.File(os.path.join(path, 'data/', 'data_proc0.hdf5'), 'r')
 
     space_ids = {}
 
@@ -76,7 +76,7 @@ def create_femfields(path, step=1):
 
         # open hdf5 file
         file = h5py.File(os.path.join(
-            path, 'data_proc' + str(rank) + '.hdf5'), 'r')
+            path, 'data/', 'data_proc' + str(rank) + '.hdf5'), 'r')
 
         for field_name, dset in tqdm(file['feec'].items()):
 
@@ -313,7 +313,7 @@ def post_process_markers(path_in, path_out, species, step=1):
     Parameters
     ----------
     path_in : str
-        Absolute path to folder with hdf5 data files.
+        Absolute path of simulation output folder.
 
     path_out : str
         Absolute path of where to store the .txt files. Will be in path_out/orbits. 
@@ -329,7 +329,7 @@ def post_process_markers(path_in, path_out, species, step=1):
     with open(os.path.join(path_in, 'meta.txt'), 'r') as f:
         lines = f.readlines()
 
-    nproc = lines[-1].split()[-1]
+    nproc = lines[4].split()[-1]
 
     # create domain for calculating markers' physical coordinates
     with open(os.path.join(path_in, 'parameters.yml'), 'r') as f:
@@ -338,8 +338,8 @@ def post_process_markers(path_in, path_out, species, step=1):
     domain = setup_domain_mhd(params)[0]
 
     # open hdf5 files and get names and number of saved markers of kinetic species
-    files = [h5py.File(os.path.join(path_in, f'data_proc{i}.hdf5'), 'r')
-             for i in range(int(nproc))]
+    files = [h5py.File(os.path.join(
+        path_in, 'data/', f'data_proc{i}.hdf5'), 'r') for i in range(int(nproc))]
 
     n_IDs = files[0]['kinetic/' + species + '/markers'].shape[1]
 
@@ -407,7 +407,7 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
     Parameters
     ----------
     path_in : str
-        Absolute path to folder with hdf5 data files.
+        Absolute path of simulation output folder.
 
     path_out : str
         Absolute path of where to store the .txt files. Will be in path_out/orbits. 
@@ -426,8 +426,8 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
     with open(os.path.join(path_in, 'meta.txt'), 'r') as f:
         lines = f.readlines()
 
-    model = lines[-6].split()[-1]
-    nproc = lines[-1].split()[-1]
+    model = lines[3].split()[-1]
+    nproc = lines[4].split()[-1]
 
     # load parameters
     with open(os.path.join(path_in, 'parameters.yml'), 'r') as f:
@@ -435,7 +435,7 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
 
     # open hdf5 files
     files = [h5py.File(os.path.join(
-        path_in, f'data_proc{i}.hdf5'), 'r') for i in range(int(nproc))]
+        path_in, 'data/', f'data_proc{i}.hdf5'), 'r') for i in range(int(nproc))]
 
     # directory for .npy files
     path_distr = os.path.join(path_out, 'distribution_function')
@@ -451,21 +451,27 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
     # Create grids
     for slice_name, dset in tqdm(files[0]['kinetic/' + species + '/f'].items()):
 
+        # create a new folder for each slice
+        path_slice = os.path.join(path_distr, slice_name)
+        os.mkdir(path_slice)
+
         # Find out all names of slices
         slice_names = slice_name.split('_')
 
         # save grid
         for n_gr, (_, grid) in enumerate(files[0]['kinetic/' + species + '/f/' + slice_name].attrs.items()):
             grid_path = os.path.join(
-                path_distr, 'grid_' + slice_names[n_gr] + '.npy')
+                path_slice, 'grid_' + slice_names[n_gr] + '.npy')
             np.save(grid_path, grid[:])
 
     # compute distribution function (and delta f)
     for k, (slice_name, dset) in enumerate(tqdm(files[0]['kinetic/' + species + '/f'].items())):
 
+        # path to folder of slice
+        path_slice = os.path.join(path_distr, slice_name)
+
         # Find out all names of slices
         slice_names = slice_name.split('_')
-        nr_slices = len(slice_names)
 
         # load data
         data = dset[::step].copy()
@@ -478,7 +484,7 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
 
         if marker_type == 'full_f':
             # save distribution function
-            np.save(os.path.join(path_distr, 'f_' + slice_name + '.npy'), data)
+            np.save(os.path.join(path_slice, 'f_binned.npy'), data)
 
         else:
             fun_name = params['kinetic'][species]['background']['type']
@@ -497,19 +503,18 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
                 for comp in range(1, 4):
                     current_slice = coord + str(comp)
                     filename = os.path.join(
-                        path_distr, 'grid_' + current_slice + '.npy')
+                        path_slice, 'grid_' + current_slice + '.npy')
 
                     # check if file exists and is in slice_name
                     if os.path.exists(filename) and current_slice in slice_names:
                         grid_tot += [np.load(filename)]
 
-                    # otherwise evaluate at zero for eta or u for v
+                    # otherwise evaluate at zero 
                     else:
                         if coord == 'e':
                             grid_tot += [np.zeros(1)]
                         elif coord == 'v':
-                            grid_tot += [np.zeros(1) +
-                                         bckgr_params[fun_name]['u' + str(comp)]]
+                            grid_tot += [np.zeros(1)]
 
             grid_eval = np.meshgrid(*grid_tot, indexing='ij')
 
@@ -530,7 +535,7 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
                                                np.sqrt(data_bckgr[tuple([None])]))  # add extra axis at beginning
 
                 # Vlasov-Maxwell system with Delta-f
-                if model == "DeltaFVlasovMaxwell":
+                elif model == "DeltaFVlasovMaxwell":
                     assert fun_name == 'Maxwellian6DUniform', \
                         'The Vlasov-Maxwell system with Delta-f is only implemented for a uniform Maxwellian background!'
 
@@ -544,10 +549,8 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
                         f'Post-processing for the model {model} with {marker_type} has not been implemented yet!')
 
             # save distribution function
-            np.save(os.path.join(path_distr, 'delta_f_' +
-                    slice_name + '.npy'), data_delta_f)
-            np.save(os.path.join(path_distr, 'f_' + slice_name +
-                    '.npy'), data_delta_f + data_bckgr)
+            np.save(os.path.join(path_slice, 'delta_f_binned.npy'), data_delta_f)
+            np.save(os.path.join(path_slice, 'f_binned.npy'), data_delta_f + data_bckgr)
 
     # close hdf5 files
     for file in files:

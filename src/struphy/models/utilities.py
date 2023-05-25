@@ -290,6 +290,8 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
         if not os.path.exists(path_out):
             os.mkdir(path_out)
             print('\nCreated folder ' + path_out)
+            os.mkdir(os.path.join(path_out, 'data/'))
+            print('\nCreated folder ' + os.path.join(path_out, 'data/'))
 
         # clean output folder if it already exists
         else:
@@ -299,6 +301,13 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
             if os.path.exists(folder):
                 shutil.rmtree(folder)
                 print('Removed folder ' + folder)
+
+            # remove data folder and create new one
+            folder = os.path.join(path_out, 'data/')
+            if os.path.exists(folder):
+                shutil.rmtree(folder)
+            os.mkdir(folder)
+            print('(Re)-created folder ' + folder)
 
             # remove meta file
             file = os.path.join(path_out, 'meta.txt')
@@ -312,14 +321,8 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
                 os.remove(file)
                 print('Removed file ' + file)
 
-            # remove .hdf5 and .png files (if NOT a restart)
+            # remove .png files (if NOT a restart)
             if not restart:
-                files = glob.glob(os.path.join(path_out, '*.hdf5'))
-                for n, file in enumerate(files):
-                    os.remove(file)
-                    if n < 10:  # print only forty statements in case of many processes
-                        print('Removed file ' + file)
-
                 files = glob.glob(os.path.join(path_out, '*.png'))
                 for n, file in enumerate(files):
                     os.remove(file)
@@ -395,6 +398,5 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
             f.write('restart:'.ljust(30) + str(restart) + '\n')
             f.write(
                 'max wall-clock time [min]:'.ljust(30) + str(max_sim_time) + '\n')
-            f.write('# processes: '.ljust(30) + str(mpi_size) + '\n')
 
     return params
