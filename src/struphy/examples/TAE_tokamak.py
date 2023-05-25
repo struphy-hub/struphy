@@ -119,7 +119,7 @@ def diagnostics():
         grids_phy = pickle.load(handle)
 
     # load data dicts for logical u_field
-    with open(os.path.join(out_path, 'post_processing/fields_data/mhd/uv_log.bin'), 'rb') as handle:
+    with open(os.path.join(out_path, 'post_processing/fields_data/mhd/u2_log.bin'), 'rb') as handle:
         u_field_log = pickle.load(handle)
 
     # perform continuous spectra diagnostics
@@ -152,7 +152,7 @@ def diagnostics():
     # plot safety factor
     plt.subplot(2, 2, 1)
     r = np.linspace(0., 1., 101)
-    plt.plot(r, mhd_equil.q(r))
+    plt.plot(r, mhd_equil.q_r(r))
     plt.xlabel('r [m]')
     plt.ylabel('safety factor')
 
@@ -161,8 +161,8 @@ def diagnostics():
     # analytical continuous spectra
     spec_calc = MhdContinousSpectraCylinder(R0=mhd_params['R0'],
                                             Bz=lambda r: mhd_params['B0'] - 0*r,
-                                            q=mhd_equil.q, rho=mhd_equil.nr,
-                                            p=mhd_equil.pr, gamma=5/3)
+                                            q=mhd_equil.q_r, rho=mhd_equil.n_r,
+                                            p=mhd_equil.p_r, gamma=5/3)
 
     plt.subplot(2, 2, 2)
     for m in range(2, 4 + 1):
