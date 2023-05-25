@@ -13,7 +13,7 @@ def struphy():
     import os
     import inspect
     import argparse
-    from struphy.models import models
+    from struphy.models import fluid, kinetic, hybrid, toy
     from struphy.console.compile import struphy_compile
     from struphy.console.run import struphy_run
     from struphy.console.units import struphy_units
@@ -73,29 +73,67 @@ def struphy():
 
     # 2. "run" sub-command
     parser_run = subparsers.add_parser('run',
-                                       formatter_class=lambda prog: argparse.HelpFormatter(
+                                       formatter_class=lambda prog: argparse.RawTextHelpFormatter(
                                            prog, max_help_position=30),
                                        help='run a Struphy model',
                                        description='Run a Struphy model.',
                                        epilog='For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html')
 
-    list_models = []
-    for name, obj in inspect.getmembers(models):
+    list_fluid = []
+    fluid_string = ''
+    for name, obj in inspect.getmembers(fluid):
         if inspect.isclass(obj):
             if name not in {'StruphyModel', }:
-                list_models += [name]
-
-    models_string = ''
-    for mod in list_models[:-1]:
-        models_string += '"' + mod + '", '
-
-    models_string += 'or "' + list_models[-1] + '"'
+                list_fluid += [name]
+                fluid_string += '"' + name + '"\n'
+                
+    list_kinetic = []
+    kinetic_string = ''
+    for name, obj in inspect.getmembers(kinetic):
+        if inspect.isclass(obj):
+            if name not in {'StruphyModel', }:
+                list_kinetic += [name]
+                kinetic_string += '"' + name + '"\n'
+                
+    list_hybrid = []
+    hybrid_string = ''
+    for name, obj in inspect.getmembers(hybrid):
+        if inspect.isclass(obj):
+            if name not in {'StruphyModel', }:
+                list_hybrid += [name]
+                hybrid_string += '"' + name + '"\n'
+                
+    list_toy = []
+    toy_string = ''
+    for name, obj in inspect.getmembers(toy):
+        if inspect.isclass(obj):
+            if name not in {'StruphyModel', }:
+                list_toy += [name]
+                toy_string += '"' + name + '"\n'
+                
+    list_models = list_fluid + list_kinetic + list_hybrid + list_toy
+        
+    # model message
+    model_message = 'which model to run, must be one of:\n'
+    model_message += '\nFluid models:\n'
+    model_message += '-------------\n'
+    model_message += fluid_string
+    model_message += '\nKinetic models:\n'
+    model_message += '---------------\n'
+    model_message += kinetic_string
+    model_message += '\nHybrid models:\n'
+    model_message += '--------------\n'
+    model_message += hybrid_string
+    model_message += '\nToy models:\n'
+    model_message += '-----------\n'
+    model_message += toy_string
+    #version_message += 'MIT license\n'
 
     parser_run.add_argument('model',
                             type=str,
                             choices=list_models,
                             metavar='model',
-                            help='which model to run (must be one of ' + models_string + ')',)
+                            help=model_message,)
 
     parser_run.add_argument('-i', '--input',
                             type=str,
@@ -158,7 +196,7 @@ def struphy():
     # 3. "units" sub-command
     parser_units = subparsers.add_parser(
         'units',
-        formatter_class=lambda prog: argparse.HelpFormatter(
+        formatter_class=lambda prog: argparse.RawTextHelpFormatter(
             prog, max_help_position=30),
         help='show physical units of a Struphy model',
         description='Show physical units of a Struphy model.',
@@ -168,7 +206,7 @@ def struphy():
                               type=str,
                               choices=list_models,
                               metavar='model',
-                              help='which model to look at (must be one of ' + models_string + ')',)
+                              help=model_message,)
 
     parser_units.add_argument('-i', '--input',
                               type=str,

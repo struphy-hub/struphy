@@ -3,7 +3,7 @@
 Installation
 ============
 
-*Struphy* can be installed in the following ways:
+Struphy can be installed in the following ways:
 
 1. From :ref:`PyPI <pypi_install>` :math:`\to` ``pip install struphy``, for running the latest release
 2. From :ref:`source <source_install>`, for running or adding code 
@@ -110,7 +110,7 @@ Compile kernels::
 Docker
 ------
 
-With this installation you will be able to run *struphy* in a `docker container <https://www.docker.com/resources/what-container/>`_, 
+With this installation you will be able to run Struphy in a `docker container <https://www.docker.com/resources/what-container/>`_, 
 encapsulated from your host machine.
 The container is launched from an `image <https://docs.docker.com/get-started/overview/#docker-objects>`_ 
 which you can download and run immediately, irrespective of your architecture and OS.
@@ -121,7 +121,7 @@ which you can download and run immediately, irrespective of your architecture an
 User install
 ^^^^^^^^^^^^
 
-To use *struphy* via docker, perform the following steps:
+To use Struphy via docker, perform the following steps:
 
 1. `Install Docker Desktop <https://docs.docker.com/desktop/>`_ and start it.
 
@@ -135,7 +135,7 @@ On Linux, if you do not want to preface the docker command with ``sudo``, you ca
 called ``docker`` and add your user to it.
 If you are uncomfortable with running `sudo`, you can `run docker in "rootless" mode <https://docs.docker.com/engine/security/rootless/>`_.
 
-2. Login to the MPCDF Gitlab registry using a predefined *struphy* user and token::
+2. Login to the MPCDF Gitlab registry using a predefined Struphy user and token::
 
     docker login gitlab-registry.mpcdf.mpg.de -u struphy_group_api -p glpat-JW4kjd_YMvRinSzKxSxs
 
@@ -164,7 +164,7 @@ Important docker commands
 * ``docker restart <container_name>`` restarts the container in detached mode.
 * ``docker attach <container_name>`` opens a terminal to a detached container.
 
-* Mirror default *struphy* output to ``~/<dir>`` on the host machine::
+* Mirror default Struphy output to ``~/<dir>`` on the host machine::
     
     docker run -it -v ~/<dir>:<install_path>/io/out gitlab-registry.mpcdf.mpg.de/struphy/struphy/release
 
@@ -181,7 +181,7 @@ with the ``-v`` option. For a ``rsa`` key this is done with::
 
 On OS other than Linux ``~/.ssh/id_rsa`` must be replaced with the path to the private rsa key.
 
-You can now install *struphy* from source (see above).
+You can now install Struphy from source (see above).
 
 In order to develop inside the container, we recommend to use `Visual Studio Code <https://code.visualstudio.com/>`_.
 Once installed, you can click on **Extensions** (red circle below) and install the ``Dev Containers``

@@ -280,7 +280,7 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
     import sysconfig
     import glob
     import yaml
-    from struphy.models import models
+    from struphy.models import fluid, kinetic, hybrid, toy
 
     # prepare output folder
     if mpi_rank == 0:
@@ -382,7 +382,13 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
         print(f'GL quad pts (hist)  :', params['grid']['nq_pr'])
 
         # print units info
-        getattr(models, model_name).model_units(params, verbose=True)
+        objs = [fluid, kinetic, hybrid, toy]
+        for obj in objs:
+            try:
+                model = getattr(obj, model_name)
+            except:
+                pass
+        model.model_units(params, verbose=True)
         print('')
 
         # write meta data to output folder

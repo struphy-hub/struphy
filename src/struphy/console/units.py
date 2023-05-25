@@ -17,7 +17,7 @@ def struphy_units(model, input, input_abs=None):
     import os
     import yaml
     import struphy
-    from struphy.models import models
+    from struphy.models import fluid, kinetic, hybrid, toy
 
     libpath = struphy.__path__[0]
 
@@ -30,7 +30,12 @@ def struphy_units(model, input, input_abs=None):
         params = yaml.load(file, Loader=yaml.FullLoader)
 
     # load model class
-    model_class = getattr(models, model)
+    objs = [fluid, kinetic, hybrid, toy]
+    for obj in objs:
+        try:
+            model_class = getattr(obj, model)
+        except:
+            pass
 
     # print units
     model_class.model_units(params, verbose=True)

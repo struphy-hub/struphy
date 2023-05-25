@@ -32,7 +32,7 @@ through the :ref:`base_classes`. A more detailed explanation can be found in :re
 
 Model discretization is based on finite element exterior calculus (FEEC) for the fluid/field quantities
 and particle-in-cell (PIC) methods for the kinetic species. An overview of these methods is given in :ref:`gempic`.
-For the FEEC spaces *Struphy* uses the open source library 
+For the FEEC spaces Struphy uses the open source library 
 
    * `psydac <https://github.com/pyccel/psydac>`_ (FEEC spaces)
 

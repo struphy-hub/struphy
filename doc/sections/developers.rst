@@ -38,12 +38,12 @@ please follow :ref:`add_model`.
 Struphy coding conventions
 --------------------------
 
-*Struphy* follows the `Python PEP 8 style guide <https://peps.python.org/pep-0008/>`_.
+Struphy follows the `Python PEP 8 style guide <https://peps.python.org/pep-0008/>`_.
 If you use VScode, the format conventions can be automatically applied by choosing "format document"
 after right-click on the source.
 
 Every class and functions must have a docstring that explains its functionalty.
-*Struphy* uses numpy-style docstrings with "Parameters", "Returns" and "Note" keywords.
+Struphy uses numpy-style docstrings with "Parameters", "Returns" and "Note" keywords.
 
 
 .. _base_classes:
@@ -158,11 +158,17 @@ PIC
 Adding a new Struphy model
 --------------------------
 
-*Struphy* provides an extensive framework for adding new model equations.
+Struphy provides an extensive framework for adding new model equations.
 A model consists of a set of PDEs togehter with a chosen discretization scheme.
 
-Struphy models must be added to :mod:`struphy.models.models` as child classes of 
-the :class:`struphy.models.base.StruphyModel`. **Please refer to existing models for templates.**
+Struphy models must be added under ``src/struphy/models/`` in one of the four modules
+
+* ``fluid.py``  
+* ``kinetic.py``
+* ``hybrid.py``
+* ``toy.py``
+
+as child classes of the :class:`struphy.models.base.StruphyModel`. **Please refer to existing models for templates.**
 
 A Struphy model s defined by 
 
@@ -175,7 +181,7 @@ A typical initialization of the unknowns looks like::
 
     super().__init__(params, comm, b2='Hdiv', mhd={'n3': 'L2', u_name: self._u_space, 'p3': 'L2'}, energetic_ions='Particles5D')
 
-This example is taken from :class:`struphy.models.models.LinearMHDDriftkineticCC`. Here,
+This example is taken from :class:`struphy.models.hybrid.LinearMHDDriftkineticCC`. Here,
 one field variable (``b2``), one fluid species (``mhd``) and one kinetic species (``energetic_ions``)
 are initialized.
 
@@ -191,7 +197,7 @@ basis projection operators, BEFORE instantiating the model-specific propagators:
 
 **Please refer to** :ref:`propagators` **for propagator templates.**
 
-Once you added a model to ``struphy/models/models.py`` and re-installed struphy (``pip install -e .``), 
+Once you added a model and re-installed struphy (``pip install -e .``), 
 you can run the model with ``struphy run YOUR_MODEL``, where ``YOUR_MODEL`` is the name you gave to 
 the model class (it must start with a capital letter).
 
