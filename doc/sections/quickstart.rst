@@ -84,4 +84,6 @@ The same for full-orbit Vlasov::
 
     struphy example orbits_tokamak
 
+**Please check out the** :ref:`tutorials` **to learn more about using Struphy.**
+
             

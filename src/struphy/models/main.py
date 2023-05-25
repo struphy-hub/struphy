@@ -5,7 +5,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     Parameters
     ----------
     model_name : str
-        The name of the model to run.
+        The name of the model to run. Type "struphy run --help" in your terminal to see a list of available models.
 
     parameters : dict | str
         The simulation parameters. Can either be a dictionary OR a string (path of .yml parameter file)
@@ -72,13 +72,21 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
         data.add_data({key_time_restart: val})
 
     # start a new simulation (set initial conditions according to parameter file)
+    time_params = params['time']
+
     if not restart:
         model.initialize_from_params()
+        total_steps = str(
+            int(round(time_params['Tend']/time_params['dt'])))
 
     # restart of an existing simulation (overwrite time quantities and load restart data from hdf5 files)
     else:
         time_state['value'][0] = data.file['restart/time/value'][-1]
         time_state['index'][0] = data.file['restart/time/index'][-1]
+
+        total_steps = str(
+            int(round((time_params['Tend'] - time_state['value'][0])/time_params['dt'])))
+
         model.initialize_from_restart(data)
 
     # list of model methods for diagnostics
@@ -99,8 +107,6 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
         model.print_scalar_quantities()
 
     # ======================== main time loop ======================
-    time_params = params['time']
-
     if rank == 0:
         split_algo = time_params['split_algo']
         print(
@@ -164,18 +170,19 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
 
             # print current time and scalar quantities to screen
             if rank == 0:
-                total_steps = str(
-                    int(round(time_params['Tend']/time_params['dt'])))
                 step = str(time_state['index'][0]).zfill(len(total_steps))
 
-                message = 'time: {:15.11f}'.format(time_state['value'][0])
-                message += ' | ' + 'time step: ' + step
-                message += ' | ' + 'final time: ' + str(time_params['Tend'])
+                message = 'time: {0:12.8f}/{1:12.8f}'.format(time_state['value'][0], time_params['Tend'])
+                message += ' | ' + 'time step: ' + step + '/' + str(total_steps) 
 
                 print(message, end='\n')
                 model.print_scalar_quantities()
                 print()
     # ===================================================================
+
+    with open(path_out + '/meta.txt', 'a') as f:
+        f.write('wall-clock time [min]:'.ljust(30) +
+                str((end_simulation - start_simulation)/60.) + '\n')
 
 
 if __name__ == '__main__':

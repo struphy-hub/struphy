@@ -12,7 +12,7 @@ default:
     - module purge
     - module load gcc/9 openmpi anaconda/3/2021.11 mpi4py git
     - module list
-    - source env/bin/activate
+    - source env_$CI_PIPELINE_ID/bin/activate
     - pip list
     - ENV_PATH=$(python3 -c "import sysconfig; print(sysconfig.get_path('platlib'))")
     #- ENV_PATH=$(python3 -m site --user-site)
@@ -27,7 +27,7 @@ default:
   cache:
     key: 'python-env'
     paths:
-      - env/
+      - env_$CI_PIPELINE_ID/
 
 stages:
   - startup
@@ -43,10 +43,6 @@ default_venv:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_PIPELINE_SOURCE == "push"
-  cache:
-    key: 'aux-cache'
-    paths:
-      - notebooks/
   before_script:
     - uname -s # get system info
     - uname -v
@@ -61,10 +57,10 @@ default_venv:
   script:
     - echo "Creating virtual environment..."
     - pip install -U virtualenv
-    - python3 -m venv env
+    - python3 -m venv env_$CI_PIPELINE_ID
     - ls
     - pwd
-    - source env/bin/activate
+    - source env_$CI_PIPELINE_ID/bin/activate
     - python3 -m pip install --upgrade pip
     - pip install -U pytest coverage build twine # somehow the build package is not cached
     - pip list
@@ -76,10 +72,7 @@ ci_vars:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_PIPELINE_SOURCE == "push"
-  cache:
-    key: 'aux-cache'
-    paths:
-      - notebooks/
+  cache: []
   before_script:
     - echo "All CI predefined variables:"
     - module purge
@@ -200,6 +193,7 @@ ci_vars:
 # Verify the PEP-8 guidelines for your code
 linting:
   stage: startup
+  cache: []
   before_script:
     - module load anaconda/3/2021.11 
     - pip install -U pylint
@@ -281,6 +275,7 @@ ubuntu20_tests:
   stage: tests
   image: ubuntu:20.04
   needs: ["default_build"]
+  cache: []
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -305,6 +300,7 @@ fedora36_tests:
   stage: tests
   image: fedora:36
   needs: ["default_build"]
+  cache: []
   rules:
     - if: $CI_COMMIT_TAG
       when: never

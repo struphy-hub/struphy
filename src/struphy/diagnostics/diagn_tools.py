@@ -64,7 +64,7 @@ def main():
     with open(path + '/meta.txt', 'r') as f:
         lines = f.readlines()
 
-    code = lines[-2].split()[-1]
+    code = lines[3].split()[-1]
 
     # Get fields
     file = h5py.File(path + '/data_proc0.hdf5', 'r')

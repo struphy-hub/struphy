@@ -61,7 +61,7 @@ def diagnostics():
     domain_name = domain.__class__.__name__
     
     # load grid_info (domain decomposition)
-    file = h5py.File(os.path.join(out_path, 'data_proc0.hdf5'), 'r')
+    file = h5py.File(os.path.join(out_path, 'data/', 'data_proc0.hdf5'), 'r')
     grid_info = file['scalar'].attrs['grid_info']
     file.close()
 

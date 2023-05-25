@@ -3,14 +3,17 @@
 Developer's guide
 =================
 
-*Struphy* is open source *and* open development, and thus thrives on the contributions of its users.
-In order to maintain a sustainable software framework, :ref:`conventions` have to be followed
-to achieve successful pull requests. Suggestions for a standard :ref:`git_workflow` are also available.
+Struphy is **open source** and **open development**, and thus thrives on the contributions of its users.
 
-A comprehensive documentation is vital for the usability of *Struphy*; any developer should therefore 
+In order to maintain a sustainable software framework, :ref:`conventions` have to be followed
+to achieve successful pull requests. 
+
+Suggestions for a standard :ref:`git_workflow` are also available.
+
+A comprehensive documentation is vital for the usability of Struphy; any developer should therefore 
 check out the hints for :ref:`change_doc`.
 
-Developers can contribute to *Struphy* in multiple ways.
+Developers can contribute to Struphy in multiple ways.
 Single physics features or algorithmic novelties can be added 
 via the available :ref:`base_classes`. For FEEC discretizations,
 the most relevant classes are
@@ -206,13 +209,15 @@ the model class (it must start with a capital letter).
 Git workflow
 ------------
 
-.. _repo:
+Main branches 
+^^^^^^^^^^^^^
 
-Git repository
-^^^^^^^^^^^^^^
+The `Struphy repository <https://gitlab.mpcdf.mpg.de/struphy/struphy/>`_ has two main branches, ``master`` and ``devel``. 
+Nobody can push directly to these branches.
 
-The struphy repository is on `gitlab.mpcdf.mpg.de <https://gitlab.mpcdf.mpg.de/struphy/struphy>`_.
-For access please contact `stefan.possanner@ipp.mpg.de <stefan.possanner@ipp.mpg.de>`_.
+The ``master`` branch holds the current release of the code. 
+
+``devel`` is the main branch for developers. :ref:`feature_branches` must be checked out and merged into ``devel``.
 
 
 .. _open_dev:
@@ -221,33 +226,49 @@ Open development
 ^^^^^^^^^^^^^^^^
 
 When adding code to struphy it is important that other developers can follow your plans.
-For this we use the ``Issue`` tracker on the left panel of the `repo webpage <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/issues>`_.
-Please add a short description of your planned additions/improvements before you start coding.
+For this we use the `Issue tracker <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/issues>`_.
+There, you can add a short description of your plans and choose one of the following ``labels``:
 
-Create a :ref:`feature branch <feature_branches>` to work an an issue or a group of issues. 
-**Delete** the feature branch after the :ref:`merge_requests`.
-**Do not keep a feature branch too long (!)**, usually a couple of days or 1-2 weeks max.
-Otherwise the code review will be too cumbersome and time consuming.
-It is good practice to junk up a new feature into its "atomic" parts and to keep a log of the work via informative **commit messages**. 
+    * Bug
+    * Discussion
+    * Documentation
+    * Feature Request
+    * ToDo
 
-When closing an issue you can mention it via its link (bottom of the right side panel of the issue's page) in the corresponding merge request.
-This helps to keep a better overview for other developers.
+For coding, create :ref:`feature_branches` to work an an issue or a group of issues. 
+
+**Do not keep a feature branch too long (!)** (several weeks max).
+Otherwise the deviation from ``devel`` will become too large and :ref:`merge_requests` will be increasingly difficult.
+
+It is good practice to junk up a new feature into its "atomic" parts and to keep a log of your work via informative **commit messages**. 
 
 .. _main_branches:
 
-Main branches 
-^^^^^^^^^^^^^
 
-There are two main branches, ``master`` and ``devel``. Nobody can push directly to these branches. 
-The master branch holds the current release of the code. 
-``devel`` is the main branch for developers. The code in ``devel`` can be modified via :ref:`feature_branches`.
+.. _forking:
+
+Forking 
+^^^^^^^
+
+In case you are not a `member <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/project_members>`_ of the Struphy project,
+you can contribute code by `forking <https://docs.gitlab.com/ee/user/project/repository/forking_workflow.html>`_ the Struphy
+repository.
+
+You must create a **public fork** to be able to merge your code into Struphy!
+
+You can create :ref:`feature_branches` in your forked repo and create merge requests into 
+the Struphy repo.
+
+`Update your fork <https://docs.gitlab.com/ee/user/project/repository/forking_workflow.html#from-the-command-line>`_
+in case ``devel`` changes in the Struphy repo while you are working on your feature.
+
 
 .. _feature_branches:
 
-Feature branch 
-^^^^^^^^^^^^^^
+Feature branches 
+^^^^^^^^^^^^^^^^
 
-When implementing changes to ``devel`` you must do this via a **feature branch** in the following way::
+When implementing changes to ``devel`` (can be in your fork) you must do this via a **feature branch** in the following way::
 
     git checkout devel
     git checkout -b feature
@@ -266,6 +287,8 @@ From time to time, it is important to check whether the main branch has changed
     git checkout devel
     git status
 
+See :ref:`here <forking>` what to do in a forked repo.
+
 In case the main branch has changed you must perform either :ref:`rebasing` or :ref:`merging` (see `here <https://www.atlassian.com/de/git/tutorials/merging-vs-rebasing>`_ for a comparison of the two concepts). 
 Merging must be done instead of rebasing if
 
@@ -281,6 +304,7 @@ When you are done coding the new feature, create a new remote branch and push yo
 
 You can continue working locally on your feature, then use ``git push`` to update the new remote branch.
 
+
 .. _merge_requests:
 
 Merge requests 
@@ -289,10 +313,10 @@ Merge requests
 Once you are done working on the new feature, you must create a **merge request** (MR, called pull request on Github). 
 There are several ways to do this, one of which is as follows: 
 
-    1. On the gitlab webpage go to "Merge requests" on the left panel of the page. 
+    1. In the Struphy repo webpage go to "Merge requests" on the left panel of the page. 
     2. Choose ``feature`` as the **source branch** and ``devel`` as the **target branch**.
     3. Write an informative summary of the added feature (mention issues solved by this MR)
-    4. Select either *Stefan Possanner* or *Florian Holderied* as **Assignee** for code review.
+    4. Select one of the Maintainers as **Assignee** for code review.
     5. Check both boxes ``delete source branch`` and ``sqash commits``.
     6. Click "Create merge request".
 
@@ -300,6 +324,7 @@ Once the merge is accepted your code is merged into ``devel``,
 the remote feature branch gets deleted and the commits are squashed.
 
 In order to mention the merge request in issues/comments, go to its page and copy/paste the link under ``Reference:`` from the right panel.
+
 
 .. _rebasing:
 

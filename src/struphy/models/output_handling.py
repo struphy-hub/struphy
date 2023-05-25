@@ -38,7 +38,7 @@ class DataContainer:
                 self._file_name = file_name
 
         # file path
-        file_path = os.path.join(path_out, self._file_name)
+        file_path = os.path.join(path_out, 'data/', self._file_name)
 
         # check if file already exists
         file_exists = os.path.exists(file_path)

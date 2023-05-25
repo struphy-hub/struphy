@@ -60,7 +60,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers):
         with open(os.path.join(path, 'meta.txt'), 'r') as f:
             lines = f.readlines()
 
-        nproc += [int(lines[-1].split()[-1])]
+        nproc += [int(lines[4].split()[-1])]
 
         with open(os.path.join(path, 'parameters.yml'), 'r') as f:
             params = yaml.load(f, Loader=yaml.FullLoader)

@@ -61,10 +61,10 @@ fluid :
                 coords : 'logical' # in which coordinates (logical or physical)
                 comps :
                     n3 : False              # components to be initialized (for scalar fields: no list)
-                    uv : [True, True, True] # components to be initialized (for scalar fields: no list)
+                    uv : [False, True, False] # components to be initialized (for scalar fields: no list)
                     p3 : False              # components to be initialized (for scalar fields: no list)
                 ms : [3] # poloidal mode numbers
-                ns : [0] # toroidal mode numbers
+                ns : [1] # toroidal mode numbers
                 amp : [0.001] # amplitudes of each mode
                 pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
                 pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"

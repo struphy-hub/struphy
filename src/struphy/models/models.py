@@ -621,7 +621,13 @@ class LinearMHDVlasovCC(StruphyModel):
         self._coupling_params['Ab'] = Ab
         self._coupling_params['Ah'] = Ah
         self._coupling_params['kappa'] = kappa
-
+        
+        if comm.Get_rank() == 0:
+            print('Model parameters:')
+            print(f'Ah: {Ah}')
+            print(f'Ab: {Ab}')
+            print(f'kappa: {kappa}\n')
+        
         # background distribution function used as control variate
         if params['kinetic']['energetic_ions']['markers']['type'] == 'control_variate':
             assert 'background' in params['kinetic']['energetic_ions'], 'no background distribution function for control variate specified'

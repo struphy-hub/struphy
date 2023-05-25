@@ -34,4 +34,5 @@ def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1):
                     str(step),
                     '--celldivide',
                     str(celldivide)],
-                   cwd=libpath)
+                    cwd=libpath, 
+                    check=True)

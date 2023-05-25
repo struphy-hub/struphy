@@ -49,7 +49,7 @@ def diagnostics():
     out_path = os.path.join(libpath, 'io/out', out_name)
 
     # load data
-    file = h5py.File(os.path.join(out_path, 'data_proc0.hdf5'), 'r')
+    file = h5py.File(os.path.join(out_path, 'data/', 'data_proc0.hdf5'), 'r')
 
     t  = file['time/value'][:]
     eu = file['scalar/en_U'][:]
@@ -66,13 +66,9 @@ def diagnostics():
 
     Lz = grids_phy[2][0, 0, -1]
 
-    # load data dict for u_field
-    with open(os.path.join(out_path, 'post_processing/fields_data/' + field_names[3] + '_phy.bin'), 'rb') as handle:
-        point_data_phys = pickle.load(handle)
-
     # load distriution function
-    f  = np.load(os.path.join(out_path, 'post_processing/kinetic_data/energetic_ions/distribution_function/f_vz.npy'))
-    vz = np.load(os.path.join(out_path, 'post_processing/kinetic_data/energetic_ions/distribution_function/grid_vz_1.npy'))
+    f  = np.load(os.path.join(out_path, 'post_processing/kinetic_data/energetic_ions/distribution_function/v3/f_binned.npy'))
+    vz = np.load(os.path.join(out_path, 'post_processing/kinetic_data/energetic_ions/distribution_function/v3/grid_v3.npy'))
 
     fig = plt.figure()
     fig.set_figheight(3.5)
