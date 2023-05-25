@@ -23,7 +23,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
         When to save data output: every time step (save_step=1), every second time step (save_step=2), etc (default=1).
     """
 
-    from struphy.models import models
+    from struphy.models import fluid, kinetic, hybrid, toy
     from struphy.models.utilities import pre_processing
     from struphy.models.output_handling import DataContainer
 
@@ -50,7 +50,12 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
                             size)
 
     # instantiate STRUPHY model (will only allocate model objects and associated memory)
-    model = getattr(models, model_name)(params, comm)
+    objs = [fluid, kinetic, hybrid, toy]
+    for obj in objs:
+        try:
+            model = getattr(obj, model_name)(params, comm)
+        except:
+            pass
 
     # print plasma parameters to screen
     if rank == 0:

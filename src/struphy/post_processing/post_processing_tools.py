@@ -34,7 +34,7 @@ def create_femfields(path, step=1):
         The space IDs of the fields (H1, Hcurl, Hdiv, L2 or H1vec). space_ids[name] contains the space ID of the field with the name "name".
 
     model : str
-        From which model in struphy.models.models the data has been obtained.
+        From which model in struphy/models the data has been obtained.
     """
 
     # get model name and # of MPI processes from meta.txt file

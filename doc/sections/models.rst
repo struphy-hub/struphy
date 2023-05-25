@@ -14,31 +14,10 @@ Struphy models
 Fluid models
 ------------
 
-.. autoclass:: struphy.models.models.LinearMHD
+.. automodule:: struphy.models.fluid
     :members:
     :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
-
-
-.. _hybrid_models:
-
-Fluid-kinetic hybrid models
----------------------------
-
-.. autoclass:: struphy.models.models.LinearMHDVlasovCC
-    :members:
-    :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
-
-.. autoclass:: struphy.models.models.LinearMHDVlasovPC
-    :members:
-    :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
-
-.. autoclass:: struphy.models.models.LinearMHDDriftkineticCC
-    :members:
-    :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, timescale
 
 
 .. _kinetic_models:
@@ -46,10 +25,21 @@ Fluid-kinetic hybrid models
 Kinetic models
 --------------
 
-.. autoclass:: struphy.models.models.LinearVlasovMaxwell
+.. automodule:: struphy.models.kinetic
     :members:
     :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, timescale
+
+
+.. _hybrid_models:
+
+Fluid-kinetic hybrid models
+---------------------------
+
+.. automodule:: struphy.models.hybrid
+    :members:
+    :undoc-members:
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, timescale
 
 
 .. _toy_models:
@@ -57,20 +47,10 @@ Kinetic models
 Toy models
 ----------
 
-.. autoclass:: struphy.models.models.Maxwell
+.. automodule:: struphy.models.toy
     :members:
     :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
-
-.. autoclass:: struphy.models.models.Vlasov
-    :members:
-    :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
-
-.. autoclass:: struphy.models.models.DriftKinetic
-    :members:
-    :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, timescale
 
 
 .. _normalization:
