@@ -281,7 +281,7 @@ class LinearExtendedMHD(StruphyModel):
         Zb = params['fluid']['mhd']['phys_params']['Z']
 
         omega_ch = (Zb*ee*units_basic['B'])/(Ab*mH)
-        kappa = omega_ch*units_basic['t']/(2.0 * 3.141592654)
+        kappa = omega_ch*units_basic['t']/(2.0 * np.pi)
 
         if abs(kappa - 1) < 1e-6:
             kappa = 1.
