@@ -138,18 +138,21 @@ mhd_equilibrium :
         na   : 1. # number density at r=a
         beta : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
     AdhocTorus :
-        a      : 1. # minor radius
-        R0     : 3. # major radius
-        B0     : 1. # on-axis toroidal magnetic field
-        q0     : 1.05 # safety factor at r=0
-        q1     : 1.80 # safety factor at r=a
-        n1     : 0. # shape factor for number density profile 
-        n2     : 0. # shape factor for number density profile 
-        na     : 1. # number density at r=a
-        p_kind : .5 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
-        p1     : .1 # shape factor for ad hoc pressure profile
-        p2     : .1 # shape factor for ad hoc pressure profile
-        beta   : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
+        a       : 1. # minor radius
+        R0      : 3. # major radius
+        B0      : 1. # on-axis toroidal magnetic field
+        q_kind  : 0 # which profile (0 : parabolic, 1 : other, see documentation)
+        q0      : 1.05 # safety factor at r=0
+        q1      : 1.80 # safety factor at r=a
+        n1      : 0. # 1st shape factor for number density profile 
+        n2      : 0. # 2nd shape factor for number density profile 
+        na      : 1. # number density at r=a
+        p_kind  : 1 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
+        p1      : .1 # 1st shape factor for ad hoc pressure profile
+        p2      : .1 # 2nd shape factor for ad hoc pressure profile
+        beta    : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
+        psi_k   : 3 # spline degree to be used for interpolation of poloidal flux function (only needed if q_kind = 1)
+        psi_nel : 50 # number of cells to be used for interpolation of poloidal flux function (only needed if q_kind = 1)
     AdhocTorusQPsi :
         a       : 0.361925 # minor radius
         R0      : 1. # major radius

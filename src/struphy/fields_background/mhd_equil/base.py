@@ -50,7 +50,7 @@ class MHDequilibrium(metaclass=ABCMeta):
         """
         return self.domain.pull(self.unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='2_form', squeeze_out=squeeze_out)
     
-    def unit_bv(self, *etas, squeeze_out=False):
+    def unit_bv(self, *etas, squeeze_out=True):
         """ Unit vector components of  equilibrium magnetic field (contra-variant) on logical cube [0, 1]^3.
         """
         return self.domain.pull(self.unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='vector', squeeze_out=squeeze_out)
@@ -88,22 +88,24 @@ class MHDequilibrium(metaclass=ABCMeta):
     def p0(self, *etas, squeeze_out=True):
         """ 0-form equilibrium pressure on logical cube [0, 1]^3.
         """
-        return self.domain.pull([self.p_xyz], *etas, kind='0_form', squeeze_out=squeeze_out)
+        xyz = self.domain(*etas, squeeze_out=False)
+        return self.domain.pull(self.p_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='0_form', squeeze_out=squeeze_out)
 
     def p3(self, *etas, squeeze_out=True):
         """ 3-form equilibrium pressure on logical cube [0, 1]^3.
         """
-        return self.domain.transform([self.p0], *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(self.p0(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
     def n0(self, *etas, squeeze_out=True):
         """ 0-form equilibrium number density on logical cube [0, 1]^3.
         """
-        return self.domain.pull([self.n_xyz], *etas, kind='0_form', squeeze_out=squeeze_out)
+        xyz = self.domain(*etas, squeeze_out=False)
+        return self.domain.pull(self.n_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='0_form', squeeze_out=squeeze_out)
 
     def n3(self, *etas, squeeze_out=True):
         """ 3-form equilibrium number density on logical cube [0, 1]^3.
         """
-        return self.domain.transform([self.n0], *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(self.n0(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
     ###################
     # Single components

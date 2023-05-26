@@ -85,32 +85,6 @@ class Tokamak(PoloidalSplineTorus):
         self._params_map['p_pre'] = p_pre
 
 
-#class EQDSKTorus(PoloidalSplineTorus):
-#    '''Mappings constructed via field line tracing from EQDSK data.
-#    
-#    .. image:: ../pics/mappings/eqdsk_raw.png
-#
-#    |
-#
-#    .. image:: ../pics/mappings/eqdsk.png'''
-#
-#    def __init__(self, **params):
-#
-#        from struphy.fields_background.mhd_equil.equils import EQDSKequilibriumWithDomain
-#
-#        eqdsk = EQDSKequilibriumWithDomain(**params)
-#
-#        new_params = {}
-#        new_params['cx'] = eqdsk.domain.cx[:, :, 0].squeeze()
-#        new_params['cy'] = eqdsk.domain.cy[:, :, 0].squeeze()
-#        new_params['Nel'] = eqdsk.domain.params_map['Nel']
-#        new_params['p'] = eqdsk.domain.params_map['p']
-#        new_params['spl_kind'] = eqdsk.domain.params_map['spl_kind']
-#        new_params['tor_period'] = eqdsk.domain.params_map['tor_period']
-#
-#        super().__init__(**new_params)
-
-
 class GVECunit(Spline):
     '''The mapping "f_unit" from `gvec_to_python <https://gitlab.mpcdf.mpg.de/spossann/gvec_to_python>`_, 
     computed by the GVEC MHD equilibirum code.
