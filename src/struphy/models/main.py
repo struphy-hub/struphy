@@ -54,7 +54,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     for obj in objs:
         try:
             model = getattr(obj, model_name)(params, comm)
-        except:
+        except AttributeError: 
             pass
 
     # print plasma parameters to screen
@@ -197,6 +197,9 @@ if __name__ == '__main__':
     import struphy
 
     libpath = struphy.__path__[0]
+    
+    with open(os.path.join(libpath, 'io_path.txt')) as f:
+        io_path = f.readlines()[0]
 
     parser = argparse.ArgumentParser(description='Run an Struphy model.')
 
@@ -211,14 +214,14 @@ if __name__ == '__main__':
                         type=str,
                         metavar='FILE',
                         help='absolute path of parameter file (.yml) (default=<struphy_path>/io/inp/parameters.yml)',
-                        default=os.path.join(libpath, 'io/inp/parameters.yml'))
+                        default=os.path.join(io_path, 'io/inp/parameters.yml'))
 
     # output (absolute path)
     parser.add_argument('-o', '--output',
                         type=str,
                         metavar='DIR',
                         help='absolute path of output folder (default=<struphy_path>/io/out/sim_1)',
-                        default=os.path.join(libpath, 'io/out/sim_1'))
+                        default=os.path.join(io_path, 'io/out/sim_1'))
 
     # restart
     parser.add_argument('-r', '--restart',

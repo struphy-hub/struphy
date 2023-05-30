@@ -54,8 +54,12 @@ def main():
     time = args.t[0]
     do_log = args.log
     scalars_plot = args.scalars[0]
-    path = os.path.join(os.path.dirname(struphy.__file__),
-                        'io/out', foldername)
+    
+    libpath = struphy.__path__[0]
+    with open(os.path.join(libpath, 'io_path.txt')) as f:
+        io_path = f.readlines()[0]
+        
+    path = os.path.join(io_path, 'io/out', foldername)
 
     grid_slices = {'e': {'e1': args.e1[0], 'e2': args.e2[0], 'e3': args.e3[0]},
                    'v': {'v1': args.v1[0], 'v2': args.v2[0], 'v3': args.v3[0]}}
@@ -67,7 +71,7 @@ def main():
     code = lines[3].split()[-1]
 
     # Get fields
-    file = h5py.File(path + '/data_proc0.hdf5', 'r')
+    file = h5py.File(os.path.join(path, 'data/', 'data_proc0.hdf5'), 'r')
     field_names = list(file['feec'].keys())
     saved_scalars = file['scalar']
     saved_time = file['time']['value'][:]

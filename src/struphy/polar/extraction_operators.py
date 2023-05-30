@@ -53,6 +53,9 @@ class PolarExtractionBlocksC1:
         self._n1 = cx.shape[1]
         self._n2 = derham.nbasis['0'][2]
         
+        assert derham.spl_kind[1] , 'Use of poalr splines requires periodic splines in eta2.'
+        assert self.n1 == derham.Nel[1], f'Polar splines: number of control points {self.n1} in eta2 direction is not consistent with the grid (with {derham.Nel[1]}).'
+        
         self._d0 = self.n0 - 1
         self._d1 = self.n1 - 0
         self._d2 = derham.nbasis['3'][2]

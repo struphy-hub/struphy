@@ -11,21 +11,21 @@ Check if kernels are compiled::
 
     struphy compile
 
-Get the ``<install_path>`` which ends with `/struphy`::
+Get the default I/O path::
 
     struphy -p
 
-Write the install path to a variable for easier use::
+Set the default I/O path to the current working direcory::
 
-    STR_PATH=<install_path>
+    struphy --set-io .
 
-Let us run the model ``Maxwell`` with default input parameters and save the data to ``<install_path>/io/out/my_first_sim/``::
+Let us run the model ``Maxwell`` with default input parameters and save the data to ``io/out/my_first_sim/``::
 
     struphy run Maxwell -o my_first_sim
 
 Let us change some input parameters. Open the default parameter file (for example with ``vim``)::
 
-    vi $STR_PATH/io/inp/parameters.yml
+    vi io/inp/parameters.yml
 
 Change the number of elements under ``grid/Nel`` from ``[16, 32, 32]`` to ``[32, 32, 32]``, save and quit.
 Let us now run ``Maxwell`` again, but this time on 2 processes, and saving to a different folder::
@@ -45,13 +45,15 @@ Let us now run a more complicated hybrid model, namely ``LinearMHDVlasovCC``, on
 
     struphy run LinearMHDVlasovCC -i params_mhd_vlasov.yml -o sim_hybrid --mpi 2
 
-The output is stored in ``<install_path>/io/out/sim_hybrid/``. Post process the data::
+The output is stored in ``io/out/sim_hybrid/``. Post process the data::
 
     struphy pproc -d sim_hybrid
 
 You can inspect the generated data via::
 
-    ls $STR_PATH/io/out/sim_hybrid/post_processing/ 
+    ls io/out/sim_hybrid/post_processing/ 
+
+More info about the post-processed data can be found in `Tutorial_02 <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/notebooks/tutorial_02_postproc_standard_plotting.ipynb>`_.
 
 Finally, let us run in Tokamak geometry. For this, let us run the model ``LinearMHD`` on 2 processes, by specifying a given input file,
 and save the data to a different folder::
@@ -60,13 +62,13 @@ and save the data to a different folder::
 
 You can inspect the input file via::
     
-    vi $STR_PATH/io/in/params_mhd.yml
+    vi io/inp/params_mhd.yml
 
 Post process data::
 
     struphy pproc -d sim_mhd
 
-You can now open ``paraview`` and load the data from the folder ``<install_path>/io/out/sim_mhd/post_processing/fields_data/vtk/``.
+You can now open ``paraview`` and load the data from the folder ``io/out/sim_mhd/post_processing/fields_data/vtk/``.
 
 Check out available Struphy examples which include post-processing and diagnostics::
 

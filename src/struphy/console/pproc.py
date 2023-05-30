@@ -21,10 +21,13 @@ def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1):
     import struphy
 
     libpath = struphy.__path__[0]
+    
+    with open(os.path.join(libpath, 'io_path.txt')) as f:
+        io_path = f.readlines()[0]
 
     # create absolute path
     if dir_abs is None:
-        dir_abs = os.path.join(libpath, 'io/out', dirr)
+        dir_abs = os.path.join(io_path, 'io/out', dirr)
 
     # loop over output folders and call post-processing .py file
     subprocess.run(['python3',

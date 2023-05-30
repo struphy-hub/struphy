@@ -20,10 +20,13 @@ def struphy_units(model, input, input_abs=None):
     from struphy.models import fluid, kinetic, hybrid, toy
 
     libpath = struphy.__path__[0]
+    
+    with open(os.path.join(libpath, 'io_path.txt')) as f:
+        io_path = f.readlines()[0]
 
     # create absolute i/o paths
     if input_abs is None:
-        input_abs = os.path.join(libpath, 'io/inp/', input)
+        input_abs = os.path.join(io_path, 'io/inp/', input)
 
     # load simulation parameters
     with open(input_abs) as file:

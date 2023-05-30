@@ -39,15 +39,29 @@ def struphy():
     # path message
     import struphy
     libpath = struphy.__path__[0]
+
+    try:
+        with open(os.path.join(libpath, 'io_path.txt'), 'r') as f:
+            io_path = f.readlines()[0]
+    except FileNotFoundError:
+        # setting default io path
+        with open(os.path.join(libpath, 'io_path.txt'), 'w') as f:
+            f.write(libpath)
+            io_path = libpath
+
     path_message = f'Struphy installation path: {libpath}\n'
-    path_message += f'default input:             {libpath}/io/inp\n'
-    path_message += f'default output:            {libpath}/io/out\n'
-    path_message += f'template batch scripts:    {libpath}/io/batch'
+    path_message += f'default input:             {io_path}/io/inp\n'
+    path_message += f'default output:            {io_path}/io/out\n'
+    path_message += f'template batch scripts:    {io_path}/io/batch'
 
     parser.add_argument('-v', '--version', action='version',
                         version=version_message)
     parser.add_argument('-p', '--path', action='version',
                         version=path_message, help='default installations and i/o paths')
+    parser.add_argument('--set-io',
+                        type=str,
+                        metavar='PATH',
+                        help='set PATH to default I/O folder and copy templates there (type "." to use current working directory)',)
 
     # create sub-commands and save name of sub-command into variable "command"
     subparsers = parser.add_subparsers(title='available commands',
@@ -86,7 +100,7 @@ def struphy():
             if name not in {'StruphyModel', }:
                 list_fluid += [name]
                 fluid_string += '"' + name + '"\n'
-                
+
     list_kinetic = []
     kinetic_string = ''
     for name, obj in inspect.getmembers(kinetic):
@@ -94,7 +108,7 @@ def struphy():
             if name not in {'StruphyModel', }:
                 list_kinetic += [name]
                 kinetic_string += '"' + name + '"\n'
-                
+
     list_hybrid = []
     hybrid_string = ''
     for name, obj in inspect.getmembers(hybrid):
@@ -102,7 +116,7 @@ def struphy():
             if name not in {'StruphyModel', }:
                 list_hybrid += [name]
                 hybrid_string += '"' + name + '"\n'
-                
+
     list_toy = []
     toy_string = ''
     for name, obj in inspect.getmembers(toy):
@@ -110,9 +124,9 @@ def struphy():
             if name not in {'StruphyModel', }:
                 list_toy += [name]
                 toy_string += '"' + name + '"\n'
-                
+
     list_models = list_fluid + list_kinetic + list_hybrid + list_toy
-        
+
     # model message
     model_message = 'which model to run, must be one of:\n'
     model_message += '\nFluid models:\n'
@@ -127,7 +141,7 @@ def struphy():
     model_message += '\nToy models:\n'
     model_message += '-----------\n'
     model_message += toy_string
-    #version_message += 'MIT license\n'
+    # version_message += 'MIT license\n'
 
     parser_run.add_argument('model',
                             type=str,
@@ -138,7 +152,7 @@ def struphy():
     parser_run.add_argument('-i', '--input',
                             type=str,
                             metavar='FILE',
-                            help='parameter file (.yml) relative to <install_path>/struphy/io/inp/ (default=parameters.yml)',
+                            help='parameter file (.yml) in current I/O path (default=parameters.yml)',
                             default='parameters.yml',)
 
     parser_run.add_argument('--input-abs',
@@ -149,7 +163,7 @@ def struphy():
     parser_run.add_argument('-o', '--output',
                             type=str,
                             metavar='DIR',
-                            help='output directory relative to <install_path>/struphy/io/out/ (default=sim_1)',
+                            help='output directory relative to current I/O path (default=sim_1)',
                             default='sim_1',)
 
     parser_run.add_argument('--output-abs',
@@ -160,7 +174,7 @@ def struphy():
     parser_run.add_argument('-b', '--batch',
                             type=str,
                             metavar='FILE',
-                            help='batch script relative to <install_path>/struphy/io/batch/ ', )
+                            help='batch script in current I/O path', )
 
     parser_run.add_argument('--batch-abs',
                             type=str,
@@ -339,8 +353,43 @@ def struphy():
     args = parser.parse_args()
 
     # if no arguments are passed, print help and exit
-    if args.command is None:
+    if args.command is None and args.set_io is None:
         parser.print_help()
+        exit()
+
+    # set default io path
+    if args.set_io:
+        if args.set_io == '.':
+            io_path = os.getcwd()
+        else:
+            io_path = args.set_io
+            try:
+                os.mkdir(io_path)
+            except:
+                pass
+
+        io_path = os.path.abspath(io_path)
+
+        with open(os.path.join(libpath, 'io_path.txt'), 'w') as f:
+            f.write(io_path)
+
+        io_dir = os.path.join(io_path, 'io/')
+        try:
+            os.mkdir(io_dir)
+            os.mkdir(os.path.join(io_dir, 'out/'))
+        except:
+            pass
+
+        from distutils.dir_util import copy_tree
+        copy_tree(os.path.join(libpath, 'io/inp/'),
+                  os.path.join(io_dir, 'inp/'))
+        copy_tree(os.path.join(libpath, 'io/batch/'),
+                  os.path.join(io_dir, 'batch/'))
+
+        print(f'New default I/O path has been set:')
+        import subprocess
+        subprocess.run(['struphy', '-p'])
+
         exit()
 
     # handle argument dependencies in "sub-command"
@@ -362,6 +411,7 @@ def struphy():
     # transform parser Namespace object to dictionary and remove "command" key
     kwargs = vars(args)
     kwargs.pop('command')
+    kwargs.pop('set_io')
 
     # start sub-command function with all parameters of that function
     func(**kwargs)
