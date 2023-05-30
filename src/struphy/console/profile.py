@@ -12,11 +12,14 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers):
     import struphy
 
     libpath = struphy.__path__[0]
+    
+    with open(os.path.join(libpath, 'io_path.txt')) as f:
+        io_path = f.readlines()[0]
 
     # absolute paths
     abs_paths = []
     for d in dirs:
-        abs_paths += [os.path.join(libpath, 'io/out/', d)]
+        abs_paths += [os.path.join(io_path, 'io/out/', d)]
 
     # define the function filter
     list_of_funcs = ['assemble_',

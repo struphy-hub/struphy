@@ -45,8 +45,11 @@ def diagnostics():
 
     libpath = struphy.__path__[0]
     
+    with open(os.path.join(libpath, 'io_path.txt')) as f:
+        io_path = f.readlines()[0]
+    
     out_name = 'sim_example_linearmhdvlasovpc'
-    out_path = os.path.join(libpath, 'io/out', out_name)
+    out_path = os.path.join(io_path, 'io/out', out_name)
 
     # load data
     file = h5py.File(os.path.join(out_path, 'data/', 'data_proc0.hdf5'), 'r')

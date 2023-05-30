@@ -15,7 +15,7 @@ units : # units not stated here can be viewed via "struphy units -h"
 
 time :
     dt         : 0.15  # time step
-    Tend       : 50 # simulation time interval is [0, Tend]
+    Tend       : 4.5 # simulation time interval is [0, Tend]
     split_algo : Strang # LieTrotter | Strang
 
 geometry :

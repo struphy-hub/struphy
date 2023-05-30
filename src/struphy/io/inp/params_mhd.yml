@@ -21,7 +21,7 @@ time :
 geometry :
     type : Tokamak # mapping F (possible types seen below)
     Tokamak : # the mapping is defined from the mhd equilibrium below
-        Nel        : [8, 32] # number of poloidal grid cells for spline mapping, >p
+        Nel        : [12, 38] # number of poloidal grid cells for spline mapping, >p
         p          : [3, 3] # poloidal spline degrees for spline mapping, >1
         psi_power  : 0.7 # parametrization of radial flux coordinate eta1=psi_norm^psi_power, where psi_norm is normalized flux
         psi_shifts : [2., 2.] # start and end shifts of polidal flux in % --> cuts away regions at the axis and edge

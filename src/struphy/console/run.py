@@ -59,17 +59,20 @@ def struphy_run(model='Maxwell',
     import struphy
 
     libpath = struphy.__path__[0]
+    
+    with open(os.path.join(libpath, 'io_path.txt')) as f:
+        io_path = f.readlines()[0]
 
     # create absolute i/o paths
     if input_abs is None:
-        input_abs = os.path.join(libpath, 'io/inp/', input)
+        input_abs = os.path.join(io_path, 'io/inp/', input)
 
     if output_abs is None:
-        output_abs = os.path.join(libpath, 'io/out/', output)
+        output_abs = os.path.join(io_path, 'io/out/', output)
 
     if batch_abs is None:
         if batch is not None:
-            batch_abs = os.path.join(libpath, 'io/batch/', batch)
+            batch_abs = os.path.join(io_path, 'io/batch/', batch)
 
     # take existing parameter file for restart
     if restart:
