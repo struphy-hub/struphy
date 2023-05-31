@@ -302,13 +302,6 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
                 shutil.rmtree(folder)
                 print('Removed folder ' + folder)
 
-            # remove data folder and create new one
-            folder = os.path.join(path_out, 'data/')
-            if os.path.exists(folder):
-                shutil.rmtree(folder)
-            os.mkdir(folder)
-            print('(Re)-created folder ' + folder)
-
             # remove meta file
             file = os.path.join(path_out, 'meta.txt')
             if os.path.exists(file):
@@ -326,7 +319,13 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
                 files = glob.glob(os.path.join(path_out, '*.png'))
                 for n, file in enumerate(files):
                     os.remove(file)
-                    if n < 10:  # print only forty statements in case of many processes
+                    if n < 10:  # print only ten statements in case of many processes
+                        print('Removed file ' + file)
+                        
+                files = glob.glob(os.path.join(path_out, 'data', '*.hdf5'))
+                for n, file in enumerate(files):
+                    os.remove(file)
+                    if n < 10:  # print only ten statements in case of many processes
                         print('Removed file ' + file)
 
     # save "parameters" dictionary as .yml file

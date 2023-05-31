@@ -87,6 +87,11 @@ def struphy_test(serial=True, mpi=0, codes=False):
                         '-d', 'sim_test_6'], check=True)
         subprocess.run(['struphy', 'pproc',
                         '-d', 'sim_test_7'], check=True)
+        
+        # (test restart flag -r)
+        subprocess.run(['struphy', 'run', 'LinearMHDVlasovCC',
+                        '-o', 'sim_test_7',
+                        '--mpi', '2', '-r'], check=True)
 
         # test LinearMHDVlasovPC
         subprocess.run(['struphy', 'run', 'LinearMHDVlasovPC',
