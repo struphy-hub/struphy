@@ -148,6 +148,7 @@ def struphy_run(model='Maxwell',
         # create output folder if it does not exit
         if not os.path.exists(output_abs):
             os.mkdir(output_abs)
+            os.mkdir(os.path.join(output_abs, 'data/'))
 
         # remove sim.out file
         file = os.path.join(output_abs, 'sim.out')
