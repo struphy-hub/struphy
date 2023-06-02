@@ -11,46 +11,81 @@ Check if kernels are compiled::
 
     struphy compile
 
-Get the ``<install_path>`` and default struphy paths::
+Get the default I/O path::
 
     struphy -p
 
-Run the model ``Maxwell`` with default input parameters and save data to ``<install_path>/io/out/my_first_sim/``::
+Set the default I/O path to the current working direcory::
+
+    struphy --set-io .
+
+Let us run the model ``Maxwell`` with default input parameters and save the data to ``io/out/my_first_sim/``::
 
     struphy run Maxwell -o my_first_sim
 
-Run the model ``LinearMHD`` with default input parameters, on two processes, and save data to a different folder::
+Let us change some input parameters. Open the default parameter file (for example with ``vim``)::
 
-    struphy run LinearMHD --mpi 2 -o sim_mhd
+    vi io/inp/parameters.yml
 
-Post process data::
+Change the number of elements under ``grid/Nel`` from ``[16, 32, 32]`` to ``[32, 32, 32]``, save and quit.
+Let us now run ``Maxwell`` again, but this time on 2 processes, and saving to a different folder::
 
-    struphy pproc sim_mhd
+    struphy run Maxwell -o another_sim --mpi 2
 
-You can now open ``paraview`` and load the data from the folder ``<install_path>/io/out/sim_mhd/vtk/``.
-Let us do a second run with different parameters. Open the default parameter file (for example with ``vim``)::
+Post process the data of the two runs::
 
-    vi <install_path>/io/in/parameters.yml
-
-Change the number of elements under ``grid/Nel``, save and quit, and run a second simulation
-which saves data to ``<install_path>/io/out/sim_mhd_2``::
-
-    struphy run LinearMHD --mpi 2 -o sim_mhd_2 
+    struphy pproc -d my_first_sim
+    struphy pproc -d another_sim
 
 Profile the runs::
 
-    struphy profile sim_mhd sim_mhd_2
+    struphy profile my_first_sim another_sim 
+
+Let us now run a more complicated hybrid model, namely ``LinearMHDVlasovCC``, on 2 processes, by specifying different in- and output files::
+
+    struphy run LinearMHDVlasovCC -i params_mhd_vlasov.yml -o sim_hybrid --mpi 2
+
+The output is stored in ``io/out/sim_hybrid/``. Post process the data::
+
+    struphy pproc -d sim_hybrid
+
+You can inspect the generated data via::
+
+    ls io/out/sim_hybrid/post_processing/ 
+
+More info about the post-processed data can be found in `Tutorial_02 <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/notebooks/tutorial_02_postproc_standard_plotting.ipynb>`_.
+
+Finally, let us run in Tokamak geometry. For this, let us run the model ``LinearMHD`` on 2 processes, by specifying a given input file,
+and save the data to a different folder::
+
+    struphy run LinearMHD -i params_mhd.yml -o sim_mhd --mpi 2
+
+You can inspect the input file via::
+    
+    vi io/inp/params_mhd.yml
+
+Post process data::
+
+    struphy pproc -d sim_mhd
+
+You can now open ``paraview`` and load the data from the folder ``io/out/sim_mhd/post_processing/fields_data/vtk/``.
 
 Check out available Struphy examples which include post-processing and diagnostics::
 
     struphy example --help
 
-Run Maxwell example (serial)::
+Simulate the MHD dispersion relation in a slab::
 
-    struphy example maxwell
+    struphy example linearmhd
 
-Simulate particle orbits in a tokamak::
+Simulate guiding-center orbits in a tokamak::
+
+    struphy example gc_orbits_tokamak
+
+The same for full-orbit Vlasov::
 
     struphy example orbits_tokamak
+
+**Please check out the** :ref:`tutorials` **to learn more about using Struphy.**
 
             

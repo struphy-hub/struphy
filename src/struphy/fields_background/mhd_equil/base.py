@@ -50,7 +50,7 @@ class MHDequilibrium(metaclass=ABCMeta):
         """
         return self.domain.pull(self.unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='2_form', squeeze_out=squeeze_out)
     
-    def unit_bv(self, *etas, squeeze_out=False):
+    def unit_bv(self, *etas, squeeze_out=True):
         """ Unit vector components of  equilibrium magnetic field (contra-variant) on logical cube [0, 1]^3.
         """
         return self.domain.pull(self.unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='vector', squeeze_out=squeeze_out)
@@ -88,22 +88,24 @@ class MHDequilibrium(metaclass=ABCMeta):
     def p0(self, *etas, squeeze_out=True):
         """ 0-form equilibrium pressure on logical cube [0, 1]^3.
         """
-        return self.domain.pull([self.p_xyz], *etas, kind='0_form', squeeze_out=squeeze_out)
+        xyz = self.domain(*etas, squeeze_out=False)
+        return self.domain.pull(self.p_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='0_form', squeeze_out=squeeze_out)
 
     def p3(self, *etas, squeeze_out=True):
         """ 3-form equilibrium pressure on logical cube [0, 1]^3.
         """
-        return self.domain.transform([self.p0], *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(self.p0(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
     def n0(self, *etas, squeeze_out=True):
         """ 0-form equilibrium number density on logical cube [0, 1]^3.
         """
-        return self.domain.pull([self.n_xyz], *etas, kind='0_form', squeeze_out=squeeze_out)
+        xyz = self.domain(*etas, squeeze_out=False)
+        return self.domain.pull(self.n_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='0_form', squeeze_out=squeeze_out)
 
     def n3(self, *etas, squeeze_out=True):
         """ 3-form equilibrium number density on logical cube [0, 1]^3.
         """
-        return self.domain.transform([self.n0], *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(self.n0(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
     ###################
     # Single components
@@ -485,13 +487,6 @@ class AxisymmMHDequilibrium(CartesianMHDequilibrium):
         """ Cartesian B-field components calculated as BR = -(dpsi/dZ)/R, BPhi = g_tor/R, BZ = (dpsi/dR)/R.
         """
         
-        from struphy.geometry.base import Domain
-        
-        # check for point-wise evaluation and broadcast input to 3d numpy arrays.
-        is_float = all(isinstance(v, (int, float)) for v in [x, y, z])
-        
-        # x, y, z, is_sparse_meshgrid = Domain.prepare_eval_pts(x, y, z)
-        
         R, Phi, Z = self.inverse_map(x, y, z)
         
         # at phi = 0°
@@ -503,28 +498,12 @@ class AxisymmMHDequilibrium(CartesianMHDequilibrium):
         Bx = BR*np.cos(Phi) - BP*np.sin(Phi)
         By = BR*np.sin(Phi) + BP*np.cos(Phi)
         Bz = 1*BZ
-        
-        # remove all "dimensions" for point-wise evaluation
-        if is_float:
-            assert Bx.ndim == 3
-            assert By.ndim == 3
-            assert Bz.ndim == 3
-            Bx = Bx.item()
-            By = By.item()
-            Bz = Bz.item()
 
         return Bx, By, Bz
 
     def j_xyz(self, x, y, z):
         """ Cartesian current density components calculated as curl(B).
         """
-        
-        from struphy.geometry.base import Domain
-        
-        # check for point-wise evaluation and broadcast input to 3d numpy arrays.
-        is_float = all(isinstance(v, (int, float)) for v in [x, y, z])
-        
-        # x, y, z, is_sparse_meshgrid = Domain.prepare_eval_pts(x, y, z)
         
         R, Phi, Z = self.inverse_map(x, y, z)
         
@@ -537,15 +516,6 @@ class AxisymmMHDequilibrium(CartesianMHDequilibrium):
         jx = jR*np.cos(Phi) - jP*np.sin(Phi)
         jy = jR*np.sin(Phi) + jP*np.cos(Phi)
         jz = 1*jZ
-
-        # remove all "dimensions" for point-wise evaluation
-        if is_float:
-            assert jx.ndim == 3
-            assert jy.ndim == 3
-            assert jz.ndim == 3
-            jx = jx.item()
-            jy = jy.item()
-            jz = jz.item()
 
         return jx, jy, jz
     

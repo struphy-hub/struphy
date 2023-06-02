@@ -41,11 +41,11 @@ def main():
                         help='(for plot_distr) at which position in eta2 direction to plot')
     parser.add_argument('-e3', nargs=1, type=float, default=[None],
                         help='(for plot_distr) at which position in eta3 direction to plot')
-    parser.add_argument('-vx', nargs=1, type=float, default=[None],
+    parser.add_argument('-v1', nargs=1, type=float, default=[None],
                         help='(for plot_distr) at which point in v1 direction to plot')
-    parser.add_argument('-vy', nargs=1, type=float, default=[None],
+    parser.add_argument('-v2', nargs=1, type=float, default=[None],
                         help='(for plot_distr) at which point in v2 direction to plot')
-    parser.add_argument('-vz', nargs=1, type=float, default=[None],
+    parser.add_argument('-v3', nargs=1, type=float, default=[None],
                         help='(for plot_distr) at which point in v3 direction to plot')
 
     args = parser.parse_args()
@@ -54,47 +54,52 @@ def main():
     time = args.t[0]
     do_log = args.log
     scalars_plot = args.scalars[0]
-    path = os.path.join(os.path.dirname(struphy.__file__),
-                        'io/out', foldername)
+    
+    libpath = struphy.__path__[0]
+    with open(os.path.join(libpath, 'io_path.txt')) as f:
+        io_path = f.readlines()[0]
+        
+    path = os.path.join(io_path, 'io/out', foldername)
 
     grid_slices = {'e': {'e1': args.e1[0], 'e2': args.e2[0], 'e3': args.e3[0]},
-                   'v': {'vx': args.vx[0], 'vy': args.vy[0], 'vz': args.vz[0]}}
+                   'v': {'v1': args.v1[0], 'v2': args.v2[0], 'v3': args.v3[0]}}
 
     # code name
     with open(path + '/meta.txt', 'r') as f:
         lines = f.readlines()
 
-    code = lines[-2].split()[-1]
+    code = lines[3].split()[-1]
 
     # Get fields
-    file = h5py.File(path + '/data_proc0.hdf5', 'r')
+    file = h5py.File(os.path.join(path, 'data/', 'data_proc0.hdf5'), 'r')
     field_names = list(file['feec'].keys())
     saved_scalars = file['scalar']
+    saved_time = file['time']['value'][:]
 
     # read in parameters
     with open(path + '/parameters.yml') as file:
         params = yaml.load(file, Loader=yaml.FullLoader)
 
     if 'fourier_1d' in actions:
-        assert os.path.exists(os.path.join(path, 'eval_fields')), \
+        assert os.path.exists(os.path.join(path, 'post_processing', 'fields_data')), \
             'For Fourier analysis needs fields in the model.'
 
         point_data_log = []
         # load data dicts for e_field
         for k in range(len(field_names)):
-            with open(path + '/eval_fields/' + field_names[k] + '_log.bin', 'rb') as handle:
+            with open(os.path.join(path, 'post_processing', 'fields_data', field_names[k], '_log.bin'), 'rb') as handle:
                 point_data_log += [pickle.load(handle)]
 
         point_data_phys = []
         for k in range(len(field_names)):
-            with open(path + '/eval_fields/' + field_names[k] + '_phy.bin', 'rb') as handle:
+            with open(os.path.join(path, 'post_processing', 'fields_data', field_names[k], '_phy.bin'), 'rb') as handle:
                 point_data_phys += [pickle.load(handle)]
 
         # load grids
-        with open(path + '/eval_fields/grids_log.bin', 'rb') as handle:
+        with open(os.path.join(path, 'post_processing', 'fields_data', field_names[k], '_log.bin'), 'rb') as handle:
             grids = pickle.load(handle)
 
-        with open(path + '/eval_fields/grids_phy.bin', 'rb') as handle:
+        with open(os.path.join(path, 'post_processing', 'fields_data', field_names[k], '_phy.bin'), 'rb') as handle:
             grids_mapped = pickle.load(handle)
 
         if code == 'LinearMHD':
@@ -142,7 +147,8 @@ def main():
                 f'1D Fourier analysis is not yet implemented for the model {code}')
 
     if 'plot_scalars' in actions:
-        plot_scalars(saved_scalars,
+        plot_scalars(saved_time,
+                     saved_scalars,
                      scalars_plot=scalars_plot,
                      do_log=do_log,
                      save_plot=True,
@@ -150,8 +156,8 @@ def main():
 
     if 'plot_distr' in actions:
         for species in params['kinetic'].keys():
-            time_idx = np.argmin(np.abs(time - saved_scalars['time'][:]))
-            plot_distr_fun(path=os.path.join(path, 'kinetic_data', species),
+            time_idx = np.argmin(np.abs(time - saved_time))
+            plot_distr_fun(path=os.path.join(path, 'post_processing', 'kinetic_data', species),
                            time_idx=time_idx,
                            grid_slices=grid_slices,
                            save_plot=True, savepath=path)
@@ -326,7 +332,7 @@ def fourier_1d(values, name, code, grids,
         return kvec, omega, dispersion
 
 
-def plot_scalars(scalar_quantities, scalars_plot=[], do_log=False, save_plot=False, savename=None, file_format='png'):
+def plot_scalars(time, scalar_quantities, scalars_plot=[], do_log=False, save_plot=False, savename=None, file_format='png'):
     """
     Plot the scalar quantities and the relative error in the total energy for a simulation.
 
@@ -350,7 +356,6 @@ def plot_scalars(scalar_quantities, scalars_plot=[], do_log=False, save_plot=Fal
     file_format : str
         Type of file which the plot of the result should be saved.
     """
-    time = scalar_quantities['time'][:]
 
     if 'en_tot' in scalar_quantities.keys():
         en_tot = scalar_quantities['en_tot'][:]
@@ -429,45 +434,28 @@ def plot_distr_fun(path, time_idx, grid_slices, save_plot=False, savepath=None, 
     """
 
     species = str(path.split('/')[-1])
+    path = os.path.join(path, 'distribution_function')
 
     # make empty dictionaries
     f = {'e': None, 'v': None}
     delta_f = {'e': None, 'v': None}
-    ints_to_names = {'e': {}, 'v': {}}
-    names_to_ints = {'e': {}, 'v': {}}
-    grids = {'e': {}, 'v': {}}
+    grids = {'e': [], 'v': []}
 
     # Loop over files and load distribution function data
-    for filename in os.listdir(os.path.join(path, 'f')):
-        filepath = os.path.join(path, 'f', filename)
+    for filename in os.listdir(path):
+        filepath = os.path.join(path, filename)
 
-        # load full distribution functions
+        # load full distribution functions and compute inds_to_names and names_to_inds
         if filename[:3] == 'f_e':
-            k = 1
-            while True:
-                try:
-                    ints_to_names['e'][str(k)] = \
-                        filename.split('_')[k].split('.')[0]
-                    names_to_ints['e'][filename.split('_')[k].split('.')[0]] = \
-                        str(k)
-                except:
-                    break
-                else:
-                    k += 1
             f['e'] = np.load(filepath)
+            for comp in filename.split('_')[1:]:
+                comp = comp.split('.')[0]
+                grids['e'] += [np.load(os.path.join(path, 'grid_' + comp + '.npy'))]
         elif filename[:3] == 'f_v':
-            k = 1
-            while True:
-                try:
-                    ints_to_names['v'][str(k)] = \
-                        filename.split('_')[k].split('.')[0]
-                    names_to_ints['v'][filename.split('_')[k].split('.')[0]] = \
-                        str(k)
-                except:
-                    break
-                else:
-                    k += 1
             f['v'] = np.load(filepath)
+            for comp in filename.split('_')[1:]:
+                comp = comp.split('.')[0]
+                grids['v'] += [np.load(os.path.join(path, 'grid_' + comp + '.npy'))]
 
         # load delta f
         elif filename[:9] == 'delta_f_e':
@@ -475,66 +463,44 @@ def plot_distr_fun(path, time_idx, grid_slices, save_plot=False, savepath=None, 
         elif filename[:9] == 'delta_f_v':
             delta_f['v'] = np.load(filepath)
 
-    # loop over files and load grid data
-    for filename in os.listdir(os.path.join(path, 'f')):
-        filepath = os.path.join(path, 'f', filename)
-        # load position grids
-        if filename[:6] == 'grid_e':
-            suffix = filename.split('_')[-1].split('.')[0]
-            grids['e'][suffix] = np.load(filepath)
-
-        # load velocity grids
-        elif filename[:6] == 'grid_v':
-            suffix = filename.split('_')[-1].split('.')[0]
-            grids['v'][suffix] = np.load(filepath)
-
     for typ in ['e', 'v']:
-        # plot in all available directions
-        for plot_dir, plot_grid in grids[typ].items():
-            slicing = [slice(None)] * len(grids[typ])
+        for k in range(f[typ].ndim - 1):
 
-            # find indices where values are in all directions
-            for direction, grid in grids[typ].items():
-                if direction != plot_dir:
-                    if grid_slices[typ][ints_to_names[typ][direction]] is None:
-                        idx = len(grid) // 2
-                    else:
-                        idx = np.argmin(np.abs(grid - grid_slices[typ][ints_to_names[typ][direction]]))
-                    slicing[int(direction) - 1] = idx
-
-            # create slicing tuple
-            f_slicing = tuple([time_idx] + slicing)
-
+            f_slicing = [0] * f[typ].ndim
+            f_slicing[k + 1] = slice(None)
             # plot delta_f
             if delta_f[typ] is not None:
                 plt.figure('delta_f')
-                plt.plot(plot_grid, delta_f[typ][f_slicing].squeeze())
-                plt.xlabel(ints_to_names[typ][plot_dir])
+                plt.plot(grids[typ][k], delta_f[typ][tuple(f_slicing)].squeeze())
+                plt.xlabel(typ + str(k + 1))
                 plt.ylabel(r'$\delta f$')
+                print(f'Created plot for delta_f in {typ + str(k + 1)}')
 
                 if save_plot:
                     assert savepath is not None, 'When wanting to save the plot a path has to be given!'
                     savename = os.path.join(savepath, species + '_delta_f_'
-                                            + ints_to_names[typ][plot_dir] + '.' + file_format)
+                                            + typ + str(k + 1) + '.' + file_format)
                     plt.savefig(savename)
                 else:
                     plt.show()
                 plt.close()
 
-            # plot full distribution function
-            plt.figure('f')
-            plt.plot(plot_grid, f[typ][f_slicing].squeeze())
-            plt.xlabel(ints_to_names[typ][plot_dir])
-            plt.ylabel(r'$f$')
+            # plot full f
+            if f[typ] is not None:
+                plt.figure('f')
+                plt.plot(grids[typ][k], f[typ][tuple(f_slicing)].squeeze())
+                plt.xlabel(typ + str(k + 1))
+                plt.ylabel(r'$f$')
+                print(f'Created plot for f in {typ + str(k + 1)}')
 
-            if save_plot:
-                assert savepath is not None, 'When wanting to save the plot a path has to be given!'
-                savename = os.path.join(savepath, species + '_f_'
-                                        + ints_to_names[typ][plot_dir] + '.' + file_format)
-                plt.savefig(savename)
-            else:
-                plt.show()
-            plt.close()
+                if save_plot:
+                    assert savepath is not None, 'When wanting to save the plot a path has to be given!'
+                    savename = os.path.join(savepath, species + '_f_'
+                                            + typ + str(k + 1) + '.' + file_format)
+                    plt.savefig(savename)
+                else:
+                    plt.show()
+                plt.close()
 
 
 if __name__ == '__main__':

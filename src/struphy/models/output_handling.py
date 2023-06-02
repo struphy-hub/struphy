@@ -38,22 +38,23 @@ class DataContainer:
                 self._file_name = file_name
 
         # file path
-        file_path = os.path.join(path_out, self._file_name)
-        
+        file_path = os.path.join(path_out, 'data/', self._file_name)
+
         # check if file already exists
         file_exists = os.path.exists(file_path)
-        
+
         # open/create file
         self._file = h5py.File(file_path, 'a')
-        
+
         # dictionary with pairs (dataset key : object ID)
         self._dset_dict = {}
-        
+
         # get dataset keys if file already exists and set None object IDs
         if file_exists:
             dataset_keys = []
 
-            self._file.visit(lambda key : dataset_keys.append(key) if isinstance(self._file[key], h5py.Dataset) else None)
+            self._file.visit(lambda key: dataset_keys.append(
+                key) if isinstance(self._file[key], h5py.Dataset) else None)
 
             for key in dataset_keys:
                 self._dset_dict[key] = None
@@ -63,7 +64,7 @@ class DataContainer:
         """ The hdf5 file name.
         """
         return self._file_name
-    
+
     @property
     def file(self):
         """ The hdf5 file.
@@ -92,21 +93,21 @@ class DataContainer:
 
             # if dataset already exists, check for compatibility with given array
             if key in self._dset_dict:
-                
+
                 dataset_shape = self.file[key].shape
-                
+
                 # scalar values are saved as 1d arrays of size 1
                 if len(dataset_shape) == 1:
                     assert val.ndim == 1, 'for scalar quantities, a 1d array with a single entry must used!'
                     assert val.size == 1, 'for scalar quantities, a 1d array with a single entry must used!'
-                
+
                 # other values
                 else:
                     assert dataset_shape[1:] == val.shape
-                
+
             # create new dataset otherwise and save array
             else:
-            
+
                 # scalar values are saved as 1d arrays of size 1
                 if val.size == 1:
                     assert val.ndim == 1

@@ -24,9 +24,9 @@ time :
 
 geometry :
     type : Cuboid # mapping F (possible types seen below)  
-    Tokamak :
-        Nel        : [8, 32] # number of poloidal grid cells, >p
-        p          : [3, 3] # poloidal spline degrees, >1
+    Tokamak : # the mapping is defined from the mhd equilibrium below
+        Nel        : [8, 32] # number of poloidal grid cells for spline mapping, >p
+        p          : [3, 3] # poloidal spline degrees for spline mapping, >1
         psi_power  : 0.7 # parametrization of radial flux coordinate eta1=psi_norm^psi_power, where psi_norm is normalized flux
         psi_shifts : [2., 2.] # start and end shifts of polidal flux in % --> cuts away regions at the axis and edge
         xi_param   : equal_angle # parametrization of angular coordinate (equal_angle, equal_arc_length or sfl (straight field line))
@@ -138,18 +138,36 @@ mhd_equilibrium :
         na   : 1. # number density at r=a
         beta : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
     AdhocTorus :
-        a      : 1. # minor radius
-        R0     : 3. # major radius
-        B0     : 1. # on-axis toroidal magnetic field
-        q0     : 1.05 # safety factor at r=0
-        q1     : 1.80 # safety factor at r=a
-        n1     : 0. # shape factor for number density profile 
-        n2     : 0. # shape factor for number density profile 
-        na     : 1. # number density at r=a
-        p_kind : .5 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
-        p1     : .1 # shape factor for ad hoc pressure profile
-        p2     : .1 # shape factor for ad hoc pressure profile
-        beta   : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
+        a       : 1. # minor radius
+        R0      : 3. # major radius
+        B0      : 1. # on-axis toroidal magnetic field
+        q_kind  : 0 # which profile (0 : parabolic, 1 : other, see documentation)
+        q0      : 1.05 # safety factor at r=0
+        q1      : 1.80 # safety factor at r=a
+        n1      : 0. # 1st shape factor for number density profile 
+        n2      : 0. # 2nd shape factor for number density profile 
+        na      : 1. # number density at r=a
+        p_kind  : 1 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
+        p1      : .1 # 1st shape factor for ad hoc pressure profile
+        p2      : .1 # 2nd shape factor for ad hoc pressure profile
+        beta    : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
+        psi_k   : 3 # spline degree to be used for interpolation of poloidal flux function (only needed if q_kind = 1)
+        psi_nel : 50 # number of cells to be used for interpolation of poloidal flux function (only needed if q_kind = 1)
+    AdhocTorusQPsi :
+        a       : 0.361925 # minor radius
+        R0      : 1. # major radius
+        B0      : 1. # on-axis toroidal magnetic field
+        q0      : 0.6 # safety factor at r=0
+        q1      : 2.5 # safety factor at r=a
+        q0p     : 0.78 # derivative of safety factor at r=0 (w.r.t. to poloidal flux function)
+        q1p     : 5.00 # derivative of safety factor at r=a (w.r.t. to poloidal flux function)
+        n1      : 0. # shape factor for number density profile 
+        n2      : 0. # shape factor for number density profile 
+        na      : 1. # number density at r=a
+        beta    : 4. # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
+        p1      : 0.25 # shape factor of pressure profile
+        psi_k   : 3 # spline degree to be used for interpolation of poloidal flux function
+        psi_nel : 50 # number of cells to be used for interpolation of poloidal flux function
     EQDSKequilibrium :
         rel_path        : True # whether eqdsk file path relative to "<struphy_path>/fields_background/mhd_equil/gvec", or the absolute path
         file            : 'AUGNLED_g031213.00830.high' # path to eqdsk file
@@ -315,32 +333,32 @@ kinetic :
                         n : [0]
                         amps_sin : [0.]
                         amps_cos : [0.]
-                ux :
-                    ux0 : 0.
-                uy :
-                    uy0 : 0.
-                uz :
-                    uz0 : 0.
-                vthx :
-                    vthx0 : 1.
-                vthy :
-                    vthy0 : 1.
-                vthy :
-                    vthz0 : 1.
+                u1 :
+                    u10 : 0.
+                u2 :
+                    u20 : 0.
+                u3 :
+                    u30 : 0.
+                vth1 :
+                    vth10 : 1.
+                vth2 :
+                    vth20 : 1.
+                vth3 :
+                    vth30 : 1.
         background :
             type : Maxwellian6DUniform
             Maxwellian6DUniform :
                 n  : 1.
-                ux : 0.
-                uy : 0.
-                uz : 0.
-                vthx : 1.
-                vthy : 1.
-                vthz : 1.
+                u1 : 0.
+                u2 : 0.
+                u3 : 0.
+                vth1 : 1.
+                vth2 : 1.
+                vth3 : 1.
         save_data :
             n_markers : 3 # number of markers to be saved during simulation
             f :
-                slices : [vz] # in which directions to bin (e.g. [e1_e2, vx_vy_vz])
+                slices : [v3] # in which directions to bin (e.g. [e1_e2, v1_v2_v3])
                 n_bins : [[32]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
                 ranges : [[[-3., 3.]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
         push_algos :
@@ -349,7 +367,7 @@ kinetic :
         use_perp_model : True # for pressure coupling 
 
 solvers :
-    solver_1 : 
+    solver_1 :
         type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-8

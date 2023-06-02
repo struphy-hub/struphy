@@ -269,6 +269,63 @@ def df_inv(eta1: float, eta2: float, eta3: float,  # evaluation point
        t3, p, ind1, ind2, ind3, cx, cy, cz, df_mat)
 
     matrix_inv(df_mat, dfinv_out)
+    
+    # set known (analytical) zero components manually to zero to avoid round-off error remainders!
+    if kind_map == 1:
+        dfinv_out[0, 2] = 0.
+        dfinv_out[1, 2] = 0.
+        dfinv_out[2, 0] = 0.
+        dfinv_out[2, 1] = 0.
+    elif kind_map == 2:
+        dfinv_out[2, 2] = 0
+    elif kind_map == 10:
+        dfinv_out[0, 1] = 0.
+        dfinv_out[0, 2] = 0.
+        dfinv_out[1, 0] = 0.
+        dfinv_out[1, 2] = 0.
+        dfinv_out[2, 0] = 0.
+        dfinv_out[2, 1] = 0.
+    elif kind_map == 11:
+        dfinv_out[0, 1] = 0.
+        dfinv_out[0, 2] = 0.
+        dfinv_out[1, 0] = 0.
+        dfinv_out[1, 2] = 0.
+        dfinv_out[2, 0] = 0.
+        dfinv_out[2, 1] = 0.
+    elif kind_map == 12:
+        dfinv_out[0, 2] = 0.
+        dfinv_out[1, 2] = 0.
+        dfinv_out[2, 0] = 0.
+        dfinv_out[2, 1] = 0.
+    elif kind_map == 20:
+        dfinv_out[0, 2] = 0.
+        dfinv_out[1, 2] = 0.
+        dfinv_out[2, 0] = 0.
+        dfinv_out[2, 1] = 0.
+    elif kind_map == 21:
+        dfinv_out[0, 2] = 0.
+        dfinv_out[1, 2] = 0.
+        dfinv_out[2, 0] = 0.
+        dfinv_out[2, 1] = 0.
+    elif kind_map == 22:
+        dfinv_out[2, 2] = 0.
+    elif kind_map == 23:
+        dfinv_out[2, 2] = 0.
+    elif kind_map == 30:
+        dfinv_out[0, 2] = 0.
+        dfinv_out[1, 2] = 0.
+        dfinv_out[2, 0] = 0.
+        dfinv_out[2, 1] = 0.
+    elif kind_map == 31:
+        dfinv_out[0, 2] = 0.
+        dfinv_out[1, 2] = 0.
+        dfinv_out[2, 0] = 0.
+        dfinv_out[2, 1] = 0.
+    elif kind_map == 32:
+        dfinv_out[0, 2] = 0.
+        dfinv_out[1, 2] = 0.
+        dfinv_out[2, 0] = 0.
+        dfinv_out[2, 1] = 0.
 
 @stack_array('df_mat', 'df_t')
 def g(eta1: float, eta2: float, eta3: float,  # evaluation point
@@ -319,6 +376,76 @@ def g(eta1: float, eta2: float, eta3: float,  # evaluation point
     transpose(df_mat, df_t)
 
     matrix_matrix(df_t, df_mat, g_out)
+    
+    # set known (analytical) zero components manually to zero to avoid round-off error remainders!
+    if kind_map == 1:
+        g_out[0, 2] = 0.
+        g_out[1, 2] = 0.
+        g_out[2, 0] = 0.
+        g_out[2, 1] = 0.
+    elif kind_map == 2:
+        g_out[0, 2] = 0.
+        g_out[1, 2] = 0.
+        g_out[2, 0] = 0.
+        g_out[2, 1] = 0.
+    elif kind_map == 10:
+        g_out[0, 1] = 0.
+        g_out[0, 2] = 0.
+        g_out[1, 0] = 0.
+        g_out[1, 2] = 0.
+        g_out[2, 0] = 0.
+        g_out[2, 1] = 0.
+    elif kind_map == 11:
+        g_out[0, 1] = 0.
+        g_out[0, 2] = 0.
+        g_out[1, 0] = 0.
+        g_out[1, 2] = 0.
+        g_out[2, 0] = 0.
+        g_out[2, 1] = 0.
+    elif kind_map == 12:
+        g_out[0, 2] = 0.
+        g_out[1, 2] = 0.
+        g_out[2, 0] = 0.
+        g_out[2, 1] = 0.
+    elif kind_map == 20:
+        g_out[0, 1] = 0.
+        g_out[0, 2] = 0.
+        g_out[1, 0] = 0.
+        g_out[1, 2] = 0.
+        g_out[2, 0] = 0.
+        g_out[2, 1] = 0.
+    elif kind_map == 21:
+        g_out[0, 2] = 0.
+        g_out[1, 2] = 0.
+        g_out[2, 0] = 0.
+        g_out[2, 1] = 0.
+    elif kind_map == 22:
+        g_out[0, 1] = 0.
+        g_out[0, 2] = 0.
+        g_out[1, 0] = 0.
+        g_out[1, 2] = 0.
+        g_out[2, 0] = 0.
+        g_out[2, 1] = 0.
+    elif kind_map == 23:
+        g_out[0, 2] = 0.
+        g_out[1, 2] = 0.
+        g_out[2, 0] = 0.
+        g_out[2, 1] = 0.
+    elif kind_map == 30:
+        g_out[0, 2] = 0.
+        g_out[1, 2] = 0.
+        g_out[2, 0] = 0.
+        g_out[2, 1] = 0.
+    elif kind_map == 31:
+        g_out[0, 2] = 0.
+        g_out[1, 2] = 0.
+        g_out[2, 0] = 0.
+        g_out[2, 1] = 0.
+    elif kind_map == 32:
+        g_out[0, 2] = 0.
+        g_out[1, 2] = 0.
+        g_out[2, 0] = 0.
+        g_out[2, 1] = 0.
 
 @stack_array('g_mat')
 def g_inv(eta1: float, eta2: float, eta3: float,  # evaluation point
@@ -367,6 +494,75 @@ def g_inv(eta1: float, eta2: float, eta3: float,  # evaluation point
 
     matrix_inv(g_mat, ginv_out)
     
+    # set known (analytical) zero components manually to zero to avoid round-off error remainders!
+    if kind_map == 1:
+        ginv_out[0, 2] = 0.
+        ginv_out[1, 2] = 0.
+        ginv_out[2, 0] = 0.
+        ginv_out[2, 1] = 0.
+    elif kind_map == 2:
+        ginv_out[0, 2] = 0.
+        ginv_out[1, 2] = 0.
+        ginv_out[2, 0] = 0.
+        ginv_out[2, 1] = 0.
+    elif kind_map == 10:
+        ginv_out[0, 1] = 0.
+        ginv_out[0, 2] = 0.
+        ginv_out[1, 0] = 0.
+        ginv_out[1, 2] = 0.
+        ginv_out[2, 0] = 0.
+        ginv_out[2, 1] = 0.
+    elif kind_map == 11:
+        ginv_out[0, 1] = 0.
+        ginv_out[0, 2] = 0.
+        ginv_out[1, 0] = 0.
+        ginv_out[1, 2] = 0.
+        ginv_out[2, 0] = 0.
+        ginv_out[2, 1] = 0.
+    elif kind_map == 12:
+        ginv_out[0, 2] = 0.
+        ginv_out[1, 2] = 0.
+        ginv_out[2, 0] = 0.
+        ginv_out[2, 1] = 0.
+    elif kind_map == 20:
+        ginv_out[0, 1] = 0.
+        ginv_out[0, 2] = 0.
+        ginv_out[1, 0] = 0.
+        ginv_out[1, 2] = 0.
+        ginv_out[2, 0] = 0.
+        ginv_out[2, 1] = 0.
+    elif kind_map == 21:
+        ginv_out[0, 2] = 0.
+        ginv_out[1, 2] = 0.
+        ginv_out[2, 0] = 0.
+        ginv_out[2, 1] = 0.
+    elif kind_map == 22:
+        ginv_out[0, 1] = 0.
+        ginv_out[0, 2] = 0.
+        ginv_out[1, 0] = 0.
+        ginv_out[1, 2] = 0.
+        ginv_out[2, 0] = 0.
+        ginv_out[2, 1] = 0.
+    elif kind_map == 23:
+        ginv_out[0, 2] = 0.
+        ginv_out[1, 2] = 0.
+        ginv_out[2, 0] = 0.
+        ginv_out[2, 1] = 0.
+    elif kind_map == 30:
+        ginv_out[0, 2] = 0.
+        ginv_out[1, 2] = 0.
+        ginv_out[2, 0] = 0.
+        ginv_out[2, 1] = 0.
+    elif kind_map == 31:
+        ginv_out[0, 2] = 0.
+        ginv_out[1, 2] = 0.
+        ginv_out[2, 0] = 0.
+        ginv_out[2, 1] = 0.
+    elif kind_map == 32:
+        ginv_out[0, 2] = 0.
+        ginv_out[1, 2] = 0.
+        ginv_out[2, 0] = 0.
+        ginv_out[2, 1] = 0.
     
 def select_fun(eta1: float, eta2: float, eta3: float,  # evaluation point
                kind_map: int, params: 'float[:]',  # mapping parameters

@@ -177,14 +177,14 @@ def quicksort(a: 'float[:]', lo: 'int', hi: 'int'):
 
     Parameters
     ----------
-        a : array
-            list that is to be sorted
+    a : array
+        list that is to be sorted
 
-        lo : integer
-            lower index from which the sort to start
+    lo : integer
+        lower index from which the sort to start
 
-        hi : integer
-            upper index until which the sort is to be done
+    hi : integer
+        upper index until which the sort is to be done
     """
     i = lo
     j = hi
@@ -213,20 +213,20 @@ def find_taus(eta: 'float', eta_next: 'float', Nel: 'int', breaks: 'float[:]', u
 
     Parameters
     ----------
-        eta : float
-            old position
+    eta : float
+        old position
 
-        eta_next : float
-            new position
+    eta_next : float
+        new position
 
-        Nel : integer
-            contains the number of elements in this direction
+    Nel : integer
+        contains the number of elements in this direction
 
-        breaks : array
-            break points in this direction
+    breaks : array
+        break points in this direction
 
-        uniform : integer
-            0 if the grid is non-uniform, 1 if the grid is uniform
+    uniform : integer
+        0 if the grid is non-uniform, 1 if the grid is uniform
     """
 
     if uniform == 1:
@@ -269,32 +269,33 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
                        loc1: 'float[:]', loc2: 'float[:]', loc3: 'float[:]',
                        weight1: 'float[:]', weight2: 'float[:]', weight3: 'float[:]',
                        e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
+                       kappa: 'float',
                        eps: 'float[:]', maxiter: 'int') -> 'int':
     """
     Auxiliary function for the pusher_x_v_static_efield, introduced to enable time-step splitting if scheme does not converge for the standard dt
 
     Parameters
     ----------
-        particle : array
-            shape(7), contains the values for the positions [0:3], velocities [3:6], and weights [8]
+    particle : array
+        shape(7), contains the values for the positions [0:3], velocities [3:6], and weights [8]
 
-        dt2 : double
-            time stepping of substep
+    dt2 : double
+        time stepping of substep
 
-        loc1, loc2, loc3 : array
-            contain the positions of the Legendre-Gauss quadrature points of necessary order to integrate basis splines exactly in each direction
+    loc1, loc2, loc3 : array
+        contain the positions of the Legendre-Gauss quadrature points of necessary order to integrate basis splines exactly in each direction
 
-        weight1, weight2, weight3 : array
-            contain the values of the weights for the Legendre-Gauss quadrature in each direction
+    weight1, weight2, weight3 : array
+        contain the values of the weights for the Legendre-Gauss quadrature in each direction
 
-        e1_1, e1_2, e1_3: array[float]
-            3d array of FE coeffs of the background E-field as 1-form.
+    e1_1, e1_2, e1_3: array[float]
+        3d array of FE coeffs of the background E-field as 1-form.
 
-        eps: array
-            determines the accuracy for the position (0th element) and velocity (1st element) with which the implicit scheme is executed
+    eps: array
+        determines the accuracy for the position (0th element) and velocity (1st element) with which the implicit scheme is executed
 
-        maxiter : integer
-            sets the maximum number of iterations for the iterative scheme
+    maxiter : integer
+        sets the maximum number of iterations for the iterative scheme
     """
 
     # Find number of elements in each direction
@@ -340,12 +341,12 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
                 t3_map, p_map, ind1_map, ind2_map, ind3_map, cx, cy, cz, df)
     linalg.matrix_inv(df, df_inv)
 
-    v1_curv = df_inv[0, 0] * (v1_curr + v1) + df_inv[0, 1] * \
-        (v2_curr + v2) + df_inv[0, 2] * (v3_curr + v3)
-    v2_curv = df_inv[1, 0] * (v1_curr + v1) + df_inv[1, 1] * \
-        (v2_curr + v2) + df_inv[1, 2] * (v3_curr + v3)
-    v3_curv = df_inv[2, 0] * (v1_curr + v1) + df_inv[2, 1] * \
-        (v2_curr + v2) + df_inv[2, 2] * (v3_curr + v3)
+    v1_curv = kappa * (df_inv[0, 0] * (v1_curr + v1) + df_inv[0, 1] * \
+        (v2_curr + v2) + df_inv[0, 2] * (v3_curr + v3))
+    v2_curv = kappa * (df_inv[1, 0] * (v1_curr + v1) + df_inv[1, 1] * \
+        (v2_curr + v2) + df_inv[1, 2] * (v3_curr + v3))
+    v3_curv = kappa * (df_inv[2, 0] * (v1_curr + v1) + df_inv[2, 1] * \
+        (v2_curr + v2) + df_inv[2, 2] * (v3_curr + v3))
 
     eta1_next = (eta1 + dt * v1_curv / 2.) % 1
     eta2_next = (eta2 + dt * v2_curv / 2.) % 1
@@ -383,12 +384,12 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
 
         # ======================================================================================
         # update the positions and place them back into the computational domain
-        v1_curv = df_inv[0, 0] * (v1_curr + v1) + df_inv[0, 1] * \
-            (v2_curr + v2) + df_inv[0, 2] * (v3_curr + v3)
-        v2_curv = df_inv[1, 0] * (v1_curr + v1) + df_inv[1, 1] * \
-            (v2_curr + v2) + df_inv[1, 2] * (v3_curr + v3)
-        v3_curv = df_inv[2, 0] * (v1_curr + v1) + df_inv[2, 1] * \
-            (v2_curr + v2) + df_inv[2, 2] * (v3_curr + v3)
+        v1_curv = kappa * (df_inv[0, 0] * (v1_curr + v1) + df_inv[0, 1] * \
+            (v2_curr + v2) + df_inv[0, 2] * (v3_curr + v3))
+        v2_curv = kappa * (df_inv[1, 0] * (v1_curr + v1) + df_inv[1, 1] * \
+            (v2_curr + v2) + df_inv[1, 2] * (v3_curr + v3))
+        v3_curv = kappa * (df_inv[2, 0] * (v1_curr + v1) + df_inv[2, 1] * \
+            (v2_curr + v2) + df_inv[2, 2] * (v3_curr + v3))
 
         # x_{n+1} = x_n + dt/2 * DF^{-1}(x_{n+1}/2 + x_n/2) * (v_{n+1} + v_n)
         eta1_next = (eta1 + dt * v1_curv / 2.) % 1
@@ -415,7 +416,8 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
         taus[0] = 0.0
         taus[length + 1] = 1.0
 
-        find_taus(eta1_curr, eta1_next, Nel[0], tn1, 1, taus[1:length1 + 1])
+        find_taus(eta1_curr, eta1_next,
+                  Nel[0], tn1, 1, taus[1:length1 + 1])
         find_taus(eta2_curr, eta2_next,
                   Nel[1], tn2, 1, taus[length1 + 1:length1 + length2 + 1])
         find_taus(eta3_curr, eta3_next,
@@ -569,12 +571,15 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
                             temp3 += bi3 * weight3[n]
 
         # v_{n+1} = v_n + dt * DF^{-T}(x_n) * int_0^1 d tau ( E(x_n + tau*(x_{n+1} - x_n) ) )
-        v1_next = v1 + dt * (df_inv[0, 0] * temp1 +
-                             df_inv[1, 0] * temp2 + df_inv[2, 0] * temp3)
-        v2_next = v2 + dt * (df_inv[0, 1] * temp1 +
-                             df_inv[1, 1] * temp2 + df_inv[2, 1] * temp3)
-        v3_next = v3 + dt * (df_inv[0, 2] * temp1 +
-                             df_inv[1, 2] * temp2 + df_inv[2, 2] * temp3)
+        v1_next = v1 + dt * kappa * (df_inv[0, 0] * temp1 +
+                                     df_inv[1, 0] * temp2 +
+                                     df_inv[2, 0] * temp3)
+        v2_next = v2 + dt * kappa * (df_inv[0, 1] * temp1 +
+                                     df_inv[1, 1] * temp2 +
+                                     df_inv[2, 1] * temp3)
+        v3_next = v3 + dt * kappa * (df_inv[0, 2] * temp1 +
+                                     df_inv[1, 2] * temp2 +
+                                     df_inv[2, 2] * temp3)
 
         runs += 1
 

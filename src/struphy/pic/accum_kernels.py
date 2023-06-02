@@ -1,6 +1,6 @@
 from pyccel.decorators import stack_array
 
-from numpy import zeros, empty, sqrt, shape, floor
+from numpy import zeros, empty, sqrt, shape, floor, log
 
 import struphy.geometry.map_eval as map_eval
 import struphy.b_splines.bsplines_kernels as bsp
@@ -8,8 +8,6 @@ import struphy.b_splines.bspline_evaluation_3d as eval_3d
 import struphy.linear_algebra.core as linalg
 import struphy.pic.mat_vec_filler as mvf
 import struphy.pic.filler_kernels as fk
-
-from struphy.kinetic_background.f0_kernels import maxwellian_6d
 
 
 def _docstring():
@@ -312,7 +310,10 @@ def linear_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
                                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                   cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                                   vec: 'float[:,:,:]',
-                                  f0_values: 'float[:]'):  # model specific argument
+                                  f0_values: 'float[:]',  # model specific argument
+                                  f0_params: 'float[:]',  # model specific argument
+                                  alpha: 'float',  # model specific argument
+                                  kappa: 'float'):  # model specific argument
     r"""
     Accumulates the charge density in V0 
 
@@ -359,8 +360,8 @@ def linear_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
 
         f0 = f0_values[ip]
 
-        # filling = w_p * sqrt{f_0} / N
-        filling = markers[ip, 6] * sqrt(f0) / n_markers_tot
+        # filling = alpha^2 * kappa * w_p * sqrt{f_0}
+        filling = alpha**2 * kappa * markers[ip, 6] * sqrt(f0) * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2
 
         # spans (i.e. index for non-vanishing B-spline basis functions)
         span1 = bsp.find_span(tn1, pn[0], eta1)
@@ -396,18 +397,19 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                           vec1: 'float[:,:,:]',
                           vec2: 'float[:,:,:]',
                           vec3: 'float[:,:,:]',
-                          f0_values: 'float[:]',     # model specific argument
-                          f0_params: 'float[:]',   # model specific argument
-                          alpha: 'float'):  # model specific argument
+                          f0_values: 'float[:]',  # model specific argument
+                          f0_params: 'float[:]',  # model specific argument
+                          alpha: 'float',  # model specific argument
+                          kappa: 'float'):  # model specific argument
     r"""
     Accumulates into V1 with the filling functions
 
     .. math::
 
-        A_p^{\mu, \nu} &= \frac{\alpha^2}{v_{\text{th}}^2} \frac{1}{N\, s_0} f_0(\mathbf{\eta}_p, \mathbf{v}_p)
+        A_p^{\mu, \nu} &= \frac{\alpha^2 \kappa^2}{v_{\text{th}}^2} \frac{1}{N\, s_0} f_0(\mathbf{\eta}_p, \mathbf{v}_p)
             [ DF^{-1}(\mathbf{\eta}_p) v_p ]_\mu [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\nu \,,
 
-        B_p^\mu &= \alpha^2 \sqrt{f_0(\mathbf{\eta}_p, \mathbf{v}_p)} w_p [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\mu \,.
+        B_p^\mu &= \alpha^2 \kappa \sqrt{f_0(\mathbf{\eta}_p, \mathbf{v}_p)} w_p [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\mu \,.
 
     Parameters
     ----------
@@ -418,7 +420,10 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
             Parameters needed to specify the moments; the order is specified in :ref:`kinetic_moments` for the respective functions available.
 
         alpha : float
-            = Omega_c / Omega_p ; Parameter determining the coupling strength between particles and fields
+            = Omega_p / Omega_c ; Parameter determining the coupling strength between particles and fields
+
+        kappa : float
+            = 2 * pi * Omega_c / omega ; Parameter determining the coupling strength between particles and fields
 
     Note
     ----
@@ -470,21 +475,184 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
         linalg.matrix_inv(df, df_inv)
         linalg.matrix_vector(df_inv, v, df_inv_times_v)
 
-        # filling_m = alpha^2 * f0 / (N * s_0 * v_th_1^2 * v_th_2^2 * v_th_3^2) * (DF^{-1} v_p)_mu * (DF^{-1} \V_th (v_p - u))_nu
+        # filling_m = alpha^2 * kappa^2 * f0 / (N * s_0 * v_th_1^2 * v_th_2^2 * v_th_3^2) * (DF^{-1} \V_th (v_p - u))_mu * (DF^{-1} \V_th (v_p - u))_nu
         linalg.outer(df_inv_times_v, df_inv_times_v, filling_m)
-        filling_m[:, :] *= alpha**2 * f0 * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2 / (n_markers_tot * markers[ip, 7])
+        filling_m[:, :] *= alpha**2 * kappa**2 * f0 * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2 / (n_markers_tot * markers[ip, 7])
 
-        # filling_v = alpha^2 * w_p * sqrt{f_0} DL^{-1} * \V_th * (v_p - u)
-        filling_v[:] = alpha**2 * sqrt(f0) * markers[ip, 6] * df_inv_times_v[:] * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2
+        # filling_v = alpha^2 * kappa * w_p * sqrt{f_0} DL^{-1} * \V_th * (v_p - u)
+        filling_v[:] = alpha**2 * kappa * sqrt(f0) * markers[ip, 6] * df_inv_times_v[:] * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2
 
         # call the appropriate matvec filler
-        mvf.m_v_fill_b_v1_symm(pn, tn1, tn2, tn3, starts1,
+        mvf.m_v_fill_b_v1_symm(pn,
+                               tn1, tn2, tn3,
+                               starts1,
                                eta1, eta2, eta3,
                                mat11, mat12, mat13, mat22, mat23, mat33,
                                filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
                                filling_m[1, 1], filling_m[1, 2], filling_m[2, 2],
                                vec1, vec2, vec3,
                                filling_v[0], filling_v[1], filling_v[2])
+
+    #$ omp end parallel
+
+
+def delta_f_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
+                                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                   kind_map: 'int', params_map: 'float[:]',
+                                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                                   cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                                   vec: 'float[:,:,:]',
+                                   f0_values: 'float[:]',  # model specific argument
+                                   f0_params: 'float[:]',  # model specific argument
+                                   alpha: 'float',  # model specific argument
+                                   kappa: 'float'):  # model specific argument
+    r"""
+    Accumulates the charge density in V0 
+
+    .. math::
+
+        \rho_p^\mu &= \alpha^2 \sqrt{f_0(\mathbf{\eta}_p, \mathbf{v}_p)} w_p [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\mu \,.
+
+    Parameters
+    ----------
+        f0_values ; array[float]
+            Value of f0 for each particle.
+
+        f0_params : array[float]
+            Parameters needed to specify the moments; the order is specified in :ref:`kinetic_moments` for the respective functions available.
+
+        alpha : float
+            = Omega_c / Omega_p ; Parameter determining the coupling strength between particles and fields
+
+    Note
+    ----
+        The above parameter list contains only the model specific input arguments.
+    """
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    #$ omp parallel private (ip, eta1, eta2, eta3, f0, filling)
+    #$ omp for reduction ( + :vec)
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        f0 = f0_values[ip]
+
+        # filling = alpha^2 * kappa * (1 / (N * s_0) * (f_0 / log(f_0) - f_0) - w_p / log(f_0))
+        filling = alpha**2 * kappa * ((f0 / log(f0) - f0) / (n_markers_tot * markers[ip, 7]) - markers[ip, 6] / log(f0))  * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2
+
+        # call the appropriate matvec filler
+        mvf.scalar_fill_b_v0(pn, tn1, tn2, tn3,
+                             starts0, eta1, eta2, eta3,
+                             vec, filling)
+
+    #$ omp end parallel
+
+
+@stack_array('df', 'df_t', 'df_inv', 'v', 'df_inv_times_v', 'filling_v')
+def delta_f_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
+                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                           kind_map: 'int', params_map: 'float[:]',
+                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                           vec1: 'float[:,:,:]',
+                           vec2: 'float[:,:,:]',
+                           vec3: 'float[:,:,:]',
+                           f0_values: 'float[:]',  # model specific argument
+                           f0_params: 'float[:]',  # model specific argument
+                           alpha: 'float',  # model specific argument
+                           kappa: 'float'):  # model specific argument
+    r"""
+    Accumulates into V1 with the filling functions
+
+    .. math::
+
+        A_p^{\mu, \nu} &= \frac{\alpha^2}{v_{\text{th}}^2} \frac{1}{N\, s_0} f_0(\mathbf{\eta}_p, \mathbf{v}_p)
+            [ DF^{-1}(\mathbf{\eta}_p) v_p ]_\mu [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\nu \,,
+
+        B_p^\mu &= \alpha^2 \sqrt{f_0(\mathbf{\eta}_p, \mathbf{v}_p)} w_p [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\mu \,.
+
+    Parameters
+    ----------
+        f0_values ; array[float]
+            Value of f0 for each particle.
+
+        f0_params : array[float]
+            Parameters needed to specify the moments; the order is specified in :ref:`kinetic_moments` for the respective functions available.
+
+        alpha : float
+            = Omega_c / Omega_p ; Parameter determining the coupling strength between particles and fields
+
+    Note
+    ----
+        The above parameter list contains only the model specific input arguments.
+    """
+
+    # allocate for metric coeffs
+    df = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+
+    # allocate for filling
+    v = empty(3, dtype=float)
+    df_inv_times_v = empty(3, dtype=float)
+    filling_v = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    #$ omp parallel private (ip, eta1, eta2, eta3, f0, df, df_inv, v, df_inv_times_v, filling_v)
+    #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        f0 = f0_values[ip]
+
+        # evaluate Jacobian, result in df
+        map_eval.df(eta1, eta2, eta3,
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        # compute shifted and stretched velocity
+        v[0] = (markers[ip, 3] - f0_params[1]) / f0_params[4]**2
+        v[1] = (markers[ip, 4] - f0_params[2]) / f0_params[5]**2
+        v[2] = (markers[ip, 5] - f0_params[3]) / f0_params[6]**2
+
+        # filling functions
+        linalg.matrix_inv(df, df_inv)
+        linalg.matrix_vector(df_inv, v, df_inv_times_v)
+
+        # filling_v = alpha^2 / (N * s_0) * (f_0 / ln(f_0) - f_0) * DL^{-1} * \V_th * (v_p - u)
+        filling_v[:] = alpha**2 * kappa / (n_markers_tot * markers[ip, 7]) * (f0 / log(f0) - f0 ) * df_inv_times_v[:] * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2
+
+        # call the appropriate matvec filler
+        mvf.vec_fill_b_v1(pn, tn1, tn2, tn3, starts1,
+                          eta1, eta2, eta3,
+                          vec1, vec2, vec3,
+                          filling_v[0], filling_v[1], filling_v[2])
 
     #$ omp end parallel
 
@@ -1268,17 +1436,19 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
                      vec1: 'float[:,:,:]',
                      vec2: 'float[:,:,:]',
                      vec3: 'float[:,:,:]',
-                     kappa: float,    # model specific argument
-                     b1: 'float[:,:,:]',          # model specific argument
-                     b2: 'float[:,:,:]',          # model specific argument 
-                     b3: 'float[:,:,:]',          # model specific argument 
-                     norm_b11: 'float[:,:,:]',       # model specific argument    
-                     norm_b12: 'float[:,:,:]',       # model specific argument
-                     norm_b13: 'float[:,:,:]',       # model specific argument
+                     kappa: float,                  # model specific argument
+                     b1: 'float[:,:,:]',            # model specific argument
+                     b2: 'float[:,:,:]',            # model specific argument 
+                     b3: 'float[:,:,:]',            # model specific argument 
+                     norm_b11: 'float[:,:,:]',      # model specific argument    
+                     norm_b12: 'float[:,:,:]',      # model specific argument
+                     norm_b13: 'float[:,:,:]',      # model specific argument
                      curl_norm_b1: 'float[:,:,:]',  # model specific argument
                      curl_norm_b2: 'float[:,:,:]',  # model specific argument
                      curl_norm_b3: 'float[:,:,:]',  # model specific argument
-                     basis_u : 'int', scale_mat : 'float', scale_vec : 'float'): # model specific argument
+                     basis_u : 'int',               # model specific argument
+                     scale_mat : 'float',           # model specific argument
+                     scale_vec : 'float'):          # model specific argument
 
     r"""Accumulates into V1 with the filling functions
 
@@ -1341,8 +1511,6 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
     # get number of markers
     n_markers_loc = shape(markers)[0]
     
-    #$ omp parallel firstprivate(b_prod) private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, b_Star, norm_b1, curl_norm_b, df, det_df, weight, v, df_inv, df_inv_t, g_inv, tmp1, tmp2, tmp_t, tmp_m, tmp_v, filling_m, filling_v) 
-    #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33)
     for ip in range(n_markers_loc):
         
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1355,7 +1523,7 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # marker weight and velocity
-        weight = markers[ip, 6]
+        weight = markers[ip, 5]
         v = markers[ip, 3]
 
         # b-field evaluation
@@ -1483,8 +1651,6 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
                                  filling_m[2, 2],
                                  vec1, vec2, vec3,
                                  filling_v[0], filling_v[1], filling_v[2])
-            
-    #$ omp end parallel
     
     mat11 /= n_markers_tot
     mat12 /= n_markers_tot
@@ -1585,7 +1751,7 @@ def cc_lin_mhd_5d_J2_dg(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # marker weight and velocity
-        weight = markers[ip, 6]
+        weight = markers[ip, 5]
         v = markers[ip, 3]
         mu = markers[ip, 4]
 
@@ -1637,9 +1803,6 @@ def cc_lin_mhd_5d_J2_dg(markers: 'float[:,:]', n_markers_tot: 'int',
         grad_PB[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts1[0])
         grad_PB[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts1[1])
         grad_PB[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
-
-        #TODO:check
-        grad_PB /= kappa
 
         # b_star; 2form transformed into H1vec
         b_star[:] = (b + curl_norm_b*v/kappa)/det_df
@@ -1833,7 +1996,7 @@ def cc_lin_mhd_5d_J2_dg_prepare(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # marker weight and velocity
-        weight = markers[ip, 6]
+        weight = markers[ip, 5]
         v = markers[ip, 3]
         mu = markers[ip, 4]
 
@@ -1885,9 +2048,6 @@ def cc_lin_mhd_5d_J2_dg_prepare(markers: 'float[:,:]', n_markers_tot: 'int',
         grad_PB[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts1[0])
         grad_PB[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts1[1])
         grad_PB[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
-
-        #TODO:check
-        grad_PB /= kappa
 
         # b_star; 2form transformed into H1vec
         b_star[:] = (b + curl_norm_b*v/kappa)/det_df
@@ -2035,7 +2195,7 @@ def cc_lin_mhd_5d_J2_dg_faster(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2] # mid
 
         # marker weight and velocity
-        weight = markers[ip, 6]
+        weight = markers[ip, 5]
         mu = markers[ip, 4]
 
         # b-field evaluation
@@ -2051,9 +2211,6 @@ def cc_lin_mhd_5d_J2_dg_faster(markers: 'float[:,:]', n_markers_tot: 'int',
         grad_PB[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts1[0])
         grad_PB[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts1[1])
         grad_PB[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
-
-        #TODO:check
-        grad_PB /= kappa
 
         tmp[:,:] = ((markers[ip, 18], markers[ip, 19], markers[ip, 20]),
                     (markers[ip, 19], markers[ip, 21], markers[ip, 22]),
@@ -2220,7 +2377,7 @@ def cc_lin_mhd_5d_J2_dg_prepare_faster(markers: 'float[:,:]', n_markers_tot: 'in
         eta3 = markers[ip, 2]
 
         # marker weight and velocity
-        weight = markers[ip, 6]
+        weight = markers[ip, 5]
         v = markers[ip, 3]
         mu = markers[ip, 4]
 
@@ -2272,9 +2429,6 @@ def cc_lin_mhd_5d_J2_dg_prepare_faster(markers: 'float[:,:]', n_markers_tot: 'in
         grad_PB[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts1[0])
         grad_PB[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts1[1])
         grad_PB[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
-
-        #TODO:check
-        grad_PB /= kappa
 
         # b_star; 2form transformed into H1vec
         b_star[:] = (b + curl_norm_b*v/kappa)/det_df
@@ -2400,8 +2554,6 @@ def cc_lin_mhd_5d_mu(markers: 'float[:,:]', n_markers_tot: 'int',
 
     # get number of markers
     n_markers_loc = shape(markers)[0]
-
-    mH = 1.67262192369e-27 # proton mass (kg)
     
     for ip in range(n_markers_loc):
         
@@ -2506,7 +2658,7 @@ def cc_lin_mhd_5d_M(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # marker weight and velocity
-        weight = markers[ip, 6]
+        weight = markers[ip, 5]
         mu = markers[ip, 4]
 
         # b-field evaluation
@@ -2581,7 +2733,6 @@ def cc_lin_mhd_5d_M(markers: 'float[:,:]', n_markers_tot: 'int',
     vec1 /= n_markers_tot
     vec2 /= n_markers_tot
     vec3 /= n_markers_tot
-
 
 @stack_array('df', 'df_t', 'df_inv', 'g_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp2', 'tmp_t', 'tmp_m', 'tmp_v', 'b', 'b_prod', 'norm_b2_prod', 'b_star', 'curl_norm_b', 'norm_b1', 'norm_b2', 'grad_PB', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
@@ -2700,7 +2851,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # marker weight and velocity
-        weight = markers[ip, 6]
+        weight = markers[ip, 5]
         v = markers[ip, 3]
         mu = markers[ip, 4]
 
@@ -2752,9 +2903,6 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
         grad_PB[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts1[0])
         grad_PB[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts1[1])
         grad_PB[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
-
-        #TODO:check
-        grad_PB /= kappa
         
         # b_star; 2form transformed into H1vec
         b_star[:] = (b + curl_norm_b*v/kappa)/det_df

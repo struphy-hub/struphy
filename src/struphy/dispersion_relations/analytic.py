@@ -115,6 +115,124 @@ class Mhd1D(DispersionRelations1D):
         return omegas
 
 
+class ExtendedMhd1D(DispersionRelations1D):
+    r"""
+    Dispersion relation for linear Extended MHD equations for homogeneous background :math:`(n_0,p_0,\mathbf B_0)` and wave propagation along z-axis in Struphy units (see ``LinearMHD`` in :ref:`models`):
+
+    .. math::
+
+        \textnormal{shear Alfvén}:\quad &\omega^2 = c_\textnormal{A}^2 k^2\frac{B_{0z}^2}{|\mathbf B_0|^2}\,,
+
+        \textnormal{fast (+) and slow (-) magnetosonic}:\quad &\omega^2 =\frac{1}{2}(c_\textnormal{S}^2+c_\textnormal{A}^2)k^2(1\pm\sqrt{1-\delta}\,)\,,\quad\delta=\frac{4B_{0z}^2c_\textnormal{S}^2c_\textnormal{A}^2}{(c_\textnormal{S}^2+c_\textnormal{A}^2)^2|\mathbf B_0|^2}\,,
+
+    where :math:`c_\textnormal{A}^2=|\mathbf B_0|^2/n_0` is the Alfvén velocity and :math:`c_\textnormal{S}^2=\gamma\,p_0/n_0` is the speed of sound.
+    """
+
+    def __init__(self, **params):
+        super().__init__('fast magnetosonic', 'slow magnetosonic','compression Alfvén','shear Alfvén', **params)
+
+    def __call__(self, k):
+        """
+        The evaluation of all branches of the 1d dispersion relation.
+
+        Parameters
+        ----------
+        k : array_like
+            Evaluation wave numbers.
+
+        Returns
+        -------
+        omegas : dict
+            A dictionary with key=branch_name and value=omega(k) (complex ndarray).
+        """
+
+        # One complex array for each branch
+        tmps = []
+        for n in range(self.nbranches):
+            tmps += [np.zeros_like(k, dtype=complex)]
+
+        ########### Model specific part ##############################
+
+        #Quantities related with backgorund magnetic field
+        B0x = self.params['B0x']
+        B0y = self.params['B0y']
+        B0z = self.params['B0z']
+        B0n = np.sqrt(B0x**2.0 + B0y**2.0 + B0z**2.0)
+        
+        #Cos(theta)
+        cos = B0z/B0n
+        
+        #Background number density
+        n0 = self.params['n0']
+        
+        #Background pressures
+        pi0 = self.params['p0']
+        pe0 = self.params['p0']
+        gamma = self.params['gamma']
+        
+        #Basic units of magnetic field and time
+        Bu = self.params['Bu']
+        tu = self.params['tu']
+        
+        # compute coupling parameter kappa
+        ee = 1.602176634e-19  # elementary charge (C)
+        mH = 1.67262192369e-27  # proton mass (kg)
+        Ab = self.params['A']
+        Zb = self.params['Z']
+        
+        omega_ch = (Zb*ee*Bu)/(Ab*mH)
+        kappa = omega_ch*tu/(2.0 * np.pi)
+
+        if abs(kappa - 1) < 1e-6:
+            kappa = 1.
+        
+        # Alfvén velocity 
+        cA = B0n/np.sqrt(n0)
+        
+        #We will need some auxiliary arrays to compute the las three waves
+        bs = np.zeros_like(k, dtype=complex)
+        bs[:] = - k**2.0 *(cA**2.0)*(cos**2.0*(1.0+ k**2.0 * kappa**2.0/n0) + 1.0 + (gamma/B0n**2.0)*(pi0+pe0) )
+
+        cs = np.zeros_like(k, dtype=complex)
+        cs[:] = k**4.0 * cos**2.0 * cA**4.0 * (1.0 + (pi0+pe0)*(gamma/B0n**2.0)*(2.0 + k**2.0 * kappa**2.0 / n0) )
+
+        ds = np.zeros_like(k, dtype=complex)
+        ds[:] = -k**6.0 * (B0n**4.0 / n0**3.0) * gamma * (pi0 + pe0) * cos**4.0
+
+        D0s = np.zeros_like(k, dtype=complex)
+        D0s[:] = bs**2.0 - 3.0*cs
+
+        D1s = np.zeros_like(k, dtype=complex)
+        D1s[:] = 2.0* bs**3.0 - 9.0*bs*cs + 27.0*ds
+
+        Ccs = np.zeros_like(k, dtype=complex)
+        Ccs[:] = ( (D1s + (D1s**2.0 - 4.0*D0s**3.0 )**(1.0/2.0) )/2.0 )**(1.0/3.0)
+
+        #Finally we need a special complex number
+        SHI = (-1.0 + (-3.0)**(1.0/2.0))*0.5
+        
+        # fast magnetosonic branch
+        tmps[0][:] = (B0n*kappa*cos/n0)*k**2.0 
+        
+        # slow magnetosonic
+        tmps[1][:] = ( (-1.0/3.0)*(bs + Ccs + D0s/Ccs) )**(1.0/2.0) 
+        
+        # compression Alfvén branch
+        tmps[2][:] = ( (-1.0/3.0)*(bs + SHI*Ccs + D0s/(SHI*Ccs) ) )**(1.0/2.0) 
+        
+        # shear Alfvén branch
+        tmps[3][:] = ( (-1.0/3.0)*(bs + SHI*SHI*Ccs + D0s/(SHI*SHI*Ccs) ) )**(1.0/2.0)
+
+        ##############################################################
+
+        # fill output dictionary
+        omegas = {}
+        for name, tmp in zip(self.branches, tmps):
+            omegas[name] = tmp
+
+        return omegas
+
+
 class ColdPlasma1D(DispersionRelations1D):
     r'''Dispersion relation for cold plasma model :math:`(\alpha,\mathbf B_0)`
     and wave propagation along z-axis :math:`(\mathbf k = k \mathbf e_z)` in Struphy units
@@ -199,7 +317,7 @@ class ColdPlasma1D(DispersionRelations1D):
             dict_disp[name] = tmp
 
         return dict_disp
-
+    
 
 class CurrentCoupling6DParallel(DispersionRelations1D):
     r"""

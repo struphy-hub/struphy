@@ -36,9 +36,12 @@ def main():
     import struphy
     libpath = struphy.__path__[0]
     
+    with open(os.path.join(libpath, 'io_path.txt')) as f:
+        io_path = f.readlines()[0]
+    
     # create absolute input folder path
     if args.input_abs is None:
-        input_path = os.path.join(libpath, 'io/out', args.input)
+        input_path = os.path.join(io_path, 'io/out', args.input)
     else:
         input_path = args.input_abs
         

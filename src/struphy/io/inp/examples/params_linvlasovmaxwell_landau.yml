@@ -8,14 +8,10 @@ grid :
     nq_pr    : [2, 2, 2] # quadrature points per histopolation cell (for commuting projectors)
     polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
 
-model_units :
+units :
     x   : 1. # length scale unit in m
     B   : 1. # magnetic field unit in T
-    nb  : 0.0005185219355 # bulk number density unit in 1 x 10^20 m^(-3)
-    nuh : 5. # ratio of hot/bulk number density units in %
-    Ab  : 1 # mass number of bulk ion species (1 : Hydrogen, 2 : Deuterium, 3 : Tritium, etc.)
-    Ah  : 1 # mass number of energetic ion species (1 : Hydrogen, 2 : Deuterium, 3 : Tritium, etc.)
-    Zh  : 1 # charge number of energetic ion species (1 : Hydrogen, 2 : Helium, etc.)
+    n   : 1. # bulk number density unit in 1 x 10^20 m^(-3)
 
 time :
     dt         : 0.01 # time step
@@ -74,32 +70,32 @@ kinetic :
                         n : [0]
                         amps_sin : [0.]
                         amps_cos : [0.5]
-                ux :
-                    ux0 : 0.
-                uy :
-                    uy0 : 0.
-                uz :
-                    uz0 : 0.
-                vthx :
-                    vthx0 : 2.
-                vthy :
-                    vthy0 : 2.
-                vthy :
-                    vthz0 : 2.
+                u1 :
+                    u01 : 0.
+                u2 :
+                    u02 : 0.
+                u3 :
+                    u03 : 0.
+                vth1 :
+                    vth01 : 2.
+                vth2 :
+                    vth02 : 2.
+                vth3 :
+                    vth03 : 2.
         background :
             type : Maxwellian6DUniform
             Maxwellian6DUniform :
                 n  : 1.
-                ux : 0.
-                uy : 0.
-                uz : 0.
-                vthx : 2.
-                vthy : 2.
-                vthz : 2.
+                u1 : 0.
+                u2 : 0.
+                u3 : 0.
+                vth1 : 2.
+                vth2 : 2.
+                vth3 : 2.
         save_data :
             n_markers : 10 # number of markers to be saved during simulation
             f :
-                slices : [e3, vx_vy] # in which directions to bin (e.g. [e1_e2, vx_vy_vz])
+                slices : [e3, v1_v2] # in which directions to bin (e.g. [e1_e2, v1_v2_v3])
                 n_bins : [[64], [64, 64]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
                 ranges : [[[0., 1.]], [[-5., 5.], [-5., 5.]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
         push_algos :

@@ -4,45 +4,37 @@
 # Official language image. Look for the different tagged releases at:
 # https://hub.docker.com/r/library/python/tags/
 
-
 default:
+
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/module-image
+
   before_script:
     - module purge
-    - module load gcc/9 openmpi anaconda/3/2021.11 mpi4py
+    - module load gcc/9 openmpi anaconda/3/2021.11 mpi4py git
     - module list
-    - source ${GLOBAL_CACHE_PATH}/env/bin/activate
+    - source env_$CI_PIPELINE_ID/bin/activate
+    - pip list
     - ENV_PATH=$(python3 -c "import sysconfig; print(sysconfig.get_path('platlib'))")
     #- ENV_PATH=$(python3 -m site --user-site)
     - LIBDIR=$(python3 -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")
     - echo $ENV_PATH
     - echo $LIBDIR
-    #- export PYTHONPATH="${PYTHONPATH}:$(python3 -m site --user-site)"
-    - echo $PYTHONPATH 
-    - echo $PATH
     - ls
 
   tags:
-    - ipp_vm_linux_struphy
-  
-variables:
-  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
-  #GIT_SUBMODULE_STRATEGY: recursive
-  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/struphy_${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
-  UBUNTU20_TEST_IMAGE: $CI_REGISTRY/struphy/struphy/ubuntu20_test
-  FEDORA36_TEST_IMAGE: $CI_REGISTRY/struphy/struphy/fedora36_test
-  UBUNTU20_IMAGE: $CI_REGISTRY/struphy/struphy/ubuntu20
-  FEDORA36_IMAGE: $CI_REGISTRY/struphy/struphy/fedora36
-  TWINE_USERNAME: __token__
-  TWINE_PASSWORD: pypi-AgEIcHlwaS5vcmcCJDE4YzU1YzIwLWVhY2QtNDQyZS04ODRjLTJjYTE3OTI3MDQ4YgACKlszLCI4NzYzODllYi05NWE4LTRlOTktYjg2Ny0zNDcwNDM5NjI2ZjciXQAABiD3B8VE_t8BNsezFEMcF2ZLblhgufgnrfXgCSmGuW5H4w
+    - cloud
+
+  cache:
+    key: 'python-env'
+    paths:
+      - env_$CI_PIPELINE_ID/
 
 stages:
   - startup
   - build
-  - test_images
   - install
-  - test_default
+  - test
   - release 
-  - cleanup
 
 # python virtual environment into cache
 default_venv:
@@ -59,13 +51,16 @@ default_venv:
     - echo "Hello ${GITLAB_USER_NAME} !"
     - echo "This is job ${CI_JOB_ID}"
     - module purge
-    - module load gcc/9 openmpi anaconda/3/2021.11 mpi4py
+    - module avail
+    - module load gcc/9 openmpi anaconda/3/2021.11 mpi4py git
     - module list
   script:
     - echo "Creating virtual environment..."
     - pip install -U virtualenv
-    - python3 -m venv ${GLOBAL_CACHE_PATH}/env
-    - source ${GLOBAL_CACHE_PATH}/env/bin/activate
+    - python3 -m venv env_$CI_PIPELINE_ID
+    - ls
+    - pwd
+    - source env_$CI_PIPELINE_ID/bin/activate
     - python3 -m pip install --upgrade pip
     - pip install -U pytest coverage build twine # somehow the build package is not cached
     - pip list
@@ -77,10 +72,11 @@ ci_vars:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_PIPELINE_SOURCE == "push"
+  cache: []
   before_script:
     - echo "All CI predefined variables:"
     - module purge
-    - module load gcc openmpi anaconda/3/2021.11 mpi4py
+    - module load gcc openmpi anaconda/3/2021.11 mpi4py git
     - module list
   script:
     - echo "All CI predefined variables:"
@@ -191,35 +187,23 @@ ci_vars:
     - echo $GITLAB_USER_LOGIN
     - echo $GITLAB_USER_NAME
     - echo $TRIGGER_PAYLOAD
+    - echo $TWINE_PASSWORD
+    - echo $TWINE_USERNAME
 
-# # Verify the PEP-8 guidelines for your code
-# linting:
-#   stage: startup
-#   before_script:
-#     - module load anaconda/3/2021.11 
-#     - pip install -U pylint
-#   script:
-#     - FLAGS="--recursive=y --exit-zero --reports=yes"
-#     - mkdir linting
-#     - pylint struphy/diagnostics/              --output-format=text:linting/diagnostics.txt $FLAGS
-#     - pylint struphy/dispersion_relations/     --output-format=text:linting/dispersion_relations.txt $FLAGS
-#     - pylint struphy/examples/                 --output-format=text:linting/examples.txt $FLAGS
-#     - pylint struphy/feec/                     --output-format=text:linting/feec.txt $FLAGS
-#     - pylint struphy/fields_background/        --output-format=text:linting/fields_background.txt $FLAGS
-#     - pylint struphy/geometry/                 --output-format=text:linting/geometry.txt $FLAGS
-#     - pylint struphy/kinetic_background/       --output-format=text:linting/kinetic_background.txt $FLAGS
-#     - pylint struphy/kinetic_init/             --output-format=text:linting/kinetic_init.txt $FLAGS
-#     - pylint struphy/linear_algebra/           --output-format=text:linting/linear_algebra.txt $FLAGS
-#     - pylint struphy/models/                   --output-format=text:linting/models.txt $FLAGS
-#     - pylint struphy/initial/                  --output-format=text:linting/initial.txt $FLAGS
-#     - pylint struphy/pic/                      --output-format=text:linting/pic.txt $FLAGS
-#     - pylint struphy/psydac_api/               --output-format=text:linting/psydac_api.txt $FLAGS
-#     - pylint struphy/propagators/              --output-format=text:linting/propagators.txt $FLAGS
-#     - pylint struphy/tests/                    --output-format=text:linting/tests.txt $FLAGS
-#     - pylint struphy/tests_mpi/                --output-format=text:linting/tests_mpi.txt $FLAGS
-#   artifacts:
-#     paths:
-#       - linting/
+# Verify the PEP-8 guidelines for your code
+linting:
+  stage: startup
+  cache: []
+  before_script:
+    - module load anaconda/3/2021.11 
+    - pip install -U pylint
+  script:
+    - FLAGS="--recursive=y --exit-zero --reports=yes"
+    - mkdir linting
+    - pylint src/struphy/ --output-format=text:linting/struphy.txt $FLAGS
+  artifacts:
+    paths:
+      - linting/
 
 # build on mpcdf server
 default_build:
@@ -235,78 +219,6 @@ default_build:
   artifacts:
     paths:
       - dist/
-
-# build environment images (no struphy installed)
-ubuntu20_image_build:
-  stage: build
-  needs: []
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
-  before_script: 
-    - docker info
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-  script:
-    - docker build -t $UBUNTU20_TEST_IMAGE -f images/ubuntu20.dockerfile . --no-cache
-    - docker push $UBUNTU20_TEST_IMAGE
-
-fedora36_image_build:
-  stage: build
-  needs: []
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
-  before_script: 
-    - docker info
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-  script:
-    - docker build -t $FEDORA36_TEST_IMAGE -f images/fedora36.dockerfile . --no-cache
-    - docker push $FEDORA36_TEST_IMAGE
-
-# image tests (only codes, when not merged to master)
-ubuntu20_tests:
-  stage: test_images
-  needs: ["default_build", "ubuntu20_image_build"]
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
-  before_script: 
-    - docker info
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-  script:
-    - docker rm -f ubuntu_tests
-    - docker run -d -t -v $CI_PROJECT_DIR/dist:/struphy/dist --name ubuntu_tests $UBUNTU20_TEST_IMAGE
-    - docker images
-    - docker container ls --all
-    - docker exec ubuntu_tests pip list
-    - docker exec ubuntu_tests pip install dist/struphy*.whl
-    - docker exec ubuntu_tests struphy compile
-    - docker exec ubuntu_tests struphy test --codes
-    - docker stop ubuntu_tests
-    - docker rm -f ubuntu_tests 
-
-fedora36_tests:
-  stage: test_images
-  needs: ["default_build", "fedora36_image_build"]
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
-  before_script: 
-    - docker info
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-  script:
-    - docker rm -f fedora_tests
-    - docker run -d -t -v $CI_PROJECT_DIR/dist:/struphy/dist --name fedora_tests $FEDORA36_TEST_IMAGE
-    - docker images
-    - docker container ls --all
-    - docker exec fedora_tests pip list
-    - docker exec fedora_tests bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install dist/struphy*.whl && struphy compile && struphy test --codes" 
-    - docker stop fedora_tests
-    - docker rm -f fedora_tests
 
 # Install from wheel and compile on mpcdf cluster arch
 default_install:
@@ -326,9 +238,9 @@ default_install:
     - ./src/struphy/verify_compilation.sh
     - pip list
 
-# default tests (always)
+# # default tests (always)
 default_unit_tests:
-  stage: test_default
+  stage: test
   needs: ["default_install"]
   rules:
     - if: $CI_COMMIT_TAG
@@ -348,7 +260,7 @@ default_unit_tests:
     - coverage erase
 
 default_code_tests:
-  stage: test_default
+  stage: test
   needs: ["default_install"]
   rules:
     - if: $CI_COMMIT_TAG
@@ -358,6 +270,57 @@ default_code_tests:
     - pwd
     - ls -1
     - struphy test --codes
+
+ubuntu20_tests:
+  stage: test
+  image: ubuntu:20.04
+  needs: ["default_build"]
+  cache: []
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+  before_script:
+    - apt update -y && apt clean 
+    - apt install -y python3-pip 
+    - apt install -y gfortran gcc 
+    - DEBIAN_FRONTEND=noninteractive TZ="Europe/Berlin" apt-get install -y liblapack-dev libopenmpi-dev 
+    - apt install -y libblas-dev openmpi-bin 
+    - apt install -y libomp-dev libomp5 
+    - apt install -y git
+    - export OMPI_ALLOW_RUN_AS_ROOT=1
+    - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+  script:
+    - pip list
+    - pip install dist/struphy*.whl
+    - struphy compile
+    - struphy test --codes
+
+fedora36_tests:
+  stage: test
+  image: fedora:36
+  needs: ["default_build"]
+  cache: []
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+  before_script:
+    - dnf install -y python3-pip 
+    - dnf install -y gcc 
+    - dnf install -y gfortran  
+    - dnf install -y blas-devel lapack-devel  
+    - dnf install -y openmpi openmpi-devel 
+    - dnf install -y libgomp 
+    - dnf install -y git 
+    - dnf install -y environment-modules 
+    - dnf install -y python3-mpi4py-openmpi 
+    - dnf install -y python3-devel 
+    - export OMPI_ALLOW_RUN_AS_ROOT=1
+    - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+  script:
+    - pip list
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install dist/struphy*.whl && struphy compile && struphy test --codes" 
 
 # release
 deploy:
@@ -370,32 +333,16 @@ deploy:
   script:
     - twine upload dist/*
 
-release_images:
-  stage: release
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_NAME == "master"
-  before_script: 
-    - docker info
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-  script:
-    - docker pull $UBUNTU20_TEST_IMAGE
-    - docker tag $UBUNTU20_TEST_IMAGE $UBUNTU20_IMAGE
-    - docker push $UBUNTU20_IMAGE
-    - docker pull $FEDORA36_TEST_IMAGE
-    - docker tag $FEDORA36_TEST_IMAGE $FEDORA36_IMAGE
-    - docker push $FEDORA36_IMAGE
-
 pages:
   stage: release
   rules:
     - if: $CI_COMMIT_TAG
       when: never
-    - if: $CI_COMMIT_REF_NAME == "master" 
+    - if: $CI_COMMIT_REF_PROTECTED == "true"  
   needs: ["default_build"]
   script:
     - pip install dist/struphy*.whl
+    - pip install src/struphy/psydac*.whl
     - pip show struphy
     - struphy
     - cd doc ; make html
@@ -404,22 +351,42 @@ pages:
     paths:
       - public/
 
-# Cleanup
-cleanup:
-  stage: cleanup
+vars:
+  stage: release
   rules:
     - if: $CI_COMMIT_TAG
       when: never
-    - if: $CI_PIPELINE_SOURCE == "push"
-      when: always
-  before_script: 
-    - docker info
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - if: $CI_COMMIT_REF_NAME == "master"
+  before_script:
+    - uname -s # get system info
   script:
-    - pwd
-    - echo "on ${CI_RUNNER_DESCRIPTION}."
-    - echo "remove:" ${GLOBAL_CACHE_PATH}
-    - rm -rf ${GLOBAL_CACHE_PATH}
-    - docker image rm -f $UBUNTU20_TEST_IMAGE $FEDORA36_TEST_IMAGE
-    - docker images
+    - echo "VERSION=$(var=$(<pyproject.toml); set -- $var; echo ${14} | sed 's/^.//' | sed 's/.$//')" >> vars.env
+  artifacts:
+    reports:
+      dotenv: vars.env
+
+release_job:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_NAME == "master"
+  needs: ['vars']
+  before_script:
+    - uname -s # get system info
+  script:
+    - cat /etc/*-release
+    - echo $VERSION
+  release:                                         # See https://docs.gitlab.com/ee/ci/yaml/#release for available properties
+    tag_name: 'v$VERSION'                          # The version is incremented per pipeline.
+    name: 'v$VERSION'
+    ref: '$CI_COMMIT_SHA'                          # The tag is created from the pipeline SHA.
+    description: 'CHANGELOG.md'
+    assets:
+      links:
+        - name: 'Documentation'
+          url: 'https://struphy.pages.mpcdf.de/struphy/index.html'
+        - name: 'PyPI'
+          url: 'https://pypi.org/project/struphy/'
 
