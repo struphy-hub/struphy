@@ -13,6 +13,9 @@ def run(n_procs):
     import struphy
 
     libpath = struphy.__path__[0]
+    
+    with open(os.path.join(libpath, 'io_path.txt')) as f:
+        io_path = f.readlines()[0]
 
     # name of simulation output folder
     out_name = 'sim_example_TAE_tokamak'
@@ -43,7 +46,7 @@ def run(n_procs):
                     'run', 
                     'LinearMHD',
                     '--input-abs',
-                    os.path.join(libpath, 'io/out', out_name, 'parameters.yml'),
+                    os.path.join(io_path, 'io/out', out_name, 'parameters.yml'),
                     '-o',
                     out_name,
                     '--mpi',
@@ -79,8 +82,11 @@ def diagnostics():
 
     libpath = struphy.__path__[0]
     
+    with open(os.path.join(libpath, 'io_path.txt')) as f:
+        io_path = f.readlines()[0]
+    
     out_name = 'sim_example_TAE_tokamak'
-    out_path = os.path.join(libpath, 'io/out', out_name)
+    out_path = os.path.join(io_path, 'io/out', out_name)
 
     # load simulation parameters
     with open(os.path.join(out_path, 'parameters.yml')) as file:
@@ -101,7 +107,7 @@ def diagnostics():
     mhd_params = params['mhd_equilibrium'][params['mhd_equilibrium']['type']]
 
     # field names, grid info and energies
-    file = h5py.File(os.path.join(out_path, 'data_proc0.hdf5'), 'r')
+    file = h5py.File(os.path.join(out_path, 'data/', 'data_proc0.hdf5'), 'r')
 
     names = list(file['feec'].keys())
 
@@ -119,7 +125,7 @@ def diagnostics():
         grids_phy = pickle.load(handle)
 
     # load data dicts for logical u_field
-    with open(os.path.join(out_path, 'post_processing/fields_data', names[3] + '_log.bin'), 'rb') as handle:
+    with open(os.path.join(out_path, 'post_processing/fields_data/mhd/u2_log.bin'), 'rb') as handle:
         u_field_log = pickle.load(handle)
 
     # perform continuous spectra diagnostics
@@ -152,7 +158,7 @@ def diagnostics():
     # plot safety factor
     plt.subplot(2, 2, 1)
     r = np.linspace(0., 1., 101)
-    plt.plot(r, mhd_equil.q(r))
+    plt.plot(r, mhd_equil.q_r(r))
     plt.xlabel('r [m]')
     plt.ylabel('safety factor')
 
@@ -161,8 +167,8 @@ def diagnostics():
     # analytical continuous spectra
     spec_calc = MhdContinousSpectraCylinder(R0=mhd_params['R0'],
                                             Bz=lambda r: mhd_params['B0'] - 0*r,
-                                            q=mhd_equil.q, rho=mhd_equil.nr,
-                                            p=mhd_equil.pr, gamma=5/3)
+                                            q=mhd_equil.q_r, rho=mhd_equil.n_r,
+                                            p=mhd_equil.p_r, gamma=5/3)
 
     plt.subplot(2, 2, 2)
     for m in range(2, 4 + 1):

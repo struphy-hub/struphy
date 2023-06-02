@@ -34,6 +34,9 @@ class InitialMHDAxisymHdivEigFun:
         import struphy
         libpath = struphy.__path__[0]
         
+        with open(os.path.join(libpath, 'io_path.txt')) as f:
+            io_path = f.readlines()[0]
+        
         params_default = {'spec': 'sim_1/spec_n_-1.npy',
                           'spec_abs': None,
                           'eig_freq_upper': 0.02, 
@@ -45,7 +48,7 @@ class InitialMHDAxisymHdivEigFun:
         
         # absolute path of spectrum
         if params['spec_abs'] is None:
-            spec_path = os.path.join(libpath, 'io/out', params['spec'])
+            spec_path = os.path.join(io_path, 'io/out', params['spec'])
         else:
             spec_path = params['spec_abs']
         

@@ -245,7 +245,7 @@ class Field:
 
             # white noise in logical space for different components
             if init_type == 'noise':
-                
+
                 # component(s) to perturb
                 if isinstance(fun_params['comps'][self._name], bool):
                     comps = [fun_params['comps'][self._name]]
@@ -327,7 +327,8 @@ class Field:
                         getattr(funs, self.name))
 
         # apply boundary operator (in-place)
-        self.derham.B[self.space_key].dot(self._vector.copy(), out=self._vector)
+        self.derham.B[self.space_key].dot(
+            self._vector.copy(), out=self._vector)
 
         # update ghost regions
         self._vector.update_ghost_regions()
@@ -336,21 +337,20 @@ class Field:
         """
         TODO
         """
-        
+
         if species is None:
             key = 'restart/' + self.name
         else:
             key = 'restart/' + species + '_' + self.name
-        
+
         if isinstance(self.vector, StencilVector):
             self.vector._data[:] = file[key][-1]
         else:
             for n in range(3):
                 self.vector[n]._data[:] = file[key + '/' + str(n + 1)][-1]
-            
+
         self._vector.update_ghost_regions()
-    
-    
+
     def __call__(self, eta1, eta2, eta3, squeeze_output=False):
         """
         Evaluates the spline function on the local domain.

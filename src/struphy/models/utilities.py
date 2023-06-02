@@ -4,35 +4,35 @@ import numpy as np
 def derive_units(Z_bulk=1, A_bulk=1., x=1., B=1., n=1., time_scale='alfvén'):
     """
     Computes derived physics units of Struphy quantities.
-    
+
     Parameters
     ---------
     Z_bulk : int
         Charge number of bulkd species.
-        
+
     A_bulk : int
         Mass number of bulk species.
-        
+
     x : float
         Unit of length (in meters).
-        
+
     B : float
         Unit of magnetic field (in Tesla).
-        
+
     n : float
         Unit of particle number density (in 1e20 per cubic meter).
-        
+
     time_scale : str
         Time scale to be used (determined by some characteristic velocity: "alfvén", "cyclotron" or "light").
-        
+
     Returns
     -------
     units_basic : dict
         Basic units for time, length, mass and magnetic field.
-        
+
     units_der : dict
         Derived units for velocity, pressure, mass density and particle density.
-        
+
     units_dimless :  dict
         Some dimensionless quantities:
             * alpha = omega_p / omega_c, ratio of bulk plasma to bulk cyclotron frequency.
@@ -50,33 +50,34 @@ def derive_units(Z_bulk=1, A_bulk=1., x=1., B=1., n=1., time_scale='alfvén'):
     x_unit = x * 1
     B_unit = B * 1
     n_unit = n * 1e20
-    
+
     # basic units in SI units (time, length, particle density and magnetic field)
     units_basic = {}
-    
+
     if time_scale == 'light':
         v_unit = 1*c
     elif time_scale == 'alfvén':
         v_unit = B_unit / np.sqrt(n_unit * A_bulk * mH * mu0)
     elif time_scale == 'cyclotron':
         v_unit = Z_bulk * e * B_unit / (A_bulk * mH) / (2*np.pi) * x_unit
-    
+
     units_basic['t'] = x_unit / v_unit
     units_basic['x'] = x_unit
     units_basic['m'] = A_bulk * mH * n_unit * x_unit**3
     units_basic['B'] = B_unit
-       
+
     # derived units
     units_der = {}
 
     units_der['v'] = units_basic['x'] / units_basic['t']
-    units_der['p'] = units_basic['m'] / (units_basic['x'] * units_basic['t']**2)
+    units_der['p'] = units_basic['m'] / \
+        (units_basic['x'] * units_basic['t']**2)
     units_der['rho'] = units_basic['m'] / units_basic['x']**3
     units_der['n'] = units_basic['m'] / units_basic['x']**3 / (A_bulk * mH)
-    
+
     # relevant dimensionless quantities
     units_dimless = {}
-    
+
     # unit of bulk plasma frequency
     omega_p = np.sqrt(n_unit * (Z_bulk * e)**2 / (eps0 * A_bulk * mH))
 
@@ -85,6 +86,7 @@ def derive_units(Z_bulk=1, A_bulk=1., x=1., B=1., n=1., time_scale='alfvén'):
 
     # relevant unit parameters
     units_dimless['alpha'] = omega_p / omega_c
+    units_dimless['kappa'] = omega_c * units_basic['t']
 
     return units_basic, units_der, units_dimless
 
@@ -151,54 +153,55 @@ def setup_domain_mhd(params):
 def setup_electric_background(params, domain):
     """
     Creates an electric background field for a given parameter file.
-    
+
     Parameters
     ----------
     params : dict
         The full simulation parameter dictionary.
-        
+
     domain : struphy.geometry.base.Domain
         The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
-        
+
     Returns
     -------
     electric_background : struphy.fields_background.electric_equil.base.EquilibriumElectric
         The electric background object.
     """
-    
+
     from struphy.fields_background.electric_equil import analytical
-        
+
     if 'electric_equilibrium' in params:
-        
+
         electric_type = params['electric_equilibrium']['type']
         electric_class = getattr(analytical, electric_type)
-        electric_background = electric_class(params['electric_equilibrium'][electric_type], domain)
-        
+        electric_background = electric_class(
+            params['electric_equilibrium'][electric_type], domain)
+
     else:
         electric_background = None
-        
+
     return electric_background
 
 
 def setup_derham(params_grid, comm, domain=None, mpi_dims_mask=None):
     """
     Creates the 3d derham sequence for given grid parameters.
-    
+
     Parameters
     ----------
     params_grid : dict
         Grid parameters dictionary.
-        
+
     comm : mpi4py.MPI.Intracomm
         MPI communicator used for parallelization.
-        
+
     domain : struphy.geometry.base.Domain, optional
         The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
-        
+
     mpi_dims_mask: list of bool
         True if the dimension is to be used in the domain decomposition (=default for each dimension). 
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
-        
+
     Returns
     -------
     derham : struphy.psydac_api.psydac_derham.Derham
@@ -208,7 +211,7 @@ def setup_derham(params_grid, comm, domain=None, mpi_dims_mask=None):
     from struphy.psydac_api.psydac_derham import Derham
 
     # number of grid cells
-    Nel = params_grid['Nel']  
+    Nel = params_grid['Nel']
     # spline degrees
     p = params_grid['p']
     # spline types (clamped vs. periodic)
@@ -233,10 +236,11 @@ def setup_derham(params_grid, comm, domain=None, mpi_dims_mask=None):
                     mpi_dims_mask=mpi_dims_mask,
                     with_projectors=True,
                     polar_ck=polar_ck,
-                    domain=domain)   
+                    domain=domain)
 
     if comm.Get_rank() == 0:
-        print('MPI processes per direction:', derham.domain_decomposition.nprocs)
+        print('MPI processes per direction:',
+              derham.domain_decomposition.nprocs)
         print('')
 
     return derham
@@ -276,7 +280,7 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
     import sysconfig
     import glob
     import yaml
-    from struphy.models import models
+    from struphy.models import fluid, kinetic, hybrid, toy
 
     # prepare output folder
     if mpi_rank == 0:
@@ -286,6 +290,8 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
         if not os.path.exists(path_out):
             os.mkdir(path_out)
             print('\nCreated folder ' + path_out)
+            os.mkdir(os.path.join(path_out, 'data/'))
+            print('\nCreated folder ' + os.path.join(path_out, 'data/'))
 
         # clean output folder if it already exists
         else:
@@ -308,12 +314,18 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
                 os.remove(file)
                 print('Removed file ' + file)
 
-            # remove hdf5 files (if NOT a restart)
+            # remove .png files (if NOT a restart)
             if not restart:
-                files = glob.glob(os.path.join(path_out, '*.hdf5'))
+                files = glob.glob(os.path.join(path_out, '*.png'))
                 for n, file in enumerate(files):
                     os.remove(file)
-                    if n < 10:  # print only forty statements in case of many processes
+                    if n < 10:  # print only ten statements in case of many processes
+                        print('Removed file ' + file)
+                        
+                files = glob.glob(os.path.join(path_out, 'data', '*.hdf5'))
+                for n, file in enumerate(files):
+                    os.remove(file)
+                    if n < 10:  # print only ten statements in case of many processes
                         print('Removed file ' + file)
 
     # save "parameters" dictionary as .yml file
@@ -331,12 +343,12 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
     # OR load parameters if "parameters" is a string (path)
     else:
         parameters_path = parameters
-        
+
         with open(parameters) as file:
             params = yaml.load(file, Loader=yaml.FullLoader)
 
     if mpi_rank == 0:
-        
+
         # copy parameter file to output folder
         if parameters_path != os.path.join(path_out, 'parameters.yml'):
             shutil.copy2(parameters_path, os.path.join(
@@ -369,7 +381,13 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
         print(f'GL quad pts (hist)  :', params['grid']['nq_pr'])
 
         # print units info
-        getattr(models, model_name).model_units(params, verbose=True)
+        objs = [fluid, kinetic, hybrid, toy]
+        for obj in objs:
+            try:
+                model = getattr(obj, model_name)
+            except:
+                pass
+        model.model_units(params, verbose=True)
         print('')
 
         # write meta data to output folder
@@ -385,6 +403,5 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
             f.write('restart:'.ljust(30) + str(restart) + '\n')
             f.write(
                 'max wall-clock time [min]:'.ljust(30) + str(max_sim_time) + '\n')
-            f.write('# processes: '.ljust(30) + str(mpi_size) + '\n')
 
     return params

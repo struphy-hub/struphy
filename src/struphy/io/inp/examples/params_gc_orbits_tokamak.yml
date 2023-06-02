@@ -21,7 +21,7 @@ time :
 geometry :
     type : Tokamak # mapping F (possible types seen below)
     Tokamak :
-        Nel        : [32, 72] # number of poloidal grid cells, >p
+        Nel        : [28, 72] # number of poloidal grid cells, >p
         p          : [3, 3] # poloidal spline degrees, >1
         psi_power  : 0.6 # parametrization of radial flux coordinate eta1=psi_norm^psi_power, where psi_norm is normalized flux
         psi_shifts : [0., 1.] # start and end shifts of polidal flux in % --> cuts away regions at the axis and edge
@@ -66,7 +66,7 @@ kinetic :
                            [.501, 0.001, 0.001,  0.4515, -1.72], # counter-trapped particle
                            [.501, 0.001, 0.001, -0.6665, -1.72]] # co-trapped particle
 
-        init : 
+        init :
             type : Maxwellian5DUniform
             Maxwellian5DUniform:
                 n : 0.05

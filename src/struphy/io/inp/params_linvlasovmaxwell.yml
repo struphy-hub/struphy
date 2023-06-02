@@ -119,32 +119,32 @@ kinetic :
                         n : [0]
                         amps_sin : [0.]
                         amps_cos : [1.5]
-                ux :
-                    ux0 : 0.
-                uy :
-                    uy0 : 0.
-                uz :
-                    uz0 : 0.
-                vthx :
-                    vthx0 : 1.
-                vthy :
-                    vthy0 : 1.
-                vthy :
-                    vthz0 : 1.
+                u1 :
+                    u01 : 0.
+                u2 :
+                    u02 : 0.
+                u3 :
+                    u03 : 0.
+                vth1 :
+                    vth01 : 1.
+                vth2 :
+                    vth02 : 1.
+                vth3 :
+                    vth03 : 1.
         background :
             type : Maxwellian6DUniform
             Maxwellian6DUniform :
                 n  : 1.
-                ux : 0.
-                uy : 0.
-                uz : 0.
-                vthx : 1.
-                vthy : 1.
-                vthz : 1.
+                u1 : 0.
+                u2 : 0.
+                u3 : 0.
+                vth1 : 1.
+                vth2 : 1.
+                vth3 : 1.
         save_data :
             n_markers : 10 # number of markers to be saved during simulation
             f :
-                slices : [e3, vx_vy_vz] # in which directions to bin (e.g. [e1_e2, vx_vy_vz])
+                slices : [e3, v1_v2_v3] # in which directions to bin (e.g. [e1_e2, v1_v2_v3])
                 n_bins : [[64], [64, 64, 64]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
                 ranges : [[[0., 1.]], [[-5., 5.], [-5., 5.], [-5., 5.]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
         push_algos :
@@ -154,7 +154,7 @@ kinetic :
 solvers :
     solver_poisson :
         type : PConjugateGradient
-        pc : null # MassMatrixPreconditioner # null or name of preconditioner class
+        pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-10
         maxiter : 3000
         info : False

@@ -210,6 +210,21 @@ class BasisProjectionOperators:
         return self._Q2
 
     @property
+    def Q3(self):
+        r'''Basis projection operator
+
+        .. math::
+
+            \mathcal{Q}^3_{ijk,mno} := \hat{\Pi}^3_{ijk} \left[ \frac{\hat{\rho}^3_{\text{eq}}}{\sqrt{g}}\Lambda^3_{mno} \right] \,.
+        '''
+        if not hasattr(self, '_Q3'):
+            fun = [[lambda e1, e2, e3: self.weights['eq_mhd'].n3(
+                e1, e2, e3) / self.sqrt_g(e1, e2, e3)]]
+            self._Q3 = self.assemble_basis_projection_operator(fun, 'L2', 'L2')
+
+        return self._Q3
+
+    @property
     def Tv(self):
         r'''Basis projection operator 
 

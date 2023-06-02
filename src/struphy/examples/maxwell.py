@@ -44,27 +44,27 @@ def diagnostics():
 
     libpath = struphy.__path__[0]
     
+    with open(os.path.join(libpath, 'io_path.txt')) as f:
+        io_path = f.readlines()[0]
+    
     # output path
     out_name = 'sim_example_maxwell'
-    out_path = os.path.join(libpath, 'io/out', out_name) 
+    out_path = os.path.join(io_path, 'io/out', out_name) 
     
     # code name
     with open(os.path.join(out_path, 'meta.txt'), 'r') as f:
         lines = f.readlines()
 
-    code = lines[-2].split()[-1]
+    code = lines[3].split()[-1]
 
     # field names
-    file = h5py.File(os.path.join(out_path, 'data_proc0.hdf5'), 'r')
+    file = h5py.File(os.path.join(out_path,'data/', 'data_proc0.hdf5'), 'r')
     names = list(file['feec'].keys())
     file.close()
 
     # load data dicts for e_field
-    with open(os.path.join(out_path, 'post_processing/fields_data', names[1] + '_log.bin'), 'rb') as handle:
+    with open(os.path.join(out_path, 'post_processing/fields_data/em_fields/e1_log.bin'), 'rb') as handle:
         point_data_log = pickle.load(handle)
-
-    with open(os.path.join(out_path, 'post_processing/fields_data', names[1] + '_phy.bin'), 'rb') as handle:
-        point_data_phy = pickle.load(handle)
 
     # load grids
     with open(os.path.join(out_path, 'post_processing/fields_data/grids_log.bin'), 'rb') as handle:

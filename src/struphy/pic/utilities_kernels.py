@@ -5,7 +5,7 @@ from struphy.b_splines.bspline_evaluation_3d import eval_spline_mpi_kernel
 import struphy.linear_algebra.core as linalg
 import struphy.geometry.map_eval as map_eval
 
-from numpy import empty, shape, zeros, sqrt, log
+from numpy import empty, shape, zeros, sqrt, log, abs
 
 
 @stack_array('bn1', 'bn2', 'bn3')
@@ -491,7 +491,7 @@ def eval_magnetic_moment_5d(markers: 'float[:,:]',
         B0 = eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, absB, starts0)
 
         # magnetic moment
-        markers[ip,4] = 1/2 * v_perp**2 / B0
+        markers[ip,4] = 1/2 * v_perp**2 / abs(B0)
 
 
 @stack_array('bn1', 'bn2', 'bn3')
@@ -548,7 +548,7 @@ def eval_magnetic_energy(markers: 'float[:,:]',
 
         B0 = eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, PB, starts0)
 
-        markers[ip, 8] = B0*markers[ip, 4]
+        markers[ip, 8] = abs(B0)*markers[ip, 4]
 
 
 @stack_array('df', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
@@ -1518,7 +1518,7 @@ def accum_gradI_const(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2] # mid
 
         # marker weight and velocity
-        weight = markers[ip, 6]
+        weight = markers[ip, 5]
         mu = markers[ip, 4]
 
         # b-field evaluation

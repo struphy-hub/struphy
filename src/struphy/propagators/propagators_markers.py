@@ -351,7 +351,7 @@ class StepHybridXPSymplectic(Propagator):
             self._pts_x), array(self._pts_y), array(self._pts_z), array(self._p_shape), array(self._p_size))
         if not self._accum_density._operators[0].matrix.ghost_regions_in_sync:
             self._accum_density._operators[0].matrix.update_ghost_regions()
-        #print('++++++check_density+++++++++', self._accum_density._operators[0].matrix._data)
+        # print('++++++check_density+++++++++', self._accum_density._operators[0].matrix._data)
         self._pusher_lnn(self._particles, dt, array(self._p_shape), array(self._p_size), array(self.derham.Nel), array(self._pts_x), array(self._pts_y), array(
             self._pts_z), array(self._wts_x), array(self._wts_y), array(self._wts_z), self._accum_density._operators[0].matrix._data, self._thermal, array(self._nqs))
 
@@ -754,7 +754,7 @@ class StepStaticEfield(Propagator):
 
         \frac{\text{d} \mathbf{\eta}_p}{\text{d} t} & = DL^{-1} \mathbf{v}_p \,,
 
-        \frac{\text{d} \mathbf{v}_p}{\text{d} t} & = DL^{-T} \mathbf{E}_0
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} & = \kappa \, DL^{-T} \mathbf{E}
 
     which is solved by an average discrete gradient method, implicitly iterating
     over :math:`k` (for every particle :math:`p`):
@@ -764,8 +764,8 @@ class StepStaticEfield(Propagator):
         \mathbf{\eta}^{n+1}_{k+1} = \mathbf{\eta}^n + \frac{\Delta t}{2} DL^{-1}
         \left( \frac{\mathbf{\eta}^{n+1}_k + \mathbf{\eta}^n }{2} \right) \left( \mathbf{v}^{n+1}_k + \mathbf{v}^n \right) \,,
 
-        \mathbf{v}^{n+1}_{k+1} = \mathbf{v}^n + \Delta t DL^{-1}\left(\mathbf{\eta}^n\right)
-        \int_0^1 \left[ \mathbb{\Lambda}\left( \eta^n + \tau (\mathbf{\eta}^{n+1}_k - \mathbf{\eta}^n) \right) \right]^T \mathbf{e}_0 \, \text{d} \tau
+        \mathbf{v}^{n+1}_{k+1} = \mathbf{v}^n + \Delta t \, \kappa \, DL^{-1}\left(\mathbf{\eta}^n\right)
+        \int_0^1 \left[ \mathbb{\Lambda}\left( \eta^n + \tau (\mathbf{\eta}^{n+1}_k - \mathbf{\eta}^n) \right) \right]^T \mathbf{e} \, \text{d} \tau
 
     Parameters
     ----------
@@ -785,13 +785,15 @@ class StepStaticEfield(Propagator):
         self._particles = particles
 
         # parameters
-        params_default = {'e_eq': BlockVector(
-            self.derham.Vh_fem['1'].vector_space)}
+        params_default = {'e_field': BlockVector(
+            self.derham.Vh_fem['1'].vector_space),
+            'kappa': 1e2}
 
         params = set_defaults(params, params_default)
+        self.kappa = params['kappa']
 
-        assert isinstance(params['e_eq'], (BlockVector, PolarVector))
-        self._e_eq = params['e_eq']
+        assert isinstance(params['e_field'], (BlockVector, PolarVector))
+        self._e_field = params['e_field']
 
         pn1 = self.derham.p[0]
         pd1 = pn1 - 1
@@ -825,7 +827,8 @@ class StepStaticEfield(Propagator):
         """
         self._pusher(self._particles, dt,
                      self._loc1, self._loc2, self._loc3, self._weight1, self._weight2, self._weight3,
-                     self._e_eq.blocks[0]._data, self._e_eq.blocks[1]._data, self._e_eq.blocks[2]._data,
+                     self._e_field.blocks[0]._data, self._e_field.blocks[1]._data, self._e_field.blocks[2]._data,
+                     self.kappa,
                      array([1e-10, 1e-10]), 100)
 
 
@@ -867,7 +870,7 @@ class StepPushDriftKinetic1(Propagator):
         self._particles = particles
 
         # parameters
-        params_default = {'kappa': 100.,
+        params_default = {'kappa': 1.,
                           'b': None,
                           'b_eq': None,
                           'unit_b1': None,
@@ -902,8 +905,8 @@ class StepPushDriftKinetic1(Propagator):
         self._b_full.update_ghost_regions()
 
         # define gradient of absolute value of parallel magnetic field
-        PB = getattr(self.basis_ops, 'PB')
-        self._PBb = PB.dot(self._b_full)
+        self._PB = getattr(self.basis_ops, 'PB')
+        self._PBb = self._PB.dot(self._b_full)
         self._PBb.update_ghost_regions()
 
         self._grad_PBb = self.derham.grad.dot(self._PBb)
@@ -978,10 +981,30 @@ class StepPushDriftKinetic1(Propagator):
         """
         TODO
         """
+
+        # sum up total magnetic field
+        self._b_full = self._b_eq.copy()
+        if self._b is not None:
+            self._b_full += self._b
+
+        self._b_full.update_ghost_regions()
+
+        # define gradient of absolute value of parallel magnetic field
+        self._PBb = self._PB.dot(self._b_full)
+        self._PBb.update_ghost_regions()
+
+        self._grad_PBb = self.derham.grad.dot(self._PBb)
+        self._grad_PBb.update_ghost_regions()
+
+        self._pusher_inputs = (self._kappa, self._PBb._data,
+                               self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
+                               self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                               self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
+                               self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                               self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data)
+
         self._pusher(self._particles, dt,
                      *self._pusher_inputs, mpi_sort='each', verbose=False)
-
-        self._particles.save_magnetic_energy(self.derham, self._PBb)
 
 
 class StepPushDriftKinetic2(Propagator):
@@ -1017,7 +1040,7 @@ class StepPushDriftKinetic2(Propagator):
         self._particles = particles
 
         # parameters
-        params_default = {'kappa': 100.,
+        params_default = {'kappa': 1.,
                           'b': None,
                           'b_eq': None,
                           'unit_b1': None,
@@ -1052,8 +1075,8 @@ class StepPushDriftKinetic2(Propagator):
         self._b_full.update_ghost_regions()
 
         # define gradient of absolute value of parallel magnetic field
-        PB = getattr(self.basis_ops, 'PB')
-        self._PBb = PB.dot(self._b_full)
+        self._PB = getattr(self.basis_ops, 'PB')
+        self._PBb = self._PB.dot(self._b_full)
         self._PBb.update_ghost_regions()
 
         self._grad_PBb = self.derham.grad.dot(self._PBb)
@@ -1128,7 +1151,26 @@ class StepPushDriftKinetic2(Propagator):
         """
         TODO
         """
+        # sum up total magnetic field
+        self._b_full = self._b_eq.copy()
+        if self._b is not None:
+            self._b_full += self._b
+
+        self._b_full.update_ghost_regions()
+
+        # define gradient of absolute value of parallel magnetic field
+        self._PBb = self._PB.dot(self._b_full)
+        self._PBb.update_ghost_regions()
+
+        self._grad_PBb = self.derham.grad.dot(self._PBb)
+        self._grad_PBb.update_ghost_regions()
+
+        self._pusher_inputs = (self._kappa, self._PBb._data,
+                               self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
+                               self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                               self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
+                               self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                               self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data)
+
         self._pusher(self._particles, dt,
                      *self._pusher_inputs, mpi_sort='each', verbose=False)
-
-        self._particles.save_magnetic_energy(self.derham, self._PBb)

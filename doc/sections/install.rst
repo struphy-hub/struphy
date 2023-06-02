@@ -3,10 +3,10 @@
 Installation
 ============
 
-*Struphy* can be installed in the following ways:
+Struphy can be installed in the following ways:
 
-1. From :ref:`PyPI <pypi_install>` :math:`\to` ``pip install struphy``
-2. From :ref:`source <source_install>` 
+1. From :ref:`PyPI <pypi_install>` :math:`\to` ``pip install struphy``, for running the latest release
+2. From :ref:`source <source_install>`, for running or adding code 
 3. Using :ref:`Docker images <docker_install>`, also suited :ref:`for developers <docker_devs>`
 
 
@@ -15,7 +15,7 @@ Installation
 Requirements
 ------------
 
-- Python 3 and pip3
+- Python >3.7 and <=3.10 and pip3
 - A Fortran compiler like gfortran, gcc
 - Linear algebra packages BLAS and LAPACK
 - An MPI library like open-mpi, mpich
@@ -24,41 +24,45 @@ Requirements
 
 Sample environment on **Debian-Ubuntu-Mint**::
 
-    apt update
-    apt install -y python3-pip
-    apt install -y gcc
-    apt install -y gfortran
-    apt install -y libblas-dev liblapack-dev
-    apt install -y libopenmpi-dev openmpi-bin
-    apt install -y libomp-dev libomp5
-    apt install -y git
+    sudo apt update
+    sudo apt install -y python3-pip
+    sudo apt install -y gcc
+    sudo apt install -y gfortran
+    sudo apt install -y libblas-dev liblapack-dev
+    sudo apt install -y libopenmpi-dev openmpi-bin
+    sudo apt install -y libomp-dev libomp5
+    sudo apt install -y git
 
 Sample environment on **Fedora-CentOS-RHEL**::
 
-    dnf check-update
-    dnf install -y python3-pip
-    dnf install -y gcc
-    dnf install -y gfortran
-    dnf install -y blas-devel lapack-devel
-    dnf install -y openmpi openmpi-devel
-    dnf install -y libgomp
-    dnf install -y git
-    dnf install -y environment-modules
-    dnf install -y python3-mpi4py-openmpi
-    dnf install -y python3-devel
+    sudo dnf check-update
+    sudo dnf install -y python3-pip
+    sudo dnf install -y gcc
+    sudo dnf install -y gfortran
+    sudo dnf install -y blas-devel lapack-devel
+    sudo dnf install -y openmpi openmpi-devel
+    sudo dnf install -y libgomp
+    sudo dnf install -y git
+    sudo dnf install -y environment-modules
+    sudo dnf install -y python3-mpi4py-openmpi
+    sudo dnf install -y python3-devel
 
 Sample environment on **Mac OS**::
 
     brew update
-    brew install -y python3-pip
-    brew install -y gcc
-    brew install -y openblas
-    brew install -y lapack
-    brew install -y open-mpi
-    brew install -y libomp
-    brew install -y git
+    brew install python3
+    brew install gcc
+    brew install openblas
+    brew install lapack
+    brew install open-mpi
+    brew install libomp
+    brew install git
 
-On Windows systems we recommend the use of a virtual machine, for instance the :ref:`multipass`.
+In case you see problems with the `mpi4py` build on **Mac OS**, you can try to install the Xcode command line tools (160 MB)::
+
+    xcode-select --install
+
+On **Windows systems** we recommend the use of a virtual machine, for instance the :ref:`multipass`.
 
 
 .. _pypi_install:
@@ -106,7 +110,7 @@ Compile kernels::
 Docker
 ------
 
-With this installation you will be able to run *struphy* in a `docker container <https://www.docker.com/resources/what-container/>`_, 
+With this installation you will be able to run Struphy in a `docker container <https://www.docker.com/resources/what-container/>`_, 
 encapsulated from your host machine.
 The container is launched from an `image <https://docs.docker.com/get-started/overview/#docker-objects>`_ 
 which you can download and run immediately, irrespective of your architecture and OS.
@@ -117,7 +121,7 @@ which you can download and run immediately, irrespective of your architecture an
 User install
 ^^^^^^^^^^^^
 
-To use *struphy* via docker, perform the following steps:
+To use Struphy via docker, perform the following steps:
 
 1. `Install Docker Desktop <https://docs.docker.com/desktop/>`_ and start it.
 
@@ -131,7 +135,7 @@ On Linux, if you do not want to preface the docker command with ``sudo``, you ca
 called ``docker`` and add your user to it.
 If you are uncomfortable with running `sudo`, you can `run docker in "rootless" mode <https://docs.docker.com/engine/security/rootless/>`_.
 
-2. Login to the MPCDF Gitlab registry using a predefined *struphy* user and token::
+2. Login to the MPCDF Gitlab registry using a predefined Struphy user and token::
 
     docker login gitlab-registry.mpcdf.mpg.de -u struphy_group_api -p glpat-JW4kjd_YMvRinSzKxSxs
 
@@ -160,7 +164,7 @@ Important docker commands
 * ``docker restart <container_name>`` restarts the container in detached mode.
 * ``docker attach <container_name>`` opens a terminal to a detached container.
 
-* Mirror default *struphy* output to ``~/<dir>`` on the host machine::
+* Mirror default Struphy output to ``~/<dir>`` on the host machine::
     
     docker run -it -v ~/<dir>:<install_path>/io/out gitlab-registry.mpcdf.mpg.de/struphy/struphy/release
 
@@ -177,7 +181,7 @@ with the ``-v`` option. For a ``rsa`` key this is done with::
 
 On OS other than Linux ``~/.ssh/id_rsa`` must be replaced with the path to the private rsa key.
 
-You can now install *struphy* from source (see above).
+You can now install Struphy from source (see above).
 
 In order to develop inside the container, we recommend to use `Visual Studio Code <https://code.visualstudio.com/>`_.
 Once installed, you can click on **Extensions** (red circle below) and install the ``Dev Containers``
@@ -203,7 +207,7 @@ Some specifics for the HPC systems ``cobra`` and ``draco`` at `MPCDF HPC facilit
 1. Load necessary modules::
 
     module purge
-    module load gcc/9 openmpi anaconda/3/2021.11 mpi4py
+    module load gcc/9 openmpi anaconda/3/2021.11 mpi4py git
     module list
 
 2. Create a Python virtual environment::
@@ -234,25 +238,26 @@ Multipass Virtual Machine
 
 Download and documentation at `https://multipass.run <https://multipass.run/>`_.
 
-After intallation, launch a VM via::
+After installation, create a new VM via::
 
-    multipass launch --name <VM-name> --cpus 4 --mem 4G --disk 16G
+    multipass launch <version> --name <VM-name> --cpus 4 --memory 4G --disk 16G
 
-These are the recommended options, you can choose anything for ``<VM-name>``. The standard user is named ``ubuntu``.
+where ``<version>`` is the ubuntu version and can be  ``jammy`` (22), ``impish`` (21), ``focal`` (20), ... ,
+and ``<VM-name>`` is the custom name of the VM. The default user in the VM is named ``ubuntu``.
 
 Quick info::
 
     multipass info --all
 
-Enter the shell::
+You can enter the VM via::
 
     multipass shell <VM-name>
 
-Continue with the installation of :ref:`source_install`. To shut down the VM::
+and exit it with::
 
     exit
 
-and stop it from the host machine::
+To shut down the VM, run the following command in the host machine::
 
     multipass stop <VM-name>
 
@@ -261,41 +266,86 @@ generate an ssh key (if you do not already have one)::
 
     ssh-keygen
 
-Then copy the key under ``.ssh/id_rsa.pub`` to your Gitlab profile.
+Then copy the key under ``.ssh/id_rsa.pub`` to your Gitlab profile. Continue with the installation of :ref:`source_install`.
 
 You can mirror a folder ``<folder-name>`` to your host machine (for using a nice editor for instance).
 ``<folder-name>`` should be empty, as any content would be overwritten during ``mount``.
-For this, create a new folder on your host (e.g. MacOS) and open a new terminal where you type::
+For this, create a new folder on your host machine and open a new terminal where you type::
 
     multipass mount /Path/to/Folder/on/Host/ <VM-name>:/home/ubuntu/<folder-name>/ 
 
 (You should do this **before** you put anything in these folders.)
 
-It is possible to access the GUI of your VM by installing ``ubuntu-desktop``::
+**For Apple Silicon Users running a Multipass VM:**
 
-    sudo apt-get install ubuntu-desktop xrdp -y
+Since the in-house SoC's by Apple are based on arm64 some packages are not available to them, most notably ``vtk``.
+You can nevertheless install vtk on your VM via::
 
-Then set your password via::
+    sudo apt install python3-vtk9
 
-    sudo passwd ubuntu
+This will give you all functionality, however it will not be recognized by ``pip``. You therefore have to install ``gvec_to_python`` from source,
+commenting out ``vtk`` under ``install_requires``. Then do::
 
-You can also first create another user for that purpose by::
+    python3 -m pip install .
 
-    sudo adduser USERNAME
+You will further have to comment out ``vtk`` and ``gvec_to_python`` from the ``pyproject.toml`` file in the struphy repository. You then proceed with::
 
-and giving it superuser-rights::
+    python3 -m pip install <option> .
 
-    sudo usermod -aG sudo USERNAME
+**Graphical Output from a Multipass VM**
 
-Then you can access the VM via a remote connection tool 
-(e.g. Microsoft Remote Desktop on Windows and MacOS, and Remmina for Linux). 
-For this you need the ip-address of your VM which you can find by running::
+Multipass runs the VM in command line only but it is possible to get graphical output by using **X11Forwarding**
+and a ``ssh`` connection. (Note: the following has only been tested on MacOS.)
 
-    multipass info
+For this procedure you need to install a `X Window System <http://www.linfo.org/x.html>`_ client on your computer
+(e.g. `XQuartz <https://www.xquartz.org/>`_ on MacOS or `Xming <http://www.straightrunning.com/XmingNotes/>`_ on Windows).
 
-on the host machine. Then add a new PC with the ip-address as the PC name and login with your username and password. 
-You should not update the VM from the GUI !
+On your server (the Ubuntu VM) change the following lines in ``/etc/ssh/sshd_config``::
 
+    X11Forwarding yes
+    X11UseLocalHost yes
 
- 
+You can also manually set a port to be used there. Then restart the ssh service using ``service sshd restart``.
 
+On your computer (the client) find the sshd config file (on MacOS it is in ``/etc/ssh/sshd-config``) and set the following values::
+
+    X11Forwarding yes
+    X11UseLocalHost no
+
+You can also change the default port there to the one you used above. Then go to the ssh config file
+(on MacOS it is in ``/etc/ssh/ssh_config``) and add the parameter::
+
+    ForwardX11Timeout 596h
+
+This will prevent your virtual machine from disconnecting to the X display after a couple of minutes.
+
+You need to find the ip adress of your virtual machine using e.g. ``multipass list``; take note of it.
+
+It is necessary to connect to the virtual machine using multipass's ssh keys; they are stored
+in ``/var/root/Library/Application\ Support/multipassd/ssh-keys/id_rsa`` on MacOS and
+in ``./System32/config/systemprofile/AppData/Roaming/multipassd/ssh-keys/id_rsa`` on Windows.
+
+Then you can connect to your virtual machine using the appropriate path to the multipass ssh keys and the ip adress of your VM::
+    
+    sudo ssh -X -i path/to/id_rsa ubuntu@<ip-adress>
+
+Running commands that prompt a window to open, should result in the opening of your X Window System client.
+
+**Connecting to the VM with VS Code**
+
+To connect to your vm via ``ssh`` in VS Code, install the "Remote SSH" extension. In the lower left corner of VS Code a green button will appear;
+click it and select "Open SSH configuration file", then choose the standard one (``Users/<username>/.ssh/config``). It should be changed to look like this:
+
+Host ``<alias>``
+
+    HostName ``<ip-adress>``
+
+    User ubuntu
+
+where you can choose the alias (e.g. the name of your vm), and you have to find the ip adress of your vm which is shown
+when you type ``multipass list`` on your host machine.
+
+Click again the green buttons in the lower left corner of VS Code, choose "Connect to Host", and select the alias you just gave your machine.
+
+Finally, you can activate syntax highlighting, etc. by installing the "Python" extension in VS Code in your VM: Open the extensions window in VS Code
+and click "Install in SSH: ``<alias>``"

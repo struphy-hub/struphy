@@ -44,8 +44,11 @@ def diagnostics():
 
     libpath = struphy.__path__[0]
     
+    with open(os.path.join(libpath, 'io_path.txt')) as f:
+        io_path = f.readlines()[0]
+    
     out_name = 'sim_example_linearmhd'
-    out_path = os.path.join(libpath, 'io/out', out_name)
+    out_path = os.path.join(io_path, 'io/out', out_name)
     
     # read in parameters for analytical dispersion relation
     with open(os.path.join(out_path, 'parameters.yml')) as file:
@@ -74,7 +77,7 @@ def diagnostics():
     code = lines[-2].split()[-1]
 
     # field names
-    file = h5py.File(os.path.join(out_path, 'data_proc0.hdf5'), 'r')
+    file = h5py.File(os.path.join(out_path, 'data/', 'data_proc0.hdf5'), 'r')
     names = list(file['feec'].keys())
     file.close()
 
@@ -85,12 +88,11 @@ def diagnostics():
     with open(os.path.join(out_path, 'post_processing/fields_data/grids_phy.bin'), 'rb') as handle:
         grids_phy = pickle.load(handle)
 
-    # load data dicts for u_field
-    with open(os.path.join(out_path, 'post_processing/fields_data', names[3] + '_log.bin'), 'rb') as handle:
-        point_data_log = pickle.load(handle)
+    print(names)
 
-    with open(os.path.join(out_path, 'post_processing/fields_data', names[3] + '_phy.bin'), 'rb') as handle:
-        point_data_phy = pickle.load(handle)
+    # load data dicts for u_field
+    with open(os.path.join(out_path, 'post_processing/fields_data/mhd/uv_log.bin'), 'rb') as handle:
+        point_data_log = pickle.load(handle)
 
     # fft in (t, z) of first component of u_field on physical grid
     fourier_1d(point_data_log,
@@ -105,11 +107,8 @@ def diagnostics():
                disp_params=disp_params)
 
     # load data dicts for pressure
-    with open(os.path.join(out_path, 'post_processing/fields_data', names[2] + '_log.bin'), 'rb') as handle:
+    with open(os.path.join(out_path, 'post_processing/fields_data/mhd/p3_log.bin'), 'rb') as handle:
         point_data_log = pickle.load(handle)
-
-    with open(os.path.join(out_path, 'post_processing/fields_data', names[2] + '_phy.bin'), 'rb') as handle:
-        point_data_phy = pickle.load(handle)
 
     # fft in (t, z) of pressure on physical grid
     fourier_1d(point_data_log,

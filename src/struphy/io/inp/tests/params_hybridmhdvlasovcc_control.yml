@@ -12,12 +12,12 @@ units :
     x  : 1. # length scale unit in m
     B  : 1. # magnetic field unit in T
     n  : 0.0005185219355 # bulk number density unit in 1 x 10^20 m^(-3)
-       
+
 time : 
     dt         : 0.2  # time step
     Tend       : 1. # simulation time interval is [0, Tend]
     split_algo : Strang # LieTrotter | Strang
-      
+
 geometry : 
     type : Cuboid # mapping F (possible types seen below)  
     Cuboid : 
@@ -27,7 +27,7 @@ geometry :
         r2 : 1. # end of interval in eta2, r2>l2
         l3 : 0. # start of interval in eta3
         r3 : 10. # end of interval in eta3, r3>l3 
-            
+
 mhd_equilibrium : 
     type : HomogenSlab # (possible choices seen below)
     HomogenSlab :
@@ -69,7 +69,7 @@ fluid :
                 n  : -1
                 U  : 0.001
                 A  : 0.    
-            
+
 kinetic :
     energetic_ions :
         phys_params:
@@ -88,22 +88,22 @@ kinetic :
             type : Maxwellian6DUniform
             Maxwellian6DUniform :
                 n  : 0.05
-                uz : 2.5
+                u3 : 2.5
         background :
             type : Maxwellian6DUniform
             Maxwellian6DUniform :
                 n  : 0.05
-                uz : 2.5
+                u3 : 2.5
         save_data :
             n_markers : 10 # number of markers to be save during simulation
             f :
-                slices : [vz] # in which directions to bin (e.g. [e1_e2, vx_vy_vz])
+                slices : [v3] # in which directions to bin (e.g. [e1_e2, v1_v2_v3])
                 n_bins : [[32]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
                 ranges : [[[-0.5, 5.5]]] # bin range in each direction
         push_algos :
             vxb : analytic # possible choices: analytic, implicit
             eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4
-      
+
 solvers :
     solver_1 : 
         type : PBiConjugateGradientStab

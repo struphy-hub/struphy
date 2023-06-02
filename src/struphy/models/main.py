@@ -5,7 +5,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     Parameters
     ----------
     model_name : str
-        The name of the model to run.
+        The name of the model to run. Type "struphy run --help" in your terminal to see a list of available models.
 
     parameters : dict | str
         The simulation parameters. Can either be a dictionary OR a string (path of .yml parameter file)
@@ -23,13 +23,12 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
         When to save data output: every time step (save_step=1), every second time step (save_step=2), etc (default=1).
     """
 
-    from struphy.models import models
+    from struphy.models import fluid, kinetic, hybrid, toy
     from struphy.models.utilities import pre_processing
     from struphy.models.output_handling import DataContainer
 
     import numpy as np
     import time
-    import yaml
 
     from mpi4py import MPI
 
@@ -51,7 +50,12 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
                             size)
 
     # instantiate STRUPHY model (will only allocate model objects and associated memory)
-    model = getattr(models, model_name)(params, comm)
+    objs = [fluid, kinetic, hybrid, toy]
+    for obj in objs:
+        try:
+            model = getattr(obj, model_name)(params, comm)
+        except AttributeError: 
+            pass
 
     # print plasma parameters to screen
     if rank == 0:
@@ -73,13 +77,21 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
         data.add_data({key_time_restart: val})
 
     # start a new simulation (set initial conditions according to parameter file)
+    time_params = params['time']
+
     if not restart:
         model.initialize_from_params()
+        total_steps = str(
+            int(round(time_params['Tend']/time_params['dt'])))
 
     # restart of an existing simulation (overwrite time quantities and load restart data from hdf5 files)
     else:
         time_state['value'][0] = data.file['restart/time/value'][-1]
         time_state['index'][0] = data.file['restart/time/index'][-1]
+
+        total_steps = str(
+            int(round((time_params['Tend'] - time_state['value'][0])/time_params['dt'])))
+
         model.initialize_from_restart(data)
 
     # list of model methods for diagnostics
@@ -100,8 +112,6 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
         model.print_scalar_quantities()
 
     # ======================== main time loop ======================
-    time_params = params['time']
-
     if rank == 0:
         split_algo = time_params['split_algo']
         print(
@@ -153,7 +163,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
                     # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
                     val['obj'].extract_coeffs(update_ghost_regions=False)
 
-            for species, val in model.fluid.items():
+            for _, val in model.fluid.items():
                 for variable, subval in val.items():
                     if 'params' not in variable:
                         # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
@@ -165,18 +175,19 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
 
             # print current time and scalar quantities to screen
             if rank == 0:
-                total_steps = str(
-                    int(round(time_params['Tend']/time_params['dt'])))
                 step = str(time_state['index'][0]).zfill(len(total_steps))
 
-                message = 'time: {:15.11f}'.format(time_state['value'][0])
-                message += ' | ' + 'time step: ' + step
-                message += ' | ' + 'final time: ' + str(time_params['Tend'])
+                message = 'time: {0:12.8f}/{1:12.8f}'.format(time_state['value'][0], time_params['Tend'])
+                message += ' | ' + 'time step: ' + step + '/' + str(total_steps) 
 
                 print(message, end='\n')
                 model.print_scalar_quantities()
                 print()
     # ===================================================================
+
+    with open(path_out + '/meta.txt', 'a') as f:
+        f.write('wall-clock time [min]:'.ljust(30) +
+                str((end_simulation - start_simulation)/60.) + '\n')
 
 
 if __name__ == '__main__':
@@ -186,6 +197,9 @@ if __name__ == '__main__':
     import struphy
 
     libpath = struphy.__path__[0]
+    
+    with open(os.path.join(libpath, 'io_path.txt')) as f:
+        io_path = f.readlines()[0]
 
     parser = argparse.ArgumentParser(description='Run an Struphy model.')
 
@@ -200,14 +214,14 @@ if __name__ == '__main__':
                         type=str,
                         metavar='FILE',
                         help='absolute path of parameter file (.yml) (default=<struphy_path>/io/inp/parameters.yml)',
-                        default=os.path.join(libpath, 'io/inp/parameters.yml'))
+                        default=os.path.join(io_path, 'io/inp/parameters.yml'))
 
     # output (absolute path)
     parser.add_argument('-o', '--output',
                         type=str,
                         metavar='DIR',
                         help='absolute path of output folder (default=<struphy_path>/io/out/sim_1)',
-                        default=os.path.join(libpath, 'io/out/sim_1'))
+                        default=os.path.join(io_path, 'io/out/sim_1'))
 
     # restart
     parser.add_argument('-r', '--restart',

@@ -14,8 +14,8 @@ units : # units not stated here can be viewed via "struphy units -h"
     n      : 1. # number density unit in 10^20 m^(-3)
 
 time :
-    dt         : 0.15 # time step
-    Tend       : 1.5 # simulation time interval is [0, Tend]
+    dt         : 0.01 # time step
+    Tend       : 18. # simulation time interval is [0, Tend]
     split_algo : LieTrotter # LieTrotter | Strang
 
 geometry :
@@ -46,14 +46,14 @@ fluid :
         phys_params:
             A : 1  # mass number in units of proton mass
             Z : 1 # signed charge number in units of elementary charge
-        mhd_u_space : H1vec # Hdiv | H1vec
         init :
             type : noise # initialization
             noise :
                 comps :
                     n3 : False              # components to be initialized (for scalar fields: no list)
-                    uv : [True, True, True] # components to be initialized (for scalar fields: no list)
-                    p3 : False              # components to be initialized (for scalar fields: no list)
+                    u2 : [True, True, True] # components to be initialized (for scalar fields: no list)
+                    pi3 : False              # components to be initialized (for scalar fields: no list)
+                    pe3 : False             # components to be initialized (for scalar fields: no list)
                 variation_in : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
                 amp : 0.1 # noise amplitude
 
@@ -66,6 +66,20 @@ solvers :
         info : False
         verbose : False
     solver_2 :
+        type : PBiConjugateGradientStab
+        pc : MassMatrixPreconditioner # null or name of preconditioner class
+        tol : 1.e-8
+        maxiter : 3000
+        info : False
+        verbose : False
+    solver_3 :
+        type : PBiConjugateGradientStab
+        pc : MassMatrixPreconditioner # null or name of preconditioner class
+        tol : 1.e-8
+        maxiter : 3000
+        info : False
+        verbose : False
+    solver_4 :
         type : PBiConjugateGradientStab
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-8
