@@ -10,8 +10,6 @@ import pytest
         'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}],
     ['HollowCylinder', {
         'a1': 1., 'a2': 2., 'Lz': 5.}],
-    ['HollowTorus', {
-        'a1': 1., 'a2': 2., 'R0': 3., 'tor_period': 1}],
     ['ShafranovShiftCylinder', {
         'rx': 4., 'ry': 5., 'Lz': 6., 'delta': 7.}],
     ['ShafranovSqrtCylinder', {

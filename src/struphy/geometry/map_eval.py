@@ -75,10 +75,7 @@ def f(eta1: float, eta2: float, eta3: float,  # evaluation point
             eta1, eta2, eta3, params[0], params[1], params[2], params[3], f_out)
     elif kind_map == 22:
         maps.hollow_torus(eta1, eta2, eta3,
-                          params[0], params[1], params[2], params[3], f_out)
-    elif kind_map == 23:
-        maps.hollow_torus_straight_field_line(eta1, eta2, eta3,
-                          params[0], params[1], params[2], params[3], f_out)
+                          params[0], params[1], params[2], params[3], params[4], f_out)
     elif kind_map == 30:
         maps.shafranov_shift(
             eta1, eta2, eta3, params[0], params[1], params[2], params[3], f_out)
@@ -154,10 +151,7 @@ def df(eta1: float, eta2: float, eta3: float,  # evaluation point
             eta1, eta2, eta3, params[0], params[1], params[2], params[3], df_out)
     elif kind_map == 22:
         maps.hollow_torus_df(
-            eta1, eta2, eta3, params[0], params[1], params[2], params[3], df_out)
-    elif kind_map == 23:
-        maps.hollow_torus_straight_field_line_df(
-            eta1, eta2, eta3, params[0], params[1], params[2], params[3], df_out)
+            eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4], df_out)
     elif kind_map == 30:
         maps.shafranov_shift_df(
             eta1, eta2, eta3, params[0], params[1], params[2], params[3], df_out)
