@@ -210,11 +210,7 @@ geometry
         a1 : .2 # inner radius
         a2 : 1. # minor radius
         R0 : 3. # major radius
-        tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
-    HollowTorusStraightFieldLine :
-        a1 : .2 # inner radius
-        a2 : 1. # minor radius
-        R0 : 3. # major radius
+        sfl : False # straight field line coordinates?
         tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
     ShafranovShiftCylinder :
         rx    : 1. # axis length

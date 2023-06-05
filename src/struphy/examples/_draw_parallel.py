@@ -26,9 +26,9 @@ def main():
     marker_params = {'ppc': 10, 'eps': .25, 'loading': loading_params}
 
     # create domain
-    dom_type = 'HollowTorusStraightFieldLine'
+    dom_type = 'HollowTorus'
     domain_class = getattr(domains, dom_type)
-    domain = domain_class()
+    domain = domain_class(sfl=True)
 
     # create de rham object
     derham = Derham(Nel, p, spl_kind, comm=comm)

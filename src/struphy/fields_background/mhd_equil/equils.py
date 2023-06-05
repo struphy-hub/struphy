@@ -5,7 +5,7 @@ from struphy.fields_background.mhd_equil.base import CartesianMHDequilibrium, Lo
 
 class HomogenSlab(CartesianMHDequilibrium):
     r"""
-    Homogeneous MHD equilibrium in slab geometry.
+    Homogeneous MHD equilibrium:
 
     .. math::
 
@@ -18,13 +18,30 @@ class HomogenSlab(CartesianMHDequilibrium):
     Parameters
     ----------
     **params
-        Parameters that characterize the MHD equilibrium. Possible keys are
-
-            * B0x  : magnetic field in x-direction
-            * B0y  : magnetic field in y-direction
-            * B0z  : magnetic field in z-direction
-            * beta : plasma beta in % (ratio kinetic/magnetic pressure)
-            * n0   : number density            
+        Keyword arguments that characterize the MHD equilibrium.
+            * B0x : float  
+                x-component of magnetic field (default: 0.).
+            * B0y : float  
+                y-component of magnetic field (default: 0.).
+            * B0z : float  
+                z-component of magnetic field (default: 1.).
+            * beta : float
+                Plasma beta in % (ratio of kinetic to magnetic pressure, default: 100.).
+            * n0 : float 
+                Ion number density (default: 1.).
+            
+    Note
+    ----
+    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+    
+        mhd_equilibrium :
+            type : HomogenSlab
+            HomogenSlab :
+                B0x  : 0. # magnetic field in x
+                B0y  : 0. # magnetic field in y
+                B0z  : 1. # magnetic field in z
+                beta : 0. # plasma beta = 2*p*mu_0/B^2
+                n0   : 1. # number density     
     """
 
     def __init__(self, **params):
@@ -87,7 +104,7 @@ class HomogenSlab(CartesianMHDequilibrium):
 
 class ShearedSlab(CartesianMHDequilibrium):
     r"""
-    Sheared slab MHD equilibrium in a cube with side lengths :math:`L_x=a,\,L_y=2\pi a,\,L_z=2\pi R_0`. Profiles depend on :math:`x` solely. 
+    Sheared slab MHD equilibrium in a cube with side lengths :math:`L_x=a,\,L_y=2\pi a,\,L_z=2\pi R_0`. Profiles depend on :math:`x` solely: 
 
     .. math::
 
@@ -100,17 +117,42 @@ class ShearedSlab(CartesianMHDequilibrium):
     Parameters
     ----------
     **params
-        Parameters that characterize the MHD equilibrium. Possible keys are
-
-            * a    : "minor" radius (Lx = a, Ly = 2*pi*a)
-            * R0   : "major" radius (Lz = 2*pi*R0)
-            * B0   : magnetic field in z-direction
-            * q0   : safety factor at x=0
-            * q1   : safety factor at x=a
-            * n1   : 1st shape factor for number density profile 
-            * n2   : 2nd shape factor for number density profile 
-            * na   : number density at x=a
-            * beta : plasma beta in % at x=0 (ratio of kinetic pressure to magnetic pressure)            
+        Keyword arguments that characterize the MHD equilibrium.
+            * a : float 
+                "Minor" radius (must be compatible with :math:`L_x=a` and :math:`L_y=2\pi a`, default: 1.).
+            * R0 : float
+                "Major" radius (must be compatible with :math:`L_z=2\pi R_0`, default: 3.).
+            * B0 : float
+                z-component of magnetic field (constant) (default: 1.).
+            * q0 : float
+                Safety factor at x=0 (default: 1.05).
+            * q1 : float
+                Safety factor at x=a (default: 1.80).
+            * n1 : float
+                1st shape factor for ion number density profile (default: 0.).
+            * n2 : float
+                2nd shape factor for ion number density profile (default: 0.). 
+            * na : float
+                Ion number density at x=a (default: 1.).
+            * beta : float
+                Plasma beta in % at x=0 (ratio of kinetic to magnetic pressure, default: 10.).
+                
+    Note
+    ----
+    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+    
+        mhd_equilibrium :
+            type : ShearedSlab
+            ShearedSlab :
+                a    : 1.   # minor radius (Lx=a, Ly=2*pi*a) 
+                R0   : 3.   # major radius (Lz=2*pi*R0)
+                B0   : 1.   # magnetic field in z-direction    
+                q0   : 1.05 # safety factor at x = 0
+                q1   : 1.80 # safety factor at x = a
+                n1   : 0.   # 1st shape factor for ion number density profile
+                n2   : 0.   # 2nd shape factor for ion number density profile
+                na   : 1.   # number density at r=a
+                beta : 0.01 # plasma beta = 2*p*mu_0/B^2
     """
 
     def __init__(self, **params):
@@ -137,43 +179,49 @@ class ShearedSlab(CartesianMHDequilibrium):
     #             profiles for a sheared slab geometry
     # ===============================================================
 
-    def nx(self, x):
-        """ Radial (x) number density profile.
+    def q_x(self, x, der=0):
+        """ Safety factor profile q = q(x) (or its first derivative if der=1).
         """
-        nout = (1 - self.params['na'])*(1 - (x/self.params['a']) **
-                                        self.params['n1'])**self.params['n2'] + self.params['na']
-
-        return nout
-
-    def q(self, x):
-        """ Radial (x) safety factor profile.
-        """
-        qout = self.params['q0'] + (self.params['q1'] -
-                                    self.params['q0'])*(x/self.params['a'])**2
+        
+        assert der >= 0 and der <= 1, 'Only first derivative available!'
+        
+        if self.params['q0'] == 'inf' and self.params['q1'] == 'inf':
+            if der == 0:
+                qout = 101. - 0*x
+            else:
+                qout = 0*x
+            
+        else:
+            if der == 0:
+                qout = self.params['q0'] + (self.params['q1'] -
+                                            self.params['q0'])*(x/self.params['a'])**2
+            else:
+                qout = 2*(self.params['q1'] - self.params['q0'])*x/self.params['a']**2
 
         return qout
-
-    def q_p(self, x):
-        """ Radial (x) derivative of safety factor profile.
+    
+    def p_x(self, x):
+        """ Pressure profile p = p(x).
         """
-        qout = 2*(self.params['q1'] - self.params['q0'])*x/self.params['a']**2
-
-        return qout
-
-    def px(self, x):
-        """ Radial pressure profile.
-        """
-        q = self.q(x)
+        q = self.q_x(x)
 
         eps = self.params['a']/self.params['R0']
 
-        if np.all(q >= 100.) or np.all(q == 0.):
+        if np.all(q >= 100.):
             pout = self.params['B0']**2*self.params['beta']/200 - 0*x
         else:
             pout = self.params['B0']**2*self.params['beta']/200*(
                 1 + eps**2/q**2) + self.params['B0']**2*eps**2*(1/self.params['q0']**2 - 1/q**2)
 
         return pout
+    
+    def n_x(self, x):
+        """ Ion number density profile n = n(x).
+        """
+        nout = (1 - self.params['na'])*(1 - (x/self.params['a']) **
+                                        self.params['n1'])**self.params['n2'] + self.params['na']
+
+        return nout
 
     def plot_profiles(self, n_pts=501):
         """ Plots radial profiles.
@@ -188,15 +236,15 @@ class ShearedSlab(CartesianMHDequilibrium):
         fig.set_figheight(3)
         fig.set_figwidth(12)
 
-        ax[0].plot(x, self.q(x))
+        ax[0].plot(x, self.q_x(x))
         ax[0].set_xlabel('x')
         ax[0].set_ylabel('q')
 
-        ax[1].plot(x, self.px(x))
+        ax[1].plot(x, self.p_x(x))
         ax[1].set_xlabel('x')
         ax[1].set_ylabel('p')
 
-        ax[2].plot(x, self.nx(x))
+        ax[2].plot(x, self.n_x(x))
         ax[2].set_xlabel('x')
         ax[2].set_ylabel('n')
 
@@ -214,14 +262,11 @@ class ShearedSlab(CartesianMHDequilibrium):
         """
         bx = 0*x
 
-        q = self.q(x)
+        q = self.q_x(x)
         eps = self.params['a']/self.params['R0']
         if np.all(q >= 100.):
             by = 0*x
             bz = self.params['B0'] - 0*x
-        elif np.all(q == 0.):
-            by = self.params['B0'] - 0*x
-            bz = 0*x
         else:
             by = self.params['B0']*eps/q
             bz = self.params['B0'] - 0*x
@@ -235,14 +280,12 @@ class ShearedSlab(CartesianMHDequilibrium):
         jx = 0*x
         jy = 0*x
 
-        q = self.q(x)
+        q = self.q_x(x)
         eps = self.params['a']/self.params['R0']
         if np.all(q >= 100.):
             jz = 0*x
-        elif np.all(q == 0.):
-            jz = 0*x
         else:
-            jz = -self.params['B0']*eps*self.q_p(x)/q**2
+            jz = -self.params['B0']*eps*self.q_x(x, der=1)/q**2
 
         return jx, jy, jz
 
@@ -250,7 +293,7 @@ class ShearedSlab(CartesianMHDequilibrium):
     def p_xyz(self, x, y, z):
         """ Pressure.
         """
-        pp = self.px(x)
+        pp = self.p_x(x)
 
         return pp
 
@@ -258,22 +301,24 @@ class ShearedSlab(CartesianMHDequilibrium):
     def n_xyz(self, x, y, z):
         """ Number density.
         """
-        nn = self.nx(x)
+        nn = self.n_x(x)
 
         return nn
 
 
 class ScrewPinch(CartesianMHDequilibrium):
     r"""
-    Straight tokamak (screw pinch) MHD equilibrium for a cylinder or radius :math:`a` and length :math:`L_z=2\pi R_0`.
+    Straight tokamak (screw pinch) MHD equilibrium for a cylindrical geometry of radius :math:`a` and length :math:`L_z=2\pi R_0`.
 
     The profiles in cylindrical coordinates :math:`(r, \theta, z)` with transformation formulae 
 
     .. math::
 
-        x &= r\cos(\theta)\,,
+        x &= r\cos\theta\,,
 
-        y &= r\sin(\theta)\,,
+        y &= r\sin\theta\,,
+        
+        z &= z\,,
 
     are:
 
@@ -282,9 +327,11 @@ class ScrewPinch(CartesianMHDequilibrium):
         \mathbf B(r) &= B_{0}\left( \mathbf e_z + \frac{r}{q(r) R_0}\mathbf e_\theta \right)\,,\qquad q(r) = q_0 + ( q_1 - q_0 )\frac{r^2}{a^2}\,,
 
         p(r) &= \left\{\begin{aligned}
-        &\frac{B_{0}^2 a^2 q_0}{ 2 R_0^2(q_1 - q_0) } \left( \frac{1}{q(r)^2} - \frac{1}{q_1^2} \right) \quad &&\textnormal{if}\quad q_1\neq q_0\,, 
+        &\frac{B_{0}^2 a^2 q_0}{ 2 R_0^2(q_1 - q_0) } \left( \frac{1}{q(r)^2} - \frac{1}{q_1^2} \right) \quad &&\textnormal{if}\quad q_1\neq q_0\neq\infty\,, 
+        
+        &\frac{B_{0}^2 a^2}{R_0^2q_0^2} \left(1 - \frac{r^2}{a^2} \right) \quad &&\textnormal{if}\quad q_1= q_0\neq\infty\,, 
 
-        &\beta\frac{B_{0}^2}{2} \quad &&\textnormal{else}\,,
+        &\beta\frac{B_{0}^2}{2} \quad &&\textnormal{if}\quad q_0= q_1=\infty\,, 
         \end{aligned}\right.
 
         n(r) &= n_a + ( 1 - n_a )\left( 1 - \left(\frac{r}{a}\right)^{n_1} \right)^{n_2}\,.
@@ -292,17 +339,42 @@ class ScrewPinch(CartesianMHDequilibrium):
     Parameters
     ----------
     **params
-        Parameters that characterize the MHD equilibrium. Possible keys are
-
-            * a    : minor radius (radius of cylinder)
-            * R0   : major radius (Lz = 2*pi*R0)
-            * B0   : magnetic field in z-direction
-            * q0   : safety factor at r=0
-            * q1   : safety factor at r=a
-            * n1   : 1st shape factor for number density profile 
-            * n2   : 2nd shape factor for number density profile 
-            * na   : number density at r=a
-            * beta : plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)  
+        Keyword arguments that characterize the MHD equilibrium.
+            * a : float 
+                "Minor" radius (radius of cylinder, default: 1.).
+            * R0 : float 
+                "Major" radius (must be compatible with :math:`L_z=2\pi R_0`, default: 5.).
+            * B0 : float
+                z-component of magnetic field (constant) (default: 1.).
+            * q0 : float, str
+                Safety factor at r=0 (use the string "inf" for infinity, default: 1.05).
+            * q1 : float, str
+                Safety factor at r=a (use the string "inf" for infinity, default: 1.80).
+            * n1 : float
+                1st shape factor for ion number density profile (default: 0.).
+            * n2 : float
+                2nd shape factor for ion number density profile (default: 0.). 
+            * na : float
+                Ion nnumber density at r=a (default: 1.).
+            * beta : float
+                Plasma beta in % for :math:`q_0=q_1=\infty` (pure axial field) (default: 10.).
+                
+    Note
+    ----
+    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+    
+        mhd_equilibrium :
+            type : ScrewPinch
+            ScrewPinch :
+                a    : 1.   # minor radius (radius of cylinder)
+                R0   : 3.   # major radius (length of pinch Lz=2*pi*R0)
+                B0   : 1.   # magnetic field in z-direction
+                q0   : 1.05 # safety factor at r=0
+                q1   : 1.80 # safety factor at r=a
+                n1   : 0.   # 1st shape factor for ion number density profile 
+                n2   : 0.   # 2nd shape factor for ion number density profile 
+                na   : 1.   # ion number density at r=a
+                beta : 0.01 # plasma beta in % for q0=q1=inf (pure axial field)
     """
 
     def __init__(self, **params):
@@ -334,41 +406,55 @@ class ScrewPinch(CartesianMHDequilibrium):
     #           profiles for a straight tokamak equilibrium
     # ===============================================================
 
-    def nr(self, r):
-        """ Radial number density profile.
+    def q_r(self, r, der=0):
+        """ Radial safety factor profile q = q(r) (and first derivative).
+        """
+        
+        assert der >= 0 and der <= 1, 'Only first derivative available!'
+        
+        if self.params['q0'] == 'inf' and self.params['q1'] == 'inf':
+            if der == 0:
+                qout = 101. - 0*r
+            else:
+                qout = 0*r
+            
+        else:
+            if der == 0:
+                qout = self.params['q0'] + (self.params['q1'] -
+                                            self.params['q0'])*(r/self.params['a'])**2
+            else:
+                qout = 2*(self.params['q1'] - self.params['q0'])*r/self.params['a']**2
+
+        return qout
+    
+    def p_r(self, r):
+        """ Radial pressure profile p = p(r).
+        """
+        eps = self.params['a']/self.params['R0']
+        
+        q0 = self.params['q0']
+        q1 = self.params['q1']
+        B0 = self.params['B0']
+        
+        if q0 == 'inf' and q1 == 'inf':
+            pout = B0**2*self.params['beta']/200 - 0*r
+        
+        else:
+
+            if q0 == q1:
+                pout = (B0**2*eps**2/q0**2)*(1 - r**2/self.params['a']**2)
+            else:
+                pout = B0**2*eps**2*q0/(2*(q1 - q0))*(1/self.q_r(r)**2 - 1/q1**2)
+            
+        return pout
+    
+    def n_r(self, r):
+        """ Radial ion number density profile n = n(r).
         """
         nout = (1 - self.params['na'])*(1 - (r/self.params['a']) **
                                         self.params['n1'])**self.params['n2'] + self.params['na']
 
         return nout
-
-    def q(self, r):
-        """ Radial safety factor profile.
-        """
-        qout = self.params['q0'] + (self.params['q1'] -
-                                    self.params['q0'])*(r/self.params['a'])**2
-
-        return qout
-
-    def q_p(self, r):
-        """ Radial derivative of safety factor profile.
-        """
-        qout = 2*(self.params['q1'] - self.params['q0'])*r/self.params['a']**2
-
-        return qout
-
-    def pr(self, r):
-        """ Radial pressure profile.
-        """
-        eps = self.params['a']/self.params['R0']
-
-        if self.params['q0'] == self.params['q1']:
-            pout = self.params['B0']**2*self.params['beta']/200 - 0*r
-        else:
-            pout = self.params['B0']**2*eps**2*self.params['q0']/(
-                2*(self.params['q1'] - self.params['q0']))*(1/self.q(r)**2 - 1/self.params['q1']**2)
-
-        return pout
 
     def plot_profiles(self, n_pts=501):
         """ Plots radial profiles.
@@ -383,17 +469,17 @@ class ScrewPinch(CartesianMHDequilibrium):
         fig.set_figheight(3)
         fig.set_figwidth(12)
 
-        ax[0].plot(r, self.q(r))
+        ax[0].plot(r, self.q_r(r))
         ax[0].set_xlabel('r')
         ax[0].set_ylabel('q')
 
         ax[0].plot(r, np.ones(r.size), 'k--')
 
-        ax[1].plot(r, self.pr(r))
+        ax[1].plot(r, self.p_r(r))
         ax[1].set_xlabel('r')
         ax[1].set_ylabel('p')
 
-        ax[2].plot(r, self.nr(r))
+        ax[2].plot(r, self.n_r(r))
         ax[2].set_xlabel('r')
         ax[2].set_ylabel('n')
 
@@ -411,7 +497,7 @@ class ScrewPinch(CartesianMHDequilibrium):
         """
         r = self.r(x, y, z)
         theta = self.theta(x, y, z)
-        q = self.q(r)
+        q = self.q_r(r)
         # azimuthal component
         if np.all(q >= 100.):
             b_theta = 0*r
@@ -432,8 +518,8 @@ class ScrewPinch(CartesianMHDequilibrium):
         jy = 0*x
 
         r = self.r(x, y, z)
-        q = self.q(r)
-        q_p = self.q_p(r)
+        q = self.q_r(r)
+        q_p = self.q_r(r, der=1)
         if np.all(q >= 100.):
             jz = 0*x
         else:
@@ -445,7 +531,7 @@ class ScrewPinch(CartesianMHDequilibrium):
     def p_xyz(self, x, y, z):
         """ Pressure.
         """
-        pp = self.pr(self.r(x, y, z))
+        pp = self.p_r(self.r(x, y, z))
 
         return pp
 
@@ -453,7 +539,7 @@ class ScrewPinch(CartesianMHDequilibrium):
     def n_xyz(self, x, y, z):
         """ Number density.
         """
-        nn = self.nr(self.r(x, y, z))
+        nn = self.n_r(self.r(x, y, z))
 
         return nn
 
@@ -511,23 +597,60 @@ class AdhocTorus(AxisymmMHDequilibrium):
     Parameters
     ----------
     **params
-        Parameters that characterize the MHD equilibrium. Possible keys are
-        
-            * a       : minor radius of torus
-            * R0      : major radius of torus
-            * B0      : on-axis toroidal magnetic field
-            * q_kind  : which safety factor profile (0: parabolic, 1: alternative)
-            * q0      : safety factor at r=0
-            * q1      : safety factor at r=a
-            * n1      : 1st shape factor for number density profile 
-            * n2      : 2nd shape factor for number density profile 
-            * na      : number density at r=a
-            * p_kind  : kind of pressure profile (0 : exact solution in cylindrical limit, 1 : ad hoc)
-            * p1      : 1st shape factor for ad hoc pressure profile
-            * p2      : 2nd shape factor for ad hoc pressure profile
-            * beta    : on-axis plasma beta in % (ratio of kinetic pressure to magnetic pressure)
-            * psi_k   : spline degree to be used for interpolation of poloidal flux function (if q_kind = 1)
-            * psi_nel : number of cells to be used for interpolation of poloidal flux function (if q_kind = 1)
+        Keyword arguments that characterize the MHD equilibrium.
+            * a : float
+                Minor radius of torus (default: 1.).
+            * R0 : float
+                Major radius of torus (default: 10.).
+            * B0 : float
+                On-axis (r=0) toroidal magnetic field (default: 3.).
+            * q_kind : int 
+                Which safety factor profile, see docstring (0 or 1, default: 0).
+            * q0 : float
+                Safety factor at r=0 (default: 1.71).
+            * q1 : float
+                Safety factor at r=a (default: 1.87).
+            * n1 : float
+                1st shape factor for ion number density profile (default: 0.).
+            * n2 : float
+                2nd shape factor for ion number density profile (default: 0.).
+            * na : float
+                Ion number density at r=a (default: 1.).
+            * p_kind : int 
+                Kind of pressure profile, see docstring (0 or 1, default: 1).
+            * p1 : float
+                1st shape factor for ad hoc pressure profile (default: 0.).
+            * p2 : float
+                2nd shape factor for ad hoc pressure profile (default: 0.).
+            * beta : float
+                On-axis (r=0) plasma beta in % if p_kind=1 (default: 0.179).
+            * psi_k : int
+                Spline degree to be used for interpolation of poloidal flux function (if q_kind=1, default=3).
+            * psi_nel : int
+                Number of cells to be used for interpolation of poloidal flux function (if q_kind=1, default=50).
+                
+    Note
+    ----
+    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+    
+        mhd_equilibrium :
+            type : AdhocTorus
+            AdhocTorus :
+                a       : 1.   # minor radius
+                R0      : 3.   # major radius
+                B0      : 1.   # on-axis toroidal magnetic field
+                q_kind  : 0    # which profile (0 : parabolic, 1 : other, see documentation)
+                q0      : 1.05 # safety factor at r=0
+                q1      : 1.80 # safety factor at r=a
+                n1      : 0.   # 1st shape factor for number density profile 
+                n2      : 0.   # 2nd shape factor for number density profile 
+                na      : 1.   # number density at r=a
+                p_kind  : 1    # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
+                p1      : .1   # 1st shape factor for ad hoc pressure profile
+                p2      : .1   # 2nd shape factor for ad hoc pressure profile
+                beta    : .01  # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
+                psi_k   : 3    # spline degree to be used for interpolation of poloidal flux function (only needed if q_kind=1)
+                psi_nel : 50   # number of cells to be used for interpolation of poloidal flux function (only needed if q_kind=1)
     """
 
     def __init__(self, **params):
@@ -948,22 +1071,57 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
     Parameters
     ----------
     **params
-        Parameters that characterize the MHD equilibrium. Possible keys are
-        
-            * a       : minor radius of torus
-            * R0      : major radius of torus
-            * B0      : on-axis toroidal magnetic field
-            * q0      : safety factor at r=0
-            * q1      : safety factor at r=a
-            * q0p     : derivative of safety factor at r=0 (w.r.t. poloidal flux function)
-            * q1p     : derivative of safety factor at r=a (w.r.t. poloidal flux function)
-            * n1      : 1st shape factor for number density profile 
-            * n2      : 2nd shape factor for number density profile 
-            * na      : number density at r=a
-            * beta    : on-axis plasma beta in % (ratio of kinetic pressure to magnetic pressure)   
-            * p1      : shape factor of pressure profile
-            * psi_k   : spline degree to be used for interpolation of poloidal flux function
-            * psi_nel : number of cells to be used for interpolation of poloidal flux function
+        Keyword arguments that characterize the MHD equilibrium.
+            * a : float
+                Minor radius of torus (default: 0.361925).
+            * R0 : float
+                Major radius of torus (default: 1.).
+            * B0 : float
+                On-axis (r=0) toroidal magnetic field (default: 1.).
+            * q0 : float
+                Safety factor at r=0 (default: 0.6).
+            * q1 : float
+                Safety factor at r=a (default: 2.5).
+            * q0p : float
+                Derivative of safety factor at r=0 (w.r.t. poloidal flux function, default: 0.78).
+            * q1p : float
+                Derivative of safety factor at r=a (w.r.t. poloidal flux function, default: 5.00).
+            * n1 : float
+                1st shape factor for ion number density profile (default: 0.).
+            * n2 : float
+                2nd shape factor for ion number density profile (default: 0.).
+            * na : float
+                Ion number density at r=a (default: 1.).
+            * beta : float
+                On-axis (r=0) plasma beta in % (default: 4.)..
+            * p1 : float
+                Shape factor for pressure profile, see docstring (default: 0.25).
+            * psi_k : int
+                Spline degree to be used for interpolation of poloidal flux function (default=3).
+            * psi_nel : int
+                Number of cells to be used for interpolation of poloidal flux function (default=50).
+                
+    Note
+    ----
+    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+    
+        mhd_equilibrium :
+            type : AdhocTorusQPsi
+            AdhocTorusQPsi :
+                a       : 0.361925 # minor radius
+                R0      : 1.   # major radius
+                B0      : 1.   # on-axis toroidal magnetic field
+                q0      : 0.6  # safety factor at r=0
+                q1      : 2.5  # safety factor at r=a
+                q0p     : 0.78 # derivative of safety factor at r=0 (w.r.t. to poloidal flux function)
+                q1p     : 5.00 # derivative of safety factor at r=a (w.r.t. to poloidal flux function)
+                n1      : 0.   # shape factor for number density profile 
+                n2      : 0.   # shape factor for number density profile 
+                na      : 1.   # number density at r=a
+                beta    : 4.   # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
+                p1      : 0.25 # shape factor of pressure profile
+                psi_k   : 3    # spline degree to be used for interpolation of poloidal flux function
+                psi_nel : 50   # number of cells to be used for interpolation of poloidal flux functionq_kind=1)
     """
     
     def __init__(self, **params):
@@ -1248,28 +1406,45 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
     Parameters
     ----------
     **params
-        Parameters that characterize the MHD equilibrium. Possible keys are
-        
-            * rel_path : str
-                Whether file is relative to "<struphy_path>/fields_background/mhd_equil/gvec", or is an absolute path.
+        Keyword arguments that characterize the MHD equilibrium.
+            * rel_path : bool
+                Whether file is relative to "<struphy_path>/fields_background/mhd_equil/eqdsk/data/", or is an absolute path (default: True).
             * file : str
-                Path to eqdsk file.
+                Path to eqdsk file (default: "AUGNLED_g031213.00830.high").
             * data_type : int
-                0: there is no space between data, 1: there is space between data.
+                0: there is no space between data, 1: there is space between data (default: 0).
             * p_for_psi : list[int]
-                Spline degrees in (R, Z) directions used for interpolation of psi data.
+                Spline degrees in (R, Z) directions used for interpolation of psi data (default: [3, 3]).
             * psi_resolution : list[float]
-                Resolution of psi data in (R, Z) directions in %, e.g. [50., 50.] uses every second psi data point.
+                Resolution of psi data in (R, Z) directions in %, e.g. [50., 50.] uses every second psi data point (default: [25., 6.25]).
             * p_for_flux : int
-                Spline degree in psi direction used for interpolation of 1d functions that depend on psi: f=f(psi).
+                Spline degree in psi direction used for interpolation of 1d functions that depend on psi: f=f(psi) (default: 3).
             * flux_resolution : float
-                Resolution of 1d f=f(psi) data in %, e.g. 25. uses every forth data point.
+                Resolution of 1d f=f(psi) data in %, e.g. 25. uses every forth data point (default: 50.).
             * n1 : float
-                1st shape factor for number density profile n = n(psi).
+                1st shape factor for ion number density profile n = n(psi) (default: 0.).
             * n2 : float
-                2nd shape factor for number density profile n = n(psi).
+                2nd shape factor for ion number density profile n = n(psi) (default: 0.).
             * na : float
-                Number density at plasma boundary.
+                Ion number density at plasma boundary (default: 1.).
+                
+    Note
+    ----
+    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+    
+        mhd_equilibrium :
+            type : EQDSKequilibrium
+            EQDSKequilibrium :
+                rel_path        : True # whether eqdsk file path relative to "<struphy_path>/fields_background/mhd_equil/eqdsk/data/", or the absolute path
+                file            : 'AUGNLED_g031213.00830.high' # path to eqdsk file
+                data_type       : 0 # 0: there is no space between data, 1: there is space between data
+                p_for_psi       : [3, 3]      # spline degrees used in interpolation of poloidal flux function grid data
+                psi_resolution  : [25., 6.25] # resolution used in interpolation of poloidal flux function grid data in %, i.e. [100., 100.] uses all grid points
+                p_for_flux      : 3   # spline degree used in interpolation of 1d functions f=f(psi) (e.g. toroidal field function)
+                flux_resolution : 50. # resolution used in interpolation of of 1d functions f=f(psi) in %
+                n1              : 0.  # 1st shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
+                n2              : 0.  # 2nd shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
+                na              : 1.  # number density at last closed flux surface
     """
 
     def __init__(self, **params):
@@ -1555,28 +1730,43 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 
 
 class GVECequilibrium(LogicalMHDequilibrium):
-    '''Interface to `gvec_to_python <https://gitlab.mpcdf.mpg.de/spossann/gvec_to_python>`_.
+    """
+    Interface to `gvec_to_python <https://gitlab.mpcdf.mpg.de/spossann/gvec_to_python>`_.
 
     Parameters
     ----------
     **params
-        Parameters that characterize the MHD equilibrium. Possible keys are
-
-        * rel_path : str
-            Whether dat_file (json_file) are relative to "<struphy_path>/fields_background/mhd_equil/gvec", or are absolute paths.
-        * dat_file : str
-            Path to .dat file.    
-        * json_file : str
-            Path to .json file.
-        * use_pest : bool
-            Whether to use straigh-field line coordinates (PEST).
-        * use_nfp : bool
-            Whether the field periods of the stellarator should be used in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
-        * Nel : tuple[int]
-            Number of cells in each direction used for interpolation of the mapping.   
-        * p : tuple[int]
-            Spline degree in each direction used for interpolation of the mapping.
-    '''
+        Keyword arguments that characterize the MHD equilibrium.
+            * rel_path : bool
+                Whether dat_file (json_file) are relative to "<struphy_path>/fields_background/mhd_equil/gvec", or are absolute paths (default: True).
+            * dat_file : str
+                Path to .dat file (default: "/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat").    
+            * json_file : str
+                Path to .json file (default: None).
+            * use_pest : bool
+                Whether to use straigh-field line coordinates (PEST) (default: False).
+            * use_nfp : bool
+                Whether the field periods of the stellarator should be used in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake) (default: True).
+            * Nel : tuple[int]
+                Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).   
+            * p : tuple[int]
+                Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
+                
+    Note
+    ----
+    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+    
+        mhd_equilibrium :
+            type : GVECequilibrium
+            GVECequilibrium : 
+                rel_path : True # whether file path is relative to "<struphy_path>/fields_background/mhd_equil/gvec", or the absolute path
+                dat_file : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file 
+                json_file : null # give directly the parsed json file, if it exists (then dat_file is not used)
+                use_pest : False # whether to use straight-field line coordinates (PEST)
+                use_nfp : True # whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
+                Nel : [32, 32, 32] # number of cells in each direction used for interpolation of the mapping.
+                p : [3, 3, 3] # spline degree in each direction used for interpolation of the mapping.
+    """ 
 
     def __init__(self, show=False, **params):
 
