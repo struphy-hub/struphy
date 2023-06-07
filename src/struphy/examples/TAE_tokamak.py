@@ -22,17 +22,17 @@ def run(n_procs):
     
     # run MHD eigenvalue solver
     subprocess.run(['python3',
-                    'eigenvalue_solvers/mhd_axisymmetric_main.py',
+                    os.path.join(libpath, 'eigenvalue_solvers/mhd_axisymmetric_main.py'),
                     '-1',
-                    '-i'
-                    'examples/params_TAE_tokamak.yml',
-                    '-o'
-                    'sim_example_TAE_tokamak'], 
-                    check=True, cwd=libpath)
+                    '--input-abs',
+                    os.path.join(libpath, 'io/inp/examples/params_TAE_tokamak.yml'),
+                    '-o',
+                    out_name], 
+                    check=True)
     
     # make the .npy eigenspectrum smaller (just for testing)
     subprocess.run(['python3',
-                    'eigenvalue_solvers/mhd_axisymmetric_pproc.py',
+                    os.path.join(libpath, 'eigenvalue_solvers/mhd_axisymmetric_pproc.py'),
                     '-n',
                     '-1',
                     '-i',

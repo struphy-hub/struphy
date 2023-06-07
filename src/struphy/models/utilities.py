@@ -290,6 +290,9 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
         if not os.path.exists(path_out):
             os.mkdir(path_out)
             print('\nCreated folder ' + path_out)
+            
+        # create data folder in output folder if it does not exist
+        if not os.path.exists(os.path.join(path_out, 'data/')):
             os.mkdir(os.path.join(path_out, 'data/'))
             print('\nCreated folder ' + os.path.join(path_out, 'data/'))
 
@@ -364,21 +367,22 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
         print('number of MPI processes:'.ljust(30), mpi_size)
 
         # print domain info
+        _longest = len(max(params['geometry'][params['geometry']['type']], key=len))
         print('\nDOMAIN parameters:')
         print(f'domain type :', params['geometry']['type'])
         print(f'domain parameters :')
         for key, val in params['geometry'][params['geometry']['type']].items():
             if key not in {'cx', 'cy', 'cz'}:
-                print(key, ':', val)
+                print(key.ljust(_longest), ':', val)
 
         # print grid info
         print('\nGRID parameters:')
-        print(f'number of elements  :', params['grid']['Nel'])
-        print(f'spline degrees      :', params['grid']['p'])
-        print(f'periodic bcs        :', params['grid']['spl_kind'])
-        print(f'hom. Dirichlet bc   :', params['grid']['bc'])
-        print(f'GL quad pts (L2)    :', params['grid']['nq_el'])
-        print(f'GL quad pts (hist)  :', params['grid']['nq_pr'])
+        print(f'number of elements', ':', params['grid']['Nel'])
+        print(f'spline degrees    ', ':', params['grid']['p'])
+        print(f'periodic bcs      ', ':', params['grid']['spl_kind'])
+        print(f'hom. Dirichlet bc ', ':', params['grid']['bc'])
+        print(f'GL quad pts (L2)  ', ':', params['grid']['nq_el'])
+        print(f'GL quad pts (hist)', ':', params['grid']['nq_pr'])
 
         # print units info
         objs = [fluid, kinetic, hybrid, toy]

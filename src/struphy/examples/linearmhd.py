@@ -8,7 +8,10 @@ def run(n_procs):
         Number of MPI processes to run the model.
     """
     
-    import subprocess
+    import os, subprocess
+    import struphy
+    
+    libpath = struphy.__path__[0]
     
     # name of simulation output folder
     out_name = 'sim_example_linearmhd'
@@ -18,7 +21,7 @@ def run(n_procs):
                     'run', 
                     'LinearMHD',
                     '-i',
-                    'examples/params_linearmhd.yml',
+                    os.path.join(libpath, 'io/inp/examples/params_linearmhd.yml'),
                     '-o',
                     out_name,
                     '--mpi',

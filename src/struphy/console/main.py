@@ -10,7 +10,7 @@ def struphy():
     Struphy main executable. Performs argument parsing and sub-command call.
     '''
 
-    import os
+    import os, shutil
     import inspect
     import argparse
     from struphy.models import fluid, kinetic, hybrid, toy
@@ -385,6 +385,10 @@ def struphy():
                   os.path.join(io_dir, 'inp/'))
         copy_tree(os.path.join(libpath, 'io/batch/'),
                   os.path.join(io_dir, 'batch/'))
+        
+        # remove tests and examples input folders
+        shutil.rmtree(os.path.join(io_dir, 'inp/tests/'))
+        shutil.rmtree(os.path.join(io_dir, 'inp/examples/'))
 
         print(f'New default I/O path has been set:')
         import subprocess
