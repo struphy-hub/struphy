@@ -100,7 +100,7 @@ def diagnostics():
 
     plt.subplot(1, 2, 2)
     plt.plot(vz, f[0], label='$t=0$')
-    plt.plot(vz, f[100], label='$t=60$')
+    plt.plot(vz, f[300], label='$t=60$')
     plt.xlabel('$v_z$')
     plt.ylabel('$f_{v_z}$')
     plt.title('EP distribution function')

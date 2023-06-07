@@ -2,6 +2,7 @@ import numpy as np
 from scipy.optimize import fsolve
 
 from struphy.dispersion_relations.base import DispersionRelations1D, ContinuousSpectra1D, Zplasma
+from struphy.fields_background.mhd_equil.equils import set_defaults
 
 
 class Maxwell1D(DispersionRelations1D):
@@ -13,7 +14,7 @@ class Maxwell1D(DispersionRelations1D):
         \omega^2 = k^2 \,.
     """
 
-    def __init__(self, **params):
+    def __init__(self):
         super().__init__('light wave')
 
     def __call__(self, k):
@@ -28,7 +29,7 @@ class Maxwell1D(DispersionRelations1D):
         Returns
         -------
         omegas : dict
-            A dictionary with key=branch_name and value=omega(k) (complex ndarray).
+            A dictionary with key=branch_name and value=omega(k) (complex numpy.ndarray).
         """
 
         # One complex array for each branch
@@ -60,10 +61,38 @@ class Mhd1D(DispersionRelations1D):
         \textnormal{fast (+) and slow (-) magnetosonic}:\quad &\omega^2 =\frac{1}{2}(c_\textnormal{S}^2+c_\textnormal{A}^2)k^2(1\pm\sqrt{1-\delta}\,)\,,\quad\delta=\frac{4B_{0z}^2c_\textnormal{S}^2c_\textnormal{A}^2}{(c_\textnormal{S}^2+c_\textnormal{A}^2)^2|\mathbf B_0|^2}\,,
 
     where :math:`c_\textnormal{A}^2=|\mathbf B_0|^2/n_0` is the Alfvén velocity and :math:`c_\textnormal{S}^2=\gamma\,p_0/n_0` is the speed of sound.
+    
+    Parameters
+    ----------
+    **params
+        Keyword arguments that characterize the dispersion relation.
+            * B0x : float  
+                x-component of magnetic field (default: 0.).
+            * B0y : float  
+                y-component of magnetic field (default: 0.).
+            * B0z : float  
+                z-component of magnetic field (default: 1.).
+            * p0 : float
+                Plasma pressure (default: 0.5).
+            * n0 : float 
+                Ion number density (default: 1.).
+            * gamma : float 
+                Adiabatic index (default: 5/3).
     """
 
     def __init__(self, **params):
-        super().__init__('shear Alfvén', 'slow magnetosonic', 'fast magnetosonic', **params)
+        
+        # set default parameters
+        params_default = {'B0x': 0.,
+                          'B0y': 0.,
+                          'B0z': 1.,
+                          'p0': 0.5,
+                          'n0': 1.0,
+                          'gamma': 5/3}
+
+        params_all = set_defaults(params, params_default)
+        
+        super().__init__('shear Alfvén', 'slow magnetosonic', 'fast magnetosonic', **params_all)
 
     def __call__(self, k):
         """
@@ -77,7 +106,7 @@ class Mhd1D(DispersionRelations1D):
         Returns
         -------
         omegas : dict
-            A dictionary with key=branch_name and value=omega(k) (complex ndarray).
+            A dictionary with key=branch_name and value=omega(k) (complex numpy.ndarray).
         """
 
         # One complex array for each branch
@@ -88,8 +117,10 @@ class Mhd1D(DispersionRelations1D):
         ########### Model specific part ##############################
 
         # Alfvén velocity and speed of sound
-        cA = np.sqrt((self.params['B0x']**2 + self.params['B0y']
-                     ** 2 + self.params['B0z']**2)/self.params['n0'])
+        cA = np.sqrt((self.params['B0x']**2 + 
+                      self.params['B0y']**2 + 
+                      self.params['B0z']**2)/self.params['n0'])
+        
         cS = np.sqrt(self.params['gamma']*self.params['p0']/self.params['n0'])
 
         # shear Alfvén branch
@@ -340,10 +371,50 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
         \omega^2=\gamma p_0 k^2\,,
 
     where :math:`\xi^\pm=(\omega-kv_0\pm Z_\textnormal{h}B_0\kappa/A_\textnormal{h})/kv_\textnormal{th}` and :math:`Z(\xi)=\sqrt{\pi}\exp(-\xi^2)[i-\textnormal{erfi}(\xi)]` is the plasma dispersion function.
+    
+    Parameters
+    ----------
+    **params
+        Keyword arguments that characterize the dispersion relation.
+            * B0 : float  
+                Magnetic field strength (default: 1.).
+            * p0 : float
+                Plasma pressure (default: 0.5).
+            * gamma : float 
+                Adiabatic index (default: 5/3).
+            * Ab : int 
+                Bulk species mass number (default: 1).
+            * Ah : int 
+                Energetic species mass number (default: 1).
+            * Zh : int 
+                Energetic species charge number (default: 1).
+            * vth : float 
+                Energetic species thermal velocity (default: 1.).
+            * v0 : float 
+                Energetic species shift of Maxwellian (default: 2.).
+            * nuh : float 
+                Ratio of energetic/bulk number densities (default: 0.5).
+            * nb : float
+                Bulk species number density in units of 1e20 / m^3 (default: 0.0005185219355).
     """
 
     def __init__(self, **params):
-        super().__init__('shear_Alfvén_R', 'shear_Alfvén_L', 'sound', **params)
+        
+        # set default parameters
+        params_default = {'B0': 1.,
+                          'p0': 0.5,
+                          'gamma': 5/3,
+                          'Ab': 1,
+                          'Ah': 1,
+                          'Zh': 1,
+                          'vth': 1.,
+                          'v0': 2.,
+                          'nuh': 0.05,
+                          'nb': 0.0005185219355}
+
+        params_all = set_defaults(params, params_default)
+        
+        super().__init__('shear_Alfvén_R', 'shear_Alfvén_L', 'sound', **params_all)
 
         # some constants
         mp = 1.672621924e-27
@@ -352,7 +423,7 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
 
         # calculate coupling parameter alpha_c from bulk number density and mass number
         self._kappa = ee * \
-            np.sqrt(mu*self.params['Ab']*self.params['nb']*1e19/mp)
+            np.sqrt(mu*self.params['Ab']*self.params['nb']*1e20/mp)
 
     def __call__(self, k, method='newton', tol=1e-10, max_it=100):
         """
@@ -375,7 +446,7 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
         Returns
         -------
         omegas : dict
-            A dictionary with key=branch_name and value=omega(k) (complex ndarray).
+            A dictionary with key=branch_name and value=omega(k) (complex numpy.ndarray).
         """
 
         # One complex array for each branch
@@ -521,7 +592,7 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
         return np.real(out), np.imag(out)
 
 
-class PC_LinMHD_6d_full1D(DispersionRelations1D):
+class PressureCouplingFull6DParallel(DispersionRelations1D):
     r'''Dispersion relation for linear MHD equations coupled to the Vlasov equation with Full Pressure Coupling scheme
     for homogeneous background :math:`(n_0,p_0,\mathbf B_0)`, wave propagation along z-axis in Struphy units and space-homogeneous shifted Maxwellian energetic particles distribution :math:`f_h = f_{h,0} + \tilde{f_h}` 
     where :math:`f_{h,0}(v_{\parallel}, v_{\perp}) = n_0 \frac{1}{\sqrt{\pi}} \frac{1}{\hat{v_{\parallel}}} e^{- (v_{\parallel} - u_0)^2 / \hat{v}^2_{\parallel} } \frac{1}{\pi} \frac{1}{\hat{v^2_{\perp}}} e^{- v^2_{\perp} / \hat{v}^2_{\perp}}`
@@ -802,10 +873,41 @@ class MhdContinousSpectraShearedSlab(ContinuousSpectra1D):
         \textnormal{shear Alfvén}:\quad & \omega^2(x)=\frac{B_{0z}(x)^2}{n_0(x)}\frac{1}{R_0^2}\left(n+\frac{m}{q(x)}\right)^2\,
 
         \textnormal{slow sound}:\quad & \omega^2(x)=\frac{\gamma p_0(x)B_{0z}(x)^2}{n_0(x)\,[\gamma p_0(x) + B_{0y}(x)^2 + B_{0z}(x)^2]}\frac{1}{R_0^2}\left(n+\frac{m}{q(x)}\right)^2\,.
+        
+    Parameters
+    ----------
+    **params
+        Keyword arguments that characterize the dispersion relation.
+            * a : float 
+                "Minor" radius (must be compatible with :math:`L_x=a` and :math:`L_y=2\pi a`, default: 1.).
+            * R0 : float
+                "Major" radius (must be compatible with :math:`L_z=2\pi R_0`, default: 3.).
+            * gamma : float 
+                Adiabatic index (default: 5/3).
+            * Bz : callable
+                Profile of axial magnetic field Bz=Bz(x) (default: 1. - 0*x).
+            * p : callable
+                Pressure profile p=p(x) (default: 0.5 - 0*x).
+            * rho : callable
+                Profile of mass density rho=rho(x) (default: 1. - 0*x).
+            * q : callable
+                Safety factor profile q=q(x) (default: 1.1 + 0.7*x**2).
     """
 
     def __init__(self, **params):
-        super().__init__('shear_Alfvén', 'slow_sound', **params)
+        
+        # set default parameters
+        params_default = {'a': 1.,
+                          'R0': 3.,
+                          'gamma': 5/3,
+                          'Bz': lambda x : 1. - 0*x,
+                          'p': lambda x : 0.5 - 0*x,
+                          'rho': lambda x : 1. - 0*x,
+                          'q': lambda x : 1.1 + 0.7*x**2}
+
+        params_all = set_defaults(params, params_default)
+        
+        super().__init__('shear_Alfvén', 'slow_sound', **params_all)
 
     def __call__(self, x, m, n):
         """ 
@@ -817,7 +919,7 @@ class MhdContinousSpectraShearedSlab(ContinuousSpectra1D):
             The x points at which the continuous spectra shall be evaluated.
 
         m, n : int
-            Mode numbers in y- and z-direction.
+            Mode numbers in y- (m) and z- (n) direction.
 
         Returns
         -------
@@ -881,10 +983,38 @@ class MhdContinousSpectraCylinder(ContinuousSpectra1D):
         \textnormal{shear Alfvén}:\quad & \omega^2(r)=\frac{B_{0z}(r)^2}{n_0(r)}\frac{1}{R_0^2}\left(n+\frac{m}{q(r)}\right)^2\,
 
         \textnormal{slow sound}:\quad & \omega^2(r)=\frac{\gamma p_0(r)B_{0z}(r)^2}{n_0(r)\,[\gamma p_0(r) + B_{0\theta}(r)^2 + B_{0z}(r)^2]}\frac{1}{R_0^2}\left(n+\frac{m}{q(r)}\right)^2\,.
+        
+    Parameters
+    ----------
+    **params
+        Keyword arguments that characterize the dispersion relation.
+            * R0 : float
+                "Major" radius (must be compatible with :math:`L_z=2\pi R_0`, default: 3.).
+            * gamma : float 
+                Adiabatic index (default: 5/3).
+            * Bz : callable
+                Profile of axial magnetic field Bz=Bz(x) (default: 1. - 0*r).
+            * p : callable
+                Pressure profile p=p(x) (default: 0.5 - 0*r).
+            * rho : callable
+                Profile of mass density rho=rho(x) (default: 1. - 0*r).
+            * q : callable
+                Safety factor profile q=q(x) (default: 1.1 + 0.7*r**2).
     """
 
     def __init__(self, **params):
-        super().__init__('shear_Alfvén', 'slow_sound', **params)
+        
+        # set default parameters
+        params_default = {'R0': 3.,
+                          'gamma': 5/3,
+                          'Bz': lambda r : 1. - 0*r,
+                          'p': lambda r : 0.5 - 0*r,
+                          'rho': lambda r : 1. - 0*r,
+                          'q': lambda r : 1.1 + 0.7*r**2}
+        
+        params_all = set_defaults(params, params_default)
+        
+        super().__init__('shear_Alfvén', 'slow_sound', **params_all)
 
     def __call__(self, r, m, n):
         """ 
@@ -896,7 +1026,7 @@ class MhdContinousSpectraCylinder(ContinuousSpectra1D):
             The radial points at which the continuous spectra shall be evaluated.
 
         m, n : int
-            Mode numbers in theta- and z-direction.
+            Mode numbers in theta- (m) and z- (n) direction.
 
         Returns
         -------
