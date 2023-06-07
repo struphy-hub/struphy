@@ -303,8 +303,6 @@ def df_inv(eta1: float, eta2: float, eta3: float,  # evaluation point
         dfinv_out[2, 1] = 0.
     elif kind_map == 22:
         dfinv_out[2, 2] = 0.
-    elif kind_map == 23:
-        dfinv_out[2, 2] = 0.
     elif kind_map == 30:
         dfinv_out[0, 2] = 0.
         dfinv_out[1, 2] = 0.
@@ -414,17 +412,23 @@ def g(eta1: float, eta2: float, eta3: float,  # evaluation point
         g_out[2, 0] = 0.
         g_out[2, 1] = 0.
     elif kind_map == 22:
-        g_out[0, 1] = 0.
-        g_out[0, 2] = 0.
-        g_out[1, 0] = 0.
-        g_out[1, 2] = 0.
-        g_out[2, 0] = 0.
-        g_out[2, 1] = 0.
-    elif kind_map == 23:
-        g_out[0, 2] = 0.
-        g_out[1, 2] = 0.
-        g_out[2, 0] = 0.
-        g_out[2, 1] = 0.
+        
+        # straight field line coordinates
+        if params[3] == 1.:
+            g_out[0, 2] = 0.
+            g_out[1, 2] = 0.
+            g_out[2, 0] = 0.
+            g_out[2, 1] = 0.
+        
+        # equal angle coordinates 
+        else:
+            g_out[0, 1] = 0.
+            g_out[0, 2] = 0.
+            g_out[1, 0] = 0.
+            g_out[1, 2] = 0.
+            g_out[2, 0] = 0.
+            g_out[2, 1] = 0.
+    
     elif kind_map == 30:
         g_out[0, 2] = 0.
         g_out[1, 2] = 0.
@@ -531,17 +535,23 @@ def g_inv(eta1: float, eta2: float, eta3: float,  # evaluation point
         ginv_out[2, 0] = 0.
         ginv_out[2, 1] = 0.
     elif kind_map == 22:
-        ginv_out[0, 1] = 0.
-        ginv_out[0, 2] = 0.
-        ginv_out[1, 0] = 0.
-        ginv_out[1, 2] = 0.
-        ginv_out[2, 0] = 0.
-        ginv_out[2, 1] = 0.
-    elif kind_map == 23:
-        ginv_out[0, 2] = 0.
-        ginv_out[1, 2] = 0.
-        ginv_out[2, 0] = 0.
-        ginv_out[2, 1] = 0.
+        
+        # straight field line coordinates
+        if params[3] == 1.:
+            ginv_out[0, 2] = 0.
+            ginv_out[1, 2] = 0.
+            ginv_out[2, 0] = 0.
+            ginv_out[2, 1] = 0.
+            
+        # equal angle coordinates
+        else:    
+            ginv_out[0, 1] = 0.
+            ginv_out[0, 2] = 0.
+            ginv_out[1, 0] = 0.
+            ginv_out[1, 2] = 0.
+            ginv_out[2, 0] = 0.
+            ginv_out[2, 1] = 0.
+            
     elif kind_map == 30:
         ginv_out[0, 2] = 0.
         ginv_out[1, 2] = 0.

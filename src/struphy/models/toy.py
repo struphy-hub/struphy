@@ -131,13 +131,14 @@ class Vlasov(StruphyModel):
 
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_markers
+        from mpi4py.MPI import SUM, IN_PLACE
 
         # pointer to ions
-        ions = self.kinetic['ions']['obj']
+        self._ions = self.kinetic['ions']['obj']
         ions_params = self.kinetic['ions']['params']
 
         print(
-            f'Total number of markers : {ions.n_mks}, shape of markers array on rank {self.derham.comm.Get_rank()} : {ions.markers.shape}')
+            f'Total number of markers : {self._ions.n_mks}, shape of markers array on rank {self.derham.comm.Get_rank()} : {self._ions.markers.shape}')
 
         # project magnetic background
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
@@ -153,7 +154,7 @@ class Vlasov(StruphyModel):
         self._propagators = []
 
         self._propagators += [propagators_markers.PushVxB(
-            ions,
+            self._ions,
             algo=ions_params['push_algos']['vxb'],
             scale_fac=1.,
             b_eq=self._b_eq,
@@ -161,19 +162,19 @@ class Vlasov(StruphyModel):
             f0=None)]
 
         self._propagators += [propagators_markers.PushEta(
-            ions,
+            self._ions,
             algo=ions_params['push_algos']['eta'],
             bc_type=ions_params['markers']['bc_type'],
             f0=None)]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
+        
+        self._scalar_quantities['en_f'] = np.empty(1, dtype=float)
 
-        self._en_fv_loc = np.empty(1, dtype=float)
-        self._scalar_quantities['en_fv'] = np.empty(1, dtype=float)
-        self._en_fB_loc = np.empty(1, dtype=float)
-        self._scalar_quantities['en_fB'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+        # MPI operations needed for scalar variables
+        self._mpi_sum = SUM
+        self._mpi_in_place = IN_PLACE
 
     @property
     def propagators(self):
@@ -184,7 +185,14 @@ class Vlasov(StruphyModel):
         return self._scalar_quantities
 
     def update_scalar_quantities(self):
-        pass
+        
+        self._scalar_quantities['en_f'][0] = self._ions.markers_wo_holes[:, 6].dot(
+            self._ions.markers_wo_holes[:, 3]**2 +
+            self._ions.markers_wo_holes[:, 4]**2 +
+            self._ions.markers_wo_holes[:, 5]**2)/(2*self._ions.n_mks)
+
+        self.derham.comm.Allreduce(
+            self._mpi_in_place, self._scalar_quantities['en_f'], op=self._mpi_sum)
 
 
 class DriftKinetic(StruphyModel):
