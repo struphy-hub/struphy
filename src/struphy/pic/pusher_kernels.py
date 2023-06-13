@@ -19,12 +19,13 @@ def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                       e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]'):
+                       e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
+                       kappa: 'float'):
     r'''Updates
 
     .. math::
 
-        \frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = DF^{-\top} \hat{\mathbf E}^1(\eta^n_p)
+        \frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = \kappa DF^{-\top} \hat{\mathbf E}^1(\eta^n_p)
 
     for each marker :math:`p` in markers array, where :math:`\hat{\mathbf E}^1 in H(\textnormal{curl})`.
 
@@ -101,7 +102,7 @@ def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
         linalg.matrix_vector(dfinvt, e_form, e_cart)
 
         # update velocities
-        markers[ip, 3:6] += dt * e_cart
+        markers[ip, 3:6] += dt * kappa * e_cart
 
     #$ omp end parallel
 

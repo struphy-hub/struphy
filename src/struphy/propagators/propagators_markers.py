@@ -755,6 +755,69 @@ class StepPushGuidingCenter2(Propagator):
         self._particles.save_magnetic_energy(self.derham, self._abs_b)
 
 
+class StepVinEfield(Propagator):
+    r'''Push the velocities according to
+
+    .. math::
+
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} & = \kappa \, DL^{-T} \mathbf{E}
+
+    which is solved analytically.
+
+    Parameters
+    ----------
+    particles : struphy.pic.particles.Particles6D
+        Holdes the markers to push.
+
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
+    '''
+
+    def __init__(self, particles, **params):
+
+        from numpy import polynomial, floor
+
+        # pointer to variable
+        assert isinstance(particles, Particles6D)
+        self._particles = particles
+
+        # parameters
+        params_default = {
+            'e_field': BlockVector(self.derham.Vh_fem['1'].vector_space),
+            'method': 'analytical',
+            'kappa': 1e2
+        }
+
+        params = set_defaults(params, params_default)
+        self.kappa = params['kappa']
+        method = params['method']
+
+        assert isinstance(params['e_field'], (BlockVector, PolarVector))
+        self._e_field = params['e_field']
+
+        if method == 'analytical':
+            self._pusher = Pusher(self.derham, self.domain,
+                                'push_v_with_efield')
+        elif method == 'discrete_gradient':
+            raise NotImplementedError('Not yet implemented.')
+            # self._pusher = Pusher(self.derham, self.domain,
+            #                     'push_v_in_static_efield_dg')
+        else:
+            raise ValueError(f'Method {method} not known.')
+
+    @property
+    def variables(self):
+        return [self._particles]
+
+    def __call__(self, dt):
+        """
+        TODO
+        """
+        self._pusher(self._particles, dt,
+                     self._e_field.blocks[0]._data, self._e_field.blocks[1]._data, self._e_field.blocks[2]._data,
+                     self.kappa)
+
+
 class StepStaticEfield(Propagator):
     r'''Solve the following system
 
@@ -793,9 +856,10 @@ class StepStaticEfield(Propagator):
         self._particles = particles
 
         # parameters
-        params_default = {'e_field': BlockVector(
-            self.derham.Vh_fem['1'].vector_space),
-            'kappa': 1e2}
+        params_default = {
+            'e_field': BlockVector(self.derham.Vh_fem['1'].vector_space),
+            'kappa': 1e2
+        }
 
         params = set_defaults(params, params_default)
         self.kappa = params['kappa']
