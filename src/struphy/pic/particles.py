@@ -199,6 +199,18 @@ class Particles(metaclass=ABCMeta):
         """ Kinetic boundary conditions in each direction.
         """
         return self._bc
+    
+    @property
+    def lost_markers(self):
+        """ Array containing the last infos of removed markers
+        """
+        return self._lost_markers
+    
+    @property
+    def n_lost_markers(self):
+        """ Number of removed particles.
+        """
+        return self._n_lost_markers
 
     def create_marker_array(self):
         """Create marker array. (self.markers)
@@ -244,6 +256,10 @@ class Particles(metaclass=ABCMeta):
         markers_size = round(n_mks_load_loc *
                              (1 + 1/np.sqrt(n_mks_load_loc) + self.params['eps']))
         self._markers = np.zeros((markers_size, self.n_cols), dtype=float)
+
+        # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
+        self._n_lost_markers = 0
+        self._lost_markers = np.zeros((int(markers_size*0.5), 10), dtype=float)
 
     def draw_markers(self):
         """ Draw markers. 
@@ -562,7 +578,21 @@ class Particles(metaclass=ABCMeta):
 
             # apply boundary conditions
             if bc == 'remove':
+                
+                # save the positions and velocities just before the pushing step
+                if self.vdim == 3:
+                    self.lost_markers[self.n_lost_markers:self.n_lost_markers+len(outside_inds), 0:3] = self.markers[outside_inds, 9:12]
+                    self.lost_markers[self.n_lost_markers:self.n_lost_markers+len(outside_inds), 3:9] = self.markers[outside_inds, 3:9]
+                    self.lost_markers[self.n_lost_markers:self.n_lost_markers+len(outside_inds), -1]  = self.markers[outside_inds, -1]
+
+                elif self.vdim == 2:
+                    self.lost_markers[self.n_lost_markers:self.n_lost_markers+len(outside_inds), 0:4] = self.markers[outside_inds, 9:13]
+                    self.lost_markers[self.n_lost_markers:self.n_lost_markers+len(outside_inds), 4:9] = self.markers[outside_inds, 4:9]
+                    self.lost_markers[self.n_lost_markers:self.n_lost_markers+len(outside_inds), -1]  = self.markers[outside_inds, -1]   
+
                 self.markers[outside_inds, :-1] = -1.
+
+                self._n_lost_markers += len(outside_inds)
 
             elif bc == 'periodic':
                 self.markers[outside_inds, axis] = \
@@ -737,8 +767,8 @@ class Particles5D(Particles):
     def n_cols(self):
         """Number of the columns at each markers.
         """
-        return 25
-
+        return 29
+    
     @property
     def vdim(self):
         """Dimension of the velocity space.

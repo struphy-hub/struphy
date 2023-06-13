@@ -53,9 +53,11 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     objs = [fluid, kinetic, hybrid, toy]
     for obj in objs:
         try:
-            model = getattr(obj, model_name)(params, comm)
+            model_class = getattr(obj, model_name)
         except AttributeError: 
             pass
+
+    model = model_class(params, comm)
 
     # print plasma parameters to screen
     if rank == 0:
