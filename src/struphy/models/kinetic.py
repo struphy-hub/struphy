@@ -118,22 +118,22 @@ class LinearVlasovMaxwell(StruphyModel):
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
 
-        # Only add StepStaticEfield if e-field is non-zero, otherwise it is more expensive
+        self._propagators += [propagators_markers.PushEta(
+            self._electrons,
+            algo=electron_params['push_algos']['eta'],
+            bc_type=electron_params['markers']['bc_type'],
+            f0=None)]  # no conventional weights update here, thus f0=None
+        if self._rank == 0:
+            print("Added Step PushEta\n")
+
+        # Only add StepVinEfield if e-field is non-zero, otherwise it is more expensive
         if np.all(self._e_background[0]._data < 1e-14) and np.all(self._e_background[1]._data < 1e-14) and np.all(self._e_background[2]._data < 1e-14):
-            self._propagators += [propagators_markers.PushEta(
+            self._propagators += [propagators_markers.StepVinEfield(
                 self._electrons,
-                algo=electron_params['push_algos']['eta'],
-                bc_type=electron_params['markers']['bc_type'],
-                f0=None)]  # no conventional weights update here, thus f0=None
-            if self._rank == 0:
-                print("Added Step PushEta\n")
-        else:
-            self._propagators += [propagators_markers.StepStaticEfield(
-                self._electrons,
-                e_eq=self._e_background,
+                e_field=self._e_background,
                 kappa=self.kappa)]
             if self._rank == 0:
-                print("Added Step StaticEfield\n")
+                print("Added Step VinEfield\n")
 
         # Only add VxB Step if b-field is non-zero, otherwise it is more expensive
         b_bckgr_params = params['mhd_equilibrium'][params['mhd_equilibrium']['type']]
