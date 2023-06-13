@@ -761,17 +761,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-        # updates u and b
-        self._propagators += [propagators_fields.ShearAlfvénCurrentCoupling5D(
-            self._u,
-            self._b,
-            particles=self._e_ions,
-            b_eq=self._b_eq,
-            f0=f0,
-            u_space=self._u_space,
-            **solver_params_1,
-            **self._coupling_params)]
-
         # # updates u and p
         # self._propagators += [propagators_fields.MagnetosonicCurrentCoupling5D(
         #     self._n,
@@ -795,7 +784,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             unit_b2=self._unit_b2,
             abs_b=self._abs_b,
             integrator=ions_params['push_algos']['integrator'],
-            method=ions_params['push_algos']['method'],
+            method='discrete_gradients',
             maxiter=ions_params['push_algos']['maxiter'],
             tol=ions_params['push_algos']['tol'])]
 
@@ -808,23 +797,11 @@ class LinearMHDDriftkineticCC(StruphyModel):
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
             abs_b=self._abs_b,
-            method=ions_params['push_algos']['method'],
+            method='discrete_gradients_Itoh_Newton',
             integrator=ions_params['push_algos']['integrator'],
             maxiter=ions_params['push_algos']['maxiter'],
             tol=ions_params['push_algos']['tol'])]
-
-        # update u and v parallel
-        self._propagators += [propagators_coupling.CurrentCoupling5DCurrent1(
-            self._e_ions,
-            self._u,
-            b=self._b,
-            b_eq=self._b_eq,
-            unit_b1=self._unit_b1,
-            f0=f0,
-            u_space=self._u_space,
-            **solver_params_3,
-            **self._coupling_params)]
-
+        
         # update u and H
         self._propagators += [propagators_coupling.CurrentCoupling5DCurrent2(
             self._e_ions,
@@ -841,8 +818,31 @@ class LinearMHDDriftkineticCC(StruphyModel):
             integrator='explicit',
             method='rk4')]
 
+        # updates u and b
+        self._propagators += [propagators_fields.ShearAlfvénCurrentCoupling5D(
+            self._u,
+            self._b,
+            particles=self._e_ions,
+            b_eq=self._b_eq,
+            f0=f0,
+            u_space=self._u_space,
+            **solver_params_1,
+            **self._coupling_params)]
+        
+        # update u and v parallel
+        self._propagators += [propagators_coupling.CurrentCoupling5DCurrent1(
+            self._e_ions,
+            self._u,
+            b=self._b,
+            b_eq=self._b_eq,
+            unit_b1=self._unit_b1,
+            f0=f0,
+            u_space=self._u_space,
+            **solver_params_3,
+            **self._coupling_params)]
+
         # update u
-        self._propagators += [propagators_fields.CurrentCoupling6DDensity(
+        self._propagators += [propagators_fields.CurrentCoupling5DDensity(
             self._u,
             particles=self._e_ions,
             u_space=self._u_space,
@@ -857,13 +857,17 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._scalar_quantities['en_U'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_p'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_p_eq'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B_eq'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B_tot'] = np.empty(1, dtype=float)
+        # self._scalar_quantities['en_p_eq'] = np.empty(1, dtype=float)
+        # self._scalar_quantities['en_B_eq'] = np.empty(1, dtype=float)
+        # self._scalar_quantities['en_B_tot'] = np.empty(1, dtype=float)
         self._en_fv_loc = np.empty(1, dtype=float)
         self._scalar_quantities['en_fv'] = np.empty(1, dtype=float)
         self._en_fB_loc = np.empty(1, dtype=float)
         self._scalar_quantities['en_fB'] = np.empty(1, dtype=float)
+        self._en_fv_loc_lost = np.empty(1, dtype=float)
+        self._scalar_quantities['en_fv_lost'] = np.empty(1, dtype=float)
+        self._en_fB_loc_lost = np.empty(1, dtype=float)
+        self._scalar_quantities['en_fB_lost'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
 
         # things needed in update_scalar_quantities
@@ -896,10 +900,10 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._scalar_quantities['en_B'][0] = self._b.dot(
             self._mass_ops.M2.dot(self._b))/2
 
-        self._scalar_quantities['en_p_eq'][0] = self._p_eq.dot(
-            self._ones)/(5/3 - 1)
-        self._scalar_quantities['en_B_eq'][0] = self._b_eq.dot(
-            self._mass_ops.M2.dot(self._b_eq, apply_bc=False))/2
+        # self._scalar_quantities['en_p_eq'][0] = self._p_eq.dot(
+        #     self._ones)/(5/3 - 1)
+        # self._scalar_quantities['en_B_eq'][0] = self._b_eq.dot(
+        #     self._mass_ops.M2.dot(self._b_eq, apply_bc=False))/2
 
         # calculate particle kinetic energy
         self._en_fv_loc = self._e_ions.markers[~self._e_ions.holes, 5].dot(
@@ -907,13 +911,19 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self.derham.comm.Reduce(
             self._en_fv_loc, self._scalar_quantities['en_fv'], op=self._mpi_sum, root=0)
 
+        self._en_fv_loc_lost = self._e_ions.lost_markers[:self._e_ions.n_lost_markers, 5].dot(
+            self._e_ions.lost_markers[:self._e_ions.n_lost_markers, 3]**2) / (2.*self._e_ions.n_mks)
+        self.derham.comm.Reduce(
+            self._en_fv_loc_lost, self._scalar_quantities['en_fv_lost'], op=self._mpi_sum, root=0)
+
+
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         self._b_eq.copy(out=self._b_full1)
         self._b_full1 += self._b
         self._b_full1.update_ghost_regions()
 
-        self._scalar_quantities['en_B_tot'][0] = (self._b_full1).dot(
-            self._mass_ops.M2.dot(self._b_full1, apply_bc=False))/2
+        # self._scalar_quantities['en_B_tot'][0] = (self._b_full1).dot(
+        #     self._mass_ops.M2.dot(self._b_full1, apply_bc=False))/2.
 
         # absolute value of parallel magnetic field
         self._prop.basis_ops.PB.dot(self._b_full1, out=self._PBb1)
@@ -925,13 +935,32 @@ class LinearMHDDriftkineticCC(StruphyModel):
             self._e_ions.markers[~self._e_ions.holes, 8])/self._e_ions.n_mks
         self.derham.comm.Reduce(
             self._en_fB_loc, self._scalar_quantities['en_fB'], op=self._mpi_sum, root=0)
+        
+        self._en_fB_loc_lost = self._e_ions.lost_markers[:self._e_ions.n_lost_markers, 5].dot(
+            self._e_ions.lost_markers[:self._e_ions.n_lost_markers, 8]) / self._e_ions.n_mks
+        self.derham.comm.Reduce(
+            self._en_fB_loc_lost, self._scalar_quantities['en_fB_lost'], op=self._mpi_sum, root=0)
+
+
+        # # calculate particle magnetic energy
+        # self._e_ions.save_magnetic_energy(self._derham, self._E0T.dot(
+        #     self.derham.P['0'](self.mhd_equil.absB0)))
+
+        # self._en_fB_loc = self._e_ions.markers[~self._e_ions.holes, 5].dot(
+        #     self._e_ions.markers[~self._e_ions.holes, 8]) / self._e_ions.n_mks
+        # self.derham.comm.Reduce(
+        #     self._en_fB_loc, self._scalar_quantities['en_fB'], op=self._mpi_sum, root=0)
+
 
         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_U'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_p'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_B'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fv'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fB'][0]
+        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fv_lost'][0]
+        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fB_lost'][0]
 
+        print('Number of lost markers:', self._e_ions.n_lost_markers)
 
 # class ColdPlasmaVlasov(StruphyModel):
 #     r'''Cold plasma model

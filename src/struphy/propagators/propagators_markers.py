@@ -5,7 +5,7 @@ from psydac.linalg.block import BlockVector
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.pic.particles import Particles6D, Particles5D
-from struphy.pic.pusher import Pusher, Pusher_iteration
+from struphy.pic.pusher import Pusher, Pusher_iteration_Gonzalez, Pusher_iteration_Itoh
 from struphy.pic.pusher import ButcherTableau
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.kinetic_background.analytical import Maxwellian6DUniform
@@ -488,7 +488,7 @@ class StepPushGuidingCenter1(Propagator):
         self._particles = particles
 
         # parameters
-        params_default = {'kappa': 100.,
+        params_default = {'kappa': 1.,
                           'b_eq': None,
                           'unit_b1': None,
                           'unit_b2': None,
@@ -565,12 +565,16 @@ class StepPushGuidingCenter1(Propagator):
         elif params['integrator'] == 'implicit':
 
             if params['method'] == 'discrete_gradients':
-                self._pusher = Pusher_iteration(
+                self._pusher = Pusher_iteration_Gonzalez(
                     self.derham, self.domain, 'push_gc1_discrete_gradients', params['maxiter'], params['tol'])
 
             elif params['method'] == 'discrete_gradients_faster':
-                self._pusher = Pusher_iteration(
+                self._pusher = Pusher_iteration_Gonzalez(
                     self.derham, self.domain, 'push_gc1_discrete_gradients_faster', params['maxiter'], params['tol'])
+                
+            elif params['method'] == 'discrete_gradients_Itoh_Newton':
+                self._pusher = Pusher_iteration_Itoh(
+                    self.derham, self.domain, 'push_gc1_discrete_gradients_Itoh_Newton', params['maxiter'], params['tol'])
 
             else:
                 raise NotImplementedError(
@@ -595,7 +599,7 @@ class StepPushGuidingCenter1(Propagator):
         TODO
         """
         self._pusher(self._particles, dt,
-                     *self._pusher_inputs, mpi_sort='each', verbose=False)
+                     *self._pusher_inputs, mpi_sort='each', verbose=True)
 
         # save magnetic field at each particles' position
         self._particles.save_magnetic_energy(self.derham, self._abs_b)
@@ -634,7 +638,7 @@ class StepPushGuidingCenter2(Propagator):
         self._particles = particles
 
         # parameters
-        params_default = {'kappa': 100.,
+        params_default = {'kappa': 1.,
                           'b_eq': None,
                           'unit_b1': None,
                           'unit_b2': None,
@@ -711,12 +715,16 @@ class StepPushGuidingCenter2(Propagator):
         elif params['integrator'] == 'implicit':
 
             if params['method'] == 'discrete_gradients':
-                self._pusher = Pusher_iteration(
+                self._pusher = Pusher_iteration_Gonzalez(
                     self.derham, self.domain, 'push_gc2_discrete_gradients', params['maxiter'], params['tol'])
 
             elif params['method'] == 'discrete_gradients_faster':
-                self._pusher = Pusher_iteration(
+                self._pusher = Pusher_iteration_Gonzalez(
                     self.derham, self.domain, 'push_gc2_discrete_gradients_faster', params['maxiter'], params['tol'])
+                
+            elif params['method'] == 'discrete_gradients_Itoh_Newton':
+                self._pusher = Pusher_iteration_Itoh(
+                     self.derham, self.domain, 'push_gc2_discrete_gradients_Itoh_Newton', params['maxiter'], params['tol'])
 
             else:
                 raise NotImplementedError(
@@ -741,7 +749,7 @@ class StepPushGuidingCenter2(Propagator):
         TODO
         """
         self._pusher(self._particles, dt,
-                     *self._pusher_inputs, mpi_sort='each', verbose=False)
+                     *self._pusher_inputs, mpi_sort='each', verbose=True)
 
         # save magnetic field at each particles' position
         self._particles.save_magnetic_energy(self.derham, self._abs_b)
@@ -912,6 +920,8 @@ class StepPushDriftKinetic1(Propagator):
         self._grad_PBb = self.derham.grad.dot(self._PBb)
         self._grad_PBb.update_ghost_regions()
 
+        self._integrator = params['integrator']
+        
         if params['integrator'] == 'explicit':
 
             if params['method'] == 'forward_euler':
@@ -942,33 +952,23 @@ class StepPushDriftKinetic1(Propagator):
             self._pusher = Pusher(
                 self.derham, self.domain, 'push_gc1_explicit_stage', self._butcher.n_stages)
 
-            self._pusher_inputs = (self._kappa, self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
-                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
-                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data,
-                                   self._butcher.a, self._butcher.b, self._butcher.c)
-
         elif params['integrator'] == 'implicit':
 
             if params['method'] == 'discrete_gradients':
-                self._pusher = Pusher_iteration(
+                self._pusher = Pusher_iteration_Gonzalez(
                     self.derham, self.domain, 'push_gc1_discrete_gradients', params['maxiter'], params['tol'])
 
             elif params['method'] == 'discrete_gradients_faster':
-                self._pusher = Pusher_iteration(
+                self._pusher = Pusher_iteration_Gonzalez(
                     self.derham, self.domain, 'push_gc1_discrete_gradients_faster', params['maxiter'], params['tol'])
+                
+            elif params['method'] == 'discrete_gradients_Itoh_Newton':
+                self._pusher = Pusher_iteration_Itoh(
+                    self.derham, self.domain, 'push_gc1_discrete_gradients_Itoh_Newton', params['maxiter'], params['tol'])
 
             else:
                 raise NotImplementedError(
                     'Chosen implicit method is not implemented.')
-
-            self._pusher_inputs = (self._kappa, self._PBb._data,
-                                   self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
-                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
-                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data)
 
         else:
             raise NotImplementedError('Chosen integrator is not implemented.')
@@ -996,15 +996,24 @@ class StepPushDriftKinetic1(Propagator):
         self._grad_PBb = self.derham.grad.dot(self._PBb)
         self._grad_PBb.update_ghost_regions()
 
-        self._pusher_inputs = (self._kappa, self._PBb._data,
-                               self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
-                               self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                               self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
-                               self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                               self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data)
+        if self._integrator == 'explicit':
+            self._pusher_inputs = (self._kappa, 
+                                   self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
+                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
+                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                                   self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data,
+                                   self._butcher.a, self._butcher.b, self._butcher.c)
+        else:
+            self._pusher_inputs = (self._kappa, self._PBb._data,
+                                   self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
+                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
+                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                                   self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data)
 
         self._pusher(self._particles, dt,
-                     *self._pusher_inputs, mpi_sort='each', verbose=False)
+                     *self._pusher_inputs, mpi_sort='each', verbose=True)
 
 
 class StepPushDriftKinetic2(Propagator):
@@ -1082,6 +1091,8 @@ class StepPushDriftKinetic2(Propagator):
         self._grad_PBb = self.derham.grad.dot(self._PBb)
         self._grad_PBb.update_ghost_regions()
 
+        self._integrator = params['integrator']
+
         if params['integrator'] == 'explicit':
 
             if params['method'] == 'forward_euler':
@@ -1112,33 +1123,23 @@ class StepPushDriftKinetic2(Propagator):
             self._pusher = Pusher(
                 self.derham, self.domain, 'push_gc2_explicit_stage', self._butcher.n_stages)
 
-            self._pusher_inputs = (self._kappa, self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
-                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
-                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data,
-                                   self._butcher.a, self._butcher.b, self._butcher.c)
-
         elif params['integrator'] == 'implicit':
 
             if params['method'] == 'discrete_gradients':
-                self._pusher = Pusher_iteration(
+                self._pusher = Pusher_iteration_Gonzalez(
                     self.derham, self.domain, 'push_gc2_discrete_gradients', params['maxiter'], params['tol'])
 
             elif params['method'] == 'discrete_gradients_faster':
-                self._pusher = Pusher_iteration(
+                self._pusher = Pusher_iteration_Gonzalez(
                     self.derham, self.domain, 'push_gc2_discrete_gradients_faster', params['maxiter'], params['tol'])
+                
+            elif params['method'] == 'discrete_gradients_Itoh_Newton':
+                self._pusher = Pusher_iteration_Itoh(
+                     self.derham, self.domain, 'push_gc2_discrete_gradients_Itoh_Newton', params['maxiter'], params['tol'])
 
             else:
                 raise NotImplementedError(
                     'Chosen implicit method is not implemented.')
-
-            self._pusher_inputs = (self._kappa, self._PBb._data,
-                                   self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
-                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
-                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data)
 
         else:
             raise NotImplementedError('Chosen integrator is not implemented.')
@@ -1165,12 +1166,21 @@ class StepPushDriftKinetic2(Propagator):
         self._grad_PBb = self.derham.grad.dot(self._PBb)
         self._grad_PBb.update_ghost_regions()
 
-        self._pusher_inputs = (self._kappa, self._PBb._data,
-                               self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
-                               self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                               self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
-                               self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                               self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data)
+        if self._integrator == 'explicit':
+            self._pusher_inputs = (self._kappa, 
+                                   self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
+                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
+                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                                   self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data,
+                                   self._butcher.a, self._butcher.b, self._butcher.c)
+        else:
+            self._pusher_inputs = (self._kappa, self._PBb._data,
+                                   self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
+                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
+                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                                   self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data)
 
         self._pusher(self._particles, dt,
-                     *self._pusher_inputs, mpi_sort='each', verbose=False)
+                     *self._pusher_inputs, mpi_sort='each', verbose=True)

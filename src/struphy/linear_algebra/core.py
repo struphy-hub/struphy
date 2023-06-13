@@ -222,3 +222,73 @@ def matrix_inv_with_det(a: 'float[:,:]', det_a: float, b: 'float[:,:]'):
     b[2, 0] = (a[1, 0]*a[2, 1] - a[2, 0]*a[1, 1]) / det_a
     b[2, 1] = (a[2, 0]*a[0, 1] - a[0, 0]*a[2, 1]) / det_a
     b[2, 2] = (a[0, 0]*a[1, 1] - a[1, 0]*a[0, 1]) / det_a
+
+@pure
+def matrix_vector4(a: 'float[:,:]', b: 'float[:]', c: 'float[:]'):
+    """
+    Performs the matrix-vector product of a 4x4 matrix with a vector.
+
+    Parameters
+    ----------
+        a : array[float]
+            The input array (matrix) of shape (4,4).
+
+        b : array[float]
+            The input array (vector) of shape (4,).
+
+        c : array[float]
+            The output array (vector) of shape (4,) which is the result of the matrix-vector product a.dot(b).
+    """
+
+    c[:] = 0.
+
+    for i in range(4):
+        for j in range(4):
+            c[i] += a[i, j] * b[j]
+
+@pure
+def matrix_matrix4(a: 'float[:,:]', b: 'float[:,:]', c: 'float[:,:]'):
+    """
+    Performs the matrix-matrix product of a 4x4 matrix with another 4x4 matrix.
+
+    Parameters
+    ----------
+        a : array[float]
+            The first input array (matrix) of shape (4,4).
+
+        b : array[float]
+            The second input array (matrix) of shape (4,4).
+
+        c : array[float]
+            The output array (matrix) of shape (4,4) which is the result of the matrix-matrix product a.dot(b).
+    """
+
+    c[:, :] = 0.
+
+    for i in range(4):
+        for j in range(4):
+            for k in range(4):
+                c[i, j] += a[i, k] * b[k, j]
+
+@pure
+def det4(a: 'float[:,:]') -> float:
+    """
+    Computes the determinant of a 4x4 matrix.
+
+    Parameters
+    ----------
+        a : array[float]
+            The input array (matrix) of shape (4,4) of which the determinant shall be computed.
+
+    Returns
+    -------
+        det_a : float
+            The determinant of the 3x3 matrix a.
+    """
+
+    plus =  a[0,0]*det(a[1:,1:])      + a[2,0]*det(a[(0,1,3),1:])
+    minus = a[1,0]*det(a[(0,2,3),1:]) + a[3,0]*det(a[:3,1:])
+
+    det_a = plus - minus
+
+    return det_a

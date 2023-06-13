@@ -37,7 +37,7 @@ def struphy_units(model, input, input_abs=None):
     for obj in objs:
         try:
             model_class = getattr(obj, model)
-        except:
+        except AttributeError:
             pass
 
     # print units

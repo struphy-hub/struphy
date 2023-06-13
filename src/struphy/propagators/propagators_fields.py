@@ -1170,7 +1170,7 @@ class CurrentCoupling6DDensity(Propagator):
 
     def __init__(self, u, **params):
 
-        from struphy.pic.particles import Particles6D, Particles5D
+        from struphy.pic.particles import Particles6D
 
         # pointers to variables
         assert isinstance(u, (BlockVector, PolarVector))
@@ -1195,7 +1195,7 @@ class CurrentCoupling6DDensity(Propagator):
         params = set_defaults(params, params_default)
 
         # assert parameters and expose some quantities to self
-        assert isinstance(params['particles'], (Particles6D, Particles5D))
+        assert isinstance(params['particles'], (Particles6D))
 
         assert params['u_space'] in {'Hcurl', 'Hdiv', 'H1vec'}
         if params['u_space'] == 'H1vec':
@@ -1663,4 +1663,140 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             print('Maxdiff n3 for Magnetosonic:', max_dn)
             print('Maxdiff up for Magnetosonic:', max_du)
             print('Maxdiff p3 for Magnetosonic:', max_dp)
+            print()
+            
+
+class CurrentCoupling5DDensity(Propagator):
+    """
+    """
+
+    def __init__(self, u, **params):
+
+        from struphy.pic.particles import Particles5D
+
+        # pointers to variables
+        assert isinstance(u, (BlockVector, PolarVector))
+        self._u = u
+
+        # parameters
+        params_default = {'particles': None,
+                          'u_space': 'Hdiv',
+                          'b_eq': None,
+                          'b_tilde': None,
+                          'f0': Maxwellian5DUniform(),
+                          'type': 'PBiConjugateGradientStab',
+                          'pc': 'MassMatrixPreconditioner',
+                          'tol': 1e-8,
+                          'maxiter': 3000,
+                          'info': False,
+                          'verbose': False,
+                          'Ab': 1,
+                          'Ah': 1,
+                          'kappa': 1.}
+
+        params = set_defaults(params, params_default)
+
+        # assert parameters and expose some quantities to self
+        assert isinstance(params['particles'], (Particles5D))
+
+        assert params['u_space'] in {'Hcurl', 'Hdiv', 'H1vec'}
+        if params['u_space'] == 'H1vec':
+            self._space_key_int = 0
+        else:
+            self._space_key_int = int(
+                self.derham.spaces_dict[params['u_space']])
+
+        assert isinstance(params['b_eq'], (BlockVector, PolarVector))
+
+        if params['b_tilde'] is not None:
+            assert isinstance(params['b_tilde'], (BlockVector, PolarVector))
+
+        self._particles = params['particles']
+        self._b_eq = params['b_eq']
+        self._b_tilde = params['b_tilde']
+        self._f0 = params['f0']
+
+        self._type = params['type']
+        self._tol = params['tol']
+        self._maxiter = params['maxiter']
+        self._info = params['info']
+        self._verbose = params['verbose']
+        self._rank = self.derham.comm.Get_rank()
+
+        self._coupling_const = params['Ah'] * params['kappa'] / params['Ab']
+        # load accumulator
+        self._accumulator = Accumulator(
+            self.derham, self.domain, params['u_space'], 'cc_lin_mhd_5d_D', add_vector=False, symmetry='asym')
+
+        # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
+        self._E2T = self.derham.E['2'].transpose()
+
+        # mass matrix in system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
+        u_id = self.derham.spaces_dict[params['u_space']]
+        self._M = getattr(self.mass_ops, 'M' + u_id + 'n')
+
+        # preconditioner
+        if params['pc'] is None:
+            self._pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            self._pc = pc_class(self._M)
+
+        # linear solver
+        self._solver = getattr(it_solvers, params['type'])(self._M.domain)
+
+        # temporary vectors to avoid memory allocation
+        self._b_full1 = self._b_eq.space.zeros()
+        self._b_full2 = self._E2T.codomain.zeros()
+
+        self._rhs_v = self._u.space.zeros()
+        self._u_new = self._u.space.zeros()
+
+    @property
+    def variables(self):
+        return [self._u]
+
+    def __call__(self, dt):
+        """
+        TODO
+        """
+
+        # pointer to old coefficients
+        un = self.variables[0]
+
+        # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
+        self._b_eq.copy(out=self._b_full1)
+
+        if self._b_tilde is not None:
+            self._b_full1 += self._b_tilde
+
+        # extract coefficients to tensor product space (in-place)
+        self._E2T.dot(self._b_full1, out=self._b_full2)
+
+        # update ghost regions because of non-local access in accumulation kernel!
+        self._b_full2.update_ghost_regions()
+
+        self._accumulator.accumulate(self._particles,
+                                     self._b_full2[0]._data, self._b_full2[1]._data, self._b_full2[2]._data,
+                                     self._space_key_int, self._coupling_const)
+
+        # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
+        lhs = Sum(self._M, Multiply(-dt/2, self._accumulator.operators[0]))
+        rhs = Sum(self._M, Multiply(dt/2, self._accumulator.operators[0]))
+
+        # solve linear system for updated u coefficients (in-place)
+        rhs.dot(un, out=self._rhs_v)
+
+        info = self._solver.solve(lhs, self._rhs_v, self._pc,
+                                  x0=un, tol=self._tol,
+                                  maxiter=self._maxiter, verbose=self._verbose,
+                                  out=self._u_new)[1]
+
+        # write new coeffs into Propagator.variables
+        max_du = self.in_place_update(self._u_new)
+
+        if self._info and self._rank == 0:
+            print('Status     for CurrentCoupling5DDensity:', info['success'])
+            print('Iterations for CurrentCoupling5DDensity:', info['niter'])
+            print('Maxdiff up for CurrentCoupling5DDensity:', max_du)
             print()

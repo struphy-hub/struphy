@@ -195,9 +195,9 @@ class ButcherTableau:
         return self._n_stages
 
 
-class Pusher_iteration:
+class Pusher_iteration_Gonzalez:
     """
-    Wrapper class for particle pushing with iterative solver.
+    Wrapper class for particle pushing with discrete_gradient scheme (Gonzalez, mid-point).
 
     Parameters
     ----------
@@ -254,10 +254,7 @@ class Pusher_iteration:
             verbose : bool
                 Whether to print some info or not.
         """
-        # TODO: only applicable to Particle5D case! if we have any iterative solver with Particle6D then we should generalize
-        # TODO: maybe we can modulize ... discrete gradient method, fixed-point iterative solver ...
-
-        # save initial etas in columns 9:12
+        # save initial etas and v_parallel in columns 9:13
         particles.markers[~particles.holes, 9:13] = particles.markers[~particles.holes, 0:4]
 
         # prepare the iteration:
@@ -277,12 +274,134 @@ class Pusher_iteration:
             self._pusher_eval_gradI(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
             particles.mpi_sort_markers()
 
-            # print stage info
-            if self._derham.comm.Get_rank() == 0 and verbose:
-                print(self._pusher_name, 'done. (stage :', stage + 1, ')')
+            if stage == self._maxiter-1 and verbose:
+                not_converged = np.logical_not(particles.markers[:,23]==-1.)
+                print('Number of not converged particles:', np.count_nonzero(not_converged))
+                # print('Non converged partices:')
+                # print(particles.markers[not_converged, 0:13])
+                # print('NUmber of iterations', np.average(particles.markers[~particles.holes,20])+1)
 
         # clear buffer columns 9-23 for multi-stage pushers
-        particles.markers[~particles.holes, 9:24] = 0.
+        particles.markers[~particles.holes, 9:28] = 0.
+
+    @property
+    def derham(self):
+        """ Discrete derham sequence.
+        """
+        return self._derham
+
+    @property
+    def domain(self):
+        """ Mapping from logical unit cube to physical domain.
+        """
+        return self._domain
+
+    @property
+    def n_stages(self):
+        """ Number of stages of the pusher.
+        """
+        return self._n_stages
+
+    @property
+    def args_fem(self):
+        """ FEM and MPI related arguments taken by all pushers.
+        """
+        return self._args_fem
+
+    @property
+    def pusher_name(self):
+        """ The name of the pyccelized pusher kernel.
+        """
+        return self._pusher_name
+    
+
+class Pusher_iteration_Itoh:
+    """
+    Wrapper class for particle pushing with discrete_gradient scheme (Itoh_Newton).
+
+    Parameters
+    ----------
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete de Rham sequence on the logical unit cube.
+
+        domain : struphy.geometry.domains
+            All things mapping.
+
+        pusher_name : str
+            The name of the pusher in the file struphy.pic.pusher_kernels.
+
+        n_stages : int
+            Number of stages of the pusher (e.g. 4 for RK4)
+    """
+
+    def __init__(self, derham, domain, pusher_name, maxiter=10, tol=1.e-12):
+
+        self._derham = derham
+        self._domain = domain
+        self._maxiter = maxiter
+        self._tol = tol
+
+        self._args_fem = (derham.domain_array[derham.comm.Get_rank(), :],
+                          np.array(derham.p),
+                          derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
+                          np.array(derham.Vh['0'].starts),
+                          np.array(derham.Vh['1'].starts),
+                          np.array(derham.Vh['2'].starts),
+                          np.array(derham.Vh['3'].starts))
+
+        # select kernels
+        self._pusher_name = pusher_name
+        self._pusher = getattr(pushers, self._pusher_name)
+        self._pusher_prepare = getattr(utilities, self._pusher_name + '_prepare')
+        self._pusher_prepare1 = getattr(utilities, self._pusher_name + '_prepare1')
+        self._pusher_prepare2 = getattr(utilities, self._pusher_name + '_prepare2')
+
+    def __call__(self, particles, dt, *args_opt, mpi_sort=None, verbose=False):
+        """
+        Applies the chosen pusher kernel by a time step dt, applies kinetic boundary conditions and performs MPI sorting.
+
+        Parameters
+        ----------
+            particles : struphy.pic.particles.Particles6D
+                The particles object holding the markers of shape (Np, 16) to push.
+
+            dt : float
+                The time step.
+
+            args_opt : tuple
+                Optional arguments needed for the pushing (typically spline coefficients for field evaluation).
+
+            verbose : bool
+                Whether to print some info or not.
+        """
+        # save initial etas and v_parallel in columns 9:13
+        particles.markers[~particles.holes, 9:13] = particles.markers[~particles.holes, 0:4]
+
+        # prepare the iteration:
+        self._pusher_prepare(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
+        particles.mpi_sort_markers()
+
+        # start iteration
+        for stage in range(self._maxiter):
+
+            self._pusher_prepare1(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
+            particles.mpi_sort_markers()
+
+            self._pusher_prepare2(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
+            particles.mpi_sort_markers()
+
+            self._pusher(particles.markers, dt, stage, self._maxiter, self._tol, *self.args_fem, *self.domain.args_map, *args_opt)
+            particles.mpi_sort_markers()
+
+            if stage == self._maxiter-1 and verbose:
+                not_converged = np.logical_not(particles.markers[:,13]==-1.)
+                print('Number of not converged particles:', np.count_nonzero(not_converged))
+                # print('Non converged partices:')
+                # print(particles.markers[not_converged, 0:13])
+                # print('Number of iterations', np.average(particles.markers[~particles.holes,14])+1)
+                
+        # clear buffer columns 9-23 for multi-stage pushers
+        particles.markers[~particles.holes, 9:25] = 0.
 
     @property
     def derham(self):
