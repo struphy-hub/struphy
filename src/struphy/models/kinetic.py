@@ -381,12 +381,21 @@ class DeltaFVlasovMaxwell(StruphyModel):
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
 
-        # self._propagators += [propagators_markers.StepStaticEfield(
-        #     self._electrons,
-        #     e_field=self._e_background + self._e,
-        #     kappa=self.kappa)]
-        # if self._rank == 0:
-        #     print("\nAdded Step StaticEfield\n")
+        self._propagators += [propagators_markers.PushEta(
+            self._electrons,
+            algo=electron_params['push_algos']['eta'],
+            bc_type=electron_params['markers']['bc_type'],
+            f0=None)]  # no conventional weights update here, thus f0=None
+        if self._rank == 0:
+            print("Added Step PushEta\n")
+
+        # Only add StepVinEfield if e-field is non-zero, otherwise it is more expensive
+        self._propagators += [propagators_markers.StepVinEfield(
+            self._electrons,
+            e_field=self._e_background + self._e,
+            kappa=self.kappa)]
+        if self._rank == 0:
+            print("Added Step VinEfield\n")
 
         self._propagators += [propagators_markers.PushVxB(
             self._electrons,
