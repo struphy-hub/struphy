@@ -8,7 +8,7 @@ import yaml
 from struphy.psydac_api.psydac_derham import Derham
 from struphy.psydac_api.fields import Field
 from struphy.kinetic_background import analytical
-from struphy.models.utilities import setup_domain_mhd
+from struphy.models.setup import setup_domain_mhd
 
 from tqdm import tqdm
 

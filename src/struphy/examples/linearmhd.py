@@ -63,7 +63,7 @@ def diagnostics():
     B0z = params['mhd_equilibrium']['HomogenSlab']['B0z']
 
     p0 = (2*params['mhd_equilibrium']['HomogenSlab']
-          ['beta']/100)/(B0x**2 + B0y**2 + B0z**2)
+          ['beta'])/(B0x**2 + B0y**2 + B0z**2)
     n0 = params['mhd_equilibrium']['HomogenSlab']['n0']
 
     disp_params = {'B0x': B0x, 

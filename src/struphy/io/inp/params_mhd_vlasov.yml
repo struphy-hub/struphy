@@ -64,8 +64,8 @@ fluid :
 kinetic :
     energetic_ions :
         phys_params:
-            A : 1  # mass number in units of proton mass
-            Z : 1 # signed charge number in units of elementary charge
+            A : 4  # mass number in units of proton mass
+            Z : 2 # signed charge number in units of elementary charge
         markers :
             type    : full_f # full_f, control_variate, or delta_f
             ppc     : 200 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)

@@ -3,7 +3,23 @@ import numpy as np
 
 def derive_units(Z_bulk=1, A_bulk=1., x=1., B=1., n=1., time_scale='alfvén'):
     """
-    Computes derived physics units of Struphy quantities.
+    Computes Struphy units used in Struphy model implementations.
+    
+    Input units from parameter file:
+    
+        * Length (m)
+        * Magnetic field (T)
+        * number density (10^20 1/m^3)
+        
+    Velocity unit must be defined in each model as one of "light", "alfvén" or "cyclotron":
+    
+        * Velocity (m/s)
+        
+    Derived units using mass and charge number of bulk species:
+    
+        * Time (s)
+        * Mass density (kg/m^3)
+        * Pressure (Pa)
 
     Parameters
     ---------
@@ -27,15 +43,11 @@ def derive_units(Z_bulk=1, A_bulk=1., x=1., B=1., n=1., time_scale='alfvén'):
 
     Returns
     -------
-    units_basic : dict
+    units : dict
         Basic units for time, length, mass and magnetic field.
 
-    units_der : dict
+    units : dict
         Derived units for velocity, pressure, mass density and particle density.
-
-    units_dimless :  dict
-        Some dimensionless quantities:
-            * alpha = omega_p / omega_c, ratio of bulk plasma to bulk cyclotron frequency.
     """
 
     # physics constants
@@ -46,52 +58,33 @@ def derive_units(Z_bulk=1, A_bulk=1., x=1., B=1., n=1., time_scale='alfvén'):
     kB = 1.380649e-23  # Boltzmann constant (J/K)
     c = 299792458  # speed of light (m/s)
 
-    # prescribed units
-    x_unit = x * 1
-    B_unit = B * 1
-    n_unit = n * 1e20
+    units = {}
 
-    # basic units in SI units (time, length, particle density and magnetic field)
-    units_basic = {}
-
+    # length (m)
+    units['x'] = x
+    # magnetic field (T)
+    units['B'] = B
+    # number density (1/m^3)
+    units['n'] = n * 1e20
+    # velocity (m/s)
     if time_scale == 'light':
-        v_unit = 1*c
+        units['v'] = 1*c
     elif time_scale == 'alfvén':
-        v_unit = B_unit / np.sqrt(n_unit * A_bulk * mH * mu0)
+        units['v'] = units['B'] / np.sqrt(units['n'] * A_bulk * mH * mu0)
     elif time_scale == 'cyclotron':
-        v_unit = Z_bulk * e * B_unit / (A_bulk * mH) / (2*np.pi) * x_unit
+        units['v'] = Z_bulk * e * units['B'] / (A_bulk * mH) / (2*np.pi) * units['x']
+    # time (s)
+    units['t'] = units['x'] / units['v']
+    # pressure (Pa)
+    units['p'] = A_bulk * mH * units['n'] * units['x']**3 / \
+        (units['x'] * units['t']**2) # this is equal to B^2/(mu0*n) if time_scale='alfvén'
+    # mass density (kg/m^3)
+    units['rho'] = A_bulk * mH * units['n']
 
-    units_basic['t'] = x_unit / v_unit
-    units_basic['x'] = x_unit
-    units_basic['m'] = A_bulk * mH * n_unit * x_unit**3
-    units_basic['B'] = B_unit
-
-    # derived units
-    units_der = {}
-
-    units_der['v'] = units_basic['x'] / units_basic['t']
-    units_der['p'] = units_basic['m'] / \
-        (units_basic['x'] * units_basic['t']**2)
-    units_der['rho'] = units_basic['m'] / units_basic['x']**3
-    units_der['n'] = units_basic['m'] / units_basic['x']**3 / (A_bulk * mH)
-
-    # relevant dimensionless quantities
-    units_dimless = {}
-
-    # unit of bulk plasma frequency
-    omega_p = np.sqrt(n_unit * (Z_bulk * e)**2 / (eps0 * A_bulk * mH))
-
-    # unit of bulk cyclotron frequency
-    omega_c = Z_bulk * e * B_unit / (A_bulk * mH)
-
-    # relevant unit parameters
-    units_dimless['alpha'] = omega_p / omega_c
-    units_dimless['kappa'] = omega_c * units_basic['t']
-
-    return units_basic, units_der, units_dimless
+    return units
 
 
-def setup_domain_mhd(params):
+def setup_domain_mhd(params, units=None):
     """
     Creates the domain object and MHD equilibrium for a given parameter file.
 
@@ -99,6 +92,9 @@ def setup_domain_mhd(params):
     ----------
     params : dict
         The full simulation parameter dictionary.
+        
+    units : dict
+        All Struphy units.
 
     Returns
     -------
@@ -118,12 +114,15 @@ def setup_domain_mhd(params):
 
         mhd_type = params['mhd_equilibrium']['type']
         mhd_class = getattr(equils, mhd_type)
-        mhd = mhd_class(**params['mhd_equilibrium'][mhd_type])
+
+        if mhd_type == 'EQDSKequilibrium':
+            mhd = mhd_class(units=units, **params['mhd_equilibrium'][mhd_type])
+        else:
+            mhd = mhd_class(**params['mhd_equilibrium'][mhd_type])
 
         # for logical MHD equilibria, the domain comes with the equilibrium
         if isinstance(mhd, LogicalMHDequilibrium):
             domain = mhd.domain
-
         # for cartesian MHD equilibria, the domain can be chosen idependently
         else:
             dom_type = params['geometry']['type']
@@ -239,9 +238,11 @@ def setup_derham(params_grid, comm, domain=None, mpi_dims_mask=None):
                     domain=domain)
 
     if comm.Get_rank() == 0:
-        print('MPI processes per direction:',
+        print('\nDERHAM:')
+        print('MPI proc. per dir.:'.ljust(25),
               derham.domain_decomposition.nprocs)
-        print('')
+        print('use polar splines:'.ljust(25), derham.polar_ck == 1)
+        print('domain on process 0:'.ljust(25), derham.domain_array[0])
 
     return derham
 
@@ -284,17 +285,17 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
 
     # prepare output folder
     if mpi_rank == 0:
-        print('')
+        print('\nPREPARATION AND CLEAN-UP:')
 
         # create output folder if it does not exit
         if not os.path.exists(path_out):
             os.mkdir(path_out)
-            print('\nCreated folder ' + path_out)
+            print('Created folder ' + path_out)
             
         # create data folder in output folder if it does not exist
         if not os.path.exists(os.path.join(path_out, 'data/')):
             os.mkdir(os.path.join(path_out, 'data/'))
-            print('\nCreated folder ' + os.path.join(path_out, 'data/'))
+            print('Created folder ' + os.path.join(path_out, 'data/'))
 
         # clean output folder if it already exists
         else:
@@ -303,19 +304,19 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
             folder = os.path.join(path_out, 'post_processing')
             if os.path.exists(folder):
                 shutil.rmtree(folder)
-                print('Removed folder ' + folder)
+                print('Removed existing folder ' + folder)
 
             # remove meta file
             file = os.path.join(path_out, 'meta.txt')
             if os.path.exists(file):
                 os.remove(file)
-                print('Removed file ' + file)
+                print('Removed existing file ' + file)
 
             # remove profiling file
             file = os.path.join(path_out, 'profile_tmp')
             if os.path.exists(file):
                 os.remove(file)
-                print('Removed file ' + file)
+                print('Removed existing file ' + file)
 
             # remove .png files (if NOT a restart)
             if not restart:
@@ -323,13 +324,13 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
                 for n, file in enumerate(files):
                     os.remove(file)
                     if n < 10:  # print only ten statements in case of many processes
-                        print('Removed file ' + file)
+                        print('Removed existing file ' + file)
                         
                 files = glob.glob(os.path.join(path_out, 'data', '*.hdf5'))
                 for n, file in enumerate(files):
                     os.remove(file)
                     if n < 10:  # print only ten statements in case of many processes
-                        print('Removed file ' + file)
+                        print('Removed existing file ' + file)
 
     # save "parameters" dictionary as .yml file
     if isinstance(parameters, dict):
@@ -358,41 +359,37 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
                 path_out, 'parameters.yml'))
 
         # print simulation info
-        print('')
-        print('model:'.ljust(30), model_name)
-        print('parameter file:'.ljust(30), parameters_path)
-        print('output folder:'.ljust(30), path_out)
-        print('restart:'.ljust(30), restart)
-        print('max wall-clock time [min]:'.ljust(30), max_sim_time)
-        print('number of MPI processes:'.ljust(30), mpi_size)
-
+        print('\nMETADATA:')
+        print('platform:'.ljust(25), sysconfig.get_platform())
+        print('python version:'.ljust(25), sysconfig.get_python_version())
+        print('model:'.ljust(25), model_name)
+        print('MPI processes:'.ljust(25), mpi_size)
+        print('parameter file:'.ljust(25), parameters_path)
+        print('output folder:'.ljust(25), path_out)
+        print('restart:'.ljust(25), restart)
+        print('max wall-clock [min]:'.ljust(25), max_sim_time)
+        
         # print domain info
-        _longest = len(max(params['geometry'][params['geometry']['type']], key=len))
-        print('\nDOMAIN parameters:')
-        print(f'domain type :', params['geometry']['type'])
-        print(f'domain parameters :')
+        print('\nDOMAIN:')
+        print(f'type:'.ljust(25), params['geometry']['type'])
         for key, val in params['geometry'][params['geometry']['type']].items():
             if key not in {'cx', 'cy', 'cz'}:
-                print(key.ljust(_longest), ':', val)
+                print((key + ':').ljust(25), val)
 
         # print grid info
-        print('\nGRID parameters:')
-        print(f'number of elements', ':', params['grid']['Nel'])
-        print(f'spline degrees    ', ':', params['grid']['p'])
-        print(f'periodic bcs      ', ':', params['grid']['spl_kind'])
-        print(f'hom. Dirichlet bc ', ':', params['grid']['bc'])
-        print(f'GL quad pts (L2)  ', ':', params['grid']['nq_el'])
-        print(f'GL quad pts (hist)', ':', params['grid']['nq_pr'])
-
-        # print units info
-        objs = [fluid, kinetic, hybrid, toy]
-        for obj in objs:
-            try:
-                model = getattr(obj, model_name)
-            except:
-                pass
-        model.model_units(params, verbose=True)
-        print('')
+        print('\nGRID:')
+        print(f'number of elements:'.ljust(25), params['grid']['Nel'])
+        print(f'spline degrees:'.ljust(25), params['grid']['p'])
+        print(f'periodic bcs:'.ljust(25), params['grid']['spl_kind'])
+        print(f'hom. Dirichlet bc:'.ljust(25), params['grid']['bc'])
+        print(f'GL quad pts (L2):'.ljust(25), params['grid']['nq_el'])
+        print(f'GL quad pts (hist):'.ljust(25), params['grid']['nq_pr'])
+        
+        # print time info
+        print('\nTIME:')
+        print(f'time step:'.ljust(25), params['time']['dt'])
+        print(f'final time:'.ljust(25), params['time']['Tend'])
+        print(f'splitting algo:'.ljust(25), params['time']['split_algo'])
 
         # write meta data to output folder
         with open(path_out + '/meta.txt', 'w') as f:

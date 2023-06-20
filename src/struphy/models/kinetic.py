@@ -86,15 +86,17 @@ class LinearVlasovMaxwell(StruphyModel):
 
         # kinetic background
         assert electron_params['background']['type'] == 'Maxwellian6DUniform', \
-            "The background distribution function must be a uniform Maxwellian!"
+            AssertionError(
+                "The background distribution function must be a uniform Maxwellian!")
 
         self._maxwellian_params = electron_params['background']['Maxwellian6DUniform']
-        self._f0 = getattr(kin_ana, 'Maxwellian6DUniform')(
-            **self._maxwellian_params)
+        self.kinetic['electrons']['obj']._f_backgr = getattr(
+            kin_ana, 'Maxwellian6DUniform')(**self._maxwellian_params)
+        self._f0 = self._electrons.f_backgr
 
         # Get coupling strength
-        self.alpha = self.units_dimless['alpha']
-        self.kappa = self.units_dimless['kappa']
+        self.alpha = self.eq_params['electrons']['alpha_unit']
+        self.kappa = 1. / self.eq_params['electrons']['epsilon_unit']
 
         # Get Poisson solver params
         self._poisson_params = params['solvers']['solver_poisson']
@@ -352,12 +354,13 @@ class DeltaFVlasovMaxwell(StruphyModel):
             "The background distribution function must be a uniform Maxwellian!"
 
         self._maxwellian_params = electron_params['background']['Maxwellian6DUniform']
-        self._f0 = getattr(kin_ana, 'Maxwellian6DUniform')(
-            **self._maxwellian_params)
+        self.kinetic['electrons']['obj']._f_backgr = getattr(
+            kin_ana, 'Maxwellian6DUniform')(**self._maxwellian_params)
+        self._f0 = self._electrons.f_backgr
 
         # Get coupling strength
-        self.alpha = self.units_dimless['alpha']
-        self.kappa = self.units_dimless['kappa']
+        self.alpha = self.eq_params['electrons']['alpha_unit']
+        self.kappa = 1. / self.eq_params['electrons']['epsilon_unit']
 
         # Get Poisson solver params
         self._poisson_params = params['solvers']['solver_poisson']

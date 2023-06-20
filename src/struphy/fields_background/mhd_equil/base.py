@@ -7,7 +7,8 @@ from pyevtk.hl import gridToVTK
 class MHDequilibrium(metaclass=ABCMeta):
     """
     Base class for Struphy MHD equilibria.
-    The callables B, J, p and n have to be provided through the child classes `CartesianMHDequilibrium` or `LogicalMHDequilibrium`.
+    The callables B, J, p and n have to be provided through the child classes `CartesianMHDequilibrium`, `LogicalMHDequilibrium`
+    or `AxisymmMHDequilibrium`.
     The base class provides transformations of callables to different representations or coordinates.
     For logical equilibria, the methods b2, j2, p0 and n0 are overidden by the child class.   
     """    

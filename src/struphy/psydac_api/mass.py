@@ -102,7 +102,7 @@ class WeightedMassOperators:
 
         if not hasattr(self, '_M0'):
             fun = [[lambda e1, e2, e3: self.sqrt_g(e1, e2, e3)]]
-            self._M0 = self.assemble_weighted_mass(fun, 'H1', 'H1')
+            self._M0 = self.assemble_weighted_mass(fun, 'H1', 'H1', name='M0')
 
         return self._M0
 
@@ -124,7 +124,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m,
                                 n=n: self.Ginv(e1, e2, e3)[:, :, :, m, n] * self.sqrt_g(e1, e2, e3)]
 
-            self._M1 = self.assemble_weighted_mass(fun, 'Hcurl', 'Hcurl')
+            self._M1 = self.assemble_weighted_mass(fun, 'Hcurl', 'Hcurl', name='M1')
 
         return self._M1
 
@@ -146,7 +146,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m,
                                 n=n: self.G(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3)]
 
-            self._M2 = self.assemble_weighted_mass(fun, 'Hdiv', 'Hdiv')
+            self._M2 = self.assemble_weighted_mass(fun, 'Hdiv', 'Hdiv', name='M2')
 
         return self._M2
 
@@ -162,7 +162,7 @@ class WeightedMassOperators:
 
         if not hasattr(self, '_M3'):
             fun = [[lambda e1, e2, e3: 1. / self.sqrt_g(e1, e2, e3)]]
-            self._M3 = self.assemble_weighted_mass(fun, 'L2', 'L2')
+            self._M3 = self.assemble_weighted_mass(fun, 'L2', 'L2', name='M3')
 
         return self._M3
 
@@ -184,7 +184,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m,
                                 n=n: self.G(e1, e2, e3)[:, :, :, m, n] * self.sqrt_g(e1, e2, e3)]
 
-            self._Mv = self.assemble_weighted_mass(fun, 'H1vec', 'H1vec')
+            self._Mv = self.assemble_weighted_mass(fun, 'H1vec', 'H1vec', name='Mv')
 
         return self._Mv
 
@@ -212,7 +212,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.Ginv(e1, e2, e3)[:, :, :, m, n] * self.sqrt_g(
                         e1, e2, e3) * self.weights['eq_mhd'].n0(e1, e2, e3, squeeze_out=False)]
 
-            self._M1n = self.assemble_weighted_mass(fun, 'Hcurl', 'Hcurl')
+            self._M1n = self.assemble_weighted_mass(fun, 'Hcurl', 'Hcurl', name='M1n')
 
         return self._M1n
 
@@ -237,7 +237,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.G(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(
                         e1, e2, e3) * self.weights['eq_mhd'].n0(e1, e2, e3, squeeze_out=False)]
 
-            self._M2n = self.assemble_weighted_mass(fun, 'Hdiv', 'Hdiv')
+            self._M2n = self.assemble_weighted_mass(fun, 'Hdiv', 'Hdiv', name='M2n')
 
         return self._M2n
 
@@ -262,7 +262,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.G(e1, e2, e3)[:, :, :, m, n] * self.sqrt_g(
                         e1, e2, e3) * self.weights['eq_mhd'].n0(e1, e2, e3, squeeze_out=False)]
 
-            self._Mvn = self.assemble_weighted_mass(fun, 'H1vec', 'H1vec')
+            self._Mvn = self.assemble_weighted_mass(fun, 'H1vec', 'H1vec', name='Mvn')
 
         return self._Mvn
 
@@ -296,7 +296,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m,
                                 n=n: (self.Ginv(e1, e2, e3) @ rot_J(e1, e2, e3))[:, :, :, m, n]]
 
-            self._M1J = self.assemble_weighted_mass(fun, 'Hdiv', 'Hcurl')
+            self._M1J = self.assemble_weighted_mass(fun, 'Hdiv', 'Hcurl', name='M1J')
 
         return self._M1J
 
@@ -330,7 +330,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m,
                                 n=n: rot_J(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3)]
 
-            self._M2J = self.assemble_weighted_mass(fun, 'Hdiv', 'Hdiv')
+            self._M2J = self.assemble_weighted_mass(fun, 'Hdiv', 'Hdiv', name='M2J')
 
         return self._M2J
 
@@ -364,7 +364,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m,
                                 n=n: rot_J(e1, e2, e3)[:, :, :, m, n]]
 
-            self._MvJ = self.assemble_weighted_mass(fun, 'Hdiv', 'H1vec')
+            self._MvJ = self.assemble_weighted_mass(fun, 'Hdiv', 'H1vec', name='MvJ')
 
         return self._MvJ
     
@@ -398,7 +398,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m,
                                 n=n: rot_B(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3)]
 
-            self._M2B = self.assemble_weighted_mass(fun, 'Hdiv', 'Hdiv')
+            self._M2B = self.assemble_weighted_mass(fun, 'Hdiv', 'Hdiv', name='M2B')
 
         return self._M2B
     
@@ -432,14 +432,14 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m,
                                 n=n: rot_B(e1, e2, e3)[:, :, :, m, n] / (self.sqrt_g(e1, e2, e3) * self.weights['eq_mhd'].n0(e1, e2, e3, squeeze_out=False))]
 
-            self._M2BN = self.assemble_weighted_mass(fun, 'Hdiv', 'Hdiv')
+            self._M2BN = self.assemble_weighted_mass(fun, 'Hdiv', 'Hdiv', name='M2Bn')
 
         return self._M2BN
 
     #######################################
     # Wrapper around WeightedMassOperator #
     #######################################
-    def assemble_weighted_mass(self, fun: list, V_id: str, W_id: str):
+    def assemble_weighted_mass(self, fun: list, V_id: str, W_id: str, name=None):
         r""" Weighted mass matrix :math:`V^\alpha_h \to V^\beta_h` with given (matrix-valued) weight function :math:`W(\boldsymbol \eta)`:
 
         .. math::
@@ -460,6 +460,9 @@ class WeightedMassOperators:
 
         W_id : str
             Specifier for the co-domain of the operator ('H1', 'Hcurl', 'Hdiv', 'L2' or 'H1vec').
+        
+        name: str
+            Name of the operator.
 
         Returns
         -------
@@ -488,7 +491,7 @@ class WeightedMassOperators:
                                    V_boundary_op=self.derham.B[V_id], W_boundary_op=self.derham.B[W_id],
                                    weights_info=fun, transposed=False)
 
-        out.assemble()
+        out.assemble(name=name)
 
         return out
 
@@ -900,7 +903,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
         return M
 
-    def assemble(self, weights=None, clear=True, verbose=True):
+    def assemble(self, weights=None, clear=True, verbose=True, name=None):
         """
         Assembles a weighted mass matrix (StencilMatrix/BlockLinearOperator) corresponding to given domain/codomain spline spaces.
 
@@ -919,6 +922,9 @@ class WeightedMassOperator(LinOpWithTransp):
 
         verbose : bool
             Whether to do some printing.
+            
+        name : str
+            Name of the operator.
         """
 
         # clear data
@@ -945,7 +951,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
         if rank == 0 and verbose:
             print(
-                f'Assembling matrix of WeightedMassOperator with V={self._domain_symbolic_name}, W={self._codomain_symbolic_name}.')
+                f'Assembling matrix of WeightedMassOperator "{name}" with V={self._domain_symbolic_name}, W={self._codomain_symbolic_name}.')
 
         # collect domain/codomain TensorFemSpaces for each component in tuple
         if self._transposed:

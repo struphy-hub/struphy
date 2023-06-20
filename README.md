@@ -9,7 +9,7 @@ in the division [NMPP (Numerical Methods for Plasma Physics)](https://www.ipp.mp
 
 * Investigate plasma physics problems with multiple [models equations](https://struphy.pages.mpcdf.de/struphy/sections/models.html) containing fluid and/or kinetic components 
 * Simulate each model on [curved domains](https://struphy.pages.mpcdf.de/struphy/sections/domains.html) 
-* Load a variety of [MHD equilibira](https://struphy.pages.mpcdf.de/struphy/sections/mhd_equils.html) and [kinetic backgrounds](https://struphy.pages.mpcdf.de/struphy/sections/kinetic_backgrounds.html)
+* Load a variety of [MHD equilibira](https://struphy.pages.mpcdf.de/struphy/sections/mhd_equils.html#module-struphy.fields_background.mhd_equil.equils) and [kinetic backgrounds](https://struphy.pages.mpcdf.de/struphy/sections/kinetic_backgrounds.html)
 * Use [diagnostic tools](https://struphy.pages.mpcdf.de/struphy/sections/diagnostics.html) to visualize results
 * Compare simulations to analytic [dispersion relations](https://struphy.pages.mpcdf.de/struphy/sections/diagnostics.html#module-struphy.dispersion_relations.analytic)
 * Solve the [MHD eigenvalue problem](https://struphy.pages.mpcdf.de/struphy/index.html) in axisymmetric toroidal geometries

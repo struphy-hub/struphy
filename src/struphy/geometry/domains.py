@@ -55,10 +55,10 @@ class Tokamak(PoloidalSplineTorus):
     def __init__(self, **params):
         
         from struphy.fields_background.mhd_equil.base import AxisymmMHDequilibrium
-        from struphy.fields_background.mhd_equil.equils import EQDSKequilibrium
+        from struphy.fields_background.mhd_equil.equils import AdhocTorus
         
         # set default
-        eq_default = EQDSKequilibrium()
+        eq_default = AdhocTorus()
         
         params_default = {'equilibrium': eq_default,
                           'Nel': [8, 32], 
