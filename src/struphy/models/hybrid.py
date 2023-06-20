@@ -109,20 +109,10 @@ class LinearMHDVlasovCC(StruphyModel):
         solver_params_3 = params['solvers']['solver_3']
         solver_params_4 = params['solvers']['solver_4']
 
-        # compute coupling parameter kappa
-        units_basic, units_der, units_dimless = self.model_units(
-            params, verbose=False)
-
-        ee = 1.602176634e-19  # elementary charge (C)
-        mH = 1.67262192369e-27  # proton mass (kg)
-
+        # compute coupling parameters
         Ab = params['fluid']['mhd']['phys_params']['A']
-        Zb = params['fluid']['mhd']['phys_params']['Z']
         Ah = params['kinetic']['energetic_ions']['phys_params']['A']
-        Zh = params['kinetic']['energetic_ions']['phys_params']['Z']
-
-        omega_ch = (Zh*ee*units_basic['B'])/(Ah*mH)
-        kappa = omega_ch*units_basic['t']
+        kappa = 1. / self.eq_params['energetic_ions']['epsilon_unit']
 
         if abs(kappa - 1) < 1e-6:
             kappa = 1.
@@ -131,12 +121,6 @@ class LinearMHDVlasovCC(StruphyModel):
         self._coupling_params['Ab'] = Ab
         self._coupling_params['Ah'] = Ah
         self._coupling_params['kappa'] = kappa
-
-        if comm.Get_rank() == 0:
-            print('Model parameters:')
-            print(f'Ah: {Ah}')
-            print(f'Ab: {Ab}')
-            print(f'kappa: {kappa}\n')
 
         # background distribution function used as control variate
         if params['kinetic']['energetic_ions']['markers']['type'] == 'control_variate':
@@ -400,20 +384,10 @@ class LinearMHDVlasovPC(StruphyModel):
         solver_params_2 = params['solvers']['solver_2']
         solver_params_3 = params['solvers']['solver_3']
 
-        # compute coupling parameter kappa
-        units_basic, units_der, units_dimless = self.model_units(
-            params, verbose=False)
-
-        ee = 1.602176634e-19  # elementary charge (C)
-        mH = 1.67262192369e-27  # proton mass (kg)
-
+        # compute coupling parameters
         Ab = params['fluid']['mhd']['phys_params']['A']
-        Zb = params['fluid']['mhd']['phys_params']['Z']
         Ah = params['kinetic']['energetic_ions']['phys_params']['A']
-        Zh = params['kinetic']['energetic_ions']['phys_params']['Z']
-
-        omega_ch = (Zh*ee*units_basic['B'])/(Ah*mH)
-        kappa = omega_ch*units_basic['t']
+        kappa = 1. / self.eq_params['energetic_ions']['epsilon_unit']
 
         if abs(kappa - 1) < 1e-6:
             kappa = 1.
@@ -684,20 +658,10 @@ class LinearMHDDriftkineticCC(StruphyModel):
         solver_params_4 = params['solvers']['solver_4']
         solver_params_5 = params['solvers']['solver_5']
 
-        # compute coupling parameter kappa
-        units_basic, units_der, units_dimless = self.model_units(
-            params, verbose=False)
-
-        ee = 1.602176634e-19  # elementary charge (C)
-        mH = 1.67262192369e-27  # proton mass (kg)
-
+        # compute coupling parameters
         Ab = params['fluid']['mhd']['phys_params']['A']
-        Zb = params['fluid']['mhd']['phys_params']['Z']
         Ah = params['kinetic']['energetic_ions']['phys_params']['A']
-        Zh = params['kinetic']['energetic_ions']['phys_params']['Z']
-
-        omega_ch = (Zh*ee*units_basic['B'])/(Ah*mH)
-        kappa = omega_ch*units_basic['t']
+        kappa = 1. / self.eq_params['energetic_ions']['epsilon_unit']
 
         self._coupling_params = {}
         self._coupling_params['Ab'] = Ab

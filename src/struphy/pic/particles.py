@@ -121,6 +121,16 @@ class Particles(metaclass=ABCMeta):
         """ Parameters for markers.
         """
         return self._params
+    
+    @property
+    def f_init(self):
+        assert hasattr(self, '_f_init'), AttributeError('The method "initialize_weights" has not yet been called.')
+        return self._f_init
+    
+    @property
+    def f_backgr(self):
+        assert hasattr(self, '_f_backgr'), AttributeError('No background distribution available, maybe this is a full-f model?')
+        return self._f_backgr
 
     @property
     def domain_decomp(self):
@@ -425,12 +435,12 @@ class Particles(metaclass=ABCMeta):
         fun_name = fun_params['type']
 
         if fun_name in fun_params:
-            f_init = getattr(analytical, fun_name)(**fun_params[fun_name])
+            self._f_init = getattr(analytical, fun_name)(**fun_params[fun_name])
         else:
-            f_init = getattr(analytical, fun_name)()
+            self._f_init = getattr(analytical, fun_name)()
 
         # compute w0 and save at vdim + 5
-        self._markers[~self._holes, self.vdim + 5] = f_init(
+        self._markers[~self._holes, self.vdim + 5] = self._f_init(
             *self.markers_wo_holes[:, :self.vdim + 3].T) / self.markers_wo_holes[:, self.vdim + 4]
 
         # compute weights and save at vdim + 3
@@ -438,13 +448,13 @@ class Particles(metaclass=ABCMeta):
             fun_name = bckgr_params['type']
 
             if fun_name in bckgr_params:
-                f_bckgr = getattr(analytical, fun_name)(
+                self._f_backgr = getattr(analytical, fun_name)(
                     **bckgr_params[fun_name])
             else:
-                f_bckgr = getattr(analytical, fun_name)()
+                self._f_backgr = getattr(analytical, fun_name)()
 
             self._markers[~self._holes, self.vdim + 3] = self.markers_wo_holes[:, self.vdim + 5] - \
-                f_bckgr(*self.markers_wo_holes[:, :self.vdim + 3].T) / \
+                self.f_backgr(*self.markers_wo_holes[:, :self.vdim + 3].T) / \
                 self.markers_wo_holes[:, self.vdim + 4]
         else:
             self._markers[~self._holes, self.vdim + 3] = \

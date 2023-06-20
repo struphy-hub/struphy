@@ -1,6 +1,7 @@
 import numpy as np
 from struphy.models.base import StruphyModel
 
+
 class LinearMHD(StruphyModel):
     r'''Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
 
@@ -270,18 +271,8 @@ class LinearExtendedMHD(StruphyModel):
         else:
             self._ones[:] = 1.
 
-        # compute coupling parameter kappa
-        units_basic, units_der, units_dimless = self.model_units(
-            params, verbose=False)
-
-        ee = 1.602176634e-19  # elementary charge (C)
-        mH = 1.67262192369e-27  # proton mass (kg)
-
-        Ab = params['fluid']['mhd']['phys_params']['A']
-        Zb = params['fluid']['mhd']['phys_params']['Z']
-
-        omega_ch = (Zb*ee*units_basic['B'])/(Ab*mH)
-        kappa = omega_ch*units_basic['t']/(2.0 * np.pi)
+        # compute coupling parameters
+        kappa = 1. / self.eq_params['mhd']['epsilon_unit']
 
         if abs(kappa - 1) < 1e-6:
             kappa = 1.
@@ -385,8 +376,8 @@ class LinearExtendedMHD(StruphyModel):
         en_Btot = self._tmp_b1.dot(self._tmp_b2)/2.0
 
         self._scalar_quantities['en_B_tot'][0] = en_Btot
-        
-        
+
+
 # class ColdPlasma(StruphyModel):
 #     r'''Cold plasma model
 

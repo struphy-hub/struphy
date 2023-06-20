@@ -243,7 +243,7 @@ mhd_equilibrium
         B0x  : 0. # magnetic field in x
         B0y  : 0. # magnetic field in y
         B0z  : 1. # magnetic field in z
-        beta : 0. # plasma beta = 2*p*mu_0/B^2
+        beta : .1 # plasma beta = 2*p*mu_0/B^2
         n0   : 1. # number density
     ShearedSlab :
         a    : 1. # minor radius (Lx=a, Ly=2*pi*a) 

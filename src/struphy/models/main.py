@@ -24,7 +24,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     """
 
     from struphy.models import fluid, kinetic, hybrid, toy
-    from struphy.models.utilities import pre_processing
+    from struphy.models.setup import pre_processing
     from struphy.models.output_handling import DataContainer
 
     import numpy as np
@@ -58,10 +58,6 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
             pass
 
     model = model_class(params, comm)
-
-    # print plasma parameters to screen
-    if rank == 0:
-        model.print_plasma_params()
 
     # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
     data = DataContainer(path_out, comm=comm)
@@ -110,15 +106,14 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     save_keys_all, save_keys_end = model.initialize_data_output(data, size)
 
     if rank == 0:
-        print('\nInitial time series saved.')
+        print('\nINITIAL SCALAR QUANTITIES:')
         model.print_scalar_quantities()
 
     # ======================== main time loop ======================
     if rank == 0:
         split_algo = time_params['split_algo']
         print(
-            f'\nStart time integration with {split_algo} splitting algorithm')
-        print()
+            f'\nSTART TIME STEPPING WITH "{split_algo}" SPLITTING:')
 
     # time loop
     while True:

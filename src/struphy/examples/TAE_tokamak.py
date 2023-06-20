@@ -73,7 +73,7 @@ def diagnostics():
     import numpy as np
     import matplotlib.pyplot as plt
 
-    from struphy.models.utilities import setup_domain_mhd
+    from struphy.models.setup import setup_domain_mhd
     from struphy.diagnostics.continuous_spectra import get_mhd_continua_2d
     from struphy.dispersion_relations.analytic import MhdContinousSpectraCylinder
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space

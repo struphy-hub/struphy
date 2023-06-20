@@ -225,7 +225,7 @@ def struphy():
     parser_units.add_argument('-i', '--input',
                               type=str,
                               metavar='FILE',
-                              help='parameter file (.yml) relative to <install_path>/struphy/io/inp/ (default=parameters.yml)',
+                              help='parameter file (.yml) relative to current I/O path (default=parameters.yml)',
                               default='parameters.yml',)
 
     parser_units.add_argument('--input-abs',
@@ -274,7 +274,7 @@ def struphy():
     parser_pproc.add_argument('-d', '--dirr',
                               type=str,
                               metavar='DIR',
-                              help='simulation output folder to post-process relative to <install_path>/struphy/io/out/ (default=sim_1)',
+                              help='simulation output folder to post-process relative to current I/O path (default=sim_1)',
                               default='sim_1',)
 
     parser_pproc.add_argument('--dir-abs',
