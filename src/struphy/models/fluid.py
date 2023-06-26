@@ -251,7 +251,7 @@ class LinearExtendedMHD(StruphyModel):
         self._u = self.fluid['mhd']['u2']['obj'].vector
         self._p_i = self.fluid['mhd']['pi3']['obj'].vector
         self._p_e = self.fluid['mhd']['pe3']['obj'].vector
-
+        
         # extract necessary parameters
         alfven_solver = params['solvers']['solver_1']
         Hall_solver = params['solvers']['solver_2']
@@ -265,7 +265,11 @@ class LinearExtendedMHD(StruphyModel):
         self._p_i_eq = self.derham.P['3'](self.mhd_equil.p3)
         self._p_e_eq = self.derham.P['3'](self.mhd_equil.p3)
         self._ones = self._p_i.space.zeros()
-
+        #project background vector potential (1-form)
+        self._a_eq = self.derham.P['1']([self.mhd_equil.a1_1,
+                                         self.mhd_equil.a1_2,
+                                         self.mhd_equil.a1_3])
+        
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.
         else:
@@ -319,6 +323,7 @@ class LinearExtendedMHD(StruphyModel):
         self._scalar_quantities['en_B_eq'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B_tot'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+        self._scalar_quantities['helicity'] = np.empty(1, dtype=float)
 
         # temporary vectors for scalar quantities
         self._tmp_u1 = self.derham.Vh['2'].zeros()
@@ -343,6 +348,7 @@ class LinearExtendedMHD(StruphyModel):
 
         en_U = self._u.dot(self._tmp_u1)/2.0
         en_B = self._b.dot(self._tmp_b1)/2.0
+        helicity = self._a_eq.dot(self._tmp_b1)*2.0
         en_p_i = self._p_i.dot(self._ones)/(5.0/3.0 - 1.0)
         en_p_e = self._p_e.dot(self._ones)/(5.0/3.0 - 1.0)
 
@@ -350,7 +356,8 @@ class LinearExtendedMHD(StruphyModel):
         self._scalar_quantities['en_B'][0] = en_B
         self._scalar_quantities['en_p_i'][0] = en_p_i
         self._scalar_quantities['en_p_e'][0] = en_p_e
-
+        self._scalar_quantities['helicity'][0] = helicity
+        
         self._scalar_quantities['en_tot'][0] = en_U
         self._scalar_quantities['en_tot'][0] += en_B
         self._scalar_quantities['en_tot'][0] += en_p_i

@@ -14,8 +14,8 @@ units : # units not stated here can be viewed via "struphy units -h"
     n      : 1. # number density unit in 10^20 m^(-3)
 
 time :
-    dt         : 0.01 # time step
-    Tend       : 1.0 # simulation time interval is [0, Tend]
+    dt         : 0.0001 # time step
+    Tend       : 0.01 # simulation time interval is [0, Tend]
     split_algo : LieTrotter # LieTrotter | Strang
 
 geometry :

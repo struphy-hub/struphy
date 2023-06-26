@@ -16,6 +16,7 @@ from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compo
 
 from struphy.polar.linear_operators import PolarExtractionOperator
 
+from struphy.psydac_api.fields import Field
 
 class WeightedMassOperators:
     r"""
@@ -387,9 +388,21 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, '_M2B'):
-
+            
+            a_eq = self.derham.P['1']([self.weights['eq_mhd'].a1_1,
+                                         self.weights['eq_mhd'].a1_2,
+                                         self.weights['eq_mhd'].a1_3])
+            
+            tmp_a2 = self.derham.curl.dot(a_eq)
+            b02fun = Field('b02', 'Hdiv', self.derham)
+            b02fun.vector = tmp_a2
+            b02funx = lambda x, y, z : b02fun(x,y,z)[0]
+            b02funy = lambda x, y, z : b02fun(x,y,z)[1]
+            b02funz = lambda x, y, z : b02fun(x,y,z)[2]
+            #rot_B = RotationMatrix(
+                #self.weights['eq_mhd'].b2_1, self.weights['eq_mhd'].b2_2, self.weights['eq_mhd'].b2_3)
             rot_B = RotationMatrix(
-                self.weights['eq_mhd'].b2_1, self.weights['eq_mhd'].b2_2, self.weights['eq_mhd'].b2_3)
+                b02funx, b02funy, b02funz)
 
             fun = []
             for m in range(3):
@@ -421,10 +434,22 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, '_M2BN'):
-
+            
+            a_eq = self.derham.P['1']([self.weights['eq_mhd'].a1_1,
+                                         self.weights['eq_mhd'].a1_2,
+                                         self.weights['eq_mhd'].a1_3])
+            
+            tmp_a2 = self.derham.Vh['2'].zeros()
+            self.derham.curl.dot(a_eq, out=tmp_a2)
+            b02fun = Field('b02', 'Hdiv', self.derham)
+            b02fun.vector = tmp_a2
+            b02funx = lambda x, y, z : b02fun(x,y,z)[0]
+            b02funy = lambda x, y, z : b02fun(x,y,z)[1]
+            b02funz = lambda x, y, z : b02fun(x,y,z)[2]
+            #rot_B = RotationMatrix(
+                #self.weights['eq_mhd'].b2_1, self.weights['eq_mhd'].b2_2, self.weights['eq_mhd'].b2_3)
             rot_B = RotationMatrix(
-                self.weights['eq_mhd'].b2_1, self.weights['eq_mhd'].b2_2, self.weights['eq_mhd'].b2_3)
-
+                b02funx, b02funy, b02funz)
             fun = []
             for m in range(3):
                 fun += [[]]
