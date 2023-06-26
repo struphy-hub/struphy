@@ -66,7 +66,7 @@ class HomogenSlab(CartesianMHDequilibrium):
     #                  profiles on physical domain
     # ===============================================================
 
-    # equilibrium magnetic field
+    # equilibrium magnetic field (curl of equilibrium vector potential)
     def b_xyz(self, x, y, z):
         """ Magnetic field.
         """
@@ -76,6 +76,20 @@ class HomogenSlab(CartesianMHDequilibrium):
 
         return bx, by, bz
 
+    #equilibrium vector potential
+    def a_xyz(self, x, y, z):
+        """ Vector potential.
+        """
+        bx = self.params['B0x'] - 0*x
+        by = self.params['B0y'] - 0*x
+        bz = self.params['B0z'] - 0*x
+
+        ax = by*z
+        ay = bz*x
+        az = bx*y 
+        
+        return ax, ay, az
+    
     # equilibrium current (curl of equilibrium magnetic field)
     def j_xyz(self, x, y, z):
         """ Current density.
