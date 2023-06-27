@@ -116,3 +116,12 @@ def struphy_test(serial=True, mpi=0, codes=False):
 
         subprocess.run(['struphy', 'pproc',
                         '-d', 'sim_test_10'], check=True)
+
+        # test ColdPlasma
+        subprocess.run(['struphy', 'run', 'ColdPlasma',
+                        '-i', os.path.join(libpath, 'io/inp/tests/params_coldplasma.yml'),
+                        '-o', 'sim_test_11',
+                        '--mpi', '2'], check=True)
+
+        subprocess.run(['struphy', 'pproc',
+                        '-d', 'sim_test_11'], check=True)

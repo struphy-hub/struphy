@@ -61,7 +61,7 @@ class Mhd1D(DispersionRelations1D):
         \textnormal{fast (+) and slow (-) magnetosonic}:\quad &\omega^2 =\frac{1}{2}(c_\textnormal{S}^2+c_\textnormal{A}^2)k^2(1\pm\sqrt{1-\delta}\,)\,,\quad\delta=\frac{4B_{0z}^2c_\textnormal{S}^2c_\textnormal{A}^2}{(c_\textnormal{S}^2+c_\textnormal{A}^2)^2|\mathbf B_0|^2}\,,
 
     where :math:`c_\textnormal{A}^2=|\mathbf B_0|^2/n_0` is the Alfvén velocity and :math:`c_\textnormal{S}^2=\gamma\,p_0/n_0` is the speed of sound.
-    
+
     Parameters
     ----------
     **params
@@ -81,7 +81,7 @@ class Mhd1D(DispersionRelations1D):
     """
 
     def __init__(self, **params):
-        
+
         # set default parameters
         params_default = {'B0x': 0.,
                           'B0y': 0.,
@@ -91,8 +91,9 @@ class Mhd1D(DispersionRelations1D):
                           'gamma': 5/3}
 
         params_all = set_defaults(params, params_default)
-        
-        super().__init__('shear Alfvén', 'slow magnetosonic', 'fast magnetosonic', **params_all)
+
+        super().__init__('shear Alfvén', 'slow magnetosonic',
+                         'fast magnetosonic', **params_all)
 
     def __call__(self, k):
         """
@@ -117,10 +118,10 @@ class Mhd1D(DispersionRelations1D):
         ########### Model specific part ##############################
 
         # Alfvén velocity and speed of sound
-        cA = np.sqrt((self.params['B0x']**2 + 
-                      self.params['B0y']**2 + 
+        cA = np.sqrt((self.params['B0x']**2 +
+                      self.params['B0y']**2 +
                       self.params['B0z']**2)/self.params['n0'])
-        
+
         cS = np.sqrt(self.params['gamma']*self.params['p0']/self.params['n0'])
 
         # shear Alfvén branch
@@ -160,7 +161,8 @@ class ExtendedMhd1D(DispersionRelations1D):
     """
 
     def __init__(self, **params):
-        super().__init__('fast magnetosonic', 'slow magnetosonic','compression Alfvén','shear Alfvén', **params)
+        super().__init__('fast magnetosonic', 'slow magnetosonic',
+                         'compression Alfvén', 'shear Alfvén', **params)
 
     def __call__(self, k):
         """
@@ -184,48 +186,50 @@ class ExtendedMhd1D(DispersionRelations1D):
 
         ########### Model specific part ##############################
 
-        #Quantities related with backgorund magnetic field
+        # Quantities related with backgorund magnetic field
         B0x = self.params['B0x']
         B0y = self.params['B0y']
         B0z = self.params['B0z']
         B0n = np.sqrt(B0x**2.0 + B0y**2.0 + B0z**2.0)
-        
-        #Cos(theta)
+
+        # Cos(theta)
         cos = B0z/B0n
-        
-        #Background number density
+
+        # Background number density
         n0 = self.params['n0']
-        
-        #Background pressures
+
+        # Background pressures
         pi0 = self.params['p0']
         pe0 = self.params['p0']
         gamma = self.params['gamma']
-        
-        #Basic units of magnetic field and time
+
+        # Basic units of magnetic field and time
         Bu = self.params['Bu']
         tu = self.params['tu']
-        
+
         # compute coupling parameter kappa
         ee = 1.602176634e-19  # elementary charge (C)
         mH = 1.67262192369e-27  # proton mass (kg)
         Ab = self.params['A']
         Zb = self.params['Z']
-        
+
         omega_ch = (Zb*ee*Bu)/(Ab*mH)
         kappa = omega_ch*tu/(2.0 * np.pi)
 
         if abs(kappa - 1) < 1e-6:
             kappa = 1.
-        
-        # Alfvén velocity 
+
+        # Alfvén velocity
         cA = B0n/np.sqrt(n0)
-        
-        #We will need some auxiliary arrays to compute the las three waves
+
+        # We will need some auxiliary arrays to compute the las three waves
         bs = np.zeros_like(k, dtype=complex)
-        bs[:] = - k**2.0 *(cA**2.0)*(cos**2.0*(1.0+ k**2.0 * kappa**2.0/n0) + 1.0 + (gamma/B0n**2.0)*(pi0+pe0) )
+        bs[:] = - k**2.0 * (cA**2.0)*(cos**2.0*(1.0 + k**2.0 *
+                                                kappa**2.0/n0) + 1.0 + (gamma/B0n**2.0)*(pi0+pe0))
 
         cs = np.zeros_like(k, dtype=complex)
-        cs[:] = k**4.0 * cos**2.0 * cA**4.0 * (1.0 + (pi0+pe0)*(gamma/B0n**2.0)*(2.0 + k**2.0 * kappa**2.0 / n0) )
+        cs[:] = k**4.0 * cos**2.0 * cA**4.0 * \
+            (1.0 + (pi0+pe0)*(gamma/B0n**2.0)*(2.0 + k**2.0 * kappa**2.0 / n0))
 
         ds = np.zeros_like(k, dtype=complex)
         ds[:] = -k**6.0 * (B0n**4.0 / n0**3.0) * gamma * (pi0 + pe0) * cos**4.0
@@ -234,25 +238,26 @@ class ExtendedMhd1D(DispersionRelations1D):
         D0s[:] = bs**2.0 - 3.0*cs
 
         D1s = np.zeros_like(k, dtype=complex)
-        D1s[:] = 2.0* bs**3.0 - 9.0*bs*cs + 27.0*ds
+        D1s[:] = 2.0 * bs**3.0 - 9.0*bs*cs + 27.0*ds
 
         Ccs = np.zeros_like(k, dtype=complex)
-        Ccs[:] = ( (D1s + (D1s**2.0 - 4.0*D0s**3.0 )**(1.0/2.0) )/2.0 )**(1.0/3.0)
+        Ccs[:] = ((D1s + (D1s**2.0 - 4.0*D0s**3.0)**(1.0/2.0))/2.0)**(1.0/3.0)
 
-        #Finally we need a special complex number
+        # Finally we need a special complex number
         SHI = (-1.0 + (-3.0)**(1.0/2.0))*0.5
-        
+
         # fast magnetosonic branch
-        tmps[0][:] = (B0n*kappa*cos/n0)*k**2.0 
-        
+        tmps[0][:] = (B0n*kappa*cos/n0)*k**2.0
+
         # slow magnetosonic
-        tmps[1][:] = ( (-1.0/3.0)*(bs + Ccs + D0s/Ccs) )**(1.0/2.0) 
-        
+        tmps[1][:] = ((-1.0/3.0)*(bs + Ccs + D0s/Ccs))**(1.0/2.0)
+
         # compression Alfvén branch
-        tmps[2][:] = ( (-1.0/3.0)*(bs + SHI*Ccs + D0s/(SHI*Ccs) ) )**(1.0/2.0) 
-        
+        tmps[2][:] = ((-1.0/3.0)*(bs + SHI*Ccs + D0s/(SHI*Ccs)))**(1.0/2.0)
+
         # shear Alfvén branch
-        tmps[3][:] = ( (-1.0/3.0)*(bs + SHI*SHI*Ccs + D0s/(SHI*SHI*Ccs) ) )**(1.0/2.0)
+        tmps[3][:] = ((-1.0/3.0)*(bs + SHI*SHI*Ccs +
+                      D0s/(SHI*SHI*Ccs)))**(1.0/2.0)
 
         ##############################################################
 
@@ -265,25 +270,38 @@ class ExtendedMhd1D(DispersionRelations1D):
 
 
 class ColdPlasma1D(DispersionRelations1D):
-    r'''Dispersion relation for cold plasma model :math:`(\alpha,\mathbf B_0)`
+    r'''Dispersion relation for cold plasma model for homogeneous background :math:`(n_0,\mathbf B_0)`
     and wave propagation along z-axis :math:`(\mathbf k = k \mathbf e_z)` in Struphy units
     (see ``ColdPlasma`` in :ref:`models`):
-    
-    .. math::
-    
-        \left[ \left( \omega^2 - |k|^2 \right) \mathbb I + \mathbf k \otimes \mathbf k + i \omega \alpha \sigma_c \right] \mathbf E = 0\,,
 
-    where :math:`\left( \omega^2 - |k|^2 \right) \mathbb I + \mathbf k \otimes \mathbf k + i \omega \alpha \sigma_c = \varepsilon`
-    is the dielectric tensor, :math:`\alpha` is the plasma frequency in units of the electron cyclotron frequency
-    and :math:`\sigma_c = \left( \mathbb I - i Q / \omega \right)^{-1} i \alpha / \omega`,
+    .. math::
+
+        \left[ \left( \omega^2 - |k|^2 \right) \mathbb I + \mathbf k \otimes \mathbf k + i \frac{\omega \alpha}{\varepsilon_c} \sigma_c \right] \mathbf E = 0\,,
+
+    where :math:`\left( \omega^2 - |k|^2 \right) \mathbb I + \mathbf k \otimes \mathbf k + i \frac{\omega \alpha}{\varepsilon_c} \sigma_c = \epsilon`
+    is the dielectric tensor, :math:`\alpha` is the plasma frequency in units of the electron cyclotron frequency, 
+    :math:`1/\varepsilon_c` is the electron cyclotron frequency in struphy units,
+    and :math:`\sigma_c = \left( \mathbb I - i Q / \varepsilon_c \omega \right)^{-1} i \alpha n_0 / \varepsilon_c \omega`,
     with :math:`Q` being an operator which, if applied to vector :math:`\mathbf v`, returns :math:`\mathbf v \times \mathbf B_0`.
     '''
 
     def __init__(self, **params):
-        super().__init__('ion-cyclotron wave', 'electron-cyclotron wave', 'L-wave', 'R-wave', **params)
 
-    def __call__(self, kvec, kperp=None):
-        
+        # set default parameters
+        params_default = {'B0x': 0.,
+                          'B0y': 0.,
+                          'B0z': 1.,
+                          'n0': 1.,
+                          'alpha': 1.,
+                          'epsilon': 1.}
+
+        params_all = set_defaults(params, params_default)
+
+        super().__init__('ion-cyclotron wave',
+                         'electron-cyclotron wave', 'L-wave', 'R-wave', **params)
+
+    def __call__(self, kvec):
+
         # One complex array for each branch
         tmps = []
         for n in range(self.nbranches):
@@ -291,46 +309,48 @@ class ColdPlasma1D(DispersionRelations1D):
 
         ########### Model specific part ##############################
 
-        # squared B modulus
-        B2 = self.params['B0x']**2 + self.params['B0y']**2 + self.params['B0z']**2
-        # squared Bz modulus
-        Bz2 = self.params['B0z']**2
-        # squared k modulus
-        k2vec = kvec**2
-        # alpha squared
+        # angle between k and magnetic field
+        if self.params['B0z'] == 0:
+            theta = np.pi/2
+        else:
+            theta = np.arctan(
+                np.sqrt(self.params['B0x']**2 + self.params['B0y']**2) / self.params['B0z'])
+        print(theta)
+        cos2 = np.cos(theta)**2
+
+        neq = self.params['n0']
+
+        # powers of parameters
+        B2 = self.params['B0x']**2 + \
+            self.params['B0y']**2 + self.params['B0z']**2
         alpha2 = self.params['alpha']**2
+        alpha4 = self.params['alpha']**4
+        alpha6 = self.params['alpha']**6
+        eps2 = self.params['epsilon']**2
+        eps4 = self.params['epsilon']**4
+        eps6 = self.params['epsilon']**6
+        k2vec = kvec**2
 
         for n, k2 in enumerate(k2vec):
             # polynomial coefficients in order of increasing degree
             # 0th degree
-            a = - k2**2 * Bz2 * alpha2
-            # 1st degree
-            b = 0
-            # 2nd degree
-            c = k2**2 * B2 + k2**2 * alpha2 + k2 * B2 * alpha2 + k2 * Bz2 * alpha2 + alpha2**3
-            # 3rd degree
-            d = 0
-            # 4th degree
-            e = -1 * (k2**2 + 2 * k2 * B2 + 4 * alpha2 * k2 + alpha2 * B2 + 3 * alpha2**2)
-            # 5th degree
-            f = 0
-            # 6th degree
-            g = B2 + 3 * alpha2
-            # 7th degree
-            h = 0
-            # 8th degree
-            i = -1 
-
-            # R-wave cut frequency in terms of the electron-cyclotron one
-            Rcut = 0.5 * (np.sqrt(1 + 4 * alpha2) + 1)
+            a = B2*k2**2*neq*alpha2*eps2*cos2
+            # 1st degree in omega^2
+            b = -neq**3 * alpha6 - B2*k2*neq*alpha2*eps2 - 2*k2*neq**2*alpha4*eps2 - \
+                B2*k2*neq*alpha2*eps2*cos2 - B2*k2**2*eps4 - k2**2*neq*alpha2*eps4
+            # 2nc degree in omega^2
+            c = B2*neq*alpha2*eps2 + 3*neq**2*alpha4*eps2 + 2 * \
+                B2*k2*eps4 + 4*k2*neq*alpha2*eps4 + k2**2*eps6
+            # 3rd degree in omega^2
+            d = -B2*eps4 - 3*neq*alpha2*eps4 - 2*k2*eps6
+            # 4th degree in omega^2
+            e = eps6
 
             # determinant in polynomial form
-            det = np.polynomial.Polynomial([a, b, c, d, e, f, g, h, i], domain=[0, 10 * Rcut])
+            det = np.polynomial.Polynomial([a, b, c, d, e])
 
             # solutions
-            sol = det.roots()
-            # we want only positive omegas
-            sol = sol[sol >= 0]
+            sol = np.sqrt(np.abs(det.roots()))
             # Ion-cyclotron branch
             tmps[0][n] = sol[0]
             # Electron-cyclotron branch
@@ -348,7 +368,7 @@ class ColdPlasma1D(DispersionRelations1D):
             dict_disp[name] = tmp
 
         return dict_disp
-    
+
 
 class CurrentCoupling6DParallel(DispersionRelations1D):
     r"""
@@ -371,7 +391,7 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
         \omega^2=\gamma p_0 k^2\,,
 
     where :math:`\xi^\pm=(\omega-kv_0\pm Z_\textnormal{h}B_0\kappa/A_\textnormal{h})/kv_\textnormal{th}` and :math:`Z(\xi)=\sqrt{\pi}\exp(-\xi^2)[i-\textnormal{erfi}(\xi)]` is the plasma dispersion function.
-    
+
     Parameters
     ----------
     **params
@@ -399,7 +419,7 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
     """
 
     def __init__(self, **params):
-        
+
         # set default parameters
         params_default = {'B0': 1.,
                           'p0': 0.5,
@@ -413,7 +433,7 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
                           'nb': 0.0005185219355}
 
         params_all = set_defaults(params, params_default)
-        
+
         super().__init__('shear_Alfvén_R', 'shear_Alfvén_L', 'sound', **params_all)
 
         # some constants
@@ -873,7 +893,7 @@ class MhdContinousSpectraShearedSlab(ContinuousSpectra1D):
         \textnormal{shear Alfvén}:\quad & \omega^2(x)=\frac{B_{0z}(x)^2}{n_0(x)}\frac{1}{R_0^2}\left(n+\frac{m}{q(x)}\right)^2\,
 
         \textnormal{slow sound}:\quad & \omega^2(x)=\frac{\gamma p_0(x)B_{0z}(x)^2}{n_0(x)\,[\gamma p_0(x) + B_{0y}(x)^2 + B_{0z}(x)^2]}\frac{1}{R_0^2}\left(n+\frac{m}{q(x)}\right)^2\,.
-        
+
     Parameters
     ----------
     **params
@@ -895,18 +915,18 @@ class MhdContinousSpectraShearedSlab(ContinuousSpectra1D):
     """
 
     def __init__(self, **params):
-        
+
         # set default parameters
         params_default = {'a': 1.,
                           'R0': 3.,
                           'gamma': 5/3,
-                          'Bz': lambda x : 1. - 0*x,
-                          'p': lambda x : 0.5 - 0*x,
-                          'rho': lambda x : 1. - 0*x,
-                          'q': lambda x : 1.1 + 0.7*x**2}
+                          'Bz': lambda x: 1. - 0*x,
+                          'p': lambda x: 0.5 - 0*x,
+                          'rho': lambda x: 1. - 0*x,
+                          'q': lambda x: 1.1 + 0.7*x**2}
 
         params_all = set_defaults(params, params_default)
-        
+
         super().__init__('shear_Alfvén', 'slow_sound', **params_all)
 
     def __call__(self, x, m, n):
@@ -983,7 +1003,7 @@ class MhdContinousSpectraCylinder(ContinuousSpectra1D):
         \textnormal{shear Alfvén}:\quad & \omega^2(r)=\frac{B_{0z}(r)^2}{n_0(r)}\frac{1}{R_0^2}\left(n+\frac{m}{q(r)}\right)^2\,
 
         \textnormal{slow sound}:\quad & \omega^2(r)=\frac{\gamma p_0(r)B_{0z}(r)^2}{n_0(r)\,[\gamma p_0(r) + B_{0\theta}(r)^2 + B_{0z}(r)^2]}\frac{1}{R_0^2}\left(n+\frac{m}{q(r)}\right)^2\,.
-        
+
     Parameters
     ----------
     **params
@@ -1003,17 +1023,17 @@ class MhdContinousSpectraCylinder(ContinuousSpectra1D):
     """
 
     def __init__(self, **params):
-        
+
         # set default parameters
         params_default = {'R0': 3.,
                           'gamma': 5/3,
-                          'Bz': lambda r : 1. - 0*r,
-                          'p': lambda r : 0.5 - 0*r,
-                          'rho': lambda r : 1. - 0*r,
-                          'q': lambda r : 1.1 + 0.7*r**2}
-        
+                          'Bz': lambda r: 1. - 0*r,
+                          'p': lambda r: 0.5 - 0*r,
+                          'rho': lambda r: 1. - 0*r,
+                          'q': lambda r: 1.1 + 0.7*r**2}
+
         params_all = set_defaults(params, params_default)
-        
+
         super().__init__('shear_Alfvén', 'slow_sound', **params_all)
 
     def __call__(self, r, m, n):
