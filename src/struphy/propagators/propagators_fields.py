@@ -12,6 +12,7 @@ from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compo
 from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
 from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
 from struphy.psydac_api.linear_operators import InverseLinearOperator as Inverse
+from struphy.psydac_api.linear_operators import IdentityOperator
 from struphy.psydac_api import preconditioner
 from struphy.psydac_api.mass import WeightedMassOperator
 import struphy.linear_algebra.iterative_solvers as it_solvers
@@ -132,46 +133,19 @@ class OhmCold(Propagator):
     .. math::
 
         \begin{bmatrix}
-            \mathbf e^{n+1} - \mathbf e^n \\
-            \mathbf j^{n+1} - \mathbf j^n
+            \mathbf j^{n+1} - \mathbf j^n \\
+            \mathbf e^{n+1} - \mathbf e^n
         \end{bmatrix}
         = \frac{\Delta t}{2} \begin{bmatrix}
-            0 & - \mathbb M_1^{-1} M_{1, \alpha} \\
-            \mathbb M_1^{-1} M_{1, \alpha} & 0
+            0 & \frac{\alpha}{\varepsilon_c} \mathbb M_{1,1/n}^{-1} \\
+            - \frac{\alpha}{\varepsilon_c} \mathbb M_{1,1/n}^{-1} & 0
         \end{bmatrix}
         \begin{bmatrix}
-            \mathbf e^n \\
-            \mathbf j^n
+            \mathbb M_{1,1/n} (\mathbf j^n + \mathbf j^{n+1}) \\
+            \mathbb M_1 (\mathbf e^n + \mathbf e^{n+1})
         \end{bmatrix} ,
 
-    based on the :ref:`Schur complement <schur_solver>`, of the rotation problem
-
-    .. math::
-
-        \frac{\partial}{\partial t}
-        \begin{bmatrix}
-            \mathbf e \\
-            \mathbf j
-        \end{bmatrix}
-        = \begin{bmatrix}
-            0 & - \mathbb M_1^{-1} \mathbb M_{1, \alpha} \\
-            \mathbb M_1^{-1} \mathbb M_{1, \alpha} & 0
-        \end{bmatrix}
-        \begin{bmatrix}
-            \mathbf e \\
-            \mathbf j
-        \end{bmatrix}\,, \qquad \begin{bmatrix}
-            \mathbf e \\
-            \mathbf j
-        \end{bmatrix}(0) = 
-        \begin{bmatrix}
-            \mathbf e^n \\
-            \mathbf j^n
-        \end{bmatrix}\,,
-
-
-    where :math:`\mathbb M_{1, \alpha}` denotes the mass matrix weighted by :math:`\alpha`,
-    which represents the plasma frequency in units of the electron cyclotron frequency.
+    based on the :ref:`Schur complement <schur_solver>`.
 
     Parameters
     ----------
@@ -181,37 +155,45 @@ class OhmCold(Propagator):
         e : psydac.linalg.block.BlockVector
             FE coefficients of a 1-form.
 
-        derham : struphy.psydac_api.psydac_derham.Derham
-            Discrete Derham complex.
-
         params : dict
             Solver parameters for this splitting step.
     '''
 
-    def __init__(self, e, j, mass_ops, params):
+    def __init__(self, e, j, **params):
 
         assert isinstance(e, (BlockVector, PolarVector))
         assert isinstance(j, (BlockVector, PolarVector))
-
         self._e = e
         self._j = j
+
+        # parameters
+        params_default = {'type': 'PConjugateGradient',
+                          'pc': 'MassMatrixPreconditioner',
+                          'tol': 1e-8,
+                          'maxiter': 3000,
+                          'info': False,
+                          'verbose': False,
+                          'alpha': 1.0,
+                          'epsilon': 1.0}
+
+        params = set_defaults(params, params_default)
+
         self._info = params['info']
+        self._prefactor = params['alpha'] / params['epsilon']
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        _A = 1
+        _A = self.mass_ops.M1ninv
 
-        self._B = Multiply(-1./2., Compose(mass_ops.M1.invert(),
-                           mass_ops.M1alpha))  # no dt
-        self._C = Multiply(
-            1./2., Compose(mass_ops.M1.invert(), mass_ops.M1alpha))  # no dt
+        self._B = Multiply(-1/2 * self._prefactor, self.mass_ops.M1)  # no dt
+        self._C = Multiply(1/2 * self._prefactor,
+                           IdentityOperator(self.derham._Vh["1"]))  # no dt
 
         # Preconditioner
         if params['pc'] is None:
             pc = None
         else:
-            # TODO ???
             pc_class = getattr(preconditioner, params['pc'])
-            pc = pc_class(mass_ops.M1)
+            pc = pc_class(self.mass_ops.M1ninv)
 
         # Instantiate Schur solver (constant in this case)
         _BC = Compose(self._B, self._C)
@@ -231,8 +213,8 @@ class OhmCold(Propagator):
         jn = self.variables[1]
 
         # allocate temporary FemFields _e, _j during solution
-        _e, info = self._schur_solver(en, self._B.dot(jn), dt)
-        _j = jn - dt*self._C.dot(_e + en)
+        _j, info = self._schur_solver(jn, self._B.dot(en), dt)
+        _e = en - dt/2 * self._prefactor * (_j + jn)
 
         # write new coeffs into Propagator.variables
         max_de, max_dj = self.in_place_update(_e, _j)
@@ -242,6 +224,94 @@ class OhmCold(Propagator):
             print('Iterations for OhmCold:', info['niter'])
             print('Maxdiff e1 for OhmCold:', max_de)
             print('Maxdiff j1 for OhmCold:', max_dj)
+            print()
+
+
+class JxBCold(Propagator):
+    r'''Crank-Nicolson step
+
+    .. math::
+
+        \mathbb M_{1,1/n} \left( \mathbf j^{n+1} - \mathbf j^n \right) = \frac{\Delta t}{2} \frac{1}{\varepsilon_c} \mathbb M_{1,B_0} \left( \mathbf j^{n+1} - \mathbf j^n \right).
+
+    Parameters
+    ----------
+        j : psydac.linalg.block.BlockVector
+            FE coefficients of a 1-form.
+
+        params : dict
+            Solver parameters for this splitting step.
+    '''
+
+    def __init__(self, j, **params):
+
+        assert isinstance(j, (BlockVector, PolarVector))
+        self._j = j
+
+        # parameters
+        params_default = {'type': 'PConjugateGradient',
+                          'pc': 'MassMatrixPreconditioner',
+                          'tol': 1e-8,
+                          'maxiter': 3000,
+                          'info': False,
+                          'verbose': False,
+                          'alpha': 1.0,
+                          'epsilon': 1.0}
+
+        params = set_defaults(params, params_default)
+
+        self._info = params['info']
+        self._tol = params['tol']
+        self._maxiter = params['maxiter']
+        self._verbose = params['verbose']
+        self._epsc = params['epsilon']
+
+        # mass matrix in system (M - dt/2 * A)*j^(n + 1) = (M + dt/2 * A)*j^n
+        self._M = self.mass_ops.M1ninv
+        self._A = Multiply(-1/self._epsc, self.mass_ops.M1Bninv)  # no dt
+
+        # Preconditioner
+        if params['pc'] is None:
+            self._pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            self._pc = pc_class(self.mass_ops.M1ninv)
+
+        # Instantiate linear solver
+        self._solver = getattr(it_solvers, params['type'])(self._M.domain)
+
+        # allocate dummy vectors to avoid temporary array allocations
+        self._rhs_j = self._M.codomain.zeros()
+        self._j_new = j.space.zeros()
+
+    @property
+    def variables(self):
+        return [self._j]
+
+    def __call__(self, dt):
+
+        # current variables
+        jn = self.variables[0]
+
+        # define system (M - dt/2 * A)*b^(n + 1) = (M + dt/2 * A)*b^n
+        lhs = Sum(self._M, Multiply(-dt/2.0, self._A))
+        rhs = Sum(self._M, Multiply(dt/2.0, self._A))
+
+        # solve linear system for updated u coefficients (in-place)
+        rhs.dot(jn, out=self._rhs_j)
+
+        info = self._solver.solve(lhs, self._rhs_j, self._pc,
+                                  x0=jn, tol=self._tol,
+                                  maxiter=self._maxiter, verbose=self._verbose,
+                                  out=self._j_new)[1]
+
+        # write new coeffs into Propagator.variables
+        max_dj = self.in_place_update(self._j_new)[0]
+
+        if self._info:
+            print('Status     for FluidCold:', info['success'])
+            print('Iterations for FluidCold:', info['niter'])
+            print('Maxdiff j1 for FluidCold:', max_dj)
             print()
 
 
@@ -408,8 +478,9 @@ class ShearAlfvénB1(Propagator):
         self._M1inv = Inverse(self.mass_ops.M1, tol=1e-8)
         self._B = Multiply(1/2, Compose(self.mass_ops.M2B,
                            self.derham.curl))
-        #I still have to invert M1
-        self._C = Multiply(1/2, Compose(self._M1inv,self.derham.curl.T, self.mass_ops.M2B))
+        # I still have to invert M1
+        self._C = Multiply(
+            1/2, Compose(self._M1inv, self.derham.curl.T, self.mass_ops.M2B))
 
         # Preconditioner
         if params['pc'] is None:
@@ -515,7 +586,8 @@ class Hall(Propagator):
         id_M2Bn = 'M2Bn'
         self._M = getattr(self.mass_ops, id_M)
         self._M2Bn = getattr(self.mass_ops, id_M2Bn)
-        self._A = Multiply(self._kappa, Compose(self.derham.curl.T,self._M2Bn,self.derham.curl))
+        self._A = Multiply(self._kappa, Compose(
+            self.derham.curl.T, self._M2Bn, self.derham.curl))
 
         # Preconditioner
         if params['pc'] is None:
@@ -523,7 +595,7 @@ class Hall(Propagator):
         else:
             pc_class = getattr(preconditioner, params['pc'])
             self._pc = pc_class(getattr(self.mass_ops, id_M))
-            
+
         # Instantiate linear solver
         self._solver = getattr(it_solvers, params['type'])(self._M.domain)
 
@@ -736,7 +808,7 @@ class SonicIon(Propagator):
 
     where :math:`\mathbb M^\rho_2`  is a weighted mass matrix in 2-space, 
     the weight being the MHD equilibirum density :math:`\rho_0`. Furthermore, :math:`\mathcal K^3` is the basis projection operator given by :
-    
+
     .. math::
 
         \mathcal{K}^3_{ijk,mno} := \hat{\Pi}^3_{ijk} \left[ \frac{\hat{p}^3_{\text{eq}}}{\sqrt{g}}\Lambda^3_{mno} \right] \,.
@@ -788,16 +860,16 @@ class SonicIon(Propagator):
         self._rank = self.derham.comm.Get_rank()
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        id_Mn = 'M2n' 
+        id_Mn = 'M2n'
         id_K, id_Q = 'K3', 'Q3'
-        
+
         _A = getattr(self.mass_ops, id_Mn)
         _K = getattr(self.basis_ops, id_K)
 
         self._B = Multiply(-1/2., Compose(self.derham.div.T, self.mass_ops.M3))
         self._C = Multiply(5/6., Compose(_K, self.derham.div))
 
-        self._QD = Compose(getattr(self.basis_ops, id_Q) ,self.derham.div)
+        self._QD = Compose(getattr(self.basis_ops, id_Q), self.derham.div)
 
         # preconditioner
         if params['pc'] is None:
@@ -873,7 +945,7 @@ class SonicElectron(Propagator):
 
     where :math:`\mathbb M^\rho_2`  is a weighted mass matrix in 2-space, 
     the weight being the MHD equilibirum density :math:`\rho_0`. Furthermore, :math:`\mathcal K^3` is the basis projection operator given by :
-    
+
     .. math::
 
         \mathcal{K}^3_{ijk,mno} := \hat{\Pi}^3_{ijk} \left[ \frac{\hat{p}^3_{\text{eq}}}{\sqrt{g}}\Lambda^3_{mno} \right] \,.
@@ -925,18 +997,18 @@ class SonicElectron(Propagator):
         self._rank = self.derham.comm.Get_rank()
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        id_Mn = 'M2n' 
+        id_Mn = 'M2n'
         # ONCE THE CODE SUPPORTS HAVING A DIFFERENT EQUILIBRIUM ELECTRON PRESSURE TO THE EQUILIBRIUM ION PRESSURE; WE MUST ADD A NEW PROJECTION MATRIX Ke3 THAT TAKES THE EQUILIBRIUM ELECTRON PRESSURE
-        #INSTEAD OF THE EQUILIBRIUM ION PRESSURE: AND USE HERE Ke3, NOT K3.
+        # INSTEAD OF THE EQUILIBRIUM ION PRESSURE: AND USE HERE Ke3, NOT K3.
         id_K, id_Q = 'K3', 'Q3'
-        
+
         _A = getattr(self.mass_ops, id_Mn)
         _K = getattr(self.basis_ops, id_K)
 
         self._B = Multiply(-1/2., Compose(self.derham.div.T, self.mass_ops.M3))
         self._C = Multiply(5/6., Compose(_K, self.derham.div))
 
-        self._QD = Compose(getattr(self.basis_ops, id_Q) ,self.derham.div)
+        self._QD = Compose(getattr(self.basis_ops, id_Q), self.derham.div)
 
         # preconditioner
         if params['pc'] is None:
@@ -1664,7 +1736,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             print('Maxdiff up for Magnetosonic:', max_du)
             print('Maxdiff p3 for Magnetosonic:', max_dp)
             print()
-            
+
 
 class CurrentCoupling5DDensity(Propagator):
     """

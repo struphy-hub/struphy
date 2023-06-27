@@ -385,98 +385,109 @@ class LinearExtendedMHD(StruphyModel):
         self._scalar_quantities['en_B_tot'][0] = en_Btot
 
 
-# class ColdPlasma(StruphyModel):
-#     r'''Cold plasma model
+class ColdPlasma(StruphyModel):
+    r'''Cold plasma model
 
-#     Normalization:
+    Normalization:
 
-#     .. math::
+    .. math::
 
-#         &c = \frac{\hat \omega}{\hat k} = \frac{\hat E}{\hat B}\,,
+        c = \frac{\hat \omega}{\hat k} = \frac{\hat E}{\hat B}\,, \qquad \alpha = \frac{\Omega_{pe}}{\Omega_{ce}}\,, \qquad \varepsilon_c = \frac{\hat{\omega}}{\Omega_{ce}}\,, \qquad \hat j_c = \frac{c q_e}{\alpha} \hat n\,,
 
-#         &\hat \omega = \Omega_{ce}\,,
+    where :math:`c` is the vacuum speed of light, :math:`\Omega_{ce}` the electron cyclotron frequency,
+    :math:`\Omega_{pe}` the plasma frequency and :math:`\varepsilon_0` the vacuum dielectric constant.
+    Implemented equations:
 
-#         &\alpha = \frac{\Omega_{pe}}{\Omega_{ce}}\,,
+    .. math::
 
-#         &\hat j_c = \varepsilon_0 \Omega_{pe} \hat E\,,
+        &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,,
 
-#     where :math:`c` is the vacuum speed of light, :math:`\Omega_{ce}` the electron cyclotron frequency,
-#     :math:`\Omega_{pe}` the plasma frequency and :math:`\varepsilon_0` the vacuum dielectric constant.
-#     Implemented equations:
+        &-\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
+        \frac{\alpha}{\varepsilon_c} \mathbf j_c \,,
 
-#     .. math::
-
-#         &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,,
-
-#         &-\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
-#         \alpha \mathbf j_c \,,
-
-#         &\frac{\partial \mathbf j_c}{\partial t} = \alpha \mathbf E + \mathbf j_c \times \mathbf B\,.
+        &\frac{1}{n_0} \frac{\partial \mathbf j_c}{\partial t} = \frac{\alpha}{\varepsilon_c} \mathbf E + \frac{1}{\varepsilon_c n_0} \mathbf j_c \times \mathbf B_0\,.
 
 
-#     Parameters
-#     ----------
-#         params : dict
-#             Simulation parameters, see from :ref:`params_yml`.
-#     '''
+    Parameters
+    ----------
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
 
-#     def __init__(self, params, comm):
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
+    '''
 
-#         from struphy.psydac_api.mass import WeightedMassOperators
-#         from struphy.propagators import propagators_fields
+    @classmethod
+    def bulk_species(cls):
+        return 'electrons'
 
-#         super().__init__(params, comm, e1='Hcurl', b2='Hdiv',
-#                          electron={'j1': 'Hcurl'}, hot_electrons='Particles6D')
+    @classmethod
+    def timescale(cls):
+        return 'light'
 
-#         # pointers to em-fields variables
-#         self._e = self.em_fields['e1']['obj'].vector
-#         self._b = self.em_fields['b2']['obj'].vector
+    def __init__(self, params, comm):
 
-#         # pointers to  fluid variables
-#         self._j = self.fluid['electrons']['j1']['obj'].vector
+        super().__init__(params, comm, e1='Hcurl', b2='Hdiv',
+                         electrons={'j1': 'Hcurl'})
 
-#         # extract necessary parameters
-#         maxwell_solver = params['solvers']['solver_1']
-#         cold_solver = params['solvers']['solver_2']
+        from struphy.propagators.base import Propagator
+        from struphy.propagators import propagators_fields
 
-#         # Define callable for weighted mass matrices
-#         proton_mass = 1.6726219237e-27
-#         electron_mass = self.fluid['electrons']['plasma_params']['M'] * proton_mass
-#         vacuum_permittivity = 8.854187813e-12
-#         prefactor = (electron_mass / vacuum_permittivity)**0.5
+        # pointers to em-fields variables
+        self._e = self.em_fields['e1']['obj'].vector
+        self._b = self.em_fields['b2']['obj'].vector
 
-#         def call_alpha(e1, e2, e3):
-#             return prefactor * self.mhd_equil.n0(e1, e2, e3, sqeez_out=False)**0.5 / self.mhd_equil.absB0(e1, e2, e3, sqeez_out=False)
+        # pointers to  fluid variables
+        self._j = self.fluid['electrons']['j1']['obj'].vector
 
-#         def call_M1alpha(e1, e2, e3, m, n):
-#             return self.domain.Ginv(e1, e2, e3)[:, :, :, m, n] * self.domain.sqrt_g(e1, e2, e3)*call_alpha(e1, e2, e3)
+        # extract necessary parameters
+        maxwell_solver = params['solvers']['solver_1']
+        cold_solver = params['solvers']['solver_2']
+        fluid_solver = params['solvers']['solver_3']
 
-#         # Assemble necessary mass matrices
-#         self._mass_ops = WeightedMassOperators(
-#             self.derham, self.domain, alpha=call_M1alpha)
+        # additional model parameters for solvers
+        add_params = {}
+        add_params['alpha'] = self.eq_params['electrons']['alpha_unit']
+        add_params['epsilon'] = self.eq_params['electrons']['epsilon_unit']
 
-#         # Initialize propagators/integrators used in splitting substeps
-#         self._propagators = []
-#         self._propagators += [propagators_fields.Maxwell(
-#             self._e, self._b, self.derham, self._mass_ops, maxwell_solver)]
-#         self._propagators += [propagators_fields.OhmCold(
-#             self._j, self._e, self._mass_ops, cold_solver)]
+        # set propagators base class attributes (available to all propagators)
+        Propagator.derham = self.derham
+        Propagator.domain = self.domain
+        Propagator.mass_ops = self.mass_ops
 
-#         # Scalar variables to be saved during simulation
-#         self._scalar_quantities['time'] = np.empty(1, dtype=float)
-#         self._scalar_quantities['en_E'] = np.empty(1, dtype=float)
-#         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
-#         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+        # Initialize propagators/integrators used in splitting substeps
+        self._propagators = []
+        self._propagators += [propagators_fields.Maxwell(
+            self._e, self._b, **maxwell_solver)]
+        self._propagators += [propagators_fields.OhmCold(
+            self._j, self._e, **cold_solver, **add_params)]
+        self._propagators += [propagators_fields.JxBCold(
+            self._j, **fluid_solver, **add_params)]
 
-#     @property
-#     def propagators(self):
-#         return self._propagators
+        # Scalar variables to be saved during simulation
+        self._scalar_quantities = {}
+        self._scalar_quantities['time'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_E'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_J'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
 
-#     def update_scalar_quantities(self, time):
-#         self._scalar_quantities['time'][0] = time
-#         self._scalar_quantities['en_E'][0] = .5 * \
-#             self._e.dot(self._mass_ops.M1.dot(self._e))
-#         self._scalar_quantities['en_B'][0] = .5 * \
-#             self._b.dot(self._mass_ops.M2.dot(self._b))
-#         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_E'][0]
-#         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_B'][0]
+    @property
+    def propagators(self):
+        return self._propagators
+
+    @property
+    def scalar_quantities(self):
+        return self._scalar_quantities
+
+    def update_scalar_quantities(self):
+
+        en_E = .5 * self._e.dot(self._mass_ops.M1.dot(self._e))
+        en_B = .5 * self._b.dot(self._mass_ops.M2.dot(self._b))
+        en_J = .5 * self._j.dot(self._mass_ops.M1ninv.dot(self._j))
+        en_tot = en_E + en_B + en_J
+
+        self._scalar_quantities['en_E'][0] = en_E
+        self._scalar_quantities['en_B'][0] = en_B
+        self._scalar_quantities['en_J'][0] = en_J
+        self._scalar_quantities['en_tot'][0] = en_tot
