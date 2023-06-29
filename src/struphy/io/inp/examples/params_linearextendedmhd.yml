@@ -14,7 +14,7 @@ units : # units not stated here can be viewed via "struphy units -h"
     n      : 1. # number density unit in 10^20 m^(-3)
 
 time :
-    dt         : 0.01 # time step
+    dt         : 0.0001 # time step
     Tend       : 18. # simulation time interval is [0, Tend]
     split_algo : LieTrotter # LieTrotter | Strang
 
@@ -69,7 +69,7 @@ solvers :
         type : PBiConjugateGradientStab
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-8
-        maxiter : 3000
+        maxiter : 30000
         info : False
         verbose : False
     solver_3 :

@@ -421,9 +421,9 @@ class WeightedMassOperators:
             tmp_a2 = self.derham.curl.dot(a_eq)
             b02fun = Field('b02', 'Hdiv', self.derham)
             b02fun.vector = tmp_a2
-            b02funx = lambda x, y, z : b02fun(x,y,z)[0]
-            b02funy = lambda x, y, z : b02fun(x,y,z)[1]
-            b02funz = lambda x, y, z : b02fun(x,y,z)[2]
+            b02funx = lambda x, y, z : b02fun(x,y,z, squeeze_output=True, local=True)[0]
+            b02funy = lambda x, y, z : b02fun(x,y,z, squeeze_output=True, local=True)[1]
+            b02funz = lambda x, y, z : b02fun(x,y,z, squeeze_output=True, local=True)[2]
             #rot_B = RotationMatrix(
                 #self.weights['eq_mhd'].b2_1, self.weights['eq_mhd'].b2_2, self.weights['eq_mhd'].b2_3)
             rot_B = RotationMatrix(
@@ -468,9 +468,9 @@ class WeightedMassOperators:
             self.derham.curl.dot(a_eq, out=tmp_a2)
             b02fun = Field('b02', 'Hdiv', self.derham)
             b02fun.vector = tmp_a2
-            b02funx = lambda x, y, z : b02fun(x,y,z)[0]
-            b02funy = lambda x, y, z : b02fun(x,y,z)[1]
-            b02funz = lambda x, y, z : b02fun(x,y,z)[2]
+            b02funx = lambda x, y, z : b02fun(x,y,z, squeeze_output=True, local=True)[0]
+            b02funy = lambda x, y, z : b02fun(x,y,z, squeeze_output=True, local=True)[1]
+            b02funz = lambda x, y, z : b02fun(x,y,z, squeeze_output=True, local=True)[2]
             #rot_B = RotationMatrix(
                 #self.weights['eq_mhd'].b2_1, self.weights['eq_mhd'].b2_2, self.weights['eq_mhd'].b2_3)
             rot_B = RotationMatrix(
