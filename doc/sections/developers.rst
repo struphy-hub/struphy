@@ -57,6 +57,12 @@ Derham sequence (3D)
 .. autoclass:: struphy.psydac_api.psydac_derham.Derham
     :members:
 
+FE field 
+^^^^^^^^
+
+.. autoclass:: struphy.psydac_api.fields.Field
+    :members:
+
 Mapped domain
 ^^^^^^^^^^^^^
 

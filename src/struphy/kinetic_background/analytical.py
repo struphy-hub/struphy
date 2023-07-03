@@ -11,8 +11,8 @@ class Maxwellian(metaclass=ABCMeta):
 
     .. math::
 
-        f(\boldsymbol{\eta}, v_1,\ldots,v_n) = n(\boldsymbol{\eta}) \prod_{i=1}^n \frac{1}{\sqrt{\pi}\,v_{\mathrm{th},i}(\boldsymbol{\eta})}
-        \exp\left[-\frac{(v_i-u_i(\boldsymbol{\eta}))^2}{v_{\mathrm{th},i}(\boldsymbol{\eta})^2}\right],
+        f(\boldsymbol{\eta}, v_1,\ldots,v_n) = n(\boldsymbol{\eta}) \prod_{i=1}^n \frac{1}{\sqrt{2\pi}\,v_{\mathrm{th},i}(\boldsymbol{\eta})}
+        \exp\left[-\frac{(v_i-u_i(\boldsymbol{\eta}))^2}{2\,v_{\mathrm{th},i}(\boldsymbol{\eta})^2}\right],
 
     defined by its velocity moments: the density :math:`n(\boldsymbol{\eta})`, 
     the mean-velocities :math:`u_i(\boldsymbol{\eta})`, 
@@ -74,7 +74,7 @@ class Maxwellian(metaclass=ABCMeta):
         pass
 
     def gaussian(self, v, u=0., vth=1.):
-        """1D Gaussian, to which array-valued mean- and thermal velocities can be passed.
+        """1D normal distribution, to which array-valued mean- and thermal velocities can be passed.
 
         Parameters
         ----------
@@ -95,7 +95,7 @@ class Maxwellian(metaclass=ABCMeta):
         if isinstance(v, np.ndarray) and isinstance(u, np.ndarray):
             assert v.shape == u.shape
 
-        return 1./(np.sqrt(np.pi) * vth) * np.exp(-(v - u)**2/vth**2)
+        return 1./(np.sqrt(2.*np.pi) * vth) * np.exp(-(v - u)**2/(2.*vth**2))
 
     def __call__(self, *args):
         """

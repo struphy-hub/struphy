@@ -29,7 +29,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
 
     seed = int(np.random.rand()*1000)
     loading_params = {'type': 'pseudo_random', 'seed': seed,
-                      'moments': [0., 0., 0., 1., 1., 1.]}
+                      'moments': [0., 0., 0., 1., 1., 1.], 'spatial': 'uniform'}
 
     marker_params = {'ppc': ppc, 'eps': .25, 'loading': loading_params, 'bc_type' : ['periodic', 'periodic', 'periodic']}
 

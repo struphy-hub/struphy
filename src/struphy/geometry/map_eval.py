@@ -749,6 +749,11 @@ def kernel_evaluate_pic(markers : 'float[:,:]', kind_coeff : int, kind_map : int
         
     remove_outside : bool
         Whether to remove values that originate from markers outside of [0, 1]^d.
+        
+    Returns
+    -------
+    counter : int
+        How many markers have been treated (not been skipped).
     """
 
     np = shape(markers)[0]

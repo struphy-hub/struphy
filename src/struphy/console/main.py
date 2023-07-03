@@ -61,7 +61,7 @@ def struphy():
     parser.add_argument('--set-io',
                         type=str,
                         metavar='PATH',
-                        help='set PATH to default I/O folder and copy templates there (type "." to use current working directory)',)
+                        help='make PATH the new default I/O folder and copy templates there (type "." to use current working directory)',)
 
     # create sub-commands and save name of sub-command into variable "command"
     subparsers = parser.add_subparsers(title='available commands',
@@ -70,7 +70,7 @@ def struphy():
 
     # 1. "compile" sub-command
     parser_compile = subparsers.add_parser('compile',
-                                           help='compile computational kernels, install psydac',
+                                           help='compile computational kernels, install psydac (on first call only)',
                                            description='Compile Struphy kernels using pyccel, https://github.com/pyccel/pyccel.')
 
     parser_compile.add_argument('--no-openmp',

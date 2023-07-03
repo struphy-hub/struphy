@@ -283,6 +283,7 @@ ubuntu20_tests:
   before_script:
     - apt update -y && apt clean 
     - apt install -y python3-pip 
+    - apt install -y python3.8-venv 
     - apt install -y gfortran gcc 
     - DEBIAN_FRONTEND=noninteractive TZ="Europe/Berlin" apt-get install -y liblapack-dev libopenmpi-dev 
     - apt install -y libblas-dev openmpi-bin 

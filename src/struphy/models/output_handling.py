@@ -13,7 +13,7 @@ class DataContainer:
     path_out : str
         Path to hdf5 data files.
 
-    data_name : str, optional
+    file_name : str, optional
         Name of hdf5 file.
 
     comm : MPI communicator

@@ -121,15 +121,17 @@ class Particles(metaclass=ABCMeta):
         """ Parameters for markers.
         """
         return self._params
-    
+
     @property
     def f_init(self):
-        assert hasattr(self, '_f_init'), AttributeError('The method "initialize_weights" has not yet been called.')
+        assert hasattr(self, '_f_init'), AttributeError(
+            'The method "initialize_weights" has not yet been called.')
         return self._f_init
-    
+
     @property
     def f_backgr(self):
-        assert hasattr(self, '_f_backgr'), AttributeError('No background distribution available, maybe this is a full-f model?')
+        assert hasattr(self, '_f_backgr'), AttributeError(
+            'No background distribution available, maybe this is a full-f model?')
         return self._f_backgr
 
     @property
@@ -209,13 +211,13 @@ class Particles(metaclass=ABCMeta):
         """ Kinetic boundary conditions in each direction.
         """
         return self._bc
-    
+
     @property
     def lost_markers(self):
         """ Array containing the last infos of removed markers
         """
         return self._lost_markers
-    
+
     @property
     def n_lost_markers(self):
         """ Number of removed particles.
@@ -272,7 +274,36 @@ class Particles(metaclass=ABCMeta):
         self._lost_markers = np.zeros((int(markers_size*0.5), 10), dtype=float)
 
     def draw_markers(self):
-        """ Draw markers. 
+        r""" 
+        Drawing markers according to the volume density :math:`s^n_{\textnormal{in}}`.
+        In Struphy, the initial marker distribution :math:`s^n_{\textnormal{in}}` is always of the form
+
+        .. math::
+
+            s^n_{\textnormal{in}}(\eta,v) = n^3(\eta)\, \mathcal M(v)\,,
+
+        with :math:`\mathcal M(v)` a multi-variate Gaussian:
+
+        .. math:: 
+
+            \mathcal M(v) = \prod_{i=1}^{d_v} \frac{1}{\sqrt{2\pi}\,v_{\mathrm{th},i}}
+                \exp\left[-\frac{(v_i-u_i)^2}{2 v_{\mathrm{th},i}^2}\right]\,,
+
+        where :math:`d_v` stands for the dimension in velocity space, :math:`u_i` are velocity constant shifts
+        and :math:`v_{\mathrm{th},i}` are constant thermal velocities (standard deviations).
+        The function :math:`n^3:(0,1)^3 \to \mathbb R^+` is a normalized 3-form on the unit cube,
+
+        .. math::
+
+            \int_{(0,1)^3} n^3(\eta)\,\textnormal d \eta = 1\,.
+
+        The following choices are available in Struphy:
+
+        1. Uniform distribution on the unit cube: :math:`n^3(\eta) = 1`
+
+        2. Uniform distribution on the disc: :math:`n^3(\eta) = 2\eta_1` (radial coordinate = volume element of square-to-disc mapping) 
+
+        All needed parameters can be set in the parameter file, in the section ``kinetic/<species>/markers/loading``.
         """
 
         # number of markers on the local process at loading stage
@@ -280,12 +311,16 @@ class Particles(metaclass=ABCMeta):
 
         # cumulative sum of number of markers on each process at loading stage.
         n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
+        
+        if self._mpi_rank == 0:
+            print('\nMARKERS:')
 
         # load markers from external .hdf5 file
         if self._params['loading']['type'] == 'external':
 
             if self._mpi_rank == 0:
                 file = h5py.File(self._params['loading']['dir_markers'], 'r')
+                print('Loading markers from file: '.ljust(25), file)
 
                 self._markers[:n_mks_load_cum_sum[0], :
                               ] = file['markers'][:n_mks_load_cum_sum[0], :]
@@ -303,17 +338,23 @@ class Particles(metaclass=ABCMeta):
 
         # load fresh markers
         else:
+            
+            if self._mpi_rank == 0:
+                for key, val in self._params['loading'].items():
+                    print((key + ' :').ljust(25), val)
 
             # 1. standard random number generator (pseudo-random)
             if self._params['loading']['type'] == 'pseudo_random':
 
-                np.random.seed(self._params['loading']['seed'])
+                _seed = self._params['loading']['seed']
+                if _seed is not None:
+                    np.random.seed(_seed)
 
                 for i in range(self._mpi_size):
-                    temp = np.random.rand(self.n_mks_load[i], 3+self.vdim)
+                    temp = np.random.rand(self.n_mks_load[i], 3 + self.vdim)
 
                     if i == self._mpi_rank:
-                        self._markers[:n_mks_load_loc, :3+self.vdim] = temp
+                        self._markers[:n_mks_load_loc, :3 + self.vdim] = temp
                         break
 
                 del temp
@@ -321,14 +362,17 @@ class Particles(metaclass=ABCMeta):
             # 2. plain sobol numbers with skip of first 1000 numbers
             elif self._params['loading']['type'] == 'sobol_standard':
 
-                self._markers[:n_mks_load_loc, :6] = sobol_seq.i4_sobol_generate(
-                    3+self.vdim, n_mks_load_loc, 1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank])
+                self._markers[:n_mks_load_loc, :3 + self.vdim] = sobol_seq.i4_sobol_generate(
+                    3 + self.vdim, n_mks_load_loc, 1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank])
 
             # 3. symmetric sobol numbers in all 6 dimensions with skip of first 1000 numbers
             elif self._params['loading']['type'] == 'sobol_antithetic':
 
+                assert self.vdim == 3, NotImplementedError(
+                    '"sobol_antithetic" requires vdim=3 at the moment.')
+
                 temp_markers = sobol_seq.i4_sobol_generate(
-                    3+self.vdim, n_mks_load_loc//64, 1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank]//64)
+                    3 + self.vdim, n_mks_load_loc//64, 1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank]//64)
 
                 sampling.set_particles_symmetric_3d_3v(
                     temp_markers, self._markers)
@@ -341,7 +385,16 @@ class Particles(metaclass=ABCMeta):
             # inversion of Gaussian in velocity space
             for i in range(self.vdim):
                 self._markers[:n_mks_load_loc, 3 + i] = sp.erfinv(
-                    2*self._markers[:n_mks_load_loc, 3 + i] - 1)*self._params['loading']['moments'][self.vdim + i] + self._params['loading']['moments'][i]
+                    2*self._markers[:n_mks_load_loc, 3 + i] - 1) \
+                    * self._params['loading']['moments'][self.vdim + i] + self._params['loading']['moments'][i]
+
+            # inversion method for drawing uniformly on the disc
+            _spatial = self._params['loading']['spatial']
+            if _spatial == 'disc':
+                self._markers[:n_mks_load_loc, 0] = np.sqrt(
+                    self._markers[:n_mks_load_loc, 0])
+            else:
+                assert _spatial == 'uniform', f'Spatial drawing must be "uniform" or "disc", is {_spatial}.'
 
         # fill holes in markers array with -1
         self._markers[n_mks_load_loc:] = -1.
@@ -411,9 +464,16 @@ class Particles(metaclass=ABCMeta):
         self.comm.Barrier()
 
     def initialize_weights(self, fun_params, bckgr_params=None):
-        """
-        Computes w0 = f0(t=0, eta(t=0), v(t=0)) / s0(t=0, eta(t=0), v(t=0)) from the initial
-        distribution function and sets the corresponding columns for w0, s0 and weights in markers array.
+        r"""
+        Computes the initial weights
+
+        .. math::
+
+            w_{k0} := \frac{f^0(t, q_k(t)) }{s^0(t, q_k(t)) } = \frac{f^0(0, q_k(0)) }{s^0(0, q_k(0)) } = \frac{f^0_{\textnormal{in}}(q_{k0}) }{s^0_{\textnormal{in}}(q_{k0}) }
+
+        from the initial distribution function :math:`f^0_{\textnormal{in}}` specified in the parmeter file
+        and from the initial volume density :math:`s^n_{\textnormal{in}}` specified in :meth:`struphy.pic.particles.Particles.draw_markers`.
+        Moreover, it sets the corresponding columns for "w0", "s0" and "weights" in the markers array.
         For the control variate method, the background is subtracted.
 
         Parameters
@@ -424,6 +484,7 @@ class Particles(metaclass=ABCMeta):
         bckgr_params : dict (optional)
             Dictionary of the form {type : class_name, class_name : params_dict} defining the background.
         """
+
         if self._use_control_variate:
             assert bckgr_params is not None, 'When control variate is used, background parameters must be given!'
 
@@ -435,7 +496,8 @@ class Particles(metaclass=ABCMeta):
         fun_name = fun_params['type']
 
         if fun_name in fun_params:
-            self._f_init = getattr(analytical, fun_name)(**fun_params[fun_name])
+            self._f_init = getattr(analytical, fun_name)(
+                **fun_params[fun_name])
         else:
             self._f_init = getattr(analytical, fun_name)()
 
@@ -462,12 +524,13 @@ class Particles(metaclass=ABCMeta):
 
     def update_weights(self, f0):
         """
-        Updates the marker weights according to w0 - control*f0(eta, v)/s0, where control=True or control=False.
+        Applies the control variate method;
+        updates the time-dependent marker weights according to the algorithm in the `Struphy documentation <https://struphy.pages.mpcdf.de/struphy/sections/discretization.html#control-variate-method>`_.
 
         Parameters
         ----------
         f0 : callable
-            The distribution function used as a control variate. Is called as f0(eta1, eta2, eta3, v1, v2, v3).
+            The distribution function used as a control variate. Is called as f0(eta1, eta2, eta3, *v).
         """
 
         if self._use_control_variate:
@@ -475,20 +538,26 @@ class Particles(metaclass=ABCMeta):
                 f0(*self.markers_wo_holes[:, :self.vdim + 3].T) / \
                 self.markers_wo_holes[:, self.vdim + 4]
 
-    def binning(self, components, bin_edges, domain=None):
-        """
-        Computes the distribution function via marker binning in logical space using numpy's histogramdd.
+    def binning(self, components, bin_edges, domain=None, velocity_det=None):
+        r"""
+        Computes the distribution function via marker binning in logical space using numpy's histogramdd,
+        following the algorithm outlined in the `Struphy documentation <https://struphy.pages.mpcdf.de/struphy/sections/discretization.html#particle-binning>`_.
+        If both ``domain=None`` and ``velocity_det=None``, approximations of the volume density :math:`f^n(t)` are computed (of :math:`f^0(t)` otherwise). 
 
         Parameters
         ----------
         components : list[bool]
-            List of length 6 giving the directions in phase space in which to bin.
+            List of length n (dim. of phase space) giving the directions in phase space in which to bin.
 
         bin_edges : list[array]
             List of bin edges (resolution) having the length of True entries in components.
 
         domain : struphy.geometry.domains
             Mapping info for evaluating metric coefficients.
+
+        velocity_det : callable
+            The Jacobian deteminant of a velocity space transformation. 
+            Must perform "marker evaluation" if a 2D numpy array is passed, just as ``domain.jacobian_det()``.
 
         Returns
         -------
@@ -505,26 +574,29 @@ class Particles(metaclass=ABCMeta):
             bin_vol *= bin_edges_i[1] - bin_edges_i[0]
 
         # extend components list to number of columns of markers array
-        slicing = components + [False] * (self._markers.shape[1] - 6)
+        _n = len(components)
+        slicing = components + [False] * (self._markers.shape[1] - _n)
 
-        # binning with weight transformation
+        # compute weights of histogram:
+        _weights = self.markers_wo_holes[:, _n]
+
+        # in case of approximation of f^0
         if domain is not None:
-            f_slice = np.histogramdd(self.markers_wo_holes[:, slicing],
-                                     bins=bin_edges,
-                                     weights=self.markers_wo_holes[:, 6]
-                                     / domain.jacobian_det(self.markers))[0]
+            _weights /= domain.jacobian_det(self.markers)
+            
+        if velocity_det is not None:
+            _weights /= velocity_det(self.markers)
 
-        # binning without weight transformation
-        else:
-            f_slice = np.histogramdd(self.markers_wo_holes[:, slicing],
-                                     bins=bin_edges,
-                                     weights=self.markers_wo_holes[:, 6])[0]
+        f_slice = np.histogramdd(self.markers_wo_holes[:, slicing],
+                                 bins=bin_edges,
+                                 weights=_weights)[0]
 
         return f_slice/(self._n_mks*bin_vol)
 
-    def show_distribution_function(self, components, bin_edges, domain=None):
+    def show_distribution_function(self, components, bin_edges, domain=None, velocity_det=None):
         """
         1D and 2D plots of slices of the distribution function via marker binning.
+        This routine is mainly for de-bugging.
 
         Parameters
         ----------
@@ -536,31 +608,34 @@ class Particles(metaclass=ABCMeta):
 
         domain : struphy.geometry.domains
             Mapping info for evaluating metric coefficients.
+            
+        velocity_det : callable
+            The Jacobian deteminant of a velocity space transformation. 
+            Must perform "marker evaluation" if a 2D numpy array is passed, just as ``domain.jacobian_det()``.
         """
 
         import matplotlib.pyplot as plt
 
         n_dim = np.count_nonzero(components)
 
-        assert n_dim == 1 or n_dim == 2
+        assert n_dim == 1 or n_dim == 2, f'Distribution function can only be shown in 1D or 2D slices, not {n_dim}.'
 
-        f_slice = self.binning(components, bin_edges, domain)
+        f_slice = self.binning(components, bin_edges, domain=domain, velocity_det=velocity_det)
 
         bin_centers = [bi[:-1] + (bi[1] - bi[0])/2 for bi in bin_edges]
 
-        # labels = {0 : '$\eta_1$', 1 : '$\eta_2$', 2 : '$\eta_3$', 3 : '$v_x$', 4 : '$v_y$', 5 : '$v_z$'}
-
-        # indices = np.nonzero(components)[0]
+        labels = {0 : '$\eta_1$', 1 : '$\eta_2$', 2 : '$\eta_3$', 3 : '$v_1$', 4 : '$v_2$', 5 : '$v_3$'}
+        indices = np.nonzero(components)[0]
 
         if n_dim == 1:
             plt.plot(bin_centers[0], f_slice)
-            # plt.xlabel(labels[indices[0]])
+            plt.xlabel(labels[indices[0]])
         else:
             plt.contourf(bin_centers[0], bin_centers[1], f_slice, levels=20)
             plt.colorbar()
             plt.axis('square')
-            # plt.xlabel(labels[indices[0]])
-            # plt.ylabel(labels[indices[1]])
+            plt.xlabel(labels[indices[0]])
+            plt.ylabel(labels[indices[1]])
 
         plt.show()
 
@@ -588,17 +663,23 @@ class Particles(metaclass=ABCMeta):
 
             # apply boundary conditions
             if bc == 'remove':
-                
+
                 # save the positions and velocities just before the pushing step
                 if self.vdim == 3:
-                    self.lost_markers[self.n_lost_markers:self.n_lost_markers+len(outside_inds), 0:3] = self.markers[outside_inds, 9:12]
-                    self.lost_markers[self.n_lost_markers:self.n_lost_markers+len(outside_inds), 3:9] = self.markers[outside_inds, 3:9]
-                    self.lost_markers[self.n_lost_markers:self.n_lost_markers+len(outside_inds), -1]  = self.markers[outside_inds, -1]
+                    self.lost_markers[self.n_lost_markers:self.n_lost_markers +
+                                      len(outside_inds), 0:3] = self.markers[outside_inds, 9:12]
+                    self.lost_markers[self.n_lost_markers:self.n_lost_markers +
+                                      len(outside_inds), 3:9] = self.markers[outside_inds, 3:9]
+                    self.lost_markers[self.n_lost_markers:self.n_lost_markers +
+                                      len(outside_inds), -1] = self.markers[outside_inds, -1]
 
                 elif self.vdim == 2:
-                    self.lost_markers[self.n_lost_markers:self.n_lost_markers+len(outside_inds), 0:4] = self.markers[outside_inds, 9:13]
-                    self.lost_markers[self.n_lost_markers:self.n_lost_markers+len(outside_inds), 4:9] = self.markers[outside_inds, 4:9]
-                    self.lost_markers[self.n_lost_markers:self.n_lost_markers+len(outside_inds), -1]  = self.markers[outside_inds, -1]   
+                    self.lost_markers[self.n_lost_markers:self.n_lost_markers +
+                                      len(outside_inds), 0:4] = self.markers[outside_inds, 9:13]
+                    self.lost_markers[self.n_lost_markers:self.n_lost_markers +
+                                      len(outside_inds), 4:9] = self.markers[outside_inds, 4:9]
+                    self.lost_markers[self.n_lost_markers:self.n_lost_markers +
+                                      len(outside_inds), -1] = self.markers[outside_inds, -1]
 
                 self.markers[outside_inds, :-1] = -1.
 
@@ -687,7 +768,7 @@ class Particles6D(Particles):
                                  vth1=self._params['loading']['moments'][3],
                                  vth2=self._params['loading']['moments'][4],
                                  vth3=self._params['loading']['moments'][5])
-        
+
         return s3(eta1, eta2, eta3, *v)
 
     def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
@@ -778,7 +859,7 @@ class Particles5D(Particles):
         """Number of the columns at each markers.
         """
         return 29
-    
+
     @property
     def vdim(self):
         """Dimension of the velocity space.
@@ -840,7 +921,7 @@ class Particles5D(Particles):
 
         # contra-variant components of B* = B + 1/kappa*v_parallel*curlb0
         bstar = bv + 1/self._kappa*v[0]*curlb
-        
+
         # B*_parallel = b0 . B*
         jacobian_det = np.einsum('ij,ij->j', unit_b1, bstar)/v[1]
 

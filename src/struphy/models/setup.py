@@ -273,6 +273,11 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
 
     mpi_size : int
         Total number of MPI processes of the run.
+        
+    Returns
+    -------
+    params : dict
+        The simulation parameters.
     """
 
     import os
