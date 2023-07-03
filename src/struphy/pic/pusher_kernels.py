@@ -202,27 +202,27 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
         linalg.matrix_vector(df, b_form, b_cart)
         b_cart[:] = b_cart/det_df
 
-        # normalized magnetic field direction
+        # magnetic field: magnitude
         b_abs = sqrt(b_cart[0]**2 + b_cart[1]**2 + b_cart[2]**2)
 
+        # only push vxb if magnetic field is non-zero
         if b_abs != 0.:
+            # normalized magnetic field direction
             b_norm[:] = b_cart/b_abs
-        else:
-            b_norm[:] = b_cart
 
-        # parallel velocity v.b_norm
-        vpar = linalg.scalar_dot(v, b_norm)
+            # parallel velocity v.b_norm
+            vpar = linalg.scalar_dot(v, b_norm)
 
-        # first component of perpendicular velocity
-        linalg.cross(v, b_norm, vxb_norm)
-        linalg.cross(b_norm, vxb_norm, vperp)
+            # first component of perpendicular velocity
+            linalg.cross(v, b_norm, vxb_norm)
+            linalg.cross(b_norm, vxb_norm, vperp)
 
-        # second component of perpendicular velocity
-        linalg.cross(b_norm, vperp, b_normxvperp)
+            # second component of perpendicular velocity
+            linalg.cross(b_norm, vperp, b_normxvperp)
 
-        # analytic rotation
-        markers[ip, 3:6] = vpar*b_norm + \
-            cos(b_abs*dt)*vperp - sin(b_abs*dt)*b_normxvperp
+            # analytic rotation
+            markers[ip, 3:6] = vpar*b_norm + \
+                cos(b_abs*dt)*vperp - sin(b_abs*dt)*b_normxvperp
 
     #$ omp end parallel
 
