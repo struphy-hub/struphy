@@ -26,7 +26,7 @@ class Field:
             Field's key to be used for saving in the hdf5 file.
 
         space_id : str
-            Space identifier for the field (H1, Hcurl, Hdiv, L2 or H1vec).
+            Space identifier for the field ("H1", "Hcurl", "Hdiv", "L2" or "H1vec").
 
         derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.

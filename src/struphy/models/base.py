@@ -898,10 +898,10 @@ class StruphyModel(metaclass=ABCMeta):
                 pparams[species]['charge'] = val['params']['phys_params']['Z'] * e
                 # density (m⁻³)
                 pparams[species]['density'] = np.mean(self.mhd_equil.n0(
-                    eta1, eta2, eta3) * np.abs(det_tmp)) / plasma_volume * units['n']
+                    eta1, eta2, eta3) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
                 # pressure (bar)
                 pparams[species]['pressure'] = np.mean(self.mhd_equil.p0(
-                    eta1, eta2, eta3) * np.abs(det_tmp)) / plasma_volume * units['p'] * 1e-5
+                    eta1, eta2, eta3) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['p'] * 1e-5
                 # thermal energy (keV)
                 pparams[species]['kBT'] = pparams[species]['pressure'] * \
                     1e5 / pparams[species]['density'] / e * 1e-3
@@ -931,10 +931,10 @@ class StruphyModel(metaclass=ABCMeta):
 
                 # density (m⁻³)
                 pparams[species]['density'] = np.mean(tmp.n(
-                    eta1mg, eta2mg, eta3mg) * np.abs(det_tmp)) / plasma_volume * units['n']
+                    eta1mg, eta2mg, eta3mg) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
                 # thermal speeds (m/s)
                 vth = tmp.vth(eta1mg, eta2mg, eta3mg) * \
-                    np.abs(det_tmp) / plasma_volume * units['v']
+                    np.abs(det_tmp) * units['x']**3 / plasma_volume * units['v']
                 thermal_speed = 0.
                 for dir in range(val['obj'].vdim):
                     pparams[species]['vth' + str(dir + 1)] = np.mean(vth[dir])

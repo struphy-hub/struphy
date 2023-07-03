@@ -85,6 +85,7 @@ kinetic :
                 type    : pseudo_random # particle loading mechanism
                 seed    : 4247 # seed for random number generator
                 moments : [0., 0., 0., 0.01, 0.03, 0.01] # moments of Gaussian s3, see background/moms_spec
+                spatial : uniform # uniform or disc
         init :
             type : Maxwellian6DPerturbed
             Maxwellian6DPerturbed :

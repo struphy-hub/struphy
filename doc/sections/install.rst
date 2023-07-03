@@ -26,6 +26,7 @@ Sample environment on **Debian-Ubuntu-Mint**::
 
     sudo apt update
     sudo apt install -y python3-pip
+    sudo apt install -y python3.8-venv
     sudo apt install -y gcc
     sudo apt install -y gfortran
     sudo apt install -y libblas-dev liblapack-dev
@@ -63,6 +64,36 @@ In case you see problems with the `mpi4py` build on **Mac OS**, you can try to i
     xcode-select --install
 
 On **Windows systems** we recommend the use of a virtual machine, for instance the :ref:`multipass`.
+
+
+.. _virtualenv:
+
+Virtual Python environment
+--------------------------
+
+In order for the Struphy installation not to interfere with the custom Python environment you have set up on your machine, 
+we recommend the use of a `Virtual Python environment <https://pypi.org/project/virtualenv/>`_::
+
+    pip install -U virtualenv
+
+Create virtual environment::
+
+    python3 -m venv <name>
+
+Launch the virtual environment (from the location where created)::
+
+    source <name>/bin/activate
+
+Check the pre-installed packages and upgrade ``pip``::
+
+    pip list
+    pip install --upgrade pip
+
+Continue with the Struphy installation. When finished, you can deactivate the virtual environment::
+
+    deactivate
+
+The environment is stored in the folder ``<name>`` and can be re-activated any time for working with Struphy.
 
 
 .. _pypi_install:
@@ -137,7 +168,7 @@ If you are uncomfortable with running `sudo`, you can `run docker in "rootless" 
 
 2. Login to the MPCDF Gitlab registry using a predefined Struphy user and token::
 
-    docker login gitlab-registry.mpcdf.mpg.de -u struphy_group_api -p glpat-JW4kjd_YMvRinSzKxSxs
+    docker login gitlab-registry.mpcdf.mpg.de -u docker_api -p glpat--z6kJtobeG-xM_LdL6k6
 
 3. Pull one of the following environment images (< 1 GB in size)::
 
@@ -181,7 +212,8 @@ with the ``-v`` option. For a ``rsa`` key this is done with::
 
 On OS other than Linux ``~/.ssh/id_rsa`` must be replaced with the path to the private rsa key.
 
-You can now install Struphy from source (see above).
+You can now install Struphy from source (see above). An installation in **editable mode** (``pip install -e .``) can only be done
+within a :ref:`virtualenv`.
 
 In order to develop inside the container, we recommend to use `Visual Studio Code <https://code.visualstudio.com/>`_.
 Once installed, you can click on **Extensions** (red circle below) and install the ``Dev Containers``

@@ -68,6 +68,7 @@ kinetic :
                 seed          : 1234 # seed for random number generator
                 dir_particles : path_to_particles # directory of particles if loaded externally
                 moments       : [0., 0., 0., 0.1, 0.1, 0.1] # moments of Gaussian s3, see background/moms_spec
+                spatial       : uniform # uniform or disc
         init :
             type : Maxwellian6DPerturbed
             Maxwellian6DPerturbed :
