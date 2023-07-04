@@ -3,10 +3,26 @@
 Struphy models
 ==============
 
-.. toctree::
-   :maxdepth: 2
+Documented modules:
 
-   models
+.. currentmodule:: ''
+
+.. autosummary::
+    :nosignatures:
+    :toctree: STUBDIR
+
+    struphy.models.fluid
+    struphy.models.kinetic
+    struphy.models.hybrid
+    struphy.models.toy
+
+.. toctree::
+    :caption: Lists of available models:
+
+    STUBDIR/struphy.models.fluid
+    STUBDIR/struphy.models.kinetic
+    STUBDIR/struphy.models.hybrid
+    STUBDIR/struphy.models.toy
 
 
 .. _fluid_models:
@@ -18,6 +34,7 @@ Fluid models
     :members:
     :undoc-members:
     :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, timescale
+    :show-inheritance:
 
 
 .. _kinetic_models:
@@ -29,6 +46,7 @@ Kinetic models
     :members:
     :undoc-members:
     :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, timescale
+    :show-inheritance:
 
 
 .. _hybrid_models:
@@ -40,6 +58,7 @@ Fluid-kinetic hybrid models
     :members:
     :undoc-members:
     :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, timescale
+    :show-inheritance:
 
 
 .. _toy_models:
@@ -51,12 +70,13 @@ Toy models
     :members:
     :undoc-members:
     :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, timescale
+    :show-inheritance:
 
 
 .. _normalization:
 
 Normalization
-=============
+-------------
 
 In Struphy, models are implemented in normalized variables. 
 Each particular normalization is stated with the model equations in the docstring (see below).

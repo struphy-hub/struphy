@@ -285,7 +285,7 @@ class AccumulatorVector:
 
     .. math::
 
-        V^\mu_{ijk} &= \sum_p \Lambda^\mu_{ijk}(\eta_p) * B^\mu_p
+        V^\mu_{ijk} = \sum_p \Lambda^\mu_{ijk}(\eta_p) * B^\mu_p
 
     where :math:`p` runs over the particles, :math:`\Lambda^\mu_{ijk}(\eta_p)` denotes the :math:`ijk`-th basis function
     of the :math:`\mu`-th component of a Derham space (V0, V1, V2, V3) evaluated at the particle position :math:`\eta_p`.

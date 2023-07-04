@@ -70,7 +70,7 @@ class LinearVlasovMaxwell(StruphyModel):
 
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
-        from struphy.kinetic_background import analytical as kin_ana
+        from struphy.kinetic_background import maxwellians as kin_ana
         from mpi4py.MPI import SUM, IN_PLACE
 
         # pointers to em-field variables
@@ -335,7 +335,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
 
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
-        from struphy.kinetic_background import analytical as kin_ana
+        from struphy.kinetic_background import maxwellians as kin_ana
         from mpi4py.MPI import SUM, IN_PLACE
 
         # pointers to em-field variables
