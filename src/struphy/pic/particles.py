@@ -6,7 +6,7 @@ import scipy.special as sp
 
 from struphy.pic import sampling, sobol_seq
 from struphy.pic.pusher_utilities import reflect
-from struphy.kinetic_background import analytical
+from struphy.kinetic_background import maxwellians
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
 
@@ -485,6 +485,8 @@ class Particles(metaclass=ABCMeta):
             Dictionary of the form {type : class_name, class_name : params_dict} defining the background.
         """
 
+        assert self.domain is not None, 'A domain is needed to initialize weights.'
+
         if self._use_control_variate:
             assert bckgr_params is not None, 'When control variate is used, background parameters must be given!'
 
@@ -496,10 +498,10 @@ class Particles(metaclass=ABCMeta):
         fun_name = fun_params['type']
 
         if fun_name in fun_params:
-            self._f_init = getattr(analytical, fun_name)(
+            self._f_init = getattr(maxwellians, fun_name)(
                 **fun_params[fun_name])
         else:
-            self._f_init = getattr(analytical, fun_name)()
+            self._f_init = getattr(maxwellians, fun_name)()
 
         # compute w0 and save at vdim + 5
         self._markers[~self._holes, self.vdim + 5] = self._f_init(
@@ -510,10 +512,10 @@ class Particles(metaclass=ABCMeta):
             fun_name = bckgr_params['type']
 
             if fun_name in bckgr_params:
-                self._f_backgr = getattr(analytical, fun_name)(
+                self._f_backgr = getattr(maxwellians, fun_name)(
                     **bckgr_params[fun_name])
             else:
-                self._f_backgr = getattr(analytical, fun_name)()
+                self._f_backgr = getattr(maxwellians, fun_name)()
 
             self._markers[~self._holes, self.vdim + 3] = self.markers_wo_holes[:, self.vdim + 5] - \
                 self.f_backgr(*self.markers_wo_holes[:, :self.vdim + 3].T) / \
@@ -759,7 +761,7 @@ class Particles6D(Particles):
         -------
         """
         # load sampling density svol = s6 = s3 (normalized to 1 in logical space!)
-        Maxwellian6DUniform = getattr(analytical, 'Maxwellian6DUniform')
+        Maxwellian6DUniform = getattr(maxwellians, 'Maxwellian6DUniform')
 
         s3 = Maxwellian6DUniform(n=1.,
                                  u1=self._params['loading']['moments'][0],
@@ -885,7 +887,7 @@ class Particles5D(Particles):
         -------
         """
         # load sampling density svol = s5 (normalized to 1 in logical space!)
-        Maxwellian5DUniform = getattr(analytical, 'Maxwellian5DUniform')
+        Maxwellian5DUniform = getattr(maxwellians, 'Maxwellian5DUniform')
 
         s5 = Maxwellian5DUniform(n=1.,
                                  u_parallel=self.params['loading']['moments'][0],

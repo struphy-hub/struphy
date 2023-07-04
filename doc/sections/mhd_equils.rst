@@ -3,26 +3,35 @@
 MHD equilibria
 ==============
 
+Documented modules:
+
+.. currentmodule:: ''
+
+.. autosummary::
+    :nosignatures:
+    :toctree: STUBDIR
+
+    struphy.fields_background.mhd_equil.base
+    struphy.fields_background.mhd_equil.equils
+
 .. toctree::
-   :maxdepth: 2
+    :caption: Lists of available MHD equilibria:
 
-   mhd_equils
+    STUBDIR/struphy.fields_background.mhd_equil.base
+    STUBDIR/struphy.fields_background.mhd_equil.equils
 
-Base class
-----------
+    
+.. _mhd_base:
 
-.. autoclass:: struphy.fields_background.mhd_equil.base.MHDequilibrium
-    :members:
-    :undoc-members:
-
-Child classes
--------------
+Base classes
+------------
 
 .. automodule:: struphy.fields_background.mhd_equil.base
     :members:
     :undoc-members: 
-    :exclude-members: MHDequilibrium
+    :exclude-members: 
     :show-inheritance:
+
 
 .. _mhd_equil_avail:
 
@@ -33,5 +42,8 @@ Available MHD equilibria
     :members:
     :undoc-members:
     :show-inheritance:
+
+
+
 
 

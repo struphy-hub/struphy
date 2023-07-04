@@ -25,13 +25,15 @@ For further information on **forking** and **merge- (or pull-) requests** please
    sections/discretization
    sections/notebooks
    sections/userguide
+   sections/developers
    sections/models
+   sections/propagators
+   sections/accumulators
    sections/domains
    sections/mhd_equils
    sections/kinetic_backgrounds
    sections/diagnostics
-   sections/developers
-   sections/propagators
+   sections/dispersions
    sections/examples
 
 .. _contact:

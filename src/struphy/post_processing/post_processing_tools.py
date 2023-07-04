@@ -7,7 +7,7 @@ import yaml
 
 from struphy.psydac_api.psydac_derham import Derham
 from struphy.psydac_api.fields import Field
-from struphy.kinetic_background import analytical
+from struphy.kinetic_background import maxwellians
 from struphy.models.setup import setup_domain_mhd
 
 from tqdm import tqdm
@@ -492,10 +492,10 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
 
             # Get background function
             if fun_name in bckgr_params.keys():
-                f_bckgr = getattr(analytical, fun_name)(
+                f_bckgr = getattr(maxwellians, fun_name)(
                     **bckgr_params[fun_name])
             else:
-                f_bckgr = getattr(analytical, fun_name)()
+                f_bckgr = getattr(maxwellians, fun_name)()
 
             # load all grids of the variables of f
             grid_tot = []

@@ -87,7 +87,7 @@ class LinearMHDVlasovCC(StruphyModel):
         from struphy.polar.basic import PolarVector
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
-        from struphy.kinetic_background import analytical as kin_ana
+        from struphy.kinetic_background import maxwellians as kin_ana
         from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
         from mpi4py.MPI import SUM, IN_PLACE
 
@@ -363,7 +363,7 @@ class LinearMHDVlasovPC(StruphyModel):
         from struphy.polar.basic import PolarVector
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
-        from struphy.kinetic_background import analytical as kin_ana
+        from struphy.kinetic_background import maxwellians as kin_ana
         from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
         from mpi4py.MPI import SUM, IN_PLACE
 
@@ -635,7 +635,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         from struphy.polar.basic import PolarVector
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
-        from struphy.kinetic_background import analytical as kin_ana
+        from struphy.kinetic_background import maxwellians as kin_ana
         from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
         from mpi4py.MPI import SUM
 

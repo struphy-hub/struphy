@@ -5,7 +5,8 @@ from struphy.propagators.base import Propagator
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.pic.particles_to_grid import Accumulator
 from struphy.polar.basic import PolarVector
-from struphy.kinetic_background.analytical import Maxwellian, Maxwellian6DUniform, Maxwellian5DUniform
+from struphy.kinetic_background.base import Maxwellian
+from struphy.kinetic_background.maxwellians import Maxwellian6DUniform, Maxwellian5DUniform
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
 from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose

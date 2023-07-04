@@ -3,6 +3,25 @@
 Propagators
 ===========
 
+Documented modules:
+
+.. currentmodule:: ''
+
+.. autosummary::
+    :nosignatures:
+    :toctree: STUBDIR
+
+    struphy.propagators.propagators_markers
+    struphy.propagators.propagators_fields
+    struphy.propagators.propagators_coupling
+
+.. toctree::
+    :caption: Lists of available propagators:
+
+    STUBDIR/struphy.propagators.propagators_markers
+    STUBDIR/struphy.propagators.propagators_fields
+    STUBDIR/struphy.propagators.propagators_coupling
+
 Notation:
 
 ================= ============================================ ==========================================================
@@ -25,6 +44,7 @@ Particle propagators
     :members:
     :undoc-members:
     :exclude-members: variables
+    :show-inheritance:
 
 
 Field propagators
@@ -34,6 +54,7 @@ Field propagators
     :members:
     :undoc-members:
     :exclude-members: variables
+    :show-inheritance:
 
 
 Particle-field propagators
@@ -43,3 +64,4 @@ Particle-field propagators
     :members:
     :undoc-members:
     :exclude-members: variables
+    :show-inheritance:

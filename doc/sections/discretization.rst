@@ -38,9 +38,9 @@ Low-density plasma can be described in terms of kinetic equations for its consti
 coupled to Maxwell's equations modeling their mean-field interaction. The solution of a kinetic equation is 
 a phase space volume density :math:`f^n`, also called *distribution function*, where the superscript :math:`n` denotes the dimension 
 of the phase space (position-velocity space). For three spatial coordinates and three velocity coordinates 
-we have :math:`n=6`, which can be considered a quite high dimension for PDEs. Because :math:`f^n(t, q)`,
-with :math:`t` denoting time and :math:`q \in \mathbb R^n` denoting phase space coordinates, is a volume density
-(:math:`n`-form), it satisfies the classical conservation law
+we have :math:`n=6`, which can be considered a quite high dimension for PDEs. Because :math:`f^n(t, q)`
+is a volume density (:math:`n`-form) in phase space, with :math:`t` denoting time and :math:`q \in \mathbb R^n` denoting
+phase space coordinates, it satisfies the classical conservation law
 
 .. math::
     :label: eq:kin:n
@@ -200,8 +200,8 @@ The PIC algorithm can be summarized in the following steps:
 Particle binning
 ^^^^^^^^^^^^^^^^
 
-The aim of particle binning is to obtain a "grid-representation" of the distribution function :math:`f^0(t, q) = f(t, F(q))`,
-which is represented by markers in Struphy. The approximation is obtained by integration of the volume density :math:`f^n(t, q)`
+The aim of particle binning is to obtain a "grid-representation" of either :math:`f^0(t, q)` or :math:`f^n(t, q)`,
+which are represented by markers in Struphy. The approximation is obtained by integration of the volume density :math:`f^{0/n}(t, q)`
 over small volumes of phase space, called "bins". These bins are not necessarily related to the FE grid used for fluid/field variables
 (but they can be). Moreover, bins do not have to be defined in all :math:`n` directions of the phase space; one could do just 1D or
 2D binning, integrating over the other coordinates entirely. 

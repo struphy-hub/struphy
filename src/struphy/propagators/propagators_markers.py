@@ -8,7 +8,7 @@ from struphy.pic.particles import Particles6D, Particles5D
 from struphy.pic.pusher import Pusher, Pusher_iteration_Gonzalez, Pusher_iteration_Itoh
 from struphy.pic.pusher import ButcherTableau
 from struphy.fields_background.mhd_equil.equils import set_defaults
-from struphy.kinetic_background.analytical import Maxwellian6DUniform
+from struphy.kinetic_background.maxwellians import Maxwellian6DUniform
 
 
 class PushEta(Propagator):

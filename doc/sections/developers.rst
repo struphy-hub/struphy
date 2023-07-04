@@ -24,7 +24,7 @@ the most relevant classes are
 For PIC, the most relevant classes are
 
     * :ref:`pusher`
-    * :ref:`accumulator`
+    * :ref:`Accumulator <accumulator>`
 
 Useful models for linear algebra, preconditioners, stencil data objects
 and PIC routines can be found under :ref:`utilities`.
@@ -63,12 +63,6 @@ FE field
 .. autoclass:: struphy.psydac_api.fields.Field
     :members:
 
-Mapped domain
-^^^^^^^^^^^^^
-
-.. autoclass:: struphy.geometry.base.Domain
-    :members:
-
 .. _weighted_mass:
 
 Weighted mass operators
@@ -99,14 +93,6 @@ Particle pusher
 ^^^^^^^^^^^^^^^
 
 .. autoclass:: struphy.pic.pusher.Pusher
-    :members:
-
-.. _accumulator:
-
-Particle-to-grid accumulator
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. autoclass:: struphy.pic.particles_to_grid.Accumulator
     :members:
 
 

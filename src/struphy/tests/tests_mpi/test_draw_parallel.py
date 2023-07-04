@@ -28,10 +28,6 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     rank = comm.Get_rank()
 
     seed = int(np.random.rand()*1000)
-    loading_params = {'type': 'pseudo_random', 'seed': seed,
-                      'moments': [0., 0., 0., 1., 1., 1.], 'spatial': 'uniform'}
-
-    marker_params = {'ppc': ppc, 'eps': .25, 'loading': loading_params, 'bc_type' : ['periodic', 'periodic', 'periodic']}
 
     # Domain object
     domain_class = getattr(domains, mapping[0])
@@ -46,7 +42,25 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
         print(derham.domain_array)
 
     # create particles
+    loading_params = {'type': 'pseudo_random', 
+                      'seed': seed,
+                      'moments': [0., 0., 0., 1., 1., 1.], 
+                      'spatial': 'uniform'}
+    marker_params = {'ppc': ppc, 
+                     'eps': .25, 
+                     'loading': loading_params, 
+                     'bc_type' : ['periodic', 'periodic', 'periodic'],
+                     'domain': domain}
+    init_params = {'type': 'Maxwellian6DUniform', 'Maxwellian6DUniform': {}}
+    
     particles = Particles6D('energetic_ions', **marker_params, domain_array=derham.domain_array, comm=comm)
+    
+    # test weights
+    particles.initialize_weights(init_params)
+    _vdim = particles.vdim
+    _w0 = particles.markers_wo_holes[:, 3 + _vdim]
+    print('Test weights:')
+    print(f'rank {rank}:', _w0.shape, np.min(_w0), np.max(_w0))
 
     comm.Barrier()
     print('Number of particles w/wo holes on each process before sorting : ')
@@ -77,5 +91,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
 
 
 if __name__ == '__main__':
+    # test_draw([8, 9, 10], [2, 3, 4], [False, False, True], ['Cuboid', {
+    #     'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])
     test_draw([8, 9, 10], [2, 3, 4], [False, False, True], ['Cuboid', {
-        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])
+        'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}])

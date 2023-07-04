@@ -725,7 +725,7 @@ class StruphyModel(metaclass=ABCMeta):
 
                 if self.params['kinetic'][species]['markers']['type'] in ['control_variate', 'delta_f']:
                     assert 'background' in self.params['kinetic'][species], \
-                        f'If a control variate or delta-f method is used, a analytical background must be given!'
+                        f'If a control variate or delta-f method is used, a maxwellians background must be given!'
 
                 kinetic_class = getattr(particles, val['space'])
 
@@ -802,7 +802,7 @@ class StruphyModel(metaclass=ABCMeta):
                 Plasma parameters for each species.
         """
 
-        from struphy.kinetic_background import analytical
+        from struphy.kinetic_background import maxwellians
 
         pparams = {}
 
@@ -927,7 +927,7 @@ class StruphyModel(metaclass=ABCMeta):
                     tmp_str = 'init'
                 tmp_type = val['params'][tmp_str]['type']
                 tmp_params = val['params'][tmp_str][tmp_type]
-                tmp = getattr(analytical, tmp_type)(**tmp_params)
+                tmp = getattr(maxwellians, tmp_type)(**tmp_params)
 
                 # density (m⁻³)
                 pparams[species]['density'] = np.mean(tmp.n(
