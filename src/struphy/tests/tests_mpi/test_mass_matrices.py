@@ -53,7 +53,7 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
                               'B0': 1.0, 'q0': 1.05,
                               'q1': 1.8, 'n1': 3.0,
                               'n2': 4.0, 'na': 0.0,
-                              'beta': 10.0})
+                              'beta': .1})
 
     elif mapping[0] == 'Colella':
         eq_mhd = ShearedSlab(**{'a': mapping[1]['Lx'],
@@ -64,7 +64,7 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
                               'n1': 3.0,
                               'n2': 4.0,
                               'na': 0.0,
-                              'beta': 10.0})
+                              'beta': .1})
 
         if show_plots:
             eq_mhd.plot_profiles()
@@ -78,7 +78,7 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
                              'n1': 3.0,
                              'n2': 4.0,
                              'na': 0.0,
-                             'beta': 10.0})
+                             'beta': .1})
 
         if show_plots:
             eq_mhd.plot_profiles()
@@ -261,7 +261,7 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
                          'n1': 3.0,
                          'n2': 4.0,
                          'na': 0.0,
-                         'beta': 10.0})
+                         'beta': .1})
 
     if show_plots:
         eq_mhd.plot_profiles()
@@ -455,7 +455,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
                               'B0': 1.0, 'q0': 1.05,
                               'q1': 1.8, 'n1': 3.0,
                               'n2': 4.0, 'na': 0.0,
-                              'beta': 10.0})
+                              'beta': .1})
 
     elif mapping[0] == 'Colella':
         eq_mhd = ShearedSlab(**{'a': mapping[1]['Lx'],
@@ -466,7 +466,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
                               'n1': 3.0,
                               'n2': 4.0,
                               'na': 0.0,
-                              'beta': 10.0})
+                              'beta': .1})
 
         if show_plots:
             eq_mhd.plot_profiles()
@@ -480,7 +480,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
                              'n1': 3.0,
                              'n2': 4.0,
                              'na': 0.0,
-                             'beta': 10.0})
+                             'beta': .1})
 
         if show_plots:
             eq_mhd.plot_profiles()
@@ -766,7 +766,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
                          'n1': 3.0,
                          'n2': 4.0,
                          'na': 0.0,
-                         'beta': 10.0})
+                         'beta': .1})
 
     if show_plots:
         eq_mhd.plot_profiles()

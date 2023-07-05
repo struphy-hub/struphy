@@ -26,7 +26,7 @@ class Field:
             Field's key to be used for saving in the hdf5 file.
 
         space_id : str
-            Space identifier for the field (H1, Hcurl, Hdiv, L2 or H1vec).
+            Space identifier for the field ("H1", "Hcurl", "Hdiv", "L2" or "H1vec").
 
         derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
@@ -351,9 +351,9 @@ class Field:
 
         self._vector.update_ghost_regions()
 
-    def __call__(self, eta1, eta2, eta3, squeeze_output=False):
+    def __call__(self, eta1, eta2, eta3, squeeze_output=False, local=False):
         """
-        Evaluates the spline function on the local domain.
+        Evaluates the spline function on the global domain, unless local is given to True (in which case the spline function is evaluated only on the local domain).
 
         Parameters
         ----------
@@ -434,7 +434,8 @@ class Field:
                                                np.array(self.derham.p), T1, T2, T3, np.array(self.starts), tmp)
 
             if self.derham.comm is not None:
-                self.derham.comm.Allreduce(MPI.IN_PLACE, tmp, op=MPI.SUM)
+                if local == False :
+                    self.derham.comm.Allreduce(MPI.IN_PLACE, tmp, op=MPI.SUM)
 
             # all processes have all values
             values = tmp
@@ -458,7 +459,8 @@ class Field:
                                                    np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp)
 
                 if self.derham.comm is not None:
-                    self.derham.comm.Allreduce(MPI.IN_PLACE, tmp, op=MPI.SUM)
+                    if local == False:
+                        self.derham.comm.Allreduce(MPI.IN_PLACE, tmp, op=MPI.SUM)
 
                 # all processes have all values
                 values += [tmp.copy()]

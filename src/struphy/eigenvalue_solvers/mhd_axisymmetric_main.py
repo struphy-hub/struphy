@@ -179,7 +179,7 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--input',
                         type=str,
                         metavar='FILE',
-                        help='parameter file (.yml) relative to <install_path>/struphy/io/inp/ (default=parameters.yml)',
+                        help='parameter file (.yml) in current I/O path (default=parameters.yml)',
                         default='parameters.yml')
 
     parser.add_argument('--input-abs',
@@ -190,7 +190,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output',
                         type=str,
                         metavar='DIR',
-                        help='output directory relative to <install_path>/struphy/io/out/ (default=sim_1)',
+                        help='output directory relative to current I/O path (default=sim_1)',
                         default='sim_1')
 
     parser.add_argument('--output-abs',
@@ -231,7 +231,7 @@ if __name__ == '__main__':
         params = yaml.load(file, Loader=yaml.FullLoader)
         
     # create domain and MHD equilibrium
-    from struphy.models.utilities import setup_domain_mhd
+    from struphy.models.setup import setup_domain_mhd
     
     domain, mhd_equil = setup_domain_mhd(params)
        

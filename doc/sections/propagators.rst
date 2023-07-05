@@ -3,6 +3,31 @@
 Propagators
 ===========
 
+Documented modules:
+
+.. currentmodule:: ''
+
+.. autosummary::
+    :nosignatures:
+    :toctree: STUBDIR
+
+    struphy.propagators.base
+    struphy.propagators.propagators_markers
+    struphy.propagators.propagators_fields
+    struphy.propagators.propagators_coupling
+    struphy.pic.pusher
+    struphy.pic.pusher_kernels
+
+.. toctree::
+    :caption: Lists of available propagators (and particle pushers therein):
+
+    STUBDIR/struphy.propagators.base
+    STUBDIR/struphy.propagators.propagators_markers
+    STUBDIR/struphy.propagators.propagators_fields
+    STUBDIR/struphy.propagators.propagators_coupling
+    STUBDIR/struphy.pic.pusher
+    STUBDIR/struphy.pic.pusher_kernels
+
 Notation:
 
 ================= ============================================ ==========================================================
@@ -18,6 +43,16 @@ calligaphic       :math:`\mathcal T,\,\mathcal U,\,\mathcal K` Basis projection 
 See :ref:`gempic` for more details on the used symbols.
 
 
+Propagator base class
+---------------------
+
+.. automodule:: struphy.propagators.base
+    :members:
+    :undoc-members:
+    :exclude-members: variables
+    :show-inheritance:
+
+
 Particle propagators
 --------------------
 
@@ -25,6 +60,7 @@ Particle propagators
     :members:
     :undoc-members:
     :exclude-members: variables
+    :show-inheritance:
 
 
 Field propagators
@@ -34,6 +70,7 @@ Field propagators
     :members:
     :undoc-members:
     :exclude-members: variables
+    :show-inheritance:
 
 
 Particle-field propagators
@@ -43,3 +80,24 @@ Particle-field propagators
     :members:
     :undoc-members:
     :exclude-members: variables
+    :show-inheritance:
+
+
+Pusher base classes
+-------------------
+
+.. automodule:: struphy.pic.pusher
+    :members:
+    :undoc-members:
+    :exclude-members: variables
+    :show-inheritance:
+
+
+Pusher kernels
+--------------
+
+.. automodule:: struphy.pic.pusher_kernels
+    :members:
+    :undoc-members:
+    :exclude-members: variables
+    :show-inheritance:

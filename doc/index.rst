@@ -22,16 +22,18 @@ For further information on **forking** and **merge- (or pull-) requests** please
    sections/overview
    sections/install
    sections/quickstart
+   sections/discretization
    sections/notebooks
    sections/userguide
+   sections/developers
    sections/models
+   sections/propagators
+   sections/accumulators
    sections/domains
    sections/mhd_equils
    sections/kinetic_backgrounds
    sections/diagnostics
-   sections/developers
-   sections/discretization
-   sections/propagators
+   sections/dispersions
    sections/examples
 
 .. _contact:
@@ -41,7 +43,6 @@ Contact
 
 Struphy is constantly maintained. Please contact 
 
-   * florian.holderied@ipp.mpg.de
    * stefan.possanner@ipp.mpg.de
    * eric.sonnendruecker@ipp.mpg.de
 

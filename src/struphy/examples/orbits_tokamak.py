@@ -8,7 +8,10 @@ def run(n_procs):
         Number of MPI processes to run the model.
     """
     
-    import subprocess
+    import os, subprocess
+    import struphy
+    
+    libpath = struphy.__path__[0]
     
     # name of simulation output folder
     out_name = 'sim_example_orbits_tokamak' 
@@ -18,7 +21,7 @@ def run(n_procs):
                     'run', 
                     'Vlasov',
                     '-i',
-                    'examples/params_orbits_tokamak.yml',
+                    os.path.join(libpath, 'io/inp/examples/params_orbits_tokamak.yml'),
                     '-o',
                     out_name,
                     '--mpi',
@@ -42,7 +45,7 @@ def diagnostics():
     import numpy as np
     import matplotlib.pyplot as plt
     
-    from struphy.models.utilities import setup_domain_mhd
+    from struphy.models.setup import setup_domain_mhd
     from struphy.fields_background.mhd_equil.equils import EQDSKequilibrium
     
     import struphy

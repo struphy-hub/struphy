@@ -70,12 +70,15 @@ class LinearVlasovMaxwell(StruphyModel):
 
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
-        from struphy.kinetic_background import analytical as kin_ana
+        from struphy.kinetic_background import maxwellians as kin_ana
         from mpi4py.MPI import SUM, IN_PLACE
 
         # pointers to em-field variables
         self._e = self.em_fields['e_field']['obj'].vector
         self._b = self.em_fields['b_field']['obj'].vector
+
+        self._en_e_tmp = self._e.space.zeros()
+        self._en_b_tmp = self._b.space.zeros()
 
         # Get rank and size
         self._rank = comm.Get_rank()
@@ -86,15 +89,20 @@ class LinearVlasovMaxwell(StruphyModel):
 
         # kinetic background
         assert electron_params['background']['type'] == 'Maxwellian6DUniform', \
-            "The background distribution function must be a uniform Maxwellian!"
+            AssertionError(
+                "The background distribution function must be a uniform Maxwellian!")
 
         self._maxwellian_params = electron_params['background']['Maxwellian6DUniform']
-        self._f0 = getattr(kin_ana, 'Maxwellian6DUniform')(
-            **self._maxwellian_params)
+        assert self._maxwellian_params['u1'] == 0., "No shifts in velocity space possible!"
+        assert self._maxwellian_params['u2'] == 0., "No shifts in velocity space possible!"
+        assert self._maxwellian_params['u3'] == 0., "No shifts in velocity space possible!"
+        self.kinetic['electrons']['obj']._f_backgr = getattr(
+            kin_ana, 'Maxwellian6DUniform')(**self._maxwellian_params)
+        self._f0 = self._electrons.f_backgr
 
         # Get coupling strength
-        self.alpha = self.units_dimless['alpha']
-        self.kappa = self.units_dimless['kappa']
+        self.alpha = self.eq_params['electrons']['alpha_unit']
+        self.kappa = 1. / self.eq_params['electrons']['epsilon_unit']
 
         # Get Poisson solver params
         self._poisson_params = params['solvers']['solver_poisson']
@@ -118,22 +126,22 @@ class LinearVlasovMaxwell(StruphyModel):
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
 
-        # Only add StepStaticEfield if e-field is non-zero, otherwise it is more expensive
+        self._propagators += [propagators_markers.PushEta(
+            self._electrons,
+            algo=electron_params['push_algos']['eta'],
+            bc_type=electron_params['markers']['bc_type'],
+            f0=None)]  # no conventional weights update here, thus f0=None
+        if self._rank == 0:
+            print("Added Step PushEta\n")
+
+        # Only add StepVinEfield if e-field is non-zero, otherwise it is more expensive
         if np.all(self._e_background[0]._data < 1e-14) and np.all(self._e_background[1]._data < 1e-14) and np.all(self._e_background[2]._data < 1e-14):
-            self._propagators += [propagators_markers.PushEta(
+            self._propagators += [propagators_markers.StepVinEfield(
                 self._electrons,
-                algo=electron_params['push_algos']['eta'],
-                bc_type=electron_params['markers']['bc_type'],
-                f0=None)]  # no conventional weights update here, thus f0=None
-            if self._rank == 0:
-                print("Added Step PushEta\n")
-        else:
-            self._propagators += [propagators_markers.StepStaticEfield(
-                self._electrons,
-                e_eq=self._e_background,
+                e_field=self._e_background,
                 kappa=self.kappa)]
             if self._rank == 0:
-                print("Added Step StaticEfield\n")
+                print("Added Step VinEfield\n")
 
         # Only add VxB Step if b-field is non-zero, otherwise it is more expensive
         b_bckgr_params = params['mhd_equilibrium'][params['mhd_equilibrium']['type']]
@@ -192,13 +200,65 @@ class LinearVlasovMaxwell(StruphyModel):
         from struphy.propagators import solvers
         from struphy.pic.particles_to_grid import AccumulatorVector
 
+        # Get physical properties of the Maxwellian
+        init_type = self.kinetic['electrons']['params']['init']['type']
+        if init_type == 'Maxwellian6DUniform':
+            sigma1 = self.kinetic['electrons']['params']['init'][init_type]['vth1']
+            sigma2 = self.kinetic['electrons']['params']['init'][init_type]['vth2']
+            sigma3 = self.kinetic['electrons']['params']['init'][init_type]['vth3']
+        elif init_type == 'Maxwellian6DPerturbed':
+            sigma1 = self.kinetic['electrons']['params']['init'][init_type]['vth1']['vth01']
+            sigma2 = self.kinetic['electrons']['params']['init'][init_type]['vth2']['vth02']
+            sigma3 = self.kinetic['electrons']['params']['init'][init_type]['vth3']['vth03']
+        else:
+            raise NotImplementedError('Unknown initialization function!')
+
+        # Compute determinant of the diagonal matrix holding the thermal velocities
+        det_one_th = 1 / (sigma1 * sigma2 * sigma3)
+
+        # Compute scaled velocities
+        vth1 = sigma1**3 * det_one_th**(2/3)
+        vth2 = sigma2**3 * det_one_th**(2/3)
+        vth3 = sigma3**3 * det_one_th**(2/3)
+
+        # Set scaled velocities in params for initialization
+        if init_type == 'Maxwellian6DUniform':
+            self.kinetic['electrons']['params']['init'][init_type]['vth1'] = vth1
+            self.kinetic['electrons']['params']['init'][init_type]['vth2'] = vth2
+            self.kinetic['electrons']['params']['init'][init_type]['vth3'] = vth3
+        elif init_type == 'Maxwellian6DPerturbed':
+            self.kinetic['electrons']['params']['init'][init_type]['vth1']['vth01'] = vth1
+            self.kinetic['electrons']['params']['init'][init_type]['vth2']['vth02'] = vth2
+            self.kinetic['electrons']['params']['init'][init_type]['vth3']['vth03'] = vth3
+        
+        # Take smaller width of the two gaussians for markers drawing in order to avoid
+        # small values for f0 and hence division by zero
+        self.kinetic['electrons']['params']['markers']['loading']['moments'][3] = \
+            min(vth1, sigma1)
+        self.kinetic['electrons']['params']['markers']['loading']['moments'][4] = \
+            min(vth2, sigma2)
+        self.kinetic['electrons']['params']['markers']['loading']['moments'][5] = \
+            min(vth3, sigma3)
+
         # Initialize fields and particles
         super().initialize_from_params()
 
-        # Correct initialization of weights by dividing by N*sqrt(f_0)
+        # edges = self.kinetic['electrons']['bin_edges']['e1']
+        # # edges = [self.kinetic['electrons']['bin_edges']['v1_v2'][1]]
+        # components = [False] * 6
+        # components[0] = True
+
+        # self._electrons.show_distribution_function(components, edges, self.domain)
+
+        # Correct initialization of weights by dividing by sqrt(f_0)
         self._electrons.markers[~self._electrons.holes, 6] /= \
-            (self._electrons.n_mks *
-             np.sqrt(self._f0(*self._electrons.markers_wo_holes[:, :6].T)))
+            (np.sqrt(self._f0(*self._electrons.markers_wo_holes[:, :6].T)))
+
+        # # Set v3 = 0
+        # self._electrons.markers[~self._electrons.holes, 5] = 0.
+
+        # self._electrons.show_distribution_function(components, edges, self.domain)
+        # exit()
 
         # evaluate f0
         f0_values = self._f0(self._electrons.markers[:, 0],
@@ -231,33 +291,34 @@ class LinearVlasovMaxwell(StruphyModel):
         self.derham.grad.dot(-poisson_solver._phi, out=self._e)
 
     def update_scalar_quantities(self):
-
-        # e^T * M_1 * e
+        # 0.5 * e^T * M_1 * e
+        self._mass_ops.M1.dot(self._e, out=self._en_e_tmp)
         self._scalar_quantities['en_e'][0] = self._e.dot(
-            self._mass_ops.M1.dot(self._e)) / 2.
+            self._en_e_tmp) / 2.
 
         # 0.5 * |e_1|^2
         self._scalar_quantities['en_e1'][0] = self._e._blocks[0].dot(
-            self._e._blocks[0]) / 2.
+            self._en_e_tmp._blocks[0]) / 2.
 
         # 0.5 * |e_2|^2
         self._scalar_quantities['en_e2'][0] = self._e._blocks[1].dot(
-            self._e._blocks[1]) / 2.
+            self._en_e_tmp._blocks[1]) / 2.
 
-        # b^T * M_2 * b
+        # 0.5 * b^T * M_2 * b
+        self._mass_ops.M2.dot(self._b, out=self._en_b_tmp)
         self._scalar_quantities['en_b'][0] = self._b.dot(
-            self._mass_ops.M2.dot(self._b)) / 2.
+            self._en_b_tmp) / 2.
 
         # 0.5 * |b_3|^2
         self._scalar_quantities['en_b3'][0] = self._b._blocks[2].dot(
-            self._b._blocks[2]) / 2.
+            self._en_b_tmp._blocks[2]) / 2.
 
-        # alpha^2 * v_th_1^2 * v_th_2^2 * v_th_3^2 * N/2 * sum_p s_0 * w_p^2
+        # alpha^2 / (2N) * (v_th_1 * v_th_2 * v_th_3)^(2/3) * sum_p s_0 * w_p^2
         self._scalar_quantities['en_w'][0] = \
-            self.alpha**2 * self._electrons.n_mks / 2. * \
-            self._maxwellian_params['vth1']**2 * \
-            self._maxwellian_params['vth2']**2 * \
-            self._maxwellian_params['vth3']**2 * \
+            self.alpha**2 / (2 * self._electrons.n_mks) * \
+            (self._maxwellian_params['vth1'] * \
+            self._maxwellian_params['vth2'] * \
+            self._maxwellian_params['vth3'])**(2/3) * \
             np.dot(self._electrons.markers_wo_holes[:, 6]**2,  # w_p^2
                    self._electrons.markers_wo_holes[:, 7])  # s_{0,p}
 
@@ -333,7 +394,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
 
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
-        from struphy.kinetic_background import analytical as kin_ana
+        from struphy.kinetic_background import maxwellians as kin_ana
         from mpi4py.MPI import SUM, IN_PLACE
 
         # pointers to em-field variables
@@ -352,12 +413,13 @@ class DeltaFVlasovMaxwell(StruphyModel):
             "The background distribution function must be a uniform Maxwellian!"
 
         self._maxwellian_params = electron_params['background']['Maxwellian6DUniform']
-        self._f0 = getattr(kin_ana, 'Maxwellian6DUniform')(
-            **self._maxwellian_params)
+        self.kinetic['electrons']['obj']._f_backgr = getattr(
+            kin_ana, 'Maxwellian6DUniform')(**self._maxwellian_params)
+        self._f0 = self._electrons.f_backgr
 
         # Get coupling strength
-        self.alpha = self.units_dimless['alpha']
-        self.kappa = self.units_dimless['kappa']
+        self.alpha = self.eq_params['electrons']['alpha_unit']
+        self.kappa = 1. / self.eq_params['electrons']['epsilon_unit']
 
         # Get Poisson solver params
         self._poisson_params = params['solvers']['solver_poisson']
@@ -381,12 +443,21 @@ class DeltaFVlasovMaxwell(StruphyModel):
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
 
-        # self._propagators += [propagators_markers.StepStaticEfield(
-        #     self._electrons,
-        #     e_field=self._e_background + self._e,
-        #     kappa=self.kappa)]
-        # if self._rank == 0:
-        #     print("\nAdded Step StaticEfield\n")
+        self._propagators += [propagators_markers.PushEta(
+            self._electrons,
+            algo=electron_params['push_algos']['eta'],
+            bc_type=electron_params['markers']['bc_type'],
+            f0=None)]  # no conventional weights update here, thus f0=None
+        if self._rank == 0:
+            print("Added Step PushEta\n")
+
+        # Only add StepVinEfield if e-field is non-zero, otherwise it is more expensive
+        self._propagators += [propagators_markers.StepVinEfield(
+            self._electrons,
+            e_field=self._e_background + self._e,
+            kappa=self.kappa)]
+        if self._rank == 0:
+            print("Added Step VinEfield\n")
 
         self._propagators += [propagators_markers.PushVxB(
             self._electrons,

@@ -7,23 +7,24 @@ class Propagator(metaclass=ABCMeta):
 
     Note
     ---- 
-        All Struphy propagators are subclasses of ``Propagator``. This parent class is also used
-        for solvers.'''
+        All Struphy propagators are subclasses of ``Propagator``.
+        
+        The ``__init__`` of child classes must take as first arguments the variables to be updated.
+        All additional arguments MUST be passed as **keyword arguments**.
+    '''
 
     @property
     @abstractmethod
     def variables(self):
-        '''List of variabels to be updated by the propagator. Can contain
-
-            * FE coefficients from the ``Field.vector`` property of :ref:`fields`.
-            * Marker arrays from the ``Particles6D.markers`` (or ``Particles5D.markers``) property of :ref:`particles`.    
+        '''List of FEEC variables (not particles) to be updated by the propagator. 
+        Contains FE coefficients from the ``Field.vector`` property of :ref:`fields`.
         '''
         pass
 
     @abstractmethod
     def __call__(self, dt):
-        '''Push entries in ``Propagator.variables`` from t -> t + dt.
-        Use ``Propagators.in_place_update`` to write to ``Propagator.variables``.
+        '''Update from t -> t + dt.
+        Use ``Propagators.in_place_update`` to write to FE variables to ``Propagator.variables``.
 
         Parameters
         ----------
@@ -81,7 +82,7 @@ class Propagator(metaclass=ABCMeta):
         self._basis_ops = basis_ops
 
     def in_place_update(self, *variables_new):
-        '''Writes new entries into ``Propagator.variables``.
+        '''Writes new entries into the FEEC variables in ``Propagator.variables``.
 
         Parameters
         ----------

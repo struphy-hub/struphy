@@ -210,11 +210,7 @@ geometry
         a1 : .2 # inner radius
         a2 : 1. # minor radius
         R0 : 3. # major radius
-        tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
-    HollowTorusStraightFieldLine :
-        a1 : .2 # inner radius
-        a2 : 1. # minor radius
-        R0 : 3. # major radius
+        sfl : False # straight field line coordinates?
         tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
     ShafranovShiftCylinder :
         rx    : 1. # axis length
@@ -247,7 +243,7 @@ mhd_equilibrium
         B0x  : 0. # magnetic field in x
         B0y  : 0. # magnetic field in y
         B0z  : 1. # magnetic field in z
-        beta : 0. # plasma beta = 2*p*mu_0/B^2
+        beta : .1 # plasma beta = 2*p*mu_0/B^2
         n0   : 1. # number density
     ShearedSlab :
         a    : 1. # minor radius (Lx=a, Ly=2*pi*a) 

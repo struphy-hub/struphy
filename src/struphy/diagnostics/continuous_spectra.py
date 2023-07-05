@@ -228,7 +228,7 @@ if __name__ == '__main__':
         params = yaml.load(file, Loader=yaml.FullLoader)
        
     # create domain and MHD equilibrium
-    from struphy.models.utilities import setup_domain_mhd
+    from struphy.models.setup import setup_domain_mhd
     
     domain, mhd_equil = setup_domain_mhd(params)
        

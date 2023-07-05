@@ -24,7 +24,7 @@ the most relevant classes are
 For PIC, the most relevant classes are
 
     * :ref:`pusher`
-    * :ref:`accumulator`
+    * :ref:`Accumulator <accumulator>`
 
 Useful models for linear algebra, preconditioners, stencil data objects
 and PIC routines can be found under :ref:`utilities`.
@@ -57,10 +57,10 @@ Derham sequence (3D)
 .. autoclass:: struphy.psydac_api.psydac_derham.Derham
     :members:
 
-Mapped domain
-^^^^^^^^^^^^^
+FE field 
+^^^^^^^^
 
-.. autoclass:: struphy.geometry.base.Domain
+.. autoclass:: struphy.psydac_api.fields.Field
     :members:
 
 .. _weighted_mass:
@@ -93,14 +93,6 @@ Particle pusher
 ^^^^^^^^^^^^^^^
 
 .. autoclass:: struphy.pic.pusher.Pusher
-    :members:
-
-.. _accumulator:
-
-Particle-to-grid accumulator
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. autoclass:: struphy.pic.particles_to_grid.Accumulator
     :members:
 
 

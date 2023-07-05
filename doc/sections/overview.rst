@@ -17,7 +17,7 @@ Heavy computational kernels are pre-compiled using the Python accelerator `pycce
 which on average shows `better performance <https://github.com/pyccel/pyccel-benchmarks>`_ than *Pythran* or *Numba*.
 
 *Flexibility* comes through the possibility of applying different :ref:`models` to a plasma physics problem.
-Each model can be run on different :ref:`avail_mappings` and can load a variety of :ref:`mhd_equil`.
+Each model can be run on different :ref:`avail_mappings` and can load a variety of :ref:`mhd_equil_avail`.
 You can add your model, mapping or equilibrium via the :ref:`base_classes`.
 
 *Usability* is guaranteed by Struphy's extensive documentation. For instance, you can learn Struphy

@@ -34,7 +34,7 @@ mhd_equilibrium :
         B0x  : 0. # magnetic field in x
         B0y  : 0. # magnetic field in y
         B0z  : 1. # magnetic field in z
-        beta : 0. # plasma beta = 2*p*mu_0/B^2
+        beta : .1 # plasma beta = 2*p*mu_0/B^2
         n0   : 1. # number density
 
 em_fields :
@@ -84,6 +84,7 @@ kinetic :
                 type    : pseudo_random # particle loading mechanism 
                 seed    : 1234 # seed for random number generator
                 moments : [0., 0., 2.5, 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
+                spatial : uniform # uniform or disc
         init :
             type : Maxwellian6DUniform
             Maxwellian6DUniform :

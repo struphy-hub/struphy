@@ -125,7 +125,7 @@ class BasisProjectionOperators:
         '''
         if not hasattr(self, '_K0'):
             fun = [[lambda e1, e2, e3: self.weights['eq_mhd'].p0(e1, e2, e3)]]
-            self._K0 = self.assemble_basis_projection_operator(fun, 'H1', 'H1')
+            self._K0 = self.assemble_basis_projection_operator(fun, 'H1', 'H1', name='K0')
 
         return self._K0
 
@@ -140,7 +140,7 @@ class BasisProjectionOperators:
         if not hasattr(self, '_K3'):
             fun = [[lambda e1, e2, e3: self.weights['eq_mhd'].p3(
                 e1, e2, e3) / self.sqrt_g(e1, e2, e3)]]
-            self._K3 = self.assemble_basis_projection_operator(fun, 'L2', 'L2')
+            self._K3 = self.assemble_basis_projection_operator(fun, 'L2', 'L2', name='K3')
 
         return self._K3
 
@@ -161,7 +161,7 @@ class BasisProjectionOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m,
                                 n=n: self.weights['eq_mhd'].n3(e1, e2, e3) if m == n else 0*e1]
             self._Qv = self.assemble_basis_projection_operator(
-                fun, 'H1vec', 'Hdiv')
+                fun, 'H1vec', 'Hdiv', name='Qv')
 
         return self._Qv
 
@@ -183,7 +183,7 @@ class BasisProjectionOperators:
                                 n=n: self.weights['eq_mhd'].n3(e1, e2, e3) * self.Ginv(e1, e2, e3)[:, :, :, m, n]]
 
             self._Q1 = self.assemble_basis_projection_operator(
-                fun, 'Hcurl', 'Hdiv')
+                fun, 'Hcurl', 'Hdiv', name='Q1')
 
         return self._Q1
 
@@ -205,7 +205,7 @@ class BasisProjectionOperators:
                         e1, e2, e3) / self.sqrt_g(e1, e2, e3) if m == n else 0*e1]
 
             self._Q2 = self.assemble_basis_projection_operator(
-                fun, 'Hdiv', 'Hdiv')
+                fun, 'Hdiv', 'Hdiv', name='Q2')
 
         return self._Q2
 
@@ -220,7 +220,7 @@ class BasisProjectionOperators:
         if not hasattr(self, '_Q3'):
             fun = [[lambda e1, e2, e3: self.weights['eq_mhd'].n3(
                 e1, e2, e3) / self.sqrt_g(e1, e2, e3)]]
-            self._Q3 = self.assemble_basis_projection_operator(fun, 'L2', 'L2')
+            self._Q3 = self.assemble_basis_projection_operator(fun, 'L2', 'L2', name='Q3')
 
         return self._Q3
 
@@ -253,7 +253,7 @@ class BasisProjectionOperators:
                                 n=n: rot_B(e1, e2, e3)[:, :, :, m, n]]
 
             self._Tv = self.assemble_basis_projection_operator(
-                fun, 'H1vec', 'Hcurl')
+                fun, 'H1vec', 'Hcurl', name='Tv')
 
         return self._Tv
 
@@ -287,7 +287,7 @@ class BasisProjectionOperators:
                                 n=n: (rot_B(e1, e2, e3) @ self.Ginv(e1, e2, e3))[:, :, :, m, n]]
 
             self._T1 = self.assemble_basis_projection_operator(
-                fun, 'Hcurl', 'Hcurl')
+                fun, 'Hcurl', 'Hcurl', name='T1')
 
         return self._T1
 
@@ -320,7 +320,7 @@ class BasisProjectionOperators:
                                 n=n: rot_B(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3)]
 
             self._T2 = self.assemble_basis_projection_operator(
-                fun, 'Hdiv', 'Hcurl')
+                fun, 'Hdiv', 'Hcurl', name='T2')
 
         return self._T2
 
@@ -342,7 +342,7 @@ class BasisProjectionOperators:
                                 n=n: self.weights['eq_mhd'].p3(e1, e2, e3) if m == n else 0*e1]
 
             self._Sv = self.assemble_basis_projection_operator(
-                fun, 'H1vec', 'Hdiv')
+                fun, 'H1vec', 'Hdiv', name='Sv')
 
         return self._Sv
 
@@ -364,7 +364,7 @@ class BasisProjectionOperators:
                                 n=n: self.weights['eq_mhd'].p3(e1, e2, e3) * self.Ginv(e1, e2, e3)[:, :, :, m, n]]
 
             self._S1 = self.assemble_basis_projection_operator(
-                fun, 'Hcurl', 'Hdiv')
+                fun, 'Hcurl', 'Hdiv', name='S1')
 
         return self._S1
 
@@ -387,7 +387,7 @@ class BasisProjectionOperators:
                         e1, e2, e3) / self.sqrt_g(e1, e2, e3) if m == n else 0*e1]
 
             self._S2 = self.assemble_basis_projection_operator(
-                fun, 'Hdiv', 'Hdiv')
+                fun, 'Hdiv', 'Hdiv', name='S2')
 
         return self._S2
 
@@ -409,7 +409,7 @@ class BasisProjectionOperators:
                                 n=n: self.weights['eq_mhd'].p0(e1, e2, e3) if m == n else 0*e1]
 
             self._S11 = self.assemble_basis_projection_operator(
-                fun, 'Hcurl', 'Hcurl')
+                fun, 'Hcurl', 'Hcurl', name='S11')
 
         return self._S11
 
@@ -431,7 +431,7 @@ class BasisProjectionOperators:
                         e1, e2, e3) * self.G(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3)]
 
             self._S21 = self.assemble_basis_projection_operator(
-                fun, 'Hdiv', 'Hcurl')
+                fun, 'Hdiv', 'Hcurl', name='S21')
 
         return self._S21
 
@@ -453,7 +453,7 @@ class BasisProjectionOperators:
                                 n=n: self.sqrt_g(e1, e2, e3) if m == n else 0*e1]
 
             self._Uv = self.assemble_basis_projection_operator(
-                fun, 'H1vec', 'Hdiv')
+                fun, 'H1vec', 'Hdiv', name='Uv')
 
         return self._Uv
 
@@ -475,7 +475,7 @@ class BasisProjectionOperators:
                                 n=n: self.sqrt_g(e1, e2, e3) * self.Ginv(e1, e2, e3)[:, :, :, m, n]]
 
             self._U1 = self.assemble_basis_projection_operator(
-                fun, 'Hcurl', 'Hdiv')
+                fun, 'Hcurl', 'Hdiv', name='U1')
 
         return self._U1
 
@@ -497,7 +497,7 @@ class BasisProjectionOperators:
                                 n=n: self.DF(e1, e2, e3)[:, :, :, m, n]]
 
             self._Xv = self.assemble_basis_projection_operator(
-                fun, 'H1vec', 'H1vec')
+                fun, 'H1vec', 'H1vec', name='Xv')
 
         return self._Xv
 
@@ -519,7 +519,7 @@ class BasisProjectionOperators:
                                 n=n: self.DFinvT(e1, e2, e3)[:, :, :, m, n]]
 
             self._X1 = self.assemble_basis_projection_operator(
-                fun, 'Hcurl', 'H1vec')
+                fun, 'Hcurl', 'H1vec', name='X1')
 
         return self._X1
 
@@ -541,7 +541,7 @@ class BasisProjectionOperators:
                                 n=n: self.DF(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3)]
 
             self._X2 = self.assemble_basis_projection_operator(
-                fun, 'Hdiv', 'H1vec')
+                fun, 'Hdiv', 'H1vec', name='X2')
 
         return self._X2
 
@@ -563,7 +563,7 @@ class BasisProjectionOperators:
                         e1, e2, e3) / self.sqrt_g(e1, e2, e3) if m == n else 0*e1]
 
             self._W1 = self.assemble_basis_projection_operator(
-                fun, 'Hcurl', 'Hcurl')
+                fun, 'Hcurl', 'Hcurl', name='W1')
 
         return self._W1
 
@@ -597,7 +597,7 @@ class BasisProjectionOperators:
                                 n=n: rot_J(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3)]
 
             self._R1 = self.assemble_basis_projection_operator(
-                fun, 'Hdiv', 'Hcurl')
+                fun, 'Hdiv', 'Hcurl', name='R1')
 
         return self._R1
 
@@ -630,7 +630,7 @@ class BasisProjectionOperators:
                                 n=n: (self.Ginv(e1, e2, e3) @ rot_J(e1, e2, e3))[:, :, :, m, n]]
 
             self._R2 = self.assemble_basis_projection_operator(
-                fun, 'Hdiv', 'Hdiv')
+                fun, 'Hdiv', 'Hdiv', name='R2')
 
         return self._R2
 
@@ -641,7 +641,7 @@ class BasisProjectionOperators:
 
         .. math::
 
-            \mathcal P^B_{ijk, (\mu, mno)} := \hat \Pi^0_{ijk} \left[ \frac{\hat B^1_{\mu}}{\sqrt g} \Lambda^2_{\mu, mno}\right]\,.
+            \mathcal P^B_{ijk, (\mu, mno)} := \hat \Pi^0_{ijk} \left[ \frac{\hat b^1_{0,\mu}}{\sqrt g} \Lambda^2_{\mu, mno}\right]\,.
         '''
         if not hasattr(self, '_PB'):
 
@@ -651,14 +651,14 @@ class BasisProjectionOperators:
                             m=m: self.weights['eq_mhd'].unit_b1(e1, e2, e3)[m] / self.sqrt_g(e1, e2, e3)]
 
             self._PB = self.assemble_basis_projection_operator(
-                fun, 'Hdiv', 'H1')
+                fun, 'Hdiv', 'H1', name='PB')
 
         return self._PB
 
     ##########################################
     # Wrapper around BasisProjectionOperator #
     ##########################################
-    def assemble_basis_projection_operator(self, fun: list, V_id: str, W_id: str, verbose=True):
+    def assemble_basis_projection_operator(self, fun: list, V_id: str, W_id: str, verbose=True, name=None):
         r"""Basis projection operator :math:`V^\alpha_h \to V^\beta_h` with given (rank 0, 1 or 2) weight function :math:`A(\boldsymbol \eta)`:
 
         .. math::
@@ -700,7 +700,7 @@ class BasisProjectionOperators:
                 assert len(row) == 3
 
         if self.derham.comm.Get_rank() == 0 and verbose:
-            print(f'Assembling BasisProjectionOperator with V={V_id}, W={W_id}.')
+            print(f'Assembling BasisProjectionOperator "{name}" with V={V_id}, W={W_id}.')
 
         V_id = self.derham.spaces_dict[V_id]
         W_id = self.derham.spaces_dict[W_id]

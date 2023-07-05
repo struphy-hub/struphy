@@ -1,18 +1,19 @@
-# The Weibel instability with the following initial distribution function
+# The streaming Weibel instability with the following initial distribution function
 # 
-#     f(t=0,x,v) = 1 / [(2*pi)^(3/2) * sigma1 * sigma2 * sigma3] \
-#                   * exp(- v1^2/(2 * sigma1^2) - v2^2/(2 * sigma2^2) - v3^2/(2 * sigma3^2)) \
-#                   * [1 + alpha * cos(k*x)]
+#     f(t=0,x,v) = 1 / [(2*pi)^(3/2) * sigma^3] \
+#                   * exp(- v1^2/(2 * sigma^2)) \
+#                   * delta * exp(- (v2 - u1)^2/(2 * sigma^2) \
+#                   * (1 - delta) * exp(- (v2 - u2)^2/(2 * sigma^2)) \
+#                   * exp(- v3^2/(2 * sigma^2)) \
 # 
 # and magnetic field in z-direction
 # 
-#     B_3(t=0,x) = beta * cos(k*x)
+#     B_3(t=0,x) = beta * sin(k*x)
 # 
-# with sigma1 = 0.02/sqrt{2}, sigma2 = sqrt{12}*sigma1, sigma3 = sigma1, k = (1.25,0,0)^T,
-# alpha=0, beta = -10^{-4}
+# with sigma = 0.1/sqrt{2}, k = (0.2,0,0)^T, beta = -10^{-3}, delta = 1/6, u1 = 0.5, u2 = -0.1
 
 grid :
-    Nel       : [32, 2, 2] # number of grid cells, >p
+    Nel       : [128, 2, 2] # number of grid cells, >p
     p         : [3, 1, 1]  # spline degree
     spl_kind  : [True, True, True] # spline type: True=periodic, False=clamped
     bc        : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
@@ -27,15 +28,15 @@ units :
     n   : 0.09719853837468743 # eps_0 / m_e / 1e20 # bulk number density unit in 1 x 10^20 m^(-3)
 
 time :
-    dt         : 0.05 # time step
-    Tend       : 100.0 # simulation time interval is [0, Tend]
+    dt         : 0.01 # time step
+    Tend       : 50. # simulation time interval is [0, Tend]
     split_algo : LieTrotter # LieTrotter | Strang
 
 geometry :
     type : Cuboid # mapping F (possible types seen below)
     Cuboid :
         l1       : 0. 
-        r1       : 5.026548245743669 # 2*pi / k_1
+        r1       : 31.41592653589793 # 2*pi / k_1
         l2       : 0.
         r2       : 1.
         l3       : 0.
@@ -57,18 +58,17 @@ electric_equilibrium :
 
 em_fields :
     init :
-        type : ModesCos # initial conditions (possible types seen below)
-        ModesCos :
+        type : ModesSin # initial conditions (possible types seen below)
+        ModesSin :
             coords : 'physical' # in which coordinates (logical or physical)
             comps :
                 e_field : [False, False, False]  # components to be initialized (for scalar fields: no list)
                 b_field : [False, False, True] # components to be initialized (for scalar fields: no list)
-            # variation_in : e1 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
             ls : [1.]
             ms : [0]
             ns : [0.]
-            amp : [-0.0001] # amplitudes of each mode
-            Lx : 5.026548245743669
+            amp : [-0.001] # amplitudes of each mode
+            Lx : 31.41592653589793
 
 kinetic :
     electrons :
@@ -77,25 +77,18 @@ kinetic :
             Z : -1 # signed charge number in units of elementary charge
         markers :
             type    : delta_f # full_f, control_variate, or delta_f
-            Np      : 100000 # alternative if ppc not given (total number of markers, Np must be >= # MPI processes)
-            eps     : 0.2 # MPI send/receive buffer (0.1 <= eps <= 1.0)
+            Np      : 2000000 # alternative if ppc not given (total number of markers, Np must be >= # MPI processes)
+            eps     : 0.25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
             bc_type : [periodic, periodic, periodic] # remove, reflect or periodic
             loading :
                 type    : pseudo_random # particle loading mechanism
-                seed    : 1234 # seed for random number generator
-                moments : [0., 0., 0., 0.014, 0.049, 0.014] # sample after f1
-                spatial : uniform # uniform or disc
+                seed    : 4247 # seed for random number generator
+                moments : [0., 0., 0., 0.1, 0.1, 0.1] # moments of Gaussian s3, see background/moms_spec
         init :
             type : Maxwellian6DPerturbed
             Maxwellian6DPerturbed :
                 n :
                     n0 : 0 # here 0 because we want to initialize f1
-                    perturbation :
-                        l : [1.]
-                        m : [0.]
-                        n : [0.]
-                        amps_sin : [0.]
-                        amps_cos : [-0.0001] # alpha
                 u1 :
                     u01 : 0.
                 u2 :
@@ -103,11 +96,11 @@ kinetic :
                 u3 :
                     u03 : 0.
                 vth1 :
-                    vth01 : 0.014142135623730949
+                    vth01 : 0.1
                 vth2 :
-                    vth02 : 0.04898979485566356
+                    vth02 : 0.1
                 vth3 :
-                    vth03 : 0.014142135623730949
+                    vth03 : 0.1
         background :
             type : Maxwellian6DUniform
             Maxwellian6DUniform :
@@ -115,14 +108,14 @@ kinetic :
                 u1 : 0.
                 u2 : 0.
                 u3 : 0.
-                vth1 : 0.014142135623730949
-                vth2 : 0.04898979485566356
-                vth3 : 0.014142135623730949
+                vth1 : 0.1
+                vth2 : 0.1
+                vth3 : 0.1
         save_data :
             n_markers : 1 # number of markers to be saved during simulation
             f :
                 slices : [e1, v1_v2] # in which directions to bin (e.g. [e1_e2, v1_v2_v3])
-                n_bins : [[32], [64, 64]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
+                n_bins : [[64], [64, 64]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
                 ranges : [[[0., 1.]], [[-0.1, 0.1], [-0.1, 0.1]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
         push_algos :
             vxb : analytic # possible choices: analytic, implicit

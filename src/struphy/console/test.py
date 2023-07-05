@@ -38,13 +38,13 @@ def struphy_test(serial=True, mpi=0, codes=False):
 
         # test Maxwell
         subprocess.run(['struphy', 'run', 'Maxwell',
-                        '-i', 'tests/params_maxwell_1.yml',
+                        '-i', os.path.join(libpath, 'io/inp/tests/params_maxwell_1.yml'),
                         '-o', 'sim_test_1'], check=True)
         subprocess.run(['struphy', 'run', 'Maxwell',
-                        '-i', 'tests/params_maxwell_2.yml',
+                        '-i', os.path.join(libpath, 'io/inp/tests/params_maxwell_2.yml'),
                         '-o', 'sim_test_2'], check=True)
         subprocess.run(['struphy', 'run', 'Maxwell',
-                        '-i', 'tests/params_maxwell_2.yml',
+                        '-i', os.path.join(libpath, 'io/inp/tests/params_maxwell_2.yml'),
                         '-o', 'sim_test_3',
                         '--mpi', '2'], check=True)
 
@@ -57,10 +57,10 @@ def struphy_test(serial=True, mpi=0, codes=False):
 
         # test LinearMHD
         subprocess.run(['struphy', 'run', 'LinearMHD',
-                        '-i', 'tests/params_linearmhd.yml',
+                        '-i', os.path.join(libpath, 'io/inp/tests/params_linearmhd.yml'),
                         '-o', 'sim_test_4'], check=True)
         subprocess.run(['struphy', 'run', 'LinearMHD',
-                        '-i', 'tests/params_linearmhd.yml',
+                        '-i', os.path.join(libpath, 'io/inp/tests/params_linearmhd.yml'),
                         '-o', 'sim_test_5',
                         '--mpi', '2'], check=True)
 
@@ -75,11 +75,11 @@ def struphy_test(serial=True, mpi=0, codes=False):
 
         # test LinearMHDVlasovCC
         subprocess.run(['struphy', 'run', 'LinearMHDVlasovCC',
-                        '-i', 'tests/params_hybridmhdvlasovcc.yml',
+                        '-i', os.path.join(libpath, 'io/inp/tests/params_hybridmhdvlasovcc.yml'),
                         '-o', 'sim_test_6',
                         '--mpi', '2'], check=True)
         subprocess.run(['struphy', 'run', 'LinearMHDVlasovCC',
-                        '-i', 'tests/params_hybridmhdvlasovcc_control.yml',
+                        '-i', os.path.join(libpath, 'io/inp/tests/params_hybridmhdvlasovcc_control.yml'),
                         '-o', 'sim_test_7',
                         '--mpi', '2'], check=True)
 
@@ -95,13 +95,13 @@ def struphy_test(serial=True, mpi=0, codes=False):
 
         # test LinearMHDVlasovPC
         subprocess.run(['struphy', 'run', 'LinearMHDVlasovPC',
-                        '-i', 'tests/params_hybridmhdvlasovpc.yml',
+                        '-i', os.path.join(libpath, 'io/inp/tests/params_hybridmhdvlasovpc.yml'),
                         '-o', 'sim_test_8',
                         '--mpi', '2'], check=True)
 
         # test LinearVlasovMaxwell
         subprocess.run(['struphy', 'run', 'LinearVlasovMaxwell',
-                        '-i', 'tests/params_linvlasovmaxwell.yml',
+                        '-i', os.path.join(libpath, 'io/inp/tests/params_linvlasovmaxwell.yml'),
                         '-o', 'sim_test_9',
                         '--mpi', '2'], check=True)
 
@@ -110,9 +110,18 @@ def struphy_test(serial=True, mpi=0, codes=False):
 
         # test DeltaFVlasovMaxwell
         subprocess.run(['struphy', 'run', 'DeltaFVlasovMaxwell',
-                        '-i', 'tests/params_deltafvlasovmaxwell.yml',
+                        '-i', os.path.join(libpath, 'io/inp/tests/params_deltafvlasovmaxwell.yml'),
                         '-o', 'sim_test_10',
                         '--mpi', '2'], check=True)
 
         subprocess.run(['struphy', 'pproc',
                         '-d', 'sim_test_10'], check=True)
+
+        # test ColdPlasma
+        subprocess.run(['struphy', 'run', 'ColdPlasma',
+                        '-i', os.path.join(libpath, 'io/inp/tests/params_coldplasma.yml'),
+                        '-o', 'sim_test_11',
+                        '--mpi', '2'], check=True)
+
+        subprocess.run(['struphy', 'pproc',
+                        '-d', 'sim_test_11'], check=True)

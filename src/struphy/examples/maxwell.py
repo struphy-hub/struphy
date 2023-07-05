@@ -8,7 +8,10 @@ def run(n_procs):
         Number of MPI processes to run the model.
     """
     
-    import subprocess
+    import os, subprocess
+    import struphy
+    
+    libpath = struphy.__path__[0]
        
     # name of simulation output folder
     out_name = 'sim_example_maxwell'
@@ -17,8 +20,8 @@ def run(n_procs):
     subprocess.run(['struphy', 
                     'run', 
                     'Maxwell',
-                    '-i',
-                    'examples/params_maxwell.yml',
+                    '--input-abs',
+                    os.path.join(libpath, 'io/inp/examples/params_maxwell.yml'),
                     '-o',
                     out_name,
                     '--mpi',

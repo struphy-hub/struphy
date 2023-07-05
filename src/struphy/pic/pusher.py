@@ -6,8 +6,10 @@ import numpy as np
 
 class Pusher:
     """
-    Wrapper class for particle pushing.
-
+    Wrapper class for particle pushing. 
+    
+    It retrieves the correct pusher kernel and prepares the FEM arguments passed to the pusher kernel.
+    
     Parameters
     ----------
         derham : struphy.psydac_api.psydac_derham.Derham
@@ -16,14 +18,14 @@ class Pusher:
         domain : struphy.geometry.domains
             All things mapping.
 
-        pusher_name : str
-            The name of the pusher in the file struphy.pic.pusher_kernels.
+        kernel_name : str
+            The name of the pusher kernel in the file struphy.pic.pusher_kernels.
 
         n_stages : int
             Number of stages of the pusher (e.g. 4 for RK4)
     """
 
-    def __init__(self, derham, domain, pusher_name, n_stages=1):
+    def __init__(self, derham, domain, kernel_name, n_stages=1):
 
         self._derham = derham
         self._domain = domain
@@ -38,8 +40,8 @@ class Pusher:
                           np.array(derham.Vh['3'].starts))
 
         # select pusher kernel
-        self._pusher_name = pusher_name
-        self._pusher = getattr(pushers, self._pusher_name)
+        self._kernel_name = kernel_name
+        self._kernel = getattr(pushers, self._kernel_name)
 
     def __call__(self, particles, dt, *args_opt, mpi_sort=None, verbose=False):
         """
@@ -73,7 +75,7 @@ class Pusher:
             particles.markers[~particles.holes, 12] = particles.markers[~particles.holes, 3]
 
         for stage in range(self._n_stages):
-            self._pusher(particles.markers, dt, stage, *
+            self._kernel(particles.markers, dt, stage, *
                          self.args_fem, *self.domain.args_map, *args_opt)
 
             # applying kinetic boundary condition
@@ -85,7 +87,7 @@ class Pusher:
 
             # print stage info
             if self._derham.comm.Get_rank() == 0 and verbose:
-                print(self._pusher_name, 'done. (stage :', stage + 1, ')')
+                print(self._kernel_name, 'done. (stage :', stage + 1, ')')
 
         # sort markers according to domain decomposition
         if mpi_sort == 'last':
@@ -122,15 +124,17 @@ class Pusher:
         return self._args_fem
 
     @property
-    def pusher_name(self):
+    def kernel_name(self):
         """ The name of the pyccelized pusher kernel.
         """
-        return self._pusher_name
+        return self._kernel_name
 
 
 class ButcherTableau:
     """
-    Butcher tableau for explicit s-stage Runge-Kutta methods of the form
+    Butcher tableau for explicit s-stage Runge-Kutta methods. 
+    
+    A Butcher tableau has the form
 
       c_0   | 
       c_1   | a_10
@@ -195,9 +199,11 @@ class ButcherTableau:
         return self._n_stages
 
 
-class Pusher_iteration:
+class Pusher_iteration_Gonzalez:
     """
-    Wrapper class for particle pushing with iterative solver.
+    Wrapper class for particle pushing with discrete_gradient scheme (Gonzalez, mid-point).
+    
+    It retrieves the correct pusher kernel(s) and prepares the FEM arguments passed to the pusher kernel.
 
     Parameters
     ----------
@@ -207,14 +213,14 @@ class Pusher_iteration:
         domain : struphy.geometry.domains
             All things mapping.
 
-        pusher_name : str
-            The name of the pusher in the file struphy.pic.pusher_kernels.
+        kernel_name : str
+            The name of the pusher kernel in the file struphy.pic.pusher_kernels.
 
         n_stages : int
             Number of stages of the pusher (e.g. 4 for RK4)
     """
 
-    def __init__(self, derham, domain, pusher_name, maxiter=10, tol=1.e-12):
+    def __init__(self, derham, domain, kernel_name, maxiter=10, tol=1.e-12):
 
         self._derham = derham
         self._domain = domain
@@ -230,10 +236,10 @@ class Pusher_iteration:
                           np.array(derham.Vh['3'].starts))
 
         # select kernels
-        self._pusher_name = pusher_name
-        self._pusher = getattr(pushers, self._pusher_name)
-        self._pusher_prepare = getattr(utilities, self._pusher_name + '_prepare')
-        self._pusher_eval_gradI = getattr(utilities, self._pusher_name + '_eval_gradI')
+        self._kernel_name = kernel_name
+        self._kernel = getattr(pushers, self._kernel_name)
+        self._kernel_prepare = getattr(utilities, self._kernel_name + '_prepare')
+        self._kernel_eval_gradI = getattr(utilities, self._kernel_name + '_eval_gradI')
 
 
     def __call__(self, particles, dt, *args_opt, mpi_sort=None, verbose=False):
@@ -254,35 +260,35 @@ class Pusher_iteration:
             verbose : bool
                 Whether to print some info or not.
         """
-        # TODO: only applicable to Particle5D case! if we have any iterative solver with Particle6D then we should generalize
-        # TODO: maybe we can modulize ... discrete gradient method, fixed-point iterative solver ...
-
-        # save initial etas in columns 9:12
+        # save initial etas and v_parallel in columns 9:13
         particles.markers[~particles.holes, 9:13] = particles.markers[~particles.holes, 0:4]
 
         # prepare the iteration:
-        self._pusher_prepare(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
+        self._kernel_prepare(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
         particles.mpi_sort_markers()
 
         # eval gradI 
-        self._pusher_eval_gradI(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
+        self._kernel_eval_gradI(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
         particles.mpi_sort_markers()
 
         # start iteration
         for stage in range(self._maxiter):
 
-            self._pusher(particles.markers, dt, stage, self._tol, *self.args_fem, *self.domain.args_map, *args_opt)
+            self._kernel(particles.markers, dt, stage, self._tol, *self.args_fem, *self.domain.args_map, *args_opt)
             particles.mpi_sort_markers()
 
-            self._pusher_eval_gradI(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
+            self._kernel_eval_gradI(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
             particles.mpi_sort_markers()
 
-            # print stage info
-            if self._derham.comm.Get_rank() == 0 and verbose:
-                print(self._pusher_name, 'done. (stage :', stage + 1, ')')
+            if stage == self._maxiter-1 and verbose:
+                not_converged = np.logical_not(particles.markers[:,23]==-1.)
+                print('Number of not converged particles:', np.count_nonzero(not_converged))
+                # print('Non converged partices:')
+                # print(particles.markers[not_converged, 0:13])
+                # print('NUmber of iterations', np.average(particles.markers[~particles.holes,20])+1)
 
         # clear buffer columns 9-23 for multi-stage pushers
-        particles.markers[~particles.holes, 9:24] = 0.
+        particles.markers[~particles.holes, 9:28] = 0.
 
     @property
     def derham(self):
@@ -309,7 +315,128 @@ class Pusher_iteration:
         return self._args_fem
 
     @property
-    def pusher_name(self):
+    def kernel_name(self):
         """ The name of the pyccelized pusher kernel.
         """
-        return self._pusher_name
+        return self._kernel_name
+    
+
+class Pusher_iteration_Itoh:
+    """
+    Wrapper class for particle pushing with discrete_gradient scheme (Itoh_Newton).
+    
+    It retrieves the correct pusher kernel(s) and prepares the FEM arguments passed to the pusher kernel.
+
+    Parameters
+    ----------
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete de Rham sequence on the logical unit cube.
+
+        domain : struphy.geometry.domains
+            All things mapping.
+
+        kernel_name : str
+            The name of the pusher kernel in the file struphy.pic.pusher_kernels.
+
+        n_stages : int
+            Number of stages of the pusher (e.g. 4 for RK4)
+    """
+
+    def __init__(self, derham, domain, kernel_name, maxiter=10, tol=1.e-12):
+
+        self._derham = derham
+        self._domain = domain
+        self._maxiter = maxiter
+        self._tol = tol
+
+        self._args_fem = (derham.domain_array[derham.comm.Get_rank(), :],
+                          np.array(derham.p),
+                          derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
+                          np.array(derham.Vh['0'].starts),
+                          np.array(derham.Vh['1'].starts),
+                          np.array(derham.Vh['2'].starts),
+                          np.array(derham.Vh['3'].starts))
+
+        # select kernels
+        self._kernel_name = kernel_name
+        self._kernel = getattr(pushers, self._kernel_name)
+        self._kernel_prepare = getattr(utilities, self._kernel_name + '_prepare')
+        self._kernel_prepare1 = getattr(utilities, self._kernel_name + '_prepare1')
+        self._kernel_prepare2 = getattr(utilities, self._kernel_name + '_prepare2')
+
+    def __call__(self, particles, dt, *args_opt, mpi_sort=None, verbose=False):
+        """
+        Applies the chosen pusher kernel by a time step dt, applies kinetic boundary conditions and performs MPI sorting.
+
+        Parameters
+        ----------
+            particles : struphy.pic.particles.Particles6D
+                The particles object holding the markers of shape (Np, 16) to push.
+
+            dt : float
+                The time step.
+
+            args_opt : tuple
+                Optional arguments needed for the pushing (typically spline coefficients for field evaluation).
+
+            verbose : bool
+                Whether to print some info or not.
+        """
+        # save initial etas and v_parallel in columns 9:13
+        particles.markers[~particles.holes, 9:13] = particles.markers[~particles.holes, 0:4]
+
+        # prepare the iteration:
+        self._kernel_prepare(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
+        particles.mpi_sort_markers()
+
+        # start iteration
+        for stage in range(self._maxiter):
+
+            self._kernel_prepare1(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
+            particles.mpi_sort_markers()
+
+            self._kernel_prepare2(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
+            particles.mpi_sort_markers()
+
+            self._kernel(particles.markers, dt, stage, self._maxiter, self._tol, *self.args_fem, *self.domain.args_map, *args_opt)
+            particles.mpi_sort_markers()
+
+            if stage == self._maxiter-1 and verbose:
+                not_converged = np.logical_not(particles.markers[:,13]==-1.)
+                print('Number of not converged particles:', np.count_nonzero(not_converged))
+                # print('Non converged partices:')
+                # print(particles.markers[not_converged, 0:13])
+                # print('Number of iterations', np.average(particles.markers[~particles.holes,14])+1)
+                
+        # clear buffer columns 9-23 for multi-stage pushers
+        particles.markers[~particles.holes, 9:25] = 0.
+
+    @property
+    def derham(self):
+        """ Discrete derham sequence.
+        """
+        return self._derham
+
+    @property
+    def domain(self):
+        """ Mapping from logical unit cube to physical domain.
+        """
+        return self._domain
+
+    @property
+    def n_stages(self):
+        """ Number of stages of the pusher.
+        """
+        return self._n_stages
+
+    @property
+    def args_fem(self):
+        """ FEM and MPI related arguments taken by all pushers.
+        """
+        return self._args_fem
+
+    @property
+    def kernel_name(self):
+        """ The name of the pyccelized pusher kernel.
+        """
+        return self._kernel_name
