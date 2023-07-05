@@ -1,6 +1,17 @@
+# Landau damping with the following initial distribution function
+# 
+#     f(t=0,x,v) = 1 / [(2*pi)^(3/2) * sigma^3] \
+#                   * exp(- (v1^2 + v2^2 + v3^2) / (2 * sigma^2)) \
+#                   * (1 + alpha * cos(kx))
+# 
+# With parameters sigma = 1, k = 0.5, and alpha = 0.5.
+# 
+# The magnetic field is initialized as zero: B(t=0,x) = 0
+# and the electric field obtained from solving the Poisson equation.
+
 grid :
-    Nel      : [2, 2, 64] # number of grid cells, >p
-    p        : [1, 1, 3]  # spline degree
+    Nel      : [128, 2, 2] # number of grid cells, >p
+    p        : [3, 1, 1]  # spline degree
     spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
     bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
     dims_mask : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
@@ -9,31 +20,31 @@ grid :
     polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
 
 units :
-    x   : 1. # length scale unit in m
+    x   : 0.0017045090240267625 # c * m_e / e
     B   : 1. # magnetic field unit in T
-    n   : 1. # bulk number density unit in 1 x 10^20 m^(-3)
+    n   : 0.09719853837468743 # eps_0 / m_e / 1e20 # bulk number density unit in 1 x 10^20 m^(-3)
 
 time :
-    dt         : 0.01 # time step
-    Tend       : 30. # simulation time interval is [0, Tend]
+    dt         : 0.05 # time step
+    Tend       : 50. # simulation time interval is [0, Tend]
     split_algo : LieTrotter # LieTrotter | Strang
 
 geometry :
     type : Cuboid # mapping F (possible types seen below)
     Cuboid :
-        l1       : 0. # start of interval in eta1
-        r1       : 2. # end of interval in eta1, r1>l1
-        l2       : 0. # start of interval in eta2
-        r2       : 2. # end of interval in eta2, r2>l2
-        l3       : 0. # start of interval in eta3
-        r3       : 20. # end of interval in eta3, r3>l3
+        l1       : 0. 
+        r1       : 12.566370614359172 # 2*pi / k_1
+        l2       : 0.
+        r2       : 1.
+        l3       : 0.
+        r3       : 1.
 
 mhd_equilibrium :
     type : HomogenSlab # (possible choices seen below)
     HomogenSlab :
-        B0x  : 0.5 # magnetic field in x
+        B0x  : 0. # magnetic field in x
         B0y  : 0. # magnetic field in y
-        B0z  : 1.4 # magnetic field in z
+        B0z  : 0. # magnetic field in z
         beta : 0. # plasma beta = 2*p*mu_0/B^2
         n0   : 1. # number density
 
@@ -48,16 +59,19 @@ em_fields :
 
 kinetic :
     electrons :
+        phys_params :
+            A : 0.0005446170214876324  # electron mass number in units of proton mass
+            Z : -1 # signed charge number in units of elementary charge
         markers :
             type    : delta_f # full_f, control_variate, or delta_f
-            Np      : 5000 # alternative if ppc not given (total number of markers, Np must be >= # MPI processes)
-            eps     : 0.5 # MPI send/receive buffer (0.1 <= eps <= 1.0)
+            Np      : 100000 # alternative if ppc not given (total number of markers, Np must be >= # MPI processes)
+            eps     : 0.25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
             bc_type : [periodic, periodic, periodic] # remove, reflect or periodic
             loading :
                 type          : pseudo_random # particle loading mechanism
                 seed          : 1234 # seed for random number generator
                 dir_particles : path_to_particles # directory of particles if loaded externally
-                moments       : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
+                moments       : [0., 0., 0., 1.4, 1.4, 1.4] # moments of Gaussian s3, see background/moms_spec
                 spatial       : uniform # uniform or disc
         init :
             type : Maxwellian6DPerturbed
@@ -65,8 +79,7 @@ kinetic :
                 n :
                     n0 : 0.
                     perturbation :
-                        # l : [0.07957747154594767] # 0.5 / (2 * pi)
-                        l : [5]
+                        l : [1]
                         m : [0]
                         n : [0]
                         amps_sin : [0.]
@@ -78,11 +91,11 @@ kinetic :
                 u3 :
                     u03 : 0.
                 vth1 :
-                    vth01 : 2.
+                    vth01 : 1.4142135623730951 # sqrt(2)
                 vth2 :
-                    vth02 : 2.
+                    vth02 : 1.4142135623730951 # sqrt(2)
                 vth3 :
-                    vth03 : 2.
+                    vth03 : 1.4142135623730951 # sqrt(2)
         background :
             type : Maxwellian6DUniform
             Maxwellian6DUniform :
@@ -90,30 +103,37 @@ kinetic :
                 u1 : 0.
                 u2 : 0.
                 u3 : 0.
-                vth1 : 2.
-                vth2 : 2.
-                vth3 : 2.
+                vth1 : 1.4142135623730951 # sqrt(2)
+                vth2 : 1.4142135623730951 # sqrt(2)
+                vth3 : 1.4142135623730951 # sqrt(2)
         save_data :
-            n_markers : 10 # number of markers to be saved during simulation
+            n_markers : 1 # number of markers to be saved during simulation
             f :
-                slices : [e3, v1_v2] # in which directions to bin (e.g. [e1_e2, v1_v2_v3])
-                n_bins : [[64], [64, 64]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
-                ranges : [[[0., 1.]], [[-5., 5.], [-5., 5.]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
+                slices : [e1, v1] # in which directions to bin (e.g. [e1_e2, v1_v2_v3])
+                n_bins : [[64], [64]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
+                ranges : [[[0., 1.]], [[-2., 2.]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
         push_algos :
             vxb : analytic # possible choices: analytic, implicit
             eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4
 
 solvers :
+    solver_poisson :
+        type : PConjugateGradient
+        pc : MassMatrixPreconditioner
+        tol : 1.e-10
+        maxiter : 3000
+        info : False
+        verbose : False
     solver_ew :
         type : PConjugateGradient
-        pc : MassMatrixPreconditioner # null or name of preconditioner class
+        pc : MassMatrixPreconditioner
         tol : 1.e-10
         maxiter : 3000
         info : False
         verbose : False
     solver_eb :
         type : PConjugateGradient
-        pc : MassMatrixPreconditioner # null or name of preconditioner class
+        pc : MassMatrixPreconditioner
         tol : 1.e-10
         maxiter : 3000
         info : False

@@ -2501,6 +2501,11 @@ def push_weights_with_efield_lin_vm(markers: 'float[:,:]', dt: float, stage: int
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
+        # get velocity
+        v[0] = markers[ip, 3] / f0_params[4]**2
+        v[1] = markers[ip, 4] / f0_params[5]**2
+        v[2] = markers[ip, 5] / f0_params[6]**2
+
         # spans (i.e. index for non-vanishing basis functions)
         span1 = bsp.find_span(tn1, pn1, eta1)
         span2 = bsp.find_span(tn2, pn2, eta2)
@@ -2522,13 +2527,10 @@ def push_weights_with_efield_lin_vm(markers: 'float[:,:]', dt: float, stage: int
                     cx, cy, cz,
                     df)
 
-        # compute shifted and stretched velocity
-        v[0] = (markers[ip, 3] - f0_params[1]) / f0_params[4]**2
-        v[1] = (markers[ip, 4] - f0_params[2]) / f0_params[5]**2
-        v[2] = (markers[ip, 5] - f0_params[3]) / f0_params[6]**2
-
         # invert Jacobian matrix
         linalg.matrix_inv(df, df_inv)
+
+        # compute DF^{-1} v
         linalg.matrix_vector(df_inv, v, df_inv_v)
 
         # E-field (1-form)
@@ -2539,9 +2541,9 @@ def push_weights_with_efield_lin_vm(markers: 'float[:,:]', dt: float, stage: int
         e_vec_3 = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3,
                                                  span1, span2, span3, e1_3, starts1[2])
 
-        # w_{n+1} = w_n + dt * kappa / (2 * N * s_0) * sqrt(f_0) * ( DF^{-1} \V_th (v_p - u) ) \cdot ( e_{n+1} + e_n )
+        # w_{n+1} = w_n + dt * kappa / (2 * s_0) * sqrt(f_0) * ( DF^{-1} \V_th * v_p ) \cdot ( e_{n+1} + e_n )
         update = (df_inv_v[0] * e_vec_1 + df_inv_v[1] * e_vec_2 + df_inv_v[2] * e_vec_3) * \
-            sqrt(f0) * dt * kappa / (2 * n_markers_tot * markers[ip, 7])
+            sqrt(f0) * dt * kappa / (2 * markers[ip, 7])
         markers[ip, 6] += update
 
     #$ omp end parallel

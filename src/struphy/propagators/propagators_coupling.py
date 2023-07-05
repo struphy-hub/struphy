@@ -80,7 +80,7 @@ class EfieldWeightsImplicit(Propagator):
         self._particles = particles
 
         # parameters
-        params_default = {'alpha': 1e2,
+        params_default = {'alpha': 1.,
                           'kappa': 1.,
                           'f0': Maxwellian6DUniform(),
                           'type': 'PConjugateGradient',
@@ -163,7 +163,8 @@ class EfieldWeightsImplicit(Propagator):
 
         # allocate temporary BlockVector during solution
         self._e_temp, info = self._schur_solver(
-            self._e, self._accum.vectors[0] / 2., dt)
+            self._e, self._accum.vectors[0] / 2., dt,
+            out=self._e_temp)
 
         # Store old weights
         self._old_weights[~self._particles.holes] = self._particles.markers[~self._particles.holes, 6]
@@ -171,7 +172,7 @@ class EfieldWeightsImplicit(Propagator):
         # reset _e_sum
         self._e_sum *= 0.
 
-        # self._e_sum = self._e_temp + self._e
+        # Compute e^{n+1} + e^n
         self._e_sum += self._e_temp
         self._e_sum += self._e
 

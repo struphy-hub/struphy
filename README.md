@@ -5,7 +5,7 @@ A Python package for energetic particles in plasma.
 The package is developed since 2019 at [Max Planck Institute for Plasma Physics](https://www.ipp.mpg.de/) 
 in the division [NMPP (Numerical Methods for Plasma Physics)](https://www.ipp.mpg.de/ippcms/de/for/bereiche/numerik).
 
-## What you can do with struphy
+## What you can do with Struphy
 
 * Investigate plasma physics problems with multiple [models equations](https://struphy.pages.mpcdf.de/struphy/sections/models.html) containing fluid and/or kinetic components 
 * Simulate each model on [curved domains](https://struphy.pages.mpcdf.de/struphy/sections/domains.html) 
@@ -33,7 +33,7 @@ in the division [NMPP (Numerical Methods for Plasma Physics)](https://www.ipp.mp
 
 ## Installation
 
-See the [struphy documentation](https://struphy.pages.mpcdf.de/struphy/index.html).
+See the [Struphy documentation](https://struphy.pages.mpcdf.de/struphy/index.html).
 
 ## Tutorials
 

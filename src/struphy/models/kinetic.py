@@ -77,6 +77,9 @@ class LinearVlasovMaxwell(StruphyModel):
         self._e = self.em_fields['e_field']['obj'].vector
         self._b = self.em_fields['b_field']['obj'].vector
 
+        self._en_e_tmp = self._e.space.zeros()
+        self._en_b_tmp = self._b.space.zeros()
+
         # Get rank and size
         self._rank = comm.Get_rank()
 
@@ -90,6 +93,9 @@ class LinearVlasovMaxwell(StruphyModel):
                 "The background distribution function must be a uniform Maxwellian!")
 
         self._maxwellian_params = electron_params['background']['Maxwellian6DUniform']
+        assert self._maxwellian_params['u1'] == 0., "No shifts in velocity space possible!"
+        assert self._maxwellian_params['u2'] == 0., "No shifts in velocity space possible!"
+        assert self._maxwellian_params['u3'] == 0., "No shifts in velocity space possible!"
         self.kinetic['electrons']['obj']._f_backgr = getattr(
             kin_ana, 'Maxwellian6DUniform')(**self._maxwellian_params)
         self._f0 = self._electrons.f_backgr
@@ -194,13 +200,65 @@ class LinearVlasovMaxwell(StruphyModel):
         from struphy.propagators import solvers
         from struphy.pic.particles_to_grid import AccumulatorVector
 
+        # Get physical properties of the Maxwellian
+        init_type = self.kinetic['electrons']['params']['init']['type']
+        if init_type == 'Maxwellian6DUniform':
+            sigma1 = self.kinetic['electrons']['params']['init'][init_type]['vth1']
+            sigma2 = self.kinetic['electrons']['params']['init'][init_type]['vth2']
+            sigma3 = self.kinetic['electrons']['params']['init'][init_type]['vth3']
+        elif init_type == 'Maxwellian6DPerturbed':
+            sigma1 = self.kinetic['electrons']['params']['init'][init_type]['vth1']['vth01']
+            sigma2 = self.kinetic['electrons']['params']['init'][init_type]['vth2']['vth02']
+            sigma3 = self.kinetic['electrons']['params']['init'][init_type]['vth3']['vth03']
+        else:
+            raise NotImplementedError('Unknown initialization function!')
+
+        # Compute determinant of the diagonal matrix holding the thermal velocities
+        det_one_th = 1 / (sigma1 * sigma2 * sigma3)
+
+        # Compute scaled velocities
+        vth1 = sigma1**3 * det_one_th**(2/3)
+        vth2 = sigma2**3 * det_one_th**(2/3)
+        vth3 = sigma3**3 * det_one_th**(2/3)
+
+        # Set scaled velocities in params for initialization
+        if init_type == 'Maxwellian6DUniform':
+            self.kinetic['electrons']['params']['init'][init_type]['vth1'] = vth1
+            self.kinetic['electrons']['params']['init'][init_type]['vth2'] = vth2
+            self.kinetic['electrons']['params']['init'][init_type]['vth3'] = vth3
+        elif init_type == 'Maxwellian6DPerturbed':
+            self.kinetic['electrons']['params']['init'][init_type]['vth1']['vth01'] = vth1
+            self.kinetic['electrons']['params']['init'][init_type]['vth2']['vth02'] = vth2
+            self.kinetic['electrons']['params']['init'][init_type]['vth3']['vth03'] = vth3
+        
+        # Take smaller width of the two gaussians for markers drawing in order to avoid
+        # small values for f0 and hence division by zero
+        self.kinetic['electrons']['params']['markers']['loading']['moments'][3] = \
+            min(vth1, sigma1)
+        self.kinetic['electrons']['params']['markers']['loading']['moments'][4] = \
+            min(vth2, sigma2)
+        self.kinetic['electrons']['params']['markers']['loading']['moments'][5] = \
+            min(vth3, sigma3)
+
         # Initialize fields and particles
         super().initialize_from_params()
 
-        # Correct initialization of weights by dividing by N*sqrt(f_0)
+        # edges = self.kinetic['electrons']['bin_edges']['e1']
+        # # edges = [self.kinetic['electrons']['bin_edges']['v1_v2'][1]]
+        # components = [False] * 6
+        # components[0] = True
+
+        # self._electrons.show_distribution_function(components, edges, self.domain)
+
+        # Correct initialization of weights by dividing by sqrt(f_0)
         self._electrons.markers[~self._electrons.holes, 6] /= \
-            (self._electrons.n_mks *
-             np.sqrt(self._f0(*self._electrons.markers_wo_holes[:, :6].T)))
+            (np.sqrt(self._f0(*self._electrons.markers_wo_holes[:, :6].T)))
+
+        # # Set v3 = 0
+        # self._electrons.markers[~self._electrons.holes, 5] = 0.
+
+        # self._electrons.show_distribution_function(components, edges, self.domain)
+        # exit()
 
         # evaluate f0
         f0_values = self._f0(self._electrons.markers[:, 0],
@@ -233,33 +291,34 @@ class LinearVlasovMaxwell(StruphyModel):
         self.derham.grad.dot(-poisson_solver._phi, out=self._e)
 
     def update_scalar_quantities(self):
-
-        # e^T * M_1 * e
+        # 0.5 * e^T * M_1 * e
+        self._mass_ops.M1.dot(self._e, out=self._en_e_tmp)
         self._scalar_quantities['en_e'][0] = self._e.dot(
-            self._mass_ops.M1.dot(self._e)) / 2.
+            self._en_e_tmp) / 2.
 
         # 0.5 * |e_1|^2
         self._scalar_quantities['en_e1'][0] = self._e._blocks[0].dot(
-            self._e._blocks[0]) / 2.
+            self._en_e_tmp._blocks[0]) / 2.
 
         # 0.5 * |e_2|^2
         self._scalar_quantities['en_e2'][0] = self._e._blocks[1].dot(
-            self._e._blocks[1]) / 2.
+            self._en_e_tmp._blocks[1]) / 2.
 
-        # b^T * M_2 * b
+        # 0.5 * b^T * M_2 * b
+        self._mass_ops.M2.dot(self._b, out=self._en_b_tmp)
         self._scalar_quantities['en_b'][0] = self._b.dot(
-            self._mass_ops.M2.dot(self._b)) / 2.
+            self._en_b_tmp) / 2.
 
         # 0.5 * |b_3|^2
         self._scalar_quantities['en_b3'][0] = self._b._blocks[2].dot(
-            self._b._blocks[2]) / 2.
+            self._en_b_tmp._blocks[2]) / 2.
 
-        # alpha^2 * v_th_1^2 * v_th_2^2 * v_th_3^2 * N/2 * sum_p s_0 * w_p^2
+        # alpha^2 / (2N) * (v_th_1 * v_th_2 * v_th_3)^(2/3) * sum_p s_0 * w_p^2
         self._scalar_quantities['en_w'][0] = \
-            self.alpha**2 * self._electrons.n_mks / 2. * \
-            self._maxwellian_params['vth1']**2 * \
-            self._maxwellian_params['vth2']**2 * \
-            self._maxwellian_params['vth3']**2 * \
+            self.alpha**2 / (2 * self._electrons.n_mks) * \
+            (self._maxwellian_params['vth1'] * \
+            self._maxwellian_params['vth2'] * \
+            self._maxwellian_params['vth3'])**(2/3) * \
             np.dot(self._electrons.markers_wo_holes[:, 6]**2,  # w_p^2
                    self._electrons.markers_wo_holes[:, 7])  # s_{0,p}
 

@@ -92,7 +92,7 @@ class StruphyModel(metaclass=ABCMeta):
     @classmethod
     @abstractmethod
     def bulk_species(cls):
-        '''Object identifying the bulk species of the plasma. Must be a value of self.fluid or self.kinetic, or None.'''
+        '''Name of the bulk species of the plasma. Must be a key of self.fluid or self.kinetic, or None.'''
         pass
 
     @classmethod
@@ -303,6 +303,8 @@ class StruphyModel(metaclass=ABCMeta):
         if len(self.kinetic) > 0:
 
             for val in self.kinetic.values():
+                val['obj'].draw_markers()
+
                 val['obj'].mpi_sort_markers(do_test=True)
 
                 typ = val['params']['markers']['type']
@@ -351,6 +353,7 @@ class StruphyModel(metaclass=ABCMeta):
         if len(self.kinetic) > 0:
 
             for key, val in self.kinetic.items():
+                val['obj'].draw_markers()
                 val['obj']._markers[:, :] = data.file['restart/' + key][-1, :, :]
 
                 # important: sets holes attribute of markers!

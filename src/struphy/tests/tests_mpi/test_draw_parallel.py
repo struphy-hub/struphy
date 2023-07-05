@@ -42,19 +42,21 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
         print(derham.domain_array)
 
     # create particles
-    loading_params = {'type': 'pseudo_random', 
+    loading_params = {'type': 'pseudo_random',
                       'seed': seed,
-                      'moments': [0., 0., 0., 1., 1., 1.], 
+                      'moments': [0., 0., 0., 1., 1., 1.],
                       'spatial': 'uniform'}
-    marker_params = {'ppc': ppc, 
-                     'eps': .25, 
-                     'loading': loading_params, 
-                     'bc_type' : ['periodic', 'periodic', 'periodic'],
+    marker_params = {'ppc': ppc,
+                     'eps': .25,
+                     'loading': loading_params,
+                     'bc_type': ['periodic', 'periodic', 'periodic'],
                      'domain': domain}
     init_params = {'type': 'Maxwellian6DUniform', 'Maxwellian6DUniform': {}}
-    
-    particles = Particles6D('energetic_ions', **marker_params, domain_array=derham.domain_array, comm=comm)
-    
+
+    particles = Particles6D('energetic_ions', **marker_params,
+                            domain_array=derham.domain_array, comm=comm)
+    particles.draw_markers()
+
     # test weights
     particles.initialize_weights(init_params)
     _vdim = particles.vdim
