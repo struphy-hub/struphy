@@ -55,20 +55,6 @@ class Particles(metaclass=ABCMeta):
         # create marker array
         self.create_marker_array()
 
-        # draw markers
-        self.draw_markers()
-
-        # number of holes and markers on process
-        self._holes = self._markers[:, 0] == -1.
-        self._n_holes_loc = np.count_nonzero(self._holes)
-        self._n_mks_loc = self._markers.shape[0] - self._n_holes_loc
-
-        # check if all particle positions are inside the unit cube [0, 1]^3
-        n_mks_load_loc = self._n_mks_load[self._mpi_rank]
-
-        assert np.all(~self._holes[:n_mks_load_loc]) and np.all(
-            self._holes[n_mks_load_loc:])
-
         # Assume full-f if type is not in parameters
         if 'type' in params.keys():
             if params['type'] == 'control_variate':
@@ -225,7 +211,7 @@ class Particles(metaclass=ABCMeta):
         return self._n_lost_markers
 
     def create_marker_array(self):
-        """Create marker array. (self.markers)
+        """ Create marker array. (self.markers)
         """
 
         # number of cells on current process
@@ -416,6 +402,17 @@ class Particles(metaclass=ABCMeta):
                             self._markers[counter, j] = specific_markers[i][j]
 
                     counter += 1
+
+        # number of holes and markers on process
+        self._holes = self._markers[:, 0] == -1.
+        self._n_holes_loc = np.count_nonzero(self._holes)
+        self._n_mks_loc = self._markers.shape[0] - self._n_holes_loc
+
+        # check if all particle positions are inside the unit cube [0, 1]^3
+        n_mks_load_loc = self._n_mks_load[self._mpi_rank]
+
+        assert np.all(~self._holes[:n_mks_load_loc]) and np.all(
+            self._holes[n_mks_load_loc:])
 
     def mpi_sort_markers(self, do_test=False):
         """ 

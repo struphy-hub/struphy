@@ -174,7 +174,7 @@ class Maxwellian6DPerturbed(Maxwellian):
 
         moment_keys = ['n', 'u1', 'u2', 'u3', 'vth1', 'vth2', 'vth3']
 
-        backgr_keys = ['n0', 'u01', 'u02', 'u0_3', 'vth01', 'vth02', 'vth03']
+        backgr_keys = ['n0', 'u01', 'u02', 'u03', 'vth01', 'vth02', 'vth03']
 
         # set default background, mode numbers and amplitudes if no perturbation of a moment in given
         for moment_key, backgr_key in zip(moment_keys, backgr_keys):
@@ -350,7 +350,7 @@ class Maxwellian6DPerturbed(Maxwellian):
         amps_sin = self.params['u3']['perturbation']['amps_sin']
         amps_cos = self.params['u3']['perturbation']['amps_cos']
 
-        res = self.params['u3']['u0_3']
+        res = self.params['u3']['u03']
         res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
         res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
 

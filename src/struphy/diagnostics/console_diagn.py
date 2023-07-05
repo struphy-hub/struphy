@@ -12,10 +12,6 @@ from struphy.diagnostics.diagn_tools import plot_scalars, plot_distr_fun
 
 
 def main():
-    """
-    TODO
-    """
-
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter)
 
@@ -32,11 +28,11 @@ def main():
                         help='(for plot_scalars) if logarithmic y-axis should be used')
     parser.add_argument('-t', nargs=1, type=float, default=[0.],
                         help='(for plot_distr) at which time to plot the distribution function')
-    parser.add_argument('-e1', nargs=1, type=float, default=[None],
+    parser.add_argument('-e1', nargs=1, type=float, default=[0.5],
                         help='(for plot_distr) at which position in eta1 direction to plot')
-    parser.add_argument('-e2', nargs=1, type=float, default=[None],
+    parser.add_argument('-e2', nargs=1, type=float, default=[0.5],
                         help='(for plot_distr) at which position in eta2 direction to plot')
-    parser.add_argument('-e3', nargs=1, type=float, default=[None],
+    parser.add_argument('-e3', nargs=1, type=float, default=[0.5],
                         help='(for plot_distr) at which position in eta3 direction to plot')
     parser.add_argument('-v1', nargs=1, type=float, default=[None],
                         help='(for plot_distr) at which point in v1 direction to plot')
@@ -58,18 +54,11 @@ def main():
 
     path = os.path.join(io_path, 'io/out', foldername)
 
-    grid_slices = {'e': {'e1': args.e1[0], 'e2': args.e2[0], 'e3': args.e3[0]},
-                   'v': {'v1': args.v1[0], 'v2': args.v2[0], 'v3': args.v3[0]}}
-
-    # code name
-    with open(path + '/meta.txt', 'r') as f:
-        lines = f.readlines()
-
-    code = lines[3].split()[-1]
+    grid_slices = {'e1': args.e1[0], 'e2': args.e2[0], 'e3': args.e3[0],
+                   'v1': args.v1[0], 'v2': args.v2[0], 'v3': args.v3[0]}
 
     # Get fields
     file = h5py.File(os.path.join(path, 'data/', 'data_proc0.hdf5'), 'r')
-    field_names = list(file['feec'].keys())
     saved_scalars = file['scalar']
     saved_time = file['time']['value'][:]
 
@@ -83,11 +72,38 @@ def main():
                      scalars_plot=scalars_plot,
                      do_log=do_log,
                      save_plot=True,
-                     savename=os.path.join(path, code))
+                     savedir=path)
 
     if 'plot_distr' in actions:
         for species in params['kinetic'].keys():
+            # Set velocity point of evaluation to v_shift of background params if not given by input
+            if params['kinetic'][species]['markers']['type'] == 'full_f':
+                for k in range(1, 4):
+                    if grid_slices['v' + str(k)] is None:
+                        bckgr_type = params['kinetic'][species]['init']['type']
+                        bckgr_param = params['kinetic'][species]['init'][bckgr_type]['u' + str(
+                            k)]
+                        if isinstance(bckgr_param, dict):
+                            grid_slices['v' + str(k)] = \
+                                bckgr_param['u0' + str(k)]
+                        else:
+                            grid_slices['v' + str(k)] = bckgr_param
+            elif params['kinetic'][species]['markers']['type'] == 'delta_f' \
+                    or params['kinetic'][species]['markers']['type'] == 'control_variate':
+                for k in range(1, 4):
+                    if grid_slices['v' + str(k)] is None:
+                        bckgr_type = params['kinetic'][species]['background']['type']
+                        bckgr_param = params['kinetic'][species]['background'][bckgr_type]['u' + str(
+                            k)]
+                        if isinstance(bckgr_param, dict):
+                            grid_slices['v' + str(k)] = \
+                                bckgr_param['u0' + str(k)]
+                        else:
+                            grid_slices['v' + str(k)] = bckgr_param
+
+            # Get index of where to plot in time
             time_idx = np.argmin(np.abs(time - saved_time))
+
             plot_distr_fun(path=os.path.join(path, 'post_processing', 'kinetic_data', species),
                            time_idx=time_idx,
                            grid_slices=grid_slices,

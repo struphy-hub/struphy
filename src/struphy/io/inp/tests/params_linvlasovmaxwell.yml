@@ -81,11 +81,11 @@ kinetic :
                         amps_sin : [0.]
                         amps_cos : [0.05]
                 u1 :
-                    u01 : 0.1
+                    u01 : 0.0
                 u2 :
-                    u02 : 0.1
+                    u02 : 0.0
                 u3 :
-                    u03 : 0.1
+                    u03 : 0.0
                 vth1 :
                     vth01 : 0.1
                 vth2 :
@@ -96,9 +96,9 @@ kinetic :
             type : Maxwellian6DUniform
             Maxwellian6DUniform :
                 n  : 0.2
-                u1 : 0.1
-                u2 : 0.1
-                u3 : 0.1
+                u1 : 0.0
+                u2 : 0.0
+                u3 : 0.0
                 vth1 : 0.1
                 vth2 : 0.1
                 vth3 : 0.1

@@ -164,7 +164,7 @@ fluid :
 
 kinetic :
     hot_ions :
-        phys_params:
+        phys_params :
             A : 1  # mass number in units of proton mass
             Z : 1 # signed charge number in units of elementary charge
         markers :

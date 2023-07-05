@@ -360,8 +360,8 @@ def linear_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
 
         f0 = f0_values[ip]
 
-        # filling = alpha^2 * kappa * w_p * sqrt{f_0}
-        filling = alpha**2 * kappa * markers[ip, 6] * sqrt(f0) * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2
+        # filling = alpha^2 * kappa * w_p * sqrt{f_0} / N
+        filling = alpha**2 * kappa * markers[ip, 6] * sqrt(f0) / n_markers_tot
 
         # spans (i.e. index for non-vanishing B-spline basis functions)
         span1 = bsp.find_span(tn1, pn[0], eta1)
@@ -436,7 +436,7 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
 
     # allocate for filling
     v = empty(3, dtype=float)
-    df_inv_times_v = empty(3, dtype=float)
+    df_inv_v = empty(3, dtype=float)
     filling_m = empty((3, 3), dtype=float)
     filling_v = empty(3, dtype=float)
 
@@ -456,6 +456,11 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
+        # get velocity
+        v[0] = markers[ip, 3] / f0_params[4]**2
+        v[1] = markers[ip, 4] / f0_params[5]**2
+        v[2] = markers[ip, 5] / f0_params[6]**2
+
         f0 = f0_values[ip]
 
         # evaluate Jacobian, result in df
@@ -466,21 +471,18 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                     cx, cy, cz,
                     df)
 
-        # compute shifted and stretched velocity
-        v[0] = (markers[ip, 3] - f0_params[1]) / f0_params[4]**2
-        v[1] = (markers[ip, 4] - f0_params[2]) / f0_params[5]**2
-        v[2] = (markers[ip, 5] - f0_params[3]) / f0_params[6]**2
-
-        # filling functions
+        # invert Jacobian matrix
         linalg.matrix_inv(df, df_inv)
-        linalg.matrix_vector(df_inv, v, df_inv_times_v)
 
-        # filling_m = alpha^2 * kappa^2 * f0 / (N * s_0 * v_th_1^2 * v_th_2^2 * v_th_3^2) * (DF^{-1} \V_th (v_p - u))_mu * (DF^{-1} \V_th (v_p - u))_nu
-        linalg.outer(df_inv_times_v, df_inv_times_v, filling_m)
-        filling_m[:, :] *= alpha**2 * kappa**2 * f0 * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2 / (n_markers_tot * markers[ip, 7])
+        # compute DF^{-1} v
+        linalg.matrix_vector(df_inv, v, df_inv_v)
 
-        # filling_v = alpha^2 * kappa * w_p * sqrt{f_0} DL^{-1} * \V_th * (v_p - u)
-        filling_v[:] = alpha**2 * kappa * sqrt(f0) * markers[ip, 6] * df_inv_times_v[:] * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2
+        # filling_m = alpha^2 * kappa^2 * f0 / (N * s_0) * (v_th_1 * v_th_2 * v_th_3)^2/3) * (DF^{-1} \V_th v_p)_mu * (DF^{-1} \V_th v_p)_nu
+        linalg.outer(df_inv_v, df_inv_v, filling_m)
+        filling_m[:, :] *= alpha**2 * kappa**2 * f0 * (f0_params[4] * f0_params[5] * f0_params[6])**(2/3) / (n_markers_tot * markers[ip, 7])
+
+        # filling_v = alpha^2 * kappa / N * (v_th_1 * v_th_2 * v_th_3)^2/3) * w_p * sqrt{f_0} DL^{-1} * \V_th * v_p
+        filling_v[:] = alpha**2 * kappa * sqrt(f0) * markers[ip, 6] * df_inv_v[:] / n_markers_tot * (f0_params[4] * f0_params[5] * f0_params[6])**(2/3)
 
         # call the appropriate matvec filler
         mvf.m_v_fill_b_v1_symm(pn,
