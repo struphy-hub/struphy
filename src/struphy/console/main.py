@@ -10,7 +10,7 @@ def struphy():
     Struphy main executable. Performs argument parsing and sub-command call.
     '''
 
-    import os
+    import os, shutil
     import inspect
     import argparse
     from struphy.models import fluid, kinetic, hybrid, toy
@@ -61,7 +61,7 @@ def struphy():
     parser.add_argument('--set-io',
                         type=str,
                         metavar='PATH',
-                        help='set PATH to default I/O folder and copy templates there (type "." to use current working directory)',)
+                        help='make PATH the new default I/O folder and copy templates there (type "." to use current working directory)',)
 
     # create sub-commands and save name of sub-command into variable "command"
     subparsers = parser.add_subparsers(title='available commands',
@@ -70,7 +70,7 @@ def struphy():
 
     # 1. "compile" sub-command
     parser_compile = subparsers.add_parser('compile',
-                                           help='compile computational kernels, install psydac',
+                                           help='compile computational kernels, install psydac (on first call only)',
                                            description='Compile Struphy kernels using pyccel, https://github.com/pyccel/pyccel.')
 
     parser_compile.add_argument('--no-openmp',
@@ -225,7 +225,7 @@ def struphy():
     parser_units.add_argument('-i', '--input',
                               type=str,
                               metavar='FILE',
-                              help='parameter file (.yml) relative to <install_path>/struphy/io/inp/ (default=parameters.yml)',
+                              help='parameter file (.yml) relative to current I/O path (default=parameters.yml)',
                               default='parameters.yml',)
 
     parser_units.add_argument('--input-abs',
@@ -274,7 +274,7 @@ def struphy():
     parser_pproc.add_argument('-d', '--dirr',
                               type=str,
                               metavar='DIR',
-                              help='simulation output folder to post-process relative to <install_path>/struphy/io/out/ (default=sim_1)',
+                              help='simulation output folder to post-process relative to current I/O path (default=sim_1)',
                               default='sim_1',)
 
     parser_pproc.add_argument('--dir-abs',
@@ -385,6 +385,10 @@ def struphy():
                   os.path.join(io_dir, 'inp/'))
         copy_tree(os.path.join(libpath, 'io/batch/'),
                   os.path.join(io_dir, 'batch/'))
+        
+        # remove tests and examples input folders
+        shutil.rmtree(os.path.join(io_dir, 'inp/tests/'))
+        shutil.rmtree(os.path.join(io_dir, 'inp/examples/'))
 
         print(f'New default I/O path has been set:')
         import subprocess

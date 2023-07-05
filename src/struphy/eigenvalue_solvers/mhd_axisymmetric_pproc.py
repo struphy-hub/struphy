@@ -15,7 +15,7 @@ def main():
     parser.add_argument('-i', '--input',
                         type=str,
                         metavar='DIR',
-                        help='directory with eigenspectrum (.npy), relative to <install_path>/struphy/io/out/ (default=sim_1)',
+                        help='directory with eigenspectrum (.npy), relative to current I/O path (default=sim_1)',
                         default='sim_1')
 
     parser.add_argument('--input-abs',

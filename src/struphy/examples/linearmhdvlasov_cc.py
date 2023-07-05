@@ -8,7 +8,10 @@ def run(n_procs):
         Number of MPI processes to run the model.
     """
     
-    import subprocess
+    import os, subprocess
+    import struphy
+    
+    libpath = struphy.__path__[0]
     
     # name of simulation output folder
     out_name = 'sim_example_linearmhdvlasovcc'
@@ -18,7 +21,7 @@ def run(n_procs):
                     'run', 
                     'LinearMHDVlasovCC',
                     '-i',
-                    'examples/params_hybridmhdvlasovcc.yml',
+                    os.path.join(libpath, 'io/inp/examples/params_hybridmhdvlasovcc.yml'),
                     '-o',
                     out_name,
                     '--mpi',
@@ -97,7 +100,7 @@ def diagnostics():
 
     plt.subplot(1, 2, 2)
     plt.plot(vz, f[0], label='$t=0$')
-    plt.plot(vz, f[100], label='$t=60$')
+    plt.plot(vz, f[300], label='$t=60$')
     plt.xlabel('$v_z$')
     plt.ylabel('$f_{v_z}$')
     plt.title('EP distribution function')

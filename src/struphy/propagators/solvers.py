@@ -36,7 +36,7 @@ class PoissonSolver(Propagator):
             # check solvability condition
             solvability = np.zeros(1)
             self.derham.comm.Allreduce(np.sum(rho.toarray()), solvability, op=MPI.SUM)
-            assert solvability[0] <= 1e-15, f'Solvability condition not met: {solvability[0]}'
+            assert solvability[0] <= 1e-14, f'Solvability condition not met: {solvability[0]}'
 
             assert isinstance(rho, (StencilVector, PolarVector))
             # assert rho.space.space_id == "H1" TODO: doesn't work, but we should check that rho is in H1

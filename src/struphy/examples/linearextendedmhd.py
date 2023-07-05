@@ -8,7 +8,10 @@ def run(n_procs):
         Number of MPI processes to run the model.
     """
     
-    import subprocess
+    import os, subprocess
+    import struphy
+    
+    libpath = struphy.__path__[0]
     
     # name of simulation output folder
     out_name = 'sim_example_linearextendedmhd'
@@ -18,7 +21,7 @@ def run(n_procs):
                     'run', 
                     'LinearExtendedMHD',
                     '-i',
-                    'examples/params_linearextendedmhd.yml',
+                    os.path.join(libpath, 'io/inp/examples/params_linearextendedmhd.yml'),
                     '-o',
                     out_name,
                     '--mpi',
@@ -44,8 +47,11 @@ def diagnostics():
 
     libpath = struphy.__path__[0]
     
+    with open(os.path.join(libpath, 'io_path.txt')) as f:
+        io_path = f.readlines()[0]
+    
     out_name = 'sim_example_linearextendedmhd'
-    out_path = os.path.join(libpath, 'io/out', out_name)
+    out_path = os.path.join(io_path, 'io/out', out_name)
     
     # read in parameters for analytical dispersion relation
     with open(os.path.join(out_path, 'parameters.yml')) as file:
@@ -65,7 +71,7 @@ def diagnostics():
     Z = params['fluid']['mhd']['phys_params']['Z']
     tu= (xu/Bu) * (MU*mH*A*nu)**(0.5) *(10.0**10.0)
     p0 = (2*params['mhd_equilibrium']['HomogenSlab']
-          ['beta']/100)/(B0x**2 + B0y**2 + B0z**2)
+          ['beta'])/(B0x**2 + B0y**2 + B0z**2)
     n0 = params['mhd_equilibrium']['HomogenSlab']['n0']
 
     disp_params = {'B0x': B0x, 

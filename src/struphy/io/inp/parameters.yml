@@ -1,6 +1,9 @@
-# some hints on how to use this parameter file:
-# 1. Strings can either be set as e.g. 'Cuboid' or Cuboid. Both works
-# 2. null will be transformed to Python's None type
+# Some hints on how to use this parameter file:
+
+# 1. Strings can either be set as e.g. 'Cuboid' or Cuboid, i.e. with or without quotes - both works
+# 2. The parameter null will be transformed to Python's None type
+# 3. For available geometries, please check out https://struphy.pages.mpcdf.de/struphy/sections/domains.html
+# 4. For available MHD equilibria, please check out https://struphy.pages.mpcdf.de/struphy/sections/mhd_equils.html
 
 grid :
     Nel       : [16, 32, 32] # number of grid cells, >p
@@ -24,36 +27,6 @@ time :
 
 geometry :
     type : Cuboid # mapping F (possible types seen below)  
-    Tokamak : # the mapping is defined from the mhd equilibrium below
-        Nel        : [8, 32] # number of poloidal grid cells for spline mapping, >p
-        p          : [3, 3] # poloidal spline degrees for spline mapping, >1
-        psi_power  : 0.7 # parametrization of radial flux coordinate eta1=psi_norm^psi_power, where psi_norm is normalized flux
-        psi_shifts : [2., 2.] # start and end shifts of polidal flux in % --> cuts away regions at the axis and edge
-        xi_param   : equal_angle # parametrization of angular coordinate (equal_angle, equal_arc_length or sfl (straight field line))
-        r0         : 0.3 # initial guess for radial distance from axis used in Newton root-finding method for flux surfaces
-        Nel_pre    : [64, 256] # number of poloidal grid cells of pre-mapping needed for equal_arc_length and sfl
-        p_pre      : [3, 3] # poloidal spline degrees of pre-mapping needed for equal_arc_length and sfl
-        tor_period : 1 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
-    GVECunit :
-        rel_path  : True # whether to state dat_file (json_file) relative to "<struphy_path>/fields_background/mhd_equil/gvec", or give the absolute path
-        dat_file  : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file 
-        json_file : Null # give directly the parsed json file, if it exists (then dat_file is not used)
-        use_pest  : False # Whether to use straight-field line coordinates (PEST)
-        use_nfp   : True # Whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
-        Nel       : [32, 32, 32] # Number of cells in each direction used for interpolation of the mapping.
-        p         : [3, 3, 3] # Spline degree in each direction used for interpolation of the mapping.
-    IGAPolarCylinder :
-        Nel : [8, 24] # number of poloidal grid cells, >p
-        p   : [3, 3] # poloidal spline degree, >1
-        Lz  : 6. # Length in third direction
-        a   : 1. # minor radius
-    IGAPolarTorus :
-        Nel        : [8, 24] # number of poloidal grid cells, >p
-        p          : [3, 3] # poloidal spline degree, >1
-        a          : 1. # minor radius
-        R0         : 3. # major radius
-        tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
-        sfl        : False # whether to use straight field line coordinates (particular theta parametrization) 
     Cuboid : 
         l1 : 0. # start of interval in eta1
         r1 : 2. # end of interval in eta1, r1>l1
@@ -61,53 +34,6 @@ geometry :
         r2 : 2. # end of interval in eta2, r2>l2
         l3 : 0. # start of interval in eta3
         r3 : 1. # end of interval in eta3, r3>l3
-    Orthogonal :
-        Lx    : 2. # length in x-direction
-        Ly    : 2. # length in y-direction
-        alpha : .1 # x-distortion and y-distortion
-        Lz    : 1. # length in third direction
-    Colella :
-        Lx    : 2. # length in x-direction
-        Ly    : 2. # length in y-direction
-        alpha : .1 # distortion factor
-        Lz    : 1. # length in third direction
-    HollowCylinder :
-        a1 : .2 # inner radius
-        a2 : 1. # outer radius
-        Lz : 4. # length in third direction   
-    PoweredEllipticCylinder :
-        rx : 1. # axis length
-        ry : 2. # axis length
-        Lz : 4. # length in third direction
-        s  : .5 # power of radial coordinate
-    HollowTorus :
-        a1 : .2 # inner radius
-        a2 : 1. # minor radius
-        R0 : 3. # major radius
-        tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
-    HollowTorusStraightFieldLine :
-        a1 : .2 # inner radius
-        a2 : 1. # minor radius
-        R0 : 3. # major radius
-        tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
-    ShafranovShiftCylinder :
-        rx    : 1. # axis length
-        ry    : 1. # axis length
-        Lz    : 4. # length in third direction
-        delta : .2 # shift factor, should be in [0, 0.1]
-    ShafranovSqrtCylinder :
-        rx    : 1. # axis length
-        ry    : 1. # axis length
-        Lz    : 4. # length in third direction
-        delta : .2 # shift factor, should be in [0, 0.1]
-    ShafranovDshapedCylinder :
-        R0         : 2. # base radius
-        Lz         : 4. # length in third direction
-        delta_x    : .05 # Shafranov shift in x-direction
-        delta_y    : .025 # Shafranov shift in y-direction
-        delta_gs   : .05 # delta = sin(alpha): triangularity, shift of high point
-        epsilon_gs : .5 # epsilon: inverse aspect ratio a/r0
-        kappa_gs   : 2. # Kappa: ellipticity (elongation)
 
 mhd_equilibrium :
     type : HomogenSlab # (possible choices seen below)
@@ -117,76 +43,6 @@ mhd_equilibrium :
         B0z  : 1. # magnetic field in z
         beta : 0. # plasma beta = 2*p*mu_0/B^2
         n0   : 1. # number density
-    ShearedSlab :
-        a    : 1. # minor radius (Lx=a, Ly=2*pi*a) 
-        R0   : 3. # major rarius (Lz=2*pi*R0)
-        B0   : 1. # magnetic field in z-direction    
-        q0   : 1.05 # q-value at eta_1 = 0
-        q1   : 1.80 # q-value at eta_1 = 1
-        n1   : 0. # shape factor for number density profile
-        n2   : 0. # shape factor for number density profile
-        na   : 1. # number density at r=a
-        beta : .01 # plasma beta = 2*p*mu_0/B^2
-    ScrewPinch :
-        a    : 1. # minor radius (radius of cylinder)
-        R0   : 3. # major radius (shift of magnetic axis, length of pinch Lz=2*pi*R0)
-        B0   : 1. # magnetic field in z-direction
-        q0   : 1.05 # safety factor at r=0
-        q1   : 1.80 # safety factor at r=a
-        n1   : 0. # shape factor for number density profile 
-        n2   : 0. # shape factor for number density profile 
-        na   : 1. # number density at r=a
-        beta : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
-    AdhocTorus :
-        a       : 1. # minor radius
-        R0      : 3. # major radius
-        B0      : 1. # on-axis toroidal magnetic field
-        q_kind  : 0 # which profile (0 : parabolic, 1 : other, see documentation)
-        q0      : 1.05 # safety factor at r=0
-        q1      : 1.80 # safety factor at r=a
-        n1      : 0. # 1st shape factor for number density profile 
-        n2      : 0. # 2nd shape factor for number density profile 
-        na      : 1. # number density at r=a
-        p_kind  : 1 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
-        p1      : .1 # 1st shape factor for ad hoc pressure profile
-        p2      : .1 # 2nd shape factor for ad hoc pressure profile
-        beta    : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
-        psi_k   : 3 # spline degree to be used for interpolation of poloidal flux function (only needed if q_kind = 1)
-        psi_nel : 50 # number of cells to be used for interpolation of poloidal flux function (only needed if q_kind = 1)
-    AdhocTorusQPsi :
-        a       : 0.361925 # minor radius
-        R0      : 1. # major radius
-        B0      : 1. # on-axis toroidal magnetic field
-        q0      : 0.6 # safety factor at r=0
-        q1      : 2.5 # safety factor at r=a
-        q0p     : 0.78 # derivative of safety factor at r=0 (w.r.t. to poloidal flux function)
-        q1p     : 5.00 # derivative of safety factor at r=a (w.r.t. to poloidal flux function)
-        n1      : 0. # shape factor for number density profile 
-        n2      : 0. # shape factor for number density profile 
-        na      : 1. # number density at r=a
-        beta    : 4. # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
-        p1      : 0.25 # shape factor of pressure profile
-        psi_k   : 3 # spline degree to be used for interpolation of poloidal flux function
-        psi_nel : 50 # number of cells to be used for interpolation of poloidal flux function
-    EQDSKequilibrium :
-        rel_path        : True # whether eqdsk file path relative to "<struphy_path>/fields_background/mhd_equil/gvec", or the absolute path
-        file            : 'AUGNLED_g031213.00830.high' # path to eqdsk file
-        data_type       : 0 # 0: there is no space between data, 1: there is space between data
-        p_for_psi       : [3, 3] # spline degrees used in interpolation of poloidal flux function grid data
-        psi_resolution  : [25., 6.25] # resolution used in interpolation of poloidal flux function grid data in %, i.e. [100., 100.] uses all grid points
-        p_for_flux      : 3 # spline degree used in interpolation of 1d functions f=f(psi) (e.g. toroidal field function)
-        flux_resolution : 50. # resolution used in interpolation of of 1d functions f=f(psi) in %
-        n1              : 0. # 1st shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
-        n2              : 0. # 2nd shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
-        na              : 1. # number density at last closed flux surface
-    GVECequilibrium : 
-        rel_path : True # whether file path is relative to "<struphy_path>/fields_background/mhd_equil/gvec", or the absolute path
-        dat_file : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file 
-        json_file : Null # give directly the parsed json file, if it exists (then dat_file is not used)
-        use_pest : False # whether to use straight-field line coordinates (PEST)
-        use_nfp : True # whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
-        Nel : [32, 32, 32] # number of cells in each direction used for interpolation of the mapping.
-        p : [3, 3, 3] # spline degree in each direction used for interpolation of the mapping.
 
 electric_equilibrium :
     type : HomogenSlab # (possible choices seen below)
@@ -308,7 +164,7 @@ fluid :
 
 kinetic :
     hot_ions :
-        phys_params:
+        phys_params :
             A : 1  # mass number in units of proton mass
             Z : 1 # signed charge number in units of elementary charge
         markers :
@@ -320,8 +176,9 @@ kinetic :
             loading :
                 type          : pseudo_random # particle loading mechanism 
                 seed          : 1234 # seed for random number generator
-                dir_particles : 'path_to_particles' # directory of particles if loaded externally
                 moments       : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
+                spatial       : uniform # uniform or disc
+                dir_particles : 'path_to_particles' # directory of particles if loaded externally
         init :
             type : Maxwellian6DPerturbed
             Maxwellian6DPerturbed :

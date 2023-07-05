@@ -68,7 +68,7 @@ def test_lin_mhd_ops():
 
     # Mhd equilibirum
     mhd_equil_general = {'type': 'slab', 'mass_number' : 1 }
-    mhd_equil_params = {'B0x': 0., 'B0y': 0., 'B0z': 1., 'rho0': 1., 'beta': 200.}
+    mhd_equil_params = {'B0x': 0., 'B0y': 0., 'B0z': 1., 'rho0': 1., 'beta': 2.}
 
     EQ_MHD_P = Equilibrium_mhd_physical(mhd_equil_general['type'], mhd_equil_params)
     EQ_MHD_L = Equilibrium_mhd_logical(DOMAIN, EQ_MHD_P)

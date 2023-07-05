@@ -8,7 +8,10 @@ def run(n_procs):
         Number of MPI processes to run the model.
     """
     
-    import subprocess
+    import os, subprocess
+    import struphy
+    
+    libpath = struphy.__path__[0]
     
     # name of simulation output folder
     out_name = 'sim_example_linearmhd'
@@ -18,7 +21,7 @@ def run(n_procs):
                     'run', 
                     'LinearMHD',
                     '-i',
-                    'examples/params_linearmhd.yml',
+                    os.path.join(libpath, 'io/inp/examples/params_linearmhd.yml'),
                     '-o',
                     out_name,
                     '--mpi',
@@ -60,7 +63,7 @@ def diagnostics():
     B0z = params['mhd_equilibrium']['HomogenSlab']['B0z']
 
     p0 = (2*params['mhd_equilibrium']['HomogenSlab']
-          ['beta']/100)/(B0x**2 + B0y**2 + B0z**2)
+          ['beta'])/(B0x**2 + B0y**2 + B0z**2)
     n0 = params['mhd_equilibrium']['HomogenSlab']['n0']
 
     disp_params = {'B0x': B0x, 

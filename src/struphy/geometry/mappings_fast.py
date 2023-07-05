@@ -181,7 +181,7 @@ def spline_2d_straight_df(eta1: float, eta2: float,
                           t1: 'float[:]', t2: 'float[:]', p: 'int[:]',
                           ind1: 'int[:,:]', ind2: 'int[:,:]',
                           cx: 'float[:,:]', cy: 'float[:,:]',
-                          lz: 'float',
+                          lz: float,
                           df_out: 'float[:,:]'):
     """
     Jacobian matrix for :meth:`struphy.geometry.mappings_fast.spline_2d_straight`.
@@ -338,9 +338,9 @@ def spline_2d_torus_df(eta1: float, eta2: float, eta3: float,
         
 @pure
 def cuboid(eta1: float, eta2: float, eta3: float,
-           l1: 'float', r1: 'float',
-           l2: 'float', r2: 'float',
-           l3: 'float', r3: 'float',
+           l1: float, r1: float,
+           l2: float, r2: float,
+           l3: float, r3: float,
            f_out: 'float[:]'):
     '''
     Point-wise evaluation of
@@ -380,9 +380,9 @@ def cuboid(eta1: float, eta2: float, eta3: float,
     f_out[2] = l3 + (r3 - l3) * eta3
 
 @pure
-def cuboid_df(l1: 'float', r1: 'float',
-              l2: 'float', r2: 'float',
-              l3: 'float', r3: 'float',
+def cuboid_df(l1: float, r1: float,
+              l2: float, r2: float,
+              l3: float, r3: float,
               df_out: 'float[:,:]'):
     """
     Jacobian matrix for :meth:`struphy.geometry.mappings_fast.cuboid`.
@@ -400,7 +400,7 @@ def cuboid_df(l1: 'float', r1: 'float',
 
 @pure
 def orthogonal(eta1: float, eta2: float, eta3: float,
-               lx: 'float', ly: 'float', alpha: 'float', lz: 'float',
+               lx: float, ly: float, alpha: float, lz: float,
                f_out: 'float[:]'):
     '''
     Point-wise evaluation of
@@ -446,7 +446,7 @@ def orthogonal(eta1: float, eta2: float, eta3: float,
 
 @pure
 def orthogonal_df(eta1: float, eta2: float,
-                  lx: 'float', ly: 'float', alpha: 'float', lz: 'float',
+                  lx: float, ly: float, alpha: float, lz: float,
                   df_out: 'float[:,:]'):
     """
     Jacobian matrix for :meth:`struphy.geometry.mappings_fast.orthogonal`.
@@ -464,7 +464,7 @@ def orthogonal_df(eta1: float, eta2: float,
 
 @pure
 def colella(eta1: float, eta2: float, eta3: float,
-            lx: 'float', ly: 'float', alpha: 'float', lz: 'float',
+            lx: float, ly: float, alpha: float, lz: float,
             f_out: 'float[:]'):
     '''
     Point-wise evaluation of
@@ -510,7 +510,7 @@ def colella(eta1: float, eta2: float, eta3: float,
 
 @pure
 def colella_df(eta1: float, eta2: float,
-               lx: 'float', ly: 'float', alpha: 'float', lz: 'float',
+               lx: float, ly: float, alpha: float, lz: float,
                df_out: 'float[:,:]'):
     """
     Jacobian matrix for :meth:`struphy.geometry.mappings_fast.colella`.
@@ -528,7 +528,7 @@ def colella_df(eta1: float, eta2: float,
 
 @pure
 def hollow_cyl(eta1: float, eta2: float, eta3: float,
-               a1: 'float', a2: 'float', lz: 'float',
+               a1: float, a2: float, lz: float,
                f_out: 'float[:]'):
     '''
     Point-wise evaluation of
@@ -573,7 +573,7 @@ def hollow_cyl(eta1: float, eta2: float, eta3: float,
 
 @pure
 def hollow_cyl_df(eta1: float, eta2: float, 
-                  a1: 'float', a2: 'float', lz: 'float', 
+                  a1: float, a2: float, lz: float, 
                   df_out: 'float[:,:]'):
     """
     Jacobian matrix for :meth:`struphy.geometry.mappings_fast.hollow_cyl`.
@@ -593,8 +593,8 @@ def hollow_cyl_df(eta1: float, eta2: float,
 
 @pure
 def powered_ellipse(eta1: float, eta2: float, eta3: float,
-                    rx: 'float', ry: 'float',
-                    lz: 'float', s: 'float',
+                    rx: float, ry: float,
+                    lz: float, s: float,
                     f_out: 'float[:]'):
     '''
     Point-wise evaluation of
@@ -636,8 +636,8 @@ def powered_ellipse(eta1: float, eta2: float, eta3: float,
 
 @pure
 def powered_ellipse_df(eta1: float, eta2: float, eta3: float,
-                       rx: 'float', ry: 'float',
-                       lz: 'float', s: 'float',
+                       rx: float, ry: float,
+                       lz: float, s: float,
                        df_out: 'float[:,:]'):
     """
     Jacobian matrix for :meth:`struphy.geometry.mappings_fast.powered_ellipse`.
@@ -655,7 +655,7 @@ def powered_ellipse_df(eta1: float, eta2: float, eta3: float,
 
 @pure
 def hollow_torus(eta1: float, eta2: float, eta3: float,
-                 a1: 'float', a2: 'float', r0: 'float',
+                 a1: float, a2: float, r0: float, sfl: float,
                  tor_period: float,
                  f_out: 'float[:]'):
     '''
@@ -663,11 +663,11 @@ def hollow_torus(eta1: float, eta2: float, eta3: float,
 
     .. math::
 
-        F_x &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\cos(2\pi\,\eta_2)+R_0\\rbrace\cos(2\pi\,\eta_3)\,, 
+        F_x &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\cos(\theta(\eta_1,\eta_2))+R_0\\rbrace\cos(2\pi\,\eta_3)\,, 
 
-        F_y &= - \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\cos(2\pi\,\eta_2)+R_0\\rbrace\sin(2\pi\,\eta_3) \,, 
+        F_y &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\cos(\theta(\eta_1,\eta_2))+R_0\\rbrace\sin(2\pi\,\eta_3) \,, 
 
-        F_z &= \,\,\,\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\sin(2\pi\,\eta_2)\,.
+        F_z &= \,\,\,\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\sin(\theta(\eta_1,\eta_2)) \,,
 
     Note
     ----
@@ -688,6 +688,9 @@ def hollow_torus(eta1: float, eta2: float, eta3: float,
 
         r0 : float
             Major radius.
+            
+        sfl : float
+            Whether to use straight field line angular parametrization (yes: 1., no: 0.).
 
         tor_period : int
             Toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
@@ -696,126 +699,88 @@ def hollow_torus(eta1: float, eta2: float, eta3: float,
             Output: (x, y, z) = F(eta1, eta2, eta3).
     '''
 
-    da = a2 - a1
+    # straight field lines coordinates
+    if sfl == 1.:
+        
+        da = a2 - a1
+    
+        r = (a1 + eta1 * da)
+        theta = 2*arctan( sqrt( (1 + r/r0) / (1 - r/r0) ) * tan(pi*eta2))
 
-    f_out[0] = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * cos(2*pi*eta3 / tor_period)
-    f_out[1] = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * (-1) * sin(2*pi*eta3 / tor_period)
-    f_out[2] = (a1 + eta1 * da) * sin(2*pi*eta2) 
+        f_out[0] = (r * cos(theta) + r0) * cos(2*pi*eta3 / tor_period)
+        f_out[1] = (r * cos(theta) + r0) * (-1) * sin(2*pi*eta3 / tor_period)
+        f_out[2] = r * sin(theta)
+    
+    # equal angle coordinates
+    else:
+    
+        da = a2 - a1
+
+        f_out[0] = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * cos(2*pi*eta3 / tor_period)
+        f_out[1] = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * (-1) * sin(2*pi*eta3 / tor_period)
+        f_out[2] = (a1 + eta1 * da) * sin(2*pi*eta2) 
 
 @pure
 def hollow_torus_df(eta1: float, eta2: float, eta3: float,
-                    a1: 'float', a2: 'float', r0: 'float',
+                    a1: float, a2: float, r0: float, sfl: float,
                     tor_period: float,
                     df_out: 'float[:,:]'):
     """
     Jacobian matrix for :meth:`struphy.geometry.mappings_fast.hollow_torus`.
     """
-
-    da = a2 - a1
-
-    df_out[0, 0] = da * cos(2*pi*eta2) * cos(2*pi*eta3 / tor_period)
-    df_out[0, 1] = -2*pi * (a1 + eta1 * da) * sin(2*pi*eta2) * cos(2*pi*eta3 / tor_period)
-    df_out[0, 2] = -2*pi / tor_period * ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * sin(2*pi*eta3 / tor_period) 
-    df_out[1, 0] = da * cos(2*pi*eta2) * (-1) * sin(2*pi*eta3 / tor_period)
-    df_out[1, 1] = -2*pi * (a1 + eta1 * da) * sin(2*pi*eta2) * (-1) * sin(2*pi*eta3 / tor_period)
-    df_out[1, 2] = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * (-1) * cos(2*pi*eta3 / tor_period) * 2*pi / tor_period
-    df_out[2, 0] = da * sin(2*pi*eta2)
-    df_out[2, 1] = (a1 + eta1 * da) * cos(2*pi*eta2) * 2*pi
-    df_out[2, 2] = 0.
-     
-@pure
-def hollow_torus_straight_field_line(eta1: float, eta2: float, eta3: float,
-                 a1: 'float', a2: 'float', r0: 'float',
-                 tor_period: float,
-                 f_out: 'float[:]'):
-    '''
-    Point-wise evaluation of
-
-    .. math::
-
-        F_x &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\cos(\theta(\eta_1,\eta_2))+R_0\\rbrace\cos(2\pi\,\eta_3)\,, 
-
-        F_y &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\cos(\theta(\eta_1,\eta_2))+R_0\\rbrace\sin(2\pi\,\eta_3) \,, 
-
-        F_z &= \,\,\,\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\sin(\theta(\eta_1,\eta_2)) \,,
-
-    Note
-    ----
-        No example plot yet.
-
-    Parameters
-    ----------
-        eta1, eta2, eta3 : float
-            Logical coordinate in [0, 1].
-
-        a1 : float
-            Inner radius.
-
-        a2 : float
-            Outer radius.
-
-        r0 : float
-            Major radius.
-
-        tor_period : int
-            Toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
-
-        f_out : array[float]
-            Output: (x, y, z) = F(eta1, eta2, eta3).
-    '''
-
-    da = a2 - a1
     
-    r = (a1 + eta1 * da)
-    theta = 2*arctan( sqrt( (1 + r/r0) / (1 - r/r0) ) * tan(pi*eta2))
+    # straight field lines coordinates
+    if sfl == 1.:
+        
+        da = a2 - a1
+    
+        r = (a1 + da*eta1)
 
-    f_out[0] = (r * cos(theta) + r0) * cos(2*pi*eta3 / tor_period)
-    f_out[1] = (r * cos(theta) + r0) * (-1) * sin(2*pi*eta3 / tor_period)
-    f_out[2] = r * sin(theta) 
-       
-@pure
-def hollow_torus_straight_field_line_df(eta1: float, eta2: float, eta3: float,
-                    a1: 'float', a2: 'float', r0: 'float',
-                    tor_period: float,
-                    df_out: 'float[:,:]'):
-    """
-    Jacobian matrix for :meth:`struphy.geometry.mappings_fast.hollow_torus_straight_field_line`.
-    """
+        eps = r/r0
+        eps_p = da/r0
 
-    da = a2 - a1
-    
-    r = (a1 + da*eta1)
-    
-    eps = r/r0
-    eps_p = da/r0
-    
-    tpe = tan(pi*eta2)
-    tpe_p = pi/cos(pi*eta2)**2
-    
-    g = sqrt((1 + eps)/(1 - eps))
-    g_p = 1/(2*g) * (eps_p*(1 - eps) + (1 + eps)*eps_p)/(1 - eps)**2
-    
-    theta = 2*arctan(g*tpe)
-    
-    dtheta_deta1 = 2/(1 + (g*tpe)**2)*g_p*tpe
-    dtheta_deta2 = 2/(1 + (g*tpe)**2)*g*tpe_p
+        tpe = tan(pi*eta2)
+        tpe_p = pi/cos(pi*eta2)**2
 
-    df_out[0, 0] = (da * cos(theta) - r * sin(theta) * dtheta_deta1) * cos(2*pi*eta3 / tor_period)
-    df_out[0, 1] = -r * sin(theta) * dtheta_deta2 * cos(2*pi*eta3 / tor_period)
-    df_out[0, 2] = -2*pi / tor_period * (r * cos(theta) + r0) * sin(2*pi*eta3 / tor_period)
-    
-    df_out[1, 0] = (da * cos(theta) - r * sin(theta) * dtheta_deta1) * (-1) * sin(2*pi*eta3 / tor_period)
-    df_out[1, 1] = -r * sin(theta) * dtheta_deta2 * (-1) * sin(2*pi*eta3 / tor_period)
-    df_out[1, 2] = 2*pi / tor_period * (r * cos(theta) + r0) * (-1) * cos(2*pi*eta3 / tor_period)
+        g = sqrt((1 + eps)/(1 - eps))
+        g_p = 1/(2*g) * (eps_p*(1 - eps) + (1 + eps)*eps_p)/(1 - eps)**2
 
-    df_out[2, 0] = (da * sin(theta) + r * cos(theta) * dtheta_deta1)
-    df_out[2, 1] = r * cos(theta) * dtheta_deta2
-    df_out[2, 2] = 0.
+        theta = 2*arctan(g*tpe)
+
+        dtheta_deta1 = 2/(1 + (g*tpe)**2)*g_p*tpe
+        dtheta_deta2 = 2/(1 + (g*tpe)**2)*g*tpe_p
+
+        df_out[0, 0] = (da * cos(theta) - r * sin(theta) * dtheta_deta1) * cos(2*pi*eta3 / tor_period)
+        df_out[0, 1] = -r * sin(theta) * dtheta_deta2 * cos(2*pi*eta3 / tor_period)
+        df_out[0, 2] = -2*pi / tor_period * (r * cos(theta) + r0) * sin(2*pi*eta3 / tor_period)
+
+        df_out[1, 0] = (da * cos(theta) - r * sin(theta) * dtheta_deta1) * (-1) * sin(2*pi*eta3 / tor_period)
+        df_out[1, 1] = -r * sin(theta) * dtheta_deta2 * (-1) * sin(2*pi*eta3 / tor_period)
+        df_out[1, 2] = 2*pi / tor_period * (r * cos(theta) + r0) * (-1) * cos(2*pi*eta3 / tor_period)
+
+        df_out[2, 0] = (da * sin(theta) + r * cos(theta) * dtheta_deta1)
+        df_out[2, 1] = r * cos(theta) * dtheta_deta2
+        df_out[2, 2] = 0.
+        
+    # equal angle coordinates
+    else:
+
+        da = a2 - a1
+
+        df_out[0, 0] = da * cos(2*pi*eta2) * cos(2*pi*eta3 / tor_period)
+        df_out[0, 1] = -2*pi * (a1 + eta1 * da) * sin(2*pi*eta2) * cos(2*pi*eta3 / tor_period)
+        df_out[0, 2] = -2*pi / tor_period * ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * sin(2*pi*eta3 / tor_period) 
+        df_out[1, 0] = da * cos(2*pi*eta2) * (-1) * sin(2*pi*eta3 / tor_period)
+        df_out[1, 1] = -2*pi * (a1 + eta1 * da) * sin(2*pi*eta2) * (-1) * sin(2*pi*eta3 / tor_period)
+        df_out[1, 2] = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * (-1) * cos(2*pi*eta3 / tor_period) * 2*pi / tor_period
+        df_out[2, 0] = da * sin(2*pi*eta2)
+        df_out[2, 1] = (a1 + eta1 * da) * cos(2*pi*eta2) * 2*pi
+        df_out[2, 2] = 0.
 
 @pure
 def shafranov_shift(eta1: float, eta2: float, eta3: float,
-                    rx: 'float', ry: 'float',
-                    lz: 'float', de: 'float',
+                    rx: float, ry: float,
+                    lz: float, de: float,
                     f_out: 'float[:]'):
     '''
     Point-wise evaluation of
@@ -858,8 +823,8 @@ def shafranov_shift(eta1: float, eta2: float, eta3: float,
 
 @pure
 def shafranov_shift_df(eta1: float, eta2: float, eta3: float,
-                       rx: 'float', ry: 'float',
-                       lz: 'float', de: 'float',
+                       rx: float, ry: float,
+                       lz: float, de: float,
                        df_out: 'float[:,:]'):
     """
     Jacobian matrix for :meth:`struphy.geometry.mappings_fast.shafranov_shift`.
@@ -877,8 +842,8 @@ def shafranov_shift_df(eta1: float, eta2: float, eta3: float,
 
 @pure
 def shafranov_sqrt(eta1: float, eta2: float, eta3: float,
-                   rx: 'float', ry: 'float',
-                   lz: 'float', de: 'float',
+                   rx: float, ry: float,
+                   lz: float, de: float,
                    f_out: 'float[:]'):
     '''
     Point-wise evaluation of
@@ -919,8 +884,8 @@ def shafranov_sqrt(eta1: float, eta2: float, eta3: float,
 
 @pure
 def shafranov_sqrt_df(eta1: float, eta2: float, eta3: float,
-                      rx: 'float', ry: 'float',
-                      lz: 'float', de: 'float',
+                      rx: float, ry: float,
+                      lz: float, de: float,
                       df_out: 'float[:,:]'):
     """
     Jacobian matrix for :meth:`struphy.geometry.mappings_fast.shafranov_sqrt`.
@@ -938,8 +903,8 @@ def shafranov_sqrt_df(eta1: float, eta2: float, eta3: float,
 
 @pure
 def shafranov_dshaped(eta1: float, eta2: float, eta3: float,
-                      r0: 'float', lz: 'float',
-                      dx: 'float', dy: 'float', dg: 'float', eg: 'float', kg: 'float',
+                      r0: float, lz: float,
+                      dx: float, dy: float, dg: float, eg: float, kg: float,
                       f_out: 'float[:]'):
     '''
     Point-wise evaluation of
@@ -995,8 +960,8 @@ def shafranov_dshaped(eta1: float, eta2: float, eta3: float,
 
 @pure
 def shafranov_dshaped_df(eta1: float, eta2: float, eta3: float,
-                         r0: 'float', lz: 'float',
-                         dx: 'float', dy: 'float', dg: 'float', eg: 'float', kg: 'float',
+                         r0: float, lz: float,
+                         dx: float, dy: float, dg: float, eg: float, kg: float,
                          df_out: 'float[:,:]'):
     """
     Jacobian matrix for :meth:`struphy.geometry.mappings_fast.shafranov_dshaped`.

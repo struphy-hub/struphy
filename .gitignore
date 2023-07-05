@@ -72,7 +72,7 @@ my_struphy_sims
 /diagnostics.sh
 /run_STRUPHY*.sh
 logs
-env/
+*env/
 
 # I/O
 src/struphy/io/out/

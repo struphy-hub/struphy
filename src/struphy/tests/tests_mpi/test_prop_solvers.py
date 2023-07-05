@@ -16,6 +16,7 @@ from struphy.psydac_api.utilities import compare_arrays
 from psydac.linalg.stencil import StencilVector
 
 
+@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[10, 2, 2], [40, 2, 2]])
 @pytest.mark.parametrize('p', [[1, 1, 1], [3, 1, 1]])
 @pytest.mark.parametrize('spl_kind', [[True, True, True]])

@@ -131,13 +131,14 @@ class Vlasov(StruphyModel):
 
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_markers
+        from mpi4py.MPI import SUM, IN_PLACE
 
         # pointer to ions
-        ions = self.kinetic['ions']['obj']
+        self._ions = self.kinetic['ions']['obj']
         ions_params = self.kinetic['ions']['params']
 
         print(
-            f'Total number of markers : {ions.n_mks}, shape of markers array on rank {self.derham.comm.Get_rank()} : {ions.markers.shape}')
+            f'Total number of markers : {self._ions.n_mks}, shape of markers array on rank {self.derham.comm.Get_rank()} : {self._ions.markers.shape}')
 
         # project magnetic background
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
@@ -153,7 +154,7 @@ class Vlasov(StruphyModel):
         self._propagators = []
 
         self._propagators += [propagators_markers.PushVxB(
-            ions,
+            self._ions,
             algo=ions_params['push_algos']['vxb'],
             scale_fac=1.,
             b_eq=self._b_eq,
@@ -161,19 +162,19 @@ class Vlasov(StruphyModel):
             f0=None)]
 
         self._propagators += [propagators_markers.PushEta(
-            ions,
+            self._ions,
             algo=ions_params['push_algos']['eta'],
             bc_type=ions_params['markers']['bc_type'],
             f0=None)]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
+        
+        self._scalar_quantities['en_f'] = np.empty(1, dtype=float)
 
-        self._en_fv_loc = np.empty(1, dtype=float)
-        self._scalar_quantities['en_fv'] = np.empty(1, dtype=float)
-        self._en_fB_loc = np.empty(1, dtype=float)
-        self._scalar_quantities['en_fB'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+        # MPI operations needed for scalar variables
+        self._mpi_sum = SUM
+        self._mpi_in_place = IN_PLACE
 
     @property
     def propagators(self):
@@ -184,7 +185,14 @@ class Vlasov(StruphyModel):
         return self._scalar_quantities
 
     def update_scalar_quantities(self):
-        pass
+        
+        self._scalar_quantities['en_f'][0] = self._ions.markers_wo_holes[:, 6].dot(
+            self._ions.markers_wo_holes[:, 3]**2 +
+            self._ions.markers_wo_holes[:, 4]**2 +
+            self._ions.markers_wo_holes[:, 5]**2)/(2*self._ions.n_mks)
+
+        self.derham.comm.Allreduce(
+            self._mpi_in_place, self._scalar_quantities['en_f'], op=self._mpi_sum)
 
 
 class DriftKinetic(StruphyModel):
@@ -287,7 +295,7 @@ class DriftKinetic(StruphyModel):
             unit_b2=self._unit_b2,
             abs_b=self._abs_b,
             integrator=ions_params['push_algos']['integrator'],
-            method=ions_params['push_algos']['method'],
+            method='discrete_gradients',
             maxiter=ions_params['push_algos']['maxiter'],
             tol=ions_params['push_algos']['tol'])]
         self._propagators += [propagators_markers.StepPushGuidingCenter2(
@@ -297,7 +305,7 @@ class DriftKinetic(StruphyModel):
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
             abs_b=self._abs_b,
-            method=ions_params['push_algos']['method'],
+            method='discrete_gradients_Itoh_Newton',
             integrator=ions_params['push_algos']['integrator'],
             maxiter=ions_params['push_algos']['maxiter'],
             tol=ions_params['push_algos']['tol'])]
@@ -308,6 +316,10 @@ class DriftKinetic(StruphyModel):
         self._scalar_quantities['en_fv'] = np.empty(1, dtype=float)
         self._en_fB_loc = np.empty(1, dtype=float)
         self._scalar_quantities['en_fB'] = np.empty(1, dtype=float)
+        self._en_fv_loc_lost = np.empty(1, dtype=float)
+        self._scalar_quantities['en_fv_lost'] = np.empty(1, dtype=float)
+        self._en_fB_loc_lost = np.empty(1, dtype=float)
+        self._scalar_quantities['en_fB_lost'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
 
         # MPI operations needed for scalar variables
@@ -323,19 +335,36 @@ class DriftKinetic(StruphyModel):
 
     def update_scalar_quantities(self):
 
+        # particles' kinetic energy
         self._en_fv_loc = self._ions.markers[~self._ions.holes, 5].dot(
-            self._ions.markers[~self._ions.holes, 3]**2) / (2*self._ions.n_mks)
+            self._ions.markers[~self._ions.holes, 3]**2) / (2.*self._ions.n_mks)
         self.derham.comm.Reduce(
             self._en_fv_loc, self._scalar_quantities['en_fv'], op=self._mpi_sum, root=0)
+    
+        self._en_fv_loc_lost = self._ions.lost_markers[:self._ions.n_lost_markers, 5].dot(
+            self._ions.lost_markers[:self._ions.n_lost_markers, 3]**2) / (2.*self._ions.n_mks)
+        self.derham.comm.Reduce(
+            self._en_fv_loc_lost, self._scalar_quantities['en_fv_lost'], op=self._mpi_sum, root=0)
 
-        # calculate particle magnetic energy
-        self._ions.save_magnetic_energy(self._derham, self._E0T.dot(
-            self.derham.P['0'](self.mhd_equil.absB0)))
+        # particles' magnetic energy
+        self._ions.save_magnetic_energy(self._derham,
+            self._E0T.dot(self.derham.P['0'](self.mhd_equil.absB0)))
 
         self._en_fB_loc = self._ions.markers[~self._ions.holes, 5].dot(
             self._ions.markers[~self._ions.holes, 8]) / self._ions.n_mks
         self.derham.comm.Reduce(
             self._en_fB_loc, self._scalar_quantities['en_fB'], op=self._mpi_sum, root=0)
+        
+        self._en_fB_loc_lost = self._ions.lost_markers[:self._ions.n_lost_markers, 5].dot(
+            self._ions.lost_markers[:self._ions.n_lost_markers, 8]) / self._ions.n_mks
+        self.derham.comm.Reduce(
+            self._en_fB_loc_lost, self._scalar_quantities['en_fB_lost'], op=self._mpi_sum, root=0)
 
         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_fv'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fB'][0]
+        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fv_lost'][0]
+        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fB_lost'][0]
+
+        # print(self._ions.markers[~self._ions.holes,0:9])
+        print('Number of lost markers:', self._ions.n_lost_markers)
+        # print(self._ions.lost_markers[:self._ions.n_lost_markers,:])

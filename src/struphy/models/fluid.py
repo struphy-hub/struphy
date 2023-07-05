@@ -1,6 +1,7 @@
 import numpy as np
 from struphy.models.base import StruphyModel
 
+
 class LinearMHD(StruphyModel):
     r'''Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
 
@@ -250,7 +251,7 @@ class LinearExtendedMHD(StruphyModel):
         self._u = self.fluid['mhd']['u2']['obj'].vector
         self._p_i = self.fluid['mhd']['pi3']['obj'].vector
         self._p_e = self.fluid['mhd']['pe3']['obj'].vector
-
+        
         # extract necessary parameters
         alfven_solver = params['solvers']['solver_1']
         Hall_solver = params['solvers']['solver_2']
@@ -264,24 +265,18 @@ class LinearExtendedMHD(StruphyModel):
         self._p_i_eq = self.derham.P['3'](self.mhd_equil.p3)
         self._p_e_eq = self.derham.P['3'](self.mhd_equil.p3)
         self._ones = self._p_i.space.zeros()
-
+        #project background vector potential (1-form)
+        self._a_eq = self.derham.P['1']([self.mhd_equil.a1_1,
+                                         self.mhd_equil.a1_2,
+                                         self.mhd_equil.a1_3])
+        
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.
         else:
             self._ones[:] = 1.
 
-        # compute coupling parameter kappa
-        units_basic, units_der, units_dimless = self.model_units(
-            params, verbose=False)
-
-        ee = 1.602176634e-19  # elementary charge (C)
-        mH = 1.67262192369e-27  # proton mass (kg)
-
-        Ab = params['fluid']['mhd']['phys_params']['A']
-        Zb = params['fluid']['mhd']['phys_params']['Z']
-
-        omega_ch = (Zb*ee*units_basic['B'])/(Ab*mH)
-        kappa = omega_ch*units_basic['t']/(2.0 * np.pi)
+        # compute coupling parameters
+        kappa = 1. / self.eq_params['mhd']['epsilon_unit']
 
         if abs(kappa - 1) < 1e-6:
             kappa = 1.
@@ -328,6 +323,7 @@ class LinearExtendedMHD(StruphyModel):
         self._scalar_quantities['en_B_eq'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B_tot'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+        self._scalar_quantities['helicity'] = np.empty(1, dtype=float)
 
         # temporary vectors for scalar quantities
         self._tmp_u1 = self.derham.Vh['2'].zeros()
@@ -352,6 +348,7 @@ class LinearExtendedMHD(StruphyModel):
 
         en_U = self._u.dot(self._tmp_u1)/2.0
         en_B = self._b.dot(self._tmp_b1)/2.0
+        helicity = self._a_eq.dot(self._tmp_b1)*2.0
         en_p_i = self._p_i.dot(self._ones)/(5.0/3.0 - 1.0)
         en_p_e = self._p_e.dot(self._ones)/(5.0/3.0 - 1.0)
 
@@ -359,7 +356,8 @@ class LinearExtendedMHD(StruphyModel):
         self._scalar_quantities['en_B'][0] = en_B
         self._scalar_quantities['en_p_i'][0] = en_p_i
         self._scalar_quantities['en_p_e'][0] = en_p_e
-
+        self._scalar_quantities['helicity'][0] = helicity
+        
         self._scalar_quantities['en_tot'][0] = en_U
         self._scalar_quantities['en_tot'][0] += en_B
         self._scalar_quantities['en_tot'][0] += en_p_i
@@ -385,100 +383,111 @@ class LinearExtendedMHD(StruphyModel):
         en_Btot = self._tmp_b1.dot(self._tmp_b2)/2.0
 
         self._scalar_quantities['en_B_tot'][0] = en_Btot
-        
-        
-# class ColdPlasma(StruphyModel):
-#     r'''Cold plasma model
-
-#     Normalization:
-
-#     .. math::
-
-#         &c = \frac{\hat \omega}{\hat k} = \frac{\hat E}{\hat B}\,,
-
-#         &\hat \omega = \Omega_{ce}\,,
-
-#         &\alpha = \frac{\Omega_{pe}}{\Omega_{ce}}\,,
-
-#         &\hat j_c = \varepsilon_0 \Omega_{pe} \hat E\,,
-
-#     where :math:`c` is the vacuum speed of light, :math:`\Omega_{ce}` the electron cyclotron frequency,
-#     :math:`\Omega_{pe}` the plasma frequency and :math:`\varepsilon_0` the vacuum dielectric constant.
-#     Implemented equations:
-
-#     .. math::
-
-#         &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,,
-
-#         &-\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
-#         \alpha \mathbf j_c \,,
-
-#         &\frac{\partial \mathbf j_c}{\partial t} = \alpha \mathbf E + \mathbf j_c \times \mathbf B\,.
 
 
-#     Parameters
-#     ----------
-#         params : dict
-#             Simulation parameters, see from :ref:`params_yml`.
-#     '''
+class ColdPlasma(StruphyModel):
+    r'''Cold plasma model
 
-#     def __init__(self, params, comm):
+    Normalization:
 
-#         from struphy.psydac_api.mass import WeightedMassOperators
-#         from struphy.propagators import propagators_fields
+    .. math::
 
-#         super().__init__(params, comm, e1='Hcurl', b2='Hdiv',
-#                          electron={'j1': 'Hcurl'}, hot_electrons='Particles6D')
+        c = \frac{\hat \omega}{\hat k} = \frac{\hat E}{\hat B}\,, \qquad \alpha = \frac{\Omega_{pe}}{\Omega_{ce}}\,, \qquad \varepsilon_c = \frac{\hat{\omega}}{\Omega_{ce}}\,, \qquad \hat j_c = \frac{c q_e}{\alpha} \hat n\,,
 
-#         # pointers to em-fields variables
-#         self._e = self.em_fields['e1']['obj'].vector
-#         self._b = self.em_fields['b2']['obj'].vector
+    where :math:`c` is the vacuum speed of light, :math:`\Omega_{ce}` the electron cyclotron frequency,
+    :math:`\Omega_{pe}` the plasma frequency and :math:`\varepsilon_0` the vacuum dielectric constant.
+    Implemented equations:
 
-#         # pointers to  fluid variables
-#         self._j = self.fluid['electrons']['j1']['obj'].vector
+    .. math::
 
-#         # extract necessary parameters
-#         maxwell_solver = params['solvers']['solver_1']
-#         cold_solver = params['solvers']['solver_2']
+        &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,,
 
-#         # Define callable for weighted mass matrices
-#         proton_mass = 1.6726219237e-27
-#         electron_mass = self.fluid['electrons']['plasma_params']['M'] * proton_mass
-#         vacuum_permittivity = 8.854187813e-12
-#         prefactor = (electron_mass / vacuum_permittivity)**0.5
+        &-\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
+        \frac{\alpha}{\varepsilon_c} \mathbf j_c \,,
 
-#         def call_alpha(e1, e2, e3):
-#             return prefactor * self.mhd_equil.n0(e1, e2, e3, sqeez_out=False)**0.5 / self.mhd_equil.absB0(e1, e2, e3, sqeez_out=False)
+        &\frac{1}{n_0} \frac{\partial \mathbf j_c}{\partial t} = \frac{\alpha}{\varepsilon_c} \mathbf E + \frac{1}{\varepsilon_c n_0} \mathbf j_c \times \mathbf B_0\,.
 
-#         def call_M1alpha(e1, e2, e3, m, n):
-#             return self.domain.Ginv(e1, e2, e3)[:, :, :, m, n] * self.domain.sqrt_g(e1, e2, e3)*call_alpha(e1, e2, e3)
 
-#         # Assemble necessary mass matrices
-#         self._mass_ops = WeightedMassOperators(
-#             self.derham, self.domain, alpha=call_M1alpha)
+    Parameters
+    ----------
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
 
-#         # Initialize propagators/integrators used in splitting substeps
-#         self._propagators = []
-#         self._propagators += [propagators_fields.Maxwell(
-#             self._e, self._b, self.derham, self._mass_ops, maxwell_solver)]
-#         self._propagators += [propagators_fields.OhmCold(
-#             self._j, self._e, self._mass_ops, cold_solver)]
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
+    '''
 
-#         # Scalar variables to be saved during simulation
-#         self._scalar_quantities['time'] = np.empty(1, dtype=float)
-#         self._scalar_quantities['en_E'] = np.empty(1, dtype=float)
-#         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
-#         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+    @classmethod
+    def bulk_species(cls):
+        return 'electrons'
 
-#     @property
-#     def propagators(self):
-#         return self._propagators
+    @classmethod
+    def timescale(cls):
+        return 'light'
 
-#     def update_scalar_quantities(self, time):
-#         self._scalar_quantities['time'][0] = time
-#         self._scalar_quantities['en_E'][0] = .5 * \
-#             self._e.dot(self._mass_ops.M1.dot(self._e))
-#         self._scalar_quantities['en_B'][0] = .5 * \
-#             self._b.dot(self._mass_ops.M2.dot(self._b))
-#         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_E'][0]
-#         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_B'][0]
+    def __init__(self, params, comm):
+
+        super().__init__(params, comm, e1='Hcurl', b2='Hdiv',
+                         electrons={'j1': 'Hcurl'})
+
+        from struphy.propagators.base import Propagator
+        from struphy.propagators import propagators_fields
+
+        # pointers to em-fields variables
+        self._e = self.em_fields['e1']['obj'].vector
+        self._b = self.em_fields['b2']['obj'].vector
+
+        # pointers to  fluid variables
+        self._j = self.fluid['electrons']['j1']['obj'].vector
+
+        # extract necessary parameters
+        maxwell_solver = params['solvers']['solver_1']
+        cold_solver = params['solvers']['solver_2']
+        fluid_solver = params['solvers']['solver_3']
+
+        # additional model parameters for solvers
+        add_params = {}
+        add_params['alpha'] = self.eq_params['electrons']['alpha_unit']
+        add_params['epsilon'] = self.eq_params['electrons']['epsilon_unit']
+
+        # set propagators base class attributes (available to all propagators)
+        Propagator.derham = self.derham
+        Propagator.domain = self.domain
+        Propagator.mass_ops = self.mass_ops
+
+        # Initialize propagators/integrators used in splitting substeps
+        self._propagators = []
+        self._propagators += [propagators_fields.Maxwell(
+            self._e, self._b, **maxwell_solver)]
+        self._propagators += [propagators_fields.OhmCold(
+            self._j, self._e, **cold_solver, **add_params)]
+        self._propagators += [propagators_fields.JxBCold(
+            self._j, **fluid_solver, **add_params)]
+
+        # Scalar variables to be saved during simulation
+        self._scalar_quantities = {}
+        self._scalar_quantities['time'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_E'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_J'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+
+    @property
+    def propagators(self):
+        return self._propagators
+
+    @property
+    def scalar_quantities(self):
+        return self._scalar_quantities
+
+    def update_scalar_quantities(self):
+
+        en_E = .5 * self._e.dot(self._mass_ops.M1.dot(self._e))
+        en_B = .5 * self._b.dot(self._mass_ops.M2.dot(self._b))
+        en_J = .5 * self._j.dot(self._mass_ops.M1ninv.dot(self._j))
+        en_tot = en_E + en_B + en_J
+
+        self._scalar_quantities['en_E'][0] = en_E
+        self._scalar_quantities['en_B'][0] = en_B
+        self._scalar_quantities['en_J'][0] = en_J
+        self._scalar_quantities['en_tot'][0] = en_tot

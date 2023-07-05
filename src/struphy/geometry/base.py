@@ -601,6 +601,7 @@ class Domain(metaclass=ABCMeta):
             if transposed:
                 out = np.transpose(out, axes=(1, 0, 2))
 
+            # change size of "out" depending on which metric coeff has been evaluated
             if which == 0 or which == -1:
                 out = out[:, 0, :]
                 if change_out_order:

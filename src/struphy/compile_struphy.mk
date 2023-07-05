@@ -12,7 +12,7 @@ struphy_path := $(shell $(PYTHON) -c "import struphy as _; print(_.__path__[0])"
 # flags
 # flags_openmp_pic
 # flags_openmp_mhd
-FLAGS            := --libdir $(LIBDIR) $(flags)
+FLAGS            := --libdir $(LIBDIR) $(flags) --conda-warnings off
 FLAGS_openmp_pic := $(flags_openmp_pic)
 FLAGS_openmp_mhd := $(flags_openmp_mhd)
 

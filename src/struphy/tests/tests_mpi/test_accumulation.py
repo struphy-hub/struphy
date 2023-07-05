@@ -80,6 +80,7 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, Np, verbose=False):
 
     particles = Particles6D(
         'test_particles', **params_markers, domain_array=derham.domain_array, comm=mpi_comm)
+    particles.draw_markers()
 
     # set random weights on each process
     particles.markers[~particles.holes,
@@ -167,22 +168,26 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, Np, verbose=False):
 
     # compare blocks
     atol = 1e-10
-    
-    compare_arrays(acc.operators[0].matrix[0, 1], acc_leg.blocks_glo[0][1], mpi_rank, atol=atol, verbose=verbose)
+
+    compare_arrays(acc.operators[0].matrix[0, 1], acc_leg.blocks_glo[0]
+                   [1], mpi_rank, atol=atol, verbose=verbose)
     if verbose and mpi_rank == 0:
         print('mat12 passed test')
-    compare_arrays(acc.operators[0].matrix[0, 2], acc_leg.blocks_glo[0][2], mpi_rank, atol=atol, verbose=verbose)
+    compare_arrays(acc.operators[0].matrix[0, 2], acc_leg.blocks_glo[0]
+                   [2], mpi_rank, atol=atol, verbose=verbose)
     if verbose and mpi_rank == 0:
         print('mat13 passed test')
-    compare_arrays(acc.operators[0].matrix[1, 2], acc_leg.blocks_glo[1][2], mpi_rank, atol=atol, verbose=verbose)
+    compare_arrays(acc.operators[0].matrix[1, 2], acc_leg.blocks_glo[1]
+                   [2], mpi_rank, atol=atol, verbose=verbose)
     if verbose and mpi_rank == 0:
         print('mat23 passed test')
 
     # compare matrix-vector product
-    x, x_psy = create_equal_random_arrays(derham.Vh_fem[space_key], seed=5624, flattened=True)
-    
+    x, x_psy = create_equal_random_arrays(
+        derham.Vh_fem[space_key], seed=5624, flattened=True)
+
     r_psy = acc.operators[0].dot(x_psy)
-    
+
     r = acc_leg.to_sparse_step1().dot(x)
 
     compare_arrays(r_psy, r, mpi_rank, atol=atol, verbose=verbose)
@@ -234,6 +239,7 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, Np, verbose=False):
 
     particles = Particles6D(
         'test_particles', **params_markers, domain_array=derham.domain_array, comm=mpi_comm)
+    particles.draw_markers()
 
     # set random weights on each process
     particles.markers[~particles.holes,
@@ -322,44 +328,55 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, Np, verbose=False):
     # compare blocks
     atol = 1e-10
 
-    compare_arrays(acc.operators[0].matrix[0, 0], acc_leg.blocks_glo[0][0], mpi_rank, atol=atol, verbose=verbose)
+    compare_arrays(acc.operators[0].matrix[0, 0], acc_leg.blocks_glo[0]
+                   [0], mpi_rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat11 passed test')
-    compare_arrays(acc.operators[0].matrix[0, 1], acc_leg.blocks_glo[0][1], mpi_rank, atol=atol, verbose=verbose)
+    compare_arrays(acc.operators[0].matrix[0, 1], acc_leg.blocks_glo[0]
+                   [1], mpi_rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat12 passed test')
-    compare_arrays(acc.operators[0].matrix[0, 2], acc_leg.blocks_glo[0][2], mpi_rank, atol=atol, verbose=verbose)
+    compare_arrays(acc.operators[0].matrix[0, 2], acc_leg.blocks_glo[0]
+                   [2], mpi_rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat13 passed test')
-    compare_arrays(acc.operators[0].matrix[1, 1], acc_leg.blocks_glo[1][1], mpi_rank, atol=atol, verbose=verbose)
+    compare_arrays(acc.operators[0].matrix[1, 1], acc_leg.blocks_glo[1]
+                   [1], mpi_rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat22 passed test')
-    compare_arrays(acc.operators[0].matrix[1, 2], acc_leg.blocks_glo[1][2], mpi_rank, atol=atol, verbose=verbose)
+    compare_arrays(acc.operators[0].matrix[1, 2], acc_leg.blocks_glo[1]
+                   [2], mpi_rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat23 passed test')
-    compare_arrays(acc.operators[0].matrix[2, 2], acc_leg.blocks_glo[2][2], mpi_rank, atol=atol, verbose=verbose)
+    compare_arrays(acc.operators[0].matrix[2, 2], acc_leg.blocks_glo[2]
+                   [2], mpi_rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat33 passed test')
-    
-    compare_arrays(acc.vectors[0][0], acc_leg.vecs_glo[0], mpi_rank, atol=atol, verbose=verbose)
+
+    compare_arrays(acc.vectors[0][0], acc_leg.vecs_glo[0],
+                   mpi_rank, atol=atol, verbose=verbose)
     if verbose:
         print('vec1 passed test')
-    compare_arrays(acc.vectors[0][1], acc_leg.vecs_glo[1], mpi_rank, atol=atol, verbose=verbose)
+    compare_arrays(acc.vectors[0][1], acc_leg.vecs_glo[1],
+                   mpi_rank, atol=atol, verbose=verbose)
     if verbose:
         print('vec2 passed test')
-    compare_arrays(acc.vectors[0][2], acc_leg.vecs_glo[2], mpi_rank, atol=atol, verbose=verbose)
+    compare_arrays(acc.vectors[0][2], acc_leg.vecs_glo[2],
+                   mpi_rank, atol=atol, verbose=verbose)
     if verbose:
         print('vec3 passed test')
 
-    compare_arrays(acc.vectors[0], acc_leg.vecs_glo, mpi_rank, atol=atol, verbose=verbose)
+    compare_arrays(acc.vectors[0], acc_leg.vecs_glo,
+                   mpi_rank, atol=atol, verbose=verbose)
     if verbose:
         print('full block vector passed test')
 
     # compare matrix-vector product
-    x, x_psy = create_equal_random_arrays(derham.Vh_fem[space_key], seed=5624, flattened=True)
-    
+    x, x_psy = create_equal_random_arrays(
+        derham.Vh_fem[space_key], seed=5624, flattened=True)
+
     r_psy = acc.operators[0].dot(x_psy)
-    
+
     r = acc_leg.to_sparse_step3().dot(x)
 
     compare_arrays(r_psy, r, mpi_rank, atol=atol, verbose=verbose)
@@ -401,11 +418,12 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
 
     # load distributed markers first and use Send/Receive to make global marker copies for the legacy routines
     params_markers = {'Np': Np, 'eps': .25,
-                      'loading': {'type': 'pseudo_random', 'seed': 1607, 'moments': [0., 0., 0., 1., 2., 3.]}
+                      'loading': {'type': 'pseudo_random', 'seed': 1607, 'moments': [0., 0., 0., 1., 2., 3.], 'spatial': 'uniform'}
                       }
 
     particles = Particles6D(
         'test_particles', **params_markers, domain_array=derham.domain_array, comm=mpi_comm)
+    particles.draw_markers()
 
     # set random weights on each process
     particles.markers[~particles.holes,
@@ -537,131 +555,170 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     # mat_temp33 = [[mat[0][0][:,:,:,:,:,:,2,2], mat[0][1][:,:,:,:,:,:,2,2], mat[0][2][:,:,:,:,:,:,2,2]],
     #              [ mat[0][1][:,:,:,:,:,:,2,2].transpose(), mat[1][1][:,:,:,:,:,:,2,2], mat[1][2][:,:,:,:,:,:,2,2]],
     #              [ mat[0][2][:,:,:,:,:,:,2,2].transpose(), mat[1][2][:,:,:,:,:,:,2,2].transpose(), mat[2][2][:,:,:,:,:,:,2,2]]]
-    vec_temp1 = [vec[0][:,:,:,0], vec[1][:,:,:,0], vec[2][:,:,:,0]]
-    vec_temp2 = [vec[0][:,:,:,1], vec[1][:,:,:,1], vec[2][:,:,:,1]]
-    vec_temp3 = [vec[0][:,:,:,2], vec[1][:,:,:,2], vec[2][:,:,:,2]]
+    vec_temp1 = [vec[0][:, :, :, 0], vec[1][:, :, :, 0], vec[2][:, :, :, 0]]
+    vec_temp2 = [vec[0][:, :, :, 1], vec[1][:, :, :, 1], vec[2][:, :, :, 1]]
+    vec_temp3 = [vec[0][:, :, :, 2], vec[1][:, :, :, 2], vec[2][:, :, :, 2]]
 
-    compare_arrays(ACC.operators[0].matrix.blocks[0][0], mat[0][0][:,:,:,:,:,:,0,0], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[0].matrix.blocks[0][0], mat[0][0]
+                   [:, :, :, :, :, :, 0, 0], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat11_11 passed test')
-    compare_arrays(ACC.operators[0].matrix.blocks[0][1], mat[0][1][:,:,:,:,:,:,0,0], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[0].matrix.blocks[0][1], mat[0][1]
+                   [:, :, :, :, :, :, 0, 0], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat12_11 passed test')
-    compare_arrays(ACC.operators[0].matrix.blocks[0][2], mat[0][2][:,:,:,:,:,:,0,0], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[0].matrix.blocks[0][2], mat[0][2]
+                   [:, :, :, :, :, :, 0, 0], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat13_11 passed test')
-    compare_arrays(ACC.operators[0].matrix.blocks[1][1], mat[1][1][:,:,:,:,:,:,0,0], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[0].matrix.blocks[1][1], mat[1][1]
+                   [:, :, :, :, :, :, 0, 0], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat22_11 passed test')
-    compare_arrays(ACC.operators[0].matrix.blocks[1][2], mat[1][2][:,:,:,:,:,:,0,0], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[0].matrix.blocks[1][2], mat[1][2]
+                   [:, :, :, :, :, :, 0, 0], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat23_11 passed test')
-    compare_arrays(ACC.operators[0].matrix.blocks[2][2], mat[2][2][:,:,:,:,:,:,0,0], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[0].matrix.blocks[2][2], mat[2][2]
+                   [:, :, :, :, :, :, 0, 0], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat33_11 passed test')
 
-    compare_arrays(ACC.operators[1].matrix.blocks[0][0], mat[0][0][:,:,:,:,:,:,0,1], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[1].matrix.blocks[0][0], mat[0][0]
+                   [:, :, :, :, :, :, 0, 1], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat11_12 passed test')
-    compare_arrays(ACC.operators[1].matrix.blocks[0][1], mat[0][1][:,:,:,:,:,:,0,1], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[1].matrix.blocks[0][1], mat[0][1]
+                   [:, :, :, :, :, :, 0, 1], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat12_12 passed test')
-    compare_arrays(ACC.operators[1].matrix.blocks[0][2], mat[0][2][:,:,:,:,:,:,0,1], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[1].matrix.blocks[0][2], mat[0][2]
+                   [:, :, :, :, :, :, 0, 1], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat13_12 passed test')
-    compare_arrays(ACC.operators[1].matrix.blocks[1][1], mat[1][1][:,:,:,:,:,:,0,1], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[1].matrix.blocks[1][1], mat[1][1]
+                   [:, :, :, :, :, :, 0, 1], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat22_12 passed test')
-    compare_arrays(ACC.operators[1].matrix.blocks[1][2], mat[1][2][:,:,:,:,:,:,0,1], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[1].matrix.blocks[1][2], mat[1][2]
+                   [:, :, :, :, :, :, 0, 1], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat23_12 passed test')
-    compare_arrays(ACC.operators[1].matrix.blocks[2][2], mat[2][2][:,:,:,:,:,:,0,1], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[1].matrix.blocks[2][2], mat[2][2]
+                   [:, :, :, :, :, :, 0, 1], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat33_12 passed test')
 
-    compare_arrays(ACC.operators[2].matrix.blocks[0][0], mat[0][0][:,:,:,:,:,:,0,2], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[2].matrix.blocks[0][0], mat[0][0]
+                   [:, :, :, :, :, :, 0, 2], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat11_13 passed test')
-    compare_arrays(ACC.operators[2].matrix.blocks[0][1], mat[0][1][:,:,:,:,:,:,0,2], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[2].matrix.blocks[0][1], mat[0][1]
+                   [:, :, :, :, :, :, 0, 2], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat12_13 passed test')
-    compare_arrays(ACC.operators[2].matrix.blocks[0][2], mat[0][2][:,:,:,:,:,:,0,2], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[2].matrix.blocks[0][2], mat[0][2]
+                   [:, :, :, :, :, :, 0, 2], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat13_13 passed test')
-    compare_arrays(ACC.operators[2].matrix.blocks[1][1], mat[1][1][:,:,:,:,:,:,0,2], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[2].matrix.blocks[1][1], mat[1][1]
+                   [:, :, :, :, :, :, 0, 2], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat22_13 passed test')
-    compare_arrays(ACC.operators[2].matrix.blocks[1][2], mat[1][2][:,:,:,:,:,:,0,2], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[2].matrix.blocks[1][2], mat[1][2]
+                   [:, :, :, :, :, :, 0, 2], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat23_13 passed test')
-    compare_arrays(ACC.operators[2].matrix.blocks[2][2], mat[2][2][:,:,:,:,:,:,0,2], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[2].matrix.blocks[2][2], mat[2][2]
+                   [:, :, :, :, :, :, 0, 2], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat33_13 passed test')
 
-    compare_arrays(ACC.operators[3].matrix.blocks[0][0], mat[0][0][:,:,:,:,:,:,1,1], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[3].matrix.blocks[0][0], mat[0][0]
+                   [:, :, :, :, :, :, 1, 1], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat11_22 passed test')
-    compare_arrays(ACC.operators[3].matrix.blocks[0][1], mat[0][1][:,:,:,:,:,:,1,1], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[3].matrix.blocks[0][1], mat[0][1]
+                   [:, :, :, :, :, :, 1, 1], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat12_22 passed test')
-    compare_arrays(ACC.operators[3].matrix.blocks[0][2], mat[0][2][:,:,:,:,:,:,1,1], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[3].matrix.blocks[0][2], mat[0][2]
+                   [:, :, :, :, :, :, 1, 1], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat13_22 passed test')
-    compare_arrays(ACC.operators[3].matrix.blocks[1][1], mat[1][1][:,:,:,:,:,:,1,1], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[3].matrix.blocks[1][1], mat[1][1]
+                   [:, :, :, :, :, :, 1, 1], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat22_22 passed test')
-    compare_arrays(ACC.operators[3].matrix.blocks[1][2], mat[1][2][:,:,:,:,:,:,1,1], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[3].matrix.blocks[1][2], mat[1][2]
+                   [:, :, :, :, :, :, 1, 1], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat23_22 passed test')
-    compare_arrays(ACC.operators[3].matrix.blocks[2][2], mat[2][2][:,:,:,:,:,:,1,1], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[3].matrix.blocks[2][2], mat[2][2]
+                   [:, :, :, :, :, :, 1, 1], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat33_22 passed test')
 
-    compare_arrays(ACC.operators[4].matrix.blocks[0][0], mat[0][0][:,:,:,:,:,:,1,2], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[4].matrix.blocks[0][0], mat[0][0]
+                   [:, :, :, :, :, :, 1, 2], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat11_23 passed test')
-    compare_arrays(ACC.operators[4].matrix.blocks[0][1], mat[0][1][:,:,:,:,:,:,1,2], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[4].matrix.blocks[0][1], mat[0][1]
+                   [:, :, :, :, :, :, 1, 2], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat12_23 passed test')
-    compare_arrays(ACC.operators[4].matrix.blocks[0][2], mat[0][2][:,:,:,:,:,:,1,2], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[4].matrix.blocks[0][2], mat[0][2]
+                   [:, :, :, :, :, :, 1, 2], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat13_23 passed test')
-    compare_arrays(ACC.operators[4].matrix.blocks[1][1], mat[1][1][:,:,:,:,:,:,1,2], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[4].matrix.blocks[1][1], mat[1][1]
+                   [:, :, :, :, :, :, 1, 2], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat22_23 passed test')
-    compare_arrays(ACC.operators[4].matrix.blocks[1][2], mat[1][2][:,:,:,:,:,:,1,2], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[4].matrix.blocks[1][2], mat[1][2]
+                   [:, :, :, :, :, :, 1, 2], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat23_23 passed test')
-    compare_arrays(ACC.operators[4].matrix.blocks[2][2], mat[2][2][:,:,:,:,:,:,1,2], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[4].matrix.blocks[2][2], mat[2][2]
+                   [:, :, :, :, :, :, 1, 2], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat33_23 passed test')
 
-    compare_arrays(ACC.operators[5].matrix.blocks[0][0], mat[0][0][:,:,:,:,:,:,2,2], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[5].matrix.blocks[0][0], mat[0][0]
+                   [:, :, :, :, :, :, 2, 2], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat11_33 passed test')
-    compare_arrays(ACC.operators[5].matrix.blocks[0][1], mat[0][1][:,:,:,:,:,:,2,2], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[5].matrix.blocks[0][1], mat[0][1]
+                   [:, :, :, :, :, :, 2, 2], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat12_33 passed test')
-    compare_arrays(ACC.operators[5].matrix.blocks[0][2], mat[0][2][:,:,:,:,:,:,2,2], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[5].matrix.blocks[0][2], mat[0][2]
+                   [:, :, :, :, :, :, 2, 2], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat13_33 passed test')
-    compare_arrays(ACC.operators[5].matrix.blocks[1][1], mat[1][1][:,:,:,:,:,:,2,2], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[5].matrix.blocks[1][1], mat[1][1]
+                   [:, :, :, :, :, :, 2, 2], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat22_33 passed test')
-    compare_arrays(ACC.operators[5].matrix.blocks[1][2], mat[1][2][:,:,:,:,:,:,2,2], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[5].matrix.blocks[1][2], mat[1][2]
+                   [:, :, :, :, :, :, 2, 2], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat23_33 passed test')
-    compare_arrays(ACC.operators[5].matrix.blocks[2][2], mat[2][2][:,:,:,:,:,:,2,2], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.operators[5].matrix.blocks[2][2], mat[2][2]
+                   [:, :, :, :, :, :, 2, 2], rank, atol=atol, verbose=verbose)
     if verbose:
         print('mat33_33 passed test')
-        
-    compare_arrays(ACC.vectors[0].blocks[0], vec[0][:,:,:,0], rank, atol=atol, verbose=verbose)
+
+    compare_arrays(ACC.vectors[0].blocks[0], vec[0]
+                   [:, :, :, 0], rank, atol=atol, verbose=verbose)
     if verbose:
         print('vec1_1 passed test')
-    compare_arrays(ACC.vectors[0].blocks[1], vec[1][:,:,:,0], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.vectors[0].blocks[1], vec[1]
+                   [:, :, :, 0], rank, atol=atol, verbose=verbose)
     if verbose:
         print('vec2_1 passed test')
-    compare_arrays(ACC.vectors[0].blocks[2], vec[2][:,:,:,0], rank, atol=atol, verbose=verbose)
+    compare_arrays(ACC.vectors[0].blocks[2], vec[2]
+                   [:, :, :, 0], rank, atol=atol, verbose=verbose)
     if verbose:
         print('vec3_1 passed test')
     # compare_arrays(ACC.operators[0].matrix, mat_temp11, rank, atol=atol, verbose=verbose)

@@ -7,7 +7,8 @@ from pyevtk.hl import gridToVTK
 class MHDequilibrium(metaclass=ABCMeta):
     """
     Base class for Struphy MHD equilibria.
-    The callables B, J, p and n have to be provided through the child classes `CartesianMHDequilibrium` or `LogicalMHDequilibrium`.
+    The callables B, J, p and n have to be provided through the child classes `CartesianMHDequilibrium`, `LogicalMHDequilibrium`
+    or `AxisymmMHDequilibrium`.
     The base class provides transformations of callables to different representations or coordinates.
     For logical equilibria, the methods b2, j2, p0 and n0 are overidden by the child class.   
     """    
@@ -63,6 +64,31 @@ class MHDequilibrium(metaclass=ABCMeta):
         out = np.array([b[0]/absB, b[1]/absB, b[2]/absB], dtype=float)
         return out, xyz
 
+    def a1(self, *etas, squeeze_out=True):
+        """ 1-form components of equilibrium vector potential on logical cube [0, 1]^3.
+        """
+        avail_list = ['HomogenSlab']
+        assert self.__class__.__name__ in avail_list, f'Vector potential currently available only for {avail_list}, but mhd_equil is "{self.mhd_equil.__class__.__name__}".'
+        
+        return self.domain.transform(self.a2(*etas, squeeze_out=False), *etas, kind='2_to_1', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+
+    def a2(self, *etas, squeeze_out=True):
+        """ 2-form components of equilibrium vector potential on logical cube [0, 1]^3.
+        """
+        avail_list = ['HomogenSlab']
+        assert self.__class__.__name__ in avail_list, f'Vector potential currently available only for {avail_list}, but mhd_equil is "{self.mhd_equil.__class__.__name__}".'
+        
+        xyz = self.domain(*etas, squeeze_out=False)
+        return self.domain.pull(self.a_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='2_form', squeeze_out=squeeze_out)
+    
+    def av(self, *etas, squeeze_out=True):
+        """ Contra-variant components of equilibrium vector potneital on logical cube [0, 1]^3.
+        """
+        avail_list = ['HomogenSlab']
+        assert self.__class__.__name__ in avail_list, f'Vector potential currently available only for {avail_list}, but mhd_equil is "{self.mhd_equil.__class__.__name__}".'
+        
+        return self.domain.transform(self.a2(*etas, squeeze_out=False), *etas, kind='2_to_v', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+    
     def j1(self, *etas, squeeze_out=True):
         """ 1-form components of equilibrium current on logical cube [0, 1]^3.
         """
@@ -119,6 +145,15 @@ class MHDequilibrium(metaclass=ABCMeta):
 
     def b1_3(self, *etas, squeeze_out=True):
         return self.b1(*etas, squeeze_out=squeeze_out)[2]
+    
+    def a1_1(self, *etas, squeeze_out=True):
+        return self.a1(*etas, squeeze_out=squeeze_out)[0]
+
+    def a1_2(self, *etas, squeeze_out=True):
+        return self.a1(*etas, squeeze_out=squeeze_out)[1]
+
+    def a1_3(self, *etas, squeeze_out=True):
+        return self.a1(*etas, squeeze_out=squeeze_out)[2]
 
     def b2_1(self, *etas, squeeze_out=True):
         return self.b2(*etas, squeeze_out=squeeze_out)[0]
@@ -128,6 +163,24 @@ class MHDequilibrium(metaclass=ABCMeta):
 
     def b2_3(self, *etas, squeeze_out=True):
         return self.b2(*etas, squeeze_out=squeeze_out)[2]
+    
+    def a2_1(self, *etas, squeeze_out=True):
+        return self.a2(*etas, squeeze_out=squeeze_out)[0]
+
+    def a2_2(self, *etas, squeeze_out=True):
+        return self.a2(*etas, squeeze_out=squeeze_out)[1]
+
+    def a2_3(self, *etas, squeeze_out=True):
+        return self.a2(*etas, squeeze_out=squeeze_out)[2]
+    
+    def av_1(self, *etas, squeeze_out=True):
+        return self.av(*etas, squeeze_out=squeeze_out)[0]
+
+    def av_2(self, *etas, squeeze_out=True):
+        return self.av(*etas, squeeze_out=squeeze_out)[1]
+
+    def av_3(self, *etas, squeeze_out=True):
+        return self.av(*etas, squeeze_out=squeeze_out)[2]
 
     def unit_b1_1(self, *etas, squeeze_out=True):
         return self.unit_b1(*etas, squeeze_out=squeeze_out)[0]

@@ -1,142 +1,40 @@
-from abc import ABCMeta, abstractmethod
 import numpy as np
 
+from struphy.kinetic_background.base import Maxwellian
 from struphy.fields_background.mhd_equil.equils import set_defaults
-
-
-class Maxwellian(metaclass=ABCMeta):
-    r"""
-    Base class for a Maxwellian distribution function defined on :math:`[0, 1]^3 \times \mathbb R^n, n \geq 1,` 
-    with logical position coordinates :math:`\boldsymbol{\eta} \in [0, 1]^3`:
-
-    .. math::
-
-        f(\boldsymbol{\eta}, v_1,\ldots,v_n) = n(\boldsymbol{\eta}) \prod_{i=1}^n \frac{1}{\sqrt{\pi}\,v_{\mathrm{th},i}(\boldsymbol{\eta})}
-        \exp\left[-\frac{(v_i-u_i(\boldsymbol{\eta}))^2}{v_{\mathrm{th},i}(\boldsymbol{\eta})^2}\right],
-
-    defined by its velocity moments: the density :math:`n(\boldsymbol{\eta})`, 
-    the mean-velocities :math:`u_i(\boldsymbol{\eta})`, 
-    and the thermal velocities :math:`v_{\mathrm{th},i}(\boldsymbol{\eta})`. 
-    """
-
-    @property
-    @abstractmethod
-    def vdim(self):
-        """Dimension of the velocity space (vdim = n).
-        """
-        pass
-
-    @abstractmethod
-    def n(self, *etas):
-        """ Number density (0-form). 
-
-        Parameters
-        ----------
-        etas : numpy.arrays
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-
-        Returns
-        -------
-        A numpy.array with the density evaluated at evaluation points (same shape as etas).
-        """
-        pass
-
-    @abstractmethod
-    def u(self, *etas):
-        """ Mean velocities (Cartesian components evaluated at x = F(eta)).
-
-        Parameters
-        ----------
-        etas : numpy.arrays
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-
-        Returns
-        -------
-        A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
-        The additional dimension is in the first index.
-        """
-        pass
-
-    @abstractmethod
-    def vth(self, *etas):
-        """ Thermal velocities (0-forms).
-
-        Parameters
-        ----------
-        etas : numpy.arrays
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-
-        Returns
-        -------
-        A numpy.array with the thermal velocity evaluated at evaluation points (one dimension more than etas).
-        The additional dimension is in the first index.
-        """
-        pass
-
-    def gaussian(self, v, u=0., vth=1.):
-        """1D Gaussian, to which array-valued mean- and thermal velocities can be passed.
-
-        Parameters
-        ----------
-        v : float | array-like
-            Velocity coordinate(s).
-
-        u : float | array-like
-            Mean velocity evaluated at position array.
-
-        vth : float | array-like
-            Thermal velocity evaluated at position array, same shape as u.
-
-        Returns
-        -------
-        An array of size(u).
-        """
-
-        if isinstance(v, np.ndarray) and isinstance(u, np.ndarray):
-            assert v.shape == u.shape
-
-        return 1./(np.sqrt(np.pi) * vth) * np.exp(-(v - u)**2/vth**2)
-
-    def __call__(self, *args):
-        """
-        Evaluates the Maxwellian distribution function M(etas, v1, ..., vn).
-
-        Parameters
-        ----------
-        *args : array_like
-            Position-velocity arguments in the order etas, v1, ..., vn.
-
-        Returns
-        -------
-        f : np.ndarray
-            The evaluated Maxwellian.
-        """
-
-        res = self.n(*args[:-self.vdim])
-        us = self.u(*args[:-self.vdim])
-        vths = self.vth(*args[:-self.vdim])
-
-        for i, v in enumerate(args[-self.vdim:]):
-            res *= self.gaussian(v, u=us[i], vth=vths[i])
-
-        return res
 
 
 class Maxwellian6DUniform(Maxwellian):
     r"""
-    6d Maxwellian distribution function defined on [0, 1]^3 x R^3, with logical position and Cartesian velocity coordinates, with uniform velocity moments.
+    6d Maxwellian distribution function defined on :math:`[0, 1]^3 \times \mathbb R^3`, 
+    with logical position and Cartesian velocity coordinates and uniform velocity moments.
 
     .. math::
 
-        f(\boldsymbol{\eta}, \mathbf v) = n \, \frac{1}{\pi^{3/2} \, v_{\mathrm{th},1} \, v_{\mathrm{th},2} \, v_{\mathrm{th},3}} \,
-            \exp\left[- \frac{(v_1 - u_1)^2}{v_{\mathrm{th},1}^2}
-                      - \frac{(v_2 - u_2)^2}{v_{\mathrm{th},2}^2}
-                      - \frac{(v_3 - u_3)^2}{v_{\mathrm{th},3}^2}\right].
+        f(\mathbf v) = \frac{n}{(2\pi)^{3/2} \, v_{\mathrm{th},1} \, v_{\mathrm{th},2} \, v_{\mathrm{th},3}} \,
+            \exp\left[- \frac{(v_1 - u_1)^2}{2v_{\mathrm{th},1}^2}
+                      - \frac{(v_2 - u_2)^2}{2v_{\mathrm{th},2}^2}
+                      - \frac{(v_3 - u_3)^2}{2v_{\mathrm{th},3}^2}\right].
 
     Parameters
     ----------
     **params
         Keyword arguments (n= , u1=, etc.) defining the moments of the 6d Maxwellian.
+        
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``kinetic/<species>``::
+
+        init :
+            type : Maxwellian6DUniform
+            Maxwellian6DUniform :
+                n : 1.0
+                u1 : 0.0
+                u2 : 0.0
+                u3 : 0.0
+                vth1 : 1.0
+                vth2 : 1.0
+                vth3 : 1.0
     """
 
     def __init__(self, **params):
@@ -223,27 +121,60 @@ class Maxwellian6DUniform(Maxwellian):
 
 class Maxwellian6DPerturbed(Maxwellian):
     r"""
-    6d Maxwellian distribution function defined on [0, 1]^3 x R^3, with logical position and Cartesian velocity coordinates, with sin/cos perturbed velocity moments.
+    6d Maxwellian distribution function defined on :math:`[0, 1]^3 \times \mathbb R^3`, 
+    with logical position and Cartesian velocity coordinates, with sin/cos perturbed velocity moments.
 
     .. math::
 
-        f(\boldsymbol{\eta}, \mathbf v) = n(\boldsymbol{\eta})&\frac{1}{\pi^{3/2}\,v_{\mathrm{th},x}(\boldsymbol{\eta})\,v_{\mathrm{th},y}(\boldsymbol{\eta})\,v_{\mathrm{th},z}(\boldsymbol{\eta})}\,\exp\left[-\frac{(v_x-u_x(\boldsymbol{\eta}))^2}{v_{\mathrm{th},x}(\boldsymbol{\eta})^2}-\frac{(v_y-u_y(\boldsymbol{\eta}))^2}{v_{\mathrm{th},y}(\boldsymbol{\eta})^2}-\frac{(v_z-u_z(\boldsymbol{\eta}))^2}{v_{\mathrm{th},z}(\boldsymbol{\eta})^2}\right]\,,
+        f(\boldsymbol{\eta}, \mathbf v) = \frac{n(\boldsymbol{\eta})}{(2\pi)^{3/2}(v_{\mathrm{th},x}\,v_{\mathrm{th},y}\,v_{\mathrm{th},z})(\boldsymbol{\eta})}\,\exp\left[-\frac{(v_x-u_x(\boldsymbol{\eta}))^2}{2v_{\mathrm{th},x}(\boldsymbol{\eta})^2}-\frac{(v_y-u_y(\boldsymbol{\eta}))^2}{2v_{\mathrm{th},y}(\boldsymbol{\eta})^2}-\frac{(v_z-u_z(\boldsymbol{\eta}))^2}{2v_{\mathrm{th},z}(\boldsymbol{\eta})^2}\right]\,, 
+        
+    with perturbations of the form
+    
+    .. math::
+    
+        n(\boldsymbol{\eta})= n_0 + \sum_i\left\lbrace A_i\sin\left[2\pi(l_i\,\eta_1+m_i\,\eta_2+n_i\,\eta_3)\right] + B_i\cos\left[2\pi(l_i\,\eta_1+m_i\,\eta_2+n_i\,\eta_3)\right] \right\rbrace\,,
 
-        n(\boldsymbol{\eta})&= n_0 + \sum_i\left\lbrace A_i\sin\left[2\pi(l_i\,\eta_1+m_i\,\eta_2+n_i\,\eta_3)\right] + B_i\cos\left[2\pi(l_i\,\eta_1+m_i\,\eta_2+n_i\,\eta_3)\right] \right\rbrace\,,
-
-    and similarly for the other moments :math:`u_x(\boldsymbol{\eta}),u_y(\boldsymbol{\eta})`, etc..
+    and similarly for the other moments :math:`u_x(\boldsymbol{\eta}),u_y(\boldsymbol{\eta})`, etc.
 
     Parameters
     ----------
     **params
         Keyword arguments defining the moments of the 6d Maxwellian. For each moment, a dictionary of the form {'n0' : float, 'perturbation' : {'l' : list, 'm' : list, 'n' : list, 'amps_sin' : list, 'amps_cos' : list}} must be passed.
+    
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``kinetic/<species>``::
+
+        init :
+            type : Maxwellian6DPerturbed
+            Maxwellian6DPerturbed :
+                n :
+                    n0 : 1.
+                    perturbation :
+                        l : [0]
+                        m : [0]
+                        n : [0]
+                        amps_sin : [0.]
+                        amps_cos : [0.]
+                u1 :
+                    u10 : 0.
+                u2 :
+                    u20 : 0.
+                u3 :
+                    u30 : 0.
+                vth1 :
+                    vth10 : 1.
+                vth2 :
+                    vth20 : 1.
+                vth3 :
+                    vth30 : 1.
     """
 
     def __init__(self, **params):
 
         moment_keys = ['n', 'u1', 'u2', 'u3', 'vth1', 'vth2', 'vth3']
 
-        backgr_keys = ['n0', 'u01', 'u02', 'u0_3', 'vth01', 'vth02', 'vth03']
+        backgr_keys = ['n0', 'u01', 'u02', 'u03', 'vth01', 'vth02', 'vth03']
 
         # set default background, mode numbers and amplitudes if no perturbation of a moment in given
         for moment_key, backgr_key in zip(moment_keys, backgr_keys):
@@ -419,7 +350,7 @@ class Maxwellian6DPerturbed(Maxwellian):
         amps_sin = self.params['u3']['perturbation']['amps_sin']
         amps_cos = self.params['u3']['perturbation']['amps_cos']
 
-        res = self.params['u3']['u0_3']
+        res = self.params['u3']['u03']
         res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
         res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
 
@@ -487,18 +418,37 @@ class Maxwellian6DPerturbed(Maxwellian):
 
 class Maxwellian6DITPA(Maxwellian):
     r"""
-    6d Maxwellian distribution function defined on [0, 1]^3 x R^3, with logical position and Cartesian velocity coordinates, with isotropic, shifted distribution in velocity space and 1d density variation in first direction.
+    6d Maxwellian distribution function defined on :math:`[0, 1]^3 \times \mathbb R^3`, 
+    with logical position and Cartesian velocity coordinates, with isotropic, shifted distribution in velocity space and 1d density variation in first direction.
 
     .. math::
 
-        f(\boldsymbol{\eta}, \mathbf v) = n(\eta_1)&\,\frac{1}{\pi^{3/2}\,v_{\mathrm{th}}^3}\,\exp\left[-\frac{(v_x-u_x)^2+(v_y-u_y)^2+(v_z-u_z)^2}{v_{\mathrm{th}}^2}\right]\,,
+        f(\eta_1, \mathbf v) = \,\frac{n(\eta_1)}{(2\pi)^{3/2}\,v_{\mathrm{th}}^3}\,\exp\left[-\frac{(v_x-u_x)^2+(v_y-u_y)^2+(v_z-u_z)^2}{2v_{\mathrm{th}}^2}\right]\,,
 
-        n(\eta_1)& = c_3\exp\left[-\frac{c_2}{c_1}\tanh\left(\frac{\eta_1 - c_0}{c_2}\right)\right]\,.
+    with the density profile
+
+    .. math::
+
+        n(\eta_1) = c_3\exp\left[-\frac{c_2}{c_1}\tanh\left(\frac{\eta_1 - c_0}{c_2}\right)\right]\,.
 
     Parameters
     ----------
     **params
         Keyword arguments defining the moments of the 6d Maxwellian. For the density profile a dictionary of the form {'c0' : float, 'c1' : float, 'c2' : float, 'c3' : float} must be passed.
+    
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``kinetic/<species>``::
+
+        init :
+            type : Maxwellian6DITPA
+            Maxwellian6DITPA :
+                n : 
+                    c0: 0.5
+                    c1: 0.5
+                    c2: 0.5
+                    c3: 0.5
+                vth : 1.0
     """
 
     def __init__(self, **params):
@@ -600,16 +550,30 @@ class Maxwellian6DITPA(Maxwellian):
 
 class Maxwellian5DUniform(Maxwellian):
     r"""
-    5d Maxwellian distribution function defined on [0, 1]^3 x R^2, with logical position and Cartesian velocity coordinates, with uniform velocity moments.
+    5d Maxwellian distribution function defined on :math:`[0, 1]^3 \times \mathbb R^2`, 
+    with logical position and Cartesian velocity coordinates, with uniform velocity moments.
 
     .. math::
 
-        f(\boldsymbol{\eta}, v_\parallel, v_\perp) = n(\boldsymbol{\eta})\frac{1}{\pi\,v_{\mathrm{th},\parallel}(\boldsymbol{\eta})v_{\mathrm{th},\perp}(\boldsymbol{\eta})}\exp\left[-\frac{(v_\parallel-u_\parallel(\boldsymbol{\eta}))^2}{v_{\mathrm{th},\parallel}(\boldsymbol{\eta})^2}-\frac{(v_\perp-u_\perp(\boldsymbol{\eta}))^2}{v_{\mathrm{th},\perp}(\boldsymbol{\eta})^2}}\right]. 
+        f(v_\parallel, v_\perp) = \frac{n}{2\pi\,v_{\mathrm{th},\parallel}\,v_{\mathrm{th},\perp}}\exp\left[-\frac{(v_\parallel-u_\parallel)^2}{2v_{\mathrm{th},\parallel}^2} - \frac{(v_\perp-u_\perp)^2}{2v_{\mathrm{th},\perp}^2}\right]\,.
 
     Parameters
     ----------
     **params
         Keyword arguments (n= , u_parallel=, etc.) defining the moments of the 6d Maxwellian.
+        
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``kinetic/<species>``::
+
+        init :
+            type : Maxwellian5DUniform
+            Maxwellian5DUniform :
+                n : 1.0
+                u_parallel : 0.0
+                u_perp : 0.0
+                vth_parallel : 1.0
+                vth_perp : 1.0
     """
 
     def __init__(self, **params):

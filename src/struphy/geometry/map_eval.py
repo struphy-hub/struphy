@@ -75,10 +75,7 @@ def f(eta1: float, eta2: float, eta3: float,  # evaluation point
             eta1, eta2, eta3, params[0], params[1], params[2], params[3], f_out)
     elif kind_map == 22:
         maps.hollow_torus(eta1, eta2, eta3,
-                          params[0], params[1], params[2], params[3], f_out)
-    elif kind_map == 23:
-        maps.hollow_torus_straight_field_line(eta1, eta2, eta3,
-                          params[0], params[1], params[2], params[3], f_out)
+                          params[0], params[1], params[2], params[3], params[4], f_out)
     elif kind_map == 30:
         maps.shafranov_shift(
             eta1, eta2, eta3, params[0], params[1], params[2], params[3], f_out)
@@ -154,10 +151,7 @@ def df(eta1: float, eta2: float, eta3: float,  # evaluation point
             eta1, eta2, eta3, params[0], params[1], params[2], params[3], df_out)
     elif kind_map == 22:
         maps.hollow_torus_df(
-            eta1, eta2, eta3, params[0], params[1], params[2], params[3], df_out)
-    elif kind_map == 23:
-        maps.hollow_torus_straight_field_line_df(
-            eta1, eta2, eta3, params[0], params[1], params[2], params[3], df_out)
+            eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4], df_out)
     elif kind_map == 30:
         maps.shafranov_shift_df(
             eta1, eta2, eta3, params[0], params[1], params[2], params[3], df_out)
@@ -309,8 +303,6 @@ def df_inv(eta1: float, eta2: float, eta3: float,  # evaluation point
         dfinv_out[2, 1] = 0.
     elif kind_map == 22:
         dfinv_out[2, 2] = 0.
-    elif kind_map == 23:
-        dfinv_out[2, 2] = 0.
     elif kind_map == 30:
         dfinv_out[0, 2] = 0.
         dfinv_out[1, 2] = 0.
@@ -420,17 +412,23 @@ def g(eta1: float, eta2: float, eta3: float,  # evaluation point
         g_out[2, 0] = 0.
         g_out[2, 1] = 0.
     elif kind_map == 22:
-        g_out[0, 1] = 0.
-        g_out[0, 2] = 0.
-        g_out[1, 0] = 0.
-        g_out[1, 2] = 0.
-        g_out[2, 0] = 0.
-        g_out[2, 1] = 0.
-    elif kind_map == 23:
-        g_out[0, 2] = 0.
-        g_out[1, 2] = 0.
-        g_out[2, 0] = 0.
-        g_out[2, 1] = 0.
+        
+        # straight field line coordinates
+        if params[3] == 1.:
+            g_out[0, 2] = 0.
+            g_out[1, 2] = 0.
+            g_out[2, 0] = 0.
+            g_out[2, 1] = 0.
+        
+        # equal angle coordinates 
+        else:
+            g_out[0, 1] = 0.
+            g_out[0, 2] = 0.
+            g_out[1, 0] = 0.
+            g_out[1, 2] = 0.
+            g_out[2, 0] = 0.
+            g_out[2, 1] = 0.
+    
     elif kind_map == 30:
         g_out[0, 2] = 0.
         g_out[1, 2] = 0.
@@ -537,17 +535,23 @@ def g_inv(eta1: float, eta2: float, eta3: float,  # evaluation point
         ginv_out[2, 0] = 0.
         ginv_out[2, 1] = 0.
     elif kind_map == 22:
-        ginv_out[0, 1] = 0.
-        ginv_out[0, 2] = 0.
-        ginv_out[1, 0] = 0.
-        ginv_out[1, 2] = 0.
-        ginv_out[2, 0] = 0.
-        ginv_out[2, 1] = 0.
-    elif kind_map == 23:
-        ginv_out[0, 2] = 0.
-        ginv_out[1, 2] = 0.
-        ginv_out[2, 0] = 0.
-        ginv_out[2, 1] = 0.
+        
+        # straight field line coordinates
+        if params[3] == 1.:
+            ginv_out[0, 2] = 0.
+            ginv_out[1, 2] = 0.
+            ginv_out[2, 0] = 0.
+            ginv_out[2, 1] = 0.
+            
+        # equal angle coordinates
+        else:    
+            ginv_out[0, 1] = 0.
+            ginv_out[0, 2] = 0.
+            ginv_out[1, 0] = 0.
+            ginv_out[1, 2] = 0.
+            ginv_out[2, 0] = 0.
+            ginv_out[2, 1] = 0.
+            
     elif kind_map == 30:
         ginv_out[0, 2] = 0.
         ginv_out[1, 2] = 0.
@@ -745,6 +749,11 @@ def kernel_evaluate_pic(markers : 'float[:,:]', kind_coeff : int, kind_map : int
         
     remove_outside : bool
         Whether to remove values that originate from markers outside of [0, 1]^d.
+        
+    Returns
+    -------
+    counter : int
+        How many markers have been treated (not been skipped).
     """
 
     np = shape(markers)[0]
