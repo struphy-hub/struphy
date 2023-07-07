@@ -747,10 +747,10 @@ class LinearMHDDriftkineticCC(StruphyModel):
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
             abs_b=self._abs_b,
-            integrator=ions_params['push_algos']['integrator'],
-            method='discrete_gradients',
-            maxiter=ions_params['push_algos']['maxiter'],
-            tol=ions_params['push_algos']['tol'])]
+            integrator=ions_params['push_algos1']['integrator'],
+            method= ions_params['push_algos1']['method'],
+            maxiter=ions_params['push_algos1']['maxiter'],
+            tol=ions_params['push_algos1']['tol'])]
 
         # update H and v parallel
         self._propagators += [propagators_markers.StepPushDriftKinetic2(
@@ -761,10 +761,10 @@ class LinearMHDDriftkineticCC(StruphyModel):
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
             abs_b=self._abs_b,
-            method='discrete_gradients_Itoh_Newton',
-            integrator=ions_params['push_algos']['integrator'],
-            maxiter=ions_params['push_algos']['maxiter'],
-            tol=ions_params['push_algos']['tol'])]
+            integrator=ions_params['push_algos2']['integrator'],
+            method=ions_params['push_algos2']['method'],
+            maxiter=ions_params['push_algos2']['maxiter'],
+            tol=ions_params['push_algos2']['tol'])]
         
         # update u and H
         self._propagators += [propagators_coupling.CurrentCoupling5DCurrent2(
@@ -803,17 +803,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
             f0=f0,
             u_space=self._u_space,
             **solver_params_3,
-            **self._coupling_params)]
-
-        # update u
-        self._propagators += [propagators_fields.CurrentCoupling5DDensity(
-            self._u,
-            particles=self._e_ions,
-            u_space=self._u_space,
-            b_eq=self._b_eq,
-            b_tilde=self._b,
-            f0=f0,
-            **solver_params_5,
             **self._coupling_params)]
 
         # Scalar variables to be saved during simulation

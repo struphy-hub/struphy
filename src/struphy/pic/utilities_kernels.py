@@ -549,10 +549,9 @@ def eval_magnetic_energy(markers: 'float[:,:]',
         B0 = eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, PB, starts0)
 
         if B0 < 0: 
-            print('eta', eta1, eta2, eta3)
             print('minus', B0)
 
-        markers[ip, 8] = abs(B0)*markers[ip, 4]
+        markers[ip, 8] = B0*markers[ip, 4]
 
 
 @stack_array('df', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
@@ -692,9 +691,8 @@ def push_gc1_discrete_gradients_prepare(markers: 'float[:,:]', dt: float,
         S[:,:] = (1/kappa*temp2)/abs_b_star_para
 
         # save at the markers
-        markers[ip, 13:16] = S[0,:]
-        markers[ip, 16:18] = S[1,1:3]
-        markers[ip, 18]    = S[2,2]
+        markers[ip, 13:15] = S[0,1:3]
+        markers[ip, 15] = S[1,2]
         markers[ip, 19]    = abs_b0*mu
 
         # calculate S1 * grad I1
@@ -703,8 +701,8 @@ def push_gc1_discrete_gradients_prepare(markers: 'float[:,:]', dt: float,
         # save at the markers
         markers[ip, 0:3] = markers[ip, 0:3] + dt*temp[:]*mu
 
-        markers[ip, 20:24] = markers[ip, 0:4]
-        markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 9:13])/2.
+        markers[ip, 16:19] = markers[ip, 0:3]
+        markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 9:12])/2.
 
 @stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
 def push_gc2_discrete_gradients_prepare(markers: 'float[:,:]', dt: float,
@@ -1293,7 +1291,7 @@ def push_gc1_discrete_gradients_eval_gradI(markers: 'float[:,:]', dt: float,
 
         e_mid[:] = markers[ip, 0:3]
         v_mid = markers[ip, 3]
-        markers[ip, 0:4] = markers[ip, 20:24]
+        markers[ip, 0:3] = markers[ip, 16:19]
         mu = markers[ip, 4]
 
         # evaluate Jacobian, result in df
@@ -1367,11 +1365,10 @@ def push_gc1_discrete_gradients_eval_gradI(markers: 'float[:,:]', dt: float,
         S[:,:] = (1/kappa*temp2)/abs_b_star_para
 
         # save at the markers
-        markers[ip, 13:16] = S[0,:]
-        markers[ip, 16:18] = S[1,1:3]
-        markers[ip, 18]    = S[2,2]
+        markers[ip, 13:15] = S[0,1:3]
+        markers[ip, 15] = S[1,2]
 
-        markers[ip, 20:23] = mu*grad_abs_b[:]
+        markers[ip, 16:19] = mu*grad_abs_b[:]
 
 @stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e_mid')
 def push_gc2_discrete_gradients_eval_gradI(markers: 'float[:,:]', dt: float,
@@ -1676,7 +1673,7 @@ def push_gc1_discrete_gradients_Itoh_Newton_prepare1(markers: 'float[:,:]', dt: 
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 13] == -1.:
+        if markers[ip, 23] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
@@ -1751,7 +1748,7 @@ def push_gc1_discrete_gradients_Itoh_Newton_prepare2(markers: 'float[:,:]', dt: 
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 13] == -1.:
+        if markers[ip, 23] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
@@ -1946,7 +1943,7 @@ def push_gc2_discrete_gradients_Itoh_Newton_prepare1(markers: 'float[:,:]', dt: 
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 13] == -1.:
+        if markers[ip, 23] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
@@ -2021,7 +2018,7 @@ def push_gc2_discrete_gradients_Itoh_Newton_prepare2(markers: 'float[:,:]', dt: 
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 13] == -1.:
+        if markers[ip, 23] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]

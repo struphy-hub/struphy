@@ -269,15 +269,7 @@ class DriftKinetic(StruphyModel):
         self._E0T = self.derham.E['0'].transpose()
         self._EvT = self.derham.E['v'].transpose()
 
-        ee = 1.602176634e-19  # elementary charge (C)
-        mH = 1.67262192369e-27  # proton mass (kg)
-
-        Ah = params['kinetic']['ions']['phys_params']['A']
-        Zh = params['kinetic']['ions']['phys_params']['Z']
-
-        omega_ch = (Zh*ee*self.units_basic['B'])/(Ah*mH)
-        kappa = omega_ch*self.units_basic['t']
-
+        kappa = 1. / self.eq_params['ions']['epsilon_unit']
         if abs(kappa - 1) < 1e-6:
             kappa = 1.
 
@@ -294,10 +286,10 @@ class DriftKinetic(StruphyModel):
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
             abs_b=self._abs_b,
-            integrator=ions_params['push_algos']['integrator'],
-            method='discrete_gradients',
-            maxiter=ions_params['push_algos']['maxiter'],
-            tol=ions_params['push_algos']['tol'])]
+            integrator=ions_params['push_algos1']['integrator'],
+            method= ions_params['push_algos1']['method'],
+            maxiter=ions_params['push_algos1']['maxiter'],
+            tol=ions_params['push_algos1']['tol'])]
         self._propagators += [propagators_markers.StepPushGuidingCenter2(
             self._ions,
             kappa=kappa,
@@ -305,10 +297,10 @@ class DriftKinetic(StruphyModel):
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
             abs_b=self._abs_b,
-            method='discrete_gradients_Itoh_Newton',
-            integrator=ions_params['push_algos']['integrator'],
-            maxiter=ions_params['push_algos']['maxiter'],
-            tol=ions_params['push_algos']['tol'])]
+            integrator=ions_params['push_algos2']['integrator'],
+            method=ions_params['push_algos2']['method'],
+            maxiter=ions_params['push_algos2']['maxiter'],
+            tol=ions_params['push_algos2']['tol'])]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
@@ -316,10 +308,10 @@ class DriftKinetic(StruphyModel):
         self._scalar_quantities['en_fv'] = np.empty(1, dtype=float)
         self._en_fB_loc = np.empty(1, dtype=float)
         self._scalar_quantities['en_fB'] = np.empty(1, dtype=float)
-        self._en_fv_loc_lost = np.empty(1, dtype=float)
-        self._scalar_quantities['en_fv_lost'] = np.empty(1, dtype=float)
-        self._en_fB_loc_lost = np.empty(1, dtype=float)
-        self._scalar_quantities['en_fB_lost'] = np.empty(1, dtype=float)
+        # self._en_fv_loc_lost = np.empty(1, dtype=float)
+        # self._scalar_quantities['en_fv_lost'] = np.empty(1, dtype=float)
+        # self._en_fB_loc_lost = np.empty(1, dtype=float)
+        # self._scalar_quantities['en_fB_lost'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
 
         # MPI operations needed for scalar variables
@@ -341,10 +333,10 @@ class DriftKinetic(StruphyModel):
         self.derham.comm.Reduce(
             self._en_fv_loc, self._scalar_quantities['en_fv'], op=self._mpi_sum, root=0)
     
-        self._en_fv_loc_lost = self._ions.lost_markers[:self._ions.n_lost_markers, 5].dot(
-            self._ions.lost_markers[:self._ions.n_lost_markers, 3]**2) / (2.*self._ions.n_mks)
-        self.derham.comm.Reduce(
-            self._en_fv_loc_lost, self._scalar_quantities['en_fv_lost'], op=self._mpi_sum, root=0)
+        # self._en_fv_loc_lost = self._ions.lost_markers[:self._ions.n_lost_markers, 5].dot(
+        #     self._ions.lost_markers[:self._ions.n_lost_markers, 3]**2) / (2.*self._ions.n_mks)
+        # self.derham.comm.Reduce(
+        #     self._en_fv_loc_lost, self._scalar_quantities['en_fv_lost'], op=self._mpi_sum, root=0)
 
         # particles' magnetic energy
         self._ions.save_magnetic_energy(self._derham,
@@ -355,16 +347,14 @@ class DriftKinetic(StruphyModel):
         self.derham.comm.Reduce(
             self._en_fB_loc, self._scalar_quantities['en_fB'], op=self._mpi_sum, root=0)
         
-        self._en_fB_loc_lost = self._ions.lost_markers[:self._ions.n_lost_markers, 5].dot(
-            self._ions.lost_markers[:self._ions.n_lost_markers, 8]) / self._ions.n_mks
-        self.derham.comm.Reduce(
-            self._en_fB_loc_lost, self._scalar_quantities['en_fB_lost'], op=self._mpi_sum, root=0)
+        # self._en_fB_loc_lost = self._ions.lost_markers[:self._ions.n_lost_markers, 5].dot(
+        #     self._ions.lost_markers[:self._ions.n_lost_markers, 8]) / self._ions.n_mks
+        # self.derham.comm.Reduce(
+        #     self._en_fB_loc_lost, self._scalar_quantities['en_fB_lost'], op=self._mpi_sum, root=0)
 
         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_fv'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fB'][0]
-        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fv_lost'][0]
-        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fB_lost'][0]
+        # self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fv_lost'][0]
+        # self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fB_lost'][0]
 
-        # print(self._ions.markers[~self._ions.holes,0:9])
-        print('Number of lost markers:', self._ions.n_lost_markers)
-        # print(self._ions.lost_markers[:self._ions.n_lost_markers,:])
+        # print('Number of lost markers:', self._ions.n_lost_markers)

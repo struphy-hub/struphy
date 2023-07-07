@@ -599,7 +599,7 @@ class StepPushGuidingCenter1(Propagator):
         TODO
         """
         self._pusher(self._particles, dt,
-                     *self._pusher_inputs, mpi_sort='each', verbose=True)
+                     *self._pusher_inputs, mpi_sort='each', verbose=False)
 
         # save magnetic field at each particles' position
         self._particles.save_magnetic_energy(self.derham, self._abs_b)
@@ -749,7 +749,7 @@ class StepPushGuidingCenter2(Propagator):
         TODO
         """
         self._pusher(self._particles, dt,
-                     *self._pusher_inputs, mpi_sort='each', verbose=True)
+                     *self._pusher_inputs, mpi_sort='each', verbose=False)
 
         # save magnetic field at each particles' position
         self._particles.save_magnetic_energy(self.derham, self._abs_b)
@@ -964,25 +964,26 @@ class StepPushDriftKinetic1(Propagator):
         self._abs_b = params['abs_b']
 
         self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
-        self._grad_abs_b = self.derham.grad.dot(self._abs_b)
-
-        self._curl_norm_b.update_ghost_regions()
-        self._grad_abs_b.update_ghost_regions()
 
         # sum up total magnetic field
         self._b_full = self._b_eq.copy()
-        if self._b is not None:
-            self._b_full += self._b
-
-        self._b_full.update_ghost_regions()
 
         # define gradient of absolute value of parallel magnetic field
         self._PB = getattr(self.basis_ops, 'PB')
         self._PBb = self._PB.dot(self._b_full)
-        self._PBb.update_ghost_regions()
-
         self._grad_PBb = self.derham.grad.dot(self._PBb)
-        self._grad_PBb.update_ghost_regions()
+
+        # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
+        self._E0T = self.derham.E['0'].transpose()
+        self._E1T = self.derham.E['1'].transpose()
+        self._E2T = self.derham.E['2'].transpose()
+
+        self._b_eq = self._E2T.dot(self._b_eq)
+        self._unit_b1 = self._E1T.dot(self._unit_b1)
+        self._unit_b2 = self._E2T.dot(self._unit_b2)
+        self._curl_norm_b = self._E2T.dot(self._curl_norm_b)
+
+        self._curl_norm_b.update_ghost_regions()
 
         self._integrator = params['integrator']
         
@@ -1051,13 +1052,16 @@ class StepPushDriftKinetic1(Propagator):
         if self._b is not None:
             self._b_full += self._b
 
-        self._b_full.update_ghost_regions()
-
         # define gradient of absolute value of parallel magnetic field
         self._PBb = self._PB.dot(self._b_full)
-        self._PBb.update_ghost_regions()
-
         self._grad_PBb = self.derham.grad.dot(self._PBb)
+
+        self._b_full = self._E2T.dot(self._b_full)
+        self._PBb = self._E0T.dot(self._PBb)
+        self._grad_PBb = self._E1T.dot(self._grad_PBb)
+
+        self._b_full.update_ghost_regions()
+        self._PBb.update_ghost_regions()
         self._grad_PBb.update_ghost_regions()
 
         if self._integrator == 'explicit':
@@ -1077,7 +1081,7 @@ class StepPushDriftKinetic1(Propagator):
                                    self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data)
 
         self._pusher(self._particles, dt,
-                     *self._pusher_inputs, mpi_sort='each', verbose=True)
+                     *self._pusher_inputs, mpi_sort='each', verbose=False)
 
 
 class StepPushDriftKinetic2(Propagator):
@@ -1135,25 +1139,26 @@ class StepPushDriftKinetic2(Propagator):
         self._abs_b = params['abs_b']
 
         self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
-        self._grad_abs_b = self.derham.grad.dot(self._abs_b)
-
-        self._curl_norm_b.update_ghost_regions()
-        self._grad_abs_b.update_ghost_regions()
 
         # sum up total magnetic field
         self._b_full = self._b_eq.copy()
-        if self._b is not None:
-            self._b_full += self._b
-
-        self._b_full.update_ghost_regions()
 
         # define gradient of absolute value of parallel magnetic field
         self._PB = getattr(self.basis_ops, 'PB')
         self._PBb = self._PB.dot(self._b_full)
-        self._PBb.update_ghost_regions()
 
         self._grad_PBb = self.derham.grad.dot(self._PBb)
-        self._grad_PBb.update_ghost_regions()
+
+        # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
+        self._E0T = self.derham.E['0'].transpose()
+        self._E1T = self.derham.E['1'].transpose()
+        self._E2T = self.derham.E['2'].transpose()
+
+        self._unit_b1 = self._E1T.dot(self._unit_b1)
+        self._unit_b2 = self._E2T.dot(self._unit_b2)
+        self._curl_norm_b = self._E2T.dot(self._curl_norm_b)
+
+        self._curl_norm_b.update_ghost_regions()
 
         self._integrator = params['integrator']
 
@@ -1221,13 +1226,16 @@ class StepPushDriftKinetic2(Propagator):
         if self._b is not None:
             self._b_full += self._b
 
-        self._b_full.update_ghost_regions()
-
         # define gradient of absolute value of parallel magnetic field
         self._PBb = self._PB.dot(self._b_full)
-        self._PBb.update_ghost_regions()
-
         self._grad_PBb = self.derham.grad.dot(self._PBb)
+
+        self._b_full = self._E2T.dot(self._b_full)
+        self._PBb = self._E0T.dot(self._PBb)
+        self._grad_PBb = self._E1T.dot(self._grad_PBb)
+
+        self._b_full.update_ghost_regions()
+        self._PBb.update_ghost_regions()
         self._grad_PBb.update_ghost_regions()
 
         if self._integrator == 'explicit':
@@ -1247,4 +1255,4 @@ class StepPushDriftKinetic2(Propagator):
                                    self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data)
 
         self._pusher(self._particles, dt,
-                     *self._pusher_inputs, mpi_sort='each', verbose=True)
+                     *self._pusher_inputs, mpi_sort='each', verbose=False)

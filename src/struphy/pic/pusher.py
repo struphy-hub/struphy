@@ -283,12 +283,11 @@ class Pusher_iteration_Gonzalez:
             if stage == self._maxiter-1 and verbose:
                 not_converged = np.logical_not(particles.markers[:,23]==-1.)
                 print('Number of not converged particles:', np.count_nonzero(not_converged))
-                # print('Non converged partices:')
-                # print(particles.markers[not_converged, 0:13])
-                # print('NUmber of iterations', np.average(particles.markers[~particles.holes,20])+1)
+                # print('Non converged partices:', particles.markers[not_converged, 0:13])
+                print('NUmber of iterations', np.average(particles.markers[~particles.holes,20])+1)
 
         # clear buffer columns 9-23 for multi-stage pushers
-        particles.markers[~particles.holes, 9:28] = 0.
+        particles.markers[~particles.holes, 9:25] = 0.
 
     @property
     def derham(self):
@@ -404,9 +403,8 @@ class Pusher_iteration_Itoh:
             if stage == self._maxiter-1 and verbose:
                 not_converged = np.logical_not(particles.markers[:,13]==-1.)
                 print('Number of not converged particles:', np.count_nonzero(not_converged))
-                # print('Non converged partices:')
-                # print(particles.markers[not_converged, 0:13])
-                # print('Number of iterations', np.average(particles.markers[~particles.holes,14])+1)
+                # print('Non converged partices:', particles.markers[not_converged, 0:13])
+                print('NUmber of iterations', np.average(particles.markers[~particles.holes,14])+1)
                 
         # clear buffer columns 9-23 for multi-stage pushers
         particles.markers[~particles.holes, 9:25] = 0.
