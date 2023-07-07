@@ -99,29 +99,38 @@ def struphy_test(serial=True, mpi=0, codes=False):
                         '-o', 'sim_test_8',
                         '--mpi', '2'], check=True)
 
-        # test LinearVlasovMaxwell
-        subprocess.run(['struphy', 'run', 'LinearVlasovMaxwell',
-                        '-i', os.path.join(libpath, 'io/inp/tests/params_linvlasovmaxwell.yml'),
+        # test VlasovMaxwell
+        subprocess.run(['struphy', 'run', 'VlasovMaxwell',
+                        '-i', os.path.join(libpath, 'io/inp/tests/params_vlasovmaxwell.yml'),
                         '-o', 'sim_test_9',
                         '--mpi', '2'], check=True)
 
         subprocess.run(['struphy', 'pproc',
                         '-d', 'sim_test_9'], check=True)
 
-        # test DeltaFVlasovMaxwell
-        subprocess.run(['struphy', 'run', 'DeltaFVlasovMaxwell',
-                        '-i', os.path.join(libpath, 'io/inp/tests/params_deltafvlasovmaxwell.yml'),
+        # test LinearVlasovMaxwell
+        subprocess.run(['struphy', 'run', 'LinearVlasovMaxwell',
+                        '-i', os.path.join(libpath, 'io/inp/tests/params_linvlasovmaxwell.yml'),
                         '-o', 'sim_test_10',
                         '--mpi', '2'], check=True)
 
         subprocess.run(['struphy', 'pproc',
                         '-d', 'sim_test_10'], check=True)
 
-        # test ColdPlasma
-        subprocess.run(['struphy', 'run', 'ColdPlasma',
-                        '-i', os.path.join(libpath, 'io/inp/tests/params_coldplasma.yml'),
+        # test DeltaFVlasovMaxwell
+        subprocess.run(['struphy', 'run', 'DeltaFVlasovMaxwell',
+                        '-i', os.path.join(libpath, 'io/inp/tests/params_deltafvlasovmaxwell.yml'),
                         '-o', 'sim_test_11',
                         '--mpi', '2'], check=True)
 
         subprocess.run(['struphy', 'pproc',
                         '-d', 'sim_test_11'], check=True)
+
+        # test ColdPlasma
+        subprocess.run(['struphy', 'run', 'ColdPlasma',
+                        '-i', os.path.join(libpath, 'io/inp/tests/params_coldplasma.yml'),
+                        '-o', 'sim_test_12',
+                        '--mpi', '2'], check=True)
+
+        subprocess.run(['struphy', 'pproc',
+                        '-d', 'sim_test_12'], check=True)

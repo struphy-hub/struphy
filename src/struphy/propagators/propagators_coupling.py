@@ -24,6 +24,167 @@ import struphy.linear_algebra.iterative_solvers as it_solvers
 from psydac.linalg.iterative_solvers import pcg
 
 
+class VlasovMaxwell(Propagator):
+    r'''Solve the following Crank-Nicolson step
+
+    .. math::
+
+        \begin{bmatrix}
+            \mathbb{M}_1 \left( \mathbf{e}^{n+1} - \mathbf{e}^n \right) \\
+            \mathbf{V}^{n+1} - \mathbf{V}^n
+        \end{bmatrix}
+        =
+        \frac{\Delta t}{2}
+        \begin{bmatrix}
+            0 & - \frac{\alpha^2}{\epsilon} \mathbb{\Lambda}_1(\mathbf{H})^\top DF^{-1} \mathbb{W} \\
+            \frac{1}{\epsilon} DF^{-\top} \mathbb{\Lambda}_1(\mathbf{H}) & 0
+        \end{bmatrix}
+        \begin{bmatrix}
+            \mathbf{e}^{n+1} + \mathbf{e}^n \\
+            \mathbf{V}^{n+1} + \mathbf{V}^n
+        \end{bmatrix}
+
+    based on the :ref:`Schur complement <schur_solver>` where
+
+    .. math::
+        \begin{align}
+        \mathbb{W} & = \text{diag}(w_p) \,,
+        \end{align}
+
+    and the accumulation matrix writes
+
+    .. math::
+        \mathbb{A} = -\frac{{\Delta t}^2}{4} \frac{\alpha^2}{\epsilon^2} \, \mathbb{\Lambda}_1(\mathbf{H})^\top G^{-1} \mathbb{W} \mathbb{\Lambda}_1(\mathbf{H}) \,.
+
+    Parameters
+    ---------- 
+    e : psydac.linalg.block.BlockVector
+        FE coefficients of a 1-form.
+
+    particles : struphy.pic.particles.Particles6D
+        Particles object.
+
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
+    '''
+
+    def __init__(self, e, particles, **params):
+
+        from struphy.kinetic_background.maxwellians import Maxwellian6DUniform
+
+        # pointers to variables
+        assert isinstance(e, (BlockVector, PolarVector))
+        self._e = e
+
+        assert isinstance(particles, Particles6D)
+        self._particles = particles
+
+        # parameters
+        params_default = {'alpha': 1.,
+                          'epsilon': 1.,
+                          'type': 'PConjugateGradient',
+                          'pc': 'MassMatrixPreconditioner',
+                          'tol': 1e-8,
+                          'maxiter': 3000,
+                          'info': False,
+                          'verbose': False}
+
+        params = set_defaults(params, params_default)
+
+        self._alpha = params['alpha']
+        self._epsilon = params['epsilon']
+        self._info = params['info']
+
+        # Initialize Accumulator object
+        self._accum = Accumulator(self.derham, self.domain, 'Hcurl', 'vlasov_maxwell',
+                                  add_vector=True, symmetry='symm')
+
+        # Create buffers to store temporarily _e and its sum with old e
+        self._e_temp = e.copy()
+        self._e_sum = e.copy()
+
+        # store old weights to compute difference
+        self._old_v_sq = np.empty(particles.markers.shape[0], dtype=float)
+        self._new_v_sq = np.empty(particles.markers.shape[0], dtype=float)
+
+        # ================================
+        # ========= Schur Solver =========
+        # ================================
+
+        # Preconditioner
+        if params['pc'] == None:
+            self._pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            self._pc = pc_class(self.mass_ops.M1)
+
+        # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
+        _A = self.mass_ops.M1
+        _BC = - self._accum.operators[0].matrix / 4.
+
+        # Instantiate Schur solver
+        self._schur_solver = SchurSolver(_A, _BC, pc=self._pc, solver_name=params['type'],
+                                         tol=params['tol'], maxiter=params['maxiter'],
+                                         verbose=params['verbose'])
+
+        # Instantiate particle pusher
+        self._pusher = Pusher(self.derham, self.domain,
+                              'push_v_with_efield')
+
+    @property
+    def variables(self):
+        return [self._e]
+
+    def __call__(self, dt):
+        # accumulate
+        self._accum.accumulate(self._particles, self._alpha, self._epsilon)
+
+        # Update Schur solver
+        self._schur_solver.BC = - self._accum.operators[0].matrix / 4
+
+        # allocate temporary BlockVector during solution
+        self._e_temp, info = self._schur_solver(
+            self._e, self._accum.vectors[0] / 2., dt)
+
+        # Store old velocity magnitudes
+        self._old_v_sq[~self._particles.holes] = np.sqrt(self._particles.markers[~self._particles.holes, 3]**2 +
+                                                         self._particles.markers[~self._particles.holes, 4]**2 +
+                                                         self._particles.markers[~self._particles.holes, 5]**2)
+
+        # reset _e_sum
+        self._e_sum *= 0.
+
+        # self._e_sum = self._e_temp + self._e
+        self._e_sum += self._e_temp
+        self._e_sum += self._e
+        self._e_sum *= 1/2
+
+        # Update velocities
+        self._pusher(self._particles, dt,
+                     self._e_sum.blocks[0]._data,
+                     self._e_sum.blocks[1]._data,
+                     self._e_sum.blocks[2]._data,
+                     1/self._epsilon)
+
+        # Store new velocity magnitudes
+        self._new_v_sq[~self._particles.holes] = np.sqrt(self._particles.markers[~self._particles.holes, 3]**2 +
+                                                         self._particles.markers[~self._particles.holes, 4]**2 +
+                                                         self._particles.markers[~self._particles.holes, 5]**2)
+
+        # write new coeffs into self.variables
+        max_de, = self.in_place_update(self._e_temp)
+
+        # Print out max differences for weights and e-field
+        if self._info:
+            print('Status      for VlasovMaxwell:', info['success'])
+            print('Iterations  for VlasovMaxwell:', info['niter'])
+            print('Maxdiff e1  for VlasovMaxwell:', max_de)
+            max_diff = np.max(np.abs(self._old_v_sq[~self._particles.holes]
+                                     - self._new_v_sq[~self._particles.holes]))
+            print('Maxdiff |v| for VlasovMaxwell:', max_diff)
+            print()
+
+
 class EfieldWeightsImplicit(Propagator):
     r'''Solve the following Crank-Nicolson step
 
@@ -1317,10 +1478,14 @@ class CurrentCoupling5DCurrent2dg(Propagator):
             self._pc = pc_class(self._A)
 
         # Call the accumulation and Pusher class
-        self._ACC_prepare = Accumulator(self.derham, self.domain, params['u_space'], 'cc_lin_mhd_5d_J2_dg_prepare', add_vector=True, symmetry='symm')
-        self._ACC = Accumulator(self.derham, self.domain, params['u_space'], 'cc_lin_mhd_5d_J2_dg', add_vector=True, symmetry='symm')
-        self._pusher_prepare = Pusher(self.derham, self.domain, 'push_gc_cc_J2_dg_prepare_' + params['u_space'])
-        self._pusher = Pusher(self.derham, self.domain, 'push_gc_cc_J2_dg_' + params['u_space'])
+        self._ACC_prepare = Accumulator(
+            self.derham, self.domain, params['u_space'], 'cc_lin_mhd_5d_J2_dg_prepare', add_vector=True, symmetry='symm')
+        self._ACC = Accumulator(
+            self.derham, self.domain, params['u_space'], 'cc_lin_mhd_5d_J2_dg', add_vector=True, symmetry='symm')
+        self._pusher_prepare = Pusher(
+            self.derham, self.domain, 'push_gc_cc_J2_dg_prepare_' + params['u_space'])
+        self._pusher = Pusher(self.derham, self.domain,
+                              'push_gc_cc_J2_dg_' + params['u_space'])
 
         # self._ACC_prepare = Accumulator(self.derham, self.domain, params['u_space'], 'cc_lin_mhd_5d_J2_dg_prepare_faster', add_vector=True, symmetry='symm')
         # self._ACC = Accumulator(self.derham, self.domain,  params['u_space'], 'cc_lin_mhd_5d_J2_dg_faster', add_vector=True, symmetry='symm')
@@ -1457,7 +1622,8 @@ class CurrentCoupling5DCurrent2dg(Propagator):
 
             # Accumulate
             self._accum_gradI_const_loc = utilities.accum_gradI_const(self._particles.markers, self._particles.n_mks, *self._pusher._args_fem,
-                                                                      self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data,
+                                                                      self._grad_PBb[0]._data, self._grad_PBb[
+                                                                          1]._data, self._grad_PBb[2]._data,
                                                                       self._coupling_vec)[0]
 
             # gradI_const = (en_u - en_u_old - u_diff.dot(self._A.dot(u_mid)) + np.sum(en_fB) - np.sum(en_fB_old) - np.sum(accum_gradI_const))/denominator
@@ -1514,17 +1680,20 @@ class CurrentCoupling5DCurrent2dg(Propagator):
                                  self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                                  self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
                                  self._u_pusher[0]._data, self._u_pusher[1]._data, self._u_pusher[2]._data)
-            
+
             n_lost_markers_before = self._particles.n_lost_markers
-            print('Number of lost markers before iteration push', n_lost_markers_before)
+            print('Number of lost markers before iteration push',
+                  n_lost_markers_before)
             self._particles.mpi_sort_markers()
             n_lost_markers_after = self._particles.n_lost_markers
-            print('Number of lost markers after iteration push', n_lost_markers_after)
+            print('Number of lost markers after iteration push',
+                  n_lost_markers_after)
             print()
 
             if n_lost_markers_after != n_lost_markers_before:
                 # go back to former step
-                self._particles.markers[~self._particles.holes, 0:3] = self._particles.markers[~self._particles.holes, 12:15].copy()
+                self._particles.markers[~self._particles.holes,
+                                        0:3] = self._particles.markers[~self._particles.holes, 12:15].copy()
                 self._u_temp.copy(out=self._u_new)
                 continue
             print('stage', stage+1)
@@ -1553,7 +1722,8 @@ class CurrentCoupling5DCurrent2dg(Propagator):
         max_du, = self.in_place_update(self._u_new)
 
         if self._info and self._rank == 0:
-            print('Status     for CurrentCoupling5DCurrent2dg:', info['success'])
+            print('Status     for CurrentCoupling5DCurrent2dg:',
+                  info['success'])
             print('Iterations for CurrentCoupling5DCurrent2dg:', info['niter'])
             print('Maxdiff up for CurrentCoupling5DCurrent2dg:', max_du)
             print()
