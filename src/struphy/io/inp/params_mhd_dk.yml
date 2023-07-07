@@ -16,7 +16,7 @@ units : # units not stated here can be viewed via "struphy units -h"
 time :
     dt         : 0.1  # time step
     Tend       : 10.0 # simulation time interval is [0, Tend]
-    split_algo : LieTrotter # LieTrotter | Strang
+    split_algo : Strang # LieTrotter | Strang
 
 # geometry :
 #     type : Cuboid # mapping F (possible types seen below)
@@ -109,7 +109,7 @@ kinetic :
             Z : 1 # signed charge number in units of elementary charge
         markers :
             type    : full_f # full_f or delta_f
-            ppc     : 10
+            ppc     : 800
             Np      : 4 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
             eps     : 1.0 # MPI send/receive buffer (0.1 <= eps <= 1.0)
             bc_type : [remove, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
@@ -133,10 +133,15 @@ kinetic :
                 slices : [v3]
                 n_bins : [[32]]
                 ranges : [[[-3., 3.]]]
-        push_algos :
+        push_algos1 :
+            integrator : implicit # explicit or implicit
+            method : discrete_gradients # possible choices: discrete_gradients, discrete_gradients_faster, discrete_gradients_Itoh_Newton, forward_euler, heun2, rk2, heun3, rk4
+            maxiter : 10
+            tol : 1.e-10
+        push_algos2 :
             integrator : implicit # explicit or implicit
             method : discrete_gradients_Itoh_Newton # possible choices: discrete_gradients, discrete_gradients_faster, discrete_gradients_Itoh_Newton, forward_euler, heun2, rk2, heun3, rk4
-            maxiter : 5
+            maxiter : 10
             tol : 1.e-10
             
 solvers :

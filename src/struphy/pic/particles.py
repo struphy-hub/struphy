@@ -6,9 +6,9 @@ import scipy.special as sp
 
 from struphy.pic import sampling, sobol_seq
 from struphy.pic.pusher_utilities import reflect
+from struphy.pic.utilities_kernels import eval_magnetic_energy, eval_magnetic_moment_5d
 from struphy.kinetic_background import maxwellians
 from struphy.fields_background.mhd_equil.equils import set_defaults
-
 
 class Particles(metaclass=ABCMeta):
     """
@@ -209,6 +209,12 @@ class Particles(metaclass=ABCMeta):
         """ Number of removed particles.
         """
         return self._n_lost_markers
+    
+    @property
+    def bt_energy(self):
+        """ Sum of energy differences caused by boundary transfer.
+        """
+        return self._bt_energy
 
     def create_marker_array(self):
         """ Create marker array. (self.markers)
@@ -258,6 +264,9 @@ class Particles(metaclass=ABCMeta):
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
         self._n_lost_markers = 0
         self._lost_markers = np.zeros((int(markers_size*0.5), 10), dtype=float)
+
+        # create a scalar container for saving sum of energy differences caused by boundary transfer.
+        self._bt_energy = 0.
 
     def draw_markers(self):
         r""" 
@@ -696,6 +705,63 @@ class Particles(metaclass=ABCMeta):
 
         self.comm.Barrier()
 
+    def boundary_transfer(self, derham, PB):
+        """
+        Still draft. ONLY valid for the poloidal geometry (eta1: clamped r-direction, eta2: periodic theta-direction). 
+
+        When particles reach to rmin, transfer them to the opposite side of the rmin circle.
+
+        ex: when rmin is 0.1, transfer the particle from (0.09, 0.3, 0.4) to (0.1, 0.8, 0.4).
+
+        Parameters
+        ----------
+        """
+        T1, T2, T3 = derham.Vh_fem['0'].knots
+        
+        self.comm.Barrier()
+
+        # sorting out particles inside of the rmin circle
+        smaller_than_rmin = self.markers[:, 0] < self._rmin
+        # exclude holes
+        smaller_than_rmin[self.holes] = False
+
+        # indices or particles that are inside of the rmin circle
+        transfer_inds = np.nonzero(smaller_than_rmin)[0]
+
+        # add the old energy of the particles
+        self._bt_energy += np.sum(self.markers[transfer_inds,5].dot(self.markers[transfer_inds,8])/self.n_mks)
+        
+        # transfer
+        self.markers[transfer_inds, 1] += 0.5
+        self.markers[transfer_inds, 1] = self.markers[transfer_inds, 1] % 1.
+        self.markers[transfer_inds, 0] = self._rmin
+        self.markers[transfer_inds, 3] = self.markers[transfer_inds, 12]
+
+        # marking before sorting
+        self.markers[transfer_inds, 22] = -1.
+
+        self.mpi_sort_markers()
+
+        # sorting from the makring
+        smaller_than_rmin = self.markers[:, 22] == -1
+
+        # exclude holes
+        smaller_than_rmin[self.holes] = False
+
+        # indices or particles which are just transfered
+        transfer_inds = np.nonzero(smaller_than_rmin)[0]
+
+        # subtract new energy
+        eval_magnetic_energy(self._markers,
+                             np.array(derham.p), T1, T2, T3,
+                             np.array(derham.Vh['0'].starts),
+                             PB._data)
+        
+        self._bt_energy -= np.sum(self.markers[transfer_inds,5].dot(self.markers[transfer_inds,8])/self.n_mks)
+
+        self.markers[transfer_inds, 23] = -1.
+
+        self.comm.Barrier()
 
 class Particles6D(Particles):
     """
@@ -953,8 +1019,6 @@ class Particles5D(Particles):
         r"""
         Calculate magnetic moment of each particles :math:`\mu = \frac{m v_\perp^2}{2B}` and asign it into markers[:,4].
         """
-        from struphy.pic.utilities_kernels import eval_magnetic_moment_5d
-
         T1, T2, T3 = derham.Vh_fem['0'].knots
 
         absB = derham.P['0'](self._mhd_equil.absB0)
@@ -972,8 +1036,6 @@ class Particles5D(Particles):
         r"""
         Calculate magnetic field energy at each particles' position and asign it into markers[:,8].
         """
-        from struphy.pic.utilities_kernels import eval_magnetic_energy
-
         T1, T2, T3 = derham.Vh_fem['0'].knots
 
         eval_magnetic_energy(self._markers,

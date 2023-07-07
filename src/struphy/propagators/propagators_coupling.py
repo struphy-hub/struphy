@@ -896,6 +896,7 @@ class CurrentCoupling5DCurrent1(Propagator):
 
         assert isinstance(params['unit_b1'], (BlockVector, PolarVector))
         self._unit_b1 = params['unit_b1']
+        self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
 
         self._info = params['info']
         self._rank = self.derham.comm.Get_rank()
@@ -904,12 +905,14 @@ class CurrentCoupling5DCurrent1(Propagator):
         self._coupling_vec = params['Ah'] / params['Ab']
         self._scale_push = 1
 
-        self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
-        self._curl_norm_b.update_ghost_regions()
-
         u_id = self.derham.spaces_dict[params['u_space']]
         self._EuT = self.derham.E[u_id].transpose()
-        self._EbT = self.derham.E['2'].transpose()
+        self._E2T = self.derham.E['2'].transpose()
+        self._E1T = self.derham.E['1'].transpose()
+
+        self._unit_b1 = self._E1T.dot(self._unit_b1)
+        self._curl_norm_b = self._E2T.dot(self._curl_norm_b)
+        self._curl_norm_b.update_ghost_regions()
 
         # define system [[A B], [C I]] [u_new, v_new] = [[A -B], [-C I]] [u_old, v_old] (without time step size dt)
         _A = getattr(self.mass_ops, 'M' + u_id + 'n')
@@ -937,7 +940,7 @@ class CurrentCoupling5DCurrent1(Propagator):
 
         # temporary vectors to avoid memory allocation
         self._b_full1 = self._b_eq.space.zeros()
-        self._b_full2 = self._EbT.codomain.zeros()
+        self._b_full2 = self._E2T.codomain.zeros()
 
         self._u_new = self._u.space.zeros()
 
@@ -959,7 +962,7 @@ class CurrentCoupling5DCurrent1(Propagator):
             self._b_full1 += self._b
 
         # extract coefficients to tensor product space (in-place)
-        self._EbT.dot(self._b_full1, out=self._b_full2)
+        self._E2T.dot(self._b_full1, out=self._b_full2)
 
         # update ghost regions because of non-local access in accumulation kernel!
         self._b_full2.update_ghost_regions()
@@ -1058,6 +1061,7 @@ class CurrentCoupling5DCurrent2(Propagator):
 
         assert isinstance(params['unit_b1'], (BlockVector, PolarVector))
         self._unit_b1 = params['unit_b1']
+        self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
 
         assert isinstance(params['unit_b2'], (BlockVector, PolarVector))
         self._unit_b2 = params['unit_b2']
@@ -1076,11 +1080,17 @@ class CurrentCoupling5DCurrent2(Propagator):
         self._scale_push = 1
 
         u_id = self.derham.spaces_dict[params['u_space']]
+        self._E0T = self.derham.E['0'].transpose()
         self._EuT = self.derham.E[u_id].transpose()
         self._E1T = self.derham.E['1'].transpose()
-        self._EbT = self.derham.E['2'].transpose()
+        self._E2T = self.derham.E['2'].transpose()
 
         self._PB = getattr(self.basis_ops, 'PB')
+
+        self._unit_b1 = self._E1T.dot(self._unit_b1)
+        self._unit_b2 = self._E2T.dot(self._unit_b2)
+        self._curl_norm_b = self._E2T.dot(self._curl_norm_b)
+        self._curl_norm_b.update_ghost_regions()
 
         # define system [[A B], [C I]] [u_new, v_new] = [[A -B], [-C I]] [u_old, v_old] (without time step size dt)
         _A = getattr(self.mass_ops, 'M' + u_id + 'n')
@@ -1158,12 +1168,14 @@ class CurrentCoupling5DCurrent2(Propagator):
             self._b_full1 += self._b
 
         # extract coefficients to tensor product space (in-place)
-        self._EbT.dot(self._b_full1, out=self._b_full2)
+        self._E2T.dot(self._b_full1, out=self._b_full2)
+        self._E2T.dot(self._b, out=self._b)
 
         # update ghost regions because of non-local access in accumulation kernel!
         self._b_full2.update_ghost_regions()
 
         self._PBb = self._PB.dot(self._b_full1)
+        self._PBb = self._E0T.dot(self._PBb)
         self._PBb.update_ghost_regions()
 
         self._grad_PBb1 = self.derham.grad.dot(self._PBb)
