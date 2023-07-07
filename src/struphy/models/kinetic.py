@@ -2,6 +2,189 @@ import numpy as np
 from struphy.models.base import StruphyModel
 
 
+class VlasovMaxwell(StruphyModel):
+    r'''Vlasov Maxwell equations with Poisson splitting.
+
+    :ref:`normalization`:
+
+    .. math::
+
+        \begin{align}
+            c & = \frac{\hat \omega}{\hat k} = \frac{\hat E}{\hat B} = \hat v \,, \qquad  \hat f = \frac{\hat n}{c^3} \,.
+        \end{align}
+
+    Implemented equations:
+
+    .. math::
+
+        \begin{align}
+            &\partial_t f + \mathbf{v} \cdot \, \nabla f + \frac{1}{\varepsilon}\left( \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \right)
+            \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
+            \\[2mm]
+            &\frac{\partial \mathbf{E}}{\partial t} = \nabla \times \mathbf{B} -
+            \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v} \,,
+            \\
+            &\frac{\partial \mathbf{B}}{\partial t} = - \nabla \times \mathbf{E} \,,
+        \end{align}
+
+    where
+
+    .. math::
+
+        \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}\,,\qquad \varepsilon = \frac{\hat \omega}{\hat \Omega_\textnormal{c}} \,,\qquad \textnormal{with} \qquad \hat\Omega_\textnormal{p} = \sqrt{\frac{\hat n (Ze)^2}{\epsilon_0 A m_\textnormal{H}}} \,,\qquad \hat \Omega_{\textnormal{c}} = \frac{Ze \hat B}{A m_\textnormal{H}}\,.
+
+    At initial time the Poisson equation is solved once to satisfy the Gauss law
+
+    .. math::
+
+        \begin{align}
+            \nabla \cdot \mathbf{E} & = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} f \, \text{d}^3 \mathbf{v}
+        \end{align}
+
+    Parameters
+    ----------
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
+
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
+    '''
+
+    @classmethod
+    def bulk_species(cls):
+        return 'electrons'
+
+    @classmethod
+    def timescale(cls):
+        return 'light'
+
+    def __init__(self, params, comm):
+
+        super().__init__(params, comm,
+                         e1='Hcurl', b2='Hdiv',
+                         electrons='Particles6D')
+
+        from struphy.propagators.base import Propagator
+        from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
+        from mpi4py.MPI import SUM, IN_PLACE
+
+        # pointers to em-field variables
+        self._e = self.em_fields['e1']['obj'].vector
+        self._b = self.em_fields['b2']['obj'].vector
+
+        # Get rank and size
+        self._rank = comm.Get_rank()
+
+        # pointer to electrons
+        self._electrons = self.kinetic['electrons']['obj']
+        electron_params = params['kinetic']['electrons']
+
+        # Get coupling strength
+        self.alpha = self.eq_params['electrons']['alpha_unit']
+        self.epsilon = self.eq_params['electrons']['epsilon_unit']
+
+        # Get Poisson solver params
+        self._poisson_params = params['solvers']['solver_poisson']
+
+        # ====================================================================================
+        # Initialize background magnetic field from MHD equilibrium
+        self._b_background = self.derham.P['2']([self.mhd_equil.b2_1,
+                                                 self.mhd_equil.b2_2,
+                                                 self.mhd_equil.b2_3])
+
+        # set propagators base class attributes (available to all propagators)
+        Propagator.derham = self.derham
+        Propagator.domain = self.domain
+        Propagator.mass_ops = self.mass_ops
+
+        # Initialize propagators/integrators used in splitting substeps
+        self._propagators = []
+
+        self._propagators += [propagators_fields.Maxwell(
+            self._e,
+            self._b,
+            **params['solvers']['solver_maxwell'])]
+
+        self._propagators += [propagators_markers.PushEta(
+            self._electrons,
+            algo=electron_params['push_algos']['eta'],
+            bc_type=electron_params['markers']['bc_type'],
+            f0=None)]
+
+        self._propagators += [propagators_markers.PushVxB(
+            self._electrons,
+            algo=electron_params['push_algos']['vxb'],
+            scale_fac=1/self.epsilon,
+            b_eq=self._b_background,
+            b_tilde=self._b,
+            f0=None)]
+
+        self._propagators += [propagators_coupling.VlasovMaxwell(
+            self._e,
+            self._electrons,
+            alpha=self.alpha,
+            epsilon=self.epsilon,
+            **params['solvers']['solver_vlasovmaxwell'])]
+
+        # Scalar variables to be saved during the simulation
+        self._scalar_quantities = {}
+        self._scalar_quantities['en_e'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_b'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_w'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+
+        # MPI operations needed for scalar variables
+        self._mpi_sum = SUM
+        self._mpi_in_place = IN_PLACE
+
+    @property
+    def propagators(self):
+        return self._propagators
+
+    @property
+    def scalar_quantities(self):
+        return self._scalar_quantities
+
+    def initialize_from_params(self):
+        from struphy.propagators import solvers
+        from struphy.pic.particles_to_grid import AccumulatorVector
+
+        # Initialize fields and particles
+        super().initialize_from_params()
+
+        # Accumulate charge density
+        charge_accum = AccumulatorVector(
+            self.derham, self.domain, "H1", "vlasov_maxwell_poisson")
+        charge_accum.accumulate(self._electrons, self.alpha, self.epsilon)
+
+        # Then solve Poisson equation
+        poisson_solver = solvers.PoissonSolver(
+            rho=charge_accum.vectors[0],
+            **self._poisson_params)
+        poisson_solver(0.)
+        self.derham.grad.dot(-poisson_solver._phi, out=self.em_fields['e1']['obj'].vector)
+
+    def update_scalar_quantities(self):
+
+        self._scalar_quantities['en_e'][0] = self._e.dot(
+            self._mass_ops.M1.dot(self._e)) / 2.
+        self._scalar_quantities['en_b'][0] = self._b.dot(
+            self._mass_ops.M2.dot(self._b)) / 2.
+
+        # alpha^2 / 2 / N * sum_p w_p v_p^2
+        self._scalar_quantities['en_w'][0] = self.alpha**2 / 2 * np.dot(self._electrons.markers_wo_holes[:, 3]**2 + self._electrons.markers_wo_holes[:, 4]
+                                                                    ** 2 + self._electrons.markers_wo_holes[:, 5]**2, self._electrons.markers_wo_holes[:, 6]) / self._electrons.n_mks
+
+        self.derham.comm.Allreduce(
+            self._mpi_in_place, self._scalar_quantities['en_w'], op=self._mpi_sum)
+
+        # en_tot = en_w + en_e + en_b
+        self._scalar_quantities['en_tot'][0] = \
+            self._scalar_quantities['en_w'][0] + \
+            self._scalar_quantities['en_e'][0] + \
+            self._scalar_quantities['en_b'][0]
+
+
 class LinearVlasovMaxwell(StruphyModel):
     r'''Linearized Vlasov Maxwell equations with a Maxwellian background distribution function :math:`f_0`.
 
