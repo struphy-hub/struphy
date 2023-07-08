@@ -178,7 +178,7 @@ def test_eval_field(Nel, p, spl_kind):
              'velocity': [True, True, True]}
 
     init_params = {'type': 'ModesCos', 'ModesCos': {'coords': 'logical',
-                                                    'comps': comps, 'ls': [0], 'ms': [0], 'ns': [1], 'amp': [5.]}}
+                                                    'comps': comps, 'ls': [0], 'ms': [0], 'ns': [1], 'amps': [5.]}}
 
     p0.initialize_coeffs(init_params)
     E1.initialize_coeffs(init_params)

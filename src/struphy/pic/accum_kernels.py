@@ -77,6 +77,75 @@ def _docstring():
     print('This is just the docstring function.')
 
 
+@stack_array('bn1', 'bn2', 'bn3')
+def poisson(markers: 'float[:,:]', n_markers_tot: 'int',
+                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                            kind_map: 'int', params_map: 'float[:]',
+                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                            vec: 'float[:,:,:]',
+                            alpha: 'float',  # model specific argument
+                            epsilon: 'float'):  # model specific argument
+    r"""
+    Kernel for :class:`struphy.pic.particles_to_grid.AccumulatorVector` with the filling 
+
+    .. math::
+
+        B_p^\mu = \frac{\alpha^2}{\epsilon} w_p \,.
+
+    Parameters
+    ----------
+    alpha : float
+        Omega_c / Omega_p.
+
+    epsilon : float
+        omega / Omega_c.
+
+    Note
+    ----
+    The above parameter list contains only the model specific input arguments (`*args_add`).
+    """
+
+    # non-vanishing B-splines at particle position
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    #$ omp parallel private (ip, eta1, eta2, eta3, f0, filling)
+    #$ omp for reduction ( + :vec)
+    for ip in range(shape(markers)[0]):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # filling = alpha^2 / epsilon * w_p
+        filling = alpha**2 / epsilon * markers[ip, 6] / n_markers_tot
+
+        # spans (i.e. index for non-vanishing B-spline basis functions)
+        span1 = bsp.find_span(tn1, pn[0], eta1)
+        span2 = bsp.find_span(tn2, pn[1], eta2)
+        span3 = bsp.find_span(tn3, pn[2], eta3)
+
+        # compute bn, bd, i.e. values for non-vanishing B-/splines at position eta
+        bsp.b_splines_slim(tn1, pn[0], eta1, span1, bn1)
+        bsp.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
+        bsp.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
+
+        # call the appropriate matvec filler
+        fk.fill_vec(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3,
+                    starts0, vec, filling)
+
+    #$ omp end parallel
+
+
 @stack_array('cell_left', 'point_left', 'point_right', 'cell_number', 'temp1', 'temp4', 'compact', 'grids_shapex', 'grids_shapey', 'grids_shapez')
 def hybrid_fA_density(markers: 'float[:,:]', n_markers_tot: 'int',
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -319,7 +388,7 @@ def linear_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
 
     .. math::
 
-        \rho_p^\mu &= \alpha^2 \sqrt{f_0(\mathbf{\eta}_p, \mathbf{v}_p)} w_p [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\mu \,.
+        \rho_p^\mu = \alpha^2 \sqrt{f_0(\mathbf{\eta}_p, \mathbf{v}_p)} w_p [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\mu \,.
 
     Parameters
     ----------
@@ -691,7 +760,7 @@ def delta_f_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
 
     .. math::
 
-        \rho_p^\mu &= \alpha^2 \sqrt{f_0(\mathbf{\eta}_p, \mathbf{v}_p)} w_p [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\mu \,.
+        \rho_p^\mu = \alpha^2 \sqrt{f_0(\mathbf{\eta}_p, \mathbf{v}_p)} w_p [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\mu \,.
 
     Parameters
     ----------

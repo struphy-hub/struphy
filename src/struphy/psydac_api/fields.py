@@ -5,7 +5,6 @@ from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 
 from struphy.initial import perturbations
-from struphy.initial import analytic
 from struphy.initial import eigenfunctions
 
 from struphy.polar.basic import PolarVector
@@ -241,7 +240,7 @@ class Field:
         init_type = init_params['type']
 
         if init_type is not None:
-            fun_params = init_params[init_type]
+            fun_params = init_params[init_type].copy()
 
             # white noise in logical space for different components
             if init_type == 'noise':
@@ -265,14 +264,19 @@ class Field:
             # Fourier modes
             elif 'ModesSin' in init_type or 'ModesCos' in init_type:
 
-                # component(s) to perturb
+                # component(s) to initialize
                 if isinstance(fun_params['comps'][self._name], bool):
                     comps = [fun_params['comps'][self._name]]
                 else:
                     comps = fun_params['comps'][self._name]
+                fun_params.pop('comps')
 
-                # coordinates: logical or physical
-                coords = fun_params['coords']
+                # coordinates: logical (default) or physical
+                if 'coords' in fun_params:
+                    coords = fun_params['coords']
+                    fun_params.pop('coords')
+                else:
+                    coords = 'logical'
 
                 # get callable(s) for specified init type
                 fun_tmp = [None] * len(comps)
@@ -280,7 +284,7 @@ class Field:
                     assert isinstance(comp, bool)
                     if comp:
                         fun_class = getattr(perturbations, init_type)
-                        fun_tmp[n] = fun_class(*list(fun_params.values())[2:])
+                        fun_tmp[n] = fun_class(**fun_params)
 
                 # pullback callable
                 form_str = self.derham.forms_dict[self.space_id]
@@ -315,16 +319,20 @@ class Field:
 
                     self.vector = eig_vec
 
-            # projection of analytical function
             else:
+                raise NotImplemented(
+                    f'Initial condition {init_type} not available.')
 
-                # select class
-                funs = getattr(analytic, init_type)(fun_params, domain)
+            # projection of analytical function
+            # else:
 
-                # select function and project project
-                if hasattr(funs, self.name):
-                    self.vector = self.derham.P[self.space_key](
-                        getattr(funs, self.name))
+            #     # select class
+            #     funs = getattr(analytic, init_type)(fun_params, domain)
+
+            #     # select function and project project
+            #     if hasattr(funs, self.name):
+            #         self.vector = self.derham.P[self.space_key](
+            #             getattr(funs, self.name))
 
         # apply boundary operator (in-place)
         self.derham.B[self.space_key].dot(
@@ -434,7 +442,7 @@ class Field:
                                                np.array(self.derham.p), T1, T2, T3, np.array(self.starts), tmp)
 
             if self.derham.comm is not None:
-                if local == False :
+                if local == False:
                     self.derham.comm.Allreduce(MPI.IN_PLACE, tmp, op=MPI.SUM)
 
             # all processes have all values
@@ -460,7 +468,8 @@ class Field:
 
                 if self.derham.comm is not None:
                     if local == False:
-                        self.derham.comm.Allreduce(MPI.IN_PLACE, tmp, op=MPI.SUM)
+                        self.derham.comm.Allreduce(
+                            MPI.IN_PLACE, tmp, op=MPI.SUM)
 
                 # all processes have all values
                 values += [tmp.copy()]

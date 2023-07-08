@@ -288,23 +288,47 @@ class StruphyModel(metaclass=ABCMeta):
                 if 'params' not in key:
                     val['obj'].initialize_coeffs(
                         self.em_fields['params']['init'], domain=self.domain)
+                    
+                    if self.comm.Get_rank() == 0:
+                        _type = self.em_fields['params']['init']['type']
+                        print(f'EM field "{key}" was initialized with:')
+                        print('type:'.ljust(25), _type)
+                        if _type is not None:
+                            for key, val in self.em_fields['params']['init'][_type].items():
+                                print((key + ':').ljust(25), val)
 
         # initialize fields
         if len(self.fluid) > 0:
 
-            for val in self.fluid.values():
+            for species, val in self.fluid.items():
 
                 for variable, subval in val.items():
                     if 'params' not in variable:
                         subval['obj'].initialize_coeffs(
                             val['params']['init'], domain=self.domain)
+                        
+                if self.comm.Get_rank() == 0:
+                    _type = val['params']['init']['type']
+                    print(f'Fluid species "{species}" was initialized with:')
+                    print('type:'.ljust(25), _type)
+                    if _type is not None:
+                        for key, val in val['params']['init'][_type].items():
+                            print((key + ':').ljust(25), val)
 
         # initialize particles
         if len(self.kinetic) > 0:
 
-            for val in self.kinetic.values():
+            for species, val in self.kinetic.items():
+                
+                if self.comm.Get_rank() == 0:
+                    _type = val['params']['init']['type']
+                    print(f'Kinetic species "{species}" was initialized with:')
+                    print('type:'.ljust(25), _type)
+                    if _type is not None:
+                        for key, par in val['params']['init'][_type].items():
+                            print((key + ':').ljust(25), par)
+                
                 val['obj'].draw_markers()
-
                 val['obj'].mpi_sort_markers(do_test=True)
 
                 typ = val['params']['markers']['type']
