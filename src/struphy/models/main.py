@@ -77,6 +77,9 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     # start a new simulation (set initial conditions according to parameter file)
     time_params = params['time']
 
+    if rank == 0:
+        print('\nINITIAL CONDITIONS:')
+        
     if not restart:
         model.initialize_from_params()
         total_steps = str(

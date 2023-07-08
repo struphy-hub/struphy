@@ -193,6 +193,10 @@ ci_vars:
 # Verify the PEP-8 guidelines for your code
 linting:
   stage: startup
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_NAME == "master"
   cache: []
   before_script:
     - module load anaconda/3/2021.11 

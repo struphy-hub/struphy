@@ -20,7 +20,7 @@ class Maxwellian6DUniform(Maxwellian):
     ----------
     **params
         Keyword arguments (n= , u1=, etc.) defining the moments of the 6d Maxwellian.
-        
+
     Note
     ----
     In the parameter .yml, use the following in the section ``kinetic/<species>``::
@@ -35,6 +35,8 @@ class Maxwellian6DUniform(Maxwellian):
                 vth1 : 1.0
                 vth2 : 1.0
                 vth3 : 1.0
+
+    Can use ``background :`` instead of ``init :``.
     """
 
     def __init__(self, **params):
@@ -127,11 +129,11 @@ class Maxwellian6DPerturbed(Maxwellian):
     .. math::
 
         f(\boldsymbol{\eta}, \mathbf v) = \frac{n(\boldsymbol{\eta})}{(2\pi)^{3/2}(v_{\mathrm{th},x}\,v_{\mathrm{th},y}\,v_{\mathrm{th},z})(\boldsymbol{\eta})}\,\exp\left[-\frac{(v_x-u_x(\boldsymbol{\eta}))^2}{2v_{\mathrm{th},x}(\boldsymbol{\eta})^2}-\frac{(v_y-u_y(\boldsymbol{\eta}))^2}{2v_{\mathrm{th},y}(\boldsymbol{\eta})^2}-\frac{(v_z-u_z(\boldsymbol{\eta}))^2}{2v_{\mathrm{th},z}(\boldsymbol{\eta})^2}\right]\,, 
-        
+
     with perturbations of the form
-    
+
     .. math::
-    
+
         n(\boldsymbol{\eta})= n_0 + \sum_i\left\lbrace A_i\sin\left[2\pi(l_i\,\eta_1+m_i\,\eta_2+n_i\,\eta_3)\right] + B_i\cos\left[2\pi(l_i\,\eta_1+m_i\,\eta_2+n_i\,\eta_3)\right] \right\rbrace\,,
 
     and similarly for the other moments :math:`u_x(\boldsymbol{\eta}),u_y(\boldsymbol{\eta})`, etc.
@@ -140,7 +142,7 @@ class Maxwellian6DPerturbed(Maxwellian):
     ----------
     **params
         Keyword arguments defining the moments of the 6d Maxwellian. For each moment, a dictionary of the form {'n0' : float, 'perturbation' : {'l' : list, 'm' : list, 'n' : list, 'amps_sin' : list, 'amps_cos' : list}} must be passed.
-    
+
     Note
     ----
     In the parameter .yml, use the following in the section ``kinetic/<species>``::
@@ -168,6 +170,8 @@ class Maxwellian6DPerturbed(Maxwellian):
                     vth20 : 1.
                 vth3 :
                     vth30 : 1.
+
+    Can use ``background :`` instead of ``init :``.
     """
 
     def __init__(self, **params):
@@ -435,7 +439,7 @@ class Maxwellian6DITPA(Maxwellian):
     ----------
     **params
         Keyword arguments defining the moments of the 6d Maxwellian. For the density profile a dictionary of the form {'c0' : float, 'c1' : float, 'c2' : float, 'c3' : float} must be passed.
-    
+
     Note
     ----
     In the parameter .yml, use the following in the section ``kinetic/<species>``::
@@ -449,6 +453,8 @@ class Maxwellian6DITPA(Maxwellian):
                     c2: 0.5
                     c3: 0.5
                 vth : 1.0
+
+    Can use ``background :`` instead of ``init :``.
     """
 
     def __init__(self, **params):
@@ -561,7 +567,7 @@ class Maxwellian5DUniform(Maxwellian):
     ----------
     **params
         Keyword arguments (n= , u_parallel=, etc.) defining the moments of the 6d Maxwellian.
-        
+
     Note
     ----
     In the parameter .yml, use the following in the section ``kinetic/<species>``::
@@ -574,6 +580,8 @@ class Maxwellian5DUniform(Maxwellian):
                 u_perp : 0.0
                 vth_parallel : 1.0
                 vth_perp : 1.0
+
+    Can use ``background :`` instead of ``init :``.
     """
 
     def __init__(self, **params):

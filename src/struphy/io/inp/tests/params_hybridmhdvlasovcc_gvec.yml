@@ -56,7 +56,7 @@ fluid :
                 ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
                 ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
                 ns : [-1] # Integer mode numbers in z or eta_3 (depending on coords)
-                amp : [0.001] # amplitudes of each mode
+                amps : [0.001] # amplitudes of each mode
                 Lx : 1.
                 Ly : 6.283185307
                 Lz : 6.283185307

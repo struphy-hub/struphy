@@ -376,7 +376,7 @@ class AccumulatorVector:
     def vectors(self):
         """ List of Stencil-/Block-/PolarVectors of the accumulator.
         """
-        space_key = self._derham.spaces_dict[self._space_id]
+        space_key = self.derham.spaces_dict[self._space_id]
 
         out = []
         for vec in self._vectors:
