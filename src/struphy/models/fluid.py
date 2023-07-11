@@ -63,9 +63,6 @@ class LinearMHD(StruphyModel):
                          mhd={'n3': 'L2', u_name: u_space, 'p3': 'L2'})
 
         from struphy.polar.basic import PolarVector
-        from struphy.propagators.base import Propagator
-        from struphy.propagators import propagators_fields
-        from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
 
         # pointers to em-field variables
         self._b = self.em_fields['b2']['obj'].vector
@@ -91,37 +88,28 @@ class LinearMHD(StruphyModel):
         else:
             self._ones[:] = 1.
 
-        # set propagators base class attributes (available to all propagators)
-        Propagator.derham = self.derham
-        Propagator.domain = self.domain
-        Propagator.mass_ops = self.mass_ops
-        Propagator.basis_ops = BasisProjectionOperators(
-            self.derham, self.domain, eq_mhd=self.mhd_equil)
-
         # Initialize propagators/integrators used in splitting substeps
-        self._propagators = []
-        self._propagators += [propagators_fields.ShearAlfvén(
+        self.add_propagator(self.prop_fields.ShearAlfvén(
             self._u,
             self._b,
             u_space=self._u_space,
-            **alfven_solver)]
-        self._propagators += [propagators_fields.Magnetosonic(
+            **alfven_solver))
+        self.add_propagator(self.prop_fields.Magnetosonic(
             self._n,
             self._u,
             self._p,
             u_space=self._u_space,
             b=self._b,
-            **sonic_solver)]
+            **sonic_solver))
 
         # Scalar variables to be saved during simulation
-        self._scalar_quantities = {}
-        self._scalar_quantities['en_U'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_p'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_p_eq'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B_eq'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B_tot'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+        self.add_scalar('en_U')
+        self.add_scalar('en_p')
+        self.add_scalar('en_B')
+        self.add_scalar('en_p_eq')
+        self.add_scalar('en_B_eq')
+        self.add_scalar('en_B_tot')
+        self.add_scalar('en_tot')
 
         # temporary vectors for scalar quantities
         if self._u_space == 'Hdiv':
@@ -132,16 +120,7 @@ class LinearMHD(StruphyModel):
         self._tmp_b1 = self.derham.Vh['2'].zeros()
         self._tmp_b2 = self.derham.Vh['2'].zeros()
 
-    @property
-    def propagators(self):
-        return self._propagators
-
-    @property
-    def scalar_quantities(self):
-        return self._scalar_quantities
-
     def update_scalar_quantities(self):
-
         # perturbed fields
         if self._u_space == 'Hdiv':
             self._mass_ops.M2n.dot(self._u, out=self._tmp_u1)
@@ -154,13 +133,10 @@ class LinearMHD(StruphyModel):
         en_B = self._b.dot(self._tmp_b1)/2
         en_p = self._p.dot(self._ones)/(5/3 - 1)
 
-        self._scalar_quantities['en_U'][0] = en_U
-        self._scalar_quantities['en_B'][0] = en_B
-        self._scalar_quantities['en_p'][0] = en_p
-
-        self._scalar_quantities['en_tot'][0] = en_U
-        self._scalar_quantities['en_tot'][0] += en_B
-        self._scalar_quantities['en_tot'][0] += en_p
+        self.update_scalar('en_U', en_U)
+        self.update_scalar('en_B', en_B)
+        self.update_scalar('en_p', en_p)
+        self.update_scalar('en_tot', en_U + en_B + en_p)
 
         # background fields
         self._mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
@@ -168,8 +144,8 @@ class LinearMHD(StruphyModel):
         en_B0 = self._b_eq.dot(self._tmp_b1)/2
         en_p0 = self._p_eq.dot(self._ones)/(5/3 - 1)
 
-        self._scalar_quantities['en_B_eq'][0] = en_B0
-        self._scalar_quantities['en_p_eq'][0] = en_p0
+        self.update_scalar('en_B_eq', en_B0)
+        self.update_scalar('en_p_eq', en_p0)
 
         # total magnetic field
         self._b_eq.copy(out=self._tmp_b1)
@@ -179,7 +155,7 @@ class LinearMHD(StruphyModel):
 
         en_Btot = self._tmp_b1.dot(self._tmp_b2)/2
 
-        self._scalar_quantities['en_B_tot'][0] = en_Btot
+        self.update_scalar('en_B_tot', en_Btot)
 
 
 class LinearExtendedMHD(StruphyModel):
@@ -239,9 +215,6 @@ class LinearExtendedMHD(StruphyModel):
                          mhd={'n3': 'L2', 'u2': 'Hdiv', 'pi3': 'L2', 'pe3': 'L2'})
 
         from struphy.polar.basic import PolarVector
-        from struphy.propagators.base import Propagator
-        from struphy.propagators import propagators_fields
-        from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
 
         # pointers to em-field variables
         self._b = self.em_fields['b1']['obj'].vector
@@ -251,7 +224,7 @@ class LinearExtendedMHD(StruphyModel):
         self._u = self.fluid['mhd']['u2']['obj'].vector
         self._p_i = self.fluid['mhd']['pi3']['obj'].vector
         self._p_e = self.fluid['mhd']['pe3']['obj'].vector
-        
+
         # extract necessary parameters
         alfven_solver = params['solvers']['solver_1']
         Hall_solver = params['solvers']['solver_2']
@@ -265,11 +238,11 @@ class LinearExtendedMHD(StruphyModel):
         self._p_i_eq = self.derham.P['3'](self.mhd_equil.p3)
         self._p_e_eq = self.derham.P['3'](self.mhd_equil.p3)
         self._ones = self._p_i.space.zeros()
-        #project background vector potential (1-form)
+        # project background vector potential (1-form)
         self._a_eq = self.derham.P['1']([self.mhd_equil.a1_1,
                                          self.mhd_equil.a1_2,
                                          self.mhd_equil.a1_3])
-        
+
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.
         else:
@@ -284,46 +257,37 @@ class LinearExtendedMHD(StruphyModel):
         self._coupling_params = {}
         self._coupling_params['kappa'] = kappa
 
-        # set propagators base class attributes (available to all propagators)
-        Propagator.derham = self.derham
-        Propagator.domain = self.domain
-        Propagator.mass_ops = self.mass_ops
-        Propagator.basis_ops = BasisProjectionOperators(
-            self.derham, self.domain, eq_mhd=self.mhd_equil)
-
         # Initialize propagators/integrators used in splitting substeps
-        self._propagators = []
-        self._propagators += [propagators_fields.ShearAlfvénB1(
+        self.add_propagator(self.prop_fields.ShearAlfvénB1(
             self._u,
             self._b,
-            **alfven_solver)]
-        self._propagators += [propagators_fields.Hall(
+            **alfven_solver))
+        self.add_propagator(self.prop_fields.Hall(
             self._b,
             **Hall_solver,
-            **self._coupling_params)]
-        self._propagators += [propagators_fields.SonicIon(
+            **self._coupling_params))
+        self.add_propagator(self.prop_fields.SonicIon(
             self._n,
             self._u,
             self._p_i,
-            **SonicIon_solver)]
-        self._propagators += [propagators_fields.SonicElectron(
+            **SonicIon_solver))
+        self.add_propagator(self.prop_fields.SonicElectron(
             self._n,
             self._u,
             self._p_e,
-            **SonicElectron_solver)]
+            **SonicElectron_solver))
 
         # Scalar variables to be saved during simulation
-        self._scalar_quantities = {}
-        self._scalar_quantities['en_U'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_p_i'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_p_e'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_p_i_eq'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_p_e_eq'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B_eq'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B_tot'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
-        self._scalar_quantities['helicity'] = np.empty(1, dtype=float)
+        self.add_scalar('en_U')
+        self.add_scalar('en_p_i')
+        self.add_scalar('en_p_e')
+        self.add_scalar('en_B')
+        self.add_scalar('en_p_i_eq')
+        self.add_scalar('en_p_e_eq')
+        self.add_scalar('en_B_eq')
+        self.add_scalar('en_B_tot')
+        self.add_scalar('en_tot')
+        self.add_scalar('helicity')
 
         # temporary vectors for scalar quantities
         self._tmp_u1 = self.derham.Vh['2'].zeros()
@@ -331,16 +295,7 @@ class LinearExtendedMHD(StruphyModel):
         self._tmp_b1 = self.derham.Vh['1'].zeros()
         self._tmp_b2 = self.derham.Vh['1'].zeros()
 
-    @property
-    def propagators(self):
-        return self._propagators
-
-    @property
-    def scalar_quantities(self):
-        return self._scalar_quantities
-
     def update_scalar_quantities(self):
-
         # perturbed fields
         self._mass_ops.M2n.dot(self._u, out=self._tmp_u1)
 
@@ -352,16 +307,12 @@ class LinearExtendedMHD(StruphyModel):
         en_p_i = self._p_i.dot(self._ones)/(5.0/3.0 - 1.0)
         en_p_e = self._p_e.dot(self._ones)/(5.0/3.0 - 1.0)
 
-        self._scalar_quantities['en_U'][0] = en_U
-        self._scalar_quantities['en_B'][0] = en_B
-        self._scalar_quantities['en_p_i'][0] = en_p_i
-        self._scalar_quantities['en_p_e'][0] = en_p_e
-        self._scalar_quantities['helicity'][0] = helicity
-        
-        self._scalar_quantities['en_tot'][0] = en_U
-        self._scalar_quantities['en_tot'][0] += en_B
-        self._scalar_quantities['en_tot'][0] += en_p_i
-        self._scalar_quantities['en_tot'][0] += en_p_e
+        self.update_scalar('en_U', en_U)
+        self.update_scalar('en_B', en_B)
+        self.update_scalar('en_p_i', en_p_i)
+        self.update_scalar('en_p_e', en_p_e)
+        self.update_scalar('helicity', helicity)
+        self.update_scalar('en_tot', en_U + en_B + en_p_i + en_p_e)
 
         # background fields
         self._mass_ops.M1.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
@@ -370,9 +321,9 @@ class LinearExtendedMHD(StruphyModel):
         en_p0_i = self._p_i_eq.dot(self._ones)/(5.0/3.0 - 1.0)
         en_p0_e = self._p_e_eq.dot(self._ones)/(5.0/3.0 - 1.0)
 
-        self._scalar_quantities['en_B_eq'][0] = en_B0
-        self._scalar_quantities['en_p_i_eq'][0] = en_p0_i
-        self._scalar_quantities['en_p_e_eq'][0] = en_p0_e
+        self.update_scalar('en_B_eq', en_B0)
+        self.update_scalar('en_p_i_eq', en_p0_i)
+        self.update_scalar('en_p_e_eq', en_p0_e)
 
         # total magnetic field
         self._b_eq.copy(out=self._tmp_b1)
@@ -382,7 +333,7 @@ class LinearExtendedMHD(StruphyModel):
 
         en_Btot = self._tmp_b1.dot(self._tmp_b2)/2.0
 
-        self._scalar_quantities['en_B_tot'][0] = en_Btot
+        self.update_scalar('en_B_tot', en_Btot)
 
 
 class ColdPlasma(StruphyModel):
@@ -430,9 +381,6 @@ class ColdPlasma(StruphyModel):
         super().__init__(params, comm, e1='Hcurl', b2='Hdiv',
                          electrons={'j1': 'Hcurl'})
 
-        from struphy.propagators.base import Propagator
-        from struphy.propagators import propagators_fields
-
         # pointers to em-fields variables
         self._e = self.em_fields['e1']['obj'].vector
         self._b = self.em_fields['b2']['obj'].vector
@@ -450,44 +398,35 @@ class ColdPlasma(StruphyModel):
         add_params['alpha'] = self.eq_params['electrons']['alpha_unit']
         add_params['epsilon'] = self.eq_params['electrons']['epsilon_unit']
 
-        # set propagators base class attributes (available to all propagators)
-        Propagator.derham = self.derham
-        Propagator.domain = self.domain
-        Propagator.mass_ops = self.mass_ops
-
         # Initialize propagators/integrators used in splitting substeps
-        self._propagators = []
-        self._propagators += [propagators_fields.Maxwell(
-            self._e, self._b, **maxwell_solver)]
-        self._propagators += [propagators_fields.OhmCold(
-            self._j, self._e, **cold_solver, **add_params)]
-        self._propagators += [propagators_fields.JxBCold(
-            self._j, **fluid_solver, **add_params)]
+        self.add_propagator(self.prop_fields.Maxwell(
+            self._e,
+            self._b,
+            **maxwell_solver))
+        self.add_propagator(self.prop_fields.OhmCold(
+            self._j,
+            self._e,
+            **cold_solver,
+            **add_params))
+        self.add_propagator(self.prop_fields.JxBCold(
+            self._j,
+            **fluid_solver,
+            **add_params))
 
         # Scalar variables to be saved during simulation
-        self._scalar_quantities = {}
-        self._scalar_quantities['time'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_E'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_J'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
-
-    @property
-    def propagators(self):
-        return self._propagators
-
-    @property
-    def scalar_quantities(self):
-        return self._scalar_quantities
+        self.add_scalar('time')
+        self.add_scalar('en_E')
+        self.add_scalar('en_B')
+        self.add_scalar('en_J')
+        self.add_scalar('en_tot')
 
     def update_scalar_quantities(self):
-
         en_E = .5 * self._e.dot(self._mass_ops.M1.dot(self._e))
         en_B = .5 * self._b.dot(self._mass_ops.M2.dot(self._b))
         en_J = .5 * self._j.dot(self._mass_ops.M1ninv.dot(self._j))
         en_tot = en_E + en_B + en_J
 
-        self._scalar_quantities['en_E'][0] = en_E
-        self._scalar_quantities['en_B'][0] = en_B
-        self._scalar_quantities['en_J'][0] = en_J
-        self._scalar_quantities['en_tot'][0] = en_tot
+        self.update_scalar('en_E', en_E)
+        self.update_scalar('en_B', en_B)
+        self.update_scalar('en_J', en_J)
+        self.update_scalar('en_tot', en_tot)

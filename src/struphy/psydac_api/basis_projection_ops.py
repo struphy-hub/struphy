@@ -62,8 +62,8 @@ class BasisProjectionOperators:
 
     def __init__(self, derham, domain, **weights):
 
-        assert np.all(np.array(
-            derham.p) > 1), 'Spline degrees must be >1 to use basis projection operators (-> avoid interpolation of piece-wise constants).'
+        if np.any(np.array(derham.p) == 1):
+            print(f'WARNING: Class "BasisProjectionOperators" called with p={derham.p} (interpolation of piece-wise constants should be avoided).\n')
 
         self._derham = derham
         self._domain = domain

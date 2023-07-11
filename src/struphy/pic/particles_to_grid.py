@@ -6,6 +6,7 @@ from psydac.linalg.block import BlockVector
 from struphy.psydac_api.mass import WeightedMassOperator
 
 import struphy.pic.accum_kernels as accums
+import struphy.pic.accum_kernels as accums_gc
 
 
 class Accumulator:
@@ -35,7 +36,7 @@ class Accumulator:
     space_id : str
         Space identifier for the matrix/vector (H1, Hcurl, Hdiv, L2 or H1vec) to be accumulated into.
 
-    accumulator_name : str
+    kernel_name : str
         Name of accumulator function to be loaded from struphy/pic/accum_kernels.py.
 
     add_vector : bool
@@ -50,7 +51,7 @@ class Accumulator:
         Please follow the docstring in `struphy.pic.accum_kernels._docstring`.
     """
 
-    def __init__(self, derham, domain, space_id, accumulator_name, add_vector=False, symmetry=None):
+    def __init__(self, derham, domain, space_id, kernel_name, add_vector=False, symmetry=None):
 
         self._derham = derham
         self._domain = domain
@@ -131,8 +132,16 @@ class Accumulator:
                           np.array(derham.Vh['3'].starts))
 
         # load the appropriate accumulation kernel (pyccelized, fast)
-        self._accumulator_name = accumulator_name
-        self._accumulator_kernel = getattr(accums, accumulator_name)
+        self._kernel_name = kernel_name
+        self._kernel = None
+
+        objs = [accums, accums_gc]
+        for obj in objs:
+            try:
+                self._kernel = getattr(obj, self.kernel_name)
+            except AttributeError:
+                pass
+        assert self.kernel is not None
 
     @property
     def derham(self):
@@ -179,16 +188,16 @@ class Accumulator:
         return out
 
     @property
-    def accumulator_name(self):
+    def kernel_name(self):
         """ String that identifies which function to load from the module struphy.pic.accum_kernels.
         """
-        return self._accumulator_name
+        return self._kernel_name
 
     @property
-    def accumulator_kernel(self):
+    def kernel(self):
         """ The kernel loaded from the module struphy.pic.accum_kernels.
         """
-        return self._accumulator_kernel
+        return self._kernel
 
     def accumulate(self, particles, *args_add, **args_control):
         """
@@ -218,9 +227,9 @@ class Accumulator:
             dat[:] = 0.
 
         # accumulate into matrix (and vector) with markers
-        self._accumulator_kernel(particles.markers, particles.n_mks,
-                                 *self._args_fem, *self._domain.args_map,
-                                 *self._args_data, *args_add)
+        self.kernel(particles.markers, particles.n_mks,
+                    *self._args_fem, *self._domain.args_map,
+                    *self._args_data, *args_add)
         # add analytical contribution (control variate) to matrix
         if 'control_mat' in args_control:
             self._operators[0].assemble(weights=args_control['control_mat'])
@@ -303,7 +312,7 @@ class AccumulatorVector:
     space_id : str
         Space identifier for the matrix/vector (H1, Hcurl, Hdiv, L2 or H1vec) to be accumulated into.
 
-    accumulator_name : str
+    kernel_name : str
         Name of accumulator function to be loaded from struphy/pic/accum_kernels.py.
 
     Note
@@ -312,7 +321,7 @@ class AccumulatorVector:
     Please follow the docstring in `struphy.pic.accum_kernels._docstring`.
     """
 
-    def __init__(self, derham, domain, space_id, accumulator_name):
+    def __init__(self, derham, domain, space_id, kernel_name):
 
         self._derham = derham
         self._domain = domain
@@ -328,7 +337,8 @@ class AccumulatorVector:
         self._args_data = ()
 
         if space_id in ("H1", "L2"):
-            self._vectors += [StencilVector(derham.Vh_fem[space_key].vector_space)]
+            self._vectors += [StencilVector(
+                derham.Vh_fem[space_key].vector_space)]
 
         elif space_id in ("Hcurl", "Hdiv", "H1vec"):
             self._vectors += [BlockVector(derham.Vh_fem[space_key].vector_space)]
@@ -351,8 +361,16 @@ class AccumulatorVector:
                           np.array(derham.Vh['3'].starts))
 
         # load the appropriate accumulation kernel (pyccelized, fast)
-        self._accumulator_name = accumulator_name
-        self._accumulator_kernel = getattr(accums, accumulator_name)
+        self._kernel_name = kernel_name
+        self._kernel = None
+
+        objs = [accums, accums_gc]
+        for obj in objs:
+            try:
+                self._kernel = getattr(obj, self.kernel_name)
+            except AttributeError:
+                pass
+        assert self.kernel is not None
 
     @property
     def derham(self):
@@ -386,16 +404,16 @@ class AccumulatorVector:
         return out
 
     @property
-    def accumulator_name(self):
+    def kernel_name(self):
         """ String that identifies which function to load from the module struphy.pic.accum_kernels.
         """
-        return self._accumulator_name
+        return self._kernel_name
 
     @property
-    def accumulator_kernel(self):
+    def kernel(self):
         """ The kernel loaded from the module struphy.pic.accum_kernels.
         """
-        return self._accumulator_kernel
+        return self._kernel
 
     def accumulate(self, particles, *args_add, **args_control):
         """
@@ -424,9 +442,9 @@ class AccumulatorVector:
             dat[:] = 0.
 
         # accumulate into matrix (and vector) with markers
-        self._accumulator_kernel(particles.markers, particles.n_mks,
-                                 *self._args_fem, *self._domain.args_map,
-                                 *self._args_data, *args_add)
+        self.kernel(particles.markers, particles.n_mks,
+                    *self._args_fem, *self._domain.args_map,
+                    *self._args_data, *args_add)
 
         # add analytical contribution (control variate) to matrix
         if 'control_mat' in args_control:

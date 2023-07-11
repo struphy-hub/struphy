@@ -1,4 +1,5 @@
 import struphy.pic.pusher_kernels as pushers
+import struphy.pic.pusher_kernels_gc as pushers_gc
 import struphy.pic.utilities_kernels as utilities
 
 import numpy as np
@@ -7,9 +8,9 @@ import numpy as np
 class Pusher:
     """
     Wrapper class for particle pushing. 
-    
+
     It retrieves the correct pusher kernel and prepares the FEM arguments passed to the pusher kernel.
-    
+
     Parameters
     ----------
         derham : struphy.psydac_api.psydac_derham.Derham
@@ -41,7 +42,15 @@ class Pusher:
 
         # select pusher kernel
         self._kernel_name = kernel_name
-        self._kernel = getattr(pushers, self._kernel_name)
+        self._kernel = None
+
+        objs = [pushers, pushers_gc]
+        for obj in objs:
+            try:
+                self._kernel = getattr(obj, self.kernel_name)
+            except AttributeError:
+                pass
+        assert self.kernel is not None
 
     def __call__(self, particles, dt, *args_opt, mpi_sort=None, verbose=False):
         """
@@ -72,22 +81,23 @@ class Pusher:
                           9:12] = particles.markers[~particles.holes, 0:3]
 
         if particles.kinds == 'Particles5D':
-            particles.markers[~particles.holes, 12] = particles.markers[~particles.holes, 3]
+            particles.markers[~particles.holes,
+                              12] = particles.markers[~particles.holes, 3]
 
         for stage in range(self._n_stages):
-            self._kernel(particles.markers, dt, stage, *
-                         self.args_fem, *self.domain.args_map, *args_opt)
+            self.kernel(particles.markers, dt, stage, *
+                        self.args_fem, *self.domain.args_map, *args_opt)
 
             # applying kinetic boundary condition
             particles.apply_kinetic_bc()
-            
+
             # sort markers according to domain decomposition
             if mpi_sort == 'each':
                 particles.mpi_sort_markers()
 
             # print stage info
             if self._derham.comm.Get_rank() == 0 and verbose:
-                print(self._kernel_name, 'done. (stage :', stage + 1, ')')
+                print(self.kernel_name, 'done. (stage :', stage + 1, ')')
 
         # sort markers according to domain decomposition
         if mpi_sort == 'last':
@@ -129,11 +139,17 @@ class Pusher:
         """
         return self._kernel_name
 
+    @property
+    def kernel(self):
+        """ The pyccelized pusher kernel.
+        """
+        return self._kernel
+
 
 class ButcherTableau:
     """
     Butcher tableau for explicit s-stage Runge-Kutta methods. 
-    
+
     A Butcher tableau has the form
 
       c_0   | 
@@ -202,7 +218,7 @@ class ButcherTableau:
 class Pusher_iteration_Gonzalez:
     """
     Wrapper class for particle pushing with discrete_gradient scheme (Gonzalez, mid-point).
-    
+
     It retrieves the correct pusher kernel(s) and prepares the FEM arguments passed to the pusher kernel.
 
     Parameters
@@ -237,10 +253,20 @@ class Pusher_iteration_Gonzalez:
 
         # select kernels
         self._kernel_name = kernel_name
-        self._kernel = getattr(pushers, self._kernel_name)
-        self._kernel_prepare = getattr(utilities, self._kernel_name + '_prepare')
-        self._kernel_eval_gradI = getattr(utilities, self._kernel_name + '_eval_gradI')
+        self._kernel = None
 
+        objs = [pushers, pushers_gc]
+        for obj in objs:
+            try:
+                self._kernel = getattr(obj, self.kernel_name)
+            except AttributeError:
+                pass
+        assert self.kernel is not None
+
+        self._kernel_prepare = getattr(
+            utilities, self.kernel_name + '_prepare')
+        self._kernel_eval_gradI = getattr(
+            utilities, self.kernel_name + '_eval_gradI')
 
     def __call__(self, particles, dt, *args_opt, mpi_sort=None, verbose=False):
         """
@@ -261,30 +287,37 @@ class Pusher_iteration_Gonzalez:
                 Whether to print some info or not.
         """
         # save initial etas and v_parallel in columns 9:13
-        particles.markers[~particles.holes, 9:13] = particles.markers[~particles.holes, 0:4]
+        particles.markers[~particles.holes,
+                          9:13] = particles.markers[~particles.holes, 0:4]
 
         # prepare the iteration:
-        self._kernel_prepare(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
+        self.kernel_prepare(particles.markers, dt, *
+                            self.args_fem, *self.domain.args_map, *args_opt)
         particles.mpi_sort_markers()
 
-        # eval gradI 
-        self._kernel_eval_gradI(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
+        # eval gradI
+        self.kernel_eval_gradI(particles.markers, dt, *
+                               self.args_fem, *self.domain.args_map, *args_opt)
         particles.mpi_sort_markers()
 
         # start iteration
         for stage in range(self._maxiter):
 
-            self._kernel(particles.markers, dt, stage, self._tol, *self.args_fem, *self.domain.args_map, *args_opt)
+            self.kernel(particles.markers, dt, stage, self._tol,
+                        *self.args_fem, *self.domain.args_map, *args_opt)
             particles.mpi_sort_markers()
 
-            self._kernel_eval_gradI(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
+            self.kernel_eval_gradI(
+                particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
             particles.mpi_sort_markers()
 
             if stage == self._maxiter-1 and verbose:
-                not_converged = np.logical_not(particles.markers[:,23]==-1.)
-                print('Number of not converged particles:', np.count_nonzero(not_converged))
+                not_converged = np.logical_not(particles.markers[:, 23] == -1.)
+                print('Number of not converged particles:',
+                      np.count_nonzero(not_converged))
                 # print('Non converged partices:', particles.markers[not_converged, 0:13])
-                print('NUmber of iterations', np.average(particles.markers[~particles.holes,20])+1)
+                print('NUmber of iterations', np.average(
+                    particles.markers[~particles.holes, 20])+1)
 
         # clear buffer columns 9-23 for multi-stage pushers
         particles.markers[~particles.holes, 9:25] = 0.
@@ -318,12 +351,30 @@ class Pusher_iteration_Gonzalez:
         """ The name of the pyccelized pusher kernel.
         """
         return self._kernel_name
-    
+
+    @property
+    def kernel(self):
+        """ The pyccelized pusher kernel.
+        """
+        return self._kernel
+
+    @property
+    def kernel_prepare(self):
+        """ A preparation kernel.
+        """
+        return self._kernel_prepare
+
+    @property
+    def kernel_eval_gradI(self):
+        """ A preparation kernel.
+        """
+        return self._kernel_eval_gradI
+
 
 class Pusher_iteration_Itoh:
     """
     Wrapper class for particle pushing with discrete_gradient scheme (Itoh_Newton).
-    
+
     It retrieves the correct pusher kernel(s) and prepares the FEM arguments passed to the pusher kernel.
 
     Parameters
@@ -358,10 +409,22 @@ class Pusher_iteration_Itoh:
 
         # select kernels
         self._kernel_name = kernel_name
-        self._kernel = getattr(pushers, self._kernel_name)
-        self._kernel_prepare = getattr(utilities, self._kernel_name + '_prepare')
-        self._kernel_prepare1 = getattr(utilities, self._kernel_name + '_prepare1')
-        self._kernel_prepare2 = getattr(utilities, self._kernel_name + '_prepare2')
+        self._kernel = None
+
+        objs = [pushers, pushers_gc]
+        for obj in objs:
+            try:
+                self._kernel = getattr(obj, self.kernel_name)
+            except AttributeError:
+                pass
+        assert self.kernel is not None
+
+        self._kernel_prepare = getattr(
+            utilities, self.kernel_name + '_prepare')
+        self._kernel_prepare1 = getattr(
+            utilities, self.kernel_name + '_prepare1')
+        self._kernel_prepare2 = getattr(
+            utilities, self.kernel_name + '_prepare2')
 
     def __call__(self, particles, dt, *args_opt, mpi_sort=None, verbose=False):
         """
@@ -382,30 +445,37 @@ class Pusher_iteration_Itoh:
                 Whether to print some info or not.
         """
         # save initial etas and v_parallel in columns 9:13
-        particles.markers[~particles.holes, 9:13] = particles.markers[~particles.holes, 0:4]
+        particles.markers[~particles.holes,
+                          9:13] = particles.markers[~particles.holes, 0:4]
 
         # prepare the iteration:
-        self._kernel_prepare(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
+        self.kernel_prepare(particles.markers, dt, *
+                            self.args_fem, *self.domain.args_map, *args_opt)
         particles.mpi_sort_markers()
 
         # start iteration
         for stage in range(self._maxiter):
 
-            self._kernel_prepare1(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
+            self.kernel_prepare1(particles.markers, dt, *
+                                 self.args_fem, *self.domain.args_map, *args_opt)
             particles.mpi_sort_markers()
 
-            self._kernel_prepare2(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
+            self.kernel_prepare2(particles.markers, dt, *
+                                 self.args_fem, *self.domain.args_map, *args_opt)
             particles.mpi_sort_markers()
 
-            self._kernel(particles.markers, dt, stage, self._maxiter, self._tol, *self.args_fem, *self.domain.args_map, *args_opt)
+            self.kernel(particles.markers, dt, stage, self._maxiter,
+                        self._tol, *self.args_fem, *self.domain.args_map, *args_opt)
             particles.mpi_sort_markers()
 
             if stage == self._maxiter-1 and verbose:
-                not_converged = np.logical_not(particles.markers[:,13]==-1.)
-                print('Number of not converged particles:', np.count_nonzero(not_converged))
+                not_converged = np.logical_not(particles.markers[:, 13] == -1.)
+                print('Number of not converged particles:',
+                      np.count_nonzero(not_converged))
                 # print('Non converged partices:', particles.markers[not_converged, 0:13])
-                print('NUmber of iterations', np.average(particles.markers[~particles.holes,14])+1)
-                
+                print('NUmber of iterations', np.average(
+                    particles.markers[~particles.holes, 14])+1)
+
         # clear buffer columns 9-23 for multi-stage pushers
         particles.markers[~particles.holes, 9:25] = 0.
 
@@ -438,3 +508,27 @@ class Pusher_iteration_Itoh:
         """ The name of the pyccelized pusher kernel.
         """
         return self._kernel_name
+
+    @property
+    def kernel(self):
+        """ The pyccelized pusher kernel.
+        """
+        return self._kernel
+
+    @property
+    def kernel_prepare(self):
+        """ A preparation kernel.
+        """
+        return self._kernel_prepare
+
+    @property
+    def kernel_prepare1(self):
+        """ A preparation kernel.
+        """
+        return self._kernel_prepare1
+
+    @property
+    def kernel_prepare2(self):
+        """ A preparation kernel.
+        """
+        return self._kernel_prepare2

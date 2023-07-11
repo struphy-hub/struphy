@@ -341,12 +341,12 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
                 t3_map, p_map, ind1_map, ind2_map, ind3_map, cx, cy, cz, df)
     linalg.matrix_inv(df, df_inv)
 
-    v1_curv = kappa * (df_inv[0, 0] * (v1_curr + v1) + df_inv[0, 1] * \
-        (v2_curr + v2) + df_inv[0, 2] * (v3_curr + v3))
-    v2_curv = kappa * (df_inv[1, 0] * (v1_curr + v1) + df_inv[1, 1] * \
-        (v2_curr + v2) + df_inv[1, 2] * (v3_curr + v3))
-    v3_curv = kappa * (df_inv[2, 0] * (v1_curr + v1) + df_inv[2, 1] * \
-        (v2_curr + v2) + df_inv[2, 2] * (v3_curr + v3))
+    v1_curv = kappa * (df_inv[0, 0] * (v1_curr + v1) + df_inv[0, 1] *
+                       (v2_curr + v2) + df_inv[0, 2] * (v3_curr + v3))
+    v2_curv = kappa * (df_inv[1, 0] * (v1_curr + v1) + df_inv[1, 1] *
+                       (v2_curr + v2) + df_inv[1, 2] * (v3_curr + v3))
+    v3_curv = kappa * (df_inv[2, 0] * (v1_curr + v1) + df_inv[2, 1] *
+                       (v2_curr + v2) + df_inv[2, 2] * (v3_curr + v3))
 
     eta1_next = (eta1 + dt * v1_curv / 2.) % 1
     eta2_next = (eta2 + dt * v2_curv / 2.) % 1
@@ -384,12 +384,12 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
 
         # ======================================================================================
         # update the positions and place them back into the computational domain
-        v1_curv = kappa * (df_inv[0, 0] * (v1_curr + v1) + df_inv[0, 1] * \
-            (v2_curr + v2) + df_inv[0, 2] * (v3_curr + v3))
-        v2_curv = kappa * (df_inv[1, 0] * (v1_curr + v1) + df_inv[1, 1] * \
-            (v2_curr + v2) + df_inv[1, 2] * (v3_curr + v3))
-        v3_curv = kappa * (df_inv[2, 0] * (v1_curr + v1) + df_inv[2, 1] * \
-            (v2_curr + v2) + df_inv[2, 2] * (v3_curr + v3))
+        v1_curv = kappa * (df_inv[0, 0] * (v1_curr + v1) + df_inv[0, 1] *
+                           (v2_curr + v2) + df_inv[0, 2] * (v3_curr + v3))
+        v2_curv = kappa * (df_inv[1, 0] * (v1_curr + v1) + df_inv[1, 1] *
+                           (v2_curr + v2) + df_inv[1, 2] * (v3_curr + v3))
+        v3_curv = kappa * (df_inv[2, 0] * (v1_curr + v1) + df_inv[2, 1] *
+                           (v2_curr + v2) + df_inv[2, 2] * (v3_curr + v3))
 
         # x_{n+1} = x_n + dt/2 * DF^{-1}(x_{n+1}/2 + x_n/2) * (v_{n+1} + v_n)
         eta1_next = (eta1 + dt * v1_curv / 2.) % 1
