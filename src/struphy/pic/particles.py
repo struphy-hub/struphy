@@ -10,6 +10,7 @@ from struphy.pic.utilities_kernels import eval_magnetic_energy, eval_magnetic_mo
 from struphy.kinetic_background import maxwellians
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
+
 class Particles(metaclass=ABCMeta):
     """
     Base class for a particle based kinetic species.
@@ -209,7 +210,7 @@ class Particles(metaclass=ABCMeta):
         """ Number of removed particles.
         """
         return self._n_lost_markers
-    
+
     @property
     def bt_energy(self):
         """ Sum of energy differences caused by boundary transfer.
@@ -306,7 +307,7 @@ class Particles(metaclass=ABCMeta):
 
         # cumulative sum of number of markers on each process at loading stage.
         n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
-        
+
         if self._mpi_rank == 0:
             print('\nMARKERS:')
 
@@ -333,7 +334,7 @@ class Particles(metaclass=ABCMeta):
 
         # load fresh markers
         else:
-            
+
             if self._mpi_rank == 0:
                 for key, val in self._params['loading'].items():
                     print((key + ' :').ljust(25), val)
@@ -591,7 +592,7 @@ class Particles(metaclass=ABCMeta):
         # in case of approximation of f^0
         if domain is not None:
             _weights /= domain.jacobian_det(self.markers)
-            
+
         if velocity_det is not None:
             _weights /= velocity_det(self.markers)
 
@@ -616,7 +617,7 @@ class Particles(metaclass=ABCMeta):
 
         domain : struphy.geometry.domains
             Mapping info for evaluating metric coefficients.
-            
+
         velocity_det : callable
             The Jacobian deteminant of a velocity space transformation. 
             Must perform "marker evaluation" if a 2D numpy array is passed, just as ``domain.jacobian_det()``.
@@ -628,11 +629,13 @@ class Particles(metaclass=ABCMeta):
 
         assert n_dim == 1 or n_dim == 2, f'Distribution function can only be shown in 1D or 2D slices, not {n_dim}.'
 
-        f_slice = self.binning(components, bin_edges, domain=domain, velocity_det=velocity_det)
+        f_slice = self.binning(components, bin_edges,
+                               domain=domain, velocity_det=velocity_det)
 
         bin_centers = [bi[:-1] + (bi[1] - bi[0])/2 for bi in bin_edges]
 
-        labels = {0 : '$\eta_1$', 1 : '$\eta_2$', 2 : '$\eta_3$', 3 : '$v_1$', 4 : '$v_2$', 5 : '$v_3$'}
+        labels = {0: '$\eta_1$', 1: '$\eta_2$',
+                  2: '$\eta_3$', 3: '$v_1$', 4: '$v_2$', 5: '$v_3$'}
         indices = np.nonzero(components)[0]
 
         if n_dim == 1:
@@ -717,7 +720,7 @@ class Particles(metaclass=ABCMeta):
         ----------
         """
         T1, T2, T3 = derham.Vh_fem['0'].knots
-        
+
         self.comm.Barrier()
 
         # sorting out particles inside of the rmin circle
@@ -729,8 +732,9 @@ class Particles(metaclass=ABCMeta):
         transfer_inds = np.nonzero(smaller_than_rmin)[0]
 
         # add the old energy of the particles
-        self._bt_energy += np.sum(self.markers[transfer_inds,5].dot(self.markers[transfer_inds,8])/self.n_mks)
-        
+        self._bt_energy += np.sum(self.markers[transfer_inds, 5].dot(
+            self.markers[transfer_inds, 8])/self.n_mks)
+
         # transfer
         self.markers[transfer_inds, 1] += 0.5
         self.markers[transfer_inds, 1] = self.markers[transfer_inds, 1] % 1.
@@ -756,12 +760,14 @@ class Particles(metaclass=ABCMeta):
                              np.array(derham.p), T1, T2, T3,
                              np.array(derham.Vh['0'].starts),
                              PB._data)
-        
-        self._bt_energy -= np.sum(self.markers[transfer_inds,5].dot(self.markers[transfer_inds,8])/self.n_mks)
+
+        self._bt_energy -= np.sum(self.markers[transfer_inds, 5].dot(
+            self.markers[transfer_inds, 8])/self.n_mks)
 
         self.markers[transfer_inds, 23] = -1.
 
         self.comm.Barrier()
+
 
 class Particles6D(Particles):
     """

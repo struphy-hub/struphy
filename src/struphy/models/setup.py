@@ -2,21 +2,20 @@ import numpy as np
 
 
 def derive_units(Z_bulk=1, A_bulk=1., x=1., B=1., n=1., time_scale='alfvén'):
-    """
-    Computes Struphy units used in Struphy model implementations.
-    
+    """ Computes Struphy units used in Struphy model implementations.
+
     Input units from parameter file:
-    
+
         * Length (m)
         * Magnetic field (T)
         * number density (10^20 1/m^3)
-        
+
     Velocity unit must be defined in each model as one of "light", "alfvén" or "cyclotron":
-    
+
         * Velocity (m/s)
-        
+
     Derived units using mass and charge number of bulk species:
-    
+
         * Time (s)
         * Mass density (kg/m^3)
         * Pressure (Pa)
@@ -72,12 +71,14 @@ def derive_units(Z_bulk=1, A_bulk=1., x=1., B=1., n=1., time_scale='alfvén'):
     elif time_scale == 'alfvén':
         units['v'] = units['B'] / np.sqrt(units['n'] * A_bulk * mH * mu0)
     elif time_scale == 'cyclotron':
-        units['v'] = Z_bulk * e * units['B'] / (A_bulk * mH) / (2*np.pi) * units['x']
+        units['v'] = Z_bulk * e * units['B'] / \
+            (A_bulk * mH) / (2*np.pi) * units['x']
     # time (s)
     units['t'] = units['x'] / units['v']
     # pressure (Pa)
     units['p'] = A_bulk * mH * units['n'] * units['x']**3 / \
-        (units['x'] * units['t']**2) # this is equal to B^2/(mu0*n) if time_scale='alfvén'
+        (units['x'] * units['t'] **
+         2)  # this is equal to B^2/(mu0*n) if time_scale='alfvén'
     # mass density (kg/m^3)
     units['rho'] = A_bulk * mH * units['n']
 
@@ -92,7 +93,7 @@ def setup_domain_mhd(params, units=None):
     ----------
     params : dict
         The full simulation parameter dictionary.
-        
+
     units : dict
         All Struphy units.
 
@@ -273,7 +274,7 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
 
     mpi_size : int
         Total number of MPI processes of the run.
-        
+
     Returns
     -------
     params : dict
@@ -296,7 +297,7 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
         if not os.path.exists(path_out):
             os.mkdir(path_out)
             print('Created folder ' + path_out)
-            
+
         # create data folder in output folder if it does not exist
         if not os.path.exists(os.path.join(path_out, 'data/')):
             os.mkdir(os.path.join(path_out, 'data/'))
@@ -330,7 +331,7 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
                     os.remove(file)
                     if n < 10:  # print only ten statements in case of many processes
                         print('Removed existing file ' + file)
-                        
+
                 files = glob.glob(os.path.join(path_out, 'data', '*.hdf5'))
                 for n, file in enumerate(files):
                     os.remove(file)
@@ -373,7 +374,7 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
         print('output folder:'.ljust(25), path_out)
         print('restart:'.ljust(25), restart)
         print('max wall-clock [min]:'.ljust(25), max_sim_time)
-        
+
         # print domain info
         print('\nDOMAIN:')
         print(f'type:'.ljust(25), params['geometry']['type'])
@@ -389,7 +390,7 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
         print(f'hom. Dirichlet bc:'.ljust(25), params['grid']['bc'])
         print(f'GL quad pts (L2):'.ljust(25), params['grid']['nq_el'])
         print(f'GL quad pts (hist):'.ljust(25), params['grid']['nq_pr'])
-        
+
         # print time info
         print('\nTIME:')
         print(f'time step:'.ljust(25), params['time']['dt'])

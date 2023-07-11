@@ -6,8 +6,8 @@
 # 4. For available MHD equilibria, please check out https://struphy.pages.mpcdf.de/struphy/sections/mhd_equils.html
 
 grid :
-    Nel       : [16, 32, 32] # number of grid cells, >p
-    p         : [2, 3, 4]  # spline degree
+    Nel       : [8, 16, 4] # number of grid cells, >p
+    p         : [3, 4, 2]  # spline degree
     spl_kind  : [False, True, True] # spline type: True=periodic, False=clamped
     bc        : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
     dims_mask : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
@@ -57,7 +57,7 @@ em_fields :
                 e1 : [True, False, False]  # components to be initialized (for scalar fields: no list)
                 b2 : [False, False, False] # components to be initialized (for scalar fields: no list)
             variation_in : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
-            amp : 0.1   # noise amplitude
+            amp : 0.0001   # noise amplitude
         ModesSin : 
             coords : 'logical' # in which coordinates (logical or physical)
             comps :
@@ -66,7 +66,7 @@ em_fields :
             ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
             ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
             ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
-            amp : [0.001] # amplitudes of each mode
+            amps : [0.0001] # amplitudes of each mode
         ModesCos :
             coords : 'logical' # in which coordinates (logical or physical)
             comps :
@@ -75,7 +75,7 @@ em_fields :
             ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
             ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
             ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
-            amp : [0.001] # amplitudes of each mode
+            amps : [0.001] # amplitudes of each mode
         TorusModesSin :
             coords : 'logical' # in which coordinates (logical or physical)
             comps :
@@ -83,7 +83,7 @@ em_fields :
                 b2 : [False, False, False] # components to be initialized (for scalar fields: no list)
             ms : [1] # poloidal mode numbers
             ns : [0] # toroidal mode numbers
-            amp : [0.001] # amplitudes of each mode
+            amps : [0.001] # amplitudes of each mode
             pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
             pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
         InitialMHDSlab :
@@ -125,7 +125,7 @@ fluid :
                 ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
                 ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
                 ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
-                amp : [0.001] # amplitudes of each mode
+                amps : [0.0001] # amplitudes of each mode
             ModesCos :
                 coords : 'logical' # in which coordinates (logical or physical)
                 comps :
@@ -135,7 +135,7 @@ fluid :
                 ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
                 ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
                 ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
-                amp : [0.001] # amplitudes of each mode
+                amps : [0.001] # amplitudes of each mode
             TorusModesSin :
                 coords : 'logical' # in which coordinates (logical or physical)
                 comps :
@@ -144,7 +144,7 @@ fluid :
                     p3 : False              # components to be initialized (for scalar fields: no list)
                 ms : [1] # poloidal mode numbers
                 ns : [0] # toroidal mode numbers
-                amp : [0.001] # amplitudes of each mode
+                amps : [0.001] # amplitudes of each mode
                 pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
                 pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
             InitialMHDSlab :
@@ -163,7 +163,7 @@ fluid :
                 scaling : 1. # scaling factor to scale the amplitude of the eigenfunction     
 
 kinetic :
-    hot_ions :
+    energetic_ions :
         phys_params :
             A : 1  # mass number in units of proton mass
             Z : 1 # signed charge number in units of elementary charge
@@ -183,7 +183,7 @@ kinetic :
             type : Maxwellian6DPerturbed
             Maxwellian6DPerturbed :
                 n :
-                    n0 : 1.
+                    n0 : 0.05
                     perturbation :
                         l : [0]
                         m : [0]
@@ -193,7 +193,7 @@ kinetic :
                 u1 :
                     u10 : 0.
                 u2 :
-                    u20 : 0.
+                    u20 : 2.5
                 u3 :
                     u30 : 0.
                 vth1 :
@@ -235,6 +235,20 @@ solvers :
         type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-8
+        maxiter : 3000
+        info : False
+        verbose : False
+    solver_3 :
+        type : PConjugateGradient
+        pc : MassMatrixPreconditioner # null or name of preconditioner class
+        tol : 1.e-14
+        maxiter : 3000
+        info : False
+        verbose : False
+    solver_4 :
+        type : PBiConjugateGradientStab
+        pc : MassMatrixPreconditioner # null or name of preconditioner class
+        tol : 1.e-14
         maxiter : 3000
         info : False
         verbose : False

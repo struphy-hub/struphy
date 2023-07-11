@@ -56,6 +56,17 @@ Here, :math:`G(t,q)` denotes the vector field in the ODE describing single parti
 
 Conventionally, :math:`q=(x,v) \in \mathbb R^n` where :math:`x` stands for the position and :math:`v` stands for
 the velocity; in this case :math:`G = (v, a)` with :math:`a` being the acceleration of the particle due to forces.
+PIC methods employ the method of characteristics to solve :math:numref:`eq:kin:n`. The distribution function 
+is approximated by a sum of :math:`N\gg 1` delta functions,
+
+.. math::
+    :label: pic:ansatz
+
+    f^n \approx f^n_h(t, q) = \frac 1N\sum_{k=1}^N w_k\, \delta(q - q_k(t))\,,
+
+where :math:`q_k(t)` denote the position of "markers", each of which satisifes :math:numref:`chars` 
+(with different initial condition), and :math:`w_k \in \mathbb R` stands for a marker's "weight", to be discussed below.
+
 In general, :math:`q` are not Cartesian coordinates, and :math:`\nabla_q \cdot G \neq 0` such that :math:numref:`eq:kin:n`
 cannot be directly written as a transport
 equation. In this case :math:`f^n` is not constant along the solutions of :math:numref:`chars`. Indeed,
@@ -183,6 +194,8 @@ where we defined the time-independent **weights**
     w_{k0} := \frac{f^0(t, q_k(t)) }{s^0(t, q_k(t)) } = \frac{f^0(0, q_k(0)) }{s^0(0, q_k(0)) } = \frac{f^0_{\textnormal{in}}(q_{k0}) }{s^0_{\textnormal{in}}(q_{k0}) }\,.
 
 These weights are implemented in :meth:`struphy.pic.particles.Particles.initialize_weights`.
+Equation :math:numref:`mcint` can be obtained directly from :math:numref:`int:1` by inserting
+the PIC ansatz :math:numref:`pic:ansatz`, with :math:`f^0|J_F| \approx f^n_h`.
 
 The PIC algorithm can be summarized in the following steps:
 
@@ -279,7 +292,6 @@ In that case we can decompose :math:numref:`int:1` as
 
 .. math::
     :nowrap:
-    :label: int:1
 
     \begin{align}
     I &= \int_{\mathbb R^n} f^0 \, A^0 |J_F|\,\textnormal d q\,, \\[1mm]

@@ -17,6 +17,7 @@ Documented modules:
     struphy.propagators.propagators_coupling
     struphy.pic.pusher
     struphy.pic.pusher_kernels
+    struphy.pic.pusher_kernels_gc
 
 .. toctree::
     :caption: Lists of available propagators (and particle pushers therein):
@@ -27,6 +28,7 @@ Documented modules:
     STUBDIR/struphy.propagators.propagators_coupling
     STUBDIR/struphy.pic.pusher
     STUBDIR/struphy.pic.pusher_kernels
+    STUBDIR/struphy.pic.pusher_kernels_gc
 
 Notation:
 

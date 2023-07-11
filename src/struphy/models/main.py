@@ -54,7 +54,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     for obj in objs:
         try:
             model_class = getattr(obj, model_name)
-        except AttributeError: 
+        except AttributeError:
             pass
 
     model = model_class(params, comm)
@@ -79,7 +79,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
 
     if rank == 0:
         print('\nINITIAL CONDITIONS:')
-        
+
     if not restart:
         model.initialize_from_params()
         total_steps = str(
@@ -98,7 +98,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     # list of model methods for diagnostics
     model_updates = []
     for method in dir(model):
-        if 'update' in method:
+        if 'update' in method and method != 'update_scalar':
             model_updates.append(getattr(model, method))
 
     # initial diagnostic data (will be saved in hdf5 file)
@@ -177,8 +177,10 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
             if rank == 0:
                 step = str(time_state['index'][0]).zfill(len(total_steps))
 
-                message = 'time: {0:12.8f}/{1:12.8f}'.format(time_state['value'][0], time_params['Tend'])
-                message += ' | ' + 'time step: ' + step + '/' + str(total_steps) 
+                message = 'time: {0:12.8f}/{1:12.8f}'.format(
+                    time_state['value'][0], time_params['Tend'])
+                message += ' | ' + 'time step: ' + \
+                    step + '/' + str(total_steps)
 
                 print(message, end='\n')
                 model.print_scalar_quantities()
@@ -197,7 +199,7 @@ if __name__ == '__main__':
     import struphy
 
     libpath = struphy.__path__[0]
-    
+
     with open(os.path.join(libpath, 'io_path.txt')) as f:
         io_path = f.readlines()[0]
 
