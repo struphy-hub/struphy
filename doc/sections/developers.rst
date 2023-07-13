@@ -13,24 +13,24 @@ Suggestions for a standard :ref:`git_workflow` are also available.
 A comprehensive documentation is vital for the usability of Struphy; any developer should therefore 
 check out the hints for :ref:`change_doc`.
 
-Developers can contribute to Struphy in multiple ways.
+Developers can contribute to Struphy in multiple ways. A common approach is :ref:`add_model`.
+For this, it is helpful to get familir with :ref:`data_structures`.
 Single physics features or algorithmic novelties can be added 
 via the available :ref:`base_classes`. For FEEC discretizations,
 the most relevant classes are
 
+    * :ref:`fields`
     * :ref:`weighted_mass`
     * :ref:`basis_ops`
 
 For PIC, the most relevant classes are
 
-    * :ref:`pusher`
+    * :ref:`particles`
+    * :ref:`pushers`
     * :ref:`Accumulator <accumulator>`
 
 Useful models for linear algebra, preconditioners, stencil data objects
 and PIC routines can be found under :ref:`utilities`.
-
-In case you want to add a new solver for a PDE or a system of PDEs, 
-please follow :ref:`add_model`.
 
 
 .. _conventions:
@@ -56,12 +56,18 @@ Derham sequence (3D)
 
 .. autoclass:: struphy.psydac_api.psydac_derham.Derham
     :members:
+    :undoc-members:
+    :show-inheritance:
 
-FE field 
-^^^^^^^^
+.. _fields:
+
+FEEC field 
+^^^^^^^^^^
 
 .. autoclass:: struphy.psydac_api.fields.Field
     :members:
+    :undoc-members:
+    :show-inheritance:
 
 .. _weighted_mass:
 
@@ -70,6 +76,8 @@ Weighted mass operators
 
 .. autoclass:: struphy.psydac_api.mass.WeightedMassOperators
     :members:
+    :undoc-members:
+    :show-inheritance:
 
 .. _basis_ops:
 
@@ -78,22 +86,112 @@ Basis projection operators
 
 .. autoclass:: struphy.psydac_api.basis_projection_ops.BasisProjectionOperators
     :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+.. _particle_base:
+
+Particle base class
+^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: struphy.pic.base.Particles
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 .. _particles:
 
-Particles
-^^^^^^^^^
+Particle classes
+^^^^^^^^^^^^^^^^
 
-.. autoclass:: struphy.pic.particles.Particles
+Documented modules:
+
+.. currentmodule:: ''
+
+.. autosummary::
+    :nosignatures:
+    :toctree: STUBDIR
+
+    struphy.pic.particles
+
+.. toctree::
+    :caption: Lists of available particle classes:
+
+    STUBDIR/struphy.pic.particles
+
+.. automodule:: struphy.pic.particles
     :members:
+    :undoc-members:
+    :show-inheritance:
 
-.. _pusher:
 
-Particle pusher
-^^^^^^^^^^^^^^^
+Struphy model
+^^^^^^^^^^^^^
 
-.. autoclass:: struphy.pic.pusher.Pusher
+.. autoclass:: struphy.models.base.StruphyModel
     :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+.. _data_structures:
+
+Struphy data structures
+-----------------------
+
+FEEC variables
+^^^^^^^^^^^^^^
+
+Struphy uses the FEEC data structures provided by the open source package `Psydac <https://github.com/pyccel/psydac>`_ for its
+fluid/EM-fields variables. FE coefficients are stores as
+
+* a :class:`StencilVector <psydac.linalg.stencil.StencilVector>` for scalar-valued variables (:code:`H1` or :code:`L2`)
+* a :class:`BlockVector <psydac.linalg.block.BlockVector>` for vector-valued variables (:code:`Hcurl`, :code:`Hdiv` or :code:`H1vec`)
+
+A BlockVector is just a 3-list of StencilVectors. Here are some important commands when
+working with a :class:`StencilVector <psydac.linalg.stencil.StencilVector>`:
+
+* Creation from Struphy's de Rham sequence (available through :class:`StruphyModel <struphy.models.base.StruphyModel>`)::
+
+    from psydac.linalg.stencil import StencilVector
+    from psydac.linalg.block import BlockVector
+
+    vec_H1 = StencilVector(self.derham.Vh['0'])
+    vec_Hcurl = BlockVector(self.derham.Vh['1'])
+
+* Assign values in place::
+
+    vec_H1[:] = 1.
+    vec_H1[:] = vec_H1_other[:] 
+
+* Send info to other MPI processes (important after assigning values)::
+
+    vec_H1.update_ghost_regions()
+
+* StencilVectors can be added, subtracted and multiplie with scalars in the usual way.
+
+* Creation of a zero vector from the same space::
+
+    vec_0 = vec_H1.space.zeros()
+
+
+.. autoclass:: psydac.linalg.stencil.StencilVector
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: psydac.linalg.block.BlockVector
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Kinetic variables
+^^^^^^^^^^^^^^^^^
+
+All information pertaining to markers in Struphy is stored in the :ref:`particle_base`. 
+In particular, the data structure holding the values of each marker is under :meth:`struphy.pic.base.Particles.markers`.
 
 
 .. _utilities:
@@ -151,7 +249,8 @@ Adding a new Struphy model
 --------------------------
 
 Struphy provides an extensive framework for adding new model equations.
-A model consists of a set of PDEs togehter with a chosen discretization scheme.
+A model consists of a set of PDEs that has been discretized within the 
+:ref:`gempic` framework.
 
 Struphy models must be added under ``src/struphy/models/`` in one of the four modules
 
@@ -160,46 +259,182 @@ Struphy models must be added under ``src/struphy/models/`` in one of the four mo
 * ``hybrid.py``
 * ``toy.py``
 
-as child classes of the :class:`struphy.models.base.StruphyModel`. **Please refer to existing models for templates.**
+as child classes of the :class:`StruphyModel <struphy.models.base.StruphyModel>`. **Please refer to existing models for templates.**
+Here is a list of points that need to be followed when creating a new model:
 
-A Struphy model s defined by 
+1. Write a docstring 
+^^^^^^^^^^^^^^^^^^^^
 
-    a. unknowns: *field* (FEEC), *fluid* (FEEC), or *kinetic* (PIC) variables
-    b. :ref:`propagators` to update the unknowns 
-    c. scalar quantities depending on the uknowns tracked during the simulation (e.g. total energy)
- 
-These three categories must be provided to :class:`struphy.models.base.StruphyModel`.  
-A typical initialization of the unknowns looks like::
+The docstring should include the model equations and the :ref:`normalization`.
 
-    super().__init__(params, comm, b2='Hdiv', mhd={'n3': 'L2', u_name: self._u_space, 'p3': 'L2'}, energetic_ions='Particles5D')
+2. Define :code:`__init__`
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This example is taken from :class:`struphy.models.hybrid.LinearMHDDriftkineticCC`. Here,
-one field variable (``b2``), one fluid species (``mhd``) and one kinetic species (``energetic_ions``)
-are initialized.
+The :code:`__init__` function of your model takes the parameter dictionary :code:`params` 
+and the MPI communicator :code:`comm` as input.
+It should start with a call to the :code:`super().__init__` 
+of the :class:`StruphyModel <struphy.models.base.StruphyModel>` base class. 
+For example::
 
-Regarding the propagators, it is important to expose the base class :class:`struphy.propagators.base.Propagator`
-to the current instances of the de Rham complex, domain, weighted mass operators and (if needed)
-basis projection operators, BEFORE instantiating the model-specific propagators::
+    def __init__(self, params, comm):
 
-    Propagator.derham = self.derham
-    Propagator.domain = self.domain
-    Propagator.mass_ops = self.mass_ops
-    Propagator.basis_ops = BasisProjectionOperators(
-        self.derham, self.domain, eq_mhd=self.mhd_equil)
+        super().__init__(params, comm,
+                        b2='Hdiv',
+                        mhd={'n3': 'L2', u_name: self._u_space, 'p3': 'L2'},
+                        energetic_ions='Particles6D')
+
+The :class:`StruphyModel <struphy.models.base.StruphyModel>` base class will allocate 
+memory for the model variables and provide pointers to the memory objects.
+In Struphy, three types of variables can be defined:
+
+* electromagnetic (EM) fields (e.g. :code:`b2='Hdiv'`)
+* fluid species (e.g. :code:`mhd={'n3': 'L2', u2: self._u_space, 'p3': 'L2'}`)
+* kinetic species (e.g. :code:`energetic_ions='Particles6D'`)
+
+In the above example, one field variable (``b2``), one fluid species (``mhd``) and one kinetic species (``energetic_ions``)
+are initialized. There is no limit in how many species/fields can be defined within a model.
+Variables must be defined as keyword arguments; the key is the EM-field/species name and the value is either
+
+* for EM fields: the name of a FEEC space (``H1``, ``Hcurl``, ``Hdiv``, ``L2`` or ``H1vec``)
+* for fluid species: a dictionary holding the fluid variable names (keys) and FEEC spaces (values)
+* for kinetic species: the name of a :ref:`particle class <particles>`
+
+The variables can be accessed via the :attr:`pointer attribute <struphy.models.base.StruphyModel.pointer>` 
+of the :class:`StruphyModel <struphy.models.base.StruphyModel>` base class.
+The variable names assigned in :code:`super().__init__` are to be used as keys, for example::
+
+    _b2 = self.pointer['b2']
+    _n3 = self.pointer['mhd_n3'] 
+
+This returns the :ref:`data_structures` of the variable (the whole :ref:`particle class <particles>` for kinetic species).
+In case of a fluid species, the naming convention is :code:`species_variable` 
+with an underscore separating species name and variable name.
+
+3. Define ``bulk_species`` and ``timescale``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+These must be implemented as class methods of the model::
+
+    @classmethod
+    def bulk_species(cls):
+        return 'energetic_ions'
+
+    @classmethod
+    def timescale(cls):
+        return 'light'
+
+The ``bulk_species`` must return the name of one of the species of the model. 
+
+There are three options for the ``timescale``:
+
+    * ``alfvén``
+    * ``cyclotron``
+    * ``light``
+
+The choice corresponds to setting the velocity unit :math:`\hat v` of the normalization.
+This then sets the time unit :math:`\hat t = \hat x / \hat v`, where :math:`\hat x` is the 
+unit of length specified through the parameter file.
+
+4. Add Propagators
+^^^^^^^^^^^^^^^^^^
+
+The Propagators have to be added in :code:`__init__`. 
+For this we use the method :meth:`add_propagator() <struphy.models.base.StruphyModel.add_propagator>` 
+of the :class:`StruphyModel <struphy.models.base.StruphyModel>` base class.
+As argument, an instance of one of 
+
+    * :attr:`self.prop_fields <struphy.models.base.StruphyModel.prop_fields>` 
+    * :attr:`self.prop_markers <struphy.models.base.StruphyModel.prop_markers>` 
+    * :attr:`self.prop_coupling <struphy.models.base.StruphyModel.prop_coupling>` 
+
+must be passed. These are child classes of the :ref:`prop_base`,
+which have been assigned the de Rham sequence, domain, mass operators and basis projection operators
+of the current model instance. Consider the example of the model :class:`VlasovMaxwell <struphy.models.kinetic.VlasovMaxwell>`,
+where four different propagators are used for time stepping::
+
+    self.add_propagator(self.prop_fields.Maxwell(
+        self.pointer['e1'],
+        self.pointer['b2'],
+        **params['solvers']['solver_maxwell']))
+
+    self.add_propagator(self.prop_markers.PushEta(
+        self.pointer['electrons'],
+        algo=electron_params['push_algos']['eta'],
+        bc_type=electron_params['markers']['bc_type'],
+        f0=None))
+
+    self.add_propagator(self.prop_markers.PushVxB(
+        self.pointer['electrons'],
+        algo=electron_params['push_algos']['vxb'],
+        scale_fac=1/self.epsilon,
+        b_eq=self._b_background,
+        b_tilde=self.pointer['b2'],
+        f0=None))
+
+    self.add_propagator(self.prop_coupling.VlasovMaxwell(
+        self.pointer['e1'],
+        self.pointer['electrons'],
+        alpha=self.alpha,
+        epsilon=self.epsilon,
+        **params['solvers']['solver_vlasovmaxwell'])) 
+
+Each Propagator takes as arguments the variables to be updated, 
+usually passed via the :attr:`pointer attribute <struphy.models.base.StruphyModel.pointer>`. 
+All additional arguments MUST be passed as keyword arguments. 
 
 **Please refer to** :ref:`propagators` **for propagator templates.**
 
+
+5. Add scalar quantities
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+This allows to define scalar quantities that should be saved during the simulation.
+We use the method :meth:`add_scalar() <struphy.models.base.StruphyModel.add_scalar>` 
+of the :class:`StruphyModel <struphy.models.base.StruphyModel>` base class.
+Cosider the the example of the model :class:`VlasovMaxwell <struphy.models.kinetic.VlasovMaxwell>`::
+
+    self.add_scalar('en_e')
+    self.add_scalar('en_b')
+    self.add_scalar('en_w')
+    self.add_scalar('en_tot')
+ 
+These commands just reserve memory for the scalars and assigns a name to them.
+You must spacify an update rule via :meth:`struphy.models.base.StruphyModel.update_scalar_quantities`,
+such as in the above example::
+
+    def update_scalar_quantities(self):
+
+        self._mass_ops.M1.dot(self.pointer['e1'], out=self._tmp1)
+        self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp2)
+        en_E = self.pointer['e1'].dot(self._tmp1) / 2.
+        en_B = self.pointer['b2'].dot(self._tmp2) / 2.
+        self.update_scalar('en_e', en_E)
+        self.update_scalar('en_b', en_B)
+
+        self._tmp[0] = self.alpha**2 / (2 * self.pointer['electrons'].n_mks) * \
+            np.dot(self.pointer['electrons'].markers_wo_holes[:, 3]**2 + self.pointer['electrons'].markers_wo_holes[:, 4] ** 2 +
+                    self.pointer['electrons'].markers_wo_holes[:, 5]**2, self.pointer['electrons'].markers_wo_holes[:, 6])
+        self.derham.comm.Allreduce(
+            self._mpi_in_place, self._tmp, op=self._mpi_sum)
+        self.update_scalar('en_w', self._tmp[0])
+
+        self.update_scalar('en_tot', en_E + en_B + self._tmp[0])
+
+
+6. Test run
+^^^^^^^^^^^
+
 Once you added a model and re-installed struphy (``pip install -e .``), 
-you can run the model with ``struphy run YOUR_MODEL``, where ``YOUR_MODEL`` is the name you gave to 
+you can run the model with::
+    
+    struphy run YOUR_MODEL
+    
+where ``YOUR_MODEL`` is the name you gave to 
 the model class (it must start with a capital letter).
 
-.. autoclass:: struphy.models.base.StruphyModel
-    :members:
-    :undoc-members:
 
-.. autoclass:: struphy.propagators.base.Propagator
-    :members:
-    :undoc-members:
+
+
 
 
 .. _git_workflow:
@@ -402,7 +637,7 @@ In struphy, testing is done with Python's ``pytest`` package.
 Tests have to be added in the folder ``struphy/tests`` or ``struphy/tests_mpi`` (for parallel testing). 
 The files therein have to start with ``test_`` 
 and contain ONLY functions that also start with ``test_``. 
-In this way they are recognized by ``pytest`` in ``.gitlab-ci.yml``:
+In this way they are recognized by ``pytest`` in ``.gitlab-ci.yml``.
 
 Please consult existing tests as templates.
 

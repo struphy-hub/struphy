@@ -1,30 +1,60 @@
 from abc import ABCMeta, abstractmethod
 import numpy as np
 
+from psydac.linalg.basic import Vector
+from struphy.pic.particles import Particles
+
 
 class Propagator(metaclass=ABCMeta):
-    '''Base class for Struphy propagators used in Struphy models.
+    '''Base class for Struphy propagators used in Struphy models. 
 
     Note
     ---- 
         All Struphy propagators are subclasses of ``Propagator``.
         
-        The ``__init__`` of child classes must take as first arguments the variables to be updated.
+        The ``__init__`` of child classes must take as arguments the variables to be updated.
         All additional arguments MUST be passed as **keyword arguments**.
+        The variables (not the other arguments) must then be passed to `super().__init__()`.
     '''
 
-    @property
-    @abstractmethod
-    def variables(self):
-        '''List of FEEC variables (not particles) to be updated by the propagator. 
-        Contains FE coefficients from the ``Field.vector`` property of :ref:`fields`.
+    def __init__(self, *vars):
         '''
-        pass
+        Create an instance of a Propagator.
+        
+        Parameters
+        ----------
+        vars : Vector or Particles
+            :attr:`struphy.models.base.StruphyModel.pointer` of variables to be updated.'''
+        
+        self._feec_vars = []
+        self._particles = []
+        
+        for var in vars:
+            if isinstance(var, Vector):
+                self._feec_vars += [var]
+            elif isinstance(var, Particles):
+                self._particles += [var]
+            else:
+                ValueError(f'Variable {var} must be of type "Vector" or "Particles".')
+        
+    @property
+    def feec_vars(self):
+        '''List of FEEC variables (not particles) to be updated by the propagator. 
+        Contains FE coefficients from :attr:`struphy.psydac_api_fields.Field.vector`.
+        '''
+        return self._feec_vars
+    
+    @property
+    def particles(self):
+        '''List of kinetic variables (not FEEC) to be updated by the propagator. 
+        Contains :class:`struphy.pic.particles.Particles`.
+        '''
+        return self._particles
 
     @abstractmethod
     def __call__(self, dt):
         '''Update from t -> t + dt.
-        Use ``Propagators.in_place_update`` to write to FE variables to ``Propagator.variables``.
+        Use ``Propagators.feec_vars_update`` to write to FEEC variables to ``Propagator.feec_vars``.
 
         Parameters
         ----------
@@ -81,33 +111,33 @@ class Propagator(metaclass=ABCMeta):
     def basis_ops(self, basis_ops):
         self._basis_ops = basis_ops
 
-    def in_place_update(self, *variables_new):
-        '''Writes new entries into the FEEC variables in ``Propagator.variables``.
+    def feec_vars_update(self, *variables_new):
+        '''Writes new entries into the FEEC variables in ``Propagator.feec_vars``.
 
         Parameters
         ----------
             variables_new : list
-                Same sequence as in ``Propagator.variables`` but with the updated variables, 
-                i.e. for variables = [e, b] we must have variables_new = [e_updated, b_updated].
+                Same sequence as in ``Propagator.feec_vars`` but with the updated variables, 
+                i.e. for feec_vars = [e, b] we must have variables_new = [e_updated, b_updated].
 
         Returns
         -------
             diffs : list
-                A list [max(abs(self.variables - variables_new)), ...] for all variables in self.variables and variables_new.'''
+                A list [max(abs(self.feec_vars - variables_new)), ...] for all variables in self.feec_vars and variables_new.'''
 
         diffs = []
 
         for i, new in enumerate(variables_new):
 
-            assert type(new) is type(self.variables[i])
+            assert type(new) is type(self.feec_vars[i])
 
             # calculate maximum of difference abs(old - new)
-            diffs += [np.max(np.abs(self.variables[i].toarray() - new.toarray()))]
+            diffs += [np.max(np.abs(self.feec_vars[i].toarray() - new.toarray()))]
 
-            # copy new variables into self.variables
-            new.copy(out=self.variables[i])
+            # copy new variables into self.feec_vars
+            new.copy(out=self.feec_vars[i])
 
             # important: sync processes!
-            self.variables[i].update_ghost_regions()
+            self.feec_vars[i].update_ghost_regions()
 
         return diffs

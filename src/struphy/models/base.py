@@ -85,6 +85,7 @@ class StruphyModel(metaclass=ABCMeta):
             self.derham, self.domain, eq_mhd=self.mhd_equil)
 
         # allocate memory for variables
+        self._pointer = {}
         self._allocate_variables()
 
         # store plasma parameters
@@ -154,6 +155,14 @@ class StruphyModel(metaclass=ABCMeta):
     def species(self):
         '''Species dictionary.'''
         return self._species
+    
+    @property
+    def pointer(self):
+        '''Dictionary pointing to the data structures of the species (Stencil/BlockVector or "Particle" class).
+        
+        The keys are the keys from the "species" property. 
+        In case of a fluid species, the keys are like "species_variable".'''
+        return self._pointer
 
     @property
     def em_fields(self):
@@ -806,6 +815,8 @@ class StruphyModel(metaclass=ABCMeta):
 
                 if 'params' not in key:
                     val['obj'] = Field(key, val['space'], self.derham)
+                    
+                    self._pointer[key] = val['obj'].vector
 
         # allocate memory for FE coeffs of fluid variables
         if 'fluid' in self.params:
@@ -817,6 +828,8 @@ class StruphyModel(metaclass=ABCMeta):
                     if 'params' not in variable:
                         subval['obj'] = Field(
                             variable, subval['space'], self.derham)
+                        
+                        self._pointer[species + '_' + variable] = subval['obj'].vector
 
         # marker arrays and plasma parameters of kinetic species
         if 'kinetic' in self.params:
@@ -837,6 +850,8 @@ class StruphyModel(metaclass=ABCMeta):
                                            domain=self.domain,
                                            mhd_equil=self.mhd_equil,
                                            units_basic=self.units)
+                
+                self._pointer[species] = val['obj']
 
                 # for storing markers
                 n_markers = val['params']['save_data']['n_markers']

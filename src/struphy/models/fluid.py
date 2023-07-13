@@ -56,6 +56,7 @@ class LinearMHD(StruphyModel):
         u_name = 'u2' if u_space == 'Hdiv' else 'uv'
 
         self._u_space = u_space
+        self._un = 'mhd_' + u_name
 
         # initialize base class
         super().__init__(params, comm,
@@ -63,14 +64,6 @@ class LinearMHD(StruphyModel):
                          mhd={'n3': 'L2', u_name: u_space, 'p3': 'L2'})
 
         from struphy.polar.basic import PolarVector
-
-        # pointers to em-field variables
-        self._b = self.em_fields['b2']['obj'].vector
-
-        # pointers to fluid variables
-        self._n = self.fluid['mhd']['n3']['obj'].vector
-        self._u = self.fluid['mhd'][u_name]['obj'].vector
-        self._p = self.fluid['mhd']['p3']['obj'].vector
 
         # extract necessary parameters
         alfven_solver = params['solvers']['solver_1']
@@ -90,16 +83,16 @@ class LinearMHD(StruphyModel):
 
         # Initialize propagators/integrators used in splitting substeps
         self.add_propagator(self.prop_fields.ShearAlfvén(
-            self._u,
-            self._b,
+            self.pointer[self._un] ,
+            self.pointer['b2'] ,
             u_space=self._u_space,
             **alfven_solver))
         self.add_propagator(self.prop_fields.Magnetosonic(
-            self._n,
-            self._u,
-            self._p,
+            self.pointer['mhd_n3'] ,
+            self.pointer[self._un] ,
+            self.pointer['mhd_p3'] ,
             u_space=self._u_space,
-            b=self._b,
+            b=self.pointer['b2'] ,
             **sonic_solver))
 
         # Scalar variables to be saved during simulation
@@ -123,15 +116,15 @@ class LinearMHD(StruphyModel):
     def update_scalar_quantities(self):
         # perturbed fields
         if self._u_space == 'Hdiv':
-            self._mass_ops.M2n.dot(self._u, out=self._tmp_u1)
+            self._mass_ops.M2n.dot(self.pointer[self._un] , out=self._tmp_u1)
         else:
-            self._mass_ops.Mvn.dot(self._u, out=self._tmp_u1)
+            self._mass_ops.Mvn.dot(self.pointer[self._un] , out=self._tmp_u1)
 
-        self._mass_ops.M2.dot(self._b, out=self._tmp_b1)
+        self._mass_ops.M2.dot(self.pointer['b2'] , out=self._tmp_b1)
 
-        en_U = self._u.dot(self._tmp_u1)/2
-        en_B = self._b.dot(self._tmp_b1)/2
-        en_p = self._p.dot(self._ones)/(5/3 - 1)
+        en_U = self.pointer[self._un] .dot(self._tmp_u1)/2
+        en_B = self.pointer['b2'] .dot(self._tmp_b1)/2
+        en_p = self.pointer['mhd_p3'] .dot(self._ones)/(5/3 - 1)
 
         self.update_scalar('en_U', en_U)
         self.update_scalar('en_B', en_B)
@@ -149,7 +142,7 @@ class LinearMHD(StruphyModel):
 
         # total magnetic field
         self._b_eq.copy(out=self._tmp_b1)
-        self._tmp_b1 += self._b
+        self._tmp_b1 += self.pointer['b2'] 
 
         self._mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
 
@@ -216,15 +209,6 @@ class LinearExtendedMHD(StruphyModel):
 
         from struphy.polar.basic import PolarVector
 
-        # pointers to em-field variables
-        self._b = self.em_fields['b1']['obj'].vector
-
-        # pointers to fluid variables
-        self._n = self.fluid['mhd']['n3']['obj'].vector
-        self._u = self.fluid['mhd']['u2']['obj'].vector
-        self._p_i = self.fluid['mhd']['pi3']['obj'].vector
-        self._p_e = self.fluid['mhd']['pe3']['obj'].vector
-
         # extract necessary parameters
         alfven_solver = params['solvers']['solver_1']
         Hall_solver = params['solvers']['solver_2']
@@ -237,7 +221,7 @@ class LinearExtendedMHD(StruphyModel):
                                          self.mhd_equil.b1_3])
         self._p_i_eq = self.derham.P['3'](self.mhd_equil.p3)
         self._p_e_eq = self.derham.P['3'](self.mhd_equil.p3)
-        self._ones = self._p_i.space.zeros()
+        self._ones = self.pointer['mhd_pi3'].space.zeros()
         # project background vector potential (1-form)
         self._a_eq = self.derham.P['1']([self.mhd_equil.a1_1,
                                          self.mhd_equil.a1_2,
@@ -259,22 +243,22 @@ class LinearExtendedMHD(StruphyModel):
 
         # Initialize propagators/integrators used in splitting substeps
         self.add_propagator(self.prop_fields.ShearAlfvénB1(
-            self._u,
-            self._b,
+            self.pointer['mhd_u2'],
+            self.pointer['b1'],
             **alfven_solver))
         self.add_propagator(self.prop_fields.Hall(
-            self._b,
+            self.pointer['b1'],
             **Hall_solver,
             **self._coupling_params))
         self.add_propagator(self.prop_fields.SonicIon(
-            self._n,
-            self._u,
-            self._p_i,
+            self.pointer['mhd_n3'],
+            self.pointer['mhd_u2'],
+            self.pointer['mhd_pi3'],
             **SonicIon_solver))
         self.add_propagator(self.prop_fields.SonicElectron(
-            self._n,
-            self._u,
-            self._p_e,
+            self.pointer['mhd_n3'],
+            self.pointer['mhd_u2'],
+            self.pointer['mhd_pe3'],
             **SonicElectron_solver))
 
         # Scalar variables to be saved during simulation
@@ -297,15 +281,15 @@ class LinearExtendedMHD(StruphyModel):
 
     def update_scalar_quantities(self):
         # perturbed fields
-        self._mass_ops.M2n.dot(self._u, out=self._tmp_u1)
+        self._mass_ops.M2n.dot(self.pointer['mhd_u2'], out=self._tmp_u1)
 
-        self._mass_ops.M1.dot(self._b, out=self._tmp_b1)
+        self._mass_ops.M1.dot(self.pointer['b1'], out=self._tmp_b1)
 
-        en_U = self._u.dot(self._tmp_u1)/2.0
-        en_B = self._b.dot(self._tmp_b1)/2.0
+        en_U = self.pointer['mhd_u2'].dot(self._tmp_u1)/2.0
+        en_B = self.pointer['b1'].dot(self._tmp_b1)/2.0
         helicity = self._a_eq.dot(self._tmp_b1)*2.0
-        en_p_i = self._p_i.dot(self._ones)/(5.0/3.0 - 1.0)
-        en_p_e = self._p_e.dot(self._ones)/(5.0/3.0 - 1.0)
+        en_p_i = self.pointer['mhd_pi3'].dot(self._ones)/(5.0/3.0 - 1.0)
+        en_p_e = self.pointer['mhd_pe3'].dot(self._ones)/(5.0/3.0 - 1.0)
 
         self.update_scalar('en_U', en_U)
         self.update_scalar('en_B', en_B)
@@ -327,7 +311,7 @@ class LinearExtendedMHD(StruphyModel):
 
         # total magnetic field
         self._b_eq.copy(out=self._tmp_b1)
-        self._tmp_b1 += self._b
+        self._tmp_b1 += self.pointer['b1']
 
         self._mass_ops.M1.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
 
@@ -381,13 +365,6 @@ class ColdPlasma(StruphyModel):
         super().__init__(params, comm, e1='Hcurl', b2='Hdiv',
                          electrons={'j1': 'Hcurl'})
 
-        # pointers to em-fields variables
-        self._e = self.em_fields['e1']['obj'].vector
-        self._b = self.em_fields['b2']['obj'].vector
-
-        # pointers to  fluid variables
-        self._j = self.fluid['electrons']['j1']['obj'].vector
-
         # extract necessary parameters
         maxwell_solver = params['solvers']['solver_1']
         cold_solver = params['solvers']['solver_2']
@@ -400,16 +377,16 @@ class ColdPlasma(StruphyModel):
 
         # Initialize propagators/integrators used in splitting substeps
         self.add_propagator(self.prop_fields.Maxwell(
-            self._e,
-            self._b,
+            self.pointer['e1'],
+            self.pointer['b2'],
             **maxwell_solver))
         self.add_propagator(self.prop_fields.OhmCold(
-            self._j,
-            self._e,
+            self.pointer['electrons_j1'],
+            self.pointer['e1'],
             **cold_solver,
             **add_params))
         self.add_propagator(self.prop_fields.JxBCold(
-            self._j,
+            self.pointer['electrons_j1'],
             **fluid_solver,
             **add_params))
 
@@ -419,14 +396,22 @@ class ColdPlasma(StruphyModel):
         self.add_scalar('en_B')
         self.add_scalar('en_J')
         self.add_scalar('en_tot')
+        
+        # temporaries
+        self._tmp1 = self.pointer['e1'].space.zeros()
+        self._tmp2 = self.pointer['b2'].space.zeros()
 
     def update_scalar_quantities(self):
-        en_E = .5 * self._e.dot(self._mass_ops.M1.dot(self._e))
-        en_B = .5 * self._b.dot(self._mass_ops.M2.dot(self._b))
-        en_J = .5 * self._j.dot(self._mass_ops.M1ninv.dot(self._j))
-        en_tot = en_E + en_B + en_J
+        
+        self._mass_ops.M1.dot(self.pointer['e1'], out=self._tmp1)
+        self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp2)
+        en_E = .5 * self.pointer['e1'].dot(self._tmp1)
+        en_B = .5 * self.pointer['b2'].dot(self._tmp2)
+        
+        self._mass_ops.M1ninv.dot(self.pointer['electrons_j1'], out=self._tmp1)
+        en_J = .5 * self.pointer['electrons_j1'].dot(self._tmp1)
 
         self.update_scalar('en_E', en_E)
         self.update_scalar('en_B', en_B)
         self.update_scalar('en_J', en_J)
-        self.update_scalar('en_tot', en_tot)
+        self.update_scalar('en_tot', en_E + en_B + en_J)
