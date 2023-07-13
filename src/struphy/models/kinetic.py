@@ -66,15 +66,10 @@ class VlasovMaxwell(StruphyModel):
 
         from mpi4py.MPI import SUM, IN_PLACE
 
-        # pointers to em-field variables
-        self._e = self.em_fields['e1']['obj'].vector
-        self._b = self.em_fields['b2']['obj'].vector
-
         # Get rank and size
         self._rank = comm.Get_rank()
 
-        # pointer to electrons
-        self._electrons = self.kinetic['electrons']['obj']
+        # prelim
         electron_params = params['kinetic']['electrons']
 
         # Get coupling strength
@@ -92,24 +87,24 @@ class VlasovMaxwell(StruphyModel):
 
         # Initialize propagators/integrators used in splitting substeps
         self.add_propagator(self.prop_fields.Maxwell(
-            self._e,
-            self._b,
+            self.pointer['e1'],
+            self.pointer['b2'],
             **params['solvers']['solver_maxwell']))
         self.add_propagator(self.prop_markers.PushEta(
-            self._electrons,
+            self.pointer['electrons'],
             algo=electron_params['push_algos']['eta'],
             bc_type=electron_params['markers']['bc_type'],
             f0=None))
         self.add_propagator(self.prop_markers.PushVxB(
-            self._electrons,
+            self.pointer['electrons'],
             algo=electron_params['push_algos']['vxb'],
             scale_fac=1/self.epsilon,
             b_eq=self._b_background,
-            b_tilde=self._b,
+            b_tilde=self.pointer['b2'],
             f0=None))
         self.add_propagator(self.prop_coupling.VlasovMaxwell(
-            self._e,
-            self._electrons,
+            self.pointer['e1'],
+            self.pointer['electrons'],
             alpha=self.alpha,
             epsilon=self.epsilon,
             **params['solvers']['solver_vlasovmaxwell']))
@@ -130,8 +125,9 @@ class VlasovMaxwell(StruphyModel):
         self._tmp = np.empty(1, dtype=float)
 
     def initialize_from_params(self):
-        from struphy.propagators import solvers
+
         from struphy.pic.particles_to_grid import AccumulatorVector
+        from psydac.linalg.stencil import StencilVector
 
         # Initialize fields and particles
         super().initialize_from_params()
@@ -139,28 +135,34 @@ class VlasovMaxwell(StruphyModel):
         # Accumulate charge density
         charge_accum = AccumulatorVector(
             self.derham, self.domain, "H1", "vlasov_maxwell_poisson")
-        charge_accum.accumulate(self._electrons, self.alpha, self.epsilon)
+        charge_accum.accumulate(
+            self.pointer['electrons'], self.alpha, self.epsilon)
 
-        # Then solve Poisson equation
-        poisson_solver = solvers.PoissonSolver(
-            rho=charge_accum.vectors[0],
+        # Instantiate Poisson solver
+        _phi = StencilVector(self.derham.Vh['0'])
+        poisson_solver = self.prop_fields.ImplicitDiffusion(
+            _phi,
+            sigma=0.,
+            phi_n=charge_accum.vectors[0],
+            x0=charge_accum.vectors[0],
             **self._poisson_params)
-        poisson_solver(0.)
-        self.derham.grad.dot(-poisson_solver._phi,
-                             out=self.em_fields['e1']['obj'].vector)
+
+        # Solve with dt=1. and compute electric field
+        poisson_solver(1.)
+        self.derham.grad.dot(-_phi, out=self.pointer['e1'])
 
     def update_scalar_quantities(self):
-        self._mass_ops.M1.dot(self._e, out=self._tmp1)
-        self._mass_ops.M2.dot(self._b, out=self._tmp2)
-        en_E = self._e.dot(self._tmp1) / 2.
-        en_B = self._b.dot(self._tmp2) / 2.
+        self._mass_ops.M1.dot(self.pointer['e1'], out=self._tmp1)
+        self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp2)
+        en_E = self.pointer['e1'].dot(self._tmp1) / 2.
+        en_B = self.pointer['b2'].dot(self._tmp2) / 2.
         self.update_scalar('en_e', en_E)
         self.update_scalar('en_b', en_B)
 
         # alpha^2 / 2 / N * sum_p w_p v_p^2
-        self._tmp[0] = self.alpha**2 / (2 * self._electrons.n_mks) * \
-            np.dot(self._electrons.markers_wo_holes[:, 3]**2 + self._electrons.markers_wo_holes[:, 4] ** 2 +
-                   self._electrons.markers_wo_holes[:, 5]**2, self._electrons.markers_wo_holes[:, 6])
+        self._tmp[0] = self.alpha**2 / (2 * self.pointer['electrons'].n_mks) * \
+            np.dot(self.pointer['electrons'].markers_wo_holes[:, 3]**2 + self.pointer['electrons'].markers_wo_holes[:, 4] ** 2 +
+                   self.pointer['electrons'].markers_wo_holes[:, 5]**2, self.pointer['electrons'].markers_wo_holes[:, 6])
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._tmp, op=self._mpi_sum)
         self.update_scalar('en_w', self._tmp[0])
@@ -238,15 +240,10 @@ class LinearVlasovMaxwell(StruphyModel):
         from struphy.kinetic_background import maxwellians as kin_ana
         from mpi4py.MPI import SUM, IN_PLACE
 
-        # pointers to em-field variables
-        self._e = self.em_fields['e_field']['obj'].vector
-        self._b = self.em_fields['b_field']['obj'].vector
-
         # Get rank and size
         self._rank = comm.Get_rank()
 
-        # pointer to electrons
-        self._electrons = self.kinetic['electrons']['obj']
+        # prelim
         electron_params = params['kinetic']['electrons']
 
         # kinetic background
@@ -258,9 +255,9 @@ class LinearVlasovMaxwell(StruphyModel):
         assert self._maxwellian_params['u1'] == 0., "No shifts in velocity space possible!"
         assert self._maxwellian_params['u2'] == 0., "No shifts in velocity space possible!"
         assert self._maxwellian_params['u3'] == 0., "No shifts in velocity space possible!"
-        self.kinetic['electrons']['obj']._f_backgr = getattr(
+        self.pointer['electrons']._f_backgr = getattr(
             kin_ana, 'Maxwellian6DUniform')(**self._maxwellian_params)
-        self._f0 = self._electrons.f_backgr
+        self._f0 = self.pointer['electrons'].f_backgr
 
         # Get coupling strength
         self.alpha = self.eq_params['electrons']['alpha_unit']
@@ -282,7 +279,7 @@ class LinearVlasovMaxwell(StruphyModel):
 
         # Initialize propagators/integrators used in splitting substeps
         self.add_propagator(self.prop_markers.PushEta(
-            self._electrons,
+            self.pointer['electrons'],
             algo=electron_params['push_algos']['eta'],
             bc_type=electron_params['markers']['bc_type'],
             f0=None))  # no conventional weights update here, thus f0=None
@@ -292,7 +289,7 @@ class LinearVlasovMaxwell(StruphyModel):
         # Only add StepVinEfield if e-field is non-zero, otherwise it is more expensive
         if np.all(self._e_background[0]._data < 1e-14) and np.all(self._e_background[1]._data < 1e-14) and np.all(self._e_background[2]._data < 1e-14):
             self.add_propagator(self.prop_markers.StepVinEfield(
-                self._electrons,
+                self.pointer['electrons'],
                 e_field=self._e_background,
                 kappa=self.kappa))
             if self._rank == 0:
@@ -302,7 +299,7 @@ class LinearVlasovMaxwell(StruphyModel):
         b_bckgr_params = params['mhd_equilibrium'][params['mhd_equilibrium']['type']]
         if (b_bckgr_params['B0x'] != 0.) or (b_bckgr_params['B0y'] != 0.) or (b_bckgr_params['B0z'] != 0.):
             self.add_propagator(self.prop_markers.PushVxB(
-                self._electrons,
+                self.pointer['electrons'],
                 algo=electron_params['push_algos']['vxb'],
                 scale_fac=1.,
                 b_eq=self._b_background,
@@ -312,8 +309,8 @@ class LinearVlasovMaxwell(StruphyModel):
                 print("Added Step VxB\n")
 
         self.add_propagator(self.prop_coupling.EfieldWeightsImplicit(
-            self._e,
-            self._electrons,
+            self.pointer['e_field'],
+            self.pointer['electrons'],
             alpha=self.alpha,
             kappa=self.kappa,
             f0=self._f0,
@@ -322,8 +319,8 @@ class LinearVlasovMaxwell(StruphyModel):
             print("\nAdded Step EfieldWeights\n")
 
         self.add_propagator(self.prop_fields.Maxwell(
-            self._e,
-            self._b,
+            self.pointer['e_field'],
+            self.pointer['b_field'],
             **params['solvers']['solver_eb']))
         if self._rank == 0:
             print("\nAdded Step Maxwell\n")
@@ -342,13 +339,14 @@ class LinearVlasovMaxwell(StruphyModel):
         self._mpi_in_place = IN_PLACE
 
         # temporaries
-        self._en_e_tmp = self._e.space.zeros()
-        self._en_b_tmp = self._b.space.zeros()
+        self._en_e_tmp = self.pointer['e_field'].space.zeros()
+        self._en_b_tmp = self.pointer['b_field'].space.zeros()
         self._tmp = np.empty(1, dtype=float)
 
     def initialize_from_params(self):
-        from struphy.propagators import solvers
+
         from struphy.pic.particles_to_grid import AccumulatorVector
+        from psydac.linalg.stencil import StencilVector
 
         # Get physical properties of the Maxwellian
         init_type = self.kinetic['electrons']['params']['init']['type']
@@ -398,32 +396,33 @@ class LinearVlasovMaxwell(StruphyModel):
         # components = [False] * 6
         # components[0] = True
 
-        # self._electrons.show_distribution_function(components, edges, self.domain)
+        # self.pointer['electrons'].show_distribution_function(components, edges, self.domain)
 
         # Correct initialization of weights by dividing by sqrt(f_0)
-        self._electrons.markers[~self._electrons.holes, 6] /= \
-            (np.sqrt(self._f0(*self._electrons.markers_wo_holes[:, :6].T)))
+        self.pointer['electrons'].markers[~self.pointer['electrons'].holes, 6] /= \
+            (np.sqrt(
+                self._f0(*self.pointer['electrons'].markers_wo_holes[:, :6].T)))
 
         # # Set v3 = 0
-        # self._electrons.markers[~self._electrons.holes, 5] = 0.
+        # self.pointer['electrons'].markers[~self.pointer['electrons'].holes, 5] = 0.
 
-        # self._electrons.show_distribution_function(components, edges, self.domain)
+        # self.pointer['electrons'].show_distribution_function(components, edges, self.domain)
         # exit()
 
         # evaluate f0
-        f0_values = self._f0(self._electrons.markers[:, 0],
-                             self._electrons.markers[:, 1],
-                             self._electrons.markers[:, 2],
-                             self._electrons.markers[:, 3],
-                             self._electrons.markers[:, 4],
-                             self._electrons.markers[:, 5])
+        f0_values = self._f0(self.pointer['electrons'].markers[:, 0],
+                             self.pointer['electrons'].markers[:, 1],
+                             self.pointer['electrons'].markers[:, 2],
+                             self.pointer['electrons'].markers[:, 3],
+                             self.pointer['electrons'].markers[:, 4],
+                             self.pointer['electrons'].markers[:, 5])
 
         # Accumulate charge density
         charge_accum = AccumulatorVector(self.derham,
                                          self.domain,
                                          "H1",
                                          "linear_vlasov_maxwell_poisson")
-        charge_accum.accumulate(self._electrons, f0_values,
+        charge_accum.accumulate(self.pointer['electrons'], f0_values,
                                 np.array(
                                     list(self._maxwellian_params.values())),
                                 self.alpha, self.kappa)
@@ -433,44 +432,50 @@ class LinearVlasovMaxwell(StruphyModel):
             np.sum(charge_accum.vectors[0].toarray()) / \
             charge_accum.vectors[0].toarray().size
 
-        # Then solve Poisson equation
-        poisson_solver = solvers.PoissonSolver(
-            rho=charge_accum.vectors[0],
+        # Instantiate Poisson solver
+        _phi = StencilVector(self.derham.Vh['0'])
+        poisson_solver = self.prop_fields.ImplicitDiffusion(
+            _phi,
+            sigma=0.,
+            phi_n=charge_accum.vectors[0],
+            x0=charge_accum.vectors[0],
             **self._poisson_params)
-        poisson_solver(0.)
-        self.derham.grad.dot(-poisson_solver._phi, out=self._e)
+
+        # Solve with dt=1. and compute electric field
+        poisson_solver(1.)
+        self.derham.grad.dot(-_phi, out=self.pointer['e_field'])
 
     def update_scalar_quantities(self):
         # 0.5 * e^T * M_1 * e
-        self._mass_ops.M1.dot(self._e, out=self._en_e_tmp)
-        en_E = self._e.dot(self._en_e_tmp) / 2.
+        self._mass_ops.M1.dot(self.pointer['e_field'], out=self._en_e_tmp)
+        en_E = self.pointer['e_field'].dot(self._en_e_tmp) / 2.
         self.update_scalar('en_e', en_E)
 
         # 0.5 * |e_1|^2
-        self.update_scalar('en_e1', self._e._blocks[0].dot(
+        self.update_scalar('en_e1', self.pointer['e_field']._blocks[0].dot(
             self._en_e_tmp._blocks[0]) / 2.)
 
         # 0.5 * |e_2|^2
-        self.update_scalar('en_e2', self._e._blocks[1].dot(
+        self.update_scalar('en_e2', self.pointer['e_field']._blocks[1].dot(
             self._en_e_tmp._blocks[1]) / 2.)
 
         # 0.5 * b^T * M_2 * b
-        self._mass_ops.M2.dot(self._b, out=self._en_b_tmp)
-        en_B = self._b.dot(self._en_b_tmp) / 2.
+        self._mass_ops.M2.dot(self.pointer['b_field'], out=self._en_b_tmp)
+        en_B = self.pointer['b_field'].dot(self._en_b_tmp) / 2.
         self.update_scalar('en_b', en_B)
 
         # 0.5 * |b_3|^2
-        self.update_scalar('en_b3', self._b._blocks[2].dot(
+        self.update_scalar('en_b3', self.pointer['b_field']._blocks[2].dot(
             self._en_b_tmp._blocks[2]) / 2.)
 
         # alpha^2 / (2N) * (v_th_1 * v_th_2 * v_th_3)^(2/3) * sum_p s_0 * w_p^2
         self._tmp[0] = \
-            self.alpha**2 / (2 * self._electrons.n_mks) * \
+            self.alpha**2 / (2 * self.pointer['electrons'].n_mks) * \
             (self._maxwellian_params['vth1'] *
              self._maxwellian_params['vth2'] *
              self._maxwellian_params['vth3'])**(2/3) * \
-            np.dot(self._electrons.markers_wo_holes[:, 6]**2,  # w_p^2
-                   self._electrons.markers_wo_holes[:, 7])  # s_{0,p}
+            np.dot(self.pointer['electrons'].markers_wo_holes[:, 6]**2,  # w_p^2
+                   self.pointer['electrons'].markers_wo_holes[:, 7])  # s_{0,p}
 
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._tmp, op=self._mpi_sum)
@@ -544,15 +549,10 @@ class DeltaFVlasovMaxwell(StruphyModel):
         from struphy.kinetic_background import maxwellians as kin_ana
         from mpi4py.MPI import SUM, IN_PLACE
 
-        # pointers to em-field variables
-        self._e = self.em_fields['e_field']['obj'].vector
-        self._b = self.em_fields['b_field']['obj'].vector
-
         # Get rank and size
         self._rank = comm.Get_rank()
 
-        # pointer to electrons
-        self._electrons = self.kinetic['electrons']['obj']
+        # prelim
         electron_params = params['kinetic']['electrons']
 
         # kinetic background
@@ -560,9 +560,9 @@ class DeltaFVlasovMaxwell(StruphyModel):
             "The background distribution function must be a uniform Maxwellian!"
 
         self._maxwellian_params = electron_params['background']['Maxwellian6DUniform']
-        self.kinetic['electrons']['obj']._f_backgr = getattr(
+        self.pointer['electrons']._f_backgr = getattr(
             kin_ana, 'Maxwellian6DUniform')(**self._maxwellian_params)
-        self._f0 = self._electrons.f_backgr
+        self._f0 = self.pointer['electrons'].f_backgr
 
         # Get coupling strength
         self.alpha = self.eq_params['electrons']['alpha_unit']
@@ -584,7 +584,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
 
         # Initialize propagators/integrators used in splitting substeps
         self.add_propagator(self.prop_markers.PushEta(
-            self._electrons,
+            self.pointer['electrons'],
             algo=electron_params['push_algos']['eta'],
             bc_type=electron_params['markers']['bc_type'],
             f0=None))  # no conventional weights update here, thus f0=None
@@ -593,25 +593,25 @@ class DeltaFVlasovMaxwell(StruphyModel):
 
         # Only add StepVinEfield if e-field is non-zero, otherwise it is more expensive
         self.add_propagator(self.prop_markers.StepVinEfield(
-            self._electrons,
-            e_field=self._e_background + self._e,
+            self.pointer['electrons'],
+            e_field=self._e_background + self.pointer['e_field'],
             kappa=self.kappa))
         if self._rank == 0:
             print("Added Step VinEfield\n")
 
         self.add_propagator(self.prop_markers.PushVxB(
-            self._electrons,
+            self.pointer['electrons'],
             algo=electron_params['push_algos']['vxb'],
             scale_fac=1.,
-            b_eq=self._b_background + self._b,
+            b_eq=self._b_background + self.pointer['b_field'],
             b_tilde=None,
             f0=None))  # no conventional weights update here, thus f0=None
         if self._rank == 0:
             print("\nAdded Step VxB\n")
 
         self.add_propagator(self.prop_coupling.EfieldWeightsExplicit(
-            self._e,
-            self._electrons,
+            self.pointer['e_field'],
+            self.pointer['electrons'],
             alpha=self.alpha,
             kappa=self.kappa,
             f0=self._f0,
@@ -620,8 +620,8 @@ class DeltaFVlasovMaxwell(StruphyModel):
             print("\nAdded Step EfieldWeights\n")
 
         self.add_propagator(self.prop_fields.Maxwell(
-            self._e,
-            self._b,
+            self.pointer['e_field'],
+            self.pointer['b_field'],
             **params['solvers']['solver_eb']))
         if self._rank == 0:
             print("\nAdded Step Maxwell\n")
@@ -637,37 +637,39 @@ class DeltaFVlasovMaxwell(StruphyModel):
         self._mpi_in_place = IN_PLACE
 
         # temporaries
-        self._en_e_tmp = self._e.space.zeros()
-        self._en_b_tmp = self._b.space.zeros()
+        self._en_e_tmp = self.pointer['e_field'].space.zeros()
+        self._en_b_tmp = self.pointer['b_field'].space.zeros()
         self._tmp = np.empty(1, dtype=float)
 
     def initialize_from_params(self):
-        from struphy.propagators import solvers
+        
         from struphy.pic.particles_to_grid import AccumulatorVector
+        from psydac.linalg.stencil import StencilVector
 
         # Initialize fields and particles
         super().initialize_from_params()
 
-        f0_values = self._f0(*self._electrons.markers_wo_holes[:, :6].T)
+        f0_values = self._f0(
+            *self.pointer['electrons'].markers_wo_holes[:, :6].T)
 
         # Correct initialization of weights: w_p = f_0 * (1 - log(f_0)) / (N * s_0) - w_p^0 * log(f_0) / N
-        self._electrons.markers[~self._electrons.holes, 6] = \
-            f0_values * (1 - np.log(f0_values)) / (self._electrons.n_mks * self._electrons.markers_wo_holes[:, 7]) - \
-            self._electrons.markers_wo_holes[:, 8] * \
-            np.log(f0_values) / self._electrons.n_mks
+        self.pointer['electrons'].markers[~self.pointer['electrons'].holes, 6] = \
+            f0_values * (1 - np.log(f0_values)) / (self.pointer['electrons'].n_mks * self.pointer['electrons'].markers_wo_holes[:, 7]) - \
+            self.pointer['electrons'].markers_wo_holes[:, 8] * \
+            np.log(f0_values) / self.pointer['electrons'].n_mks
 
         # evaluate f0
-        f0_values = self._f0(self._electrons.markers[:, 0],
-                             self._electrons.markers[:, 1],
-                             self._electrons.markers[:, 2],
-                             self._electrons.markers[:, 3],
-                             self._electrons.markers[:, 4],
-                             self._electrons.markers[:, 5])
+        f0_values = self._f0(self.pointer['electrons'].markers[:, 0],
+                             self.pointer['electrons'].markers[:, 1],
+                             self.pointer['electrons'].markers[:, 2],
+                             self.pointer['electrons'].markers[:, 3],
+                             self.pointer['electrons'].markers[:, 4],
+                             self.pointer['electrons'].markers[:, 5])
 
         # Accumulate charge density
         charge_accum = AccumulatorVector(
             self.derham, self.domain, "H1", "delta_f_vlasov_maxwell_poisson")
-        charge_accum.accumulate(self._electrons, f0_values,
+        charge_accum.accumulate(self.pointer['electrons'], f0_values,
                                 np.array(
                                     list(self._maxwellian_params.values())),
                                 self.alpha, self.kappa)
@@ -677,21 +679,28 @@ class DeltaFVlasovMaxwell(StruphyModel):
             np.sum(charge_accum.vectors[0].toarray()) / \
             charge_accum.vectors[0].toarray().size
 
-        # Then solve Poisson equation
-        poisson_solver = solvers.PoissonSolver(
-            rho=charge_accum.vectors[0], **self._poisson_params)
-        poisson_solver(0.)
-        self.derham.grad.dot(-poisson_solver._phi, out=self._e)
+        # Instantiate Poisson solver
+        _phi = StencilVector(self.derham.Vh['0'])
+        poisson_solver = self.prop_fields.ImplicitDiffusion(
+            _phi,
+            sigma=0.,
+            phi_n=charge_accum.vectors[0],
+            x0=charge_accum.vectors[0],
+            **self._poisson_params)
+
+        # Solve with dt=1. and compute electric field
+        poisson_solver(1.)
+        self.derham.grad.dot(-_phi, out=self.pointer['e_field'])
 
     def update_scalar_quantities(self):
         # 0.5 * e^T * M_1 * e
-        self._mass_ops.M1.dot(self._e, out=self._en_e_tmp)
-        en_E = self._e.dot(self._en_e_tmp) / 2.
+        self._mass_ops.M1.dot(self.pointer['e_field'], out=self._en_e_tmp)
+        en_E = self.pointer['e_field'].dot(self._en_e_tmp) / 2.
         self.update_scalar('en_e', en_E)
 
         # 0.5 * b^T * M_2 * b
-        self._mass_ops.M2.dot(self._b, out=self._en_b_tmp)
-        en_B = self._b.dot(self._en_b_tmp) / 2.
+        self._mass_ops.M2.dot(self.pointer['b_field'], out=self._en_b_tmp)
+        en_B = self.pointer['b_field'].dot(self._en_b_tmp) / 2.
         self.update_scalar('en_b', en_B)
 
         # alpha^2 * v_th_1^2 * v_th_2^2 * v_th_3^2 * sum_p w_p
@@ -700,7 +709,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
             self._maxwellian_params['vth1']**2 * \
             self._maxwellian_params['vth2']**2 * \
             self._maxwellian_params['vth3']**2 * \
-            np.sum(self._electrons.markers_wo_holes[:, 6])
+            np.sum(self.pointer['electrons'].markers_wo_holes[:, 6])
 
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._tmp, op=self._mpi_sum)

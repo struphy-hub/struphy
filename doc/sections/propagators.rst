@@ -45,6 +45,8 @@ calligaphic       :math:`\mathcal T,\,\mathcal U,\,\mathcal K` Basis projection 
 See :ref:`gempic` for more details on the used symbols.
 
 
+.. _prop_base:
+
 Propagator base class
 ---------------------
 
@@ -84,6 +86,8 @@ Particle-field propagators
     :exclude-members: variables
     :show-inheritance:
 
+
+.. _pushers:
 
 Pusher base classes
 -------------------

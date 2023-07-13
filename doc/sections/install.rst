@@ -5,7 +5,7 @@ Installation
 
 Struphy can be installed in the following ways:
 
-1. From :ref:`PyPI <pypi_install>` :math:`\to` ``pip install struphy``, for running the latest release
+1. From :ref:`PyPI <pypi_install>` with :code:`pip install struphy`, for running the latest release
 2. From :ref:`source <source_install>`, for running or adding code 
 3. Using :ref:`Docker images <docker_install>`, also suited :ref:`for developers <docker_devs>`
 

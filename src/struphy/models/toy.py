@@ -40,17 +40,13 @@ class Maxwell(StruphyModel):
 
         super().__init__(params, comm, e1='Hcurl', b2='Hdiv')
 
-        # Pointers to em-field variables
-        self._e = self.em_fields['e1']['obj'].vector
-        self._b = self.em_fields['b2']['obj'].vector
-
         # extract necessary parameters
         solver_params = params['solvers']['solver_1']
 
         # Initialize propagators/integrators used in splitting substeps
         self.add_propagator(self.prop_fields.Maxwell(
-            self._e,
-            self._b,
+            self.pointer['e1'],
+            self.pointer['b2'],
             **solver_params))
 
         # Scalar variables to be saved during simulation
@@ -63,11 +59,11 @@ class Maxwell(StruphyModel):
         self._tmp_b = self.derham.Vh['2'].zeros()
 
     def update_scalar_quantities(self):
-        self._mass_ops.M1.dot(self._e, out=self._tmp_e)
-        self._mass_ops.M2.dot(self._b, out=self._tmp_b)
+        self._mass_ops.M1.dot(self.pointer['e1'], out=self._tmp_e)
+        self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp_b)
 
-        en_E = self._e.dot(self._tmp_e)/2
-        en_B = self._b.dot(self._tmp_b)/2
+        en_E = self.pointer['e1'].dot(self._tmp_e)/2
+        en_B = self.pointer['b2'].dot(self._tmp_b)/2
 
         self.update_scalar('en_E', en_E)
         self.update_scalar('en_B', en_B)
@@ -112,12 +108,10 @@ class Vlasov(StruphyModel):
 
         from mpi4py.MPI import SUM, IN_PLACE
 
-        # pointer to ions
-        self._ions = self.kinetic['ions']['obj']
+        # prelim
         ions_params = self.kinetic['ions']['params']
-
         print(
-            f'Total number of markers : {self._ions.n_mks}, shape of markers array on rank {self.derham.comm.Get_rank()} : {self._ions.markers.shape}')
+            f'Total number of markers : {self.pointer["ions"].n_mks}, shape of markers array on rank {self.derham.comm.Get_rank()} : {self.pointer["ions"].markers.shape}')
 
         # project magnetic background
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
@@ -126,14 +120,14 @@ class Vlasov(StruphyModel):
 
         # Initialize propagators/integrators used in splitting substeps
         self.add_propagator(self.prop_markers.PushVxB(
-            self._ions,
+            self.pointer['ions'],
             algo=ions_params['push_algos']['vxb'],
             scale_fac=1.,
             b_eq=self._b_eq,
             b_tilde=None,
             f0=None))
         self.add_propagator(self.prop_markers.PushEta(
-            self._ions,
+            self.pointer['ions'],
             algo=ions_params['push_algos']['eta'],
             bc_type=ions_params['markers']['bc_type'],
             f0=None))
@@ -148,10 +142,10 @@ class Vlasov(StruphyModel):
 
     def update_scalar_quantities(self):
 
-        self._tmp[0] = self._ions.markers_wo_holes[:, 6].dot(
-            self._ions.markers_wo_holes[:, 3]**2 +
-            self._ions.markers_wo_holes[:, 4]**2 +
-            self._ions.markers_wo_holes[:, 5]**2) / (2*self._ions.n_mks)
+        self._tmp[0] = self.pointer['ions'].markers_wo_holes[:, 6].dot(
+            self.pointer['ions'].markers_wo_holes[:, 3]**2 +
+            self.pointer['ions'].markers_wo_holes[:, 4]**2 +
+            self.pointer['ions'].markers_wo_holes[:, 5]**2) / (2*self.pointer['ions'].n_mks)
 
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._tmp, op=self._mpi_sum)
@@ -209,8 +203,7 @@ class DriftKinetic(StruphyModel):
 
         from mpi4py.MPI import SUM, IN_PLACE
 
-        # pointer to ions
-        self._ions = self.kinetic['ions']['obj']
+        # prelim
         ions_params = self.kinetic['ions']['params']
 
         # project magnetic background
@@ -237,7 +230,7 @@ class DriftKinetic(StruphyModel):
 
         # Initialize propagators/integrators used in splitting substeps
         self.add_propagator(self.prop_markers.StepPushGuidingCenter1(
-            self._ions,
+            self.pointer['ions'],
             kappa=kappa,
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
@@ -248,7 +241,7 @@ class DriftKinetic(StruphyModel):
             maxiter=ions_params['push_algos1']['maxiter'],
             tol=ions_params['push_algos1']['tol']))
         self.add_propagator(self.prop_markers.StepPushGuidingCenter2(
-            self._ions,
+            self.pointer['ions'],
             kappa=kappa,
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
@@ -272,17 +265,17 @@ class DriftKinetic(StruphyModel):
 
     def update_scalar_quantities(self):
         # particles' kinetic energy
-        self._en_fv_loc[0] = self._ions.markers[~self._ions.holes, 5].dot(
-            self._ions.markers[~self._ions.holes, 3]**2) / (2.*self._ions.n_mks)
+        self._en_fv_loc[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
+            self.pointer['ions'].markers[~self.pointer['ions'].holes, 3]**2) / (2.*self.pointer['ions'].n_mks)
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._en_fv_loc, op=self._mpi_sum)
 
         # particles' magnetic energy
-        self._ions.save_magnetic_energy(self._derham,
+        self.pointer['ions'].save_magnetic_energy(self._derham,
                                         self._E0T.dot(self.derham.P['0'](self.mhd_equil.absB0)))
 
-        self._en_fB_loc[0] = self._ions.markers[~self._ions.holes, 5].dot(
-            self._ions.markers[~self._ions.holes, 8]) / self._ions.n_mks
+        self._en_fB_loc[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
+            self.pointer['ions'].markers[~self.pointer['ions'].holes, 8]) / self.pointer['ions'].n_mks
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._en_fB_loc, op=self._mpi_sum)
 

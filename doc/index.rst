@@ -46,6 +46,7 @@ Struphy is constantly maintained. Please contact
 
    * stefan.possanner@ipp.mpg.de
    * eric.sonnendruecker@ipp.mpg.de
+   * xin.wang@ipp.mpg.de
 
 for questions.
 

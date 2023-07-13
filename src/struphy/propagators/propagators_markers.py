@@ -37,9 +37,7 @@ class PushEta(Propagator):
 
     def __init__(self, particles, **params):
 
-        # pointer to variable
-        assert isinstance(particles, Particles6D)
-        self._particles = particles
+        super().__init__(particles)
 
         # parameters
         params_default = {'algo': 'rk4',
@@ -82,23 +80,19 @@ class PushEta(Propagator):
         self._pusher = Pusher(self.derham, self.domain,
                               'push_eta_stage', self._butcher.n_stages)
 
-    @property
-    def variables(self):
-        return self._particles
-
     def __call__(self, dt):
         """
         TODO
         """
 
         # push markers
-        self._pusher(self._particles, dt,
+        self._pusher(self.particles[0], dt,
                      self._butcher.a, self._butcher.b, self._butcher.c,
                      mpi_sort='last')
 
         # update_weights
         if self._f0 is not None:
-            self._particles.update_weights(self._f0)
+            self.particles[0].update_weights(self._f0)
 
 
 class PushVxB(Propagator):
@@ -124,9 +118,7 @@ class PushVxB(Propagator):
 
     def __init__(self, particles, **params):
 
-        # pointer to variable
-        assert isinstance(particles, Particles6D)
-        self._particles = particles
+        super().__init__(particles)
 
         # parameters
         params_default = {'algo': 'analytic',
@@ -157,10 +149,6 @@ class PushVxB(Propagator):
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         self._E2T = self.derham.E['2'].transpose()
 
-    @property
-    def variables(self):
-        return self._particles
-
     def __call__(self, dt):
         """
         TODO
@@ -178,14 +166,14 @@ class PushVxB(Propagator):
         b_full.update_ghost_regions()
 
         # call pusher kernel
-        self._pusher(self._particles, self._scale_fac*dt,
+        self._pusher(self.particles[0], self._scale_fac*dt,
                      b_full[0]._data,
                      b_full[1]._data,
                      b_full[2]._data)
 
         # update_weights
         if self._f0 is not None:
-            self._particles.update_weights(self._f0)
+            self.particles[0].update_weights(self._f0)
 
 
 class StepPushpxBHybrid(Propagator):
@@ -210,6 +198,8 @@ class StepPushpxBHybrid(Propagator):
 
     def __init__(self, particles, **params):
 
+        super().__init__(particles)
+
         # parameters
         params_default = {'b_eq': None,
                           'a': None,
@@ -224,8 +214,6 @@ class StepPushpxBHybrid(Propagator):
 
         self._C = self.derham.curl
 
-        self._particles = particles
-
         # load pusher
         kernel_name = 'push_pxb_' + self._algo
 
@@ -236,10 +224,6 @@ class StepPushpxBHybrid(Propagator):
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         self._E2T = self.derham.E['2'].transpose()
-
-    @property
-    def variables(self):
-        return self._particles
 
     def __call__(self, dt):
         """
@@ -259,7 +243,7 @@ class StepPushpxBHybrid(Propagator):
         self._a.update_ghost_regions()
 
         # call pusher kernel
-        self._pusher(self._particles, dt,
+        self._pusher(self.particles[0], dt,
                      b_full[0]._data,
                      b_full[1]._data,
                      b_full[2]._data,
@@ -287,7 +271,7 @@ class StepHybridXPSymplectic(Propagator):
 
     def __init__(self, particles, **params):
 
-        self._particles = particles
+        super().__init__(particles)
 
         # parameters
         params_default = {'a': None,
@@ -338,21 +322,17 @@ class StepHybridXPSymplectic(Propagator):
         self._pusher_inputs = (
             self._a[0]._data, self._a[1]._data, self._a[2]._data)
 
-    @property
-    def variables(self):
-        return
-
     def __call__(self, dt):
         """
         TODO
         """
         # get density from particles
-        self._accum_density.accumulate(self._particles, array(self.derham.Nel), array(self._nqs), array(
+        self._accum_density.accumulate(self.particles[0], array(self.derham.Nel), array(self._nqs), array(
             self._pts_x), array(self._pts_y), array(self._pts_z), array(self._p_shape), array(self._p_size))
         if not self._accum_density._operators[0].matrix.ghost_regions_in_sync:
             self._accum_density._operators[0].matrix.update_ghost_regions()
         # print('++++++check_density+++++++++', self._accum_density._operators[0].matrix._data)
-        self._pusher_lnn(self._particles, dt, array(self._p_shape), array(self._p_size), array(self.derham.Nel), array(self._pts_x), array(self._pts_y), array(
+        self._pusher_lnn(self.particles[0], dt, array(self._p_shape), array(self._p_size), array(self.derham.Nel), array(self._pts_x), array(self._pts_y), array(
             self._pts_z), array(self._wts_x), array(self._wts_y), array(self._wts_z), self._accum_density._operators[0].matrix._data, self._thermal, array(self._nqs))
 
         if not self._a[0].ghost_regions_in_sync:
@@ -362,7 +342,7 @@ class StepHybridXPSymplectic(Propagator):
         if not self._a[2].ghost_regions_in_sync:
             self._a[2].update_ghost_regions()
         self._pusher_ap(
-            self._particles, dt, self._a[0]._data, self._a[1]._data, self._a[2]._data, mpi_sort='last')
+            self.particles[0], dt, self._a[0]._data, self._a[1]._data, self._a[2]._data, mpi_sort='last')
 
 
 class PushEtaPC(Propagator):
@@ -401,9 +381,7 @@ class PushEtaPC(Propagator):
 
     def __init__(self, particles, **params):
 
-        # pointer to variable
-        assert isinstance(particles, Particles6D)
-        self._particles = particles
+        super().__init__(particles)
 
         # parameters
         params_default = {'u_mhd': None,
@@ -428,10 +406,6 @@ class PushEtaPC(Propagator):
         self._pusher = Pusher(
             self.derham, self.domain, pusher_ker, n_stages=4)
 
-    @property
-    def variables(self):
-        return
-
     def __call__(self, dt):
         """
         TODO
@@ -445,7 +419,7 @@ class PushEtaPC(Propagator):
         if not self._u[2].ghost_regions_in_sync:
             self._u[2].update_ghost_regions()
 
-        self._pusher(self._particles, dt,
+        self._pusher(self.particles[0], dt,
                      self._u[0]._data, self._u[1]._data, self._u[2]._data,
                      mpi_sort='last')
 
@@ -483,9 +457,7 @@ class StepPushGuidingCenter1(Propagator):
 
     def __init__(self, particles, **params):
 
-        # pointer to variable
-        assert isinstance(particles, Particles5D)
-        self._particles = particles
+        super().__init__(particles)
 
         # parameters
         params_default = {'kappa': 1.,
@@ -571,7 +543,7 @@ class StepPushGuidingCenter1(Propagator):
             elif params['method'] == 'discrete_gradients_faster':
                 self._pusher = Pusher_iteration_Gonzalez(
                     self.derham, self.domain, 'push_gc1_discrete_gradients_faster', params['maxiter'], params['tol'])
-                
+
             elif params['method'] == 'discrete_gradients_Itoh_Newton':
                 self._pusher = Pusher_iteration_Itoh(
                     self.derham, self.domain, 'push_gc1_discrete_gradients_Itoh_Newton', params['maxiter'], params['tol'])
@@ -590,19 +562,15 @@ class StepPushGuidingCenter1(Propagator):
         else:
             raise NotImplementedError('Chosen integrator is not implemented.')
 
-    @property
-    def variables(self):
-        return self._particles
-
     def __call__(self, dt):
         """
         TODO
         """
-        self._pusher(self._particles, dt,
+        self._pusher(self.particles[0], dt,
                      *self._pusher_inputs, mpi_sort='each', verbose=False)
 
         # save magnetic field at each particles' position
-        self._particles.save_magnetic_energy(self.derham, self._abs_b)
+        self.particles[0].save_magnetic_energy(self.derham, self._abs_b)
 
 
 class StepPushGuidingCenter2(Propagator):
@@ -633,9 +601,7 @@ class StepPushGuidingCenter2(Propagator):
 
     def __init__(self, particles, **params):
 
-        # pointer to variable
-        assert isinstance(particles, Particles5D)
-        self._particles = particles
+        super().__init__(particles)
 
         # parameters
         params_default = {'kappa': 1.,
@@ -721,10 +687,10 @@ class StepPushGuidingCenter2(Propagator):
             elif params['method'] == 'discrete_gradients_faster':
                 self._pusher = Pusher_iteration_Gonzalez(
                     self.derham, self.domain, 'push_gc2_discrete_gradients_faster', params['maxiter'], params['tol'])
-                
+
             elif params['method'] == 'discrete_gradients_Itoh_Newton':
                 self._pusher = Pusher_iteration_Itoh(
-                     self.derham, self.domain, 'push_gc2_discrete_gradients_Itoh_Newton', params['maxiter'], params['tol'])
+                    self.derham, self.domain, 'push_gc2_discrete_gradients_Itoh_Newton', params['maxiter'], params['tol'])
 
             else:
                 raise NotImplementedError(
@@ -740,19 +706,15 @@ class StepPushGuidingCenter2(Propagator):
         else:
             raise NotImplementedError('Chosen integrator is not implemented.')
 
-    @property
-    def variables(self):
-        return self._particles
-
     def __call__(self, dt):
         """
         TODO
         """
-        self._pusher(self._particles, dt,
+        self._pusher(self.particles[0], dt,
                      *self._pusher_inputs, mpi_sort='each', verbose=False)
 
         # save magnetic field at each particles' position
-        self._particles.save_magnetic_energy(self.derham, self._abs_b)
+        self.particles[0].save_magnetic_energy(self.derham, self._abs_b)
 
 
 class StepVinEfield(Propagator):
@@ -775,11 +737,7 @@ class StepVinEfield(Propagator):
 
     def __init__(self, particles, **params):
 
-        from numpy import polynomial, floor
-
-        # pointer to variable
-        assert isinstance(particles, Particles6D)
-        self._particles = particles
+        super().__init__(particles)
 
         # parameters
         params_default = {
@@ -797,7 +755,7 @@ class StepVinEfield(Propagator):
 
         if method == 'analytical':
             self._pusher = Pusher(self.derham, self.domain,
-                                'push_v_with_efield')
+                                  'push_v_with_efield')
         elif method == 'discrete_gradient':
             raise NotImplementedError('Not yet implemented.')
             # self._pusher = Pusher(self.derham, self.domain,
@@ -805,15 +763,11 @@ class StepVinEfield(Propagator):
         else:
             raise ValueError(f'Method {method} not known.')
 
-    @property
-    def variables(self):
-        return [self._particles]
-
     def __call__(self, dt):
         """
         TODO
         """
-        self._pusher(self._particles, dt,
+        self._pusher(self.particles[0], dt,
                      self._e_field.blocks[0]._data, self._e_field.blocks[1]._data, self._e_field.blocks[2]._data,
                      self.kappa)
 
@@ -851,9 +805,7 @@ class StepStaticEfield(Propagator):
 
         from numpy import polynomial, floor
 
-        # pointer to variable
-        assert isinstance(particles, Particles6D)
-        self._particles = particles
+        super().__init__(particles)
 
         # parameters
         params_default = {
@@ -889,15 +841,11 @@ class StepStaticEfield(Propagator):
         self._pusher = Pusher(self.derham, self.domain,
                               'push_x_v_static_efield')
 
-    @property
-    def variables(self):
-        return [self._particles]
-
     def __call__(self, dt):
         """
         TODO
         """
-        self._pusher(self._particles, dt,
+        self._pusher(self.particles[0], dt,
                      self._loc1, self._loc2, self._loc3, self._weight1, self._weight2, self._weight3,
                      self._e_field.blocks[0]._data, self._e_field.blocks[1]._data, self._e_field.blocks[2]._data,
                      self.kappa,
@@ -937,9 +885,7 @@ class StepPushDriftKinetic1(Propagator):
 
     def __init__(self, particles, **params):
 
-        # pointer to variable
-        assert isinstance(particles, Particles5D)
-        self._particles = particles
+        super().__init__(particles)
 
         # parameters
         params_default = {'kappa': 1.,
@@ -986,7 +932,7 @@ class StepPushDriftKinetic1(Propagator):
         self._curl_norm_b.update_ghost_regions()
 
         self._integrator = params['integrator']
-        
+
         if params['integrator'] == 'explicit':
 
             if params['method'] == 'forward_euler':
@@ -1026,7 +972,7 @@ class StepPushDriftKinetic1(Propagator):
             elif params['method'] == 'discrete_gradients_faster':
                 self._pusher = Pusher_iteration_Gonzalez(
                     self.derham, self.domain, 'push_gc1_discrete_gradients_faster', params['maxiter'], params['tol'])
-                
+
             elif params['method'] == 'discrete_gradients_Itoh_Newton':
                 self._pusher = Pusher_iteration_Itoh(
                     self.derham, self.domain, 'push_gc1_discrete_gradients_Itoh_Newton', params['maxiter'], params['tol'])
@@ -1037,10 +983,6 @@ class StepPushDriftKinetic1(Propagator):
 
         else:
             raise NotImplementedError('Chosen integrator is not implemented.')
-
-    @property
-    def variables(self):
-        return self._particles
 
     def __call__(self, dt):
         """
@@ -1065,7 +1007,7 @@ class StepPushDriftKinetic1(Propagator):
         self._grad_PBb.update_ghost_regions()
 
         if self._integrator == 'explicit':
-            self._pusher_inputs = (self._kappa, 
+            self._pusher_inputs = (self._kappa,
                                    self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
@@ -1080,7 +1022,7 @@ class StepPushDriftKinetic1(Propagator):
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
                                    self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data)
 
-        self._pusher(self._particles, dt,
+        self._pusher(self.particles[0], dt,
                      *self._pusher_inputs, mpi_sort='each', verbose=False)
 
 
@@ -1112,9 +1054,7 @@ class StepPushDriftKinetic2(Propagator):
 
     def __init__(self, particles, **params):
 
-        # pointer to variable
-        assert isinstance(particles, Particles5D)
-        self._particles = particles
+        super().__init__(particles)
 
         # parameters
         params_default = {'kappa': 1.,
@@ -1201,10 +1141,10 @@ class StepPushDriftKinetic2(Propagator):
             elif params['method'] == 'discrete_gradients_faster':
                 self._pusher = Pusher_iteration_Gonzalez(
                     self.derham, self.domain, 'push_gc2_discrete_gradients_faster', params['maxiter'], params['tol'])
-                
+
             elif params['method'] == 'discrete_gradients_Itoh_Newton':
                 self._pusher = Pusher_iteration_Itoh(
-                     self.derham, self.domain, 'push_gc2_discrete_gradients_Itoh_Newton', params['maxiter'], params['tol'])
+                    self.derham, self.domain, 'push_gc2_discrete_gradients_Itoh_Newton', params['maxiter'], params['tol'])
 
             else:
                 raise NotImplementedError(
@@ -1212,10 +1152,6 @@ class StepPushDriftKinetic2(Propagator):
 
         else:
             raise NotImplementedError('Chosen integrator is not implemented.')
-
-    @property
-    def variables(self):
-        return self._particles
 
     def __call__(self, dt):
         """
@@ -1239,7 +1175,7 @@ class StepPushDriftKinetic2(Propagator):
         self._grad_PBb.update_ghost_regions()
 
         if self._integrator == 'explicit':
-            self._pusher_inputs = (self._kappa, 
+            self._pusher_inputs = (self._kappa,
                                    self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
@@ -1254,5 +1190,5 @@ class StepPushDriftKinetic2(Propagator):
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
                                    self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data)
 
-        self._pusher(self._particles, dt,
+        self._pusher(self.particles[0], dt,
                      *self._pusher_inputs, mpi_sort='each', verbose=False)
