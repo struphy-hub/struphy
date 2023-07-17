@@ -1879,7 +1879,7 @@ class ImplicitDiffusion(Propagator):
             solvability = np.zeros(1)
             self.derham.comm.Allreduce(
                 np.sum(phi_n.toarray()), solvability, op=MPI.SUM)
-            assert solvability[0] <= 1e-14, f'Solvability condition not met: {solvability[0]}'
+            assert np.abs(solvability[0]) <= 1e-14, f'Solvability condition not met: {solvability[0]}'
 
     @property
     def phi_n(self):
