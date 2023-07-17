@@ -138,6 +138,11 @@ class VlasovMaxwell(StruphyModel):
         charge_accum.accumulate(
             self.pointer['electrons'], self.alpha, self.epsilon)
 
+        # Locally subtract mean charge for solvability with periodic bc
+        if np.all(charge_accum.vectors[0].space.periods):
+            charge_accum._vectors[0][:] -= np.mean(charge_accum.vectors[0].toarray()[
+                                                   charge_accum.vectors[0].toarray() != 0])
+
         # Instantiate Poisson solver
         _phi = StencilVector(self.derham.Vh['0'])
         poisson_solver = self.prop_fields.ImplicitDiffusion(
@@ -427,10 +432,10 @@ class LinearVlasovMaxwell(StruphyModel):
                                     list(self._maxwellian_params.values())),
                                 self.alpha, self.kappa)
 
-        # Subtract the charge local to each process
-        charge_accum._vectors[0][:, :, :] -= \
-            np.sum(charge_accum.vectors[0].toarray()) / \
-            charge_accum.vectors[0].toarray().size
+        # Locally subtract mean charge for solvability with periodic bc
+        if np.all(charge_accum.vectors[0].space.periods):
+            charge_accum._vectors[0][:] -= np.mean(charge_accum.vectors[0].toarray()[
+                                                   charge_accum.vectors[0].toarray() != 0])
 
         # Instantiate Poisson solver
         _phi = StencilVector(self.derham.Vh['0'])
@@ -642,7 +647,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
         self._tmp = np.empty(1, dtype=float)
 
     def initialize_from_params(self):
-        
+
         from struphy.pic.particles_to_grid import AccumulatorVector
         from psydac.linalg.stencil import StencilVector
 
@@ -674,10 +679,10 @@ class DeltaFVlasovMaxwell(StruphyModel):
                                     list(self._maxwellian_params.values())),
                                 self.alpha, self.kappa)
 
-        # Subtract the charge local to each process
-        charge_accum._vectors[0][:, :, :] -= \
-            np.sum(charge_accum.vectors[0].toarray()) / \
-            charge_accum.vectors[0].toarray().size
+        # Locally subtract mean charge for solvability with periodic bc
+        if np.all(charge_accum.vectors[0].space.periods):
+            charge_accum._vectors[0][:] -= np.mean(charge_accum.vectors[0].toarray()[
+                                                   charge_accum.vectors[0].toarray() != 0])
 
         # Instantiate Poisson solver
         _phi = StencilVector(self.derham.Vh['0'])
