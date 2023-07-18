@@ -90,11 +90,13 @@ class VlasovMaxwell(StruphyModel):
             self.pointer['e1'],
             self.pointer['b2'],
             **params['solvers']['solver_maxwell']))
+        
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['electrons'],
             algo=electron_params['push_algos']['eta'],
             bc_type=electron_params['markers']['bc_type'],
             f0=None))
+        
         self.add_propagator(self.prop_markers.PushVxB(
             self.pointer['electrons'],
             algo=electron_params['push_algos']['vxb'],
@@ -102,6 +104,7 @@ class VlasovMaxwell(StruphyModel):
             b_eq=self._b_background,
             b_tilde=self.pointer['b2'],
             f0=None))
+        
         self.add_propagator(self.prop_coupling.VlasovMaxwell(
             self.pointer['e1'],
             self.pointer['electrons'],

@@ -193,13 +193,13 @@ where we defined the time-independent **weights**
 
     w_{k0} := \frac{f^0(t, q_k(t)) }{s^0(t, q_k(t)) } = \frac{f^0(0, q_k(0)) }{s^0(0, q_k(0)) } = \frac{f^0_{\textnormal{in}}(q_{k0}) }{s^0_{\textnormal{in}}(q_{k0}) }\,.
 
-These weights are implemented in :meth:`struphy.pic.particles.Particles.initialize_weights`.
+These weights are implemented in :meth:`struphy.pic.base.Particles.initialize_weights`.
 Equation :math:numref:`mcint` can be obtained directly from :math:numref:`int:1` by inserting
 the PIC ansatz :math:numref:`pic:ansatz`, with :math:`f^0|J_F| \approx f^n_h`.
 
 The PIC algorithm can be summarized in the following steps:
 
-1. Draw :math:`N\gg 1` markers :math:`(q_{k0})_k` according to :math:`s^n_{\textnormal{in}}`. The initial marker distribution is implemented in :meth:`struphy.pic.particles.Particles.draw_markers`. In Struphy, it is always a Gaussian in velocity space (see docstring).
+1. Draw :math:`N\gg 1` markers :math:`(q_{k0})_k` according to :math:`s^n_{\textnormal{in}}`. The initial marker distribution is implemented in :meth:`struphy.pic.base.Particles.draw_markers`. In Struphy, it is always a Gaussian in velocity space (see docstring).
 
 2. Compute the weights :math:`(w_{k0})_k` according to equation :math:numref:`weights`. The initial condition of the kinetic equation :math:numref:`kin:f0` enters only here. Note that :math:`s^0_{\textnormal{in}} = s^n_{\textnormal{in}} / |J_F|`.
 
@@ -270,7 +270,7 @@ there are two different integrals to approximate:
 Here, the sum runs over all markers that are in the bin :math:`\Omega_{ij}`. 
 The values :math:`R^0_{ij}` computed in :math:numref:`def:Rij` are discrete approximations of :math:`f^0`,
 and values :math:`R^n_{ij}` are discrete approximations of :math:`f^n`.
-This binning algorithm is implemented in :meth:`struphy.pic.particles.Particles.binning`.
+This binning algorithm is implemented in :meth:`struphy.pic.base.Particles.binning`.
 
 
 .. _control_var:
@@ -309,7 +309,7 @@ where we have introduced the time-dependent weights
 
     w_k(t) = w_{k0} - \frac{\mathcal M^0(t, q_k(t))}{s^0_{\textnormal{in}}(q_{k0})}\,.
 
-This algorithm is implemented in :meth:`struphy.pic.particles.Particles.update_weights`.
+This algorithm is implemented in :meth:`struphy.pic.base.Particles.update_weights`.
 
 
 .. _geomFE:
