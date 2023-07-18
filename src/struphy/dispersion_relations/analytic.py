@@ -276,12 +276,12 @@ class ColdPlasma1D(DispersionRelations1D):
 
     .. math::
 
-        \left[ \left( \omega^2 - |k|^2 \right) \mathbb I + \mathbf k \otimes \mathbf k + i \frac{\omega \alpha}{\varepsilon_c} \sigma_c \right] \mathbf E = 0\,,
+        \left[ \left( \omega^2 - |k|^2 \right) \mathbb I + \mathbf k \otimes \mathbf k + i \frac{\alpha^2}{\varepsilon_c} \omega \sigma_c \right] \mathbf E = 0\,,
 
-    where :math:`\left( \omega^2 - |k|^2 \right) \mathbb I + \mathbf k \otimes \mathbf k + i \frac{\omega \alpha}{\varepsilon_c} \sigma_c = \epsilon`
+    where :math:`\left( \omega^2 - |k|^2 \right) \mathbb I + \mathbf k \otimes \mathbf k + i \frac{\alpha^2}{\varepsilon_c} \omega \sigma_c = \epsilon`
     is the dielectric tensor, :math:`\alpha` is the plasma frequency in units of the electron cyclotron frequency, 
     :math:`1/\varepsilon_c` is the electron cyclotron frequency in struphy units,
-    and :math:`\sigma_c = \left( \mathbb I - i Q / \varepsilon_c \omega \right)^{-1} i \alpha n_0 / \varepsilon_c \omega`,
+    and :math:`\sigma_c = \left( \mathbb I - i Q / \varepsilon_c \omega \right)^{-1} i n_0 / \varepsilon_c \omega`,
     with :math:`Q` being an operator which, if applied to vector :math:`\mathbf v`, returns :math:`\mathbf v \times \mathbf B_0`.
     '''
 

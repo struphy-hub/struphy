@@ -598,25 +598,17 @@ def vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                           vec: 'float[:,:,:]',
-                           alpha: 'float',  # model specific argument
-                           epsilon: 'float'):  # model specific argument
+                           vec: 'float[:,:,:]'):
     r"""
     Accumulates the charge density in V0 
 
     .. math::
 
-        \rho_p^\mu = \frac{\alpha^2}{\epsilon} w_p \,.
+        \rho_p^\mu = w_p \,.
 
     Parameters
     ----------
-
-        alpha : float
-            = Omega_c / Omega_p ; Parameter determining the coupling strength between particles and fields
-
-        epsilon : float
-            = omega / Omega_c ; Parameter determining the coupling strength between particles and fields
-
+    
     Note
     ----
         The above parameter list contains only the model specific input arguments.
@@ -640,8 +632,8 @@ def vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        # filling = alpha^2 / epsilon * w_p
-        filling = alpha**2 / epsilon * markers[ip, 6] / n_markers_tot
+        # filling = w_p
+        filling = markers[ip, 6] / n_markers_tot
 
         # spans (i.e. index for non-vanishing B-spline basis functions)
         span1 = bsp.find_span(tn1, pn[0], eta1)
@@ -676,26 +668,18 @@ def vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                    mat33: 'float[:,:,:,:,:,:]',
                    vec1: 'float[:,:,:]',
                    vec2: 'float[:,:,:]',
-                   vec3: 'float[:,:,:]',
-                   alpha: 'float',  # model specific argument
-                   epsilon: 'float'):  # model specific argument
+                   vec3: 'float[:,:,:]'):
     r"""
     Accumulates into V1 with the filling functions
 
     .. math::
 
-        A_p^{\mu, \nu} &= \frac{\alpha^2}{\varepsilon^2} w_p [ DF^{-1}(\eta_p) DF^{-\top}(\eta_p) ]_{\mu, \nu} \,,
+        A_p^{\mu, \nu} &= w_p [ DF^{-1}(\eta_p) DF^{-\top}(\eta_p) ]_{\mu, \nu} \,,
 
-        B_p^\mu &= \frac{\alpha^2}{\varepsilon} w_p [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\mu \,.
+        B_p^\mu &= w_p [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\mu \,.
 
     Parameters
     ----------
-
-        alpha : float
-            = Omega_p / Omega_c ; Parameter determining the coupling strength between particles and fields
-
-        epsilon : float
-            = omega / Omega_c ; Parameter determining the coupling strength between particles and fields
 
     Note
     ----
@@ -746,13 +730,11 @@ def vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
         linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
         linalg.matrix_vector(df_inv, v, df_inv_times_v)
 
-        # filling_m = alpha^2 / epsilon^2 * w_p * DF^{-1} * DF^{-T}
-        filling_m[:, :] = alpha**2 / epsilon**2 * \
-            markers[ip, 6] * g_inv[:, :] / n_markers_tot
+        # filling_m = w_p * DF^{-1} * DF^{-T}
+        filling_m[:, :] = markers[ip, 6] * g_inv[:, :] / n_markers_tot
 
-        # filling_v = alpha^2 / epsilon * w_p * DF^{-1} * \V
-        filling_v[:] = alpha**2 / epsilon * \
-            markers[ip, 6] * df_inv_times_v[:] / n_markers_tot
+        # filling_v = w_p * DF^{-1} * \V
+        filling_v[:] = markers[ip, 6] * df_inv_times_v[:] / n_markers_tot
 
         # call the appropriate matvec filler
         mvf.m_v_fill_b_v1_symm(pn,

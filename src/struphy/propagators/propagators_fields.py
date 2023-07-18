@@ -131,12 +131,12 @@ class OhmCold(Propagator):
             \mathbf e^{n+1} - \mathbf e^n
         \end{bmatrix}
         = \frac{\Delta t}{2} \begin{bmatrix}
-            0 & \frac{\alpha}{\varepsilon_c} \mathbb M_{1,1/n}^{-1} \\
-            - \frac{\alpha}{\varepsilon_c} \mathbb M_{1,1/n}^{-1} & 0
+            0 & \frac{1}{\varepsilon_c} \mathbb M_{1,1/n}^{-1} \\
+            - \frac{1}{\varepsilon_c} \mathbb M_{1,1/n}^{-1} & 0
         \end{bmatrix}
         \begin{bmatrix}
-            \mathbb M_{1,1/n} (\mathbf j^n + \mathbf j^{n+1}) \\
-            \mathbb M_1 (\mathbf e^n + \mathbf e^{n+1})
+            \mathbb \alpha^2 M_{1,1/n} (\mathbf j^{n+1} + \mathbf j^{n}) \\
+            \mathbb M_1 (\mathbf e^{n+1} + \mathbf e^{n})
         \end{bmatrix} ,
 
     based on the :ref:`Schur complement <schur_solver>`.
@@ -153,7 +153,7 @@ class OhmCold(Propagator):
             Solver parameters for this splitting step.
     '''
 
-    def __init__(self, e, j, **params):
+    def __init__(self, j, e, **params):
 
         super().__init__(e, j)
 
@@ -170,13 +170,14 @@ class OhmCold(Propagator):
         params = set_defaults(params, params_default)
 
         self._info = params['info']
-        self._prefactor = params['alpha'] / params['epsilon']
+        self._alpha = params['alpha']
+        self._epsilon = params['epsilon']
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = self.mass_ops.M1ninv
 
-        self._B = Multiply(-1/2 * self._prefactor, self.mass_ops.M1)  # no dt
-        self._C = Multiply(1/2 * self._prefactor,
+        self._B = Multiply(-1/2 * 1/self._epsilon, self.mass_ops.M1)  # no dt
+        self._C = Multiply(1/2 * self._alpha**2 / self._epsilon,
                            IdentityOperator(self.derham._Vh["1"]))  # no dt
 
         # Preconditioner
@@ -201,7 +202,7 @@ class OhmCold(Propagator):
 
         # allocate temporary FemFields _e, _j during solution
         _j, info = self._schur_solver(jn, self._B.dot(en), dt)
-        _e = en - dt/2 * self._prefactor * (_j + jn)
+        _e = en - dt * self._C.dot(_j + jn)
 
         # write new coeffs into Propagator.variables
         max_de, max_dj = self.feec_vars_update(_e, _j)

@@ -36,8 +36,8 @@ class VlasovMaxwell(Propagator):
         =
         \frac{\Delta t}{2}
         \begin{bmatrix}
-            0 & - \frac{\alpha^2}{\epsilon} \mathbb{\Lambda}_1(\mathbf{H})^\top DF^{-1} \mathbb{W} \\
-            \frac{1}{\epsilon} DF^{-\top} \mathbb{\Lambda}_1(\mathbf{H}) & 0
+            0 & - c_1 \left(\mathbb{\Lambda}^1\right)^\top \overline{DF^{-1}} \mathbb{W} \\
+            c_2 \overline{DF^{-\top}} \mathbb{\Lambda}^1 & 0
         \end{bmatrix}
         \begin{bmatrix}
             \mathbf{e}^{n+1} + \mathbf{e}^n \\
@@ -54,7 +54,7 @@ class VlasovMaxwell(Propagator):
     and the accumulation matrix writes
 
     .. math::
-        \mathbb{A} = -\frac{{\Delta t}^2}{4} \frac{\alpha^2}{\epsilon^2} \, \mathbb{\Lambda}_1(\mathbf{H})^\top G^{-1} \mathbb{W} \mathbb{\Lambda}_1(\mathbf{H}) \,.
+        \mathbb{A} = -\frac{{\Delta t}^2}{4} c_1 c_2 \, \left( \mathbb{\Lambda}^1 \right)^\top \overline{G^{-1}} \mathbb{W} \mathbb{\Lambda}^1 \,.
 
     Parameters
     ---------- 
@@ -66,6 +66,10 @@ class VlasovMaxwell(Propagator):
 
     **params : dict
         Solver- and/or other parameters for this splitting step.
+
+    Note
+    ----------
+    For VlasovMaxwell :math:`c_1 = \alpha^2/\varepsilon \,, \, c_2 = 1/\varepsilon`
     '''
 
     def __init__(self, e, particles, **params):
@@ -73,8 +77,8 @@ class VlasovMaxwell(Propagator):
         super().__init__(e, particles)
 
         # parameters
-        params_default = {'alpha': 1.,
-                          'epsilon': 1.,
+        params_default = {'c1': 1.,
+                          'c2': 1.,
                           'type': 'PConjugateGradient',
                           'pc': 'MassMatrixPreconditioner',
                           'tol': 1e-8,
@@ -84,8 +88,8 @@ class VlasovMaxwell(Propagator):
 
         params = set_defaults(params, params_default)
 
-        self._alpha = params['alpha']
-        self._epsilon = params['epsilon']
+        self._c1 = params['c1']
+        self._c2 = params['c2']
         self._info = params['info']
 
         # Initialize Accumulator object
@@ -126,14 +130,15 @@ class VlasovMaxwell(Propagator):
 
     def __call__(self, dt):
         # accumulate
-        self._accum.accumulate(self.particles[0], self._alpha, self._epsilon)
+        self._accum.accumulate(self.particles[0])
 
         # Update Schur solver
-        self._schur_solver.BC = - self._accum.operators[0].matrix / 4
+        self._schur_solver.BC = - self._c1 * self._c2 / \
+            4. * self._accum.operators[0].matrix
 
         # allocate temporary BlockVector during solution
         self._e_temp, info = self._schur_solver(
-            self.feec_vars[0], self._accum.vectors[0] / 2., dt)
+            self.feec_vars[0], self._c1 / 2. * self._accum.vectors[0], dt)
 
         # Store old velocity magnitudes
         self._old_v_sq[~self.particles[0].holes] = np.sqrt(self.particles[0].markers[~self.particles[0].holes, 3]**2 +
@@ -153,7 +158,7 @@ class VlasovMaxwell(Propagator):
                      self._e_sum.blocks[0]._data,
                      self._e_sum.blocks[1]._data,
                      self._e_sum.blocks[2]._data,
-                     1/self._epsilon)
+                     self._c2)
 
         # Store new velocity magnitudes
         self._new_v_sq[~self.particles[0].holes] = np.sqrt(self.particles[0].markers[~self.particles[0].holes, 3]**2 +

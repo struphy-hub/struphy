@@ -83,16 +83,16 @@ class LinearMHD(StruphyModel):
 
         # Initialize propagators/integrators used in splitting substeps
         self.add_propagator(self.prop_fields.ShearAlfvén(
-            self.pointer[self._un] ,
-            self.pointer['b2'] ,
+            self.pointer[self._un],
+            self.pointer['b2'],
             u_space=self._u_space,
             **alfven_solver))
         self.add_propagator(self.prop_fields.Magnetosonic(
-            self.pointer['mhd_n3'] ,
-            self.pointer[self._un] ,
-            self.pointer['mhd_p3'] ,
+            self.pointer['mhd_n3'],
+            self.pointer[self._un],
+            self.pointer['mhd_p3'],
             u_space=self._u_space,
-            b=self.pointer['b2'] ,
+            b=self.pointer['b2'],
             **sonic_solver))
 
         # Scalar variables to be saved during simulation
@@ -116,11 +116,11 @@ class LinearMHD(StruphyModel):
     def update_scalar_quantities(self):
         # perturbed fields
         if self._u_space == 'Hdiv':
-            self._mass_ops.M2n.dot(self.pointer[self._un] , out=self._tmp_u1)
+            self._mass_ops.M2n.dot(self.pointer[self._un], out=self._tmp_u1)
         else:
-            self._mass_ops.Mvn.dot(self.pointer[self._un] , out=self._tmp_u1)
+            self._mass_ops.Mvn.dot(self.pointer[self._un], out=self._tmp_u1)
 
-        self._mass_ops.M2.dot(self.pointer['b2'] , out=self._tmp_b1)
+        self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp_b1)
 
         en_U = self.pointer[self._un] .dot(self._tmp_u1)/2
         en_B = self.pointer['b2'] .dot(self._tmp_b1)/2
@@ -142,7 +142,7 @@ class LinearMHD(StruphyModel):
 
         # total magnetic field
         self._b_eq.copy(out=self._tmp_b1)
-        self._tmp_b1 += self.pointer['b2'] 
+        self._tmp_b1 += self.pointer['b2']
 
         self._mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
 
@@ -327,10 +327,10 @@ class ColdPlasma(StruphyModel):
 
     .. math::
 
-        c = \frac{\hat \omega}{\hat k} = \frac{\hat E}{\hat B}\,, \qquad \alpha = \frac{\Omega_{pe}}{\Omega_{ce}}\,, \qquad \varepsilon_c = \frac{\hat{\omega}}{\Omega_{ce}}\,, \qquad \hat j_c = \frac{c q_e}{\alpha} \hat n\,,
+        c = \frac{\hat \omega}{\hat k} = \frac{\hat E}{\hat B}\,, \qquad \alpha = \frac{\hat \Omega_\textnormal{pc}}{\hat \Omega_\textnormal{cc}}\,, \qquad \varepsilon_\textnormal{c} = \frac{\hat{\omega}}{\hat \Omega_\textnormal{cc}}\,, \qquad \hat j_\textnormal{c} = q_\textnormal{c} c \hat n_\textnormal{c}\,,
 
-    where :math:`c` is the vacuum speed of light, :math:`\Omega_{ce}` the electron cyclotron frequency,
-    :math:`\Omega_{pe}` the plasma frequency and :math:`\varepsilon_0` the vacuum dielectric constant.
+    where :math:`c` is the vacuum speed of light, :math:`\hat \Omega_\textnormal{cc}` the electron cyclotron frequency,
+    and :math:`\hat \Omega_\textnormal{pc}` the plasma frequency.
     Implemented equations:
 
     .. math::
@@ -338,10 +338,11 @@ class ColdPlasma(StruphyModel):
         &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,,
 
         &-\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
-        \frac{\alpha}{\varepsilon_c} \mathbf j_c \,,
+        \frac{\alpha^2}{\varepsilon_\textnormal{c}} \mathbf j_\textnormal{c} \,,
 
-        &\frac{1}{n_0} \frac{\partial \mathbf j_c}{\partial t} = \frac{\alpha}{\varepsilon_c} \mathbf E + \frac{1}{\varepsilon_c n_0} \mathbf j_c \times \mathbf B_0\,.
+        &\frac{1}{n_0} \frac{\partial \mathbf j_\textnormal{c}}{\partial t} = \frac{1}{\varepsilon_\textnormal{c}} \mathbf E + \frac{1}{\varepsilon_\textnormal{c} n_0} \mathbf j_\textnormal{c} \times \mathbf B_0\,.
 
+    where :math:`(n_0,\mathbf B_0)` denotes a (inhomogeneous) background.
 
     Parameters
     ----------
@@ -365,51 +366,47 @@ class ColdPlasma(StruphyModel):
         super().__init__(params, comm, e1='Hcurl', b2='Hdiv',
                          electrons={'j1': 'Hcurl'})
 
-        # extract necessary parameters
-        maxwell_solver = params['solvers']['solver_1']
-        cold_solver = params['solvers']['solver_2']
-        fluid_solver = params['solvers']['solver_3']
-
-        # additional model parameters for solvers
-        add_params = {}
-        add_params['alpha'] = self.eq_params['electrons']['alpha_unit']
-        add_params['epsilon'] = self.eq_params['electrons']['epsilon_unit']
+        # model parameters
+        self._alpha = self.eq_params['electrons']['alpha_unit']
+        self._epsilon = self.eq_params['electrons']['epsilon_unit']
 
         # Initialize propagators/integrators used in splitting substeps
         self.add_propagator(self.prop_fields.Maxwell(
             self.pointer['e1'],
             self.pointer['b2'],
-            **maxwell_solver))
+            **params['solvers']['solver_maxwell']))
         self.add_propagator(self.prop_fields.OhmCold(
             self.pointer['electrons_j1'],
             self.pointer['e1'],
-            **cold_solver,
-            **add_params))
+            **params['solvers']['solver_ohmcold'],
+            alpha=self._alpha,
+            epsilon=self._epsilon))
         self.add_propagator(self.prop_fields.JxBCold(
             self.pointer['electrons_j1'],
-            **fluid_solver,
-            **add_params))
+            **params['solvers']['solver_jxbcold'],
+            alpha=self._alpha,
+            epsilon=self._epsilon))
 
         # Scalar variables to be saved during simulation
-        self.add_scalar('time')
         self.add_scalar('en_E')
         self.add_scalar('en_B')
         self.add_scalar('en_J')
         self.add_scalar('en_tot')
-        
+
         # temporaries
         self._tmp1 = self.pointer['e1'].space.zeros()
         self._tmp2 = self.pointer['b2'].space.zeros()
 
     def update_scalar_quantities(self):
-        
+
         self._mass_ops.M1.dot(self.pointer['e1'], out=self._tmp1)
         self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp2)
         en_E = .5 * self.pointer['e1'].dot(self._tmp1)
         en_B = .5 * self.pointer['b2'].dot(self._tmp2)
-        
+
         self._mass_ops.M1ninv.dot(self.pointer['electrons_j1'], out=self._tmp1)
-        en_J = .5 * self.pointer['electrons_j1'].dot(self._tmp1)
+        en_J = .5 * self._alpha**2 * \
+            self.pointer['electrons_j1'].dot(self._tmp1)
 
         self.update_scalar('en_E', en_E)
         self.update_scalar('en_B', en_B)

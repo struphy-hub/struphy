@@ -134,3 +134,12 @@ def struphy_test(serial=True, mpi=0, codes=False):
 
         subprocess.run(['struphy', 'pproc',
                         '-d', 'sim_test_12'], check=True)
+
+        # test ColdPlasmaVlasov
+        subprocess.run(['struphy', 'run', 'ColdPlasmaVlasov',
+                        '-i', os.path.join(libpath, 'io/inp/tests/params_coldplasmavlasov.yml'),
+                        '-o', 'sim_test_13',
+                        '--mpi', '2'], check=True)
+
+        subprocess.run(['struphy', 'pproc',
+                        '-d', 'sim_test_13'], check=True)
