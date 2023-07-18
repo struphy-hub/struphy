@@ -33,7 +33,7 @@ class VlasovMaxwell(StruphyModel):
 
         \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}\,,\qquad \varepsilon = \frac{\hat \omega}{\hat \Omega_\textnormal{c}} \,,\qquad \textnormal{with} \qquad \hat\Omega_\textnormal{p} = \sqrt{\frac{\hat n (Ze)^2}{\epsilon_0 A m_\textnormal{H}}} \,,\qquad \hat \Omega_{\textnormal{c}} = \frac{Ze \hat B}{A m_\textnormal{H}}\,.
 
-    At initial time the Poisson equation is solved once to satisfy the Gauss law
+    At initial time the Poisson equation is solved once to weakly satisfy the Gauss law
 
     .. math::
 
@@ -72,11 +72,11 @@ class VlasovMaxwell(StruphyModel):
         # prelim
         electron_params = params['kinetic']['electrons']
 
-        # Get coupling strength
-        self.alpha = self.eq_params['electrons']['alpha_unit']
-        self.epsilon = self.eq_params['electrons']['epsilon_unit']
+        # model parameters
+        self._alpha = self.eq_params['electrons']['alpha_unit']
+        self._epsilon = self.eq_params['electrons']['epsilon_unit']
 
-        # Get Poisson solver params
+        # Get Poisson solver params parameters
         self._poisson_params = params['solvers']['solver_poisson']
 
         # ====================================================================================
@@ -98,21 +98,21 @@ class VlasovMaxwell(StruphyModel):
         self.add_propagator(self.prop_markers.PushVxB(
             self.pointer['electrons'],
             algo=electron_params['push_algos']['vxb'],
-            scale_fac=1/self.epsilon,
+            scale_fac=1/self._epsilon,
             b_eq=self._b_background,
             b_tilde=self.pointer['b2'],
             f0=None))
         self.add_propagator(self.prop_coupling.VlasovMaxwell(
             self.pointer['e1'],
             self.pointer['electrons'],
-            alpha=self.alpha,
-            epsilon=self.epsilon,
+            c1=self._alpha**2/self._epsilon,
+            c2=1/self._epsilon,
             **params['solvers']['solver_vlasovmaxwell']))
 
         # Scalar variables to be saved during the simulation
-        self.add_scalar('en_e')
-        self.add_scalar('en_b')
-        self.add_scalar('en_w')
+        self.add_scalar('en_E')
+        self.add_scalar('en_B')
+        self.add_scalar('en_f')
         self.add_scalar('en_tot')
 
         # MPI operations needed for scalar variables
@@ -135,8 +135,7 @@ class VlasovMaxwell(StruphyModel):
         # Accumulate charge density
         charge_accum = AccumulatorVector(
             self.derham, self.domain, "H1", "vlasov_maxwell_poisson")
-        charge_accum.accumulate(
-            self.pointer['electrons'], self.alpha, self.epsilon)
+        charge_accum.accumulate(self.pointer['electrons'])
 
         # Locally subtract mean charge for solvability with periodic bc
         if np.all(charge_accum.vectors[0].space.periods):
@@ -147,9 +146,9 @@ class VlasovMaxwell(StruphyModel):
         _phi = StencilVector(self.derham.Vh['0'])
         poisson_solver = self.prop_fields.ImplicitDiffusion(
             _phi,
-            sigma=0.,
-            phi_n=charge_accum.vectors[0],
-            x0=charge_accum.vectors[0],
+            sigma=1e-11,
+            phi_n=self._alpha**2 / self._epsilon * charge_accum.vectors[0],
+            x0=self._alpha**2 / self._epsilon * charge_accum.vectors[0],
             **self._poisson_params)
 
         # Solve with dt=1. and compute electric field
@@ -161,16 +160,16 @@ class VlasovMaxwell(StruphyModel):
         self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp2)
         en_E = self.pointer['e1'].dot(self._tmp1) / 2.
         en_B = self.pointer['b2'].dot(self._tmp2) / 2.
-        self.update_scalar('en_e', en_E)
-        self.update_scalar('en_b', en_B)
+        self.update_scalar('en_E', en_E)
+        self.update_scalar('en_B', en_B)
 
         # alpha^2 / 2 / N * sum_p w_p v_p^2
-        self._tmp[0] = self.alpha**2 / (2 * self.pointer['electrons'].n_mks) * \
+        self._tmp[0] = self._alpha**2 / (2 * self.pointer['electrons'].n_mks) * \
             np.dot(self.pointer['electrons'].markers_wo_holes[:, 3]**2 + self.pointer['electrons'].markers_wo_holes[:, 4] ** 2 +
                    self.pointer['electrons'].markers_wo_holes[:, 5]**2, self.pointer['electrons'].markers_wo_holes[:, 6])
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._tmp, op=self._mpi_sum)
-        self.update_scalar('en_w', self._tmp[0])
+        self.update_scalar('en_f', self._tmp[0])
 
         # en_tot = en_w + en_e + en_b
         self.update_scalar('en_tot', en_E + en_B + self._tmp[0])
