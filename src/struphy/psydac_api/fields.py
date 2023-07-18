@@ -10,6 +10,7 @@ from struphy.initial import eigenfunctions
 from struphy.polar.basic import PolarVector
 from struphy.geometry.base import Domain
 from struphy.b_splines import bspline_evaluation_3d as eval_3d
+from struphy.fields_background.mhd_equil.equils import set_defaults
 
 import numpy as np
 from mpi4py import MPI
@@ -244,6 +245,14 @@ class Field:
 
             # white noise in logical space for different components
             if init_type == 'noise':
+
+                params_default = {'comps': {'b2': [True, False, False]},
+                                  'variation_in': 'e3',
+                                  'amp': 0.0001,
+                                  'seed': 1234,
+                                  }
+
+                self._params = set_defaults(fun_params, params_default)
 
                 # component(s) to perturb
                 if isinstance(fun_params['comps'][self._name], bool):
@@ -489,91 +498,225 @@ class Field:
         Parameters
         ----------
             fun_params : dict
-                From parameters/fields/init/noise.
+                From parameter file under init/noise.
+
+            n : int
+                Vector component (0, 1 or 2) to be initialized.
         """
 
         _direction = fun_params['variation_in']
         _ampsize = fun_params['amp']
+        _seed = fun_params['seed']
+        
+        # index slices from global start to end in all directions
+        sli = []
+        gl_s = []
+        for d in range(3):
+            if n == None:
+                sli += [slice(self._gl_s[d], self._gl_e[d] + 1)]
+                gl_s += [self._gl_s[d]]
+                vec = self._vector
+            else:
+                sli += [slice(self._gl_s[n][d], self._gl_e[n][d] + 1)]
+                gl_s += [self._gl_s[n][d]]
+                vec = self._vector[n]
 
+        # local shape without ghost regions
         if n == None:
-            _shape_w_pads = self._vector[:].shape
             _shape = (self._gl_e[0] + 1 - self._gl_s[0], self._gl_e
                       [1] + 1 - self._gl_s[1], self._gl_e[2] + 1 - self._gl_s[2])
         else:
-            _shape_w_pads = self._vector[n][:].shape
             _shape = (self._gl_e[n][0] + 1 - self._gl_s[n][0], self._gl_e[n]
                       [1] + 1 - self._gl_s[n][1], self._gl_e[n][2] + 1 - self._gl_s[n][2])
 
         if _direction == 'e1':
-            _amps = (np.random.rand(_shape_w_pads[0]) - .5) * 2. * _ampsize
+            _amps = self._tmp_noise_for_mpi(
+                _shape[0], direction=_direction, amp_size=_ampsize, seed=_seed)
             for j in range(_shape[1]):
                 for k in range(_shape[2]):
-                    if n == None:
-                        self._vector[:, self._gl_s[1] +
-                                     j, self._gl_s[2] + k] = _amps
-                    else:
-                        self._vector[n][:, self._gl_s[n][1] +
-                                        j, self._gl_s[n][2] + k] = _amps
+                    vec[sli[0], gl_s[1] + j, gl_s[2] + k] = _amps
+            del _amps
 
         elif _direction == 'e2':
-            _amps = (np.random.rand(_shape_w_pads[1]) - .5) * 2. * _ampsize
+            _amps = self._tmp_noise_for_mpi(
+                _shape[1], direction=_direction, amp_size=_ampsize, seed=_seed)
             for j in range(_shape[0]):
                 for k in range(_shape[2]):
-                    if n == None:
-                        self._vector[self._gl_s[0] + j,
-                                     :, self._gl_s[2] + k] = _amps
-                    else:
-                        self._vector[n][self._gl_s[n][0] + j,
-                                        :, self._gl_s[n][2] + k] = _amps
+                    vec[gl_s[0] + j, sli[1], gl_s[2] + k] = _amps
 
         elif _direction == 'e3':
-            _amps = (np.random.rand(_shape_w_pads[2]) - .5) * 2. * _ampsize
+            _amps = self._tmp_noise_for_mpi(
+                _shape[2], direction=_direction, amp_size=_ampsize, seed=_seed)
             for j in range(_shape[0]):
                 for k in range(_shape[1]):
-                    if n == None:
-                        self._vector[self._gl_s[0] + j,
-                                     self._gl_s[1] + k, :] = _amps
-                    else:
-                        self._vector[n][self._gl_s[n][0] + j,
-                                        self._gl_s[n][1] + k, :] = _amps
+                    vec[gl_s[0] + j, gl_s[1] + k, sli[2]] = _amps
 
         elif _direction == 'e1e2':
-            _amps = (np.random.rand(
-                _shape_w_pads[0], _shape_w_pads[1]) - .5) * 2. * _ampsize
+            _amps = self._tmp_noise_for_mpi(
+                _shape[0], _shape[1], direction=_direction, amp_size=_ampsize, seed=_seed)
             for j in range(_shape[2]):
-                if n == None:
-                    self._vector[:, :, self._gl_s[2] + j] = _amps
-                else:
-                    self._vector[n][:, :, self._gl_s[n][2] + j] = _amps
+                vec[sli[0], sli[1], gl_s[2] + j] = _amps
 
         elif _direction == 'e1e3':
-            _amps = (np.random.rand(
-                _shape_w_pads[0], _shape_w_pads[2]) - .5) * 2. * _ampsize
+            _amps = self._tmp_noise_for_mpi(
+                _shape[0], _shape[2], direction=_direction, amp_size=_ampsize, seed=_seed)
             for j in range(_shape[1]):
-                if n == None:
-                    self._vector[:, self._gl_s[1] + j, :] = _amps
-                else:
-                    self._vector[n][:, self._gl_s[n][1] + j, :] = _amps
+                vec[sli[0], gl_s[1] + j, sli[2]] = _amps
 
         elif _direction == 'e2e3':
-            _amps = (np.random.rand(
-                _shape_w_pads[1], _shape_w_pads[2]) - .5) * 2. * _ampsize
+            _amps = self._tmp_noise_for_mpi(
+                _shape[1], _shape[2], direction=_direction, amp_size=_ampsize, seed=_seed)
             for j in range(_shape[0]):
-                if n == None:
-                    self._vector[self._gl_s[0] + j, :, :] = _amps
-                else:
-                    self._vector[n][self._gl_s[n][0] + j, :, :] = _amps
+                vec[gl_s[0] + j, sli[1], sli[2]] = _amps
 
         elif _direction == 'e1e2e3':
-            _amps = (np.random.rand(
-                _shape_w_pads[0], _shape_w_pads[1], _shape_w_pads[2]) - .5) * 2. * _ampsize
-            if n == None:
-                self._vector[:, :, :] = _amps
-            else:
-                self._vector[n][:, :, :] = _amps
+            _amps = self._tmp_noise_for_mpi(
+                _shape[0], _shape[1], _shape[2], direction=_direction, amp_size=_ampsize, seed=_seed)
+            vec[sli[0], sli[1], sli[2]] = _amps
 
         else:
             raise ValueError('Invalid direction for noise.')
+
+    def _tmp_noise_for_mpi(self, *shapes, direction='e3', amp_size=0.0001, seed=None):
+        '''Initialize same FEEC noise regardless of number of MPI processes.
+        
+        Parameters
+        ----------
+        shapes : int
+            Length of local array size in each direction where noise is to be initialized.
+        
+        direction : str
+            Noise direction ('e1', 'e2' or 'e3'). Multi-dim. not yet correct.
+            
+        amp_size : float
+            Noise amplitude
+            
+        seed : int
+            Seed for random number generator.
+            
+        Returns
+        -------
+        _amps : np.array
+            The noisy FE coefficients in the desired direction (1d, 2d or 3d array).'''
+
+        if self.derham.comm is not None:
+            comm_size = self.derham.comm.Get_size()
+            rank = self.derham.comm.Get_rank()
+            nprocs = self.derham.domain_decomposition.nprocs
+        else:
+            comm_size = 1
+            rank = 0
+            nprocs = [1, 1, 1]
+
+        domain_array = self.derham.domain_array
+
+        if seed is not None:
+            np.random.seed(seed)
+
+        # temporary
+        _amps = np.zeros(shapes)
+
+        # no process has been drawn for yet
+        already_drawn = np.zeros(nprocs) == 1.
+
+        # 1d mid point arrays in each direction
+        mid_points = []
+        for npr in nprocs:
+            delta = 1./npr
+            mid_points_i = np.zeros(npr)
+            for n in range(npr):
+                mid_points_i[n] = delta*(n + 1/2)
+            mid_points += [mid_points_i]
+
+        if direction == 'e1':
+            tmp_arrays = np.zeros(nprocs[0]).tolist()
+        elif direction == 'e2':
+            tmp_arrays = np.zeros(nprocs[1]).tolist()
+        elif direction == 'e3':
+            tmp_arrays = np.zeros(nprocs[2]).tolist()
+        elif direction == 'e1e2':
+            tmp_arrays = np.zeros((nprocs[0], nprocs[1])).tolist()
+            Warning, f'2d noise in the directions {direction} is not correctly initilaized for MPI !!'
+        elif direction == 'e1e3':
+            tmp_arrays = np.zeros((nprocs[0], nprocs[2])).tolist()
+            Warning, f'2d noise in the directions {direction} is not correctly initilaized for MPI !!'
+        elif direction == 'e2e3':
+            tmp_arrays = np.zeros((nprocs[1], nprocs[2])).tolist()
+            Warning, f'2d noise in the directions {direction} is not correctly initilaized for MPI !!'
+        elif direction == 'e1e2e3':
+            Warning, f'3d noise in the directions {direction} is not correctly initilaized for MPI !!'
+            pass
+        else:
+            raise ValueError('Invalid direction for tmp_arrays.')
+
+        # 3d index of current process from mid points
+        inds_current = []
+        for n in range(3):
+            mid_pt_current = (
+                domain_array[rank, 3*n] + domain_array[rank, 3*n + 1]) / 2.
+            inds_current += [np.argmin(np.abs(mid_points[n] - mid_pt_current))]
+
+        # loop over processes
+        for i in range(comm_size):
+
+            # 3d index of process i from mid points
+            inds = []
+            for n in range(3):
+                mid_pt = (domain_array[i, 3*n] + domain_array[i, 3*n + 1]) / 2.
+                inds += [np.argmin(np.abs(mid_points[n] - mid_pt))]
+
+            if already_drawn[inds[0], inds[1], inds[2]]:
+
+                if direction == 'e1':
+                    _amps[:] = tmp_arrays[inds[0]]
+                elif direction == 'e2':
+                    _amps[:] = tmp_arrays[inds[1]]
+                elif direction == 'e3':
+                    _amps[:] = tmp_arrays[inds[2]]
+                elif direction == 'e1e2':
+                    _amps[:] = tmp_arrays[inds[0]][inds[1]]
+                elif direction == 'e1e3':
+                    _amps[:] = tmp_arrays[inds[0]][inds[2]]
+                elif direction == 'e2e3':
+                    _amps[:] = tmp_arrays[inds[1]][inds[2]]
+                elif direction == 'e1e2e3':
+                    _amps[:] = (np.random.rand(*shapes) - .5) * 2. * amp_size
+
+            else:
+
+                if direction == 'e1':
+                    tmp_arrays[inds[0]] = (np.random.rand(
+                        *shapes) - .5) * 2. * amp_size
+                    already_drawn[inds[0], :, :] = True
+                    _amps[:] = tmp_arrays[inds[0]]
+                elif direction == 'e2':
+                    tmp_arrays[inds[1]] = (np.random.rand(
+                        *shapes) - .5) * 2. * amp_size
+                    already_drawn[:, inds[1], :] = True
+                    _amps[:] = tmp_arrays[inds[1]]
+                elif direction == 'e3':
+                    tmp_arrays[inds[2]] = (np.random.rand(
+                        *shapes) - .5) * 2. * amp_size
+                    already_drawn[:, :, inds[2]] = True
+                    _amps[:] = tmp_arrays[inds[2]]
+                elif direction == 'e1e2':
+                    tmp_arrays[inds[0]][inds[1]] = (
+                        np.random.rand(*shapes) - .5) * 2. * amp_size
+                    already_drawn[inds[0], inds[1], :] = True
+                    _amps[:] = tmp_arrays[inds[0]][inds[1]]
+                elif direction == 'e1e3':
+                    tmp_arrays[inds[0]][inds[2]] = (
+                        np.random.rand(*shapes) - .5) * 2. * amp_size
+                    already_drawn[inds[0], :, inds[2]] = True
+                    _amps[:] = tmp_arrays[inds[0]][inds[2]]
+                elif direction == 'e2e3':
+                    tmp_arrays[inds[1]][inds[2]] = (
+                        np.random.rand(*shapes) - .5) * 2. * amp_size
+                    already_drawn[:, inds[1], inds[2]] = True
+                    _amps[:] = tmp_arrays[inds[1]][inds[2]]
+
+            if np.all(np.array([ind_c == ind for ind_c, ind in zip(inds_current, inds)])):
+                return _amps
 
 
 class PulledPform:
