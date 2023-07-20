@@ -59,7 +59,7 @@ def struphy_compile(no_openmp=False, delete=False, verbose=False):
             subprocess.run(['pip',
                             'install',
                             os.path.join(
-                                libpath, 'psydac-0.1-py3-none-any.whl'),
+                                libpath, 'psydac-0.1.2-py3-none-any.whl'),
                             ], check=True)
             print('Done.')
 

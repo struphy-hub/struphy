@@ -98,7 +98,7 @@ class Field:
 
     @property
     def space(self):
-        """ Discrete space of the field, either psydac.fem.tensor.TensorFemSpace or psydac.fem.vector.ProductFemSpace.
+        """ Discrete space of the field, either psydac.fem.tensor.TensorFemSpace or psydac.fem.vector.VectorFemSpace.
         """
         return self._space
 

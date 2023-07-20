@@ -5,7 +5,7 @@ from psydac.linalg.block import BlockVector, BlockLinearOperator
 from psydac.linalg.basic import Vector
 
 from psydac.fem.tensor import TensorFemSpace
-from psydac.fem.vector import ProductFemSpace
+from psydac.fem.vector import VectorFemSpace
 
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
@@ -537,7 +537,7 @@ class WeightedMassOperators:
         ----------
         fun : list[list[callable | ndarray]]
             2d list of either all 3d arrays or all scalar functions of eta1, eta2, eta3 (must allow matrix evaluations). 
-            3d arrays must have shape corresponding to the 1d quad_grids of V1-ProductFemSpace.
+            3d arrays must have shape corresponding to the 1d quad_grids of V1-VectorFemSpace.
 
         V_id : str
             Specifier for the domain of the operator ('H1', 'Hcurl', 'Hdiv', 'L2' or 'H1vec').
@@ -586,10 +586,10 @@ class WeightedMassOperator(LinOpWithTransp):
 
     Parameters
     ----------
-    V : TensorFemSpace | ProductFemSpace
+    V : TensorFemSpace | VectorFemSpace
         Tensor product spline space from psydac.fem.tensor (domain, input space).
 
-    W : TensorFemSpace | ProductFemSpace
+    W : TensorFemSpace | VectorFemSpace
         Tensor product spline space from psydac.fem.tensor (codomain, output space).
 
     V_extraction_op : PolarExtractionOperator | IdentityOperator
@@ -622,8 +622,8 @@ class WeightedMassOperator(LinOpWithTransp):
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
 
-        assert isinstance(V, (TensorFemSpace, ProductFemSpace))
-        assert isinstance(W, (TensorFemSpace, ProductFemSpace))
+        assert isinstance(V, (TensorFemSpace, VectorFemSpace))
+        assert isinstance(W, (TensorFemSpace, VectorFemSpace))
 
         self._V = V
         self._W = W
@@ -781,8 +781,8 @@ class WeightedMassOperator(LinOpWithTransp):
                         else:
 
                             # test weight function at quadrature points to identify zero blocks
-                            pts = [quad_grid.points.flatten()
-                                   for quad_grid in wspace.quad_grids]
+                            pts = [quad_grid[nquad].points.flatten()
+                                   for quad_grid, nquad in zip(wspace._quad_grids, wspace.nquads)]
 
                             if callable(weights_info[a][b]):
                                 PTS = np.meshgrid(*pts, indexing='ij')
@@ -1081,7 +1081,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
             # knot span indices of elements of local domain
             codomain_spans = [
-                quad_grid.spans for quad_grid in codomain_space.quad_grids]
+                quad_grid[nquad].spans for quad_grid, nquad in zip(codomain_space._quad_grids, codomain_space.nquads)]
 
             # global start spline index on process
             codomain_starts = [int(start)
@@ -1091,13 +1091,13 @@ class WeightedMassOperator(LinOpWithTransp):
             codomain_pads = codomain_space.vector_space.pads
 
             # global quadrature points (flattened) and weights in format (local element, local weight)
-            pts = [quad_grid.points.flatten()
-                   for quad_grid in codomain_space.quad_grids]
-            wts = [quad_grid.weights for quad_grid in codomain_space.quad_grids]
+            pts = [quad_grid[nquad].points.flatten()
+                   for quad_grid, nquad in zip(codomain_space._quad_grids, codomain_space.nquads)]
+            wts = [quad_grid[nquad].weights for quad_grid, nquad in zip(codomain_space._quad_grids, codomain_space.nquads)]
 
             # evaluated basis functions at quadrature points of codomain space
             codomain_basis = [
-                quad_grid.basis for quad_grid in codomain_space.quad_grids]
+                quad_grid[nquad].basis for quad_grid, nquad in zip(codomain_space._quad_grids, codomain_space.nquads)]
 
             # loop over domain spaces (columns)
             for b, domain_space in enumerate(domain_spaces):
@@ -1124,7 +1124,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
                 # evaluated basis functions at quadrature points of domain space
                 domain_basis = [
-                    quad_grid.basis for quad_grid in domain_space.quad_grids]
+                    quad_grid[nquad].basis for quad_grid, nquad in zip(domain_space._quad_grids, domain_space.nquads)]
 
                 # assemble matrix (if mat_w is not zero) by calling the appropriate kernel (1d, 2d or 3d)
                 if np.any(np.abs(mat_w) > 1e-14):
@@ -1168,7 +1168,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
         Parameters
         ----------
-        W : TensorFemSpace | ProductFemSpace
+        W : TensorFemSpace | VectorFemSpace
             Tensor product spline space from psydac.fem.tensor.
 
         vec : StencilVector | BlockVector
@@ -1181,7 +1181,7 @@ class WeightedMassOperator(LinOpWithTransp):
             Whether to first set all data to zero before assembly. If False, the new contributions are added to existing ones in vec.
         """
 
-        assert isinstance(W, (TensorFemSpace, ProductFemSpace))
+        assert isinstance(W, (TensorFemSpace, VectorFemSpace))
         assert isinstance(vec, (StencilVector, BlockVector))
         assert W.vector_space == vec.space
 
@@ -1206,7 +1206,7 @@ class WeightedMassOperator(LinOpWithTransp):
         for a, wspace in enumerate(Wspaces):
 
             # knot span indices of elements of local domain
-            spans = [quad_grid.spans for quad_grid in wspace.quad_grids]
+            spans = [quad_grid[nquad].spans for quad_grid, nquad in zip(wspace._quad_grids, wspace.nquads)]
 
             # global start spline index on process
             starts = [int(start) for start in wspace.vector_space.starts]
@@ -1215,12 +1215,12 @@ class WeightedMassOperator(LinOpWithTransp):
             pads = wspace.vector_space.pads
 
             # global quadrature points (flattened) and weights in format (local element, local weight)
-            pts = [quad_grid.points.flatten()
-                   for quad_grid in wspace.quad_grids]
-            wts = [quad_grid.weights for quad_grid in wspace.quad_grids]
+            pts = [quad_grid[nquad].points.flatten()
+                   for quad_grid, nquad in zip(wspace._quad_grids, wspace.nquads)]
+            wts = [quad_grid[nquad].weights for quad_grid, nquad in zip(wspace._quad_grids, wspace.nquads)]
 
             # evaluated basis functions at quadrature points of codomain space
-            basis = [quad_grid.basis for quad_grid in wspace.quad_grids]
+            basis = [quad_grid[nquad].basis for quad_grid, nquad in zip(wspace._quad_grids, wspace.nquads)]
 
             if weight is not None:
                 if weight[a] is not None:
@@ -1258,7 +1258,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
         Parameters
         ----------
-        W : TensorFemSpace | ProductFemSpace
+        W : TensorFemSpace | VectorFemSpace
             Tensor product spline space from psydac.fem.tensor.
 
         coeffs : StencilVector | BlockVector
@@ -1273,7 +1273,7 @@ class WeightedMassOperator(LinOpWithTransp):
             The values of the FEM field at the quadrature points.
         """
 
-        assert isinstance(W, (TensorFemSpace, ProductFemSpace))
+        assert isinstance(W, (TensorFemSpace, VectorFemSpace))
         assert isinstance(coeffs, (StencilVector, BlockVector))
         assert W.vector_space == coeffs.space
 
@@ -1287,10 +1287,10 @@ class WeightedMassOperator(LinOpWithTransp):
         if out is None:
             out = ()
             if isinstance(W, TensorFemSpace):
-                out += (np.zeros([q_grid.points.size for q_grid in W.quad_grids], dtype=float),)
+                out += (np.zeros([q_grid[nquad].points.size for q_grid, nquad in zip(W._quad_grids, W.nquads)], dtype=float),)
             else:
                 for space in W.spaces:
-                    out += (np.zeros([q_grid.points.size for q_grid in space.quad_grids], dtype=float),)
+                    out += (np.zeros([q_grid[nquad].points.size for q_grid, nquad in zip(space._quad_grids, space.nquad)], dtype=float),)
 
         else:
             if isinstance(W, TensorFemSpace):
@@ -1306,7 +1306,7 @@ class WeightedMassOperator(LinOpWithTransp):
         for a, wspace in enumerate(Wspaces):
 
             # knot span indices of elements of local domain
-            spans = [quad_grid.spans for quad_grid in wspace.quad_grids]
+            spans = [quad_grid[nquad].spans for quad_grid, nquad in zip(wspace._quad_grids, wspace.nquads)]
 
             # global start spline index on process
             starts = [int(start) for start in wspace.vector_space.starts]
@@ -1315,12 +1315,12 @@ class WeightedMassOperator(LinOpWithTransp):
             pads = wspace.vector_space.pads
 
             # global quadrature points (flattened) and weights in format (local element, local weight)
-            pts = [quad_grid.points.flatten()
-                   for quad_grid in wspace.quad_grids]
-            wts = [quad_grid.weights for quad_grid in wspace.quad_grids]
+            pts = [quad_grid[nquad].points.flatten()
+                   for quad_grid, nquad in zip(wspace._quad_grids, wspace.nquads)]
+            wts = [quad_grid[nquad].weights for quad_grid, nquad in zip(wspace._quad_grids, wspace.nquads)]
 
             # evaluated basis functions at quadrature points of codomain space
-            basis = [quad_grid.basis for quad_grid in wspace.quad_grids]
+            basis = [quad_grid[nquad].basis for quad_grid, nquad in zip(wspace._quad_grids, wspace.nquads)]
 
             if isinstance(coeffs, StencilVector):
                 kernel(*spans, *wspace.degree, *starts, *

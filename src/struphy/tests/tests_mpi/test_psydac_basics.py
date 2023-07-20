@@ -207,28 +207,29 @@ def test_psydac_basics(Nel, p, spl_kind, mapping):
         print(f'x0.toarray().shape={x0.toarray().shape}')
         print(f'x0.toarray_local().shape={x0.toarray_local().shape}')
 
-        print('\n###### Attributes of StencilMatrix A0 (rank 0) ######')
-        for k in dir(A0):
-            if (k[0] != '_' or k == '_data'):
-                if k == '_data':
-                    v = f'array of shape {getattr(A0, k).shape}'
-                elif k == 'T':
-                    v = 'transpose matrix'
-                else:
-                    v = getattr(A0, k)
-                print(k, v)
-        print('\n###### Attributes of BlockLinearOperator A1 (rank 0) ######')
-        for k in dir(A1):
-            if (k[0] != '_' or k == '_data'):
-                if k == '_data':
-                    v = f'array of shape {getattr(A1, k).shape}'
-                elif k == 'T':
-                    v = 'transpose matrix'
-                else:
-                    v = getattr(A1, k)
-                print(k, v)
+        # print('\n###### Attributes of StencilMatrix A0 (rank 0) ######')
+        # for k in dir(A0):
+        #     print('-------------------->', k)
+        #     if (k[0] != '_' or k == '_data'):
+        #         if k == '_data':
+        #             v = f'array of shape {getattr(A0, k).shape}'
+        #         elif k == 'T':
+        #             v = 'transpose matrix'
+        #         else:
+        #             v = getattr(A0, k)
+        #         print(k, v)
+        # print('\n###### Attributes of BlockLinearOperator A1 (rank 0) ######')
+        # for k in dir(A1):
+        #     if (k[0] != '_' or k == '_data'):
+        #         if k == '_data':
+        #             v = f'array of shape {getattr(A1, k).shape}'
+        #         elif k == 'T':
+        #             v = 'transpose matrix'
+        #         else:
+        #             v = getattr(A1, k)
+        #         print(k, v)
 
-        print('\nBlockMatrices have the attribute "blocks", which at creation is a nested tuple of None, but can be filled with StencilMatrices.')
+        # print('\nBlockMatrices have the attribute "blocks", which at creation is a nested tuple of None, but can be filled with StencilMatrices.')
 
         print('\n###### Data of Stencil Matrix A0 (rank 0) ######')
         print(f'type(A0)={type(A0)}')

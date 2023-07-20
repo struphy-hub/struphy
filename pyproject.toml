@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "struphy"
 version = "2.0.1"
 readme = "README.md"
-requires-python = ">=3.7, <3.11"
+requires-python = ">=3.7, <3.12"
 license = {file = "LICENSE"}
 authors = [
   { name = "Max Planck Institute for Plasma Physics"},
@@ -72,6 +72,6 @@ struphy = "struphy.console.main:struphy"
                     ]
                     
 struphy = ['compile_struphy.mk',
-           'psydac-0.1-py3-none-any.whl',
+           'psydac-0.1.2-py3-none-any.whl',
            'io_path.txt',
            ]

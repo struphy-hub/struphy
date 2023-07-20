@@ -21,7 +21,7 @@ from struphy.psydac_api.linear_operators import LinOpWithTransp
 from struphy.psydac_api.mass import WeightedMassOperator
 import struphy.linear_algebra.iterative_solvers as it_solvers
 
-from psydac.linalg.iterative_solvers import pcg
+from struphy.linear_algebra.iterative_solvers import PConjugateGradient as pcg
 
 
 class VlasovMaxwell(Propagator):
@@ -427,6 +427,9 @@ class EfieldWeightsExplicit(Propagator):
         else:
             pc_class = getattr(preconditioner, params['pc'])
             self._pc = pc_class(self.mass_ops.M1)
+            
+        # solver
+        self.solver =pcg(e.space)
 
         self._pusher = Pusher(self.derham, self.domain,
                               'push_weights_with_efield_deltaf_vm')
@@ -443,10 +446,10 @@ class EfieldWeightsExplicit(Propagator):
         self._accum.accumulate(self.particles[0], f0_values,
                                self._f0_params, self._alpha, self._kappa)
 
-        self._m1_acc_vec, info = pcg(self.mass_ops.M1,
+        self._m1_acc_vec, info = self.solver.solve(self.mass_ops.M1,
                                      self._accum.vectors[0],
                                      self._pc,
-                                     self.feec_vars[0],
+                                     x0=self.feec_vars[0],
                                      tol=self._params['tol'],
                                      maxiter=self._params['maxiter'],
                                      verbose=self._params['verbose']
@@ -811,8 +814,8 @@ class CurrentCoupling6DCurrent(Propagator):
             assert isinstance(self._f0, Maxwellian)
 
             # evaluate and save nh0 (0-form) * uh0 (2-form if H1vec or vector if Hdiv) at quadrature points for control variate
-            quad_pts = [quad_grid.points.flatten()
-                        for quad_grid in self.derham.Vh_fem['0'].quad_grids]
+            quad_pts = [quad_grid[nquad].points.flatten()
+                        for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
 
             uh0_cart = self._f0.u
 
