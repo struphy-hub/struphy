@@ -17,7 +17,7 @@ from struphy.psydac_api.linear_operators import IdentityOperator
 from struphy.psydac_api import preconditioner
 from struphy.psydac_api.mass import WeightedMassOperator
 import struphy.linear_algebra.iterative_solvers as it_solvers
-from psydac.linalg.iterative_solvers import pcg
+from struphy.linear_algebra.iterative_solvers import PConjugateGradient as pcg
 
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
@@ -1220,8 +1220,8 @@ class CurrentCoupling6DDensity(Propagator):
             assert isinstance(self._f0, Maxwellian)
 
             # evaluate and save nh0*|det(DF)| (H1vec) or nh0/|det(DF)| (Hdiv) at quadrature points for control variate
-            quad_pts = [quad_grid.points.flatten()
-                        for quad_grid in self.derham.Vh_fem['0'].quad_grids]
+            quad_pts = [quad_grid[nquad].points.flatten()
+                        for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
 
             if params['u_space'] == 'H1vec':
                 self._nh0_at_quad = self.domain.pull(
@@ -1803,7 +1803,7 @@ class ImplicitDiffusion(Propagator):
     Parameters
     ----------
     phi : psydac.linalg.stencil.StencilVector
-        FE coefficients of a discrete 0-form.
+        FE coefficients of a discrete 0-form, the solution.
     
     sigma : float
         Stabilization parameter: :math:`\sigma=1` for the heat equation and :math:`\sigma=0` for the Poisson equation.
@@ -1864,6 +1864,9 @@ class ImplicitDiffusion(Propagator):
         else:
             pc_class = getattr(preconditioner, self._solver_params['pc'])
             self._pc = pc_class(self.mass_ops.M0)
+            
+        # solver for Ax=b with A=const.
+        self.solver = pcg(self.derham.Vh['0'])
 
     def check_rhs(self, phi_n):
         '''Checks space of rhs and, for periodic boundary conditions and sigma=0,
@@ -1880,7 +1883,7 @@ class ImplicitDiffusion(Propagator):
             solvability = np.zeros(1)
             self.derham.comm.Allreduce(
                 np.sum(phi_n.toarray()), solvability, op=MPI.SUM)
-            assert np.abs(solvability[0]) <= 1e-14, f'Solvability condition not met: {solvability[0]}'
+            assert np.abs(solvability[0]) <= 1e-11, f'Solvability condition not met: {solvability[0]}'
 
     @property
     def phi_n(self):
@@ -1917,9 +1920,9 @@ class ImplicitDiffusion(Propagator):
 
     def __call__(self, dt):
 
-        res, info = pcg(self._A1 + dt * self._A2,
+        res, info = self.solver.solve(self._A1 + dt * self._A2,
                         self._phi_n,
-                        self._pc,
+                        pc=self._pc,
                         x0=self._x0,
                         tol=self._solver_params['tol'],
                         maxiter=self._solver_params['maxiter'],

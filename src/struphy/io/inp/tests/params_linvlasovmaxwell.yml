@@ -116,7 +116,7 @@ kinetic :
 solvers :
     solver_poisson :
         type : PConjugateGradient
-        pc : null # MassMatrixPreconditioner # null or name of preconditioner class
+        pc : MassMatrixPreconditioner # MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-10
         maxiter : 3000
         info : False

@@ -5,7 +5,6 @@ from psydac.linalg.block import BlockLinearOperator, BlockDiagonalSolver
 from psydac.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 
 from psydac.fem.tensor import TensorFemSpace
-from psydac.fem.vector import ProductFemSpace
 
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 from psydac.api.essential_bc import apply_essential_bc_stencil
@@ -81,13 +80,13 @@ class MassMatrixPreconditioner(LinearSolver):
 
                 # get 1D FEM space (serial, not distributed) and quadrature order
                 femspace_1d = femspaces[c].spaces[d]
-                qu_order_1d = femspaces[c].quad_order[d]
+                qu_order_1d = femspaces[c].nquads[d]
 
                 # assemble 1d weighted mass matrix
                 domain_decompos_1d = DomainDecomposition(
                     [femspace_1d.ncells], [femspace_1d.periodic])
                 femspace_1d_tensor = TensorFemSpace(
-                    domain_decompos_1d, femspace_1d, quad_order=[qu_order_1d])
+                    domain_decompos_1d, femspace_1d, nquads=[qu_order_1d])
 
                 M = WeightedMassOperator(
                     femspace_1d_tensor, femspace_1d_tensor, weights_info=fun)

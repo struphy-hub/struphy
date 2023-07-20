@@ -673,7 +673,7 @@ class BasisProjectionOperators:
         ----------
         fun : list[list[callable | ndarray]]
             2d list of either all 3d arrays or all scalar functions of eta1, eta2, eta3 (must allow matrix evaluations). 
-            3d arrays must have shape corresponding to the 1d quad_grids of V1-ProductFemSpace.
+            3d arrays must have shape corresponding to the 1d quad_grids of V1-VectorFemSpace.
 
         V_id : str
             Specifier for the domain of the operator ('H1', 'Hcurl', 'Hdiv', 'L2' or 'H1vec').
@@ -723,7 +723,7 @@ class BasisProjectionOperator(LinOpWithTransp):
     Parameters
     ----------
     P : struphy.psydac_api.projectors.Projector
-        Global commuting projector mapping into TensorFemSpace/ProductFemSpace W = P.space (codomain of operator).
+        Global commuting projector mapping into TensorFemSpace/VectorFemSpace W = P.space (codomain of operator).
 
     V : psydac.fem.basic.FemSpace
         Finite element spline space (domain, input space).
@@ -933,7 +933,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         P : GlobalProjector
             The psydac global tensor product projector defining the space onto which the input shall be projected.
 
-        V : TensorFemSpace | ProductFemSpace
+        V : TensorFemSpace | VectorFemSpace
             The spline space which shall be projected.
 
         fun : list
