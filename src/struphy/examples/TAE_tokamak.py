@@ -14,8 +14,8 @@ def run(n_procs):
 
     libpath = struphy.__path__[0]
     
-    with open(os.path.join(libpath, 'io_path.txt')) as f:
-        io_path = f.readlines()[0]
+    with open(os.path.join(libpath, 'o_path.txt')) as f:
+        o_path = f.readlines()[0]
 
     # name of simulation output folder
     out_name = 'sim_example_TAE_tokamak'
@@ -46,7 +46,7 @@ def run(n_procs):
                     'run', 
                     'LinearMHD',
                     '--input-abs',
-                    os.path.join(io_path, 'io/out', out_name, 'parameters.yml'),
+                    os.path.join(o_path, out_name, 'parameters.yml'),
                     '-o',
                     out_name,
                     '--mpi',
@@ -82,11 +82,11 @@ def diagnostics():
 
     libpath = struphy.__path__[0]
     
-    with open(os.path.join(libpath, 'io_path.txt')) as f:
-        io_path = f.readlines()[0]
+    with open(os.path.join(libpath, 'o_path.txt')) as f:
+        o_path = f.readlines()[0]
     
     out_name = 'sim_example_TAE_tokamak'
-    out_path = os.path.join(io_path, 'io/out', out_name)
+    out_path = os.path.join(o_path, out_name)
 
     # load simulation parameters
     with open(os.path.join(out_path, 'parameters.yml')) as file:
