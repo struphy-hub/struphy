@@ -202,8 +202,11 @@ if __name__ == '__main__':
 
     libpath = struphy.__path__[0]
 
-    with open(os.path.join(libpath, 'io_path.txt')) as f:
-        io_path = f.readlines()[0]
+    with open(os.path.join(libpath, 'i_path.txt')) as f:
+        i_path = f.readlines()[0]
+
+    with open(os.path.join(libpath, 'o_path.txt')) as f:
+        o_path = f.readlines()[0]
 
     parser = argparse.ArgumentParser(description='Run an Struphy model.')
 
@@ -218,14 +221,14 @@ if __name__ == '__main__':
                         type=str,
                         metavar='FILE',
                         help='absolute path of parameter file (.yml) (default=<struphy_path>/io/inp/parameters.yml)',
-                        default=os.path.join(io_path, 'io/inp/parameters.yml'))
+                        default=os.path.join(i_path, 'parameters.yml'))
 
     # output (absolute path)
     parser.add_argument('-o', '--output',
                         type=str,
                         metavar='DIR',
                         help='absolute path of output folder (default=<struphy_path>/io/out/sim_1)',
-                        default=os.path.join(io_path, 'io/out/sim_1'))
+                        default=os.path.join(o_path, 'sim_1'))
 
     # restart
     parser.add_argument('-r', '--restart',

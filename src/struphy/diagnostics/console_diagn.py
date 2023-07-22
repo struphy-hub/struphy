@@ -49,10 +49,10 @@ def main():
     scalars_plot = args.scalars[0]
 
     libpath = struphy.__path__[0]
-    with open(os.path.join(libpath, 'io_path.txt')) as f:
-        io_path = f.readlines()[0]
+    with open(os.path.join(libpath, 'o_path.txt')) as f:
+        o_path = f.readlines()[0]
 
-    path = os.path.join(io_path, 'io/out', foldername)
+    path = os.path.join(o_path, foldername)
 
     grid_slices = {'e1': args.e1[0], 'e2': args.e2[0], 'e3': args.e3[0],
                    'v1': args.v1[0], 'v2': args.v2[0], 'v3': args.v3[0]}

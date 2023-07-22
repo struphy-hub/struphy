@@ -41,27 +41,53 @@ def struphy():
     libpath = struphy.__path__[0]
 
     try:
-        with open(os.path.join(libpath, 'io_path.txt'), 'r') as f:
-            io_path = f.readlines()[0]
+        with open(os.path.join(libpath, 'i_path.txt'), 'r') as f:
+            i_path = f.readlines()[0]
     except FileNotFoundError:
-        # setting default io path
-        with open(os.path.join(libpath, 'io_path.txt'), 'w') as f:
-            f.write(libpath)
-            io_path = libpath
+        # setting default input path
+        with open(os.path.join(libpath, 'i_path.txt'), 'w') as f:
+            i_path = os.path.join(libpath, 'io/inp')
+            f.write(i_path)
+
+    try:
+        with open(os.path.join(libpath, 'o_path.txt'), 'r') as f:
+            o_path = f.readlines()[0]
+    except FileNotFoundError:
+        # setting default output path
+        with open(os.path.join(libpath, 'o_path.txt'), 'w') as f:
+            o_path = os.path.join(libpath, 'io/out')
+            f.write(o_path)
+
+    try:
+        with open(os.path.join(libpath, 'b_path.txt'), 'r') as f:
+            b_path = f.readlines()[0]
+    except FileNotFoundError:
+        # setting default output path
+        with open(os.path.join(libpath, 'b_path.txt'), 'w') as f:
+            b_path = os.path.join(libpath, 'io/batch')
+            f.write(b_path)
 
     path_message = f'Struphy installation path: {libpath}\n'
-    path_message += f'default input:             {io_path}/io/inp\n'
-    path_message += f'default output:            {io_path}/io/out\n'
-    path_message += f'template batch scripts:    {io_path}/io/batch'
+    path_message += f'default input:             {i_path}\n'
+    path_message += f'default output:            {o_path}\n'
+    path_message += f'template batch scripts:    {b_path}'
 
     parser.add_argument('-v', '--version', action='version',
                         version=version_message)
     parser.add_argument('-p', '--path', action='version',
                         version=path_message, help='default installations and i/o paths')
-    parser.add_argument('--set-io',
+    parser.add_argument('--set-i',
                         type=str,
                         metavar='PATH',
-                        help='make PATH the new default I/O folder and copy templates there (type "." to use current working directory)',)
+                        help='make PATH the new default Input folder (type "." to use current working directory)',)
+    parser.add_argument('--set-o',
+                        type=str,
+                        metavar='PATH',
+                        help='make PATH the new default Output folder (type "." to use current working directory)',)
+    parser.add_argument('--set-b',
+                        type=str,
+                        metavar='PATH',
+                        help='make PATH the new default Batch folder (type "." to use current working directory)',)
 
     # create sub-commands and save name of sub-command into variable "command"
     subparsers = parser.add_subparsers(title='available commands',
@@ -265,6 +291,12 @@ def struphy():
                                 help='string STR that identifies functions for which to print callers (default=None)',
                                 default=None)
 
+    parser_profile.add_argument('--savefig-dir',
+                                type=str,
+                                metavar='DIR',
+                                help='output directory relative to current Out path (default=None)',
+                                default=None,)
+
     # 5. "pproc" sub-command
     parser_pproc = subparsers.add_parser(
         'pproc',
@@ -353,44 +385,83 @@ def struphy():
     args = parser.parse_args()
 
     # if no arguments are passed, print help and exit
-    if args.command is None and args.set_io is None:
+    if args.command is None and args.set_i is None and args.set_o is None and args.set_b is None:
         parser.print_help()
         exit()
 
-    # set default io path
-    if args.set_io:
-        if args.set_io == '.':
-            io_path = os.getcwd()
+    # set default in path
+    if args.set_i:
+        if args.set_i == '.':
+            i_path = os.getcwd()
+
+        elif args.set_i == 'd':
+            i_path = os.path.join(libpath, 'io/inp')
+
         else:
-            io_path = args.set_io
+            i_path = args.set_i
             try:
-                os.mkdir(io_path)
+                os.mkdir(i_path)
             except:
                 pass
 
-        io_path = os.path.abspath(io_path)
+        i_path = os.path.abspath(i_path)
 
-        with open(os.path.join(libpath, 'io_path.txt'), 'w') as f:
-            f.write(io_path)
+        with open(os.path.join(libpath, 'i_path.txt'), 'w') as f:
+            f.write(i_path)
+    
+        print(f'New default Input path has been set:')
+        import subprocess
+        subprocess.run(['struphy', '-p'])
 
-        io_dir = os.path.join(io_path, 'io/')
-        try:
-            os.mkdir(io_dir)
-            os.mkdir(os.path.join(io_dir, 'out/'))
-        except:
-            pass
+        exit()
 
-        from distutils.dir_util import copy_tree
-        copy_tree(os.path.join(libpath, 'io/inp/'),
-                  os.path.join(io_dir, 'inp/'))
-        copy_tree(os.path.join(libpath, 'io/batch/'),
-                  os.path.join(io_dir, 'batch/'))
-        
-        # remove tests and examples input folders
-        shutil.rmtree(os.path.join(io_dir, 'inp/tests/'))
-        shutil.rmtree(os.path.join(io_dir, 'inp/examples/'))
+    # set default out path
+    if args.set_o:
+        if args.set_o == '.':
+            o_path = os.getcwd()
 
-        print(f'New default I/O path has been set:')
+        elif args.set_o == 'd':
+            o_path = os.path.join(libpath, 'io/out')
+
+        else:
+            o_path = args.set_o
+            try:
+                os.mkdir(o_path)
+            except:
+                pass
+
+        o_path = os.path.abspath(o_path)
+
+        with open(os.path.join(libpath, 'o_path.txt'), 'w') as f:
+            f.write(o_path)
+    
+        print(f'New default Out path has been set:')
+        import subprocess
+        subprocess.run(['struphy', '-p'])
+
+        exit()
+
+    # set default out path
+    if args.set_b:
+        if args.set_b == '.':
+            b_path = os.getcwd()
+
+        elif args.set_b == 'd':
+            b_path = os.path.join(libpath, 'io/batch')
+
+        else:
+            b_path = args.set_b
+            try:
+                os.mkdir(b_path)
+            except:
+                pass
+
+        b_path = os.path.abspath(b_path)
+
+        with open(os.path.join(libpath, 'b_path.txt'), 'w') as f:
+            f.write(b_path)
+
+        print(f'New default Batch path has been set:')
         import subprocess
         subprocess.run(['struphy', '-p'])
 
@@ -415,7 +486,9 @@ def struphy():
     # transform parser Namespace object to dictionary and remove "command" key
     kwargs = vars(args)
     kwargs.pop('command')
-    kwargs.pop('set_io')
+    kwargs.pop('set_i')
+    kwargs.pop('set_o')
+    kwargs.pop('set_b')
 
     # start sub-command function with all parameters of that function
     func(**kwargs)

@@ -36,6 +36,7 @@ For further information on **forking** and **merge- (or pull-) requests** please
    sections/diagnostics
    sections/dispersions
    sections/examples
+   sections/performance_tests
 
 .. _contact:
 
