@@ -68,6 +68,6 @@ F. Holderied, S. Possanner, X. Wang, "MHD-kinetic hybrid code based on structure
 
 ## Contact
 
-* Stefan Possanner [spossann@ipp.mpg.de](spossann@ipp.mpg.de)
-* Eric Sonnendrücker [spossann@ipp.mpg.de](eric.sonnendruecker@ipp.mpg.de)
+* Stefan Possanner [stefan.possanner@ipp.mpg.de](spossann@ipp.mpg.de)
+* Eric Sonnendrücker [eric.sonnendruecker@ipp.mpg.de](eric.sonnendruecker@ipp.mpg.de)
 * Xin Wang [xin.wang@ipp.mpg.de](xin.wang@ipp.mpg.de)

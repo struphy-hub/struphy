@@ -1,47 +1,94 @@
-## Version 2.0.1
+## Version 2.0.2
 
 ### Core changes
 
-* Tracing of `removed` particles.
+* Implement boundary transfer function. When we choose `remove` as the kinetic boundary condition, optionally we can use
+`boundary transfer` function: When the PIC particle reaches close to the polar axis (eta1 < rmin), the function transfers
+the particle to the other side of the rmin circle at the polar axis. !377
 
-    When we choose `remove` as one of kinetic_bc, removed particles are saved to the array which is the property of `Particles` class, i.e. `self._e_ions.lost_markers` `self._e_ions.n_lost_markers`. !362
+* Added compile flag `--conda-warnings off` only if pyccel version is 1.8.0 or greater. !380
 
-* `StruphyModel.print_plasma_params` now returns plasma parameters of ALL species. These are saved as the property `pparams` for each model. For kinetic species, the density and pressure are computed from temporary objects of `init` or `background` distribution, to capture default parameters of Maxwellians. !365
+* Split `pusher_kernels.py` into itself (but with less content) and `pusher_kernels_gc.py` and split `accum_kernels.py` into itself (but with less content) and `accum_kernels_gc.py`. !380
 
-* New property `StruphyModel.eq_params` contains equation/coupling parameters (`alpha`, `kappa` etc) for each species. !365
+* Added three new methods to `StruphyModel` base class: !380
+    - `add_propagator`
+    - `add_scalar`
+    - `update_scalar`
+    
+    These methods improve the process of adding a new model.
+    The `Propagator` class attributes `derham`, `domain`, `mass_ops` and `basis_ops`
+    are now set in the base class. All models (except `VlasovMasslessElectrons`) now use the new methods of the StruphyModel base class.
 
-* Clarified the definition of `beta` (actual ratio instead of percent) and the units used in `mhd_equils`. `EQDSKequilibrium` has to get the units for rescaling of output to Struphy units. !365
+* Throw only a warning if p=1 with BasisProjectionOperators, not assert !380
 
-* Renamed `models.utilities.py` to `models.setup.py` !365
+* Added the atttribute `pointer` to the StruphyModel base class. !382
 
-* Removed basic unit of mass, only return one `units` dictionary holding all Struphy units. !365
+    Pointer creation does not have to be done in the models anymore; rather, at `__init__()`,
+    the base class crates a dictionary that can be called with `self.pointer[name]`, where `name`
+    is the name of the species, or `species_variable` in the case of a fluid species.
+    The old pointers have been removed from all models.
 
-* Added two new properties of `Particles` base class: `f_init` and `f_backgr`. !365
+* Added `__init__(self, *vars)` to the `Propagator` base class. !382
 
-* Modified the call function of the `Field` class. Now it has an additional parameter named `local`. If set to `True`, the Field will be evaluated on the local domain corresponding to the MPI rank, i.e. it returns a numpy array just of local FE size to the each process. !369
+    The init creates the two lists `self.feec_vars` (former `variables`)
+    and `self.particles`, which serve as pointers within the scope
+    of the Propagator. `isinstance` checks also happen in the new init.
+    In the child Porpagators, the creation of pointers and asserts
+    is replaced by a call to `super().__init__()`.
+    All propagators have been adapted.
 
-* Added 2 in the definition of the Gaussian. !371
+* Replaced `solvers.PoissonSolver` with `propagators_fields.ImplicitDiffusion`. !382
 
-* Add `spatial` keyword to kinetic parameter files with the two possible values `uniform` and `disc`. `uniform` draws markers uniformly in `eta`, while `disc` draws uniformly on a disc that has `eta1` as the radial coordinate. This option is used in `Particles.draw_markers()`, [here](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/pic-doc/src/struphy/pic/particles.py#L393). We use the inversion method with the cumulative distribution function to draw according to the pdf `s^n = 2*eta1`. !371
+    The new propagator solves the heat equation in weak form, with implicit time stepping.
+    In case the parameter `sigma=0.`, a `__call__()` with `dt=1.` solves the Poisson equation.
 
-* - `kinetic_backgrounds.analytical` has been split into two new modules: `kinetic_backgrounds.base` and `kinetic_backgrounds.maxwellians`. !372
+* Separated `Particles` base class into a `base.py` file. !382
+
+* Added the method `_tmp_noise_for_mpi` to `Field`; this correctly initializes 1d noise with MPI (same noise regardless of number of processes). Not correct for 2d/3d noise yet. Added `seed` parameter noise input files under noise. !385
+
+* Added wall clock and duration of last time step to screen output. !385
+
+* Updated all docker images to use `:latest` Linux distro. Commented out the Fedora test for the moment, raised an [issue](https://github.com/pyccel/psydac/issues/323) with psydac import. !386
+
+* Incorporate newest psydac changes, allow for `Python 3.11`. New psydac `v0.1.2` (our personal versioning, generated from (stefan-psydac fork)[https://github.com/spossann/stefan-psydac]). !386
+
+* Now using `numpy 1.24.4`. Set solvability condition for Poisson in all codes to <1e-11. Added abstract method `conjugate` to `PolarVector`. 
+Comment loop through `dir` of StencilMatrix in psydac_basics test. !386
+
+* Setting struphy in/out/batch path !388
+
+    `struphy --set-io .` was replaced with following three separate commands
+
+        - struphy --set-i . (for input path)
+        - struphy --set-o . (for the output path)
+        - struphy --set-b . (for the batch path)
+
+    `struphy --set-i d`, `struphy --set-o d` and `struphy --set-b d` are for returning back to our default paths.
+
+* `struphy profile` can now save the output figure of the profiling, e.g. `struphy profile sim01 --savefig-dir sim01_profilefig.` !388
+
+* Add a documentation for Performance_tests results !388
+
 
 ### Model specific changes
 
-* New particle pushing routines are implemented for `LinearMHDDriftkineticCC` model:
+* New model: kinetic `VlasovMaxwell`, `VlasovMaxwell` coupling propagator and corresponding accumulation kernels. !378
 
-    Accordingly, pusher wrapper class `Pusher_iteration` is splitted into two classes `Pusher_iteration_Gonzalez` and `Pusher_iteration_Itoh`.
+* New model: hybrid `ColdPlasmaVlasov` !384
 
-    In order to calculate inverse of the 4x4 Jacobian which is needed for the new scheme, basic linear algebra calculation functions for 4x4 matrices are added. !362
+* generalize `propagators_coupling.VlasovMaxwell` by passing two arbitrary constants c1,c2​ instead of alpha and epsilon !384
 
-* Modified model `LinearExtendedMHD` so now it conserves helicity. ! 366
-
-* Added model `ColdPlasma` including analytical dispersion relation and one simple test case. !367
-
-* Only do sg in `push_vxb_analytic` if b-field non-zero. !370
 
 ### Documentation, tutorials, etc.
 
-* Added `Note` blocks to domain, MHD equilibria and kinetic background docstrings for copy/paste of needed parameters in parameters.yml file. !359
+* Add field/fluid initial conditions in doc !379
 
- * Now using the sphinx extension `:autosummary:` in doc. This gives a list of all classes/functions in a module.
+* Added some more basics to doc of PIC discretization !380
+
+* Improved developers documentation: info on Data structures, better guide to adding a new model. !382
+
+### Repo struphy-simulations, new files:
+
+* Scaling tests of `Maxwell` model with mpcdf cobra 
+
+* Test simulations for `ColdPlasma`, `VlasovMaxwell`, and `ColdPlasmaVlasov` 
