@@ -751,10 +751,4 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
 
 
 if __name__ == '__main__':
-    import itertools
-
-    for kind in itertools.product([True, False], repeat=2):
-        print(kind)
-        spl_kind = list(kind) + [False]
-        test_accumulation([18, 10, 10], [2, 3, 4], spl_kind, ['Cuboid', {
-                          'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 4.}], Np=40, verbose=True)
+    pass

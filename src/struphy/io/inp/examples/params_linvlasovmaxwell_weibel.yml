@@ -63,7 +63,6 @@ em_fields :
             comps :
                 e_field : [False, False, False]  # components to be initialized (for scalar fields: no list)
                 b_field : [False, False, True] # components to be initialized (for scalar fields: no list)
-            # variation_in : e1 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
             ls : [1.]
             ms : [0]
             ns : [0.]

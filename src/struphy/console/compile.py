@@ -17,6 +17,7 @@ def struphy_compile(no_openmp=False, delete=False, verbose=False):
     import subprocess
     import struphy
     import os
+    import pyccel
 
     libpath = struphy.__path__[0]
 
@@ -39,10 +40,18 @@ def struphy_compile(no_openmp=False, delete=False, verbose=False):
         if no_openmp:
             flag_omp_pic = ''
 
-        flag_verb = ''
+        # pyccel flags
+        flags = ''
+        
+        _li = pyccel.__version__.split('.')
+        _num = int(_li[0])*100 + int(_li[1])*10 + int(_li[2])
+        if _num >= 180:
+            flags += '--conda-warnings off'
+            
         if verbose:
-            flag_verb = '--verbose'
+            flags += ' --verbose'
 
+        # install psydac from wheel if not there
         try:
             import psydac.api
         except:
@@ -50,7 +59,7 @@ def struphy_compile(no_openmp=False, delete=False, verbose=False):
             subprocess.run(['pip',
                             'install',
                             os.path.join(
-                                libpath, 'psydac-0.1-py3-none-any.whl'),
+                                libpath, 'psydac-0.1.2-py3-none-any.whl'),
                             ], check=True)
             print('Done.')
 
@@ -61,7 +70,7 @@ def struphy_compile(no_openmp=False, delete=False, verbose=False):
         subprocess.run(['make',
                         '-f',
                         'compile_struphy.mk',
-                        'flags=' + flag_verb,
+                        'flags=' + flags,
                         'flags_openmp_pic=' + flag_omp_pic,
                         'flags_openmp_mhd=' + flag_omp_mhd,
                         ], check=True, cwd=libpath)

@@ -40,57 +40,34 @@ class Maxwell(StruphyModel):
 
         super().__init__(params, comm, e1='Hcurl', b2='Hdiv')
 
-        from struphy.propagators.base import Propagator
-        from struphy.propagators import propagators_fields
-
-        # Pointers to em-field variables
-        self._e = self.em_fields['e1']['obj'].vector
-        self._b = self.em_fields['b2']['obj'].vector
-
         # extract necessary parameters
         solver_params = params['solvers']['solver_1']
 
-        # set propagators base class attributes
-        Propagator.derham = self.derham
-        Propagator.domain = self.domain
-        Propagator.mass_ops = self.mass_ops
-
         # Initialize propagators/integrators used in splitting substeps
-        self._propagators = []
-        self._propagators += [propagators_fields.Maxwell(
-            self._e,
-            self._b,
-            **solver_params)]
+        self.add_propagator(self.prop_fields.Maxwell(
+            self.pointer['e1'],
+            self.pointer['b2'],
+            **solver_params))
 
         # Scalar variables to be saved during simulation
-        self._scalar_quantities = {}
-        self._scalar_quantities['en_E'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+        self.add_scalar('en_E')
+        self.add_scalar('en_B')
+        self.add_scalar('en_tot')
 
         # temporary vectors for scalar quantities
         self._tmp_e = self.derham.Vh['1'].zeros()
         self._tmp_b = self.derham.Vh['2'].zeros()
 
-    @property
-    def propagators(self):
-        return self._propagators
-
-    @property
-    def scalar_quantities(self):
-        return self._scalar_quantities
-
     def update_scalar_quantities(self):
-        self._mass_ops.M1.dot(self._e, out=self._tmp_e)
-        self._mass_ops.M2.dot(self._b, out=self._tmp_b)
+        self._mass_ops.M1.dot(self.pointer['e1'], out=self._tmp_e)
+        self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp_b)
 
-        en_E = self._e.dot(self._tmp_e)/2
-        en_B = self._b.dot(self._tmp_b)/2
+        en_E = self.pointer['e1'].dot(self._tmp_e)/2
+        en_B = self.pointer['b2'].dot(self._tmp_b)/2
 
-        self._scalar_quantities['en_E'][0] = en_E
-        self._scalar_quantities['en_B'][0] = en_B
-
-        self._scalar_quantities['en_tot'][0] = en_E + en_B
+        self.update_scalar('en_E', en_E)
+        self.update_scalar('en_B', en_B)
+        self.update_scalar('en_tot', en_E + en_B)
 
 
 class Vlasov(StruphyModel):
@@ -129,70 +106,51 @@ class Vlasov(StruphyModel):
 
         super().__init__(params, comm, ions='Particles6D')
 
-        from struphy.propagators.base import Propagator
-        from struphy.propagators import propagators_markers
         from mpi4py.MPI import SUM, IN_PLACE
 
-        # pointer to ions
-        self._ions = self.kinetic['ions']['obj']
+        # prelim
         ions_params = self.kinetic['ions']['params']
-
         print(
-            f'Total number of markers : {self._ions.n_mks}, shape of markers array on rank {self.derham.comm.Get_rank()} : {self._ions.markers.shape}')
+            f'Total number of markers : {self.pointer["ions"].n_mks}, shape of markers array on rank {self.derham.comm.Get_rank()} : {self.pointer["ions"].markers.shape}')
 
         # project magnetic background
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
                                          self.mhd_equil.b2_2,
                                          self.mhd_equil.b2_3])
 
-        # set propagators base class attributes
-        Propagator.derham = self.derham
-        Propagator.domain = self.domain
-        Propagator.mass_ops = self.mass_ops
-
         # Initialize propagators/integrators used in splitting substeps
-        self._propagators = []
-
-        self._propagators += [propagators_markers.PushVxB(
-            self._ions,
+        self.add_propagator(self.prop_markers.PushVxB(
+            self.pointer['ions'],
             algo=ions_params['push_algos']['vxb'],
             scale_fac=1.,
             b_eq=self._b_eq,
             b_tilde=None,
-            f0=None)]
-
-        self._propagators += [propagators_markers.PushEta(
-            self._ions,
+            f0=None))
+        self.add_propagator(self.prop_markers.PushEta(
+            self.pointer['ions'],
             algo=ions_params['push_algos']['eta'],
             bc_type=ions_params['markers']['bc_type'],
-            f0=None)]
+            f0=None))
 
         # Scalar variables to be saved during simulation
-        self._scalar_quantities = {}
-        
-        self._scalar_quantities['en_f'] = np.empty(1, dtype=float)
+        self.add_scalar('en_f')
 
         # MPI operations needed for scalar variables
         self._mpi_sum = SUM
         self._mpi_in_place = IN_PLACE
-
-    @property
-    def propagators(self):
-        return self._propagators
-
-    @property
-    def scalar_quantities(self):
-        return self._scalar_quantities
+        self._tmp = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
-        
-        self._scalar_quantities['en_f'][0] = self._ions.markers_wo_holes[:, 6].dot(
-            self._ions.markers_wo_holes[:, 3]**2 +
-            self._ions.markers_wo_holes[:, 4]**2 +
-            self._ions.markers_wo_holes[:, 5]**2)/(2*self._ions.n_mks)
+
+        self._tmp[0] = self.pointer['ions'].markers_wo_holes[:, 6].dot(
+            self.pointer['ions'].markers_wo_holes[:, 3]**2 +
+            self.pointer['ions'].markers_wo_holes[:, 4]**2 +
+            self.pointer['ions'].markers_wo_holes[:, 5]**2) / (2*self.pointer['ions'].n_mks)
 
         self.derham.comm.Allreduce(
-            self._mpi_in_place, self._scalar_quantities['en_f'], op=self._mpi_sum)
+            self._mpi_in_place, self._tmp, op=self._mpi_sum)
+
+        self.update_scalar('en_f', self._tmp[0])
 
 
 class DriftKinetic(StruphyModel):
@@ -243,12 +201,9 @@ class DriftKinetic(StruphyModel):
 
         super().__init__(params, comm, ions='Particles5D')
 
-        from struphy.propagators.base import Propagator
-        from struphy.propagators import propagators_markers
         from mpi4py.MPI import SUM, IN_PLACE
 
-        # pointer to ions
-        self._ions = self.kinetic['ions']['obj']
+        # prelim
         ions_params = self.kinetic['ions']['params']
 
         # project magnetic background
@@ -269,102 +224,61 @@ class DriftKinetic(StruphyModel):
         self._E0T = self.derham.E['0'].transpose()
         self._EvT = self.derham.E['v'].transpose()
 
-        ee = 1.602176634e-19  # elementary charge (C)
-        mH = 1.67262192369e-27  # proton mass (kg)
-
-        Ah = params['kinetic']['ions']['phys_params']['A']
-        Zh = params['kinetic']['ions']['phys_params']['Z']
-
-        omega_ch = (Zh*ee*self.units_basic['B'])/(Ah*mH)
-        kappa = omega_ch*self.units_basic['t']
-
+        kappa = 1. / self.eq_params['ions']['epsilon_unit']
         if abs(kappa - 1) < 1e-6:
             kappa = 1.
 
-        # set propagators base class attributes
-        Propagator.derham = self.derham
-        Propagator.domain = self.domain
-
         # Initialize propagators/integrators used in splitting substeps
-        self._propagators = []
-        self._propagators += [propagators_markers.StepPushGuidingCenter1(
-            self._ions,
+        self.add_propagator(self.prop_markers.StepPushGuidingCenter1(
+            self.pointer['ions'],
             kappa=kappa,
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
             abs_b=self._abs_b,
-            integrator=ions_params['push_algos']['integrator'],
-            method='discrete_gradients',
-            maxiter=ions_params['push_algos']['maxiter'],
-            tol=ions_params['push_algos']['tol'])]
-        self._propagators += [propagators_markers.StepPushGuidingCenter2(
-            self._ions,
+            integrator=ions_params['push_algos1']['integrator'],
+            method=ions_params['push_algos1']['method'],
+            maxiter=ions_params['push_algos1']['maxiter'],
+            tol=ions_params['push_algos1']['tol']))
+        self.add_propagator(self.prop_markers.StepPushGuidingCenter2(
+            self.pointer['ions'],
             kappa=kappa,
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
             abs_b=self._abs_b,
-            method='discrete_gradients_Itoh_Newton',
-            integrator=ions_params['push_algos']['integrator'],
-            maxiter=ions_params['push_algos']['maxiter'],
-            tol=ions_params['push_algos']['tol'])]
+            integrator=ions_params['push_algos2']['integrator'],
+            method=ions_params['push_algos2']['method'],
+            maxiter=ions_params['push_algos2']['maxiter'],
+            tol=ions_params['push_algos2']['tol']))
 
         # Scalar variables to be saved during simulation
-        self._scalar_quantities = {}
-        self._en_fv_loc = np.empty(1, dtype=float)
-        self._scalar_quantities['en_fv'] = np.empty(1, dtype=float)
-        self._en_fB_loc = np.empty(1, dtype=float)
-        self._scalar_quantities['en_fB'] = np.empty(1, dtype=float)
-        self._en_fv_loc_lost = np.empty(1, dtype=float)
-        self._scalar_quantities['en_fv_lost'] = np.empty(1, dtype=float)
-        self._en_fB_loc_lost = np.empty(1, dtype=float)
-        self._scalar_quantities['en_fB_lost'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+        self.add_scalar('en_fv')
+        self.add_scalar('en_fB')
+        self.add_scalar('en_tot')
 
         # MPI operations needed for scalar variables
         self._mpi_sum = SUM
-
-    @property
-    def propagators(self):
-        return self._propagators
-
-    @property
-    def scalar_quantities(self):
-        return self._scalar_quantities
+        self._mpi_in_place = IN_PLACE
+        self._en_fv_loc = np.empty(1, dtype=float)
+        self._en_fB_loc = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
-
         # particles' kinetic energy
-        self._en_fv_loc = self._ions.markers[~self._ions.holes, 5].dot(
-            self._ions.markers[~self._ions.holes, 3]**2) / (2.*self._ions.n_mks)
-        self.derham.comm.Reduce(
-            self._en_fv_loc, self._scalar_quantities['en_fv'], op=self._mpi_sum, root=0)
-    
-        self._en_fv_loc_lost = self._ions.lost_markers[:self._ions.n_lost_markers, 5].dot(
-            self._ions.lost_markers[:self._ions.n_lost_markers, 3]**2) / (2.*self._ions.n_mks)
-        self.derham.comm.Reduce(
-            self._en_fv_loc_lost, self._scalar_quantities['en_fv_lost'], op=self._mpi_sum, root=0)
+        self._en_fv_loc[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
+            self.pointer['ions'].markers[~self.pointer['ions'].holes, 3]**2) / (2.*self.pointer['ions'].n_mks)
+        self.derham.comm.Allreduce(
+            self._mpi_in_place, self._en_fv_loc, op=self._mpi_sum)
 
         # particles' magnetic energy
-        self._ions.save_magnetic_energy(self._derham,
-            self._E0T.dot(self.derham.P['0'](self.mhd_equil.absB0)))
+        self.pointer['ions'].save_magnetic_energy(self._derham,
+                                        self._E0T.dot(self.derham.P['0'](self.mhd_equil.absB0)))
 
-        self._en_fB_loc = self._ions.markers[~self._ions.holes, 5].dot(
-            self._ions.markers[~self._ions.holes, 8]) / self._ions.n_mks
-        self.derham.comm.Reduce(
-            self._en_fB_loc, self._scalar_quantities['en_fB'], op=self._mpi_sum, root=0)
-        
-        self._en_fB_loc_lost = self._ions.lost_markers[:self._ions.n_lost_markers, 5].dot(
-            self._ions.lost_markers[:self._ions.n_lost_markers, 8]) / self._ions.n_mks
-        self.derham.comm.Reduce(
-            self._en_fB_loc_lost, self._scalar_quantities['en_fB_lost'], op=self._mpi_sum, root=0)
+        self._en_fB_loc[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
+            self.pointer['ions'].markers[~self.pointer['ions'].holes, 8]) / self.pointer['ions'].n_mks
+        self.derham.comm.Allreduce(
+            self._mpi_in_place, self._en_fB_loc, op=self._mpi_sum)
 
-        self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_fv'][0]
-        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fB'][0]
-        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fv_lost'][0]
-        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fB_lost'][0]
-
-        # print(self._ions.markers[~self._ions.holes,0:9])
-        print('Number of lost markers:', self._ions.n_lost_markers)
-        # print(self._ions.lost_markers[:self._ions.n_lost_markers,:])
+        self.update_scalar('en_fv', self._en_fv_loc[0])
+        self.update_scalar('en_fB', self._en_fB_loc[0])
+        self.update_scalar('en_tot', self._en_fv_loc[0] + self._en_fB_loc[0])

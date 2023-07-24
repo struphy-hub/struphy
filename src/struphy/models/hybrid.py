@@ -77,6 +77,7 @@ class LinearMHDVlasovCC(StruphyModel):
             u_name = 'uv'
 
         self._u_space = u_space
+        self._un = 'mhd_' + u_name
 
         # initialize base class
         super().__init__(params, comm,
@@ -85,22 +86,10 @@ class LinearMHDVlasovCC(StruphyModel):
                          energetic_ions='Particles6D')
 
         from struphy.polar.basic import PolarVector
-        from struphy.propagators.base import Propagator
-        from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
         from struphy.kinetic_background import maxwellians as kin_ana
-        from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
         from mpi4py.MPI import SUM, IN_PLACE
 
-        # pointers to em-field variables
-        self._b = self.em_fields['b2']['obj'].vector
-
-        # pointers to fluid variables
-        self._n = self.fluid['mhd']['n3']['obj'].vector
-        self._u = self.fluid['mhd'][u_name]['obj'].vector
-        self._p = self.fluid['mhd']['p3']['obj'].vector
-
-        # pointer to energetic ions
-        self._e_ions = self.kinetic['energetic_ions']['obj']
+        # prelim
         e_ions_params = self.kinetic['energetic_ions']['params']
 
         # extract necessary parameters
@@ -149,127 +138,113 @@ class LinearMHDVlasovCC(StruphyModel):
         if control:
             self.mass_ops.weights['f0'] = f0
 
-        # set propagators base class attributes (available to all propagators)
-        Propagator.derham = self.derham
-        Propagator.domain = self.domain
-        Propagator.mass_ops = self.mass_ops
-        Propagator.basis_ops = BasisProjectionOperators(
-            self.derham, self.domain, eq_mhd=self.mhd_equil)
-
         # Initialize propagators/integrators used in splitting substeps
-        self._propagators = []
-
-        # updates u
-        self._propagators += [propagators_fields.CurrentCoupling6DDensity(
-            self._u,
-            particles=self._e_ions,
+        self.add_propagator(self.prop_fields.CurrentCoupling6DDensity(
+            self.pointer[self._un],
+            particles=self.pointer['energetic_ions'],
             u_space=self._u_space,
             b_eq=self._b_eq,
-            b_tilde=self._b,
+            b_tilde=self.pointer['b2'],
             f0=f0,
             **solver_params_1,
-            **self._coupling_params)]
-
-        # updates u and b
-        self._propagators += [propagators_fields.ShearAlfvén(
-            self._u,
-            self._b,
+            **self._coupling_params))
+        self.add_propagator(self.prop_fields.ShearAlfvén(
+            self.pointer[self._un],
+            self.pointer['b2'],
             u_space=self._u_space,
-            **solver_params_2)]
-
-        # updates u and v (and weights for control variate)
-        self._propagators += [propagators_coupling.CurrentCoupling6DCurrent(
-            self._e_ions,
-            self._u,
+            **solver_params_2))
+        self.add_propagator(self.prop_coupling.CurrentCoupling6DCurrent(
+            self.pointer['energetic_ions'],
+            self.pointer[self._un],
             u_space=self._u_space,
             b_eq=self._b_eq,
-            b_tilde=self._b,
+            b_tilde=self.pointer['b2'],
             f0=f0,
             **solver_params_3,
-            **self._coupling_params)]
-
-        # updates eta (and weights for control variate)
-        self._propagators += [propagators_markers.PushEta(
-            self._e_ions,
+            **self._coupling_params))
+        self.add_propagator(self.prop_markers.PushEta(
+            self.pointer['energetic_ions'],
             algo=e_ions_params['push_algos']['eta'],
             bc_type=e_ions_params['markers']['bc_type'],
-            f0=f0)]
-
-        # updates v (and weights for control variate)
-        self._propagators += [propagators_markers.PushVxB(
-            self._e_ions,
+            f0=f0))
+        self.add_propagator(self.prop_markers.PushVxB(
+            self.pointer['energetic_ions'],
             algo=e_ions_params['push_algos']['vxb'],
             scale_fac=self._coupling_params['kappa'],
             b_eq=self._b_eq,
-            b_tilde=self._b,
-            f0=f0)]
-
-        # updates u and p
-        self._propagators += [propagators_fields.Magnetosonic(
-            self._n,
-            self._u,
-            self._p,
+            b_tilde=self.pointer['b2'],
+            f0=f0))
+        self.add_propagator(self.prop_fields.Magnetosonic(
+            self.pointer['mhd_n3'],
+            self.pointer[self._un],
+            self.pointer['mhd_p3'],
             u_space=self._u_space,
-            b=self._b,
-            **solver_params_4)]
+            b=self.pointer['b2'],
+            **solver_params_4))
 
         # Scalar variables to be saved during simulation:
-        self._scalar_quantities = {}
+        self.add_scalar('en_U')
+        self.add_scalar('en_p')
+        self.add_scalar('en_B')
+        self.add_scalar('en_f')
+        self.add_scalar('en_B_tot')
+        self.add_scalar('en_tot')
 
-        self._scalar_quantities['en_U'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_p'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_f'] = np.empty(1, dtype=float)
-        # self._scalar_quantities['en_p_eq'] = np.empty(1, dtype=float)
-        # self._scalar_quantities['en_B_eq'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B_tot'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+        # temporary vectors for scalar quantities
+        if self._u_space == 'Hdiv':
+            self._tmp_u = self.derham.Vh['2'].zeros()
+        else:
+            self._tmp_u = self.derham.Vh['v'].zeros()
+
+        self._tmp_b1 = self.derham.Vh['2'].zeros()
+        self._tmp_b2 = self.derham.Vh['2'].zeros()
+        self._tmp = np.empty(1, dtype=float)
 
         # MPI operations needed for scalar variables
         self._mpi_sum = SUM
         self._mpi_in_place = IN_PLACE
 
-    @property
-    def propagators(self):
-        return self._propagators
-
-    @property
-    def scalar_quantities(self):
-        return self._scalar_quantities
-
     def update_scalar_quantities(self):
 
+        # perturbed fields
         if self._u_space == 'Hdiv':
-            self._scalar_quantities['en_U'][0] = self._u.dot(
-                self._mass_ops.M2n.dot(self._u))/2
+            self._mass_ops.M2n.dot(self.pointer[self._un], out=self._tmp_u)
         else:
-            self._scalar_quantities['en_U'][0] = self._u.dot(
-                self._mass_ops.Mvn.dot(self._u))/2
+            self._mass_ops.Mvn.dot(self.pointer[self._un], out=self._tmp_u)
 
-        self._scalar_quantities['en_p'][0] = self._p.dot(self._ones)/(5/3 - 1)
-        self._scalar_quantities['en_B'][0] = self._b.dot(
-            self._mass_ops.M2.dot(self._b))/2
+        self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp_b1)
 
-        # self._scalar_quantities['en_p_eq'][0] = self._p_eq.dot(
-        #     self._ones)/(5/3 - 1)
-        # self._scalar_quantities['en_B_eq'][0] = self._b_eq.dot(
-        #     self._mass_ops.M2.dot(self._b_eq, apply_bc=False))/2
+        en_U = self.pointer[self._un].dot(self._tmp_u)/2
+        en_B = self.pointer['b2'].dot(self._tmp_b1)/2
+        en_p = self.pointer['mhd_p3'].dot(self._ones)/(5/3 - 1)
 
-        self._scalar_quantities['en_B_tot'][0] = (
-            self._b_eq + self._b).dot(self._mass_ops.M2.dot(self._b_eq + self._b, apply_bc=False))/2
+        self.update_scalar('en_U', en_U)
+        self.update_scalar('en_B', en_B)
+        self.update_scalar('en_p', en_p)
 
-        self._scalar_quantities['en_f'][0] = self._coupling_params['Ah']/self._coupling_params['Ab']*self._e_ions.markers_wo_holes[:, 6].dot(
-            self._e_ions.markers_wo_holes[:, 3]**2 +
-            self._e_ions.markers_wo_holes[:, 4]**2 +
-            self._e_ions.markers_wo_holes[:, 5]**2)/(2*self._e_ions.n_mks)
+        # total magnetic field
+        self._mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
+
+        self._b_eq.copy(out=self._tmp_b1)
+        self._tmp_b1 += self.pointer['b2']
+
+        self._mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
+
+        en_Btot = self._tmp_b1.dot(self._tmp_b2)/2
+
+        self.update_scalar('en_B_tot', en_Btot)
+
+        # particles
+        self._tmp[0] = self._coupling_params['Ah']/self._coupling_params['Ab']*self.pointer['energetic_ions'].markers_wo_holes[:, 6].dot(
+            self.pointer['energetic_ions'].markers_wo_holes[:, 3]**2 +
+            self.pointer['energetic_ions'].markers_wo_holes[:, 4]**2 +
+            self.pointer['energetic_ions'].markers_wo_holes[:, 5]**2)/(2*self.pointer['energetic_ions'].n_mks)
 
         self.derham.comm.Allreduce(
-            self._mpi_in_place, self._scalar_quantities['en_f'], op=self._mpi_sum)
+            self._mpi_in_place, self._tmp, op=self._mpi_sum)
 
-        self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_U'][0]
-        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_p'][0]
-        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_B'][0]
-        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_f'][0]
+        self.update_scalar('en_f', self._tmp[0])
+        self.update_scalar('en_tot', en_U + en_B + en_p + self._tmp[0])
 
 
 class LinearMHDVlasovPC(StruphyModel):
@@ -353,6 +328,7 @@ class LinearMHDVlasovPC(StruphyModel):
             u_name = 'uv'
 
         self._u_space = u_space
+        self._un = 'mhd_' + u_name
 
         # initialize base class
         super().__init__(params, comm,
@@ -361,22 +337,10 @@ class LinearMHDVlasovPC(StruphyModel):
                          energetic_ions='Particles6D')
 
         from struphy.polar.basic import PolarVector
-        from struphy.propagators.base import Propagator
-        from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
         from struphy.kinetic_background import maxwellians as kin_ana
-        from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
         from mpi4py.MPI import SUM, IN_PLACE
 
-        # pointers to em-field variables
-        self._b = self.em_fields['b2']['obj'].vector
-
-        # pointers to fluid variables
-        self._n = self.fluid['mhd']['n3']['obj'].vector
-        self._u = self.fluid['mhd'][u_name]['obj'].vector
-        self._p = self.fluid['mhd']['p3']['obj'].vector
-
-        # pointer to kinetic variables
-        self._e_ions = self.kinetic['energetic_ions']['obj']
+        # prelim
         ions_params = self.kinetic['energetic_ions']['params']
 
         # extract necessary parameters
@@ -424,114 +388,103 @@ class LinearMHDVlasovPC(StruphyModel):
         if control:
             self.mass_ops.weights['f0'] = f0
 
-        # set propagators base class attributes (available to all propagators)
-        Propagator.derham = self.derham
-        Propagator.domain = self.domain
-        Propagator.mass_ops = self.mass_ops
-        Propagator.basis_ops = BasisProjectionOperators(
-            self.derham, self.domain, eq_mhd=self.mhd_equil)
-
         # Initialize propagators/integrators used in splitting substeps
-        self._propagators = []
-
-        # updates u and b
-        self._propagators += [propagators_fields.ShearAlfvén(
-            self._u,
-            self._b,
+        self.add_propagator(self.prop_fields.ShearAlfvén(
+            self.pointer[self._un],
+            self.pointer['b2'],
             u_space=self._u_space,
-            **solver_params_1,)]
-
-        self._propagators += [propagators_coupling.PressureCoupling6D(
-            self._e_ions,
-            self._u,
+            **solver_params_1,))
+        self.add_propagator(self.prop_coupling.PressureCoupling6D(
+            self.pointer['energetic_ions'],
+            self.pointer[self._un],
             u_space=self._u_space,
             use_perp_model=ions_params['use_perp_model'],
             **solver_params_2,
-            **self._coupling_params)]
-
-        # updates eta
-        self._propagators += [propagators_markers.PushEtaPC(
-            self._e_ions,
-            u_mhd=self._u,
+            **self._coupling_params))
+        self.add_propagator(self.prop_markers.PushEtaPC(
+            self.pointer['energetic_ions'],
+            u_mhd=self.pointer[self._un],
             u_space=self._u_space,
             bc_type=ions_params['markers']['bc_type'],
-            use_perp_model=ions_params['use_perp_model'])]
-
-        # updates v
-        self._propagators += [propagators_markers.PushVxB(
-            self._e_ions,
+            use_perp_model=ions_params['use_perp_model']))
+        self.add_propagator(self.prop_markers.PushVxB(
+            self.pointer['energetic_ions'],
             algo=ions_params['push_algos']['vxb'],
             scale_fac=self._coupling_params['kappa'],
             b_eq=self._b_eq,
-            b_tilde=self._b,
-            f0=f0)]
-
-        # updates u and p
-        self._propagators += [propagators_fields.Magnetosonic(
-            self._n,
-            self._u,
-            self._p,
+            b_tilde=self.pointer['b2'],
+            f0=f0))
+        self.add_propagator(self.prop_fields.Magnetosonic(
+            self.pointer['mhd_n3'],
+            self.pointer[self._un],
+            self.pointer['mhd_p3'],
             u_space=self._u_space,
-            b=self._b,
-            **solver_params_3)]
+            b=self.pointer['b2'],
+            **solver_params_3))
 
         # Scalar variables to be saved during simulation:
-        self._scalar_quantities = {}
+        self.add_scalar('en_U')
+        self.add_scalar('en_p')
+        self.add_scalar('en_B')
+        self.add_scalar('en_f')
+        self.add_scalar('en_B_tot')
+        self.add_scalar('en_tot')
 
-        self._scalar_quantities['en_U'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_p'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_f'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_p_eq'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B_eq'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B_tot'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+        # temporary vectors for scalar quantities
+        if self._u_space == 'Hdiv':
+            self._tmp_u = self.derham.Vh['2'].zeros()
+        else:
+            self._tmp_u = self.derham.Vh['v'].zeros()
+
+        self._tmp_b1 = self.derham.Vh['2'].zeros()
+        self._tmp_b2 = self.derham.Vh['2'].zeros()
+        self._tmp = np.empty(1, dtype=float)
 
         # MPI operations needed for scalar variables
         self._mpi_sum = SUM
         self._mpi_in_place = IN_PLACE
 
-    @property
-    def propagators(self):
-        return self._propagators
-
-    @property
-    def scalar_quantities(self):
-        return self._scalar_quantities
-
     def update_scalar_quantities(self):
 
+        # perturbed fields
         if self._u_space == 'Hdiv':
-            self._scalar_quantities['en_U'][0] = self._u.dot(
-                self._mass_ops.M2n.dot(self._u))/2
+            self._mass_ops.M2n.dot(self.pointer[self._un], out=self._tmp_u)
         else:
-            self._scalar_quantities['en_U'][0] = self._u.dot(
-                self._mass_ops.Mvn.dot(self._u))/2
+            self._mass_ops.Mvn.dot(self.pointer[self._un], out=self._tmp_u)
 
-        self._scalar_quantities['en_p'][0] = self._p.dot(self._ones)/(5/3 - 1)
-        self._scalar_quantities['en_B'][0] = self._b.dot(
-            self._mass_ops.M2.dot(self._b))/2
+        self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp_b1)
 
-        self._scalar_quantities['en_p_eq'][0] = self._p_eq.dot(
-            self._ones)/(5/3 - 1)
-        self._scalar_quantities['en_B_eq'][0] = self._b_eq.dot(
-            self._mass_ops.M2.dot(self._b_eq, apply_bc=False))/2
+        en_U = self.pointer[self._un].dot(self._tmp_u)/2
+        en_B = self.pointer['b2'].dot(self._tmp_b1)/2
+        en_p = self.pointer['mhd_p3'].dot(self._ones)/(5/3 - 1)
 
-        self._scalar_quantities['en_B_tot'][0] = (
-            self._b_eq + self._b).dot(self._mass_ops.M2.dot(self._b_eq + self._b, apply_bc=False))/2
+        self.update_scalar('en_U', en_U)
+        self.update_scalar('en_B', en_B)
+        self.update_scalar('en_p', en_p)
 
-        self._scalar_quantities['en_f'][0] = self._coupling_params['Ah']/self._coupling_params['Ab']*self._e_ions.markers_wo_holes[:, 6].dot(
-            self._e_ions.markers_wo_holes[:, 3]**2 +
-            self._e_ions.markers_wo_holes[:, 4]**2 +
-            self._e_ions.markers_wo_holes[:, 5]**2)/(2*self._e_ions.n_mks)
+        # total magnetic field
+        self._mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
+
+        self._b_eq.copy(out=self._tmp_b1)
+        self._tmp_b1 += self.pointer['b2']
+
+        self._mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
+
+        en_Btot = self._tmp_b1.dot(self._tmp_b2)/2
+
+        self.update_scalar('en_B_tot', en_Btot)
+
+        # particles
+        self._tmp[0] = self._coupling_params['Ah']/self._coupling_params['Ab']*self.pointer['energetic_ions'].markers_wo_holes[:, 6].dot(
+            self.pointer['energetic_ions'].markers_wo_holes[:, 3]**2 +
+            self.pointer['energetic_ions'].markers_wo_holes[:, 4]**2 +
+            self.pointer['energetic_ions'].markers_wo_holes[:, 5]**2)/(2*self.pointer['energetic_ions'].n_mks)
 
         self.derham.comm.Allreduce(
-            self._mpi_in_place, self._scalar_quantities['en_f'], op=self._mpi_sum)
+            self._mpi_in_place, self._tmp, op=self._mpi_sum)
 
-        self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_U'][0]
-        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_p'][0]
-        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_B'][0]
-        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_f'][0]
+        self.update_scalar('en_f', self._tmp[0])
+        self.update_scalar('en_tot', en_U + en_B + en_p + self._tmp[0])
 
 
 class LinearMHDDriftkineticCC(StruphyModel):
@@ -625,6 +578,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             u_name = 'uv'
 
         self._u_space = u_space
+        self._un = 'mhd_' + u_name
 
         # initialize base class
         super().__init__(params, comm,
@@ -633,22 +587,10 @@ class LinearMHDDriftkineticCC(StruphyModel):
                          energetic_ions='Particles5D')
 
         from struphy.polar.basic import PolarVector
-        from struphy.propagators.base import Propagator
-        from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
         from struphy.kinetic_background import maxwellians as kin_ana
-        from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
-        from mpi4py.MPI import SUM
+        from mpi4py.MPI import SUM, IN_PLACE
 
-        # pointers to em-field variables
-        self._b = self.em_fields['b2']['obj'].vector
-
-        # pointers to fluid variables
-        self._n = self.fluid['mhd']['n3']['obj'].vector
-        self._u = self.fluid['mhd'][u_name]['obj'].vector
-        self._p = self.fluid['mhd']['p3']['obj'].vector
-
-        # pointer to kinetic variables
-        self._e_ions = self.kinetic['energetic_ions']['obj']
+        # prelim
         ions_params = self.kinetic['energetic_ions']['params']
 
         # extract necessary parameters
@@ -701,12 +643,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._EvT = self.derham.E['v'].transpose()
         self._E2T = self.derham.E['2'].transpose()
 
-        # temporary vectors to avoid memory allocation
-        self._b_full1 = self._b_eq.space.zeros()
-        self._b_full2 = self._E2T.codomain.zeros()
-        self._PBb1 = self._abs_b.space.zeros()
-        self._PBb2 = self._E0T.codomain.zeros()
-
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.
         else:
@@ -716,61 +652,35 @@ class LinearMHDDriftkineticCC(StruphyModel):
         if control:
             self.mass_ops.weights['f0'] = f0
 
-        # set propagators base class attributes (available to all propagators)
-        Propagator.derham = self.derham
-        Propagator.domain = self.domain
-        Propagator.mass_ops = self.mass_ops
-        Propagator.basis_ops = BasisProjectionOperators(
-            self.derham, self.domain, eq_mhd=self.mhd_equil)
-
         # Initialize propagators/integrators used in splitting substeps
-        self._propagators = []
-        # # updates u and p
-        # self._propagators += [propagators_fields.MagnetosonicCurrentCoupling5D(
-        #     self._n,
-        #     self._u,
-        #     self._p,
-        #     b=self._b,
-        #     particles=self._e_ions,
-        #     unit_b1=self._unit_b1,
-        #     f0=f0,
-        #     u_space=self._u_space,
-        #     **solver_params_2,
-        #     **self._coupling_params)]
-
-        # update H
-        self._propagators += [propagators_markers.StepPushDriftKinetic1(
-            self._e_ions,
+        self.add_propagator(self.prop_markers.StepPushDriftKinetic1(
+            self.pointer['energetic_ions'],
             kappa=kappa,
-            b=self._b,
+            b=self.pointer['b2'],
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
             abs_b=self._abs_b,
-            integrator=ions_params['push_algos']['integrator'],
-            method='discrete_gradients',
-            maxiter=ions_params['push_algos']['maxiter'],
-            tol=ions_params['push_algos']['tol'])]
-
-        # update H and v parallel
-        self._propagators += [propagators_markers.StepPushDriftKinetic2(
-            self._e_ions,
+            integrator=ions_params['push_algos1']['integrator'],
+            method=ions_params['push_algos1']['method'],
+            maxiter=ions_params['push_algos1']['maxiter'],
+            tol=ions_params['push_algos1']['tol']))
+        self.add_propagator(self.prop_markers.StepPushDriftKinetic2(
+            self.pointer['energetic_ions'],
             kappa=kappa,
-            b=self._b,
+            b=self.pointer['b2'],
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
             abs_b=self._abs_b,
-            method='discrete_gradients_Itoh_Newton',
-            integrator=ions_params['push_algos']['integrator'],
-            maxiter=ions_params['push_algos']['maxiter'],
-            tol=ions_params['push_algos']['tol'])]
-        
-        # update u and H
-        self._propagators += [propagators_coupling.CurrentCoupling5DCurrent2(
-            self._e_ions,
-            self._u,
-            b=self._b,
+            integrator=ions_params['push_algos2']['integrator'],
+            method=ions_params['push_algos2']['method'],
+            maxiter=ions_params['push_algos2']['maxiter'],
+            tol=ions_params['push_algos2']['tol']))
+        self.add_propagator(self.prop_coupling.CurrentCoupling5DCurrent2(
+            self.pointer['energetic_ions'],
+            self.pointer[self._un],
+            b=self.pointer['b2'],
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
@@ -780,89 +690,80 @@ class LinearMHDDriftkineticCC(StruphyModel):
             **solver_params_4,
             **self._coupling_params,
             integrator='explicit',
-            method='rk4')]
-
-        # updates u and b
-        self._propagators += [propagators_fields.ShearAlfvénCurrentCoupling5D(
-            self._u,
-            self._b,
-            particles=self._e_ions,
+            method='rk4'))
+        self.add_propagator(self.prop_fields.ShearAlfvénCurrentCoupling5D(
+            self.pointer[self._un],
+            self.pointer['b2'],
+            particles=self.pointer['energetic_ions'],
             b_eq=self._b_eq,
             f0=f0,
             u_space=self._u_space,
             **solver_params_1,
-            **self._coupling_params)]
-        
-        # update u and v parallel
-        self._propagators += [propagators_coupling.CurrentCoupling5DCurrent1(
-            self._e_ions,
-            self._u,
-            b=self._b,
+            **self._coupling_params))
+        self.add_propagator(self.prop_coupling.CurrentCoupling5DCurrent1(
+            self.pointer['energetic_ions'],
+            self.pointer[self._un],
+            b=self.pointer['b2'],
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
             f0=f0,
             u_space=self._u_space,
             **solver_params_3,
-            **self._coupling_params)]
-
-        # update u
-        self._propagators += [propagators_fields.CurrentCoupling5DDensity(
-            self._u,
-            particles=self._e_ions,
-            u_space=self._u_space,
-            b_eq=self._b_eq,
-            b_tilde=self._b,
-            f0=f0,
-            **solver_params_5,
-            **self._coupling_params)]
+            **self._coupling_params))
 
         # Scalar variables to be saved during simulation
-        self._scalar_quantities = {}
-        self._scalar_quantities['en_U'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_p'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
-        # self._scalar_quantities['en_p_eq'] = np.empty(1, dtype=float)
-        # self._scalar_quantities['en_B_eq'] = np.empty(1, dtype=float)
-        # self._scalar_quantities['en_B_tot'] = np.empty(1, dtype=float)
-        self._en_fv_loc = np.empty(1, dtype=float)
-        self._scalar_quantities['en_fv'] = np.empty(1, dtype=float)
-        self._en_fB_loc = np.empty(1, dtype=float)
-        self._scalar_quantities['en_fB'] = np.empty(1, dtype=float)
-        self._en_fv_loc_lost = np.empty(1, dtype=float)
-        self._scalar_quantities['en_fv_lost'] = np.empty(1, dtype=float)
-        self._en_fB_loc_lost = np.empty(1, dtype=float)
-        self._scalar_quantities['en_fB_lost'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+        self.add_scalar('en_U')
+        self.add_scalar('en_p')
+        self.add_scalar('en_B')
+        self.add_scalar('en_fv')
+        self.add_scalar('en_fB')
+        self.add_scalar('en_fv_lost')
+        self.add_scalar('en_fB_lost')
+        self.add_scalar('en_tot')
 
         # things needed in update_scalar_quantities
         self._mpi_sum = SUM
-        self._prop = Propagator
+        self._mpi_in_place = IN_PLACE
 
-    @property
-    def propagators(self):
-        return self._propagators
+        # temporaries
+        self._b_full1 = self._b_eq.space.zeros()
+        self._b_full2 = self._E2T.codomain.zeros()
+        self._PBb1 = self._abs_b.space.zeros()
+        self._PBb2 = self._E0T.codomain.zeros()
 
-    @property
-    def scalar_quantities(self):
-        return self._scalar_quantities
+        self._en_fv_loc = np.empty(1, dtype=float)
+        self._en_fB_loc = np.empty(1, dtype=float)
+        self._en_fv_loc_lost = np.empty(1, dtype=float)
+        self._en_fB_loc_lost = np.empty(1, dtype=float)
+
+        if self._u_space == 'Hcurl':
+            self._tmp_u = self.derham.Vh['1'].zeros()
+        elif self._u_space == 'Hdiv':
+            self._tmp_u = self.derham.Vh['2'].zeros()
+        else:
+            self._tmp_u = self.derham.Vh['v'].zeros()
+
+        self._tmp_b = self.derham.Vh['2'].zeros()
 
     def update_scalar_quantities(self):
 
         if self._u_space == 'Hcurl':
-            self._scalar_quantities['en_U'][0] = self._u.dot(
-                self._mass_ops.M1n.dot(self._u))/2
-
+            self._mass_ops.M1n.dot(self.pointer[self._un], out=self._tmp_u)
+            en_U = self.pointer[self._un].dot(self._tmp_u)/2
         elif self._u_space == 'Hdiv':
-            self._scalar_quantities['en_U'][0] = self._u.dot(
-                self._mass_ops.M2n.dot(self._u))/2
-
+            self._mass_ops.M2n.dot(self.pointer[self._un], out=self._tmp_u)
+            en_U = self.pointer[self._un].dot(self._tmp_u)/2
         else:
-            self._scalar_quantities['en_U'][0] = self._u.dot(
-                self._mass_ops.Mvn.dot(self._u))/2
+            self._mass_ops.Mvn.dot(self.pointer[self._un], out=self._tmp_u)
+            en_U = self.pointer[self._un].dot(self._tmp_u)/2
 
-        self._scalar_quantities['en_p'][0] = self._p.toarray().sum()/(5/3 - 1)
-        self._scalar_quantities['en_B'][0] = self._b.dot(
-            self._mass_ops.M2.dot(self._b))/2
+        en_p = self.pointer['mhd_p3'].toarray().sum()/(5/3 - 1)
+        self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp_b)
+        en_B = self.pointer['b2'].dot(self._tmp_b)/2
+
+        self.update_scalar('en_U', en_U)
+        self.update_scalar('en_p', en_p)
+        self.update_scalar('en_B', en_B)
 
         # self._scalar_quantities['en_p_eq'][0] = self._p_eq.dot(
         #     self._ones)/(5/3 - 1)
@@ -870,20 +771,23 @@ class LinearMHDDriftkineticCC(StruphyModel):
         #     self._mass_ops.M2.dot(self._b_eq, apply_bc=False))/2
 
         # calculate particle kinetic energy
-        self._en_fv_loc = self._e_ions.markers[~self._e_ions.holes, 5].dot(
-            self._e_ions.markers[~self._e_ions.holes, 3]**2) / (2*self._e_ions.n_mks)
-        self.derham.comm.Reduce(
-            self._en_fv_loc, self._scalar_quantities['en_fv'], op=self._mpi_sum, root=0)
+        self._en_fv_loc[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
+            self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 3]**2) / (2*self.pointer['energetic_ions'].n_mks)
+        self.derham.comm.Allreduce(
+            self._mpi_in_place, self._en_fv_loc, op=self._mpi_sum)
 
-        self._en_fv_loc_lost = self._e_ions.lost_markers[:self._e_ions.n_lost_markers, 5].dot(
-            self._e_ions.lost_markers[:self._e_ions.n_lost_markers, 3]**2) / (2.*self._e_ions.n_mks)
-        self.derham.comm.Reduce(
-            self._en_fv_loc_lost, self._scalar_quantities['en_fv_lost'], op=self._mpi_sum, root=0)
+        self.update_scalar('en_fv', self._en_fv_loc[0])
 
+        self._en_fv_loc_lost = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
+            self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 3]**2) / (2.*self.pointer['energetic_ions'].n_mks)
+        self.derham.comm.Allreduce(
+            self._mpi_in_place, self._en_fv_loc_lost, op=self._mpi_sum)
+
+        self.update_scalar('en_fv_lost', self._en_fv_loc_lost[0])
 
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         self._b_eq.copy(out=self._b_full1)
-        self._b_full1 += self._b
+        self._b_full1 += self.pointer['b2']
         self._b_full1.update_ghost_regions()
 
         # self._scalar_quantities['en_B_tot'][0] = (self._b_full1).dot(
@@ -894,136 +798,230 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._E0T.dot(self._PBb1, out=self._PBb2)
         self._PBb2.update_ghost_regions()
 
-        self._e_ions.save_magnetic_energy(self._derham, self._PBb2)
-        self._en_fB_loc = self._e_ions.markers[~self._e_ions.holes, 5].dot(
-            self._e_ions.markers[~self._e_ions.holes, 8])/self._e_ions.n_mks
-        self.derham.comm.Reduce(
-            self._en_fB_loc, self._scalar_quantities['en_fB'], op=self._mpi_sum, root=0)
-        
-        self._en_fB_loc_lost = self._e_ions.lost_markers[:self._e_ions.n_lost_markers, 5].dot(
-            self._e_ions.lost_markers[:self._e_ions.n_lost_markers, 8]) / self._e_ions.n_mks
-        self.derham.comm.Reduce(
-            self._en_fB_loc_lost, self._scalar_quantities['en_fB_lost'], op=self._mpi_sum, root=0)
+        self.pointer['energetic_ions'].save_magnetic_energy(
+            self._derham, self._PBb2)
+        self._en_fB_loc[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
+            self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 8])/self.pointer['energetic_ions'].n_mks
+        self.derham.comm.Allreduce(
+            self._mpi_in_place, self._en_fB_loc, op=self._mpi_sum)
 
+        self.update_scalar('en_fB', self._en_fB_loc[0])
+
+        self._en_fB_loc_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
+            self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 8]) / self.pointer['energetic_ions'].n_mks
+        self.derham.comm.Allreduce(
+            self._mpi_in_place, self._en_fB_loc_lost, op=self._mpi_sum)
+
+        self.update_scalar('en_fB_lost', self._en_fB_loc_lost[0])
 
         # # calculate particle magnetic energy
-        # self._e_ions.save_magnetic_energy(self._derham, self._E0T.dot(
+        # self.pointer['energetic_ions'].save_magnetic_energy(self._derham, self._E0T.dot(
         #     self.derham.P['0'](self.mhd_equil.absB0)))
 
-        # self._en_fB_loc = self._e_ions.markers[~self._e_ions.holes, 5].dot(
-        #     self._e_ions.markers[~self._e_ions.holes, 8]) / self._e_ions.n_mks
+        # self._en_fB_loc = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
+        #     self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 8]) / self.pointer['energetic_ions'].n_mks
         # self.derham.comm.Reduce(
         #     self._en_fB_loc, self._scalar_quantities['en_fB'], op=self._mpi_sum, root=0)
 
+        self.update_scalar('en_tot', en_U + en_p + en_B +
+                           self._en_fv_loc[0] + self._en_fv_loc_lost[0] + self._en_fB_loc[0] + self._en_fB_loc_lost[0])
 
-        self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_U'][0]
-        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_p'][0]
-        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_B'][0]
-        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fv'][0]
-        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fB'][0]
-        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fv_lost'][0]
-        self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_fB_lost'][0]
-
-        print('Number of lost markers:', self._e_ions.n_lost_markers)
-
-# class ColdPlasmaVlasov(StruphyModel):
-#     r'''Cold plasma model
-
-#     Normalization:
-
-#     .. math::
-
-#         &c = \frac{\hat \omega}{\hat k} = \frac{\hat E}{\hat B}\,,
-
-#         &\hat \omega = \Omega_{ce}\,,
-
-#         &\alpha = \frac{\Omega_{pe}}{\Omega_{ce}}\,,
-
-#         &\hat j_c = \varepsilon_0 \Omega_{pe} \hat E\,,
-
-#         &\hat v = \frac{\Omega_{ce}}{\hat k} = c\,,
-
-#     where :math:`c` is the vacuum speed of light, :math:`\Omega_{ce}` the electron cyclotron frequency,
-#     :math:`\Omega_{pe}` the plasma frequency and :math:`\varepsilon_0` the vacuum dielectric constant.
-#     Implemented equations:
-
-#     .. math::
-
-#         &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,,
-
-#         &-\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
-#         \alpha\left(\mathbf j_c + \frac{\hat n_h}{n_0 \left(x\right)} \alpha \mathbf j_h\right)\,,
-
-#         &\frac{\partial \mathbf j_c}{\partial t} = \alpha \mathbf E + \mathbf j_c \times \mathbf B\,,
-
-#         &\frac{\partial f_h}{\partial t} + v \cdot \nabla f_h
-#         + \left(\mathbf E + \mathbf v \times B\right) \cdot \nabla_v f_h = 0\,.
+        print('Number of lost markers:',
+              self.pointer['energetic_ions'].n_lost_markers)
 
 
-#     Parameters
-#     ----------
-#         params : dict
-#             Simulation parameters, see from :ref:`params_yml`.
-#     '''
+class ColdPlasmaVlasov(StruphyModel):
+    r'''Cold plasma hybrid model
 
-#     def __init__(self, params, comm):
+    Normalization:
 
-#         from struphy.propagators import propagators_fields
-#         from struphy.psydac_api.mass import WeightedMassOperators
-#         from struphy.propagators import propagators_fields
+    .. math::
 
-#         super().__init__(params, comm, e1='Hcurl', b2='Hdiv',
-#                          electron={'j1': 'Hcurl'}, hot_electrons='Particles6D')
+        &c = \frac{\hat \omega}{\hat k} = \frac{\hat E}{\hat B}\,, \quad \alpha = \frac{\hat \Omega_\textnormal{pc}}{\hat \Omega_\textnormal{cc}}\,, \quad \varepsilon_\textnormal{c} = \frac{\hat{\omega}}{\hat \Omega_\textnormal{cc}}\,, \quad \varepsilon_\textnormal{h} = \frac{\hat{\omega}}{\hat \Omega_\textnormal{ch}}\,,
 
-#         # pointers to em-fields variables
-#         self._e = self.em_fields['e1']['obj'].vector
-#         self._b = self.em_fields['b2']['obj'].vector
+        &\hat j_\textnormal{c} = q_\textnormal{c} c \hat n_\textnormal{c}\,, \quad \hat j_\textnormal{h} = q_\textnormal{h} c \hat n_\textnormal{c}\,, \quad \hat f = \frac{\hat n_\textnormal{c}}{c^3} \,, \quad \nu = \frac{q_\textnormal{h}}{q_\textnormal{c}}\,,
 
-#         # pointers to  fluid variables
-#         self._j = self.fluid['electrons']['j1']['obj'].vector
+    where :math:`c` is the vacuum speed of light, :math:`\hat \Omega_\textnormal{cc}` the cold electron cyclotron frequency,
+    :math:`\hat \Omega_\textnormal{pc}` the cold electron plasma frequency,  :math:`\hat \Omega_\textnormal{ch}` the hot electron cyclotron frequency,
+    and :math:`\hat \Omega_\textnormal{ph}` the hot electron plasma frequency.
+    Implemented equations:
 
-#         # extract necessary parameters
-#         maxwell_solver = params['solvers']['solver_1']
-#         cold_solver = params['solvers']['solver_2']
+    .. math::
 
-#         # Define callable for weighted mass matrices
-#         proton_mass = 1.6726219237e-27
-#         electron_mass = self.fluid['electrons']['plasma_params']['M'] * proton_mass
-#         vacuum_permittivity = 8.854187813e-12
-#         prefactor = (electron_mass / vacuum_permittivity)**0.5
+        &\partial_t f + \mathbf{v} \cdot \, \nabla f + \frac{1}{\varepsilon_\textnormal{h}}\left( \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \right)
+            \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
 
-#         def call_alpha(e1, e2, e3):
-#             return prefactor * self.mhd_equil.n0(e1, e2, e3, sqeez_out=False)**0.5 / self.mhd_equil.absB0(e1, e2, e3, sqeez_out=False)
+        &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,,
 
-#         def call_M1alpha(e1, e2, e3, m, n):
-#             return self.domain.Ginv(e1, e2, e3)[:, :, :, m, n] * self.domain.sqrt_g(e1, e2, e3)*call_alpha(e1, e2, e3)
+        &-\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
+        \frac{\alpha^2}{\varepsilon_\textnormal{c}} \left( \mathbf j_\textnormal{c} + \nu  \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v} \right) \,,
 
-#         # Assemble necessary mass matrices
-#         self._mass_ops = WeightedMassOperators(
-#             self.derham, self.domain, alpha=call_M1alpha)
+        &\frac{1}{n_0} \frac{\partial \mathbf j_\textnormal{c}}{\partial t} = \frac{1}{\varepsilon_\textnormal{c}} \mathbf E + \frac{1}{\varepsilon_\textnormal{c} n_0} \mathbf j_\textnormal{c} \times \mathbf B_0\,.
 
-#         # Initialize propagators/integrators used in splitting substeps
-#         self._propagators = []
-#         self._propagators += [propagators_fields.Maxwell(
-#             self._e, self._b, self.derham, self._mass_ops, maxwell_solver)]
-#         self._propagators += [propagators_fields.OhmCold(
-#             self._j, self._e, self._mass_ops, cold_solver)]
+    where :math:`(n_0,\mathbf B_0)` denotes a (inhomogeneous) background.
 
-#         # Scalar variables to be saved during simulation
-#         self._scalar_quantities['time'] = np.empty(1, dtype=float)
-#         self._scalar_quantities['en_E'] = np.empty(1, dtype=float)
-#         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
-#         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+    At initial time the Poisson equation is solved once to weakly satisfy the Gauss law
 
-#     @property
-#     def propagators(self):
-#         return self._propagators
+    .. math::
 
-#     def update_scalar_quantities(self, time):
-#         self._scalar_quantities['time'][0] = time
-#         self._scalar_quantities['en_E'][0] = .5 * \
-#             self._e.dot(self._mass_ops.M1.dot(self._e))
-#         self._scalar_quantities['en_B'][0] = .5 * \
-#             self._b.dot(self._mass_ops.M2.dot(self._b))
-#         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_E'][0]
-#         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_B'][0]
+        \begin{align}
+            \nabla \cdot \mathbf{E} & = \nu \frac{\alpha^2}{\varepsilon_\textnormal{c}} \int_{\mathbb{R}^3} f \, \text{d}^3 \mathbf{v}
+        \end{align}
+
+    Parameters
+    ----------
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
+
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
+
+    Note
+    ----------
+    If hot and cold particles are of the same species (:math:`Z_\textnormal{c} = Z_\textnormal{h} \,, A_\textnormal{c} = A_\textnormal{h}`) then :math:`\varepsilon_\textnormal{c} = \varepsilon_\textnormal{h}` and :math:`\nu = 1`.
+    '''
+
+    @classmethod
+    def bulk_species(cls):
+        return 'coldelectrons'
+
+    @classmethod
+    def timescale(cls):
+        return 'light'
+
+    def __init__(self, params, comm):
+
+        super().__init__(params, comm, e1='Hcurl', b2='Hdiv',
+                         coldelectrons={'j1': 'Hcurl'}, hotelectrons='Particles6D')
+
+        from mpi4py.MPI import SUM, IN_PLACE
+
+        # Get rank and size
+        self._rank = comm.Get_rank()
+
+        # prelim
+        electron_params = params['kinetic']['hotelectrons']
+
+        # get poisson solver parameters
+        self._poisson_params = params['solvers']['solver_poisson']
+
+        # model parameters
+        self._alpha = np.abs(self.eq_params['coldelectrons']['alpha_unit'])
+        self._epsilon_cold = self.eq_params['coldelectrons']['epsilon_unit']
+        self._epsilon_hot = self.eq_params['hotelectrons']['epsilon_unit']
+
+        self._nu = electron_params['phys_params']['Z'] / \
+            params['fluid']['coldelectrons']['phys_params']['Z']
+
+        # Initialize background magnetic field from MHD equilibrium
+        self._b_background = self.derham.P['2']([self.mhd_equil.b2_1,
+                                                 self.mhd_equil.b2_2,
+                                                 self.mhd_equil.b2_3])
+
+        self.add_propagator(self.prop_fields.Maxwell(
+            self.pointer['e1'],
+            self.pointer['b2'],
+            **params['solvers']['solver_maxwell']))
+        self.add_propagator(self.prop_fields.OhmCold(
+            self.pointer['coldelectrons_j1'],
+            self.pointer['e1'],
+            **params['solvers']['solver_ohmcold'],
+            alpha=self._alpha,
+            epsilon=self._epsilon_cold))
+        self.add_propagator(self.prop_fields.JxBCold(
+            self.pointer['coldelectrons_j1'],
+            **params['solvers']['solver_jxbcold'],
+            alpha=self._alpha,
+            epsilon=self._epsilon_cold))
+        self.add_propagator(self.prop_markers.PushEta(
+            self.pointer['hotelectrons'],
+            algo=electron_params['push_algos']['eta'],
+            bc_type=electron_params['markers']['bc_type'],
+            f0=None))
+        self.add_propagator(self.prop_markers.PushVxB(
+            self.pointer['hotelectrons'],
+            algo=electron_params['push_algos']['vxb'],
+            scale_fac=1/self._epsilon_cold,
+            b_eq=self._b_background,
+            b_tilde=self.pointer['b2'],
+            f0=None))
+        self.add_propagator(self.prop_coupling.VlasovMaxwell(
+            self.pointer['e1'],
+            self.pointer['hotelectrons'],
+            c1=self._nu * self._alpha**2/self._epsilon_cold,
+            c2=1/self._epsilon_hot,
+            **params['solvers']['solver_vlasovmaxwell']))
+
+        # Scalar variables to be saved during simulation
+        self.add_scalar('en_E')
+        self.add_scalar('en_B')
+        self.add_scalar('en_J')
+        self.add_scalar('en_f')
+        self.add_scalar('en_tot')
+
+        # MPI operations needed for scalar variables
+        self._mpi_sum = SUM
+        self._mpi_in_place = IN_PLACE
+
+        # temporaries
+        self._tmp1 = self.pointer['e1'].space.zeros()
+        self._tmp2 = self.pointer['b2'].space.zeros()
+        self._tmp = np.empty(1, dtype=float)
+
+    def initialize_from_params(self):
+
+        from struphy.pic.particles_to_grid import AccumulatorVector
+        from psydac.linalg.stencil import StencilVector
+
+        # Initialize fields and particles
+        super().initialize_from_params()
+
+        # Accumulate charge density
+        charge_accum = AccumulatorVector(
+            self.derham, self.domain, "H1", "vlasov_maxwell_poisson")
+        charge_accum.accumulate(self.pointer['hotelectrons'])
+
+        # Locally subtract mean charge for solvability with periodic bc
+        if np.all(charge_accum.vectors[0].space.periods):
+            charge_accum._vectors[0][:] -= np.mean(charge_accum.vectors[0].toarray()[
+                                                   charge_accum.vectors[0].toarray() != 0])
+
+        # Instantiate Poisson solver
+        _phi = StencilVector(self.derham.Vh['0'])
+        poisson_solver = self.prop_fields.ImplicitDiffusion(
+            _phi,
+            sigma=0,
+            phi_n=self._nu * self._alpha**2 /
+            self._epsilon_cold * charge_accum.vectors[0],
+            x0=self._nu * self._alpha**2 /
+            self._epsilon_cold * charge_accum.vectors[0],
+            **self._poisson_params)
+
+        # Solve with dt=1. and compute electric field
+        poisson_solver(1.)
+        self.derham.grad.dot(-_phi, out=self.pointer['e1'])
+
+    def update_scalar_quantities(self):
+
+        self._mass_ops.M1.dot(self.pointer['e1'], out=self._tmp1)
+        self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp2)
+        en_E = .5 * self.pointer['e1'].dot(self._tmp1)
+        en_B = .5 * self.pointer['b2'].dot(self._tmp2)
+        self._mass_ops.M1ninv.dot(
+            self.pointer['coldelectrons_j1'], out=self._tmp1)
+        en_J = .5 * self._alpha**2 * \
+            self.pointer['coldelectrons_j1'].dot(self._tmp1)
+        self.update_scalar('en_E', en_E)
+        self.update_scalar('en_B', en_B)
+        self.update_scalar('en_J', en_J)
+
+        # nu alpha^2 eps_h / eps_c / 2 / N * sum_p w_p v_p^2
+        self._tmp[0] = self._nu * self._alpha**2 * self._epsilon_hot / self._epsilon_cold / \
+            (2 * self.pointer['hotelectrons'].n_mks) * np.dot(self.pointer['hotelectrons'].markers_wo_holes[:, 3]**2 + self.pointer['hotelectrons'].markers_wo_holes[:, 4]
+                                                              ** 2 + self.pointer['hotelectrons'].markers_wo_holes[:, 5]**2, self.pointer['hotelectrons'].markers_wo_holes[:, 6])
+        self.derham.comm.Allreduce(
+            self._mpi_in_place, self._tmp, op=self._mpi_sum)
+        self.update_scalar('en_f', self._tmp[0])
+
+        # en_tot = en_E + en_B + en_J + en_w
+        self.update_scalar('en_tot', en_E + en_B + en_J + self._tmp[0])

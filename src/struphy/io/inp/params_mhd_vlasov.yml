@@ -47,7 +47,7 @@ em_fields :
             ls : [1] # Integer mode numbers in x or eta_1 (depending on coords)
             ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
             ns : [0] # Integer mode numbers in z or eta_3 (depending on coords)
-            amp : [0.001] # amplitudes of each mode
+            amps : [0.001] # amplitudes of each mode
             Lx : 7.853981633974483 # 2*pi/0.8
             Ly : 1.
             Lz : 1.

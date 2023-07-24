@@ -17,11 +17,12 @@ from struphy.psydac_api.linear_operators import IdentityOperator
 from struphy.psydac_api import preconditioner
 from struphy.psydac_api.mass import WeightedMassOperator
 import struphy.linear_algebra.iterative_solvers as it_solvers
-from psydac.linalg.iterative_solvers import pcg
+from struphy.linear_algebra.iterative_solvers import PConjugateGradient as pcg
 
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 import struphy.psydac_api.utilities as util
+from mpi4py import MPI
 
 
 class Maxwell(Propagator):
@@ -49,11 +50,7 @@ class Maxwell(Propagator):
 
     def __init__(self, e, b, **params):
 
-        # pointers to variables
-        assert isinstance(e, (BlockVector, PolarVector))
-        assert isinstance(b, (BlockVector, PolarVector))
-        self._e = e
-        self._b = b
+        super().__init__(e, b)
 
         # parameters
         params_default = {'type': 'PConjugateGradient',
@@ -95,15 +92,11 @@ class Maxwell(Propagator):
 
         self._byn = self._B.codomain.zeros()
 
-    @property
-    def variables(self):
-        return [self._e, self._b]
-
     def __call__(self, dt):
 
         # current variables
-        en = self.variables[0]
-        bn = self.variables[1]
+        en = self.feec_vars[0]
+        bn = self.feec_vars[1]
 
         # solve for new e coeffs
         self._B.dot(bn, out=self._byn)
@@ -117,8 +110,8 @@ class Maxwell(Propagator):
         self._b_tmp1 *= -dt
         self._b_tmp1 += bn
 
-        # write new coeffs into self.variables
-        max_de, max_db = self.in_place_update(self._e_tmp1, self._b_tmp1)
+        # write new coeffs into self.feec_vars
+        max_de, max_db = self.feec_vars_update(self._e_tmp1, self._b_tmp1)
 
         if self._info:
             print('Status     for Maxwell:', info['success'])
@@ -138,12 +131,12 @@ class OhmCold(Propagator):
             \mathbf e^{n+1} - \mathbf e^n
         \end{bmatrix}
         = \frac{\Delta t}{2} \begin{bmatrix}
-            0 & \frac{\alpha}{\varepsilon_c} \mathbb M_{1,1/n}^{-1} \\
-            - \frac{\alpha}{\varepsilon_c} \mathbb M_{1,1/n}^{-1} & 0
+            0 & \frac{1}{\varepsilon_c} \mathbb M_{1,1/n}^{-1} \\
+            - \frac{1}{\varepsilon_c} \mathbb M_{1,1/n}^{-1} & 0
         \end{bmatrix}
         \begin{bmatrix}
-            \mathbb M_{1,1/n} (\mathbf j^n + \mathbf j^{n+1}) \\
-            \mathbb M_1 (\mathbf e^n + \mathbf e^{n+1})
+            \mathbb \alpha^2 M_{1,1/n} (\mathbf j^{n+1} + \mathbf j^{n}) \\
+            \mathbb M_1 (\mathbf e^{n+1} + \mathbf e^{n})
         \end{bmatrix} ,
 
     based on the :ref:`Schur complement <schur_solver>`.
@@ -160,12 +153,9 @@ class OhmCold(Propagator):
             Solver parameters for this splitting step.
     '''
 
-    def __init__(self, e, j, **params):
+    def __init__(self, j, e, **params):
 
-        assert isinstance(e, (BlockVector, PolarVector))
-        assert isinstance(j, (BlockVector, PolarVector))
-        self._e = e
-        self._j = j
+        super().__init__(e, j)
 
         # parameters
         params_default = {'type': 'PConjugateGradient',
@@ -180,13 +170,14 @@ class OhmCold(Propagator):
         params = set_defaults(params, params_default)
 
         self._info = params['info']
-        self._prefactor = params['alpha'] / params['epsilon']
+        self._alpha = params['alpha']
+        self._epsilon = params['epsilon']
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = self.mass_ops.M1ninv
 
-        self._B = Multiply(-1/2 * self._prefactor, self.mass_ops.M1)  # no dt
-        self._C = Multiply(1/2 * self._prefactor,
+        self._B = Multiply(-1/2 * 1/self._epsilon, self.mass_ops.M1)  # no dt
+        self._C = Multiply(1/2 * self._alpha**2 / self._epsilon,
                            IdentityOperator(self.derham._Vh["1"]))  # no dt
 
         # Preconditioner
@@ -203,22 +194,18 @@ class OhmCold(Propagator):
                                          tol=params['tol'], maxiter=params['maxiter'],
                                          verbose=params['verbose'])
 
-    @property
-    def variables(self):
-        return [self._e, self._j]
-
     def __call__(self, dt):
 
         # current variables
-        en = self.variables[0]
-        jn = self.variables[1]
+        en = self.feec_vars[0]
+        jn = self.feec_vars[1]
 
         # allocate temporary FemFields _e, _j during solution
         _j, info = self._schur_solver(jn, self._B.dot(en), dt)
-        _e = en - dt/2 * self._prefactor * (_j + jn)
+        _e = en - dt * self._C.dot(_j + jn)
 
         # write new coeffs into Propagator.variables
-        max_de, max_dj = self.in_place_update(_e, _j)
+        max_de, max_dj = self.feec_vars_update(_e, _j)
 
         if self._info:
             print('Status     for OhmCold:', info['success'])
@@ -246,8 +233,7 @@ class JxBCold(Propagator):
 
     def __init__(self, j, **params):
 
-        assert isinstance(j, (BlockVector, PolarVector))
-        self._j = j
+        super().__init__(j)
 
         # parameters
         params_default = {'type': 'PConjugateGradient',
@@ -285,14 +271,10 @@ class JxBCold(Propagator):
         self._rhs_j = self._M.codomain.zeros()
         self._j_new = j.space.zeros()
 
-    @property
-    def variables(self):
-        return [self._j]
-
     def __call__(self, dt):
 
         # current variables
-        jn = self.variables[0]
+        jn = self.feec_vars[0]
 
         # define system (M - dt/2 * A)*b^(n + 1) = (M + dt/2 * A)*b^n
         lhs = Sum(self._M, Multiply(-dt/2.0, self._A))
@@ -307,7 +289,7 @@ class JxBCold(Propagator):
                                   out=self._j_new)[1]
 
         # write new coeffs into Propagator.variables
-        max_dj = self.in_place_update(self._j_new)[0]
+        max_dj = self.feec_vars_update(self._j_new)[0]
 
         if self._info:
             print('Status     for FluidCold:', info['success'])
@@ -342,11 +324,7 @@ class ShearAlfvén(Propagator):
 
     def __init__(self, u, b, **params):
 
-        # pointers to variables
-        assert isinstance(u, (BlockVector, PolarVector))
-        assert isinstance(b, (BlockVector, PolarVector))
-        self._u = u
-        self._b = b
+        super().__init__(u, b)
 
         # parameters
         params_default = {'u_space': 'Hdiv',
@@ -396,15 +374,11 @@ class ShearAlfvén(Propagator):
 
         self._byn = self._B.codomain.zeros()
 
-    @property
-    def variables(self):
-        return [self._u, self._b]
-
     def __call__(self, dt):
 
         # current variables
-        un = self.variables[0]
-        bn = self.variables[1]
+        un = self.feec_vars[0]
+        bn = self.feec_vars[1]
 
         # solve for new u coeffs
         self._B.dot(bn, out=self._byn)
@@ -418,8 +392,8 @@ class ShearAlfvén(Propagator):
         self._b_tmp1 *= -dt
         self._b_tmp1 += bn
 
-        # write new coeffs into self.variables
-        max_du, max_db = self.in_place_update(self._u_tmp1, self._b_tmp1)
+        # write new coeffs into self.feec_vars
+        max_du, max_db = self.feec_vars_update(self._u_tmp1, self._b_tmp1)
 
         if self._info and self._rank == 0:
             print('Status     for ShearAlfvén:', info['success'])
@@ -455,11 +429,7 @@ class ShearAlfvénB1(Propagator):
 
     def __init__(self, u, b, **params):
 
-        # pointers to variables
-        assert isinstance(u, (BlockVector, PolarVector))
-        assert isinstance(b, (BlockVector, PolarVector))
-        self._u = u
-        self._b = b
+        super().__init__(u, b)
 
         # parameters
         params_default = {'type': 'PConjugateGradient',
@@ -504,15 +474,11 @@ class ShearAlfvénB1(Propagator):
 
         self._byn = self._B.codomain.zeros()
 
-    @property
-    def variables(self):
-        return [self._u, self._b]
-
     def __call__(self, dt):
 
         # current variables
-        un = self.variables[0]
-        bn = self.variables[1]
+        un = self.feec_vars[0]
+        bn = self.feec_vars[1]
 
         # solve for new u coeffs
         self._B.dot(bn, out=self._byn)
@@ -526,8 +492,8 @@ class ShearAlfvénB1(Propagator):
         self._b_tmp1 *= -dt
         self._b_tmp1 += bn
 
-        # write new coeffs into self.variables
-        max_du, max_db = self.in_place_update(self._u_tmp1, self._b_tmp1)
+        # write new coeffs into self.feec_vars
+        max_du, max_db = self.feec_vars_update(self._u_tmp1, self._b_tmp1)
 
         if self._info and self._rank == 0:
             print('Status     for ShearAlfvénB1:', info['success'])
@@ -560,9 +526,7 @@ class Hall(Propagator):
 
     def __init__(self, b, **params):
 
-        # pointers to variables
-        assert isinstance(b, (BlockVector, PolarVector))
-        self._b = b
+        super().__init__(b)
 
         # parameters
         params_default = {'type': 'PBiConjugateGradientStab',
@@ -604,14 +568,10 @@ class Hall(Propagator):
         self._rhs_b = self._M.codomain.zeros()
         self._b_new = b.space.zeros()
 
-    @property
-    def variables(self):
-        return [self._b]
-
     def __call__(self, dt):
 
         # current variables
-        bn = self.variables[0]
+        bn = self.feec_vars[0]
 
         # define system (M - dt/2 * A)*b^(n + 1) = (M + dt/2 * A)*b^n
         lhs = Sum(self._M, Multiply(-dt/2.0, self._A))
@@ -625,8 +585,8 @@ class Hall(Propagator):
                                   maxiter=self._maxiter, verbose=self._verbose,
                                   out=self._b_new)[1]
 
-        # write new coeffs into self.variables
-        max_db = self.in_place_update(self._b_new)
+        # write new coeffs into self.feec_vars
+        max_db = self.feec_vars_update(self._b_new)
 
         if self._info and self._rank == 0:
             print('Status     for Hall:', info['success'])
@@ -667,19 +627,13 @@ class Magnetosonic(Propagator):
     p : psydac.linalg.stencil.StencilVector
         FE coefficients of a discrete 3-form.
 
-        **params : dict
-            Solver- and/or other parameters for this splitting step.
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
     '''
 
     def __init__(self, n, u, p, **params):
 
-        # pointers to variables
-        assert isinstance(n, (StencilVector, PolarVector))
-        assert isinstance(u, (BlockVector, PolarVector))
-        assert isinstance(p, (StencilVector, PolarVector))
-        self._n = n
-        self._u = u
-        self._p = p
+        super().__init__(n, u, p)
 
         # parameters
         params_default = {'u_space': 'Hdiv',
@@ -754,16 +708,12 @@ class Magnetosonic(Propagator):
         self._byn1 = self._B.codomain.zeros()
         self._byn2 = self._B.codomain.zeros()
 
-    @property
-    def variables(self):
-        return [self._n, self._u, self._p]
-
     def __call__(self, dt):
 
         # current variables
-        nn = self.variables[0]
-        un = self.variables[1]
-        pn = self.variables[2]
+        nn = self.feec_vars[0]
+        un = self.feec_vars[1]
+        pn = self.feec_vars[2]
 
         # solve for new u coeffs
         self._B.dot(pn, out=self._byn1)
@@ -784,10 +734,10 @@ class Magnetosonic(Propagator):
         self._n_tmp1 *= -dt/2
         self._n_tmp1 += nn
 
-        # write new coeffs into self.variables
-        max_dn, max_du, max_dp = self.in_place_update(self._n_tmp1,
-                                                      self._u_tmp1,
-                                                      self._p_tmp1)
+        # write new coeffs into self.feec_vars
+        max_dn, max_du, max_dp = self.feec_vars_update(self._n_tmp1,
+                                                       self._u_tmp1,
+                                                       self._p_tmp1)
 
         if self._info and self._rank == 0:
             print('Status     for Magnetosonic:', info['success'])
@@ -838,13 +788,7 @@ class SonicIon(Propagator):
 
     def __init__(self, n, u, p, **params):
 
-        # pointers to variables
-        assert isinstance(n, (StencilVector, PolarVector))
-        assert isinstance(u, (BlockVector, PolarVector))
-        assert isinstance(p, (StencilVector, PolarVector))
-        self._n = n
-        self._u = u
-        self._p = p
+        super().__init__(n, u, p)
 
         # parameters
         params_default = {'type': 'PBiConjugateGradientStab',
@@ -894,16 +838,12 @@ class SonicIon(Propagator):
 
         self._byn1 = self._B.codomain.zeros()
 
-    @property
-    def variables(self):
-        return [self._n, self._u, self._p]
-
     def __call__(self, dt):
 
         # current variables
-        nn = self.variables[0]
-        un = self.variables[1]
-        pn = self.variables[2]
+        nn = self.feec_vars[0]
+        un = self.feec_vars[1]
+        pn = self.feec_vars[2]
 
         # solve for new u coeffs
         self._B.dot(pn, out=self._byn1)
@@ -921,10 +861,10 @@ class SonicIon(Propagator):
         self._n_tmp1 *= -dt/2.0
         self._n_tmp1 += nn
 
-        # write new coeffs into self.variables
-        max_dn, max_du, max_dp = self.in_place_update(self._n_tmp1,
-                                                      self._u_tmp1,
-                                                      self._p_tmp1)
+        # write new coeffs into self.feec_vars
+        max_dn, max_du, max_dp = self.feec_vars_update(self._n_tmp1,
+                                                       self._u_tmp1,
+                                                       self._p_tmp1)
 
         if self._info and self._rank == 0:
             print('Status     for Magnetosonic:', info['success'])
@@ -975,13 +915,7 @@ class SonicElectron(Propagator):
 
     def __init__(self, n, u, p, **params):
 
-        # pointers to variables
-        assert isinstance(n, (StencilVector, PolarVector))
-        assert isinstance(u, (BlockVector, PolarVector))
-        assert isinstance(p, (StencilVector, PolarVector))
-        self._n = n
-        self._u = u
-        self._p = p
+        super().__init__(n, u, p)
 
         # parameters
         params_default = {'type': 'PBiConjugateGradientStab',
@@ -1033,16 +967,12 @@ class SonicElectron(Propagator):
 
         self._byn1 = self._B.codomain.zeros()
 
-    @property
-    def variables(self):
-        return [self._n, self._u, self._p]
-
     def __call__(self, dt):
 
         # current variables
-        nn = self.variables[0]
-        un = self.variables[1]
-        pn = self.variables[2]
+        nn = self.feec_vars[0]
+        un = self.feec_vars[1]
+        pn = self.feec_vars[2]
 
         # solve for new u coeffs
         self._B.dot(pn, out=self._byn1)
@@ -1060,10 +990,10 @@ class SonicElectron(Propagator):
         self._n_tmp1 *= -dt/2.0
         self._n_tmp1 += nn
 
-        # write new coeffs into self.variables
-        max_dn, max_du, max_dp = self.in_place_update(self._n_tmp1,
-                                                      self._u_tmp1,
-                                                      self._p_tmp1)
+        # write new coeffs into self.feec_vars
+        max_dn, max_du, max_dp = self.feec_vars_update(self._n_tmp1,
+                                                       self._u_tmp1,
+                                                       self._p_tmp1)
 
         if self._info and self._rank == 0:
             print('Status     for Magnetosonic:', info['success'])
@@ -1223,7 +1153,7 @@ class FaradayExtended(Propagator):
                               maxiter=self._solver_params['maxiter'], verbose=self._solver_params['verbose'])
 
             # write new coeffs into Propagator.variables
-            max_da = self.in_place_update(a_new)
+            max_da = self.feec_vars_update(a_new)
             print('++++====check_iteration_error=====+++++', max_da)
             # we can modify the diff function in in_place_update to get another type errors
             if max_da[0] < 10**(-6):
@@ -1245,9 +1175,7 @@ class CurrentCoupling6DDensity(Propagator):
 
         from struphy.pic.particles import Particles6D
 
-        # pointers to variables
-        assert isinstance(u, (BlockVector, PolarVector))
-        self._u = u
+        super().__init__(u)
 
         # parameters
         params_default = {'particles': None,
@@ -1292,8 +1220,8 @@ class CurrentCoupling6DDensity(Propagator):
             assert isinstance(self._f0, Maxwellian)
 
             # evaluate and save nh0*|det(DF)| (H1vec) or nh0/|det(DF)| (Hdiv) at quadrature points for control variate
-            quad_pts = [quad_grid.points.flatten()
-                        for quad_grid in self.derham.Vh_fem['0'].quad_grids]
+            quad_pts = [quad_grid[nquad].points.flatten()
+                        for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
 
             if params['u_space'] == 'H1vec':
                 self._nh0_at_quad = self.domain.pull(
@@ -1349,12 +1277,8 @@ class CurrentCoupling6DDensity(Propagator):
         self._b_full1 = self._b_eq.space.zeros()
         self._b_full2 = self._E2T.codomain.zeros()
 
-        self._rhs_v = self._u.space.zeros()
-        self._u_new = self._u.space.zeros()
-
-    @property
-    def variables(self):
-        return [self._u]
+        self._rhs_v = u.space.zeros()
+        self._u_new = u.space.zeros()
 
     def __call__(self, dt):
         """
@@ -1362,7 +1286,7 @@ class CurrentCoupling6DDensity(Propagator):
         """
 
         # pointer to old coefficients
-        un = self.variables[0]
+        un = self.feec_vars[0]
 
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         self._b_eq.copy(out=self._b_full1)
@@ -1419,7 +1343,7 @@ class CurrentCoupling6DDensity(Propagator):
                                   out=self._u_new)[1]
 
         # write new coeffs into Propagator.variables
-        max_du = self.in_place_update(self._u_new)
+        max_du = self.feec_vars_update(self._u_new)
 
         if self._info and self._rank == 0:
             print('Status     for CurrentCoupling6DDensity:', info['success'])
@@ -1456,11 +1380,7 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
 
         from struphy.pic.particles import Particles5D
 
-        # pointers to variables
-        assert isinstance(u, (BlockVector, PolarVector))
-        assert isinstance(b, (BlockVector, PolarVector))
-        self._u = u
-        self._b = b
+        super().__init__(u, b)
 
         # parameters
         params_default = {'particles': None,
@@ -1535,15 +1455,11 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
 
         self._byn = self._B.codomain.zeros()
 
-    @property
-    def variables(self):
-        return [self._u, self._b]
-
     def __call__(self, dt):
 
         # current variables
-        un = self.variables[0]
-        bn = self.variables[1]
+        un = self.feec_vars[0]
+        bn = self.feec_vars[1]
 
         # accumulate scalar
         self._ACC.accumulate(self._particles, self._coupling_const)
@@ -1561,8 +1477,8 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
         self._b_tmp1 *= -dt
         self._b_tmp1 += bn
 
-        # write new coeffs into self.variables
-        max_du, max_db = self.in_place_update(self._u_tmp1, self._b_tmp1)
+        # write new coeffs into self.feec_vars
+        max_du, max_db = self.feec_vars_update(self._u_tmp1, self._b_tmp1)
 
         if self._info and self._rank == 0:
             print('Status     for ShearAlfvén:', info['success'])
@@ -1579,12 +1495,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
 
         from struphy.pic.particles import Particles5D
 
-        assert isinstance(n, (StencilVector, PolarVector))
-        assert isinstance(u, (BlockVector, PolarVector))
-        assert isinstance(p, (StencilVector, PolarVector))
-        self._n = n
-        self._u = u
-        self._p = p
+        super().__init__(n, u, p)
 
         # parameters
         params_default = {'b': self.derham.Vh['2'].zeros(),
@@ -1688,16 +1599,12 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._byn1 = self._B.codomain.zeros()
         self._byn2 = self._B.codomain.zeros()
 
-    @property
-    def variables(self):
-        return [self._n, self._u, self._p]
-
     def __call__(self, dt):
 
         # current variables
-        nn = self.variables[0]
-        un = self.variables[1]
-        pn = self.variables[2]
+        nn = self.feec_vars[0]
+        un = self.feec_vars[1]
+        pn = self.feec_vars[2]
 
         # accumulate
         self._ACC.accumulate(self._particles,
@@ -1725,10 +1632,10 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._n_tmp1 *= -dt/2
         self._n_tmp1 += nn
 
-        # write new coeffs into self.variables
-        max_dn, max_du, max_dp = self.in_place_update(self._n_tmp1,
-                                                      self._u_tmp1,
-                                                      self._p_tmp1)
+        # write new coeffs into self.feec_vars
+        max_dn, max_du, max_dp = self.feec_vars_update(self._n_tmp1,
+                                                       self._u_tmp1,
+                                                       self._p_tmp1)
 
         if self._info and self._rank == 0:
             print('Status     for Magnetosonic:', info['success'])
@@ -1747,9 +1654,7 @@ class CurrentCoupling5DDensity(Propagator):
 
         from struphy.pic.particles import Particles5D
 
-        # pointers to variables
-        assert isinstance(u, (BlockVector, PolarVector))
-        self._u = u
+        super().__init__(u)
 
         # parameters
         params_default = {'particles': None,
@@ -1822,8 +1727,8 @@ class CurrentCoupling5DDensity(Propagator):
         self._b_full1 = self._b_eq.space.zeros()
         self._b_full2 = self._E2T.codomain.zeros()
 
-        self._rhs_v = self._u.space.zeros()
-        self._u_new = self._u.space.zeros()
+        self._rhs_v = u.space.zeros()
+        self._u_new = u.space.zeros()
 
     @property
     def variables(self):
@@ -1835,7 +1740,7 @@ class CurrentCoupling5DDensity(Propagator):
         """
 
         # pointer to old coefficients
-        un = self.variables[0]
+        un = self.feec_vars[0]
 
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         self._b_eq.copy(out=self._b_full1)
@@ -1866,10 +1771,165 @@ class CurrentCoupling5DDensity(Propagator):
                                   out=self._u_new)[1]
 
         # write new coeffs into Propagator.variables
-        max_du = self.in_place_update(self._u_new)
+        max_du = self.feec_vars_update(self._u_new)
 
         if self._info and self._rank == 0:
             print('Status     for CurrentCoupling5DDensity:', info['success'])
             print('Iterations for CurrentCoupling5DDensity:', info['niter'])
             print('Maxdiff up for CurrentCoupling5DDensity:', max_du)
             print()
+
+
+class ImplicitDiffusion(Propagator):
+    r"""
+    Weak, implicit discretization of the diffusion (or heat) equation (can be used as a Poisson solver too),
+
+    .. math::
+
+        \frac{\partial \phi}{\partial t} - \Delta \phi = 0\,,
+
+    which is discretized as
+
+    .. math::
+
+        (\sigma \mathbb M_0 + \Delta t\,\mathbb G^\top \mathbb M_1 \mathbb G)\, \phi^{n+1} = \int_{(0,1)^3} \Lambda^0 \phi^n\, \textnormal d\eta\,,
+
+    where :math:`\Lambda^0 \in H^1` are the FEEC basis functions and :math:`\sigma \in \mathbb R` is a parameter.
+    The solution is :math:`\phi^{n+1}\,\in H^1` and the right-hand side is :math:`\phi^n\,\in H^1`.
+    For the choice :math:`\sigma=0` and :math:`\Delta t = 1` this is a Poisson solver,
+    where :math:`\phi^n` corresponds to the charge density.
+    Boundary terms are assumed to vanish.
+
+    Parameters
+    ----------
+    phi : psydac.linalg.stencil.StencilVector
+        FE coefficients of a discrete 0-form, the solution.
+    
+    sigma : float
+        Stabilization parameter: :math:`\sigma=1` for the heat equation and :math:`\sigma=0` for the Poisson equation.
+
+    phi_n : psydac.linalg.stencil.StencilVector
+        FE coefficients of a 0-form (optional, can be set with a setter later).
+
+    x0 : psydac.linalg.stencil.StencilVector
+        Initial guess for the iterative solver (optional, can be set with a setter later).
+
+    **solver_params : dict
+        Parameters for the iteravtive solver.
+    """
+
+    def __init__(self, phi, sigma=1., phi_n=None, x0=None, **solver_params):
+
+        super().__init__(phi)
+        
+        # parameters
+        params_default = {'type': 'PConjugateGradient',
+                          'pc': 'MassMatrixPreconditioner',
+                          'tol': 1e-8,
+                          'maxiter': 3000,
+                          'info': False,
+                          'verbose': False}
+
+        solver_params = set_defaults(solver_params, params_default)
+
+        # allocate memory for solution and rhs
+        self._phi_n = StencilVector(self.derham.Vh['0'])
+
+        # check the rhs
+        if phi_n is not None:
+
+            assert type(phi_n) == type(self._phi_n)
+            self._phi_n[:] = phi_n[:]
+            self._phi_n.update_ghost_regions()
+
+            # check solvability condition
+            if np.abs(sigma) < 1e-14:
+                sigma = 1e-14
+                self.check_rhs(phi_n) 
+
+        # initial guess and solver params
+        self._x0 = x0
+        self._solver_params = solver_params
+
+        # Set lhs matrices
+        print('{0:6.3e}'.format(sigma))
+        self._A1 = sigma * self.mass_ops.M0
+        self._A2 = Compose(self.derham.grad.T,
+                           self.mass_ops.M1,
+                           self.derham.grad)
+
+        # preconditioner
+        if self._solver_params['pc'] is None:
+            self._pc = None
+        else:
+            pc_class = getattr(preconditioner, self._solver_params['pc'])
+            self._pc = pc_class(self.mass_ops.M0)
+            
+        # solver for Ax=b with A=const.
+        self.solver = pcg(self.derham.Vh['0'])
+
+    def check_rhs(self, phi_n):
+        '''Checks space of rhs and, for periodic boundary conditions and sigma=0,
+        checks whether the integral over phi_n is zero.
+        
+        Parameters
+        ----------
+        phi_n : psydac.linalg.stencil.StencilVector
+            FE coefficients of a 0-form.'''
+        
+        assert type(phi_n) == type(self._phi_n)
+        
+        if np.all(phi_n.space.periods): 
+            solvability = np.zeros(1)
+            self.derham.comm.Allreduce(
+                np.sum(phi_n.toarray()), solvability, op=MPI.SUM)
+            assert np.abs(solvability[0]) <= 1e-11, f'Solvability condition not met: {solvability[0]}'
+
+    @property
+    def phi_n(self):
+        """
+        psydac.linalg.stencil.StencilVector or struphy.polar.basic.PolarVector.
+        """
+        return self._phi_n
+
+    @phi_n.setter
+    def phi_n(self, value):
+        """ In-place setter for StencilVector/PolarVector.
+        """
+        self.check_rhs(value)
+        self._phi_n[:] = value[:]
+
+    @property
+    def x0(self):
+        """
+        psydac.linalg.stencil.StencilVector or struphy.polar.basic.PolarVector. First guess of the iterative solver.
+        """
+        return self._x0
+
+    @x0.setter
+    def x0(self, value):
+        """ In-place setter for StencilVector/PolarVector. First guess of the iterative solver.
+        """
+        assert type(value) == type(self._phi_n)
+        assert value.space.symbolic_space == 'H1', f'Right-hand side must be in H1, but is in {value.space.symbolic_space}.'
+
+        if self._x0 is None:
+            self._x0 = value
+        else:
+            self._x0[:] = value[:]
+
+    def __call__(self, dt):
+
+        res, info = self.solver.solve(self._A1 + dt * self._A2,
+                        self._phi_n,
+                        pc=self._pc,
+                        x0=self._x0,
+                        tol=self._solver_params['tol'],
+                        maxiter=self._solver_params['maxiter'],
+                        verbose=self._solver_params['verbose']
+                        )
+
+        if self._solver_params['info']:
+            print(info)
+
+        self.feec_vars_update(res)

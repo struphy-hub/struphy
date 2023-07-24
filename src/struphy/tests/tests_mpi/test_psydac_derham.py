@@ -240,4 +240,4 @@ def test_psydac_derham(Nel, p, spl_kind):
 
 
 if __name__ == '__main__':
-    test_psydac_derham([8, 8, 12], [2, 3, 4], [False, False, True])
+    test_psydac_derham([8, 8, 12], [1, 2, 3], [False, False, True])

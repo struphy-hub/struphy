@@ -13,12 +13,14 @@ Documented modules:
 
     struphy.pic.particles_to_grid
     struphy.pic.accum_kernels
+    struphy.pic.accum_kernels_gc
 
 .. toctree::
     :caption: Lists of available accumulators:
 
     STUBDIR/struphy.pic.particles_to_grid
     STUBDIR/struphy.pic.accum_kernels
+    STUBDIR/struphy.pic.accum_kernels_gc
 
 
 .. _accumulator:

@@ -21,12 +21,12 @@ def struphy_units(model, input, input_abs=None):
 
     libpath = struphy.__path__[0]
     
-    with open(os.path.join(libpath, 'io_path.txt')) as f:
-        io_path = f.readlines()[0]
+    with open(os.path.join(libpath, 'i_path.txt')) as f:
+        i_path = f.readlines()[0]
 
     # create absolute i/o paths
     if input_abs is None:
-        input_abs = os.path.join(io_path, 'io/inp/', input)
+        input_abs = os.path.join(i_path, input)
 
     # load simulation parameters
     with open(input_abs) as file:

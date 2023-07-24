@@ -2,7 +2,7 @@ from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.block import BlockVector, BlockLinearOperator
 
 from psydac.fem.tensor import TensorFemSpace
-from psydac.fem.vector import ProductFemSpace
+from psydac.fem.vector import VectorFemSpace
 
 from psydac.api.essential_bc import apply_essential_bc_stencil
 
@@ -53,7 +53,7 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
 
     Parameters
     ----------
-        V : TensorFemSpace or ProductFemSpace
+        V : TensorFemSpace or VectorFemSpace
             The FEM space to which the arrays belong to.
 
         seed : int
@@ -71,7 +71,7 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
             The distributed psydac array.
     '''
 
-    assert isinstance(V, (TensorFemSpace, ProductFemSpace))
+    assert isinstance(V, (TensorFemSpace, VectorFemSpace))
 
     np.random.seed(seed)
 
@@ -406,23 +406,28 @@ def create_weight_weightedmatrix_hybrid(b, weight_pre, derham, accum_density, do
 
     '''
 
-    nqs = [quad_grid.num_quad_pts for quad_grid in derham.Vh_fem['0'].quad_grids]
+    nqs = [quad_grid[nquad].num_quad_pts for quad_grid, nquad in zip(
+        derham.Vh_fem['0']._quad_grids, derham.Vh_fem['0'].nquads)]
 
     for aa, wspace in enumerate(derham.Vh_fem['2'].spaces):
         # knot span indices of elements of local domain
-        spans_out = [quad_grid.spans for quad_grid in wspace.quad_grids]
+        spans_out = [quad_grid[nquad].spans for quad_grid,
+                     nquad in zip(wspace._quad_grids, wspace.nquads)]
         # global start spline index on process
         starts_out = [int(start) for start in wspace.vector_space.starts]
 
         # Iniitialize hybrid linear operators
         # global quadrature points (flattened) and weights in format (local element, local weight)
-        pts = [quad_grid.points for quad_grid in wspace.quad_grids]
-        wts = [quad_grid.weights for quad_grid in wspace.quad_grids]
+        pts = [quad_grid[nquad].points for quad_grid,
+               nquad in zip(wspace._quad_grids, wspace.nquads)]
+        wts = [quad_grid[nquad].weights for quad_grid,
+               nquad in zip(wspace._quad_grids, wspace.nquads)]
 
         p = wspace.degree
 
         # evaluated basis functions at quadrature points of the space
-        basis_o = [quad_grid.basis for quad_grid in wspace.quad_grids]
+        basis_o = [quad_grid[nquad].basis for quad_grid,
+                   nquad in zip(wspace._quad_grids, wspace.nquads)]
 
         pads_out = wspace.vector_space.pads
 

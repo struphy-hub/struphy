@@ -12,7 +12,7 @@ struphy_path := $(shell $(PYTHON) -c "import struphy as _; print(_.__path__[0])"
 # flags
 # flags_openmp_pic
 # flags_openmp_mhd
-FLAGS            := --libdir $(LIBDIR) $(flags) --conda-warnings off
+FLAGS            := --libdir $(LIBDIR) $(flags) 
 FLAGS_openmp_pic := $(flags_openmp_pic)
 FLAGS_openmp_mhd := $(flags_openmp_mhd)
 
@@ -64,9 +64,11 @@ UTL	 := $(struphy_path)/pic/utilities_kernels
 FK   := $(struphy_path)/pic/filler_kernels
 MVF  := $(struphy_path)/pic/mat_vec_filler
 ACC  := $(struphy_path)/pic/accum_kernels
+ACC_GC  := $(struphy_path)/pic/accum_kernels_gc
 
 PUTL := $(struphy_path)/pic/pusher_utilities
 PUSH := $(struphy_path)/pic/pusher_kernels
+PUSH_GC := $(struphy_path)/pic/pusher_kernels_gc
 PS   := $(struphy_path)/pic/sampling
 
 # Eigenvalue solver
@@ -76,7 +78,7 @@ KM3  := $(struphy_path)/eigenvalue_solvers/kernels_3d
 KPG  := $(struphy_path)/eigenvalue_solvers/kernels_projectors_global
 KPGM := $(struphy_path)/eigenvalue_solvers/kernels_projectors_global_mhd
 
-SOURCES := $(LAC).py $(LAMV).py $(LATR).py $(BK).py $(BKP).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(TR3).py $(MK).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(PUTL).py $(PUSH).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py $(PSY3).py $(PSY4).py
+SOURCES := $(LAC).py $(LAMV).py $(LATR).py $(BK).py $(BKP).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(TR3).py $(MK).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(ACC_GC).py $(PUTL).py $(PUSH).py $(PUSH_GC).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py $(PSY3).py $(PSY4).py
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
@@ -171,10 +173,16 @@ $(MVF)$(SO_EXT) : $(MVF).py $(FK)$(SO_EXT)
 $(ACC)$(SO_EXT) : $(ACC).py $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT) $(BEVA)$(SO_EXT) $(MVF)$(SO_EXT) $(LAC)$(SO_EXT)  
 	pyccel $< $(FLAGS)
 
+$(ACC_GC)$(SO_EXT) : $(ACC_GC).py $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT) $(BEVA)$(SO_EXT) $(MVF)$(SO_EXT) $(LAC)$(SO_EXT)  
+	pyccel $< $(FLAGS)
+
 $(PUTL)$(SO_EXT) : $(PUTL).py $(LAC)$(SO_EXT)
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
 $(PUSH)$(SO_EXT) : $(PUSH).py $(PUTL).py $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BKP)$(SO_EXT) $(BEV3)$(SO_EXT)
+	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
+
+$(PUSH_GC)$(SO_EXT) : $(PUSH_GC).py $(PUTL).py $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BKP)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
 $(PS)$(SO_EXT) : $(PS).py $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT) $(MEVA)$(SO_EXT)

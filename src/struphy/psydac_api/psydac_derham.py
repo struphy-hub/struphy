@@ -4,9 +4,8 @@ from sympde.topology import Cube
 from sympde.topology import Derham as Derham_psy
 
 from psydac.api.discretization import discretize
-from psydac.fem.vector import ProductFemSpace
+from psydac.fem.vector import VectorFemSpace
 from psydac.feec.global_projectors import Projector_H1vec
-from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 
 from struphy.psydac_api.linear_operators import BoundaryOperator, CompositeLinearOperator, IdentityOperator
 from struphy.psydac_api.projectors import Projector
@@ -126,7 +125,7 @@ class Derham:
 
         # Psydac discrete de Rham, projectors and derivatives
         _derham = discretize(self._derham_symb, self._domain_log_h,
-                             degree=self.p, quad_order=self.quad_order)
+                             degree=self.p, nquads=self.quad_order)
 
         self._grad, self._curl, self._div = _derham.derivatives_as_matrices
 
@@ -159,7 +158,7 @@ class Derham:
         for i, key in enumerate(self._V.keys()):
 
             if key == 'v':
-                self._Vh_fem[key] = ProductFemSpace(
+                self._Vh_fem[key] = VectorFemSpace(
                     _derham.V0, _derham.V0, _derham.V0)
                 self._P[key] = Projector_H1vec(self._Vh_fem[key])
             else:
@@ -422,7 +421,7 @@ class Derham:
 
     @property
     def Vh_fem(self):
-        """ Dictionary containing FEM spline spaces (TensorFem-/ProductFemSpace).
+        """ Dictionary containing FEM spline spaces (TensorFem-/VectorFemSpace).
         """
         return self._Vh_fem
 
