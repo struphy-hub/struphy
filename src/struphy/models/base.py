@@ -37,6 +37,11 @@ class StruphyModel(metaclass=ABCMeta):
     def __init__(self, params, comm, **species):
 
         from struphy.models.setup import setup_domain_mhd, setup_electric_background, setup_derham
+
+        from struphy.polar.basic import PolarVector
+        from struphy.propagators.base import Propagator
+        from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
+        from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
         from struphy.psydac_api.mass import WeightedMassOperators
 
         self._params = params
@@ -80,6 +85,7 @@ class StruphyModel(metaclass=ABCMeta):
             self.derham, self.domain, eq_mhd=self.mhd_equil)
 
         # allocate memory for variables
+        self._pointer = {}
         self._allocate_variables()
 
         # store plasma parameters
@@ -88,6 +94,22 @@ class StruphyModel(metaclass=ABCMeta):
             print('\nOPERATOR ASSEMBLY:')
         else:
             self._pparams = self.print_plasma_params(verbose=False)
+
+        # expose propagator modules
+        self._prop = Propagator
+        self._prop_fields = propagators_fields
+        self._prop_coupling = propagators_coupling
+        self._prop_markers = propagators_markers
+
+        # set propagators base class attributes (available to all propagators)
+        self.prop.derham = self.derham
+        self.prop.domain = self.domain
+        self.prop.mass_ops = self.mass_ops
+        self.prop.basis_ops = BasisProjectionOperators(
+            self.derham, self.domain, eq_mhd=self.mhd_equil)
+
+        self._propagators = []
+        self._scalar_quantities = {}
 
     @classmethod
     @abstractmethod
@@ -102,24 +124,9 @@ class StruphyModel(metaclass=ABCMeta):
         Must be one of "alfvén", "cyclotron" or "light".'''
         pass
 
-    @property
-    @abstractmethod
-    def propagators(self):
-        '''List of :ref:`propagators` used in the time stepping of the model.'''
-        pass
-
-    @property
-    @abstractmethod
-    def scalar_quantities(self):
-        '''Dictionary of scalar quantities to be saved during simulation. 
-        Must be initialized as empty np.array of size 1::
-
-        The time series self._scalar_quantities['time'] = np.empty(1, dtype=float) must be contained.'''
-        pass
-
     @abstractmethod
     def update_scalar_quantities(self):
-        ''' Specify an update rule for each item in scalar_quantities.
+        ''' Specify an update rule for each item in scalar_quantities using :meth:`update_scalar`.
         '''
         pass
 
@@ -134,6 +141,12 @@ class StruphyModel(metaclass=ABCMeta):
         return self._pparams
 
     @property
+    def eq_params(self):
+        '''Parameters appearing in model equation due to Struphy normalization.
+        '''
+        return self._eq_params
+
+    @property
     def comm(self):
         '''MPI communicator.'''
         return self._comm
@@ -142,6 +155,14 @@ class StruphyModel(metaclass=ABCMeta):
     def species(self):
         '''Species dictionary.'''
         return self._species
+    
+    @property
+    def pointer(self):
+        '''Dictionary pointing to the data structures of the species (Stencil/BlockVector or "Particle" class).
+        
+        The keys are the keys from the "species" property. 
+        In case of a fluid species, the keys are like "species_variable".'''
+        return self._pointer
 
     @property
     def em_fields(self):
@@ -185,15 +206,76 @@ class StruphyModel(metaclass=ABCMeta):
         return self._units
 
     @property
-    def eq_params(self):
-        '''Parameters appearing in model equation due to Struphy normalization.
-        '''
-        return self._eq_params
-
-    @property
     def mass_ops(self):
         '''WeighteMassOperators object, see :ref:`mass_ops`.'''
         return self._mass_ops
+
+    @property
+    def prop(self):
+        '''Class :class:`struphy.propagators.base.Propagator`.'''
+        return self._prop
+
+    @property
+    def prop_fields(self):
+        '''Module :mod:`struphy.propagators.propagators_fields`.'''
+        return self._prop_fields
+
+    @property
+    def prop_coupling(self):
+        '''Module :mod:`struphy.propagators.propagators_coupling`.'''
+        return self._prop_coupling
+
+    @property
+    def prop_markers(self):
+        '''Module :mod:`struphy.propagators.propagators_markers`.'''
+        return self._prop_markers
+
+    @property
+    def propagators(self):
+        '''A list of propagator instances for the model.'''
+        return self._propagators
+
+    @property
+    def scalar_quantities(self):
+        '''A dictionary of scalar quantities to be saved during the simulation.'''
+        return self._scalar_quantities
+
+    def add_propagator(self, prop_instance):
+        '''Add a propagator to a Struphy model.
+
+        Parameters
+        ----------
+            prop_instance : obj
+                An instance of :class:`struphy.propagator.base.Propagator`.
+        '''
+        assert isinstance(prop_instance, self.prop)
+        self._propagators += [prop_instance]
+
+    def add_scalar(self, name):
+        '''Add a scalar that should be saved during the simulation.
+
+        Parameters
+        ----------
+            name : str
+                Dictionary key of the scalar.
+        '''
+        assert isinstance(name, str)
+        self._scalar_quantities[name] = np.empty(1, dtype=float)
+
+    def update_scalar(self, name, value):
+        '''Add a scalar that should be saved during the simulation.
+
+        Parameters
+        ----------
+            name : str
+                Dictionary key of the scalar.
+
+            value : float
+                Value to be saved.
+        '''
+        assert isinstance(name, str)
+        assert isinstance(value, float)
+        self._scalar_quantities[name][0] = value
 
     def integrate(self, dt, split_algo='LieTrotter'):
         """
@@ -289,22 +371,46 @@ class StruphyModel(metaclass=ABCMeta):
                     val['obj'].initialize_coeffs(
                         self.em_fields['params']['init'], domain=self.domain)
 
+                    if self.comm.Get_rank() == 0:
+                        _type = self.em_fields['params']['init']['type']
+                        print(f'EM field "{key}" was initialized with:')
+                        print('type:'.ljust(25), _type)
+                        if _type is not None:
+                            for key, val in self.em_fields['params']['init'][_type].items():
+                                print((key + ':').ljust(25), val)
+
         # initialize fields
         if len(self.fluid) > 0:
 
-            for val in self.fluid.values():
+            for species, val in self.fluid.items():
 
                 for variable, subval in val.items():
                     if 'params' not in variable:
                         subval['obj'].initialize_coeffs(
                             val['params']['init'], domain=self.domain)
 
+                if self.comm.Get_rank() == 0:
+                    _type = val['params']['init']['type']
+                    print(f'Fluid species "{species}" was initialized with:')
+                    print('type:'.ljust(25), _type)
+                    if _type is not None:
+                        for key, val in val['params']['init'][_type].items():
+                            print((key + ':').ljust(25), val)
+
         # initialize particles
         if len(self.kinetic) > 0:
 
-            for val in self.kinetic.values():
-                val['obj'].draw_markers()
+            for species, val in self.kinetic.items():
 
+                if self.comm.Get_rank() == 0:
+                    _type = val['params']['init']['type']
+                    print(f'Kinetic species "{species}" was initialized with:')
+                    print('type:'.ljust(25), _type)
+                    if _type is not None:
+                        for key, par in val['params']['init'][_type].items():
+                            print((key + ':').ljust(25), par)
+
+                val['obj'].draw_markers()
                 val['obj'].mpi_sort_markers(do_test=True)
 
                 typ = val['params']['markers']['type']
@@ -709,6 +815,8 @@ class StruphyModel(metaclass=ABCMeta):
 
                 if 'params' not in key:
                     val['obj'] = Field(key, val['space'], self.derham)
+                    
+                    self._pointer[key] = val['obj'].vector
 
         # allocate memory for FE coeffs of fluid variables
         if 'fluid' in self.params:
@@ -720,6 +828,8 @@ class StruphyModel(metaclass=ABCMeta):
                     if 'params' not in variable:
                         subval['obj'] = Field(
                             variable, subval['space'], self.derham)
+                        
+                        self._pointer[species + '_' + variable] = subval['obj'].vector
 
         # marker arrays and plasma parameters of kinetic species
         if 'kinetic' in self.params:
@@ -740,6 +850,8 @@ class StruphyModel(metaclass=ABCMeta):
                                            domain=self.domain,
                                            mhd_equil=self.mhd_equil,
                                            units_basic=self.units)
+                
+                self._pointer[species] = val['obj']
 
                 # for storing markers
                 n_markers = val['params']['save_data']['n_markers']
@@ -937,7 +1049,8 @@ class StruphyModel(metaclass=ABCMeta):
                     eta1mg, eta2mg, eta3mg) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
                 # thermal speeds (m/s)
                 vth = tmp.vth(eta1mg, eta2mg, eta3mg) * \
-                    np.abs(det_tmp) * units['x']**3 / plasma_volume * units['v']
+                    np.abs(det_tmp) * units['x']**3 / \
+                    plasma_volume * units['v']
                 thermal_speed = 0.
                 for dir in range(val['obj'].vdim):
                     pparams[species]['vth' + str(dir + 1)] = np.mean(vth[dir])

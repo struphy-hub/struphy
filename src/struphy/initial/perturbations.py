@@ -4,14 +4,36 @@ import numpy as np
 
 
 class ModesSin:
-    r'''Defines the callable
+    r'''Sinusoidal function in 3D.
 
     .. math::
 
         u(x, y, z) = \sum_{i} A_i \sin \left(l_i \frac{2\pi}{L_x} x + m_i \frac{2\pi}{L_y} y + n_i \frac{2\pi}{L_z} z \right) \,.
+
+    Can be used in logical space with Lx=Ly=Lz=1.0 (default).
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``fluid/<species>``::
+
+        init :
+            type : ModesSin
+            ModesSin :
+                coords : 'physical' # in which coordinates (logical or physical)
+                comps :
+                    n3 : False                # components to be initialized 
+                    u2 : [True, False, True]  # components to be initialized 
+                    p3 : False                # components to be initialized 
+                ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
+                ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
+                ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
+                amps : [0.001] # amplitudes of each mode
+                Lx : 7.853981633974483 # domain length in x
+                Ly : 1.                # domain length in y
+                Lz : 1.                # domain length in z
     '''
 
-    def __init__(self, ls, ms, ns, amps, Lx=1., Ly=1., Lz=1.):
+    def __init__(self, ls=[0], ms=[0], ns=[0], amps=[1e-4], Lx=1., Ly=1., Lz=1.):
         '''
         Parameters
         ----------
@@ -51,14 +73,36 @@ class ModesSin:
 
 
 class ModesCos:
-    r'''Defines the callable
+    r'''Cosinusoidal function in 3D.
 
     .. math::
 
         u(x, y, z) = \sum_{i} A_i \cos \left(l_i \frac{2\pi}{L_x} x + m_i \frac{2\pi}{L_y} y + n_i \frac{2\pi}{L_z} z \right) \,.
+
+    Can be used in logical space with Lx=Ly=Lz=1.0 (default).
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``fluid/<species>``::
+
+        init :
+            type : ModesCos 
+            ModesCos :
+                coords : 'physical' # in which coordinates (logical or physical)
+                comps :
+                    n3 : False                # components to be initialized 
+                    u2 : [True, False, True]  # components to be initialized 
+                    p3 : False                # components to be initialized 
+                ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
+                ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
+                ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
+                amps : [0.001] # amplitudes of each mode
+                Lx : 7.853981633974483 # domain length in x
+                Ly : 1.                # domain length in y
+                Lz : 1.                # domain length in z
     '''
 
-    def __init__(self, ls, ms, ns, amps, Lx=1., Ly=1., Lz=1.):
+    def __init__(self, ls=[0], ms=[0], ns=[0], amps=[1e-4], Lx=1., Ly=1., Lz=1.):
         '''
         Parameters
         ----------
@@ -98,20 +142,39 @@ class ModesCos:
 
 
 class TorusModesSin:
-    r'''Defines the callable
+    r'''Sinusoidal function in the periodic coordinates of a Torus.
 
     .. math::
 
-        u(\eta_1, \eta_2, \eta_3) = \sum_{i=0}^N \chi_i(\eta_1) \sin(m_i\,2\pi \eta_2 + n_i\,2\pi \eta_3) 
+        u(\eta_1, \eta_2, \eta_3) = \sum_{i=0}^N \chi_i(\eta_1) \sin(m_i\,2\pi \eta_2 + n_i\,2\pi \eta_3) \,,
 
     where :math:`\chi_i(\eta_1)` is one of
 
     .. math::
 
-        \chi_i(\eta_1) = A_i\sin(\pi\eta_1)\,,\qquad\quad \chi_i(\eta_1) = A_i\exp^{-(\eta_1 - r_0)^2/\sigma}
+        \chi_i(\eta_1) = A_i\sin(\pi\eta_1)\,,\qquad\quad \chi_i(\eta_1) = A_i\exp^{-(\eta_1 - r_0)^2/\sigma} \,.
+
+    Can only be defined in logical coordinates.
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``fluid/<species>``::
+
+        init :
+            type : TorusModesSin 
+            TorusModesSin :
+                comps :
+                    n3 : False                # components to be initialized (for scalar fields: no list)
+                    uv : [False, True, False] # components to be initialized (for scalar fields: no list)
+                    p3 : False                # components to be initialized (for scalar fields: no list)
+                ms : [3] # poloidal mode numbers
+                ns : [1] # toroidal mode numbers
+                amps : [0.001] # amplitudes of each mode
+                pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
+                pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
     '''
 
-    def __init__(self, ms, ns, amps, pfuns='sin', pfun_params=None):
+    def __init__(self, ms=[0], ns=[0], amps=[1e-4], pfuns=['sin'], pfun_params=None):
         r'''
         Parameters
         ----------

@@ -4,10 +4,10 @@
 #
 # docker info
 # docker login gitlab-registry.mpcdf.mpg.de -u docker_api -p glpat--z6kJtobeG-xM_LdL6k6
-# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora36 -f images/fedora36.dockerfile .
-# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora36
+# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora -f images/fedora.dockerfile .
+# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora
 
-FROM fedora:36
+FROM fedora:latest
 
 # install linux packages 
 RUN dnf install -y python3-pip \
@@ -19,7 +19,9 @@ RUN dnf install -y python3-pip \
     && dnf install -y git \
     && dnf install -y environment-modules \
     && dnf install -y python3-mpi4py-openmpi \
-    && dnf install -y python3-devel 
+    && dnf install -y python3-devel \
+    && dnf install -y python3.10 \
+    && dnf install -y python3.10-devel 
 
 # create new working dir
 WORKDIR /your_working_dir/

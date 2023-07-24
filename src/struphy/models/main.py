@@ -54,7 +54,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     for obj in objs:
         try:
             model_class = getattr(obj, model_name)
-        except AttributeError: 
+        except AttributeError:
             pass
 
     model = model_class(params, comm)
@@ -77,6 +77,9 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     # start a new simulation (set initial conditions according to parameter file)
     time_params = params['time']
 
+    if rank == 0:
+        print('\nINITIAL CONDITIONS:')
+
     if not restart:
         model.initialize_from_params()
         total_steps = str(
@@ -95,7 +98,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     # list of model methods for diagnostics
     model_updates = []
     for method in dir(model):
-        if 'update' in method:
+        if 'update' in method and method != 'update_scalar':
             model_updates.append(getattr(model, method))
 
     # initial diagnostic data (will be saved in hdf5 file)
@@ -140,7 +143,9 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
             break
 
         # integrate the model for a time step dt
+        t0 = time.time()
         model.integrate(time_params['dt'], time_params['split_algo'])
+        t1 = time.time()
 
         # update time and index (round time to 10 decimals for a clean time grid!)
         time_state['value'][0] = round(
@@ -174,8 +179,10 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
             if rank == 0:
                 step = str(time_state['index'][0]).zfill(len(total_steps))
 
-                message = 'time: {0:12.8f}/{1:12.8f}'.format(time_state['value'][0], time_params['Tend'])
-                message += ' | ' + 'time step: ' + step + '/' + str(total_steps) 
+                message = 'time step: ' + step + '/' + str(total_steps) 
+                message += ' | ' + 'time: {0:10.5f}/{1:10.5f}'.format(
+                    time_state['value'][0], time_params['Tend'])
+                message += ' | ' + 'wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}'.format(run_time_now*60, t1 - t0)
 
                 print(message, end='\n')
                 model.print_scalar_quantities()
@@ -194,9 +201,12 @@ if __name__ == '__main__':
     import struphy
 
     libpath = struphy.__path__[0]
-    
-    with open(os.path.join(libpath, 'io_path.txt')) as f:
-        io_path = f.readlines()[0]
+
+    with open(os.path.join(libpath, 'i_path.txt')) as f:
+        i_path = f.readlines()[0]
+
+    with open(os.path.join(libpath, 'o_path.txt')) as f:
+        o_path = f.readlines()[0]
 
     parser = argparse.ArgumentParser(description='Run an Struphy model.')
 
@@ -211,14 +221,14 @@ if __name__ == '__main__':
                         type=str,
                         metavar='FILE',
                         help='absolute path of parameter file (.yml) (default=<struphy_path>/io/inp/parameters.yml)',
-                        default=os.path.join(io_path, 'io/inp/parameters.yml'))
+                        default=os.path.join(i_path, 'parameters.yml'))
 
     # output (absolute path)
     parser.add_argument('-o', '--output',
                         type=str,
                         metavar='DIR',
                         help='absolute path of output folder (default=<struphy_path>/io/out/sim_1)',
-                        default=os.path.join(io_path, 'io/out/sim_1'))
+                        default=os.path.join(o_path, 'sim_1'))
 
     # restart
     parser.add_argument('-r', '--restart',

@@ -11,7 +11,7 @@ from struphy.psydac_api.psydac_derham import Derham
 from struphy.psydac_api.mass import WeightedMassOperators
 from struphy.psydac_api.mass import WeightedMassOperator
 from struphy.propagators.base import Propagator
-from struphy.propagators.solvers import PoissonSolver
+from struphy.propagators.propagators_fields import ImplicitDiffusion
 from struphy.psydac_api.utilities import compare_arrays
 from psydac.linalg.stencil import StencilVector
 
@@ -67,17 +67,23 @@ def test_poisson_solver(Nel, p, spl_kind, mapping):
     Propagator.mass_ops = mass_ops
 
     # Create Poisson solver
-    poisson_solver = PoissonSolver(rho=rho_vec, **solver_params)
+    _phi = StencilVector(derham.Vh['0'])
+    poisson_solver = ImplicitDiffusion(_phi,
+                                       sigma=0.,
+                                       phi_n=rho_vec,
+                                       x0=rho_vec,
+                                       **solver_params)
 
-    # Solve Poisson equation
-    poisson_solver(0.1)
+    # Solve Poisson equation (call with dt=1.)
+    poisson_solver(1.)
 
     # Compare to analytical solution
     compare_arrays(
-        poisson_solver._phi,
+        _phi,
         sol_vec.toarray(),
         MPI.COMM_WORLD.Get_rank(),
-        atol=1e-5
+        atol=1e-5,
+        verbose=True
     )
 
 

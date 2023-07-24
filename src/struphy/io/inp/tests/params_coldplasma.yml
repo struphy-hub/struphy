@@ -46,6 +46,7 @@ em_fields :
                 b2 : [False, False, False]   # components to be initialized (for scalar fields: no list)
             variation_in : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
             amp : 1.0 # noise amplitude
+            seed : 1234    # seed for random number generator
 
 fluid :
     electrons :
@@ -59,9 +60,10 @@ fluid :
                     j1 : [False, False, False] # components to be initialized (for scalar fields: no list)
                 variation_in : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
                 amp : 0.1 # noise amplitude
+                seed : 1234    # seed for random number generator
 
 solvers :
-    solver_1 :
+    solver_maxwell :
         type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-10
@@ -69,7 +71,7 @@ solvers :
         info : False
         verbose : False
 
-    solver_2 :
+    solver_ohmcold :
         type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-10
@@ -77,7 +79,7 @@ solvers :
         info : False
         verbose : False
 
-    solver_3 :
+    solver_jxbcold :
         type : PBiConjugateGradientStab
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-10

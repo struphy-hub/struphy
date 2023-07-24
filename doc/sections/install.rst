@@ -5,7 +5,7 @@ Installation
 
 Struphy can be installed in the following ways:
 
-1. From :ref:`PyPI <pypi_install>` :math:`\to` ``pip install struphy``, for running the latest release
+1. From :ref:`PyPI <pypi_install>` with :code:`pip install struphy`, for running the latest release
 2. From :ref:`source <source_install>`, for running or adding code 
 3. Using :ref:`Docker images <docker_install>`, also suited :ref:`for developers <docker_devs>`
 
@@ -26,7 +26,7 @@ Sample environment on **Debian-Ubuntu-Mint**::
 
     sudo apt update
     sudo apt install -y python3-pip
-    sudo apt install -y python3.8-venv
+    sudo apt install -y python3.10-venv
     sudo apt install -y gcc
     sudo apt install -y gfortran
     sudo apt install -y libblas-dev liblapack-dev
@@ -172,12 +172,12 @@ If you are uncomfortable with running `sudo`, you can `run docker in "rootless" 
 
 3. Pull one of the following environment images (< 1 GB in size)::
 
-    docker pull gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu20:latest
-    docker pull gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora36:latest
+    docker pull gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu:latest
+    docker pull gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora:latest
 
 4. Run the container::
 
-    docker run -it gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu20:latest
+    docker run -it gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu:latest
 
 The option ``-i`` stands for interactive while ``-t`` gives you a terminal.
 
@@ -208,7 +208,7 @@ Docker is well-suited for developers on any kind of platform.
 In order to interact with ``gitlab.mpcdf`` you need to mirror your **private ssh key** into the container 
 with the ``-v`` option. For a ``rsa`` key this is done with::
 
-    docker run -it -v ~/.ssh/id_rsa:/root/.ssh/id_rsa gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu20:latest
+    docker run -it -v ~/.ssh/id_rsa:/root/.ssh/id_rsa gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu:latest
 
 On OS other than Linux ``~/.ssh/id_rsa`` must be replaced with the path to the private rsa key.
 

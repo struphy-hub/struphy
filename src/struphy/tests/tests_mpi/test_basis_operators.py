@@ -696,7 +696,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
 if __name__ == '__main__':
     #test_basis_ops([8, 6, 4], [2, 2, 2], [False, True, True], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
     #test_basis_ops([8, 6, 4], [2, 2, 2], [False, True, True], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False)
-    test_basis_ops([6, 7, 4], [2, 3, 2], [False, True, True], ['HollowCylinder', {'a1': .1, 'a2': 1., 'Lz': 2*np.pi*3.}], False)
+    #test_basis_ops([6, 7, 4], [2, 3, 2], [False, True, True], ['HollowCylinder', {'a1': .1, 'a2': 1., 'Lz': 2*np.pi*3.}], False)
 
-    # test_basis_ops_polar([5, 9, 6], [2, 3, 2], [False, True, False], [[None, 'd'], [
-                        #  None, None], ['d', None]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)
+    test_basis_ops_polar([5, 9, 6], [2, 3, 2], [False, True, False], [[None, 'd'], [
+                        None, None], ['d', None]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)

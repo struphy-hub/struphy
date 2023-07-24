@@ -1,4 +1,4 @@
-def struphy_profile(dirs, replace, all, n_lines, print_callers):
+def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig_dir):
     """
     Profile finished Struphy runs.
     """
@@ -13,13 +13,13 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers):
 
     libpath = struphy.__path__[0]
     
-    with open(os.path.join(libpath, 'io_path.txt')) as f:
-        io_path = f.readlines()[0]
+    with open(os.path.join(libpath, 'o_path.txt')) as f:
+        o_path = f.readlines()[0]
 
     # absolute paths
     abs_paths = []
     for d in dirs:
-        abs_paths += [os.path.join(io_path, 'io/out/', d)]
+        abs_paths += [os.path.join(o_path, d)]
 
     # define the function filter
     list_of_funcs = ['assemble_',
@@ -86,10 +86,13 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers):
 
         dicts += [tmp2]
 
+    # runtime of the main
+    runtime = dicts[0]['main.py:1(<module>)']['cumtime']
+
     # loop over keys (should be same in each dict)
     d_saved = {}
     print('simulation'.ljust(20) + '#proc'.ljust(7) + 'pos'.ljust(5) + 'function'.ljust(70) +
-          'ncalls'.ljust(15) + 'totime'.ljust(15) + 'percall'.ljust(15) + 'cumtime'.ljust(15))
+          'ncalls'.ljust(15) + 'tottime'.ljust(15) + 'percall'.ljust(15) + 'cumtime'.ljust(15))
     print('-'*154)
     for position, key in enumerate(dicts[0].keys()):
 
@@ -138,29 +141,55 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers):
             pickle.dump(d_saved, f)
 
     # plot results
-    fig = plt.figure(figsize=(10, 10))
+    fig, ax = plt.subplots(figsize=(10, 10))
+    plt.rcParams.update({'font.size': 13})
+
     for n, (key, val) in enumerate(d_saved.items()):
         if n < n_lines and '__init__' not in key and 'mass' not in key and 'set_backend' not in key:
 
+            # runtime of the main
+            runtime = float(dicts[0]['main.py:1(<module>)']['cumtime'])
+
+            # calculate relative cumtime and the ratio (cumtime/runtime)
+            min_time = float(val['time'][0])
+            relative_times = []
+            ratio = []
+            for t in val['time']:
+                relative_times.append(float(t)/min_time)
+                ratio.append(str(int(float(t)/runtime*100))+'%')
+
             # strong scaling plot
             if np.all([Nel == val['Nel'][0] for Nel in val['Nel']]):
-                plt.loglog(val['mpi_size'], val['time'], label=key)
-                plt.xlabel('mpi_size')
-                plt.ylabel('time [s]')
-                plt.title('Strong scaling for Nel=' +
+                
+                # ideal scaling
+                if n == 0:
+                    ax.loglog(val['mpi_size'], 1/2 **np.arange(len(val['time'])), 'k--', 
+                              alpha=0.3, label='ideal')
+
+                ax.loglog(val['mpi_size'], relative_times, 'o' '-', label=key+', '+''.join(ratio[0]))
+                # plt.loglog(val['mpi_size'], val['time'], label=key)
+                ax.set_xlabel('MPI #', fontsize=13)
+                ax.set_ylabel('Relative time [Total time with MPI #' + str(val['mpi_size'][0]) + ']', fontsize=13)
+                ax.set(title='Strong scaling for Nel=' +
                           str(val['Nel'][0]) + ' cells')
-                plt.legend(loc='lower left')
-                plt.loglog(val['mpi_size'], float(val['time'][0])/2 **
-                           np.arange(len(val['time'])), 'k--', alpha=0.3)
+                ax.legend(loc='lower left')
+
             # weak scaling plot
             else:
-                plt.plot(val['mpi_size'], val['time'], label=key)
-                plt.xlabel('mpi_size')
-                plt.ylabel('time [s]')
-                plt.title('Weak scaling for cells/mpi_size=' +
+                ax.plot(val['mpi_size'], val['time'], label=key)
+                ax.set_xlabel('mpi_size')
+                ax.set_ylabel('time [s]')
+                ax.set(title='Weak scaling for cells/mpi_size=' +
                           str(np.prod(val['Nel'][0])/val['mpi_size'][0]) + '=const.')
-                plt.legend(loc='upper left')
-                # plt.loglog(val['mpi_size'], val['time'][0]*np.ones_like(val['time']), 'k--', alpha=0.3)
-                plt.xscale('log')
+                ax.legend(loc='upper left')
+                # ax.loglog(val['mpi_size'], val['time'][0]*np.ones_like(val['time']), 'k--', alpha=0.3)
+                ax.xscale('log')
 
-    plt.show()
+    if savefig_dir is None:
+        plt.show()
+
+    else:
+        # savefig paths
+        save_path = os.path.join(o_path, savefig_dir)
+
+        plt.savefig(save_path)

@@ -332,7 +332,7 @@ em_fields
             ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
             ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
             ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
-            amp : [0.001] # amplitudes of each mode
+            amps : [0.001] # amplitudes of each mode
         ModesCos :
             coords : 'logical' # in which coordinates (logical or physical)
             comps :
@@ -341,7 +341,7 @@ em_fields
             ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
             ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
             ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
-            amp : [0.001] # amplitudes of each mode
+            amps : [0.001] # amplitudes of each mode
         TorusModesSin :
             coords : 'logical' # in which coordinates (logical or physical)
             comps :
@@ -349,7 +349,7 @@ em_fields
                 b2 : [False, False, False] # components to be initialized (for scalar fields: no list)
             ms : [1] # poloidal mode numbers
             ns : [0] # toroidal mode numbers
-            amp : [0.001] # amplitudes of each mode
+            amps : [0.001] # amplitudes of each mode
             pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
             pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
         InitialMHDSlab :
@@ -393,7 +393,7 @@ fluid
                 ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
                 ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
                 ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
-                amp : [0.001] # amplitudes of each mode
+                amps : [0.001] # amplitudes of each mode
             ModesCos :
                 coords : 'logical' # in which coordinates (logical or physical)
                 comps :
@@ -403,7 +403,7 @@ fluid
                 ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
                 ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
                 ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
-                amp : [0.001] # amplitudes of each mode
+                amps : [0.001] # amplitudes of each mode
             TorusModesSin :
                 coords : 'logical' # in which coordinates (logical or physical)
                 comps :
@@ -412,7 +412,7 @@ fluid
                     p3 : False              # components to be initialized (for scalar fields: no list)
                 ms : [1] # poloidal mode numbers
                 ns : [0] # toroidal mode numbers
-                amp : [0.001] # amplitudes of each mode
+                amps : [0.001] # amplitudes of each mode
                 pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
                 pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
             InitialMHDSlab :

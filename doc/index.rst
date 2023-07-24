@@ -32,9 +32,11 @@ For further information on **forking** and **merge- (or pull-) requests** please
    sections/domains
    sections/mhd_equils
    sections/kinetic_backgrounds
+   sections/inits
    sections/diagnostics
    sections/dispersions
    sections/examples
+   sections/performance_tests
 
 .. _contact:
 
@@ -45,6 +47,7 @@ Struphy is constantly maintained. Please contact
 
    * stefan.possanner@ipp.mpg.de
    * eric.sonnendruecker@ipp.mpg.de
+   * xin.wang@ipp.mpg.de
 
 for questions.
 

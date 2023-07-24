@@ -17,6 +17,7 @@ Documented modules:
     struphy.propagators.propagators_coupling
     struphy.pic.pusher
     struphy.pic.pusher_kernels
+    struphy.pic.pusher_kernels_gc
 
 .. toctree::
     :caption: Lists of available propagators (and particle pushers therein):
@@ -27,6 +28,7 @@ Documented modules:
     STUBDIR/struphy.propagators.propagators_coupling
     STUBDIR/struphy.pic.pusher
     STUBDIR/struphy.pic.pusher_kernels
+    STUBDIR/struphy.pic.pusher_kernels_gc
 
 Notation:
 
@@ -42,6 +44,8 @@ calligaphic       :math:`\mathcal T,\,\mathcal U,\,\mathcal K` Basis projection 
 
 See :ref:`gempic` for more details on the used symbols.
 
+
+.. _prop_base:
 
 Propagator base class
 ---------------------
@@ -82,6 +86,8 @@ Particle-field propagators
     :exclude-members: variables
     :show-inheritance:
 
+
+.. _pushers:
 
 Pusher base classes
 -------------------

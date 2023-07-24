@@ -203,17 +203,20 @@ if __name__ == '__main__':
     import struphy
     libpath = struphy.__path__[0]
     
-    with open(os.path.join(libpath, 'io_path.txt')) as f:
-        io_path = f.readlines()[0]
+    with open(os.path.join(libpath, 'i_path.txt')) as f:
+        i_path = f.readlines()[0]
+
+    with open(os.path.join(libpath, 'o_path.txt')) as f:
+        o_path = f.readlines()[0]
     
     # create absolute i/o paths
     if args.input_abs is None:
-        input_abs = os.path.join(io_path, 'io/inp', args.input)
+        input_abs = os.path.join(i_path, args.input)
     else:
         input_abs = args.input_abs
         
     if args.output_abs is None:
-        output_abs = os.path.join(io_path, 'io/out', args.output)
+        output_abs = os.path.join(o_path, args.output)
     else:
         output_abs = args.output_abs
         

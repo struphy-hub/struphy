@@ -504,6 +504,10 @@ class PolarVector(Vector):
 
         """
         self._tp.update_ghost_regions(direction=direction)
+        
+    def conjugate(self):
+        '''No need for complex conjugate'''
+        pass
 
     
 def set_tp_rings_to_zero(v, n_rings):
