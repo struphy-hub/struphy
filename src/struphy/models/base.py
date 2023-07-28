@@ -53,7 +53,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         # compute model units
         self._units, self._eq_params = self.model_units(
-            self.params, verbose=False)
+            self.params, verbose=True, comm=self._comm)
 
         # create domain, MHD equilibrium, background electric field
         self._domain, self._mhd_equil = setup_domain_mhd(

@@ -40,7 +40,7 @@ mhd_equilibrium :
         p_kind : 1 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
         p1     : 0. # shape factor for ad hoc pressure profile
         p2     : 0. # shape factor for ad hoc pressure profile
-        beta   : .2 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)   
+        beta   : .02 # plasma beta = 2*p*mu_0/B^2
 
 kinetic :
     ions :

@@ -34,7 +34,7 @@ mhd_equilibrium :
         B0x  : 0. # magnetic field in x
         B0y  : 1. # magnetic field in y
         B0z  : 1. # magnetic field in z
-        beta : 100. # plasma beta = 2*p*mu_0/B^2
+        beta : 1. # plasma beta = 2*p*mu_0/B^2
         n0   : 1. # number density
 
 em_fields :
