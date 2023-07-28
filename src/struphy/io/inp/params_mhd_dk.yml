@@ -61,7 +61,7 @@ mhd_equilibrium :
         p_kind : 1 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
         p1     : 0. # shape factor for ad hoc pressure profile
         p2     : 0. # shape factor for ad hoc pressure profile
-        beta   : .2 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)   
+        beta   : .002 # plasma beta = 2*p*mu_0/B^2  
         psi_k   : 3 # spline degree to be used for interpolation of poloidal flux function (only needed if q_kind = 1)
         psi_nel : 50 # number of cells to be used for interpolation of poloidal flux function (only needed if q_kind = 1)
 

@@ -32,7 +32,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig_dir):
                      'class ',
                      'stencil',
                      'block',
-                     'integrate_in_time']
+                     'integrate']
 
     # check --all option
     if all:
@@ -87,7 +87,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig_dir):
         dicts += [tmp2]
 
     # runtime of the main
-    runtime = dicts[0]['main.py:1(<module>)']['cumtime']
+    runtime = dicts[0]['main.py:1(main)']['cumtime']
 
     # loop over keys (should be same in each dict)
     d_saved = {}
@@ -116,7 +116,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig_dir):
 
         elif any(func in key for func in list_of_funcs) and 'dependencies_' not in key and '_dot' not in key:
 
-            d_saved[key] = {'mpi_size': [], 'Nel': [], 'time': []}
+            d_saved[key] = {'mpi_size': [], 'Nel': [], 'time': [], 'ncalls':[]}
 
             for dict, sim_name, n, dim in zip(dicts, sim_names, nproc, Nel):
 
@@ -130,6 +130,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig_dir):
                 d_saved[key]['mpi_size'] += [n]
                 d_saved[key]['Nel'] += [dim]
                 d_saved[key]['time'] += [dict[key]['cumtime']]
+                d_saved[key]['ncalls'] += [dict[key]['ncalls']]
             print('')
 
             if position >= 200:
@@ -142,7 +143,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig_dir):
 
     # plot results
     fig, ax = plt.subplots(figsize=(10, 10))
-    plt.rcParams.update({'font.size': 13})
+    plt.rcParams.update({'font.size': 10})
 
     for n, (key, val) in enumerate(d_saved.items()):
         if n < n_lines and '__init__' not in key and 'mass' not in key and 'set_backend' not in key:
@@ -165,6 +166,19 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig_dir):
                 if n == 0:
                     ax.loglog(val['mpi_size'], 1/2 **np.arange(len(val['time'])), 'k--', 
                               alpha=0.3, label='ideal')
+
+                # print average time per one time step
+                if 'integrate' in key:
+                    textstr = '\nAverage time per'+ ' Δt :' + '\n'
+
+                    for m in range(len(val['mpi_size'])):
+                        avg_time_dt = round(float(val['time'][m])/float(val['ncalls'][m]), 2)
+                        textstr += 'MPI #' + str(val['mpi_size'][m]) + ' : ' + str(avg_time_dt) + ' s \n'
+                        
+                    ax.text(0.97, 0.91, textstr, fontsize=13, transform = ax.transAxes,
+                    verticalalignment='center', horizontalalignment='right')
+
+                    continue
 
                 ax.loglog(val['mpi_size'], relative_times, 'o' '-', label=key+', '+''.join(ratio[0]))
                 # plt.loglog(val['mpi_size'], val['time'], label=key)
