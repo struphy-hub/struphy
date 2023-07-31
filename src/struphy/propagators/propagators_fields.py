@@ -63,6 +63,7 @@ class Maxwell(Propagator):
         params = set_defaults(params, params_default)
 
         self._info = params['info']
+        self._rank = self.derham.comm.Get_rank()
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = self.mass_ops.M1
@@ -113,7 +114,7 @@ class Maxwell(Propagator):
         # write new coeffs into self.feec_vars
         max_de, max_db = self.feec_vars_update(self._e_tmp1, self._b_tmp1)
 
-        if self._info:
+        if self._info and self._rank == 0:
             print('Status     for Maxwell:', info['success'])
             print('Iterations for Maxwell:', info['niter'])
             print('Maxdiff e1 for Maxwell:', max_de)
@@ -1858,7 +1859,7 @@ class ImplicitDiffusion(Propagator):
                            self.mass_ops.M1,
                            self.derham.grad)
 
-        # preconditioner
+        # preconditioner and solver for Ax=b
         if self._solver_params['pc'] is None:
             self._pc = None
         else:

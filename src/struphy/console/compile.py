@@ -52,14 +52,35 @@ def struphy_compile(no_openmp=False, delete=False, verbose=False):
             flags += ' --verbose'
 
         # install psydac from wheel if not there
+        current_ver = '0.1.2'
+        psydac_file = 'psydac-' + current_ver + '-py3-none-any.whl'
+        
         try:
-            import psydac.api
+            import psydac
+            import importlib.metadata
+
+            your_ver = importlib.metadata.version("psydac")
+            
+            if current_ver != your_ver:
+                print(f'You have psydac version {your_ver}, but version {current_ver} is available.\n')
+                subprocess.run(['pip',
+                                'uninstall',
+                                '-y',
+                                'psydac'])
+                print('\nInstalling Psydac ...')
+                subprocess.run(['pip',
+                                'install',
+                                os.path.join(
+                                    libpath, psydac_file),
+                                ], check=True)
+                print('Done.')
+                
         except:
             print('\nInstalling Psydac ...')
             subprocess.run(['pip',
                             'install',
                             os.path.join(
-                                libpath, 'psydac-0.1.2-py3-none-any.whl'),
+                                libpath, psydac_file),
                             ], check=True)
             print('Done.')
 

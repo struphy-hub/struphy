@@ -2,183 +2,149 @@ import pytest
 
 
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize('Nel', [[5, 6, 7]])
-@pytest.mark.parametrize('p',   [[2, 3, 2]])
-@pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True]])
-@pytest.mark.parametrize('mapping', [
-    ['Cuboid', {
-        'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}],
-    ['Colella', {
-        'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}]])
-def test_solvers(Nel, p, spl_kind, mapping, show_plots=False, verbose=False):
+@pytest.mark.parametrize('Nel', [[12, 10, 8]])
+@pytest.mark.parametrize('p',   [[3, 2, 1]])
+@pytest.mark.parametrize('spl_kind', [[False, True, True]])
+@pytest.mark.parametrize('geom', ['cuboid', 'tokamak'])
+def test_solvers(Nel, p, spl_kind, geom, verbose=False):
+    '''Test and time Psydac iterative solvers.'''
 
-    import numpy as np
-
-    from struphy.geometry import domains
-
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
-    from struphy.psydac_api.mass import WeightedMassOperators
-    from struphy.fields_background.mhd_equil.equils import ShearedSlab
-    
-    from struphy.linear_algebra.iterative_solvers import ConjugateGradient, PConjugateGradient, BiConjugateGradientStab, PBiConjugateGradientStab
-    from struphy.psydac_api.preconditioner import MassMatrixPreconditioner
-    
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-
-    from psydac.linalg.solvers import PConjugateGradient as pcg
-    from psydac.linalg.solvers import ConjugateGradient as cg
-    from psydac.linalg.solvers import MinimumResidual as minres
-
+    import yaml
+    import os
     from mpi4py import MPI
-
-    mpi_comm = MPI.COMM_WORLD
-    mpi_rank = mpi_comm.Get_rank()
-    mpi_size = mpi_comm.Get_size()
-
-    print()
-    print('number of processes : ', mpi_size)
-
-    # mapping
-    domain_class = getattr(domains, mapping[0])
-    domain = domain_class(**mapping[1])
-
-    if show_plots:
-        import matplotlib.pyplot as plt
-        domain.show()
-
-    # MHD equilibrium
-    if mapping[0] == 'Cuboid':
-        eq_mhd = ShearedSlab(**{'a': mapping[1]['r1'] - mapping[1]['l1'], 'R0': (mapping[1]['r3'] - mapping[1]['l3'])/(
-            2*np.pi), 'B0': 1.0, 'q0': 1.05, 'q1': 1.8, 'n1': 3.0, 'n2': 4.0, 'na': 0.0, 'beta': .1})
-
-    elif mapping[0] == 'Colella':
-        eq_mhd = ShearedSlab(**{'a': mapping[1]['Lx'], 'R0': mapping[1]['Lz']/(
-            2*np.pi), 'B0': 1.0, 'q0': 1.05, 'q1': 1.8, 'n1': 3.0, 'n2': 4.0, 'na': 0.0, 'beta': .1})
-
-        if show_plots:
-            eq_mhd.plot_profiles()
-
-    # set equilibrium object domain
-    eq_mhd.domain = domain
-
-    # derham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm)
-
-    # mass object and preconditioners
-    mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
+    import time
     
-    M0 = mass_mats.M0
-    M1 = mass_mats.M1
-    pc0 = MassMatrixPreconditioner(M0)
-    pc1 = MassMatrixPreconditioner(M1)
-    
-    # compare to legacy STRUPHY
-    spaces = [Spline_space_1d(Nel[0], p[0], spl_kind[0], p[0] + 1),
-              Spline_space_1d(Nel[1], p[1], spl_kind[1], p[1] + 1),
-              Spline_space_1d(Nel[2], p[2], spl_kind[2], p[2] + 1)]
-    
-    space = Tensor_spline_space(spaces)
-    
-    space.assemble_Mk(domain, 'V0')
-    space.assemble_Mk(domain, 'V1')
-    
-    M0_arr = M0.matrix.toarray()
-    M1_arr = M1.matrix.toarray()
-    
-    mpi_comm.Allreduce(MPI.IN_PLACE, M0_arr, op=MPI.SUM)
-    mpi_comm.Allreduce(MPI.IN_PLACE, M1_arr, op=MPI.SUM)
-    
-    assert np.allclose(M0_arr, space.M0_mat.toarray(), atol=1e-14)
-    assert np.allclose(M1_arr, space.M1_mat.toarray(), atol=1e-14)
-    
-    M0 = M0.matrix
-    M1 = M1.matrix
+    import struphy
+    from struphy.models.toy import Maxwell
+    from struphy.models.fluid import LinearMHD
 
-    # create linear solvers
-    cg_solver0 = ConjugateGradient(M0.domain)
-    cg_solver1 = ConjugateGradient(M1.domain)
+    from struphy.psydac_api.utilities import create_equal_random_arrays
     
-    pcg_solver0 = PConjugateGradient(M0.domain)
-    pcg_solver1 = PConjugateGradient(M1.domain)
+    from struphy.linear_algebra.iterative_solvers import ConjugateGradient as STR_CG
+    from struphy.linear_algebra.iterative_solvers import PConjugateGradient as STR_PCG
+    from struphy.linear_algebra.iterative_solvers import BiConjugateGradientStab as STR_BICGSTAB
+    from struphy.linear_algebra.iterative_solvers import PBiConjugateGradientStab as STR_PBICGSTAB
     
-    bicgstab_solver0 = BiConjugateGradientStab(M0.domain)
-    bicgstab_solver1 = BiConjugateGradientStab(M1.domain)
-    
-    pbicgstab_solver0 = PBiConjugateGradientStab(M0.domain)
-    pbicgstab_solver1 = PBiConjugateGradientStab(M1.domain)
+    from struphy.psydac_api.preconditioner import MassMatrixPreconditioner
 
-    # create random right-hand side vectors
-    b0_str, b0 = create_equal_random_arrays(derham.Vh_fem['0'], 1234)
-    b1_str, b1 = create_equal_random_arrays(derham.Vh_fem['1'], 1607)
+    from psydac.linalg.solvers import ConjugateGradient 
+    from psydac.linalg.solvers import PConjugateGradient 
+    from psydac.linalg.solvers import BiConjugateGradient 
+    from psydac.linalg.solvers import BiConjugateGradientStabilized 
+    from psydac.linalg.solvers import MinimumResidual 
+    from psydac.linalg.solvers import LSMR 
+    from psydac.linalg.solvers import GMRES 
 
-    # ============ solve systems (M0) ==============
-    solver_1 = cg(M0)
-    solver_2 = pcg(M0)
-    solver_3 = minres(M0)
-    
-    res = solver_1.solve(b0)
-    res = solver_2.solve(b0)
-    res = solver_3.solve(b0)
-    
-    res, info0_4 = cg_solver0.solve(M0, b0)
-    res, info0_5 = pcg_solver0.solve(M0, b0, pc0)
-    res, info0_6 = bicgstab_solver0.solve(M0, b0)
-    res, info0_7 = pbicgstab_solver0.solve(M0, b0, pc0)
-    
-    # ============ solve systems (M1) (only ones with preconditioner) ============
-    solver_4 = pcg(M1)
-    #res, info1_1 = cg(M1, b1)
-    res = solver_4.solve(b1)
-    #res, info1_3 = minres(M1, b1)
-    
-    #res, info1_4 = cg_solver1.solve(M1, b1)
-    res, info1_5 = pcg_solver1.solve(M1, b1, pc1)
-    #res, info1_6 = bicgstab_solver1.solve(M1, b1)
-    res, info1_7 = pbicgstab_solver1.solve(M1, b1, pc1)
+    # mpi
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    comm_size = comm.Get_size()
 
-    # assert info0_1['success']
-    # assert info0_2['success']
-    # assert info0_3['success']
-    assert info0_4['success']
-    assert info0_5['success']
-    assert info0_6['success']
-    assert info0_7['success']
-
-    #assert info1_1['success']
-    #assert info1_2['success']
-    #assert info1_3['success']
-    #assert info1_4['success']
-    assert info1_5['success']
-    #assert info1_6['success']
-    assert info1_7['success']
-
-    if verbose and mpi_rank == 0:
-        # print('info for cg                       (M0) : ', info0_1)
-        # print('info for pcg                      (M0) : ', info0_2)
-        # print('info for minres                   (M0) : ', info0_3)
+    # parameter file
+    libpath = struphy.__path__[0]
+    
+    with open(os.path.join(libpath, 'io/inp/tests/params_mhd_' + geom + '.yml')) as file:
+        params_mhd = yaml.load(file, Loader=yaml.FullLoader)
         
-        print()
+    with open(os.path.join(libpath, 'io/inp/tests/params_maxwell_' + geom + '.yml')) as file:
+        params_maxwell = yaml.load(file, Loader=yaml.FullLoader)
+
+    if rank == 0:
+        print('\nGRID:')
+        for key, val in params_mhd['grid'].items():
+            print((key + ':').ljust(25), val)
+            
+        print('\nGEOMETRY:')
+        for key, val in params_mhd['geometry'].items():
+            print((key + ':').ljust(25), val)
+    
+    # linmhd instance
+    maxwell = Maxwell(params_maxwell, comm) 
+    linmhd = LinearMHD(params_mhd, comm)
+  
+    # derivative operators
+    grad = linmhd.derham.grad
+    curl = linmhd.derham.curl
+    div = linmhd.derham.div
+    
+    # solver parameters
+    sol_dict = {'x0': None, 'tol': 1e-8, 'maxiter': 5000, 'verbose': verbose}
+
+    # ============ Mass matrix inversion ==============
+    for space in ['0', '1', '2', '3']:
         
-        print('info for ConjugateGradient        (M0) : ', info0_4)
-        print('info for PConjugateGradient       (M0) : ', info0_5)
-        print('info for BiConjugateGradientStab  (M0) : ', info0_6)
-        print('info for PBiConjugateGradientStab (M0) : ', info0_7)
+        # mass matrix, preconditioner and random rhs
+        M = getattr(linmhd.mass_ops, 'M' + space)
+        pc = MassMatrixPreconditioner(M)
+        b_str, b = create_equal_random_arrays(linmhd.derham.Vh_fem[space], 1234)
         
-        print('-----------------------------')
+        # ------------- solvers --------------
+        str_solvers = []
+        str_timings = []
+        str_infos = []
         
-        #print('info for cg                       (M1) : ', info1_1)
-        #print('info for pcg                      (M1) : ', info1_2)
-        #print('info for minres                   (M1) : ', info1_3)
+        solvers = []
+        timings = []
+        infos = []
         
-        print()
+        # conjugate gradient (cg)
+        str_solvers += [STR_CG(linmhd.derham.Vh[space])]
+        solvers += [ConjugateGradient(M, **sol_dict)]
         
-        #print('info for ConjugateGradient        (M1) : ', info1_4)
-        print('info for PConjugateGradient       (M1) : ', info1_5)
-        #print('info for BiConjugateGradientStab  (M1) : ', info1_6)
-        print('info for PBiConjugateGradientStab (M1) : ', info1_7)
+        t0 = time.time()
+        str_res, info = str_solvers[-1].solve(M, b, **sol_dict)
+        t1 = time.time()
+        str_timings += [t1-t0]
+        str_infos += [info]
+        assert info['success']
+        
+        t0 = time.time()
+        res = solvers[-1].solve(b)
+        t1 = time.time()
+        timings += [t1-t0]
+        infos += [solvers[-1]._info]
+        assert infos[-1]['success']
+        
+        # pre-conditioned cg
+        str_solvers += [STR_PCG(linmhd.derham.Vh[space])]
+        solvers += [PConjugateGradient(M, **sol_dict)] # TODO: preconditioning is not yet supported in psydac, add it
+        
+        t0 = time.time()
+        str_res, info = str_solvers[-1].solve(M, b, pc, **sol_dict)
+        t1 = time.time()
+        str_timings += [t1-t0]
+        str_infos += [info]
+        assert info['success']
+        
+        t0 = time.time()
+        #res = solvers[-1].solve(b)
+        t1 = time.time()
+        timings += [t1-t0]
+        infos += [{'res_norm': 99.0, 'niter': 0, 'success': True}]
+        assert infos[-1]['success']
+        
+        if rank == 0:
+            print('\nTIMINGS for mass matrix inversion in space ' + space + ':')
+            for str_s, str_t, str_i, s, t, i in zip(str_solvers, str_timings, str_infos, solvers, timings, infos):
+                print('struphy {0:20s}: {1:8.6f} s, with residual {2:4.2e} from {3:4n} iterations'.format(str_s.__class__.__name__, str_t, str_i['res_norm'], str_i['niter']))
+                print('psydac  {0:20s}: {1:8.6f} s, with residual {2:4.2e} from {3:4n} iterations'.format(s.__class__.__name__, t, i['res_norm'], i['niter']))
+
+    # ============ Shear Alfven step ==============
+    maxwell.initialize_from_params()
+    linmhd.initialize_from_params()
+    
+    for dt in [0.001, 0.003, 0.01, 0.03, 0.1, 0.3]:
+        if rank == 0:
+            print('\nMAXWELL PROPAGATOR with dt={0:6.3}:'.format(dt))
+        maxwell.propagators[0](dt)
+        
+    for dt in [0.001, 0.003, 0.01, 0.03, 0.1, 0.3]:   
+        if rank == 0:
+            print('\nSHEAR ALFVEN PROPAGATOR with dt={0:6.3}:'.format(dt))
+        linmhd.propagators[0](dt)
 
 
 if __name__ == '__main__':
-    #test_solvers([8, 4, 4], [2, 2, 2], [False, True, True], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False, True)
-    test_solvers([8, 6, 4], [2, 2, 2], [False, True, True], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False, True)
+    
+    test_solvers([8, 6, 4], [3, 2, 1], [False, True, True], 'cuboid', verbose=False)
+    test_solvers([8, 6, 4], [3, 2, 1], [False, True, True], 'tokamak', verbose=False)

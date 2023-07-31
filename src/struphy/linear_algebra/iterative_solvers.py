@@ -257,7 +257,7 @@ class PConjugateGradient(LinearSolver):
                 x = x0.copy()
 
         # preconditioner (must have a .solve method)
-        assert isinstance(pc, LinearSolver)
+        assert isinstance(pc, LinearSolver), 'If you do not use a preconditioner, please use the solver "ConjugateGradient" instead of "PConjugateGradient".'
         
         # extract temporary vectors
         v = self._tmps['v']
