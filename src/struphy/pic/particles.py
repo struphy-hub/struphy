@@ -175,7 +175,7 @@ class Particles5D(Particles):
     def n_cols(self):
         """Number of the columns at each markers.
         """
-        return 29
+        return 26
 
     @property
     def vdim(self):

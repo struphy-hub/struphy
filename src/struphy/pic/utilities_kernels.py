@@ -599,7 +599,7 @@ def push_gc1_discrete_gradients_prepare(markers: 'float[:,:]', dt: float,
     curl_norm_b = empty(3, dtype=float)
     S = empty((3, 3), dtype=float)
     temp = empty(3, dtype=float)
-    bcross = empty((3, 3), dtype=float)
+    bcross = zeros((3, 3), dtype=float)
     temp1 = empty((3, 3), dtype=float)
     norm_b2 = empty(3, dtype=float)
     temp2 = empty((3, 3), dtype=float)
@@ -700,10 +700,13 @@ def push_gc1_discrete_gradients_prepare(markers: 'float[:,:]', dt: float,
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
 
-        # assemble b cross (.) as 3x3 matrix
-        bcross[:, :] = ((0.,  -norm_b2[2],   norm_b2[1]),
-                        (norm_b2[2],      0.,  -norm_b2[0]),
-                        (-norm_b2[1],   norm_b2[0],      0.))
+        # assemble b cross (.)
+        bcross[0,1] = -norm_b2[2]
+        bcross[0,2] = norm_b2[1]
+        bcross[1,0] = norm_b2[2]
+        bcross[1,2] = -norm_b2[0]
+        bcross[2,0] = -norm_b2[1]
+        bcross[2,1] = norm_b2[0]
 
         # calculate G-1 b cross G-1
         linalg.matrix_matrix(bcross, g_inv, temp1)
@@ -847,17 +850,17 @@ def push_gc2_discrete_gradients_prepare(markers: 'float[:,:]', dt: float,
 
         # save at the markers
         markers[ip, 13:16] = b_star[:]/abs_b_star_para
-        markers[ip, 19] = mu*abs_b0
+        markers[ip, 16] = mu*abs_b0
 
         # calculate b_star . grad_abs_b
         b_star_dot_grad_abs_b = linalg.scalar_dot(b_star, grad_abs_b)*mu
 
         # save at the markers
-        markers[ip, 0:3] = markers[ip, 9:12] + dt*b_star[:]/abs_b_star_para*v
+        markers[ip, 0:3] = markers[ip, 0:3] + dt*b_star[:]/abs_b_star_para*v
         markers[ip, 3] = markers[ip, 12] - dt * \
             b_star_dot_grad_abs_b/abs_b_star_para
 
-        markers[ip, 20:24] = markers[ip, 0:4]
+        markers[ip, 17:21] = markers[ip, 0:4]
         markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 9:13])/2.
 
 
@@ -900,7 +903,7 @@ def push_gc1_discrete_gradients_faster_prepare(markers: 'float[:,:]', dt: float,
     curl_norm_b = empty(3, dtype=float)
     S = empty((3, 3), dtype=float)
     temp = empty(3, dtype=float)
-    bcross = empty((3, 3), dtype=float)
+    bcross = zeros((3, 3), dtype=float)
     temp1 = empty((3, 3), dtype=float)
     norm_b2 = empty(3, dtype=float)
     temp2 = empty((3, 3), dtype=float)
@@ -1001,10 +1004,13 @@ def push_gc1_discrete_gradients_faster_prepare(markers: 'float[:,:]', dt: float,
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
 
-        # assemble b cross (.) as 3x3 matrix
-        bcross[:, :] = ((0.,  -norm_b2[2],   norm_b2[1]),
-                        (norm_b2[2],      0.,  -norm_b2[0]),
-                        (-norm_b2[1],   norm_b2[0],      0.))
+        # assemble b cross (.)
+        bcross[0,1] = -norm_b2[2]
+        bcross[0,2] = norm_b2[1]
+        bcross[1,0] = norm_b2[2]
+        bcross[1,2] = -norm_b2[0]
+        bcross[2,0] = -norm_b2[1]
+        bcross[2,1] = norm_b2[0]
 
         # calculate G-1 b cross G-1
         linalg.matrix_matrix(bcross, g_inv, temp1)
@@ -1014,9 +1020,8 @@ def push_gc1_discrete_gradients_faster_prepare(markers: 'float[:,:]', dt: float,
         S[:, :] = (1/kappa*temp2)/abs_b_star_para
 
         # save at the markers
-        markers[ip, 13:16] = S[0, :]
-        markers[ip, 16:18] = S[1, 1:3]
-        markers[ip, 18] = S[2, 2]
+        markers[ip, 13:15] = S[0, 1:3]
+        markers[ip, 15] = S[1, 2]
         markers[ip, 19] = abs_b0*mu
 
         # calculate S1 * grad I1
@@ -1025,7 +1030,7 @@ def push_gc1_discrete_gradients_faster_prepare(markers: 'float[:,:]', dt: float,
         # save at the markers
         markers[ip, 0:3] = markers[ip, 0:3] + dt*temp[:]*mu
 
-        markers[ip, 20:23] = markers[ip, 0:3]
+        markers[ip, 16:19] = markers[ip, 0:3]
         markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 9:12])/2.
 
 
@@ -1150,17 +1155,17 @@ def push_gc2_discrete_gradients_faster_prepare(markers: 'float[:,:]', dt: float,
 
         # save at the markers
         markers[ip, 13:16] = b_star[:]/abs_b_star_para
-        markers[ip, 19] = mu*abs_b0
+        markers[ip, 16] = mu*abs_b0
 
         # calculate b_star . grad_abs_b
         b_star_dot_grad_abs_b = linalg.scalar_dot(b_star, grad_abs_b)*mu
 
         # save at the markers
-        markers[ip, 0:3] = markers[ip, 9:12] + dt*b_star[:]/abs_b_star_para*v
+        markers[ip, 0:3] = markers[ip, 0:3] + dt*b_star[:]/abs_b_star_para*v
         markers[ip, 3] = markers[ip, 12] - dt * \
             b_star_dot_grad_abs_b/abs_b_star_para
 
-        markers[ip, 20:24] = markers[ip, 0:4]
+        markers[ip, 17:21] = markers[ip, 0:4]
         markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 9:13])/2.
 
 
@@ -1207,11 +1212,11 @@ def push_gc1_discrete_gradients_faster_eval_gradI(markers: 'float[:,:]', dt: flo
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 23] == -1.:
+        if markers[ip, 21] == -1.:
             continue
 
         e_mid[:] = markers[ip, 0:3]
-        markers[ip, 0:3] = markers[ip, 20:23]
+        markers[ip, 0:3] = markers[ip, 16:19]
         mu = markers[ip, 4]
 
         # spline evaluation
@@ -1232,7 +1237,7 @@ def push_gc1_discrete_gradients_faster_eval_gradI(markers: 'float[:,:]', dt: flo
         grad_abs_b[2] = eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
-        markers[ip, 20:23] = mu*grad_abs_b[:]
+        markers[ip, 16:19] = mu*grad_abs_b[:]
 
 
 @stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e_mid')
@@ -1278,11 +1283,11 @@ def push_gc2_discrete_gradients_faster_eval_gradI(markers: 'float[:,:]', dt: flo
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 23] == -1.:
+        if markers[ip, 21] == -1.:
             continue
 
         e_mid[:] = markers[ip, 0:3]
-        markers[ip, 0:3] = markers[ip, 20:23]
+        markers[ip, 0:4] = markers[ip, 17:21]
         mu = markers[ip, 4]
 
         # spline evaluation
@@ -1303,7 +1308,7 @@ def push_gc2_discrete_gradients_faster_eval_gradI(markers: 'float[:,:]', dt: flo
         grad_abs_b[2] = eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
-        markers[ip, 20:23] = mu*grad_abs_b[:]
+        markers[ip, 17:20] = mu*grad_abs_b[:]
 
 
 @stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e_mid')
@@ -1342,7 +1347,7 @@ def push_gc1_discrete_gradients_eval_gradI(markers: 'float[:,:]', dt: float,
 
     # containers
     S = empty((3, 3), dtype=float)
-    bcross = empty((3, 3), dtype=float)
+    bcross = zeros((3, 3), dtype=float)
     temp1 = empty((3, 3), dtype=float)
     temp2 = empty((3, 3), dtype=float)
     grad_abs_b = empty(3, dtype=float)
@@ -1364,7 +1369,7 @@ def push_gc1_discrete_gradients_eval_gradI(markers: 'float[:,:]', dt: float,
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 23] == -1.:
+        if markers[ip, 21] == -1.:
             continue
 
         e_mid[:] = markers[ip, 0:3]
@@ -1446,9 +1451,12 @@ def push_gc1_discrete_gradients_eval_gradI(markers: 'float[:,:]', dt: float,
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
 
         # assemble b cross (.) as 3x3 matrix
-        bcross[:, :] = ((0.,  -norm_b2[2],   norm_b2[1]),
-                        (norm_b2[2],      0.,  -norm_b2[0]),
-                        (-norm_b2[1],   norm_b2[0],      0.))
+        bcross[0,1] = -norm_b2[2]
+        bcross[0,2] = norm_b2[1]
+        bcross[1,0] = norm_b2[2]
+        bcross[1,2] = -norm_b2[0]
+        bcross[2,0] = -norm_b2[1]
+        bcross[2,1] = norm_b2[0]
 
         # calculate G-1 b cross G-1
         linalg.matrix_matrix(bcross, g_inv, temp1)
@@ -1514,12 +1522,12 @@ def push_gc2_discrete_gradients_eval_gradI(markers: 'float[:,:]', dt: float,
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 23] == -1.:
+        if markers[ip, 21] == -1.:
             continue
 
         e_mid[:] = markers[ip, 0:3]
         v_mid = markers[ip, 3]
-        markers[ip, 0:4] = markers[ip, 20:24]
+        markers[ip, 0:4] = markers[ip, 17:21]
         mu = markers[ip, 4]
 
         # evaluate Jacobian, result in df
@@ -1584,7 +1592,7 @@ def push_gc2_discrete_gradients_eval_gradI(markers: 'float[:,:]', dt: float,
 
         # save at the markers
         markers[ip, 13:16] = b_star[:]/abs_b_star_para
-        markers[ip, 20:23] = mu*grad_abs_b[:]
+        markers[ip, 17:20] = mu*grad_abs_b[:]
 
 
 @stack_array('df', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
@@ -1626,7 +1634,7 @@ def push_gc1_discrete_gradients_Itoh_Newton_prepare(markers: 'float[:,:]', dt: f
     curl_norm_b = empty(3, dtype=float)
     S = zeros((3, 3), dtype=float)
     temp = empty(3, dtype=float)
-    bcross = empty((3, 3), dtype=float)
+    bcross = zeros((3, 3), dtype=float)
     temp1 = empty((3, 3), dtype=float)
     norm_b2 = empty(3, dtype=float)
     temp2 = empty((3, 3), dtype=float)
@@ -1728,9 +1736,12 @@ def push_gc1_discrete_gradients_Itoh_Newton_prepare(markers: 'float[:,:]', dt: f
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
 
         # assemble b cross (.) as 3x3 matrix
-        bcross[:, :] = ((0.,  -norm_b2[2],   norm_b2[1]),
-                        (norm_b2[2],      0.,  -norm_b2[0]),
-                        (-norm_b2[1],   norm_b2[0],      0.))
+        bcross[0,1] = -norm_b2[2]
+        bcross[0,2] = norm_b2[1]
+        bcross[1,0] = norm_b2[2]
+        bcross[1,2] = -norm_b2[0]
+        bcross[2,0] = -norm_b2[1]
+        bcross[2,1] = norm_b2[0]
 
         # calculate G^-1 b cross G^-1
         linalg.matrix_matrix(bcross, g_inv, temp1)
