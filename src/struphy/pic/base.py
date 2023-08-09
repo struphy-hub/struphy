@@ -668,14 +668,12 @@ class Particles(metaclass=ABCMeta):
         ----------
         """
 
-        self.comm.Barrier()
-
         for axis, bc in enumerate(self.bc):
 
             # sorting out particles outside of the logical unit cube
             is_outside_cube = np.logical_or(self.markers[:, axis] > 1.,
                                             self.markers[:, axis] < 0.)
-
+            
             # exclude holes
             is_outside_cube[self.holes] = False
 
@@ -686,21 +684,21 @@ class Particles(metaclass=ABCMeta):
             if bc == 'remove':
 
                 # save the positions and velocities just before the pushing step
-                if self.vdim == 3:
-                    self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                      len(outside_inds), 0:3] = self.markers[outside_inds, 9:12]
-                    self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                      len(outside_inds), 3:9] = self.markers[outside_inds, 3:9]
-                    self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                      len(outside_inds), -1] = self.markers[outside_inds, -1]
+                # if self.vdim == 3:
+                #     self.lost_markers[self.n_lost_markers:self.n_lost_markers +
+                #                       len(outside_inds), 0:3] = self.markers[outside_inds, 9:12]
+                #     self.lost_markers[self.n_lost_markers:self.n_lost_markers +
+                #                       len(outside_inds), 3:9] = self.markers[outside_inds, 3:9]
+                #     self.lost_markers[self.n_lost_markers:self.n_lost_markers +
+                #                       len(outside_inds), -1] = self.markers[outside_inds, -1]
 
-                elif self.vdim == 2:
-                    self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                      len(outside_inds), 0:4] = self.markers[outside_inds, 9:13]
-                    self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                      len(outside_inds), 4:9] = self.markers[outside_inds, 4:9]
-                    self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                      len(outside_inds), -1] = self.markers[outside_inds, -1]
+                # elif self.vdim == 2:
+                #     self.lost_markers[self.n_lost_markers:self.n_lost_markers +
+                #                       len(outside_inds), 0:4] = self.markers[outside_inds, 9:13]
+                #     self.lost_markers[self.n_lost_markers:self.n_lost_markers +
+                #                       len(outside_inds), 4:9] = self.markers[outside_inds, 4:9]
+                #     self.lost_markers[self.n_lost_markers:self.n_lost_markers +
+                #                       len(outside_inds), -1] = self.markers[outside_inds, -1]
 
                 self.markers[outside_inds, :-1] = -1.
 
@@ -715,9 +713,7 @@ class Particles(metaclass=ABCMeta):
 
             else:
                 raise NotImplementedError('Given bc_type is not implemented!')
-
-        self.comm.Barrier()
-
+            
     def boundary_transfer(self, derham, PB):
         """
         Still draft. ONLY valid for the poloidal geometry (eta1: clamped r-direction, eta2: periodic theta-direction). 

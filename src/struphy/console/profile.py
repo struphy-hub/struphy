@@ -28,6 +28,8 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig_dir):
                      '_fill',
                      'pusher',
                      'update_ghost_regions',
+                     'mpi_sort_markers',
+                     'apply_kinetic_bc',
                      'solver',
                      'class ',
                      'stencil',

@@ -77,9 +77,9 @@ kinetic :
             integrator : implicit # explicit or implicit
             method : discrete_gradients # possible choices: discrete_gradients, discrete_gradients_faster, discrete_gradients_Itoh_Newton, forward_euler, heun2, rk2, heun3, rk4
             maxiter : 5
-            tol : 1.e-10
+            tol : 1.e-8
         push_algos2 :
             integrator : implicit # explicit or implicit
-            method : discrete_gradients_Itoh_Newton # possible choices: discrete_gradients, discrete_gradients_faster, discrete_gradients_Itoh_Newton, forward_euler, heun2, rk2, heun3, rk4
-            maxiter : 5
-            tol : 1.e-10
+            method : discrete_gradients # possible choices: discrete_gradients, discrete_gradients_faster, discrete_gradients_Itoh_Newton, forward_euler, heun2, rk2, heun3, rk4
+            maxiter : 10
+            tol : 1.e-8
