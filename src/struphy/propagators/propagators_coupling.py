@@ -4,7 +4,6 @@ from psydac.linalg.block import BlockVector
 
 from struphy.propagators.base import Propagator
 from struphy.linear_algebra.schur_solver import SchurSolver
-from struphy.pic.particles import Particles6D
 from struphy.pic.particles_to_grid import Accumulator, AccumulatorVector
 from struphy.pic.pusher import Pusher
 import struphy.pic.utilities_kernels as utilities
@@ -97,8 +96,8 @@ class VlasovMaxwell(Propagator):
                                   add_vector=True, symmetry='symm')
 
         # Create buffers to store temporarily _e and its sum with old e
-        self._e_temp = e.copy()
-        self._e_sum = e.copy()
+        self._e_temp = e.space.zeros()
+        self._e_sum = e.space.zeros()
 
         # store old weights to compute difference
         self._old_v_sq = np.empty(particles.markers.shape[0], dtype=float)
@@ -180,7 +179,7 @@ class VlasovMaxwell(Propagator):
 
 
 class EfieldWeightsImplicit(Propagator):
-    r'''Solve the following Crank-Nicolson step
+    r""" Solve the following Semi-Crank-Nicolson step
 
     .. math::
 
@@ -199,7 +198,7 @@ class EfieldWeightsImplicit(Propagator):
             \mathbf{W}^{n+1} + \mathbf{W}^n
         \end{bmatrix}
 
-    based on the :ref:`Schur complement <schur_solver>` where
+    based on the :ref:`Schur complement <schur_solver>` where for the linearized Vlasov-Maxwell the matrices are
 
     .. math::
         \begin{align}
@@ -209,7 +208,17 @@ class EfieldWeightsImplicit(Propagator):
         (\mathbb{E})_p & = \alpha^2 \sqrt{f_0} \, \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right) \,.
         \end{align}
 
-    make up the accumulation matrix :math:`\mathbb{E} \mathbb{W}` .
+    and for the Vlasov-Maxwell with delta-f method the matrices are
+
+    .. math::
+        \begin{align}
+        (\mathbb{W})_p & = \frac{1}{N \, s_{0, p}} \frac{1}{v_{\text{th}}^2} \sqrt{f_0}
+            \left( DF^{-1} \mathbf{v}_p \right) \cdot \left( \mathbb{\Lambda}^1 \right)^T \,,
+            \\
+        (\mathbb{E})_p & = \alpha^2 \sqrt{f_0} \, \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right) \,.
+        \end{align}
+
+    which make up the accumulation matrix :math:`\mathbb{E} \mathbb{W}` .
 
     Parameters
     ---------- 
@@ -221,7 +230,7 @@ class EfieldWeightsImplicit(Propagator):
 
     **params : dict
         Solver- and/or other parameters for this splitting step.
-    '''
+    """
 
     def __init__(self, e, particles, **params):
 
@@ -233,6 +242,7 @@ class EfieldWeightsImplicit(Propagator):
         params_default = {'alpha': 1.,
                           'kappa': 1.,
                           'f0': Maxwellian6DUniform(),
+                          'model': 'linear_vlasov_maxwell',
                           'type': 'PConjugateGradient',
                           'pc': 'MassMatrixPreconditioner',
                           'tol': 1e-8,
@@ -243,6 +253,8 @@ class EfieldWeightsImplicit(Propagator):
         params = set_defaults(params, params_default)
 
         assert isinstance(params['f0'], Maxwellian6DUniform)
+        assert params['model'] in (
+            'linear_vlasov_maxwell', 'delta_f_vlasov_maxwell')
 
         self._alpha = params['alpha']
         self._kappa = params['kappa']
@@ -254,16 +266,23 @@ class EfieldWeightsImplicit(Propagator):
                                     self._f0.params['vth1'],
                                     self._f0.params['vth2'],
                                     self._f0.params['vth3']])
+        self._model = params['model']
 
         self._info = params['info']
 
         # Initialize Accumulator object
-        self._accum = Accumulator(self.derham, self.domain, 'Hcurl', 'linear_vlasov_maxwell',
-                                  add_vector=True, symmetry='symm')
+        if params['model'] == 'linear_vlasov_maxwell':
+            self._accum = Accumulator(self.derham, self.domain, 'Hcurl', 'linear_vlasov_maxwell',
+                                      add_vector=True, symmetry='symm')
+        elif params['model'] == 'delta_f_vlasov_maxwell':
+            self._accum = Accumulator(self.derham, self.domain, 'Hcurl', 'delta_f_vlasov_maxwell_scn',
+                                      add_vector=True, symmetry='symm')
+        else:
+            raise NotImplementedError(f"Unknown model : {params['model']}")
 
         # Create buffers to store temporarily _e and its sum with old e
-        self._e_temp = e.copy()
-        self._e_sum = e.copy()
+        self._e_temp = e.space.zeros()
+        self._e_sum = e.space.zeros()
 
         # store old weights to compute difference
         self._old_weights = np.empty(particles.markers.shape[0], dtype=float)
@@ -289,8 +308,14 @@ class EfieldWeightsImplicit(Propagator):
                                          verbose=params['verbose'])
 
         # Instantiate particle pusher
-        self._pusher = Pusher(self.derham, self.domain,
-                              'push_weights_with_efield_lin_vm')
+        if params['model'] == 'linear_vlasov_maxwell':
+            self._pusher = Pusher(self.derham, self.domain,
+                                  'push_weights_with_efield_lin_vm')
+        elif params['model'] == 'delta_f_vlasov_maxwell':
+            self._pusher = Pusher(self.derham, self.domain,
+                                  'push_weights_with_efield_delta_f_vm')
+        else:
+            raise NotImplementedError(f"Unknown model : {params['model']}")
 
     def __call__(self, dt):
         # evaluate f0 and accumulate
@@ -301,8 +326,9 @@ class EfieldWeightsImplicit(Propagator):
                              self.particles[0].markers[:, 4],
                              self.particles[0].markers[:, 5])
 
-        self._accum.accumulate(self.particles[0], f0_values,
-                               self._f0_params, self._alpha, self._kappa)
+        self._accum.accumulate(self.particles[0],
+                               f0_values, float(self._f0_params[4]),
+                               self._alpha, self._kappa)
 
         # Update Schur solver
         self._schur_solver.BC = - self._accum.operators[0].matrix / 4
@@ -318,19 +344,31 @@ class EfieldWeightsImplicit(Propagator):
         # reset _e_sum
         self._e_sum *= 0.
 
-        # Compute e^{n+1} + e^n
+        # Compute (e^{n+1} + e^n) / 2
         self._e_sum += self._e_temp
         self._e_sum += self.feec_vars[0]
+        self._e_sum *= 0.5
 
         # Update weights
-        self._pusher(self.particles[0], dt,
-                     self._e_sum.blocks[0]._data,
-                     self._e_sum.blocks[1]._data,
-                     self._e_sum.blocks[2]._data,
-                     f0_values,
-                     self._f0_params,
-                     int(self.particles[0].n_mks),
-                     self._kappa)
+        if self._model == 'linear_vlasov_maxwell':
+            self._pusher(self.particles[0], dt,
+                         self._e_sum.blocks[0]._data,
+                         self._e_sum.blocks[1]._data,
+                         self._e_sum.blocks[2]._data,
+                         f0_values,
+                         self._f0_params,
+                         int(self.particles[0].n_mks),
+                         self._kappa)
+        elif self._model == 'delta_f_vlasov_maxwell':
+            self._pusher(self.particles[0], dt,
+                         self._e_sum.blocks[0]._data,
+                         self._e_sum.blocks[1]._data,
+                         self._e_sum.blocks[2]._data,
+                         f0_values,
+                         float(self._f0_params[4]),
+                         self._kappa,
+                         int(1)  # since we want to use the implicit substep
+                         )
 
         # write new coeffs into self.variables
         max_de, = self.feec_vars_update(self._e_temp)
@@ -346,8 +384,8 @@ class EfieldWeightsImplicit(Propagator):
             print()
 
 
-class EfieldWeightsExplicit(Propagator):
-    r'''Solve the following system analytically
+class EfieldWeightsDiscreteGradient(Propagator):
+    r""" Solve the following system analytically
 
     .. math::
 
@@ -357,6 +395,8 @@ class EfieldWeightsExplicit(Propagator):
             \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} & = - \alpha^2 \kappa \sum_p \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right)
             \frac{1}{N \, s_{0, p}} \left( \frac{f_0}{\ln(f_0)} - f_0 \right)
         \end{align}
+
+    using the symplectic Euler method.
 
     Parameters
     ---------- 
@@ -368,7 +408,7 @@ class EfieldWeightsExplicit(Propagator):
 
     **params : dict
         Solver- and/or other parameters for this splitting step.
-    '''
+    """
 
     def __init__(self, e, particles, **params):
 
@@ -411,15 +451,11 @@ class EfieldWeightsExplicit(Propagator):
             self.derham, self.domain, 'Hcurl', 'delta_f_vlasov_maxwell')
 
         # Create buffers to temporarily store _e and its sum with old e
-        self._m1_acc_vec = e.copy()
-        self._e_dt2 = e.copy()
+        self._m1_acc_vec = e.space.zeros()
+        self._e_sum = e.space.zeros()
 
         # store old weights to compute difference
         self._old_weights = np.empty(particles.markers.shape[0], dtype=float)
-
-        # ================================
-        # ========= Schur Solver =========
-        # ================================
 
         # Preconditioner
         if params['pc'] == None:
@@ -427,12 +463,12 @@ class EfieldWeightsExplicit(Propagator):
         else:
             pc_class = getattr(preconditioner, params['pc'])
             self._pc = pc_class(self.mass_ops.M1)
-            
+
         # solver
-        self.solver =pcg(e.space)
+        self.solver = pcg(e.space)
 
         self._pusher = Pusher(self.derham, self.domain,
-                              'push_weights_with_efield_deltaf_vm')
+                              'push_weights_with_efield_delta_f_vm')
 
     def __call__(self, dt):
         # evaluate f0 and accumulate
@@ -443,17 +479,157 @@ class EfieldWeightsExplicit(Propagator):
                              self.particles[0].markers[:, 4],
                              self.particles[0].markers[:, 5])
 
-        self._accum.accumulate(self.particles[0], f0_values,
-                               self._f0_params, self._alpha, self._kappa)
+        self._accum.accumulate(self.particles[0], f0_values, self._alpha, self._kappa, int(1))
 
         self._m1_acc_vec, info = self.solver.solve(self.mass_ops.M1,
-                                     self._accum.vectors[0],
-                                     self._pc,
-                                     x0=self.feec_vars[0],
-                                     tol=self._params['tol'],
-                                     maxiter=self._params['maxiter'],
-                                     verbose=self._params['verbose']
-                                     )
+                                                   self._accum.vectors[0],
+                                                   self._pc,
+                                                   x0=self.feec_vars[0],
+                                                   tol=self._params['tol'],
+                                                   maxiter=self._params['maxiter'],
+                                                   verbose=self._params['verbose']
+                                                   )
+
+        if self._info:
+            # Store old weights
+            self._old_weights[~self.particles[0].holes] = self.particles[0].markers[~self.particles[0].holes, 6]
+
+        # Compute (e^{n+1} + e^n) / 2 = e^n + dt / 2 * accum_vec
+        self._e_sum *= 0.
+        self._e_sum += self.feec_vars[0]
+        self._m1_acc_vec *= (dt / 2)
+        self._e_sum += self._m1_acc_vec
+
+        # Update weights
+        self._pusher(self.particles[0], dt,
+                     self._e_sum.blocks[0]._data,
+                     self._e_sum.blocks[1]._data,
+                     self._e_sum.blocks[2]._data,
+                     f0_values,
+                     float(self._f0_params[4]),
+                     self._kappa,
+                     int(1)  # since we want to use the last substep
+                     )
+
+        # Update e-field and compute max difference
+        self._m1_acc_vec *= 2.
+        max_de = np.max(np.abs(self._m1_acc_vec.toarray()))
+        self.feec_vars[0] += self._m1_acc_vec
+
+        # Print out max differences for weights and e-field
+        if self._info:
+            print('Status          for StepEfieldWeights:', info['success'])
+            print('Iterations      for StepEfieldWeights:', info['niter'])
+            print('Maxdiff    e1   for StepEfieldWeights:', max_de)
+            max_diff = np.max(np.abs(self._old_weights[~self.particles[0].holes]
+                                     - self.particles[0].markers[~self.particles[0].holes, 6]))
+            print('Maxdiff weights for StepEfieldWeights:', max_diff)
+            print()
+
+
+class EfieldWeightsAnalytic(Propagator):
+    r""" Solve the following system analytically
+
+    .. math::
+
+        \begin{align}
+            \frac{\text{d}}{\text{d} t} w_p & = \frac{1}{N \, s_{0, p}} \frac{\kappa}{v_{\text{th}}^2} \left[ DF^{-T} (\mathbb{\Lambda}^1)^T \mathbf{e} \right]
+            \cdot \mathbf{v}_p \left( \frac{f_0}{\ln(f_0)} - f_0 \right) \\[2mm]
+            \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} & = - \alpha^2 \kappa \sum_p \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right)
+            \frac{1}{N \, s_{0, p}} \left( \frac{f_0}{\ln(f_0)} - f_0 \right)
+        \end{align}
+
+    Parameters
+    ---------- 
+    e : psydac.linalg.block.BlockVector
+        FE coefficients of a 1-form.
+
+    particles : struphy.pic.particles.Particles6D
+        Particles object.
+
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
+    """
+
+    def __init__(self, e, particles, **params):
+
+        from struphy.kinetic_background.maxwellians import Maxwellian6DUniform
+
+        super().__init__(e, particles)
+
+        # parameters
+        params_default = {'alpha': 1e2,
+                          'kappa': 1.,
+                          'f0': Maxwellian6DUniform(),
+                          'type': 'PConjugateGradient',
+                          'pc': 'MassMatrixPreconditioner',
+                          'tol': 1e-8,
+                          'maxiter': 3000,
+                          'info': False,
+                          'verbose': False}
+
+        params = set_defaults(params, params_default)
+
+        self._params = params
+
+        assert isinstance(params['f0'], Maxwellian6DUniform)
+
+        self._alpha = params['alpha']
+        self._kappa = params['kappa']
+        self._f0 = params['f0']
+        self._f0_params = np.array([self._f0.params['n'],
+                                    self._f0.params['u1'],
+                                    self._f0.params['u2'],
+                                    self._f0.params['u3'],
+                                    self._f0.params['vth1'],
+                                    self._f0.params['vth2'],
+                                    self._f0.params['vth3']])
+
+        self._info = params['info']
+
+        # Initialize Accumulator object
+        self._accum = AccumulatorVector(
+            self.derham, self.domain, 'Hcurl', 'delta_f_vlasov_maxwell')
+
+        # Create buffers to temporarily store _e and its sum with old e
+        self._m1_acc_vec = e.space.zeros()
+        self._e_dt2 = e.space.zeros()
+
+        # store old weights to compute difference
+        self._old_weights = np.empty(particles.markers.shape[0], dtype=float)
+
+        # Preconditioner
+        if params['pc'] == None:
+            self._pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            self._pc = pc_class(self.mass_ops.M1)
+
+        # solver
+        self.solver = pcg(e.space)
+
+        self._pusher = Pusher(self.derham, self.domain,
+                              'push_weights_with_efield_delta_f_vm')
+
+    def __call__(self, dt):
+        # evaluate f0 and accumulate
+        f0_values = self._f0(self.particles[0].markers[:, 0],
+                             self.particles[0].markers[:, 1],
+                             self.particles[0].markers[:, 2],
+                             self.particles[0].markers[:, 3],
+                             self.particles[0].markers[:, 4],
+                             self.particles[0].markers[:, 5])
+
+        self._accum.accumulate(self.particles[0], f0_values, self._alpha, self._kappa, int(0))
+
+        self._m1_acc_vec, info = self.solver.solve(self.mass_ops.M1,
+                                                   self._accum.vectors[0],
+                                                   self._pc,
+                                                   x0=self.feec_vars[0],
+                                                   tol=self._params['tol'],
+                                                   maxiter=self._params['maxiter'],
+                                                   verbose=self._params['verbose']
+                                                   )
 
         # Store old weights
         self._old_weights[~self.particles[0].holes] = self.particles[0].markers[~self.particles[0].holes, 6]
@@ -470,9 +646,10 @@ class EfieldWeightsExplicit(Propagator):
                      self._e_dt2.blocks[1]._data,
                      self._e_dt2.blocks[2]._data,
                      f0_values,
-                     self._f0_params,
-                     int(self.particles[0].n_mks),
-                     self._kappa)
+                     float(self._f0_params[4]),
+                     self._kappa,
+                     int(0)  # since we want to use the explicit substep
+                     )
 
         # Update e-field and compute max difference
         self._m1_acc_vec *= dt
