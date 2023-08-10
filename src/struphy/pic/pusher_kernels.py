@@ -2597,18 +2597,18 @@ def push_weights_with_efield_lin_vm(markers: 'float[:,:]', dt: float, stage: int
 
 
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'df', 'df_inv', 'v', 'df_inv_v')
-def push_weights_with_efield_deltaf_vm(markers: 'float[:,:]', dt: float, stage: int,
-                                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                                       kind_map: int, params_map: 'float[:]',
-                                       p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                       ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                       cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                       e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
-                                       f0_values: 'float[:]', f0_params: 'float[:]',
-                                       n_markers_tot: 'int', kappa: 'float'):
-    r'''
-    updates the single weights in the e_W substep of the linearized Vlasov Maxwell system;
+def push_weights_with_efield_delta_f_vm(markers: 'float[:,:]', dt: float, stage: int,
+                                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                        starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                        kind_map: int, params_map: 'float[:]',
+                                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                                        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                                        e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
+                                        f0_values: 'float[:]', vth: 'float',
+                                        kappa: 'float', substep: 'int'):
+    r"""
+    updates the single weights in one of the e_W substep of the Vlasov Maxwell system;
     c.f. struphy.propagators.propagators.StepEfieldWeights
 
     Parameters :
@@ -2628,7 +2628,10 @@ def push_weights_with_efield_deltaf_vm(markers: 'float[:,:]', dt: float, stage: 
 
     kappa : float
         = 2 * pi * Omega_c / omega ; Parameter determining the coupling strength between particles and fields
-    '''
+
+    substep : int
+        0 for explicit substep, 1 for symplectic substep
+    """
 
     # total number of basis functions : B-splines (pn) and D-splines (pn-1)
     pn1 = pn[0]
@@ -2686,9 +2689,9 @@ def push_weights_with_efield_deltaf_vm(markers: 'float[:,:]', dt: float, stage: 
                     df)
 
         # compute shifted and stretched velocity
-        v[0] = (markers[ip, 3] - f0_params[1]) / f0_params[4]**2
-        v[1] = (markers[ip, 4] - f0_params[2]) / f0_params[5]**2
-        v[2] = (markers[ip, 5] - f0_params[3]) / f0_params[6]**2
+        v[0] = markers[ip, 3]
+        v[1] = markers[ip, 4]
+        v[2] = markers[ip, 5]
 
         # invert Jacobian matrix
         linalg.matrix_inv(df, df_inv)
@@ -2702,9 +2705,16 @@ def push_weights_with_efield_deltaf_vm(markers: 'float[:,:]', dt: float, stage: 
         e_vec_3 = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3,
                                                  span1, span2, span3, e1_3, starts1[2])
 
-        # w_{n+1} = w_n + dt * kappa / (N * s_0) (e_n - dt^2 / 2 * accum_vec) \cdot (DL^{-1} \V_th (v_p - u)) (f_0 / log(f_0) - f_0)
-        update = (df_inv_v[0] * e_vec_1 + df_inv_v[1] * e_vec_2 + df_inv_v[2] * e_vec_3) * \
-            dt * kappa * (f0 / log(f0) - f0) / (n_markers_tot * markers[ip, 7])
+        update = kappa * (df_inv_v[0] * e_vec_1 + df_inv_v[1] * e_vec_2 + df_inv_v[2] * e_vec_3)
+        if substep == 0:
+            # w_p += dt * kappa / s_0 * (DL^{-1} v_p) * e_vec
+            # with e_vec = e(0) - dt / 2 * M_1^{-1} accum_vec
+            update *= dt * (f0 / log(f0) - f0) / markers[ip, 7]
+        elif substep == 1:
+            # w_p -= dt * kappa * w_p / (vth^2 * ln(f_0)) * (DL^{-1} v_p) * e_vec
+            # with e_vec = (e^{n+1} + e^n) / 2
+            update *= (-1) * dt * markers[ip, 6] / (vth**2 * log(f0))
+
         markers[ip, 6] += update
 
     #$ omp end parallel

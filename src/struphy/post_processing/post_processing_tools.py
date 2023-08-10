@@ -9,6 +9,7 @@ from struphy.psydac_api.psydac_derham import Derham
 from struphy.psydac_api.fields import Field
 from struphy.kinetic_background import maxwellians
 from struphy.models.setup import setup_domain_mhd
+import matplotlib.pyplot as plt
 
 from tqdm import tqdm
 
@@ -465,7 +466,7 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
             np.save(grid_path, grid[:])
 
     # compute distribution function (and delta f)
-    for k, (slice_name, dset) in enumerate(tqdm(files[0]['kinetic/' + species + '/f'].items())):
+    for _, (slice_name, dset) in enumerate(tqdm(files[0]['kinetic/' + species + '/f'].items())):
 
         # path to folder of slice
         path_slice = os.path.join(path_distr, slice_name)
@@ -497,8 +498,12 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
             else:
                 f_bckgr = getattr(maxwellians, fun_name)()
 
+            assert fun_name == 'Maxwellian6DUniform', \
+                f'Post-processing is not yet implemented for a background distribution function of type {fun_name}'
+
             # load all grids of the variables of f
             grid_tot = []
+            factor = 1.
             for coord in ['e', 'v']:
                 for comp in range(1, 4):
                     current_slice = coord + str(comp)
@@ -515,42 +520,22 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
                             grid_tot += [np.zeros(1)]
                         elif coord == 'v':
                             grid_tot += [np.zeros(1)]
+                            # correct integrating out in v-direction
+                            factor *= np.sqrt(2*np.pi)
 
             grid_eval = np.meshgrid(*grid_tot, indexing='ij')
 
             data_bckgr = f_bckgr(*grid_eval).squeeze()
+            # correct integrating out in v-direction
+            data_bckgr *= factor
 
-            if marker_type == 'control_variate':
-                data_delta_f = data
-
-            elif marker_type == 'delta_f':
-
-                # Linearized Vlasov-Maxwell system
-                if model == "LinearVlasovMaxwell":
-                    assert fun_name == 'Maxwellian6DUniform', \
-                        'The linearized Vlasov-Maxwell is only implemented for a uniform Maxwellian background!'
-
-                    # h = f_1 / sqrt{f_0}
-                    data_delta_f = np.multiply(data,
-                                               np.sqrt(data_bckgr[tuple([None])]))  # add extra axis at beginning
-
-                # Vlasov-Maxwell system with Delta-f
-                elif model == "DeltaFVlasovMaxwell":
-                    assert fun_name == 'Maxwellian6DUniform', \
-                        'The Vlasov-Maxwell system with Delta-f is only implemented for a uniform Maxwellian background!'
-
-                    # h = f_0 - (f_0 + f_1) * ln(f_0)
-                    data_delta_f = data_bckgr[tuple([None])] - \
-                        np.multiply(data_bckgr[tuple([None])] + data,
-                                    np.log(data_bckgr[tuple([None])]))
-
-                else:
-                    raise NotImplementedError(
-                        f'Post-processing for the model {model} with {marker_type} has not been implemented yet!')
+            # Now all data is just the data for delta_f
+            data_delta_f = data
 
             # save distribution function
             np.save(os.path.join(path_slice, 'delta_f_binned.npy'), data_delta_f)
-            np.save(os.path.join(path_slice, 'f_binned.npy'), data_delta_f + data_bckgr)
+            # add extra axis for data_bckgr since data_delta_f has axis for time series
+            np.save(os.path.join(path_slice, 'f_binned.npy'), data_delta_f + data_bckgr[tuple([None])])
 
     # close hdf5 files
     for file in files:

@@ -1805,7 +1805,7 @@ class ImplicitDiffusion(Propagator):
     ----------
     phi : psydac.linalg.stencil.StencilVector
         FE coefficients of a discrete 0-form, the solution.
-    
+
     sigma : float
         Stabilization parameter: :math:`\sigma=1` for the heat equation and :math:`\sigma=0` for the Poisson equation.
 
@@ -1822,7 +1822,7 @@ class ImplicitDiffusion(Propagator):
     def __init__(self, phi, sigma=1., phi_n=None, x0=None, **solver_params):
 
         super().__init__(phi)
-        
+
         # parameters
         params_default = {'type': 'PConjugateGradient',
                           'pc': 'MassMatrixPreconditioner',
@@ -1846,7 +1846,7 @@ class ImplicitDiffusion(Propagator):
             # check solvability condition
             if np.abs(sigma) < 1e-14:
                 sigma = 1e-14
-                self.check_rhs(phi_n) 
+                self.check_rhs(phi_n)
 
         # initial guess and solver params
         self._x0 = x0
@@ -1865,26 +1865,27 @@ class ImplicitDiffusion(Propagator):
         else:
             pc_class = getattr(preconditioner, self._solver_params['pc'])
             self._pc = pc_class(self.mass_ops.M0)
-            
+
         # solver for Ax=b with A=const.
         self.solver = pcg(self.derham.Vh['0'])
 
     def check_rhs(self, phi_n):
         '''Checks space of rhs and, for periodic boundary conditions and sigma=0,
         checks whether the integral over phi_n is zero.
-        
+
         Parameters
         ----------
         phi_n : psydac.linalg.stencil.StencilVector
             FE coefficients of a 0-form.'''
-        
+
         assert type(phi_n) == type(self._phi_n)
-        
-        if np.all(phi_n.space.periods): 
+
+        if np.all(phi_n.space.periods):
             solvability = np.zeros(1)
             self.derham.comm.Allreduce(
                 np.sum(phi_n.toarray()), solvability, op=MPI.SUM)
-            assert np.abs(solvability[0]) <= 1e-11, f'Solvability condition not met: {solvability[0]}'
+            assert np.abs(
+                solvability[0]) <= 1e-11, f'Solvability condition not met: {solvability[0]}'
 
     @property
     def phi_n(self):
@@ -1922,13 +1923,13 @@ class ImplicitDiffusion(Propagator):
     def __call__(self, dt):
 
         res, info = self.solver.solve(self._A1 + dt * self._A2,
-                        self._phi_n,
-                        pc=self._pc,
-                        x0=self._x0,
-                        tol=self._solver_params['tol'],
-                        maxiter=self._solver_params['maxiter'],
-                        verbose=self._solver_params['verbose']
-                        )
+                                      self._phi_n,
+                                      pc=self._pc,
+                                      x0=self._x0,
+                                      tol=self._solver_params['tol'],
+                                      maxiter=self._solver_params['maxiter'],
+                                      verbose=self._solver_params['verbose']
+                                      )
 
         if self._solver_params['info']:
             print(info)
