@@ -809,13 +809,13 @@ def sendrecv_determine_mtbs(markers, holes, domain_decomp, mpi_rank):
         markers[:, :3] > domain_decomp[mpi_rank, 0::3],
         markers[:, :3] < domain_decomp[mpi_rank, 1::3])
 
-    # to can_stay on the current process, all three columns must be True
+    # to stay on the current process, all three columns must be True
     can_stay = np.all(is_on_proc_domain, axis=1)
 
     # holes can stay, too
     can_stay[holes] = True
 
-    # True values can can_stay on the process, False must be sent, already empty rows (-1) cannot be sent
+    # True values can stay on the process, False must be sent, already empty rows (-1) cannot be sent
     send_inds = np.nonzero(~can_stay)[0]
 
     hole_inds_after_send = np.nonzero(np.logical_or(~can_stay, holes))[0]
@@ -937,7 +937,7 @@ def sendrecv_markers(send_list, recv_info, hole_inds_after_send, markers, comm):
             recvbufs += [np.zeros((N_recv, markers.shape[1]), dtype=float)]
             reqs += [comm.Irecv(recvbufs[-1], source=i, tag=i)]
 
-    # Wait for buffer, then put markers into holes
+    # Wait for buffer, then put markers into holes    
     test_reqs = [False] * (recv_info.size - 1)
     while len(test_reqs) > 0:
         # loop over all receive requests

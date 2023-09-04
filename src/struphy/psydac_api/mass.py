@@ -20,16 +20,7 @@ from struphy.psydac_api.fields import Field
 
 class WeightedMassOperators:
     r"""
-    Class for assembling weighted mass matrices in 3d.
-
-    Weighted mass matrices :math:`\mathbb M^{\beta\alpha}: \mathbb R^{N_\alpha} \to \mathbb R^{N_\beta}` are of the general form
-
-    .. math::
-
-        \mathbb M^{\beta \alpha}_{(\mu,ijk),(\nu,mno)} = \int_{[0, 1]^3} \Lambda^\beta_{\mu,ijk} \, W_{\mu,\nu} \, \Lambda^\alpha_{\nu,mno} \, \textnormal d^3 \boldsymbol\eta\,,
-
-    where the weight fuction :math:`W` can be rank 0, 1 or 2, depending on domain and co-domain of the operator, and :math:`\Lambda^\alpha_{\nu, mno}` is the B-spline basis function with tensor-product index :math:`mno` of the
-    :math:`\nu`-th component in the space :math:`V^\alpha_h`. These matrices are sparse and stored in StencilMatrix format.
+    Collection of pre-defined :class:`struphy.psydac_api.mass.WeightedMassOperator`.
 
     Parameters
     ----------
@@ -581,8 +572,19 @@ class WeightedMassOperators:
 
 
 class WeightedMassOperator(LinOpWithTransp):
-    """
-    Weighted mass matrix of the form B * E * M * E^T * B^T, with E and B being basis extraction and boundary operators, respectively.
+    r"""
+    Class for assembling weighted mass matrices in 3d.
+
+    Weighted mass matrices :math:`\mathbb M^{\beta\alpha}: \mathbb R^{N_\alpha} \to \mathbb R^{N_\beta}` are of the general form
+
+    .. math::
+
+        \mathbb M^{\beta \alpha}_{(\mu,ijk),(\nu,mno)} = \int_{[0, 1]^3} \Lambda^\beta_{\mu,ijk} \, A_{\mu,\nu} \, \Lambda^\alpha_{\nu,mno} \, \textnormal d^3 \boldsymbol\eta\,,
+
+    where the weight fuction :math:`A` is a tensor of rank 0, 1 or 2, depending on domain and co-domain of the operator, and :math:`\Lambda^\alpha_{\nu, mno}` is the B-spline basis function with tensor-product index :math:`mno` of the
+    :math:`\nu`-th component in the space :math:`V^\alpha_h`. These matrices are sparse and stored in StencilMatrix format.
+    
+    Finally, :math:`\mathbb M^{\beta\alpha}` can be multiplied by extraction and boundary operators,  :math:`B * E * M^{\beta\alpha} * E^T * B^T`.
 
     Parameters
     ----------

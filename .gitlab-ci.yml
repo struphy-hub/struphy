@@ -242,7 +242,7 @@ default_install:
     - ./src/struphy/verify_compilation.sh
     - pip list
 
-# # default tests (always)
+# default tests (always)
 default_unit_tests:
   stage: test
   needs: ["default_install"]
@@ -343,7 +343,7 @@ pages:
   rules:
     - if: $CI_COMMIT_TAG
       when: never
-    - if: $CI_COMMIT_REF_PROTECTED == "true"  
+    - if: $CI_COMMIT_REF_PROTECTED == "true" 
   needs: ["default_build"]
   script:
     - pip install dist/struphy*.whl

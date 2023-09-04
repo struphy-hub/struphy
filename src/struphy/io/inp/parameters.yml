@@ -6,7 +6,7 @@
 # 4. For available MHD equilibria, please check out https://struphy.pages.mpcdf.de/struphy/sections/mhd_equils.html
 
 grid :
-    Nel       : [8, 16, 4] # number of grid cells, >p
+    Nel       : [16, 16, 4] # number of grid cells, >p
     p         : [3, 4, 2]  # spline degree
     spl_kind  : [False, True, True] # spline type: True=periodic, False=clamped
     bc        : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
