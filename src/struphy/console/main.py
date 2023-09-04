@@ -33,7 +33,7 @@ def struphy():
 
     # version message
     version_message = f'Struphy {__version__}\n'
-    version_message += 'Copyright 2019 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n'
+    version_message += 'Copyright 2019-2023 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n'
     version_message += 'MIT license\n'
 
     # path message

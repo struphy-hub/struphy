@@ -6,10 +6,10 @@ Userguide
 
 .. _running_codes:
 
-Running Struphy models
-----------------------
+Solving PDEs with Struphy - running models
+------------------------------------------
 
-The help for running struphy models can be accessed with::
+The help for running Struphy models can be accessed with::
 
     struphy run --help
 
@@ -17,23 +17,29 @@ The basic command is::
 
     struphy run [OPTIONS] MODEL 
 
-See :ref:`models` for more information such as implemented equations and normalization.
-If no ``[OPTIONS]`` are specified, the input is taken from ``<install_path>/io/inp/parameters.yml``,
-where ``<install_path>`` is obtained from::
+See :ref:`models` for more information such as implemented PDEs and normalization.
+If no ``[OPTIONS]`` are specified, the input is taken from ``<install_path>/parameters.yml``,
+where ``<install_path>`` is the current input path obtained from::
 
     struphy -p
 
-The default parameter file ``<install_path>/io/inp/parameters.yml`` provides an overview of simulation parameters
-that can be passed to Struphy models. Model specific parameter templates can be found under ``<install_path>/io/inp/params_*.yml``.
+The I/O paths can be changed with the commands:: 
+
+    struphy --set-i <path>
+    struphy --set-o <path>
+
+If ``<path>`` is ``.`` the current working directory is selected.
+The default parameter file ``<install_path>/parameters.yml`` provides an overview of simulation parameters
+that can be passed to Struphy models. Model specific parameter templates can be found under ``<install_path>/params_*.yml``.
 Possible parameters are discussed in more detail in :ref:`params_yml`.
 
-By default, simulation data is written to ``<install_path>/io/out/sim_1/``. 
-Different input files and/or output folders in ``<install_path>/io/`` can be specified
+By default, simulation data is written to ``<install_path>/sim_1/``. 
+Different input files and/or output folders in the current I/O paths can be specified
 with the ``-i`` and/or ``-o`` flags, respectively::
 
     struphy run MODEL -i my_params.yml -o my_folder
 
-Absolute paths can also be specified::
+Absolute paths (unrelated to the current I/O paths) can also be specified::
 
     struphy run MODEL --input-abs path/to/file.yml --output-abs path/to/folder
 
@@ -43,7 +49,11 @@ Small parallel runs for testing can be called via::
 
 where ``<int>`` denotes the number of mpi processes. 
 `Slurm <https://slurm.schedmd.com/documentation.html>`_ jobs can be submitted via batch scripts. 
-Some default batch scripts are provided in ``<install_path>/io/batch``. 
+The path to your batch scripts can be set via::
+
+    struphy --set-b <path>
+
+If ``<path>`` is ``.`` the current working directory is selected.
 A model is run as a slurm job with the ``-b`` flag::
 
     struphy run MODEL -b cobra_0160proc.sh
@@ -69,7 +79,7 @@ In order to see profiling results type::
 
     struphy profile [OPTIONS] sim_1 [sim_2 ...]
 
-Here, ``sim_1``, ``sim2`` etc. are relative to ``<install_path>/io/out/``. If more than one simulation is profiled, 
+Here, ``sim_1``, ``sim2`` etc. are relative to the current output path. If more than one simulation is profiled, 
 they all have to be from the same ``MODEL``. To get more info on possible ``OPTIONS`` type::
 
     struphy profile -h
@@ -88,10 +98,10 @@ The basic command for Struphy post-processing is::
 
     struphy pproc -d <sim_name> 
 
-Here, ``<sim_name>`` is relative to ``<install_path>/io/out/``. 
-The generated output data can be inspected at:: 
+Here, ``<sim_name>`` is relative to the current output path. 
+In the latter, the generated output data can be inspected at:: 
     
-    cd <install_path>/io/out/<sim_name>/post_processing/
+    cd <sim_name>/post_processing/
 
 
 .. _params_yml:
@@ -99,8 +109,9 @@ The generated output data can be inspected at::
 Setting simulation parameters
 -----------------------------
 
-The default parameter file ``<install_path>/io/inp/parameters.yml`` can be used for all available :ref:`models`. 
-The user finds the simulation parameters categorized into the following top level keywords:
+The default parameter file can be inspected under ``<install_path>/parameters.yml``.
+In a Struphy parameter file, the simulation parameters must be categorized into the following top level keywords
+(only ``grid``, ``time`` and ``geometry`` are mandatory):
 
 * :ref:`grid`
 * :ref:`time`
@@ -112,8 +123,7 @@ The user finds the simulation parameters categorized into the following top leve
 * :ref:`kinetic`
 * :ref:`solvers`
 
-Model specific parameter files can be much shorter. It is enough to include one geometry, 
-mhd_equilibirum, initial condition, etc. for a run.
+The input must be structured as follows:
 
 .. _grid:
 
@@ -147,9 +157,11 @@ time
 geometry
 ^^^^^^^^
 
+See :ref:`avail_mappings` for possible mapping ``type``.
+
 ::
 
-    type : Cuboid # mapping F (possible types seen below)  
+    type : Tokamak # mapping F   
     Tokamak :
         Nel        : [8, 32] # number of poloidal grid cells, >p
         p          : [3, 3] # poloidal spline degrees, >1
@@ -160,111 +172,17 @@ geometry
         Nel_pre    : [64, 256] # number of poloidal grid cells of pre-mapping needed for equal_arc_length and sfl
         p_pre      : [3, 3] # poloidal spline degrees of pre-mapping needed for equal_arc_length and sfl
         tor_period : 1 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
-    GVECunit :
-        rel_path  : True # whether to state dat_file (json_file) relative to "<struphy_path>/fields_background/mhd_equil/gvec", or give the absolute path
-        dat_file  : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file 
-        json_file : Null # give directly the parsed json file, if it exists (then dat_file is not used)
-        use_pest  : False # Whether to use straight-field line coordinates (PEST)
-        use_nfp   : True # Whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
-        Nel       : [32, 32, 32] # Number of cells in each direction used for interpolation of the mapping.
-        p         : [3, 3, 3] # Spline degree in each direction used for interpolation of the mapping.
-    IGAPolarCylinder :
-        Nel : [8, 24] # number of poloidal grid cells, >p
-        p   : [3, 3] # poloidal spline degree, >1
-        Lz  : 6. # Length in third direction
-        a   : 1. # minor radius
-    IGAPolarTorus :
-        Nel        : [8, 24] # number of poloidal grid cells, >p
-        p          : [3, 3] # poloidal spline degree, >1
-        a          : 1. # minor radius
-        R0         : 3. # major radius
-        tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
-        sfl        : False # whether to use straight field line coordinates (particular theta parametrization) 
-    Cuboid : 
-        l1 : 0. # start of interval in eta1
-        r1 : 2. # end of interval in eta1, r1>l1
-        l2 : 0. # start of interval in eta2
-        r2 : 2. # end of interval in eta2, r2>l2
-        l3 : 0. # start of interval in eta3
-        r3 : 1. # end of interval in eta3, r3>l3
-    Orthogonal :
-        Lx    : 2. # length in x-direction
-        Ly    : 2. # length in y-direction
-        alpha : .1 # x-distortion and y-distortion
-        Lz    : 1. # length in third direction
-    Colella :
-        Lx    : 2. # length in x-direction
-        Ly    : 2. # length in y-direction
-        alpha : .1 # distortion factor
-        Lz    : 1. # length in third direction
-    HollowCylinder :
-        a1 : .2 # inner radius
-        a2 : 1. # outer radius
-        Lz : 4. # length in third direction   
-    PoweredEllipticCylinder :
-        rx : 1. # axis length
-        ry : 2. # axis length
-        Lz : 4. # length in third direction
-        s  : .5 # power of radial coordinate
-    HollowTorus :
-        a1 : .2 # inner radius
-        a2 : 1. # minor radius
-        R0 : 3. # major radius
-        sfl : False # straight field line coordinates?
-        tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
-    ShafranovShiftCylinder :
-        rx    : 1. # axis length
-        ry    : 1. # axis length
-        Lz    : 4. # length in third direction
-        delta : .2 # shift factor, should be in [0, 0.1]
-    ShafranovSqrtCylinder :
-        rx    : 1. # axis length
-        ry    : 1. # axis length
-        Lz    : 4. # length in third direction
-        delta : .2 # shift factor, should be in [0, 0.1]
-    ShafranovDshapedCylinder :
-        R0         : 2. # base radius
-        Lz         : 4. # length in third direction
-        delta_x    : .05 # Shafranov shift in x-direction
-        delta_y    : .025 # Shafranov shift in y-direction
-        delta_gs   : .05 # delta = sin(alpha): triangularity, shift of high point
-        epsilon_gs : .5 # epsilon: inverse aspect ratio a/r0
-        kappa_gs   : 2. # Kappa: ellipticity (elongation)
 
 .. _mhd_equilibrium:
 
 mhd_equilibrium
 ^^^^^^^^^^^^^^^
 
+See :ref:`mhd_equil` for possible MHD equilibrium ``type``.
+
 ::
 
-    type : HomogenSlab # (possible choices seen below)
-    HomogenSlab :
-        B0x  : 0. # magnetic field in x
-        B0y  : 0. # magnetic field in y
-        B0z  : 1. # magnetic field in z
-        beta : .1 # plasma beta = 2*p*mu_0/B^2
-        n0   : 1. # number density
-    ShearedSlab :
-        a    : 1. # minor radius (Lx=a, Ly=2*pi*a) 
-        R0   : 3. # major rarius (Lz=2*pi*R0)
-        B0   : 1. # magnetic field in z-direction    
-        q0   : 1.05 # q-value at eta_1 = 0
-        q1   : 1.80 # q-value at eta_1 = 1
-        n1   : 0. # shape factor for number density profile
-        n2   : 0. # shape factor for number density profile
-        na   : 1. # number density at r=a
-        beta : .01 # plasma beta = 2*p*mu_0/B^2
-    ScrewPinch :
-        a    : 1. # minor radius (radius of cylinder)
-        R0   : 3. # major radius (shift of magnetic axis, length of pinch Lz=2*pi*R0)
-        B0   : 1. # magnetic field in z-direction
-        q0   : 1.05 # safety factor at r=0
-        q1   : 1.80 # safety factor at r=a
-        n1   : 0. # shape factor for number density profile 
-        n2   : 0. # shape factor for number density profile 
-        na   : 1. # number density at r=a
-        beta : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
+    type : AdhocTorus # MHD equilibirum
     AdhocTorus :
         a      : 1. # minor radius
         R0     : 3. # major radius
@@ -278,25 +196,7 @@ mhd_equilibrium
         p1     : .1 # shape factor for ad hoc pressure profile
         p2     : .1 # shape factor for ad hoc pressure profile
         beta   : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
-    EQDSKequilibrium :
-        rel_path        : True # whether eqdsk file path relative to "<struphy_path>/fields_background/mhd_equil/gvec", or the absolute path
-        file            : 'AUGNLED_g031213.00830.high' # path to eqdsk file
-        data_type       : 0 # 0: there is no space between data, 1: there is space between data
-        p_for_psi       : [3, 3] # spline degrees used in interpolation of poloidal flux function grid data
-        psi_resolution  : [25., 6.25] # resolution used in interpolation of poloidal flux function grid data in %, i.e. [100., 100.] uses all grid points
-        p_for_flux      : 3 # spline degree used in interpolation of 1d functions f=f(psi) (e.g. toroidal field function)
-        flux_resolution : 50. # resolution used in interpolation of of 1d functions f=f(psi) in %
-        n1              : 0. # 1st shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
-        n2              : 0. # 2nd shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
-        na              : 1. # number density at last closed flux surface
-    GVECequilibrium : 
-        rel_path : True # whether file path is relative to "<struphy_path>/fields_background/mhd_equil/gvec", or the absolute path
-        dat_file : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file 
-        json_file : Null # give directly the parsed json file, if it exists (then dat_file is not used)
-        use_pest : False # whether to use straight-field line coordinates (PEST)
-        use_nfp : True # whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
-        Nel : [32, 32, 32] # number of cells in each direction used for interpolation of the mapping.
-        p : [3, 3, 3] # spline degree in each direction used for interpolation of the mapping.
+
 
 .. _electric_equilibrium:
 
@@ -314,16 +214,12 @@ electric_equilibrium
 em_fields
 ^^^^^^^^^
 
+See :ref:`avail_inits` for possible ``type`` of initial condition ``init``.
+
 ::
 
     init :
         type : ModesSin # type of initial condition (possible types seen below)
-        noise : 
-            comps :
-                e1 : [True, False, False]  # components to be initialized (for scalar fields: no list)
-                b2 : [False, False, False] # components to be initialized (for scalar fields: no list)
-            variation_in : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
-            amp : 0.1   # noise amplitude
         ModesSin : 
             coords : 'logical' # in which coordinates (logical or physical)
             comps :
@@ -333,43 +229,13 @@ em_fields
             ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
             ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
             amps : [0.001] # amplitudes of each mode
-        ModesCos :
-            coords : 'logical' # in which coordinates (logical or physical)
-            comps :
-                e1 : [True, False, False]  # components to be initialized (for scalar fields: no list)
-                b2 : [False, False, False] # components to be initialized (for scalar fields: no list)
-            ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
-            ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
-            ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
-            amps : [0.001] # amplitudes of each mode
-        TorusModesSin :
-            coords : 'logical' # in which coordinates (logical or physical)
-            comps :
-                e1 : [True, False, False]  # components to be initialized (for scalar fields: no list)
-                b2 : [False, False, False] # components to be initialized (for scalar fields: no list)
-            ms : [1] # poloidal mode numbers
-            ns : [0] # toroidal mode numbers
-            amps : [0.001] # amplitudes of each mode
-            pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
-            pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
-        InitialMHDSlab :
-            a  : 1. # minor radius (Lx=a, Ly=2*pi*a)
-            R0 : 3. # major radius (Lz=2*pi*R0)
-            m  : 0  # poloidal (y) mode number
-            n  : 1  # toroidal (z) mode number
-            U  : 0.1 # amplitude of Ux/Uy
-            A  : 0. # amplitude of Uz
-        InitialMHDAxisymHdivEigFun :
-            spec : '/path_to_spec/spec.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
-            eig_freq_upper : 0.15 # upper search limit of squared eigenfrequency to identify eigenfunction
-            eig_freq_lower : 0.14 # lower search limit of squared eigenfrequency to identify eigenfunction
-            kind : r # real (r) or imaginary (i) part of eigenfunction
-            scaling : 1. # scaling factor to scale the amplitude of the eigenfunction
 
 .. _fluid:
 
 fluid
 ^^^^^
+
+See :ref:`avail_inits` for possible ``type`` of initial condition ``init``.
 
 ::
 
@@ -377,13 +243,6 @@ fluid
         mhd_u_space : H1vec # Hdiv | H1vec
         init :
             type : ModesSin # type of initial condition (possible types seen below)
-            noise :
-                comps :
-                    n3 : False               # components to be initialized (for scalar fields: no list)
-                    uv : [True, True, True]  # components to be initialized (for scalar fields: no list)
-                    p3 : False               # components to be initialized (for scalar fields: no list)
-                variation_in : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
-                amp : 0.1   # noise amplitude
             ModesSin :
                 coords : 'logical' # in which coordinates (logical or physical)
                 comps :
@@ -393,46 +252,14 @@ fluid
                 ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
                 ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
                 ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
-                amps : [0.001] # amplitudes of each mode
-            ModesCos :
-                coords : 'logical' # in which coordinates (logical or physical)
-                comps :
-                    n3 : False               # components to be initialized (for scalar fields: no list)
-                    uv : [True, True, True]  # components to be initialized (for scalar fields: no list)
-                    p3 : False               # components to be initialized (for scalar fields: no list)
-                ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
-                ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
-                ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
-                amps : [0.001] # amplitudes of each mode
-            TorusModesSin :
-                coords : 'logical' # in which coordinates (logical or physical)
-                comps :
-                    n3 : False              # components to be initialized (for scalar fields: no list)
-                    uv : [True, True, True] # components to be initialized (for scalar fields: no list)
-                    p3 : False              # components to be initialized (for scalar fields: no list)
-                ms : [1] # poloidal mode numbers
-                ns : [0] # toroidal mode numbers
-                amps : [0.001] # amplitudes of each mode
-                pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
-                pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
-            InitialMHDSlab :
-                a  : 1. # minor radius (Lx=a, Ly=2*pi*a)
-                R0 : 3. # major radius (Lz=2*pi*R0)
-                m  : 0  # poloidal (y) mode number
-                n  : 1  # toroidal (z) mode number
-                U  : 0.1 # amplitude of Ux/Uy
-                A  : 0. # amplitude of Uz
-            InitialMHDAxisymHdivEigFun :
-                spec : '/path_to_spec/spec.npy' # relative path (to <install_path/struphy>) of the .npy spectrum
-                eig_freq_upper : 0.15 # upper search limit of squared eigenfrequency to identify eigenfunction
-                eig_freq_lower : 0.14 # lower search limit of squared eigenfrequency to identify eigenfunction
-                kind : r # real (r) or imaginary (i) part of eigenfunction
-                scaling : 1. # scaling factor to scale the amplitude of the eigenfunction     
+                amps : [0.001] # amplitudes of each mode    
 
 .. _kinetic:
 
 kinetic
 ^^^^^^^
+
+See :ref:`kinetic_backgrounds` for possible ``type`` of initial condition ``init`` and ``background``.
 
 ::
 
@@ -501,13 +328,6 @@ solvers
 ::
 
     solver_1 : 
-        type : PConjugateGradient
-        pc : MassMatrixPreconditioner # null or name of preconditioner class
-        tol : 1.e-8
-        maxiter : 3000
-        info : False
-        verbose : False
-    solver_2 :
         type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or name of preconditioner class
         tol : 1.e-8

@@ -23,15 +23,18 @@ dependencies = [
     'matplotlib',
     'mpi4py',
     'numpy',
-    'pyccel',
+    'pyccel<1.8.0',
     'PyYAML',
     'scipy',
     'pytest',
     'pytest-mpi',
-    'mistune<2',
+    'mistune',
     'sphinx==4.2.0',
     'sphinxcontrib-napoleon',
     'sphinx-rtd-theme',
+    'python-docs-theme',
+    'nbsphinx',
+    'notebook',
     'm2r2==0.3.1',
     'vtk',
     'docutils==0.15',
@@ -67,6 +70,7 @@ struphy = "struphy.console.main:struphy"
 'struphy.io' = ['batch/*.sh']
 
 'struphy.io.inp' = ['parameters.yml',
+                    'params_*.yml',
                     'tests/*.yml',
                     'examples/*.yml',
                     ]

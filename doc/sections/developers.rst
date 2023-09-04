@@ -79,12 +79,22 @@ Weighted mass operators
     :undoc-members:
     :show-inheritance:
 
+.. autoclass:: struphy.psydac_api.mass.WeightedMassOperator
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 .. _basis_ops:
 
 Basis projection operators
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. autoclass:: struphy.psydac_api.basis_projection_ops.BasisProjectionOperators
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.psydac_api.basis_projection_ops.BasisProjectionOperator
     :members:
     :undoc-members:
     :show-inheritance:

@@ -15,7 +15,7 @@ Struphy can be installed in the following ways:
 Requirements
 ------------
 
-- Python >3.7 and <=3.10 and pip3
+- Python >3.7 and <3.12 and pip3
 - A Fortran compiler like gfortran, gcc
 - Linear algebra packages BLAS and LAPACK
 - An MPI library like open-mpi, mpich
@@ -119,9 +119,9 @@ Compile kernels::
 Source
 ------
 
-Clone the `Struphy repository <https://gitlab.mpcdf.mpg.de/struphy/struphy>`_ and update submodules::
+Clone the `Struphy repository <https://gitlab.mpcdf.mpg.de/struphy/struphy>`_::
 
-    git clone --recurse-submodules git@gitlab.mpcdf.mpg.de:struphy/struphy.git 
+    git clone git@gitlab.mpcdf.mpg.de:struphy/struphy.git 
     cd struphy
 
 Update pip and install package::

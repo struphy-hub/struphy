@@ -199,7 +199,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig_dir):
                           str(np.prod(val['Nel'][0])/val['mpi_size'][0]) + '=const.')
                 ax.legend(loc='upper left')
                 # ax.loglog(val['mpi_size'], val['time'][0]*np.ones_like(val['time']), 'k--', alpha=0.3)
-                ax.xscale('log')
+                ax.set_xscale('log')
 
     if savefig_dir is None:
         plt.show()
