@@ -32,7 +32,7 @@ class Particles6D(Particles):
         base_params = {}
 
         list_base_params = ['type', 'ppc', 'Np', 'eps',
-                            'bc_type', 'loading', 'comm', 'domain', 'domain_array']
+                            'bc', 'loading', 'derham', 'domain']
 
         for key, val in params.items():
             if key in list_base_params:
@@ -134,7 +134,7 @@ class Particles5D(Particles):
         base_params = {}
 
         list_base_params = ['type', 'ppc', 'Np', 'eps',
-                            'bc_type', 'loading', 'comm', 'domain', 'domain_array']
+                            'bc', 'loading', 'derham', 'domain']
 
         for key, val in params.items():
             if key in list_base_params:

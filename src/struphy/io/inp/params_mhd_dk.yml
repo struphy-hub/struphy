@@ -1,5 +1,5 @@
 grid :
-    Nel      : [32, 16, 3] # number of grid cells, >p
+    Nel      : [16, 16, 8] # number of grid cells, >p
     p        : [3, 3, 3]  # spline degree, >1
     spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
     bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
@@ -14,56 +14,38 @@ units : # units not stated here can be viewed via "struphy units -h"
     n : 0.2 # number density unit in 10^20 m^(-3)
 
 time :
-    dt         : 0.1  # time step
-    Tend       : 10.0 # simulation time interval is [0, Tend]
+    dt         : 0.05  # time step
+    Tend       : 1.0 # simulation time interval is [0, Tend]
     split_algo : Strang # LieTrotter | Strang
 
-# geometry :
-#     type : Cuboid # mapping F (possible types seen below)
-#     Cuboid :
-#         l1 : 0. # start of interval in eta1
-#         r1 : 7.853981633974483 # 2*pi/0.8
-#         l2 : 0. # start of interval in eta2
-#         r2 : 1. # end of interval in eta2, r2>l2
-#         l3 : 0. # start of interval in eta3
-#         r3 : 1. # end of interval in eta3, r3>l3 
-
-# mhd_equilibrium :
-#     type : HomogenSlab # (possible choices seen below)
-#     HomogenSlab :
-#         B0x  : 1. # magnetic field in x
-#         B0y  : 0. # magnetic field in y
-#         B0z  : 0. # magnetic field in z
-#         beta : 0. # plasma beta = 2*p*mu_0/B^2
-#         n0   : 1. # number density
-
-geometry : 
-    type : HollowTorus # mapping F (possible types seen below)  
+geometry :
+    type : HollowTorus
     HollowTorus :
-        a1       : 0.1 # inner radius
-        a2       : 1.0 # minor radius
-        R0       : 5.0 # major radius
+        a1  : 0.05   # inner radius
+        a2  : 1.0   # minor radius
+        R0  : 10.0   # major radius
         sfl : True # straight field line coordinates?
-        tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
+        tor_period : 1 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
             
 mhd_equilibrium : 
     type : AdhocTorus # (possible choices seen below)
+    # ITPA benchmark case
     AdhocTorus :
-        a      : 1. # minor radius
-        R0     : 5. # major radius
-        B0     : 5. # on-axis toroidal magnetic field
+        a       : 1. # minor radius
+        R0      : 10. # major radius
+        B0      : 3. # on-axis toroidal magnetic field
         q_kind  : 0 # which profile (0 : parabolic, 1 : other, see documentation)
-        q0     : 1.15 # safety factor at r=0
-        q1     : 1.60 # safety factor at r=a
-        n1     : 0. # shape factor for number density profile 
-        n2     : 0. # shape factor for number density profile 
-        na     : 1. # number density at r=a
-        p_kind : 1 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
-        p1     : 0. # shape factor for ad hoc pressure profile
-        p2     : 0. # shape factor for ad hoc pressure profile
-        beta   : .002 # plasma beta = 2*p*mu_0/B^2  
-        psi_k   : 3 # spline degree to be used for interpolation of poloidal flux function (only needed if q_kind = 1)
-        psi_nel : 50 # number of cells to be used for interpolation of poloidal flux function (only needed if q_kind = 1)
+        q0      : 1.71 # safety factor at r=0
+        q1      : 1.87 # safety factor at r=a
+        n1      : 0. # shape factor for number density profile 
+        n2      : 0. # shape factor for number density profile 
+        na      : 1. # number density at r=a
+        # not clear
+        p_kind  : 1 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
+        p1      : 0.9 # shape factor for ad hoc pressure profile
+        p2      : 0.1 # shape factor for ad hoc pressure profile
+        ############
+        beta    : .002 # plasma beta for flat safety factor (ratio of kinetic pressure to magnetic pressure)
 
 em_fields : 
     init :
@@ -71,7 +53,7 @@ em_fields :
         noise :
             comps : 
                 e1 : [False, False, False]   # components to be initialized (for scalar fields: no list)
-                b2 : [True, True, True]
+                b2 : [True, False, False]
             variation_in : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
             amp : 0.001   # noise amplitude
             seed : 1234    # seed for random number generator
@@ -83,11 +65,11 @@ fluid :
             Z : 1 # signed charge number in units of elementary charge
         mhd_u_space : H1vec # Hdiv | H1vec
         init :
-            type : null # initial conditions (possible types seen below)
+            type : TorusModesSin # initial conditions (possible types seen below)
             noise :
                 comps : 
                     n3 : False
-                    uv : [True, True, True]
+                    uv : [True, False, False]
                     p3 : False
                 variation_in : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
                 amp : 0.001   # noise amplitude
@@ -96,11 +78,11 @@ fluid :
                 coords : 'logical' # in which coordinates (logical or physical)
                 comps :
                     n3 : False              # components to be initialized (for scalar fields: no list)
-                    uv : [True, True, True] # components to be initialized (for scalar fields: no list)
+                    uv : [True, False, False] # components to be initialized (for scalar fields: no list)
                     p3 : False              # components to be initialized (for scalar fields: no list)
-                ms : [1] # poloidal mode numbers
-                ns : [0] # toroidal mode numbers
-                amp : [0.001] # amplitudes of each mode
+                ms : [2] # poloidal mode numbers
+                ns : [-2] # toroidal mode numbers
+                amps : [0.001] # amplitudes of each mode
                 pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
                 pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
 
@@ -111,10 +93,14 @@ kinetic :
             Z : 1 # signed charge number in units of elementary charge
         markers :
             type    : full_f # full_f or delta_f
-            ppc     : 800
+            ppc     : 100
             Np      : 4 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
             eps     : 1.0 # MPI send/receive buffer (0.1 <= eps <= 1.0)
-            bc_type : [remove, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
+            bc : 
+                type    : [remove, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
+                remove  :
+                    save              : True
+                    boundary_transfer : True            
             loading :
                 type    : pseudo_random # particle loading mechanism 
                 seed    : 1608 # seed for random number generator
@@ -128,7 +114,7 @@ kinetic :
         init : 
             type : Maxwellian5DUniform
             Maxwellian5DUniform :
-                n  : 0.01
+                n  : 0.
         save_data :
             n_markers : 4 # number of markers to be save during simulation
             f :
@@ -136,49 +122,49 @@ kinetic :
                 n_bins : [[32]]
                 ranges : [[[-3., 3.]]]
         push_algos1 :
-            integrator : implicit # explicit or implicit
-            method : discrete_gradients # possible choices: discrete_gradients, discrete_gradients_faster, discrete_gradients_Itoh_Newton, forward_euler, heun2, rk2, heun3, rk4
-            maxiter : 10
-            tol : 1.e-10
+            integrator : explicit # explicit or implicit
+            method : rk4 # possible choices: discrete_gradients, discrete_gradients_faster, discrete_gradients_Itoh_Newton, forward_euler, heun2, rk2, heun3, rk4
+            maxiter : 5
+            tol : 1.e-8
         push_algos2 :
-            integrator : implicit # explicit or implicit
-            method : discrete_gradients_Itoh_Newton # possible choices: discrete_gradients, discrete_gradients_faster, discrete_gradients_Itoh_Newton, forward_euler, heun2, rk2, heun3, rk4
+            integrator : explicit # explicit or implicit
+            method : rk4 # possible choices: discrete_gradients, discrete_gradients_faster, discrete_gradients_Itoh_Newton, forward_euler, heun2, rk2, heun3, rk4
             maxiter : 10
-            tol : 1.e-10
+            tol : 1.e-8
             
 solvers :
     solver_1 : 
         type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or fft
-        tol : 1.e-10
+        tol : 1.e-8
         maxiter : 3000
         info : True
         verbose : False
     solver_2 :
         type : PBiConjugateGradientStab
         pc : MassMatrixPreconditioner # null or fft
-        tol : 1.e-10
+        tol : 1.e-8
         maxiter : 3000
         info : True
         verbose : False
     solver_3 :
         type : PConjugateGradient
         pc : MassMatrixPreconditioner # null or fft
-        tol : 1.e-10
+        tol : 1.e-8
         maxiter : 3000
         info : True
         verbose : False
     solver_4 :
         type : PBiConjugateGradientStab
         pc : MassMatrixPreconditioner # null or fft
-        tol : 1.e-10
+        tol : 1.e-8
         maxiter : 3000
         info : True
         verbose : False
     solver_5 :
         type : PBiConjugateGradientStab
         pc : MassMatrixPreconditioner # null or fft
-        tol : 1.e-10
+        tol : 1.e-8
         maxiter : 3000
         info : True
         verbose : False

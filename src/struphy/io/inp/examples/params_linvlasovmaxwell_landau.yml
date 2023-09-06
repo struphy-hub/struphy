@@ -66,7 +66,8 @@ kinetic :
             type    : delta_f # full_f, control_variate, or delta_f
             Np      : 100000 # alternative if ppc not given (total number of markers, Np must be >= # MPI processes)
             eps     : 0.1 # MPI send/receive buffer (0.1 <= eps <= 1.0)
-            bc_type : [periodic, periodic, periodic] # remove, reflect or periodic
+            bc : 
+                type    : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
             loading :
                 type          : pseudo_random # particle loading mechanism
                 seed          : 1234 # seed for random number generator

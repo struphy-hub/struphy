@@ -165,7 +165,7 @@ class LinearMHDVlasovCC(StruphyModel):
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['energetic_ions'],
             algo=e_ions_params['push_algos']['eta'],
-            bc_type=e_ions_params['markers']['bc_type'],
+            bc_type=e_ions_params['markers']['bc']['type'],
             f0=f0))
         self.add_propagator(self.prop_markers.PushVxB(
             self.pointer['energetic_ions'],
@@ -405,7 +405,7 @@ class LinearMHDVlasovPC(StruphyModel):
             self.pointer['energetic_ions'],
             u_mhd=self.pointer[self._un],
             u_space=self._u_space,
-            bc_type=ions_params['markers']['bc_type'],
+            bc_type=ions_params['markers']['bc']['type'],
             use_perp_model=ions_params['use_perp_model']))
         self.add_propagator(self.prop_markers.PushVxB(
             self.pointer['energetic_ions'],
@@ -691,15 +691,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
             **self._coupling_params,
             integrator='explicit',
             method='rk4'))
-        self.add_propagator(self.prop_fields.ShearAlfvénCurrentCoupling5D(
-            self.pointer[self._un],
-            self.pointer['b2'],
-            particles=self.pointer['energetic_ions'],
-            b_eq=self._b_eq,
-            f0=f0,
-            u_space=self._u_space,
-            **solver_params_1,
-            **self._coupling_params))
         self.add_propagator(self.prop_coupling.CurrentCoupling5DCurrent1(
             self.pointer['energetic_ions'],
             self.pointer[self._un],
@@ -709,6 +700,26 @@ class LinearMHDDriftkineticCC(StruphyModel):
             f0=f0,
             u_space=self._u_space,
             **solver_params_3,
+            **self._coupling_params))
+        self.add_propagator(self.prop_fields.ShearAlfvénCurrentCoupling5D(
+            self.pointer[self._un],
+            self.pointer['b2'],
+            particles=self.pointer['energetic_ions'],
+            b_eq=self._b_eq,
+            f0=f0,
+            u_space=self._u_space,
+            **solver_params_1,
+            **self._coupling_params))
+        self.add_propagator(self.prop_fields.MagnetosonicCurrentCoupling5D(
+            self.pointer['mhd_n3'],
+            self.pointer[self._un],
+            self.pointer['mhd_p3'],
+            b=self.pointer['b2'],
+            particles=self.pointer['energetic_ions'],
+            unit_b1=self._unit_b1,
+            f0=f0,
+            u_space=self._u_space,
+            **solver_params_2,
             **self._coupling_params))
 
         # Scalar variables to be saved during simulation
@@ -778,7 +789,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         self.update_scalar('en_fv', self._en_fv_loc[0])
 
-        self._en_fv_loc_lost = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
+        self._en_fv_loc_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
             self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 3]**2) / (2.*self.pointer['energetic_ions'].n_mks)
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._en_fv_loc_lost, op=self._mpi_sum)
@@ -814,20 +825,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         self.update_scalar('en_fB_lost', self._en_fB_loc_lost[0])
 
-        # # calculate particle magnetic energy
-        # self.pointer['energetic_ions'].save_magnetic_energy(self._derham, self._E0T.dot(
-        #     self.derham.P['0'](self.mhd_equil.absB0)))
-
-        # self._en_fB_loc = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
-        #     self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 8]) / self.pointer['energetic_ions'].n_mks
-        # self.derham.comm.Reduce(
-        #     self._en_fB_loc, self._scalar_quantities['en_fB'], op=self._mpi_sum, root=0)
-
         self.update_scalar('en_tot', en_U + en_p + en_B +
                            self._en_fv_loc[0] + self._en_fv_loc_lost[0] + self._en_fB_loc[0] + self._en_fB_loc_lost[0])
-
-        print('Number of lost markers:',
-              self.pointer['energetic_ions'].n_lost_markers)
 
 
 class ColdPlasmaVlasov(StruphyModel):
@@ -936,7 +935,7 @@ class ColdPlasmaVlasov(StruphyModel):
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['hotelectrons'],
             algo=electron_params['push_algos']['eta'],
-            bc_type=electron_params['markers']['bc_type'],
+            bc_type=electron_params['markers']['bc']['type'],
             f0=None))
         self.add_propagator(self.prop_markers.PushVxB(
             self.pointer['hotelectrons'],

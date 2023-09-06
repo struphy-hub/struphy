@@ -26,7 +26,7 @@ def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
 
     .. math::
 
-        \dot{\mathbf X} &= \frac{\mu}{\kappa B^*_\parallel}  G^{-1}(\eta_p(t)) \hat{\mathbb{b}}^2_0 \times G^{-1}(\eta_p(t)) \hat \nabla |\mathcal{P}^B \hat{\mathbb{B}}^2| \,,
+        \dot{\mathbf X} &= \frac{\mu}{\kappa B^*_\parallel}  G^{-1}(\eta_p(t)) \hat{\mathbb{b}}^2_0 \times G^{-1}(\eta_p(t)) \hat \nabla |\mathcal{P}_B \hat{\mathbb{B}}^2| \,,
 
         \dot v_\parallel &= 0 \,.
 
@@ -79,6 +79,9 @@ def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
 
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
+            continue
+
+        if markers[ip, 21] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
@@ -243,6 +246,9 @@ def push_gc2_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
         if markers[ip, 0] == -1.:
             continue
 
+        if markers[ip, 21] == -1.:
+            continue
+
         e[:] = markers[ip, 0:3]
         v = markers[ip, 3]
         mu = markers[ip, 4]
@@ -397,6 +403,9 @@ def push_gc_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
 
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
+            continue
+
+        if markers[ip, 21] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
@@ -2335,6 +2344,9 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         if markers[ip, 0] == -1.:
             continue
 
+        if markers[ip, 21] == -1.:
+            continue
+
         eta[:] = markers[ip, 0:3]
         v = markers[ip, 3]
 
@@ -2502,6 +2514,9 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
+            continue
+
+        if markers[ip, 21] == -1.:
             continue
 
         eta[:] = markers[ip, 0:3]

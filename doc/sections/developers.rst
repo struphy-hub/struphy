@@ -370,7 +370,7 @@ where four different propagators are used for time stepping::
     self.add_propagator(self.prop_markers.PushEta(
         self.pointer['electrons'],
         algo=electron_params['push_algos']['eta'],
-        bc_type=electron_params['markers']['bc_type'],
+        bc_type=electron_params['markers']['bc']['type'],
         f0=None))
 
     self.add_propagator(self.prop_markers.PushVxB(

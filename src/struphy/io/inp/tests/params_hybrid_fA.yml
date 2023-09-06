@@ -99,7 +99,8 @@ kinetic :
             type        : full_f # full_f or delta_f
             ppc         : 20  # particles per 3d grid cell
             eps         : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
-            bc_type     : [periodic, periodic, periodic] # remove, reflect or periodic
+            bc : 
+                type    : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
             loading :
                 type          : pseudo_random # particle loading mechanism 
                 seed          : 1234 # seed for random number generator

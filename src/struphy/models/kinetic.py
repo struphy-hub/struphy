@@ -94,7 +94,7 @@ class VlasovMaxwell(StruphyModel):
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['electrons'],
             algo=electron_params['push_algos']['eta'],
-            bc_type=electron_params['markers']['bc_type'],
+            bc_type=electron_params['markers']['bc']['type'],
             f0=None))
 
         self.add_propagator(self.prop_markers.PushVxB(
@@ -290,7 +290,7 @@ class LinearVlasovMaxwell(StruphyModel):
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['electrons'],
             algo=self._electron_params['push_algos']['eta'],
-            bc_type=self._electron_params['markers']['bc_type'],
+            bc_type=self._electron_params['markers']['bc']['type'],
             f0=None))  # no conventional weights update here, thus f0=None
         if self._rank == 0:
             print("Added Step PushEta\n")
@@ -610,7 +610,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['electrons'],
             algo=self._electron_params['push_algos']['eta'],
-            bc_type=self._electron_params['markers']['bc_type'],
+            bc_type=self._electron_params['markers']['bc']['type'],
             f0=None))  # no conventional weights update here, thus f0=None
         if self._rank == 0:
             print("Added Step PushEta\n")
@@ -905,7 +905,7 @@ class VlasovMasslessElectrons(StruphyModel):
         self._propagators += [propagators_markers.StepHybridXPSymplectic(
                               self._ions,
                               a=self._a,
-                              particle_bc=ions_params['markers']['bc_type'],
+                              particle_bc=ions_params['markers']['bc']['type'],
                               quad_number=params['grid']['nq_el'],
                               shape_degree=np.array(shape_params['degree']),
                               shape_size=np.array(shape_params['size']),

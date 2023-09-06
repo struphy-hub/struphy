@@ -1426,7 +1426,7 @@ class CurrentCoupling5DCurrent2(Propagator):
 
         # temporary vectors to avoid memory allocation
         self._b_full1 = self._b_eq.space.zeros()
-        self._b_full2 = self._EbT.codomain.zeros()
+        self._b_full2 = self._E2T.codomain.zeros()
 
         self._PBb = self._abs_b.space.zeros()
         self._grad_PBb1 = self._unit_b1.space.zeros()
@@ -1484,7 +1484,6 @@ class CurrentCoupling5DCurrent2(Propagator):
         self._u_avg1 /= 2
 
         self._EuT.dot(self._u_avg1, out=self._u_avg2)
-
         self._u_avg2.update_ghost_regions()
 
         self._pusher(self.particles[0], dt,
@@ -1687,7 +1686,7 @@ class CurrentCoupling5DCurrent2dg(Propagator):
                                   9:12] = self.particles[0].markers[~self.particles[0].holes, 0:3]
 
         # initial guess of eta is stored in columns 0:3
-        self._pusher_prepare._pusher(self.particles[0].markers, dt, 0, *self._pusher._args_fem, *self.domain.args_map,
+        self._pusher_prepare.kernel(self.particles[0].markers, dt, 0, *self._pusher.args_fem, *self.domain.args_map,
                                      self._kappa,
                                      self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
                                      self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
@@ -1717,7 +1716,7 @@ class CurrentCoupling5DCurrent2dg(Propagator):
             self._denominator = self._sum_H_diff_loc + self._u_norm_loc
 
             # eval particle magnetic energy
-            self._en_fB_loc = utilities.accum_en_fB(self.particles[0].markers, self.particles[0].n_mks, *self._pusher._args_fem,
+            self._en_fB_loc = utilities.accum_en_fB(self.particles[0].markers, self.particles[0].n_mks, *self._pusher.args_fem,
                                                     self._PBb._data)[0]
             # self.particles[0].save_magnetic_energy(self.derham, self._PBb)
             # self._en_fB_loc = self.particles[0].markers[~self.particles[0].holes, 5].dot(
@@ -1730,7 +1729,7 @@ class CurrentCoupling5DCurrent2dg(Propagator):
             self.particles[0].mpi_sort_markers()
 
             # Accumulate
-            self._accum_gradI_const_loc = utilities.accum_gradI_const(self.particles[0].markers, self.particles[0].n_mks, *self._pusher._args_fem,
+            self._accum_gradI_const_loc = utilities.accum_gradI_const(self.particles[0].markers, self.particles[0].n_mks, *self._pusher.args_fem,
                                                                       self._grad_PBb[0]._data, self._grad_PBb[
                                                                           1]._data, self._grad_PBb[2]._data,
                                                                       self._coupling_vec)[0]
@@ -1782,7 +1781,7 @@ class CurrentCoupling5DCurrent2dg(Propagator):
 
             self._u_pusher.update_ghost_regions()
 
-            self._pusher._pusher(self.particles[0].markers, dt, 0, *self._pusher._args_fem, *self.domain.args_map,
+            self._pusher.kernel(self.particles[0].markers, dt, 0, *self._pusher.args_fem, *self.domain.args_map,
                                  self._kappa,
                                  self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
                                  self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
@@ -1823,7 +1822,7 @@ class CurrentCoupling5DCurrent2dg(Propagator):
             diff = np.sqrt(self._u_norm_loc + self._sum_H_diff_loc)
             print('diff', diff)
 
-            if diff < 1e-11:
+            if diff < 1e-8:
                 print('converged!')
                 break
 

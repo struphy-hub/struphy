@@ -6,7 +6,7 @@ from psydac.linalg.block import BlockVector
 from struphy.psydac_api.mass import WeightedMassOperator
 
 import struphy.pic.accum_kernels as accums
-import struphy.pic.accum_kernels as accums_gc
+import struphy.pic.accum_kernels_gc as accums_gc
 
 
 class Accumulator:

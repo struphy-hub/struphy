@@ -1438,32 +1438,32 @@ def cc_lin_mhd_5d_mu(markers: 'float[:,:]', n_markers_tot: 'int',
 
 
 @stack_array('df', 'df_t', 'df_inv', 'g_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp2', 'tmp_t', 'tmp_m', 'tmp_v', 'b', 'b_prod', 'norm_b2_prod', 'b_star', 'curl_norm_b', 'norm_b1', 'norm_b2', 'grad_PB', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def cc_lin_mhd_5d_M(markers: 'float[:,:]', n_markers_tot: 'int',
-                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                    kind_map: 'int', params_map: 'float[:]',
-                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                    cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                    mat11: 'float[:,:,:,:,:,:]',
-                    mat12: 'float[:,:,:,:,:,:]',
-                    mat13: 'float[:,:,:,:,:,:]',
-                    mat21: 'float[:,:,:,:,:,:]',
-                    mat22: 'float[:,:,:,:,:,:]',
-                    mat23: 'float[:,:,:,:,:,:]',
-                    mat31: 'float[:,:,:,:,:,:]',
-                    mat32: 'float[:,:,:,:,:,:]',
-                    mat33: 'float[:,:,:,:,:,:]',
-                    vec1: 'float[:,:,:]',
-                    vec2: 'float[:,:,:]',
-                    vec3: 'float[:,:,:]',
-                    b1: 'float[:,:,:]',   # model specific argument
-                    b2: 'float[:,:,:]',   # model specific argument
-                    b3: 'float[:,:,:]',   # model specific argument
-                    curl_norm_b1: 'float[:,:,:]',  # model specific argument
-                    curl_norm_b2: 'float[:,:,:]',  # model specific argument
-                    curl_norm_b3: 'float[:,:,:]',  # model specific argument
-                    basis_u: 'int', scale_vec: 'float'):  # model specific argument
+def cc_lin_mhd_5d_curlMxB(markers: 'float[:,:]', n_markers_tot: 'int',
+                          pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                          starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                          kind_map: 'int', params_map: 'float[:]',
+                          p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                          ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                          cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                          mat11: 'float[:,:,:,:,:,:]',
+                          mat12: 'float[:,:,:,:,:,:]',
+                          mat13: 'float[:,:,:,:,:,:]',
+                          mat21: 'float[:,:,:,:,:,:]',
+                          mat22: 'float[:,:,:,:,:,:]',
+                          mat23: 'float[:,:,:,:,:,:]',
+                          mat31: 'float[:,:,:,:,:,:]',
+                          mat32: 'float[:,:,:,:,:,:]',
+                          mat33: 'float[:,:,:,:,:,:]',
+                          vec1: 'float[:,:,:]',
+                          vec2: 'float[:,:,:]',
+                          vec3: 'float[:,:,:]',
+                          b1: 'float[:,:,:]',   # model specific argument
+                          b2: 'float[:,:,:]',   # model specific argument
+                          b3: 'float[:,:,:]',   # model specific argument
+                          curl_norm_b1: 'float[:,:,:]',  # model specific argument
+                          curl_norm_b2: 'float[:,:,:]',  # model specific argument
+                          curl_norm_b3: 'float[:,:,:]',  # model specific argument
+                          basis_u: 'int', scale_vec: 'float'):  # model specific argument
     r"""TODO
     """
 
@@ -1824,8 +1824,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
                                     mat11, mat12, mat13,
                                     mat22, mat23,
                                     mat33,
-                                    filling_m[0, 0], filling_m[0,
-                                                               1], filling_m[0, 2],
+                                    filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
                                     filling_m[1, 1], filling_m[1, 2],
                                     filling_m[2, 2],
                                     vec1, vec2, vec3,
@@ -1857,8 +1856,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
                                  mat11, mat12, mat13,
                                  mat22, mat23,
                                  mat33,
-                                 filling_m[0, 0], filling_m[0,
-                                                            1], filling_m[0, 2],
+                                 filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
                                  filling_m[1, 1], filling_m[1, 2],
                                  filling_m[2, 2],
                                  vec1, vec2, vec3,
@@ -1890,8 +1888,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
                                  mat11, mat12, mat13,
                                  mat22, mat23,
                                  mat33,
-                                 filling_m[0, 0], filling_m[0,
-                                                            1], filling_m[0, 2],
+                                 filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
                                  filling_m[1, 1], filling_m[1, 2],
                                  filling_m[2, 2],
                                  vec1, vec2, vec3,

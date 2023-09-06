@@ -79,7 +79,7 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, Np, verbose=False):
                       }
 
     particles = Particles6D(
-        'test_particles', **params_markers, domain_array=derham.domain_array, comm=mpi_comm)
+        'test_particles', **params_markers, derham=derham)
     particles.draw_markers()
 
     # set random weights on each process
@@ -238,7 +238,7 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, Np, verbose=False):
                       }
 
     particles = Particles6D(
-        'test_particles', **params_markers, domain_array=derham.domain_array, comm=mpi_comm)
+        'test_particles', **params_markers, derham=derham)
     particles.draw_markers()
 
     # set random weights on each process
@@ -422,7 +422,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
                       }
 
     particles = Particles6D(
-        'test_particles', **params_markers, domain_array=derham.domain_array, comm=mpi_comm)
+        'test_particles', **params_markers, derham=derham)
     particles.draw_markers()
 
     # set random weights on each process
