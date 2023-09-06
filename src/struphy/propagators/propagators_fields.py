@@ -1360,9 +1360,9 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
 
         \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf b^{n+1} - \mathbf b^n \end{bmatrix} 
         = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^\rho_\alpha)^{-1} \mathcal {T^\alpha}^\top \mathbb C^\top \\ - \mathbb C \mathcal {T^\alpha} (\mathbb M^\rho_\alpha)^{-1} & 0 \end{bmatrix} 
-        \begin{bmatrix} {\mathbb M^\rho_\alpha}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_2(\mathbf b^{n+1} + \mathbf b^n) + \mathcal{P}^{B\top} \sum_k^{N_p} \omega_k \mu_k \Lambda^0(\mathbf{\eta}_k) \ \end{bmatrix} ,
+        \begin{bmatrix} {\mathbb M^\rho_\alpha}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_2(\mathbf b^{n+1} + \mathbf b^n) + \mathcal{P}_B^{\top} \sum_k^{N_p} \omega_k \mu_k \Lambda^0(\mathbf{\eta}_k) \ \end{bmatrix} ,
 
-    where :math:`\mathcal{P}^B = \hat \Pi^0 \left[ \frac{\hat b^1}{\sqrt g} \Lambda^2\right]`, :math:`\alpha \in \{1, 2, v\}` and :math:`\mathbb M^\rho_\alpha` is a weighted mass matrix in :math:`\alpha`-space, the weight being :math:`\rho_0`,
+    where :math:`\mathcal{P}_B = \hat \Pi^0 \left[ \frac{\hat b^1}{\sqrt g} \Lambda^2\right]`, :math:`\alpha \in \{1, 2, v\}` and :math:`\mathbb M^\rho_\alpha` is a weighted mass matrix in :math:`\alpha`-space, the weight being :math:`\rho_0`,
     the MHD equilibirum density. The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
 
     Parameters
@@ -1490,7 +1490,40 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
 
 
 class MagnetosonicCurrentCoupling5D(Propagator):
-    r'''TODO'''
+    r'''Crank-Nicolson step for Magnetosonic part in LinearMHDDriftkineticCC,
+
+    .. math::
+
+        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf p^{n+1} - \mathbf p^n \end{bmatrix} 
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^\rho_\alpha)^{-1} {\mathcal U^\alpha}^\top \mathbb D^\top \mathbb M_3 \\ - \mathbb D \mathcal S^\alpha - (\gamma - 1) \mathcal K^\alpha \mathbb D \mathcal U^\alpha & 0 \end{bmatrix} 
+        \begin{bmatrix} (\mathbf u^{n+1} + \mathbf u^n) \\ (\mathbf p^{n+1} + \mathbf p^n) \end{bmatrix} + \begin{bmatrix} \Delta t (\mathbb M^\rho_\alpha)^{-1} (\mathbb M^J_\alpha \mathbf b^n + + \sum_k^{N_p} \omega_k \mu_k \left[ \left\{ \hat \nabla \times \hat{\mathbb b}^1\right\} \times \hat{\mathbb B}^2\right](\mathbb \eta_k)) \\ 0 \end{bmatrix},
+
+    where :math:`\alpha \in \{1, 2, v\}` and :math:`\mathcal U^2 = \mathbb Id`; moreover, :math:`\mathbb M^\rho_\alpha` and 
+    :math:`\mathbb M^J_\alpha` are weighted mass matrices in :math:`\alpha`-space, 
+    the weights being the MHD equilibirum density :math:`\rho_0`
+    and the curl of the MHD equilibrium current density :math:`\mathbf J_0 = \nabla \times \mathbf B_0`. 
+    The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
+
+    Decoupled density update:
+
+    .. math::
+
+        \boldsymbol{\rho}^{n+1} = \boldsymbol{\rho}^n - \frac{\Delta t}{2} \mathbb D \mathcal Q^\alpha (\mathbf u^{n+1} + \mathbf u^n) \,.
+
+    Parameters
+    ---------- 
+    n : psydac.linalg.stencil.StencilVector
+        FE coefficients of a discrete 3-form.
+
+    u : psydac.linalg.block.BlockVector
+        FE coefficients of MHD velocity.
+
+    p : psydac.linalg.stencil.StencilVector
+        FE coefficients of a discrete 3-form.
+
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
+    '''
 
     def __init__(self, n, u, p, **params):
 
@@ -1545,7 +1578,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._coupling_const = params['Ah'] / params['Ab']
 
         self._ACC = Accumulator(self.derham, self.domain,
-                                params['u_space'], 'cc_lin_mhd_5d_curlM', add_vector=False)
+                                params['u_space'], 'cc_lin_mhd_5d_curlMxB', add_vector=True)
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         id_Mn = 'M' + self.derham.spaces_dict[params['u_space']] + 'n'
@@ -1616,7 +1649,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         # solve for new u coeffs
         self._B.dot(pn, out=self._byn1)
         self._MJ.dot(self._b, out=self._byn2)
-        self._byn2 -= self._ACC.vectors[0].dot(self._b)
+        self._byn2 -= self._ACC.vectors[0]
         self._byn2 *= 1/2
         self._byn1 -= self._byn2
 

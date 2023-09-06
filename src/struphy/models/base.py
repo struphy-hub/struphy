@@ -845,8 +845,7 @@ class StruphyModel(metaclass=ABCMeta):
                 val['obj'] = kinetic_class(species,
                                            **val['params']['phys_params'],
                                            **val['params']['markers'],
-                                           comm=self.derham.comm,
-                                           domain_array=self.derham.domain_array,
+                                           derham=self.derham,
                                            domain=self.domain,
                                            mhd_equil=self.mhd_equil,
                                            units_basic=self.units)

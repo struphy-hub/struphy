@@ -129,7 +129,7 @@ class Vlasov(StruphyModel):
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['ions'],
             algo=ions_params['push_algos']['eta'],
-            bc_type=ions_params['markers']['bc_type'],
+            bc_type=ions_params['markers']['bc']['type'],
             f0=None))
 
         # Scalar variables to be saved during simulation
@@ -240,17 +240,17 @@ class DriftKinetic(StruphyModel):
             method=ions_params['push_algos1']['method'],
             maxiter=ions_params['push_algos1']['maxiter'],
             tol=ions_params['push_algos1']['tol']))
-        self.add_propagator(self.prop_markers.StepPushGuidingCenter2(
-            self.pointer['ions'],
-            kappa=kappa,
-            b_eq=self._b_eq,
-            unit_b1=self._unit_b1,
-            unit_b2=self._unit_b2,
-            abs_b=self._abs_b,
-            integrator=ions_params['push_algos2']['integrator'],
-            method=ions_params['push_algos2']['method'],
-            maxiter=ions_params['push_algos2']['maxiter'],
-            tol=ions_params['push_algos2']['tol']))
+        # self.add_propagator(self.prop_markers.StepPushGuidingCenter2(
+        #     self.pointer['ions'],
+        #     kappa=kappa,
+        #     b_eq=self._b_eq,
+        #     unit_b1=self._unit_b1,
+        #     unit_b2=self._unit_b2,
+        #     abs_b=self._abs_b,
+        #     integrator=ions_params['push_algos2']['integrator'],
+        #     method=ions_params['push_algos2']['method'],
+        #     maxiter=ions_params['push_algos2']['maxiter'],
+        #     tol=ions_params['push_algos2']['tol']))
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_fv')

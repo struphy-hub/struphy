@@ -107,7 +107,7 @@ class Pusher:
         particles.markers[~particles.holes, 9:15] = 0.
 
         if particles.kinds == 'Particles5D':
-            particles.markers[~particles.holes, 9:17] = 0.
+            particles.markers[~particles.holes, 9:25] = 0.
 
     @property
     def derham(self):
@@ -321,6 +321,7 @@ class Pusher_iteration_Gonzalez:
                       particles.markers[~particles.holes, 20])+1)
                 print('Number of lost markers:',
                       particles.n_lost_markers)
+                print()
 
         # clear buffer columns 9-21 for multi-stage pushers
         particles.markers[~particles.holes, 9:22] = 0.
@@ -481,6 +482,7 @@ class Pusher_iteration_Itoh:
                       particles.markers[~particles.holes, 14])+1)
                 print('Number of lost markers:',
                       particles.n_lost_markers)
+                print()
 
         # clear buffer columns 9-24 for multi-stage pushers
         particles.markers[~particles.holes, 9:25] = 0.
