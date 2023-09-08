@@ -72,7 +72,7 @@ struphy = "struphy.console.main:struphy"
 'struphy.io.inp' = ['parameters.yml',
                     'params_*.yml',
                     'tests/*.yml',
-                    'examples/*.yml',
+                    'tutorials/*.yml',
                     ]
                     
 struphy = ['compile_struphy.mk',

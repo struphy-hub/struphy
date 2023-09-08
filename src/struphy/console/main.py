@@ -19,7 +19,7 @@ def struphy():
     from struphy.console.units import struphy_units
     from struphy.console.profile import struphy_profile
     from struphy.console.pproc import struphy_pproc
-    from struphy.console.example import struphy_example
+    from struphy.console.tutorials import struphy_tutorials
     from struphy.console.test import struphy_test
 
     # create argument parser
@@ -326,41 +326,17 @@ def struphy():
                               help='divide each grid cell by N for field evaluation (default=1)',
                               default=1)
 
-    # 6. "example" sub-command
-    parser_example = subparsers.add_parser(
-        'example',
-        help='run a Struphy example',
-        description='Run a complete Struphy example including prost-processing and plots.')
+    # 6. "tutorials" sub-command
+    parser_tutorials = subparsers.add_parser(
+        'tutorials',
+        help='run Struphy simulation(s) for notebook tutorials',
+        description='Run Struphy simulation(s) necessary to run notebook tutorials.',
+        epilog='Find the notebook tutorials at https://struphy.pages.mpcdf.de/struphy/sections/tutorials.html')
 
-    files = os.listdir(os.path.join(libpath, 'examples'))
-
-    list_examples = []
-    for file in files:
-        if file[-3:] == '.py' and file[0] != '_':
-            list_examples += [file[:-3]]
-
-    list_examples.sort()
-
-    examples_string = ''
-    for ex in list_examples[:-1]:
-        examples_string += '"' + ex + '", '
-
-    examples_string += 'or "' + list_examples[-1] + '"'
-
-    parser_example.add_argument('case',
-                                type=str,
-                                metavar='case',
-                                help='which example to run (must be one of ' + examples_string + ')')
-
-    parser_example.add_argument('--mpi',
-                                type=int,
-                                metavar='N',
-                                help='use "mpirun -n N" to launch the example in parallel (default=1)',
-                                default=1)
-
-    parser_example.add_argument('-d', '--diagnostics',
-                                help='run diagnostics only, if output folder of example already exists',
-                                action='store_true')
+    parser_tutorials.add_argument('-n',
+                                  type=int,
+                                  help='specific tutorial simulation to run (int, optional)',
+                                  default=None)
 
     # 7. "test" sub-command
     parser_test = subparsers.add_parser('test',

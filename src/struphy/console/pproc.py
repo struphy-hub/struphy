@@ -28,6 +28,8 @@ def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1):
     # create absolute path
     if dir_abs is None:
         dir_abs = os.path.join(o_path, dirr)
+        
+    print(f'Post processing data in {dir_abs}')
 
     # loop over output folders and call post-processing .py file
     subprocess.run(['python3',

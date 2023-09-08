@@ -657,8 +657,14 @@ Please consult existing tests as templates.
 Changing the documentation 
 --------------------------
 
-The source files (``.rst``) for the documentation are in ``/doc/sections`` in the repository. 
-If you make changes to these files, you can review them in your browser (e.g. firefox)::
+The source files (``.rst``) for the documentation are in ``doc/sections/`` in the repository.
+Tutorial notebooks are in ``doc/tutorials/``. In order to build the ``.html`` file of the documentation,
+`Pandoc <https://pandoc.org/>`_ needs to be installed on your system (for notebook conversion).
+In order to be able to convert the tutorial notebooks to ``.html``, you need to run::
+
+    struphy tutorials
+
+If you make changes to the ``.rst`` files or the tutorial notebooks, you can review them in your browser (e.g. firefox)::
 
     cd doc
     make html

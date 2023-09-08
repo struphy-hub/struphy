@@ -33,6 +33,7 @@ Sample environment on **Debian-Ubuntu-Mint**::
     sudo apt install -y libopenmpi-dev openmpi-bin
     sudo apt install -y libomp-dev libomp5
     sudo apt install -y git
+    sudo apt install -y pandoc
 
 Sample environment on **Fedora-CentOS-RHEL**::
 
@@ -47,6 +48,7 @@ Sample environment on **Fedora-CentOS-RHEL**::
     sudo dnf install -y environment-modules
     sudo dnf install -y python3-mpi4py-openmpi
     sudo dnf install -y python3-devel
+    sudo dnf install -y pandoc
 
 Sample environment on **Mac OS**::
 
@@ -58,6 +60,7 @@ Sample environment on **Mac OS**::
     brew install open-mpi
     brew install libomp
     brew install git
+    brew install pandoc
 
 In case you see problems with the `mpi4py` build on **Mac OS**, you can try to install the Xcode command line tools (160 MB)::
 
