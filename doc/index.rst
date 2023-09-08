@@ -3,15 +3,20 @@ Struphy - Structure-preserving hybrid codes
 
 **A Python package for plasma physics PDEs.**
 
+.. image:: pics/open_science.png
+    :align: right
+    :scale: 40
+
 Struphy is open-source (https://pypi.org/project/struphy/) and can be :ref:`installed on any architecture <install>`.
+
 The package is designed for the efficient solution of partial differential equations based
 on finite element exterior calculus (FEEC) and particle-in-cell (PIC) methods.
 
 Struphy can be improved by you. The repository lies on the Gitlab instance of Max Planck Computing and Data Facility (MPCDF) 
 (https://gitlab.mpcdf.mpg.de/struphy/struphy).
+
 To become a developer, you need an MPCDF Gitlab account. In case you are not affiliated with the Max Planck Society, 
 please :ref:`contact` a Max Planck employee for an invitation.
-
 For further information on forking and merge- (or pull-) requests please go to :ref:`git_workflow`.
 
 .. toctree::
@@ -36,6 +41,13 @@ For further information on forking and merge- (or pull-) requests please go to :
    sections/dispersions
    sections/examples
    sections/performance_tests
+
+
+Reference paper
+---------------
+
+\S. Possanner, F. Holderied, Y. Li, B.-K. Na, D. Bell, S. Hadjout and Y. Güçlü, `High-Order Structure-Preserving Algorithms for Plasma Hybrid Models <https://link.springer.com/chapter/10.1007/978-3-031-38299-4_28>`_, International Conference on Geometric Science of Information 2023, 263-271, Springer Nature Switzerland.
+
 
 .. _contact:
 

@@ -41,7 +41,7 @@ def diagnostics():
     
     import os, yaml, h5py, pickle
     
-    from struphy.diagnostics.diagn_tools import fourier_1d
+    from struphy.diagnostics.diagn_tools import power_spectrum_2d
     
     import struphy
 
@@ -108,7 +108,7 @@ def diagnostics():
         point_data_log = pickle.load(handle)
 
     # fft in (t, z) of first component of u_field on physical grid
-    fourier_1d(point_data_log,
+    power_spectrum_2d(point_data_log,
                names[3],
                code,
                grids_log,
@@ -125,7 +125,7 @@ def diagnostics():
 
 
     # fft in (t, z) of pressure on physical grid
-    fourier_1d(point_data_log,
+    power_spectrum_2d(point_data_log,
                names[2], 
                code, 
                grids_log,
@@ -142,7 +142,7 @@ def diagnostics():
 
 
     # fft in (t, z) of pressure on physical grid
-    fourier_1d(point_data_log,
+    power_spectrum_2d(point_data_log,
                names[1], 
                code, 
                grids_log,
@@ -159,7 +159,7 @@ def diagnostics():
     print(point_data_log)
 
     # fft in (t, z) of pressure on physical grid
-    fourier_1d(point_data_log,
+    power_spectrum_2d(point_data_log,
                names[0], 
                code, 
                grids_log,
@@ -176,7 +176,7 @@ def diagnostics():
 
 
     # fft in (t, z) of pressure on physical grid
-    fourier_1d(point_data_log,
+    power_spectrum_2d(point_data_log,
                names[4], 
                code, 
                grids_log,
