@@ -1,4 +1,4 @@
-# STRUPHY - STRUcture-Preserving HYbrid codes
+# Struphy - Structure-preserving hybrid codes
 
 A Python package for plasma physics PDEs.
 

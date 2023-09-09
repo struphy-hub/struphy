@@ -71,22 +71,6 @@ Post process data::
 
 You can now open ``paraview`` and load the data from the folder ``sim_mhd/post_processing/fields_data/vtk/``.
 
-Check out available Struphy examples which include post-processing and diagnostics::
-
-    struphy example --help
-
-Simulate the MHD dispersion relation in a slab::
-
-    struphy example linearmhd
-
-Simulate guiding-center orbits in a tokamak::
-
-    struphy example gc_orbits_tokamak
-
-The same for full-orbit Vlasov::
-
-    struphy example orbits_tokamak
-
 **Please check out the** :ref:`tutorials` **to learn more about using Struphy.**
 
             
