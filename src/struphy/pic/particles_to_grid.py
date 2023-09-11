@@ -1,3 +1,6 @@
+'Base classes for particle deposition (accumulation) on the grid.'
+
+
 import numpy as np
 
 from psydac.linalg.stencil import StencilVector, StencilMatrix

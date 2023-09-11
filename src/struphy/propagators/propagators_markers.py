@@ -1,3 +1,6 @@
+'Only particle variables are updated.'
+
+
 from numpy import array, polynomial
 
 from psydac.linalg.block import BlockVector

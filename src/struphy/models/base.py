@@ -119,8 +119,8 @@ class StruphyModel(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def timescale(cls):
-        '''String that sets the time scale unit of the model. 
+    def velocity_scale(cls):
+        '''String that sets the velocity scale unit of the model. 
         Must be one of "alfvén", "cyclotron" or "light".'''
         pass
 
@@ -684,7 +684,7 @@ class StruphyModel(metaclass=ABCMeta):
 
             # compute units
             units = derive_units(
-                Z_bulk, A_bulk, params['units']['x'], params['units']['B'], params['units']['n'], cls.timescale())
+                Z_bulk, A_bulk, params['units']['x'], params['units']['B'], params['units']['n'], cls.velocity_scale())
 
             if verbose and rank == 0:
                 print(f'Unit of time:'.ljust(25),

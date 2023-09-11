@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def derive_units(Z_bulk=1, A_bulk=1., x=1., B=1., n=1., time_scale='alfvén'):
+def derive_units(Z_bulk=1, A_bulk=1., x=1., B=1., n=1., velocity_scale='alfvén'):
     """ Computes Struphy units used in Struphy model implementations.
 
     Input units from parameter file:
@@ -37,8 +37,8 @@ def derive_units(Z_bulk=1, A_bulk=1., x=1., B=1., n=1., time_scale='alfvén'):
     n : float
         Unit of particle number density (in 1e20 per cubic meter).
 
-    time_scale : str
-        Time scale to be used (determined by some characteristic velocity: "alfvén", "cyclotron" or "light").
+    velocity_scale : str
+        Velocity scale to be used ("alfvén", "cyclotron" or "light").
 
     Returns
     -------
@@ -66,11 +66,11 @@ def derive_units(Z_bulk=1, A_bulk=1., x=1., B=1., n=1., time_scale='alfvén'):
     # number density (1/m^3)
     units['n'] = n * 1e20
     # velocity (m/s)
-    if time_scale == 'light':
+    if velocity_scale == 'light':
         units['v'] = 1*c
-    elif time_scale == 'alfvén':
+    elif velocity_scale == 'alfvén':
         units['v'] = units['B'] / np.sqrt(units['n'] * A_bulk * mH * mu0)
-    elif time_scale == 'cyclotron':
+    elif velocity_scale == 'cyclotron':
         units['v'] = Z_bulk * e * units['B'] / \
             (A_bulk * mH) / (2*np.pi) * units['x']
     # time (s)
@@ -78,7 +78,7 @@ def derive_units(Z_bulk=1, A_bulk=1., x=1., B=1., n=1., time_scale='alfvén'):
     # pressure (Pa)
     units['p'] = A_bulk * mH * units['n'] * units['x']**3 / \
         (units['x'] * units['t'] **
-         2)  # this is equal to B^2/(mu0*n) if time_scale='alfvén'
+         2)  # this is equal to B^2/(mu0*n) if velocity_scale='alfvén'
     # mass density (kg/m^3)
     units['rho'] = A_bulk * mH * units['n']
 

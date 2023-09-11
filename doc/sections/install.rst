@@ -21,6 +21,7 @@ Requirements
 - An MPI library like open-mpi, mpich
 - OpenMP
 - Git version control system
+- Pandoc (optional)
 
 Sample environment on **Debian-Ubuntu-Mint**::
 

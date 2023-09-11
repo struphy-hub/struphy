@@ -79,15 +79,19 @@ def struphy():
     parser.add_argument('--set-i',
                         type=str,
                         metavar='PATH',
-                        help='make PATH the new default Input folder (type "." to use current working directory)',)
+                        help='make PATH the new default Input folder ("." to use cwd, "d" to use default <install-path>/io/inp/)',)
     parser.add_argument('--set-o',
                         type=str,
                         metavar='PATH',
-                        help='make PATH the new default Output folder (type "." to use current working directory)',)
+                        help='make PATH the new default Output folder ("." to use cwd, "d" to use default <install-path>/io/out/)',)
     parser.add_argument('--set-b',
                         type=str,
                         metavar='PATH',
-                        help='make PATH the new default Batch folder (type "." to use current working directory)',)
+                        help='make PATH the new default Batch folder ("." to use cwd, "d" to use default <install-path>/io/batch/)',)
+    parser.add_argument('--set-iob',
+                        type=str,
+                        metavar='PATH',
+                        help='make PATH the new default folder for io/inp/, io/out and io/batch ("." to use cwd, "d" to use default <install-path>)',)
 
     # create sub-commands and save name of sub-command into variable "command"
     subparsers = parser.add_subparsers(title='available commands',
@@ -359,9 +363,14 @@ def struphy():
 
     # parse argument
     args = parser.parse_args()
-
+    
     # if no arguments are passed, print help and exit
-    if args.command is None and args.set_i is None and args.set_o is None and args.set_b is None:
+    print_help = True
+    for key, val in args.__dict__.items():
+        if val is not None:
+            print_help = False
+            
+    if print_help:
         parser.print_help()
         exit()
 
@@ -369,14 +378,12 @@ def struphy():
     if args.set_i:
         if args.set_i == '.':
             i_path = os.getcwd()
-
         elif args.set_i == 'd':
             i_path = os.path.join(libpath, 'io/inp')
-
         else:
             i_path = args.set_i
             try:
-                os.mkdir(i_path)
+                os.makedirs(i_path)
             except:
                 pass
 
@@ -395,14 +402,12 @@ def struphy():
     if args.set_o:
         if args.set_o == '.':
             o_path = os.getcwd()
-
         elif args.set_o == 'd':
             o_path = os.path.join(libpath, 'io/out')
-
         else:
             o_path = args.set_o
             try:
-                os.mkdir(o_path)
+                os.makedirs(o_path)
             except:
                 pass
 
@@ -421,14 +426,12 @@ def struphy():
     if args.set_b:
         if args.set_b == '.':
             b_path = os.getcwd()
-
         elif args.set_b == 'd':
             b_path = os.path.join(libpath, 'io/batch')
-
         else:
             b_path = args.set_b
             try:
-                os.mkdir(b_path)
+                os.makedirs(b_path)
             except:
                 pass
 
@@ -441,6 +444,26 @@ def struphy():
         import subprocess
         subprocess.run(['struphy', '-p'])
 
+        exit()
+        
+    # set paths for inp, out and batch (with io/inp etc. prefices)
+    if args.set_iob:
+        if args.set_iob == '.':
+            path = os.getcwd()
+        elif args.set_iob == 'd':
+            path = libpath
+        else:
+            path = args.set_iob
+            
+        i_path = os.path.join(path, 'io/inp')
+        o_path = os.path.join(path, 'io/out')
+        b_path = os.path.join(path, 'io/batch')
+        
+        import subprocess
+        subprocess.run(['struphy', '--set-i', i_path])
+        subprocess.run(['struphy', '--set-o', o_path])
+        subprocess.run(['struphy', '--set-b', b_path])
+        
         exit()
 
     # handle argument dependencies in "sub-command"
@@ -465,6 +488,7 @@ def struphy():
     kwargs.pop('set_i')
     kwargs.pop('set_o')
     kwargs.pop('set_b')
+    kwargs.pop('set_iob')
 
     # start sub-command function with all parameters of that function
     func(**kwargs)

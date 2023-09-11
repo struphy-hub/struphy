@@ -1,3 +1,6 @@
+'Pusher kernels for gyro-center (5D) dynamics.'
+
+
 from pyccel.decorators import stack_array
 
 import struphy.linear_algebra.core as linalg

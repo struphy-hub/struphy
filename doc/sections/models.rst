@@ -33,7 +33,7 @@ Fluid models
 .. automodule:: struphy.models.fluid
     :members:
     :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, timescale
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, velocity_scale
     :show-inheritance:
 
 
@@ -45,7 +45,7 @@ Kinetic models
 .. automodule:: struphy.models.kinetic
     :members:
     :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, timescale
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, velocity_scale
     :show-inheritance:
 
 
@@ -57,7 +57,7 @@ Fluid-kinetic hybrid models
 .. automodule:: struphy.models.hybrid
     :members:
     :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, timescale
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, velocity_scale
     :show-inheritance:
 
 
@@ -69,7 +69,7 @@ Toy models
 .. automodule:: struphy.models.toy
     :members:
     :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, timescale
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, velocity_scale
     :show-inheritance:
 
 

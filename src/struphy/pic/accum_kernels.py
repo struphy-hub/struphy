@@ -1,3 +1,6 @@
+'Accumulation kernels for full-orbit (6D) particles.'
+
+
 from pyccel.decorators import stack_array
 
 from numpy import zeros, empty, sqrt, shape, floor, log

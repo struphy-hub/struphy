@@ -1,3 +1,6 @@
+'Particle and FEEC variables are updated.'
+
+
 import numpy as np
 
 from psydac.linalg.block import BlockVector

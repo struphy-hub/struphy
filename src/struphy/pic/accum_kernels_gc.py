@@ -1,3 +1,6 @@
+'Accumulation kernels for gyro-center (5D) particles.'
+
+
 from pyccel.decorators import stack_array
 
 from numpy import zeros, empty, shape
