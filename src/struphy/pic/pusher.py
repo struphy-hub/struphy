@@ -1,3 +1,6 @@
+'Syntactic sugar for calling pusher kernels.'
+
+
 import struphy.pic.pusher_kernels as pushers
 import struphy.pic.pusher_kernels_gc as pushers_gc
 import struphy.pic.utilities_kernels as utilities

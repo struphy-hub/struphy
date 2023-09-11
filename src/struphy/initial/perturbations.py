@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+'Analytical perturbations (modes).'
+
 
 import numpy as np
 

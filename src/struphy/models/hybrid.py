@@ -1,3 +1,6 @@
+'The bulk plasma is fluid, but there is also at least one kinetic species.'
+
+
 import numpy as np
 from struphy.models.base import StruphyModel
 
@@ -60,7 +63,7 @@ class LinearMHDVlasovCC(StruphyModel):
         return 'mhd'
 
     @classmethod
-    def timescale(cls):
+    def velocity_scale(cls):
         return 'alfvén'
 
     def __init__(self, params, comm):
@@ -311,7 +314,7 @@ class LinearMHDVlasovPC(StruphyModel):
         return 'mhd'
 
     @classmethod
-    def timescale(cls):
+    def velocity_scale(cls):
         return 'alfvén'
 
     def __init__(self, params, comm):
@@ -561,7 +564,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         return 'mhd'
 
     @classmethod
-    def timescale(cls):
+    def velocity_scale(cls):
         return 'alfvén'
 
     def __init__(self, params, comm):
@@ -885,7 +888,7 @@ class ColdPlasmaVlasov(StruphyModel):
         return 'coldelectrons'
 
     @classmethod
-    def timescale(cls):
+    def velocity_scale(cls):
         return 'light'
 
     def __init__(self, params, comm):

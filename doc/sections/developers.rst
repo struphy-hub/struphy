@@ -320,8 +320,8 @@ This returns the :ref:`data_structures` of the variable (the whole :ref:`particl
 In case of a fluid species, the naming convention is :code:`species_variable` 
 with an underscore separating species name and variable name.
 
-3. Define ``bulk_species`` and ``timescale``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+3. Define ``bulk_species`` and ``velocity_scale``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 These must be implemented as class methods of the model::
 
@@ -330,12 +330,12 @@ These must be implemented as class methods of the model::
         return 'energetic_ions'
 
     @classmethod
-    def timescale(cls):
+    def velocity_scale(cls):
         return 'light'
 
 The ``bulk_species`` must return the name of one of the species of the model. 
 
-There are three options for the ``timescale``:
+There are three options for the ``velocity_scale``:
 
     * ``alfvén``
     * ``cyclotron``
@@ -343,7 +343,8 @@ There are three options for the ``timescale``:
 
 The choice corresponds to setting the velocity unit :math:`\hat v` of the normalization.
 This then sets the time unit :math:`\hat t = \hat x / \hat v`, where :math:`\hat x` is the 
-unit of length specified through the parameter file.
+unit of length specified through the parameter file. We refer to `Tutorial 01 <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_01_units_run_main.html#Struphy-normalization-(units)>`_ for more details
+on the Struphy normalization.
 
 4. Add Propagators
 ^^^^^^^^^^^^^^^^^^

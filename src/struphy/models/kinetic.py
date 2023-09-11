@@ -1,3 +1,6 @@
+'The bulk plasma is kinetic.'
+
+
 import numpy as np
 from struphy.models.base import StruphyModel
 
@@ -55,7 +58,7 @@ class VlasovMaxwell(StruphyModel):
         return 'electrons'
 
     @classmethod
-    def timescale(cls):
+    def velocity_scale(cls):
         return 'light'
 
     def __init__(self, params, comm):
@@ -235,7 +238,7 @@ class LinearVlasovMaxwell(StruphyModel):
         return 'electrons'
 
     @classmethod
-    def timescale(cls):
+    def velocity_scale(cls):
         return 'light'
 
     def __init__(self, params, comm):
@@ -553,7 +556,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
         return 'electrons'
 
     @classmethod
-    def timescale(cls):
+    def velocity_scale(cls):
         return 'light'
 
     def __init__(self, params, comm):
@@ -854,7 +857,7 @@ class VlasovMasslessElectrons(StruphyModel):
         return 'ions'
 
     @classmethod
-    def timescale(cls):
+    def velocity_scale(cls):
         return 'cyclotron'
 
     def __init__(self, params, comm):

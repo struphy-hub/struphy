@@ -1,3 +1,6 @@
+'Only FEEC variables are updated.'
+
+
 import numpy as np
 from numpy import zeros
 

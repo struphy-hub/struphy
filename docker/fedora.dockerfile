@@ -4,7 +4,7 @@
 #
 # docker info
 # docker login gitlab-registry.mpcdf.mpg.de -u docker_api -p glpat--z6kJtobeG-xM_LdL6k6
-# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora -f images/fedora.dockerfile .
+# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora -f docker/fedora.dockerfile .
 # docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora
 
 FROM fedora:latest

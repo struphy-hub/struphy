@@ -1,4 +1,6 @@
 # coding: utf-8
+'Base classes for mapped domains (single patch).'
+
 
 from abc import ABCMeta, abstractmethod
 

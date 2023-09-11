@@ -1,3 +1,6 @@
+'Pusher kernels for full orbit (6D) particles.'
+
+
 from pyccel.decorators import stack_array
 
 import struphy.linear_algebra.core as linalg

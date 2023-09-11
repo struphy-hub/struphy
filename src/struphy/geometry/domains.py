@@ -1,3 +1,6 @@
+'Mapped domains (single patch).'
+
+
 from struphy.geometry.base import Domain, Spline, PoloidalSplineStraight, PoloidalSplineTorus
 from struphy.geometry.utilities import field_line_tracing
 import numpy as np

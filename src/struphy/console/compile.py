@@ -20,6 +20,9 @@ def struphy_compile(no_openmp=False, delete=False, verbose=False):
     import pyccel
 
     libpath = struphy.__path__[0]
+    
+    if any([s==' ' for s in libpath]):
+        raise NameError(f'Stuphy installation path MUST NOT contain blank spaces. Please rename "{libpath}".')
 
     if delete:
 

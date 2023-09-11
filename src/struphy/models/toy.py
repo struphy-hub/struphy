@@ -1,3 +1,6 @@
+'Simple toy models for testing.'
+
+
 import numpy as np
 from struphy.models.base import StruphyModel
 
@@ -33,7 +36,7 @@ class Maxwell(StruphyModel):
         return None
 
     @classmethod
-    def timescale(cls):
+    def velocity_scale(cls):
         return 'light'
 
     def __init__(self, params, comm):
@@ -99,7 +102,7 @@ class Vlasov(StruphyModel):
         return 'ions'
 
     @classmethod
-    def timescale(cls):
+    def velocity_scale(cls):
         return 'cyclotron'
 
     def __init__(self, params, comm):
@@ -194,7 +197,7 @@ class DriftKinetic(StruphyModel):
         return 'ions'
 
     @classmethod
-    def timescale(cls):
+    def velocity_scale(cls):
         return 'alfvén'
 
     def __init__(self, params, comm):
@@ -240,17 +243,17 @@ class DriftKinetic(StruphyModel):
             method=ions_params['push_algos1']['method'],
             maxiter=ions_params['push_algos1']['maxiter'],
             tol=ions_params['push_algos1']['tol']))
-        # self.add_propagator(self.prop_markers.StepPushGuidingCenter2(
-        #     self.pointer['ions'],
-        #     kappa=kappa,
-        #     b_eq=self._b_eq,
-        #     unit_b1=self._unit_b1,
-        #     unit_b2=self._unit_b2,
-        #     abs_b=self._abs_b,
-        #     integrator=ions_params['push_algos2']['integrator'],
-        #     method=ions_params['push_algos2']['method'],
-        #     maxiter=ions_params['push_algos2']['maxiter'],
-        #     tol=ions_params['push_algos2']['tol']))
+        self.add_propagator(self.prop_markers.StepPushGuidingCenter2(
+            self.pointer['ions'],
+            kappa=kappa,
+            b_eq=self._b_eq,
+            unit_b1=self._unit_b1,
+            unit_b2=self._unit_b2,
+            abs_b=self._abs_b,
+            integrator=ions_params['push_algos2']['integrator'],
+            method=ions_params['push_algos2']['method'],
+            maxiter=ions_params['push_algos2']['maxiter'],
+            tol=ions_params['push_algos2']['tol']))
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_fv')
