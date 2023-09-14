@@ -11,6 +11,65 @@ import struphy.b_splines.bspline_evaluation_3d as eval_3d
 from numpy import zeros, empty, shape, sqrt
 
 
+def a_documentation():
+    r'''
+    Explainer for arguments of pusher kernels.
+    
+    Function naming conventions:
+    
+    * starts with ``push_``
+    * add a short description of the pusher, e.g. ``push_bxu_H1vec``.
+    
+    These kernels are passed to :class:`struphy.pic.pusher.Pusher` and called via::
+    
+        Pusher()
+        
+    The arguments passed to each kernel have a pre-defined order, defined in :class:`struphy.pic.pusher.Pusher`.
+    This order is as follows (you can copy and paste from existing pusher_kernels functions):
+
+    1. Marker info:
+        * ``markers: 'float[:,:]'``          # local marker array
+        
+    2. Step info:
+        * ``dt: 'float'``                    # time step
+        * ``stage: 'int'``                   # current stage of the pusher (e.g. 0,1,2,3 for RK4)
+
+    3. Derham spline bases info:
+        * ``pn: 'int[:]'``                   # N-spline degree in each direction
+        * ``tn1: 'float[:]'``                # N-spline knot vector 
+        * ``tn2: 'float[:]'``
+        * ``tn3: 'float[:]'``    
+
+    4. mpi.comm info of all spaces:
+        - ``starts0: 'int[:]'``               # start indices of current process of elements in space V0
+        - ``starts1: 'int[:,:]'``             # start indices of current process of elements in space V1 in format (component, direction)
+        - ``starts2: 'int[:,:]'``             # start indices of current process of elements in space V2 in format (component, direction)
+        - ``starts3: 'int[:]'``               # start indices of current process of elements in space V3
+
+    5. Mapping info:
+        - ``kind_map: 'int'``                # mapping identifier 
+        - ``params_map: 'float[:]'``         # mapping parameters
+        - ``p_map: 'int[:]'``                # spline degree
+        - ``t1_map: 'float[:]'``             # knot vector 
+        - ``t2_map: 'float[:]'``             
+        - ``t3_map: 'float[:]'`` 
+        - ``ind1_map: int[:,:]``             # Indices of non-vanishing splines in format (number of mapping grid cells, p_map + 1)       
+        - ``ind2_map: int[:,:]`` 
+        - ``ind3_map: int[:,:]``            
+        - ``cx: 'float[:,:,:]'``             # control points for Fx
+        - ``cy: 'float[:,:,:]'``             # control points for Fy
+        - ``cz: 'float[:,:,:]'``             # control points for Fz                         
+
+    6. Optional: additional parameters, for example
+        - ``b2_1: 'float[:,:,:]'``           # spline coefficients of b2_1
+        - ``b2_2: 'float[:,:,:]'``           # spline coefficients of b2_2
+        - ``b2_3: 'float[:,:,:]'``           # spline coefficients of b2_3
+        - ``f0_params: 'float[:]'``          # parameters of equilibrium background
+    '''
+
+    print('This is just the docstring function.')
+
+
 def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
                             pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                             starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -529,19 +588,23 @@ def push_gc1_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, to
                                 norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
                                 curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
                                 grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]'):
-    r'''Single stage of the fixed-point iteration for the discrete gradient method
+    r'''Single stage of the fixed-point iteration (:math:`k`-index) for the discrete gradient method
 
     .. math::
 
-        {\mathbf H}^k_{n+1} = {\mathbf H}_n + dt*S1({\mathbf H}_n)*\bar{\nabla} I_1 ({\mathbf H}_n, {\mathbf H}^{k-1}_{n+1})
+        {\mathbf X}^k_{n+1} = {\mathbf X}_n + \Delta t \, \mathbb S_1({\mathbf X}_n) \bar{\nabla} I_1 ({\mathbf X}_n, {\mathbf X}^{k-1}_{n+1})
 
-    where
+    where :math:`\mathbf X_n` denotes the gyro-center particle position at time :math:`t = n \Delta t` and
 
-    ..math::
+    .. math::
+    
+        \mathbb S_1({\mathbf X}_n) &= \,, 
 
-        \bar{\nabla} I_1 ({\mathbf H}_n, {\mathbf H}_{n+1}) = \mu \nabla |\hat B^0_0({\mathbf H}_{n+1/2})| + ({\mathbf H}_{n+1} + {\mathbf H}_{n}) \frac{\mu |\hat B^0_0({\mathbf H}_{n+1})| - \mu |\hat B^0_0({\mathbf H}_n)| - ({\mathbf H}_{n+1} - {\mathbf H}_n)\cdot \mu \nabla |\hat B^0_0({\mathbf H}_{n+1/2})|}{||{\mathbf H}_{n+1} - {\mathbf H}_n||^2}
+        \bar{\nabla} I_1 ({\mathbf X}_n, {\mathbf X}_{n+1}) &= \nabla H_{n+1/2} + ({\mathbf X}_{n+1} + {\mathbf X}_{n}) \frac{H_{n+1} - H_{n} - ({\mathbf X}_{n+1} - {\mathbf X}_n)\cdot \nabla H_{n+1/2}}{||{\mathbf X}_{n+1} - {\mathbf X}_n||^2}\,,
+        
+        H_n &= \mu |\hat B^0_0({\mathbf X}_{n})|\,.
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant.
+    The velocity :math:`v_\parallel` and magentic moment :math:`\mu` are constant in this step.
     '''
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -554,7 +617,7 @@ def push_gc1_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, to
 
     # containers for fields
     temp = empty(3, dtype=float)
-    S = empty((3, 3), dtype=float)
+    S = zeros((3, 3), dtype=float)
     grad_I = empty(3, dtype=float)
 
     # marker position e
@@ -563,7 +626,7 @@ def push_gc1_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, to
 
     # get number of markers
     n_markers = shape(markers)[0]
-
+    
     for ip in range(n_markers):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -574,6 +637,7 @@ def push_gc1_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, to
             continue
 
         e[:] = markers[ip, 0:3]
+        
         e_diff[:] = e[:] - markers[ip, 9:12]
         mu = markers[ip, 4]
 
@@ -607,7 +671,7 @@ def push_gc1_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, to
         # assemble S
         S[0, 1] = markers[ip, 13]
         S[0, 2] = markers[ip, 14]
-        S[1, 0] = markers[ip, 13]
+        S[1, 0] = -markers[ip, 13]
         S[1, 2] = markers[ip, 15]
         S[2, 0] = -markers[ip, 14]
         S[2, 1] = -markers[ip, 15]
@@ -861,7 +925,7 @@ def push_gc1_discrete_gradients_faster(markers: 'float[:,:]', dt: float, stage: 
         # assemble S
         S[0, 1] = markers[ip, 13]
         S[0, 2] = markers[ip, 14]
-        S[1, 0] = markers[ip, 13]
+        S[1, 0] = -markers[ip, 13]
         S[1, 2] = markers[ip, 15]
         S[2, 0] = -markers[ip, 14]
         S[2, 1] = -markers[ip, 15]
@@ -1098,7 +1162,7 @@ def push_gc1_discrete_gradients_Itoh_Newton(markers: 'float[:,:]', dt: float, st
         # assemble S
         S[0, 1] = markers[ip, 13]
         S[0, 2] = markers[ip, 14]
-        S[1, 0] = markers[ip, 13]
+        S[1, 0] = -markers[ip, 13]
         S[1, 2] = markers[ip, 15]
         S[2, 0] = -markers[ip, 14]
         S[2, 1] = -markers[ip, 15]

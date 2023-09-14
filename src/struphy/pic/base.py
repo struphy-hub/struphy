@@ -302,19 +302,22 @@ class Particles(metaclass=ABCMeta):
         """
 
         # number of markers on the local process at loading stage
-        n_mks_load_loc = self.n_mks_load[self._mpi_rank]
+        n_mks_load_loc = self.n_mks_load[self.mpi_rank]
 
         # cumulative sum of number of markers on each process at loading stage.
         n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
 
-        if self._mpi_rank == 0:
+        if self.mpi_rank == 0:
             print('\nMARKERS:')
+            for key, val in self.params.items():
+                if 'loading' not in key and 'derham' not in key and 'domain' not in key:
+                    print((key + ' :').ljust(25), val)
 
         # load markers from external .hdf5 file
-        if self._params['loading']['type'] == 'external':
+        if self.params['loading']['type'] == 'external':
 
-            if self._mpi_rank == 0:
-                file = h5py.File(self._params['loading']['dir_markers'], 'r')
+            if self.mpi_rank == 0:
+                file = h5py.File(self.params['loading']['dir_markers'], 'r')
                 print('Loading markers from file: '.ljust(25), file)
 
                 self._markers[:n_mks_load_cum_sum[0], :
@@ -334,14 +337,15 @@ class Particles(metaclass=ABCMeta):
         # load fresh markers
         else:
 
-            if self._mpi_rank == 0:
-                for key, val in self._params['loading'].items():
+            if self.mpi_rank == 0:
+                print('\nLoading fresh markers:')
+                for key, val in self.params['loading'].items():
                     print((key + ' :').ljust(25), val)
 
             # 1. standard random number generator (pseudo-random)
-            if self._params['loading']['type'] == 'pseudo_random':
+            if self.params['loading']['type'] == 'pseudo_random':
 
-                _seed = self._params['loading']['seed']
+                _seed = self.params['loading']['seed']
                 if _seed is not None:
                     np.random.seed(_seed)
 
@@ -355,13 +359,13 @@ class Particles(metaclass=ABCMeta):
                 del temp
 
             # 2. plain sobol numbers with skip of first 1000 numbers
-            elif self._params['loading']['type'] == 'sobol_standard':
+            elif self.params['loading']['type'] == 'sobol_standard':
 
                 self._markers[:n_mks_load_loc, :3 + self.vdim] = sobol_seq.i4_sobol_generate(
                     3 + self.vdim, n_mks_load_loc, 1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank])
 
             # 3. symmetric sobol numbers in all 6 dimensions with skip of first 1000 numbers
-            elif self._params['loading']['type'] == 'sobol_antithetic':
+            elif self.params['loading']['type'] == 'sobol_antithetic':
 
                 assert self.vdim == 3, NotImplementedError(
                     '"sobol_antithetic" requires vdim=3 at the moment.')
@@ -381,10 +385,10 @@ class Particles(metaclass=ABCMeta):
             for i in range(self.vdim):
                 self._markers[:n_mks_load_loc, 3 + i] = sp.erfinv(
                     2*self._markers[:n_mks_load_loc, 3 + i] - 1) \
-                    * self._params['loading']['moments'][self.vdim + i] + self._params['loading']['moments'][i]
+                    * self.params['loading']['moments'][self.vdim + i] + self.params['loading']['moments'][i]
 
             # inversion method for drawing uniformly on the disc
-            _spatial = self._params['loading']['spatial']
+            _spatial = self.params['loading']['spatial']
             if _spatial == 'disc':
                 self._markers[:n_mks_load_loc, 0] = np.sqrt(
                     self._markers[:n_mks_load_loc, 0])

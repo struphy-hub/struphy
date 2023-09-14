@@ -10,7 +10,7 @@ default:
 
   before_script:
     - module purge
-    - module load gcc/9 openmpi anaconda/3/2021.11 mpi4py git pandoc
+    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc
     - module list
     - source env_$CI_PIPELINE_ID/bin/activate
     - pip list
@@ -52,7 +52,7 @@ default_venv:
     - echo "This is job ${CI_JOB_ID}"
     - module purge
     - module avail
-    - module load gcc/9 openmpi anaconda/3/2021.11 mpi4py git
+    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc
     - module list
   script:
     - echo "Creating virtual environment..."
@@ -76,7 +76,7 @@ ci_vars:
   before_script:
     - echo "All CI predefined variables:"
     - module purge
-    - module load gcc openmpi anaconda/3/2021.11 mpi4py git
+    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc
     - module list
   script:
     - echo "All CI predefined variables:"
@@ -199,7 +199,7 @@ linting:
     - if: $CI_COMMIT_REF_NAME == "master"
   cache: []
   before_script:
-    - module load anaconda/3/2021.11 
+    - module load anaconda/3/2023.03 
     - pip install -U pylint
   script:
     - FLAGS="--recursive=y --exit-zero --reports=yes"
@@ -253,15 +253,7 @@ default_unit_tests:
   script:
     - pwd
     - ls -1
-    - struphy test --mpi 2 
-    # run unit tests with coverage
-    - cd ${ENV_PATH}/struphy/tests/tests_serial/
-    - coverage run --omit="*/tests*" --data-file=$CI_PROJECT_DIR/.coverage -m pytest 
-    - cd $CI_PROJECT_DIR
-    - coverage xml
-    - ls -1
-    - coverage report --skip-empty
-    - coverage erase
+    - struphy test  
 
 default_code_tests:
   stage: test
@@ -293,6 +285,7 @@ ubuntu_tests:
     - apt install -y libblas-dev openmpi-bin 
     - apt install -y libomp-dev libomp5 
     - apt install -y git
+    - apt install -y pandoc
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
@@ -348,7 +341,8 @@ pages:
   script:
     - pip show struphy
     - struphy
-    - struphy tutorials
+    - struphy compile
+    - struphy tutorials 
     - cd doc ; make html
     - mv _build/html/ ../public/
   artifacts:

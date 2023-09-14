@@ -572,9 +572,6 @@ class StepPushGuidingCenter1(Propagator):
         self._pusher(self.particles[0], dt,
                      *self._pusher_inputs, mpi_sort='each', verbose=True)
 
-        # save magnetic field at each particles' position
-        self.particles[0].save_magnetic_energy(self.derham, self._abs_b)
-
 
 class StepPushGuidingCenter2(Propagator):
     r"""Solves
@@ -715,9 +712,6 @@ class StepPushGuidingCenter2(Propagator):
         """
         self._pusher(self.particles[0], dt,
                      *self._pusher_inputs, mpi_sort='each', verbose=True)
-
-        # save magnetic field at each particles' position
-        self.particles[0].save_magnetic_energy(self.derham, self._abs_b)
 
 
 class StepVinEfield(Propagator):
@@ -898,9 +892,9 @@ class StepPushDriftKinetic1(Propagator):
                           'unit_b2': None,
                           'abs_b': None,
                           'integrator': 'implicit',
-                          'method': 'discrete_gradient_faster',
-                          'maxiter': 10,
-                          'tol': 1e-12,
+                          'method': 'discrete_gradient',
+                          'maxiter': 5,
+                          'tol': 1e-8,
                           }
 
         params = set_defaults(params, params_default)
@@ -1067,9 +1061,9 @@ class StepPushDriftKinetic2(Propagator):
                           'unit_b2': None,
                           'abs_b': None,
                           'integrator': 'implicit',
-                          'method': 'discrete_gradient_faster',
+                          'method': 'discrete_gradient',
                           'maxiter': 10,
-                          'tol': 1e-12,
+                          'tol': 1e-8,
                           }
 
         params = set_defaults(params, params_default)

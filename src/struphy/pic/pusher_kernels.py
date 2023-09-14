@@ -14,6 +14,65 @@ from struphy.pic.pusher_utilities import aux_fun_x_v_stat_e
 from numpy import zeros, empty, shape, sqrt, cos, sin, floor, log
 
 
+def a_documentation():
+    r'''
+    Explainer for arguments of pusher kernels.
+    
+    Function naming conventions:
+    
+    * starts with ``push_``
+    * add a short description of the pusher, e.g. ``push_bxu_H1vec``.
+    
+    These kernels are passed to :class:`struphy.pic.pusher.Pusher` and called via::
+    
+        Pusher()
+        
+    The arguments passed to each kernel have a pre-defined order, defined in :class:`struphy.pic.pusher.Pusher`.
+    This order is as follows (you can copy and paste from existing pusher_kernels functions):
+
+    1. Marker info:
+        * ``markers: 'float[:,:]'``          # local marker array
+        
+    2. Step info:
+        * ``dt: 'float'``                    # time step
+        * ``stage: 'int'``                   # current stage of the pusher (e.g. 0,1,2,3 for RK4)
+
+    3. Derham spline bases info:
+        * ``pn: 'int[:]'``                   # N-spline degree in each direction
+        * ``tn1: 'float[:]'``                # N-spline knot vector 
+        * ``tn2: 'float[:]'``
+        * ``tn3: 'float[:]'``    
+
+    4. mpi.comm info of all spaces:
+        - ``starts0: 'int[:]'``               # start indices of current process of elements in space V0
+        - ``starts1: 'int[:,:]'``             # start indices of current process of elements in space V1 in format (component, direction)
+        - ``starts2: 'int[:,:]'``             # start indices of current process of elements in space V2 in format (component, direction)
+        - ``starts3: 'int[:]'``               # start indices of current process of elements in space V3
+
+    5. Mapping info:
+        - ``kind_map: 'int'``                # mapping identifier 
+        - ``params_map: 'float[:]'``         # mapping parameters
+        - ``p_map: 'int[:]'``                # spline degree
+        - ``t1_map: 'float[:]'``             # knot vector 
+        - ``t2_map: 'float[:]'``             
+        - ``t3_map: 'float[:]'`` 
+        - ``ind1_map: int[:,:]``             # Indices of non-vanishing splines in format (number of mapping grid cells, p_map + 1)       
+        - ``ind2_map: int[:,:]`` 
+        - ``ind3_map: int[:,:]``            
+        - ``cx: 'float[:,:,:]'``             # control points for Fx
+        - ``cy: 'float[:,:,:]'``             # control points for Fy
+        - ``cz: 'float[:,:,:]'``             # control points for Fz                         
+
+    6. Optional: additional parameters, for example
+        - ``b2_1: 'float[:,:,:]'``           # spline coefficients of b2_1
+        - ``b2_2: 'float[:,:,:]'``           # spline coefficients of b2_2
+        - ``b2_3: 'float[:,:,:]'``            # spline coefficients of b2_3
+        - ``f0_params: 'float[:]'``          # parameters of equilibrium background
+    '''
+
+    print('This is just the docstring function.')
+
+
 @stack_array('df', 'df_inv', 'df_inv_t', 'e_form', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
