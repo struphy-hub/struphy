@@ -372,12 +372,29 @@ class StruphyModel(metaclass=ABCMeta):
                         self.em_fields['params']['init'], domain=self.domain)
 
                     if self.comm.Get_rank() == 0:
-                        _type = self.em_fields['params']['init']['type']
+                        init_type = self.em_fields['params']['init']['type']
                         print(f'EM field "{key}" was initialized with:')
-                        print('type:'.ljust(25), _type)
-                        if _type is not None:
-                            for key, val in self.em_fields['params']['init'][_type].items():
-                                print((key + ':').ljust(25), val)
+                        print('type:'.ljust(25), init_type)
+
+                        if init_type is None:
+                            pass
+
+                        elif type(init_type) == str:
+                            init_types = [init_type]
+
+                        elif type(init_type) == list:
+                            init_types = init_type
+
+                        else:
+                            raise NotImplemented(
+                                f'The type of initial condition must be null or str or list.')
+
+                        if init_type is not None:
+
+                            for _type in init_types:
+                                print(_type, ':')
+                                for key, val2 in self.em_fields['params']['init'][_type].items():
+                                    print((key + ':').ljust(25), val2)
 
         # initialize fields
         if len(self.fluid) > 0:
@@ -390,12 +407,29 @@ class StruphyModel(metaclass=ABCMeta):
                             val['params']['init'], domain=self.domain)
 
                 if self.comm.Get_rank() == 0:
-                    _type = val['params']['init']['type']
+                    init_type = val['params']['init']['type']
                     print(f'Fluid species "{species}" was initialized with:')
-                    print('type:'.ljust(25), _type)
-                    if _type is not None:
-                        for key, val in val['params']['init'][_type].items():
-                            print((key + ':').ljust(25), val)
+                    print('type:'.ljust(25), init_type)
+
+                    if init_type is None:
+                        pass
+
+                    elif type(init_type) == str:
+                        init_types = [init_type]
+
+                    elif type(init_type) == list:
+                        init_types = init_type
+
+                    else:
+                        raise NotImplemented(
+                            f'The type of initial condition must be null or str or list.')
+
+                    if init_type is not None:
+
+                        for _type in init_types:
+                            print(_type, ':')
+                            for key, val2 in val['params']['init'][_type].items():
+                                print((key + ':').ljust(25), val2)
 
         # initialize particles
         if len(self.kinetic) > 0:
