@@ -237,89 +237,78 @@ class Field:
             Domain object for metric coefficients. Needed if init_params[init_params['type']]['coords'] == 'physical'.
         """
 
-        # set initial conditions for each component
-        init_type = init_params['type']
+        init_types = []
+        fun_params = []
 
-        if init_type is not None:
-            fun_params = init_params[init_type].copy()
+        # identifying initial conditions of self.vector
+        if init_params['type'] is None:
+            pass
+
+        elif type(init_params['type']) == str:
+
+            if np.any(init_params[init_params['type']]['comps'][self.name]):
+
+                init_types += [init_params['type']]
+                fun_params += [init_params[init_types[0]].copy()]
+
+        elif type(init_params['type']) == list:
+
+            for n, _type in enumerate(init_params['type']):
+
+                if np.any(init_params[_type]['comps'][self.name]):
+
+                    init_types += [_type]
+                    fun_params += [init_params[_type].copy()]
+
+        else:
+            raise NotImplemented(
+                f'The type of initial condition must be null or str or list.')
+
+        ntypes = len(init_types)
+
+        if ntypes != 0:
 
             # white noise in logical space for different components
-            if init_type == 'noise':
+            if any(_type == 'noise' for _type in init_types):
+
+                assert ntypes == 1, \
+                    AssertionError (
+                        "The init type 'noise' cannot be applied with other init types")
 
                 params_default = {'comps': {'b2': [True, False, False]},
                                   'variation_in': 'e3',
                                   'amp': 0.0001,
-                                  'seed': 1234,
+                                  'seed': 1234
                                   }
 
-                self._params = set_defaults(fun_params, params_default)
+                self._params = set_defaults(fun_params[0], params_default)
 
                 # component(s) to perturb
-                if isinstance(fun_params['comps'][self._name], bool):
-                    comps = [fun_params['comps'][self._name]]
+                if isinstance(fun_params[0]['comps'][self.name], bool):
+                    comps = [fun_params[0]['comps'][self.name]]
                 else:
-                    comps = fun_params['comps'][self._name]
+                    comps = fun_params[0]['comps'][self.name]
 
                 # set white noise FE coefficients
                 if self.space_id in {'H1', 'L2'}:
                     if comps[0]:
-                        self._add_noise(fun_params)
+                        self._add_noise(fun_params[0])
 
                 elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
                     for n, comp in enumerate(comps):
                         if comp:
-                            self._add_noise(fun_params, n=n)
-
-            # Fourier modes
-            elif 'ModesSin' in init_type or 'ModesCos' in init_type:
-
-                # component(s) to initialize
-                if isinstance(fun_params['comps'][self._name], bool):
-                    comps = [fun_params['comps'][self._name]]
-                else:
-                    comps = fun_params['comps'][self._name]
-                fun_params.pop('comps')
-
-                # coordinates: logical (default) or physical
-                if 'coords' in fun_params:
-                    coords = fun_params['coords']
-                    fun_params.pop('coords')
-                else:
-                    coords = 'logical'
-
-                # get callable(s) for specified init type
-                fun_tmp = [None] * len(comps)
-                for n, comp in enumerate(comps):
-                    assert isinstance(comp, bool)
-                    if comp:
-                        fun_class = getattr(perturbations, init_type)
-                        fun_tmp[n] = fun_class(**fun_params)
-
-                # pullback callable
-                form_str = self.derham.forms_dict[self.space_id]
-
-                if self.space_id in {'H1', 'L2'}:
-                    fun = PulledPform(coords, fun_tmp,
-                                      domain, form_str)
-                elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
-                    fun = []
-
-                    fun += [PulledPform(coords, fun_tmp, domain,
-                                        form_str + '_1')]
-                    fun += [PulledPform(coords, fun_tmp, domain,
-                                        form_str + '_2')]
-                    fun += [PulledPform(coords, fun_tmp, domain,
-                                        form_str + '_3')]
-
-                # peform projection
-                self.vector = self.derham.P[self.space_key](fun)
+                            self._add_noise(fun_params[0], n=n)
 
             # loading of eigenfunction
-            elif init_type[-6:] == 'EigFun':
+            elif any(_type[-6:] == 'EigFun' for _type in init_types):
+
+                assert ntypes == 1, \
+                    AssertionError(
+                        "The init type 'EigFun' cannot be applied with other init types")
 
                 # select class
-                funs = getattr(eigenfunctions, init_type)(
-                    self.derham, **fun_params)
+                funs = getattr(eigenfunctions, init_types[0])(
+                    self.derham, **fun_params[0])
 
                 # select eigenvector and set coefficients
                 if hasattr(funs, self.name):
@@ -328,20 +317,76 @@ class Field:
 
                     self.vector = eig_vec
 
+            # Fourier modes
+            elif any(_type in ['ModesSin', 'ModesCos', 'TorusModesSin', 'TorusModesCos'] for _type in init_types):
+                
+                form_str = self.derham.forms_dict[self.space_id]
+
+                if self.space_id in {'H1', 'L2'}:
+
+                    assert ntypes == 1, \
+                        AssertionError(
+                            f'Only one init type can be applied to the variables in space {self.space_id}.')
+                    
+                    coord_tmp = 'logical'
+                    fun_tmp = [None]
+
+                    # coordinates: logical (default) or physical
+                    if 'coords' in fun_params[0]:
+                        coord_tmp = fun_params[0]['coords']
+                        fun_params[0].pop('coords')
+
+                    # get callable(s) for specified init type
+                    fun_class = getattr(perturbations, init_types[0])
+                    fun_params[0].pop('comps')
+                    fun_tmp[0] = fun_class(**fun_params[0])
+
+                    # pullback callable
+                    fun = PulledPform(coord_tmp, fun_tmp, domain, form_str)
+
+                elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
+
+                    assert ntypes < 4, \
+                        AssertionError(
+                            f'Maximum 3 init types can be applied to the variables in space {self.space_id}.')
+
+                    coord_tmp = 'logical'
+                    coords_tmp = ['logical', 'logical', 'logical']
+                    fun_tmp = [None, None, None]
+
+                    for n, _type in enumerate(init_types):
+
+                        fun_class = getattr(perturbations, _type)
+
+                        comps = fun_params[n]['comps'][self.name]
+                        fun_params[n].pop('comps')
+
+                        if 'coords' in fun_params[n]:
+                            coord_tmp = fun_params[n]['coords']
+                            fun_params[n].pop('coords')
+
+                        for axis, comp in enumerate(comps):
+
+                            if comp:
+                                fun_tmp[axis] = fun_class(**fun_params[n])
+                                coords_tmp[axis] = coord_tmp
+
+                    # pullback callable
+                    fun = []
+
+                    fun += [PulledPform(coords_tmp[0], fun_tmp, domain,
+                                        form_str + '_1')]
+                    fun += [PulledPform(coords_tmp[1], fun_tmp, domain,
+                                        form_str + '_2')]
+                    fun += [PulledPform(coords_tmp[2], fun_tmp, domain,
+                                        form_str + '_3')]
+
+                # peform projection
+                self.vector = self.derham.P[self.space_key](fun)
+
             else:
                 raise NotImplemented(
-                    f'Initial condition {init_type} not available.')
-
-            # projection of analytical function
-            # else:
-
-            #     # select class
-            #     funs = getattr(analytic, init_type)(fun_params, domain)
-
-            #     # select function and project project
-            #     if hasattr(funs, self.name):
-            #         self.vector = self.derham.P[self.space_key](
-            #             getattr(funs, self.name))
+                    f'Initial condition {init_types} not available.')
 
         # apply boundary operator (in-place)
         self.derham.B[self.space_key].dot(
@@ -349,6 +394,7 @@ class Field:
 
         # update ghost regions
         self._vector.update_ghost_regions()
+
 
     def initialize_coeffs_from_restart_file(self, file, species=None):
         """
