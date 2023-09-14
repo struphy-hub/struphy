@@ -13,68 +13,73 @@ import struphy.pic.mat_vec_filler as mvf
 import struphy.pic.filler_kernels as fk
 
 
-def _docstring():
-    '''
-    Module docstring for :ref:`accumulators`.
+def a_documentation():
+    r'''
+    Explainer for arguments of accumulation kernels.
+    
+    Function naming conventions:
+    
+    * use the model name, all lower-case letters (e.g. ``lin_vlasov_maxwell``)
+    * in case of multiple accumulations in one model, attach ``_1``, ``_2`` or the species name.
+    
+    These kernels are passed to :class:`struphy.pic.particles_to_grid.Accumulator` and called via::
+    
+        Accumulator.accumulate()
+        
+    The arguments passed to each kernel have a pre-defined order, defined in :class:`struphy.pic.particles_to_grid.Accumulator`.
+    This order is as follows (you can copy and paste from existing accum_kernels functions):
 
-    The module contains model-specific accumulation routines (pyccelized), to be defined by the user.
+    1. Marker info:
+        * ``markers: 'float[:,:]'``          # local marker array
+        * ``n_markers_tot: 'int'``           # total number of markers :math:`N` (all processes)
 
-    Naming conventions:
-        - use the model name, all lower-case letters (e.g. lin_vlasov_maxwell)
-        - in case of multiple accumulations in one model, attach _1, _2, etc. 
+    2. Derham spline bases info:
+        * ``pn: 'int[:]'``                   # N-spline degree in each direction
+        * ``tn1: 'float[:]'``                # N-spline knot vector 
+        * ``tn2: 'float[:]'``
+        * ``tn3: 'float[:]'``    
 
-    Arguments have to be passed in the following order (copy and paste from existing accum_kernels function):
+    3. mpi.comm info of all spaces:
+        - ``starts0: 'int[:]'``               # start indices of current process of elements in space V0
+        - ``starts1: 'int[:,:]'``             # start indices of current process of elements in space V1 in format (component, direction)
+        - ``starts2: 'int[:,:]'``             # start indices of current process of elements in space V2 in format (component, direction)
+        - ``starts3: 'int[:]'``               # start indices of current process of elements in space V3
 
-    - First, the marker info:
-        - markers: 'float[:,:]',          # positions [0:3,], velocities [3:6,], and weights [6,] of the markers
+    4. Mapping info:
+        - ``kind_map: 'int'``                # mapping identifier 
+        - ``params_map: 'float[:]'``         # mapping parameters
+        - ``p_map: 'int[:]'``                # spline degree
+        - ``t1_map: 'float[:]'``             # knot vector 
+        - ``t2_map: 'float[:]'``             
+        - ``t3_map: 'float[:]'`` 
+        - ``ind1_map: int[:,:]``             # Indices of non-vanishing splines in format (number of mapping grid cells, p_map + 1)       
+        - ``ind2_map: int[:,:]`` 
+        - ``ind3_map: int[:,:]``            
+        - ``cx: 'float[:,:,:]'``             # control points for Fx
+        - ``cy: 'float[:,:,:]'``             # control points for Fy
+        - ``cz: 'float[:,:,:]'``             # control points for Fz                         
 
-    - then, the Derham spline bases info:
-        - pn: 'int[:]',                   # N-spline degree in each direction
-        - tn1: 'float[:]',                # N-spline knot vector 
-        - tn2: 'float[:]',
-        - tn3: 'float[:]',    
-
-    - then, the mpi.comm info of all spaces:
-        - starts0: 'int[:]'               # start indices of current process of elements in space V0
-        - starts1: 'int[:,:]'             # start indices of current process of elements in space V1 in format (component, direction)
-        - starts2: 'int[:,:]'             # start indices of current process of elements in space V2 in format (component, direction)
-        - starts3: 'int[:]'               # start indices of current process of elements in space V3
-
-    - then, the mapping info:
-        - kind_map: 'int',                # mapping identifier 
-        - params_map: 'float[:]',         # mapping parameters
-        - p_map: 'int[:]',                # spline degree
-        - t1_map: 'float[:]',             # knot vector 
-        - t2_map: 'float[:]',             
-        - t3_map: 'float[:]', 
-        - ind1_map: int[:,:],             # Indices of non-vanishing splines in format (number of mapping grid cells, p_map + 1)       
-        - ind2_map: int[:,:], 
-        - ind3_map: int[:,:],            
-        - cx: 'float[:,:,:]',             # control points for Fx
-        - cy: 'float[:,:,:]',             # control points for Fy
-        - cz: 'float[:,:,:]',             # control points for Fz                         
-
-    - then, the data objects (number depends on model, but at least one matrix has to be passed)
-        - mat11: 'float[:,:,:,:,:,:]',    # _data attribute of StencilMatrix
+    5. Data objects to accumulate into (number depends on model, but at least one matrix or vector has to be passed)
+        - mat11: ``'float[:,:,:,:,:,:]'``    # _data attribute of StencilMatrix
         - optional:
 
-            - mat12: 'float[:,:,:,:,:,:]',
-            - mat13: 'float[:,:,:,:,:,:]',
-            - mat21: 'float[:,:,:,:,:,:]',
-            - mat22: 'float[:,:,:,:,:,:]',
-            - mat23: 'float[:,:,:,:,:,:]',
-            - mat31: 'float[:,:,:,:,:,:]',
-            - mat32: 'float[:,:,:,:,:,:]',
-            - mat33: 'float[:,:,:,:,:,:]',
-            - vec1: 'float[:,:,:]',           # _data attribute of StencilVector
-            - vec2: 'float[:,:,:]',
-            - vec3: 'float[:,:,:]'
+            - ``mat12: 'float[:,:,:,:,:,:]'``
+            - ``mat13: 'float[:,:,:,:,:,:]'``
+            - ``mat21: 'float[:,:,:,:,:,:]'``
+            - ``mat22: 'float[:,:,:,:,:,:]'``
+            - ``mat23: 'float[:,:,:,:,:,:]'``
+            - ``mat31: 'float[:,:,:,:,:,:]'``
+            - ``mat32: 'float[:,:,:,:,:,:]'``
+            - ``mat33: 'float[:,:,:,:,:,:]'``
+            - ``vec1: 'float[:,:,:]'``           # _data attribute of StencilVector
+            - ``vec2: 'float[:,:,:]'``
+            - ``vec3: 'float[:,:,:]'``
 
-    - optional: additional parameters, for example
-        - b2_1: 'float[:,:,:]',           # spline coefficients of b2_1
-        - b2_2: 'float[:,:,:]',           # spline coefficients of b2_2
-        - b2_3: 'float[:,:,:]'            # spline coefficients of b2_3
-        - f0_params: 'float[:]',          # parameters of equilibrium background
+    6. Optional: additional parameters, for example
+        - ``b2_1: 'float[:,:,:]'``           # spline coefficients of b2_1
+        - ``b2_2: 'float[:,:,:]'``           # spline coefficients of b2_2
+        - ``b2_3: 'float[:,:,:]'``            # spline coefficients of b2_3
+        - ``f0_params: 'float[:]'``          # parameters of equilibrium background
     '''
 
     print('This is just the docstring function.')

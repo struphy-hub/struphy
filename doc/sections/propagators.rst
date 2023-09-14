@@ -107,3 +107,9 @@ Pusher kernels
     :undoc-members:
     :exclude-members: variables
     :show-inheritance:
+
+.. automodule:: struphy.pic.pusher_kernels_gc
+    :members:
+    :undoc-members:
+    :exclude-members: variables
+    :show-inheritance:

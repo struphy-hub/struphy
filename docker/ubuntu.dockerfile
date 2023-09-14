@@ -17,7 +17,8 @@ RUN apt update -y && apt clean \
     && DEBIAN_FRONTEND=noninteractive TZ="Europe/Berlin" apt-get install -y liblapack-dev libopenmpi-dev \
     && apt install -y libblas-dev openmpi-bin \
     && apt install -y libomp-dev libomp5 \
-    && apt install -y git
+    && apt install -y git \
+    && apt install -y pandoc
 
 # create new working dir
 WORKDIR /your_working_dir/

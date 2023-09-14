@@ -50,8 +50,9 @@ class Accumulator:
 
     Note
     ----
-        Struphy accumulation kernels called by ``Accumulator`` objects should be added to ``struphy/pic/accum_kernels.py``. 
-        Please follow the docstring in `struphy.pic.accum_kernels._docstring`.
+        Struphy accumulation kernels called by ``Accumulator`` objects must be added to ``struphy/pic/accum_kernels.py`` 
+        (6D particles) or ``struphy/pic/accum_kernels_gc.py`` (5D particles), see :ref:`accum_kernels`
+        and :ref:`accum_kernels_gc` for details.
     """
 
     def __init__(self, derham, domain, space_id, kernel_name, add_vector=False, symmetry=None):

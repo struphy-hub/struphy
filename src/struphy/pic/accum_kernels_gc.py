@@ -12,6 +12,78 @@ import struphy.linear_algebra.core as linalg
 import struphy.pic.mat_vec_filler as mvf
 
 
+def a_documentation():
+    r'''
+    Explainer for arguments of accumulation kernels.
+    
+    Function naming conventions:
+    
+    * use the model name, all lower-case letters (e.g. ``lin_vlasov_maxwell``)
+    * in case of multiple accumulations in one model, attach ``_1``, ``_2`` or the species name.
+    
+    These kernels are passed to :class:`struphy.pic.particles_to_grid.Accumulator` and called via::
+    
+        Accumulator.accumulate()
+        
+    The arguments passed to each kernel have a pre-defined order, defined in :class:`struphy.pic.particles_to_grid.Accumulator`.
+    This order is as follows (you can copy and paste from existing accum_kernels functions):
+
+    1. Marker info:
+        * ``markers: 'float[:,:]'``          # local marker array
+        * ``n_markers_tot: 'int'``           # total number of markers :math:`N` (all processes)
+
+    2. Derham spline bases info:
+        * ``pn: 'int[:]'``                   # N-spline degree in each direction
+        * ``tn1: 'float[:]'``                # N-spline knot vector 
+        * ``tn2: 'float[:]'``
+        * ``tn3: 'float[:]'``    
+
+    3. mpi.comm info of all spaces:
+        - ``starts0: 'int[:]'``               # start indices of current process of elements in space V0
+        - ``starts1: 'int[:,:]'``             # start indices of current process of elements in space V1 in format (component, direction)
+        - ``starts2: 'int[:,:]'``             # start indices of current process of elements in space V2 in format (component, direction)
+        - ``starts3: 'int[:]'``               # start indices of current process of elements in space V3
+
+    4. Mapping info:
+        - ``kind_map: 'int'``                # mapping identifier 
+        - ``params_map: 'float[:]'``         # mapping parameters
+        - ``p_map: 'int[:]'``                # spline degree
+        - ``t1_map: 'float[:]'``             # knot vector 
+        - ``t2_map: 'float[:]'``             
+        - ``t3_map: 'float[:]'`` 
+        - ``ind1_map: int[:,:]``             # Indices of non-vanishing splines in format (number of mapping grid cells, p_map + 1)       
+        - ``ind2_map: int[:,:]`` 
+        - ``ind3_map: int[:,:]``            
+        - ``cx: 'float[:,:,:]'``             # control points for Fx
+        - ``cy: 'float[:,:,:]'``             # control points for Fy
+        - ``cz: 'float[:,:,:]'``             # control points for Fz                         
+
+    5. Data objects to accumulate into (number depends on model, but at least one matrix has to be passed)
+        - mat11: ``'float[:,:,:,:,:,:]'``    # _data attribute of StencilMatrix
+        - optional:
+
+            - ``mat12: 'float[:,:,:,:,:,:]'``
+            - ``mat13: 'float[:,:,:,:,:,:]'``
+            - ``mat21: 'float[:,:,:,:,:,:]'``
+            - ``mat22: 'float[:,:,:,:,:,:]'``
+            - ``mat23: 'float[:,:,:,:,:,:]'``
+            - ``mat31: 'float[:,:,:,:,:,:]'``
+            - ``mat32: 'float[:,:,:,:,:,:]'``
+            - ``mat33: 'float[:,:,:,:,:,:]'``
+            - ``vec1: 'float[:,:,:]'``           # _data attribute of StencilVector
+            - ``vec2: 'float[:,:,:]'``
+            - ``vec3: 'float[:,:,:]'``
+
+    6. Optional: additional parameters, for example
+        - ``b2_1: 'float[:,:,:]'``           # spline coefficients of b2_1
+        - ``b2_2: 'float[:,:,:]'``           # spline coefficients of b2_2
+        - ``b2_3: 'float[:,:,:]'``            # spline coefficients of b2_3
+        - ``f0_params: 'float[:]'``          # parameters of equilibrium background
+    '''
+
+    print('This is just the docstring function.')
+
+
 @stack_array('g_inv', 'tmp1', 'tmp2', 'b', 'b_prod', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def cc_lin_mhd_5d_D(markers: 'float[:,:]', n_markers_tot: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',

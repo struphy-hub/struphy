@@ -10,7 +10,7 @@ import numpy as np
 
 class Pusher:
     """
-    Wrapper class for particle pushing. 
+    Syntactic sugar for particle pusher kernels. 
 
     It retrieves the correct pusher kernel and prepares the FEM arguments passed to the pusher kernel.
 
@@ -23,7 +23,7 @@ class Pusher:
             All things mapping.
 
         kernel_name : str
-            The name of the pusher kernel in the file struphy.pic.pusher_kernels.
+            The name of the pusher kernel in the file :module:`struphy.pic.pusher_kernels`.
 
         n_stages : int
             Number of stages of the pusher (e.g. 4 for RK4)
@@ -239,7 +239,7 @@ class Pusher_iteration_Gonzalez:
             Number of stages of the pusher (e.g. 4 for RK4)
     """
 
-    def __init__(self, derham, domain, kernel_name, maxiter=10, tol=1.e-12):
+    def __init__(self, derham, domain, kernel_name, maxiter=10, tol=1.e-8):
 
         self._derham = derham
         self._domain = domain
