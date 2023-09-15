@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "2.0.2"
+version = "2.0.3"
 readme = "README.md"
 requires-python = ">=3.7, <3.12"
 license = {file = "LICENSE"}
@@ -70,9 +70,9 @@ struphy = "struphy.console.main:struphy"
 'struphy.io' = ['batch/*.sh']
 
 'struphy.io.inp' = ['parameters.yml',
-                    'params_*.yml',
                     'tests/*.yml',
                     'tutorials/*.yml',
+                    'longer_examples/*.yml',
                     ]
                     
 struphy = ['compile_struphy.mk',
