@@ -69,7 +69,7 @@ kinetic :
         markers :
             type    : full_f # full_f, control_variate, or delta_f
             ppc     : 200 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
-            eps     : .5 # MPI send/receive buffer (0.1 <= eps <= 1.0)
+            eps     : .7 # MPI send/receive buffer (0.1 <= eps <= 1.0)
             bc : 
                 type    : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
             loading :
