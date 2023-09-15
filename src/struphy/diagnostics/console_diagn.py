@@ -22,7 +22,7 @@ def main():
                             \n                  set points for slicing with options below (default is middle of the space)''')
     parser.add_argument('-f', nargs=1, type=str, default=['sim_1'],
                         help='in which folder the simulation data has been stored')
-    parser.add_argument('-scalars', nargs='+', action='append', default=[[]],
+    parser.add_argument('-scalars', nargs='+', action='append', default=[],
                         help='(for plot_scalars) which quantities to plot')
     parser.add_argument('--log', action='store_true',
                         help='(for plot_scalars) if logarithmic y-axis should be used')
@@ -46,7 +46,10 @@ def main():
     foldername = args.f[0]
     time = args.t[0]
     do_log = args.log
-    scalars_plot = args.scalars[0]
+    if len(args.scalars) != 0:
+        scalars_plot = args.scalars[0]
+    else:
+        scalars_plot = args.scalars
 
     libpath = struphy.__path__[0]
     with open(os.path.join(libpath, 'o_path.txt')) as f:

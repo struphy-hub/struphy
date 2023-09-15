@@ -20,7 +20,7 @@ with open('../src/struphy/console/main.py') as f:
 # -- Project information -----------------------------------------------------
 
 project = 'struphy'
-copyright = '2019 (c) Struphy dev team | Max Planck Institute for Plasma Physics'
+copyright = '2019-2023 (c) Struphy dev team | Max Planck Institute for Plasma Physics'
 author = 'Struphy dev team | Max Planck Institute for Plasma Physics'
 version = __version__
 
@@ -40,7 +40,8 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
     'sphinx_rtd_theme',
-    'm2r2',
+    #'m2r2',
+    "nbsphinx",
 ]
 
 napoleon_use_admonition_for_examples = True
@@ -63,15 +64,18 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # a list of builtin themes.
 #
 #html_theme = 'sphinx_rtd_theme'
-html_theme = 'classic'
+#html_theme = 'classic'
+#html_theme = 'press'
+html_theme = 'python_docs_theme'
 
-html_theme_options = {
-    "rightsidebar": "false",
-    "stickysidebar": "true",
-    "footerbgcolor": "Coral",
-    "externalrefs": "true",
-    #"body_min_width": 800,
-}
+
+# html_theme_options = {
+#     "rightsidebar": "false",
+#     "stickysidebar": "true",
+#     "footerbgcolor": "Coral",
+#     "externalrefs": "true",
+#     #"body_min_width": 800,
+# }
 
 html_sidebars = {
    '**': ['localtoc.html', 'relations.html', 'searchbox.html'],

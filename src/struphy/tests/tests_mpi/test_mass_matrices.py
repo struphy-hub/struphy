@@ -12,6 +12,7 @@ import pytest
     ['Colella', {
         'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}]])
 def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
+    '''Compare Struphy mass matrices to Struphy-legacy mass matrices.'''
 
     import numpy as np
 
@@ -215,6 +216,7 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
     ['IGAPolarCylinder', {
         'a': 1., 'Lz': 3.}]])
 def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
+    '''Compare Struphy polar mass matrices to Struphy-legacy polar mass matrices.'''
 
     import numpy as np
 
@@ -410,6 +412,8 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     ['HollowCylinder', {
         'a1': .1, 'a2': 1., 'Lz': 18.84955592153876}]])
 def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
+    '''Compare mass matrix-vector products with Kronecker products of preconditioner, 
+    check PC * M = Id and test PCs in solve.'''
 
     import numpy as np
     import time
@@ -717,6 +721,8 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     ['IGAPolarCylinder', {
         'a': 1., 'Lz': 3.}]])
 def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
+    '''Compare polar mass matrix-vector products with Kronecker products of preconditioner, 
+    check PC * M = Id and test PCs in solve.'''
 
     import numpy as np
     import time

@@ -1,0 +1,90 @@
+grid :
+    Nel      : [16, 24, 8] # number of grid cells, >p
+    p        : [3, 3, 3]  # spline degree, >1
+    spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
+    bc       : [[d, d], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
+    dims_mask : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
+    nq_el    : [6, 6, 6] # quadrature points per grid cell
+    nq_pr    : [6, 6, 6] # quadrature points per histopolation cell (for commuting projectors)
+    polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
+      
+units : # units not stated here can be viewed via "struphy units -h"
+    x : 1. # length scale unit in m
+    B : 1. # magnetic field unit in T
+    n : 0.2 # number density unit in 10^20 m^(-3)
+
+time : 
+    dt         : 0.02  # time step
+    Tend       : 20. # simulation time interval is [0, Tend]
+    split_algo : Strang # LieTrotter | Strang
+
+geometry : 
+    type : HollowTorus # mapping F (possible types seen below)  
+    HollowTorus :
+        a1  : 0.1 # inner radius
+        a2  : 1.0 # minor radius
+        R0  : 5.0 # major radius
+        sfl : True # straight field line coordinates?
+        tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
+            
+mhd_equilibrium : 
+    type : AdhocTorus # (possible choices seen below)
+    AdhocTorus :
+        a       : 1. # minor radius
+        R0      : 5. # major radius
+        B0      : 5. # on-axis toroidal magnetic field
+        q_kind  : 0 # which profile (0 : parabolic, 1 : other, see documentation)
+        q0      : 1.15 # safety factor at r=0
+        q1      : 1.60 # safety factor at r=a
+        n1      : 0. # shape factor for number density profile 
+        n2      : 0. # shape factor for number density profile 
+        na      : 1. # number density at r=a
+        p_kind  : 1 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
+        p1      : 0. # shape factor for ad hoc pressure profile
+        p2      : 0. # shape factor for ad hoc pressure profile
+        beta    : .002 # plasma beta = 2*p*mu_0/B^2
+        psi_k   : 3 # spline degree to be used for interpolation of poloidal flux function (only needed if q_kind = 1)
+        psi_nel : 50 # number of cells to be used for interpolation of poloidal flux function (only needed if q_kind = 1)
+        
+em_fields : 
+    init :
+        type : InitialMHDAxisymHdivEigFun # initial conditions (possible types seen below)
+        InitialMHDAxisymHdivEigFun :
+            spec : 'sim_example_TAE_tokamak/spec_0.1_0.2_n_-1.npy' # relative path (to <install_path>/io/out/) of the .npy spectrum
+            spec_abs : null # absolute path of .npy spectrum (is used instead of "spec", if "spec_abs" is not null)
+            eig_freq_upper : 0.14855 # upper search limit of squared eigenfrequency to identify eigenfunction
+            eig_freq_lower : 0.14850 # lower search limit of squared eigenfrequency to identify eigenfunction
+            kind : r # real (r) or imaginary (i) part of eigenfunction
+            scaling : 1. # scaling factor to scale the amplitude of the eigenfunction
+
+fluid : 
+    mhd :
+        phys_params:
+            A : 1 # mass number in units of proton mass
+            Z : 1 # signed charge number in units of elementary charge
+        mhd_u_space : Hdiv # Hdiv | H1vec
+        init :
+            type : InitialMHDAxisymHdivEigFun # initial conditions (possible types seen below)
+            InitialMHDAxisymHdivEigFun :
+                spec : 'sim_example_TAE_tokamak/spec_0.1_0.2_n_-1.npy' # relative path (to <install_path>/io/out/) of the .npy spectrum
+                spec_abs : null # absolute path of .npy spectrum (is used instead of "spec", if "spec_abs" is not null)
+                eig_freq_upper : 0.14855 # upper search limit of squared eigenfrequency to identify eigenfunction
+                eig_freq_lower : 0.14850 # lower search limit of squared eigenfrequency to identify eigenfunction
+                kind : r # real (r) or imaginary (i) part of eigenfunction
+                scaling : 1. # scaling factor to scale the amplitude of the eigenfunction
+              
+solvers :
+    solver_1 : 
+        type : PConjugateGradient
+        pc : MassMatrixPreconditioner # null or name of preconditioner class
+        tol : 1.e-8
+        maxiter : 3000
+        info : True
+        verbose : False
+    solver_2 :
+        type : PBiConjugateGradientStab
+        pc : MassMatrixPreconditioner # null or name of preconditioner class
+        tol : 1.e-8
+        maxiter : 3000
+        info : True
+        verbose : False

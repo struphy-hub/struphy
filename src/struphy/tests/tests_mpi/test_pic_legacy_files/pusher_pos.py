@@ -427,10 +427,14 @@ def pusher_step4_pcart(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, p
             
         
             # ----------------- step 2 in Runge-Kutta method -------------------
-            eta[0] = mapping.f_inv(fx_pseudo[0] + dt*k1[0]/2, fx_pseudo[1] + dt*k1[1]/2, fx_pseudo[2] + dt*k1[2]/2, 1, map_pseudo, params_pseudo)
-            eta[1] = mapping.f_inv(fx_pseudo[0] + dt*k1[0]/2, fx_pseudo[1] + dt*k1[1]/2, fx_pseudo[2] + dt*k1[2]/2, 2, map_pseudo, params_pseudo)
-            eta[2] = mapping.f_inv(fx_pseudo[0] + dt*k1[0]/2, fx_pseudo[1] + dt*k1[1]/2, fx_pseudo[2] + dt*k1[2]/2, 3, map_pseudo, params_pseudo)
+            # eta[0] = mapping.f_inv(fx_pseudo[0] + dt*k1[0]/2, fx_pseudo[1] + dt*k1[1]/2, fx_pseudo[2] + dt*k1[2]/2, 1, map_pseudo, params_pseudo)
+            # eta[1] = mapping.f_inv(fx_pseudo[0] + dt*k1[0]/2, fx_pseudo[1] + dt*k1[1]/2, fx_pseudo[2] + dt*k1[2]/2, 2, map_pseudo, params_pseudo)
+            # eta[2] = mapping.f_inv(fx_pseudo[0] + dt*k1[0]/2, fx_pseudo[1] + dt*k1[1]/2, fx_pseudo[2] + dt*k1[2]/2, 3, map_pseudo, params_pseudo)
             
+            eta[0] = 0.5
+            eta[1] = 0.5
+            eta[2] = 0.5
+
             # check if particle has left the domain at s = 1: if yes, stop iteration and set weight to zero
             if eta[0] > 1.0:
                 
@@ -469,10 +473,14 @@ def pusher_step4_pcart(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, p
 
 
             # ------------------ step 3 in Runge-Kutta method ------------------
-            eta[0] = mapping.f_inv(fx_pseudo[0] + dt*k2[0]/2, fx_pseudo[1] + dt*k2[1]/2, fx_pseudo[2] + dt*k2[2]/2, 1, map_pseudo, params_pseudo)
-            eta[1] = mapping.f_inv(fx_pseudo[0] + dt*k2[0]/2, fx_pseudo[1] + dt*k2[1]/2, fx_pseudo[2] + dt*k2[2]/2, 2, map_pseudo, params_pseudo)
-            eta[2] = mapping.f_inv(fx_pseudo[0] + dt*k2[0]/2, fx_pseudo[1] + dt*k2[1]/2, fx_pseudo[2] + dt*k2[2]/2, 3, map_pseudo, params_pseudo)
+            # eta[0] = mapping.f_inv(fx_pseudo[0] + dt*k2[0]/2, fx_pseudo[1] + dt*k2[1]/2, fx_pseudo[2] + dt*k2[2]/2, 1, map_pseudo, params_pseudo)
+            # eta[1] = mapping.f_inv(fx_pseudo[0] + dt*k2[0]/2, fx_pseudo[1] + dt*k2[1]/2, fx_pseudo[2] + dt*k2[2]/2, 2, map_pseudo, params_pseudo)
+            # eta[2] = mapping.f_inv(fx_pseudo[0] + dt*k2[0]/2, fx_pseudo[1] + dt*k2[1]/2, fx_pseudo[2] + dt*k2[2]/2, 3, map_pseudo, params_pseudo)
             
+            eta[0] = 0.5
+            eta[1] = 0.5
+            eta[2] = 0.5
+
             # check if particle has left the domain at s = 1: if yes, stop iteration and set weight to zero
             if eta[0] > 1.0:
                 
@@ -511,9 +519,13 @@ def pusher_step4_pcart(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, p
 
 
             # ------------------ step 4 in Runge-Kutta method ------------------
-            eta[0] = mapping.f_inv(fx_pseudo[0] + dt*k3[0], fx_pseudo[1] + dt*k3[1], fx_pseudo[2] + dt*k3[2], 1, map_pseudo, params_pseudo)
-            eta[1] = mapping.f_inv(fx_pseudo[0] + dt*k3[0], fx_pseudo[1] + dt*k3[1], fx_pseudo[2] + dt*k3[2], 2, map_pseudo, params_pseudo)
-            eta[2] = mapping.f_inv(fx_pseudo[0] + dt*k3[0], fx_pseudo[1] + dt*k3[1], fx_pseudo[2] + dt*k3[2], 3, map_pseudo, params_pseudo)
+            # eta[0] = mapping.f_inv(fx_pseudo[0] + dt*k3[0], fx_pseudo[1] + dt*k3[1], fx_pseudo[2] + dt*k3[2], 1, map_pseudo, params_pseudo)
+            # eta[1] = mapping.f_inv(fx_pseudo[0] + dt*k3[0], fx_pseudo[1] + dt*k3[1], fx_pseudo[2] + dt*k3[2], 2, map_pseudo, params_pseudo)
+            # eta[2] = mapping.f_inv(fx_pseudo[0] + dt*k3[0], fx_pseudo[1] + dt*k3[1], fx_pseudo[2] + dt*k3[2], 3, map_pseudo, params_pseudo)
+            
+            eta[0] = 0.5
+            eta[1] = 0.5
+            eta[2] = 0.5
             
             # check if particle has left the domain at s = 1: if yes, stop iteration and set weight to zero
             if eta[0] > 1.0:
@@ -559,9 +571,13 @@ def pusher_step4_pcart(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, p
             # ------------------------------------------------------------------
 
             # compute logical coordinates
-            eta[0] = mapping.f_inv(fx_pseudo[0], fx_pseudo[1], fx_pseudo[2], 1, map_pseudo, params_pseudo)
-            eta[1] = mapping.f_inv(fx_pseudo[0], fx_pseudo[1], fx_pseudo[2], 2, map_pseudo, params_pseudo)
-            eta[2] = mapping.f_inv(fx_pseudo[0], fx_pseudo[1], fx_pseudo[2], 3, map_pseudo, params_pseudo)
+            # eta[0] = mapping.f_inv(fx_pseudo[0], fx_pseudo[1], fx_pseudo[2], 1, map_pseudo, params_pseudo)
+            # eta[1] = mapping.f_inv(fx_pseudo[0], fx_pseudo[1], fx_pseudo[2], 2, map_pseudo, params_pseudo)
+            # eta[2] = mapping.f_inv(fx_pseudo[0], fx_pseudo[1], fx_pseudo[2], 3, map_pseudo, params_pseudo)
+            
+            eta[0] = 0.5
+            eta[1] = 0.5
+            eta[2] = 0.5
             
             # check if particle has left the domain at s = 1: if yes, stop iteration and set weight to zero
             if eta[0] > 1.0:

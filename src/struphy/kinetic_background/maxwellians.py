@@ -1,3 +1,6 @@
+'Maxwellian (Gaussian) distributions in velocity space.'
+
+
 import numpy as np
 
 from struphy.kinetic_background.base import Maxwellian

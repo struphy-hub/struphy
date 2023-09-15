@@ -1,94 +1,50 @@
-## Version 2.0.2
+## Version 2.0.3
 
 ### Core changes
 
-* Implement boundary transfer function. When we choose `remove` as the kinetic boundary condition, optionally we can use
-`boundary transfer` function: When the PIC particle reaches close to the polar axis (eta1 < rmin), the function transfers
-the particle to the other side of the rmin circle at the polar axis. !377
+* Removed psydac submodule. !397
 
-* Added compile flag `--conda-warnings off` only if pyccel version is 1.8.0 or greater. !380
+* Require `pyccel<1.8.0` to have faster compilation. !397
 
-* Split `pusher_kernels.py` into itself (but with less content) and `pusher_kernels_gc.py` and split `accum_kernels.py` into itself (but with less content) and `accum_kernels_gc.py`. !380
+* Added a draft for `Particles.boundary_transfer()`. This method transfers particles to the opposite side of the hole (around the magentic axis), where the magnitude of the magnetic field is the same. !398
 
-* Added three new methods to `StruphyModel` base class: !380
-    - `add_propagator`
-    - `add_scalar`
-    - `update_scalar`
-    
-    These methods improve the process of adding a new model.
-    The `Propagator` class attributes `derham`, `domain`, `mass_ops` and `basis_ops`
-    are now set in the base class. All models (except `VlasovMasslessElectrons`) now use the new methods of the StruphyModel base class.
+* Console command `struphy examples` has been removed. !399
 
-* Throw only a warning if p=1 with BasisProjectionOperators, not assert !380
+    The content of the examples can now be found in tutorial notebooks. These notebooks can be seen in the Struphy documentation under /Tutorials.
+    The data necessary to run the notebooks is created by running the new console command `struphy tutorials [-n N]`; when the option `-n N` is given, only the simulations for the tutorial number `N` is executed. The output is stored in the install path under `io/out/tutorial_N`.
 
-* Added the atttribute `pointer` to the StruphyModel base class. !382
+* Renamed `fourier_1d` -> `power_spectrum_2d` !399
 
-    Pointer creation does not have to be done in the models anymore; rather, at `__init__()`,
-    the base class crates a dictionary that can be called with `self.pointer[name]`, where `name`
-    is the name of the species, or `species_variable` in the case of a fluid species.
-    The old pointers have been removed from all models.
+* Initialize skew symmetric S-matrix with `np.zeros((3, 3))` in kernels. Otherwise the diagonal might get filled with unwanted non-zeros by the system. Also fixed minus sign bugs in `gc_discrete_gradient` kernels. !402
 
-* Added `__init__(self, *vars)` to the `Propagator` base class. !382
+* Use newer modules on the mpcdf clusters: `module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc`. The module `mpi4py` does not need to be loaded. !402
 
-    The init creates the two lists `self.feec_vars` (former `variables`)
-    and `self.particles`, which serve as pointers within the scope
-    of the Propagator. `isinstance` checks also happen in the new init.
-    In the child Porpagators, the creation of pointers and asserts
-    is replaced by a call to `super().__init__()`.
-    All propagators have been adapted.
+* Modified initialization sequence of FEEC variables to be more flexible. The init `type` can now be a list; for each entry in the list, parameters have to be given, and different `comps` can be set to `True`. !403
 
-* Replaced `solvers.PoissonSolver` with `propagators_fields.ImplicitDiffusion`. !382
+* The FEEC init type `TorusModesCos` has been added. !403
 
-    The new propagator solves the heat equation in weak form, with implicit time stepping.
-    In case the parameter `sigma=0.`, a `__call__()` with `dt=1.` solves the Poisson equation.
+* Speed up marker evaluation a lot by using more `numpy`; also save `.npy` files aside `.txt` for markers. !404
 
-* Separated `Particles` base class into a `base.py` file. !382
+* Moved `setup` and `output_handling` to folder `io/`. !404
 
-* Added the method `_tmp_noise_for_mpi` to `Field`; this correctly initializes 1d noise with MPI (same noise regardless of number of processes). Not correct for 2d/3d noise yet. Added `seed` parameter noise input files under noise. !385
+* Move `struphy/models/main.py` to `struphy/main.py` !404
 
-* Added wall clock and duration of last time step to screen output. !385
-
-* Updated all docker images to use `:latest` Linux distro. Commented out the Fedora test for the moment, raised an [issue](https://github.com/pyccel/psydac/issues/323) with psydac import. !386
-
-* Incorporate newest psydac changes, allow for `Python 3.11`. New psydac `v0.1.2` (our personal versioning, generated from (stefan-psydac fork)[https://github.com/spossann/stefan-psydac]). !386
-
-* Now using `numpy 1.24.4`. Set solvability condition for Poisson in all codes to <1e-11. Added abstract method `conjugate` to `PolarVector`. 
-Comment loop through `dir` of StencilMatrix in psydac_basics test. !386
-
-* Setting struphy in/out/batch path !388
-
-    `struphy --set-io .` was replaced with following three separate commands
-
-        - struphy --set-i . (for input path)
-        - struphy --set-o . (for the output path)
-        - struphy --set-b . (for the batch path)
-
-    `struphy --set-i d`, `struphy --set-o d` and `struphy --set-b d` are for returning back to our default paths.
-
-* `struphy profile` can now save the output figure of the profiling, e.g. `struphy profile sim01 --savefig-dir sim01_profilefig.` !388
-
-* Add a documentation for Performance_tests results !388
+* Remove `params_*` files from `io/inp/`. !404
 
 
 ### Model specific changes
 
-* New model: kinetic `VlasovMaxwell`, `VlasovMaxwell` coupling propagator and corresponding accumulation kernels. !378
-
-* New model: hybrid `ColdPlasmaVlasov` !384
-
-* generalize `propagators_coupling.VlasovMaxwell` by passing two arbitrary constants c1,c2​ instead of alpha and epsilon !384
+* Small adaptions in `LinearVlasovMaxwell` and `DeltaFVlasovMaxwell`. !396 
 
 
 ### Documentation, tutorials, etc.
 
-* Add field/fluid initial conditions in doc !379
+* Scaling test results of `LinearMHD` model have been added [here](https://struphy.pages.mpcdf.de/struphy/sections/performance_tests.html#linearmhd). !392
 
-* Added some more basics to doc of PIC discretization !380
+* Change doc appearance to Python style. !397
 
-* Improved developers documentation: info on Data structures, better guide to adding a new model. !382
+* Included [notebook tutorials](https://struphy.pages.mpcdf.de/struphy/sections/tutorials.html) in doc via Pandoc. !399
 
 ### Repo struphy-simulations, new files:
 
-* Scaling tests of `Maxwell` model with mpcdf cobra 
-
-* Test simulations for `ColdPlasma`, `VlasovMaxwell`, and `ColdPlasmaVlasov` 
+None.

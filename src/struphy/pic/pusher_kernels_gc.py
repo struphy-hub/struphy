@@ -1,3 +1,6 @@
+'Pusher kernels for gyro-center (5D) dynamics.'
+
+
 from pyccel.decorators import stack_array
 
 import struphy.linear_algebra.core as linalg
@@ -6,6 +9,65 @@ import struphy.b_splines.bsplines_kernels as bsp
 import struphy.b_splines.bspline_evaluation_3d as eval_3d
 
 from numpy import zeros, empty, shape, sqrt
+
+
+def a_documentation():
+    r'''
+    Explainer for arguments of pusher kernels.
+    
+    Function naming conventions:
+    
+    * starts with ``push_``
+    * add a short description of the pusher, e.g. ``push_bxu_H1vec``.
+    
+    These kernels are passed to :class:`struphy.pic.pusher.Pusher` and called via::
+    
+        Pusher()
+        
+    The arguments passed to each kernel have a pre-defined order, defined in :class:`struphy.pic.pusher.Pusher`.
+    This order is as follows (you can copy and paste from existing pusher_kernels functions):
+
+    1. Marker info:
+        * ``markers: 'float[:,:]'``          # local marker array
+        
+    2. Step info:
+        * ``dt: 'float'``                    # time step
+        * ``stage: 'int'``                   # current stage of the pusher (e.g. 0,1,2,3 for RK4)
+
+    3. Derham spline bases info:
+        * ``pn: 'int[:]'``                   # N-spline degree in each direction
+        * ``tn1: 'float[:]'``                # N-spline knot vector 
+        * ``tn2: 'float[:]'``
+        * ``tn3: 'float[:]'``    
+
+    4. mpi.comm info of all spaces:
+        - ``starts0: 'int[:]'``               # start indices of current process of elements in space V0
+        - ``starts1: 'int[:,:]'``             # start indices of current process of elements in space V1 in format (component, direction)
+        - ``starts2: 'int[:,:]'``             # start indices of current process of elements in space V2 in format (component, direction)
+        - ``starts3: 'int[:]'``               # start indices of current process of elements in space V3
+
+    5. Mapping info:
+        - ``kind_map: 'int'``                # mapping identifier 
+        - ``params_map: 'float[:]'``         # mapping parameters
+        - ``p_map: 'int[:]'``                # spline degree
+        - ``t1_map: 'float[:]'``             # knot vector 
+        - ``t2_map: 'float[:]'``             
+        - ``t3_map: 'float[:]'`` 
+        - ``ind1_map: int[:,:]``             # Indices of non-vanishing splines in format (number of mapping grid cells, p_map + 1)       
+        - ``ind2_map: int[:,:]`` 
+        - ``ind3_map: int[:,:]``            
+        - ``cx: 'float[:,:,:]'``             # control points for Fx
+        - ``cy: 'float[:,:,:]'``             # control points for Fy
+        - ``cz: 'float[:,:,:]'``             # control points for Fz                         
+
+    6. Optional: additional parameters, for example
+        - ``b2_1: 'float[:,:,:]'``           # spline coefficients of b2_1
+        - ``b2_2: 'float[:,:,:]'``           # spline coefficients of b2_2
+        - ``b2_3: 'float[:,:,:]'``           # spline coefficients of b2_3
+        - ``f0_params: 'float[:]'``          # parameters of equilibrium background
+    '''
+
+    print('This is just the docstring function.')
 
 
 def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
@@ -26,7 +88,7 @@ def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
 
     .. math::
 
-        \dot{\mathbf X} &= \frac{\mu}{\kappa B^*_\parallel}  G^{-1}(\eta_p(t)) \hat{\mathbb{b}}^2_0 \times G^{-1}(\eta_p(t)) \hat \nabla |\mathcal{P}^B \hat{\mathbb{B}}^2| \,,
+        \dot{\mathbf X} &= \frac{\mu}{\kappa B^*_\parallel}  G^{-1}(\eta_p(t)) \hat{\mathbb{b}}^2_0 \times G^{-1}(\eta_p(t)) \hat \nabla |\mathcal{P}_B \hat{\mathbb{B}}^2| \,,
 
         \dot v_\parallel &= 0 \,.
 
@@ -79,6 +141,9 @@ def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
 
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
+            continue
+
+        if markers[ip, 21] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
@@ -243,6 +308,9 @@ def push_gc2_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
         if markers[ip, 0] == -1.:
             continue
 
+        if markers[ip, 21] == -1.:
+            continue
+
         e[:] = markers[ip, 0:3]
         v = markers[ip, 3]
         mu = markers[ip, 4]
@@ -399,6 +467,9 @@ def push_gc_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
         if markers[ip, 0] == -1.:
             continue
 
+        if markers[ip, 21] == -1.:
+            continue
+
         e[:] = markers[ip, 0:3]
         v = markers[ip, 3]
         mu = markers[ip, 4]
@@ -517,19 +588,23 @@ def push_gc1_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, to
                                 norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
                                 curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
                                 grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]'):
-    r'''Single stage of the fixed-point iteration for the discrete gradient method
+    r'''Single stage of the fixed-point iteration (:math:`k`-index) for the discrete gradient method
 
     .. math::
 
-        {\mathbf H}^k_{n+1} = {\mathbf H}_n + dt*S1({\mathbf H}_n)*\bar{\nabla} I_1 ({\mathbf H}_n, {\mathbf H}^{k-1}_{n+1})
+        {\mathbf X}^k_{n+1} = {\mathbf X}_n + \Delta t \, \mathbb S_1({\mathbf X}_n) \bar{\nabla} I_1 ({\mathbf X}_n, {\mathbf X}^{k-1}_{n+1})
 
-    where
+    where :math:`\mathbf X_n` denotes the gyro-center particle position at time :math:`t = n \Delta t` and
 
-    ..math::
+    .. math::
+    
+        \mathbb S_1({\mathbf X}_n) &= \,, 
 
-        \bar{\nabla} I_1 ({\mathbf H}_n, {\mathbf H}_{n+1}) = \mu \nabla |\hat B^0_0({\mathbf H}_{n+1/2})| + ({\mathbf H}_{n+1} + {\mathbf H}_{n}) \frac{\mu |\hat B^0_0({\mathbf H}_{n+1})| - \mu |\hat B^0_0({\mathbf H}_n)| - ({\mathbf H}_{n+1} - {\mathbf H}_n)\cdot \mu \nabla |\hat B^0_0({\mathbf H}_{n+1/2})|}{||{\mathbf H}_{n+1} - {\mathbf H}_n||^2}
+        \bar{\nabla} I_1 ({\mathbf X}_n, {\mathbf X}_{n+1}) &= \nabla H_{n+1/2} + ({\mathbf X}_{n+1} + {\mathbf X}_{n}) \frac{H_{n+1} - H_{n} - ({\mathbf X}_{n+1} - {\mathbf X}_n)\cdot \nabla H_{n+1/2}}{||{\mathbf X}_{n+1} - {\mathbf X}_n||^2}\,,
+        
+        H_n &= \mu |\hat B^0_0({\mathbf X}_{n})|\,.
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant.
+    The velocity :math:`v_\parallel` and magentic moment :math:`\mu` are constant in this step.
     '''
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -542,7 +617,7 @@ def push_gc1_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, to
 
     # containers for fields
     temp = empty(3, dtype=float)
-    S = empty((3, 3), dtype=float)
+    S = zeros((3, 3), dtype=float)
     grad_I = empty(3, dtype=float)
 
     # marker position e
@@ -551,19 +626,26 @@ def push_gc1_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, to
 
     # get number of markers
     n_markers = shape(markers)[0]
-
+    
     for ip in range(n_markers):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 23] == -1.:
+        if markers[ip, 21] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
+        
         e_diff[:] = e[:] - markers[ip, 9:12]
         mu = markers[ip, 4]
+
+        if abs(e_diff[0]/e[0]) < tol and abs(e_diff[1]/e[1]) < tol and abs(e_diff[2]/e[2]) < tol:
+            markers[ip, 21] = -1.
+            markers[ip, 20] = stage
+
+            continue
 
         # TODO: replace with better idea
         for axis in range(3):
@@ -587,9 +669,12 @@ def push_gc1_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, to
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts0)
 
         # assemble S
-        S[:, :] = ((0.,  markers[ip, 13], markers[ip, 14]),
-                   (-markers[ip, 13],  0., markers[ip, 15]),
-                   (-markers[ip, 14], -markers[ip, 15], 0.))
+        S[0, 1] = markers[ip, 13]
+        S[0, 2] = markers[ip, 14]
+        S[1, 0] = -markers[ip, 13]
+        S[1, 2] = markers[ip, 15]
+        S[2, 0] = -markers[ip, 14]
+        S[2, 1] = -markers[ip, 15]
 
         # calculate grad_I
         temp_scalar = linalg.scalar_dot(e_diff[:], markers[ip, 16:19])
@@ -613,11 +698,11 @@ def push_gc1_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, to
             elif e_diff[axis] < -0.5:
                 e_diff[axis] += 1.
 
-        diff = sqrt((e_diff[0]/e[0])**2 + (e_diff[1]/e[1])
-                    ** 2 + (e_diff[2]/e[2])**2)
+        diff = sqrt((e_diff[0]/e[0])**2 + (e_diff[1]/e[1])**2 +
+                    (e_diff[2]/e[2])**2)
 
         if diff < tol:
-            markers[ip, 23] = -1.
+            markers[ip, 21] = -1.
             markers[ip, 20] = stage
 
             continue
@@ -673,7 +758,7 @@ def push_gc2_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, to
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 23] == -1.:
+        if markers[ip, 21] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
@@ -706,21 +791,26 @@ def push_gc2_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, to
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts0)
 
         # calculate grad_I
-        temp_scalar = linalg.scalar_dot(e_diff[:], markers[ip, 20:23])
+        temp_scalar = linalg.scalar_dot(e_diff[:], markers[ip, 17:20])
         temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + \
             e_diff[2]**2 + (v - v_old)**2
 
-        grad_I[:] = markers[ip, 20:23] + e_diff * \
-            (abs_b0*mu - markers[ip, 19] - temp_scalar)/temp_scalar2
-        grad_Iv = v_mid + (v - v_old)*(abs_b0*mu -
-                                       markers[ip, 19] - temp_scalar)/temp_scalar2
+        if temp_scalar2 == 0.:
+            grad_I[:] = 0.
+            grad_Iv = v_mid
+
+        else:
+            grad_I[:] = markers[ip, 17:20] + e_diff * \
+                (abs_b0*mu - markers[ip, 16] - temp_scalar)/temp_scalar2
+            grad_Iv = v_mid + (v - v_old)*(abs_b0*mu -
+                                           markers[ip, 16] - temp_scalar)/temp_scalar2
 
         temp_scalar3 = linalg.scalar_dot(markers[ip, 13:16], grad_I)
 
         markers[ip, 0:3] = markers[ip, 9:12] + dt*markers[ip, 13:16]*grad_Iv
         markers[ip, 3] = markers[ip, 12] - dt*temp_scalar3
 
-        markers[ip, 20:24] = markers[ip, 0:4]
+        markers[ip, 17:21] = markers[ip, 0:4]
 
         e_diff[:] = e[:] - markers[ip, 0:3]
 
@@ -732,10 +822,10 @@ def push_gc2_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, to
                 e_diff[axis] += 1.
 
         diff = sqrt((e_diff[0]/e[0])**2 + (e_diff[1]/e[1]) **
-                    2 + (e_diff[2]/e[2])**2 + ((v - markers[ip, 3])/v)**2)
+                    2 + (e_diff[2]/e[2])**2 + (v - markers[ip, 3])**2)
 
         if diff < tol:
-            markers[ip, 23] = -1.
+            markers[ip, 21] = -1.
             markers[ip, 20] = stage
             continue
 
@@ -782,7 +872,7 @@ def push_gc1_discrete_gradients_faster(markers: 'float[:,:]', dt: float, stage: 
 
     # containers for fields
     temp = empty(3, dtype=float)
-    S = empty((3, 3), dtype=float)
+    S = zeros((3, 3), dtype=float)
     grad_I = empty(3, dtype=float)
 
     # marker position e
@@ -798,12 +888,18 @@ def push_gc1_discrete_gradients_faster(markers: 'float[:,:]', dt: float, stage: 
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 23] == -1.:
+        if markers[ip, 21] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
         e_diff[:] = e[:] - markers[ip, 9:12]
         mu = markers[ip, 4]
+
+        if abs(e_diff[0]/e[0]) < tol and abs(e_diff[1]/e[1]) < tol and abs(e_diff[2]/e[2]) < tol:
+            markers[ip, 21] = -1.
+            markers[ip, 20] = stage
+
+            continue
 
         # TODO: replace with better idea
         for axis in range(3):
@@ -827,28 +923,40 @@ def push_gc1_discrete_gradients_faster(markers: 'float[:,:]', dt: float, stage: 
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts0)
 
         # assemble S
-        S[:, :] = ((markers[ip, 13],  markers[ip, 14], markers[ip, 15]),
-                   (-markers[ip, 14],  markers[ip, 16], markers[ip, 17]),
-                   (-markers[ip, 15], -markers[ip, 17], markers[ip, 18]))
+        S[0, 1] = markers[ip, 13]
+        S[0, 2] = markers[ip, 14]
+        S[1, 0] = -markers[ip, 13]
+        S[1, 2] = markers[ip, 15]
+        S[2, 0] = -markers[ip, 14]
+        S[2, 1] = -markers[ip, 15]
 
         # calculate grad_I
-        temp_scalar = linalg.scalar_dot(e_diff[:], markers[ip, 20:23])
+        temp_scalar = linalg.scalar_dot(e_diff[:], markers[ip, 16:19])
         temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + e_diff[2]**2
 
-        grad_I[:] = markers[ip, 20:23] + e_diff[:] * \
+        grad_I[:] = markers[ip, 16:19] + e_diff[:] * \
             (abs_b0*mu - markers[ip, 19] - temp_scalar)/temp_scalar2
 
         linalg.matrix_vector(S, grad_I, temp)
 
         markers[ip, 0:3] = markers[ip, 9:12] + dt*temp[:]
 
-        markers[ip, 20:23] = markers[ip, 0:3]
+        markers[ip, 16:19] = markers[ip, 0:3]
 
-        diff = sqrt((e[0] - markers[ip, 0])**2 +
-                    (e[1] - markers[ip, 1])**2 + (e[2] - markers[ip, 2])**2)
+        e_diff[:] = markers[ip, 0:3] - e[:]
+
+        # TODO: replace with better idea
+        for axis in range(3):
+            if e_diff[axis] > 0.5:
+                e_diff[axis] -= 1.
+            elif e_diff[axis] < -0.5:
+                e_diff[axis] += 1.
+
+        diff = sqrt((e_diff[0]/e[0])**2 + (e_diff[1]/e[1])
+                    ** 2 + (e_diff[2]/e[2])**2)
 
         if diff < tol:
-            markers[ip, 23] = -1.
+            markers[ip, 21] = -1.
             markers[ip, 20] = stage
 
             continue
@@ -905,7 +1013,7 @@ def push_gc2_discrete_gradients_faster(markers: 'float[:,:]', dt: float, stage: 
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 23] == -1.:
+        if markers[ip, 21] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
@@ -938,31 +1046,45 @@ def push_gc2_discrete_gradients_faster(markers: 'float[:,:]', dt: float, stage: 
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts0)
 
         # calculate grad_I
-        temp_scalar = linalg.scalar_dot(e_diff[:], markers[ip, 20:23])
+        temp_scalar = linalg.scalar_dot(e_diff[:], markers[ip, 17:20])
         temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + \
             e_diff[2]**2 + (v - v_old)**2
 
-        grad_I[:] = markers[ip, 20:23] + e_diff * \
-            (abs_b0*mu - markers[ip, 19] - temp_scalar)/temp_scalar2
-        grad_Iv = v_mid + (v - v_old)*(abs_b0*mu -
-                                       markers[ip, 19] - temp_scalar)/temp_scalar2
+        if temp_scalar2 == 0.:
+            grad_I[:] = 0.
+            grad_Iv = v_mid
+
+        else:
+            grad_I[:] = markers[ip, 17:20] + e_diff * \
+                (abs_b0*mu - markers[ip, 16] - temp_scalar)/temp_scalar2
+            grad_Iv = v_mid + (v - v_old)*(abs_b0*mu -
+                                           markers[ip, 16] - temp_scalar)/temp_scalar2
 
         temp_scalar3 = linalg.scalar_dot(markers[ip, 13:16], grad_I)
 
         markers[ip, 0:3] = markers[ip, 9:12] + dt*markers[ip, 13:16]*grad_Iv
         markers[ip, 3] = markers[ip, 12] - dt*temp_scalar3
 
-        markers[ip, 20:23] = markers[ip, 0:3]
+        markers[ip, 17:21] = markers[ip, 0:4]
 
-        diff = sqrt((e[0] - markers[ip, 0])**2 + (e[1] - markers[ip, 1])
-                    ** 2 + (e[2] - markers[ip, 2])**2 + (v - markers[ip, 3])**2)
+        e_diff[:] = e[:] - markers[ip, 0:3]
+
+        # TODO: replace with better idea
+        for axis in range(3):
+            if e_diff[axis] > 0.5:
+                e_diff[axis] -= 1.
+            elif e_diff[axis] < -0.5:
+                e_diff[axis] += 1.
+
+        diff = sqrt((e_diff[0]/e[0])**2 + (e_diff[1]/e[1]) **
+                    2 + (e_diff[2]/e[2])**2 + (v - markers[ip, 3])**2)
 
         if diff < tol:
-            markers[ip, 23] = -1.
+            markers[ip, 21] = -1.
             markers[ip, 20] = stage
             continue
 
-        markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 9:12])/2.
+        markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 9:13])/2.
 
 
 def push_gc1_discrete_gradients_Itoh_Newton(markers: 'float[:,:]', dt: float, stage: int, max_iter: int, tol: float,
@@ -995,7 +1117,7 @@ def push_gc1_discrete_gradients_Itoh_Newton(markers: 'float[:,:]', dt: float, st
     identity = zeros((3, 3), dtype=float)
     temp = empty(3, dtype=float)
     F = empty(3, dtype=float)
-    S = empty((3, 3), dtype=float)
+    S = zeros((3, 3), dtype=float)
     grad_abs_b = empty(3, dtype=float)
     grad_I = empty(3, dtype=float)
     Jacobian_grad_I = empty((3, 3), dtype=float)
@@ -1025,6 +1147,12 @@ def push_gc1_discrete_gradients_Itoh_Newton(markers: 'float[:,:]', dt: float, st
 
         e_diff[:] = e[:] - e_old[:]
 
+        if e_diff[0] == 0. and e_diff[1] == 0. and e_diff[2] == 0:
+            markers[ip, 23] = -1.
+            markers[ip, 14] = stage
+
+            continue
+
         for axis in range(3):
             if e_diff[axis] > 0.5:
                 e_diff[axis] -= 1.
@@ -1032,9 +1160,12 @@ def push_gc1_discrete_gradients_Itoh_Newton(markers: 'float[:,:]', dt: float, st
                 e_diff[axis] += 1.
 
         # assemble S
-        S[:, :] = ((0.,  markers[ip, 13], markers[ip, 14]),
-                   (-markers[ip, 13],               0., markers[ip, 15]),
-                   (-markers[ip, 14], -markers[ip, 15],              0.))
+        S[0, 1] = markers[ip, 13]
+        S[0, 2] = markers[ip, 14]
+        S[1, 0] = -markers[ip, 13]
+        S[1, 2] = markers[ip, 15]
+        S[2, 0] = -markers[ip, 14]
+        S[2, 1] = -markers[ip, 15]
 
         # identity matrix
         identity[0, 0] = 1.
@@ -1153,7 +1284,7 @@ def push_gc2_discrete_gradients_Itoh_Newton(markers: 'float[:,:]', dt: float, st
     S = zeros((4, 4), dtype=float)
     grad_abs_b = empty(3, dtype=float)
     grad_I = empty(4, dtype=float)
-    Jacobian_grad_I = empty((4, 4), dtype=float)
+    Jacobian_grad_I = zeros((4, 4), dtype=float)
     Jacobian = empty((4, 4), dtype=float)
     Jacobian_inv = empty((4, 4), dtype=float)
     Jacobian_temp34 = empty((3, 4), dtype=float)
@@ -1223,44 +1354,42 @@ def push_gc2_discrete_gradients_Itoh_Newton(markers: 'float[:,:]', dt: float, st
         grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
-        # assemble gradI
-        grad_I[0] = mu*(markers[ip, 20] - markers[ip, 19])/(e_diff[0])
-        grad_I[1] = mu*(markers[ip, 22] - markers[ip, 20])/(e_diff[1])
-        grad_I[2] = mu*(abs_b0 - markers[ip, 22])/(e_diff[2])
+        # assemble gradI and Jacobian_grad_I
+        if e_diff[0] == 0.:
+            grad_I[0] == 0.
+        else:
+            grad_I[0] = mu*(markers[ip, 20] - markers[ip, 19])/(e_diff[0])
+            Jacobian_grad_I[0, 0] = mu*(markers[ip, 21]*(e_diff[0]) -
+                                        markers[ip, 20] + markers[ip, 19])/(e_diff[0])**2
+
+        if e_diff[1] == 0.:
+            grad_I[1] == 0.
+        else:
+            grad_I[1] = mu*(markers[ip, 22] - markers[ip, 20])/(e_diff[1])
+            Jacobian_grad_I[1, 0] = mu * \
+                (markers[ip, 20] - markers[ip, 21])/(e_diff[1])
+            Jacobian_grad_I[1, 1] = mu*(markers[ip, 21]*(e_diff[1]) -
+                                        markers[ip, 22] + markers[ip, 20])/(e_diff[1])**2
+
+        if e_diff[2] == 0.:
+            grad_I[2] == 0.
+        else:
+            grad_I[2] = mu*(abs_b0 - markers[ip, 22])/(e_diff[2])
+            Jacobian_grad_I[2, 0] = mu * \
+                (grad_abs_b[0] - markers[ip, 20])/(e_diff[2])
+            Jacobian_grad_I[2, 1] = mu * \
+                (grad_abs_b[1] - markers[ip, 21])/(e_diff[2])
+            Jacobian_grad_I[2, 2] = mu*(grad_abs_b[2]*(e_diff[2]) -
+                                        abs_b0 + markers[ip, 22])/(e_diff[2])**2
+
         grad_I[3] = v_mid
+        Jacobian_grad_I[3, 3] = 0.5
 
         # calculate F = eta - eta_old + dt*S*grad_I
         linalg.matrix_vector4(S, grad_I, F)
         F *= -dt
         F[0:3] += e_diff[:]
         F[3] += v - v_old
-
-        # assemble Jacobian_grad_I
-        Jacobian_grad_I[0, 0] = mu*(markers[ip, 21]*(e_diff[0]) -
-                                    markers[ip, 20] + markers[ip, 19])/(e_diff[0])**2
-        Jacobian_grad_I[1, 0] = mu * \
-            (markers[ip, 20] - markers[ip, 21])/(e_diff[1])
-        Jacobian_grad_I[2, 0] = mu * \
-            (grad_abs_b[0] - markers[ip, 20])/(e_diff[2])
-        Jacobian_grad_I[3, 0] = 0.
-
-        Jacobian_grad_I[0, 1] = 0.
-        Jacobian_grad_I[1, 1] = mu*(markers[ip, 21]*(e_diff[1]) -
-                                    markers[ip, 22] + markers[ip, 20])/(e_diff[1])**2
-        Jacobian_grad_I[2, 1] = mu * \
-            (grad_abs_b[1] - markers[ip, 21])/(e_diff[2])
-        Jacobian_grad_I[3, 1] = 0.
-
-        Jacobian_grad_I[0, 2] = 0.
-        Jacobian_grad_I[1, 2] = 0.
-        Jacobian_grad_I[2, 2] = mu*(grad_abs_b[2]*(e_diff[2]) -
-                                    abs_b0 + markers[ip, 22])/(e_diff[2])**2
-        Jacobian_grad_I[3, 2] = 0.
-
-        Jacobian_grad_I[0, 3] = 0.
-        Jacobian_grad_I[1, 3] = 0.
-        Jacobian_grad_I[2, 3] = 0.
-        Jacobian_grad_I[3, 3] = 0.5
 
         # assemble Jacobian and its inverse
         linalg.matrix_matrix4(S, Jacobian_grad_I, Jacobian)
@@ -1303,8 +1432,8 @@ def push_gc2_discrete_gradients_Itoh_Newton(markers: 'float[:,:]', dt: float, st
         markers[ip, 16:19] = e[:] - temp[0:3]
         markers[ip, 3] = v - temp[3]
 
-        diff = sqrt((temp[0]/e[0])**2 + (temp[1]/e[1]) **
-                    2 + (temp[2]/e[2])**2 + (temp[3]/v)**2)
+        diff = sqrt((temp[0]/e[0])**2 + (temp[1]/e[1])**2 +
+                    (temp[2]/e[2])**2 + (temp[3])**2)
 
         if diff < tol:
             markers[ip, 23] = -1.
@@ -2282,6 +2411,9 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         if markers[ip, 0] == -1.:
             continue
 
+        if markers[ip, 21] == -1.:
+            continue
+
         eta[:] = markers[ip, 0:3]
         v = markers[ip, 3]
 
@@ -2449,6 +2581,9 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
+            continue
+
+        if markers[ip, 21] == -1.:
             continue
 
         eta[:] = markers[ip, 0:3]

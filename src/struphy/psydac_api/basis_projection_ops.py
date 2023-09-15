@@ -18,29 +18,7 @@ from struphy.polar.linear_operators import PolarExtractionOperator
 
 class BasisProjectionOperators:
     r"""
-    Class for assembling basis projection operators in 3d.
-
-    A basis projection operator :math:`\mathcal P: \mathbb R^{N_\alpha} \to \mathbb R^{N_\beta}` is defined by the matrix
-
-    .. math::
-
-        \mathcal P_{(\mu, ijk),(\nu, mno)} = \hat \Pi^\beta_{\mu, ijk} \left( A_{\mu,\nu}\,\Lambda^\alpha_{\nu, mno} \right)\,,
-
-    where the weight fuction :math:`A` can be rank 0, 1 or 2, depending on domain and co-domain of the operator, and
-    :math:`\Lambda^\alpha_{\nu, mno}` is the B-spline basis function with tensor-product index :math:`mno` of the
-    :math:`\nu`-th component in the space :math:`V^\alpha_h`. The operator :math:`\hat \Pi^\beta: V^\beta \to \mathbb R^{N_\beta}`
-    is a commuting projector from the continuous space
-    into the space of coefficients; it can be decomposed into computation of degrees of freedom (DOFs)
-    :math:`\sigma^\beta: V^\beta \to \mathbb R^{N_\beta}` and inversion of the inter/-histopolation matrix
-    :math:`\mathcal (I^\beta)^{-1}: \mathbb R^{N_\beta} \to \mathbb R^{N_\beta}`:
-
-    .. math::
-
-        \hat \Pi^\beta = (I^\beta)^{-1} \sigma^\beta\,.
-
-    :math:`I^\beta` is usually a Kronecker product and thus fast to invert; this inversion is performed when calling the dot-product
-    of the ``BasisProjectionOperator``. The DOFs are precomputed and stored in StencilVector
-    format, because the local support of each :math:`\Lambda^\alpha_{\nu, mno}`.
+    Collection of pre-defined :class:`struphy.psydac_api.basis_projection_ops.BasisProjectionOperator`.
 
     Parameters
     ----------
@@ -717,8 +695,32 @@ class BasisProjectionOperators:
 
 
 class BasisProjectionOperator(LinOpWithTransp):
-    """
-    Class for "basis projection operators" PI_ijk(fun Lambda_mno) in the general form BP * P * DOF * EV^T * BV^T.
+    r"""
+    Class for assembling basis projection operators in 3d.
+
+    A basis projection operator :math:`\mathcal P: \mathbb R^{N_\alpha} \to \mathbb R^{N_\beta}` is defined by the matrix
+
+    .. math::
+
+        \mathcal P_{(\mu, ijk),(\nu, mno)} = \hat \Pi^\beta_{\mu, ijk} \left( A_{\mu,\nu}\,\Lambda^\alpha_{\nu, mno} \right)\,,
+
+    where the weight fuction :math:`A` is a tensor of rank 0, 1 or 2, depending on domain and co-domain of the operator, and
+    :math:`\Lambda^\alpha_{\nu, mno}` is the B-spline basis function with tensor-product index :math:`mno` of the
+    :math:`\nu`-th component in the space :math:`V^\alpha_h`. The operator :math:`\hat \Pi^\beta: V^\beta \to \mathbb R^{N_\beta}`
+    is a commuting projector from the continuous space
+    into the space of coefficients; it can be decomposed into computation of degrees of freedom (DOFs)
+    :math:`\sigma^\beta: V^\beta \to \mathbb R^{N_\beta}` and inversion of the inter/-histopolation matrix
+    :math:`\mathcal (I^\beta)^{-1}: \mathbb R^{N_\beta} \to \mathbb R^{N_\beta}`:
+
+    .. math::
+
+        \hat \Pi^\beta = (I^\beta)^{-1} \sigma^\beta\,.
+
+    :math:`I^\beta` is usually a Kronecker product and thus fast to invert; this inversion is performed when calling the dot-product
+    of the ``BasisProjectionOperator``. The DOFs are precomputed and stored in StencilVector
+    format, because the local support of each :math:`\Lambda^\alpha_{\nu, mno}`.
+    
+    Finally, extraction and boundary operators can be applied to the DOFs, :math:`B_P * P * \sigma * E_V^T * B_V^T`.
 
     Parameters
     ----------

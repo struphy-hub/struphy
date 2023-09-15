@@ -17,11 +17,11 @@ class Particles(metaclass=ABCMeta):
 
     Loading and compute initial particles and save the values at the corresponding column of markers array:
     
-    ===== ============== ======================= ======= ====== ====== ==========
-    index  | 0 | 1 | 2 | | 3 | ... | 3+(vdim-1)|  3+vdim 4+vdim 5+vdim >=6+vdim
-    ===== ============== ======================= ======= ====== ====== ==========
-    value position (eta)    velocities           weight   s0     w0    additional
-    ===== ============== ======================= ======= ====== ====== ==========
+    ===== ============== ======================= ======= ====== ====== ========== === ===
+    index  | 0 | 1 | 2 | | 3 | ... | 3+(vdim-1)|  3+vdim 4+vdim 5+vdim >=6+vdim   ... -1
+    ===== ============== ======================= ======= ====== ====== ========== === ===
+    value position (eta)    velocities           weight   s0     w0      other    ... ID
+    ===== ============== ======================= ======= ====== ====== ========== === ===
 
     Parameters
     ----------
@@ -38,24 +38,22 @@ class Particles(metaclass=ABCMeta):
                           'ppc': None,
                           'Np': 4,
                           'eps': .25,
-                          'bc_type': ['periodic', 'periodic', 'periodic'],
+                          'bc': {'type' : ['periodic', 'periodic', 'periodic']},
                           'loading': {'type': 'pseudo:random', 'seed': 1234, 'dir_particles': None, 'moments': [0., 0., 0., 1., 1., 1.]},
-                          'comm': None,
-                          'domain': None,
-                          'domain_array': None
-                          }
+                          'derham': None,
+                          'domain': None}
 
         self._params = set_defaults(params, params_default)
 
         self._name = name
+        self._derham = params['derham']
         self._domain = params['domain']
-        self._bc = params['bc_type']
-        self._domain_decomp = params['domain_array']
+        self._domain_decomp = params['derham'].domain_array
 
-        assert params['comm'] is not None
-        self._mpi_comm = params['comm']
-        self._mpi_size = params['comm'].Get_size()
-        self._mpi_rank = params['comm'].Get_rank()
+        assert params['derham'].comm is not None
+        self._mpi_comm = params['derham'].comm
+        self._mpi_size = params['derham'].comm.Get_size()
+        self._mpi_rank = params['derham'].comm.Get_rank()
 
         # create marker array
         self.create_marker_array()
@@ -198,16 +196,16 @@ class Particles(metaclass=ABCMeta):
         return self._markers[~self._holes]
 
     @property
+    def derham(self):
+        """ struphy.psydac_api.psydac_derham
+        """
+        return self._derham
+    
+    @property
     def domain(self):
         """ struphy.geometry.domains
         """
         return self._domain
-
-    @property
-    def bc(self):
-        """ Kinetic boundary conditions in each direction.
-        """
-        return self._bc
 
     @property
     def lost_markers(self):
@@ -221,14 +219,8 @@ class Particles(metaclass=ABCMeta):
         """
         return self._n_lost_markers
 
-    @property
-    def bt_energy(self):
-        """ Sum of energy differences caused by boundary transfer.
-        """
-        return self._bt_energy
-
     def create_marker_array(self):
-        """ Create marker array. (self.markers)
+        """ Create marker array (self.markers).
         """
 
         # number of cells on current process
@@ -276,9 +268,6 @@ class Particles(metaclass=ABCMeta):
         self._n_lost_markers = 0
         self._lost_markers = np.zeros((int(markers_size*0.5), 10), dtype=float)
 
-        # create a scalar container for saving sum of energy differences caused by boundary transfer.
-        self._bt_energy = 0.
-
     def draw_markers(self):
         r""" 
         Drawing markers according to the volume density :math:`s^n_{\textnormal{in}}`.
@@ -313,19 +302,22 @@ class Particles(metaclass=ABCMeta):
         """
 
         # number of markers on the local process at loading stage
-        n_mks_load_loc = self.n_mks_load[self._mpi_rank]
+        n_mks_load_loc = self.n_mks_load[self.mpi_rank]
 
         # cumulative sum of number of markers on each process at loading stage.
         n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
 
-        if self._mpi_rank == 0:
+        if self.mpi_rank == 0:
             print('\nMARKERS:')
+            for key, val in self.params.items():
+                if 'loading' not in key and 'derham' not in key and 'domain' not in key:
+                    print((key + ' :').ljust(25), val)
 
         # load markers from external .hdf5 file
-        if self._params['loading']['type'] == 'external':
+        if self.params['loading']['type'] == 'external':
 
-            if self._mpi_rank == 0:
-                file = h5py.File(self._params['loading']['dir_markers'], 'r')
+            if self.mpi_rank == 0:
+                file = h5py.File(self.params['loading']['dir_markers'], 'r')
                 print('Loading markers from file: '.ljust(25), file)
 
                 self._markers[:n_mks_load_cum_sum[0], :
@@ -345,14 +337,15 @@ class Particles(metaclass=ABCMeta):
         # load fresh markers
         else:
 
-            if self._mpi_rank == 0:
-                for key, val in self._params['loading'].items():
+            if self.mpi_rank == 0:
+                print('\nLoading fresh markers:')
+                for key, val in self.params['loading'].items():
                     print((key + ' :').ljust(25), val)
 
             # 1. standard random number generator (pseudo-random)
-            if self._params['loading']['type'] == 'pseudo_random':
+            if self.params['loading']['type'] == 'pseudo_random':
 
-                _seed = self._params['loading']['seed']
+                _seed = self.params['loading']['seed']
                 if _seed is not None:
                     np.random.seed(_seed)
 
@@ -366,13 +359,13 @@ class Particles(metaclass=ABCMeta):
                 del temp
 
             # 2. plain sobol numbers with skip of first 1000 numbers
-            elif self._params['loading']['type'] == 'sobol_standard':
+            elif self.params['loading']['type'] == 'sobol_standard':
 
                 self._markers[:n_mks_load_loc, :3 + self.vdim] = sobol_seq.i4_sobol_generate(
                     3 + self.vdim, n_mks_load_loc, 1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank])
 
             # 3. symmetric sobol numbers in all 6 dimensions with skip of first 1000 numbers
-            elif self._params['loading']['type'] == 'sobol_antithetic':
+            elif self.params['loading']['type'] == 'sobol_antithetic':
 
                 assert self.vdim == 3, NotImplementedError(
                     '"sobol_antithetic" requires vdim=3 at the moment.')
@@ -392,10 +385,10 @@ class Particles(metaclass=ABCMeta):
             for i in range(self.vdim):
                 self._markers[:n_mks_load_loc, 3 + i] = sp.erfinv(
                     2*self._markers[:n_mks_load_loc, 3 + i] - 1) \
-                    * self._params['loading']['moments'][self.vdim + i] + self._params['loading']['moments'][i]
+                    * self.params['loading']['moments'][self.vdim + i] + self.params['loading']['moments'][i]
 
             # inversion method for drawing uniformly on the disc
-            _spatial = self._params['loading']['spatial']
+            _spatial = self.params['loading']['spatial']
             if _spatial == 'disc':
                 self._markers[:n_mks_load_loc, 0] = np.sqrt(
                     self._markers[:n_mks_load_loc, 0])
@@ -668,14 +661,12 @@ class Particles(metaclass=ABCMeta):
         ----------
         """
 
-        self.comm.Barrier()
-
-        for axis, bc in enumerate(self.bc):
+        for axis, bc in enumerate(self.params['bc']['type']):
 
             # sorting out particles outside of the logical unit cube
             is_outside_cube = np.logical_or(self.markers[:, axis] > 1.,
                                             self.markers[:, axis] < 0.)
-
+            
             # exclude holes
             is_outside_cube[self.holes] = False
 
@@ -685,22 +676,27 @@ class Particles(metaclass=ABCMeta):
             # apply boundary conditions
             if bc == 'remove':
 
-                # save the positions and velocities just before the pushing step
-                if self.vdim == 3:
-                    self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                      len(outside_inds), 0:3] = self.markers[outside_inds, 9:12]
-                    self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                      len(outside_inds), 3:9] = self.markers[outside_inds, 3:9]
-                    self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                      len(outside_inds), -1] = self.markers[outside_inds, -1]
+                if self.params['bc']['remove']['boundary_transfer']:
+                    # boundary transfer
+                    outside_inds = self.boundary_transfer(is_outside_cube)
 
-                elif self.vdim == 2:
-                    self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                      len(outside_inds), 0:4] = self.markers[outside_inds, 9:13]
-                    self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                      len(outside_inds), 4:9] = self.markers[outside_inds, 4:9]
-                    self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                      len(outside_inds), -1] = self.markers[outside_inds, -1]
+                if self.params['bc']['remove']['save']:
+                # save the positions and velocities just before the pushing step
+                    if self.vdim == 3:
+                        self.lost_markers[self.n_lost_markers:self.n_lost_markers +
+                                        len(outside_inds), 0:3] = self.markers[outside_inds, 9:12]
+                        self.lost_markers[self.n_lost_markers:self.n_lost_markers +
+                                        len(outside_inds), 3:9] = self.markers[outside_inds, 3:9]
+                        self.lost_markers[self.n_lost_markers:self.n_lost_markers +
+                                        len(outside_inds), -1] = self.markers[outside_inds, -1]
+
+                    elif self.vdim == 2:
+                        self.lost_markers[self.n_lost_markers:self.n_lost_markers +
+                                        len(outside_inds), 0:4] = self.markers[outside_inds, 9:13]
+                        self.lost_markers[self.n_lost_markers:self.n_lost_markers +
+                                        len(outside_inds), 4:9] = self.markers[outside_inds, 4:9]
+                        self.lost_markers[self.n_lost_markers:self.n_lost_markers +
+                                        len(outside_inds), -1] = self.markers[outside_inds, -1]
 
                 self.markers[outside_inds, :-1] = -1.
 
@@ -715,68 +711,33 @@ class Particles(metaclass=ABCMeta):
 
             else:
                 raise NotImplementedError('Given bc_type is not implemented!')
-
-        self.comm.Barrier()
-
-    def boundary_transfer(self, derham, PB):
+            
+    def boundary_transfer(self, is_outside_cube):
         """
         Still draft. ONLY valid for the poloidal geometry (eta1: clamped r-direction, eta2: periodic theta-direction). 
 
-        When particles reach to rmin, transfer them to the opposite side of the rmin circle.
-
-        ex: when rmin is 0.1, transfer the particle from (0.09, 0.3, 0.4) to (0.1, 0.8, 0.4).
+        When particles reach to the inner boundary circle, transfer them to the opposite side of the circle.
 
         Parameters
         ----------
         """
-        T1, T2, T3 = derham.Vh_fem['0'].knots
-
-        self.comm.Barrier()
-
-        # sorting out particles inside of the rmin circle
-        smaller_than_rmin = self.markers[:, 0] < self._rmin
-        # exclude holes
-        smaller_than_rmin[self.holes] = False
-
-        # indices or particles that are inside of the rmin circle
-        transfer_inds = np.nonzero(smaller_than_rmin)[0]
-
-        # add the old energy of the particles
-        self._bt_energy += np.sum(self.markers[transfer_inds, 5].dot(
-            self.markers[transfer_inds, 8])/self.n_mks)
-
-        # transfer
-        self.markers[transfer_inds, 1] += 0.5
-        self.markers[transfer_inds, 1] = self.markers[transfer_inds, 1] % 1.
-        self.markers[transfer_inds, 0] = self._rmin
-        self.markers[transfer_inds, 3] = self.markers[transfer_inds, 12]
-
-        # marking before sorting
-        self.markers[transfer_inds, 22] = -1.
-
-        self.mpi_sort_markers()
-
-        # sorting from the makring
-        smaller_than_rmin = self.markers[:, 22] == -1
+        # sorting out particles which are inside of the inner hole
+        smaller_than_rmin = self.markers[:, 0] < 0.
 
         # exclude holes
         smaller_than_rmin[self.holes] = False
 
-        # indices or particles which are just transfered
+        # indices or particles that are inside of the inner hole
         transfer_inds = np.nonzero(smaller_than_rmin)[0]
 
-        # subtract new energy
-        eval_magnetic_energy(self._markers,
-                             np.array(derham.p), T1, T2, T3,
-                             np.array(derham.Vh['0'].starts),
-                             PB._data)
+        self.markers[transfer_inds, 0] = 0.
+        self.markers[transfer_inds, 1] = 1. - self.markers[transfer_inds, 1]
+        self.markers[transfer_inds, 21] = -1. 
 
-        self._bt_energy -= np.sum(self.markers[transfer_inds, 5].dot(
-            self.markers[transfer_inds, 8])/self.n_mks)
+        is_outside_cube[transfer_inds] = False
+        outside_inds = np.nonzero(is_outside_cube)[0]
 
-        self.markers[transfer_inds, 23] = -1.
-
-        self.comm.Barrier()
+        return outside_inds
         
         
 def sendrecv_determine_mtbs(markers, holes, domain_decomp, mpi_rank):
@@ -813,13 +774,13 @@ def sendrecv_determine_mtbs(markers, holes, domain_decomp, mpi_rank):
         markers[:, :3] > domain_decomp[mpi_rank, 0::3],
         markers[:, :3] < domain_decomp[mpi_rank, 1::3])
 
-    # to can_stay on the current process, all three columns must be True
+    # to stay on the current process, all three columns must be True
     can_stay = np.all(is_on_proc_domain, axis=1)
 
     # holes can stay, too
     can_stay[holes] = True
 
-    # True values can can_stay on the process, False must be sent, already empty rows (-1) cannot be sent
+    # True values can stay on the process, False must be sent, already empty rows (-1) cannot be sent
     send_inds = np.nonzero(~can_stay)[0]
 
     hole_inds_after_send = np.nonzero(np.logical_or(~can_stay, holes))[0]
@@ -941,7 +902,7 @@ def sendrecv_markers(send_list, recv_info, hole_inds_after_send, markers, comm):
             recvbufs += [np.zeros((N_recv, markers.shape[1]), dtype=float)]
             reqs += [comm.Irecv(recvbufs[-1], source=i, tag=i)]
 
-    # Wait for buffer, then put markers into holes
+    # Wait for buffer, then put markers into holes    
     test_reqs = [False] * (recv_info.size - 1)
     while len(test_reqs) > 0:
         # loop over all receive requests

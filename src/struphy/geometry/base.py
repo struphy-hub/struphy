@@ -1,4 +1,6 @@
 # coding: utf-8
+'Base classes for mapped domains (single patch).'
+
 
 from abc import ABCMeta, abstractmethod
 
@@ -16,7 +18,26 @@ import numpy as np
 
 
 class Domain(metaclass=ABCMeta):
-    """ Base class for mapped domains.
+    r""" Base class for mapped domains (single patch).
+    
+    The (physical) domain :math:`\Omega \subset \mathbb R^3` is an open subset of :math:`\mathbb R^3`,
+    defined by a diffeomorphism 
+    
+    .. math::
+    
+        F:(0, 1)^3 \to \Omega\,,\qquad \boldsymbol{\eta} \mapsto F(\boldsymbol \eta) = \mathbf x\,,
+         
+    mapping points :math:`\boldsymbol{\eta} \in (0, 1)^3` of the (logical)
+    unit cube to physical points :math:`\mathbf x \in \Omega`.
+    The corresponding Jacobain matrix :math:`DF:\hat\Omega \to \mathbb R^{3\times 3}`, 
+    its volume element :math:`\sqrt g: \hat\Omega \to \mathbb R`
+    and the metric tensor :math:`G:\hat\Omega \to \mathbb R^{3\times 3}` are defined by
+
+    .. math::
+    
+        DF_{i,j} = \frac{\partial F_i}{\partial \eta_j}\,,\qquad \sqrt g = |\textnormal{det}(DF)|\,,\qquad G = DF^\top DF\,.
+        
+    Only right-handed mappings (:math:`\textnormal{det}(DF) > 0`) are admitted.
     """
 
     def __init__(self):
@@ -1647,7 +1668,7 @@ class PoloidalSplineTorus(PoloidalSpline):
         F: (\eta_1, \eta_2, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
         x &= \sum_{ij} c^{R}_{ij} N_i(\eta_1) N_j(\eta_2) \cos(2\pi\eta_3)  \,, 
 
-        y &= \sum_{ij} c^{R}_{ij} N_i(\eta_1) N_j(\eta_2) \sin(2\pi\eta_3) \,, 
+        y &= \sum_{ij} c^{R}_{ij} N_i(\eta_1) N_j(\eta_2) \sin(- 2\pi\eta_3) \,, 
 
         z &= \sum_{ij} c^{z}_{ij} N_i(\eta_1) N_j(\eta_2) \,.
         \end{aligned}\right.

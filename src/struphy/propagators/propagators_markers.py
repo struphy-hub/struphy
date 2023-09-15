@@ -1,3 +1,6 @@
+'Only particle variables are updated.'
+
+
 from numpy import array, polynomial
 
 from psydac.linalg.block import BlockVector
@@ -567,10 +570,7 @@ class StepPushGuidingCenter1(Propagator):
         TODO
         """
         self._pusher(self.particles[0], dt,
-                     *self._pusher_inputs, mpi_sort='each', verbose=False)
-
-        # save magnetic field at each particles' position
-        self.particles[0].save_magnetic_energy(self.derham, self._abs_b)
+                     *self._pusher_inputs, mpi_sort='each', verbose=True)
 
 
 class StepPushGuidingCenter2(Propagator):
@@ -711,10 +711,7 @@ class StepPushGuidingCenter2(Propagator):
         TODO
         """
         self._pusher(self.particles[0], dt,
-                     *self._pusher_inputs, mpi_sort='each', verbose=False)
-
-        # save magnetic field at each particles' position
-        self.particles[0].save_magnetic_energy(self.derham, self._abs_b)
+                     *self._pusher_inputs, mpi_sort='each', verbose=True)
 
 
 class StepVinEfield(Propagator):
@@ -857,7 +854,7 @@ class StepPushDriftKinetic1(Propagator):
 
     .. math::
 
-        \dot{\mathbf X} &= \frac{\mu}{\kappa B^*_\parallel}  G^{-1}(\eta_p(t)) \hat{\mathbf{b}}^2_0 \times G^{-1}(\eta_p(t)) \hat \nabla |\mathcal{P}^B \hat{\mathbf{B}}^2| \,,
+        \dot{\mathbf X} &= \frac{\mu}{\kappa B^*_\parallel}  G^{-1}(\eta_p(t)) \hat{\mathbf{b}}^2_0 \times G^{-1}(\eta_p(t)) \hat \nabla |\mathcal{P}_B \hat{\mathbf{B}}^2| \,,
 
         \dot v_\parallel &= 0 \,.
 
@@ -895,9 +892,9 @@ class StepPushDriftKinetic1(Propagator):
                           'unit_b2': None,
                           'abs_b': None,
                           'integrator': 'implicit',
-                          'method': 'discrete_gradient_faster',
-                          'maxiter': 10,
-                          'tol': 1e-12,
+                          'method': 'discrete_gradient',
+                          'maxiter': 5,
+                          'tol': 1e-8,
                           }
 
         params = set_defaults(params, params_default)
@@ -1023,7 +1020,7 @@ class StepPushDriftKinetic1(Propagator):
                                    self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data)
 
         self._pusher(self.particles[0], dt,
-                     *self._pusher_inputs, mpi_sort='each', verbose=False)
+                     *self._pusher_inputs, mpi_sort='each', verbose=True)
 
 
 class StepPushDriftKinetic2(Propagator):
@@ -1033,7 +1030,7 @@ class StepPushDriftKinetic2(Propagator):
 
         \dot{\mathbf X} &= \frac{1}{B^*_\parallel} \frac{1}{\sqrt{g}(\eta_p(t))}\hat{\mathbf{B}}^{*2} v_\parallel \,,
 
-        \dot v_\parallel &= - \frac{\mu}{B^*_\parallel} \frac{1}{\sqrt{g}(\eta_p(t))}\hat{\mathbf{B}}^{*2} \cdot \hat \nabla \hat \nabla |\mathcal{P}^B \hat{\mathbf{B}}^2| \,.
+        \dot v_\parallel &= - \frac{\mu}{B^*_\parallel} \frac{1}{\sqrt{g}(\eta_p(t))}\hat{\mathbf{B}}^{*2} \cdot \hat \nabla |\mathcal{P}_B \hat{\mathbf{B}}^2| \,.
 
     for each marker :math:`p` in markers array. Available algorithms:
 
@@ -1064,9 +1061,9 @@ class StepPushDriftKinetic2(Propagator):
                           'unit_b2': None,
                           'abs_b': None,
                           'integrator': 'implicit',
-                          'method': 'discrete_gradient_faster',
+                          'method': 'discrete_gradient',
                           'maxiter': 10,
-                          'tol': 1e-12,
+                          'tol': 1e-8,
                           }
 
         params = set_defaults(params, params_default)
@@ -1191,4 +1188,4 @@ class StepPushDriftKinetic2(Propagator):
                                    self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data)
 
         self._pusher(self.particles[0], dt,
-                     *self._pusher_inputs, mpi_sort='each', verbose=False)
+                     *self._pusher_inputs, mpi_sort='each', verbose=True)

@@ -1,6 +1,6 @@
 .. _avail_mappings:
 
-3D curved domains
+3D mapped domains
 =================
 
 Documented modules:

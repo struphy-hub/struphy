@@ -45,7 +45,7 @@ mhd_equilibrium :
         p_kind  : 1 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
         p1      : .1 # shape factor for ad hoc pressure profile
         p2      : .1 # shape factor for ad hoc pressure profile
-        beta    : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
+        beta    : .01 # plasma beta = 2*p*mu_0/B^2
         psi_k   : 3 # spline degree to be used for interpolation of poloidal flux function (only needed if q_kind = 1)
         psi_nel : 50 # number of cells to be used for interpolation of poloidal flux function (only needed if q_kind = 1)
 
@@ -73,7 +73,8 @@ kinetic :
             type    : full_f # full_f or delta_f
             Np      : 4 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
             eps     : 1.0 # MPI send/receive buffer (0.1 <= eps <= 1.0)
-            bc_type : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
+            bc : 
+                type    : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
             loading :
                 type    : pseudo_random # particle loading mechanism 
                 seed    : 1608 # seed for random number generator

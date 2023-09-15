@@ -1,3 +1,6 @@
+'Pure fluid models.'
+
+
 import numpy as np
 from struphy.models.base import StruphyModel
 
@@ -42,7 +45,7 @@ class LinearMHD(StruphyModel):
         return 'mhd'
 
     @classmethod
-    def timescale(cls):
+    def velocity_scale(cls):
         return 'alfvén'
 
     def __init__(self, params, comm):
@@ -197,7 +200,7 @@ class LinearExtendedMHD(StruphyModel):
         return 'mhd'
 
     @classmethod
-    def timescale(cls):
+    def velocity_scale(cls):
         return 'alfvén'
 
     def __init__(self, params, comm):
@@ -358,7 +361,7 @@ class ColdPlasma(StruphyModel):
         return 'electrons'
 
     @classmethod
-    def timescale(cls):
+    def velocity_scale(cls):
         return 'light'
 
     def __init__(self, params, comm):
