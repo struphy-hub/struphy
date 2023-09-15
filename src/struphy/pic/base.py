@@ -17,11 +17,11 @@ class Particles(metaclass=ABCMeta):
 
     Loading and compute initial particles and save the values at the corresponding column of markers array:
     
-    ===== ============== ======================= ======= ====== ====== ==========
-    index  | 0 | 1 | 2 | | 3 | ... | 3+(vdim-1)|  3+vdim 4+vdim 5+vdim >=6+vdim
-    ===== ============== ======================= ======= ====== ====== ==========
-    value position (eta)    velocities           weight   s0     w0    additional
-    ===== ============== ======================= ======= ====== ====== ==========
+    ===== ============== ======================= ======= ====== ====== ========== === ===
+    index  | 0 | 1 | 2 | | 3 | ... | 3+(vdim-1)|  3+vdim 4+vdim 5+vdim >=6+vdim   ... -1
+    ===== ============== ======================= ======= ====== ====== ========== === ===
+    value position (eta)    velocities           weight   s0     w0      other    ... ID
+    ===== ============== ======================= ======= ====== ====== ========== === ===
 
     Parameters
     ----------
@@ -220,7 +220,7 @@ class Particles(metaclass=ABCMeta):
         return self._n_lost_markers
 
     def create_marker_array(self):
-        """ Create marker array. (self.markers)
+        """ Create marker array (self.markers).
         """
 
         # number of cells on current process

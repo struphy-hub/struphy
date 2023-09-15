@@ -21,7 +21,7 @@ def run(n_procs):
                     'run', 
                     'LinearMHDVlasovCC',
                     '-i',
-                    os.path.join(libpath, 'io/inp/examples/params_hybridmhdvlasovcc.yml'),
+                    os.path.join(libpath, 'io/inp/longer_examples/params_hybridmhdvlasovcc.yml'),
                     '-o',
                     out_name,
                     '--mpi',

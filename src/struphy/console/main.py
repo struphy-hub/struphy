@@ -344,7 +344,7 @@ def struphy():
 
     # 7. "test" sub-command
     parser_test = subparsers.add_parser('test',
-                                        help='run Struphy units tests',
+                                        help='run Struphy tests',
                                         description='Run available tests. If no options are given, all units tests (serial and parallel) are run (2 processes for parallel tests).')
 
     parser_test.add_argument('--serial',

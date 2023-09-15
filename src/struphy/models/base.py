@@ -36,7 +36,7 @@ class StruphyModel(metaclass=ABCMeta):
 
     def __init__(self, params, comm, **species):
 
-        from struphy.models.setup import setup_domain_mhd, setup_electric_background, setup_derham
+        from struphy.io.setup import setup_domain_mhd, setup_electric_background, setup_derham
 
         from struphy.polar.basic import PolarVector
         from struphy.propagators.base import Propagator
@@ -90,10 +90,10 @@ class StruphyModel(metaclass=ABCMeta):
 
         # store plasma parameters
         if comm.Get_rank() == 0:
-            self._pparams = self.print_plasma_params()
+            self._pparams = self._print_plasma_params()
             print('\nOPERATOR ASSEMBLY:')
         else:
-            self._pparams = self.print_plasma_params(verbose=False)
+            self._pparams = self._print_plasma_params(verbose=False)
 
         # expose propagator modules
         self._prop = Propagator
@@ -468,7 +468,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         Parameters
         ----------
-        data : struphy.models.output_handling.DataContainer
+        data : struphy.io.output_handling.DataContainer
             The data object that links to the hdf5 files.
         """
 
@@ -505,7 +505,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         Parameters
         ----------
-        data : struphy.models.output_handling.DataContainer
+        data : struphy.io.output_handling.DataContainer
             The data object that links to the hdf5 files.
 
         size : int
@@ -663,7 +663,7 @@ class StruphyModel(metaclass=ABCMeta):
             Derived units for velocity, pressure, mass density and particle density.
         """
 
-        from struphy.models.setup import derive_units
+        from struphy.io.setup import derive_units
 
         # physics constants
         e = 1.602176634e-19  # elementary charge (C)
@@ -917,7 +917,7 @@ class StruphyModel(metaclass=ABCMeta):
                 # other data (wave-particle power exchange, etc.)
                 # TODO
 
-    def print_plasma_params(self, verbose=True):
+    def _print_plasma_params(self, verbose=True):
         """
         Compute and print volume averaged plasma parameters for each species of the model.
 

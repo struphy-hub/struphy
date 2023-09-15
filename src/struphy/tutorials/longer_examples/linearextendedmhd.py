@@ -21,7 +21,7 @@ def run(n_procs):
                     'run', 
                     'LinearExtendedMHD',
                     '-i',
-                    os.path.join(libpath, 'io/inp/examples/params_linearextendedmhd.yml'),
+                    os.path.join(libpath, 'io/inp/longer_examples/params_linearextendedmhd.yml'),
                     '-o',
                     out_name,
                     '--mpi',
