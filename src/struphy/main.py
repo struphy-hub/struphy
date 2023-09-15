@@ -24,8 +24,8 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     """
 
     from struphy.models import fluid, kinetic, hybrid, toy
-    from struphy.models.setup import pre_processing
-    from struphy.models.output_handling import DataContainer
+    from struphy.io.setup import pre_processing
+    from struphy.io.output_handling import DataContainer
 
     import numpy as np
     import time
@@ -40,7 +40,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     comm.Barrier()
     start_simulation = time.time()
 
-    # call pre-processing (preparation of parameters, output folder and printing information to screen)
+    # loading of simulation parameters, creating output folder and printing information to screen
     params = pre_processing(model_name,
                             parameters,
                             path_out,
@@ -49,7 +49,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
                             rank,
                             size)
 
-    # instantiate STRUPHY model (will only allocate model objects and associated memory)
+    # instantiate Struphy model (will allocate model objects and associated memory)
     objs = [fluid, kinetic, hybrid, toy]
     for obj in objs:
         try:
@@ -67,53 +67,47 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     time_state['value'] = np.zeros(1, dtype=float)
     time_state['index'] = np.zeros(1, dtype=int)
 
-    # save time quantities in group 'time/'
+    # add time quantities to data object for saving
     for key, val in time_state.items():
         key_time = 'time/' + key
         key_time_restart = 'restart/time/' + key
         data.add_data({key_time: val})
         data.add_data({key_time_restart: val})
-
-    # start a new simulation (set initial conditions according to parameter file)
+        
     time_params = params['time']
 
+    # set initial conditions for all variables
     if rank == 0:
         print('\nINITIAL CONDITIONS:')
 
     if not restart:
         model.initialize_from_params()
+        
         total_steps = str(
             int(round(time_params['Tend']/time_params['dt'])))
-
-    # restart of an existing simulation (overwrite time quantities and load restart data from hdf5 files)
+        
     else:
+        model.initialize_from_restart(data)
+        
         time_state['value'][0] = data.file['restart/time/value'][-1]
         time_state['index'][0] = data.file['restart/time/index'][-1]
 
         total_steps = str(
             int(round((time_params['Tend'] - time_state['value'][0])/time_params['dt'])))
 
-        model.initialize_from_restart(data)
+    # compute initial scalars and kinetic data
+    model.update_scalar_quantities()
+    model.update_markers_to_be_saved()
+    model.update_distr_function()
 
-    # list of model methods for diagnostics
-    model_updates = []
-    for method in dir(model):
-        if 'update' in method and method != 'update_scalar':
-            model_updates.append(getattr(model, method))
-
-    # initial diagnostic data (will be saved in hdf5 file)
-    for method in model_updates:
-        method()
-
-    # prepare hdf5 file structure
+    # add all variables to be saved to data object 
     save_keys_all, save_keys_end = model.initialize_data_output(data, size)
-
-    if rank == 0:
-        print('\nINITIAL SCALAR QUANTITIES:')
-        model.print_scalar_quantities()
 
     # ======================== main time loop ======================
     if rank == 0:
+        print('\nINITIAL SCALAR QUANTITIES:')
+        model.print_scalar_quantities()
+        
         split_algo = time_params['split_algo']
         print(
             f'\nSTART TIME STEPPING WITH "{split_algo}" SPLITTING:')
@@ -121,7 +115,6 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     # time loop
     while True:
 
-        # synchronize MPI processes and check if simulation end is reached
         comm.Barrier()
         run_time_now = (time.time() - start_simulation)/60
 
@@ -130,11 +123,8 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
         break_cond_2 = run_time_now > runtime
 
         if break_cond_1 or break_cond_2:
-            # save restart data
-            data.save_data(keys=save_keys_end)
-            # close output file and time loop
+            data.save_data(keys=save_keys_end) # save restart data (other data already saved below)
             data.file.close()
-            # om.export_space_info() TODO: Psydac Derham functionaltiy not yet implemented.
             end_simulation = time.time()
             if rank == 0:
                 print('wall-clock time of simulation [sec]: ',
@@ -142,7 +132,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
                 print()
             break
 
-        # integrate the model for a time step dt
+        # perform one time step dt
         t0 = time.time()
         model.integrate(time_params['dt'], time_params['split_algo'])
         t1 = time.time()
@@ -155,9 +145,10 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
         # update diagnostics data and save data
         if time_state['index'][0] % save_step == 0:
 
-            # call diagnostics updates
-            for method in model_updates:
-                method()
+            # compute scalars and kinetic data
+            model.update_scalar_quantities()
+            model.update_markers_to_be_saved()
+            model.update_distr_function()
 
             # extract FEM coefficients
             for key, val in model.em_fields.items():

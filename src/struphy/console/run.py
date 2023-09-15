@@ -106,7 +106,7 @@ def struphy_run(model='Maxwell',
                        os.path.join(output_abs, 'profile_tmp'),
                        '-s',
                        'time',  # sort profile data according to runtime
-                       'models/main.py',  # run main.main()
+                       'main.py',  # run main.main()
                        model,  # from here on, command line arguments for main()
                        '-i',
                        input_abs,
@@ -130,7 +130,7 @@ def struphy_run(model='Maxwell',
                        os.path.join(output_abs, 'profile_tmp'),
                        '-s',
                        'time',  # sort profile data according to runtime
-                       'models/main.py',  # run main.main()
+                       'main.py',  # run main.main()
                        model,  # from here on, command line arguments for main()
                        '-i',
                        input_abs,
@@ -198,7 +198,7 @@ def struphy_run(model='Maxwell',
 
             command_string = '\nsrun python3 -m cProfile -o ' + \
                 os.path.join(output_abs, 'profile_tmp') + ' -s time '
-            command_string += libpath + '/models/main.py '
+            command_string += libpath + '/main.py '
             command_string += model + ' '
             command_string += '-i ' + input_abs + ' '
             command_string += '-o ' + output_abs + ' '
