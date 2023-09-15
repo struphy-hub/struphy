@@ -15,12 +15,13 @@ Struphy can be installed in the following ways:
 Requirements
 ------------
 
-- Python >3.7 and <=3.10 and pip3
+- Python >3.7 and <3.12 and pip3
 - A Fortran compiler like gfortran, gcc
 - Linear algebra packages BLAS and LAPACK
 - An MPI library like open-mpi, mpich
 - OpenMP
 - Git version control system
+- Pandoc (optional)
 
 Sample environment on **Debian-Ubuntu-Mint**::
 
@@ -33,6 +34,7 @@ Sample environment on **Debian-Ubuntu-Mint**::
     sudo apt install -y libopenmpi-dev openmpi-bin
     sudo apt install -y libomp-dev libomp5
     sudo apt install -y git
+    sudo apt install -y pandoc
 
 Sample environment on **Fedora-CentOS-RHEL**::
 
@@ -47,6 +49,7 @@ Sample environment on **Fedora-CentOS-RHEL**::
     sudo dnf install -y environment-modules
     sudo dnf install -y python3-mpi4py-openmpi
     sudo dnf install -y python3-devel
+    sudo dnf install -y pandoc
 
 Sample environment on **Mac OS**::
 
@@ -58,6 +61,7 @@ Sample environment on **Mac OS**::
     brew install open-mpi
     brew install libomp
     brew install git
+    brew install pandoc
 
 In case you see problems with the `mpi4py` build on **Mac OS**, you can try to install the Xcode command line tools (160 MB)::
 
@@ -119,9 +123,9 @@ Compile kernels::
 Source
 ------
 
-Clone the `Struphy repository <https://gitlab.mpcdf.mpg.de/struphy/struphy>`_ and update submodules::
+Clone the `Struphy repository <https://gitlab.mpcdf.mpg.de/struphy/struphy>`_::
 
-    git clone --recurse-submodules git@gitlab.mpcdf.mpg.de:struphy/struphy.git 
+    git clone git@gitlab.mpcdf.mpg.de:struphy/struphy.git 
     cd struphy
 
 Update pip and install package::
@@ -239,7 +243,7 @@ Some specifics for the HPC systems ``cobra`` and ``draco`` at `MPCDF HPC facilit
 1. Load necessary modules::
 
     module purge
-    module load gcc/9 openmpi anaconda/3/2021.11 mpi4py git
+    module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc
     module list
 
 2. Create a Python virtual environment::

@@ -34,7 +34,7 @@ mhd_equilibrium :
         B0x  : 0. # magnetic field in x
         B0y  : 0. # magnetic field in y
         B0z  : 1. # magnetic field in z
-        beta : 100. # plasma beta = 2*p*mu_0/B^2
+        beta : 1. # plasma beta = 2*p*mu_0/B^2
         n0   : 1. # number density
 
 em_fields :
@@ -99,7 +99,8 @@ kinetic :
             type        : full_f # full_f or delta_f
             ppc         : 20  # particles per 3d grid cell
             eps         : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
-            bc_type     : [periodic, periodic, periodic] # remove, reflect or periodic
+            bc : 
+                type    : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
             loading :
                 type          : pseudo_random # particle loading mechanism 
                 seed          : 1234 # seed for random number generator

@@ -19,7 +19,7 @@ def struphy():
     from struphy.console.units import struphy_units
     from struphy.console.profile import struphy_profile
     from struphy.console.pproc import struphy_pproc
-    from struphy.console.example import struphy_example
+    from struphy.console.tutorials import struphy_tutorials
     from struphy.console.test import struphy_test
 
     # create argument parser
@@ -33,7 +33,7 @@ def struphy():
 
     # version message
     version_message = f'Struphy {__version__}\n'
-    version_message += 'Copyright 2019 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n'
+    version_message += 'Copyright 2019-2023 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n'
     version_message += 'MIT license\n'
 
     # path message
@@ -79,15 +79,19 @@ def struphy():
     parser.add_argument('--set-i',
                         type=str,
                         metavar='PATH',
-                        help='make PATH the new default Input folder (type "." to use current working directory)',)
+                        help='make PATH the new default Input folder ("." to use cwd, "d" to use default <install-path>/io/inp/)',)
     parser.add_argument('--set-o',
                         type=str,
                         metavar='PATH',
-                        help='make PATH the new default Output folder (type "." to use current working directory)',)
+                        help='make PATH the new default Output folder ("." to use cwd, "d" to use default <install-path>/io/out/)',)
     parser.add_argument('--set-b',
                         type=str,
                         metavar='PATH',
-                        help='make PATH the new default Batch folder (type "." to use current working directory)',)
+                        help='make PATH the new default Batch folder ("." to use cwd, "d" to use default <install-path>/io/batch/)',)
+    parser.add_argument('--set-iob',
+                        type=str,
+                        metavar='PATH',
+                        help='make PATH the new default folder for io/inp/, io/out and io/batch ("." to use cwd, "d" to use default <install-path>)',)
 
     # create sub-commands and save name of sub-command into variable "command"
     subparsers = parser.add_subparsers(title='available commands',
@@ -326,45 +330,21 @@ def struphy():
                               help='divide each grid cell by N for field evaluation (default=1)',
                               default=1)
 
-    # 6. "example" sub-command
-    parser_example = subparsers.add_parser(
-        'example',
-        help='run a Struphy example',
-        description='Run a complete Struphy example including prost-processing and plots.')
+    # 6. "tutorials" sub-command
+    parser_tutorials = subparsers.add_parser(
+        'tutorials',
+        help='run Struphy simulation(s) for notebook tutorials',
+        description='Run Struphy simulation(s) necessary to run notebook tutorials.',
+        epilog='Find the notebook tutorials at https://struphy.pages.mpcdf.de/struphy/sections/tutorials.html')
 
-    files = os.listdir(os.path.join(libpath, 'examples'))
-
-    list_examples = []
-    for file in files:
-        if file[-3:] == '.py' and file[0] != '_':
-            list_examples += [file[:-3]]
-
-    list_examples.sort()
-
-    examples_string = ''
-    for ex in list_examples[:-1]:
-        examples_string += '"' + ex + '", '
-
-    examples_string += 'or "' + list_examples[-1] + '"'
-
-    parser_example.add_argument('case',
-                                type=str,
-                                metavar='case',
-                                help='which example to run (must be one of ' + examples_string + ')')
-
-    parser_example.add_argument('--mpi',
-                                type=int,
-                                metavar='N',
-                                help='use "mpirun -n N" to launch the example in parallel (default=1)',
-                                default=1)
-
-    parser_example.add_argument('-d', '--diagnostics',
-                                help='run diagnostics only, if output folder of example already exists',
-                                action='store_true')
+    parser_tutorials.add_argument('-n',
+                                  type=int,
+                                  help='specific tutorial simulation to run (int, optional)',
+                                  default=None)
 
     # 7. "test" sub-command
     parser_test = subparsers.add_parser('test',
-                                        help='run Struphy units tests',
+                                        help='run Struphy tests',
                                         description='Run available tests. If no options are given, all units tests (serial and parallel) are run (2 processes for parallel tests).')
 
     parser_test.add_argument('--serial',
@@ -383,9 +363,14 @@ def struphy():
 
     # parse argument
     args = parser.parse_args()
-
+    
     # if no arguments are passed, print help and exit
-    if args.command is None and args.set_i is None and args.set_o is None and args.set_b is None:
+    print_help = True
+    for key, val in args.__dict__.items():
+        if val is not None:
+            print_help = False
+            
+    if print_help:
         parser.print_help()
         exit()
 
@@ -393,14 +378,12 @@ def struphy():
     if args.set_i:
         if args.set_i == '.':
             i_path = os.getcwd()
-
         elif args.set_i == 'd':
             i_path = os.path.join(libpath, 'io/inp')
-
         else:
             i_path = args.set_i
             try:
-                os.mkdir(i_path)
+                os.makedirs(i_path)
             except:
                 pass
 
@@ -419,14 +402,12 @@ def struphy():
     if args.set_o:
         if args.set_o == '.':
             o_path = os.getcwd()
-
         elif args.set_o == 'd':
             o_path = os.path.join(libpath, 'io/out')
-
         else:
             o_path = args.set_o
             try:
-                os.mkdir(o_path)
+                os.makedirs(o_path)
             except:
                 pass
 
@@ -445,14 +426,12 @@ def struphy():
     if args.set_b:
         if args.set_b == '.':
             b_path = os.getcwd()
-
         elif args.set_b == 'd':
             b_path = os.path.join(libpath, 'io/batch')
-
         else:
             b_path = args.set_b
             try:
-                os.mkdir(b_path)
+                os.makedirs(b_path)
             except:
                 pass
 
@@ -465,6 +444,26 @@ def struphy():
         import subprocess
         subprocess.run(['struphy', '-p'])
 
+        exit()
+        
+    # set paths for inp, out and batch (with io/inp etc. prefices)
+    if args.set_iob:
+        if args.set_iob == '.':
+            path = os.getcwd()
+        elif args.set_iob == 'd':
+            path = libpath
+        else:
+            path = args.set_iob
+            
+        i_path = os.path.join(path, 'io/inp')
+        o_path = os.path.join(path, 'io/out')
+        b_path = os.path.join(path, 'io/batch')
+        
+        import subprocess
+        subprocess.run(['struphy', '--set-i', i_path])
+        subprocess.run(['struphy', '--set-o', o_path])
+        subprocess.run(['struphy', '--set-b', b_path])
+        
         exit()
 
     # handle argument dependencies in "sub-command"
@@ -489,6 +488,7 @@ def struphy():
     kwargs.pop('set_i')
     kwargs.pop('set_o')
     kwargs.pop('set_b')
+    kwargs.pop('set_iob')
 
     # start sub-command function with all parameters of that function
     func(**kwargs)

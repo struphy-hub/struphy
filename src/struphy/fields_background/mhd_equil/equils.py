@@ -1,3 +1,6 @@
+'MHD equilibria.'
+
+
 import numpy as np
 
 from struphy.fields_background.mhd_equil.base import CartesianMHDequilibrium, LogicalMHDequilibrium, AxisymmMHDequilibrium

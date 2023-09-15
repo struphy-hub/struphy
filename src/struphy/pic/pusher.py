@@ -1,3 +1,6 @@
+'Syntactic sugar for calling pusher kernels.'
+
+
 import struphy.pic.pusher_kernels as pushers
 import struphy.pic.pusher_kernels_gc as pushers_gc
 import struphy.pic.utilities_kernels as utilities
@@ -7,7 +10,7 @@ import numpy as np
 
 class Pusher:
     """
-    Wrapper class for particle pushing. 
+    Syntactic sugar for particle pusher kernels. 
 
     It retrieves the correct pusher kernel and prepares the FEM arguments passed to the pusher kernel.
 
@@ -20,7 +23,7 @@ class Pusher:
             All things mapping.
 
         kernel_name : str
-            The name of the pusher kernel in the file struphy.pic.pusher_kernels.
+            The name of the pusher kernel in the file :module:`struphy.pic.pusher_kernels`.
 
         n_stages : int
             Number of stages of the pusher (e.g. 4 for RK4)
@@ -88,12 +91,12 @@ class Pusher:
             self.kernel(particles.markers, dt, stage, *
                         self.args_fem, *self.domain.args_map, *args_opt)
 
-            # applying kinetic boundary condition
-            particles.apply_kinetic_bc()
-
             # sort markers according to domain decomposition
             if mpi_sort == 'each':
                 particles.mpi_sort_markers()
+
+            else:
+                particles.apply_kinetic_bc()
 
             # print stage info
             if self._derham.comm.Get_rank() == 0 and verbose:
@@ -107,7 +110,7 @@ class Pusher:
         particles.markers[~particles.holes, 9:15] = 0.
 
         if particles.kinds == 'Particles5D':
-            particles.markers[~particles.holes, 9:23] = 0.
+            particles.markers[~particles.holes, 9:25] = 0.
 
     @property
     def derham(self):
@@ -236,7 +239,7 @@ class Pusher_iteration_Gonzalez:
             Number of stages of the pusher (e.g. 4 for RK4)
     """
 
-    def __init__(self, derham, domain, kernel_name, maxiter=10, tol=1.e-12):
+    def __init__(self, derham, domain, kernel_name, maxiter=10, tol=1.e-8):
 
         self._derham = derham
         self._domain = domain
@@ -287,17 +290,17 @@ class Pusher_iteration_Gonzalez:
                 Whether to print some info or not.
         """
         # save initial etas and v_parallel in columns 9:13
-        particles.markers[~particles.holes,
-                          9:13] = particles.markers[~particles.holes, 0:4]
+        particles.markers[~particles.holes, 9:13] \
+            = particles.markers[~particles.holes, 0:4]
 
         # prepare the iteration:
-        self.kernel_prepare(particles.markers, dt, *
-                            self.args_fem, *self.domain.args_map, *args_opt)
+        self.kernel_prepare(particles.markers, dt, *self.args_fem,
+                            *self.domain.args_map, *args_opt)
         particles.mpi_sort_markers()
 
         # eval gradI
-        self.kernel_eval_gradI(particles.markers, dt, *
-                               self.args_fem, *self.domain.args_map, *args_opt)
+        self.kernel_eval_gradI(particles.markers, dt, *self.args_fem,
+                               *self.domain.args_map, *args_opt)
         particles.mpi_sort_markers()
 
         # start iteration
@@ -307,20 +310,24 @@ class Pusher_iteration_Gonzalez:
                         *self.args_fem, *self.domain.args_map, *args_opt)
             particles.mpi_sort_markers()
 
-            self.kernel_eval_gradI(
-                particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
+            self.kernel_eval_gradI(particles.markers, dt,
+                                   *self.args_fem, *self.domain.args_map, *args_opt)
             particles.mpi_sort_markers()
 
             if stage == self._maxiter-1 and verbose:
-                not_converged = np.logical_not(particles.markers[:, 23] == -1.)
+                not_converged = np.logical_not(particles.markers[:, 21] == -1.)
                 print('Number of not converged particles:',
                       np.count_nonzero(not_converged))
-                # print('Non converged partices:', particles.markers[not_converged, 0:13])
-                print('NUmber of iterations', np.average(
-                    particles.markers[~particles.holes, 20])+1)
+                print('Non converged partices:',
+                      particles.markers[not_converged, 9:13])
+                print('Number of iterations', np.average(
+                      particles.markers[~particles.holes, 20])+1)
+                print('Number of lost markers:',
+                      particles.n_lost_markers)
+                print()
 
-        # clear buffer columns 9-23 for multi-stage pushers
-        particles.markers[~particles.holes, 9:25] = 0.
+        # clear buffer columns 9-21 for multi-stage pushers
+        particles.markers[~particles.holes, 9:22] = 0.
 
     @property
     def derham(self):
@@ -445,38 +452,42 @@ class Pusher_iteration_Itoh:
                 Whether to print some info or not.
         """
         # save initial etas and v_parallel in columns 9:13
-        particles.markers[~particles.holes,
-                          9:13] = particles.markers[~particles.holes, 0:4]
+        particles.markers[~particles.holes, 9:13] \
+            = particles.markers[~particles.holes, 0:4]
 
         # prepare the iteration:
-        self.kernel_prepare(particles.markers, dt, *
-                            self.args_fem, *self.domain.args_map, *args_opt)
+        self.kernel_prepare(particles.markers, dt, *self.args_fem,
+                            *self.domain.args_map, *args_opt)
         particles.mpi_sort_markers()
 
         # start iteration
         for stage in range(self._maxiter):
 
-            self.kernel_prepare1(particles.markers, dt, *
-                                 self.args_fem, *self.domain.args_map, *args_opt)
+            self.kernel_prepare1(particles.markers, dt, *self.args_fem,
+                                 *self.domain.args_map, *args_opt)
             particles.mpi_sort_markers()
 
-            self.kernel_prepare2(particles.markers, dt, *
-                                 self.args_fem, *self.domain.args_map, *args_opt)
+            self.kernel_prepare2(particles.markers, dt, *self.args_fem,
+                                 *self.domain.args_map, *args_opt)
             particles.mpi_sort_markers()
 
-            self.kernel(particles.markers, dt, stage, self._maxiter,
-                        self._tol, *self.args_fem, *self.domain.args_map, *args_opt)
+            self.kernel(particles.markers, dt, stage, self._maxiter, self._tol,
+                        *self.args_fem, *self.domain.args_map, *args_opt)
             particles.mpi_sort_markers()
 
             if stage == self._maxiter-1 and verbose:
-                not_converged = np.logical_not(particles.markers[:, 13] == -1.)
+                not_converged = np.logical_not(particles.markers[:, 23] == -1.)
                 print('Number of not converged particles:',
                       np.count_nonzero(not_converged))
-                # print('Non converged partices:', particles.markers[not_converged, 0:13])
-                print('NUmber of iterations', np.average(
-                    particles.markers[~particles.holes, 14])+1)
+                print('Non converged partices:',
+                      particles.markers[not_converged, 9:13])
+                print('Number of iterations', np.average(
+                      particles.markers[~particles.holes, 14])+1)
+                print('Number of lost markers:',
+                      particles.n_lost_markers)
+                print()
 
-        # clear buffer columns 9-23 for multi-stage pushers
+        # clear buffer columns 9-24 for multi-stage pushers
         particles.markers[~particles.holes, 9:25] = 0.
 
     @property

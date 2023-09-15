@@ -1,3 +1,6 @@
+'Only FEEC variables are updated.'
+
+
 import numpy as np
 from numpy import zeros
 
@@ -63,6 +66,7 @@ class Maxwell(Propagator):
         params = set_defaults(params, params_default)
 
         self._info = params['info']
+        self._rank = self.derham.comm.Get_rank()
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = self.mass_ops.M1
@@ -113,7 +117,7 @@ class Maxwell(Propagator):
         # write new coeffs into self.feec_vars
         max_de, max_db = self.feec_vars_update(self._e_tmp1, self._b_tmp1)
 
-        if self._info:
+        if self._info and self._rank == 0:
             print('Status     for Maxwell:', info['success'])
             print('Iterations for Maxwell:', info['niter'])
             print('Maxdiff e1 for Maxwell:', max_de)
@@ -1359,9 +1363,9 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
 
         \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf b^{n+1} - \mathbf b^n \end{bmatrix} 
         = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^\rho_\alpha)^{-1} \mathcal {T^\alpha}^\top \mathbb C^\top \\ - \mathbb C \mathcal {T^\alpha} (\mathbb M^\rho_\alpha)^{-1} & 0 \end{bmatrix} 
-        \begin{bmatrix} {\mathbb M^\rho_\alpha}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_2(\mathbf b^{n+1} + \mathbf b^n) + \mathcal{P}^{B\top} \sum_k^{N_p} \omega_k \mu_k \Lambda^0(\mathbf{\eta}_k) \ \end{bmatrix} ,
+        \begin{bmatrix} {\mathbb M^\rho_\alpha}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_2(\mathbf b^{n+1} + \mathbf b^n) + \mathcal{P}_B^{\top} \sum_k^{N_p} \omega_k \mu_k \Lambda^0(\mathbf{\eta}_k) \ \end{bmatrix} ,
 
-    where :math:`\mathcal{P}^B = \hat \Pi^0 \left[ \frac{\hat b^1}{\sqrt g} \Lambda^2\right]`, :math:`\alpha \in \{1, 2, v\}` and :math:`\mathbb M^\rho_\alpha` is a weighted mass matrix in :math:`\alpha`-space, the weight being :math:`\rho_0`,
+    where :math:`\mathcal{P}_B = \hat \Pi^0 \left[ \frac{\hat b^1}{\sqrt g} \Lambda^2\right]`, :math:`\alpha \in \{1, 2, v\}` and :math:`\mathbb M^\rho_\alpha` is a weighted mass matrix in :math:`\alpha`-space, the weight being :math:`\rho_0`,
     the MHD equilibirum density. The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
 
     Parameters
@@ -1489,7 +1493,40 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
 
 
 class MagnetosonicCurrentCoupling5D(Propagator):
-    r'''TODO'''
+    r'''Crank-Nicolson step for Magnetosonic part in LinearMHDDriftkineticCC,
+
+    .. math::
+
+        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf p^{n+1} - \mathbf p^n \end{bmatrix} 
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^\rho_\alpha)^{-1} {\mathcal U^\alpha}^\top \mathbb D^\top \mathbb M_3 \\ - \mathbb D \mathcal S^\alpha - (\gamma - 1) \mathcal K^\alpha \mathbb D \mathcal U^\alpha & 0 \end{bmatrix} 
+        \begin{bmatrix} (\mathbf u^{n+1} + \mathbf u^n) \\ (\mathbf p^{n+1} + \mathbf p^n) \end{bmatrix} + \begin{bmatrix} \Delta t (\mathbb M^\rho_\alpha)^{-1} (\mathbb M^J_\alpha \mathbf b^n + + \sum_k^{N_p} \omega_k \mu_k \left[ \left\{ \hat \nabla \times \hat{\mathbb b}^1\right\} \times \hat{\mathbb B}^2\right](\mathbb \eta_k)) \\ 0 \end{bmatrix},
+
+    where :math:`\alpha \in \{1, 2, v\}` and :math:`\mathcal U^2 = \mathbb Id`; moreover, :math:`\mathbb M^\rho_\alpha` and 
+    :math:`\mathbb M^J_\alpha` are weighted mass matrices in :math:`\alpha`-space, 
+    the weights being the MHD equilibirum density :math:`\rho_0`
+    and the curl of the MHD equilibrium current density :math:`\mathbf J_0 = \nabla \times \mathbf B_0`. 
+    The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
+
+    Decoupled density update:
+
+    .. math::
+
+        \boldsymbol{\rho}^{n+1} = \boldsymbol{\rho}^n - \frac{\Delta t}{2} \mathbb D \mathcal Q^\alpha (\mathbf u^{n+1} + \mathbf u^n) \,.
+
+    Parameters
+    ---------- 
+    n : psydac.linalg.stencil.StencilVector
+        FE coefficients of a discrete 3-form.
+
+    u : psydac.linalg.block.BlockVector
+        FE coefficients of MHD velocity.
+
+    p : psydac.linalg.stencil.StencilVector
+        FE coefficients of a discrete 3-form.
+
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
+    '''
 
     def __init__(self, n, u, p, **params):
 
@@ -1544,7 +1581,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._coupling_const = params['Ah'] / params['Ab']
 
         self._ACC = Accumulator(self.derham, self.domain,
-                                params['u_space'], 'cc_lin_mhd_5d_curlM', add_vector=False)
+                                params['u_space'], 'cc_lin_mhd_5d_curlMxB', add_vector=True)
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         id_Mn = 'M' + self.derham.spaces_dict[params['u_space']] + 'n'
@@ -1615,7 +1652,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         # solve for new u coeffs
         self._B.dot(pn, out=self._byn1)
         self._MJ.dot(self._b, out=self._byn2)
-        self._byn2 -= self._ACC.vectors[0].dot(self._b)
+        self._byn2 -= self._ACC.vectors[0]
         self._byn2 *= 1/2
         self._byn1 -= self._byn2
 
@@ -1804,7 +1841,7 @@ class ImplicitDiffusion(Propagator):
     ----------
     phi : psydac.linalg.stencil.StencilVector
         FE coefficients of a discrete 0-form, the solution.
-    
+
     sigma : float
         Stabilization parameter: :math:`\sigma=1` for the heat equation and :math:`\sigma=0` for the Poisson equation.
 
@@ -1821,7 +1858,7 @@ class ImplicitDiffusion(Propagator):
     def __init__(self, phi, sigma=1., phi_n=None, x0=None, **solver_params):
 
         super().__init__(phi)
-        
+
         # parameters
         params_default = {'type': 'PConjugateGradient',
                           'pc': 'MassMatrixPreconditioner',
@@ -1845,7 +1882,7 @@ class ImplicitDiffusion(Propagator):
             # check solvability condition
             if np.abs(sigma) < 1e-14:
                 sigma = 1e-14
-                self.check_rhs(phi_n) 
+                self.check_rhs(phi_n)
 
         # initial guess and solver params
         self._x0 = x0
@@ -1858,32 +1895,33 @@ class ImplicitDiffusion(Propagator):
                            self.mass_ops.M1,
                            self.derham.grad)
 
-        # preconditioner
+        # preconditioner and solver for Ax=b
         if self._solver_params['pc'] is None:
             self._pc = None
         else:
             pc_class = getattr(preconditioner, self._solver_params['pc'])
             self._pc = pc_class(self.mass_ops.M0)
-            
+
         # solver for Ax=b with A=const.
         self.solver = pcg(self.derham.Vh['0'])
 
     def check_rhs(self, phi_n):
         '''Checks space of rhs and, for periodic boundary conditions and sigma=0,
         checks whether the integral over phi_n is zero.
-        
+
         Parameters
         ----------
         phi_n : psydac.linalg.stencil.StencilVector
             FE coefficients of a 0-form.'''
-        
+
         assert type(phi_n) == type(self._phi_n)
-        
-        if np.all(phi_n.space.periods): 
+
+        if np.all(phi_n.space.periods):
             solvability = np.zeros(1)
             self.derham.comm.Allreduce(
                 np.sum(phi_n.toarray()), solvability, op=MPI.SUM)
-            assert np.abs(solvability[0]) <= 1e-11, f'Solvability condition not met: {solvability[0]}'
+            assert np.abs(
+                solvability[0]) <= 1e-11, f'Solvability condition not met: {solvability[0]}'
 
     @property
     def phi_n(self):
@@ -1921,13 +1959,13 @@ class ImplicitDiffusion(Propagator):
     def __call__(self, dt):
 
         res, info = self.solver.solve(self._A1 + dt * self._A2,
-                        self._phi_n,
-                        pc=self._pc,
-                        x0=self._x0,
-                        tol=self._solver_params['tol'],
-                        maxiter=self._solver_params['maxiter'],
-                        verbose=self._solver_params['verbose']
-                        )
+                                      self._phi_n,
+                                      pc=self._pc,
+                                      x0=self._x0,
+                                      tol=self._solver_params['tol'],
+                                      maxiter=self._solver_params['maxiter'],
+                                      verbose=self._solver_params['verbose']
+                                      )
 
         if self._solver_params['info']:
             print(info)

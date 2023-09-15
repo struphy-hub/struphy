@@ -79,12 +79,22 @@ Weighted mass operators
     :undoc-members:
     :show-inheritance:
 
+.. autoclass:: struphy.psydac_api.mass.WeightedMassOperator
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 .. _basis_ops:
 
 Basis projection operators
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. autoclass:: struphy.psydac_api.basis_projection_ops.BasisProjectionOperators
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.psydac_api.basis_projection_ops.BasisProjectionOperator
     :members:
     :undoc-members:
     :show-inheritance:
@@ -310,8 +320,8 @@ This returns the :ref:`data_structures` of the variable (the whole :ref:`particl
 In case of a fluid species, the naming convention is :code:`species_variable` 
 with an underscore separating species name and variable name.
 
-3. Define ``bulk_species`` and ``timescale``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+3. Define ``bulk_species`` and ``velocity_scale``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 These must be implemented as class methods of the model::
 
@@ -320,12 +330,12 @@ These must be implemented as class methods of the model::
         return 'energetic_ions'
 
     @classmethod
-    def timescale(cls):
+    def velocity_scale(cls):
         return 'light'
 
 The ``bulk_species`` must return the name of one of the species of the model. 
 
-There are three options for the ``timescale``:
+There are three options for the ``velocity_scale``:
 
     * ``alfvén``
     * ``cyclotron``
@@ -333,7 +343,8 @@ There are three options for the ``timescale``:
 
 The choice corresponds to setting the velocity unit :math:`\hat v` of the normalization.
 This then sets the time unit :math:`\hat t = \hat x / \hat v`, where :math:`\hat x` is the 
-unit of length specified through the parameter file.
+unit of length specified through the parameter file. We refer to `Tutorial 01 <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_01_units_run_main.html#Struphy-normalization-(units)>`_ for more details
+on the Struphy normalization.
 
 4. Add Propagators
 ^^^^^^^^^^^^^^^^^^
@@ -360,7 +371,7 @@ where four different propagators are used for time stepping::
     self.add_propagator(self.prop_markers.PushEta(
         self.pointer['electrons'],
         algo=electron_params['push_algos']['eta'],
-        bc_type=electron_params['markers']['bc_type'],
+        bc_type=electron_params['markers']['bc']['type'],
         f0=None))
 
     self.add_propagator(self.prop_markers.PushVxB(
@@ -647,8 +658,14 @@ Please consult existing tests as templates.
 Changing the documentation 
 --------------------------
 
-The source files (``.rst``) for the documentation are in ``/doc/sections`` in the repository. 
-If you make changes to these files, you can review them in your browser (e.g. firefox)::
+The source files (``.rst``) for the documentation are in ``doc/sections/`` in the repository.
+Tutorial notebooks are in ``doc/tutorials/``. In order to build the ``.html`` file of the documentation,
+`Pandoc <https://pandoc.org/>`_ needs to be installed on your system (for notebook conversion).
+In order to be able to convert the tutorial notebooks to ``.html``, you need to run::
+
+    struphy tutorials
+
+If you make changes to the ``.rst`` files or the tutorial notebooks, you can review them in your browser (e.g. firefox)::
 
     cd doc
     make html

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "2.0.2"
+version = "2.0.3"
 readme = "README.md"
 requires-python = ">=3.7, <3.12"
 license = {file = "LICENSE"}
@@ -23,15 +23,18 @@ dependencies = [
     'matplotlib',
     'mpi4py',
     'numpy',
-    'pyccel',
+    'pyccel<1.8.0',
     'PyYAML',
     'scipy',
     'pytest',
     'pytest-mpi',
-    'mistune<2',
+    'mistune',
     'sphinx==4.2.0',
     'sphinxcontrib-napoleon',
     'sphinx-rtd-theme',
+    'python-docs-theme',
+    'nbsphinx',
+    'notebook',
     'm2r2==0.3.1',
     'vtk',
     'docutils==0.15',
@@ -68,7 +71,8 @@ struphy = "struphy.console.main:struphy"
 
 'struphy.io.inp' = ['parameters.yml',
                     'tests/*.yml',
-                    'examples/*.yml',
+                    'tutorials/*.yml',
+                    'longer_examples/*.yml',
                     ]
                     
 struphy = ['compile_struphy.mk',

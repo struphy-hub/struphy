@@ -1,3 +1,6 @@
+'Base classes for kinetic backgrounds.'
+
+
 from abc import ABCMeta, abstractmethod
 import numpy as np
 

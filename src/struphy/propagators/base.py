@@ -1,3 +1,6 @@
+'Propagator base classes.'
+
+
 from abc import ABCMeta, abstractmethod
 import numpy as np
 
@@ -6,61 +9,62 @@ from struphy.pic.particles import Particles
 
 
 class Propagator(metaclass=ABCMeta):
-    '''Base class for Struphy propagators used in Struphy models. 
+    """ Base class for Struphy propagators used in Struphy models. 
 
     Note
     ---- 
-        All Struphy propagators are subclasses of ``Propagator``.
-        
-        The ``__init__`` of child classes must take as arguments the variables to be updated.
-        All additional arguments MUST be passed as **keyword arguments**.
-        The variables (not the other arguments) must then be passed to `super().__init__()`.
-    '''
+    All Struphy propagators are subclasses of ``Propagator``.
+
+    The ``__init__`` of child classes must take as arguments the variables to be updated.
+    All additional arguments MUST be passed as **keyword arguments**.
+    The variables (not the other arguments) must then be passed to `super().__init__()`.
+    """
 
     def __init__(self, *vars):
-        '''
-        Create an instance of a Propagator.
-        
+        """ Create an instance of a Propagator.
+
         Parameters
         ----------
         vars : Vector or Particles
-            :attr:`struphy.models.base.StruphyModel.pointer` of variables to be updated.'''
-        
+            :attr:`struphy.models.base.StruphyModel.pointer` of variables to be updated.
+        """
+
         self._feec_vars = []
         self._particles = []
-        
+
         for var in vars:
             if isinstance(var, Vector):
                 self._feec_vars += [var]
             elif isinstance(var, Particles):
                 self._particles += [var]
             else:
-                ValueError(f'Variable {var} must be of type "Vector" or "Particles".')
-        
+                ValueError(
+                    f'Variable {var} must be of type "Vector" or "Particles".')
+
     @property
     def feec_vars(self):
-        '''List of FEEC variables (not particles) to be updated by the propagator. 
+        """ List of FEEC variables (not particles) to be updated by the propagator. 
         Contains FE coefficients from :attr:`struphy.psydac_api_fields.Field.vector`.
-        '''
+        """
         return self._feec_vars
-    
+
     @property
     def particles(self):
-        '''List of kinetic variables (not FEEC) to be updated by the propagator. 
+        """ List of kinetic variables (not FEEC) to be updated by the propagator. 
         Contains :class:`struphy.pic.particles.Particles`.
-        '''
+        """
         return self._particles
 
     @abstractmethod
     def __call__(self, dt):
-        '''Update from t -> t + dt.
+        """ Update from t -> t + dt.
         Use ``Propagators.feec_vars_update`` to write to FEEC variables to ``Propagator.feec_vars``.
 
         Parameters
         ----------
-            dt : float
-                Time step size.
-        '''
+        dt : float
+            Time step size.
+        """
         pass
 
     @property
@@ -112,18 +116,19 @@ class Propagator(metaclass=ABCMeta):
         self._basis_ops = basis_ops
 
     def feec_vars_update(self, *variables_new):
-        '''Writes new entries into the FEEC variables in ``Propagator.feec_vars``.
+        """ Writes new entries into the FEEC variables in ``Propagator.feec_vars``.
 
         Parameters
         ----------
-            variables_new : list
-                Same sequence as in ``Propagator.feec_vars`` but with the updated variables, 
-                i.e. for feec_vars = [e, b] we must have variables_new = [e_updated, b_updated].
+        variables_new : list
+            Same sequence as in ``Propagator.feec_vars`` but with the updated variables, 
+            i.e. for feec_vars = [e, b] we must have variables_new = [e_updated, b_updated].
 
         Returns
         -------
-            diffs : list
-                A list [max(abs(self.feec_vars - variables_new)), ...] for all variables in self.feec_vars and variables_new.'''
+        diffs : list
+            A list [max(abs(self.feec_vars - variables_new)), ...] for all variables in self.feec_vars and variables_new.
+        """
 
         diffs = []
 

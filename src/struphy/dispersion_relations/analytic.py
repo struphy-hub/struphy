@@ -1,3 +1,6 @@
+'Analytic dispersion relations.'
+
+
 import numpy as np
 from scipy.optimize import fsolve
 

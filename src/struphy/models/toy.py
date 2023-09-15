@@ -1,3 +1,6 @@
+'Simple toy models for testing.'
+
+
 import numpy as np
 from struphy.models.base import StruphyModel
 
@@ -33,7 +36,7 @@ class Maxwell(StruphyModel):
         return None
 
     @classmethod
-    def timescale(cls):
+    def velocity_scale(cls):
         return 'light'
 
     def __init__(self, params, comm):
@@ -99,7 +102,7 @@ class Vlasov(StruphyModel):
         return 'ions'
 
     @classmethod
-    def timescale(cls):
+    def velocity_scale(cls):
         return 'cyclotron'
 
     def __init__(self, params, comm):
@@ -129,7 +132,7 @@ class Vlasov(StruphyModel):
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['ions'],
             algo=ions_params['push_algos']['eta'],
-            bc_type=ions_params['markers']['bc_type'],
+            bc_type=ions_params['markers']['bc']['type'],
             f0=None))
 
         # Scalar variables to be saved during simulation
@@ -194,7 +197,7 @@ class DriftKinetic(StruphyModel):
         return 'ions'
 
     @classmethod
-    def timescale(cls):
+    def velocity_scale(cls):
         return 'alfvén'
 
     def __init__(self, params, comm):

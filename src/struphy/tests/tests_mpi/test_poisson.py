@@ -53,8 +53,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000, verbose=False):
                                   'moments': [0., 0., 0., 1., 1., 1.],
                                   'spatial': 'uniform'},
                       'domain': domain,
-                      'domain_array': derham.domain_array,
-                      'comm': mpi_comm
+                      'derham': derham
                       }
     init_params = {'type': 'Maxwellian6DUniform', 'Maxwellian6DUniform': {}}
 

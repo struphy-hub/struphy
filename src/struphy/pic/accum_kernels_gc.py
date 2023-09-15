@@ -1,3 +1,6 @@
+'Accumulation kernels for gyro-center (5D) particles.'
+
+
 from pyccel.decorators import stack_array
 
 from numpy import zeros, empty, shape
@@ -7,6 +10,78 @@ import struphy.b_splines.bsplines_kernels as bsp
 import struphy.b_splines.bspline_evaluation_3d as eval_3d
 import struphy.linear_algebra.core as linalg
 import struphy.pic.mat_vec_filler as mvf
+
+
+def a_documentation():
+    r'''
+    Explainer for arguments of accumulation kernels.
+    
+    Function naming conventions:
+    
+    * use the model name, all lower-case letters (e.g. ``lin_vlasov_maxwell``)
+    * in case of multiple accumulations in one model, attach ``_1``, ``_2`` or the species name.
+    
+    These kernels are passed to :class:`struphy.pic.particles_to_grid.Accumulator` and called via::
+    
+        Accumulator.accumulate()
+        
+    The arguments passed to each kernel have a pre-defined order, defined in :class:`struphy.pic.particles_to_grid.Accumulator`.
+    This order is as follows (you can copy and paste from existing accum_kernels functions):
+
+    1. Marker info:
+        * ``markers: 'float[:,:]'``          # local marker array
+        * ``n_markers_tot: 'int'``           # total number of markers :math:`N` (all processes)
+
+    2. Derham spline bases info:
+        * ``pn: 'int[:]'``                   # N-spline degree in each direction
+        * ``tn1: 'float[:]'``                # N-spline knot vector 
+        * ``tn2: 'float[:]'``
+        * ``tn3: 'float[:]'``    
+
+    3. mpi.comm info of all spaces:
+        - ``starts0: 'int[:]'``               # start indices of current process of elements in space V0
+        - ``starts1: 'int[:,:]'``             # start indices of current process of elements in space V1 in format (component, direction)
+        - ``starts2: 'int[:,:]'``             # start indices of current process of elements in space V2 in format (component, direction)
+        - ``starts3: 'int[:]'``               # start indices of current process of elements in space V3
+
+    4. Mapping info:
+        - ``kind_map: 'int'``                # mapping identifier 
+        - ``params_map: 'float[:]'``         # mapping parameters
+        - ``p_map: 'int[:]'``                # spline degree
+        - ``t1_map: 'float[:]'``             # knot vector 
+        - ``t2_map: 'float[:]'``             
+        - ``t3_map: 'float[:]'`` 
+        - ``ind1_map: int[:,:]``             # Indices of non-vanishing splines in format (number of mapping grid cells, p_map + 1)       
+        - ``ind2_map: int[:,:]`` 
+        - ``ind3_map: int[:,:]``            
+        - ``cx: 'float[:,:,:]'``             # control points for Fx
+        - ``cy: 'float[:,:,:]'``             # control points for Fy
+        - ``cz: 'float[:,:,:]'``             # control points for Fz                         
+
+    5. Data objects to accumulate into (number depends on model, but at least one matrix has to be passed)
+        - mat11: ``'float[:,:,:,:,:,:]'``    # _data attribute of StencilMatrix
+        - optional:
+
+            - ``mat12: 'float[:,:,:,:,:,:]'``
+            - ``mat13: 'float[:,:,:,:,:,:]'``
+            - ``mat21: 'float[:,:,:,:,:,:]'``
+            - ``mat22: 'float[:,:,:,:,:,:]'``
+            - ``mat23: 'float[:,:,:,:,:,:]'``
+            - ``mat31: 'float[:,:,:,:,:,:]'``
+            - ``mat32: 'float[:,:,:,:,:,:]'``
+            - ``mat33: 'float[:,:,:,:,:,:]'``
+            - ``vec1: 'float[:,:,:]'``           # _data attribute of StencilVector
+            - ``vec2: 'float[:,:,:]'``
+            - ``vec3: 'float[:,:,:]'``
+
+    6. Optional: additional parameters, for example
+        - ``b2_1: 'float[:,:,:]'``           # spline coefficients of b2_1
+        - ``b2_2: 'float[:,:,:]'``           # spline coefficients of b2_2
+        - ``b2_3: 'float[:,:,:]'``            # spline coefficients of b2_3
+        - ``f0_params: 'float[:]'``          # parameters of equilibrium background
+    '''
+
+    print('This is just the docstring function.')
 
 
 @stack_array('g_inv', 'tmp1', 'tmp2', 'b', 'b_prod', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
@@ -1438,32 +1513,32 @@ def cc_lin_mhd_5d_mu(markers: 'float[:,:]', n_markers_tot: 'int',
 
 
 @stack_array('df', 'df_t', 'df_inv', 'g_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp2', 'tmp_t', 'tmp_m', 'tmp_v', 'b', 'b_prod', 'norm_b2_prod', 'b_star', 'curl_norm_b', 'norm_b1', 'norm_b2', 'grad_PB', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def cc_lin_mhd_5d_M(markers: 'float[:,:]', n_markers_tot: 'int',
-                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                    kind_map: 'int', params_map: 'float[:]',
-                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                    cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                    mat11: 'float[:,:,:,:,:,:]',
-                    mat12: 'float[:,:,:,:,:,:]',
-                    mat13: 'float[:,:,:,:,:,:]',
-                    mat21: 'float[:,:,:,:,:,:]',
-                    mat22: 'float[:,:,:,:,:,:]',
-                    mat23: 'float[:,:,:,:,:,:]',
-                    mat31: 'float[:,:,:,:,:,:]',
-                    mat32: 'float[:,:,:,:,:,:]',
-                    mat33: 'float[:,:,:,:,:,:]',
-                    vec1: 'float[:,:,:]',
-                    vec2: 'float[:,:,:]',
-                    vec3: 'float[:,:,:]',
-                    b1: 'float[:,:,:]',   # model specific argument
-                    b2: 'float[:,:,:]',   # model specific argument
-                    b3: 'float[:,:,:]',   # model specific argument
-                    curl_norm_b1: 'float[:,:,:]',  # model specific argument
-                    curl_norm_b2: 'float[:,:,:]',  # model specific argument
-                    curl_norm_b3: 'float[:,:,:]',  # model specific argument
-                    basis_u: 'int', scale_vec: 'float'):  # model specific argument
+def cc_lin_mhd_5d_curlMxB(markers: 'float[:,:]', n_markers_tot: 'int',
+                          pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                          starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                          kind_map: 'int', params_map: 'float[:]',
+                          p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                          ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                          cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                          mat11: 'float[:,:,:,:,:,:]',
+                          mat12: 'float[:,:,:,:,:,:]',
+                          mat13: 'float[:,:,:,:,:,:]',
+                          mat21: 'float[:,:,:,:,:,:]',
+                          mat22: 'float[:,:,:,:,:,:]',
+                          mat23: 'float[:,:,:,:,:,:]',
+                          mat31: 'float[:,:,:,:,:,:]',
+                          mat32: 'float[:,:,:,:,:,:]',
+                          mat33: 'float[:,:,:,:,:,:]',
+                          vec1: 'float[:,:,:]',
+                          vec2: 'float[:,:,:]',
+                          vec3: 'float[:,:,:]',
+                          b1: 'float[:,:,:]',   # model specific argument
+                          b2: 'float[:,:,:]',   # model specific argument
+                          b3: 'float[:,:,:]',   # model specific argument
+                          curl_norm_b1: 'float[:,:,:]',  # model specific argument
+                          curl_norm_b2: 'float[:,:,:]',  # model specific argument
+                          curl_norm_b3: 'float[:,:,:]',  # model specific argument
+                          basis_u: 'int', scale_vec: 'float'):  # model specific argument
     r"""TODO
     """
 
@@ -1824,8 +1899,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
                                     mat11, mat12, mat13,
                                     mat22, mat23,
                                     mat33,
-                                    filling_m[0, 0], filling_m[0,
-                                                               1], filling_m[0, 2],
+                                    filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
                                     filling_m[1, 1], filling_m[1, 2],
                                     filling_m[2, 2],
                                     vec1, vec2, vec3,
@@ -1857,8 +1931,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
                                  mat11, mat12, mat13,
                                  mat22, mat23,
                                  mat33,
-                                 filling_m[0, 0], filling_m[0,
-                                                            1], filling_m[0, 2],
+                                 filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
                                  filling_m[1, 1], filling_m[1, 2],
                                  filling_m[2, 2],
                                  vec1, vec2, vec3,
@@ -1890,8 +1963,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
                                  mat11, mat12, mat13,
                                  mat22, mat23,
                                  mat33,
-                                 filling_m[0, 0], filling_m[0,
-                                                            1], filling_m[0, 2],
+                                 filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
                                  filling_m[1, 1], filling_m[1, 2],
                                  filling_m[2, 2],
                                  vec1, vec2, vec3,

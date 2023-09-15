@@ -36,7 +36,7 @@ class StruphyModel(metaclass=ABCMeta):
 
     def __init__(self, params, comm, **species):
 
-        from struphy.models.setup import setup_domain_mhd, setup_electric_background, setup_derham
+        from struphy.io.setup import setup_domain_mhd, setup_electric_background, setup_derham
 
         from struphy.polar.basic import PolarVector
         from struphy.propagators.base import Propagator
@@ -53,7 +53,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         # compute model units
         self._units, self._eq_params = self.model_units(
-            self.params, verbose=False)
+            self.params, verbose=True, comm=self._comm)
 
         # create domain, MHD equilibrium, background electric field
         self._domain, self._mhd_equil = setup_domain_mhd(
@@ -90,10 +90,10 @@ class StruphyModel(metaclass=ABCMeta):
 
         # store plasma parameters
         if comm.Get_rank() == 0:
-            self._pparams = self.print_plasma_params()
+            self._pparams = self._print_plasma_params()
             print('\nOPERATOR ASSEMBLY:')
         else:
-            self._pparams = self.print_plasma_params(verbose=False)
+            self._pparams = self._print_plasma_params(verbose=False)
 
         # expose propagator modules
         self._prop = Propagator
@@ -119,8 +119,8 @@ class StruphyModel(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def timescale(cls):
-        '''String that sets the time scale unit of the model. 
+    def velocity_scale(cls):
+        '''String that sets the velocity scale unit of the model. 
         Must be one of "alfvén", "cyclotron" or "light".'''
         pass
 
@@ -372,12 +372,29 @@ class StruphyModel(metaclass=ABCMeta):
                         self.em_fields['params']['init'], domain=self.domain)
 
                     if self.comm.Get_rank() == 0:
-                        _type = self.em_fields['params']['init']['type']
+                        init_type = self.em_fields['params']['init']['type']
                         print(f'EM field "{key}" was initialized with:')
-                        print('type:'.ljust(25), _type)
-                        if _type is not None:
-                            for key, val in self.em_fields['params']['init'][_type].items():
-                                print((key + ':').ljust(25), val)
+                        print('type:'.ljust(25), init_type)
+
+                        if init_type is None:
+                            pass
+
+                        elif type(init_type) == str:
+                            init_types = [init_type]
+
+                        elif type(init_type) == list:
+                            init_types = init_type
+
+                        else:
+                            raise NotImplemented(
+                                f'The type of initial condition must be null or str or list.')
+
+                        if init_type is not None:
+
+                            for _type in init_types:
+                                print(_type, ':')
+                                for key, val2 in self.em_fields['params']['init'][_type].items():
+                                    print((key + ':').ljust(25), val2)
 
         # initialize fields
         if len(self.fluid) > 0:
@@ -390,12 +407,29 @@ class StruphyModel(metaclass=ABCMeta):
                             val['params']['init'], domain=self.domain)
 
                 if self.comm.Get_rank() == 0:
-                    _type = val['params']['init']['type']
+                    init_type = val['params']['init']['type']
                     print(f'Fluid species "{species}" was initialized with:')
-                    print('type:'.ljust(25), _type)
-                    if _type is not None:
-                        for key, val in val['params']['init'][_type].items():
-                            print((key + ':').ljust(25), val)
+                    print('type:'.ljust(25), init_type)
+
+                    if init_type is None:
+                        pass
+
+                    elif type(init_type) == str:
+                        init_types = [init_type]
+
+                    elif type(init_type) == list:
+                        init_types = init_type
+
+                    else:
+                        raise NotImplemented(
+                            f'The type of initial condition must be null or str or list.')
+
+                    if init_type is not None:
+
+                        for _type in init_types:
+                            print(_type, ':')
+                            for key, val2 in val['params']['init'][_type].items():
+                                print((key + ':').ljust(25), val2)
 
         # initialize particles
         if len(self.kinetic) > 0:
@@ -434,7 +468,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         Parameters
         ----------
-        data : struphy.models.output_handling.DataContainer
+        data : struphy.io.output_handling.DataContainer
             The data object that links to the hdf5 files.
         """
 
@@ -471,7 +505,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         Parameters
         ----------
-        data : struphy.models.output_handling.DataContainer
+        data : struphy.io.output_handling.DataContainer
             The data object that links to the hdf5 files.
 
         size : int
@@ -629,7 +663,7 @@ class StruphyModel(metaclass=ABCMeta):
             Derived units for velocity, pressure, mass density and particle density.
         """
 
-        from struphy.models.setup import derive_units
+        from struphy.io.setup import derive_units
 
         # physics constants
         e = 1.602176634e-19  # elementary charge (C)
@@ -684,7 +718,7 @@ class StruphyModel(metaclass=ABCMeta):
 
             # compute units
             units = derive_units(
-                Z_bulk, A_bulk, params['units']['x'], params['units']['B'], params['units']['n'], cls.timescale())
+                Z_bulk, A_bulk, params['units']['x'], params['units']['B'], params['units']['n'], cls.velocity_scale())
 
             if verbose and rank == 0:
                 print(f'Unit of time:'.ljust(25),
@@ -845,8 +879,7 @@ class StruphyModel(metaclass=ABCMeta):
                 val['obj'] = kinetic_class(species,
                                            **val['params']['phys_params'],
                                            **val['params']['markers'],
-                                           comm=self.derham.comm,
-                                           domain_array=self.derham.domain_array,
+                                           derham=self.derham,
                                            domain=self.domain,
                                            mhd_equil=self.mhd_equil,
                                            units_basic=self.units)
@@ -884,7 +917,7 @@ class StruphyModel(metaclass=ABCMeta):
                 # other data (wave-particle power exchange, etc.)
                 # TODO
 
-    def print_plasma_params(self, verbose=True):
+    def _print_plasma_params(self, verbose=True):
         """
         Compute and print volume averaged plasma parameters for each species of the model.
 

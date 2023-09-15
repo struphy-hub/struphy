@@ -8,7 +8,8 @@ import yaml
 from struphy.psydac_api.psydac_derham import Derham
 from struphy.psydac_api.fields import Field
 from struphy.kinetic_background import maxwellians
-from struphy.models.setup import setup_domain_mhd
+from struphy.io.setup import setup_domain_mhd
+import matplotlib.pyplot as plt
 
 from tqdm import tqdm
 
@@ -341,7 +342,10 @@ def post_process_markers(path_in, path_out, species, step=1):
     files = [h5py.File(os.path.join(
         path_in, 'data/', f'data_proc{i}.hdf5'), 'r') for i in range(int(nproc))]
 
-    n_IDs = files[0]['kinetic/' + species + '/markers'].shape[1]
+    # get number of time steps and markers
+    nt, n_markers, n_cols = files[0]['kinetic/' + species + '/markers'].shape
+
+    log_nt = int(np.log10(nt - 1)) + 1
 
     # directory for .txt files
     path_orbits = os.path.join(path_out, 'orbits')
@@ -352,47 +356,38 @@ def post_process_markers(path_in, path_out, species, step=1):
         shutil.rmtree(path_orbits)
         os.mkdir(path_orbits)
 
-    t_grid = files[0]['time/value'][::step]
-
-    nt = len(t_grid) - 1
-    log_nt = int(np.log10(nt)) + 1
-
+    # temporary marker array
+    temp = np.zeros((n_markers, n_cols), order='C')
+    
     print('Evaluation of marker orbits for ' + str(species))
 
     # loop over time grid
-    for n, _ in enumerate(tqdm(t_grid)):
+    for n in tqdm(range(nt)):
 
         # create text file for this time step and this species
-        with open(os.path.join(path_orbits, species + '_{0:0{1}d}.txt'.format(n, log_nt)), 'w') as f_out:
-
-            # find markers with right IDs by looping over all hdf5 files and all saved markers
-            for ID in range(n_IDs):
-
-                break_flag = False
-                for m in range(n_IDs):
-                    for file in files:
-                        marker = file['kinetic/' +
-                                      species + '/markers'][n*step, m, :]
-
-                        if marker[-1] == ID:
-
-                            # compute x, y, z coordinates and write to .txt file
-                            X = domain(marker[0], marker[1], marker[2])
-
-                            write_string = '{0:0{1}d}'.format(int(ID), 2)
-                            write_string += ',' + str(X[0])
-                            write_string += ',' + str(X[1])
-                            write_string += ',' + str(X[2])
-
-                            if int(ID) < n_IDs - 1:
-                                write_string += '\n'
-
-                            f_out.write(write_string)
-                            break_flag = True
-                            break
-
-                    if break_flag:
-                        break
+        file_npy = os.path.join(path_orbits, species + '_{0:0{1}d}.npy'.format(n, log_nt)) 
+        file_txt = os.path.join(path_orbits, species + '_{0:0{1}d}.txt'.format(n, log_nt)) 
+            
+        for file in files:
+            markers = file['kinetic/' + species + '/markers']
+            ids = markers[n*step, :, -1]
+            ids = ids[ids > -.5] # exclude holes
+            ids = ids.astype('int')
+            temp[ids] = markers[n*step, :ids.size, :]
+        
+        # test if all markers have been collected in temp    
+        ids = temp[:, -1]
+        ids = ids.astype('int')
+        assert np.all(ids == np.arange(n_markers))
+        
+        # compute physical positions (x, y, z)
+        temp[:, :3] = domain(np.array(temp[:, :3]), change_out_order=True)
+        
+        # move ids to first column and save
+        temp = np.roll(temp, 1, axis=1)
+        
+        np.save(file_npy, temp[:, :7])
+        np.savetxt(file_txt, temp[:, :4], fmt='%12.6f', delimiter=', ')
 
     # close hdf5 files
     for file in files:
@@ -465,7 +460,7 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
             np.save(grid_path, grid[:])
 
     # compute distribution function (and delta f)
-    for k, (slice_name, dset) in enumerate(tqdm(files[0]['kinetic/' + species + '/f'].items())):
+    for _, (slice_name, dset) in enumerate(tqdm(files[0]['kinetic/' + species + '/f'].items())):
 
         # path to folder of slice
         path_slice = os.path.join(path_distr, slice_name)
@@ -497,8 +492,12 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
             else:
                 f_bckgr = getattr(maxwellians, fun_name)()
 
+            assert fun_name == 'Maxwellian6DUniform', \
+                f'Post-processing is not yet implemented for a background distribution function of type {fun_name}'
+
             # load all grids of the variables of f
             grid_tot = []
+            factor = 1.
             for coord in ['e', 'v']:
                 for comp in range(1, 4):
                     current_slice = coord + str(comp)
@@ -515,42 +514,22 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
                             grid_tot += [np.zeros(1)]
                         elif coord == 'v':
                             grid_tot += [np.zeros(1)]
+                            # correct integrating out in v-direction
+                            factor *= np.sqrt(2*np.pi)
 
             grid_eval = np.meshgrid(*grid_tot, indexing='ij')
 
             data_bckgr = f_bckgr(*grid_eval).squeeze()
+            # correct integrating out in v-direction
+            data_bckgr *= factor
 
-            if marker_type == 'control_variate':
-                data_delta_f = data
-
-            elif marker_type == 'delta_f':
-
-                # Linearized Vlasov-Maxwell system
-                if model == "LinearVlasovMaxwell":
-                    assert fun_name == 'Maxwellian6DUniform', \
-                        'The linearized Vlasov-Maxwell is only implemented for a uniform Maxwellian background!'
-
-                    # h = f_1 / sqrt{f_0}
-                    data_delta_f = np.multiply(data,
-                                               np.sqrt(data_bckgr[tuple([None])]))  # add extra axis at beginning
-
-                # Vlasov-Maxwell system with Delta-f
-                elif model == "DeltaFVlasovMaxwell":
-                    assert fun_name == 'Maxwellian6DUniform', \
-                        'The Vlasov-Maxwell system with Delta-f is only implemented for a uniform Maxwellian background!'
-
-                    # h = f_0 - (f_0 + f_1) * ln(f_0)
-                    data_delta_f = data_bckgr[tuple([None])] - \
-                        np.multiply(data_bckgr[tuple([None])] + data,
-                                    np.log(data_bckgr[tuple([None])]))
-
-                else:
-                    raise NotImplementedError(
-                        f'Post-processing for the model {model} with {marker_type} has not been implemented yet!')
+            # Now all data is just the data for delta_f
+            data_delta_f = data
 
             # save distribution function
             np.save(os.path.join(path_slice, 'delta_f_binned.npy'), data_delta_f)
-            np.save(os.path.join(path_slice, 'f_binned.npy'), data_delta_f + data_bckgr)
+            # add extra axis for data_bckgr since data_delta_f has axis for time series
+            np.save(os.path.join(path_slice, 'f_binned.npy'), data_delta_f + data_bckgr[tuple([None])])
 
     # close hdf5 files
     for file in files:

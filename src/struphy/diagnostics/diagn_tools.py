@@ -10,7 +10,7 @@ import os
 from struphy.dispersion_relations import analytic
 
 
-def fourier_1d(values, name, code, grids,
+def power_spectrum_2d(values, name, code, grids,
                grids_mapped=None, component=0, slice_at=[None, 0, 0],
                do_plot=False, disp_name=None, disp_params={},
                save_plot=False, save_name=None, file_format='png'):

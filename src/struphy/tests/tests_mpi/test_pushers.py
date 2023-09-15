@@ -52,11 +52,12 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     seed = int(np.random.rand()*1000)
     loader_params = {'type': 'pseudo_random',
                      'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.], 'spatial': 'uniform'}
+    bc_params = {'type' : ['periodic', 'periodic', 'periodic']}
     marker_params = {'ppc': 2, 'eps': .25, 'loading': loader_params,
-                     'bc_type': ['periodic', 'periodic', 'periodic']}
+                     'bc': bc_params}
 
     particles = Particles6D(
-        'energetic_ions', **marker_params, domain_array=derham.domain_array, comm=comm)
+        'energetic_ions', **marker_params, derham=derham)
     particles.draw_markers()
 
     if show_plots:
@@ -147,11 +148,12 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     seed = int(np.random.rand()*1000)
     loader_params = {'type': 'pseudo_random',
                      'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.], 'spatial': 'uniform'}
+    bc_params = {'type' : ['periodic', 'periodic', 'periodic']}
     marker_params = {'ppc': 2, 'eps': .25, 'loading': loader_params,
-                     'bc_type': ['periodic', 'periodic', 'periodic']}
+                     'bc': bc_params}
 
     particles = Particles6D(
-        'energetic_ions', **marker_params, domain_array=derham.domain_array, comm=comm)
+        'energetic_ions', **marker_params, derham=derham)
     particles.draw_markers()
 
     if show_plots:
@@ -249,11 +251,12 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     seed = int(np.random.rand()*1000)
     loader_params = {'type': 'pseudo_random',
                      'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.], 'spatial': 'uniform'}
+    bc_params = {'type' : ['periodic', 'periodic', 'periodic']}
     marker_params = {'ppc': 2, 'eps': .25, 'loading': loader_params,
-                     'bc_type': ['periodic', 'periodic', 'periodic']}
+                     'bc': bc_params}
 
     particles = Particles6D(
-        'energetic_ions', **marker_params, domain_array=derham.domain_array, comm=comm)
+        'energetic_ions', **marker_params, derham=derham)
     particles.draw_markers()
 
     if show_plots:
@@ -351,11 +354,12 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     seed = int(np.random.rand()*1000)
     loader_params = {'type': 'pseudo_random',
                      'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.], 'spatial': 'uniform'}
+    bc_params = {'type' : ['periodic', 'periodic', 'periodic']}
     marker_params = {'ppc': 2, 'eps': .25, 'loading': loader_params,
-                     'bc_type': ['periodic', 'periodic', 'periodic']}
+                     'bc': bc_params}
 
     particles = Particles6D(
-        'energetic_ions', **marker_params, domain_array=derham.domain_array, comm=comm)
+        'energetic_ions', **marker_params, derham=derham)
     particles.draw_markers()
 
     if show_plots:
@@ -453,11 +457,12 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     seed = int(np.random.rand()*1000)
     loader_params = {'type': 'pseudo_random',
                      'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.], 'spatial': 'uniform'}
+    bc_params = {'type' : ['periodic', 'periodic', 'periodic']}
     marker_params = {'ppc': 2, 'eps': .25, 'loading': loader_params,
-                     'bc_type': ['periodic', 'periodic', 'periodic']}
+                     'bc': bc_params}
 
     particles = Particles6D(
-        'energetic_ions', **marker_params, domain_array=derham.domain_array, comm=comm)
+        'energetic_ions', **marker_params, derham=derham)
     particles.draw_markers()
 
     if show_plots:
@@ -558,11 +563,12 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     seed = int(np.random.rand()*1000)
     loader_params = {'type': 'pseudo_random',
                      'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.], 'spatial': 'uniform'}
+    bc_params = {'type' : ['periodic', 'periodic', 'periodic']}
     marker_params = {'ppc': 2, 'eps': .25, 'loading': loader_params,
-                     'bc_type': ['periodic', 'periodic', 'periodic']}
+                     'bc': bc_params}
 
     particles = Particles6D(
-        'energetic_ions', **marker_params, domain_array=derham.domain_array, comm=comm)
+        'energetic_ions', **marker_params, derham=derham)
     particles.draw_markers()
 
     if show_plots:
