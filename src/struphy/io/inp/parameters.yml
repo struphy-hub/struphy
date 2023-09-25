@@ -71,7 +71,11 @@ em_fields :
             ls : [1] # Integer mode numbers in x or eta_1 (depending on coords)
             ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
             ns : [0] # Integer mode numbers in z or eta_3 (depending on coords)
-            amps : [0.002] # amplitudes of each mode  
+            amps : [0.002] # amplitudes of each mode
+    save_data :
+        comps :
+            e1 : False
+            b2 : True
 
 fluid :
     mhd :
@@ -101,6 +105,11 @@ fluid :
                 ms : [1] # Integer mode numbers in y or eta_2 (depending on coords)
                 ns : [0] # Integer mode numbers in z or eta_3 (depending on coords)
                 amps : [0.002] # amplitudes of each mode  
+        save_data :
+            comps :
+                n3 : False
+                uv : True
+                p3 : False
 
 kinetic :
     energetic_ions :
