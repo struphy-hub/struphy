@@ -536,32 +536,42 @@ class StruphyModel(metaclass=ABCMeta):
         # save electromagentic fields/potentials data in group 'feec/'
         for key, val in self.em_fields.items():
             if 'params' not in key:
-                key_field = 'feec/' + key
-                key_field_restart = 'restart/' + key
 
                 # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
                 val['obj'].extract_coeffs(update_ghost_regions=False)
 
                 # save numpy array to be updated each time step.
+                if val['save_data']:
+
+                    key_field = 'feec/' + key
+
+                    if isinstance(val['obj'].vector_stencil, StencilVector):
+                        data.add_data({key_field: val['obj'].vector_stencil._data})
+
+                    else:
+                        for n in range(3):
+                            key_component = key_field + '/' + str(n + 1)
+                            data.add_data(
+                                {key_component: val['obj'].vector_stencil[n]._data})
+                            
+                    # save field meta data
+                    data.file[key_field].attrs['space_id'] = val['obj'].space_id
+                    data.file[key_field].attrs['starts'] = val['obj'].starts
+                    data.file[key_field].attrs['ends'] = val['obj'].ends
+                    data.file[key_field].attrs['pads'] = val['obj'].pads
+                        
+                # save numpy array to be updated only at the end of the simulation for restart.
+                key_field_restart = 'restart/' + key
+
                 if isinstance(val['obj'].vector_stencil, StencilVector):
-                    data.add_data({key_field: val['obj'].vector_stencil._data})
                     data.add_data(
                         {key_field_restart: val['obj'].vector_stencil._data})
                 else:
                     for n in range(3):
-                        key_component = key_field + '/' + str(n + 1)
                         key_component_restart = key_field_restart + \
                             '/' + str(n + 1)
                         data.add_data(
-                            {key_component: val['obj'].vector_stencil[n]._data})
-                        data.add_data(
                             {key_component_restart: val['obj'].vector_stencil[n]._data})
-
-                # save field meta data
-                data.file[key_field].attrs['space_id'] = val['obj'].space_id
-                data.file[key_field].attrs['starts'] = val['obj'].starts
-                data.file[key_field].attrs['ends'] = val['obj'].ends
-                data.file[key_field].attrs['pads'] = val['obj'].pads
 
         # save fluid data in group 'feec/'
         for species, val in self.fluid.items():
@@ -571,33 +581,43 @@ class StruphyModel(metaclass=ABCMeta):
 
             for variable, subval in val.items():
                 if 'params' not in variable:
-                    key_field = species_path + variable
-                    key_field_restart = species_path_restart + variable
 
                     # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
                     subval['obj'].extract_coeffs(update_ghost_regions=False)
 
                     # save numpy array to be updated each time step.
+                    if subval['save_data']:
+
+                        key_field = species_path + variable
+
+                        if isinstance(subval['obj'].vector_stencil, StencilVector):
+                            data.add_data(
+                                {key_field: subval['obj'].vector_stencil._data})
+
+                        else:
+                            for n in range(3):
+                                key_component = key_field + '/' + str(n + 1)
+                                data.add_data(
+                                    {key_component: subval['obj'].vector_stencil[n]._data})
+
+                        # save field meta data
+                        data.file[key_field].attrs['space_id'] = subval['obj'].space_id
+                        data.file[key_field].attrs['starts'] = subval['obj'].starts
+                        data.file[key_field].attrs['ends'] = subval['obj'].ends
+                        data.file[key_field].attrs['pads'] = subval['obj'].pads
+
+                    # save numpy array to be updated only at the end of the simulation for restart.
+                    key_field_restart = species_path_restart + variable
+
                     if isinstance(subval['obj'].vector_stencil, StencilVector):
-                        data.add_data(
-                            {key_field: subval['obj'].vector_stencil._data})
                         data.add_data(
                             {key_field_restart: subval['obj'].vector_stencil._data})
                     else:
                         for n in range(3):
-                            key_component = key_field + '/' + str(n + 1)
                             key_component_restart = key_field_restart + \
                                 '/' + str(n + 1)
                             data.add_data(
-                                {key_component: subval['obj'].vector_stencil[n]._data})
-                            data.add_data(
                                 {key_component_restart: subval['obj'].vector_stencil[n]._data})
-
-                    # save field meta data
-                    data.file[key_field].attrs['space_id'] = subval['obj'].space_id
-                    data.file[key_field].attrs['starts'] = subval['obj'].starts
-                    data.file[key_field].attrs['ends'] = subval['obj'].ends
-                    data.file[key_field].attrs['pads'] = subval['obj'].pads
 
         # save kinetic data in group 'kinetic/'
         for key, val in self.kinetic.items():
@@ -800,6 +820,13 @@ class StruphyModel(metaclass=ABCMeta):
                     assert 'em_fields' in self.params, 'Top-level key "em_fields" is missing in parameter file.'
                     self._em_fields[var_name] = {}
                     self._em_fields[var_name]['space'] = space
+                    
+                    if 'save_data' in self.params['em_fields']:
+                        self._em_fields[var_name]['save_data'] = self.params['em_fields']['save_data']['comps'][var_name]
+
+                    else:
+                        self._em_fields[var_name]['save_data'] = True
+
                     self._em_fields['params'] = self.params['em_fields']
 
                 elif space in {'Particles6D', 'Particles5D'}:
@@ -827,6 +854,12 @@ class StruphyModel(metaclass=ABCMeta):
                 for sub_var_name, sub_space in space.items():
                     self._fluid[var_name][sub_var_name] = {}
                     self._fluid[var_name][sub_var_name]['space'] = sub_space
+
+                    if 'save_data' in self.params['fluid'][var_name]:
+                        self._fluid[var_name][sub_var_name]['save_data'] = self.params['fluid'][var_name]['save_data']['comps'][sub_var_name]
+
+                    else:
+                        self._fluid[var_name][sub_var_name]['save_data'] = True
 
                 self._fluid[var_name]['params'] = self.params['fluid'][var_name]
 
