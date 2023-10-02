@@ -20,8 +20,8 @@ def struphy_tutorials(n=None):
             if 'tutorial' in word:
                 sims += [word]
     else:
-        assert n<100
-        sims += ['tutorial_' + str(n).zfill(2)] 
+        assert n < 100
+        sims += ['tutorial_' + str(n).zfill(2)]
 
     for sim in sims:
         func = getattr(simulations, sim)

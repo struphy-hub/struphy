@@ -8,7 +8,7 @@
 # 6. Available FEEC initial conditions: https://struphy.pages.mpcdf.de/struphy/sections/inits.html
 
 grid :
-    Nel       : [16, 16, 4] # number of grid cells, >p
+    Nel       : [12, 14, 4] # number of grid cells, >p
     p         : [3, 4, 2]  # spline degree
     spl_kind  : [False, True, True] # spline type: True=periodic, False=clamped
     bc        : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
@@ -23,28 +23,17 @@ units : # units not stated here can be viewed via "struphy units -h"
     n : 1. # number density unit in 10^20 m^(-3)
 
 time :
-    dt         : 0.05 # time step
-    Tend       : 0.5 # simulation time interval is [0, Tend]
+    dt         : 0.005 # time step
+    Tend       : 0.015 # simulation time interval is [0, Tend]
     split_algo : LieTrotter # LieTrotter | Strang
 
 geometry :
-    type : Cuboid # mapping F (possible types seen below)  
-    Cuboid : 
-        l1 : 0. # start of interval in eta1
-        r1 : 2. # end of interval in eta1, r1>l1
-        l2 : 0. # start of interval in eta2
-        r2 : 2. # end of interval in eta2, r2>l2
-        l3 : 0. # start of interval in eta3
-        r3 : 1. # end of interval in eta3, r3>l3
+    type : Cuboid 
+    Cuboid : {}
 
 mhd_equilibrium :
-    type : HomogenSlab # (possible choices seen below)
-    HomogenSlab :
-        B0x  : 0. # magnetic field in x
-        B0y  : 0. # magnetic field in y
-        B0z  : 1. # magnetic field in z
-        beta : 0. # plasma beta = 2*p*mu_0/B^2
-        n0   : 1. # number density
+    type : HomogenSlab 
+    HomogenSlab : {}
 
 electric_equilibrium :
     type : HomogenSlab # (possible choices seen below)
@@ -53,29 +42,16 @@ electric_equilibrium :
 
 em_fields :
     init :
-        type : [ModesSin, ModesCos] # type of initial condition (possible types seen below)
-        ModesSin : 
-            coords : 'logical' # in which coordinates (logical or physical)
+        type : TorusModesCos
+        TorusModesCos :
             comps :
-                e1 : [True, False, False]  # components to be initialized (for scalar fields: no list)
-                b2 : [False, False, False] # components to be initialized (for scalar fields: no list)
-            ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
-            ms : [1] # Integer mode numbers in y or eta_2 (depending on coords)
-            ns : [0] # Integer mode numbers in z or eta_3 (depending on coords)
+                e1 : [False, True, True]  # components to be initialized (for scalar fields: no list)
+                b2 : [False, True, False] # components to be initialized (for scalar fields: no list)
+            ms : [3] # poloidal mode numbers
+            ns : [1] # toroidal mode numbers
             amps : [0.001] # amplitudes of each mode
-        ModesCos :
-            coords : 'logical' # in which coordinates (logical or physical)
-            comps :
-                e1 : [False, True, False]  # components to be initialized (for scalar fields: no list)
-                b2 : [False, False, False] # components to be initialized (for scalar fields: no list)
-            ls : [1] # Integer mode numbers in x or eta_1 (depending on coords)
-            ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
-            ns : [0] # Integer mode numbers in z or eta_3 (depending on coords)
-            amps : [0.002] # amplitudes of each mode
-    save_data :
-        comps :
-            e1 : False
-            b2 : True
+            pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'cos' or 'exp')
+            pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin" and "cos"
 
 fluid :
     mhd :
@@ -84,41 +60,26 @@ fluid :
             Z : 1 # signed charge number in units of elementary charge
         mhd_u_space : H1vec # Hdiv | H1vec
         init :
-            type : [ModesSin, ModesCos] # type of initial condition (possible types seen below)
-            ModesSin :
-                coords : 'logical' # in which coordinates (logical or physical)
+            type : TorusModesCos
+            TorusModesCos :
                 comps :
-                    n3 : False              # components to be initialized (for scalar fields: no list)
-                    uv : [True, True, True] # components to be initialized (for scalar fields: no list)
-                    p3 : False              # components to be initialized (for scalar fields: no list)
-                ls : [1] # Integer mode numbers in x or eta_1 (depending on coords)
-                ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
-                ns : [0] # Integer mode numbers in z or eta_3 (depending on coords)
+                    n3 : False                # components to be initialized (for scalar fields: no list)
+                    u2 : [False, True, False] # components to be initialized (for scalar fields: no list)
+                    p3 : False                # components to be initialized (for scalar fields: no list)
+                ms : [3] # poloidal mode numbers
+                ns : [1] # toroidal mode numbers
                 amps : [0.001] # amplitudes of each mode
-            ModesCos :
-                coords : 'logical' # in which coordinates (logical or physical)
-                comps :
-                    n3 : False               # components to be initialized (for scalar fields: no list)
-                    uv : [False, False, False]  # components to be initialized (for scalar fields: no list)
-                    p3 : True               # components to be initialized (for scalar fields: no list)
-                ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
-                ms : [1] # Integer mode numbers in y or eta_2 (depending on coords)
-                ns : [0] # Integer mode numbers in z or eta_3 (depending on coords)
-                amps : [0.002] # amplitudes of each mode  
-        save_data :
-            comps :
-                n3 : False
-                uv : True
-                p3 : False
+                pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'cos' or 'exp')
+                pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin" and "cos"
 
 kinetic :
-    energetic_ions :
+    ions :
         phys_params :
             A : 1  # mass number in units of proton mass
             Z : 1 # signed charge number in units of elementary charge
         markers :
             type    : full_f # full_f, control_variate, or delta_f
-            ppc     : 100  # number of markers per 3d grid cell
+            ppc     : 10  # number of markers per 3d grid cell
             Np      : 3 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
             eps     : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
             bc : 
@@ -168,37 +129,3 @@ kinetic :
                 slices : [v1] # in which directions to bin (e.g. [e1_e2, v1_v2_v3])
                 n_bins : [[32]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
                 ranges : [[[-3., 3.]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
-        push_algos :
-            vxb : analytic # possible choices: analytic, implicit
-            eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4
-        use_perp_model : True # for pressure coupling 
-
-solvers :
-    solver_1 :
-        type : PConjugateGradient
-        pc : MassMatrixPreconditioner # null or name of preconditioner class
-        tol : 1.e-8
-        maxiter : 3000
-        info : False
-        verbose : False
-    solver_2 :
-        type : PConjugateGradient
-        pc : MassMatrixPreconditioner # null or name of preconditioner class
-        tol : 1.e-8
-        maxiter : 3000
-        info : False
-        verbose : False
-    solver_3 :
-        type : PConjugateGradient
-        pc : MassMatrixPreconditioner # null or name of preconditioner class
-        tol : 1.e-14
-        maxiter : 3000
-        info : False
-        verbose : False
-    solver_4 :
-        type : PBiConjugateGradientStab
-        pc : MassMatrixPreconditioner # null or name of preconditioner class
-        tol : 1.e-14
-        maxiter : 3000
-        info : False
-        verbose : False

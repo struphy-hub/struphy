@@ -3,7 +3,7 @@ Struphy - Structure-preserving hybrid codes
 
 **A Python package for plasma physics PDEs.**
 
-.. image:: pics/open_science.png
+.. image:: pics/progress_ipp.png
     :align: right
     :scale: 40
 

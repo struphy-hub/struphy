@@ -20,7 +20,7 @@ def struphy_units(model, input, input_abs=None):
     from struphy.models import fluid, kinetic, hybrid, toy
 
     libpath = struphy.__path__[0]
-    
+
     with open(os.path.join(libpath, 'i_path.txt')) as f:
         i_path = f.readlines()[0]
 

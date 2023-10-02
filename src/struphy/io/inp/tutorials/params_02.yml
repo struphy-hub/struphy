@@ -57,9 +57,22 @@ fluid :
         phys_params:
             A : 1  # mass number in units of proton mass
             Z : 1 # signed charge number in units of elementary charge
-        mhd_u_space : H1vec # Hdiv | H1vec
         init :
             type : null # type of initialization
+        options:
+            solvers:
+                shear_alfven:
+                    type: [PConjugateGradient, MassMatrixPreconditioner]
+                    tol: 1.0e-08
+                    maxiter: 3000
+                    info: false
+                    verbose: false
+                magnetosonic:
+                    type: [PBiConjugateGradientStab, MassMatrixPreconditioner]
+                    tol: 1.0e-08
+                    maxiter: 3000
+                    info: false
+                    verbose: false
 
 kinetic :
     energetic_ions :
@@ -91,33 +104,18 @@ kinetic :
         push_algos :
             vxb : analytic # possible choices: analytic, implicit
             eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4
-
-solvers :
-    solver_1 :
-        type : PBiConjugateGradientStab
-        pc : MassMatrixPreconditioner # null or name of preconditioner class
-        tol : 1.e-14
-        maxiter : 3000
-        info : False
-        verbose : False
-    solver_2 :
-        type : PConjugateGradient
-        pc : MassMatrixPreconditioner # null or name of preconditioner class
-        tol : 1.e-14
-        maxiter : 3000
-        info : False
-        verbose : False
-    solver_3 :
-        type : PConjugateGradient
-        pc : MassMatrixPreconditioner # null or name of preconditioner class
-        tol : 1.e-14
-        maxiter : 3000
-        info : False
-        verbose : False
-    solver_4 :
-        type : PBiConjugateGradientStab
-        pc : MassMatrixPreconditioner # null or name of preconditioner class
-        tol : 1.e-14
-        maxiter : 3000
-        info : False
-        verbose : False
+        options:
+            algos: {push_eta: rk4, push_vxb: analytic}
+            solvers:
+                density:
+                    type: [PBiConjugateGradientStab, MassMatrixPreconditioner]
+                    tol: 1.0e-08
+                    maxiter: 3000
+                    info: false
+                    verbose: false
+                current:
+                    type: [PConjugateGradient, MassMatrixPreconditioner]
+                    tol: 1.0e-08
+                    maxiter: 3000
+                    info: false
+                    verbose: false

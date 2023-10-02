@@ -20,7 +20,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.geometry import domains
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.pic.particles import Particles6D
-    from struphy.pic.pusher import Pusher as Pusher_psy
+    from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.psydac_api.utilities import create_equal_random_arrays
     from struphy.tests.tests_mpi.test_pic_legacy_files.pusher import Pusher as Pusher_str
 
@@ -121,7 +121,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.geometry import domains
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.pic.particles import Particles6D
-    from struphy.pic.pusher import Pusher as Pusher_psy
+    from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.psydac_api.utilities import create_equal_random_arrays
     from struphy.tests.tests_mpi.test_pic_legacy_files.pusher import Pusher as Pusher_str
 
@@ -224,7 +224,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.geometry import domains
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.pic.particles import Particles6D
-    from struphy.pic.pusher import Pusher as Pusher_psy
+    from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.psydac_api.utilities import create_equal_random_arrays
     from struphy.tests.tests_mpi.test_pic_legacy_files.pusher import Pusher as Pusher_str
 
@@ -327,7 +327,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.geometry import domains
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.pic.particles import Particles6D
-    from struphy.pic.pusher import Pusher as Pusher_psy
+    from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.psydac_api.utilities import create_equal_random_arrays
     from struphy.tests.tests_mpi.test_pic_legacy_files.pusher import Pusher as Pusher_str
 
@@ -430,7 +430,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.geometry import domains
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.pic.particles import Particles6D
-    from struphy.pic.pusher import Pusher as Pusher_psy
+    from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.psydac_api.utilities import create_equal_random_arrays
     from struphy.tests.tests_mpi.test_pic_legacy_files.pusher import Pusher as Pusher_str
 
@@ -535,10 +535,10 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.geometry import domains
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.pic.particles import Particles6D
-    from struphy.pic.pusher import Pusher as Pusher_psy
+    from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.psydac_api.utilities import create_equal_random_arrays
     from struphy.tests.tests_mpi.test_pic_legacy_files.pusher import Pusher as Pusher_str
-    from struphy.pic.pusher import ButcherTableau
+    from struphy.pic.pushing.pusher import ButcherTableau
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -597,7 +597,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     c = [0., 1/2, 1/2, 1.]
     butcher = ButcherTableau(a, b, c)
 
-    pusher_psy = Pusher_psy(derham, domain, 'push_eta_stage', butcher.n_stages)
+    pusher_psy = Pusher_psy(derham, domain, 'push_eta_stage', n_stages=butcher.n_stages)
 
     # compare if markers are the same BEFORE push
     assert np.allclose(particles.markers, markers_str.T)
@@ -631,7 +631,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 #     from struphy.geometry import domains
 #     from struphy.psydac_api.psydac_derham import Derham
 #     from struphy.pic.particles import Particles6D
-#     from struphy.pic.pusher import Pusher as Pusher_psy
+#     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
 #     from struphy.psydac_api.utilities import create_equal_random_arrays
 #     from struphy.tests_mpi.test_pic_legacy_files.pusher import Pusher as Pusher_str
 
@@ -719,7 +719,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 #     from struphy.geometry import domains
 #     from struphy.psydac_api.psydac_derham import Derham
 #     from struphy.pic.particles import Particles6D
-#     from struphy.pic.pusher import Pusher as Pusher_psy
+#     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
 #     from struphy.psydac_api.utilities import create_equal_random_arrays
 #     from struphy.tests_mpi.test_pic_legacy_files.pusher import Pusher as Pusher_str
 

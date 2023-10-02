@@ -1,12 +1,12 @@
 from pyccel.decorators import pure, stack_array
 
 import struphy.b_splines.bsplines_kernels as bsp
-import struphy.pic.filler_kernels as fk
+import struphy.pic.accumulation.filler_kernels as fk
 
 
 def _docstring():
     """
-    MODULE DOCSTRING for **struphy.pic.mat_vec_filler**.
+    MODULE DOCSTRING for **struphy.pic.accumulation.mat_vec_filler**.
 
     The module contains pyccelized functions to add one particle to a FE matrix and vector in accumulation step.
 

@@ -17,7 +17,7 @@ def test_mat_vec_filler(Nel, p, spl_kind, n_markers=1):
     from time import sleep
 
     from struphy.psydac_api.psydac_derham import Derham
-    from struphy.pic import mat_vec_filler as mvf
+    from struphy.pic.accumulation import mat_vec_filler as mvf
     from struphy.b_splines import bsplines_kernels as bsp
 
     from psydac.linalg.stencil import StencilVector, StencilMatrix

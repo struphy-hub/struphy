@@ -32,7 +32,7 @@ dependencies = [
     'sphinx==4.2.0',
     'sphinxcontrib-napoleon',
     'sphinx-rtd-theme',
-    'python-docs-theme',
+    'pydata-sphinx-theme',
     'nbsphinx',
     'notebook',
     'm2r2==0.3.1',
