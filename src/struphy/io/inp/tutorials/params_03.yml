@@ -54,33 +54,30 @@ fluid :
         phys_params:
             A : 1  # mass number in units of proton mass
             Z : 1 # signed charge number in units of elementary charge
-        mhd_u_space : H1vec # Hdiv | H1vec
         init :
             type : TorusModesSin # initialization
             TorusModesSin :
                 coords : 'logical' # in which coordinates (logical or physical)
                 comps :
                     n3 : False              # components to be initialized (for scalar fields: no list)
-                    uv : [False, True, False] # components to be initialized (for scalar fields: no list)
+                    u2 : [False, True, False] # components to be initialized (for scalar fields: no list)
                     p3 : False              # components to be initialized (for scalar fields: no list)
                 ms : [3] # poloidal mode numbers
                 ns : [1] # toroidal mode numbers
                 amps : [0.001] # amplitudes of each mode
                 pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
                 pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
-
-solvers :
-    solver_1 :
-        type : PConjugateGradient
-        pc : MassMatrixPreconditioner # null or name of preconditioner class
-        tol : 1.e-8
-        maxiter : 3000
-        info : False
-        verbose : False
-    solver_2 :
-        type : PBiConjugateGradientStab
-        pc : MassMatrixPreconditioner # null or name of preconditioner class
-        tol : 1.e-8
-        maxiter : 3000
-        info : False
-        verbose : False
+        options:
+            solvers:
+                shear_alfven:
+                    type: [PConjugateGradient, MassMatrixPreconditioner]
+                    tol: 1.0e-08
+                    maxiter: 3000
+                    info: false
+                    verbose: false
+                magnetosonic:
+                    type: [PBiConjugateGradientStab, MassMatrixPreconditioner]
+                    tol: 1.0e-08
+                    maxiter: 3000
+                    info: false
+                    verbose: false

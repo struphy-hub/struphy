@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 import numpy as np
+import yaml
 
 
 class StruphyModel(metaclass=ABCMeta):
@@ -14,27 +15,12 @@ class StruphyModel(metaclass=ABCMeta):
     comm : mpi4py.MPI.Intracomm
         MPI communicator for parallel runs.
 
-    species : dict
-        The dynamical fields and kinetic species of the model. 
-
-        Keys are either:
-
-        a) the electromagnetic field/potential names (b_field=, e_field=) 
-        b) the fluid species names (e.g. mhd=)
-        c) the names of the kinetic species (e.g. electrons=, energetic_ions=)
-
-        Corresponding values are:
-
-        a) a space ID ("H1", "Hcurl", "Hdiv", "L2" or "H1vec"),
-        b) a dict with key=variable_name (e.g. n, U, p, ...) and value=space ID ("H1", "Hcurl", "Hdiv", "L2" or "H1vec"),
-        c) the type of particles ("Particles6D", "Particles5D", ...).
-
     Note
     ----
     All Struphy models are subclasses of ``StruphyModel`` and should be added to ``struphy/models/models.py``.  
     """
 
-    def __init__(self, params, comm, **species):
+    def __init__(self, params, comm):
 
         from struphy.io.setup import setup_domain_mhd, setup_electric_background, setup_derham
 
@@ -44,15 +30,22 @@ class StruphyModel(metaclass=ABCMeta):
         from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
         from struphy.psydac_api.mass import WeightedMassOperators
 
+        assert 'em_fields' in self.species()
+        assert 'fluid' in self.species()
+        assert 'kinetic' in self.species()
+
+        assert 'em_fields' in self.options()
+        assert 'fluid' in self.options()
+        assert 'kinetic' in self.options()
+
         self._params = params
         self._comm = comm
-        self._species = species
 
         # initialize model variable dictionaries
         self._init_variable_dicts()
 
         # compute model units
-        self._units, self._eq_params = self.model_units(
+        self._units, self._equation_params = self.model_units(
             self.params, verbose=True, comm=self._comm)
 
         # create domain, MHD equilibrium, background electric field
@@ -61,6 +54,12 @@ class StruphyModel(metaclass=ABCMeta):
         self._electric_equil = setup_electric_background(params, self.domain)
 
         if comm.Get_rank() == 0:
+            print('\nDOMAIN:')
+            print(f'type:'.ljust(25), self.domain.__class__.__name__)
+            for key, val in self.domain.params_map.items():
+                if key not in {'cx', 'cy', 'cz'}:
+                    print((key + ':').ljust(25), val)
+
             if 'mhd_equilibrium' in params:
                 print('\nMHD EQUILIBRIUM:')
                 print('type:'.ljust(25), self.mhd_equil.__class__.__name__)
@@ -91,9 +90,14 @@ class StruphyModel(metaclass=ABCMeta):
         # store plasma parameters
         if comm.Get_rank() == 0:
             self._pparams = self._print_plasma_params()
-            print('\nOPERATOR ASSEMBLY:')
         else:
             self._pparams = self._print_plasma_params(verbose=False)
+
+        # options of current run
+        self._show_chosen_options()
+
+        if comm.Get_rank() == 0:
+            print('\nOPERATOR ASSEMBLY:')
 
         # expose propagator modules
         self._prop = Propagator
@@ -113,6 +117,26 @@ class StruphyModel(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
+    def species(cls):
+        '''Species dictionary of the form {'em_fields': {}, 'fluid': {}, 'kinetic': {}}.
+
+        The dynamical fields and kinetic species of the model. 
+
+        Keys of the three sub-dicts are either:
+
+        a) the electromagnetic field/potential names (b_field, e_field) 
+        b) the fluid species names (e.g. mhd)
+        c) the names of the kinetic species (e.g. electrons, energetic_ions)
+
+        Corresponding values are:
+
+        a) a space ID ("H1", "Hcurl", "Hdiv", "L2" or "H1vec"),
+        b) a dict with key=variable_name (e.g. n, U, p, ...) and value=space ID ("H1", "Hcurl", "Hdiv", "L2" or "H1vec"),
+        c) the type of particles ("Particles6D", "Particles5D", ...).'''
+        pass
+
+    @classmethod
+    @abstractmethod
     def bulk_species(cls):
         '''Name of the bulk species of the plasma. Must be a key of self.fluid or self.kinetic, or None.'''
         pass
@@ -122,6 +146,12 @@ class StruphyModel(metaclass=ABCMeta):
     def velocity_scale(cls):
         '''String that sets the velocity scale unit of the model. 
         Must be one of "alfvén", "cyclotron" or "light".'''
+        pass
+
+    @classmethod
+    @abstractmethod
+    def options(cls):
+        '''Dictionary for available species options of the form {'em_fields': {}, 'fluid': {}, 'kinetic': {}}.'''
         pass
 
     @abstractmethod
@@ -141,10 +171,10 @@ class StruphyModel(metaclass=ABCMeta):
         return self._pparams
 
     @property
-    def eq_params(self):
+    def equation_params(self):
         '''Parameters appearing in model equation due to Struphy normalization.
         '''
-        return self._eq_params
+        return self._equation_params
 
     @property
     def comm(self):
@@ -152,14 +182,9 @@ class StruphyModel(metaclass=ABCMeta):
         return self._comm
 
     @property
-    def species(self):
-        '''Species dictionary.'''
-        return self._species
-    
-    @property
     def pointer(self):
         '''Dictionary pointing to the data structures of the species (Stencil/BlockVector or "Particle" class).
-        
+
         The keys are the keys from the "species" property. 
         In case of a fluid species, the keys are like "species_variable".'''
         return self._pointer
@@ -351,10 +376,11 @@ class StruphyModel(metaclass=ABCMeta):
 
     def print_scalar_quantities(self):
         '''
-        Print quantities saved in scalar_quantities to screen.
+        Check if scalar_quantities are not "nan" and print to screen.
         '''
         sq_str = ''
         for key, val in self._scalar_quantities.items():
+            assert not np.isnan(val[0]), f'Scalar {key} is {val[0]}.'
             sq_str += key + ': {:14.11f}'.format(val[0]) + '   '
         print(sq_str)
 
@@ -546,20 +572,21 @@ class StruphyModel(metaclass=ABCMeta):
                     key_field = 'feec/' + key
 
                     if isinstance(val['obj'].vector_stencil, StencilVector):
-                        data.add_data({key_field: val['obj'].vector_stencil._data})
+                        data.add_data(
+                            {key_field: val['obj'].vector_stencil._data})
 
                     else:
                         for n in range(3):
                             key_component = key_field + '/' + str(n + 1)
                             data.add_data(
                                 {key_component: val['obj'].vector_stencil[n]._data})
-                            
+
                     # save field meta data
                     data.file[key_field].attrs['space_id'] = val['obj'].space_id
                     data.file[key_field].attrs['starts'] = val['obj'].starts
                     data.file[key_field].attrs['ends'] = val['obj'].ends
                     data.file[key_field].attrs['pads'] = val['obj'].pads
-                        
+
                 # save numpy array to be updated only at the end of the simulation for restart.
                 key_field_restart = 'restart/' + key
 
@@ -720,7 +747,7 @@ class StruphyModel(metaclass=ABCMeta):
             units['x'] = x_unit
             units['B'] = B_unit
 
-            eq_params = {}
+            equation_params = {}
         else:
 
             # look for bulk species in fluid OR kinetic parameter dictionaries
@@ -730,11 +757,12 @@ class StruphyModel(metaclass=ABCMeta):
                                              ]['phys_params']['Z']
                     A_bulk = params['fluid'][cls.bulk_species()
                                              ]['phys_params']['A']
-            else:
-                Z_bulk = params['kinetic'][cls.bulk_species()
-                                           ]['phys_params']['Z']
-                A_bulk = params['kinetic'][cls.bulk_species()
-                                           ]['phys_params']['A']
+            if 'kinetic' in params:
+                if cls.bulk_species() in params['kinetic']:
+                    Z_bulk = params['kinetic'][cls.bulk_species()
+                                               ]['phys_params']['Z']
+                    A_bulk = params['kinetic'][cls.bulk_species()
+                                               ]['phys_params']['A']
 
             # compute units
             units = derive_units(
@@ -755,7 +783,7 @@ class StruphyModel(metaclass=ABCMeta):
                       '{:4.3e}'.format(units['p'] * 1e-5) + ' bar')
 
             # compute equation parameters arising from Struphy normalization
-            eq_params = {}
+            equation_params = {}
             if 'fluid' in params:
                 for species in params['fluid']:
 
@@ -765,14 +793,14 @@ class StruphyModel(metaclass=ABCMeta):
                     # compute equation parameters
                     om_p = np.sqrt(units['n'] * (Z*e)**2 / (eps0 * A*mH))
                     om_c = Z*e * units['B'] / (A*mH)
-                    eq_params[species] = {}
-                    eq_params[species]['alpha_unit'] = om_p / om_c
-                    eq_params[species]['epsilon_unit'] = 1. / \
+                    equation_params[species] = {}
+                    equation_params[species]['alpha_unit'] = om_p / om_c
+                    equation_params[species]['epsilon_unit'] = 1. / \
                         (om_c * units['t'])
 
                     if verbose and rank == 0:
                         print('- ' + species + ':')
-                        for key, val in eq_params[species].items():
+                        for key, val in equation_params[species].items():
                             print((key + ':').ljust(25), '{:4.3e}'.format(val))
 
             if 'kinetic' in params:
@@ -784,17 +812,229 @@ class StruphyModel(metaclass=ABCMeta):
                     # compute equation parameters
                     om_p = np.sqrt(units['n'] * (Z*e)**2 / (eps0 * A*mH))
                     om_c = Z*e * units['B'] / (A*mH)
-                    eq_params[species] = {}
-                    eq_params[species]['alpha_unit'] = om_p / om_c
-                    eq_params[species]['epsilon_unit'] = 1. / \
+                    equation_params[species] = {}
+                    equation_params[species]['alpha_unit'] = om_p / om_c
+                    equation_params[species]['epsilon_unit'] = 1. / \
                         (om_c * units['t'])
 
                     if verbose and rank == 0:
                         print('- ' + species + ':')
-                        for key, val in eq_params[species].items():
+                        for key, val in equation_params[species].items():
                             print((key + ':').ljust(25), '{:4.3e}'.format(val))
 
-        return units, eq_params
+        return units, equation_params
+
+    @classmethod
+    def show_options(cls):
+        '''Print available model options to screen.'''
+
+        print('Options are given under the keyword "options" for each species dict. \
+Available options stand in lists as dict values.\nThe first entry of a list denotes the default value.')
+
+        tab = '    '
+
+        print(f'\nAvailable options for model "{cls.__name__}":')
+        print('\nem_fields:')
+        if 'options' in cls.options()['em_fields']:
+            print(tab + 'options:')
+            for opt_k, opt_v in cls.options()['em_fields']['options'].items():
+                if isinstance(opt_v, dict):
+                    print((2*tab + opt_k + ' :').ljust(25))
+                    for key, val in opt_v.items():
+                        print((3*tab + key + ' :').ljust(25), val)
+                else:
+                    print((2*tab + opt_k + ' :').ljust(25), opt_v)
+        else:
+            print('None.')
+
+        print('\nfluid:')
+        if len(cls.species()['fluid']) > 0:
+            for spec_name in cls.species()['fluid']:
+                print(tab + spec_name + ':')
+                print(2*tab + 'options:')
+                if 'options' in cls.options()['fluid'][spec_name]:
+                    for opt_k, opt_v in cls.options()['fluid'][spec_name]['options'].items():
+                        if isinstance(opt_v, dict):
+                            print((3*tab + opt_k + ' :').ljust(25))
+                            for key, val in opt_v.items():
+                                print((4*tab + key + ' :').ljust(25), val)
+                        else:
+                            print((3*tab + opt_k + ' :').ljust(25), opt_v)
+                else:
+                    print('None.')
+        else:
+            print('None.')
+
+        print('\nkinetic:')
+        if len(cls.species()['kinetic']) > 0:
+            for spec_name in cls.species()['kinetic']:
+                print(tab + spec_name + ':')
+                print(2*tab + 'options:')
+                if 'options' in cls.options()['kinetic'][spec_name]:
+                    for opt_k, opt_v in cls.options()['kinetic'][spec_name]['options'].items():
+                        if isinstance(opt_v, dict):
+                            print((3*tab + opt_k + ' :').ljust(25))
+                            for key, val in opt_v.items():
+                                print((4*tab + key + ' :').ljust(25), val)
+                        else:
+                            print((3*tab + opt_k + ' :').ljust(25), opt_v)
+                else:
+                    print('None.')
+        else:
+            print('None.')
+
+    @classmethod
+    def generate_default_parameter_file(cls, file=None, save=True):
+        '''Generate a parameter file with default options for each species,
+        and save it to the current input path.
+        
+        The default name is params_<model_name>.yml.
+        
+        Parameters
+        -------
+        file : str
+            Alternative filename to params_<model_name>.yml.
+            
+        save : bool
+            Whether to save the parameter file in the current input path.
+            
+        Returns
+        -------
+        The default parameter dictionary.'''
+
+        import struphy
+        import yaml
+        import os
+        from struphy.io.setup import descend_options_dict
+
+        libpath = struphy.__path__[0]
+
+        # load a standard parameter file
+        with open(os.path.join(libpath, 'io/inp/parameters.yml')) as tmp:
+            parameters = yaml.load(tmp, Loader=yaml.FullLoader)
+
+        # get rid of species names in initial conditions (add back later)
+        parameters['em_fields']['init']['TorusModesCos'].pop('comps')
+        parameters['em_fields']['init']['TorusModesCos']['comps'] = {}
+        parameters['fluid']['mhd']['init']['TorusModesCos'].pop('comps')
+        parameters['fluid']['mhd']['init']['TorusModesCos']['comps'] = {}
+        parameters['kinetic']['ions'].pop('init')
+        parameters['kinetic']['ions'].pop('background')
+        parameters['kinetic']['ions']['markers']['loading'].pop('moments')
+
+        # standard test dictionaries
+        em_field_params = parameters.pop('em_fields')
+        fluid_params = parameters['fluid'].pop('mhd')
+        kinetic_params = parameters['kinetic'].pop('ions')
+
+        parameters.pop('fluid')
+        parameters.pop('kinetic')
+
+        # standard moments of Maxwellians
+        moms = {'6D': [0., 0., 0., 1., 1., 1.],
+                '5D': [0., 0., 1., 1.]}
+
+        # init options dicts
+        d_opts = {'em_fields': [], 'fluid': {}, 'kinetic': {}}
+
+        # set the correct names in the parameter file
+        if len(cls.species()['em_fields']) > 0:
+            parameters['em_fields'] = em_field_params
+            for name, space in cls.species()['em_fields'].items():
+                # default initial condition for scalar-valued field
+                if space in {'H1', 'L2'}:
+                    parameters['em_fields']['init']['TorusModesCos']['comps'][name] = True
+
+                # default initial condition for vector-valued field
+                elif space in {'Hcurl', 'Hdiv', 'H1vec'}:
+                    parameters['em_fields']['init']['TorusModesCos']['comps'][name] = [
+                        False, True, False]
+
+        # find out the default em_fields options of the model
+        if 'options' in cls.options()['em_fields']:
+            # create the default options parameters
+            d_default = descend_options_dict(cls.options()['em_fields']['options'],
+                                             d_opts['em_fields'])
+
+            parameters['em_fields']['options'] = d_default
+
+        # fluid
+        if len(cls.species()['fluid']) > 0:
+            parameters['fluid'] = {}
+
+        for name, dct in cls.species()['fluid'].items():
+
+            parameters['fluid'][name] = fluid_params
+
+            # find out the default fluid options of the model
+            if name in cls.options()['fluid']:
+
+                d_opts['fluid'][name] = []
+
+                # create the default options parameters
+                d_default = descend_options_dict(cls.options()['fluid'][name]['options'],
+                                                 d_opts['fluid'][name])
+
+                parameters['fluid'][name]['options'] = d_default
+
+            # set the correct names parameter file
+            for sub_name, space in dct.items():
+                # default initial condition for scalar-valued field
+                if space in {'H1', 'L2'}:
+                    parameters['fluid'][name]['init']['TorusModesCos']['comps'][sub_name] = True
+
+                # default initial condition for scalar-valued field
+                elif space in {'Hcurl', 'Hdiv', 'H1vec'}:
+                    parameters['fluid'][name]['init']['TorusModesCos']['comps'][sub_name] = [
+                        False, True, False]
+
+        # kinetic
+        if len(cls.species()['kinetic']) > 0:
+            parameters['kinetic'] = {}
+
+        for name, space in cls.species()['kinetic'].items():
+
+            parameters['kinetic'][name] = kinetic_params
+
+            # find out the default kinetic options of the model
+            if name in cls.options()['kinetic']:
+
+                d_opts['kinetic'][name] = []
+
+                # create the default options parameters
+                d_default = descend_options_dict(cls.options()['kinetic'][name]['options'],
+                                                 d_opts['kinetic'][name])
+
+                parameters['kinetic'][name]['options'] = d_default
+
+            # set the correct names in the parameter file
+            dim = space[-2:]
+            parameters['kinetic'][name]['init'] = {'type': 'Maxwellian' + dim + 'Uniform',
+                                                   'Maxwellian' + dim + 'Uniform': {'n': 0.05}}
+            parameters['kinetic'][name]['background'] = {'type': 'Maxwellian' + dim + 'Uniform',
+                                                         'Maxwellian' + dim + 'Uniform': {'n': 0.8}}
+            parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
+
+        # write to current input path
+        with open(os.path.join(libpath, 'i_path.txt'), 'r') as f:
+            i_path = f.readlines()[0]
+
+        if file is None:
+            file = os.path.join(i_path, 'params_' + cls.__name__ + '.yml')
+        else:
+            assert '.yml' in file or '.yaml' in file, 'File must have a a .yml (.yaml) extension.'
+            file = os.path.join(i_path, file)
+
+        if save:
+            yn = input(f'Writing to {file}, are you sure (Y/n)?')
+            if yn == 'n':
+                pass
+            else:
+                with open(file, 'w') as outfile:
+                    yaml.dump(parameters, outfile, Dumper=MyDumper,
+                            default_flow_style=None, sort_keys=False, indent=4, line_break='\r')
+            
+        return parameters
 
     ###################
     # Private methods :
@@ -810,61 +1050,59 @@ class StruphyModel(metaclass=ABCMeta):
         self._fluid = {}
         self._kinetic = {}
 
+        print('\nMODEL SPECIES:')
+
         # create dictionaries for each em-field/species and fill in space/class name and parameters
-        for var_name, space in self.species.items():
+        for var_name, space in self.species()['em_fields'].items():
+            assert space in {'H1', 'Hcurl', 'Hdiv', 'L2', 'H1vec'}
+            assert 'em_fields' in self.params, 'Top-level key "em_fields" is missing in parameter file.'
 
-            if isinstance(space, str):
+            print('em_field:'.ljust(25), var_name, ',', space)
 
-                if space in {'H1', 'Hcurl', 'Hdiv', 'L2', 'H1vec'}:
+            self._em_fields[var_name] = {}
+            self._em_fields[var_name]['space'] = space
+            self._em_fields['params'] = self.params['em_fields']
 
-                    assert 'em_fields' in self.params, 'Top-level key "em_fields" is missing in parameter file.'
-                    self._em_fields[var_name] = {}
-                    self._em_fields[var_name]['space'] = space
-                    
-                    if 'save_data' in self.params['em_fields']:
-                        self._em_fields[var_name]['save_data'] = self.params['em_fields']['save_data']['comps'][var_name]
-
-                    else:
-                        self._em_fields[var_name]['save_data'] = True
-
-                    self._em_fields['params'] = self.params['em_fields']
-
-                elif space in {'Particles6D', 'Particles5D'}:
-
-                    assert 'kinetic' in self.params, 'Top-level key "kinetic" is missing in parameter file.'
-                    assert var_name in self.params[
-                        'kinetic'], f'Kinetic species {var_name} is missing in parameter file.'
-
-                    self._kinetic[var_name] = {}
-                    self._kinetic[var_name]['space'] = space
-                    self._kinetic[var_name]['params'] = self.params['kinetic'][var_name]
-
-                else:
-                    raise ValueError(
-                        f'The given value string {space} is not supported!')
-
-            elif isinstance(space, dict):
-
-                assert 'fluid' in self.params, 'Top-level key "fluid" is missing in parameter file.'
-                assert var_name in self.params[
-                    'fluid'], f'Fluid species {var_name} is missing in parameter file.'
-
-                self._fluid[var_name] = {}
-
-                for sub_var_name, sub_space in space.items():
-                    self._fluid[var_name][sub_var_name] = {}
-                    self._fluid[var_name][sub_var_name]['space'] = sub_space
-
-                    if 'save_data' in self.params['fluid'][var_name]:
-                        self._fluid[var_name][sub_var_name]['save_data'] = self.params['fluid'][var_name]['save_data']['comps'][sub_var_name]
-
-                    else:
-                        self._fluid[var_name][sub_var_name]['save_data'] = True
-
-                self._fluid[var_name]['params'] = self.params['fluid'][var_name]
+            # which components to save
+            if 'save_data' in self.params['em_fields']:
+                self._em_fields[var_name]['save_data'] = self.params['em_fields']['save_data']['comps'][var_name]
 
             else:
-                raise ValueError(f'Type {type(space)} not supported as value.')
+                self._em_fields[var_name]['save_data'] = True
+
+        for var_name, space in self.species()['fluid'].items():
+            assert isinstance(space, dict)
+            assert 'fluid' in self.params, 'Top-level key "fluid" is missing in parameter file.'
+            assert var_name in self.params[
+                'fluid'], f'Fluid species {var_name} is missing in parameter file.'
+
+            print('fluid:'.ljust(25), var_name, ',', space)
+
+            self._fluid[var_name] = {}
+            for sub_var_name, sub_space in space.items():
+                self._fluid[var_name][sub_var_name] = {}
+                self._fluid[var_name][sub_var_name]['space'] = sub_space
+
+                # which components to save
+                if 'save_data' in self.params['fluid'][var_name]:
+                    self._fluid[var_name][sub_var_name]['save_data'] = self.params['fluid'][var_name]['save_data']['comps'][sub_var_name]
+
+                else:
+                    self._fluid[var_name][sub_var_name]['save_data'] = True
+
+            self._fluid[var_name]['params'] = self.params['fluid'][var_name]
+
+        for var_name, space in self.species()['kinetic'].items():
+            assert space in {'Particles6D', 'Particles5D'}
+            assert 'kinetic' in self.params, 'Top-level key "kinetic" is missing in parameter file.'
+            assert var_name in self.params[
+                'kinetic'], f'Kinetic species {var_name} is missing in parameter file.'
+
+            print('kinetic:'.ljust(25), var_name, ',', space)
+
+            self._kinetic[var_name] = {}
+            self._kinetic[var_name]['space'] = space
+            self._kinetic[var_name]['params'] = self.params['kinetic'][var_name]
 
     def _allocate_variables(self):
         """
@@ -882,7 +1120,7 @@ class StruphyModel(metaclass=ABCMeta):
 
                 if 'params' not in key:
                     val['obj'] = Field(key, val['space'], self.derham)
-                    
+
                     self._pointer[key] = val['obj'].vector
 
         # allocate memory for FE coeffs of fluid variables
@@ -895,8 +1133,9 @@ class StruphyModel(metaclass=ABCMeta):
                     if 'params' not in variable:
                         subval['obj'] = Field(
                             variable, subval['space'], self.derham)
-                        
-                        self._pointer[species + '_' + variable] = subval['obj'].vector
+
+                        self._pointer[species + '_' +
+                                      variable] = subval['obj'].vector
 
         # marker arrays and plasma parameters of kinetic species
         if 'kinetic' in self.params:
@@ -916,7 +1155,7 @@ class StruphyModel(metaclass=ABCMeta):
                                            domain=self.domain,
                                            mhd_equil=self.mhd_equil,
                                            units_basic=self.units)
-                
+
                 self._pointer[species] = val['obj']
 
                 # for storing markers
@@ -999,7 +1238,7 @@ class StruphyModel(metaclass=ABCMeta):
             return
 
         # compute model units
-        units, eq_params = self.model_units(
+        units, equation_params = self.model_units(
             self.params, verbose=True, comm=self.comm)
 
         # units affices for printing
@@ -1174,3 +1413,45 @@ class StruphyModel(metaclass=ABCMeta):
                 print('------------------------------------')
 
         return pparams
+
+    def _show_chosen_options(self):
+        '''Display the model options of the current run on screen.'''
+
+        print('\nCHOSEN MODEL OPTIONS:')
+
+        if len(self.species()['em_fields']) > 0:
+            print('em_fields:')
+            if 'options' in self.params['em_fields']:
+                for opt_k, opt_v in self.params['em_fields']['options'].items():
+                    print((opt_k + ' :').ljust(25), opt_v)
+            else:
+                print('None.')
+
+        for spec_name in self.species()['fluid']:
+            print(spec_name, ':')
+            if 'options' in self.params['fluid'][spec_name]:
+                for opt_k, opt_v in self.params['fluid'][spec_name]['options'].items():
+                    print((opt_k + ' :').ljust(25), opt_v)
+            else:
+                print('None.')
+
+        for spec_name in self.species()['kinetic']:
+            print(spec_name, ':')
+            if 'options' in self.params['kinetic'][spec_name]:
+                for opt_k, opt_v in self.params['kinetic'][spec_name]['options'].items():
+                    print((opt_k + ' :').ljust(25), opt_v)
+            else:
+                print('None.')
+
+
+class MyDumper(yaml.SafeDumper):
+    # HACK: insert blank lines between top-level objects
+    # inspired by https://stackoverflow.com/a/44284819/3786245
+    def write_line_break(self, data=None):
+        super().write_line_break(data)
+
+        if len(self.indents) == 1:
+            super().write_line_break()
+            
+    def ignore_aliases(self, data):
+        return True

@@ -59,7 +59,7 @@ def struphy_run(model='Maxwell',
     import struphy
 
     libpath = struphy.__path__[0]
-    
+
     with open(os.path.join(libpath, 'i_path.txt')) as f:
         i_path = f.readlines()[0]
 

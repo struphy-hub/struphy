@@ -20,9 +20,10 @@ def struphy_compile(no_openmp=False, delete=False, verbose=False):
     import pyccel
 
     libpath = struphy.__path__[0]
-    
-    if any([s==' ' for s in libpath]):
-        raise NameError(f'Stuphy installation path MUST NOT contain blank spaces. Please rename "{libpath}".')
+
+    if any([s == ' ' for s in libpath]):
+        raise NameError(
+            f'Stuphy installation path MUST NOT contain blank spaces. Please rename "{libpath}".')
 
     if delete:
 
@@ -45,27 +46,28 @@ def struphy_compile(no_openmp=False, delete=False, verbose=False):
 
         # pyccel flags
         flags = ''
-        
+
         _li = pyccel.__version__.split('.')
         _num = int(_li[0])*100 + int(_li[1])*10 + int(_li[2])
         if _num >= 180:
             flags += '--conda-warnings off'
-            
+
         if verbose:
             flags += ' --verbose'
 
         # install psydac from wheel if not there
         current_ver = '0.1.2'
         psydac_file = 'psydac-' + current_ver + '-py3-none-any.whl'
-        
+
         try:
             import psydac
             import importlib.metadata
 
             your_ver = importlib.metadata.version("psydac")
-            
+
             if current_ver != your_ver:
-                print(f'You have psydac version {your_ver}, but version {current_ver} is available.\n')
+                print(
+                    f'You have psydac version {your_ver}, but version {current_ver} is available.\n')
                 subprocess.run(['pip',
                                 'uninstall',
                                 '-y',
@@ -77,7 +79,7 @@ def struphy_compile(no_openmp=False, delete=False, verbose=False):
                                     libpath, psydac_file),
                                 ], check=True)
                 print('Done.')
-                
+
         except:
             print('\nInstalling Psydac ...')
             subprocess.run(['pip',

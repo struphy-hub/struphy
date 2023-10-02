@@ -17,23 +17,21 @@ class HomogenSlab(CartesianMHDequilibrium):
         p &= \beta \frac{|\mathbf B|^2}{2}=const.\,,
 
         n &= n_0 = const.\,.
-        
+
     Units are those defned in the parameter file (:code:`struphy units -h`).
 
     Parameters
     ----------
-    **params
-        Keyword arguments that characterize the MHD equilibrium.
-            * B0x : float  
-                x-component of magnetic field (default: 0.).
-            * B0y : float  
-                y-component of magnetic field (default: 0.).
-            * B0z : float  
-                z-component of magnetic field (default: 1.).
-            * beta : float
-                Plasma beta (ratio of kinematic pressure to B^2/(2*mu0), default: 0.1).
-            * n0 : float 
-                Ion number density (default: 1.).
+    B0x : float  
+        x-component of magnetic field (default: 0.).
+    B0y : float  
+        y-component of magnetic field (default: 0.).
+    B0z : float  
+        z-component of magnetic field (default: 1.).
+    beta : float
+        Plasma beta (ratio of kinematic pressure to B^2/(2*mu0), default: 0.1).
+    n0 : float 
+        Ion number density (default: 1.).
 
     Note
     ----
@@ -79,7 +77,7 @@ class HomogenSlab(CartesianMHDequilibrium):
 
         return bx, by, bz
 
-    #equilibrium vector potential
+    # equilibrium vector potential
     def a_xyz(self, x, y, z):
         """ Vector potential.
         """
@@ -89,10 +87,10 @@ class HomogenSlab(CartesianMHDequilibrium):
 
         ax = by*z
         ay = bz*x
-        az = bx*y 
-        
+        az = bx*y
+
         return ax, ay, az
-    
+
     # equilibrium current (curl of equilibrium magnetic field)
     def j_xyz(self, x, y, z):
         """ Current density.
@@ -136,27 +134,25 @@ class ShearedSlab(CartesianMHDequilibrium):
     Units are those defned in the parameter file (:code:`struphy units -h`).
 
     Parameters
-    ----------
-    **params
-        Keyword arguments that characterize the MHD equilibrium. 
-            * a : float 
-                "Minor" radius (must be compatible with :math:`L_x=a` and :math:`L_y=2\pi a`, default: 1.).
-            * R0 : float
-                "Major" radius (must be compatible with :math:`L_z=2\pi R_0`, default: 3.).
-            * B0 : float
-                z-component of magnetic field (constant) (default: 1.).
-            * q0 : float
-                Safety factor at x=0 (default: 1.05).
-            * q1 : float
-                Safety factor at x=a (default: 1.80).
-            * n1 : float
-                1st shape factor for ion number density profile (default: 0.).
-            * n2 : float
-                2nd shape factor for ion number density profile (default: 0.). 
-            * na : float
-                Ion number density at x=a (default: 1.).
-            * beta : float
-                Plasma beta (ratio of kinematic pressure to B^2/(2*mu0), default: 0.1).
+    ---------- 
+    a : float 
+        "Minor" radius (must be compatible with :math:`L_x=a` and :math:`L_y=2\pi a`, default: 1.).
+    R0 : float
+        "Major" radius (must be compatible with :math:`L_z=2\pi R_0`, default: 3.).
+    B0 : float
+        z-component of magnetic field (constant) (default: 1.).
+    q0 : float
+        Safety factor at x=0 (default: 1.05).
+    q1 : float
+        Safety factor at x=a (default: 1.80).
+    n1 : float
+        1st shape factor for ion number density profile (default: 0.).
+    n2 : float
+        2nd shape factor for ion number density profile (default: 0.). 
+    na : float
+        Ion number density at x=a (default: 1.).
+    beta : float
+        Plasma beta (ratio of kinematic pressure to B^2/(2*mu0), default: 0.1).
 
     Note
     ----
@@ -232,7 +228,7 @@ class ShearedSlab(CartesianMHDequilibrium):
         if np.all(q >= 100.):
             pout = self.params['B0']**2*self.params['beta'] / 2. - 0*x
         else:
-            pout = self.params['B0']**2*self.params['beta'] / 2. *(
+            pout = self.params['B0']**2*self.params['beta'] / 2. * (
                 1 + eps**2/q**2) + self.params['B0']**2*eps**2*(1/self.params['q0']**2 - 1/q**2)
 
         return pout
@@ -357,31 +353,29 @@ class ScrewPinch(CartesianMHDequilibrium):
         \end{aligned}\right.
 
         n(r) &= n_a + ( 1 - n_a )\left( 1 - \left(\frac{r}{a}\right)^{n_1} \right)^{n_2}\,.
-        
+
     Units are those defned in the parameter file (:code:`struphy units -h`).
 
     Parameters
     ----------
-    **params
-        Keyword arguments that characterize the MHD equilibrium.
-            * a : float 
-                "Minor" radius (radius of cylinder, default: 1.).
-            * R0 : float 
-                "Major" radius (must be compatible with :math:`L_z=2\pi R_0`, default: 5.).
-            * B0 : float
-                z-component of magnetic field (constant) (default: 1.).
-            * q0 : float, str
-                Safety factor at r=0 (use the string "inf" for infinity, default: 1.05).
-            * q1 : float, str
-                Safety factor at r=a (use the string "inf" for infinity, default: 1.80).
-            * n1 : float
-                1st shape factor for ion number density profile (default: 0.).
-            * n2 : float
-                2nd shape factor for ion number density profile (default: 0.). 
-            * na : float
-                Ion nnumber density at r=a (default: 1.).
-            * beta : float
-                Plasma beta for :math:`q_0=q_1=\infty` (ratio of kinematic pressure to B^2/(2*mu0), default: 0.1).
+    a : float 
+        "Minor" radius (radius of cylinder, default: 1.).
+    R0 : float 
+        "Major" radius (must be compatible with :math:`L_z=2\pi R_0`, default: 5.).
+    B0 : float
+        z-component of magnetic field (constant) (default: 1.).
+    q0 : float, str
+        Safety factor at r=0 (use the string "inf" for infinity, default: 1.05).
+    q1 : float, str
+        Safety factor at r=a (use the string "inf" for infinity, default: 1.80).
+    n1 : float
+        1st shape factor for ion number density profile (default: 0.).
+    n2 : float
+        2nd shape factor for ion number density profile (default: 0.). 
+    na : float
+        Ion nnumber density at r=a (default: 1.).
+    beta : float
+        Plasma beta for :math:`q_0=q_1=\infty` (ratio of kinematic pressure to B^2/(2*mu0), default: 0.1).
 
     Note
     ----
@@ -619,43 +613,41 @@ class AdhocTorus(AxisymmMHDequilibrium):
     .. math::
 
         n(r) = n_a + ( 1 - n_a ) \left( 1 - \left(\frac{r}{a}\right)^{n_1} \right)^{n_2}\,.
-        
+
     Units are those defned in the parameter file (:code:`struphy units -h`).
 
     Parameters
     ----------
-    **params
-        Keyword arguments that characterize the MHD equilibrium.
-            * a : float
-                Minor radius of torus (default: 1.).
-            * R0 : float
-                Major radius of torus (default: 10.).
-            * B0 : float
-                On-axis (r=0) toroidal magnetic field (default: 3.).
-            * q_kind : int 
-                Which safety factor profile, see docstring (0 or 1, default: 0).
-            * q0 : float
-                Safety factor at r=0 (default: 1.71).
-            * q1 : float
-                Safety factor at r=a (default: 1.87).
-            * n1 : float
-                1st shape factor for ion number density profile (default: 0.).
-            * n2 : float
-                2nd shape factor for ion number density profile (default: 0.).
-            * na : float
-                Ion number density at r=a (default: 1.).
-            * p_kind : int 
-                Kind of pressure profile, see docstring (0 or 1, default: 1).
-            * p1 : float
-                1st shape factor for ad hoc pressure profile (default: 0.).
-            * p2 : float
-                2nd shape factor for ad hoc pressure profile (default: 0.).
-            * beta : float
-                On-axis (r=0) plasma beta if p_kind=1 (ratio of kinematic pressure to B^2/(2*mu0), default: 0.179).
-            * psi_k : int
-                Spline degree to be used for interpolation of poloidal flux function (if q_kind=1, default=3).
-            * psi_nel : int
-                Number of cells to be used for interpolation of poloidal flux function (if q_kind=1, default=50).
+    a : float
+        Minor radius of torus (default: 1.).
+    R0 : float
+        Major radius of torus (default: 10.).
+    B0 : float
+        On-axis (r=0) toroidal magnetic field (default: 3.).
+    q_kind : int 
+        Which safety factor profile, see docstring (0 or 1, default: 0).
+    q0 : float
+        Safety factor at r=0 (default: 1.71).
+    q1 : float
+        Safety factor at r=a (default: 1.87).
+    n1 : float
+        1st shape factor for ion number density profile (default: 0.).
+    n2 : float
+        2nd shape factor for ion number density profile (default: 0.).
+    na : float
+        Ion number density at r=a (default: 1.).
+    p_kind : int 
+        Kind of pressure profile, see docstring (0 or 1, default: 1).
+    p1 : float
+        1st shape factor for ad hoc pressure profile (default: 0.).
+    p2 : float
+        2nd shape factor for ad hoc pressure profile (default: 0.).
+    beta : float
+        On-axis (r=0) plasma beta if p_kind=1 (ratio of kinematic pressure to B^2/(2*mu0), default: 0.179).
+    psi_k : int
+        Spline degree to be used for interpolation of poloidal flux function (if q_kind=1, default=3).
+    psi_nel : int
+        Number of cells to be used for interpolation of poloidal flux function (if q_kind=1, default=50).
 
     Note
     ----
@@ -688,8 +680,8 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
         # parameters
         params_default = {'a': 1.,
-                          'R0': 10.,
-                          'B0': 3.,
+                          'R0': 3.,
+                          'B0': 2.,
                           'q_kind': 0,
                           'q0': 1.71,
                           'q1': 1.87,
@@ -1102,41 +1094,39 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
         p(\psi) &= \frac{\beta B_0^2}{2}\exp\left(-\frac{\psi_{\textnormal{norm}}}{p_1}\right)\,,
 
         n(\psi) &= n_a + ( 1 - n_a ) \left( 1 - \psi_{\textnormal{norm}}^{n_1} \right)^{n_2}\,.
-        
+
     Units are those defned in the parameter file (:code:`struphy units -h`).
 
     Parameters
     ----------
-    **params
-        Keyword arguments that characterize the MHD equilibrium.
-            * a : float
-                Minor radius of torus (default: 0.361925).
-            * R0 : float
-                Major radius of torus (default: 1.).
-            * B0 : float
-                On-axis (r=0) toroidal magnetic field (default: 1.).
-            * q0 : float
-                Safety factor at r=0 (default: 0.6).
-            * q1 : float
-                Safety factor at r=a (default: 2.5).
-            * q0p : float
-                Derivative of safety factor at r=0 (w.r.t. poloidal flux function, default: 0.78).
-            * q1p : float
-                Derivative of safety factor at r=a (w.r.t. poloidal flux function, default: 5.00).
-            * n1 : float
-                1st shape factor for ion number density profile (default: 0.).
-            * n2 : float
-                2nd shape factor for ion number density profile (default: 0.).
-            * na : float
-                Ion number density at r=a (default: 1.).
-            * beta : float
-                On-axis (r=0) plasma beta (ratio of kinematic pressure to B^2/(2*mu0), default: 0.1).
-            * p1 : float
-                Shape factor for pressure profile, see docstring (default: 0.25).
-            * psi_k : int
-                Spline degree to be used for interpolation of poloidal flux function (default=3).
-            * psi_nel : int
-                Number of cells to be used for interpolation of poloidal flux function (default=50).
+    a : float
+        Minor radius of torus (default: 0.361925).
+    R0 : float
+        Major radius of torus (default: 1.).
+    B0 : float
+        On-axis (r=0) toroidal magnetic field (default: 1.).
+    q0 : float
+        Safety factor at r=0 (default: 0.6).
+    q1 : float
+        Safety factor at r=a (default: 2.5).
+    q0p : float
+        Derivative of safety factor at r=0 (w.r.t. poloidal flux function, default: 0.78).
+    q1p : float
+        Derivative of safety factor at r=a (w.r.t. poloidal flux function, default: 5.00).
+    n1 : float
+        1st shape factor for ion number density profile (default: 0.).
+    n2 : float
+        2nd shape factor for ion number density profile (default: 0.).
+    na : float
+        Ion number density at r=a (default: 1.).
+    beta : float
+        On-axis (r=0) plasma beta (ratio of kinematic pressure to B^2/(2*mu0), default: 0.1).
+    p1 : float
+        Shape factor for pressure profile, see docstring (default: 0.25).
+    psi_k : int
+        Spline degree to be used for interpolation of poloidal flux function (default=3).
+    psi_nel : int
+        Number of cells to be used for interpolation of poloidal flux function (default=50).
 
     Note
     ----
@@ -1450,29 +1440,26 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
     ----------
     units : dict
         All Struphy units. If None, no rescaling of EQDSK output is performed.
-    
-    **params
-        Keyword arguments that characterize the MHD equilibrium.
-            * rel_path : bool
-                Whether file is relative to "<struphy_path>/fields_background/mhd_equil/eqdsk/data/", or is an absolute path (default: True).
-            * file : str
-                Path to eqdsk file (default: "AUGNLED_g031213.00830.high").
-            * data_type : int
-                0: there is no space between data, 1: there is space between data (default: 0).
-            * p_for_psi : list[int]
-                Spline degrees in (R, Z) directions used for interpolation of psi data (default: [3, 3]).
-            * psi_resolution : list[float]
-                Resolution of psi data in (R, Z) directions in %, e.g. [50., 50.] uses every second psi data point (default: [25., 6.25]).
-            * p_for_flux : int
-                Spline degree in psi direction used for interpolation of 1d functions that depend on psi: f=f(psi) (default: 3).
-            * flux_resolution : float
-                Resolution of 1d f=f(psi) data in %, e.g. 25. uses every forth data point (default: 50.).
-            * n1 : float
-                1st shape factor for ion number density profile n = n(psi) (default: 0.).
-            * n2 : float
-                2nd shape factor for ion number density profile n = n(psi) (default: 0.).
-            * na : float
-                Ion number density at plasma boundary (default: 1.).
+    rel_path : bool
+        Whether file is relative to "<struphy_path>/fields_background/mhd_equil/eqdsk/data/", or is an absolute path (default: True).
+    file : str
+        Path to eqdsk file (default: "AUGNLED_g031213.00830.high").
+    data_type : int
+        0: there is no space between data, 1: there is space between data (default: 0).
+    p_for_psi : list[int]
+        Spline degrees in (R, Z) directions used for interpolation of psi data (default: [3, 3]).
+    psi_resolution : list[float]
+        Resolution of psi data in (R, Z) directions in %, e.g. [50., 50.] uses every second psi data point (default: [25., 6.25]).
+    p_for_flux : int
+        Spline degree in psi direction used for interpolation of 1d functions that depend on psi: f=f(psi) (default: 3).
+    flux_resolution : float
+        Resolution of 1d f=f(psi) data in %, e.g. 25. uses every forth data point (default: 50.).
+    n1 : float
+        1st shape factor for ion number density profile n = n(psi) (default: 0.).
+    n2 : float
+        2nd shape factor for ion number density profile n = n(psi) (default: 0.).
+    na : float
+        Ion number density at plasma boundary (default: 1.).
 
     Note
     ----
@@ -1508,7 +1495,8 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
             units['x'] = 1.
             units['B'] = 1.
             units['p'] = 1 / 1.25663706212e-6
-            print('\n+++WARNING+++: "units" was passed as None, no rescaling performed in EQDSK output.')
+            print(
+                '+++WARNING+++: "units" was passed as None, no rescaling performed in EQDSK output.')
 
         self._units = units
 
@@ -1750,7 +1738,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         if is_float:
             assert out.ndim == 0
             out = out.item()
-            
+
         # rescale to Struphy units
         out /= self.units['B'] * self.units['x']**2
 
@@ -1768,7 +1756,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         elif dR == 0 and dZ == 1:
             out = self.g_psi(self.psi(R, Z, dR=0, dZ=0), der=1) * \
                 self.psi(R, Z, dR=0, dZ=1)
-                
+
         # rescale to Struphy units
         out /= self.units['B'] * self.units['x']
 
@@ -1782,7 +1770,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         Z = 1*z
 
         out = self.p_psi(self.psi(R, Z))
-        
+
         # rescale to Struphy units
         out /= 1.25663706212e-6 * self.units['p']
 
@@ -1802,26 +1790,26 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 
 class GVECequilibrium(LogicalMHDequilibrium):
     """
-    Interface to `gvec_to_python <https://gitlab.mpcdf.mpg.de/spossann/gvec_to_python>`_.
+    Numerical equilibrium via an interface to `gvec_to_python <https://gitlab.mpcdf.mpg.de/spossann/gvec_to_python>`_.
 
     Parameters
     ----------
-    **params
-        Keyword arguments that characterize the MHD equilibrium.
-            * rel_path : bool
-                Whether dat_file (json_file) are relative to "<struphy_path>/fields_background/mhd_equil/gvec", or are absolute paths (default: True).
-            * dat_file : str
-                Path to .dat file (default: "/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat").    
-            * json_file : str
-                Path to .json file (default: None).
-            * use_pest : bool
-                Whether to use straigh-field line coordinates (PEST) (default: False).
-            * use_nfp : bool
-                Whether the field periods of the stellarator should be used in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake) (default: True).
-            * Nel : tuple[int]
-                Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).   
-            * p : tuple[int]
-                Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
+    rel_path : bool
+        Whether dat_file (json_file) are relative to "<struphy_path>/fields_background/mhd_equil/gvec", or are absolute paths (default: True).
+    dat_file : str
+        Path to .dat file (default: "/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat").    
+    json_file : str
+        Path to .json file (default: None).
+    use_pest : bool
+        Whether to use straigh-field line coordinates (PEST) (default: False).
+    use_nfp : bool
+        Whether the field periods of the stellarator should be used in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake) (default: True).
+    rmin : float
+        Between [0, 1), radius (in logical space) of the domian hole around the magnetic axis (default: rmin=0.0).
+    Nel : tuple[int]
+        Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).   
+    p : tuple[int]
+        Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
 
     Note
     ----
@@ -1835,14 +1823,14 @@ class GVECequilibrium(LogicalMHDequilibrium):
                 json_file : null # give directly the parsed json file, if it exists (then dat_file is not used)
                 use_pest : False # whether to use straight-field line coordinates (PEST)
                 use_nfp : True # whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
+                rmin : 0.0 # radius of domain hole around magnetic axis.
                 Nel : [32, 32, 32] # number of cells in each direction used for interpolation of the mapping.
                 p : [3, 3, 3] # spline degree in each direction used for interpolation of the mapping.
     """
 
     def __init__(self, show=False, **params):
 
-        from struphy.geometry.base import interp_mapping
-        from struphy.geometry.domains import Spline
+        from struphy.geometry.domains import GVECunit
 
         from gvec_to_python.reader.gvec_reader import create_GVEC_json
         from gvec_to_python import GVEC
@@ -1854,6 +1842,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
                           'json_file': None,
                           'use_pest': False,
                           'use_nfp': True,
+                          'rmin': 0.0,
                           'Nel': (16, 16, 16),
                           'p': (3, 3, 3), }
 
@@ -1890,27 +1879,15 @@ class GVECequilibrium(LogicalMHDequilibrium):
 
         if self._params['use_nfp']:
             unit_tor_domain = "one-fp"
-            spl_kind = (False, True, False)
         else:
             unit_tor_domain = "full"
-            spl_kind = (False, True, True)
 
         # gvec object
         self._gvec = GVEC(json_file, mapping=mapping,
                           unit_tor_domain=unit_tor_domain, use_pyccel=True)
 
-        # project mapping to splines
-        def X(e1, e2, e3): return self.gvec.f(e1, e2, e3)[0]
-        def Y(e1, e2, e3): return self.gvec.f(e1, e2, e3)[1]
-        def Z(e1, e2, e3): return self.gvec.f(e1, e2, e3)[2]
-
-        cx, cy, cz = interp_mapping(
-            self._params['Nel'], self._params['p'], spl_kind, X, Y, Z)
-
         # struphy domain object
-        params_map = {'cx': cx, 'cy': cy, 'cz': cz,
-                      'Nel': self._params['Nel'], 'p': self._params['p'], 'spl_kind': spl_kind}
-        self._domain = Spline(**params_map)
+        self._domain = GVECunit(self)
 
     @property
     def domain(self):

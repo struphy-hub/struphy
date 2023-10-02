@@ -25,3 +25,4 @@ All data generated in this way is stored in the Struphy installation path (obtai
    ../tutorials/tutorial_03_plot_poloidal_planes
    ../tutorials/tutorial_04_power_spectrum
    ../tutorials/tutorial_05_orbits_tokamak
+   ../tutorials/tutorial_06_mapped_domains

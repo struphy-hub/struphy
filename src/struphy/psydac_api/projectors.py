@@ -1,4 +1,3 @@
-from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.block import BlockLinearOperator
 from psydac.linalg.kron import KroneckerStencilMatrix
 from psydac.linalg.basic import Vector

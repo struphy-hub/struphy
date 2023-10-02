@@ -71,7 +71,7 @@ class MHDequilibrium(metaclass=ABCMeta):
         """ 1-form components of equilibrium vector potential on logical cube [0, 1]^3.
         """
         avail_list = ['HomogenSlab']
-        assert self.__class__.__name__ in avail_list, f'Vector potential currently available only for {avail_list}, but mhd_equil is "{self.mhd_equil.__class__.__name__}".'
+        assert self.__class__.__name__ in avail_list, f'Vector potential currently available only for {avail_list}, but mhd_equil is "{self.__class__.__name__}".'
         
         return self.domain.transform(self.a2(*etas, squeeze_out=False), *etas, kind='2_to_1', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
@@ -79,7 +79,7 @@ class MHDequilibrium(metaclass=ABCMeta):
         """ 2-form components of equilibrium vector potential on logical cube [0, 1]^3.
         """
         avail_list = ['HomogenSlab']
-        assert self.__class__.__name__ in avail_list, f'Vector potential currently available only for {avail_list}, but mhd_equil is "{self.mhd_equil.__class__.__name__}".'
+        assert self.__class__.__name__ in avail_list, f'Vector potential currently available only for {avail_list}, but mhd_equil is "{self.__class__.__name__}".'
         
         xyz = self.domain(*etas, squeeze_out=False)
         return self.domain.pull(self.a_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='2_form', squeeze_out=squeeze_out)
@@ -88,7 +88,7 @@ class MHDequilibrium(metaclass=ABCMeta):
         """ Contra-variant components of equilibrium vector potneital on logical cube [0, 1]^3.
         """
         avail_list = ['HomogenSlab']
-        assert self.__class__.__name__ in avail_list, f'Vector potential currently available only for {avail_list}, but mhd_equil is "{self.mhd_equil.__class__.__name__}".'
+        assert self.__class__.__name__ in avail_list, f'Vector potential currently available only for {avail_list}, but mhd_equil is "{self.__class__.__name__}".'
         
         return self.domain.transform(self.a2(*etas, squeeze_out=False), *etas, kind='2_to_v', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
     
@@ -490,13 +490,16 @@ class LogicalMHDequilibrium(MHDequilibrium):
 
 
 class AxisymmMHDequilibrium(CartesianMHDequilibrium):
-    """
-    Base class for ideal axisymmetric MHD equilibria based on a poloidal flux function psi = psi(R, Z) and a toroidal field function g_tor = g_tor(R, Z) in a cylindrical coordinate system (R, phi, Z).
+    r"""
+    Base class for ideal axisymmetric MHD equilibria based on a poloidal flux function 
+    :math:`\psi(R, Z)` and a toroidal field function :math:`g_{tor}(R, Z)` 
+    in a cylindrical coordinate system :math:`(R, \phi, Z)`.
     
     The magnetic field and current density are then given by
         
-        * B = grad(psi) x grad(phi) + g_tor * grad(phi),
-        * j = curl(B).
+    .. math::
+    
+        \mathbf B = \nabla \psi \times \nabla \phi + g_{tor} \nabla \phi\,,\qquad \mathbf j = \nabla \times \mathbf B\,.
         
     The pressure and density profiles need to be implemented by child classes.
     """

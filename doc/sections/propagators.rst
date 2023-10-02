@@ -15,9 +15,11 @@ Documented modules:
     struphy.propagators.propagators_markers
     struphy.propagators.propagators_fields
     struphy.propagators.propagators_coupling
-    struphy.pic.pusher
-    struphy.pic.pusher_kernels
-    struphy.pic.pusher_kernels_gc
+    struphy.pic.pushing.pusher
+    struphy.pic.pushing.pusher_kernels
+    struphy.pic.pushing.pusher_kernels_gc
+    struphy.pic.pushing.pusher_kernels_gc_init
+    struphy.pic.pushing.pusher_kernels_gc_subkernels
 
 .. toctree::
     :caption: Lists of available propagators (and particle pushers therein):
@@ -26,9 +28,11 @@ Documented modules:
     STUBDIR/struphy.propagators.propagators_markers
     STUBDIR/struphy.propagators.propagators_fields
     STUBDIR/struphy.propagators.propagators_coupling
-    STUBDIR/struphy.pic.pusher
-    STUBDIR/struphy.pic.pusher_kernels
-    STUBDIR/struphy.pic.pusher_kernels_gc
+    STUBDIR/struphy.pic.pushing.pusher
+    STUBDIR/struphy.pic.pushing.pusher_kernels
+    STUBDIR/struphy.pic.pushing.pusher_kernels_gc
+    STUBDIR/struphy.pic.pushing.pusher_kernels_gc_init
+    STUBDIR/struphy.pic.pushing.pusher_kernels_gc_subkernels
 
 Notation:
 
@@ -92,7 +96,7 @@ Particle-field propagators
 Pusher base classes
 -------------------
 
-.. automodule:: struphy.pic.pusher
+.. automodule:: struphy.pic.pushing.pusher
     :members:
     :undoc-members:
     :exclude-members: variables
@@ -102,13 +106,29 @@ Pusher base classes
 Pusher kernels
 --------------
 
-.. automodule:: struphy.pic.pusher_kernels
+.. automodule:: struphy.pic.pushing.pusher_kernels
     :members:
     :undoc-members:
     :exclude-members: variables
     :show-inheritance:
 
-.. automodule:: struphy.pic.pusher_kernels_gc
+
+Pusher kernels guiding center
+-----------------------------
+
+.. automodule:: struphy.pic.pushing.pusher_kernels_gc
+    :members:
+    :undoc-members:
+    :exclude-members: variables
+    :show-inheritance:
+
+.. automodule:: struphy.pic.pushing.pusher_kernels_gc_init
+    :members:
+    :undoc-members:
+    :exclude-members: variables
+    :show-inheritance:
+
+.. automodule:: struphy.pic.pushing.pusher_kernels_gc_subkernels
     :members:
     :undoc-members:
     :exclude-members: variables

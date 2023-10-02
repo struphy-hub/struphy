@@ -20,11 +20,11 @@ def a_documentation():
     * starts with ``push_``
     * add a short description of the pusher, e.g. ``push_bxu_H1vec``.
     
-    These kernels are passed to :class:`struphy.pic.pusher.Pusher` and called via::
+    These kernels are passed to :class:`struphy.pic.pushing.pusher.Pusher` and called via::
     
         Pusher()
         
-    The arguments passed to each kernel have a pre-defined order, defined in :class:`struphy.pic.pusher.Pusher`.
+    The arguments passed to each kernel have a pre-defined order, defined in :class:`struphy.pic.pushing.pusher.Pusher`.
     This order is as follows (you can copy and paste from existing pusher_kernels functions):
 
     1. Marker info:
@@ -65,26 +65,28 @@ def a_documentation():
         - ``b2_2: 'float[:,:,:]'``           # spline coefficients of b2_2
         - ``b2_3: 'float[:,:,:]'``           # spline coefficients of b2_3
         - ``f0_params: 'float[:]'``          # parameters of equilibrium background
+        - ``maxiter: int``                   # maximum number of iterations for implicit pusher
+        - ``tol: float``                     # error tolerance for implicit pusher
     '''
 
     print('This is just the docstring function.')
 
 
-def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
-                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                            kind_map: int, params_map: 'float[:]',
-                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                            kappa: float,
-                            b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                            norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                            norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                            curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                            grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                            a: 'float[:]', b: 'float[:]', c: 'float[:]'):
-    r'''Single stage of a s-stage Runge-Kutta solve of 
+def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int,
+                                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                        starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                        kind_map: int, params_map: 'float[:]',
+                                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                                        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                                        kappa: float,
+                                        b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+                                        norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+                                        norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+                                        curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+                                        grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                                        a: 'float[:]', b: 'float[:]', c: 'float[:]'):
+    r'''Single stage of a s-stage explicit solve of 
 
     .. math::
 
@@ -241,7 +243,7 @@ def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
             dt*a[stage]*k + last*markers[ip, 13:16]
 
 
-def push_gc2_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
+def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int, 
                             pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                             starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                             kind_map: int, params_map: 'float[:]',
@@ -393,7 +395,7 @@ def push_gc2_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
             a[stage]*k_v + last*markers[ip, 16]
 
 
-def push_gc_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
+def push_gc_all_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int,
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                            kind_map: int, params_map: 'float[:]',
@@ -573,8 +575,7 @@ def push_gc_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
             a[stage]*k_v + last*markers[ip, 16]
 
 
-def push_gc1_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, tol: float,
-                                domain_array: 'float[:]',
+def push_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: int,
                                 pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                 starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                                 kind_map: int, params_map: 'float[:]',
@@ -587,8 +588,9 @@ def push_gc1_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, to
                                 norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                                 norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
                                 curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]'):
-    r'''Single stage of the fixed-point iteration (:math:`k`-index) for the discrete gradient method
+                                grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                                maxiter: int, tol: float):
+    r'''Single step of the fixed-point iteration (:math:`k`-index) for the discrete gradient method
 
     .. math::
 
@@ -710,8 +712,7 @@ def push_gc1_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, to
         markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 9:12])/2.
 
 
-def push_gc2_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, tol: float,
-                                domain_array: 'float[:]',
+def push_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: int,
                                 pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                 starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                                 kind_map: int, params_map: 'float[:]',
@@ -724,7 +725,8 @@ def push_gc2_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, to
                                 norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                                 norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
                                 curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]'):
+                                grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                                maxiter: int, tol: float):
     r'''Single stage of the fixed-point iteration for the discrete gradient method
 
     .. math::
@@ -832,8 +834,7 @@ def push_gc2_discrete_gradients(markers: 'float[:,:]', dt: float, stage: int, to
         markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 9:13])/2.
 
 
-def push_gc1_discrete_gradients_faster(markers: 'float[:,:]', dt: float, stage: int, tol: float,
-                                       domain_array: 'float[:]',
+def push_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, stage: int,
                                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                        starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                                        kind_map: int, params_map: 'float[:]',
@@ -846,7 +847,8 @@ def push_gc1_discrete_gradients_faster(markers: 'float[:,:]', dt: float, stage: 
                                        norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                                        norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
                                        curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                       grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]'):
+                                       grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                                       maxiter: int, tol: float):
     r'''Single stage of the fixed-point iteration for the discrete gradient method
 
     .. math::
@@ -964,8 +966,7 @@ def push_gc1_discrete_gradients_faster(markers: 'float[:,:]', dt: float, stage: 
         markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 9:12])/2.
 
 
-def push_gc2_discrete_gradients_faster(markers: 'float[:,:]', dt: float, stage: int, tol: float,
-                                       domain_array: 'float[:]',
+def push_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, stage: int,
                                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                        starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                                        kind_map: int, params_map: 'float[:]',
@@ -978,7 +979,8 @@ def push_gc2_discrete_gradients_faster(markers: 'float[:,:]', dt: float, stage: 
                                        norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                                        norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
                                        curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                       grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]'):
+                                       grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                                       maxiter: int, tol: float):
     r'''Single stage of the fixed-point iteration for the discrete gradient method
 
     .. math::
@@ -1087,8 +1089,7 @@ def push_gc2_discrete_gradients_faster(markers: 'float[:,:]', dt: float, stage: 
         markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 9:13])/2.
 
 
-def push_gc1_discrete_gradients_Itoh_Newton(markers: 'float[:,:]', dt: float, stage: int, max_iter: int, tol: float,
-                                            domain_array: 'float[:]',
+def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float, stage: int,
                                             pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                             starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                                             kind_map: int, params_map: 'float[:]',
@@ -1101,7 +1102,8 @@ def push_gc1_discrete_gradients_Itoh_Newton(markers: 'float[:,:]', dt: float, st
                                             norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                                             norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
                                             curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                            grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]'):
+                                            grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                                            maxiter: int, tol: float):
     r'''
     '''
     # allocate spline values
@@ -1241,7 +1243,7 @@ def push_gc1_discrete_gradients_Itoh_Newton(markers: 'float[:,:]', dt: float, st
 
             continue
 
-        if stage == max_iter-1:
+        if stage == maxiter-1:
             markers[ip, 0:3] = markers[ip, 16:19]
 
             continue
@@ -1251,8 +1253,7 @@ def push_gc1_discrete_gradients_Itoh_Newton(markers: 'float[:,:]', dt: float, st
         markers[ip, 2] = e_old[2]
 
 
-def push_gc2_discrete_gradients_Itoh_Newton(markers: 'float[:,:]', dt: float, stage: int, max_iter: int, tol: float,
-                                            domain_array: 'float[:]',
+def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float, stage: int,
                                             pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                             starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                                             kind_map: int, params_map: 'float[:]',
@@ -1265,7 +1266,8 @@ def push_gc2_discrete_gradients_Itoh_Newton(markers: 'float[:,:]', dt: float, st
                                             norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                                             norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
                                             curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                            grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]'):
+                                            grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                                            maxiter: int, tol: float):
     r'''
     '''
     # allocate spline values
@@ -1442,7 +1444,7 @@ def push_gc2_discrete_gradients_Itoh_Newton(markers: 'float[:,:]', dt: float, st
 
             continue
 
-        if stage == max_iter-1:
+        if stage == maxiter-1:
             markers[ip, 0:3] = markers[ip, 16:19]
 
             continue

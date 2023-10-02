@@ -12,7 +12,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig_dir):
     import struphy
 
     libpath = struphy.__path__[0]
-    
+
     with open(os.path.join(libpath, 'o_path.txt')) as f:
         o_path = f.readlines()[0]
 
@@ -118,7 +118,8 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig_dir):
 
         elif any(func in key for func in list_of_funcs) and 'dependencies_' not in key and '_dot' not in key:
 
-            d_saved[key] = {'mpi_size': [], 'Nel': [], 'time': [], 'ncalls':[]}
+            d_saved[key] = {'mpi_size': [],
+                            'Nel': [], 'time': [], 'ncalls': []}
 
             for dict, sim_name, n, dim in zip(dicts, sim_names, nproc, Nel):
 
@@ -163,31 +164,36 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig_dir):
 
             # strong scaling plot
             if np.all([Nel == val['Nel'][0] for Nel in val['Nel']]):
-                
+
                 # ideal scaling
                 if n == 0:
-                    ax.loglog(val['mpi_size'], 1/2 **np.arange(len(val['time'])), 'k--', 
+                    ax.loglog(val['mpi_size'], 1/2 ** np.arange(len(val['time'])), 'k--',
                               alpha=0.3, label='ideal')
 
                 # print average time per one time step
                 if 'integrate' in key:
-                    textstr = '\nAverage time per'+ ' Δt :' + '\n'
+                    textstr = '\nAverage time per' + ' Δt :' + '\n'
 
                     for m in range(len(val['mpi_size'])):
-                        avg_time_dt = round(float(val['time'][m])/float(val['ncalls'][m]), 2)
-                        textstr += 'MPI #' + str(val['mpi_size'][m]) + ' : ' + str(avg_time_dt) + ' s \n'
-                        
-                    ax.text(0.97, 0.91, textstr, fontsize=13, transform = ax.transAxes,
-                    verticalalignment='center', horizontalalignment='right')
+                        avg_time_dt = round(
+                            float(val['time'][m])/float(val['ncalls'][m]), 2)
+                        textstr += 'MPI #' + \
+                            str(val['mpi_size'][m]) + ' : ' + \
+                            str(avg_time_dt) + ' s \n'
+
+                    ax.text(0.97, 0.91, textstr, fontsize=13, transform=ax.transAxes,
+                            verticalalignment='center', horizontalalignment='right')
 
                     continue
 
-                ax.loglog(val['mpi_size'], relative_times, 'o' '-', label=key+', '+''.join(ratio[0]))
+                ax.loglog(val['mpi_size'], relative_times,
+                          'o' '-', label=key+', '+''.join(ratio[0]))
                 # plt.loglog(val['mpi_size'], val['time'], label=key)
                 ax.set_xlabel('MPI #', fontsize=13)
-                ax.set_ylabel('Relative time [Total time with MPI #' + str(val['mpi_size'][0]) + ']', fontsize=13)
+                ax.set_ylabel(
+                    'Relative time [Total time with MPI #' + str(val['mpi_size'][0]) + ']', fontsize=13)
                 ax.set(title='Strong scaling for Nel=' +
-                          str(val['Nel'][0]) + ' cells')
+                       str(val['Nel'][0]) + ' cells')
                 ax.legend(loc='lower left')
 
             # weak scaling plot
@@ -196,7 +202,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig_dir):
                 ax.set_xlabel('mpi_size')
                 ax.set_ylabel('time [s]')
                 ax.set(title='Weak scaling for cells/mpi_size=' +
-                          str(np.prod(val['Nel'][0])/val['mpi_size'][0]) + '=const.')
+                       str(np.prod(val['Nel'][0])/val['mpi_size'][0]) + '=const.')
                 ax.legend(loc='upper left')
                 # ax.loglog(val['mpi_size'], val['time'][0]*np.ones_like(val['time']), 'k--', alpha=0.3)
                 ax.set_xscale('log')

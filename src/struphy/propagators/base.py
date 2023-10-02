@@ -67,6 +67,12 @@ class Propagator(metaclass=ABCMeta):
         """
         pass
 
+    @classmethod
+    @abstractmethod             
+    def options(cls):
+        '''Dictionary of available propagator options, as appearing under species/options in the parameter file.'''
+        pass
+
     @property
     def derham(self):
         """ Derham spaces and projectors.

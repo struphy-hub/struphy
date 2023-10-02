@@ -43,11 +43,8 @@ def test_solvers(Nel, p, spl_kind, geom, verbose=False):
     # parameter file
     libpath = struphy.__path__[0]
     
-    with open(os.path.join(libpath, 'io/inp/tests/params_mhd_' + geom + '.yml')) as file:
-        params_mhd = yaml.load(file, Loader=yaml.FullLoader)
-        
-    with open(os.path.join(libpath, 'io/inp/tests/params_maxwell_' + geom + '.yml')) as file:
-        params_maxwell = yaml.load(file, Loader=yaml.FullLoader)
+    params_maxwell = Maxwell.generate_default_parameter_file(save=False)
+    params_mhd = LinearMHD.generate_default_parameter_file(save=False)
 
     if rank == 0:
         print('\nGRID:')
@@ -68,7 +65,7 @@ def test_solvers(Nel, p, spl_kind, geom, verbose=False):
     div = linmhd.derham.div
     
     # solver parameters
-    sol_dict = {'x0': None, 'tol': 1e-8, 'maxiter': 5000, 'verbose': verbose}
+    sol_dict = {'x0': None, 'tol': 1e-5, 'maxiter': 10000, 'verbose': verbose}
 
     # ============ Mass matrix inversion ==============
     for space in ['0', '1', '2', '3']:
@@ -146,5 +143,5 @@ def test_solvers(Nel, p, spl_kind, geom, verbose=False):
 
 if __name__ == '__main__':
     
-    test_solvers([8, 6, 4], [3, 2, 1], [False, True, True], 'cuboid', verbose=False)
-    test_solvers([8, 6, 4], [3, 2, 1], [False, True, True], 'tokamak', verbose=False)
+    test_solvers([8, 6, 4], [3, 2, 1], [False, True, True], 'cuboid', verbose=True)
+    test_solvers([8, 6, 4], [3, 2, 1], [False, True, True], 'tokamak', verbose=True)
