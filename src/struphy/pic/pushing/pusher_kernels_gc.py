@@ -635,7 +635,7 @@ def push_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: i
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 21] == -1.:
+        if markers[ip, 9] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
@@ -644,8 +644,8 @@ def push_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: i
         mu = markers[ip, 4]
 
         if abs(e_diff[0]/e[0]) < tol and abs(e_diff[1]/e[1]) < tol and abs(e_diff[2]/e[2]) < tol:
-            markers[ip, 21] = -1.
-            markers[ip, 20] = stage
+            markers[ip, 9] = -1.
+            markers[ip, 10] = stage
 
             continue
 
@@ -704,8 +704,8 @@ def push_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: i
                     (e_diff[2]/e[2])**2)
 
         if diff < tol:
-            markers[ip, 21] = -1.
-            markers[ip, 20] = stage
+            markers[ip, 9] = -1.
+            markers[ip, 10] = stage
 
             continue
 
@@ -760,7 +760,7 @@ def push_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: int
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 21] == -1.:
+        if markers[ip, 9] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
@@ -827,8 +827,8 @@ def push_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: int
                     2 + (e_diff[2]/e[2])**2 + (v - markers[ip, 3])**2)
 
         if diff < tol:
-            markers[ip, 21] = -1.
-            markers[ip, 20] = stage
+            markers[ip, 9] = -1.
+            markers[ip, 10] = stage
             continue
 
         markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 9:13])/2.
@@ -890,7 +890,7 @@ def push_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, s
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 21] == -1.:
+        if markers[ip, 9] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
@@ -898,8 +898,8 @@ def push_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, s
         mu = markers[ip, 4]
 
         if abs(e_diff[0]/e[0]) < tol and abs(e_diff[1]/e[1]) < tol and abs(e_diff[2]/e[2]) < tol:
-            markers[ip, 21] = -1.
-            markers[ip, 20] = stage
+            markers[ip, 9] = -1.
+            markers[ip, 10] = stage
 
             continue
 
@@ -958,8 +958,8 @@ def push_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, s
                     ** 2 + (e_diff[2]/e[2])**2)
 
         if diff < tol:
-            markers[ip, 21] = -1.
-            markers[ip, 20] = stage
+            markers[ip, 9] = -1.
+            markers[ip, 10] = stage
 
             continue
 
@@ -1015,7 +1015,7 @@ def push_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, sta
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 21] == -1.:
+        if markers[ip, 9] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
@@ -1082,8 +1082,8 @@ def push_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, sta
                     2 + (e_diff[2]/e[2])**2 + (v - markers[ip, 3])**2)
 
         if diff < tol:
-            markers[ip, 21] = -1.
-            markers[ip, 20] = stage
+            markers[ip, 9] = -1.
+            markers[ip, 10] = stage
             continue
 
         markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 9:13])/2.
@@ -1122,9 +1122,9 @@ def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
     S = zeros((3, 3), dtype=float)
     grad_abs_b = empty(3, dtype=float)
     grad_I = empty(3, dtype=float)
-    Jacobian_grad_I = empty((3, 3), dtype=float)
-    Jacobian = empty((3, 3), dtype=float)
-    Jacobian_inv = empty((3, 3), dtype=float)
+    Jacobian_grad_I = zeros((3, 3), dtype=float)
+    Jacobian = zeros((3, 3), dtype=float)
+    Jacobian_inv = zeros((3, 3), dtype=float)
 
     # marker position e
     e = empty(3, dtype=float)
@@ -1140,7 +1140,7 @@ def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 23] == -1.:
+        if markers[ip, 9] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
@@ -1149,9 +1149,9 @@ def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
 
         e_diff[:] = e[:] - e_old[:]
 
-        if e_diff[0] == 0. and e_diff[1] == 0. and e_diff[2] == 0:
-            markers[ip, 23] = -1.
-            markers[ip, 14] = stage
+        if abs(e_diff[0]/e[0]) < tol and abs(e_diff[1]/e[1]) < tol and abs(e_diff[2]/e[2]) < tol:
+            markers[ip, 9] = -1.
+            markers[ip, 10] = stage
 
             continue
 
@@ -1198,8 +1198,8 @@ def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
 
         # assemble gradI
         grad_I[0] = mu*(markers[ip, 20] - markers[ip, 19])/(e_diff[0])
-        grad_I[1] = mu*(markers[ip, 22] - markers[ip, 20])/(e_diff[1])
-        grad_I[2] = mu*(abs_b0 - markers[ip, 22])/(e_diff[2])
+        grad_I[1] = mu*(markers[ip, 16] - markers[ip, 20])/(e_diff[1])
+        grad_I[2] = mu*(abs_b0 - markers[ip, 16])/(e_diff[2])
 
         # calculate F = eta - eta_old + dt*S*grad_I
         linalg.matrix_vector(S, grad_I, F)
@@ -1210,18 +1210,18 @@ def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
         Jacobian_grad_I[0, 0] = mu*(markers[ip, 21]*(e_diff[0]) -
                                     markers[ip, 20] + markers[ip, 19])/(e_diff[0])**2
         Jacobian_grad_I[1, 0] = mu * \
-            (markers[ip, 23] - markers[ip, 21])/(e_diff[1])
+            (markers[ip, 17] - markers[ip, 21])/(e_diff[1])
         Jacobian_grad_I[2, 0] = mu * \
-            (grad_abs_b[0] - markers[ip, 23])/(e_diff[2])
+            (grad_abs_b[0] - markers[ip, 17])/(e_diff[2])
         Jacobian_grad_I[0, 1] = 0.
-        Jacobian_grad_I[1, 1] = mu*(markers[ip, 24]*(e_diff[1]) -
-                                    markers[ip, 22] + markers[ip, 20])/(e_diff[1])**2
+        Jacobian_grad_I[1, 1] = mu*(markers[ip, 18]*(e_diff[1]) -
+                                    markers[ip, 16] + markers[ip, 20])/(e_diff[1])**2
         Jacobian_grad_I[2, 1] = mu * \
-            (grad_abs_b[1] - markers[ip, 24])/(e_diff[2])
+            (grad_abs_b[1] - markers[ip, 18])/(e_diff[2])
         Jacobian_grad_I[0, 2] = 0.
         Jacobian_grad_I[1, 2] = 0.
         Jacobian_grad_I[2, 2] = mu*(grad_abs_b[2]*(e_diff[2]) -
-                                    abs_b0 + markers[ip, 22])/(e_diff[2])**2
+                                    abs_b0 + markers[ip, 16])/(e_diff[2])**2
 
         # assemble Jacobian and its inverse
         linalg.matrix_matrix(S, Jacobian_grad_I, Jacobian)
@@ -1237,8 +1237,8 @@ def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
         diff = sqrt((temp[0]/e[0])**2 + (temp[1]/e[1])**2 + (temp[2]/e[2])**2)
 
         if diff < tol:
-            markers[ip, 23] = -1.
-            markers[ip, 14] = stage
+            markers[ip, 9] = -1.
+            markers[ip, 10] = stage
             markers[ip, 0:3] = markers[ip, 16:19]
 
             continue
@@ -1287,10 +1287,10 @@ def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
     grad_abs_b = empty(3, dtype=float)
     grad_I = empty(4, dtype=float)
     Jacobian_grad_I = zeros((4, 4), dtype=float)
-    Jacobian = empty((4, 4), dtype=float)
-    Jacobian_inv = empty((4, 4), dtype=float)
-    Jacobian_temp34 = empty((3, 4), dtype=float)
-    Jacobian_temp33 = empty((3, 3), dtype=float)
+    Jacobian = zeros((4, 4), dtype=float)
+    Jacobian_inv = zeros((4, 4), dtype=float)
+    Jacobian_temp34 = zeros((3, 4), dtype=float)
+    Jacobian_temp33 = zeros((3, 3), dtype=float)
 
     # marker position e
     e = empty(3, dtype=float)
@@ -1306,7 +1306,7 @@ def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 23] == -1.:
+        if markers[ip, 9] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
@@ -1361,28 +1361,28 @@ def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
             grad_I[0] == 0.
         else:
             grad_I[0] = mu*(markers[ip, 20] - markers[ip, 19])/(e_diff[0])
-            Jacobian_grad_I[0, 0] = mu*(markers[ip, 21]*(e_diff[0]) -
-                                        markers[ip, 20] + markers[ip, 19])/(e_diff[0])**2
+            Jacobian_grad_I[0, 0] = mu * \
+                (markers[ip, 21]*(e_diff[0]) - markers[ip, 20] + markers[ip, 19])/(e_diff[0])**2
 
         if e_diff[1] == 0.:
             grad_I[1] == 0.
         else:
-            grad_I[1] = mu*(markers[ip, 22] - markers[ip, 20])/(e_diff[1])
+            grad_I[1] = mu*(markers[ip, 16] - markers[ip, 20])/(e_diff[1])
             Jacobian_grad_I[1, 0] = mu * \
-                (markers[ip, 20] - markers[ip, 21])/(e_diff[1])
-            Jacobian_grad_I[1, 1] = mu*(markers[ip, 21]*(e_diff[1]) -
-                                        markers[ip, 22] + markers[ip, 20])/(e_diff[1])**2
+                (markers[ip, 17] - markers[ip, 21])/(e_diff[1])
+            Jacobian_grad_I[1, 1] = mu * \
+                (markers[ip, 18]*(e_diff[1]) - markers[ip, 16] + markers[ip, 20])/(e_diff[1])**2
 
         if e_diff[2] == 0.:
             grad_I[2] == 0.
         else:
-            grad_I[2] = mu*(abs_b0 - markers[ip, 22])/(e_diff[2])
+            grad_I[2] = mu*(abs_b0 - markers[ip, 16])/(e_diff[2])
             Jacobian_grad_I[2, 0] = mu * \
-                (grad_abs_b[0] - markers[ip, 20])/(e_diff[2])
+                (grad_abs_b[0] - markers[ip, 17])/(e_diff[2])
             Jacobian_grad_I[2, 1] = mu * \
-                (grad_abs_b[1] - markers[ip, 21])/(e_diff[2])
-            Jacobian_grad_I[2, 2] = mu*(grad_abs_b[2]*(e_diff[2]) -
-                                        abs_b0 + markers[ip, 22])/(e_diff[2])**2
+                (grad_abs_b[1] - markers[ip, 18])/(e_diff[2])
+            Jacobian_grad_I[2, 2] = mu * \
+                (grad_abs_b[2]*(e_diff[2]) - abs_b0 + markers[ip, 16])/(e_diff[2])**2
 
         grad_I[3] = v_mid
         Jacobian_grad_I[3, 3] = 0.5
@@ -1438,8 +1438,8 @@ def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
                     (temp[2]/e[2])**2 + (temp[3])**2)
 
         if diff < tol:
-            markers[ip, 23] = -1.
-            markers[ip, 14] = stage
+            markers[ip, 9] = -1.
+            markers[ip, 10] = stage
             markers[ip, 0:3] = markers[ip, 16:19]
 
             continue

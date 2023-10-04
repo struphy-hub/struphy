@@ -732,7 +732,8 @@ class Particles(metaclass=ABCMeta):
 
         self.markers[transfer_inds, 0] = 0.
         self.markers[transfer_inds, 1] = 1. - self.markers[transfer_inds, 1]
-        self.markers[transfer_inds, 21] = -1. 
+        self.markers[transfer_inds, 9] = -1.
+        self.markers[transfer_inds,10] = 0 
 
         is_outside_cube[transfer_inds] = False
         outside_inds = np.nonzero(is_outside_cube)[0]
