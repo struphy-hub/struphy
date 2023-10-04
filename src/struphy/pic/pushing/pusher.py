@@ -6,7 +6,7 @@ from struphy.pic.pushing import pusher_kernels_gc
 from struphy.pic.pushing import eval_kernels_gc
 
 import numpy as np
-
+from mpi4py.MPI import SUM, IN_PLACE
 
 class Pusher:
     """
@@ -49,6 +49,8 @@ class Pusher:
         self._n_stages = n_stages
         self._maxiter = maxiter
         self._tol = tol
+        self._mpi_sum = SUM
+        self._mpi_in_place = IN_PLACE
 
         # get FEM information
         self._args_fem = (np.array(derham.p),
@@ -128,13 +130,8 @@ class Pusher:
         """
         
         # save initial phase space coordinates
-        # TODO: use vdim instead of 9:12, remove if-clause
         particles.markers[~particles.holes,
                           9:12] = particles.markers[~particles.holes, 0:3]
-
-        if particles.kinds == 'Particles5D':
-            particles.markers[~particles.holes,
-                              12] = particles.markers[~particles.holes, 3]
 
         # prepare the iteration:
         if self.init_kernel is not None:
@@ -146,9 +143,11 @@ class Pusher:
         for stage in range(self.n_stages):
 
             # start iteration (maxiter=1 for explicit schemes)
-            n_not_converged = 99
+            n_not_converged = np.empty(1, dtype=int)
+            n_not_converged[0] = particles.n_mks
             k = 0
-            while n_not_converged > 0:
+            
+            while n_not_converged[0] > 0:
                 k += 1
 
                 # do evaluations if eval_kernels is not empty
@@ -167,35 +166,29 @@ class Pusher:
                 else:
                     particles.apply_kinetic_bc()
 
-                # TODO: compute n_not_converged
+                # compute number of non coverged particles
+                not_converged_loc = np.logical_not(particles.markers[:, 9] == -1.)
+                n_not_converged[0] = np.count_nonzero(not_converged_loc)
+
+                self.derham.comm.Allreduce(
+                    self._mpi_in_place, n_not_converged, op=self._mpi_sum)
+
                 if k == self.maxiter:
                     if verbose:
                         print(
                             f'maxiter={self.maxiter} reached for kernel "{self.kernel_name}" !')
                     break
 
-                # TODO: remove this safety staop
-                if k == 10000:
-                    print('Safety stop of iteration after 10000 steps.')
-                    break
-
             # print stage info
-            if self._derham.comm.Get_rank() == 0 and verbose:
+            if self.derham.comm.Get_rank() == 0 and verbose:
                 print(self.kernel_name, ' done. (stage: ', stage + 1, ')')
 
         # sort markers according to domain decomposition
         if mpi_sort == 'last':
             particles.mpi_sort_markers(do_test=True)
 
-        # clear buffer columns 9-14 for multi-stage pushers
-        # TODO: get rid of the if statements
-        particles.markers[~particles.holes, 9:15] = 0.
-
-        if 'discrete_gradient' in self.kernel_name:
-            particles.markers[~particles.holes, 9:22] = 0.
-
-        if 'itoh' in self.kernel_name:
-            particles.markers[~particles.holes, 9:25] = 0.
+        # clear buffer columns
+        particles.markers[~particles.holes, 9:-1] = 0.
 
     @property
     def derham(self):

@@ -48,12 +48,12 @@ def init_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float,
     # containers
     b = empty(3, dtype=float)
     curl_norm_b = empty(3, dtype=float)
-    S = empty((3, 3), dtype=float)
+    S = zeros((3, 3), dtype=float)
     temp = empty(3, dtype=float)
     bcross = zeros((3, 3), dtype=float)
-    temp1 = empty((3, 3), dtype=float)
+    temp1 = zeros((3, 3), dtype=float)
     norm_b2 = empty(3, dtype=float)
-    temp2 = empty((3, 3), dtype=float)
+    temp2 = zeros((3, 3), dtype=float)
     b_star = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
     grad_abs_b = empty(3, dtype=float)
@@ -103,6 +103,9 @@ def init_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float,
         # abs_b; 0form
         abs_b0 = eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts0)
+
+        # save for later steps
+        markers[ip, 19] = abs_b0*mu
 
         # norm_b1; 1form
         norm_b1[0] = eval_spline_mpi_kernel(
@@ -166,11 +169,6 @@ def init_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float,
         # calculate S
         S[:, :] = (1/kappa*temp2)/abs_b_star_para
 
-        # save at the markers
-        markers[ip, 13:15] = S[0, 1:3]
-        markers[ip, 15] = S[1, 2]
-        markers[ip, 19] = abs_b0*mu
-
         # calculate S1 * grad I1
         linalg.matrix_vector(S, grad_abs_b, temp)
 
@@ -231,6 +229,9 @@ def init_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float,
         if markers[ip, 0] == -1.:
             continue
 
+        # save initial parallel velocity
+        markers[ip, 12] = markers[ip, 3]
+
         e[:] = markers[ip, 0:3]
         v = markers[ip, 3]
         mu = markers[ip, 4]
@@ -259,6 +260,9 @@ def init_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float,
         # abs_b; 0form
         abs_b0 = eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts0)
+
+        # save for later steps
+        markers[ip, 16] = mu*abs_b0
 
         # norm_b1; 1form
         norm_b1[0] = eval_spline_mpi_kernel(
@@ -298,10 +302,6 @@ def init_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float,
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
-
-        # save at the markers
-        markers[ip, 13:16] = b_star[:]/abs_b_star_para
-        markers[ip, 16] = mu*abs_b0
 
         # calculate b_star . grad_abs_b
         b_star_dot_grad_abs_b = linalg.scalar_dot(b_star, grad_abs_b)*mu
@@ -352,12 +352,12 @@ def init_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
     # containers
     b = empty(3, dtype=float)
     curl_norm_b = empty(3, dtype=float)
-    S = empty((3, 3), dtype=float)
+    S = zeros((3, 3), dtype=float)
     temp = empty(3, dtype=float)
     bcross = zeros((3, 3), dtype=float)
-    temp1 = empty((3, 3), dtype=float)
+    temp1 = zeros((3, 3), dtype=float)
     norm_b2 = empty(3, dtype=float)
-    temp2 = empty((3, 3), dtype=float)
+    temp2 = zeros((3, 3), dtype=float)
     b_star = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
     grad_abs_b = empty(3, dtype=float)
@@ -536,6 +536,9 @@ def init_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
         if markers[ip, 0] == -1.:
             continue
 
+        # save initial parallel velocity
+        markers[ip, 12] = markers[ip, 3]
+
         e[:] = markers[ip, 0:3]
         v = markers[ip, 3]
         mu = markers[ip, 4]
@@ -660,9 +663,9 @@ def init_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
     S = zeros((3, 3), dtype=float)
     temp = empty(3, dtype=float)
     bcross = zeros((3, 3), dtype=float)
-    temp1 = empty((3, 3), dtype=float)
+    temp1 = zeros((3, 3), dtype=float)
     norm_b2 = empty(3, dtype=float)
-    temp2 = empty((3, 3), dtype=float)
+    temp2 = zeros((3, 3), dtype=float)
     b_star = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
     grad_abs_b = empty(3, dtype=float)
@@ -786,7 +789,7 @@ def init_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
         # save at the markers
         markers[ip, 16:19] = markers[ip, 0:3] + dt*temp[:]*mu
 
-        # send particles to the (eta^0_n+1,eta_n, eta_n)
+        # send particles to the (eta^0_n+1, eta_n, eta_n)
         markers[ip, 0] = markers[ip, 16]
       
   
@@ -839,6 +842,9 @@ def init_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
             continue
+
+        # save initial parallel velocity
+        markers[ip, 12] = markers[ip, 3]
 
         e[:] = markers[ip, 0:3]
         v = markers[ip, 3]
@@ -925,148 +931,6 @@ def init_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
   
         
 @stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e_mid')
-def gc_bxEstar_discrete_gradient_faster_eval_gradI(markers: 'float[:,:]', dt: float,
-                                                  pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                                  starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                                                  kind_map: int, params_map: 'float[:]',
-                                                  p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                                  ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                                  cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                  kappa: float,
-                                                  abs_b: 'float[:,:,:]',
-                                                  b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                                  norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                                  norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                                  curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                                  grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                                  maxiter: int, tol: float):
-    r"""TODO
-
-    """
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # containers
-    grad_abs_b = empty(3, dtype=float)
-
-    # marker position e
-    e_mid = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        if markers[ip, 21] == -1.:
-            continue
-
-        e_mid[:] = markers[ip, 0:3]
-        markers[ip, 0:3] = markers[ip, 16:19]
-        mu = markers[ip, 4]
-
-        # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], e_mid[0])
-        span2 = bsp.find_span(tn2, pn[1], e_mid[1])
-        span3 = bsp.find_span(tn3, pn[2], e_mid[2])
-
-        bsp.b_d_splines_slim(tn1, pn[0], e_mid[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], e_mid[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], e_mid[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # grad_abs_b; 1form
-        grad_abs_b[0] = eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
-        grad_abs_b[1] = eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
-        grad_abs_b[2] = eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
-
-        markers[ip, 16:19] = mu*grad_abs_b[:]
-
-
-@stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e_mid')
-def gc_Bstar_discrete_gradient_faster_eval_gradI(markers: 'float[:,:]', dt: float,
-                                                  pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                                  starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                                                  kind_map: int, params_map: 'float[:]',
-                                                  p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                                  ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                                  cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                  kappa: float,
-                                                  abs_b: 'float[:,:,:]',
-                                                  b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                                  norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                                  norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                                  curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                                  grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                                  maxiter: int, tol: float):
-    r"""TODO
-
-    """
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # containers
-    grad_abs_b = empty(3, dtype=float)
-
-    # marker position e
-    e_mid = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        if markers[ip, 21] == -1.:
-            continue
-
-        e_mid[:] = markers[ip, 0:3]
-        markers[ip, 0:4] = markers[ip, 17:21]
-        mu = markers[ip, 4]
-
-        # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], e_mid[0])
-        span2 = bsp.find_span(tn2, pn[1], e_mid[1])
-        span3 = bsp.find_span(tn3, pn[2], e_mid[2])
-
-        bsp.b_d_splines_slim(tn1, pn[0], e_mid[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], e_mid[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], e_mid[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # grad_abs_b; 1form
-        grad_abs_b[0] = eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
-        grad_abs_b[1] = eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
-        grad_abs_b[2] = eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
-
-        markers[ip, 17:20] = mu*grad_abs_b[:]
-
-
-@stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e_mid')
 def gc_bxEstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
                                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1101,10 +965,10 @@ def gc_bxEstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
     bd3 = empty(pn[2], dtype=float)
 
     # containers
-    S = empty((3, 3), dtype=float)
+    S = zeros((3, 3), dtype=float)
     bcross = zeros((3, 3), dtype=float)
-    temp1 = empty((3, 3), dtype=float)
-    temp2 = empty((3, 3), dtype=float)
+    temp1 = zeros((3, 3), dtype=float)
+    temp2 = zeros((3, 3), dtype=float)
     grad_abs_b = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
     norm_b2 = empty(3, dtype=float)
@@ -1124,11 +988,11 @@ def gc_bxEstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 21] == -1.:
+        if markers[ip, 9] == -1.:
             continue
 
         e_mid[:] = markers[ip, 0:3]
-        v_mid = markers[ip, 3]
+        v = markers[ip, 3]
         markers[ip, 0:3] = markers[ip, 16:19]
         mu = markers[ip, 4]
 
@@ -1199,7 +1063,7 @@ def gc_bxEstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
-        b_star[:] = b + 1/kappa*v_mid*curl_norm_b
+        b_star[:] = b + 1/kappa*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -1277,7 +1141,7 @@ def gc_Bstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 21] == -1.:
+        if markers[ip, 9] == -1.:
             continue
 
         e_mid[:] = markers[ip, 0:3]
@@ -1350,6 +1214,148 @@ def gc_Bstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
         markers[ip, 17:20] = mu*grad_abs_b[:]
 
 
+@stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e_mid')
+def gc_bxEstar_discrete_gradient_faster_eval_gradI(markers: 'float[:,:]', dt: float,
+                                                  pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                                  starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                                  kind_map: int, params_map: 'float[:]',
+                                                  p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                                                  ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                                                  cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                                                  kappa: float,
+                                                  abs_b: 'float[:,:,:]',
+                                                  b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+                                                  norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+                                                  norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+                                                  curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+                                                  grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                                                  maxiter: int, tol: float):
+    r"""TODO
+
+    """
+    # allocate spline values
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    # containers
+    grad_abs_b = empty(3, dtype=float)
+
+    # marker position e
+    e_mid = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        if markers[ip, 9] == -1.:
+            continue
+
+        e_mid[:] = markers[ip, 0:3]
+        markers[ip, 0:3] = markers[ip, 16:19]
+        mu = markers[ip, 4]
+
+        # spline evaluation
+        span1 = bsp.find_span(tn1, pn[0], e_mid[0])
+        span2 = bsp.find_span(tn2, pn[1], e_mid[1])
+        span3 = bsp.find_span(tn3, pn[2], e_mid[2])
+
+        bsp.b_d_splines_slim(tn1, pn[0], e_mid[0], span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], e_mid[1], span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], e_mid[2], span3, bn3, bd3)
+
+        # eval all the needed field
+        # grad_abs_b; 1form
+        grad_abs_b[0] = eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
+        grad_abs_b[1] = eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
+        grad_abs_b[2] = eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
+
+        markers[ip, 16:19] = mu*grad_abs_b[:]
+
+
+@stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e_mid')
+def gc_Bstar_discrete_gradient_faster_eval_gradI(markers: 'float[:,:]', dt: float,
+                                                  pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                                  starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                                  kind_map: int, params_map: 'float[:]',
+                                                  p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                                                  ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                                                  cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                                                  kappa: float,
+                                                  abs_b: 'float[:,:,:]',
+                                                  b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+                                                  norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+                                                  norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+                                                  curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+                                                  grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                                                  maxiter: int, tol: float):
+    r"""TODO
+
+    """
+    # allocate spline values
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    # containers
+    grad_abs_b = empty(3, dtype=float)
+
+    # marker position e
+    e_mid = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        if markers[ip, 9] == -1.:
+            continue
+
+        e_mid[:] = markers[ip, 0:3]
+        markers[ip, 0:4] = markers[ip, 17:21]
+        mu = markers[ip, 4]
+
+        # spline evaluation
+        span1 = bsp.find_span(tn1, pn[0], e_mid[0])
+        span2 = bsp.find_span(tn2, pn[1], e_mid[1])
+        span3 = bsp.find_span(tn3, pn[2], e_mid[2])
+
+        bsp.b_d_splines_slim(tn1, pn[0], e_mid[0], span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], e_mid[1], span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], e_mid[2], span3, bn3, bd3)
+
+        # eval all the needed field
+        # grad_abs_b; 1form
+        grad_abs_b[0] = eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
+        grad_abs_b[1] = eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
+        grad_abs_b[2] = eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
+
+        markers[ip, 17:20] = mu*grad_abs_b[:]
+
+
 @stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
 def gc_bxEstar_discrete_gradient_Itoh_Newton_eval1(markers: 'float[:,:]', dt: float,
                                                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -1393,7 +1399,7 @@ def gc_bxEstar_discrete_gradient_Itoh_Newton_eval1(markers: 'float[:,:]', dt: fl
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 23] == -1.:
+        if markers[ip, 9] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
@@ -1424,7 +1430,7 @@ def gc_bxEstar_discrete_gradient_Itoh_Newton_eval1(markers: 'float[:,:]', dt: fl
         markers[ip, 21] = eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
 
-        # send particles to the (eta^0_n+1,eta^0_n+1, eta_n)
+        # send particles to the (eta^0_n+1, eta^0_n+1, eta_n)
         markers[ip, 1] = markers[ip, 17]
 
 
@@ -1471,10 +1477,13 @@ def gc_bxEstar_discrete_gradient_Itoh_Newton_eval2(markers: 'float[:,:]', dt: fl
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 23] == -1.:
+        if markers[ip, 9] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
+
+        # send particles to the (eta^0_n+1, eta^0_n+1, eta^0_n+1)
+        markers[ip, 2] = markers[ip, 18]
 
         # evaluate Jacobian, result in df
         map_eval.df(e[0], e[1], e[2],
@@ -1495,17 +1504,14 @@ def gc_bxEstar_discrete_gradient_Itoh_Newton_eval2(markers: 'float[:,:]', dt: fl
 
         # eval all the needed field
         # abs_b; 0form
-        markers[ip, 22] = eval_spline_mpi_kernel(
+        markers[ip, 16] = eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts0)
 
         # grad_abs_b; 1form
-        markers[ip, 23] = eval_spline_mpi_kernel(
+        markers[ip, 17] = eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
-        markers[ip, 24] = eval_spline_mpi_kernel(
+        markers[ip, 18] = eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
-
-        # send particles to the (eta^0_n+1,eta^0_n+1, eta^0_n+1)
-        markers[ip, 2] = markers[ip, 18]
 
 
 @stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
@@ -1551,7 +1557,7 @@ def gc_Bstar_discrete_gradient_Itoh_Newton_eval1(markers: 'float[:,:]', dt: floa
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 23] == -1.:
+        if markers[ip, 9] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
@@ -1629,10 +1635,13 @@ def gc_Bstar_discrete_gradient_Itoh_Newton_eval2(markers: 'float[:,:]', dt: floa
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 23] == -1.:
+        if markers[ip, 9] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
+
+        # send particles to the (eta^0_n+1,eta^0_n+1, eta^0_n+1)
+        markers[ip, 2] = markers[ip, 18]
 
         # evaluate Jacobian, result in df
         map_eval.df(e[0], e[1], e[2],
@@ -1653,15 +1662,12 @@ def gc_Bstar_discrete_gradient_Itoh_Newton_eval2(markers: 'float[:,:]', dt: floa
 
         # eval all the needed field
         # abs_b; 0form
-        markers[ip, 22] = eval_spline_mpi_kernel(
+        markers[ip, 16] = eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts0)
 
         # grad_abs_b; 1form
-        markers[ip, 23] = eval_spline_mpi_kernel(
+        markers[ip, 17] = eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
-        markers[ip, 24] = eval_spline_mpi_kernel(
+        markers[ip, 18] = eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
-
-        # send particles to the (eta^0_n+1,eta^0_n+1, eta^0_n+1)
-        markers[ip, 2] = markers[ip, 18]
 
