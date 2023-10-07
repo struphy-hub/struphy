@@ -151,7 +151,6 @@ class PushVxB(Propagator):
         self._f0 = params['f0']
 
         # load pusher
-        print(params['algo'])
         kernel_name = 'push_vxb_' + params['algo']
         self._pusher = Pusher(self.derham, self.domain, kernel_name)
 

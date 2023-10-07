@@ -1,5 +1,5 @@
-def struphy_run(model='Maxwell',
-                input='parameters.yml',
+def struphy_run(model,
+                inp=None,
                 input_abs=None,
                 output='sim_1',
                 output_abs=None,
@@ -18,8 +18,8 @@ def struphy_run(model='Maxwell',
     model : str
         The name of the Struphy model.
 
-    input : str
-        The .yml input paramter file relative to <struphy_path>/io/inp.
+    inp : str
+        The .yml input parameter file relative to <struphy_path>/io/inp.
 
     input_abs : str
         The absolute path to the .yml input parameter file.
@@ -55,7 +55,6 @@ def struphy_run(model='Maxwell',
     import subprocess
     import shutil
     import os
-    import glob
     import struphy
 
     libpath = struphy.__path__[0]
@@ -71,7 +70,25 @@ def struphy_run(model='Maxwell',
 
     # create absolute i/o paths
     if input_abs is None:
-        input_abs = os.path.join(i_path, input)
+
+        if inp is None:
+            # load model class
+            from struphy.models import fluid, kinetic, hybrid, toy
+            objs = [fluid, kinetic, hybrid, toy]
+            for obj in objs:
+                try:
+                    model_class = getattr(obj, model)
+                except AttributeError:
+                    pass
+
+            params = model_class.generate_default_parameter_file()
+
+            # TODO: wait for psydac bug-fix, see https://github.com/pyccel/psydac/issues/344
+            print(
+                f'Default parameter file for {model} has been created; please include the option -i params_{model}.yml to launch a run.')
+            exit()
+
+        input_abs = os.path.join(i_path, inp)
 
     if output_abs is None:
         output_abs = os.path.join(o_path, output)

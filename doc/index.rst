@@ -7,15 +7,16 @@ Struphy - Structure-preserving hybrid codes
     :align: right
     :scale: 40
 
-Struphy is open-source (https://pypi.org/project/struphy/) and can be :ref:`installed on any architecture <install>`.
+Struphy is open-source (https://gitlab.mpcdf.mpg.de/struphy/struphy) and can be :ref:`installed on any architecture <install>`.
 
 The package is designed for the efficient solution of partial differential equations based
-on finite element exterior calculus (FEEC) and particle-in-cell (PIC) methods.
+on :ref:`geomFE` and :ref:`particle_discrete`.
 
-Struphy can be improved by you. The repository lies on the Gitlab instance of Max Planck Computing and Data Facility (MPCDF) 
-(https://gitlab.mpcdf.mpg.de/struphy/struphy).
+Struphy features a `growing list of PDE models <https://struphy.pages.mpcdf.de/struphy/sections/models.html>`_ 
+which can be solved on a variety of `mapped domains <https://struphy.pages.mpcdf.de/struphy/sections/domains.html>`_.
 
-To become a developer, you need an MPCDF Gitlab account. In case you are not affiliated with the Max Planck Society, 
+Struphy can be improved by you. To become a developer, you need a Max-Planck Gitlab (https://gitlab.mpcdf.mpg.de/) account. 
+In case you are not affiliated with the Max Planck Society, 
 please :ref:`contact` a Max Planck employee for an invitation.
 For further information on forking and merge- (or pull-) requests please go to :ref:`git_workflow`.
 
@@ -23,7 +24,7 @@ For further information on forking and merge- (or pull-) requests please go to :
    :maxdepth: 1
    :caption: Contents:
 
-   sections/overview
+   sections/abstract
    sections/install
    sections/quickstart
    sections/tutorials
@@ -56,9 +57,9 @@ Contact
 
 Struphy is constantly maintained. Please contact 
 
-   * stefan.possanner@ipp.mpg.de
-   * eric.sonnendruecker@ipp.mpg.de
-   * xin.wang@ipp.mpg.de
+* stefan.possanner@ipp.mpg.de
+* eric.sonnendruecker@ipp.mpg.de
+* xin.wang@ipp.mpg.de
 
 for questions.
 
