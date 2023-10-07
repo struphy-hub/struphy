@@ -22,8 +22,8 @@ we detail the discretization of the Vlasov-Maxwell system implemented in Struphy
 
 .. _particle_discrete:
 
-Particle-in-cell method (PIC)
------------------------------
+Particle-in-cell methods (PIC)
+------------------------------
 
 Basics
 ^^^^^^
@@ -94,7 +94,7 @@ can then be written as
     \frac{\textnormal d}{\textnormal d t} \int_{z(t,F(\mathcal V_0))} f(t, z)\,\textnormal d z = \frac{\textnormal d}{\textnormal d t} \int_{q(t,\mathcal V_0)} f^0(t, q) |J_F(q)|\,\textnormal d q = 0\,, 
 
 where :math:`J_F = \textnormal{det}\,\partial F/\partial q` stands for the Jacobian determinant of the mapping.
-It follows that :math:`f^n = f^0 |J_F|`. The equation for :math:`f_0` can be derived from :math:numref:`eq:kin:n` 
+It follows that :math:`f^n = f^0 |J_F|`. The equation for :math:`f^0` can be derived from :math:numref:`eq:kin:n` 
 by using the **Liouville theorem**,
 
 .. math::
@@ -314,8 +314,8 @@ This algorithm is implemented in :meth:`struphy.pic.base.Particles.update_weight
 
 .. _geomFE:
 
-Geometric finite elements
--------------------------
+Geometric finite elements (FEEC)
+--------------------------------
 
 
 .. _feec_basics:
@@ -336,7 +336,8 @@ around some grid point :math:`x_i`. A nice feature of FE methods is that :math:`
 often to an elegant analysis of the method. The implementation of a FE method consists in writing down a system of equations
 for the coefficients :math:`(u_i)_i \in \mathbb R^M`, leaving the basis functions fixed.
 
-We denote by "geometric finite elements" a sequence of discrete (=finite dimensional) spaces :math:`V_h^n,\,0\leq n \leq 3` that
+We denote by "geometric finite elements" the FE method based on `finite element exterior calculus (FEEC) <https://en.wikipedia.org/wiki/Finite_element_exterior_calculus>`_.
+In 3D, it consists of a sequence of discrete (=finite dimensional) spaces :math:`V_h^n,\,0\leq n \leq 3` that
 satisfy the **3d Derham diagram**:
 
 .. figure:: ../pics/derham_complex.png

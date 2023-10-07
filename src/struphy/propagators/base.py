@@ -4,9 +4,6 @@
 from abc import ABCMeta, abstractmethod
 import numpy as np
 
-from psydac.linalg.basic import Vector
-from struphy.pic.particles import Particles
-
 
 class Propagator(metaclass=ABCMeta):
     """ Base class for Struphy propagators used in Struphy models. 
@@ -28,6 +25,8 @@ class Propagator(metaclass=ABCMeta):
         vars : Vector or Particles
             :attr:`struphy.models.base.StruphyModel.pointer` of variables to be updated.
         """
+        from psydac.linalg.basic import Vector
+        from struphy.pic.particles import Particles
 
         self._feec_vars = []
         self._particles = []

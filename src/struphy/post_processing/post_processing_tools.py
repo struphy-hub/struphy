@@ -308,7 +308,7 @@ def create_vtk(path, grids_phy, point_data_phy):
 def post_process_markers(path_in, path_out, species, step=1):
     """
     Computes the Cartesian (x, y, z) coordinates of saved markers during a simulation and writes them
-    to text files that can be imported to e.g. Paraview (one text file for each time step saved as
+    to a .npy files and to .txt files that can be imported to e.g. Paraview (one text file for each time step saved as
     "<name_of_species>_<time_step>.txt" in a directory "kinetic_data/<name_of_species>/orbits/").
 
     Parameters

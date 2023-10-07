@@ -2035,7 +2035,6 @@ class ImplicitDiffusion(Propagator):
         self._params = params
 
         # Set lhs matrices
-        print('{0:6.3e}'.format(sigma))
         self._A1 = sigma * self.mass_ops.M0
         self._A2 = Compose(self.derham.grad.T,
                            self.mass_ops.M1,

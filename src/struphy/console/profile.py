@@ -1,4 +1,4 @@
-def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig_dir):
+def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
     """
     Profile finished Struphy runs.
     """
@@ -207,11 +207,11 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig_dir):
                 # ax.loglog(val['mpi_size'], val['time'][0]*np.ones_like(val['time']), 'k--', alpha=0.3)
                 ax.set_xscale('log')
 
-    if savefig_dir is None:
+    if savefig is None:
         plt.show()
 
     else:
         # savefig paths
-        save_path = os.path.join(o_path, savefig_dir)
+        save_path = os.path.join(o_path, savefig)
 
         plt.savefig(save_path)

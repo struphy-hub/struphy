@@ -1,7 +1,7 @@
 .. _diagnostics:
 
-Diagnostics
-===========
+Diagnostic tools
+================
 
 
 Tools

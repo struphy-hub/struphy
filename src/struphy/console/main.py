@@ -17,7 +17,7 @@ def struphy():
     from struphy.console.compile import struphy_compile
     from struphy.console.run import struphy_run
     from struphy.console.units import struphy_units
-    from struphy.console.create_params import struphy_create_params
+    from struphy.console.params import struphy_params
     from struphy.console.profile import struphy_profile
     from struphy.console.pproc import struphy_pproc
     from struphy.console.tutorials import struphy_tutorials
@@ -69,9 +69,9 @@ def struphy():
             f.write(b_path)
 
     path_message = f'Struphy installation path: {libpath}\n'
-    path_message += f'default input:             {i_path}\n'
-    path_message += f'default output:            {o_path}\n'
-    path_message += f'template batch scripts:    {b_path}'
+    path_message += f'current input:             {i_path}\n'
+    path_message += f'current output:            {o_path}\n'
+    path_message += f'current batch scripts:     {b_path}'
 
     parser.add_argument('-v', '--version', action='version',
                         version=version_message)
@@ -180,11 +180,10 @@ def struphy():
                             metavar='MODEL',
                             help=model_message,)
 
-    parser_run.add_argument('-i', '--input',
+    parser_run.add_argument('-i', '--inp',
                             type=str,
                             metavar='FILE',
-                            help='parameter file (.yml) in current I/O path (default=parameters.yml)',
-                            default='parameters.yml',)
+                            help='parameter file (.yml) in current I/O path',)
 
     parser_run.add_argument('--input-abs',
                             type=str,
@@ -256,36 +255,39 @@ def struphy():
     parser_units.add_argument('-i', '--input',
                               type=str,
                               metavar='FILE',
-                              help='parameter file (.yml) relative to current I/O path (default=parameters.yml)',
-                              default='parameters.yml',)
+                              help='parameter file (.yml) relative to current I/O path. If absent, default parameters are used.',)
 
     parser_units.add_argument('--input-abs',
                               type=str,
                               metavar='FILE',
                               help='parameter file (.yml), absolute path',)
 
-    # 4. "create-params" sub-command
-    parser_create_params = subparsers.add_parser(
-        'create-params',
+    # 4. "params" sub-command
+    parser_params = subparsers.add_parser(
+        'params',
         formatter_class=lambda prog: argparse.RawTextHelpFormatter(
             prog, max_help_position=30),
         help='create default parameter file for a model',
         description='Creates a default parameter file for a specific model.')
 
-    parser_create_params.add_argument('model',
-                                      type=str,
-                                      choices=list_models,
-                                      metavar='MODEL',
-                                      help=model_message,)
+    parser_params.add_argument('model',
+                               type=str,
+                               choices=list_models,
+                               metavar='MODEL',
+                               help=model_message,)
 
-    parser_create_params.add_argument('-f', '--file',
-                                      type=str,
-                                      metavar='FILE',
-                                      help='name of the parameter file (.yml) relative to current I/O path (default=params_<model>.yml)',)
+    parser_params.add_argument('-f', '--file',
+                               type=str,
+                               metavar='FILE',
+                               help='name of the parameter file (.yml) relative to current I/O path (default=params_<model>.yml)',)
 
-    parser_create_params.add_argument('-o', '--options',
-                                      help='show model options',
-                                      action='store_true')
+    parser_params.add_argument('-o', '--options',
+                               help='show model options',
+                               action='store_true')
+    
+    parser_params.add_argument('-y', '--yes',
+                               help='Say yes on prompt to overwrite .yml FILE',
+                               action='store_true')
 
     # 5. "profile" sub-command
     parser_profile = subparsers.add_parser(
@@ -319,11 +321,10 @@ def struphy():
                                 help='string STR that identifies functions for which to print callers (default=None)',
                                 default=None)
 
-    parser_profile.add_argument('--savefig-dir',
+    parser_profile.add_argument('--savefig',
                                 type=str,
-                                metavar='DIR',
-                                help='output directory relative to current Out path (default=None)',
-                                default=None,)
+                                metavar='NAME',
+                                help='save (and dont display) the profile figure under NAME, relative to current output path.',)
 
     # 6. "pproc" sub-command
     parser_pproc = subparsers.add_parser(
@@ -391,10 +392,6 @@ def struphy():
 
     # parse argument
     args = parser.parse_args()
-
-    # replace minus in command, if necessary
-    if args.command is not None:
-        args.command = args.command.replace('-', '_')
 
     # if no arguments are passed, print help and exit
     print_help = True

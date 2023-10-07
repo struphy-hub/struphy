@@ -17,7 +17,8 @@ class StruphyModel(metaclass=ABCMeta):
 
     Note
     ----
-    All Struphy models are subclasses of ``StruphyModel`` and should be added to ``struphy/models/models.py``.  
+    All Struphy models are subclasses of ``StruphyModel`` and should be added to ``struphy/models/``
+    in one of the modules ``fluid.py``, ``kinetic.py``, ``hybrid.py`` or ``toy.py``.  
     """
 
     def __init__(self, params, comm):
@@ -799,6 +800,7 @@ class StruphyModel(metaclass=ABCMeta):
                         (om_c * units['t'])
 
                     if verbose and rank == 0:
+                        print('\nEQUATION PARAMETERS:')
                         print('- ' + species + ':')
                         for key, val in equation_params[species].items():
                             print((key + ':').ljust(25), '{:4.3e}'.format(val))
@@ -818,6 +820,8 @@ class StruphyModel(metaclass=ABCMeta):
                         (om_c * units['t'])
 
                     if verbose and rank == 0:
+                        if 'fluid' not in params:
+                            print('\nEQUATION PARAMETERS:')
                         print('- ' + species + ':')
                         for key, val in equation_params[species].items():
                             print((key + ':').ljust(25), '{:4.3e}'.format(val))
@@ -884,20 +888,23 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             print('None.')
 
     @classmethod
-    def generate_default_parameter_file(cls, file=None, save=True):
+    def generate_default_parameter_file(cls, file=None, save=True, prompt=True):
         '''Generate a parameter file with default options for each species,
         and save it to the current input path.
-        
+
         The default name is params_<model_name>.yml.
-        
+
         Parameters
         -------
         file : str
             Alternative filename to params_<model_name>.yml.
-            
+
         save : bool
             Whether to save the parameter file in the current input path.
-            
+
+        prompt : bool
+            Whether to prompt for overwriting the specified .yml file.
+
         Returns
         -------
         The default parameter dictionary.'''
@@ -1026,14 +1033,18 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             file = os.path.join(i_path, file)
 
         if save:
-            yn = input(f'Writing to {file}, are you sure (Y/n)?')
+            if not prompt:
+                yn = 'Y'
+            else:
+                yn = input(f'Writing to {file}, are you sure (Y/n)?')
+
             if yn == 'n':
                 pass
             else:
                 with open(file, 'w') as outfile:
                     yaml.dump(parameters, outfile, Dumper=MyDumper,
-                            default_flow_style=None, sort_keys=False, indent=4, line_break='\r')
-            
+                              default_flow_style=None, sort_keys=False, indent=4, line_break='\n')
+
         return parameters
 
     ###################
@@ -1452,6 +1463,6 @@ class MyDumper(yaml.SafeDumper):
 
         if len(self.indents) == 1:
             super().write_line_break()
-            
+
     def ignore_aliases(self, data):
         return True

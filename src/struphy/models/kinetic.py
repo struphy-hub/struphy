@@ -21,28 +21,26 @@ class VlasovMaxwell(StruphyModel):
     .. math::
 
         \begin{align}
-            &\partial_t f + \mathbf{v} \cdot \, \nabla f + \frac{1}{\varepsilon}\left( \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \right)
-            \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
-            \\[2mm]
-            &\frac{\partial \mathbf{E}}{\partial t} = \nabla \times \mathbf{B} -
+            &\frac{\partial \mathbf{E}}{\partial t} - \nabla \times \mathbf{B} = -
             \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v} \,,
-            \\
-            &\frac{\partial \mathbf{B}}{\partial t} = - \nabla \times \mathbf{E} \,,
+            \\[1mm]
+            &\frac{\partial \mathbf{B}}{\partial t} + \nabla \times \mathbf{E} = 0 \,,
+            \\[1mm]
+            &\partial_t f + \mathbf{v} \cdot \, \nabla f + \frac{1}{\varepsilon}\Big[ \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \Big]
+            \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,.
         \end{align}
 
-    where
+    where :math:`\mathbf B_0` is an equilibrium magnetic field and
 
     .. math::
 
         \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}\,,\qquad \varepsilon = \frac{\hat \omega}{\hat \Omega_\textnormal{c}} \,,\qquad \textnormal{with} \qquad \hat\Omega_\textnormal{p} = \sqrt{\frac{\hat n (Ze)^2}{\epsilon_0 A m_\textnormal{H}}} \,,\qquad \hat \Omega_{\textnormal{c}} = \frac{Ze \hat B}{A m_\textnormal{H}}\,.
 
-    At initial time the Poisson equation is solved once to weakly satisfy the Gauss law
+    At initial time the Poisson equation is solved once to weakly satisfy Gauss' law
 
     .. math::
 
-        \begin{align}
-            \nabla \cdot \mathbf{E} & = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} f \, \text{d}^3 \mathbf{v}
-        \end{align}
+            \nabla \cdot \mathbf{E} = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} f \, \text{d}^3 \mathbf{v}\,.
 
     Parameters
     ----------
@@ -174,6 +172,9 @@ class VlasovMaxwell(StruphyModel):
         # Initialize fields and particles
         super().initialize_from_params()
 
+        if self._rank == 0:
+            print('\nINITIAL POISSON SOLVE:')
+
         # Accumulate charge density
         charge_accum = AccumulatorVector(
             self.derham, self.domain, "H1", "vlasov_maxwell_poisson")
@@ -183,7 +184,6 @@ class VlasovMaxwell(StruphyModel):
         if np.all(charge_accum.vectors[0].space.periods):
             charge_accum._vectors[0][:] -= np.mean(charge_accum.vectors[0].toarray()[
                                                    charge_accum.vectors[0].toarray() != 0])
-
         # Instantiate Poisson solver
         _phi = StencilVector(self.derham.Vh['0'])
         poisson_solver = self.prop_fields.ImplicitDiffusion(
@@ -194,8 +194,12 @@ class VlasovMaxwell(StruphyModel):
             **self._poisson_params)
 
         # Solve with dt=1. and compute electric field
+        if self._rank == 0:
+            print('Solving ...')
         poisson_solver(1.)
         self.derham.grad.dot(-_phi, out=self.pointer['e1'])
+        if self._rank == 0:
+            print('Done.')
 
     def update_scalar_quantities(self):
         self._mass_ops.M1.dot(self.pointer['e1'], out=self._tmp1)

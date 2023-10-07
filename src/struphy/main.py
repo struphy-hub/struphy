@@ -208,20 +208,19 @@ if __name__ == '__main__':
     parser.add_argument('model',
                         type=str,
                         metavar='model',
-                        help='the name of the model to run (default=Maxwell)')
+                        help='the name of the model to run')
 
     # input (absolute path)
     parser.add_argument('-i', '--input',
                         type=str,
                         metavar='FILE',
-                        help='absolute path of parameter file (.yml) (default=<struphy_path>/io/inp/parameters.yml)',
-                        default=os.path.join(i_path, 'parameters.yml'))
+                        help='absolute path of parameter file (.yml)',)
 
     # output (absolute path)
     parser.add_argument('-o', '--output',
                         type=str,
                         metavar='DIR',
-                        help='absolute path of output folder (default=<struphy_path>/io/out/sim_1)',
+                        help='absolute path of output folder (default=<out_path>/sim_1)',
                         default=os.path.join(o_path, 'sim_1'))
 
     # restart
