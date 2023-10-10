@@ -73,7 +73,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
         key_time_restart = 'restart/time/' + key
         data.add_data({key_time: val})
         data.add_data({key_time_restart: val})
-        
+
     time_params = params['time']
 
     # set initial conditions for all variables
@@ -82,13 +82,13 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
 
     if not restart:
         model.initialize_from_params()
-        
+
         total_steps = str(
             int(round(time_params['Tend']/time_params['dt'])))
-        
+
     else:
         model.initialize_from_restart(data)
-        
+
         time_state['value'][0] = data.file['restart/time/value'][-1]
         time_state['index'][0] = data.file['restart/time/index'][-1]
 
@@ -100,14 +100,14 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     model.update_markers_to_be_saved()
     model.update_distr_function()
 
-    # add all variables to be saved to data object 
+    # add all variables to be saved to data object
     save_keys_all, save_keys_end = model.initialize_data_output(data, size)
 
     # ======================== main time loop ======================
     if rank == 0:
         print('\nINITIAL SCALAR QUANTITIES:')
         model.print_scalar_quantities()
-        
+
         split_algo = time_params['split_algo']
         print(
             f'\nSTART TIME STEPPING WITH "{split_algo}" SPLITTING:')
@@ -123,7 +123,8 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
         break_cond_2 = run_time_now > runtime
 
         if break_cond_1 or break_cond_2:
-            data.save_data(keys=save_keys_end) # save restart data (other data already saved below)
+            # save restart data (other data already saved below)
+            data.save_data(keys=save_keys_end)
             data.file.close()
             end_simulation = time.time()
             if rank == 0:
@@ -170,10 +171,12 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
             if rank == 0:
                 step = str(time_state['index'][0]).zfill(len(total_steps))
 
-                message = 'time step: ' + step + '/' + str(total_steps) 
+                message = 'time step: ' + step + '/' + str(total_steps)
                 message += ' | ' + 'time: {0:10.5f}/{1:10.5f}'.format(
                     time_state['value'][0], time_params['Tend'])
-                message += ' | ' + 'wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}'.format(run_time_now*60, t1 - t0)
+                message += ' | ' + \
+                    'wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}'.format(
+                        run_time_now*60, t1 - t0)
 
                 print(message, end='\n')
                 model.print_scalar_quantities()
@@ -205,20 +208,19 @@ if __name__ == '__main__':
     parser.add_argument('model',
                         type=str,
                         metavar='model',
-                        help='the name of the model to run (default=Maxwell)')
+                        help='the name of the model to run')
 
     # input (absolute path)
     parser.add_argument('-i', '--input',
                         type=str,
                         metavar='FILE',
-                        help='absolute path of parameter file (.yml) (default=<struphy_path>/io/inp/parameters.yml)',
-                        default=os.path.join(i_path, 'parameters.yml'))
+                        help='absolute path of parameter file (.yml)',)
 
     # output (absolute path)
     parser.add_argument('-o', '--output',
                         type=str,
                         metavar='DIR',
-                        help='absolute path of output folder (default=<struphy_path>/io/out/sim_1)',
+                        help='absolute path of output folder (default=<out_path>/sim_1)',
                         default=os.path.join(o_path, 'sim_1'))
 
     # restart

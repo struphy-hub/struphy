@@ -5,7 +5,7 @@ Installation
 
 Struphy can be installed in the following ways:
 
-1. From :ref:`PyPI <pypi_install>` with :code:`pip install struphy`, for running the latest release
+1. From :ref:`PyPI <pypi_install>`, for running the latest release
 2. From :ref:`source <source_install>`, for running or adding code 
 3. Using :ref:`Docker images <docker_install>`, also suited :ref:`for developers <docker_devs>`
 
@@ -22,6 +22,7 @@ Requirements
 - OpenMP
 - Git version control system
 - Pandoc (optional)
+- **Struphy does not support** `Anaconda <https://www.anaconda.com/>`_, please use Python directly.
 
 Sample environment on **Debian-Ubuntu-Mint**::
 
@@ -125,7 +126,7 @@ Source
 
 Clone the `Struphy repository <https://gitlab.mpcdf.mpg.de/struphy/struphy>`_::
 
-    git clone git@gitlab.mpcdf.mpg.de:struphy/struphy.git 
+    git clone https://gitlab.mpcdf.mpg.de/struphy/struphy.git
     cd struphy
 
 Update pip and install package::

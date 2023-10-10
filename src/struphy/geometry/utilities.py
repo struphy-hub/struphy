@@ -1,3 +1,6 @@
+'Domain-related utility functions.'
+
+
 import numpy as np
         
 from scipy.sparse import csc_matrix
@@ -11,26 +14,60 @@ from struphy.geometry.kernels import weighted_arc_lengths_flux_surface
 
 
 def field_line_tracing(psi, psi_axis_R, psi_axis_Z, psi0, psi1, Nel, p, psi_power=1, xi_param='equal_angle', Nel_pre=[64, 256], p_pre=[3, 3], r0=0.3):
-    """
-    Given a poloidal flux function psi = psi(R, Z), constructs a flux-aligned spline mapping (R, Z) = F(s, xi).
+    r"""
+    Given a poloidal flux function :math:`\psi(R, Z)`, constructs a flux-aligned spline mapping :math:`(R, Z) = F(s(\psi), \xi)`.
     
-    The radial coordinate s in [0, 1] is parametrized in terms of powers of the normalized poloidal flux_function:
+    The radial coordinate :math:`s \in [0, 1]` is parametrized in terms of powers of :math:`\psi`:
 
-        s = [ (psi - psi0)/(psi1 - psi0) ]^psi_power,
+    .. math::
+    
+        s(\psi) = [ (\psi - \psi_0)/(\psi_1 - \psi_0) ]^p,
         
-    where psi0 is the value of the innermost flux surface of the mapping and psi1 the value of the outermost flux surface.
+    where :math:`\psi_0` is the value of the innermost flux surface of the mapping,
+    :math:`\psi_1` the value of the outermost flux surface, and :math:`p \in \mathbb Q` is some power.
 
-    The angular coordinate xi can be parametrized in five different ways:
-        1. equal_angle
-        2. equal_arc_length
-        3. sfl (straight field line angle)
-        4. equal_area
-        5. equal_volume
+    The angular coordinate :math:`\xi \in (0, 2\pi)` can be parametrized in five different ways:
+    
+        1. ``equal_angle``
+        2. ``equal_arc_length``
+        3. ``sfl`` (straight field line angle)
+        4. ``equal_area``
+        5. ``equal_volume``
 
-    All xi parametrizations other than 'equal_angle' involve a two step procedure: 
+    All :math:`\xi`-parametrizations other than ``equal_angle`` involve a two step procedure: 
 
-        1. First, a flux-aligned mapping with parameters Nel_pre, p_pre is constructed with xi='equal angle'.
-        2. Second, a mapping with lower resolution is constructed with the desired xi parametrization.
+        1. First, a flux-aligned mapping with parameters ``Nel_pre``, ``p_pre`` is constructed with ``xi=equal angle``.
+        2. Second, a mapping with lower resolution is constructed with the desired :math:`\xi`-parametrization.
+        
+    The field-line tracing algorithm for the ``equal_angle``-parametrization is as follows:
+    given a callable mapping :math:`s(R, Z) = [ (\psi(R, Z) - \psi_0)/(\psi_1 - \psi_0) ]^p \in [0, 1]`, 
+    we want to find the spline mapping
+
+    .. math::
+    
+        R(s, \xi) &= \sum_{i=1}^{N_1}\sum_{j=1}^{N_2}c^R_{ij}N_1(s)N_2(\xi)\,,
+        
+        Z(s, \xi) &= \sum_{i=1}^{N_1}\sum_{j=1}^{N_2}c^Z_{ij}N_1(s)N_2(\xi).
+    
+    This will be achieved by interpolation, which means we need a set of function values :math:`(R_{ij}, Z_{ij})`
+    at the interpolation point sets :math:`(s_i, \xi_j)_{i=1,j=1}^{N_1, N_2}`. At first, we need to obtain these function values.
+    For this we draw lines for :math:`\xi_j=j\Delta\xi` for :math:`j\in\{0,1,\cdots,N_2-1\}`:
+
+    .. math::
+    
+        R_j(r) &= R_\text{axis} + r\cos(\xi_j)\,,
+        
+        Z_j(r) &= Z_\text{axis} + r\sin(\xi_j)\,.
+
+    For each :math:`j`, we calculate the intersections with certain :math:`s_i`-values by computing the root of the function
+
+    .. math::
+    
+        f(r) = s(R_j(r),Z_j(r)) - s_i\,.
+    
+    This yields a :math:`r_{i}` which leads to :math:`R_{ij}=R_j(r_i)` and :math:`Z_{ij}=Z_j(r_i)`.
+    Finally, after having found the :math:`(R_{ij}, Z_{ij})`, 
+    we solve a spline interpolation problem to find the :math:`(c^R_{ij}, c^Z_{ij})`.
 
     Parameters
     ----------

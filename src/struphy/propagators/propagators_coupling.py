@@ -7,8 +7,8 @@ from psydac.linalg.block import BlockVector
 
 from struphy.propagators.base import Propagator
 from struphy.linear_algebra.schur_solver import SchurSolver
-from struphy.pic.particles_to_grid import Accumulator, AccumulatorVector
-from struphy.pic.pusher import Pusher
+from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
+from struphy.pic.pushing.pusher import Pusher
 import struphy.pic.utilities_kernels as utilities
 from struphy.polar.basic import PolarVector
 from struphy.kinetic_background.base import Maxwellian
@@ -81,8 +81,7 @@ class VlasovMaxwell(Propagator):
         # parameters
         params_default = {'c1': 1.,
                           'c2': 1.,
-                          'type': 'PConjugateGradient',
-                          'pc': 'MassMatrixPreconditioner',
+                          'type': ('PConjugateGradient', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
@@ -111,10 +110,10 @@ class VlasovMaxwell(Propagator):
         # ================================
 
         # Preconditioner
-        if params['pc'] == None:
+        if params['type'][1] == None:
             self._pc = None
         else:
-            pc_class = getattr(preconditioner, params['pc'])
+            pc_class = getattr(preconditioner, params['type'][1])
             self._pc = pc_class(self.mass_ops.M1)
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
@@ -122,7 +121,7 @@ class VlasovMaxwell(Propagator):
         _BC = - self._accum.operators[0].matrix / 4.
 
         # Instantiate Schur solver
-        self._schur_solver = SchurSolver(_A, _BC, pc=self._pc, solver_name=params['type'],
+        self._schur_solver = SchurSolver(_A, _BC, pc=self._pc, solver_name=params['type'][0],
                                          tol=params['tol'], maxiter=params['maxiter'],
                                          verbose=params['verbose'])
 
@@ -179,6 +178,17 @@ class VlasovMaxwell(Propagator):
                                      - self._new_v_sq[~self.particles[0].holes]))
             print('Maxdiff |v| for VlasovMaxwell:', max_diff)
             print()
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['solver'] = {'type': [('PConjugateGradient', 'MassMatrixPreconditioner'),
+                                  ('ConjugateGradient', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False}
+        return dct
 
 
 class EfieldWeightsImplicit(Propagator):
@@ -246,8 +256,7 @@ class EfieldWeightsImplicit(Propagator):
                           'kappa': 1.,
                           'f0': Maxwellian6DUniform(),
                           'model': 'linear_vlasov_maxwell',
-                          'type': 'PConjugateGradient',
-                          'pc': 'MassMatrixPreconditioner',
+                          'type': ('PConjugateGradient', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
@@ -295,10 +304,10 @@ class EfieldWeightsImplicit(Propagator):
         # ================================
 
         # Preconditioner
-        if params['pc'] == None:
+        if params['type'][1] == None:
             self._pc = None
         else:
-            pc_class = getattr(preconditioner, params['pc'])
+            pc_class = getattr(preconditioner, params['type'][1])
             self._pc = pc_class(self.mass_ops.M1)
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
@@ -306,7 +315,7 @@ class EfieldWeightsImplicit(Propagator):
         _BC = - self._accum.operators[0].matrix / 4.
 
         # Instantiate Schur solver
-        self._schur_solver = SchurSolver(_A, _BC, pc=self._pc, solver_name=params['type'],
+        self._schur_solver = SchurSolver(_A, _BC, pc=self._pc, solver_name=params['type'][0],
                                          tol=params['tol'], maxiter=params['maxiter'],
                                          verbose=params['verbose'])
 
@@ -386,6 +395,17 @@ class EfieldWeightsImplicit(Propagator):
             print('Maxdiff weights for StepEfieldWeights:', max_diff)
             print()
 
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['solver'] = {'type': [('PConjugateGradient', 'MassMatrixPreconditioner'),
+                                  ('ConjugateGradient', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False}
+        return dct
+
 
 class EfieldWeightsDiscreteGradient(Propagator):
     r""" Solve the following system analytically
@@ -461,10 +481,10 @@ class EfieldWeightsDiscreteGradient(Propagator):
         self._old_weights = np.empty(particles.markers.shape[0], dtype=float)
 
         # Preconditioner
-        if params['pc'] == None:
+        if params['type'][1] == None:
             self._pc = None
         else:
-            pc_class = getattr(preconditioner, params['pc'])
+            pc_class = getattr(preconditioner, params['type'][1])
             self._pc = pc_class(self.mass_ops.M1)
 
         # solver
@@ -482,7 +502,8 @@ class EfieldWeightsDiscreteGradient(Propagator):
                              self.particles[0].markers[:, 4],
                              self.particles[0].markers[:, 5])
 
-        self._accum.accumulate(self.particles[0], f0_values, self._alpha, self._kappa, int(1))
+        self._accum.accumulate(
+            self.particles[0], f0_values, self._alpha, self._kappa, int(1))
 
         self._m1_acc_vec, info = self.solver.solve(self.mass_ops.M1,
                                                    self._accum.vectors[0],
@@ -564,8 +585,7 @@ class EfieldWeightsAnalytic(Propagator):
         params_default = {'alpha': 1e2,
                           'kappa': 1.,
                           'f0': Maxwellian6DUniform(),
-                          'type': 'PConjugateGradient',
-                          'pc': 'MassMatrixPreconditioner',
+                          'type': ('PConjugateGradient', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
@@ -602,14 +622,14 @@ class EfieldWeightsAnalytic(Propagator):
         self._old_weights = np.empty(particles.markers.shape[0], dtype=float)
 
         # Preconditioner
-        if params['pc'] == None:
+        if params['type'][1] == None:
             self._pc = None
         else:
-            pc_class = getattr(preconditioner, params['pc'])
+            pc_class = getattr(preconditioner, params['type'][1])
             self._pc = pc_class(self.mass_ops.M1)
 
         # solver
-        self.solver = pcg(e.space)
+        self.solver = getattr(it_solvers, params['type'][0])(e.space)
 
         self._pusher = Pusher(self.derham, self.domain,
                               'push_weights_with_efield_delta_f_vm')
@@ -623,7 +643,8 @@ class EfieldWeightsAnalytic(Propagator):
                              self.particles[0].markers[:, 4],
                              self.particles[0].markers[:, 5])
 
-        self._accum.accumulate(self.particles[0], f0_values, self._alpha, self._kappa, int(0))
+        self._accum.accumulate(
+            self.particles[0], f0_values, self._alpha, self._kappa, int(0))
 
         self._m1_acc_vec, info = self.solver.solve(self.mass_ops.M1,
                                                    self._accum.vectors[0],
@@ -668,6 +689,17 @@ class EfieldWeightsAnalytic(Propagator):
                                      - self.particles[0].markers[~self.particles[0].holes, 6]))
             print('Maxdiff weights for StepEfieldWeights:', max_diff)
             print()
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['solver'] = {'type': [('PConjugateGradient', 'MassMatrixPreconditioner'),
+                                  ('ConjugateGradient', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False}
+        return dct
 
 
 class PressureCoupling6D(Propagator):
@@ -715,8 +747,7 @@ class PressureCoupling6D(Propagator):
         params_default = {'u_space': 'Hdiv',
                           'use_perp_model': True,
                           'f0': Maxwellian6DUniform(),
-                          'type': 'PConjugateGradient',
-                          'pc': 'MassMatrixPreconditioner',
+                          'type': ('PConjugateGradient', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
@@ -733,7 +764,7 @@ class PressureCoupling6D(Propagator):
         self._GT = self.derham.grad.transpose()
 
         self._info = params['info']
-        self._type = params['type']
+        self._type = params['type'][0]
         self._tol = params['tol']
         self._maxiter = params['maxiter']
         self._verbose = params['verbose']
@@ -759,10 +790,10 @@ class PressureCoupling6D(Propagator):
                 self.derham.spaces_dict[params['u_space']])
 
         # Preconditioner
-        if params['pc'] is None:
+        if params['type'][1] is None:
             self._pc = None
         else:
-            pc_class = getattr(preconditioner, params['pc'])
+            pc_class = getattr(preconditioner, params['type'][1])
             self._pc = pc_class(getattr(self.mass_ops, id_Mn))
 
         # Call the accumulation and Pusher class
@@ -850,6 +881,18 @@ class PressureCoupling6D(Propagator):
             print('Iterations for StepPressurecoupling:', info['niter'])
             print('Maxdiff u1 for StepPressurecoupling:', max_du)
             print()
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['u_space'] = ['Hcurl', 'Hdiv', 'H1vec']
+        dct['solver'] = {'type': [('PConjugateGradient', 'MassMatrixPreconditioner'),
+                                  ('ConjugateGradient', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False}
+        return dct
 
     class GT_MAT_G(LinOpWithTransp):
         r'''
@@ -961,8 +1004,7 @@ class CurrentCoupling6DCurrent(Propagator):
                           'b_eq': None,
                           'b_tilde': None,
                           'f0': Maxwellian6DUniform(),
-                          'type': 'PConjugateGradient',
-                          'pc': 'MassMatrixPreconditioner',
+                          'type': ('PConjugateGradient', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
@@ -1047,15 +1089,15 @@ class CurrentCoupling6DCurrent(Propagator):
         _A = getattr(self.mass_ops, 'M' + u_id + 'n')
 
         # preconditioner
-        if params['pc'] is None:
+        if params['type'][1] is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, params['pc'])
+            pc_class = getattr(preconditioner, params['type'][1])
             pc = pc_class(_A)
 
         _BC = Multiply(-1/4, self._accumulator.operators[0])
 
-        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'],
+        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'][0],
                                          tol=params['tol'], maxiter=params['maxiter'],
                                          verbose=params['verbose'])
 
@@ -1145,6 +1187,18 @@ class CurrentCoupling6DCurrent(Propagator):
             print('Maxdiff up for CurrentCoupling6DCurrent:', max_du)
             print()
 
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['u_space'] = ['Hcurl', 'Hdiv', 'H1vec']
+        dct['solver'] = {'type': [('PConjugateGradient', 'MassMatrixPreconditioner'),
+                                  ('ConjugateGradient', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False}
+        return dct
+
 
 class CurrentCoupling5DCurrent1(Propagator):
     r'''
@@ -1161,8 +1215,7 @@ class CurrentCoupling5DCurrent1(Propagator):
                           'b_eq': None,
                           'unit_b1': None,
                           'f0': Maxwellian5DUniform(),
-                          'type': 'PConjugateGradient',
-                          'pc': 'MassMatrixPreconditioner',
+                          'type': ('PConjugateGradient', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
@@ -1214,10 +1267,10 @@ class CurrentCoupling5DCurrent1(Propagator):
         _A = getattr(self.mass_ops, 'M' + u_id + 'n')
 
         # preconditioner
-        if params['pc'] is None:
+        if params['type'][1] is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, params['pc'])
+            pc_class = getattr(preconditioner, params['type'][1])
             pc = pc_class(_A)
 
         # Call the accumulation and Pusher class
@@ -1230,7 +1283,7 @@ class CurrentCoupling5DCurrent1(Propagator):
         _BC = Multiply(-1/4, self._ACC.operators[0])
 
         # call SchurSolver class
-        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'],
+        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'][0],
                                          tol=params['tol'], maxiter=params['maxiter'],
                                          verbose=params['verbose'])
 
@@ -1295,6 +1348,18 @@ class CurrentCoupling5DCurrent1(Propagator):
             print('Maxdiff up for CurrentCoupling5DCurrent1:', max_du)
             print()
 
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['u_space'] = ['Hcurl', 'Hdiv', 'H1vec']
+        dct['solver'] = {'type': [('PConjugateGradient', 'MassMatrixPreconditioner'),
+                                  ('ConjugateGradient', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False}
+        return dct
+
 
 class CurrentCoupling5DCurrent2(Propagator):
     r'''
@@ -1303,7 +1368,7 @@ class CurrentCoupling5DCurrent2(Propagator):
 
     def __init__(self, particles, u, **params):
 
-        from struphy.pic.pusher import ButcherTableau
+        from struphy.pic.pushing.pusher import ButcherTableau
 
         super().__init__(particles, u)
 
@@ -1315,8 +1380,7 @@ class CurrentCoupling5DCurrent2(Propagator):
                           'unit_b2': None,
                           'abs_b': None,
                           'f0': Maxwellian5DUniform(),
-                          'type': 'PConjugateGradient',
-                          'pc': 'MassMatrixPreconditioner',
+                          'type': ('PConjugateGradient', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
@@ -1324,7 +1388,6 @@ class CurrentCoupling5DCurrent2(Propagator):
                           'Ab': 1,
                           'Ah': 1,
                           'kappa': 1.,
-                          'integrator': 'explicit',
                           'method': 'rk4'}
 
         params = set_defaults(params, params_default)
@@ -1383,10 +1446,10 @@ class CurrentCoupling5DCurrent2(Propagator):
         _A = getattr(self.mass_ops, 'M' + u_id + 'n')
 
         # preconditioner
-        if params['pc'] is None:
+        if params['type'][1] is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, params['pc'])
+            pc_class = getattr(preconditioner, params['type'][1])
             pc = pc_class(_A)
 
         # Call the accumulation and Pusher class
@@ -1419,11 +1482,11 @@ class CurrentCoupling5DCurrent2(Propagator):
 
         self._butcher = ButcherTableau(a, b, c)
         self._pusher = Pusher(self.derham, self.domain,
-                              'push_gc_cc_J2_stage_' + params['u_space'], self._butcher.n_stages)
+                              'push_gc_cc_J2_stage_' + params['u_space'], n_stages=self._butcher.n_stages)
 
         _BC = Multiply(-1/4, self._ACC.operators[0])
 
-        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'],
+        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'][0],
                                          tol=params['tol'], maxiter=params['maxiter'],
                                          verbose=params['verbose'])
 
@@ -1468,7 +1531,7 @@ class CurrentCoupling5DCurrent2(Propagator):
 
         self._grad_PBb2.update_ghost_regions()
 
-        # acuumulate MAT and VEC
+        # accumulate MAT and VEC
         self._ACC.accumulate(self.particles[0], self._kappa,
                              self._b_full2[0]._data, self._b_full2[1]._data, self._b_full2[2]._data,
                              self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
@@ -1507,6 +1570,19 @@ class CurrentCoupling5DCurrent2(Propagator):
             print('Iterations for CurrentCoupling5DCurrent2:', info['niter'])
             print('Maxdiff up for CurrentCoupling5DCurrent2:', max_du)
             print()
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['u_space'] = ['Hcurl', 'Hdiv', 'H1vec']
+        dct['solver'] = {'type': [('PConjugateGradient', 'MassMatrixPreconditioner'),
+                                  ('ConjugateGradient', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False}
+        dct['algo'] = ['rk4', 'forward_euler', 'heun2', 'rk2', 'heun3']
+        return dct
 
 
 class CurrentCoupling5DCurrent2dg(Propagator):
@@ -1567,8 +1643,8 @@ class CurrentCoupling5DCurrent2dg(Propagator):
         self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
         self._curl_norm_b.update_ghost_regions()
 
-        self._type = params['type']
-        self._pc = params['pc']
+        self._type = params['type'][0]
+        self._pc = params['type'][1]
         self._tol = params['tol']
         self._maxiter = params['maxiter']
         self._info = params['info']
@@ -1586,10 +1662,10 @@ class CurrentCoupling5DCurrent2dg(Propagator):
         self._A = getattr(self.mass_ops, 'M' + u_id + 'n')
 
         # preconditioner
-        if params['pc'] is None:
+        if params['type'][1] is None:
             self._pc = None
         else:
-            pc_class = getattr(preconditioner, params['pc'])
+            pc_class = getattr(preconditioner, params['type'][1])
             self._pc = pc_class(self._A)
 
         # Call the accumulation and Pusher class
@@ -1607,7 +1683,7 @@ class CurrentCoupling5DCurrent2dg(Propagator):
         # self._pusher = Pusher(self.derham, self.domain,'push_gc_cc_J2_dg_faster_' + params['u_space'])
 
         # linear solver
-        self._solver = getattr(it_solvers, params['type'])(self._A.domain)
+        self._solver = getattr(it_solvers, params['type'][0])(self._A.domain)
 
         # allocate dummy vectors to avoid temporary array allocations
         self._rhs1 = u.space.zeros()
@@ -1690,12 +1766,12 @@ class CurrentCoupling5DCurrent2dg(Propagator):
 
         # initial guess of eta is stored in columns 0:3
         self._pusher_prepare.kernel(self.particles[0].markers, dt, 0, *self._pusher.args_fem, *self.domain.args_map,
-                                     self._kappa,
-                                     self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
-                                     self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                     self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
-                                     self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                     self._u_old[0]._data, self._u_old[1]._data, self._u_old[2]._data)
+                                    self._kappa,
+                                    self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
+                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
+                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                                    self._u_old[0]._data, self._u_old[1]._data, self._u_old[2]._data)
 
         self.particles[0].mpi_sort_markers()
 
@@ -1785,12 +1861,12 @@ class CurrentCoupling5DCurrent2dg(Propagator):
             self._u_pusher.update_ghost_regions()
 
             self._pusher.kernel(self.particles[0].markers, dt, 0, *self._pusher.args_fem, *self.domain.args_map,
-                                 self._kappa,
-                                 self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
-                                 self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                 self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
-                                 self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                 self._u_pusher[0]._data, self._u_pusher[1]._data, self._u_pusher[2]._data)
+                                self._kappa,
+                                self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
+                                self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
+                                self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                                self._u_pusher[0]._data, self._u_pusher[1]._data, self._u_pusher[2]._data)
 
             n_lost_markers_before = self.particles[0].n_lost_markers
             print('Number of lost markers before iteration push',

@@ -3,7 +3,10 @@
 Accumulators
 ============
 
-Documented modules:
+This page lists `currently available accumulation kernels <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.pic.accumulation.accum_kernels.html>`_ (for charge and current deposition to the grid).
+Accumulation routines are an integral of PIC algorithms, as they are the kernels for computing :ref:`monte_carlo`.
+
+Accumulators are implemented within the following sub-modules:
 
 .. currentmodule:: ''
 
@@ -11,16 +14,16 @@ Documented modules:
     :nosignatures:
     :toctree: STUBDIR
 
-    struphy.pic.particles_to_grid
-    struphy.pic.accum_kernels
-    struphy.pic.accum_kernels_gc
+    struphy.pic.accumulation.particles_to_grid
+    struphy.pic.accumulation.accum_kernels
+    struphy.pic.accumulation.accum_kernels_gc
 
 .. toctree::
     :caption: Lists of available accumulators:
 
-    STUBDIR/struphy.pic.particles_to_grid
-    STUBDIR/struphy.pic.accum_kernels
-    STUBDIR/struphy.pic.accum_kernels_gc
+    STUBDIR/struphy.pic.accumulation.particles_to_grid
+    STUBDIR/struphy.pic.accumulation.accum_kernels
+    STUBDIR/struphy.pic.accumulation.accum_kernels_gc
 
 
 .. _accumulator:
@@ -28,7 +31,7 @@ Documented modules:
 Base classes
 ------------
 
-.. automodule:: struphy.pic.particles_to_grid
+.. automodule:: struphy.pic.accumulation.particles_to_grid
     :members:
     :undoc-members:
     :exclude-members: variables
@@ -40,7 +43,7 @@ Base classes
 6D accumulation kernels
 -----------------------
 
-.. automodule:: struphy.pic.accum_kernels
+.. automodule:: struphy.pic.accumulation.accum_kernels
     :members:
     :undoc-members:
     :exclude-members: variables
@@ -52,7 +55,7 @@ Base classes
 5D accumulation kernels
 -----------------------
 
-.. automodule:: struphy.pic.accum_kernels_gc
+.. automodule:: struphy.pic.accumulation.accum_kernels_gc
     :members:
     :undoc-members:
     :exclude-members: variables

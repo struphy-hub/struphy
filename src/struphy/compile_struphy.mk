@@ -61,14 +61,15 @@ BTS  := $(struphy_path)/psydac_api/banded_to_stencil_kernels
 # PIC
 UTL	 := $(struphy_path)/pic/utilities_kernels
 
-FK   := $(struphy_path)/pic/filler_kernels
-MVF  := $(struphy_path)/pic/mat_vec_filler
-ACC  := $(struphy_path)/pic/accum_kernels
-ACC_GC  := $(struphy_path)/pic/accum_kernels_gc
+FK   := $(struphy_path)/pic/accumulation/filler_kernels
+MVF  := $(struphy_path)/pic/accumulation/mat_vec_filler
+ACC  := $(struphy_path)/pic/accumulation/accum_kernels
+ACC_GC  := $(struphy_path)/pic/accumulation/accum_kernels_gc
 
-PUTL := $(struphy_path)/pic/pusher_utilities
-PUSH := $(struphy_path)/pic/pusher_kernels
-PUSH_GC := $(struphy_path)/pic/pusher_kernels_gc
+PUTL := $(struphy_path)/pic/pushing/pusher_utilities
+PUSH := $(struphy_path)/pic/pushing/pusher_kernels
+PUSH_GC := $(struphy_path)/pic/pushing/pusher_kernels_gc
+EVAL_GC := $(struphy_path)/pic/pushing/eval_kernels_gc
 PS   := $(struphy_path)/pic/sampling
 
 # Eigenvalue solver
@@ -78,7 +79,7 @@ KM3  := $(struphy_path)/eigenvalue_solvers/kernels_3d
 KPG  := $(struphy_path)/eigenvalue_solvers/kernels_projectors_global
 KPGM := $(struphy_path)/eigenvalue_solvers/kernels_projectors_global_mhd
 
-SOURCES := $(LAC).py $(LAMV).py $(LATR).py $(BK).py $(BKP).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(TR3).py $(MK).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(ACC_GC).py $(PUTL).py $(PUSH).py $(PUSH_GC).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py $(PSY3).py $(PSY4).py
+SOURCES := $(LAC).py $(LAMV).py $(LATR).py $(BK).py $(BKP).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(TR3).py $(MK).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(ACC_GC).py $(PUTL).py $(PUSH).py $(PUSH_GC).py $(EVAL_GC).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py $(PSY3).py $(PSY4).py
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
@@ -161,10 +162,10 @@ $(PLMH)$(SO_EXT) : $(PLMH).py $(MEVA)$(SO_EXT)
 $(BTS)$(SO_EXT) : $(BTS).py
 	pyccel $< $(FLAGS)
 
-$(UTL)$(SO_EXT) : $(UTL).py $(BEV3).py $(BK).py
+$(UTL)$(SO_EXT) : $(UTL).py $(BEV3)$(SO_EXT) $(BK)$(SO_EXT)
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
-$(FK)$(SO_EXT) : $(FK).py $(BKP).py
+$(FK)$(SO_EXT) : $(FK).py $(BKP)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
 $(MVF)$(SO_EXT) : $(MVF).py $(FK)$(SO_EXT)
@@ -179,10 +180,13 @@ $(ACC_GC)$(SO_EXT) : $(ACC_GC).py $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EX
 $(PUTL)$(SO_EXT) : $(PUTL).py $(LAC)$(SO_EXT)
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
-$(PUSH)$(SO_EXT) : $(PUSH).py $(PUTL).py $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BKP)$(SO_EXT) $(BEV3)$(SO_EXT)
+$(PUSH)$(SO_EXT) : $(PUSH).py $(PUTL)$(SO_EXT) $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BKP)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
-$(PUSH_GC)$(SO_EXT) : $(PUSH_GC).py $(PUTL).py $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BKP)$(SO_EXT) $(BEV3)$(SO_EXT)
+$(PUSH_GC)$(SO_EXT) : $(PUSH_GC).py $(PUTL)$(SO_EXT) $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BKP)$(SO_EXT) $(BEV3)$(SO_EXT)
+	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
+
+$(EVAL_GC)$(SO_EXT) : $(EVAL_GC).py $(PUTL)$(SO_EXT) $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BKP)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
 $(PS)$(SO_EXT) : $(PS).py $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT) $(MEVA)$(SO_EXT)

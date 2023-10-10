@@ -21,14 +21,14 @@ def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1):
     import struphy
 
     libpath = struphy.__path__[0]
-    
+
     with open(os.path.join(libpath, 'o_path.txt')) as f:
         o_path = f.readlines()[0]
 
     # create absolute path
     if dir_abs is None:
         dir_abs = os.path.join(o_path, dirr)
-        
+
     print(f'Post processing data in {dir_abs}')
 
     # loop over output folders and call post-processing .py file
@@ -39,5 +39,5 @@ def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1):
                     str(step),
                     '--celldivide',
                     str(celldivide)],
-                    cwd=libpath, 
-                    check=True)
+                   cwd=libpath,
+                   check=True)

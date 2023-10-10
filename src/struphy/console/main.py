@@ -10,13 +10,14 @@ def struphy():
     Struphy main executable. Performs argument parsing and sub-command call.
     '''
 
-    import os, shutil
+    import os
     import inspect
     import argparse
     from struphy.models import fluid, kinetic, hybrid, toy
     from struphy.console.compile import struphy_compile
     from struphy.console.run import struphy_run
     from struphy.console.units import struphy_units
+    from struphy.console.params import struphy_params
     from struphy.console.profile import struphy_profile
     from struphy.console.pproc import struphy_pproc
     from struphy.console.tutorials import struphy_tutorials
@@ -68,9 +69,9 @@ def struphy():
             f.write(b_path)
 
     path_message = f'Struphy installation path: {libpath}\n'
-    path_message += f'default input:             {i_path}\n'
-    path_message += f'default output:            {o_path}\n'
-    path_message += f'template batch scripts:    {b_path}'
+    path_message += f'current input:             {i_path}\n'
+    path_message += f'current output:            {o_path}\n'
+    path_message += f'current batch scripts:     {b_path}'
 
     parser.add_argument('-v', '--version', action='version',
                         version=version_message)
@@ -158,7 +159,7 @@ def struphy():
     list_models = list_fluid + list_kinetic + list_hybrid + list_toy
 
     # model message
-    model_message = 'which model to run, must be one of:\n'
+    model_message = 'Available models:\n'
     model_message += '\nFluid models:\n'
     model_message += '-------------\n'
     model_message += fluid_string
@@ -176,14 +177,13 @@ def struphy():
     parser_run.add_argument('model',
                             type=str,
                             choices=list_models,
-                            metavar='model',
+                            metavar='MODEL',
                             help=model_message,)
 
-    parser_run.add_argument('-i', '--input',
+    parser_run.add_argument('-i', '--inp',
                             type=str,
                             metavar='FILE',
-                            help='parameter file (.yml) in current I/O path (default=parameters.yml)',
-                            default='parameters.yml',)
+                            help='parameter file (.yml) in current I/O path',)
 
     parser_run.add_argument('--input-abs',
                             type=str,
@@ -249,21 +249,47 @@ def struphy():
     parser_units.add_argument('model',
                               type=str,
                               choices=list_models,
-                              metavar='model',
+                              metavar='MODEL',
                               help=model_message,)
 
     parser_units.add_argument('-i', '--input',
                               type=str,
                               metavar='FILE',
-                              help='parameter file (.yml) relative to current I/O path (default=parameters.yml)',
-                              default='parameters.yml',)
+                              help='parameter file (.yml) relative to current I/O path. If absent, default parameters are used.',)
 
     parser_units.add_argument('--input-abs',
                               type=str,
                               metavar='FILE',
                               help='parameter file (.yml), absolute path',)
 
-    # 4. "profile" sub-command
+    # 4. "params" sub-command
+    parser_params = subparsers.add_parser(
+        'params',
+        formatter_class=lambda prog: argparse.RawTextHelpFormatter(
+            prog, max_help_position=30),
+        help='create default parameter file for a model',
+        description='Creates a default parameter file for a specific model.')
+
+    parser_params.add_argument('model',
+                               type=str,
+                               choices=list_models,
+                               metavar='MODEL',
+                               help=model_message,)
+
+    parser_params.add_argument('-f', '--file',
+                               type=str,
+                               metavar='FILE',
+                               help='name of the parameter file (.yml) relative to current I/O path (default=params_<model>.yml)',)
+
+    parser_params.add_argument('-o', '--options',
+                               help='show model options',
+                               action='store_true')
+    
+    parser_params.add_argument('-y', '--yes',
+                               help='Say yes on prompt to overwrite .yml FILE',
+                               action='store_true')
+
+    # 5. "profile" sub-command
     parser_profile = subparsers.add_parser(
         'profile',
         help='profile finished Struphy runs',
@@ -295,13 +321,12 @@ def struphy():
                                 help='string STR that identifies functions for which to print callers (default=None)',
                                 default=None)
 
-    parser_profile.add_argument('--savefig-dir',
+    parser_profile.add_argument('--savefig',
                                 type=str,
-                                metavar='DIR',
-                                help='output directory relative to current Out path (default=None)',
-                                default=None,)
+                                metavar='NAME',
+                                help='save (and dont display) the profile figure under NAME, relative to current output path.',)
 
-    # 5. "pproc" sub-command
+    # 6. "pproc" sub-command
     parser_pproc = subparsers.add_parser(
         'pproc',
         help='post process data of a finished Struphy run',
@@ -330,7 +355,7 @@ def struphy():
                               help='divide each grid cell by N for field evaluation (default=1)',
                               default=1)
 
-    # 6. "tutorials" sub-command
+    # 7. "tutorials" sub-command
     parser_tutorials = subparsers.add_parser(
         'tutorials',
         help='run Struphy simulation(s) for notebook tutorials',
@@ -342,34 +367,38 @@ def struphy():
                                   help='specific tutorial simulation to run (int, optional)',
                                   default=None)
 
-    # 7. "test" sub-command
+    # 8. "test" sub-command
     parser_test = subparsers.add_parser('test',
+                                        formatter_class=lambda prog: argparse.RawTextHelpFormatter(
+                                            prog, max_help_position=30),
                                         help='run Struphy tests',
-                                        description='Run available tests. If no options are given, all units tests (serial and parallel) are run (2 processes for parallel tests).')
+                                        description='Run available unit tests; or test Struphy models (with post processing) for all available options and for three different mappings (Cuboid, HollowTorus and Tokamak).')
 
-    parser_test.add_argument('--serial',
-                             help='run serial unit tests only',
-                             action='store_true')
+    parser_test.add_argument('group',
+                             type=str,
+                             choices=list_models + ['codes'] + ['unit'],
+                             metavar='GROUP',
+                             help='can be a model name, "codes" (tests all models on 2 mpi processes) or "unit" (perform unit tests)',)
 
     parser_test.add_argument('--mpi',
                              type=int,
                              metavar='N',
-                             help='run parallel units tests only (with N number of processes)',
+                             help='run parallel unit tests (with N number of processes) instead of serial ones',
                              default=0)
 
-    parser_test.add_argument('--codes',
-                             help='run code tests',
+    parser_test.add_argument('--fast',
+                             help='test model(s) just in slab geometry (Cuboid)',
                              action='store_true')
 
     # parse argument
     args = parser.parse_args()
-    
+
     # if no arguments are passed, print help and exit
     print_help = True
     for key, val in args.__dict__.items():
         if val is not None:
             print_help = False
-            
+
     if print_help:
         parser.print_help()
         exit()
@@ -391,7 +420,7 @@ def struphy():
 
         with open(os.path.join(libpath, 'i_path.txt'), 'w') as f:
             f.write(i_path)
-    
+
         print(f'New default Input path has been set:')
         import subprocess
         subprocess.run(['struphy', '-p'])
@@ -415,7 +444,7 @@ def struphy():
 
         with open(os.path.join(libpath, 'o_path.txt'), 'w') as f:
             f.write(o_path)
-    
+
         print(f'New default Out path has been set:')
         import subprocess
         subprocess.run(['struphy', '-p'])
@@ -445,7 +474,7 @@ def struphy():
         subprocess.run(['struphy', '-p'])
 
         exit()
-        
+
     # set paths for inp, out and batch (with io/inp etc. prefices)
     if args.set_iob:
         if args.set_iob == '.':
@@ -454,30 +483,17 @@ def struphy():
             path = libpath
         else:
             path = args.set_iob
-            
+
         i_path = os.path.join(path, 'io/inp')
         o_path = os.path.join(path, 'io/out')
         b_path = os.path.join(path, 'io/batch')
-        
+
         import subprocess
         subprocess.run(['struphy', '--set-i', i_path])
         subprocess.run(['struphy', '--set-o', o_path])
         subprocess.run(['struphy', '--set-b', b_path])
-        
+
         exit()
-
-    # handle argument dependencies in "sub-command"
-    if args.command == 'test':
-
-        # set default case "struphy test"
-        if args.serial == False and args.mpi == 0:
-            args.serial = True
-            args.mpi = 2
-
-        # if codes is given, don't run unit tests
-        if args.codes:
-            args.serial = False
-            args.mpi = 0
 
     # load sub-command function (see functions below)
     func = locals()['struphy_' + args.command]

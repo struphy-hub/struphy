@@ -66,7 +66,7 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 #html_theme = 'sphinx_rtd_theme'
 #html_theme = 'classic'
 #html_theme = 'press'
-html_theme = 'python_docs_theme'
+html_theme = 'pydata_sphinx_theme'
 
 
 # html_theme_options = {

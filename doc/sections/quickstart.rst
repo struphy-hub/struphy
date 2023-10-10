@@ -3,74 +3,103 @@
 Quickstart
 ==========
 
-Get help::
+Get help on Struphy console commands::
 
-    struphy
+    struphy -h
 
 Check if kernels are compiled::
 
     struphy compile
 
-Set the default output path to the current working direcory::
-
-    struphy --set-o .
-
-Let us run the model ``Maxwell`` with default input parameters and save the data to ``my_first_sim/``::
-
-    struphy run Maxwell -o my_first_sim
-
-Let us change some input parameters.
-First, get the current I/O paths::
+Check the current I/O paths::
 
     struphy -p
 
-Open the default parameter file (for example with ``vim``) in the current ``<input_path>``::
+Set the I/O paths to the current working directory::
 
-    vi <input_path>/parameters.yml
+    struphy --set-i .
+    struphy --set-o .
 
-Change the number of elements under ``grid/Nel`` by doubling the first entry in the 3-list, save and quit.
-Let us now run ``Maxwell`` again, but this time on 2 processes, and saving to a different folder::
+Get a list of available Struphy models::
 
-    struphy run Maxwell -o another_sim --mpi 2
+    struphy run -h
 
-Post process the data of the two runs::
+Let us run the model `VlasovMaxwell <file:///home/spossann/git_repos/struphy/doc/_build/html/sections/models.html#struphy.models.kinetic.VlasovMaxwell>`_. 
+We first create the corresponding default parameter file::
+
+    struphy params VlasovMaxwell
+
+After hitting ``enter`` on prompt, the parameter file ``params_VlasovMaxwell.yml`` is created
+in the current input path (cwd). Let us rename it for convenience::
+
+    mv params_VlasovMaxwell.yml test.yml
+
+We can now run a simulation with these parameters and save the data to ``my_first_sim/``::
+
+    struphy run VlasovMaxwell -i test.yml -o my_first_sim
+
+The produced data is in the expected folder in the current output path (cwd)::
+
+    ls my_first_sim/ 
+
+Let us post-process the raw simulation data::
 
     struphy pproc -d my_first_sim
+
+The results of post-processing are stored under ``my_first_sim/post_processing/``. In particular, 
+the data of the FEEC-fields is stored under::
+
+    ls my_first_sim/post_processing/fields_data/
+
+and the data of the kinetic particles is stored under::
+
+    ls my_first_sim/post_processing/kinetic_data/
+
+Check out `Tutorial 2 - Data, post processing and standard plots <file:///home/spossann/git_repos/struphy/doc/_build/html/sections/tutorials.html>`_
+for a deeper discussion on Struphy data.
+
+Our first simulation ran for just three time steps. Let us change the end-time of the simulation by opening the parameter file::
+
+    vi test.yml
+
+and setting ``time/Tend`` to ``0.1``. Save, quit and run again, but this time on 2 MPI processes, 
+and saving to a different folder::
+
+    struphy run VlasovMaxwell -i test.yml -o another_sim --mpi 2
+
+This time we ran for 20 time steps. The physical time unit of the run can be known via::
+
+    struphy units VlasovMaxwell -i test.yml
+
+Please refer to `Tutorial 1 - Run Struphy main file in a notebook <file:///home/spossann/git_repos/struphy/doc/_build/html/sections/tutorials.html>`_ 
+for more information on the units used in Struphy.
+For completeness, let us post-process the data of the second run::
+
     struphy pproc -d another_sim
 
-Profile the runs::
+Let us now double the number of markers used in the simulation:: 
 
-    struphy profile my_first_sim another_sim 
+    vi test.yml
 
-Let us now run a more complicated hybrid model, namely ``LinearMHDVlasovCC``, on 2 processes, by specifying different in- and output files::
+by changing ``kinetic/electrons/markers/ppc`` from 10 to 20, and then running::
 
-    struphy run LinearMHDVlasovCC -i <input_path>/params_mhd_vlasov.yml -o sim_hybrid --mpi 2
+    struphy run VlasovMaxwell -i test.yml -o sim_20 --mpi 2
 
-The output is stored in ``sim_hybrid/``. Post process the data::
+After post-processing::
 
-    struphy pproc -d sim_hybrid
+    struphy pproc -d sim_20
 
-You can inspect the generated data via::
+we can compare the two runs with 10 and 20 particles per cell, respectively, in terms of runtime::
 
-    ls sim_hybrid/post_processing/ 
+    struphy profile another_sim sim_20
 
-More info about the post-processed data can be found in `Tutorial_02 <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/notebooks/tutorial_02_postproc_standard_plotting.ipynb>`_.
+Finally, each Struphy model has some specific options to it, which in the case of ``VlasovMaxwell`` can be inspected via::
 
-Finally, let us run in Tokamak geometry. For this, let us run the model ``LinearMHD`` on 2 processes, by specifying a given input file,
-and save the data to a different folder::
+    struphy params VlasovMaxwell --options
 
-    struphy run LinearMHD -i <input_path>/params_mhd.yml -o sim_mhd --mpi 2
+These options can be set in the parameter file. They usually refer to different types of solvers or solution methods.
 
-You can inspect the input file via::
-    
-    vi <input_path>/params_mhd.yml
-
-Post process data::
-
-    struphy pproc -d sim_mhd
-
-You can now open ``paraview`` and load the data from the folder ``sim_mhd/post_processing/fields_data/vtk/``.
-
-**Please check out the** :ref:`tutorials` **to learn more about using Struphy.**
+If you want to learn more about using Struphy, please check out the `Userguide <file:///home/spossann/git_repos/struphy/doc/_build/html/sections/userguide.html>`_
+as well as the `Jupyter notebook tutorials <file:///home/spossann/git_repos/struphy/doc/_build/html/sections/tutorials.html>`_.
 
             

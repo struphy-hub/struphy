@@ -9,9 +9,9 @@ and** *usabilty* **(documentation).**
 
 *Performance* in Struphy is achieved using three building blocks:
 
-   * `numpy <https://numpy.org/>`_ (vectorization)
-   * `mpi4py <https://pypi.org/project/mpi4py/>`_ (parallelization)
-   * `pyccel <https://github.com/pyccel/pyccel>`_ (compilation)
+* `numpy <https://numpy.org/>`_ (vectorization)
+* `mpi4py <https://pypi.org/project/mpi4py/>`_ (parallelization)
+* `pyccel <https://github.com/pyccel/pyccel>`_ (compilation)
 
 Heavy computational kernels are pre-compiled using the Python accelerator `pyccel <https://github.com/pyccel/pyccel>`_,
 which on average shows `better performance <https://github.com/pyccel/pyccel-benchmarks>`_ than *Pythran* or *Numba*.
@@ -28,12 +28,12 @@ Struphy is an object-oriented code. The concept of `inheritance <https://www.w3s
 is heavily used in its basic design; it enables the streamlined addition of new models/features to Struphy.
 For details, please check
 
-   * :ref:`add_model`
+* :ref:`add_model`
 
 Model discretization is based on finite element exterior calculus (FEEC) for the fluid/field quantities
 and particle-in-cell (PIC) methods for the kinetic species. An overview of these methods is given in :ref:`gempic`.
 For the FEEC spaces Struphy uses the open source library 
 
-   * `Psydac <https://github.com/pyccel/psydac>`_ (FEEC spaces)
+* `Psydac <https://github.com/pyccel/psydac>`_ (FEEC spaces)
 
 You can visit the :ref:`gallery` to get some impressions of Struphy simulation results.

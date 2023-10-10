@@ -28,7 +28,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000, verbose=False):
     from struphy.psydac_api.fields import Field
 
     from struphy.pic.particles import Particles6D
-    from struphy.pic.particles_to_grid import AccumulatorVector
+    from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()

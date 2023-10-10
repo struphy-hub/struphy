@@ -8,8 +8,8 @@ from psydac.linalg.block import BlockVector
 
 from struphy.psydac_api.mass import WeightedMassOperator
 
-import struphy.pic.accum_kernels as accums
-import struphy.pic.accum_kernels_gc as accums_gc
+import struphy.pic.accumulation.accum_kernels as accums
+import struphy.pic.accumulation.accum_kernels_gc as accums_gc
 
 
 class Accumulator:
@@ -26,7 +26,7 @@ class Accumulator:
     of the :math:`\mu`-th component of a Derham space (V0, V1, V2, V3) evaluated at the particle position :math:`\eta_p`.
 
     :math:`A^{\mu,\nu}_p` and :math:`B^\mu_p` are particle-dependent "filling functions",
-    to be defined in the module **struphy.pic.accum_kernels**.
+    to be defined in the module **struphy.pic.accumulation.accum_kernels**.
 
     Parameters
     ----------
@@ -40,7 +40,7 @@ class Accumulator:
         Space identifier for the matrix/vector (H1, Hcurl, Hdiv, L2 or H1vec) to be accumulated into.
 
     kernel_name : str
-        Name of accumulator function to be loaded from struphy/pic/accum_kernels.py.
+        Name of accumulation kernel.
 
     add_vector : bool
         True if, additionally to a matrix, a vector in the same space is to be accumulated. Default=False.
@@ -50,8 +50,8 @@ class Accumulator:
 
     Note
     ----
-        Struphy accumulation kernels called by ``Accumulator`` objects must be added to ``struphy/pic/accum_kernels.py`` 
-        (6D particles) or ``struphy/pic/accum_kernels_gc.py`` (5D particles), see :ref:`accum_kernels`
+        Struphy accumulation kernels called by ``Accumulator`` objects must be added to ``struphy/pic/accumulation/accum_kernels.py`` 
+        (6D particles) or ``struphy/pic/accumulation/accum_kernels_gc.py`` (5D particles), see :ref:`accum_kernels`
         and :ref:`accum_kernels_gc` for details.
     """
 
@@ -193,7 +193,7 @@ class Accumulator:
 
     @property
     def kernel_name(self):
-        """ String that identifies which function to load from the module struphy.pic.accum_kernels.
+        """ String that identifies the accumulation kernel.
         """
         return self._kernel_name
 
@@ -303,7 +303,7 @@ class AccumulatorVector:
     where :math:`p` runs over the particles, :math:`\Lambda^\mu_{ijk}(\eta_p)` denotes the :math:`ijk`-th basis function
     of the :math:`\mu`-th component of a Derham space (V0, V1, V2, V3) evaluated at the particle position :math:`\eta_p`.
 
-    :math:`B^\mu_p` is a particle-dependent "filling function", to be defined in the module **struphy.pic.accum_kernels**.
+    :math:`B^\mu_p` is a particle-dependent "filling function", to be defined in the module **struphy.pic.accumulation.accum_kernels**.
 
     Parameters
     ----------
@@ -317,12 +317,12 @@ class AccumulatorVector:
         Space identifier for the matrix/vector (H1, Hcurl, Hdiv, L2 or H1vec) to be accumulated into.
 
     kernel_name : str
-        Name of accumulator function to be loaded from struphy/pic/accum_kernels.py.
+        Name of accumulation kernel.
 
     Note
     ----
-    Struphy accumulation kernels called by ``Accumulator`` objects should be added to ``struphy/pic/accum_kernels.py``. 
-    Please follow the docstring in `struphy.pic.accum_kernels._docstring`.
+    Struphy accumulation kernels called by ``Accumulator`` objects should be added to ``struphy/pic/accumulation/accum_kernels.py``. 
+    Please follow the docstring in `struphy.pic.accumulation.accum_kernels.a_docstring`.
     """
 
     def __init__(self, derham, domain, space_id, kernel_name):
@@ -409,13 +409,13 @@ class AccumulatorVector:
 
     @property
     def kernel_name(self):
-        """ String that identifies which function to load from the module struphy.pic.accum_kernels.
+        """ String that identifies the accumulation kernel.
         """
         return self._kernel_name
 
     @property
     def kernel(self):
-        """ The kernel loaded from the module struphy.pic.accum_kernels.
+        """ The accumulation kernel.
         """
         return self._kernel
 

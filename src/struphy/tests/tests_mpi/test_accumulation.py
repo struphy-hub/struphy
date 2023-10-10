@@ -48,7 +48,7 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, Np, verbose=False):
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
 
     from struphy.pic.particles import Particles6D
-    from struphy.pic.particles_to_grid import Accumulator
+    from struphy.pic.accumulation.particles_to_grid import Accumulator
     from struphy.tests.tests_mpi.test_pic_legacy_files.accumulation import Accumulator as Accumulator_leg
 
     mpi_comm = MPI.COMM_WORLD
@@ -207,7 +207,7 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, Np, verbose=False):
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
 
     from struphy.pic.particles import Particles6D
-    from struphy.pic.particles_to_grid import Accumulator
+    from struphy.pic.accumulation.particles_to_grid import Accumulator
     from struphy.tests.tests_mpi.test_pic_legacy_files.accumulation import Accumulator as Accumulator_leg
 
     mpi_comm = MPI.COMM_WORLD
@@ -397,7 +397,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
 
     from struphy.tests.tests_mpi.test_pic_legacy_files.accumulation_kernels_3d import kernel_step_ph_full
     from struphy.pic.particles import Particles6D
-    from struphy.pic.particles_to_grid import Accumulator
+    from struphy.pic.accumulation.particles_to_grid import Accumulator
 
     mpi_comm = MPI.COMM_WORLD
     # assert mpi_comm.size >= 2
