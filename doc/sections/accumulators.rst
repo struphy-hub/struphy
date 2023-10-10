@@ -3,7 +3,10 @@
 Accumulators
 ============
 
-Documented modules:
+This page lists `currently available accumulation kernels <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.pic.accumulation.accum_kernels.html>`_ (for charge and current deposition to the grid).
+Accumulation routines are an integral of PIC algorithms, as they are the kernels for computing :ref:`monte_carlo`.
+
+Accumulators are implemented within the following sub-modules:
 
 .. currentmodule:: ''
 

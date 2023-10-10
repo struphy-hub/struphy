@@ -1,4 +1,4 @@
-'Propagator base classes.'
+'Propagator base class.'
 
 
 from abc import ABCMeta, abstractmethod
@@ -10,11 +10,9 @@ class Propagator(metaclass=ABCMeta):
 
     Note
     ---- 
-    All Struphy propagators are subclasses of ``Propagator``.
-
-    The ``__init__`` of child classes must take as arguments the variables to be updated.
-    All additional arguments MUST be passed as **keyword arguments**.
-    The variables (not the other arguments) must then be passed to `super().__init__()`.
+    All Struphy propagators are subclasses of ``Propagator`` and must be added to ``struphy/propagators``
+    in one of the modules ``propagators_fields.py``, ``propagators_markers.py`` or ``propagators_coupling.py``.
+    Only propagators that update both a FEEC and a PIC species go into ``propagators_coupling.py``.
     """
 
     def __init__(self, *vars):

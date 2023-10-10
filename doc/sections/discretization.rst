@@ -123,6 +123,8 @@ The 0-form :math:`f^0` is thus constant along the characteristics :math:numref:`
     \frac{\textnormal d}{\textnormal d t} \left( f^0(t, q(t,q_0)) \right) = 0\,.
 
 
+.. _monte_carlo:
+
 Monte-Carlo integrals
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -196,6 +198,14 @@ where we defined the time-independent **weights**
 These weights are implemented in :meth:`struphy.pic.base.Particles.initialize_weights`.
 Equation :math:numref:`mcint` can be obtained directly from :math:numref:`int:1` by inserting
 the PIC ansatz :math:numref:`pic:ansatz`, with :math:`f^0|J_F| \approx f^n_h`.
+
+In Struphy, Monte-Carlo integrals of the form :math:numref:`mcint` are implemented via :ref:`accums`. 
+
+
+.. _pic_algo:
+
+PIC algorithm
+^^^^^^^^^^^^^
 
 The PIC algorithm can be summarized in the following steps:
 

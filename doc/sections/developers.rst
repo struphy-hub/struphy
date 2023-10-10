@@ -301,6 +301,8 @@ Struphy model base class
 FEEC base classes
 -----------------
 
+.. _de_rham:
+
 Derham sequence (3D) 
 ^^^^^^^^^^^^^^^^^^^^
 
@@ -597,38 +599,49 @@ This then sets the time unit :math:`\hat t = \hat x / \hat v`, where :math:`\hat
 unit of length specified through the parameter file. We refer to `Tutorial 01 <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_01_units_run_main.html#Struphy-normalization-(units)>`_ for more details
 on the Struphy normalization.
 
+.. _add_prop:
+
 4. Add Propagators
 ^^^^^^^^^^^^^^^^^^
 
-The Propagators have to be added in :code:`__init__`. 
-For this we use the method :meth:`add_propagator() <struphy.models.base.StruphyModel.add_propagator>` 
-of the :class:`StruphyModel <struphy.models.base.StruphyModel>` base class.
-As argument, an instance of one of 
+Propagators are the main building blocks of :ref:`models`, as they define the 
+time splitting scheme of the algorithm. When adding a new model to Struphy, make sure to
+
+1. check the lists of :ref:`available propagators <propagators>` - maybe what you need is already there!
+2. :ref:`write your own propagators <add_props>` in case you need to. 
+
+Propagators have to be added to a model in the :code:`__init__()`-section of the model class 
+via the method :meth:`add_propagator() <struphy.models.base.StruphyModel.add_propagator>`.
+The method takes one argument, namely an object from one of its class attributes
 
 * :attr:`self.prop_fields <struphy.models.base.StruphyModel.prop_fields>` 
 * :attr:`self.prop_markers <struphy.models.base.StruphyModel.prop_markers>` 
 * :attr:`self.prop_coupling <struphy.models.base.StruphyModel.prop_coupling>` 
 
-must be passed. These are child classes of the :ref:`prop_base`,
-which have been assigned the de Rham sequence, domain, mass operators and basis projection operators
-of the current model instance. Consider the example of the model :class:`VlasovMaxwell <struphy.models.kinetic.VlasovMaxwell>`,
+These three class attributes are pointers to the :ref:`three propagator modules <propagators>`. 
+When a model is instantiated, all classes in these three modules (which are child classes of :ref:`prop_base`) 
+get assigned the current :ref:`de Rham sequence <de_rham>`, :ref:`domain <avail_mappings>`, 
+:ref:`mass operators <weighted_mass>` and :ref:`basis projection operators <basis_ops>`.
+Any instance of a class then inherits this information.
+
+Consider for example of the model :class:`VlasovMaxwell <struphy.models.kinetic.VlasovMaxwell>`,
 where four different propagators are used for time stepping::
 
     self.add_propagator(self.prop_fields.Maxwell(
-        self.pointer['e1'],
-        self.pointer['b2'],
-        **params['solvers']['solver_maxwell']))
+            self.pointer['e1'],
+            self.pointer['b2'],
+            **params_maxwell))
 
     self.add_propagator(self.prop_markers.PushEta(
         self.pointer['electrons'],
-        algo=electron_params['push_algos']['eta'],
+        algo=algo_eta,
         bc_type=electron_params['markers']['bc']['type'],
         f0=None))
 
     self.add_propagator(self.prop_markers.PushVxB(
         self.pointer['electrons'],
-        algo=electron_params['push_algos']['vxb'],
-        scale_fac=1/self.epsilon,
+        algo=algo_vxb,
+        scale_fac=1/self._epsilon,
         b_eq=self._b_background,
         b_tilde=self.pointer['b2'],
         f0=None))
@@ -636,15 +649,19 @@ where four different propagators are used for time stepping::
     self.add_propagator(self.prop_coupling.VlasovMaxwell(
         self.pointer['e1'],
         self.pointer['electrons'],
-        alpha=self.alpha,
-        epsilon=self.epsilon,
-        **params['solvers']['solver_vlasovmaxwell'])) 
+        c1=self._alpha**2/self._epsilon,
+        c2=1/self._epsilon,
+        **params_coupling)) 
 
+Here, one "field"-propagator (:class:`Maxwell <struphy.propagators.propagators_fields.Maxwell>`), 
+two "marker"-propagators (:class:`PushEta <struphy.propagators.propagators_markers.PushEta>` 
+and :class:`PushVxB <struphy.propagators.propagators_markers.PushVxB>`) and one "hybrid"-propagator 
+(:class:`VlasovMaxwell <struphy.propagators.propagators_coupling.VlasovMaxwell>`) are added to the model.
 Each Propagator takes as arguments the variables to be updated, 
 usually passed via the :attr:`pointer attribute <struphy.models.base.StruphyModel.pointer>`. 
-All additional arguments MUST be passed as keyword arguments. 
+**All additional arguments MUST be passed as keyword arguments.** 
 
-**Please refer to** :ref:`propagators` **for propagator templates.**
+The order in which you add propagators matters. They are called consecutively in the given :ref:`time splitting scheme <time>`.
 
 
 5. Add scalar quantities
@@ -729,6 +746,13 @@ you can run the model with::
 where ``YOUR_MODEL`` is the name you gave to 
 the model class (it must start with a capital letter).
 
+
+.. _add_props:
+
+Writing a new propagator
+------------------------
+
+Coming soon - for now, please check out :ref:`existing propagators <propagators>` for templates.
 
 
 

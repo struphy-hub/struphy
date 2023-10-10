@@ -7,7 +7,7 @@
 # docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora -f docker/fedora.dockerfile .
 # docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora
 
-FROM fedora:latest
+FROM fedora:37
 
 # install linux packages 
 RUN dnf install -y python3-pip \
@@ -20,8 +20,7 @@ RUN dnf install -y python3-pip \
     && dnf install -y environment-modules \
     && dnf install -y python3-mpi4py-openmpi \
     && dnf install -y python3-devel \
-    && dnf install -y python3.10 \
-    && dnf install -y python3.10-devel 
+    && dnf install -y pandoc
 
 # create new working dir
 WORKDIR /your_working_dir/

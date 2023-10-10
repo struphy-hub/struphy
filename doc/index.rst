@@ -12,13 +12,13 @@ Struphy is open-source (https://gitlab.mpcdf.mpg.de/struphy/struphy) and can be 
 The package is designed for the efficient solution of partial differential equations based
 on :ref:`geomFE` and :ref:`particle_discrete`.
 
-Struphy features a `growing list of PDE models <https://struphy.pages.mpcdf.de/struphy/sections/models.html>`_ 
-which can be solved on a variety of `mapped domains <https://struphy.pages.mpcdf.de/struphy/sections/domains.html>`_.
+Struphy features a :ref:`growing list of PDE models <models>` 
+which can be solved on a variety of `mapped domains <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.geometry.domains.html>`_.
 
-Struphy can be improved by you. To become a developer, you need a Max-Planck Gitlab (https://gitlab.mpcdf.mpg.de/) account. 
-In case you are not affiliated with the Max Planck Society, 
-please :ref:`contact` a Max Planck employee for an invitation.
-For further information on forking and merge- (or pull-) requests please go to :ref:`git_workflow`.
+| Struphy can be improved by you (see :ref:`developers`).
+| To become a developer, you need a Max-Planck Gitlab (https://gitlab.mpcdf.mpg.de/) account. 
+| In case you are not affiliated with the Max Planck Society, please :ref:`contact` a Max Planck employee for an invitation.
+| For further information on forking and merge- (or pull-) requests please go to :ref:`git_workflow`.
 
 .. toctree::
    :maxdepth: 1
