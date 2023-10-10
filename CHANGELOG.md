@@ -1,35 +1,38 @@
-## Version 2.0.3
+## Version 2.0.4
 
 ### Core changes
 
-* Removed psydac submodule. !397
+* Allowing for a selection of FEEC coefficients saving !408
 
-* Require `pyccel<1.8.0` to have faster compilation. !397
+    We can save FEEC data selectively by inserting these lines at `parameters.yml`
 
-* Added a draft for `Particles.boundary_transfer()`. This method transfers particles to the opposite side of the hole (around the magentic axis), where the magnitude of the magnetic field is the same. !398
+    ```
+    em_fields :
+        save_data :
+            comps :
+                e1 : False
+                b2 : True
+    ```
+    and similar fpr fluid species.
 
-* Console command `struphy examples` has been removed. !399
+* Abstract methods `species(cls)` and `options(cls)` in StruphyModel !409
 
-    The content of the examples can now be found in tutorial notebooks. These notebooks can be seen in the Struphy documentation under /Tutorials.
-    The data necessary to run the notebooks is created by running the new console command `struphy tutorials [-n N]`; when the option `-n N` is given, only the simulations for the tutorial number `N` is executed. The output is stored in the install path under `io/out/tutorial_N`.
+    This enables the new console command `struphy params MODEL` and the automatic testing of all models with their options
+    via `struphy test`.
 
-* Renamed `fourier_1d` -> `power_spectrum_2d` !399
+* Updated the `Pusher` class, removed the separate Pusher classes for `Itoh` and `Gonzalez` !409
 
-* Initialize skew symmetric S-matrix with `np.zeros((3, 3))` in kernels. Otherwise the diagonal might get filled with unwanted non-zeros by the system. Also fixed minus sign bugs in `gc_discrete_gradient` kernels. !402
+* Changed the GVECequilibirum to GVECunit interaction. The former now calls the latter at init !409
 
-* Use newer modules on the mpcdf clusters: `module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc`. The module `mpi4py` does not need to be loaded. !402
+* Added the parameter `rmin` to `GVECequilibirum`, which allows to have a hole around the magnetic axis !409
 
-* Modified initialization sequence of FEEC variables to be more flexible. The init `type` can now be a list; for each entry in the list, parameters have to be given, and different `comps` can be set to `True`. !403
+* Removed Psydac mappings entirely !409
 
-* The FEEC init type `TorusModesCos` has been added. !403
+* Removed the option `mhd_u_space` from all models solving `LinearMHD`. The associated Propagators still have this option though (for future use.) !409
 
-* Speed up marker evaluation a lot by using more `numpy`; also save `.npy` files aside `.txt` for markers. !404
+* Improve exit condition for iterative pusher !410
 
-* Moved `setup` and `output_handling` to folder `io/`. !404
-
-* Move `struphy/models/main.py` to `struphy/main.py` !404
-
-* Remove `params_*` files from `io/inp/`. !404
+    By counting and communicating number of not converged particles `n_not_converged`, iteration can exit the loop when all the particles are converged (`n_not_converged = 0`).
 
 
 ### Model specific changes
@@ -39,12 +42,11 @@
 
 ### Documentation, tutorials, etc.
 
-* Scaling test results of `LinearMHD` model have been added [here](https://struphy.pages.mpcdf.de/struphy/sections/performance_tests.html#linearmhd). !392
+* Added Tutorial 06 and added `field_line_tracing` docstring !409
 
-* Change doc appearance to Python style. !397
+* Many small improvements in doc
 
-* Included [notebook tutorials](https://struphy.pages.mpcdf.de/struphy/sections/tutorials.html) in doc via Pandoc. !399
 
-### Repo struphy-simulations, new files:
+### Struphy-simulations, new files:
 
 None.

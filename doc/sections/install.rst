@@ -22,6 +22,7 @@ Requirements
 - OpenMP
 - Git version control system
 - Pandoc (optional)
+- **Struphy does not support** `Anaconda <https://www.anaconda.com/>`_, please use Python directly.
 
 Sample environment on **Debian-Ubuntu-Mint**::
 
@@ -125,7 +126,7 @@ Source
 
 Clone the `Struphy repository <https://gitlab.mpcdf.mpg.de/struphy/struphy>`_::
 
-    git clone git@gitlab.mpcdf.mpg.de:struphy/struphy.git 
+    git clone https://gitlab.mpcdf.mpg.de/struphy/struphy.git
     cd struphy
 
 Update pip and install package::

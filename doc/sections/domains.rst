@@ -3,7 +3,9 @@
 3D mapped domains
 =================
 
-Documented modules:
+This page lists the `currently available mapped domains <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.geometry.domains.html>`_ in Struphy.
+
+Domain-related code stands in the following sub-modules:
 
 .. currentmodule:: ''
 

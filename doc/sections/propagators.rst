@@ -3,7 +3,16 @@
 Propagators
 ===========
 
-Documented modules:
+This page lists currently available Struphy propagators 
+(for `fields <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.propagators.propagators_fields.html>`_,
+for `markers <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.propagators.propagators_markers.html>`_,
+and for `a mix of both <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.propagators.propagators_coupling.html>`_).
+Propagators are the main building blocks of :ref:`models`, as they define the 
+time splitting scheme of the algorithm.
+
+Check out :ref:`add_prop` for a manual on writing new propagators.
+
+Propagators are implemented within the following sub-modules:
 
 .. currentmodule:: ''
 
@@ -20,6 +29,8 @@ Documented modules:
     struphy.pic.pushing.pusher_kernels_gc
     struphy.pic.pushing.pusher_kernels_gc_init
     struphy.pic.pushing.pusher_kernels_gc_subkernels
+
+.. _prop_list:
 
 .. toctree::
     :caption: Lists of available propagators (and particle pushers therein):

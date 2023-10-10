@@ -190,6 +190,8 @@ class GVECunit(Spline):
 
 class IGAPolarCylinder(PoloidalSplineStraight):
     r"""
+    A cylinder with the cross section approximated by a spline mapping.
+    
     .. math:: 
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
@@ -265,6 +267,8 @@ class IGAPolarCylinder(PoloidalSplineStraight):
 
 class IGAPolarTorus(PoloidalSplineTorus):
     r"""
+    A torus with the poloidal cross-section approximated by a spline mapping.
+    
     .. math::
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
@@ -363,6 +367,8 @@ class IGAPolarTorus(PoloidalSplineTorus):
 
 class Cuboid(Domain):
     r"""
+    Slab geometry (Cartesian coordinates).
+    
     .. math::
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
@@ -442,6 +448,8 @@ class Cuboid(Domain):
 
 class Orthogonal(Domain):
     r"""
+    Slab geometry with orthogonal mesh distortion.
+    
     .. math:: 
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
@@ -514,6 +522,8 @@ class Orthogonal(Domain):
 
 class Colella(Domain):
     r'''
+    Slab geometry with Colella mesh distortion.
+    
     .. math::
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
@@ -586,6 +596,8 @@ class Colella(Domain):
 
 class HollowCylinder(Domain):
     r"""
+    Cylinder with possible hole around the axis.
+    
     .. math::
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
@@ -659,6 +671,8 @@ class HollowCylinder(Domain):
 
 class PoweredEllipticCylinder(Domain):
     r"""
+    Cylinder with elliptic cross section and radial power law.
+    
     .. math::
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
@@ -731,6 +745,8 @@ class PoweredEllipticCylinder(Domain):
 
 class HollowTorus(Domain):
     r"""
+    Torus with possible hole around the magnetic axis (center of the smaller circle).
+    
     .. math::
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
@@ -824,6 +840,8 @@ class HollowTorus(Domain):
 
 class ShafranovShiftCylinder(Domain):
     r"""
+    Cylinder with quadratic Shafranov shift.
+    
     .. math:: 
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
@@ -896,6 +914,8 @@ class ShafranovShiftCylinder(Domain):
 
 class ShafranovSqrtCylinder(Domain):
     r"""
+    Cylinder with square-root Shafranov shift.
+    
     .. math:: 
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
@@ -968,6 +988,7 @@ class ShafranovSqrtCylinder(Domain):
 
 class ShafranovDshapedCylinder(Domain):
     r"""
+    Cylinder with D-shaped cross section and quadratic Shafranov shift.
     .. math:: 
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
