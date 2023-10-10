@@ -5,7 +5,7 @@ import h5py
 import scipy.special as sp
 
 from struphy.pic import sampling, sobol_seq
-from struphy.pic.pusher_utilities import reflect
+from struphy.pic.pushing.pusher_utilities import reflect
 from struphy.pic.utilities_kernels import eval_magnetic_energy
 from struphy.kinetic_background import maxwellians
 from struphy.fields_background.mhd_equil.equils import set_defaults
@@ -732,7 +732,8 @@ class Particles(metaclass=ABCMeta):
 
         self.markers[transfer_inds, 0] = 0.
         self.markers[transfer_inds, 1] = 1. - self.markers[transfer_inds, 1]
-        self.markers[transfer_inds, 21] = -1. 
+        self.markers[transfer_inds, 9] = -1.
+        self.markers[transfer_inds,10] = 0 
 
         is_outside_cube[transfer_inds] = False
         outside_inds = np.nonzero(is_outside_cube)[0]

@@ -24,7 +24,7 @@ geometry :
         Nel        : [28, 72] # number of poloidal grid cells, >p
         p          : [3, 3] # poloidal spline degrees, >1
         psi_power  : 0.6 # parametrization of radial flux coordinate eta1=psi_norm^psi_power, where psi_norm is normalized flux
-        psi_shifts : [0., 1.] # start and end shifts of polidal flux in % --> cuts away regions at the axis and edge
+        psi_shifts : [0.000001, 1.] # start and end shifts of polidal flux in % --> cuts away regions at the axis and edge
         xi_param   : equal_angle # parametrization of angular coordinate (equal_angle, equal_arc_length or sfl (straight field line))
         r0         : 0.3 # initial guess for radial distance from axis used in Newton root-finding method for flux surfaces
         Nel_pre    : [64, 256] # number of poloidal grid cells of pre-mapping needed for equal_arc_length and sfl
@@ -72,6 +72,4 @@ kinetic :
                 n : 0.05
         save_data :
             n_markers : 4 # number of markers to be save during simulation
-        push_algos :
-            vxb : analytic # possible choices: analytic, implicit
-            eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4
+        options: {push_eta: rk4, push_vxb: analytic}

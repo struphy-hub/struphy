@@ -375,13 +375,6 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
         print('restart:'.ljust(25), restart)
         print('max wall-clock [min]:'.ljust(25), max_sim_time)
 
-        # print domain info
-        print('\nDOMAIN:')
-        print(f'type:'.ljust(25), params['geometry']['type'])
-        for key, val in params['geometry'][params['geometry']['type']].items():
-            if key not in {'cx', 'cy', 'cz'}:
-                print((key + ':').ljust(25), val)
-
         # print grid info
         print('\nGRID:')
         print(f'number of elements:'.ljust(25), params['grid']['Nel'])
@@ -412,3 +405,114 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
                 'max wall-clock time [min]:'.ljust(30) + str(max_sim_time) + '\n')
 
     return params
+
+
+def descend_options_dict(d, out, d_default=None, d_opts=None, keys=None, depth=0, pop_again=False):
+    '''Prepare parameter sub-dicts from model options dict.
+
+    If d_default=None, will return the default parameter dict of a model
+    (takes first list entries of options dict).
+
+    Otherwise, will go through all sub-dicts of the options dict recursively 
+    and check whether a value is a list (i.e. different options are available). 
+    If True, creates one parameter dict for each value in the list,
+    with all other parameters set to their defaults.
+
+    Parameters
+    ----------
+    d : dict
+        The (sub)-dict to investigate.
+
+    out : list or dict
+        The ouptut, must be passed as empty list. During recursion, if
+        list: Holds one parameter dict for each option. If dict: the default parameters. 
+        
+    d_default : dict
+        The default parameter dict of the model. 
+        If passed as None, the default parameter dict will be returned.
+        
+    d_opts : dict
+        A copy of "d" created at first call (when d_opts is None).
+
+    keys : list
+        The keys to the options in the options dict. The last entry is the lowest-level key.
+        This list is filled automatically during recursion.
+        
+    depth : int
+        The length of d from the previous recursion. 
+        
+    pop_again : bool
+        Whether to pop one more time from keys; this is automatically set to True when depth is reached during recursion.'''
+
+    import copy
+
+    # set d_opts, keys and depth at first call
+    if d_opts is None:
+        assert out == []
+        d_opts = d.copy()
+        keys = []
+        depth = len(d)
+
+        if d_default is None:
+            out = copy.deepcopy(d)
+
+    count = 0
+    for key, val in d.items():
+        count += 1
+
+        if isinstance(val, list):
+
+            # create default parameter dict "out"
+            if d_default is None:
+                if len(keys) == 0:
+                    out[key] = val[0]
+                elif len(keys) == 1:
+                    out[keys[0]][key] = val[0]
+                elif len(keys) == 2:
+                    out[keys[0]][keys[1]][key] = val[0]
+                else:
+                    raise ValueError(
+                        f'Depth of options dictionary must not exceed 3, but is {len(keys) + 1}.')
+
+            # add one parameter dict for each option in the list
+            else:
+                out_sublist = []
+                for param in val:
+                    
+                    # exclude solvers without preconditioner
+                    if isinstance(param, tuple):
+                        if param[1] is None:
+                            continue
+                    
+                    d_copy = copy.deepcopy(d_default)
+                    if len(keys) == 0:
+                        d_copy[key] = param
+                    elif len(keys) == 1:
+                        d_copy[keys[0]][key] = param
+                    elif len(keys) == 2:
+                        d_copy[keys[0]][keys[1]][key] = param
+                    else:
+                        raise ValueError(
+                            f'Depth of options dictionary must not exceed 3, but is {len(keys) + 1}.')
+                    out_sublist += [d_copy]
+                out += [out_sublist]
+
+        # recurse if necessary
+        elif isinstance(val, dict):
+            if count == depth and len(keys) > 0:
+                pop_again = True
+            keys += [key]
+            descend_options_dict(val, out, d_opts=d_opts,
+                                 keys=keys, depth=len(val), pop_again=pop_again, d_default=d_default)
+
+        else:
+            pass
+        
+    if len(keys) > 0:    
+        keys.pop()
+        if pop_again:
+            keys.pop()
+            pop_again = False
+
+    if d_default is None:
+        return out

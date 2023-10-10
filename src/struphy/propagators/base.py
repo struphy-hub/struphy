@@ -1,11 +1,8 @@
-'Propagator base classes.'
+'Propagator base class.'
 
 
 from abc import ABCMeta, abstractmethod
 import numpy as np
-
-from psydac.linalg.basic import Vector
-from struphy.pic.particles import Particles
 
 
 class Propagator(metaclass=ABCMeta):
@@ -13,11 +10,9 @@ class Propagator(metaclass=ABCMeta):
 
     Note
     ---- 
-    All Struphy propagators are subclasses of ``Propagator``.
-
-    The ``__init__`` of child classes must take as arguments the variables to be updated.
-    All additional arguments MUST be passed as **keyword arguments**.
-    The variables (not the other arguments) must then be passed to `super().__init__()`.
+    All Struphy propagators are subclasses of ``Propagator`` and must be added to ``struphy/propagators``
+    in one of the modules ``propagators_fields.py``, ``propagators_markers.py`` or ``propagators_coupling.py``.
+    Only propagators that update both a FEEC and a PIC species go into ``propagators_coupling.py``.
     """
 
     def __init__(self, *vars):
@@ -28,6 +23,8 @@ class Propagator(metaclass=ABCMeta):
         vars : Vector or Particles
             :attr:`struphy.models.base.StruphyModel.pointer` of variables to be updated.
         """
+        from psydac.linalg.basic import Vector
+        from struphy.pic.particles import Particles
 
         self._feec_vars = []
         self._particles = []
@@ -65,6 +62,12 @@ class Propagator(metaclass=ABCMeta):
         dt : float
             Time step size.
         """
+        pass
+
+    @classmethod
+    @abstractmethod             
+    def options(cls):
+        '''Dictionary of available propagator options, as appearing under species/options in the parameter file.'''
         pass
 
     @property

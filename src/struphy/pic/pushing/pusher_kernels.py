@@ -9,7 +9,7 @@ import struphy.b_splines.bsplines_kernels as bsp
 import struphy.b_splines.bsplines_kernels_particles as bspparticle
 import struphy.b_splines.bspline_evaluation_3d as eval_3d
 
-from struphy.pic.pusher_utilities import aux_fun_x_v_stat_e
+from struphy.pic.pushing.pusher_utilities import aux_fun_x_v_stat_e
 
 from numpy import zeros, empty, shape, sqrt, cos, sin, floor, log
 
@@ -23,11 +23,11 @@ def a_documentation():
     * starts with ``push_``
     * add a short description of the pusher, e.g. ``push_bxu_H1vec``.
     
-    These kernels are passed to :class:`struphy.pic.pusher.Pusher` and called via::
+    These kernels are passed to :class:`struphy.pic.pushing.pusher.Pusher` and called via::
     
         Pusher()
         
-    The arguments passed to each kernel have a pre-defined order, defined in :class:`struphy.pic.pusher.Pusher`.
+    The arguments passed to each kernel have a pre-defined order, defined in :class:`struphy.pic.pushing.pusher.Pusher`.
     This order is as follows (you can copy and paste from existing pusher_kernels functions):
 
     1. Marker info:

@@ -7,9 +7,8 @@ from psydac.linalg.block import BlockVector
 
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-from struphy.pic.particles import Particles6D, Particles5D
-from struphy.pic.pusher import Pusher, Pusher_iteration_Gonzalez, Pusher_iteration_Itoh
-from struphy.pic.pusher import ButcherTableau
+from struphy.pic.pushing.pusher import Pusher
+from struphy.pic.pushing.pusher import ButcherTableau
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.kinetic_background.maxwellians import Maxwellian6DUniform
 
@@ -81,7 +80,7 @@ class PushEta(Propagator):
 
         self._butcher = ButcherTableau(a, b, c)
         self._pusher = Pusher(self.derham, self.domain,
-                              'push_eta_stage', self._butcher.n_stages)
+                              'push_eta_stage', n_stages=self._butcher.n_stages)
 
     def __call__(self, dt):
         """
@@ -96,6 +95,12 @@ class PushEta(Propagator):
         # update_weights
         if self._f0 is not None:
             self.particles[0].update_weights(self._f0)
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['algo'] = ['rk4', 'forward_euler', 'heun2', 'rk2', 'heun3']
+        return dct
 
 
 class PushVxB(Propagator):
@@ -177,6 +182,12 @@ class PushVxB(Propagator):
         # update_weights
         if self._f0 is not None:
             self.particles[0].update_weights(self._f0)
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['algo'] = ['analytic', 'implicit']
+        return dct
 
 
 class StepPushpxBHybrid(Propagator):
@@ -426,8 +437,15 @@ class PushEtaPC(Propagator):
                      self._u[0]._data, self._u[1]._data, self._u[2]._data,
                      mpi_sort='last')
 
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['use_perp_model'] = [True, False]
+        dct['u_space'] = ['Hcurl', 'Hdiv', 'H1vec']
+        return dct
 
-class StepPushGuidingCenter1(Propagator):
+
+class PushGuidingCenterBxEstar(Propagator):
     r"""Solves
 
     .. math::
@@ -438,20 +456,18 @@ class StepPushGuidingCenter1(Propagator):
 
     for each marker :math:`p` in markers array. Available algorithms:
 
-        Explicit:
-        * forward_euler (1st order)
-        * heun2 (2nd order)
-        * rk2 (2nd order)
-        * heun3 (3rd order)
-        * rk4 (4th order)
-
-        Implicit:
-        * discrete_gradients
-        * discrete_gradients_faster
+        * forward_euler (1st order, explicit)
+        * heun2 (2nd order, explicit)
+        * rk2 (2nd order, explicit)
+        * heun3 (3rd order, explicit)
+        * rk4 (4th order, explicit)
+        * discrete_gradient (2nd order, implicit)
+        * discrete_gradient_faster (1st order, implicit)
+        * discrete_gradient_Itoh_Newton (2nd order, implicit)
 
     Parameters
     ----------
-    particles : struphy.pic.particles.Particles6D
+    particles : struphy.pic.particles.Particles5D
         Holdes the markers to push.
 
     **params : dict
@@ -468,7 +484,6 @@ class StepPushGuidingCenter1(Propagator):
                           'unit_b1': None,
                           'unit_b2': None,
                           'abs_b': None,
-                          'integrator': 'implicit',
                           'method': 'discrete_gradient_faster',
                           'maxiter': 10,
                           'tol': 1e-12,
@@ -476,104 +491,134 @@ class StepPushGuidingCenter1(Propagator):
 
         params = set_defaults(params, params_default)
 
-        self._kappa = params['kappa']
-        self._b_eq = params['b_eq']
-        self._unit_b1 = params['unit_b1']
-        self._unit_b2 = params['unit_b2']
-        self._abs_b = params['abs_b']
+        kappa = params['kappa']
+        b_eq = params['b_eq']
+        unit_b1 = params['unit_b1']
+        unit_b2 = params['unit_b2']
+        abs_b = params['abs_b']
 
-        self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
-        self._grad_abs_b = self.derham.grad.dot(self._abs_b)
+        curl_norm_b = self.derham.curl.dot(unit_b1)
+        grad_abs_b = self.derham.grad.dot(abs_b)
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        self._E0T = self.derham.E['0'].transpose()
-        self._E1T = self.derham.E['1'].transpose()
-        self._E2T = self.derham.E['2'].transpose()
+        E0T = self.derham.E['0'].transpose()
+        E1T = self.derham.E['1'].transpose()
+        E2T = self.derham.E['2'].transpose()
 
-        self._b_eq = self._E2T.dot(self._b_eq)
-        self._unit_b1 = self._E1T.dot(self._unit_b1)
-        self._unit_b2 = self._E2T.dot(self._unit_b2)
-        self._abs_b = self._E0T.dot(self._abs_b)
-        self._curl_norm_b = self._E2T.dot(self._curl_norm_b)
-        self._grad_abs_b = self._E1T.dot(self._grad_abs_b)
+        b_eq = E2T.dot(b_eq)
+        unit_b1 = E1T.dot(unit_b1)
+        unit_b2 = E2T.dot(unit_b2)
+        abs_b = E0T.dot(abs_b)
+        curl_norm_b = E2T.dot(curl_norm_b)
+        grad_abs_b = E1T.dot(grad_abs_b)
 
-        self._curl_norm_b.update_ghost_regions()
-        self._grad_abs_b.update_ghost_regions()
+        curl_norm_b.update_ghost_regions()
+        grad_abs_b.update_ghost_regions()
 
-        if params['integrator'] == 'explicit':
+        _eval_ker_names = []
 
-            if params['method'] == 'forward_euler':
-                a = []
-                b = [1.]
-                c = [0.]
-            elif params['method'] == 'heun2':
-                a = [1.]
-                b = [1/2, 1/2]
-                c = [0., 1.]
-            elif params['method'] == 'rk2':
-                a = [1/2]
-                b = [0., 1.]
-                c = [0., 1/2]
-            elif params['method'] == 'heun3':
-                a = [1/3, 2/3]
-                b = [1/4, 0., 3/4]
-                c = [0., 1/3, 2/3]
-            elif params['method'] == 'rk4':
-                a = [1/2, 1/2, 1.]
-                b = [1/6, 1/3, 1/3, 1/6]
-                c = [0., 1/2, 1/2, 1.]
-            else:
-                raise NotImplementedError(
-                    'Chosen algorithm is not implemented.')
+        if params['method'] == 'forward_euler':
+            _method = 'explicit'
+            a = []
+            b = [1.]
+            c = [0.]
+        elif params['method'] == 'heun2':
+            _method = 'explicit'
+            a = [1.]
+            b = [1/2, 1/2]
+            c = [0., 1.]
+        elif params['method'] == 'rk2':
+            _method = 'explicit'
+            a = [1/2]
+            b = [0., 1.]
+            c = [0., 1/2]
+        elif params['method'] == 'heun3':
+            _method = 'explicit'
+            a = [1/3, 2/3]
+            b = [1/4, 0., 3/4]
+            c = [0., 1/3, 2/3]
+        elif params['method'] == 'rk4':
+            _method = 'explicit'
+            a = [1/2, 1/2, 1.]
+            b = [1/6, 1/3, 1/3, 1/6]
+            c = [0., 1/2, 1/2, 1.]
+        elif params['method'] == 'discrete_gradient':
+            _method = 'implicit'
+            _kernel_name = 'push_gc_bxEstar_' + params['method']
+            _eval_ker_names += ['gc_bxEstar_' +
+                                params['method'] + '_eval_gradI']
+        elif params['method'] == 'discrete_gradient_faster':
+            _method = 'implicit'
+            _kernel_name = 'push_gc_bxEstar_' + params['method']
+            _eval_ker_names += ['gc_bxEstar_' +
+                                params['method'] + '_eval_gradI']
 
-            self._butcher = ButcherTableau(a, b, c)
-            self._pusher = Pusher(
-                self.derham, self.domain, 'push_gc1_explicit_stage', self._butcher.n_stages)
-
-            self._pusher_inputs = (self._kappa, self._b_eq[0]._data, self._b_eq[1]._data, self._b_eq[2]._data,
-                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
-                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_abs_b[0]._data, self._grad_abs_b[1]._data, self._grad_abs_b[2]._data,
-                                   self._butcher.a, self._butcher.b, self._butcher.c)
-
-        elif params['integrator'] == 'implicit':
-
-            if params['method'] == 'discrete_gradients':
-                self._pusher = Pusher_iteration_Gonzalez(
-                    self.derham, self.domain, 'push_gc1_discrete_gradients', params['maxiter'], params['tol'])
-
-            elif params['method'] == 'discrete_gradients_faster':
-                self._pusher = Pusher_iteration_Gonzalez(
-                    self.derham, self.domain, 'push_gc1_discrete_gradients_faster', params['maxiter'], params['tol'])
-
-            elif params['method'] == 'discrete_gradients_Itoh_Newton':
-                self._pusher = Pusher_iteration_Itoh(
-                    self.derham, self.domain, 'push_gc1_discrete_gradients_Itoh_Newton', params['maxiter'], params['tol'])
-
-            else:
-                raise NotImplementedError(
-                    'Chosen implicit method is not implemented.')
-
-            self._pusher_inputs = (self._kappa, self._abs_b._data,
-                                   self._b_eq[0]._data, self._b_eq[1]._data, self._b_eq[2]._data,
-                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
-                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_abs_b[0]._data, self._grad_abs_b[1]._data, self._grad_abs_b[2]._data)
-
+        elif params['method'] == 'discrete_gradient_Itoh_Newton':
+            _method = 'implicit'
+            _kernel_name = 'push_gc_bxEstar_' + params['method']
+            _eval_ker_names += ['gc_bxEstar_' +
+                                params['method'] + '_eval1',
+                                'gc_bxEstar_' +
+                                params['method'] + '_eval2']
         else:
-            raise NotImplementedError('Chosen integrator is not implemented.')
+            raise NotImplementedError(
+                f'Chosen method {params["method"]} is not implemented.')
+
+        if _method == 'explicit':
+            butcher = ButcherTableau(a, b, c)
+
+            self._pusher = Pusher(self.derham,
+                                  self.domain,
+                                  'push_gc_bxEstar_explicit_multistage',
+                                  n_stages=butcher.n_stages)
+
+            self._pusher_inputs = (kappa, b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
+                                   unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
+                                   unit_b2[0]._data, unit_b2[1]._data, unit_b2[2]._data,
+                                   curl_norm_b[0]._data, curl_norm_b[1]._data, curl_norm_b[2]._data,
+                                   grad_abs_b[0]._data, grad_abs_b[1]._data, grad_abs_b[2]._data,
+                                   butcher.a, butcher.b, butcher.c)
+        else:
+            self._pusher = Pusher(self.derham,
+                                  self.domain,
+                                  _kernel_name,
+                                  init_kernel=True,
+                                  eval_kernels_names=_eval_ker_names,
+                                  maxiter=params['maxiter'],
+                                  tol=params['tol'])
+
+            self._pusher_inputs = (kappa, abs_b._data,
+                                   b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
+                                   unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
+                                   unit_b2[0]._data, unit_b2[1]._data, unit_b2[2]._data,
+                                   curl_norm_b[0]._data, curl_norm_b[1]._data, curl_norm_b[2]._data,
+                                   grad_abs_b[0]._data, grad_abs_b[1]._data, grad_abs_b[2]._data,
+                                   params['maxiter'], params['tol'])
 
     def __call__(self, dt):
         """
         TODO
         """
         self._pusher(self.particles[0], dt,
-                     *self._pusher_inputs, mpi_sort='each', verbose=True)
+                     *self._pusher_inputs, mpi_sort='each', verbose=False)
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['algo'] = {'method': ['rk4',
+                                  'forward_euler',
+                                  'heun2',
+                                  'rk2',
+                                  'heun3',
+                                  'discrete_gradient',
+                                  'discrete_gradient_faster',
+                                  'discrete_gradient_Itoh_Newton'],
+                       'maxiter': 20,
+                       'tol': 1e-5}
+        return dct
 
 
-class StepPushGuidingCenter2(Propagator):
+class PushGuidingCenterBstar(Propagator):
     r"""Solves
 
     .. math::
@@ -584,11 +629,14 @@ class StepPushGuidingCenter2(Propagator):
 
     for each marker :math:`p` in markers array. Available algorithms:
 
-        * forward_euler (1st order)
-        * heun2 (2nd order)
-        * rk2 (2nd order)
-        * heun3 (3rd order)
-        * rk4 (4th order)
+        * forward_euler (1st order, explicit)
+        * heun2 (2nd order, explicit)
+        * rk2 (2nd order, explicit)
+        * heun3 (3rd order, explicit)
+        * rk4 (4th order, explicit)
+        * discrete_gradient (2nd order, implicit)
+        * discrete_gradient_faster (2nd order, implicit)
+        * discrete_gradient_Itoh_Newton (2nd order, implicit)
 
     Parameters
     ----------
@@ -609,7 +657,6 @@ class StepPushGuidingCenter2(Propagator):
                           'unit_b1': None,
                           'unit_b2': None,
                           'abs_b': None,
-                          'integrator': 'implicit',
                           'method': 'discrete_gradient_faster',
                           'maxiter': 10,
                           'tol': 1e-12,
@@ -617,101 +664,132 @@ class StepPushGuidingCenter2(Propagator):
 
         params = set_defaults(params, params_default)
 
-        self._kappa = params['kappa']
-        self._b_eq = params['b_eq']
-        self._unit_b1 = params['unit_b1']
-        self._unit_b2 = params['unit_b2']
-        self._abs_b = params['abs_b']
+        kappa = params['kappa']
+        b_eq = params['b_eq']
+        unit_b1 = params['unit_b1']
+        unit_b2 = params['unit_b2']
+        abs_b = params['abs_b']
 
-        self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
-        self._grad_abs_b = self.derham.grad.dot(self._abs_b)
+        curl_norm_b = self.derham.curl.dot(unit_b1)
+        grad_abs_b = self.derham.grad.dot(abs_b)
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        self._E0T = self.derham.E['0'].transpose()
-        self._E1T = self.derham.E['1'].transpose()
-        self._E2T = self.derham.E['2'].transpose()
+        E0T = self.derham.E['0'].transpose()
+        E1T = self.derham.E['1'].transpose()
+        E2T = self.derham.E['2'].transpose()
 
-        self._b_eq = self._E2T.dot(self._b_eq)
-        self._unit_b1 = self._E1T.dot(self._unit_b1)
-        self._unit_b2 = self._E2T.dot(self._unit_b2)
-        self._abs_b = self._E0T.dot(self._abs_b)
-        self._curl_norm_b = self._E2T.dot(self._curl_norm_b)
-        self._grad_abs_b = self._E1T.dot(self._grad_abs_b)
+        b_eq = E2T.dot(b_eq)
+        unit_b1 = E1T.dot(unit_b1)
+        unit_b2 = E2T.dot(unit_b2)
+        abs_b = E0T.dot(abs_b)
+        curl_norm_b = E2T.dot(curl_norm_b)
+        grad_abs_b = E1T.dot(grad_abs_b)
 
-        self._curl_norm_b.update_ghost_regions()
-        self._grad_abs_b.update_ghost_regions()
+        curl_norm_b.update_ghost_regions()
+        grad_abs_b.update_ghost_regions()
 
-        if params['integrator'] == 'explicit':
+        _eval_ker_names = []
 
-            if params['method'] == 'forward_euler':
-                a = []
-                b = [1.]
-                c = [0.]
-            elif params['method'] == 'heun2':
-                a = [1.]
-                b = [1/2, 1/2]
-                c = [0., 1.]
-            elif params['method'] == 'rk2':
-                a = [1/2]
-                b = [0., 1.]
-                c = [0., 1/2]
-            elif params['method'] == 'heun3':
-                a = [1/3, 2/3]
-                b = [1/4, 0., 3/4]
-                c = [0., 1/3, 2/3]
-            elif params['method'] == 'rk4':
-                a = [1/2, 1/2, 1.]
-                b = [1/6, 1/3, 1/3, 1/6]
-                c = [0., 1/2, 1/2, 1.]
-            else:
-                raise NotImplementedError(
-                    'Chosen algorithm is not implemented.')
+        if params['method'] == 'forward_euler':
+            _method = 'explicit'
+            a = []
+            b = [1.]
+            c = [0.]
+        elif params['method'] == 'heun2':
+            _method = 'explicit'
+            a = [1.]
+            b = [1/2, 1/2]
+            c = [0., 1.]
+        elif params['method'] == 'rk2':
+            _method = 'explicit'
+            a = [1/2]
+            b = [0., 1.]
+            c = [0., 1/2]
+        elif params['method'] == 'heun3':
+            _method = 'explicit'
+            a = [1/3, 2/3]
+            b = [1/4, 0., 3/4]
+            c = [0., 1/3, 2/3]
+        elif params['method'] == 'rk4':
+            _method = 'explicit'
+            a = [1/2, 1/2, 1.]
+            b = [1/6, 1/3, 1/3, 1/6]
+            c = [0., 1/2, 1/2, 1.]
+        elif params['method'] == 'discrete_gradient':
+            _method = 'implicit'
+            _kernel_name = 'push_gc_Bstar_' + params['method']
+            _eval_ker_names += ['gc_Bstar_' +
+                                params['method'] + '_eval_gradI']
 
-            self._butcher = ButcherTableau(a, b, c)
-            self._pusher = Pusher(
-                self.derham, self.domain, 'push_gc2_explicit_stage', self._butcher.n_stages)
+        elif params['method'] == 'discrete_gradient_faster':
+            _method = 'implicit'
+            _kernel_name = 'push_gc_Bstar_' + params['method']
+            _eval_ker_names += ['gc_Bstar_' +
+                                params['method'] + '_eval_gradI']
 
-            self._pusher_inputs = (self._kappa, self._b_eq[0]._data, self._b_eq[1]._data, self._b_eq[2]._data,
-                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
-                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_abs_b[0]._data, self._grad_abs_b[1]._data, self._grad_abs_b[2]._data,
-                                   self._butcher.a, self._butcher.b, self._butcher.c)
-
-        elif params['integrator'] == 'implicit':
-
-            if params['method'] == 'discrete_gradients':
-                self._pusher = Pusher_iteration_Gonzalez(
-                    self.derham, self.domain, 'push_gc2_discrete_gradients', params['maxiter'], params['tol'])
-
-            elif params['method'] == 'discrete_gradients_faster':
-                self._pusher = Pusher_iteration_Gonzalez(
-                    self.derham, self.domain, 'push_gc2_discrete_gradients_faster', params['maxiter'], params['tol'])
-
-            elif params['method'] == 'discrete_gradients_Itoh_Newton':
-                self._pusher = Pusher_iteration_Itoh(
-                    self.derham, self.domain, 'push_gc2_discrete_gradients_Itoh_Newton', params['maxiter'], params['tol'])
-
-            else:
-                raise NotImplementedError(
-                    'Chosen implicit method is not implemented.')
-
-            self._pusher_inputs = (self._kappa, self._abs_b._data,
-                                   self._b_eq[0]._data, self._b_eq[1]._data, self._b_eq[2]._data,
-                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
-                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_abs_b[0]._data, self._grad_abs_b[1]._data, self._grad_abs_b[2]._data)
-
+        elif params['method'] == 'discrete_gradient_Itoh_Newton':
+            _method = 'implicit'
+            _kernel_name = 'push_gc_Bstar_' + params['method']
+            _eval_ker_names += ['gc_Bstar_' +
+                                params['method'] + '_eval1',
+                                'gc_Bstar_' +
+                                params['method'] + '_eval2']
         else:
-            raise NotImplementedError('Chosen integrator is not implemented.')
+            raise NotImplementedError(
+                f'Chosen method {params["method"]} is not implemented.')
+
+        if _method == 'explicit':
+            butcher = ButcherTableau(a, b, c)
+
+            self._pusher = Pusher(self.derham,
+                                  self.domain,
+                                  'push_gc_Bstar_explicit_multistage',
+                                  n_stages=butcher.n_stages)
+
+            self._pusher_inputs = (kappa, b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
+                                   unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
+                                   unit_b2[0]._data, unit_b2[1]._data, unit_b2[2]._data,
+                                   curl_norm_b[0]._data, curl_norm_b[1]._data, curl_norm_b[2]._data,
+                                   grad_abs_b[0]._data, grad_abs_b[1]._data, grad_abs_b[2]._data,
+                                   butcher.a, butcher.b, butcher.c)
+        else:
+            self._pusher = Pusher(self.derham,
+                                  self.domain,
+                                  _kernel_name,
+                                  init_kernel=True,
+                                  eval_kernels_names=_eval_ker_names,
+                                  maxiter=params['maxiter'],
+                                  tol=params['tol'])
+
+            self._pusher_inputs = (kappa, abs_b._data,
+                                   b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
+                                   unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
+                                   unit_b2[0]._data, unit_b2[1]._data, unit_b2[2]._data,
+                                   curl_norm_b[0]._data, curl_norm_b[1]._data, curl_norm_b[2]._data,
+                                   grad_abs_b[0]._data, grad_abs_b[1]._data, grad_abs_b[2]._data,
+                                   params['maxiter'], params['tol'])
 
     def __call__(self, dt):
         """
         TODO
         """
         self._pusher(self.particles[0], dt,
-                     *self._pusher_inputs, mpi_sort='each', verbose=True)
+                     *self._pusher_inputs, mpi_sort='each', verbose=False)
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['algo'] = {'method': ['rk4',
+                                  'forward_euler',
+                                  'heun2',
+                                  'rk2',
+                                  'heun3',
+                                  'discrete_gradient',
+                                  'discrete_gradient_faster',
+                                  'discrete_gradient_Itoh_Newton'],
+                       'maxiter': 20,
+                       'tol': 1e-5}
+        return dct
 
 
 class StepVinEfield(Propagator):
@@ -767,6 +845,10 @@ class StepVinEfield(Propagator):
         self._pusher(self.particles[0], dt,
                      self._e_field.blocks[0]._data, self._e_field.blocks[1]._data, self._e_field.blocks[2]._data,
                      self.kappa)
+
+    @classmethod
+    def options(cls):
+        pass
 
 
 class StepStaticEfield(Propagator):
@@ -849,7 +931,7 @@ class StepStaticEfield(Propagator):
                      array([1e-10, 1e-10]), 100)
 
 
-class StepPushDriftKinetic1(Propagator):
+class PushDriftKineticBxgradB(Propagator):
     r"""Solves
 
     .. math::
@@ -868,8 +950,8 @@ class StepPushDriftKinetic1(Propagator):
         * rk4 (4th order)
 
         Implicit:
-        * discrete_gradients
-        * discrete_gradients_faster
+        * discrete_gradient
+        * discrete_gradient_faster
 
     Parameters
     ----------
@@ -891,7 +973,6 @@ class StepPushDriftKinetic1(Propagator):
                           'unit_b1': None,
                           'unit_b2': None,
                           'abs_b': None,
-                          'integrator': 'implicit',
                           'method': 'discrete_gradient',
                           'maxiter': 5,
                           'tol': 1e-8,
@@ -905,6 +986,8 @@ class StepPushDriftKinetic1(Propagator):
         self._unit_b1 = params['unit_b1']
         self._unit_b2 = params['unit_b2']
         self._abs_b = params['abs_b']
+        self._maxiter = params['maxiter']
+        self._tol = params['tol']
 
         self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
 
@@ -928,58 +1011,69 @@ class StepPushDriftKinetic1(Propagator):
 
         self._curl_norm_b.update_ghost_regions()
 
-        self._integrator = params['integrator']
+        _eval_ker_names = []
 
-        if params['integrator'] == 'explicit':
-
-            if params['method'] == 'forward_euler':
-                a = []
-                b = [1.]
-                c = [0.]
-            elif params['method'] == 'heun2':
-                a = [1.]
-                b = [1/2, 1/2]
-                c = [0., 1.]
-            elif params['method'] == 'rk2':
-                a = [1/2]
-                b = [0., 1.]
-                c = [0., 1/2]
-            elif params['method'] == 'heun3':
-                a = [1/3, 2/3]
-                b = [1/4, 0., 3/4]
-                c = [0., 1/3, 2/3]
-            elif params['method'] == 'rk4':
-                a = [1/2, 1/2, 1.]
-                b = [1/6, 1/3, 1/3, 1/6]
-                c = [0., 1/2, 1/2, 1.]
-            else:
-                raise NotImplementedError(
-                    'Chosen algorithm is not implemented.')
-
-            self._butcher = ButcherTableau(a, b, c)
-            self._pusher = Pusher(
-                self.derham, self.domain, 'push_gc1_explicit_stage', self._butcher.n_stages)
-
-        elif params['integrator'] == 'implicit':
-
-            if params['method'] == 'discrete_gradients':
-                self._pusher = Pusher_iteration_Gonzalez(
-                    self.derham, self.domain, 'push_gc1_discrete_gradients', params['maxiter'], params['tol'])
-
-            elif params['method'] == 'discrete_gradients_faster':
-                self._pusher = Pusher_iteration_Gonzalez(
-                    self.derham, self.domain, 'push_gc1_discrete_gradients_faster', params['maxiter'], params['tol'])
-
-            elif params['method'] == 'discrete_gradients_Itoh_Newton':
-                self._pusher = Pusher_iteration_Itoh(
-                    self.derham, self.domain, 'push_gc1_discrete_gradients_Itoh_Newton', params['maxiter'], params['tol'])
-
-            else:
-                raise NotImplementedError(
-                    'Chosen implicit method is not implemented.')
-
+        if params['method'] == 'forward_euler':
+            self._method = 'explicit'
+            a = []
+            b = [1.]
+            c = [0.]
+        elif params['method'] == 'heun2':
+            self._method = 'explicit'
+            a = [1.]
+            b = [1/2, 1/2]
+            c = [0., 1.]
+        elif params['method'] == 'rk2':
+            self._method = 'explicit'
+            a = [1/2]
+            b = [0., 1.]
+            c = [0., 1/2]
+        elif params['method'] == 'heun3':
+            self._method = 'explicit'
+            a = [1/3, 2/3]
+            b = [1/4, 0., 3/4]
+            c = [0., 1/3, 2/3]
+        elif params['method'] == 'rk4':
+            self._method = 'explicit'
+            a = [1/2, 1/2, 1.]
+            b = [1/6, 1/3, 1/3, 1/6]
+            c = [0., 1/2, 1/2, 1.]
+        elif params['method'] == 'discrete_gradient':
+            self._method = 'implicit'
+            _kernel_name = 'push_gc_bxEstar_' + params['method']
+            _eval_ker_names += ['gc_bxEstar_' +
+                                params['method'] + '_eval_gradI']
+        elif params['method'] == 'discrete_gradient_faster':
+            self._method = 'implicit'
+            _kernel_name = 'push_gc_bxEstar_' + params['method']
+            _eval_ker_names += ['gc_bxEstar_' +
+                                params['method'] + '_eval_gradI']
+        elif params['method'] == 'discrete_gradient_Itoh_Newton':
+            self._method = 'implicit'
+            _kernel_name = 'push_gc_bxEstar_' + params['method']
+            _eval_ker_names += ['gc_bxEstar_' +
+                                params['method'] + '_eval1',
+                                'gc_bxEstar_' +
+                                params['method'] + '_eval2']
         else:
-            raise NotImplementedError('Chosen integrator is not implemented.')
+            raise NotImplementedError(
+                f'Chosen method {params["method"]} is not implemented.')
+
+        if self._method == 'explicit':
+            self._butcher = ButcherTableau(a, b, c)
+
+            self._pusher = Pusher(self.derham,
+                                  self.domain,
+                                  'push_gc_bxEstar_explicit_multistage',
+                                  n_stages=self._butcher.n_stages)
+        else:
+            self._pusher = Pusher(self.derham,
+                                  self.domain,
+                                  _kernel_name,
+                                  init_kernel=True,
+                                  eval_kernels_names=_eval_ker_names,
+                                  maxiter=params['maxiter'],
+                                  tol=params['tol'])
 
     def __call__(self, dt):
         """
@@ -1003,7 +1097,7 @@ class StepPushDriftKinetic1(Propagator):
         self._PBb.update_ghost_regions()
         self._grad_PBb.update_ghost_regions()
 
-        if self._integrator == 'explicit':
+        if self._method == 'explicit':
             self._pusher_inputs = (self._kappa,
                                    self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
@@ -1017,13 +1111,29 @@ class StepPushDriftKinetic1(Propagator):
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data)
+                                   self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data,
+                                   self._maxiter, self._tol)
 
         self._pusher(self.particles[0], dt,
                      *self._pusher_inputs, mpi_sort='each', verbose=True)
 
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['algo'] = {'method': ['rk4',
+                                  'forward_euler',
+                                  'heun2',
+                                  'rk2',
+                                  'heun3',
+                                  'discrete_gradient',
+                                  'discrete_gradient_faster',
+                                  'discrete_gradient_Itoh_Newton'],
+                       'maxiter': 20,
+                       'tol': 1e-5}
+        return dct
 
-class StepPushDriftKinetic2(Propagator):
+
+class PushDriftKineticBstar(Propagator):
     r"""Solves
 
     .. math::
@@ -1060,7 +1170,6 @@ class StepPushDriftKinetic2(Propagator):
                           'unit_b1': None,
                           'unit_b2': None,
                           'abs_b': None,
-                          'integrator': 'implicit',
                           'method': 'discrete_gradient',
                           'maxiter': 10,
                           'tol': 1e-8,
@@ -1074,6 +1183,8 @@ class StepPushDriftKinetic2(Propagator):
         self._unit_b1 = params['unit_b1']
         self._unit_b2 = params['unit_b2']
         self._abs_b = params['abs_b']
+        self._maxiter = params['maxiter']
+        self._tol = params['tol']
 
         self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
 
@@ -1097,58 +1208,71 @@ class StepPushDriftKinetic2(Propagator):
 
         self._curl_norm_b.update_ghost_regions()
 
-        self._integrator = params['integrator']
+        _eval_ker_names = []
 
-        if params['integrator'] == 'explicit':
+        if params['method'] == 'forward_euler':
+            self._method = 'explicit'
+            a = []
+            b = [1.]
+            c = [0.]
+        elif params['method'] == 'heun2':
+            self._method = 'explicit'
+            a = [1.]
+            b = [1/2, 1/2]
+            c = [0., 1.]
+        elif params['method'] == 'rk2':
+            self._method = 'explicit'
+            a = [1/2]
+            b = [0., 1.]
+            c = [0., 1/2]
+        elif params['method'] == 'heun3':
+            self._method = 'explicit'
+            a = [1/3, 2/3]
+            b = [1/4, 0., 3/4]
+            c = [0., 1/3, 2/3]
+        elif params['method'] == 'rk4':
+            self._method = 'explicit'
+            a = [1/2, 1/2, 1.]
+            b = [1/6, 1/3, 1/3, 1/6]
+            c = [0., 1/2, 1/2, 1.]
+        elif params['method'] == 'discrete_gradient':
+            self._method = 'implicit'
+            _kernel_name = 'push_gc_Bstar_' + params['method']
+            _eval_ker_names += ['gc_Bstar_' +
+                                params['method'] + '_eval_gradI']
 
-            if params['method'] == 'forward_euler':
-                a = []
-                b = [1.]
-                c = [0.]
-            elif params['method'] == 'heun2':
-                a = [1.]
-                b = [1/2, 1/2]
-                c = [0., 1.]
-            elif params['method'] == 'rk2':
-                a = [1/2]
-                b = [0., 1.]
-                c = [0., 1/2]
-            elif params['method'] == 'heun3':
-                a = [1/3, 2/3]
-                b = [1/4, 0., 3/4]
-                c = [0., 1/3, 2/3]
-            elif params['method'] == 'rk4':
-                a = [1/2, 1/2, 1.]
-                b = [1/6, 1/3, 1/3, 1/6]
-                c = [0., 1/2, 1/2, 1.]
-            else:
-                raise NotImplementedError(
-                    'Chosen algorithm is not implemented.')
+        elif params['method'] == 'discrete_gradient_faster':
+            self._method = 'implicit'
+            _kernel_name = 'push_gc_Bstar_' + params['method']
+            _eval_ker_names += ['gc_Bstar_' +
+                                params['method'] + '_eval_gradI']
 
-            self._butcher = ButcherTableau(a, b, c)
-            self._pusher = Pusher(
-                self.derham, self.domain, 'push_gc2_explicit_stage', self._butcher.n_stages)
-
-        elif params['integrator'] == 'implicit':
-
-            if params['method'] == 'discrete_gradients':
-                self._pusher = Pusher_iteration_Gonzalez(
-                    self.derham, self.domain, 'push_gc2_discrete_gradients', params['maxiter'], params['tol'])
-
-            elif params['method'] == 'discrete_gradients_faster':
-                self._pusher = Pusher_iteration_Gonzalez(
-                    self.derham, self.domain, 'push_gc2_discrete_gradients_faster', params['maxiter'], params['tol'])
-
-            elif params['method'] == 'discrete_gradients_Itoh_Newton':
-                self._pusher = Pusher_iteration_Itoh(
-                    self.derham, self.domain, 'push_gc2_discrete_gradients_Itoh_Newton', params['maxiter'], params['tol'])
-
-            else:
-                raise NotImplementedError(
-                    'Chosen implicit method is not implemented.')
-
+        elif params['method'] == 'discrete_gradient_Itoh_Newton':
+            self._method = 'implicit'
+            _kernel_name = 'push_gc_Bstar_' + params['method']
+            _eval_ker_names += ['gc_Bstar_' +
+                                params['method'] + '_eval1',
+                                'gc_Bstar_' +
+                                params['method'] + '_eval2']
         else:
-            raise NotImplementedError('Chosen integrator is not implemented.')
+            raise NotImplementedError(
+                f'Chosen method {params["method"]} is not implemented.')
+
+        if self._method == 'explicit':
+            self._butcher = ButcherTableau(a, b, c)
+
+            self._pusher = Pusher(self.derham,
+                                  self.domain,
+                                  'push_gc_Bstar_explicit_multistage',
+                                  n_stages=self._butcher.n_stages)
+        else:
+            self._pusher = Pusher(self.derham,
+                                  self.domain,
+                                  _kernel_name,
+                                  init_kernel=True,
+                                  eval_kernels_names=_eval_ker_names,
+                                  maxiter=params['maxiter'],
+                                  tol=params['tol'])
 
     def __call__(self, dt):
         """
@@ -1171,7 +1295,7 @@ class StepPushDriftKinetic2(Propagator):
         self._PBb.update_ghost_regions()
         self._grad_PBb.update_ghost_regions()
 
-        if self._integrator == 'explicit':
+        if self._method == 'explicit':
             self._pusher_inputs = (self._kappa,
                                    self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
@@ -1185,7 +1309,23 @@ class StepPushDriftKinetic2(Propagator):
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data)
+                                   self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data,
+                                   self._maxiter, self._tol)
 
         self._pusher(self.particles[0], dt,
                      *self._pusher_inputs, mpi_sort='each', verbose=True)
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['algo'] = {'method': ['rk4',
+                                  'forward_euler',
+                                  'heun2',
+                                  'rk2',
+                                  'heun3',
+                                  'discrete_gradient',
+                                  'discrete_gradient_faster',
+                                  'discrete_gradient_Itoh_Newton'],
+                       'maxiter': 20,
+                       'tol': 1e-5}
+        return dct

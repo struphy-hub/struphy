@@ -43,6 +43,7 @@ default_venv:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
   before_script:
     - uname -s # get system info
     - uname -v
@@ -72,9 +73,9 @@ ci_vars:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
   cache: []
   before_script:
-    - echo "All CI predefined variables:"
     - module purge
     - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc
     - module list
@@ -216,6 +217,7 @@ default_build:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
   needs: ["default_venv"]
   script:
     - pip list
@@ -232,6 +234,7 @@ default_install:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
     - pip install dist/struphy*.whl
     - pip show struphy
@@ -250,10 +253,12 @@ default_unit_tests:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
     - pwd
     - ls -1
-    - struphy test  
+    - struphy test unit
+    - struphy test unit --mpi 2
 
 default_code_tests:
   stage: test
@@ -265,7 +270,17 @@ default_code_tests:
   script:
     - pwd
     - ls -1
-    - struphy test --codes
+    - struphy test codes --fast
+
+cronjob_code_tests:
+  stage: test
+  needs: ["default_install"]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  script:
+    - pwd
+    - ls -1
+    - struphy test codes 
 
 ubuntu_tests:
   stage: test
@@ -292,33 +307,34 @@ ubuntu_tests:
     - pip list
     - pip install dist/struphy*.whl
     - struphy compile
-    - struphy test --codes
+    - struphy test codes --fast
 
-# fedora_tests:
-#   stage: test
-#   image: fedora:latest
-#   needs: ["default_build"]
-#   cache: []
-#   rules:
-#     - if: $CI_COMMIT_TAG
-#       when: never
-#     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
-#   before_script:
-#     - dnf install -y python3-pip 
-#     - dnf install -y gcc 
-#     - dnf install -y gfortran  
-#     - dnf install -y blas-devel lapack-devel  
-#     - dnf install -y openmpi openmpi-devel 
-#     - dnf install -y libgomp 
-#     - dnf install -y git 
-#     - dnf install -y environment-modules 
-#     - dnf install -y python3-mpi4py-openmpi 
-#     - dnf install -y python3-devel 
-#     - export OMPI_ALLOW_RUN_AS_ROOT=1
-#     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
-#   script:
-#     - pip list
-#     - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install dist/struphy*.whl && struphy compile && struphy test --codes" 
+fedora_tests:
+  stage: test
+  image: fedora:37
+  needs: ["default_build"]
+  cache: []
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+  before_script:
+    - dnf install -y python3-pip 
+    - dnf install -y gcc 
+    - dnf install -y gfortran  
+    - dnf install -y blas-devel lapack-devel  
+    - dnf install -y openmpi openmpi-devel 
+    - dnf install -y libgomp 
+    - dnf install -y git 
+    - dnf install -y environment-modules 
+    - dnf install -y python3-mpi4py-openmpi 
+    - dnf install -y python3-devel 
+    - dnf install -y pandoc
+    - export OMPI_ALLOW_RUN_AS_ROOT=1
+    - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+  script:
+    - pip list
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install dist/struphy*.whl && struphy compile && struphy test codes --fast" 
 
 # release
 deploy:
@@ -337,6 +353,8 @@ pages:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "true" 
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
   needs: ["default_install"]
   script:
     - pip show struphy

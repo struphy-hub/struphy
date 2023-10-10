@@ -3,23 +3,44 @@
 Userguide
 =========
 
+Struphy can be conveniently used from the console. The overall help is displayed by typing::
+
+    struphy -h
+
+To get more information on the sub-commands::
+
+    struphy COMMAND -h
+
+The installed version is obtained by::
+
+    struphy -v
+
 
 .. _running_codes:
 
-Solving PDEs with Struphy - running models
-------------------------------------------
+Solving PDEs with Struphy
+-------------------------
 
-The help for running Struphy models can be accessed with::
+With Struphy it is simple to solve PDEs from the console.
+A list of available model PDEs and run options can be accessed with::
 
-    struphy run --help
+    struphy run -h
 
-The basic command is::
+The list of models is automatically updated whenever a developer adds a new model PDE.
+All models are continuously auto-tested with many different input options. 
+
+The basic command for solving a PDE is::
 
     struphy run [OPTIONS] MODEL 
 
-See :ref:`models` for more information such as implemented PDEs and normalization.
-If no ``[OPTIONS]`` are specified, the input is taken from ``<install_path>/parameters.yml``,
-where ``<install_path>`` is the current input path obtained from::
+If no ``[OPTIONS]`` are specified, a default parameter file ``params_MODEL.yml``
+is created in the current input path (on prompt).
+If we choose to do so, the file is created (or overwritten) and the code exits. 
+To run the model with default parameters we can now type::
+
+    struphy run MODEL -i params_MODEL.yml
+
+The current I/O paths can be obtained from::
 
     struphy -p
 
@@ -28,14 +49,29 @@ The I/O paths can be changed with the commands::
     struphy --set-i <path>
     struphy --set-o <path>
 
-If ``<path>`` is ``.`` the current working directory is selected.
-The default parameter file ``<install_path>/parameters.yml`` provides an overview of simulation parameters
-that can be passed to Struphy models. Model specific parameter templates can be found under ``<install_path>/params_*.yml``.
-Possible parameters are discussed in more detail in :ref:`params_yml`.
+If ``<path>`` is ``.``, the current working directory is selected. 
+The default I/O paths are ``<install_path>/io/inp`` and ``<install_path>/io/out``, respectively.
+We can always revert back to the default I/O paths::
 
-By default, simulation data is written to ``<install_path>/sim_1/``. 
-Different input files and/or output folders in the current I/O paths can be specified
-with the ``-i`` and/or ``-o`` flags, respectively::
+    struphy --set-i d
+    struphy --set-o d
+
+All parameters for a Struphy run are set in the parameter file ``params_MODEL.yml``.
+We can edit/copy/rename this file to our liking and pass it via ``-i <new_name>.yml`` to the run command.
+All models in Struphy share a set of "core" parameters which are discussed in :ref:`params_yml`.
+Model specific parameters can be seen under the keyword ``options`` in the parameter file.
+Each model species has its own ``options``, which are hard-coded as class methods.
+We can inspect the model-specific options from the console::
+
+    struphy params MODEL --options
+
+Available options appear as lists in the options dictionary. 
+The first list entry is the respective default option. 
+The key structure of the options dictionary is exactly the same as in the parameter file.
+
+By default, Struphy simulation data is written to ``sim_1/`` in the current output path. 
+Different input files and/or output folders with respect the current I/O paths can be specified
+with the ``-i`` and/or ``-o`` options, respectively::
 
     struphy run MODEL -i my_params.yml -o my_folder
 
@@ -43,7 +79,7 @@ Absolute paths (unrelated to the current I/O paths) can also be specified::
 
     struphy run MODEL --input-abs path/to/file.yml --output-abs path/to/folder
 
-Small parallel runs for testing can be called via::
+Small parallel runs (for debugging) can be called via::
 
     struphy run MODEL --mpi <int>
 
@@ -53,10 +89,10 @@ The path to your batch scripts can be set via::
 
     struphy --set-b <path>
 
-If ``<path>`` is ``.`` the current working directory is selected.
+The logic of this command is the same as for ``--set-i`` above.
 A model is run as a slurm job with the ``-b`` flag::
 
-    struphy run MODEL -b cobra_0160proc.sh
+    struphy run MODEL -b my_batch_script.sh
 
 Again, an absolute path to a batch script can be specified::
 
@@ -65,65 +101,52 @@ Again, an absolute path to a batch script can be specified::
 Struphy ``[OPTIONS]`` can be combined (the order is not important).
 
 
-.. _profiling:
-
-Code profiling
---------------
-
-Access help::
-
-    struphy profile -h
-
-Each Struphy run is by default profiled with the Python profiler `cProfile <https://docs.python.org/3/library/profile.html>`_.
-In order to see profiling results type::
-
-    struphy profile [OPTIONS] sim_1 [sim_2 ...]
-
-Here, ``sim_1``, ``sim2`` etc. are relative to the current output path. If more than one simulation is profiled, 
-they all have to be from the same ``MODEL``. To get more info on possible ``OPTIONS`` type::
-
-    struphy profile -h
-   
-
-.. _pproc:
-
-Post processing
----------------
-
-Access help::
-
-    struphy pproc -h
-
-The basic command for Struphy post-processing is::
-
-    struphy pproc -d <sim_name> 
-
-Here, ``<sim_name>`` is relative to the current output path. 
-In the latter, the generated output data can be inspected at:: 
-    
-    cd <sim_name>/post_processing/
-
-
 .. _params_yml:
 
-Setting simulation parameters
------------------------------
+Simulation parameters
+---------------------
 
-The default parameter file can be inspected under ``<install_path>/parameters.yml``.
-In a Struphy parameter file, the simulation parameters must be categorized into the following top level keywords
-(only ``grid``, ``time`` and ``geometry`` are mandatory):
+Aside from the console, the ``.yml`` parameter file is the main point of interaction for a Struphy user. 
+It stores the dictionary that is read-in by the Struphy main execution file 
+at the start of a simulation, see `Tutorial 1 - Run Struphy main file in a notebook  <file:///home/spossann/git_repos/struphy/doc/_build/html/sections/tutorials.html>`_.
+All information relevant to the disretization and the physics of the PDE model are in this file.
+
+The ``.yml`` parameter file has some generic structure that is uniform for all (present and future) Struphy models.
+In particular, there are **9 top-level keys** that can be present in such a file:
 
 * :ref:`grid`
 * :ref:`time`
+* :ref:`units`
 * :ref:`geometry`
 * :ref:`mhd_equilibrium`
 * :ref:`electric_equilibrium`
 * :ref:`em_fields`
 * :ref:`fluid`
 * :ref:`kinetic`
-* :ref:`solvers`
 
-The input must be structured as follows:
+Of these, only ``grid``, ``time``, ``geometry`` and ``units`` are mandatory, and at least one of the three
+species types ``em_fields``, ``fluid`` and ``kinetic`` will be present in each model.
+Electromagnetic background fields can be provided through ``mhd_equilibrium`` and ``electric_equilibrium``.
+The particular structure of these dictionaries can be inspected in the default parameter files
+created with::
+
+    struphy params MODEL
+
+An example is given in the file ``<install_path>/io/inp/parameters.yml``, where the install path
+is obtained from ``struphy -p``. We list the content of this file below.
+
+The dictionary structure for a particular input, for example a mapping or an MHD equilibrium,
+can be obtained from the respective section in the 
+`Struphy documentation <file:///home/spossann/git_repos/struphy/doc/_build/html/index.html>`_.
+
+Some hints for editing a parameter file:
+
+1. Strings can either be set as e.g. ``'Cuboid'`` or ``Cuboid``, i.e. with or without quotes - both works
+2. The parameter ``null`` will be transformed to Python's ``None`` type
+3. Available geometries: https://struphy.pages.mpcdf.de/struphy/sections/domains.html
+4. Available MHD equilibria: https://struphy.pages.mpcdf.de/struphy/sections/mhd_equils.html
+5. Available kinetic backgrounds/initial conditions: https://struphy.pages.mpcdf.de/struphy/sections/kinetic_backgrounds.html
+6. Available FEEC initial conditions: https://struphy.pages.mpcdf.de/struphy/sections/inits.html
 
 .. _grid:
 
@@ -132,8 +155,8 @@ grid
 
 ::
 
-    Nel       : [16, 32, 32] # number of grid cells, >p
-    p         : [2, 3, 4]  # spline degree
+    Nel       : [12, 14, 4] # number of grid cells, >p
+    p         : [3, 4, 2]  # spline degree
     spl_kind  : [False, True, True] # spline type: True=periodic, False=clamped
     bc        : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
     dims_mask : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
@@ -148,9 +171,20 @@ time
 
 ::
 
-    dt         : 0.05 # time step
-    Tend       : 0.5 # simulation time interval is [0, Tend]
+    dt         : 0.005 # time step
+    Tend       : 0.015 # simulation time interval is [0, Tend]
     split_algo : LieTrotter # LieTrotter | Strang
+
+.. _units:
+
+units
+^^^^^
+
+::
+
+    x : 1. # length scale unit in m
+    B : 1. # magnetic field unit in T
+    n : 1. # number density unit in 10^20 m^(-3)
 
 .. _geometry:
 
@@ -161,17 +195,10 @@ See :ref:`avail_mappings` for possible mapping ``type``.
 
 ::
 
-    type : Tokamak # mapping F   
-    Tokamak :
-        Nel        : [8, 32] # number of poloidal grid cells, >p
-        p          : [3, 3] # poloidal spline degrees, >1
-        psi_power  : 0.7 # parametrization of radial flux coordinate eta1=psi_norm^psi_power, where psi_norm is normalized flux
-        psi_shifts : [2., 2.] # start and end shifts of polidal flux in % --> cuts away regions at the axis and edge
-        xi_param   : equal_angle # parametrization of angular coordinate (equal_angle, equal_arc_length or sfl (straight field line))
-        r0         : 0.3 # initial guess for radial distance from axis used in Newton root-finding method for flux surfaces
-        Nel_pre    : [64, 256] # number of poloidal grid cells of pre-mapping needed for equal_arc_length and sfl
-        p_pre      : [3, 3] # poloidal spline degrees of pre-mapping needed for equal_arc_length and sfl
-        tor_period : 1 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
+    type : Cuboid 
+    Cuboid : {}
+
+The empty dictionary means that ``Cuboid`` is instantiated with its default parameters.
 
 .. _mhd_equilibrium:
 
@@ -182,20 +209,10 @@ See :ref:`mhd_equil` for possible MHD equilibrium ``type``.
 
 ::
 
-    type : AdhocTorus # MHD equilibirum
-    AdhocTorus :
-        a      : 1. # minor radius
-        R0     : 3. # major radius
-        B0     : 1. # on-axis toroidal magnetic field
-        q0     : 1.05 # safety factor at r=0
-        q1     : 1.80 # safety factor at r=a
-        n1     : 0. # shape factor for number density profile 
-        n2     : 0. # shape factor for number density profile 
-        na     : 1. # number density at r=a
-        p_kind : .5 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
-        p1     : .1 # shape factor for ad hoc pressure profile
-        p2     : .1 # shape factor for ad hoc pressure profile
-        beta   : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
+    type : HomogenSlab 
+    HomogenSlab : {}
+
+The empty dictionary means that ``HomogenSlab`` is instantiated with its default parameters.
 
 
 .. _electric_equilibrium:
@@ -219,16 +236,16 @@ See :ref:`avail_inits` for possible ``type`` of initial condition ``init``.
 ::
 
     init :
-        type : ModesSin # type of initial condition (possible types seen below)
-        ModesSin : 
-            coords : 'logical' # in which coordinates (logical or physical)
+        type : TorusModesCos
+        TorusModesCos :
             comps :
-                e1 : [True, False, False]  # components to be initialized (for scalar fields: no list)
-                b2 : [False, False, False] # components to be initialized (for scalar fields: no list)
-            ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
-            ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
-            ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
+                e1 : [False, True, True]  # components to be initialized (for scalar fields: no list)
+                b2 : [False, True, False] # components to be initialized (for scalar fields: no list)
+            ms : [3] # poloidal mode numbers
+            ns : [1] # toroidal mode numbers
             amps : [0.001] # amplitudes of each mode
+            pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'cos' or 'exp')
+            pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin" and "cos"
 
 .. _fluid:
 
@@ -240,19 +257,22 @@ See :ref:`avail_inits` for possible ``type`` of initial condition ``init``.
 ::
 
     mhd :
+        phys_params:
+            A : 1 # mass number in units of proton mass
+            Z : 1 # signed charge number in units of elementary charge
         mhd_u_space : H1vec # Hdiv | H1vec
         init :
-            type : ModesSin # type of initial condition (possible types seen below)
-            ModesSin :
-                coords : 'logical' # in which coordinates (logical or physical)
+            type : TorusModesCos
+            TorusModesCos :
                 comps :
-                    n3 : False              # components to be initialized (for scalar fields: no list)
-                    uv : [True, True, True] # components to be initialized (for scalar fields: no list)
-                    p3 : False              # components to be initialized (for scalar fields: no list)
-                ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
-                ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
-                ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
-                amps : [0.001] # amplitudes of each mode    
+                    n3 : False                # components to be initialized (for scalar fields: no list)
+                    u2 : [False, True, False] # components to be initialized (for scalar fields: no list)
+                    p3 : False                # components to be initialized (for scalar fields: no list)
+                ms : [3] # poloidal mode numbers
+                ns : [1] # toroidal mode numbers
+                amps : [0.001] # amplitudes of each mode
+                pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'cos' or 'exp')
+                pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin" and "cos"   
 
 .. _kinetic:
 
@@ -263,78 +283,117 @@ See :ref:`kinetic_backgrounds` for possible ``type`` of initial condition ``init
 
 ::
 
-    hot_ions :
+    ions :
+        phys_params :
+            A : 1  # mass number in units of proton mass
+            Z : 1 # signed charge number in units of elementary charge
         markers :
             type    : full_f # full_f, control_variate, or delta_f
-            ppc     : 100  # number of markers per 3d grid cell
+            ppc     : 10  # number of markers per 3d grid cell
             Np      : 3 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
             eps     : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
-            bc_type : [periodic, periodic, periodic] # remove, reflect or periodic
+            bc : 
+                type    : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
             loading :
                 type          : pseudo_random # particle loading mechanism 
                 seed          : 1234 # seed for random number generator
-                dir_particles : 'path_to_particles' # directory of particles if loaded externally
                 moments       : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
+                spatial       : uniform # uniform or disc
+                dir_particles : 'path_to_particles' # directory of particles if loaded externally
         init :
             type : Maxwellian6DPerturbed
             Maxwellian6DPerturbed :
                 n :
-                    n0 : 1.
+                    n0 : 0.05
                     perturbation :
                         l : [0]
                         m : [0]
                         n : [0]
                         amps_sin : [0.]
                         amps_cos : [0.]
-                ux :
-                    ux0 : 0.
-                uy :
-                    uy0 : 0.
-                uz :
-                    uz0 : 0.
-                vthx :
-                    vthx0 : 1.
-                vthy :
-                    vthy0 : 1.
-                vthy :
-                    vthz0 : 1.
+                u1 :
+                    u10 : 0.
+                u2 :
+                    u20 : 2.5
+                u3 :
+                    u30 : 0.
+                vth1 :
+                    vth10 : 1.
+                vth2 :
+                    vth20 : 1.
+                vth3 :
+                    vth30 : 1.
         background :
             type : Maxwellian6DUniform
             Maxwellian6DUniform :
                 n  : 1.
-                ux : 0.
-                uy : 0.
-                uz : 0.
-                vthx : 1.
-                vthy : 1.
-                vthz : 1.
+                u1 : 0.
+                u2 : 0.
+                u3 : 0.
+                vth1 : 1.
+                vth2 : 1.
+                vth3 : 1.
         save_data :
             n_markers : 3 # number of markers to be saved during simulation
             f :
-                slices : [vz] # in which directions to bin (e.g. [e1_e2, vx_vy_vz])
+                slices : [v1] # in which directions to bin (e.g. [e1_e2, v1_v2_v3])
                 n_bins : [[32]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
                 ranges : [[[-3., 3.]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
-        push_algos :
-            vxb : analytic # possible choices: analytic, implicit
-            eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4
-        use_perp_model : True # for pressure coupling 
 
 
-.. _solvers:
+.. _profiling:
 
-solvers
-^^^^^^^
+Code profiling
+--------------
 
-::
+Each Struphy run is by default profiled with the Python profiler `cProfile <https://docs.python.org/3/library/profile.html>`_.
+In order to see profiling results type::
 
-    solver_1 : 
-        type : PConjugateGradient
-        pc : MassMatrixPreconditioner # null or name of preconditioner class
-        tol : 1.e-8
-        maxiter : 3000
-        info : False
-        verbose : False
+    struphy profile [OPTIONS] sim_1 [sim_2 ...]
+
+Here, ``sim_1``, ``sim2`` etc. are relative to the current output path. If more than one simulation is profiled, 
+they all have to be from the same ``MODEL``. To get more info on possible ``OPTIONS`` type::
+
+    struphy profile -h
+   
+
+.. _pproc:
+
+Post-processing
+---------------
+
+The raw data generated by a Struphy run is stored in the folder ``<sim_name>/`` 
+(passed with ``-o <sim_name>`` to the run command), 
+relative to the output path at the time of the simulation.
+
+The basic command for Struphy post-processing is::
+
+    struphy pproc -d <sim_name> 
+
+Here, ``<sim_name>`` is relative to the current output path. 
+In the latter, the generated output data can be inspected at:: 
+    
+    cd <sim_name>/post_processing/
+
+Struphy post-processing does several things:
+
+* save the time grid as a numpy array under ``t_grid.npy``
+* evaluate FEEC fields at the grid points (or a refined grid, with the option ``--celldivide N``)
+* save the evaluation grids in physical and logical space
+* generate ``.vtk`` files for use in :ref:`paraview`
+* compute marker trajectories in physical (x, y, z) coordinates, saved as ``.npy`` and ``.txt`` (for use in :ref:`paraview`)
+* save histograms of the distribution function is phase space.
+
+Access further help::
+
+    struphy pproc -h
 
 
+.. _paraview:
+
+Paraview
+--------
+
+Coming soon!
 
 

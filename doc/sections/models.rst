@@ -3,7 +3,17 @@
 Struphy models
 ==============
 
-Documented modules:
+This page lists the currently available model PDEs in Struphy 
+(`fluid <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.models.fluid.html>`_,
+`kinetic <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.models.kinetic.html>`_,
+`hybrid <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.models.hybrid.html>`_,
+and `toy <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.models.toy.html>`_).
+The list can be called from the console via::
+
+    struphy run -h
+
+To add a new model, please visit :ref:`add_model`.
+Struphy models must be added to one of the following sub-modules:
 
 .. currentmodule:: ''
 
@@ -15,6 +25,8 @@ Documented modules:
     struphy.models.kinetic
     struphy.models.hybrid
     struphy.models.toy
+
+.. _model_list:
 
 .. toctree::
     :caption: Lists of available models:

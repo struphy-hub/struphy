@@ -20,6 +20,7 @@ import numpy as np
 class Derham:
     """
     Psydac API for the discrete Derham sequence on the logical unit cube (3d).
+    
     Polar sub-spaces (indicated by a bar) can be added.
 
     .. image:: ../pics/polar_derham.png

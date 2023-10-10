@@ -9,8 +9,8 @@ import struphy.geometry.map_eval as map_eval
 import struphy.b_splines.bsplines_kernels as bsp
 import struphy.b_splines.bspline_evaluation_3d as eval_3d
 import struphy.linear_algebra.core as linalg
-import struphy.pic.mat_vec_filler as mvf
-import struphy.pic.filler_kernels as fk
+import struphy.pic.accumulation.mat_vec_filler as mvf
+import struphy.pic.accumulation.filler_kernels as fk
 
 
 def a_documentation():
@@ -22,11 +22,11 @@ def a_documentation():
     * use the model name, all lower-case letters (e.g. ``lin_vlasov_maxwell``)
     * in case of multiple accumulations in one model, attach ``_1``, ``_2`` or the species name.
     
-    These kernels are passed to :class:`struphy.pic.particles_to_grid.Accumulator` and called via::
+    These kernels are passed to :class:`struphy.pic.accumulation.particles_to_grid.Accumulator` and called via::
     
         Accumulator.accumulate()
         
-    The arguments passed to each kernel have a pre-defined order, defined in :class:`struphy.pic.particles_to_grid.Accumulator`.
+    The arguments passed to each kernel have a pre-defined order, defined in :class:`struphy.pic.accumulation.particles_to_grid.Accumulator`.
     This order is as follows (you can copy and paste from existing accum_kernels functions):
 
     1. Marker info:
@@ -97,7 +97,7 @@ def poisson(markers: 'float[:,:]', n_markers_tot: 'int',
             alpha: 'float',  # model specific argument
             epsilon: 'float'):  # model specific argument
     r"""
-    Kernel for :class:`struphy.pic.particles_to_grid.AccumulatorVector` with the filling 
+    Kernel for :class:`struphy.pic.accumulation.particles_to_grid.AccumulatorVector` with the filling 
 
     .. math::
 
