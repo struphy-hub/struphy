@@ -1,4 +1,4 @@
-.. _accums:
+.. _disp_rels:
 
 Dispersion relations
 ====================
