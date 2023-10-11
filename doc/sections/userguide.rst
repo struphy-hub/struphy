@@ -108,7 +108,7 @@ Simulation parameters
 
 Aside from the console, the ``.yml`` parameter file is the main point of interaction for a Struphy user. 
 It stores the dictionary that is read-in by the Struphy main execution file 
-at the start of a simulation, see `Tutorial 1 - Run Struphy main file in a notebook  <file:///home/spossann/git_repos/struphy/doc/_build/html/sections/tutorials.html>`_.
+at the start of a simulation, see :ref:`Tutorial 1 - Run Struphy main file in a notebook  <tutorials>`.
 All information relevant to the disretization and the physics of the PDE model are in this file.
 
 The ``.yml`` parameter file has some generic structure that is uniform for all (present and future) Struphy models.
@@ -136,8 +136,7 @@ An example is given in the file ``<install_path>/io/inp/parameters.yml``, where 
 is obtained from ``struphy -p``. We list the content of this file below.
 
 The dictionary structure for a particular input, for example a mapping or an MHD equilibrium,
-can be obtained from the respective section in the 
-`Struphy documentation <file:///home/spossann/git_repos/struphy/doc/_build/html/index.html>`_.
+can be obtained from the respective section in this documentation.
 
 Some hints for editing a parameter file:
 
