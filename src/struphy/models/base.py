@@ -363,17 +363,29 @@ class StruphyModel(metaclass=ABCMeta):
 
             if 'f' in val['params']['save_data']:
 
+                # if diffential forms is not specified, bin the initialized forms
+                if 'pforms' not in val['params']['save_data']['f']:
+
+                    if 'pforms' in val['params']['init']:
+                        pforms = val['params']['init']['pforms']
+
+                    else:
+                        pforms = ['0','0']
+
+                else:
+                    pforms = val['params']['save_data']['f']['pforms']
+
                 for slice_i, edges in val['bin_edges'].items():
 
                     dims = (len(slice_i) - 2)//3 + 1
                     comps = [slice_i[3*i:3*i + 2] for i in range(dims)]
-                    components = [False]*6
+                    components = [False]*(val['obj'].vdim + 3)
 
                     for comp in comps:
                         components[dim_to_int[comp]] = True
 
                     val['kinetic_data']['f'][slice_i][:] = val['obj'].binning(
-                        components, edges, self.domain)
+                        components, edges, pforms)
 
     def print_scalar_quantities(self):
         '''
@@ -1165,7 +1177,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                                            derham=self.derham,
                                            domain=self.domain,
                                            mhd_equil=self.mhd_equil,
-                                           units_basic=self.units)
+                                           epsilon=self.equation_params[species]['epsilon_unit'])
 
                 self._pointer[species] = val['obj']
 
