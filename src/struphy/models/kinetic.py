@@ -465,7 +465,7 @@ class LinearVlasovMaxwell(StruphyModel):
         # self.pointer['electrons'].show_distribution_function(components, edges, self.domain)
 
         # overwrite binning function to always bin marker data for f_1, not h
-        def new_binning(self, components, bin_edges, domain=None, velocity_det=None):
+        def new_binning(self, components, bin_edges, pforms=['0','0']):
             """
             Overwrite the binning method of the parent class to correctly bin data from f_1
             and not from f_1/sqrt(f_0).
@@ -482,7 +482,7 @@ class LinearVlasovMaxwell(StruphyModel):
                                  self.markers[:, 5])[~self.holes]
             self.markers[~self.holes, 6] *= np.sqrt(f0_values)
             res = Particles.binning(
-                self, components, bin_edges, domain, velocity_det)
+                self, components, bin_edges, pforms)
             self.markers[~self.holes, 6] /= np.sqrt(f0_values)
             return res
 
@@ -834,7 +834,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
         self.pointer['electrons']._f0 = self._f0
 
         # overwrite binning function to always bin marker data for f_1, not h
-        def new_binning(self, components, bin_edges, domain=None, velocity_det=None):
+        def new_binning(self, components, bin_edges, pforms=['0','0']):
             """
             Overwrite the binning method of the parent class to correctly bin data from f_1
             and not from f_0 - (f_0 - f_1) ln(f_0).
@@ -858,7 +858,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
                 (1 - ln_f0_values) / self.markers[~self.holes, 7]
 
             res = Particles.binning(
-                self, components, bin_edges, domain, velocity_det)
+                self, components, bin_edges, pforms)
             self.markers[~self.holes, 6] -= f0_values * \
                 (1 - ln_f0_values) / self.markers[~self.holes, 7]
             self.markers[~self.holes, 6] /= (-1) * ln_f0_values

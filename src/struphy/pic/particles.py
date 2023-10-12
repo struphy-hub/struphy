@@ -52,6 +52,34 @@ class Particles6D(Particles):
         """
         return 3
 
+    def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
+        """
+        Jacobian determinant of the velocity coordinate transformation.
+
+        Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords.T)
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+
+        *v : array_like
+            Velocity evaluation points.
+
+        Returns
+        -------
+        out : array-like
+            The Jacobian determinant evaluated at given logical coordinates.
+        -------
+        """
+
+        assert eta1.ndim == 1
+        assert eta2.ndim == 1
+        assert eta3.ndim == 1
+        assert len(v) == self.vdim
+
+        return 1. + 0*eta1
+
     def svol(self, eta1, eta2, eta3, *v):
         """ 
         Sampling density function as volume form.
@@ -104,6 +132,7 @@ class Particles6D(Particles):
             The 0-form sampling density.
         -------
         """
+
         return self.domain.transform(self.svol(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
 
 
@@ -145,31 +174,20 @@ class Particles5D(Particles):
         # child class params
         child_params = {}
 
-        list_child_params = ['A', 'Z', 'mhd_equil', 'units_basic']
+        list_child_params = ['mhd_equil', 'epsilon']
 
         for key, val in params.items():
             if key in list_child_params:
                 child_params[key] = val
 
-        params_default = {'A': 1,
-                          'Z': 1,
-                          'mhd_equil': None,
-                          'units_basic': None
+        params_default = {'mhd_equil': None,
+                          'epsilon': 1.
                           }
 
         child_params = set_defaults(child_params, params_default)
 
         self._mhd_equil = params['mhd_equil']
-
-        # compute kappa
-        ee = 1.602176634e-19  # elementary charge (C)
-        mH = 1.67262192369e-27  # proton mass (kg)
-
-        Ah = child_params['A']
-        Zh = child_params['Z']
-
-        omega_ch = (Zh*ee*child_params['units_basic']['B'])/(Ah*mH)
-        self._kappa = omega_ch*child_params['units_basic']['t']
+        self._epsilon = child_params['epsilon']
 
     @property
     def n_cols(self):
@@ -182,6 +200,54 @@ class Particles5D(Particles):
         """Dimension of the velocity space.
         """
         return 2
+    
+    @property
+    def mhd_equil(self):
+        """Class of MHD equilibrium
+        """
+        return self._mhd_equil
+    
+    @property
+    def epsilon(self):
+        """Epsilon unit, 1 / (cyclotron freq * time_unit)
+        """
+        return self._epsilon
+
+    def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
+        """
+        Jacobian determinant of the velocity coordinate transformation.
+
+        Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords.T)
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+
+        *v : array_like
+            Velocity evaluation points.
+
+        Returns
+        -------
+        out : array-like
+            The Jacobian determinant evaluated at given logical coordinates.
+        -------
+        """
+
+        assert eta1.ndim == 1
+        assert eta2.ndim == 1
+        assert eta3.ndim == 1
+        assert len(v) == self.vdim
+
+        # call equilibrium arrays
+        etas = (np.vstack((eta1, eta2, eta3)).T).copy()
+        bv = self.mhd_equil.bv(etas)
+        unit_b1 = self.mhd_equil.unit_b1(etas)
+
+        # B*_parallel = b0 . B*
+        jacobian_det = np.einsum('ij,ij->j', unit_b1, bv)/np.abs(v[1])
+
+        return jacobian_det
 
     def svol(self, eta1, eta2, eta3, *v):
         """ 
@@ -230,19 +296,8 @@ class Particles5D(Particles):
             The 3-form sampling density.
         -------
         """
-        # call equilibrium arrays
-        etas = (np.vstack((eta1, eta2, eta3)).T).copy()
-        bv = self._mhd_equil.bv(etas)
-        curlb = self._mhd_equil.jv(etas)/self._mhd_equil.absB0(etas)
-        unit_b1 = self._mhd_equil.unit_b1(etas)
 
-        # contra-variant components of B* = B + 1/kappa*v_parallel*curlb0
-        bstar = bv + 1/self._kappa*v[0]*curlb
-
-        # B*_parallel = b0 . B*
-        jacobian_det = np.einsum('ij,ij->j', unit_b1, bstar)/v[1]
-
-        return self.svol(eta1, eta2, eta3, *v)/np.abs(jacobian_det)
+        return self.svol(eta1, eta2, eta3, *v)/self.velocity_jacobian_det(eta1, eta2, eta3, *v)
 
     def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
         """ 
@@ -265,6 +320,7 @@ class Particles5D(Particles):
             The 0-form sampling density.
         -------
         """
+
         return self.domain.transform(self.s3(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
 
     def save_magnetic_moment(self, derham):

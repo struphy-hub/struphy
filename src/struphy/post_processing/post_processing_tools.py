@@ -378,6 +378,22 @@ def post_process_markers(path_in, path_out, species, step=1):
         # test if all markers have been collected in temp    
         ids = temp[:, -1]
         ids = ids.astype('int')
+
+        # sorting out lost particles
+        ids_lost_particles = np.setdiff1d(np.arange(n_markers), ids)
+
+        if len(ids_lost_particles) > 0:
+
+            ind_lost_particles = [False]*n_markers
+
+            for d in ids_lost_particles:
+                ind_lost_particles[d] = True
+
+            # lost markers are saved as [0, ..., 0, ids]
+            temp[ind_lost_particles, -1] = ids_lost_particles
+
+            ids = np.unique(np.append(ids, ids_lost_particles))
+            
         assert np.all(ids == np.arange(n_markers))
         
         # compute physical positions (x, y, z)
@@ -388,6 +404,9 @@ def post_process_markers(path_in, path_out, species, step=1):
         
         np.save(file_npy, temp[:, :7])
         np.savetxt(file_txt, temp[:, :4], fmt='%12.6f', delimiter=', ')
+
+        # clear buffer
+        temp[:,:] = 0
 
     # close hdf5 files
     for file in files:

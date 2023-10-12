@@ -63,7 +63,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000, verbose=False):
     particles.initialize_weights(init_params)
 
     _vdim = particles.vdim
-    _w0 = particles.markers_wo_holes[:, 3 + _vdim]
+    _w0 = particles.weights
 
     print('Test weights:')
     print(f'rank {mpi_rank}:', _w0.shape, np.min(_w0), np.max(_w0))
