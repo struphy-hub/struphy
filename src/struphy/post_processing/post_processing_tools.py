@@ -440,7 +440,6 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
     with open(os.path.join(path_in, 'meta.txt'), 'r') as f:
         lines = f.readlines()
 
-    model = lines[3].split()[-1]
     nproc = lines[4].split()[-1]
 
     # load parameters

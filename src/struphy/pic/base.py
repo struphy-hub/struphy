@@ -16,7 +16,7 @@ class Particles(metaclass=ABCMeta):
     Base class for a particle based kinetic species.
 
     Loading and compute initial particles and save the values at the corresponding column of markers array:
-    
+
     ===== ============== ======================= ======= ====== ====== ========== === ===
     index  | 0 | 1 | 2 | | 3 | ... | 3+(vdim-1)|  3+vdim 4+vdim 5+vdim >=6+vdim   ... -1
     ===== ============== ======================= ======= ====== ====== ========== === ===
@@ -38,10 +38,11 @@ class Particles(metaclass=ABCMeta):
                           'ppc': None,
                           'Np': 4,
                           'eps': .25,
-                          'bc': {'type' : ['periodic', 'periodic', 'periodic']},
+                          'bc': {'type': ['periodic', 'periodic', 'periodic']},
                           'loading': {'type': 'pseudo:random', 'seed': 1234, 'dir_particles': None, 'moments': [0., 0., 0., 1., 1., 1.]},
                           'derham': None,
-                          'domain': None}
+                          'domain': None,
+                          'f0_params': None}
 
         self._params = set_defaults(params, params_default)
 
@@ -49,6 +50,7 @@ class Particles(metaclass=ABCMeta):
         self._derham = params['derham']
         self._domain = params['domain']
         self._domain_decomp = params['derham'].domain_array
+        f0_params = params['f0_params']
 
         assert params['derham'].comm is not None
         self._mpi_comm = params['derham'].comm
@@ -66,6 +68,17 @@ class Particles(metaclass=ABCMeta):
                 self._use_control_variate = False
         else:
             self._use_control_variate = False
+
+        if self._use_control_variate:
+            assert f0_params is not None, \
+                'When control variate is used, background parameters must be given!'
+            fun_name = f0_params['type']
+
+            if fun_name in f0_params:
+                self._f_backgr = getattr(maxwellians, fun_name)(
+                    **f0_params[fun_name])
+            else:
+                self._f_backgr = getattr(maxwellians, fun_name)()
 
     @abstractmethod
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
@@ -174,7 +187,7 @@ class Particles(metaclass=ABCMeta):
     @property
     def markers(self):
         """ Numpy array holding the marker information, including holes. The i-th row holds the i-th marker info.
-        
+
         ===== ============== ======================= ======= ====== ====== ==========
         index  | 0 | 1 | 2 | | 3 | ... | 3+(vdim-1)|  3+vdim 4+vdim 5+vdim >=6+vdim
         ===== ============== ======================= ======= ====== ====== ==========
@@ -206,7 +219,7 @@ class Particles(metaclass=ABCMeta):
         """ struphy.psydac_api.psydac_derham
         """
         return self._derham
-    
+
     @property
     def domain(self):
         """ struphy.geometry.domains
@@ -538,11 +551,9 @@ class Particles(metaclass=ABCMeta):
 
         assert self.domain is not None, 'A domain is needed to initialize weights.'
 
-        if self._use_control_variate:
-            assert bckgr_params is not None, 'When control variate is used, background parameters must be given!'
-
         # compute s0 and save at vdim + 4
-        self._markers[~self.holes, 4 + self.vdim] = self.s0(*self.phasespace_coords.T)
+        self._markers[~self.holes, 4 + self.vdim] = \
+            self.s0(*self.phasespace_coords.T)
 
         # load distribution function (with given parameters or default parameters)
         fun_name = fun_params['type']
@@ -566,31 +577,26 @@ class Particles(metaclass=ABCMeta):
                 f_init /= self.velocity_jacobian_det(*self.phasespace_coords.T)
 
         # compute w0 and save at vdim + 5
-        self._markers[~self.holes, 5 + self.vdim] = f_init/ self.sampling_density
+        self._markers[~self.holes, 5 + self.vdim] = f_init / \
+            self.sampling_density
 
         # compute weights and save at vdim + 3
         if self._use_control_variate:
-            fun_name = bckgr_params['type']
-
-            if fun_name in bckgr_params:
-                self._f_backgr = getattr(maxwellians, fun_name)(
-                    **bckgr_params[fun_name])
-            else:
-                self._f_backgr = getattr(maxwellians, fun_name)()
-
             f_backgr = self.f_backgr(*self.phasespace_coords.T)
 
             # if diffential forms of f_init is not specified, consider it as 0-form
             if 'pforms' in fun_params:
 
-                # if f_init is vol-form, tramsform to 0-form
+                # if f_init is vol-form, transform to 0-form
                 if fun_params['pforms'][0] == 'vol':
                     f_backgr /= self.domain.jacobian_det(self.markers_wo_holes)
 
                 if fun_params['pforms'][1] == 'vol':
-                    f_backgr /= self.velocity_jacobian_det(*self.phasespace_coords.T)
+                    f_backgr /= self.velocity_jacobian_det(
+                        *self.phasespace_coords.T)
 
-            self._markers[~self.holes, 3 + self.vdim] = self.weights0 - f_backgr/self.sampling_density
+            self._markers[~self.holes, 3 + self.vdim] = self.weights0 - \
+                f_backgr/self.sampling_density
         else:
             self._markers[~self.holes, 3 + self.vdim] = self.weights0
 
@@ -606,9 +612,10 @@ class Particles(metaclass=ABCMeta):
         """
 
         if self._use_control_variate:
-            self._markers[~self.holes, 3 + self.vdim] = self.weights0 - f0(*self.phasespace_coords) / self.sampling_density
+            self._markers[~self.holes, 3 + self.vdim] = self.weights0 - \
+                f0(*self.phasespace_coords.T) / self.sampling_density
 
-    def binning(self, components, bin_edges, pforms=['0','0']):
+    def binning(self, components, bin_edges, pforms=['0', '0']):
         r"""
         Computes the distribution function via marker binning in logical space using numpy's histogramdd,
         following the algorithm outlined in the `Struphy documentation <https://struphy.pages.mpcdf.de/struphy/sections/discretization.html#particle-binning>`_.
@@ -658,7 +665,7 @@ class Particles(metaclass=ABCMeta):
 
         return f_slice/(self._n_mks*bin_vol)
 
-    def show_distribution_function(self, components, bin_edges, pforms=['0','0']):
+    def show_distribution_function(self, components, bin_edges, pforms=['0', '0']):
         """
         1D and 2D plots of slices of the distribution function via marker binning.
         This routine is mainly for de-bugging.
@@ -714,7 +721,7 @@ class Particles(metaclass=ABCMeta):
             # sorting out particles outside of the logical unit cube
             is_outside_cube = np.logical_or(self.markers[:, axis] > 1.,
                                             self.markers[:, axis] < 0.)
-            
+
             # exclude holes
             is_outside_cube[self.holes] = False
 
@@ -729,22 +736,22 @@ class Particles(metaclass=ABCMeta):
                     outside_inds = self.boundary_transfer(is_outside_cube)
 
                 if self.params['bc']['remove']['save']:
-                # save the positions and velocities just before the pushing step
+                    # save the positions and velocities just before the pushing step
                     if self.vdim == 3:
                         self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                        len(outside_inds), 0:3] = self.markers[outside_inds, 9:12]
+                                          len(outside_inds), 0:3] = self.markers[outside_inds, 9:12]
                         self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                        len(outside_inds), 3:9] = self.markers[outside_inds, 3:9]
+                                          len(outside_inds), 3:9] = self.markers[outside_inds, 3:9]
                         self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                        len(outside_inds), -1] = self.markers[outside_inds, -1]
+                                          len(outside_inds), -1] = self.markers[outside_inds, -1]
 
                     elif self.vdim == 2:
                         self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                        len(outside_inds), 0:4] = self.markers[outside_inds, 9:13]
+                                          len(outside_inds), 0:4] = self.markers[outside_inds, 9:13]
                         self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                        len(outside_inds), 4:9] = self.markers[outside_inds, 4:9]
+                                          len(outside_inds), 4:9] = self.markers[outside_inds, 4:9]
                         self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                        len(outside_inds), -1] = self.markers[outside_inds, -1]
+                                          len(outside_inds), -1] = self.markers[outside_inds, -1]
 
                 self._markers[outside_inds, :-1] = -1.
 
@@ -759,7 +766,7 @@ class Particles(metaclass=ABCMeta):
 
             else:
                 raise NotImplementedError('Given bc_type is not implemented!')
-            
+
     def boundary_transfer(self, is_outside_cube):
         """
         Still draft. ONLY valid for the poloidal geometry (eta1: clamped r-direction, eta2: periodic theta-direction). 
@@ -781,14 +788,14 @@ class Particles(metaclass=ABCMeta):
         self._markers[transfer_inds, 0] = 0.
         self._markers[transfer_inds, 1] = 1. - self.markers[transfer_inds, 1]
         self._markers[transfer_inds, 9] = -1.
-        self._markers[transfer_inds,10] = 0 
+        self._markers[transfer_inds, 10] = 0
 
         is_outside_cube[transfer_inds] = False
         outside_inds = np.nonzero(is_outside_cube)[0]
 
         return outside_inds
-        
-        
+
+
 def sendrecv_determine_mtbs(markers, holes, domain_decomp, mpi_rank):
     """
     Determine which markers have to be sent from current process and put them in a new array. 
@@ -951,7 +958,7 @@ def sendrecv_markers(send_list, recv_info, hole_inds_after_send, markers, comm):
             recvbufs += [np.zeros((N_recv, markers.shape[1]), dtype=float)]
             reqs += [comm.Irecv(recvbufs[-1], source=i, tag=i)]
 
-    # Wait for buffer, then put markers into holes    
+    # Wait for buffer, then put markers into holes
     test_reqs = [False] * (recv_info.size - 1)
     while len(test_reqs) > 0:
         # loop over all receive requests

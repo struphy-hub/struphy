@@ -48,13 +48,12 @@ class Maxwell(StruphyModel):
 
     @classmethod
     def options(cls):
-        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
-
         # import propagator options
         from struphy.propagators.propagators_fields import Maxwell
-        
-        dct['em_fields']['options'] = {}
-        dct['em_fields']['options']['solver'] = Maxwell.options()['solver']
+
+        dct = {}
+        cls.add_option(species='em_fields', key='solver',
+                       option=Maxwell.options()['solver'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -132,14 +131,14 @@ class Vlasov(StruphyModel):
 
     @classmethod
     def options(cls):
-        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
-
         # import propagator options
         from struphy.propagators.propagators_markers import PushEta, PushVxB
-        dct['kinetic']['ions'] = {}
-        dct['kinetic']['ions']['options'] = {}
-        dct['kinetic']['ions']['options']['push_eta'] = PushEta.options()['algo']
-        dct['kinetic']['ions']['options']['push_vxb'] = PushVxB.options()['algo']
+
+        dct = {}
+        cls.add_option(species=['kinetic', 'ions'], key='push_eta',
+                       option=PushEta.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'ions'], key='push_vxb',
+                       option=PushVxB.options()['algo'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -244,14 +243,14 @@ class DriftKinetic(StruphyModel):
 
     @classmethod
     def options(cls):
-        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
-
         # import propagator options
         from struphy.propagators.propagators_markers import PushGuidingCenterBxEstar, PushGuidingCenterBstar
-        dct['kinetic']['ions'] = {}
-        dct['kinetic']['ions']['options'] = {}
-        dct['kinetic']['ions']['options']['push_bxEstar'] = PushGuidingCenterBxEstar.options()['algo']
-        dct['kinetic']['ions']['options']['push_Bstar'] = PushGuidingCenterBstar.options()['algo']
+
+        dct = {}
+        cls.add_option(species=['kinetic', 'ions'], key='push_bxEstar',
+                       option=PushGuidingCenterBxEstar.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'ions'], key='push_Bstar',
+                       option=PushGuidingCenterBstar.options()['algo'], dct=dct)
 
         return dct
 

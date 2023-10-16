@@ -22,14 +22,14 @@ class Field:
 
     Parameters
     ----------
-        name : str
-            Field's key to be used for saving in the hdf5 file.
+    name : str
+        Field's key to be used for saving in the hdf5 file.
 
-        space_id : str
-            Space identifier for the field ("H1", "Hcurl", "Hdiv", "L2" or "H1vec").
+    space_id : str
+        Space identifier for the field ("H1", "Hcurl", "Hdiv", "L2" or "H1vec").
 
-        derham : struphy.psydac_api.psydac_derham.Derham
-            Discrete Derham complex.
+    derham : struphy.psydac_api.psydac_derham.Derham
+        Discrete Derham complex.
     """
 
     def __init__(self, name, space_id, derham):
@@ -272,7 +272,7 @@ class Field:
             if any(_type == 'noise' for _type in init_types):
 
                 assert ntypes == 1, \
-                    AssertionError (
+                    AssertionError(
                         "The init type 'noise' cannot be applied with other init types")
 
                 params_default = {'comps': {'b2': [True, False, False]},
@@ -319,7 +319,7 @@ class Field:
 
             # Fourier modes
             elif any(_type in ['ModesSin', 'ModesCos', 'TorusModesSin', 'TorusModesCos'] for _type in init_types):
-                
+
                 form_str = self.derham.forms_dict[self.space_id]
 
                 if self.space_id in {'H1', 'L2'}:
@@ -327,7 +327,7 @@ class Field:
                     assert ntypes == 1, \
                         AssertionError(
                             f'Only one init type can be applied to the variables in space {self.space_id}.')
-                    
+
                     coord_tmp = 'logical'
                     fun_tmp = [None]
 
@@ -395,7 +395,6 @@ class Field:
         # update ghost regions
         self._vector.update_ghost_regions()
 
-
     def initialize_coeffs_from_restart_file(self, file, species=None):
         """
         TODO
@@ -420,14 +419,14 @@ class Field:
 
         Parameters
         ----------
-            eta1, eta2, eta3 : array-like
-                Logical coordinates at which to evaluate.
+        eta1, eta2, eta3 : array-like
+            Logical coordinates at which to evaluate.
 
-            flat_eval : bool
-                Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
+        flat_eval : bool
+            Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
 
-            squeeze_output : bool
-                Whether to remove singleton dimensions in output "values".
+        squeeze_output : bool
+            Whether to remove singleton dimensions in output "values".
 
         Returns
         -------
@@ -543,17 +542,17 @@ class Field:
 
         Parameters
         ----------
-            fun_params : dict
-                From parameter file under init/noise.
+        fun_params : dict
+            From parameter file under init/noise.
 
-            n : int
-                Vector component (0, 1 or 2) to be initialized.
+        n : int
+            Vector component (0, 1 or 2) to be initialized.
         """
 
         _direction = fun_params['variation_in']
         _ampsize = fun_params['amp']
         _seed = fun_params['seed']
-        
+
         # index slices from global start to end in all directions
         sli = []
         gl_s = []
@@ -625,21 +624,21 @@ class Field:
 
     def _tmp_noise_for_mpi(self, *shapes, direction='e3', amp_size=0.0001, seed=None):
         '''Initialize same FEEC noise regardless of number of MPI processes.
-        
+
         Parameters
         ----------
         shapes : int
             Length of local array size in each direction where noise is to be initialized.
-        
+
         direction : str
             Noise direction ('e1', 'e2' or 'e3'). Multi-dim. not yet correct.
-            
+
         amp_size : float
             Noise amplitude
-            
+
         seed : int
             Seed for random number generator.
-            
+
         Returns
         -------
         _amps : np.array
@@ -773,22 +772,22 @@ class PulledPform:
 
     Parameters
     ----------
-        coords : str
-            From which coordinate representation to pull, either 'logical' or 'physical'.
+    coords : str
+        From which coordinate representation to pull, either 'logical' or 'physical'.
 
-        fun : list
-            Callable function components. Has to be length 3 for 1- and 2-forms, length 1 otherwise.
+    fun : list
+        Callable function components. Has to be length 3 for 1- and 2-forms, length 1 otherwise.
 
-        domain: struphy.geometry.domains
-            All things mapping.
+    domain: struphy.geometry.domains
+        All things mapping.
 
-        form : str
-            Which form to pull: '0_form', '1_form_1', '1_form_2', '1_form_3', '2_form_1', '2_form_2', '2_form_3', '3_form'.
+    form : str
+        Which form to pull: '0_form', '1_form_1', '1_form_2', '1_form_3', '2_form_1', '2_form_2', '2_form_3', '3_form'.
 
     Returns
     -------
-        f : array[float]
-            Array holding the values.
+    f : array[float]
+        Array holding the values.
     """
 
     def __init__(self, coords, fun, domain, form):

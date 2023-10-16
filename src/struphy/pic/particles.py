@@ -32,7 +32,8 @@ class Particles6D(Particles):
         base_params = {}
 
         list_base_params = ['type', 'ppc', 'Np', 'eps',
-                            'bc', 'loading', 'derham', 'domain']
+                            'bc', 'loading', 'derham', 'domain',
+                            'f0_params']
 
         for key, val in params.items():
             if key in list_base_params:

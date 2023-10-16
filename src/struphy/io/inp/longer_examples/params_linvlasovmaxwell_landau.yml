@@ -26,7 +26,7 @@ units :
 
 time :
     dt         : 0.05 # time step
-    Tend       : 50. # simulation time interval is [0, Tend]
+    Tend       : 100. # simulation time interval is [0, Tend]
     split_algo : LieTrotter # LieTrotter | Strang
 
 geometry :
@@ -56,6 +56,20 @@ electric_equilibrium :
 em_fields :
     init :
         type : null # initial conditions (possible types seen below)
+    options:
+        solvers:
+            maxwell:
+                type: [PConjugateGradient, MassMatrixPreconditioner]
+                tol: 1.0e-10
+                maxiter: 3000
+                info: false
+                verbose: false
+            poisson:
+                type: [PConjugateGradient, MassMatrixPreconditioner]
+                tol: 1.0e-10
+                maxiter: 3000
+                info: false
+                verbose: false
 
 kinetic :
     electrons :
@@ -107,6 +121,14 @@ kinetic :
                 vth1 : 1.
                 vth2 : 1.
                 vth3 : 1.
+        options:
+            algos: {push_eta: rk4, push_vxb: analytic}
+            solver:
+                type: [PConjugateGradient, MassMatrixPreconditioner]
+                tol: 1.0e-10
+                maxiter: 3000
+                info: false
+                verbose: false
         save_data :
             n_markers : 1 # number of markers to be saved during simulation
             f :

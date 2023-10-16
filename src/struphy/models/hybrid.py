@@ -61,7 +61,7 @@ class LinearMHDVlasovCC(StruphyModel):
     @classmethod
     def species(cls):
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
-        
+
         dct['em_fields']['b2'] = 'Hdiv'
         dct['fluid']['mhd'] = {'n3': 'L2', 'u2': 'Hdiv', 'p3': 'L2'}
         dct['kinetic']['energetic_ions'] = 'Particles6D'
@@ -74,28 +74,27 @@ class LinearMHDVlasovCC(StruphyModel):
     @classmethod
     def velocity_scale(cls):
         return 'alfvén'
-    
+
     @classmethod
     def options(cls):
-        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
-
         # import propagator options
         from struphy.propagators.propagators_fields import ShearAlfvén, Magnetosonic, CurrentCoupling6DDensity
         from struphy.propagators.propagators_markers import PushEta, PushVxB
         from struphy.propagators.propagators_coupling import CurrentCoupling6DCurrent
-        dct['fluid']['mhd'] = {}
-        dct['fluid']['mhd']['options'] = {}
-        dct['fluid']['mhd']['options']['solvers'] = {}
-        dct['fluid']['mhd']['options']['solvers']['shear_alfven'] = ShearAlfvén.options()['solver']
-        dct['fluid']['mhd']['options']['solvers']['magnetosonic'] = Magnetosonic.options()['solver']
-        dct['kinetic']['energetic_ions'] = {}
-        dct['kinetic']['energetic_ions']['options'] = {}
-        dct['kinetic']['energetic_ions']['options']['algos'] = {}
-        dct['kinetic']['energetic_ions']['options']['algos']['push_eta'] = PushEta.options()['algo']
-        dct['kinetic']['energetic_ions']['options']['algos']['push_vxb'] = PushVxB.options()['algo']
-        dct['kinetic']['energetic_ions']['options']['solvers'] = {}
-        dct['kinetic']['energetic_ions']['options']['solvers']['density'] = CurrentCoupling6DDensity.options()['solver']
-        dct['kinetic']['energetic_ions']['options']['solvers']['current'] = CurrentCoupling6DCurrent.options()['solver']
+
+        dct = {}
+        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'shear_alfven'],
+                       option=ShearAlfvén.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'magnetosonic'],
+                       option=Magnetosonic.options()['solver'], dct=dct)
+        cls.add_option(species=['kinetic', 'energetic_ions'], key=['algos', 'push_eta'],
+                       option=PushEta.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'energetic_ions'], key=['algos', 'push_vxb'],
+                       option=PushVxB.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'energetic_ions'], key=['solvers', 'density'],
+                       option=CurrentCoupling6DDensity.options()['solver'], dct=dct)
+        cls.add_option(species=['kinetic', 'energetic_ions'], key=['solvers', 'current'],
+                       option=CurrentCoupling6DCurrent.options()['solver'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -112,7 +111,7 @@ class LinearMHDVlasovCC(StruphyModel):
 
         # extract necessary parameters
         params_shear_alfven = params['fluid']['mhd']['options']['solvers']['shear_alfven']
-        params_magnetosonic =  params['fluid']['mhd']['options']['solvers']['magnetosonic']
+        params_magnetosonic = params['fluid']['mhd']['options']['solvers']['magnetosonic']
         algo_eta = params['kinetic']['energetic_ions']['options']['algos']['push_eta']
         algo_vxb = params['kinetic']['energetic_ions']['options']['algos']['push_vxb']
         params_density = params['kinetic']['energetic_ions']['options']['solvers']['density']
@@ -322,7 +321,7 @@ class LinearMHDVlasovPC(StruphyModel):
     @classmethod
     def species(cls):
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
-        
+
         dct['em_fields']['b2'] = 'Hdiv'
         dct['fluid']['mhd'] = {'n3': 'L2', 'u2': 'Hdiv', 'p3': 'L2'}
         dct['kinetic']['energetic_ions'] = 'Particles6D'
@@ -335,25 +334,25 @@ class LinearMHDVlasovPC(StruphyModel):
     @classmethod
     def velocity_scale(cls):
         return 'alfvén'
-    
+
     @classmethod
     def options(cls):
-        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
-
         # import propagator options
         from struphy.propagators.propagators_fields import ShearAlfvén, Magnetosonic
         from struphy.propagators.propagators_markers import PushEtaPC, PushVxB
         from struphy.propagators.propagators_coupling import PressureCoupling6D
-        dct['fluid']['mhd'] = {}
-        dct['fluid']['mhd']['options'] = {}
-        dct['fluid']['mhd']['options']['solvers'] = {}
-        dct['fluid']['mhd']['options']['solvers']['shear_alfven'] = ShearAlfvén.options()['solver']
-        dct['fluid']['mhd']['options']['solvers']['magnetosonic'] = Magnetosonic.options()['solver']
-        dct['kinetic']['energetic_ions'] = {}
-        dct['kinetic']['energetic_ions']['options'] = {}
-        dct['kinetic']['energetic_ions']['options']['use_perp_model'] = PushEtaPC.options()['use_perp_model']
-        dct['kinetic']['energetic_ions']['options']['push_vxb'] = PushVxB.options()['algo']
-        dct['kinetic']['energetic_ions']['options']['solver'] = PressureCoupling6D.options()['solver']
+
+        dct = {}
+        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'shear_alfven'],
+                       option=ShearAlfvén.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'magnetosonic'],
+                       option=Magnetosonic.options()['solver'], dct=dct)
+        cls.add_option(species=['kinetic', 'energetic_ions'], key=['use_perp_model'],
+                       option=PushEtaPC.options()['use_perp_model'], dct=dct)
+        cls.add_option(species=['kinetic', 'energetic_ions'], key=['push_vxb'],
+                       option=PushVxB.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'energetic_ions'], key=['solver'],
+                       option=PressureCoupling6D.options()['solver'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -370,7 +369,7 @@ class LinearMHDVlasovPC(StruphyModel):
 
         # extract necessary parameters
         params_shear_alfven = params['fluid']['mhd']['options']['solvers']['shear_alfven']
-        params_magnetosonic =  params['fluid']['mhd']['options']['solvers']['magnetosonic']
+        params_magnetosonic = params['fluid']['mhd']['options']['solvers']['magnetosonic']
         use_perp_model = params['kinetic']['energetic_ions']['options']['use_perp_model']
         algo_vxb = params['kinetic']['energetic_ions']['options']['push_vxb']
         params_pc_solver = params['kinetic']['energetic_ions']['options']['solver']
@@ -595,29 +594,29 @@ class LinearMHDDriftkineticCC(StruphyModel):
     @classmethod
     def velocity_scale(cls):
         return 'alfvén'
-    
+
     @classmethod
     def options(cls):
-        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
-
         # import propagator options
         from struphy.propagators.propagators_fields import ShearAlfvénCurrentCoupling5D, MagnetosonicCurrentCoupling5D
         from struphy.propagators.propagators_markers import PushDriftKineticBxgradB, PushDriftKineticBstar
         from struphy.propagators.propagators_coupling import CurrentCoupling5DCurrent1, CurrentCoupling5DCurrent2
-        dct['fluid']['mhd'] = {}
-        dct['fluid']['mhd']['options'] = {}
-        dct['fluid']['mhd']['options']['solvers'] = {}
-        dct['fluid']['mhd']['options']['solvers']['shear_alfven'] = ShearAlfvénCurrentCoupling5D.options()['solver']
-        dct['fluid']['mhd']['options']['solvers']['magnetosonic'] = MagnetosonicCurrentCoupling5D.options()['solver']
-        dct['kinetic']['energetic_ions'] = {} 
-        dct['kinetic']['energetic_ions']['options'] = {} 
-        dct['kinetic']['energetic_ions']['options']['algos'] = {}
-        dct['kinetic']['energetic_ions']['options']['algos']['push_bxgradb'] = PushDriftKineticBxgradB.options()['algo']
-        dct['kinetic']['energetic_ions']['options']['algos']['push_bstar'] = PushDriftKineticBstar.options()['algo']
-        dct['kinetic']['energetic_ions']['options']['solvers'] = {}
-        dct['kinetic']['energetic_ions']['options']['solvers']['cc1'] = CurrentCoupling5DCurrent1.options()['solver']
-        dct['kinetic']['energetic_ions']['options']['solvers']['cc2'] = CurrentCoupling5DCurrent2.options()['solver']
-        dct['kinetic']['energetic_ions']['options']['algos']['push_cc2'] = CurrentCoupling5DCurrent2.options()['algo']
+
+        dct = {}
+        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'shear_alfven'],
+                       option=ShearAlfvénCurrentCoupling5D.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'magnetosonic'],
+                       option=MagnetosonicCurrentCoupling5D.options()['solver'], dct=dct)
+        cls.add_option(species=['kinetic', 'energetic_ions'], key=['algos', 'push_bxgradb'],
+                       option=PushDriftKineticBxgradB.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'energetic_ions'], key=['algos', 'push_bstar'],
+                       option=PushDriftKineticBstar.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'energetic_ions'], key=['solvers', 'cc1'],
+                       option=CurrentCoupling5DCurrent1.options()['solver'], dct=dct)
+        cls.add_option(species=['kinetic', 'energetic_ions'], key=['solvers', 'cc2'],
+                       option=CurrentCoupling5DCurrent2.options()['solver'], dct=dct)
+        cls.add_option(species=['kinetic', 'energetic_ions'], key=['algos', 'push_cc2'],
+                       option=CurrentCoupling5DCurrent2.options()['algo'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -928,30 +927,29 @@ class ColdPlasmaVlasov(StruphyModel):
     @classmethod
     def velocity_scale(cls):
         return 'light'
-    
+
     @classmethod
     def options(cls):
-        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
-
         # import propagator options
         from struphy.propagators.propagators_fields import Maxwell, OhmCold, JxBCold, ImplicitDiffusion
         from struphy.propagators.propagators_markers import PushEta, PushVxB
         from struphy.propagators.propagators_coupling import VlasovMaxwell
-        dct['em_fields']['options'] = {}
-        dct['em_fields']['options']['solvers'] = {}
-        dct['em_fields']['options']['solvers']['maxwell'] = Maxwell.options()['solver']
-        dct['em_fields']['options']['solvers']['poisson'] = ImplicitDiffusion.options()['solver']
-        dct['fluid']['coldelectrons'] = {}
-        dct['fluid']['coldelectrons']['options'] = {}
-        dct['fluid']['coldelectrons']['options']['solvers'] = {}
-        dct['fluid']['coldelectrons']['options']['solvers']['ohmcold'] = OhmCold.options()['solver']
-        dct['fluid']['coldelectrons']['options']['solvers']['jxbcold'] = JxBCold.options()['solver']
-        dct['kinetic']['hotelectrons'] = {}
-        dct['kinetic']['hotelectrons']['options'] = {}
-        dct['kinetic']['hotelectrons']['options']['algos'] = {}
-        dct['kinetic']['hotelectrons']['options']['algos']['push_eta'] = PushEta.options()['algo']
-        dct['kinetic']['hotelectrons']['options']['algos']['push_vxb'] = PushVxB.options()['algo']
-        dct['kinetic']['hotelectrons']['options']['solver'] = VlasovMaxwell.options()['solver']
+
+        dct = {}
+        cls.add_option(species=['em_fields'], key=['solvers', 'maxwell'],
+                       option=Maxwell.options()['solver'], dct=dct)
+        cls.add_option(species=['em_fields'], key=['solvers', 'poisson'],
+                       option=ImplicitDiffusion.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'coldelectrons'], key=['solvers', 'ohmcold'],
+                       option=OhmCold.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'coldelectrons'], key=['solvers', 'jxbcold'],
+                       option=JxBCold.options()['solver'], dct=dct)
+        cls.add_option(species=['kinetic', 'hotelectrons'], key=['algos', 'push_eta'],
+                       option=PushEta.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'hotelectrons'], key=['algos', 'push_vxb'],
+                       option=PushVxB.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'hotelectrons'], key=['solver'],
+                       option=VlasovMaxwell.options()['solver'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -967,7 +965,8 @@ class ColdPlasmaVlasov(StruphyModel):
         electron_params = params['kinetic']['hotelectrons']
 
         # model parameters
-        self._alpha = np.abs(self.equation_params['coldelectrons']['alpha_unit'])
+        self._alpha = np.abs(
+            self.equation_params['coldelectrons']['alpha_unit'])
         self._epsilon_cold = self.equation_params['coldelectrons']['epsilon_unit']
         self._epsilon_hot = self.equation_params['hotelectrons']['epsilon_unit']
 

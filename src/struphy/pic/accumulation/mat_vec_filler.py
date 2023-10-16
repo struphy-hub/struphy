@@ -112,25 +112,25 @@ def mat_fill_b_v1_diag(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'flo
     """
     Adds the contribution of one particle to the diagonal elements (mu,nu)=(1,1), (mu,nu)=(2,2) and (mu,nu)=(3,3) of an accumulation block matrix V1 -> V1. The result is returned in mat11, mat22 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts1 : array[int]
-            Start indices of the current process in space V1.
+    starts1 : array[int]
+        Start indices of the current process in space V1.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat22, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V1 -> V1 that is written to.
+    mat11, mat22, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V1 -> V1 that is written to.
 
-        fill11, fill22, fill33 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat22 and mat33.
+    fill11, fill22, fill33 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat22 and mat33.
     """
 
     from numpy import empty
@@ -190,31 +190,31 @@ def m_v_fill_b_v1_diag(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'flo
     """
     Adds the contribution of one particle to the diagonal elements (mu,nu)=(1,1), (mu,nu)=(2,2) and (mu,nu)=(3,3) of an accumulation block matrix V1 -> V1. The result is returned in mat11, mat22 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts1 : array[int]
-            Start indices of the current process in space V1.
+    starts1 : array[int]
+        Start indices of the current process in space V1.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat22, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V1 -> V1 that is written to.
+    mat11, mat22, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V1 -> V1 that is written to.
 
-        fill11, fill22, fill33 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat22 and mat33.
+    fill11, fill22, fill33 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat22 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2, and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2, and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to vec1, vec2 and vec3.
     """
 
     from numpy import empty
@@ -274,25 +274,25 @@ def mat_fill_b_v2_diag(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'flo
     """
     Adds the contribution of one particle to the diagonal elements (mu,nu)=(1,1), (mu,nu)=(2,2) and (mu,nu)=(3,3) of an accumulation block matrix V2 -> V2. The result is returned in mat11, mat22 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts2 : array[int]
-            Start indices of the current process in space V2.
+    starts2 : array[int]
+        Start indices of the current process in space V2.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat22, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V2 -> V2 that is written to.
+    mat11, mat22, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V2 -> V2 that is written to.
 
-        fill11, fill22, fill33 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to mat11, mat22 and mat33.
+    fill11, fill22, fill33 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to mat11, mat22 and mat33.
     """
 
     from numpy import empty
@@ -352,31 +352,31 @@ def m_v_fill_b_v2_diag(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'flo
     """
     Adds the contribution of one particle to the diagonal elements (mu,nu)=(1,1), (mu,nu)=(2,2) and (mu,nu)=(3,3) of an accumulation block matrix V2 -> V2. The result is returned in mat11, mat22 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts2 : array[int]
-            Start indices of the current process in space V2.
+    starts2 : array[int]
+        Start indices of the current process in space V2.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat22, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V2 -> V2 that is written to.
+    mat11, mat22, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V2 -> V2 that is written to.
 
-        fill11, fill22, fill33 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to mat11, mat22 and mat33.
+    fill11, fill22, fill33 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to mat11, mat22 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to vec1, vec2 and vec3.
     """
 
     from numpy import empty
@@ -436,25 +436,25 @@ def mat_fill_b_v1_asym(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'flo
     """
     Adds the contribution of one particle to the antisymmetric elements (mu,nu)=(1,2), (mu,nu)=(1,3) and (mu,nu)=(2,3) of an accumulation block matrix V1 -> V1. The result is returned in mat12, mat13 and mat23.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts1 : array[int]
-            Start indices of the current process in space V1.
+    starts1 : array[int]
+        Start indices of the current process in space V1.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat12, mat13, mat23 : array[float]
-            (mu=1, nu=2)-, (mu=1, nu=3)- and (mu=2, nu=3)-block of the block matrix V1 -> V1 that is written to.
+    mat12, mat13, mat23 : array[float]
+        (mu=1, nu=2)-, (mu=1, nu=3)- and (mu=2, nu=3)-block of the block matrix V1 -> V1 that is written to.
 
-        fill12, fill13, fill23 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to mat12, mat13 and mat23.
+    fill12, fill13, fill23 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to mat12, mat13 and mat23.
     """
 
     from numpy import empty
@@ -514,31 +514,31 @@ def m_v_fill_b_v1_asym(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'flo
     """
     Adds the contribution of one particle to the antisymmetric elements (mu,nu)=(1,2), (mu,nu)=(1,3) and (mu,nu)=(2,3) of an accumulation block matrix V1 -> V1. The result is returned in mat12, mat13 and mat23.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts1 : array[int]
-            Start indices of the current process in space V1.
+    starts1 : array[int]
+        Start indices of the current process in space V1.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat12, mat13, mat23 : array[float]
-            (mu=1, nu=2)-, (mu=1, nu=3)-, and (mu=2, nu=3)-block of the block matrix V1 -> V1 that is written to.
+    mat12, mat13, mat23 : array[float]
+        (mu=1, nu=2)-, (mu=1, nu=3)-, and (mu=2, nu=3)-block of the block matrix V1 -> V1 that is written to.
 
-        fill12, fill13, fill23 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to mat12, mat13 and mat23.
+    fill12, fill13, fill23 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to mat12, mat13 and mat23.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to vec1, vec2 and vec3.
     """
 
     from numpy import empty
@@ -604,25 +604,25 @@ def mat_fill_b_v2_asym(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'flo
     """
     Adds the contribution of one particle to the antisymmetric elements (mu,nu)=(1,2), (mu,nu)=(1,3) and (mu,nu)=(2,3) of an accumulation block matrix V2 -> V2. The result is returned in mat12, mat13 and mat23.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts2 : array[int]
-            Start indices of the current process in space V2.
+    starts2 : array[int]
+        Start indices of the current process in space V2.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat12, mat13, mat23 : array[float]
-            (mu=1, nu=2)-, (mu=1, nu=3)- and (mu=2, nu=3)-block of the block matrix V2 -> V2 that is written to.
+    mat12, mat13, mat23 : array[float]
+        (mu=1, nu=2)-, (mu=1, nu=3)- and (mu=2, nu=3)-block of the block matrix V2 -> V2 that is written to.
 
-        fill12, fill13, fill23 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to mat12, mat13 and mat23.
+    fill12, fill13, fill23 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to mat12, mat13 and mat23.
     """
 
     from numpy import empty
@@ -682,31 +682,31 @@ def m_v_fill_b_v2_asym(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'flo
     """
     Adds the contribution of one particle to the antisymmetric elements (mu,nu)=(1,2), (mu,nu)=(1,3) and (mu,nu)=(2,3) of an accumulation block matrix V2 -> V2. The result is returned in mat12, mat13 and mat23.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts2 : array[int]
-            Start indices of the current process in space V2.
+    starts2 : array[int]
+        Start indices of the current process in space V2.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat12, mat13, mat23 : array[float]
-            (mu=1, nu=2)-, (mu=1, nu=3)-, and (mu=2, nu=3)-block of the block matrix V2 -> V2 that is written to.
+    mat12, mat13, mat23 : array[float]
+        (mu=1, nu=2)-, (mu=1, nu=3)-, and (mu=2, nu=3)-block of the block matrix V2 -> V2 that is written to.
 
-        fill12, fill13, fill23 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to mat12, mat13 and mat23.
+    fill12, fill13, fill23 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to mat12, mat13 and mat23.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to vec1, vec2 and vec3.
     """
 
     from numpy import empty
@@ -772,25 +772,25 @@ def mat_fill_b_v1_symm(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'flo
     """
     Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V1 -> V1. The result is returned in mat11, mat12, mat13, mat22, mat23 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts1 : array[int]
-            Start indices of the current process in space V1.
+    starts1 : array[int]
+        Start indices of the current process in space V1.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3)-, (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V1 -> V1 that is written to.
+    mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3)-, (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V1 -> V1 that is written to.
 
-        fill11, fill12, fill13, fill22, fill23, fill33 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat12, mat13, mat22, mat23 and mat33.
+    fill11, fill12, fill13, fill22, fill23, fill33 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat12, mat13, mat22, mat23 and mat33.
     """
 
     from numpy import empty
@@ -868,31 +868,31 @@ def m_v_fill_b_v1_symm(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'flo
     """
     Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V1 -> V1. The result is returned in mat11, mat12, mat13, mat22, mat23 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts1 : array[int]
-            Start indices of the current process in space V1.
+    starts1 : array[int]
+        Start indices of the current process in space V1.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3), (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V1 -> V1 that is written to.
+    mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3), (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V1 -> V1 that is written to.
 
-        fill11, fill12, fill13, fill22, fill23, fill33 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat12, mat13, mat22, mat23 and mat33.
+    fill11, fill12, fill13, fill22, fill23, fill33 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat12, mat13, mat22, mat23 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to vec1, vec2 and vec3.
     """
 
     from numpy import empty
@@ -970,25 +970,25 @@ def mat_fill_b_v2_symm(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'flo
     """
     Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V2 -> V2. The result is returned in mat11, mat12, mat13, mat22, mat23 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts2 : array[int]
-            Start indices of the current process in space V2.
+    starts2 : array[int]
+        Start indices of the current process in space V2.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3)-, (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V2 -> V2 that is written to.
+    mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3)-, (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V2 -> V2 that is written to.
 
-        fill11, fill12, fill13, fill22, fill23, fill33 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat12, mat13, mat22, mat23 and mat33.
+    fill11, fill12, fill13, fill22, fill23, fill33 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat12, mat13, mat22, mat23 and mat33.
     """
 
     from numpy import empty
@@ -1066,31 +1066,31 @@ def m_v_fill_b_v2_symm(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'flo
     """
     Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V2 -> V2. The result is returned in mat11, mat12, mat13, mat22, mat23 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts2 : array[int]
-            Start indices of the current process in space V2.
+    starts2 : array[int]
+        Start indices of the current process in space V2.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3), (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V2 -> V2 that is written to.
+    mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3), (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V2 -> V2 that is written to.
 
-        fill11, fill12, fill13, fill22, fill23, fill33 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to mat11, mat12, mat13, mat22, mat23 and mat33.
+    fill11, fill12, fill13, fill22, fill23, fill33 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to mat11, mat12, mat13, mat22, mat23 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to vec1, vec2 and vec3.
     """
 
     from numpy import empty
@@ -1168,25 +1168,25 @@ def mat_fill_b_v1_full(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'flo
     """
     Adds the contribution of one particle to the generic elements (mu,nu) of an accumulation block matrix V1 -> V1. The result is returned in mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts1 : array[int]
-            Start indices of the current process in space V1.
+    starts1 : array[int]
+        Start indices of the current process in space V1.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat12, mat13, mat12, mat22, mat23, mat13, mat23, mat33 : array[float]
-            All 9 blocks of the block matrix V1 -> V1 that is written to.
+    mat11, mat12, mat13, mat12, mat22, mat23, mat13, mat23, mat33 : array[float]
+        All 9 blocks of the block matrix V1 -> V1 that is written to.
 
-        fill11, fill12, fill13, fill12, fill23, fill23, fill31, fill32, fill33 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat12, mat13, mat12, mat22, mat23, mat13, mat23 and mat33.
+    fill11, fill12, fill13, fill12, fill23, fill23, fill31, fill32, fill33 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat12, mat13, mat12, mat22, mat23, mat13, mat23 and mat33.
     """
 
     from numpy import empty
@@ -1282,31 +1282,31 @@ def m_v_fill_b_v1_full(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'flo
     """
     Adds the contribution of one particle to the generic elements (mu,nu) of an accumulation block matrix V1 -> V1. The result is returned in mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts1 : array[int]
-            Start indices of the current process in space V1.
+    starts1 : array[int]
+        Start indices of the current process in space V1.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
-            All 9 blocks of the block matrix V1 -> V1 that is written to.
+    mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
+        All 9 blocks of the block matrix V1 -> V1 that is written to.
 
-        fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
+    fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to vec1, vec2 and vec3.
     """
 
     from numpy import empty
@@ -1402,31 +1402,31 @@ def mat_fill_b_v2_full(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'flo
     """
     Adds the contribution of one particle to the generic elements (mu,nu) of an accumulation block matrix V2 -> V2. The result is returned in mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts2 : array[int]
-            Start indices of the current process in space V2.
+    starts2 : array[int]
+        Start indices of the current process in space V2.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
-            All 9 blocks of the block matrix V2 -> V2 that is written to.
+    mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
+        All 9 blocks of the block matrix V2 -> V2 that is written to.
 
-        fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
+    fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to vec1, vec2 and vec3.
     """
 
     from numpy import empty
@@ -1522,31 +1522,31 @@ def m_v_fill_b_v2_full(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'flo
     """
     Adds the contribution of one particle to the generic elements (mu,nu) of an accumulation block matrix V2 -> V2. The result is returned in mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts2 : array[int]
-            Start indices of the current process in space V2.
+    starts2 : array[int]
+        Start indices of the current process in space V2.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
-            All 9 blocks of the block matrix V2 -> V2 that is written to.
+    mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
+        All 9 blocks of the block matrix V2 -> V2 that is written to.
 
-        fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
+    fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to vec1, vec2 and vec3.
     """
 
     from numpy import empty
@@ -1641,28 +1641,28 @@ def mat_fill_v1_diag(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'flo
     """
     Adds the contribution of one particle to the diagonal elements (mu,nu)=(1,1), (mu,nu)=(2,2) and (mu,nu)=(3,3) of an accumulation block matrix V1 -> V1. The result is returned in mat11, mat22 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts1 : array[int]
-            Start indices of the current process in space V1.
+    starts1 : array[int]
+        Start indices of the current process in space V1.
 
-        mat11, mat22, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V1 -> V1 that is written to.
+    mat11, mat22, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V1 -> V1 that is written to.
 
-        fill11, fill22, fill33 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat22 and mat33.
+    fill11, fill22, fill33 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat22 and mat33.
     """
 
     # degrees of the basis functions : B-splines (pn) and D-splines (pd)
@@ -1699,34 +1699,34 @@ def m_v_fill_v1_diag(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'flo
     """
     Adds the contribution of one particle to the diagonal elements (mu,nu)=(1,1), (mu,nu)=(2,2) and (mu,nu)=(3,3) of an accumulation block matrix V1 -> V1. The result is returned in mat11, mat22 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts1 : array[int]
-            Start indices of the current process in space V1.
+    starts1 : array[int]
+        Start indices of the current process in space V1.
 
-        mat11, mat22, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V1 -> V1 that is written to.
+    mat11, mat22, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V1 -> V1 that is written to.
 
-        fill11, fill22, fill33 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat22 and mat33.
+    fill11, fill22, fill33 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat22 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2, and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2, and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to vec1, vec2 and vec3.
     """
 
     # degrees of the basis functions : B-splines (pn) and D-splines (pd)
@@ -1763,28 +1763,28 @@ def mat_fill_v2_diag(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'flo
     """
     Adds the contribution of one particle to the diagonal elements (mu,nu)=(1,1), (mu,nu)=(2,2) and (mu,nu)=(3,3) of an accumulation block matrix V2 -> V2. The result is returned in mat11, mat22 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts2 : array[int]
-            Start indices of the current process in space V2.
+    starts2 : array[int]
+        Start indices of the current process in space V2.
 
-        mat11, mat22, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V2 -> V2 that is written to.
+    mat11, mat22, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V2 -> V2 that is written to.
 
-        fill11, fill22, fill33 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to mat11, mat22 and mat33.
+    fill11, fill22, fill33 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to mat11, mat22 and mat33.
     """
 
     # degrees of the basis functions : B-splines (pn) and D-splines (pd)
@@ -1821,34 +1821,34 @@ def m_v_fill_v2_diag(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'flo
     """
     Adds the contribution of one particle to the diagonal elements (mu,nu)=(1,1), (mu,nu)=(2,2) and (mu,nu)=(3,3) of an accumulation block matrix V2 -> V2. The result is returned in mat11, mat22 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts2 : array[int]
-            Start indices of the current process in space V2.
+    starts2 : array[int]
+        Start indices of the current process in space V2.
 
-        mat11, mat22, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V2 -> V2 that is written to.
+    mat11, mat22, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V2 -> V2 that is written to.
 
-        fill11, fill22, fill33 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to mat11, mat22 and mat33.
+    fill11, fill22, fill33 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to mat11, mat22 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to vec1, vec2 and vec3.
     """
 
     # degrees of the basis functions : B-splines (pn) and D-splines (pd)
@@ -1885,28 +1885,28 @@ def mat_fill_v1_asym(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'flo
     """
     Adds the contribution of one particle to the antisymmetric elements (mu,nu)=(1,2), (mu,nu)=(1,3) and (mu,nu)=(2,3) of an accumulation block matrix V1 -> V1. The result is returned in mat12, mat13 and mat23.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts1 : array[int]
-            Start indices of the current process in space V1.
+    starts1 : array[int]
+        Start indices of the current process in space V1.
 
-        mat12, mat13, mat23 : array[float]
-            (mu=1, nu=2)-, (mu=1, nu=3)- and (mu=2, nu=3)-block of the block matrix V1 -> V1 that is written to.
+    mat12, mat13, mat23 : array[float]
+        (mu=1, nu=2)-, (mu=1, nu=3)- and (mu=2, nu=3)-block of the block matrix V1 -> V1 that is written to.
 
-        fill12, fill13, fill23 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to mat12, mat13 and mat23.
+    fill12, fill13, fill23 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to mat12, mat13 and mat23.
     """
 
     # degrees of the basis functions : B-splines (pn) and D-splines (pd)
@@ -1943,34 +1943,34 @@ def m_v_fill_v1_asym(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'flo
     """
     Adds the contribution of one particle to the antisymmetric elements (mu,nu)=(1,2), (mu,nu)=(1,3) and (mu,nu)=(2,3) of an accumulation block matrix V1 -> V1. The result is returned in mat12, mat13 and mat23.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts1 : array[int]
-            Start indices of the current process in space V1.
+    starts1 : array[int]
+        Start indices of the current process in space V1.
 
-        mat12, mat13, mat23 : array[float]
-            (mu=1, nu=2)-, (mu=1, nu=3)-, and (mu=2, nu=3)-block of the block matrix V1 -> V1 that is written to.
+    mat12, mat13, mat23 : array[float]
+        (mu=1, nu=2)-, (mu=1, nu=3)-, and (mu=2, nu=3)-block of the block matrix V1 -> V1 that is written to.
 
-        fill12, fill13, fill23 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to mat12, mat13 and mat23.
+    fill12, fill13, fill23 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to mat12, mat13 and mat23.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to vec1, vec2 and vec3.
     """
 
     # degrees of the basis functions : B-splines (pn) and D-splines (pd)
@@ -2013,28 +2013,28 @@ def mat_fill_v2_asym(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'flo
     """
     Adds the contribution of one particle to the antisymmetric elements (mu,nu)=(1,2), (mu,nu)=(1,3) and (mu,nu)=(2,3) of an accumulation block matrix V2 -> V2. The result is returned in mat12, mat13 and mat23.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts2 : array[int]
-            Start indices of the current process in space V2.
+    starts2 : array[int]
+        Start indices of the current process in space V2.
 
-        mat12, mat13, mat23 : array[float]
-            (mu=1, nu=2)-, (mu=1, nu=3)- and (mu=2, nu=3)-block of the block matrix V2 -> V2 that is written to.
+    mat12, mat13, mat23 : array[float]
+        (mu=1, nu=2)-, (mu=1, nu=3)- and (mu=2, nu=3)-block of the block matrix V2 -> V2 that is written to.
 
-        fill12, fill13, fill23 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to mat12, mat13 and mat23.
+    fill12, fill13, fill23 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to mat12, mat13 and mat23.
     """
 
     # degrees of the basis functions : B-splines (pn) and D-splines (pd)
@@ -2071,34 +2071,34 @@ def m_v_fill_v2_asym(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'flo
     """
     Adds the contribution of one particle to the antisymmetric elements (mu,nu)=(1,2), (mu,nu)=(1,3) and (mu,nu)=(2,3) of an accumulation block matrix V2 -> V2. The result is returned in mat12, mat13 and mat23.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts2 : array[int]
-            Start indices of the current process in space V2.
+    starts2 : array[int]
+        Start indices of the current process in space V2.
 
-        mat12, mat13, mat23 : array[float]
-            (mu=1, nu=2)-, (mu=1, nu=3)-, and (mu=2, nu=3)-block of the block matrix V2 -> V2 that is written to.
+    mat12, mat13, mat23 : array[float]
+        (mu=1, nu=2)-, (mu=1, nu=3)-, and (mu=2, nu=3)-block of the block matrix V2 -> V2 that is written to.
 
-        fill12, fill13, fill23 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to mat12, mat13 and mat23.
+    fill12, fill13, fill23 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to mat12, mat13 and mat23.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to vec1, vec2 and vec3.
     """
 
     # degrees of the basis functions : B-splines (pn) and D-splines (pd)
@@ -2141,28 +2141,28 @@ def mat_fill_v1_symm(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'flo
     """
     Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V1 -> V1. The result is returned in mat11, mat12, mat13, mat22, mat23 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts1 : array[int]
-            Start indices of the current process in space V1.
+    starts1 : array[int]
+        Start indices of the current process in space V1.
 
-        mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3)-, (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V1 -> V1 that is written to.
+    mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3)-, (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V1 -> V1 that is written to.
 
-        fill11, fill12, fill13, fill22, fill23, fill33 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat12, mat13, mat22, mat23 and mat33.
+    fill11, fill12, fill13, fill22, fill23, fill33 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat12, mat13, mat22, mat23 and mat33.
     """
 
     # degrees of the basis functions : B-splines (pn) and D-splines (pd)
@@ -2217,34 +2217,34 @@ def m_v_fill_v1_symm(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'flo
     """
     Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V1 -> V1. The result is returned in mat11, mat12, mat13, mat22, mat23 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts1 : array[int]
-            Start indices of the current process in space V1.
+    starts1 : array[int]
+        Start indices of the current process in space V1.
 
-        mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3), (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V1 -> V1 that is written to.
+    mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3), (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V1 -> V1 that is written to.
 
-        fill11, fill12, fill13, fill22, fill23, fill33 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat12, mat13, mat22, mat23 and mat33.
+    fill11, fill12, fill13, fill22, fill23, fill33 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat12, mat13, mat22, mat23 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to vec1, vec2 and vec3.
     """
 
     # degrees of the basis functions : B-splines (pn) and D-splines (pd)
@@ -2299,28 +2299,28 @@ def mat_fill_v2_symm(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'flo
     """
     Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V2 -> V2. The result is returned in mat11, mat12, mat13, mat22, mat23 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts2 : array[int]
-            Start indices of the current process in space V2.
+    starts2 : array[int]
+        Start indices of the current process in space V2.
 
-        mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3)-, (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V2 -> V2 that is written to.
+    mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3)-, (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V2 -> V2 that is written to.
 
-        fill11, fill12, fill13, fill22, fill23, fill33 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat12, mat13, mat22, mat23 and mat33.
+    fill11, fill12, fill13, fill22, fill23, fill33 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat12, mat13, mat22, mat23 and mat33.
     """
 
     # degrees of the basis functions : B-splines (pn) and D-splines (pd)
@@ -2375,34 +2375,34 @@ def m_v_fill_v2_symm(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'flo
     """
     Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V2 -> V2. The result is returned in mat11, mat12, mat13, mat22, mat23 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts2 : array[int]
-            Start indices of the current process in space V2.
+    starts2 : array[int]
+        Start indices of the current process in space V2.
 
-        mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3), (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V2 -> V2 that is written to.
+    mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3), (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V2 -> V2 that is written to.
 
-        fill11, fill12, fill13, fill22, fill23, fill33 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to mat11, mat12, mat13, mat22, mat23 and mat33.
+    fill11, fill12, fill13, fill22, fill23, fill33 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to mat11, mat12, mat13, mat22, mat23 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to vec1, vec2 and vec3.
     """
 
     # degrees of the basis functions : B-splines (pn) and D-splines (pd)
@@ -2457,28 +2457,28 @@ def mat_fill_v1_full(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'flo
     """
     Adds the contribution of one particle to the generic elements (mu,nu) of an accumulation block matrix V1 -> V1. The result is returned in mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts1 : array[int]
-            Start indices of the current process in space V1.
+    starts1 : array[int]
+        Start indices of the current process in space V1.
 
-        mat11, mat12, mat13, mat12, mat22, mat23, mat13, mat23, mat33 : array[float]
-            All 9 blocks of the block matrix V1 -> V1 that is written to.
+    mat11, mat12, mat13, mat12, mat22, mat23, mat13, mat23, mat33 : array[float]
+        All 9 blocks of the block matrix V1 -> V1 that is written to.
 
-        fill11, fill12, fill13, fill12, fill23, fill23, fill31, fill32, fill33 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat12, mat13, mat12, mat22, mat23, mat13, mat23 and mat33.
+    fill11, fill12, fill13, fill12, fill23, fill23, fill31, fill32, fill33 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat12, mat13, mat12, mat22, mat23, mat13, mat23 and mat33.
     """
 
     # degrees of the basis functions : B-splines (pn) and D-splines (pd)
@@ -2551,34 +2551,34 @@ def m_v_fill_v1_full(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'flo
     """
     Adds the contribution of one particle to the generic elements (mu,nu) of an accumulation block matrix V1 -> V1. The result is returned in mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts1 : array[int]
-            Start indices of the current process in space V1.
+    starts1 : array[int]
+        Start indices of the current process in space V1.
 
-        mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
-            All 9 blocks of the block matrix V1 -> V1 that is written to.
+    mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
+        All 9 blocks of the block matrix V1 -> V1 that is written to.
 
-        fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
+    fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V1 and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V1 and written to vec1, vec2 and vec3.
     """
 
     # degrees of the basis functions : B-splines (pn) and D-splines (pd)
@@ -2651,28 +2651,28 @@ def mat_fill_v2_full(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'flo
     """
     Adds the contribution of one particle to the generic elements (mu,nu) of an accumulation block matrix V2 -> V2. The result is returned in mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts2 : array[int]
-            Start indices of the current process in space V2.
+    starts2 : array[int]
+        Start indices of the current process in space V2.
 
-        mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
-            All 9 blocks of the block matrix V2 -> V2 that is written to.
+    mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
+        All 9 blocks of the block matrix V2 -> V2 that is written to.
 
-        fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
+    fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
     """
 
     # degrees of the basis functions : B-splines (pn) and D-splines (pd)
@@ -2745,34 +2745,34 @@ def m_v_fill_v2_full(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'flo
     """
     Adds the contribution of one particle to the generic elements (mu,nu) of an accumulation block matrix V2 -> V2. The result is returned in mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts2 : array[int]
-            Start indices of the current process in space V2.
+    starts2 : array[int]
+        Start indices of the current process in space V2.
 
-        mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
-            All 9 blocks of the block matrix V2 -> V2 that is written to.
+    mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
+        All 9 blocks of the block matrix V2 -> V2 that is written to.
 
-        fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
+    fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V2 and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V2 and written to vec1, vec2 and vec3.
     """
 
     # degrees of the basis functions : B-splines (pn) and D-splines (pd)
@@ -2846,25 +2846,25 @@ def mat_fill_b_v0(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]
     """
     Adds the contribution of one particle to the elements of an accumulation matrix V0 -> V0. The result is returned in mat.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts0 : array[int]
-            Start indices of the current process in space V0.
+    starts0 : array[int]
+        Start indices of the current process in space V0.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat : array[float]
-            Matrix V0 -> V0 that is written to.
+    mat : array[float]
+        Matrix V0 -> V0 that is written to.
 
-        fill : float
-            Number that will be multiplied by the basis functions of V0 and written to mat.
+    fill : float
+        Number that will be multiplied by the basis functions of V0 and written to mat.
     """
 
     from numpy import empty
@@ -2903,31 +2903,31 @@ def m_v_fill_b_v0(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]
     """
     Adds the contribution of one particle to the elements of an accumulation matrix V0 -> V0. The result is returned in mat.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts0 : array[int]
-            Start indices of the current process in space V0.
+    starts0 : array[int]
+        Start indices of the current process in space V0.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat : array[float]
-            Matrix V0 -> V0 that is written to.
+    mat : array[float]
+        Matrix V0 -> V0 that is written to.
 
-        fill_m : float
-            Number that will be multiplied by the basis functions of V0 and written to mat.
+    fill_m : float
+        Number that will be multiplied by the basis functions of V0 and written to mat.
 
-        vec : array[float]
-            Vector that is written to.
+    vec : array[float]
+        Vector that is written to.
 
-        fill_v : float
-            Number that is multiplied by the basis functions of V0 and written to vec.
+    fill_v : float
+        Number that is multiplied by the basis functions of V0 and written to vec.
     """
 
     from numpy import empty
@@ -2966,25 +2966,25 @@ def mat_fill_b_v3(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]
     """
     Adds the contribution of one particle to the elements of an accumulation matrix V3 -> V3. The result is returned in mat.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts3 : array[int]
-            Start indices of the current process in space V3.
+    starts3 : array[int]
+        Start indices of the current process in space V3.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat : array[float]
-            Matrix V3 -> V3 that is written to.
+    mat : array[float]
+        Matrix V3 -> V3 that is written to.
 
-        fill : float
-            Number that will be multiplied by the basis functions of V3 and written to mat.
+    fill : float
+        Number that will be multiplied by the basis functions of V3 and written to mat.
     """
 
     from numpy import empty
@@ -3027,30 +3027,30 @@ def m_v_fill_b_v3(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]
     """
     Adds the contribution of one particle to the elements of an accumulation matrix V3 -> V3. The result is returned in mat.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts3 : array[int]
-            Start indices of the current process in space V3.
+    starts3 : array[int]
+        Start indices of the current process in space V3.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat : array[float]
-            Matrix V3 -> V3 that is written to.
+    mat : array[float]
+        Matrix V3 -> V3 that is written to.
 
-        fill_m : float
-            Number that will be multiplied by the basis functions of V3 and written to mat.
+    fill_m : float
+        Number that will be multiplied by the basis functions of V3 and written to mat.
 
-        vec : array[float]
-            Vector that is written to.
+    vec : array[float]
+        Vector that is written to.
 
-        fill_v : float
+    fill_v : float
             Number that is multiplied by the basis functions of V3 and written to vec.
     """
 
@@ -3093,25 +3093,25 @@ def mat_fill_v0(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'float[:]
     """
     Adds the contribution of one particle to the elements of an accumulation matrix V0 -> V0. The result is returned in mat.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        starts0 : array[int]
-            Start indices of the current process in space V0.
+    starts0 : array[int]
+        Start indices of the current process in space V0.
 
-        mat : array[float]
-            Matrix V0 -> V0 that is written to.
+    mat : array[float]
+        Matrix V0 -> V0 that is written to.
 
-        fill : float
-            Number that will be multiplied by the basis functions of V0 and written to mat.
+    fill : float
+        Number that will be multiplied by the basis functions of V0 and written to mat.
     """
 
     # degrees of the basis functions : B-splines (pn)
@@ -3132,31 +3132,31 @@ def m_v_fill_v0(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'float[:]
     """
     Adds the contribution of one particle to the elements of an accumulation matrix V0 -> V0. The result is returned in mat.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        starts0 : array[int]
-            Start indices of the current process in space V0.
+    starts0 : array[int]
+        Start indices of the current process in space V0.
 
-        mat : array[float]
-            Matrix V0 -> V0 that is written to.
+    mat : array[float]
+        Matrix V0 -> V0 that is written to.
 
-        fill_m : float
-            Number that will be multiplied by the basis functions of V0 and written to mat.
+    fill_m : float
+        Number that will be multiplied by the basis functions of V0 and written to mat.
 
-        vec : array[float]
-            Vector that is written to.
+    vec : array[float]
+        Vector that is written to.
 
-        fill_v : float
-            Number that is multiplied by the basis functions of V0 and written to vec.
+    fill_v : float
+        Number that is multiplied by the basis functions of V0 and written to vec.
     """
 
     # degrees of the basis functions : B-splines (pn)
@@ -3177,25 +3177,25 @@ def mat_fill_v3(pn: 'int[:]', span1: int, span2: int, span3: int, bd1: 'float[:]
     """
     Adds the contribution of one particle to the elements of an accumulation block matrix V3 -> V3. The result is returned in mat.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts3 : array[int]
-            Start indices of the current process in space V3.
+    starts3 : array[int]
+        Start indices of the current process in space V3.
 
-        mat : array[float]
-            Matrix V3 -> V3 that is written to.
+    mat : array[float]
+        Matrix V3 -> V3 that is written to.
 
-        fill : float
-            Number that will be multiplied by the basis functions of V3 and written to mat.
+    fill : float
+        Number that will be multiplied by the basis functions of V3 and written to mat.
     """
 
     # degrees of the basis functions : D-splines (pd)
@@ -3220,31 +3220,31 @@ def m_v_fill_v3(pn: 'int[:]', span1: int, span2: int, span3: int, bd1: 'float[:]
     """
     Adds the contribution of one particle to the elements of an accumulation matrix V3 -> V3. The result is returned in mat.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts3 : array[int]
-            Start indices of the current process in space V3.
+    starts3 : array[int]
+        Start indices of the current process in space V3.
 
-        mat : array[float]
-            Matrix V3 -> V3 that is written to.
+    mat : array[float]
+        Matrix V3 -> V3 that is written to.
 
-        fill_m : float
-            Number that will be multiplied by the basis functions of V3 and written to mat.
+    fill_m : float
+        Number that will be multiplied by the basis functions of V3 and written to mat.
 
-        vec : array[float]
-            Vector that is written to.
+    vec : array[float]
+        Vector that is written to.
 
-        fill_v : float
-            Number that is multiplied by the basis functions of V3 and written to vec.
+    fill_v : float
+        Number that is multiplied by the basis functions of V3 and written to vec.
     """
 
     # degrees of the basis functions : D-splines (pd)
@@ -3270,25 +3270,25 @@ def mat_fill_b_v0vec_diag(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: '
     """
     Adds the contribution of one particle to the diagonal elements (mu,nu)=(1,1), (mu,nu)=(2,2) and (mu,nu)=(3,3) of an accumulation block matrix V0vec -> V0vec. The result is returned in mat11, mat22 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts0 : array[int]
-            Start indices of the current process in space V0.
+    starts0 : array[int]
+        Start indices of the current process in space V0.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat22, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
+    mat11, mat22, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
 
-        fill11, fill22, fill33 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat22 and mat33.
+    fill11, fill22, fill33 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat22 and mat33.
     """
 
     from numpy import empty
@@ -3339,31 +3339,31 @@ def m_v_fill_b_v0vec_diag(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: '
     """
     Adds the contribution of one particle to the diagonal elements (mu,nu)=(1,1), (mu,nu)=(2,2) and (mu,nu)=(3,3) of an accumulation block matrix V0vec -> V0vec. The result is returned in mat11, mat22 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts0 : array[int]
-            Start indices of the current process in space V0.
+    starts0 : array[int]
+        Start indices of the current process in space V0.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat22, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
+    mat11, mat22, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
 
-        fill11, fill22, fill33 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat22 and mat33.
+    fill11, fill22, fill33 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat22 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2, and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2, and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to vec1, vec2 and vec3.
     """
 
     from numpy import empty
@@ -3414,25 +3414,25 @@ def mat_fill_b_v3vec_diag(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: '
     """
     Adds the contribution of one particle to the diagonal elements (mu,nu)=(1,1), (mu,nu)=(2,2) and (mu,nu)=(3,3) of an accumulation block matrix V3vec -> V3vec. The result is returned in mat11, mat22 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts3 : array[int]
-            Start indices of the current process in space V3.
+    starts3 : array[int]
+        Start indices of the current process in space V3.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat22, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
+    mat11, mat22, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
 
-        fill11, fill22, fill33 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat22 and mat33.
+    fill11, fill22, fill33 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat22 and mat33.
     """
 
     from numpy import empty
@@ -3487,31 +3487,31 @@ def m_v_fill_b_v3vec_diag(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: '
     """
     Adds the contribution of one particle to the diagonal elements (mu,nu)=(1,1), (mu,nu)=(2,2) and (mu,nu)=(3,3) of an accumulation block matrix V3vec -> V3vec. The result is returned in mat11, mat22 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts3 : array[int]
-            Start indices of the current process in space V3.
+    starts3 : array[int]
+        Start indices of the current process in space V3.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat22, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
+    mat11, mat22, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
 
-        fill11, fill22, fill33 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat22 and mat33.
+    fill11, fill22, fill33 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat22 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to vec1, vec2 and vec3.
     """
 
     from numpy import empty
@@ -3566,25 +3566,25 @@ def mat_fill_b_v0vec_asym(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: '
     """
     Adds the contribution of one particle to the antisymmetric elements (mu,nu)=(1,2), (mu,nu)=(1,3) and (mu,nu)=(2,3) of an accumulation block matrix V0vec -> V0vec. The result is returned in mat12, mat13 and mat23.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts0 : array[int]
-            Start indices of the current process in space V0.
+    starts0 : array[int]
+        Start indices of the current process in space V0.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat12, mat13, mat23 : array[float]
-            (mu=1, nu=2)-, (mu=1, nu=3)- and (mu=2, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
+    mat12, mat13, mat23 : array[float]
+        (mu=1, nu=2)-, (mu=1, nu=3)- and (mu=2, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
 
-        fill12, fill13, fill23 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to mat12, mat13 and mat23.
+    fill12, fill13, fill23 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to mat12, mat13 and mat23.
     """
 
     from numpy import empty
@@ -3635,31 +3635,31 @@ def m_v_fill_b_v0vec_asym(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: '
     """
     Adds the contribution of one particle to the antisymmetric elements (mu,nu)=(1,2), (mu,nu)=(1,3) and (mu,nu)=(2,3) of an accumulation block matrix V0vec -> V0vec. The result is returned in mat12, mat13 and mat23.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts0 : array[int]
-            Start indices of the current process in space V0.
+    starts0 : array[int]
+        Start indices of the current process in space V0.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat12, mat13, mat23 : array[float]
-            (mu=1, nu=2)-, (mu=1, nu=3)-, and (mu=2, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
+    mat12, mat13, mat23 : array[float]
+        (mu=1, nu=2)-, (mu=1, nu=3)-, and (mu=2, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
 
-        fill12, fill13, fill23 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to mat12, mat13 and mat23.
+    fill12, fill13, fill23 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to mat12, mat13 and mat23.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to vec1, vec2 and vec3.
     """
 
     from numpy import empty
@@ -3716,25 +3716,25 @@ def mat_fill_b_v3vec_asym(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: '
     """
     Adds the contribution of one particle to the antisymmetric elements (mu,nu)=(1,2), (mu,nu)=(1,3) and (mu,nu)=(2,3) of an accumulation block matrix V3vec -> V3vec. The result is returned in mat12, mat13 and mat23.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts3 : array[int]
-            Start indices of the current process in space V3.
+    starts3 : array[int]
+        Start indices of the current process in space V3.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat12, mat13, mat23 : array[float]
-            (mu=1, nu=2)-, (mu=1, nu=3)- and (mu=2, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
+    mat12, mat13, mat23 : array[float]
+        (mu=1, nu=2)-, (mu=1, nu=3)- and (mu=2, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
 
-        fill12, fill13, fill23 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to mat12, mat13 and mat23.
+    fill12, fill13, fill23 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to mat12, mat13 and mat23.
     """
 
     from numpy import empty
@@ -3789,31 +3789,31 @@ def m_v_fill_b_v3vec_asym(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: '
     """
     Adds the contribution of one particle to the antisymmetric elements (mu,nu)=(1,2), (mu,nu)=(1,3) and (mu,nu)=(2,3) of an accumulation block matrix V3vec -> V3vec. The result is returned in mat12, mat13 and mat23.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts3 : array[int]
-            Start indices of the current process in space V3.
+    starts3 : array[int]
+        Start indices of the current process in space V3.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat12, mat13, mat23 : array[float]
-            (mu=1, nu=2)-, (mu=1, nu=3)-, and (mu=2, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
+    mat12, mat13, mat23 : array[float]
+        (mu=1, nu=2)-, (mu=1, nu=3)-, and (mu=2, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
 
-        fill12, fill13, fill23 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to mat12, mat13 and mat23.
+    fill12, fill13, fill23 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to mat12, mat13 and mat23.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to vec1, vec2 and vec3.
     """
 
     from numpy import empty
@@ -3874,25 +3874,25 @@ def mat_fill_b_v0vec_symm(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: '
     """
     Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V0vec -> V0vec. The result is returned in mat11, mat12, mat13, mat22, mat23 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts0 : array[int]
-            Start indices of the current process in space V0.
+    starts0 : array[int]
+        Start indices of the current process in space V0.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3)-, (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
+    mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3)-, (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
 
-        fill11, fill12, fill13, fill22, fill23, fill33 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat12, mat13, mat22, mat23 and mat33.
+    fill11, fill12, fill13, fill22, fill23, fill33 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat12, mat13, mat22, mat23 and mat33.
     """
 
     from numpy import empty
@@ -3961,31 +3961,31 @@ def m_v_fill_b_v0vec_symm(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: '
     """
     Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V0vec -> V0vec. The result is returned in mat11, mat12, mat13, mat22, mat23 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts0 : array[int]
-            Start indices of the current process in space V0.
+    starts0 : array[int]
+        Start indices of the current process in space V0.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3), (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
+    mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3), (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
 
-        fill11, fill12, fill13, fill22, fill23, fill33 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat12, mat13, mat22, mat23 and mat33.
+    fill11, fill12, fill13, fill22, fill23, fill33 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat12, mat13, mat22, mat23 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to vec1, vec2 and vec3.
     """
 
     from numpy import empty
@@ -4054,25 +4054,25 @@ def mat_fill_b_v3vec_symm(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: '
     """
     Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V3vec -> V3vec. The result is returned in mat11, mat12, mat13, mat22, mat23 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts3 : array[int]
-            Start indices of the current process in space V3.
+    starts3 : array[int]
+        Start indices of the current process in space V3.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3)-, (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
+    mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3)-, (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
 
-        fill11, fill12, fill13, fill22, fill23, fill33 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat12, mat13, mat22, mat23 and mat33.
+    fill11, fill12, fill13, fill22, fill23, fill33 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat12, mat13, mat22, mat23 and mat33.
     """
 
     from numpy import empty
@@ -4145,31 +4145,31 @@ def m_v_fill_b_v3vec_symm(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: '
     """
     Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V3vec -> V3vec. The result is returned in mat11, mat12, mat13, mat22, mat23 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts3 : array[int]
-            Start indices of the current process in space V3.
+    starts3 : array[int]
+        Start indices of the current process in space V3.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3), (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
+    mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3), (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
 
-        fill11, fill12, fill13, fill22, fill23, fill33 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat12, mat13, mat22, mat23 and mat33.
+    fill11, fill12, fill13, fill22, fill23, fill33 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat12, mat13, mat22, mat23 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to vec1, vec2 and vec3.
     """
 
     from numpy import empty
@@ -4242,25 +4242,25 @@ def mat_fill_b_v0vec_full(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: '
     """
     Adds the contribution of one particle to the generic elements (mu,nu) of an accumulation block matrix V0vec -> V0vec. The result is returned in mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts0 : array[int]
-            Start indices of the current process in space V0.
+    starts0 : array[int]
+        Start indices of the current process in space V0.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat12, mat13, mat12, mat22, mat23, mat13, mat23, mat33 : array[float]
-            All 9 blocks of the block matrix V0vec -> V0vec that is written to.
+    mat11, mat12, mat13, mat12, mat22, mat23, mat13, mat23, mat33 : array[float]
+        All 9 blocks of the block matrix V0vec -> V0vec that is written to.
 
-        fill11, fill12, fill13, fill12, fill23, fill23, fill31, fill32, fill33 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat12, mat13, mat12, mat22, mat23, mat13, mat23 and mat33.
+    fill11, fill12, fill13, fill12, fill23, fill23, fill31, fill32, fill33 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat12, mat13, mat12, mat22, mat23, mat13, mat23 and mat33.
     """
 
     from numpy import empty
@@ -4347,31 +4347,31 @@ def m_v_fill_b_v0vec_full(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: '
     """
     Adds the contribution of one particle to the generic elements (mu,nu) of an accumulation block matrix V0vec -> V0vec. The result is returned in mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts0 : array[int]
-            Start indices of the current process in space V0.
+    starts0 : array[int]
+        Start indices of the current process in space V0.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
-            All 9 blocks of the block matrix V0vec -> V0vec that is written to.
+    mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
+        All 9 blocks of the block matrix V0vec -> V0vec that is written to.
 
-        fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
+    fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to vec1, vec2 and vec3.
     """
 
     from numpy import empty
@@ -4458,31 +4458,31 @@ def mat_fill_b_v3vec_full(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: '
     """
     Adds the contribution of one particle to the generic elements (mu,nu) of an accumulation block matrix V3vec -> V3vec. The result is returned in mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts3 : array[int]
-            Start indices of the current process in space V3.
+    starts3 : array[int]
+        Start indices of the current process in space V3.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
-            All 9 blocks of the block matrix V3vec -> V3vec that is written to.
+    mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
+        All 9 blocks of the block matrix V3vec -> V3vec that is written to.
 
-        fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
+    fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to vec1, vec2 and vec3.
     """
 
     from numpy import empty
@@ -4573,31 +4573,31 @@ def m_v_fill_b_v3vec_full(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: '
     """
     Adds the contribution of one particle to the generic elements (mu,nu) of an accumulation block matrix V3vec -> V3vec. The result is returned in mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        tn1, tn2, tn3 : array[float]
-            Spline knot vectors in each direction.
+    tn1, tn2, tn3 : array[float]
+        Spline knot vectors in each direction.
 
-        starts3 : array[int]
-            Start indices of the current process in space V3.
+    starts3 : array[int]
+        Start indices of the current process in space V3.
 
-        eta1, eta2, eta3 : float
-            (logical) position of the particle in each direction.
+    eta1, eta2, eta3 : float
+        (logical) position of the particle in each direction.
 
-        mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
-            All 9 blocks of the block matrix V3vec -> V3vec that is written to.
+    mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
+        All 9 blocks of the block matrix V3vec -> V3vec that is written to.
 
-        fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
+    fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to vec1, vec2 and vec3.
     """
 
     from numpy import empty
@@ -4687,25 +4687,25 @@ def mat_fill_v0vec_diag(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: '
     """
     Adds the contribution of one particle to the diagonal elements (mu,nu)=(1,1), (mu,nu)=(2,2) and (mu,nu)=(3,3) of an accumulation block matrix V0vec -> V0vec. The result is returned in mat11, mat22 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        starts0 : array[int]
-            Start indices of the current process in space V0.
+    starts0 : array[int]
+        Start indices of the current process in space V0.
 
-        mat11, mat22, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
+    mat11, mat22, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
 
-        fill11, fill22, fill33 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat22 and mat33.
+    fill11, fill22, fill33 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat22 and mat33.
     """
 
     # degrees of the basis functions : B-splines (pn)
@@ -4738,31 +4738,31 @@ def m_v_fill_v0vec_diag(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: '
     """
     Adds the contribution of one particle to the diagonal elements (mu,nu)=(1,1), (mu,nu)=(2,2) and (mu,nu)=(3,3) of an accumulation block matrix V0vec -> V0vec. The result is returned in mat11, mat22 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        starts0 : array[int]
-            Start indices of the current process in space V0.
+    starts0 : array[int]
+        Start indices of the current process in space V0.
 
-        mat11, mat22, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
+    mat11, mat22, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
 
-        fill11, fill22, fill33 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat22 and mat33.
+    fill11, fill22, fill33 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat22 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2, and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2, and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to vec1, vec2 and vec3.
     """
 
     # degrees of the basis functions : B-splines (pn)
@@ -4795,25 +4795,25 @@ def mat_fill_v3vec_diag(pn: 'int[:]', span1: int, span2: int, span3: int, bd1: '
     """
     Adds the contribution of one particle to the diagonal elements (mu,nu)=(1,1), (mu,nu)=(2,2) and (mu,nu)=(3,3) of an accumulation block matrix V3vec -> V3vec. The result is returned in mat11, mat22 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts3 : array[int]
-            Start indices of the current process in space V3.
+    starts3 : array[int]
+        Start indices of the current process in space V3.
 
-        mat11, mat22, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
+    mat11, mat22, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
 
-        fill11, fill22, fill33 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat22 and mat33.
+    fill11, fill22, fill33 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat22 and mat33.
     """
 
     # degrees of the basis functions : D-splines (pd)
@@ -4850,31 +4850,31 @@ def m_v_fill_v3vec_diag(pn: 'int[:]', span1: int, span2: int, span3: int, bd1: '
     """
     Adds the contribution of one particle to the diagonal elements (mu,nu)=(1,1), (mu,nu)=(2,2) and (mu,nu)=(3,3) of an accumulation block matrix V3vec -> V3vec. The result is returned in mat11, mat22 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts3 : array[int]
-            Start indices of the current process in space V3.
+    starts3 : array[int]
+        Start indices of the current process in space V3.
 
-        mat11, mat22, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
+    mat11, mat22, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=2, nu=2)- and (mu=3, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
 
-        fill11, fill22, fill33 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat22 and mat33.
+    fill11, fill22, fill33 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat22 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to vec1, vec2 and vec3.
     """
 
     # degrees of the basis functions : D-splines (pd)
@@ -4911,25 +4911,25 @@ def mat_fill_v0vec_asym(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: '
     """
     Adds the contribution of one particle to the antisymmetric elements (mu,nu)=(1,2), (mu,nu)=(1,3) and (mu,nu)=(2,3) of an accumulation block matrix V0vec -> V0vec. The result is returned in mat12, mat13 and mat23.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        starts0 : array[int]
-            Start indices of the current process in space V0.
+    starts0 : array[int]
+        Start indices of the current process in space V0.
 
-        mat12, mat13, mat23 : array[float]
-            (mu=1, nu=2)-, (mu=1, nu=3)- and (mu=2, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
+    mat12, mat13, mat23 : array[float]
+        (mu=1, nu=2)-, (mu=1, nu=3)- and (mu=2, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
 
-        fill12, fill13, fill23 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to mat12, mat13 and mat23.
+    fill12, fill13, fill23 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to mat12, mat13 and mat23.
     """
 
     # degrees of the basis functions : B-splines (pn)
@@ -4962,31 +4962,31 @@ def m_v_fill_v0vec_asym(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: '
     """
     Adds the contribution of one particle to the antisymmetric elements (mu,nu)=(1,2), (mu,nu)=(1,3) and (mu,nu)=(2,3) of an accumulation block matrix V0vec -> V0vec. The result is returned in mat12, mat13 and mat23.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        starts0 : array[int]
-            Start indices of the current process in space V0.
+    starts0 : array[int]
+        Start indices of the current process in space V0.
 
-        mat12, mat13, mat23 : array[float]
-            (mu=1, nu=2)-, (mu=1, nu=3)-, and (mu=2, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
+    mat12, mat13, mat23 : array[float]
+        (mu=1, nu=2)-, (mu=1, nu=3)-, and (mu=2, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
 
-        fill12, fill13, fill23 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to mat12, mat13 and mat23.
+    fill12, fill13, fill23 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to mat12, mat13 and mat23.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to vec1, vec2 and vec3.
     """
 
     # degrees of the basis functions : B-splines (pn)
@@ -5025,25 +5025,25 @@ def mat_fill_v3vec_asym(pn: 'int[:]', span1: int, span2: int, span3: int, bd1: '
     """
     Adds the contribution of one particle to the antisymmetric elements (mu,nu)=(1,2), (mu,nu)=(1,3) and (mu,nu)=(2,3) of an accumulation block matrix V3 -> V3. The result is returned in mat12, mat13 and mat23.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts3 : array[int]
-            Start indices of the current process in space V3.
+    starts3 : array[int]
+        Start indices of the current process in space V3.
 
-        mat12, mat13, mat23 : array[float]
-            (mu=1, nu=2)-, (mu=1, nu=3)- and (mu=2, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
+    mat12, mat13, mat23 : array[float]
+        (mu=1, nu=2)-, (mu=1, nu=3)- and (mu=2, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
 
-        fill12, fill13, fill23 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to mat12, mat13 and mat23.
+    fill12, fill13, fill23 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to mat12, mat13 and mat23.
     """
 
     # degrees of the basis functions : D-splines (pd)
@@ -5080,31 +5080,31 @@ def m_v_fill_v3vec_asym(pn: 'int[:]', span1: int, span2: int, span3: int, bd1: '
     """
     Adds the contribution of one particle to the antisymmetric elements (mu,nu)=(1,2), (mu,nu)=(1,3) and (mu,nu)=(2,3) of an accumulation block matrix V3vec -> V3vec. The result is returned in mat12, mat13 and mat23.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts3 : array[int]
-            Start indices of the current process in space V3.
+    starts3 : array[int]
+        Start indices of the current process in space V3.
 
-        mat12, mat13, mat23 : array[float]
-            (mu=1, nu=2)-, (mu=1, nu=3)-, and (mu=2, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
+    mat12, mat13, mat23 : array[float]
+        (mu=1, nu=2)-, (mu=1, nu=3)-, and (mu=2, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
 
-        fill12, fill13, fill23 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to mat12, mat13 and mat23.
+    fill12, fill13, fill23 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to mat12, mat13 and mat23.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to vec1, vec2 and vec3.
     """
 
     # degrees of the basis functions : D-splines (pd)
@@ -5147,25 +5147,25 @@ def mat_fill_v0vec_symm(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: '
     """
     Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V0vec -> V0vec. The result is returned in mat11, mat12, mat13, mat22, mat23 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        starts0 : array[int]
-            Start indices of the current process in space V0.
+    starts0 : array[int]
+        Start indices of the current process in space V0.
 
-        mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3)-, (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
+    mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3)-, (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
 
-        fill11, fill12, fill13, fill22, fill23, fill33 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat12, mat13, mat22, mat23 and mat33.
+    fill11, fill12, fill13, fill22, fill23, fill33 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat12, mat13, mat22, mat23 and mat33.
     """
 
     # degrees of the basis functions : B-splines (pn)
@@ -5216,31 +5216,31 @@ def m_v_fill_v0vec_symm(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: '
     """
     Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V0vec -> V0vec. The result is returned in mat11, mat12, mat13, mat22, mat23 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        starts0 : array[int]
-            Start indices of the current process in space V0.
+    starts0 : array[int]
+        Start indices of the current process in space V0.
 
-        mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3), (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
+    mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3), (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V0vec -> V0vec that is written to.
 
-        fill11, fill12, fill13, fill22, fill23, fill33 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat12, mat13, mat22, mat23 and mat33.
+    fill11, fill12, fill13, fill22, fill23, fill33 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat12, mat13, mat22, mat23 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to vec1, vec2 and vec3.
     """
 
     # degrees of the basis functions : B-splines (pn)
@@ -5291,25 +5291,25 @@ def mat_fill_v3vec_symm(pn: 'int[:]', span1: int, span2: int, span3: int, bd1: '
     """
     Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V3vec -> V3vec. The result is returned in mat11, mat12, mat13, mat22, mat23 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts3 : array[int]
-            Start indices of the current process in space V3.
+    starts3 : array[int]
+        Start indices of the current process in space V3.
 
-        mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3)-, (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
+    mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3)-, (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
 
-        fill11, fill12, fill13, fill22, fill23, fill33 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat12, mat13, mat22, mat23 and mat33.
+    fill11, fill12, fill13, fill22, fill23, fill33 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat12, mat13, mat22, mat23 and mat33.
     """
 
     # degrees of the basis functions : D-splines (pd)
@@ -5364,31 +5364,31 @@ def m_v_fill_v3vec_symm(pn: 'int[:]', span1: int, span2: int, span3: int, bd1: '
     """
     Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V3vec -> V3vec. The result is returned in mat11, mat12, mat13, mat22, mat23 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts3 : array[int]
-            Start indices of the current process in space V3.
+    starts3 : array[int]
+        Start indices of the current process in space V3.
 
-        mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
-            (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3), (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
+    mat11, mat12, mat13, mat22, mat23, mat33 : array[float]
+        (mu=1, nu=1)-, (mu=1, nu=2)-, (mu=1, nu=3), (mu=2, nu=2)-, (mu=2, nu=3)- and (mu=3, nu=3)-block of the block matrix V3vec -> V3vec that is written to.
 
-        fill11, fill12, fill13, fill22, fill23, fill33 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat12, mat13, mat22, mat23 and mat33.
+    fill11, fill12, fill13, fill22, fill23, fill33 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat12, mat13, mat22, mat23 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to vec1, vec2 and vec3.
     """
 
     # degrees of the basis functions : D-splines (pd)
@@ -5443,25 +5443,25 @@ def mat_fill_v0vec_full(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: '
     """
     Adds the contribution of one particle to the generic elements (mu,nu) of an accumulation block matrix V0vec -> V0vec. The result is returned in mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int] 
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        starts0 : array[int]
-            Start indices of the current process in space V0.
+    starts0 : array[int]
+        Start indices of the current process in space V0.
 
-        mat11, mat12, mat13, mat12, mat22, mat23, mat13, mat23, mat33 : array[float]
-            All 9 blocks of the block matrix V0vec -> V0vec that is written to.
+    mat11, mat12, mat13, mat12, mat22, mat23, mat13, mat23, mat33 : array[float]
+        All 9 blocks of the block matrix V0vec -> V0vec that is written to.
 
-        fill11, fill12, fill13, fill12, fill23, fill23, fill31, fill32, fill33 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat12, mat13, mat12, mat22, mat23, mat13, mat23 and mat33.
+    fill11, fill12, fill13, fill12, fill23, fill23, fill31, fill32, fill33 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat12, mat13, mat12, mat22, mat23, mat13, mat23 and mat33.
     """
 
     # degrees of the basis functions : B-splines (pn)
@@ -5530,31 +5530,31 @@ def m_v_fill_v0vec_full(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: '
     """
     Adds the contribution of one particle to the generic elements (mu,nu) of an accumulation block matrix V0vec -> V0vec. The result is returned in mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        starts0 : array[int]
-            Start indices of the current process in space V0.
+    starts0 : array[int]
+        Start indices of the current process in space V0.
 
-        mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
-            All 9 blocks of the block matrix V0vec -> V0vec that is written to.
+    mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
+        All 9 blocks of the block matrix V0vec -> V0vec that is written to.
 
-        fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
+    fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V0vec and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V0vec and written to vec1, vec2 and vec3.
     """
 
     # degrees of the basis functions : B-splines (pn)
@@ -5623,31 +5623,31 @@ def mat_fill_v3vec_full(pn: 'int[:]', span1: int, span2: int, span3: int, bd1: '
     """
     Adds the contribution of one particle to the generic elements (mu,nu) of an accumulation block matrix V3vec -> V3vec. The result is returned in mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts3 : array[int]
-            Start indices of the current process in space V3.
+    starts3 : array[int]
+        Start indices of the current process in space V3.
 
-        mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
-            All 9 blocks of the block matrix V3vec -> V3vec that is written to.
+    mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
+        All 9 blocks of the block matrix V3vec -> V3vec that is written to.
 
-        fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
+    fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to vec1, vec2 and vec3.
     """
 
     # degrees of the basis functions : D-splines (pd)
@@ -5720,31 +5720,31 @@ def m_v_fill_v3vec_full(pn: 'int[:]', span1: int, span2: int, span3: int, bd1: '
     """
     Adds the contribution of one particle to the generic elements (mu,nu) of an accumulation block matrix V3vec -> V3vec. The result is returned in mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32 and mat33.
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts3 : array[int]
-            Start indices of the current process in space V3.
+    starts3 : array[int]
+        Start indices of the current process in space V3.
 
-        mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
-            All 9 blocks of the block matrix V3vec -> V3vec that is written to.
+    mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32, mat33 : array[float]
+        All 9 blocks of the block matrix V3vec -> V3vec that is written to.
 
-        fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
+    fill11, fill12, fill13, fill21, fill22, fill23, fill31, fill32, fill33 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to mat11, mat12, mat13, mat12, mat22, mat23, mat31, mat32 and mat33.
 
-        vec1, vec2, vec3 : array[float]
-            mu=1, mu=2 and mu=3-component of the vector that is written to.
+    vec1, vec2, vec3 : array[float]
+        mu=1, mu=2 and mu=3-component of the vector that is written to.
 
-        fill1, fill2, fill3 : float
-            Numbers that will be multiplied by the basis functions of V3vec and written to vec1, vec2 and vec3.
+    fill1, fill2, fill3 : float
+        Numbers that will be multiplied by the basis functions of V3vec and written to vec1, vec2 and vec3.
     """
 
     # degrees of the basis functions : D-splines (pd)
@@ -5818,37 +5818,37 @@ def m_v_fill_v1_pressure_full(pn: 'int[:]', span1: int, span2: int, span3: int, 
     Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V1 -> V1. 
     The result is returned in mat11_xy, mat12_xy, mat13_xy, mat22_xy, mat23_xy, mat33_xy, vec1_x, vec2_x, vec3_x (x and y denotes components of velocity for the accumulation of the pressure tensor).
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts1 : array[int]
-            Start indices of the current process in space V1.
+    starts1 : array[int]
+        Start indices of the current process in space V1.
 
-        mat.._.. : array[float]
-            (mu, nu)-th element (mu, nu=1,2,3) of the block matrix corresponding to the pressure term with velocity components v_a and v_b (a,b=x,y,z). 
+    mat.._.. : array[float]
+        (mu, nu)-th element (mu, nu=1,2,3) of the block matrix corresponding to the pressure term with velocity components v_a and v_b (a,b=x,y,z). 
 
-        fill11, fill12, fill13, fill22, fill23, fill33 : float
-            Number that will be multiplied by the basis functions of V1 and written to mat.._..
+    fill11, fill12, fill13, fill22, fill23, fill33 : float
+        Number that will be multiplied by the basis functions of V1 and written to mat.._..
 
-        vec._. : array[float]
-            mu-th element (mu=1,2,3) of the vector corresponding to the pressure term with velocity component v_a (a=x,y,z).
+    vec._. : array[float]
+        mu-th element (mu=1,2,3) of the vector corresponding to the pressure term with velocity component v_a (a=x,y,z).
 
-        fill1, fill2, fill3 : float
-            Number that will be multplied by the basis functions of V1 and written to vec._.
+    fill1, fill2, fill3 : float
+        Number that will be multplied by the basis functions of V1 and written to vec._.
 
-        vx, vy, vz : float
-            Component of the particle velocity.
+    vx, vy, vz : float
+        Component of the particle velocity.
     """
 
     # degrees of the basis functions : B-splines (pn) and D-splines (pd)
@@ -5913,37 +5913,37 @@ def m_v_fill_v1_pressure(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 
     Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V1 -> V1. 
     The result is returned in mat11_xy, mat12_xy, mat13_xy, mat22_xy, mat23_xy, mat33_xy, vec1_x, vec2_x, vec3_x (x and y denotes components of velocity for the accumulation of the pressure tensor).
 
-    Parameters 
+    Parameters
     ----------
-        pn : array[int]
-            Spline degrees in each direction.
+    pn : array[int]
+        Spline degrees in each direction.
 
-        span1, span2, span3 : int
-            Spline knot span indices in each direction.
+    span1, span2, span3 : int
+        Spline knot span indices in each direction.
 
-        bn1, bn2, bn3 : array[float]
-            Evaluated B-splines at particle position in each direction.
+    bn1, bn2, bn3 : array[float]
+        Evaluated B-splines at particle position in each direction.
 
-        bd1, bd2, bd3 : array[float]
-            Evaluated D-splines at particle position in each direction.
+    bd1, bd2, bd3 : array[float]
+        Evaluated D-splines at particle position in each direction.
 
-        starts1 : array[int]
-            Start indices of the current process in space V1.
+    starts1 : array[int]
+        Start indices of the current process in space V1.
 
-        mat.._.. : array[float]
-            (mu, nu)-th element (mu, nu=1,2,3) of the block matrix corresponding to the pressure term with velocity components v_a and v_b (a,b=x,y,z). 
+    mat.._.. : array[float]
+        (mu, nu)-th element (mu, nu=1,2,3) of the block matrix corresponding to the pressure term with velocity components v_a and v_b (a,b=x,y,z). 
 
-        fill11, fill12, fill13, fill22, fill23, fill33 : float
-            Number that will be multiplied by the basis functions of V1 and written to mat.._..
+    fill11, fill12, fill13, fill22, fill23, fill33 : float
+        Number that will be multiplied by the basis functions of V1 and written to mat.._..
 
-        vec._. : array[float]
-            mu-th element (mu=1,2,3) of the vector corresponding to the pressure term with velocity component v_a (a=x,y,z).
+    vec._. : array[float]
+        mu-th element (mu=1,2,3) of the vector corresponding to the pressure term with velocity component v_a (a=x,y,z).
 
-        fill1, fill2, fill3 : float
-            Number that will be multplied by the basis functions of V1 and written to vec._.
+    fill1, fill2, fill3 : float
+        Number that will be multplied by the basis functions of V1 and written to vec._.
 
-        vx, vy, vz : float
-            Component of the particle velocity.
+    vx, vy, vz : float
+        Component of the particle velocity.
     """
 
     # degrees of the basis functions : B-splines (pn) and D-splines (pd)

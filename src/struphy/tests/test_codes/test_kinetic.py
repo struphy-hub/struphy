@@ -11,7 +11,7 @@ def test_kinetic(fast, map_and_equil, model=None):
     '''Tests all models and all possible model.options (except solvers without preconditioner) in models/kinetic.py.
 
     If model is not None, tests the specified model.
-    
+
     The argument "fast" is a pytest option that can be specified at te command line (see conftest.py).'''
 
     from struphy.models import kinetic
@@ -25,10 +25,11 @@ def test_kinetic(fast, map_and_equil, model=None):
                     print(
                         f'Model {key} is currently excluded from tests.')
                     continue
-                
+
                 if fast:
                     if 'Cuboid' not in map_and_equil[0]:
-                        print(f'Fast is enabled, mapping {map_and_equil[0]} skipped ...')
+                        print(
+                            f'Fast is enabled, mapping {map_and_equil[0]} skipped ...')
                         continue
 
                 func(key, val, map_and_equil)
@@ -42,7 +43,8 @@ def test_kinetic(fast, map_and_equil, model=None):
             exit()
 
         func(model, val, map_and_equil)
-        
+
+
 if __name__ == '__main__':
     test_kinetic(('Cuboid', 'HomogenSlab'))
     test_kinetic(('HollowTorus', 'AdhocTorus'))

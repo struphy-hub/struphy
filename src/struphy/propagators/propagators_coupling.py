@@ -85,13 +85,15 @@ class VlasovMaxwell(Propagator):
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
-                          'verbose': False}
+                          'verbose': False,
+                          'f0': Maxwellian6DUniform()}
 
         params = set_defaults(params, params_default)
 
         self._c1 = params['c1']
         self._c2 = params['c2']
         self._info = params['info']
+        self._f0 = params['f0']
 
         # Initialize Accumulator object
         self._accum = Accumulator(self.derham, self.domain, 'Hcurl', 'vlasov_maxwell',
@@ -165,6 +167,10 @@ class VlasovMaxwell(Propagator):
         self._new_v_sq[~self.particles[0].holes] = np.sqrt(self.particles[0].markers[~self.particles[0].holes, 3]**2 +
                                                            self.particles[0].markers[~self.particles[0].holes, 4]**2 +
                                                            self.particles[0].markers[~self.particles[0].holes, 5]**2)
+
+        # update_weights
+        if self._f0 is not None:
+            self.particles[0].update_weights(self._f0)
 
         # write new coeffs into self.variables
         max_de, = self.feec_vars_update(self._e_temp)
