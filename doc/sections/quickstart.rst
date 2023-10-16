@@ -100,6 +100,6 @@ Finally, each Struphy model has some specific options to it, which in the case o
 These options can be set in the parameter file. They usually refer to different types of solvers or solution methods.
 
 If you want to learn more about using Struphy, please check out the :ref:`userguide`
-as well as the `tutorials`.
+as well as the :ref:`tutorials`.
 
             

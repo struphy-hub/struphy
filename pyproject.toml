@@ -41,6 +41,7 @@ dependencies = [
     'wheel',
     'tqdm',
     'gvec-to-python>=1.1.0',
+    'argcomplete',
 ]
 
 [project.urls]

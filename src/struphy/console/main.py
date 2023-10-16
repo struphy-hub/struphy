@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
+# PYTHON_ARGCOMPLETE_OK
 from argparse import HelpFormatter, _SubParsersAction, RawTextHelpFormatter
+import argcomplete
 import importlib.metadata
 
 __version__ = importlib.metadata.version("struphy")
@@ -72,6 +74,27 @@ def struphy():
     path_message += f'current input:             {i_path}\n'
     path_message += f'current output:            {o_path}\n'
     path_message += f'current batch scripts:     {b_path}'
+    
+    # check parameter file in current input path:
+    all_files = os.listdir(i_path)
+    params_files = []
+    for name in all_files:
+        if '.yml' in name or '.yaml' in name:
+            params_files += [name]
+            
+    # check output folders in current output path:
+    all_folders = os.listdir(o_path)
+    out_folders = []
+    for name in all_folders:
+        if '.' not in name:
+            out_folders += [name]
+            
+    # check batch scripts in current batch path:
+    all_files = os.listdir(b_path)
+    batch_files = []
+    for name in all_files:
+        if '.sh' in name:
+            batch_files += [name]
 
     parser.add_argument('-v', '--version', action='version',
                         version=version_message)
@@ -182,6 +205,7 @@ def struphy():
 
     parser_run.add_argument('-i', '--inp',
                             type=str,
+                            choices=params_files,
                             metavar='FILE',
                             help='parameter file (.yml) in current I/O path',)
 
@@ -203,6 +227,7 @@ def struphy():
 
     parser_run.add_argument('-b', '--batch',
                             type=str,
+                            choices=batch_files,
                             metavar='FILE',
                             help='batch script in current I/O path', )
 
@@ -254,6 +279,7 @@ def struphy():
 
     parser_units.add_argument('-i', '--input',
                               type=str,
+                              choices=params_files,
                               metavar='FILE',
                               help='parameter file (.yml) relative to current I/O path. If absent, default parameters are used.',)
 
@@ -279,7 +305,7 @@ def struphy():
     parser_params.add_argument('-f', '--file',
                                type=str,
                                metavar='FILE',
-                               help='name of the parameter file (.yml) relative to current I/O path (default=params_<model>.yml)',)
+                               help='name of the parameter file (.yml) to be created in the current I/O path (default=params_<model>.yml)',)
 
     parser_params.add_argument('-o', '--options',
                                help='show model options',
@@ -334,6 +360,7 @@ def struphy():
 
     parser_pproc.add_argument('-d', '--dirr',
                               type=str,
+                              choices=out_folders,
                               metavar='DIR',
                               help='simulation output folder to post-process relative to current I/O path (default=sim_1)',
                               default='sim_1',)
@@ -391,6 +418,7 @@ def struphy():
                              action='store_true')
 
     # parse argument
+    argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
     # if no arguments are passed, print help and exit
