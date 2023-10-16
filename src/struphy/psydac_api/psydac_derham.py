@@ -8,7 +8,7 @@ from psydac.fem.vector import VectorFemSpace
 from psydac.feec.global_projectors import Projector_H1vec
 
 from struphy.psydac_api.linear_operators import BoundaryOperator, CompositeLinearOperator, IdentityOperator
-from struphy.psydac_api.projectors import Projector
+from struphy.psydac_api.geom_projectors import Projector
 
 from struphy.polar.basic import PolarDerhamSpace
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
@@ -20,7 +20,7 @@ import numpy as np
 class Derham:
     """
     Psydac API for the discrete Derham sequence on the logical unit cube (3d).
-    
+
     Polar sub-spaces (indicated by a bar) can be added.
 
     .. image:: ../pics/polar_derham.png
@@ -204,6 +204,8 @@ class Derham:
         self._domain_decomposition = self._Vh['0'].cart.domain_decomposition
 
         self._domain_array = self._get_domain_array()
+        self._breaks_loc = [self.breaks[k][self.domain_decomposition.starts[k]:
+                                           self.domain_decomposition.ends[k] + 2] for k in range(3)]
         self._index_array_domain = self._get_index_array(
             self._domain_decomposition)
 
@@ -345,13 +347,20 @@ class Derham:
     def domain_array(self):
         """
         A 2d array[float] of shape (comm.Get_size(), 9). The row index denotes the process number and
-        for n=0,1,2: 
+        for n=0,1,2:
 
             * domain_array[i, 3*n + 0] holds the LEFT domain boundary of process i in direction eta_(n+1).
             * domain_array[i, 3*n + 1] holds the RIGHT domain boundary of process i in direction eta_(n+1).
             * domain_array[i, 3*n + 2] holds the number of cells of process i in direction eta_(n+1).
         """
         return self._domain_array
+
+    @property
+    def breaks_loc(self):
+        """
+        The domain local to this process.
+        """
+        return self._breaks_loc
 
     @property
     def index_array_domain(self):

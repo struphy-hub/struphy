@@ -79,7 +79,7 @@ KM3  := $(struphy_path)/eigenvalue_solvers/kernels_3d
 KPG  := $(struphy_path)/eigenvalue_solvers/kernels_projectors_global
 KPGM := $(struphy_path)/eigenvalue_solvers/kernels_projectors_global_mhd
 
-SOURCES := $(LAC).py $(LAMV).py $(LATR).py $(BK).py $(BKP).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(TR3).py $(MK).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(ACC_GC).py $(PUTL).py $(PUSH).py $(PUSH_GC).py $(EVAL_GC).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py $(PSY3).py $(PSY4).py
+SOURCES := $(LAC).py $(LAMV).py $(LATR).py $(BK).py $(BKP).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(TR3).py $(MK).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(PLMH).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(ACC_GC).py $(PUTL).py $(PUSH).py $(PUSH_GC).py $(EVAL_GC).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py $(PSY3).py $(PSY4).py
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
@@ -156,7 +156,7 @@ $(PLP)$(SO_EXT) : $(PLP).py
 $(PLM)$(SO_EXT) : $(PLM).py
 	pyccel $< $(FLAGS)
 
-$(PLMH)$(SO_EXT) : $(PLMH).py $(MEVA)$(SO_EXT)
+$(PLMH)$(SO_EXT) : $(PLMH).py $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(FK)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
 $(BTS)$(SO_EXT) : $(BTS).py

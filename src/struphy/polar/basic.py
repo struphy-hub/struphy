@@ -24,7 +24,8 @@ class PolarDerhamSpace(VectorSpace):
 
         assert derham.spl_kind[0] == False, 'Spline basis in eta1 must be clamped'
         assert derham.spl_kind[1], 'Spline basis in eta2 must be periodic'
-        assert (derham.Nel[1]/3)%1 == 0., 'Number of elements in eta2 must be a multiple of 3'
+        assert (derham.Nel[1]/3) % 1 == 0., \
+            'Number of elements in eta2 must be a multiple of 3'
 
         assert derham.p[0] > 1 and derham.p[
             1] > 1, 'Spline degrees in (eta1, eta2) must be at least two'
@@ -39,7 +40,7 @@ class PolarDerhamSpace(VectorSpace):
         self._d = [space.nbasis for space in derham.Vh_fem['3'].spaces]
 
         self._parent_space = derham.Vh[derham.spaces_dict[space_id]]
-        
+
         self._starts = self.parent_space.starts
         self._ends = self._parent_space.ends
 
@@ -196,7 +197,7 @@ class PolarDerhamSpace(VectorSpace):
         """ Tuple holding total (global) number of basis function in eta3, for each component.
         """
         return self._n3
-    
+
     @property
     def type_of_basis_3(self):
         """ Tuple holding type of spline basis (B-splines or M-splines), for each component.
@@ -217,7 +218,7 @@ class PolarVector(Vector):
     An instance of a PolarVector consists of two parts:
         1. a list of np.arrays of the polar coeffs (not distributed) 
         2. a tensor product StencilVector/BlockVector of the parent space with inner rings set to zero (distributed).
-    
+
     Parameters
     ----------
     V : PolarDerhamSpace
@@ -231,8 +232,8 @@ class PolarVector(Vector):
         self._dtype = V.dtype
 
         # initialize polar coeffs
-        self._pol = [np.zeros((m, n)) for m, n in zip(V.n_polar, V.n3)] 
-        
+        self._pol = [np.zeros((m, n)) for m, n in zip(V.n_polar, V.n3)]
+
         # full tensor product vector
         self._tp = V.parent_space.zeros()
 
@@ -253,7 +254,7 @@ class PolarVector(Vector):
         """ Polar coefficients as np.array.
         """
         return self._pol
-    
+
     @pol.setter
     def pol(self, v):
         """ In-place setter for polar coefficients.
@@ -281,10 +282,11 @@ class PolarVector(Vector):
             for n, starts in enumerate(v.space.starts):
                 self._tp[n][:] = v[n][:]
         else:
-            raise ValueError('Attribute can only be set with instances of either StencilVector or BlockVector!')
+            raise ValueError(
+                'Attribute can only be set with instances of either StencilVector or BlockVector!')
 
         self.set_tp_coeffs_to_zero()
-        
+
     @property
     def ghost_regions_in_sync(self):
         """ Whether ghost regions of tensor product part are up-to-date.
@@ -297,13 +299,14 @@ class PolarVector(Vector):
         """
         assert isinstance(v, PolarVector)
         assert v.space == self.space
-        
+
         # tensor-product part
         out = self.tp.dot(v.tp)
-        
+
         # polar part
-        out += sum([a1.flatten().dot(a2.flatten()) for a1, a2 in zip(self.pol, v.pol)])
-        
+        out += sum([a1.flatten().dot(a2.flatten())
+                   for a1, a2 in zip(self.pol, v.pol)])
+
         return out
 
     def set_vector(self, v):
@@ -311,13 +314,13 @@ class PolarVector(Vector):
         In-place setter for polar + tensor product coeffiecients.
         """
         assert isinstance(v, PolarVector)
-        
+
         # tensor-product part
         self.tp = v.tp
-        
+
         # polar part
         self.pol = v.pol
-    
+
     def set_tp_coeffs_to_zero(self):
         """
         Sets inner tensor-product rings that make up the polar splines to zero.
@@ -333,23 +336,23 @@ class PolarVector(Vector):
             s1, s2, s3 = self.space.starts
             e1, e2, e3 = self.space.ends
 
-            out = self.tp.toarray()[self.space.n_rings[0]*
+            out = self.tp.toarray()[self.space.n_rings[0] *
                                     self.space.n[1]*self.space.n3[0]:]
-            
+
             # allreduce tensor-product part
             if self.space.comm is not None and allreduce:
                 self.space.comm.Allreduce(MPI.IN_PLACE, out, op=MPI.SUM)
-            
+
             out = np.concatenate((self.pol[0].flatten(), out))
 
         else:
-            out1 = self.tp[0].toarray()[self.space.n_rings[0]*
+            out1 = self.tp[0].toarray()[self.space.n_rings[0] *
                                         self.space.n[1]*self.space.n3[0]:]
-            out2 = self.tp[1].toarray()[self.space.n_rings[1]*
+            out2 = self.tp[1].toarray()[self.space.n_rings[1] *
                                         self.space.n[1]*self.space.n3[1]:]
-            out3 = self.tp[2].toarray()[self.space.n_rings[2]*
+            out3 = self.tp[2].toarray()[self.space.n_rings[2] *
                                         self.space.n[1]*self.space.n3[2]:]
-            
+
             # allreduce tensor-product part
             if self.space.comm is not None and allreduce:
                 self.space.comm.Allreduce(MPI.IN_PLACE, out1, op=MPI.SUM)
@@ -359,9 +362,9 @@ class PolarVector(Vector):
             out = np.concatenate((self.pol[0].flatten(), out1,
                                   self.pol[1].flatten(), out2,
                                   self.pol[2].flatten(), out3))
-            
+
         return out
-     
+
     def toarray_tp(self):
         """
         Converts the Stencil-/BlockVector to a 1d numpy array but NOT the polar part.
@@ -491,7 +494,7 @@ class PolarVector(Vector):
                 self._pol[n] -= v.pol[n]
                 self._tp[n] -= v.tp[n]
         return self
-    
+
     def update_ghost_regions(self, *, direction=None):
         """
         Update ghost regions before performing non-local access to vector
@@ -504,16 +507,16 @@ class PolarVector(Vector):
 
         """
         self._tp.update_ghost_regions(direction=direction)
-        
+
     def conjugate(self):
         '''No need for complex conjugate'''
         pass
 
-    
+
 def set_tp_rings_to_zero(v, n_rings):
     """
     Sets a certain number of rings of a Stencil-/BlockVector in eta_1 direction to zero.
-    
+
     Parameters
     ----------
     v : StencilVector | BlockVector
@@ -532,4 +535,5 @@ def set_tp_rings_to_zero(v, n_rings):
             if starts[0] == 0:
                 v[n][:n_rings[n], :, :] = 0.
     else:
-        raise ValueError('Input vector must be an instance of StencilVector of BlockVector!')
+        raise ValueError(
+            'Input vector must be an instance of StencilVector of BlockVector!')

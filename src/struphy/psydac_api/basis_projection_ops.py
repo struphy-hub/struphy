@@ -5,10 +5,9 @@ from psydac.linalg.block import BlockLinearOperator
 from psydac.linalg.basic import Vector
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
-from psydac.feec.global_projectors import GlobalProjector
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
-from struphy.psydac_api.projectors import Projector
+from struphy.psydac_api.geom_projectors import Projector
 from struphy.psydac_api.linear_operators import LinOpWithTransp, CompositeLinearOperator, IdentityOperator, BoundaryOperator
 from struphy.psydac_api import basis_projection_kernels
 from struphy.psydac_api.utilities import RotationMatrix
@@ -42,7 +41,8 @@ class BasisProjectionOperators:
 
         if np.any(np.array(derham.p) == 1):
             if derham.comm.Get_rank() == 0:
-                print(f'\nWARNING: Class "BasisProjectionOperators" called with p={derham.p} (interpolation of piece-wise constants should be avoided).\n')
+                print(
+                    f'\nWARNING: Class "BasisProjectionOperators" called with p={derham.p} (interpolation of piece-wise constants should be avoided).\n')
 
         self._derham = derham
         self._domain = domain
@@ -104,7 +104,8 @@ class BasisProjectionOperators:
         '''
         if not hasattr(self, '_K0'):
             fun = [[lambda e1, e2, e3: self.weights['eq_mhd'].p0(e1, e2, e3)]]
-            self._K0 = self.assemble_basis_projection_operator(fun, 'H1', 'H1', name='K0')
+            self._K0 = self.assemble_basis_projection_operator(
+                fun, 'H1', 'H1', name='K0')
 
         return self._K0
 
@@ -119,7 +120,8 @@ class BasisProjectionOperators:
         if not hasattr(self, '_K3'):
             fun = [[lambda e1, e2, e3: self.weights['eq_mhd'].p3(
                 e1, e2, e3) / self.sqrt_g(e1, e2, e3)]]
-            self._K3 = self.assemble_basis_projection_operator(fun, 'L2', 'L2', name='K3')
+            self._K3 = self.assemble_basis_projection_operator(
+                fun, 'L2', 'L2', name='K3')
 
         return self._K3
 
@@ -199,7 +201,8 @@ class BasisProjectionOperators:
         if not hasattr(self, '_Q3'):
             fun = [[lambda e1, e2, e3: self.weights['eq_mhd'].n3(
                 e1, e2, e3) / self.sqrt_g(e1, e2, e3)]]
-            self._Q3 = self.assemble_basis_projection_operator(fun, 'L2', 'L2', name='Q3')
+            self._Q3 = self.assemble_basis_projection_operator(
+                fun, 'L2', 'L2', name='Q3')
 
         return self._Q3
 
@@ -679,7 +682,8 @@ class BasisProjectionOperators:
                 assert len(row) == 3
 
         if self.derham.comm.Get_rank() == 0 and verbose:
-            print(f'Assembling BasisProjectionOperator "{name}" with V={V_id}, W={W_id}.')
+            print(
+                f'Assembling BasisProjectionOperator "{name}" with V={V_id}, W={W_id}.')
 
         V_id = self.derham.spaces_dict[V_id]
         W_id = self.derham.spaces_dict[W_id]
@@ -687,7 +691,7 @@ class BasisProjectionOperators:
         out = BasisProjectionOperator(self.derham.P[W_id], self.derham.Vh_fem[V_id], fun,
                                       self.derham.E[V_id], self.derham.B[V_id],
                                       transposed=False, polar_shift=self.domain.pole)
-        
+
         if self.derham.comm.Get_rank() == 0 and verbose:
             print('Done.')
 
@@ -719,7 +723,7 @@ class BasisProjectionOperator(LinOpWithTransp):
     :math:`I^\beta` is usually a Kronecker product and thus fast to invert; this inversion is performed when calling the dot-product
     of the ``BasisProjectionOperator``. The DOFs are precomputed and stored in StencilVector
     format, because the local support of each :math:`\Lambda^\alpha_{\nu, mno}`.
-    
+
     Finally, extraction and boundary operators can be applied to the DOFs, :math:`B_P * P * \sigma * E_V^T * B_V^T`.
 
     Parameters
@@ -1007,8 +1011,8 @@ class BasisProjectionOperator(LinOpWithTransp):
                 # Call the kernel if weight function is not zero
                 if np.any(np.abs(_fun_q) > 1e-14):
 
-                    kernel = getattr(
-                        basis_projection_kernels, 'assemble_dofs_for_weighted_basisfuns_' + str(V.ldim) + 'd')
+                    kernel = getattr(basis_projection_kernels,
+                                     'assemble_dofs_for_weighted_basisfuns_' + str(V.ldim) + 'd')
 
                     kernel(dofs_mat._data, _starts_in, _ends_in, _pads_in, _starts_out, _ends_out,
                            _pads_out, _fun_q, *_wtsG, *_spans, *_bases, *_subs, *_Vnbases, *_Wdegrees)
@@ -1060,7 +1064,8 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
         Knot span indices in each direction in format (n, nq).
 
     bases : 3-tuple of 3d float arrays
-        Values of p + 1 non-zero eta basis functions at quadrature points in format (n, nq, basis).'''
+        Values of p + 1 non-zero eta basis functions at quadrature points in format (n, nq, basis).
+    '''
 
     import psydac.core.bsplines as bsp
 
@@ -1075,20 +1080,6 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
 
         # make sure that greville points used for interpolation are in [0, 1]
         assert np.all(np.logical_and(greville_loc >= 0., greville_loc <= 1.))
-
-        # k += 1
-        # print(f'\nrank: {self._mpi_comm.Get_rank()} | Direction {k}, space_out attributes:')
-        # # # print('--------------------------------')
-        # print(f'rank: {self._mpi_comm.Get_rank()} | breaks       : {space_out.breaks}')
-        # # # print(f'rank: {self._mpi_comm.Get_rank()} | degree       : {space_out.degree}')
-        # # # print(f'rank: {self._mpi_comm.Get_rank()} | kind         : {space_out.basis}')
-        # # print(f'rank: {self._mpi_comm.Get_rank()} | greville        : {space_out.greville}')
-        # # print(f'rank: {self._mpi_comm.Get_rank()} | greville[s:e+1] : {greville_loc}')
-        # # # print(f'rank: {self._mpi_comm.Get_rank()} | ext_greville : {space_out.ext_greville}')
-        # print(f'rank: {self._mpi_comm.Get_rank()} | histopol_grid : {space_out.histopolation_grid}')
-        # print(f'rank: {self._mpi_comm.Get_rank()} | histopol_loc : {histopol_loc}')
-        # print(f'rank: {self._mpi_comm.Get_rank()} | dim W: {space_out.nbasis}')
-        # # # print(f'rank: {self._mpi_comm.Get_rank()} | project' + V1d[0].basis + V1d[1].basis + V1d[2].basis + ' to ' + W1d[0].basis + W1d[1].basis + W1d[2].basis)
 
         # interpolation
         if space_out.basis == 'B':
@@ -1144,8 +1135,6 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
 
             pts += [x % 1.]
             wts += [w]
-
-        #print(f'rank: {self._mpi_comm.Get_rank()} | Direction {k}, x_grid       : {x_grid[-1]}')
 
         # Knot span indices and V-basis functions evaluated at W-point sets
         s, b = get_span_and_basis(pts[-1], space_in)

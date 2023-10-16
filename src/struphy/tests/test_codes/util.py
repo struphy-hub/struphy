@@ -2,7 +2,7 @@ import copy
 import os
 import struphy
 from struphy.main import main
-from struphy.io.setup import descend_options_dict 
+from struphy.io.setup import descend_options_dict
 
 libpath = struphy.__path__[0]
 
@@ -69,7 +69,7 @@ def func(key, val, map_and_equil):
 
     path_out = os.path.join(libpath, 'io/out/test_' + key)
 
-    # store default options 
+    # store default options
     test_list = []
     if 'options' in val.options()['em_fields']:
         test_list += [parameters['em_fields']['options']]
@@ -81,12 +81,12 @@ def func(key, val, map_and_equil):
         for species in parameters['kinetic']:
             if 'options' in val.options()['kinetic'][species]:
                 test_list += [parameters['kinetic'][species]['options']]
-            
+
     params_default = copy.deepcopy(parameters)
-    
+
     # run with default
     main(key, parameters, path_out)
-    
+
     # run available options (if present)
     if len(d_opts['em_fields']) > 0:
         for opts_dict in d_opts['em_fields']:

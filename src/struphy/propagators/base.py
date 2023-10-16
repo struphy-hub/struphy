@@ -65,7 +65,7 @@ class Propagator(metaclass=ABCMeta):
         pass
 
     @classmethod
-    @abstractmethod             
+    @abstractmethod
     def options(cls):
         '''Dictionary of available propagator options, as appearing under species/options in the parameter file.'''
         pass
@@ -75,7 +75,7 @@ class Propagator(metaclass=ABCMeta):
         """ Derham spaces and projectors.
         """
         assert hasattr(
-            self, '_derham'), 'Derham not set. Please do obj.deram = ...'
+            self, '_derham'), 'Derham not set. Please do obj.derham = ...'
         return self._derham
 
     @derham.setter

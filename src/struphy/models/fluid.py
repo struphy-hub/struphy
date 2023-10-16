@@ -1,7 +1,5 @@
 'Pure fluid models.'
 
-
-import numpy as np
 from struphy.models.base import StruphyModel
 
 
@@ -55,18 +53,17 @@ class LinearMHD(StruphyModel):
     @classmethod
     def velocity_scale(cls):
         return 'alfvén'
-    
+
     @classmethod
     def options(cls):
-        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
-
         # import propagator options
         from struphy.propagators.propagators_fields import ShearAlfvén, Magnetosonic
-        dct['fluid']['mhd'] = {}
-        dct['fluid']['mhd']['options'] = {}
-        dct['fluid']['mhd']['options']['solvers'] = {}
-        dct['fluid']['mhd']['options']['solvers']['shear_alfven'] = ShearAlfvén.options()['solver']
-        dct['fluid']['mhd']['options']['solvers']['magnetosonic'] = Magnetosonic.options()['solver']
+
+        dct = {}
+        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'shear_alfven'],
+                       option=ShearAlfvén.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'magnetosonic'],
+                       option=Magnetosonic.options()['solver'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -78,7 +75,7 @@ class LinearMHD(StruphyModel):
 
         # extract necessary parameters
         alfven_solver = params['fluid']['mhd']['options']['solvers']['shear_alfven']
-        sonic_solver =  params['fluid']['mhd']['options']['solvers']['magnetosonic']
+        sonic_solver = params['fluid']['mhd']['options']['solvers']['magnetosonic']
 
         # project background magnetic field (2-form) and pressure (3-form)
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
@@ -198,7 +195,8 @@ class LinearExtendedMHD(StruphyModel):
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
         dct['em_fields']['b1'] = 'Hcurl'
-        dct['fluid']['mhd'] = {'n3': 'L2', 'u2': 'Hdiv', 'pi3': 'L2', 'pe3': 'L2'}
+        dct['fluid']['mhd'] = {'n3': 'L2',
+                               'u2': 'Hdiv', 'pi3': 'L2', 'pe3': 'L2'}
         return dct
 
     @classmethod
@@ -208,20 +206,21 @@ class LinearExtendedMHD(StruphyModel):
     @classmethod
     def velocity_scale(cls):
         return 'alfvén'
-    
+
     @classmethod
     def options(cls):
-        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
-
         # import propagator options
         from struphy.propagators.propagators_fields import ShearAlfvénB1, Hall, SonicIon, SonicElectron
-        dct['fluid']['mhd'] = {}
-        dct['fluid']['mhd']['options'] = {}
-        dct['fluid']['mhd']['options']['solvers'] = {}
-        dct['fluid']['mhd']['options']['solvers']['shear_alfven'] = ShearAlfvénB1.options()['solver']
-        dct['fluid']['mhd']['options']['solvers']['hall'] = Hall.options()['solver']
-        dct['fluid']['mhd']['options']['solvers']['sonic_ion'] = SonicIon.options()['solver']
-        dct['fluid']['mhd']['options']['solvers']['sonic_electron'] = SonicElectron.options()['solver']
+
+        dct = {}
+        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'shear_alfven'],
+                       option=ShearAlfvénB1.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'hall'],
+                       option=Hall.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'sonic_ion'],
+                       option=SonicIon.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'sonic_electron'],
+                       option=SonicElectron.options()['solver'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -232,9 +231,9 @@ class LinearExtendedMHD(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # extract necessary parameters
-        alfven_solver =        params['fluid']['mhd']['options']['solvers']['shear_alfven']
-        Hall_solver =          params['fluid']['mhd']['options']['solvers']['hall']
-        SonicIon_solver =      params['fluid']['mhd']['options']['solvers']['sonic_ion']
+        alfven_solver = params['fluid']['mhd']['options']['solvers']['shear_alfven']
+        Hall_solver = params['fluid']['mhd']['options']['solvers']['hall']
+        SonicIon_solver = params['fluid']['mhd']['options']['solvers']['sonic_ion']
         SonicElectron_solver = params['fluid']['mhd']['options']['solvers']['sonic_electron']
 
         # project background magnetic field (1-form) and pressure (3-form)
@@ -391,21 +390,19 @@ class ColdPlasma(StruphyModel):
     @classmethod
     def velocity_scale(cls):
         return 'light'
-    
+
     @classmethod
     def options(cls):
-        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
-
         # import propagator options
         from struphy.propagators.propagators_fields import Maxwell, OhmCold, JxBCold
-        dct['em_fields']['options'] = {}
-        dct['em_fields']['options']['solver'] = {}
-        dct['em_fields']['options']['solver']['maxwell'] = Maxwell.options()['solver']
-        dct['fluid']['electrons'] = {}
-        dct['fluid']['electrons']['options'] = {}
-        dct['fluid']['electrons']['options']['solvers'] = {}
-        dct['fluid']['electrons']['options']['solvers']['ohmcold'] = OhmCold.options()['solver']
-        dct['fluid']['electrons']['options']['solvers']['jxbcold'] = JxBCold.options()['solver']
+
+        dct = {}
+        cls.add_option(species=['em_fields'], key=['solver', 'maxwell'],
+                       option=Maxwell.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'electrons'], key=['solvers', 'ohmcold'],
+                       option=OhmCold.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'electrons'], key=['solvers', 'jxbcold'],
+                       option=JxBCold.options()['solver'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -415,12 +412,12 @@ class ColdPlasma(StruphyModel):
         # model parameters
         self._alpha = self.equation_params['electrons']['alpha_unit']
         self._epsilon = self.equation_params['electrons']['epsilon_unit']
-        
+
         # solver parameters
         params_maxwell = params['em_fields']['options']['solver']['maxwell']
         params_ohmcold = params['fluid']['electrons']['options']['solvers']['ohmcold']
         params_jxbcold = params['fluid']['electrons']['options']['solvers']['jxbcold']
-        
+
         # Initialize propagators/integrators used in splitting substeps
         self.add_propagator(self.prop_fields.Maxwell(
             self.pointer['e1'],

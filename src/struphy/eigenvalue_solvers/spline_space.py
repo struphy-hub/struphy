@@ -675,9 +675,9 @@ class Tensor_spline_space:
         else:
             
             if   self.ck == 0:
-                self.polar_splines = pol.polar_splines_C0_2D(self.spaces[0].NbaseN, self.spaces[1].NbaseN)
+                self.polar_splines = pol.PolarSplines_C0_2D(self.spaces[0].NbaseN, self.spaces[1].NbaseN)
             elif self.ck == 1:
-                self.polar_splines = pol.polar_splines_C1_2D(cx, cy)
+                self.polar_splines = pol.PolarSplines_C1_2D(cx, cy)
             
             # extraction operators without boundary conditions
             self.E0_pol = self.polar_splines.E0.copy()

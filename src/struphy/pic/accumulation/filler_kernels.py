@@ -22,32 +22,32 @@ def fill_mat(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3: int, bi1: 'f
 
     Parameters
     ----------
-        pi1, pi2, pi3 : int
-            Spline degrees of the codomain (row indices).
+    pi1, pi2, pi3 : int
+        Spline degrees of the codomain (row indices).
 
-        pj1, pj2, pj3 : int
-            Spline degrees of the domain (column indices).
+    pj1, pj2, pj3 : int
+        Spline degrees of the domain (column indices).
 
-        bi1, bi2, bi3 : array[float]
-            Contain the values of non-vanishing N/D-splines corresponding to the codomain.
+    bi1, bi2, bi3 : array[float]
+        Contain the values of non-vanishing N/D-splines corresponding to the codomain.
 
-        bj1, bj2, bj3 : array[float]
-            Contains the values of non-vanishing N/D-splines corresponding to the domain.
+    bj1, bj2, bj3 : array[float]
+        Contains the values of non-vanishing N/D-splines corresponding to the domain.
 
-        span1, span2, span3 : int
-            Knot span index in each direction.
+    span1, span2, span3 : int
+        Knot span index in each direction.
 
-        starts : array[int]
-            Start indices of the codomain.
+    starts : array[int]
+        Start indices of the codomain.
 
-        pads : array[int]
-            Paddings of the codomain.
+    pads : array[int]
+        Paddings of the codomain.
 
-        mat : array[float]
-            Matrix in which the basis functions times filling is to be written.
+    mat : array[float]
+        Matrix in which the basis functions times filling is to be written.
 
-        filling : float
-            Number which will be multiplied by the basis functions and written into mat.
+    filling : float
+        Number which will be multiplied by the basis functions and written into mat.
     """
 
     for il1 in range(pi1 + 1):
@@ -80,23 +80,23 @@ def fill_vec(pi1: int, pi2: int, pi3: int, bi1: 'float[:]', bi2: 'float[:]', bi3
 
     Parameters
     ----------
-        pi1, pi2, pi3 : int
-            Spline degrees.
+    pi1, pi2, pi3 : int
+        Spline degrees.
 
-        bi1, bi2, bi3 : array[float]
-            Contain the values of non-vanishing N/D-splines.
+    bi1, bi2, bi3 : array[float]
+        Contain the values of non-vanishing N/D-splines.
 
-        span1, span2, span3 : int
-            Knot span index in each direction.
+    span1, span2, span3 : int
+        Knot span index in each direction.
 
-        starts : array[int]
-            Start indices of the codomain.
+    starts : array[int]
+        Start indices of the codomain.
 
-        vec : array[float]
-            Vector in which the basis functions times filling is to be written.
+    vec : array[float]
+        Vector in which the basis functions times filling is to be written.
 
-        filling : float
-            Number which will be multiplied by the basis functions and written into mat.
+    filling : float
+        Number which will be multiplied by the basis functions and written into mat.
     """
 
     for il1 in range(pi1 + 1):
@@ -119,38 +119,38 @@ def fill_mat_vec(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3: int, bi1
 
     Parameters
     ----------
-        pi1, pi2, pi3 : int
-            Spline degrees of the codomain (row indices).
+    pi1, pi2, pi3 : int
+        Spline degrees of the codomain (row indices).
 
-        pj1, pj2, pj3 : int
-            Spline degrees of the domain (column indices).
+    pj1, pj2, pj3 : int
+        Spline degrees of the domain (column indices).
 
-        bi1, bi2, bi3 : array[float]
-            Contain the values of non-vanishing N/D-splines corresponding to the codomain.
+    bi1, bi2, bi3 : array[float]
+        Contain the values of non-vanishing N/D-splines corresponding to the codomain.
 
-        bj1, bj2, bj3 : array[float]
-            Contains the values of non-vanishing N/D-splines corresponding to the domain.
+    bj1, bj2, bj3 : array[float]
+        Contains the values of non-vanishing N/D-splines corresponding to the domain.
 
-        span1, span2, span3 : int
-            Knot span index in each direction.
+    span1, span2, span3 : int
+        Knot span index in each direction.
 
-        starts : array[int]
-            Start indices of the codomain.
+    starts : array[int]
+        Start indices of the codomain.
 
-        pads : array[int]
-            Paddings of the codomain.
+    pads : array[int]
+        Paddings of the codomain.
 
-        mat : array[float]
-            Matrix in which the basis functions times filling is to be written.
+    mat : array[float]
+        Matrix in which the basis functions times filling is to be written.
 
-        filling_mat : float
-            Number which will be multiplied by the basis functions and written into mat.
+    filling_mat : float
+        Number which will be multiplied by the basis functions and written into mat.
 
-        vec : array[float]
-            Vector in which the basis functions times filling is to be written.
+    vec : array[float]
+        Vector in which the basis functions times filling is to be written.
 
-        filling_vec : float
-            Number which will be multiplied by the basis functions and written into vec.
+    filling_vec : float
+        Number which will be multiplied by the basis functions and written into vec.
     """
 
     for il1 in range(pi1 + 1):
@@ -185,35 +185,35 @@ def fill_mat_pressure_full(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3
 
     Parameters :
     ------------
-        pi1, pi2, pi3 : int
-            Spline degrees of the codomain (row indices).
+    pi1, pi2, pi3 : int
+        Spline degrees of the codomain (row indices).
 
-        pj1, pj2, pj3 : int
-            Spline degrees of the domain (column indices).
+    pj1, pj2, pj3 : int
+        Spline degrees of the domain (column indices).
 
-        bi1, bi2, bi3 : array[float]
-            Contain the values of non-vanishing N/D-splines corresponding to the codomain.
+    bi1, bi2, bi3 : array[float]
+        Contain the values of non-vanishing N/D-splines corresponding to the codomain.
 
-        bj1, bj2, bj3 : array[float]
-            Contains the values of non-vanishing N/D-splines corresponding to the domain.
+    bj1, bj2, bj3 : array[float]
+        Contains the values of non-vanishing N/D-splines corresponding to the domain.
 
-        span1, span2, span3 : int
-            Knot span index in each direction.
+    span1, span2, span3 : int
+        Knot span index in each direction.
 
-        starts : array[int]
-            Start indices of the codomain.
+    starts : array[int]
+        Start indices of the codomain.
 
-        pads : array[int]
-            Paddings of the codomain.
+    pads : array[int]
+        Paddings of the codomain.
 
-        mat_.. : array[float]
-            Matrices in which the basis functions times filling times velocity components v_a*v_b are to be written.
+    mat_.. : array[float]
+        Matrices in which the basis functions times filling times velocity components v_a*v_b are to be written.
 
-        filling_mat : float
-            Number which will be multiplied by the basis functions and written into mat.
+    filling_mat : float
+        Number which will be multiplied by the basis functions and written into mat.
 
-        vx, vy, vz : float
-            Component of the particle velocity.
+    vx, vy, vz : float
+        Component of the particle velocity.
     """
 
     for il1 in range(pi1 + 1):
@@ -251,41 +251,41 @@ def fill_mat_vec_pressure_full(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int,
 
     Parameters :
     ------------
-        pi1, pi2, pi3 : int
-            Spline degrees of the codomain (row indices).
+    pi1, pi2, pi3 : int
+        Spline degrees of the codomain (row indices).
 
-        pj1, pj2, pj3 : int
-            Spline degrees of the domain (column indices).
+    pj1, pj2, pj3 : int
+        Spline degrees of the domain (column indices).
 
-        bi1, bi2, bi3 : array[float]
-            Contain the values of non-vanishing N/D-splines corresponding to the codomain.
+    bi1, bi2, bi3 : array[float]
+        Contain the values of non-vanishing N/D-splines corresponding to the codomain.
 
-        bj1, bj2, bj3 : array[float]
-            Contains the values of non-vanishing N/D-splines corresponding to the domain.
+    bj1, bj2, bj3 : array[float]
+        Contains the values of non-vanishing N/D-splines corresponding to the domain.
 
-        span1, span2, span3 : int
-            Knot span index in each direction.
+    span1, span2, span3 : int
+        Knot span index in each direction.
 
-        starts : array[int]
-            Start indices of the codomain.
+    starts : array[int]
+        Start indices of the codomain.
 
-        pads : array[int]
-            Paddings of the codomain.
+    pads : array[int]
+        Paddings of the codomain.
 
-        mat_.. : array[float]
-            Matrices in which the basis functions times filling times velocity components v_a*v_b are to be written.
+    mat_.. : array[float]
+        Matrices in which the basis functions times filling times velocity components v_a*v_b are to be written.
 
-        filling_mat : float
-            Number which will be multiplied by the basis functions and written into mat.
+    filling_mat : float
+        Number which will be multiplied by the basis functions and written into mat.
 
-        vec_. : array[float]
-            Vectors in which the basis functions times filling times velocity components v_a are to be written.
+    vec_. : array[float]
+        Vectors in which the basis functions times filling times velocity components v_a are to be written.
 
-        filling_vec : float
-            Number which will be multiplied by the basis functions and written into vec.
+    filling_vec : float
+        Number which will be multiplied by the basis functions and written into vec.
 
-        vx, vy, vz : float
-            Component of the particle velocity.
+    vx, vy, vz : float
+        Component of the particle velocity.
     """
 
     for il1 in range(pi1 + 1):
@@ -327,35 +327,35 @@ def fill_mat_pressure(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3: int
 
     Parameters :
     ------------
-        pi1, pi2, pi3 : int
-            Spline degrees of the codomain (row indices).
+    pi1, pi2, pi3 : int
+        Spline degrees of the codomain (row indices).
 
-        pj1, pj2, pj3 : int
-            Spline degrees of the domain (column indices).
+    pj1, pj2, pj3 : int
+        Spline degrees of the domain (column indices).
 
-        bi1, bi2, bi3 : array[float]
-            Contain the values of non-vanishing N/D-splines corresponding to the codomain.
+    bi1, bi2, bi3 : array[float]
+        Contain the values of non-vanishing N/D-splines corresponding to the codomain.
 
-        bj1, bj2, bj3 : array[float]
-            Contains the values of non-vanishing N/D-splines corresponding to the domain.
+    bj1, bj2, bj3 : array[float]
+        Contains the values of non-vanishing N/D-splines corresponding to the domain.
 
-        span1, span2, span3 : int
-            Knot span index in each direction.
+    span1, span2, span3 : int
+        Knot span index in each direction.
 
-        starts : array[int]
-            Start indices of the codomain.
+    starts : array[int]
+        Start indices of the codomain.
 
-        pads : array[int]
-            Paddings of the codomain.
+    pads : array[int]
+        Paddings of the codomain.
 
-        mat_.. : array[float]
-            Matrices in which the basis functions times filling times velocity components v_a*v_b are to be written.
+    mat_.. : array[float]
+        Matrices in which the basis functions times filling times velocity components v_a*v_b are to be written.
 
-        filling_mat : float
-            Number which will be multiplied by the basis functions and written into mat.
+    filling_mat : float
+        Number which will be multiplied by the basis functions and written into mat.
 
-        vx, vy, vz : float
-            Component of the particle velocity.
+    vx, vy, vz : float
+        Component of the particle velocity.
     """
 
     for il1 in range(pi1 + 1):
@@ -390,41 +390,41 @@ def fill_mat_vec_pressure(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3:
 
     Parameters :
     ------------
-        pi1, pi2, pi3 : int
-            Spline degrees of the codomain (row indices).
+    pi1, pi2, pi3 : int
+        Spline degrees of the codomain (row indices).
 
-        pj1, pj2, pj3 : int
-            Spline degrees of the domain (column indices).
+    pj1, pj2, pj3 : int
+        Spline degrees of the domain (column indices).
 
-        bi1, bi2, bi3 : array[float]
-            Contain the values of non-vanishing N/D-splines corresponding to the codomain.
+    bi1, bi2, bi3 : array[float]
+        Contain the values of non-vanishing N/D-splines corresponding to the codomain.
 
-        bj1, bj2, bj3 : array[float]
-            Contains the values of non-vanishing N/D-splines corresponding to the domain.
+    bj1, bj2, bj3 : array[float]
+        Contains the values of non-vanishing N/D-splines corresponding to the domain.
 
-        span1, span2, span3 : int
-            Knot span index in each direction.
+    span1, span2, span3 : int
+        Knot span index in each direction.
 
-        starts : array[int]
-            Start indices of the codomain.
+    starts : array[int]
+        Start indices of the codomain.
 
-        pads : array[int]
-            Paddings of the codomain.
+    pads : array[int]
+        Paddings of the codomain.
 
-        mat_.. : array[float]
-            Matrices in which the basis functions times filling times velocity components v_a*v_b are to be written.
+    mat_.. : array[float]
+        Matrices in which the basis functions times filling times velocity components v_a*v_b are to be written.
 
-        filling_mat : float
-            Number which will be multiplied by the basis functions and written into mat.
+    filling_mat : float
+        Number which will be multiplied by the basis functions and written into mat.
 
-        vec_. : array[float]
-            Vectors in which the basis functions times filling times velocity components v_a are to be written.
+    vec_. : array[float]
+        Vectors in which the basis functions times filling times velocity components v_a are to be written.
 
-        filling_vec : float
-            Number which will be multiplied by the basis functions and written into vec.
+    filling_vec : float
+        Number which will be multiplied by the basis functions and written into vec.
 
-        vx, vy, vz : float
-            Component of the particle velocity.
+    vx, vy, vz : float
+        Component of the particle velocity.
     """
 
     for il1 in range(pi1 + 1):
