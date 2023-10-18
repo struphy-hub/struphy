@@ -333,3 +333,120 @@ class DriftKinetic(StruphyModel):
         self.update_scalar('en_fv', self._en_fv_loc[0])
         self.update_scalar('en_fB', self._en_fB_loc[0])
         self.update_scalar('en_tot', self._en_fv_loc[0] + self._en_fB_loc[0])
+
+
+class ShearAlfven(StruphyModel):
+    r'''Taking only the ShearAlfven propagator from Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
+
+    :ref:`normalization`:
+
+    .. math::
+
+        \frac{\hat B}{\sqrt{A_\textnormal{b} m_\textnormal{H} \hat n \mu_0}} =: \hat v_\textnormal{A} = \frac{\hat \omega}{\hat k} = \hat U \,, \qquad \hat p = \frac{\hat B^2}{\mu_0}\,.
+
+    Implemented equations:
+
+    .. math::
+
+        n_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t}
+        =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0\,,
+
+        &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
+        = 0\,.
+
+    Parameters
+    ----------
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
+
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
+    '''
+
+    @classmethod
+    def species(cls):
+        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
+
+        dct['em_fields']['b2'] = 'Hdiv'
+        dct['fluid']['mhd'] = {'u2': 'Hdiv'}
+        return dct
+
+    @classmethod
+    def bulk_species(cls):
+        return 'mhd'
+
+    @classmethod
+    def velocity_scale(cls):
+        return 'alfvén'
+    
+    @classmethod
+    def options(cls):
+        # import propagator options
+        from struphy.propagators.propagators_fields import ShearAlfvén
+
+        dct = {}
+        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'shear_alfven'],
+                       option=ShearAlfvén.options()['solver'], dct=dct)
+        return dct
+
+    def __init__(self, params, comm):
+
+        # initialize base class
+        super().__init__(params, comm)
+
+        from struphy.polar.basic import PolarVector
+
+        # extract necessary parameters
+        alfven_solver = params['fluid']['mhd']['options']['solvers']['shear_alfven']
+
+        # project background magnetic field (2-form) and pressure (3-form)
+        self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
+                                         self.mhd_equil.b2_2,
+                                         self.mhd_equil.b2_3])
+        
+        # Initialize propagators/integrators used in splitting substeps
+        self.add_propagator(self.prop_fields.ShearAlfvén(
+            self.pointer['mhd_u2'],
+            self.pointer['b2'],
+            **alfven_solver))
+
+        # Scalar variables to be saved during simulation
+        self.add_scalar('en_U')
+        self.add_scalar('en_B')
+        self.add_scalar('en_B_eq')
+        self.add_scalar('en_B_tot')
+        self.add_scalar('en_tot')
+
+        # temporary vectors for scalar quantities
+        self._tmp_u1 = self.derham.Vh['2'].zeros()
+        self._tmp_b1 = self.derham.Vh['2'].zeros()
+        self._tmp_b2 = self.derham.Vh['2'].zeros()
+
+    def update_scalar_quantities(self):
+        # perturbed fields
+        self._mass_ops.M2n.dot(self.pointer['mhd_u2'], out=self._tmp_u1)
+        self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp_b1)
+
+        en_U = self.pointer['mhd_u2'] .dot(self._tmp_u1)/2
+        en_B = self.pointer['b2'] .dot(self._tmp_b1)/2
+
+        self.update_scalar('en_U', en_U)
+        self.update_scalar('en_B', en_B)
+        self.update_scalar('en_tot', en_U + en_B )
+
+        # background fields
+        self._mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
+
+        en_B0 = self._b_eq.dot(self._tmp_b1)/2
+
+        self.update_scalar('en_B_eq', en_B0)
+
+        # total magnetic field
+        self._b_eq.copy(out=self._tmp_b1)
+        self._tmp_b1 += self.pointer['b2']
+
+        self._mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
+
+        en_Btot = self._tmp_b1.dot(self._tmp_b2)/2
+
+        self.update_scalar('en_B_tot', en_Btot)
