@@ -623,7 +623,7 @@ class BasisProjectionOperators:
 
         .. math::
 
-            \mathcal P^B_{ijk, (\mu, mno)} := \hat \Pi^0_{ijk} \left[ \frac{\hat b^1_{0,\mu}}{\sqrt g} \Lambda^2_{\mu, mno}\right]\,.
+            \mathcal P^b_{ijk, (\mu, mno)} := \hat \Pi^0_{ijk} \left[\frac{1}{\sqrt g} \hat{b]^1_{\text{eq},\mu} \cdot \Lambda^2_{\mu, mno}\right]\,.
         '''
         if not hasattr(self, '_PB'):
 

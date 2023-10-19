@@ -1212,6 +1212,11 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 if self.params['kinetic'][species]['markers']['type'] in ['control_variate', 'delta_f']:
                     assert 'background' in self.params['kinetic'][species], \
                         f'If a control variate or delta-f method is used, a maxwellians background must be given!'
+                    
+                if 'background' in self.params['kinetic'][species]:
+                    f0_params = val['params']['background']
+                else:
+                    f0_params = None
 
                 kinetic_class = getattr(particles, val['space'])
 
@@ -1223,7 +1228,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                                            mhd_equil=self.mhd_equil,
                                            epsilon=self.equation_params[species]['epsilon_unit'],
                                            units_basic=self.units,
-                                           f0_params=val['params']['background'])
+                                           f0_params=f0_params)
 
                 self._pointer[species] = val['obj']
 

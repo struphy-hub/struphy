@@ -27,8 +27,7 @@ Propagators are implemented within the following sub-modules:
     struphy.pic.pushing.pusher
     struphy.pic.pushing.pusher_kernels
     struphy.pic.pushing.pusher_kernels_gc
-    struphy.pic.pushing.pusher_kernels_gc_init
-    struphy.pic.pushing.pusher_kernels_gc_subkernels
+    struphy.pic.pushing.eval_kernels_gc
 
 .. _prop_list:
 
@@ -42,8 +41,7 @@ Propagators are implemented within the following sub-modules:
     STUBDIR/struphy.pic.pushing.pusher
     STUBDIR/struphy.pic.pushing.pusher_kernels
     STUBDIR/struphy.pic.pushing.pusher_kernels_gc
-    STUBDIR/struphy.pic.pushing.pusher_kernels_gc_init
-    STUBDIR/struphy.pic.pushing.pusher_kernels_gc_subkernels
+    STUBDIR/struphy.pic.pushing.eval_kernels_gc
 
 Notation:
 
@@ -133,13 +131,7 @@ Pusher kernels guiding center
     :exclude-members: variables
     :show-inheritance:
 
-.. automodule:: struphy.pic.pushing.pusher_kernels_gc_init
-    :members:
-    :undoc-members:
-    :exclude-members: variables
-    :show-inheritance:
-
-.. automodule:: struphy.pic.pushing.pusher_kernels_gc_subkernels
+.. automodule:: struphy.pic.pushing.eval_kernels_gc
     :members:
     :undoc-members:
     :exclude-members: variables
