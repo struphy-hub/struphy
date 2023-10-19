@@ -445,14 +445,32 @@ class PushEtaPC(Propagator):
         return dct
 
 
-class PushGuidingCenterBxEstar(Propagator):
-    r"""Solves
+class PushGuidingCenterbxEstar(Propagator):
+    r"""Particle pushing step for the :math:`\mathbf b_ \times \mathbf E^*` guiding center drift part in `DriftKinetic <https://struphy.pages.mpcdf.de/struphy/sections/models.html#struphy.models.toy.DriftKinetic>`_ model,
+
+    Equation:
 
     .. math::
 
-        \dot{\mathbf X} &= \frac{\mu}{\kappa B^*_\parallel}  G^{-1}(\eta_p(t)) \hat{\mathbb{b}}^2_0 \times G^{-1}(\eta_p(t)) \hat \nabla |\hat{B}^0_0| \,,
+        \left\{ 
+            \begin{aligned} 
+                \dot{\mathbf X} &= - \frac{1}{B_\parallel^*} \mathbf b_0 \times \mathbf E^* \,,
+                \\
+                \dot v_\parallel &= 0 \,.
+            \end{aligned}
+        \right.
 
-        \dot v_\parallel &= 0 \,.
+    where :math:`\mathbf E^* = - \epsilon \mu \nabla B_0`.
+
+    Marker update:
+
+    .. math::
+
+        \begin{aligned}
+            \dot{\boldsymbol \eta}_p &= \epsilon \mu_p \frac{1}{ B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})}  G^{-1}(\boldsymbol \eta_p) \hat{\mathbf b}^2_0(\boldsymbol \eta_p) \times G^{-1}(\boldsymbol \eta_p) \hat \nabla \hat{B}^0_0 (\boldsymbol \eta_p) \,,
+            \\
+            \dot v_{\parallel,\,p} &= 0 \,.
+        \end{aligned}
 
     for each marker :math:`p` in markers array. Available algorithms:
 
@@ -467,8 +485,8 @@ class PushGuidingCenterBxEstar(Propagator):
 
     Parameters
     ----------
-    particles : struphy.pic.particles.Particles5D
-        Holdes the markers to push.
+    particles : struphy.pic.particles.Particles6D
+        Particles object.
 
     **params : dict
         Solver- and/or other parameters for this splitting step.
@@ -479,19 +497,23 @@ class PushGuidingCenterBxEstar(Propagator):
         super().__init__(particles)
 
         # parameters
-        params_default = {'kappa': 1.,
+        params_default = {'epsilon': 1.,
                           'b_eq': None,
                           'unit_b1': None,
                           'unit_b2': None,
                           'abs_b': None,
-                          'method': 'discrete_gradient_faster',
-                          'maxiter': 10,
-                          'tol': 1e-12,
+                          'method': 'discrete_gradient',
+                          'maxiter': 20,
+                          'tol': 1e-07,
+                          'mpi_sort': 'each',
+                          'verbose': False
                           }
 
         params = set_defaults(params, params_default)
 
-        kappa = params['kappa']
+        self._mpi_sort = params['mpi_sort']
+        self._verbose = params['verbose']
+        kappa = 1/params['epsilon']
         b_eq = params['b_eq']
         unit_b1 = params['unit_b1']
         unit_b2 = params['unit_b2']
@@ -600,7 +622,7 @@ class PushGuidingCenterBxEstar(Propagator):
         TODO
         """
         self._pusher(self.particles[0], dt,
-                     *self._pusher_inputs, mpi_sort='each', verbose=False)
+                     *self._pusher_inputs, mpi_sort=self._mpi_sort, verbose=self._verbose)
 
     @classmethod
     def options(cls):
@@ -614,18 +636,38 @@ class PushGuidingCenterBxEstar(Propagator):
                                   'discrete_gradient_faster',
                                   'discrete_gradient_Itoh_Newton'],
                        'maxiter': 20,
-                       'tol': 1e-5}
+                       'tol': 1e-7,
+                       'mpi_sort': 'each',
+                       'verbose': False}
         return dct
 
 
 class PushGuidingCenterBstar(Propagator):
-    r"""Solves
+    r"""Particle pushing step for the :math:`\mathbf B^*` guiding center drift part in `DriftKinetic <https://struphy.pages.mpcdf.de/struphy/sections/models.html#struphy.models.toy.DriftKinetic>`_ model,
+
+    Equation:
 
     .. math::
 
-        \dot{\mathbf X} &= \frac{1}{B^*_\parallel} \frac{1}{\sqrt{g}(\eta_p(t))}\hat{\mathbf{B}}^{*2} v_\parallel \,,
+        \left\{ 
+            \begin{aligned} 
+                \dot{\mathbf X} &= v_\parallel \frac{\mathbf B^*}{B^*_\parallel} \,,
+                \\
+                \dot v_\parallel &= \frac{1}{\epsilon} \frac{\mathbf B^*}{B^*_\parallel} \cdot \mathbf E^* \,,
+            \end{aligned}
+        \right.
 
-        \dot v_\parallel &= - \frac{\mu}{B^*_\parallel} \frac{1}{\sqrt{g}(\eta_p(t))}\hat{\mathbf{B}}^{*2} \cdot \hat \nabla |\hat{B}^0_0| \,.
+    where :math:`\mathbf B^* = \mathbf B_0 + \epsilon v_\parallel \nabla \times \mathbf b_0`, :math:`B^*_\parallel = \mathbf b_0 \cdot \mathbf B^*` and :math:`\mathbf E^* = - \epsilon \mu \nabla B_0`.
+
+    Marker update:
+
+    .. math::
+
+        \begin{aligned}
+            \dot{\boldsymbol \eta}_p &= \frac{1}{B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})} \frac{1}{\sqrt{g(\boldsymbol \eta_p)}} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \, v_{\parallel,p} \,,
+            \\
+            \dot v_{\parallel,\,p} &= - \frac{1}{B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})}  \frac{1}{\sqrt{g(\boldsymbol \eta_p)}} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \cdot \mu_p  \hat \nabla \hat{B}^0_0(\boldsymbol \eta_p) \,.
+        \end{aligned}
 
     for each marker :math:`p` in markers array. Available algorithms:
 
@@ -641,7 +683,7 @@ class PushGuidingCenterBstar(Propagator):
     Parameters
     ----------
     particles : struphy.pic.particles.Particles6D
-        Holdes the markers to push.
+        Particles object.
 
     **params : dict
         Solver- and/or other parameters for this splitting step.
@@ -652,19 +694,23 @@ class PushGuidingCenterBstar(Propagator):
         super().__init__(particles)
 
         # parameters
-        params_default = {'kappa': 1.,
+        params_default = {'epsilon': 1.,
                           'b_eq': None,
                           'unit_b1': None,
                           'unit_b2': None,
                           'abs_b': None,
                           'method': 'discrete_gradient_faster',
-                          'maxiter': 10,
-                          'tol': 1e-12,
+                          'maxiter': 20,
+                          'tol': 1e-07,
+                          'mpi_sort': 'each',
+                          'verbose': False
                           }
 
         params = set_defaults(params, params_default)
 
-        kappa = params['kappa']
+        self._mpi_sort = params['mpi_sort']
+        self._verbose = params['verbose']
+        kappa = 1/params['epsilon']
         b_eq = params['b_eq']
         unit_b1 = params['unit_b1']
         unit_b2 = params['unit_b2']
@@ -774,7 +820,7 @@ class PushGuidingCenterBstar(Propagator):
         TODO
         """
         self._pusher(self.particles[0], dt,
-                     *self._pusher_inputs, mpi_sort='each', verbose=False)
+                     *self._pusher_inputs, mpi_sort=self._mpi_sort, verbose=self._verbose)
 
     @classmethod
     def options(cls):
@@ -788,7 +834,9 @@ class PushGuidingCenterBstar(Propagator):
                                   'discrete_gradient_faster',
                                   'discrete_gradient_Itoh_Newton'],
                        'maxiter': 20,
-                       'tol': 1e-5}
+                       'tol': 1e-7,
+                       'mpi_sort': 'each',
+                       'verbose': False}
         return dct
 
 
@@ -931,14 +979,30 @@ class StepStaticEfield(Propagator):
                      array([1e-10, 1e-10]), 100)
 
 
-class PushDriftKineticBxgradB(Propagator):
-    r"""Solves
+class PushDriftKineticbxGradB(Propagator):
+    r"""Particle pushing step for the :math:`\mathbf b_0 \times \nabla B_\parallel` driftkinetic part in `LinearMHDDriftkineticCC <https://struphy.pages.mpcdf.de/struphy/sections/models.html#struphy.models.hybrid.LinearMHDDriftkineticCC>`_ model,
+
+    Equation:
 
     .. math::
 
-        \dot{\mathbf X} &= \frac{\mu}{\kappa B^*_\parallel}  G^{-1}(\eta_p(t)) \hat{\mathbf{b}}^2_0 \times G^{-1}(\eta_p(t)) \hat \nabla |\mathcal{P}_B \hat{\mathbf{B}}^2| \,,
+        \left\{ 
+            \begin{aligned} 
+                \dot{\mathbf X} &= \epsilon \frac{1}{B_\parallel^*} \mathbf b_0 \times \mu \nabla B_\parallel \,,
+                \\
+                \dot v_\parallel &= 0 \,.
+            \end{aligned}
+        \right.
 
-        \dot v_\parallel &= 0 \,.
+    Marker update:
+
+    .. math::
+
+        \begin{aligned}
+            \dot{\boldsymbol \eta}_p &= \epsilon \mu_p \frac{1}{ B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})}  G^{-1}(\boldsymbol \eta_p) \hat{\mathbf b}^2_0(\boldsymbol \eta_p) \times G^{-1}(\boldsymbol \eta_p) \hat \nabla \hat{B}^0_\parallel (\boldsymbol \eta_p) \,,
+            \\
+            \dot v_{\parallel,\,p} &= 0 \,.
+        \end{aligned}
 
     for each marker :math:`p` in markers array. Available algorithms:
 
@@ -956,7 +1020,7 @@ class PushDriftKineticBxgradB(Propagator):
     Parameters
     ----------
     particles : struphy.pic.particles.Particles6D
-        Holdes the markers to push.
+        Particles object.
 
     **params : dict
         Solver- and/or other parameters for this splitting step.
@@ -967,20 +1031,24 @@ class PushDriftKineticBxgradB(Propagator):
         super().__init__(particles)
 
         # parameters
-        params_default = {'kappa': 1.,
+        params_default = {'epsilon': 1.,
                           'b': None,
                           'b_eq': None,
                           'unit_b1': None,
                           'unit_b2': None,
                           'abs_b': None,
                           'method': 'discrete_gradient',
-                          'maxiter': 5,
-                          'tol': 1e-8,
+                          'maxiter': 20,
+                          'tol': 1e-07,
+                          'mpi_sort': 'each',
+                          'verbose': False
                           }
 
         params = set_defaults(params, params_default)
 
-        self._kappa = params['kappa']
+        self._mpi_sort = params['mpi_sort']
+        self._verbose = params['verbose']
+        self._kappa = 1/params['epsilon']
         self._b = params['b']
         self._b_eq = params['b_eq']
         self._unit_b1 = params['unit_b1']
@@ -1115,7 +1183,7 @@ class PushDriftKineticBxgradB(Propagator):
                                    self._maxiter, self._tol)
 
         self._pusher(self.particles[0], dt,
-                     *self._pusher_inputs, mpi_sort='each', verbose=True)
+                     *self._pusher_inputs, mpi_sort=self._mpi_sort, verbose=self._verbose)
 
     @classmethod
     def options(cls):
@@ -1129,18 +1197,38 @@ class PushDriftKineticBxgradB(Propagator):
                                   'discrete_gradient_faster',
                                   'discrete_gradient_Itoh_Newton'],
                        'maxiter': 20,
-                       'tol': 1e-5}
+                       'tol': 1e-7,
+                       'mpi_sort': 'each',
+                       'verbose': False}
         return dct
 
 
 class PushDriftKineticBstar(Propagator):
-    r"""Solves
+    r"""Particle pushing step for the :math:`\mathbf B^*` driftkinetic part in `LinearMHDDriftkineticCC <https://struphy.pages.mpcdf.de/struphy/sections/models.html#struphy.models.hybrid.LinearMHDDriftkineticCC>`_ model,
+
+    Equation:
 
     .. math::
 
-        \dot{\mathbf X} &= \frac{1}{B^*_\parallel} \frac{1}{\sqrt{g}(\eta_p(t))}\hat{\mathbf{B}}^{*2} v_\parallel \,,
+        \left\{ 
+            \begin{aligned} 
+                \dot{\mathbf X} &= v_\parallel \frac{\mathbf B^*}{B^*_\parallel} \,,
+                \\
+                \dot v_\parallel &= - \frac{\mathbf B^*}{B^*_\parallel} \cdot \mu \nabla B_\parallel \,,
+            \end{aligned}
+        \right.
 
-        \dot v_\parallel &= - \frac{\mu}{B^*_\parallel} \frac{1}{\sqrt{g}(\eta_p(t))}\hat{\mathbf{B}}^{*2} \cdot \hat \nabla |\mathcal{P}_B \hat{\mathbf{B}}^2| \,.
+    where :math:`\mathbf B^* = \mathbf B + \epsilon v_\parallel \nabla \times \mathbf b_0` and :math:`B^*_\parallel = \mathbf b_0 \cdot \mathbf B^*`.
+
+    Marker update:
+
+    .. math::
+
+        \begin{aligned}
+            \dot{\boldsymbol \eta}_p &= \frac{1}{B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})} \frac{1}{\sqrt{g(\boldsymbol \eta_p)}} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \, v_{\parallel,p} \,,
+            \\
+            \dot v_{\parallel,\,p} &= - \frac{1}{B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})}  \frac{1}{\sqrt{g(\boldsymbol \eta_p)}} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \cdot \mu_p \hat \nabla \hat{B}^0_\parallel(\boldsymbol \eta_p) \,.
+        \end{aligned}
 
     for each marker :math:`p` in markers array. Available algorithms:
 
@@ -1153,7 +1241,7 @@ class PushDriftKineticBstar(Propagator):
     Parameters
     ----------
     particles : struphy.pic.particles.Particles6D
-        Holdes the markers to push.
+        Particles object.
 
     **params : dict
         Solver- and/or other parameters for this splitting step.
@@ -1164,20 +1252,24 @@ class PushDriftKineticBstar(Propagator):
         super().__init__(particles)
 
         # parameters
-        params_default = {'kappa': 1.,
+        params_default = {'epsilon': 1.,
                           'b': None,
                           'b_eq': None,
                           'unit_b1': None,
                           'unit_b2': None,
                           'abs_b': None,
                           'method': 'discrete_gradient',
-                          'maxiter': 10,
-                          'tol': 1e-8,
+                          'maxiter': 20,
+                          'tol': 1e-07,
+                          'mpi_sort': 'each',
+                          'verbose': False
                           }
 
         params = set_defaults(params, params_default)
 
-        self._kappa = params['kappa']
+        self._mpi_sort = params['mpi_sort']
+        self._verbose = params['verbose']
+        self._kappa = 1/params['epsilon']
         self._b = params['b']
         self._b_eq = params['b_eq']
         self._unit_b1 = params['unit_b1']
@@ -1313,7 +1405,7 @@ class PushDriftKineticBstar(Propagator):
                                    self._maxiter, self._tol)
 
         self._pusher(self.particles[0], dt,
-                     *self._pusher_inputs, mpi_sort='each', verbose=True)
+                     *self._pusher_inputs, mpi_sort=self._mpi_sort, verbose=self._verbose)
 
     @classmethod
     def options(cls):
@@ -1327,5 +1419,7 @@ class PushDriftKineticBstar(Propagator):
                                   'discrete_gradient_faster',
                                   'discrete_gradient_Itoh_Newton'],
                        'maxiter': 20,
-                       'tol': 1e-5}
+                       'tol': 1e-7,
+                       'mpi_sort': 'each',
+                       'verbose': False}
         return dct

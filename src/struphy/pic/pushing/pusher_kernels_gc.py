@@ -14,22 +14,22 @@ from numpy import zeros, empty, shape, sqrt
 def a_documentation():
     r'''
     Explainer for arguments of pusher kernels.
-    
+
     Function naming conventions:
-    
+
     * starts with ``push_``
     * add a short description of the pusher, e.g. ``push_bxu_H1vec``.
-    
+
     These kernels are passed to :class:`struphy.pic.pushing.pusher.Pusher` and called via::
-    
+
         Pusher()
-        
+
     The arguments passed to each kernel have a pre-defined order, defined in :class:`struphy.pic.pushing.pusher.Pusher`.
     This order is as follows (you can copy and paste from existing pusher_kernels functions):
 
     1. Marker info:
         * ``markers: 'float[:,:]'``          # local marker array
-        
+
     2. Step info:
         * ``dt: 'float'``                    # time step
         * ``stage: 'int'``                   # current stage of the pusher (e.g. 0,1,2,3 for RK4)
@@ -72,6 +72,7 @@ def a_documentation():
     print('This is just the docstring function.')
 
 
+@stack_array('df', 'df_t', 'g', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'k', 'bb', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'b_star', 'temp1', 'temp2')
 def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int,
                                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                         starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -86,13 +87,17 @@ def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage:
                                         curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
                                         grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
                                         a: 'float[:]', b: 'float[:]', c: 'float[:]'):
-    r'''Single stage of a s-stage explicit solve of 
+    r'''Single stage of a s-stage explicit pushing step for the :math:`\mathbf b_ \times \nabla B_\parallel` guiding center drift,
+
+    Marker update:
 
     .. math::
 
-        \dot{\mathbf X} &= \frac{\mu}{\kappa B^*_\parallel}  G^{-1}(\eta_p(t)) \hat{\mathbb{b}}^2_0 \times G^{-1}(\eta_p(t)) \hat \nabla |\mathcal{P}_B \hat{\mathbb{B}}^2| \,,
-
-        \dot v_\parallel &= 0 \,.
+        \begin{aligned}
+            \dot{\boldsymbol \eta}_p &= \epsilon \mu_p \frac{1}{ B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})}  G^{-1}(\boldsymbol \eta_p) \hat{\mathbf b}^2_0(\boldsymbol \eta_p) \times G^{-1}(\boldsymbol \eta_p) \hat \nabla \hat{B}^0_0 (\boldsymbol \eta_p) \,,
+            \\
+            \dot v_{\parallel,\,p} &= 0 \,.
+        \end{aligned}
 
     for each marker :math:`p` in markers array.
     '''
@@ -107,20 +112,19 @@ def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage:
     bn1 = empty(pn[0] + 1, dtype=float)
     bn2 = empty(pn[1] + 1, dtype=float)
     bn3 = empty(pn[2] + 1, dtype=float)
-
     bd1 = empty(pn[0], dtype=float)
     bd2 = empty(pn[1], dtype=float)
     bd3 = empty(pn[2], dtype=float)
 
     # containers for fields
-    grad_abs_b = empty(3, dtype=float)
-    temp1 = empty(3, dtype=float)
-    norm_b2 = empty(3, dtype=float)
-    temp2 = empty(3, dtype=float)
-    b_star = empty(3, dtype=float)
-    norm_b1 = empty(3, dtype=float)
     bb = empty(3, dtype=float)
+    grad_abs_b = empty(3, dtype=float)
     curl_norm_b = empty(3, dtype=float)
+    norm_b1 = empty(3, dtype=float)
+    norm_b2 = empty(3, dtype=float)
+    b_star = empty(3, dtype=float)
+    temp1 = empty(3, dtype=float)
+    temp2 = empty(3, dtype=float)
 
     # marker position e
     e = empty(3, dtype=float)
@@ -145,7 +149,7 @@ def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage:
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 21] == -1.:
+        if markers[ip, 9] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
@@ -177,7 +181,7 @@ def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage:
         bsp.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
         bsp.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
 
-        # eval all the needed field
+        # eval fields
         # grad_abs_b; 1form
         grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
@@ -218,18 +222,16 @@ def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage:
         curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
-        # transform to H1vec
+        # eval Bstar and transform to H1vec
         b_star[:] = bb + 1/kappa*v*curl_norm_b
-        b_star[:] = b_star/det_df
+        b_star /= det_df
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
 
-        # calculate norm_b X grad_abs_b
+        # calculate norm_b X grad_abs_b and transform to H1vec
         linalg.matrix_vector(g_inv, grad_abs_b, temp1)
-
         linalg.cross(norm_b2, temp1, temp2)
-
         linalg.matrix_vector(g_inv, temp2, temp1)
 
         # calculate k
@@ -243,27 +245,32 @@ def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage:
             dt*a[stage]*k + last*markers[ip, 13:16]
 
 
-def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int, 
-                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                            kind_map: int, params_map: 'float[:]',
-                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                            kappa: float,
-                            b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                            norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                            norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                            curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                            grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                            a: 'float[:]', b: 'float[:]', c: 'float[:]'):
-    r'''Single stage of a s-stage Runge-Kutta solve of 
+@stack_array('df', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'k', 'bb', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'b_star')
+def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int,
+                                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                      starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                      kind_map: int, params_map: 'float[:]',
+                                      p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                                      ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                                      cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                                      kappa: float,
+                                      b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+                                      norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+                                      norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+                                      curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+                                      grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                                      a: 'float[:]', b: 'float[:]', c: 'float[:]'):
+    r'''Single stage of a s-stage explicit pushing step for the :math:`\mathbf B^*` guiding center drift,
+
+    Marker update:
 
     .. math::
 
-        &\dot{\mathbf H}_p &= \frac{1}{|B^*_{p,\parallel}|} \left( \frac{1}{\sqrt{g}} \hat{\mathbf B}^{*2}_p \right) v_{p, \parallel} \,,
-
-        &\dot v_{p, \parallel} &= -\frac{\mu}{|B^*_{p,\parallel}|}  \left( \frac{1}{\sqrt{g}} \hat{\mathbf B}^{*2}_p \right) \cdot \hat \nabla |\hat B^0_0|_p \,.
+        \begin{aligned}
+            \dot{\boldsymbol \eta}_p &= \frac{1}{B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})} \frac{1}{\sqrt{g(\boldsymbol \eta_p)}} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \, v_{\parallel,p} \,,
+            \\
+            \dot v_{\parallel,\,p} &= - \frac{1}{B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})}  \frac{1}{\sqrt{g(\boldsymbol \eta_p)}} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \cdot \mu_p \hat \nabla \hat{B}^0_\parallel(\boldsymbol \eta_p) \,.
+        \end{aligned}
 
     for each marker :math:`p` in markers array.
     '''
@@ -275,17 +282,16 @@ def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: i
     bn1 = empty(pn[0] + 1, dtype=float)
     bn2 = empty(pn[1] + 1, dtype=float)
     bn3 = empty(pn[2] + 1, dtype=float)
-
     bd1 = empty(pn[0], dtype=float)
     bd2 = empty(pn[1], dtype=float)
     bd3 = empty(pn[2], dtype=float)
 
     # containers for fields
-    grad_abs_b = empty(3, dtype=float)
-    b_star = empty(3, dtype=float)
-    norm_b1 = empty(3, dtype=float)
     bb = empty(3, dtype=float)
+    grad_abs_b = empty(3, dtype=float)
     curl_norm_b = empty(3, dtype=float)
+    norm_b1 = empty(3, dtype=float)
+    b_star = empty(3, dtype=float)
 
     # marker position e
     e = empty(3, dtype=float)
@@ -310,8 +316,12 @@ def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: i
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 21] == -1.:
+        if markers[ip, 9] == -1.:
             continue
+
+        if stage == 0.:
+            # save initial parallel velocity
+            markers[ip, 12] = markers[ip, 3]
 
         e[:] = markers[ip, 0:3]
         v = markers[ip, 3]
@@ -337,7 +347,7 @@ def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: i
         bsp.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
         bsp.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
 
-        # eval all the needed field
+        # eval fields
         # grad_abs_b; 1form
         grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
@@ -370,9 +380,9 @@ def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: i
         curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
-        # transform to H1vec
+        # calculate Bstar and transform to H1vec
         b_star[:] = bb + 1/kappa*v*curl_norm_b
-        b_star[:] = b_star/det_df
+        b_star /= det_df
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
@@ -395,29 +405,34 @@ def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: i
             a[stage]*k_v + last*markers[ip, 16]
 
 
+@stack_array('df', 'df_t', 'g', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'k', 'bb', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'b_star', 'temp1', 'temp2', 'temp3')
 def push_gc_all_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int,
-                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                           kind_map: int, params_map: 'float[:]',
-                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                           kappa: float,
-                           b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                           norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                           norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                           curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                           grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                           a: 'float[:]', b: 'float[:]', c: 'float[:]'):
-    r'''Single stage of a s-stage Runge-Kutta solve of 
+                                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                    kind_map: int, params_map: 'float[:]',
+                                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                                    cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                                    kappa: float,
+                                    b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+                                    norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+                                    norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+                                    curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+                                    grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                                    a: 'float[:]', b: 'float[:]', c: 'float[:]'):
+    r'''Single stage of a s-stage explicit pushing step for the guiding center drift,
+
+    Marker update:
 
     .. math::
 
-        &\dot{\mathbf H}_p = \frac{\epsilon \mu_p}{|B^*_{p,\parallel}|}  G_p^{-1} \mathbb{b}_{p,0, \otimes}G_p^{-1} \hat \nabla |\hat B^0_{p,0}| + \frac{1}{|B^*_{p,\parallel}|} \left( \frac{1}{\sqrt{g}} \hat{\mathbf B}^{*2}_p \right) v_{p, \parallel}\,,
+        \begin{aligned}
+            \dot{\boldsymbol \eta}_p &= \epsilon \mu_p \frac{1}{ B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})}  G^{-1}(\boldsymbol \eta_p) \hat{\mathbf b}^2_0(\boldsymbol \eta_p) \times G^{-1}(\boldsymbol \eta_p) \hat \nabla \hat{B}^0_0 (\boldsymbol \eta_p) + \frac{1}{B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})} \frac{1}{\sqrt{g(\boldsymbol \eta_p)}} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \, v_{\parallel,p}\,,
+            \\
+            \dot v_{\parallel,\,p} &=  - \frac{1}{B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})}  \frac{1}{\sqrt{g(\boldsymbol \eta_p)}} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \cdot \mu_p \hat \nabla \hat{B}^0_\parallel(\boldsymbol \eta_p) \,,
+        \end{aligned}
 
-        &\dot v_{p, \parallel} &= -\frac{\mu}{|B^*_{p,\parallel}|}  \left( \frac{1}{\sqrt{g}} \hat{\mathbf B}^{*2}_p \right) \cdot \hat \nabla |\hat B^0_0|_p \,.
-
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant.
+    for each marker :math:`p` in markers array.
     '''
 
     # allocate metric coeffs
@@ -430,21 +445,20 @@ def push_gc_all_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int
     bn1 = empty(pn[0] + 1, dtype=float)
     bn2 = empty(pn[1] + 1, dtype=float)
     bn3 = empty(pn[2] + 1, dtype=float)
-
     bd1 = empty(pn[0], dtype=float)
     bd2 = empty(pn[1], dtype=float)
     bd3 = empty(pn[2], dtype=float)
 
     # containers for fields
-    grad_abs_b = empty(3, dtype=float)
-    temp1 = empty(3, dtype=float)
-    norm_b2 = empty(3, dtype=float)
-    temp2 = empty(3, dtype=float)
-    b_star = empty(3, dtype=float)
-    norm_b1 = empty(3, dtype=float)
-    temp3 = empty(3, dtype=float)
     bb = empty(3, dtype=float)
+    grad_abs_b = empty(3, dtype=float)
     curl_norm_b = empty(3, dtype=float)
+    norm_b1 = empty(3, dtype=float)
+    norm_b2 = empty(3, dtype=float)
+    b_star = empty(3, dtype=float)
+    temp1 = empty(3, dtype=float)
+    temp2 = empty(3, dtype=float)
+    temp3 = empty(3, dtype=float)
 
     # marker position e
     e = empty(3, dtype=float)
@@ -469,8 +483,12 @@ def push_gc_all_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 21] == -1.:
+        if markers[ip, 9] == -1.:
             continue
+
+        if stage == 0.:
+            # save initial parallel velocity
+            markers[ip, 12] = markers[ip, 3]
 
         e[:] = markers[ip, 0:3]
         v = markers[ip, 3]
@@ -575,44 +593,46 @@ def push_gc_all_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int
             a[stage]*k_v + last*markers[ip, 16]
 
 
+@stack_array('bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'grad_I', 'S', 'temp')
 def push_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: int,
-                                pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                                kind_map: int, params_map: 'float[:]',
-                                p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                kappa: float,
-                                abs_b: 'float[:,:,:]',
-                                b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                maxiter: int, tol: float):
-    r'''Single step of the fixed-point iteration (:math:`k`-index) for the discrete gradient method
+                                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                      starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                      kind_map: int, params_map: 'float[:]',
+                                      p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                                      ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                                      cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                                      kappa: float,
+                                      abs_b: 'float[:,:,:]',
+                                      b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+                                      norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+                                      norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+                                      curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+                                      grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                                      maxiter: int, tol: float):
+    r'''Single step of the fixed-point iteration (:math:`k`-index) for the discrete gradient method with 2nd order(Gonzalez, mid-point)
 
     .. math::
 
-        {\mathbf X}^k_{n+1} = {\mathbf X}_n + \Delta t \, \mathbb S_1({\mathbf X}_n) \bar{\nabla} I_1 ({\mathbf X}_n, {\mathbf X}^{k-1}_{n+1})
+        {\mathbf X}^k_{n+1} = {\mathbf X}_n + \Delta t \, \mathbb S({\mathbf X}_n, {\mathbf X}^{k-1}_{n+1}) \bar{\nabla} I ({\mathbf X}_n, {\mathbf X}^{k-1}_{n+1})
 
     where :math:`\mathbf X_n` denotes the gyro-center particle position at time :math:`t = n \Delta t` and
 
     .. math::
-    
-        \mathbb S_1({\mathbf X}_n) &= \,, 
 
-        \bar{\nabla} I_1 ({\mathbf X}_n, {\mathbf X}_{n+1}) &= \nabla H_{n+1/2} + ({\mathbf X}_{n+1} + {\mathbf X}_{n}) \frac{H_{n+1} - H_{n} - ({\mathbf X}_{n+1} - {\mathbf X}_n)\cdot \nabla H_{n+1/2}}{||{\mathbf X}_{n+1} - {\mathbf X}_n||^2}\,,
-        
-        H_n &= \mu |\hat B^0_0({\mathbf X}_{n})|\,.
+        \mathbb S(\mathbf X_n, \mathbf X_{n+1}) &= \epsilon \frac{1}{ B^*_\parallel (\mathbf X_{n+1/2})}  G^{-1}(\mathbf X_{n+1/2}) \hat{\mathbf b}^2_0(\mathbf X_{n+1/2}) \times G^{-1}(\mathbf X_{n+1/2})\,, 
 
-    The velocity :math:`v_\parallel` and magentic moment :math:`\mu` are constant in this step.
+        \bar{\nabla} I ({\mathbf X}_n, {\mathbf X}_{n+1}) &= \nabla H(\mathbf X_{n+1/2}) + ({\mathbf X}_{n+1} + {\mathbf X}_{n}) \frac{H(\mathbf X_{n+1}) - H(\mathbf X_{n}) - ({\mathbf X}_{n+1} - {\mathbf X}_n)\cdot \nabla H(\mathbf X_{n+1/2})}{||{\mathbf X}_{n+1} - {\mathbf X}_n||^2}\,,
+
+        H({\mathbf X}_{n}) &= \mu \hat B^0_\parallel({\mathbf X}_{n})\,.
+
+    where :math:`\mathbf X_{n+1/2} = \frac{\mathbf X_n + \mathbf X_{n+1}}{2}` and
+    the velocity :math:`v_\parallel` and magentic moment :math:`\mu` are constant in this step.
     '''
+
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
     bn2 = empty(pn[1] + 1, dtype=float)
     bn3 = empty(pn[2] + 1, dtype=float)
-
     bd1 = empty(pn[0], dtype=float)
     bd2 = empty(pn[1], dtype=float)
     bd3 = empty(pn[2], dtype=float)
@@ -628,7 +648,7 @@ def push_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: i
 
     # get number of markers
     n_markers = shape(markers)[0]
-    
+
     for ip in range(n_markers):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -639,7 +659,7 @@ def push_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: i
             continue
 
         e[:] = markers[ip, 0:3]
-        
+
         e_diff[:] = e[:] - markers[ip, 9:12]
         mu = markers[ip, 4]
 
@@ -712,29 +732,42 @@ def push_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: i
         markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 9:12])/2.
 
 
+@stack_array('bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'grad_I')
 def push_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: int,
-                                pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                                kind_map: int, params_map: 'float[:]',
-                                p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                kappa: float,
-                                abs_b: 'float[:,:,:]',
-                                b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                maxiter: int, tol: float):
-    r'''Single stage of the fixed-point iteration for the discrete gradient method
+                                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                    kind_map: int, params_map: 'float[:]',
+                                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                                    cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                                    kappa: float,
+                                    abs_b: 'float[:,:,:]',
+                                    b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+                                    norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+                                    norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+                                    curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+                                    grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                                    maxiter: int, tol: float):
+    r'''Single step of the fixed-point iteration (:math:`k`-index) for the discrete gradient method with 2nd order(Gonzalez, mid-point)
 
     .. math::
 
-        {\mathbf z}^k_{n+1} = {\mathbf z}_n + dt*S2({\mathbf z}_n)*\bar{\nabla} I_2 ({\mathbf z}_n, {\mathbf z}^{k-1}_{n+1})
+        {\mathbf Z}^k_{n+1} = {\mathbf Z}_n + \Delta t \, \mathbb S({\mathbf Z}_n, {\mathbf Z}^{k-1}_{n+1}) \bar{\nabla} I ({\mathbf Z}_n, {\mathbf Z}^{k-1}_{n+1})
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant.
+    where :math:`\mathbf X_n` denotes the gyro-center particle position at time :math:`t = n \Delta t` and :math:`\mathbf Z_n = (\mathbf X_n, v_{\parallel, n})`.
+
+    .. math::
+
+        \mathbb S(\mathbf Z_n, \mathbf Z_{n+1}) &= \frac{1}{B^*_\parallel (\mathbf Z_{n+1/2})} \frac{1}{\sqrt{g(\mathbf X_{n+1/2})}} \hat{\mathbf B}^{*2} (\mathbf Z_{n+1/2}) \,, 
+
+        \bar{\nabla} I ({\mathbf Z}_n, {\mathbf Z}_{n+1}) &= \nabla H(\mathbf Z_{n+1/2}) + ({\mathbf Z}_{n+1} + {\mathbf Z}_{n}) \frac{H(\mathbf Z_{n+1})- H(\mathbf Z_{n}) - ({\mathbf Z}_{n+1} - {\mathbf Z}_n)\cdot \nabla H(\mathbf Z_{n+1/2})}{||{\mathbf Z}_{n+1} - {\mathbf Z}_n||^2}\,,
+
+        H(\mathbf Z_{n}) &= \mu \hat B^0_\parallel({\mathbf X}_{n}) + \frac{1}{2} v^2_{\parallel,n} \,.
+
+    where :math:`\mathbf Z_{n+1/2} = \frac{\mathbf Z_n + \mathbf Z_{n+1}}{2}`
+    and magentic moment :math:`\mu` are constant in this step.
     '''
+
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
     bn2 = empty(pn[1] + 1, dtype=float)
@@ -834,35 +867,41 @@ def push_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: int
         markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 9:13])/2.
 
 
+@stack_array('bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'grad_I', 'S', 'temp')
 def push_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, stage: int,
-                                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                                       kind_map: int, params_map: 'float[:]',
-                                       p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                       ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                       cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                       kappa: float,
-                                       abs_b: 'float[:,:,:]',
-                                       b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                       norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                       norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                       curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                       grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                       maxiter: int, tol: float):
-    r'''Single stage of the fixed-point iteration for the discrete gradient method
+                                             pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                             starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                             kind_map: int, params_map: 'float[:]',
+                                             p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                                             ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                                             cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                                             kappa: float,
+                                             abs_b: 'float[:,:,:]',
+                                             b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+                                             norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+                                             norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+                                             curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+                                             grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                                             maxiter: int, tol: float):
+    r'''Single step of the fixed-point iteration (:math:`k`-index) for the discrete gradient method with 2nd order faster scheme(fixed :math:`\mathbb S`, Gonzalez, mid-point)
 
     .. math::
 
-        {\mathbf H}^k_{n+1} = {\mathbf H}_n + dt*S1({\mathbf H}_n)*\bar{\nabla} I_1 ({\mathbf H}_n, {\mathbf H}^{k-1}_{n+1})
+        {\mathbf X}^k_{n+1} = {\mathbf X}_n + \Delta t \, \mathbb S({\mathbf X}_n, {\mathbf X}^{k-1}_{n+1}) \bar{\nabla} I ({\mathbf X}_n, {\mathbf X}^{k-1}_{n+1})
 
-    where
+    where :math:`\mathbf X_n` denotes the gyro-center particle position at time :math:`t = n \Delta t` and
 
-    ..math::
+    .. math::
 
-        \bar{\nabla} I_1 ({\mathbf H}_n, {\mathbf H}_{n+1}) = \mu \nabla |\hat B^0_0({\mathbf H}_{n+1/2})| + ({\mathbf H}_{n+1} + {\mathbf H}_{n}) \frac{\mu |\hat B^0_0({\mathbf H}_{n+1})| - \mu |\hat B^0_0({\mathbf H}_n)| - ({\mathbf H}_{n+1} - {\mathbf H}_n)\cdot \mu \nabla |\hat B^0_0({\mathbf H}_{n+1/2})|}{||{\mathbf H}_{n+1} - {\mathbf H}_n||^2}
+        \mathbb S(\mathbf X_n, \mathbf X_{n+1}) &\approx \mathbb S(\mathbf X_n) = \epsilon \frac{1}{ B^*_\parallel (\mathbf X_n)}  G^{-1}(\mathbf X_n) \hat{\mathbf b}^2_0(\mathbf X_n) \times G^{-1}(\mathbf X_n)\,, 
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant.
+        \bar{\nabla} I ({\mathbf X}_n, {\mathbf X}_{n+1}) &= \nabla H(\mathbf X_{n+1/2}) + ({\mathbf X}_{n+1} + {\mathbf X}_{n}) \frac{H(\mathbf X_{n+1}) - H(\mathbf X_{n}) - ({\mathbf X}_{n+1} - {\mathbf X}_n)\cdot \nabla H(\mathbf X_{n+1/2})}{||{\mathbf X}_{n+1} - {\mathbf X}_n||^2}\,,
+
+        H({\mathbf X}_{n}) &= \mu \hat B^0_\parallel({\mathbf X}_{n})\,.
+
+    where :math:`\mathbf X_{n+1/2} = \frac{\mathbf X_n + \mathbf X_{n+1}}{2}` and the velocity :math:`v_\parallel` and magentic moment :math:`\mu` are constant in this step.
     '''
+
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
     bn2 = empty(pn[1] + 1, dtype=float)
@@ -966,28 +1005,40 @@ def push_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, s
         markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 9:12])/2.
 
 
+@stack_array('bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'grad_I')
 def push_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, stage: int,
-                                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                                       kind_map: int, params_map: 'float[:]',
-                                       p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                       ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                       cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                       kappa: float,
-                                       abs_b: 'float[:,:,:]',
-                                       b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                       norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                       norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                       curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                       grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                       maxiter: int, tol: float):
-    r'''Single stage of the fixed-point iteration for the discrete gradient method
+                                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                           kind_map: int, params_map: 'float[:]',
+                                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                                           kappa: float,
+                                           abs_b: 'float[:,:,:]',
+                                           b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+                                           norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+                                           norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+                                           curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+                                           grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                                           maxiter: int, tol: float):
+    r'''Single step of the fixed-point iteration (:math:`k`-index) for the discrete gradient method with 2nd order faster scheme(fixed :math:`\mathbb S`, Gonzalez, mid-point)
 
     .. math::
 
-        {\mathbf z}^k_{n+1} = {\mathbf z}_n + dt*S2({\mathbf z}_n)*\bar{\nabla} I_2 ({\mathbf z}_n, {\mathbf z}^{k-1}_{n+1})
+        {\mathbf Z}^k_{n+1} = {\mathbf Z}_n + \Delta t \, \mathbb S({\mathbf Z}_n, {\mathbf Z}^{k-1}_{n+1}) \bar{\nabla} I ({\mathbf Z}_n, {\mathbf Z}^{k-1}_{n+1})
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant.
+    where :math:`\mathbf X_n` denotes the gyro-center particle position at time :math:`t = n \Delta t` and :math:`\mathbf Z_n = (\mathbf X_n, v_{\parallel, n})`.
+
+    .. math::
+
+        \mathbb S(\mathbf Z_n, \mathbf Z_{n+1}) &\approx \mathbb S(\mathbf Z_n) = \frac{1}{B^*_\parallel (\mathbf Z_n)} \frac{1}{\sqrt{g(\mathbf X_n)}} \hat{\mathbf B}^{*2} (\mathbf Z_n) \,, 
+
+        \bar{\nabla} I ({\mathbf Z}_n, {\mathbf Z}_{n+1}) &= \nabla H(\mathbf Z_{n+1/2}) + ({\mathbf Z}_{n+1} + {\mathbf Z}_{n}) \frac{H(\mathbf Z_{n+1})- H(\mathbf Z_{n}) - ({\mathbf Z}_{n+1} - {\mathbf Z}_n)\cdot \nabla H(\mathbf Z_{n+1/2})}{||{\mathbf Z}_{n+1} - {\mathbf Z}_n||^2}\,,
+
+        H(\mathbf Z_{n}) &= \mu \hat B^0_\parallel({\mathbf X}_{n}) + \frac{1}{2} v^2_{\parallel,n} \,.
+
+    where :math:`\mathbf Z_{n+1/2} = \frac{\mathbf Z_n + \mathbf Z_{n+1}}{2}`
+    and magentic moment :math:`\mu` are constant in this step.
     '''
 
     # allocate spline values
@@ -1089,22 +1140,69 @@ def push_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, sta
         markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 9:13])/2.
 
 
+@stack_array('bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'e_old', 'F', 'S', 'temp', 'identity', 'grad_abs_b', 'grad_I', 'Jacobian_grad_I', 'Jacobian', 'Jacobian_inv')
 def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float, stage: int,
-                                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                                            kind_map: int, params_map: 'float[:]',
-                                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                            kappa: float,
-                                            abs_b: 'float[:,:,:]',
-                                            b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                            norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                            norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                            curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                            grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                            maxiter: int, tol: float):
-    r'''
+                                                  pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                                  starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                                  kind_map: int, params_map: 'float[:]',
+                                                  p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                                                  ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                                                  cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                                                  kappa: float,
+                                                  abs_b: 'float[:,:,:]',
+                                                  b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+                                                  norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+                                                  norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+                                                  curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+                                                  grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                                                  maxiter: int, tol: float):
+    r'''Single step of the Newton-Raphson iteration (:math:`k`-index) for the discrete gradient method with 1st order faster scheme(fixed :math:`\mathbb S`, Itoh-Abe).
+    Looking for a root (:math:`F=0`) of the function defined as
+
+    .. math::
+
+        F(\mathbf X_{n+1}) = \mathbf X_{n+1} - \mathbf X_n - \Delta t \mathbb S(\mathbf X_n) \bar \nabla I(\mathbf X_n, \mathbf X_{n+1})
+
+    where :math:`\mathbf X_n` denotes the gyro-center particle position at time :math:`t = n \Delta t`.
+
+    From the initial guess
+
+    .. math::
+
+        \mathbf X^0_{n+1} = \mathbf X_n + \Delta t \mathbb S(\mathbf X_n) \nabla H(\mathbf X_n) \,,
+
+    iteratively solve the following equation
+
+    .. math::
+
+        \mathbf X^{k+1}_{n+1} = \mathbf X^k_n - J_F^{-1}(\mathbf X^k_{n+1}) F(\mathbf X^k_{n+1}) \,,
+
+    where the Jacobian of F is given as
+
+    .. math::
+
+        (J_F)_{i,j} = (J_F)_{i,j} = \frac{\partial F_i}{\partial \mathbf X_{n+1,j}}  = 
+        \begin{pmatrix}
+            1 & 0 & 0 \\
+            0 & 1 & 0 \\
+            0 & 0 & 1
+        \end{pmatrix}
+        - \Delta t \mathbb S(\mathbf X_n) \frac{\partial \bar \nabla I_i}{\partial \mathbf X_{n+1,j}} \,.
+
+    .. math::
+
+        \mathbb S(\mathbf X_n, \mathbf X_{n+1}) &\approx \mathbb S(\mathbf X_n) = \epsilon \frac{1}{ B^*_\parallel (\mathbf X_n)}  G^{-1}(\mathbf X_n) \hat{\mathbf b}^2_0(\mathbf X_n) \times G^{-1}(\mathbf X_n)\,, 
+        \\
+        \bar \nabla I (\mathbf X_n, \mathbf X_{n+1}) &= 
+        \begin{pmatrix}
+            (H(X_{1,n+1},X_{2,n},X_{3,n})     - H(X_{1,n},X_{2,n},X_{3,n})    ) / (X_{1,n+1} - X_{1,n}) \\
+            (H(X_{1,n+1},X_{2,n+1},X_{3,n})   - H(X_{1,n+1},X_{2,n},X_{3,n})  ) / (X_{2,n+1} - X_{2,n}) \\
+            (H(X_{1,n+1},X_{2,n+1},X_{3,n+1}) - H(X_{1,n+1},X_{2,n+1},X_{3,n})) / (X_{3,n+1} - X_{3,n})
+        \end{pmatrix} \,,
+        \\
+        H(\mathbf X_{n}) &= \mu \hat B^0_\parallel({\mathbf X}_{n})\,.
+
+    where the velocity :math:`v_\parallel` and magentic moment :math:`\mu` are constant in this step.
     '''
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -1253,23 +1351,73 @@ def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
         markers[ip, 2] = e_old[2]
 
 
+@stack_array('bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'e_old', 'F', 'S', 'temp', 'identity', 'grad_abs_b', 'grad_I', 'Jacobian_grad_I', 'Jacobian', 'Jacobian_inv', 'Jacobian_temp34', 'Jacobian_temp33')
 def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float, stage: int,
-                                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                                            kind_map: int, params_map: 'float[:]',
-                                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                            kappa: float,
-                                            abs_b: 'float[:,:,:]',
-                                            b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                            norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                            norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                            curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                            grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                            maxiter: int, tol: float):
-    r'''
+                                                pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                                starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                                kind_map: int, params_map: 'float[:]',
+                                                p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                                                ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                                                cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                                                kappa: float,
+                                                abs_b: 'float[:,:,:]',
+                                                b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+                                                norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+                                                norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+                                                curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+                                                grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                                                maxiter: int, tol: float):
+    r'''Single step of the Newton-Raphson iteration (:math:`k`-index) for the discrete gradient method with 1st order faster scheme(fixed :math:`\mathbb S`, Itoh-Abe).
+    Looking for a root (:math:`F=0`) of the function defined as
+
+    .. math::
+
+        F(\mathbf Z_{n+1}) = \mathbf Z_{n+1} - \mathbf Z_n - \Delta t \mathbb S(\mathbf Z_n) \bar \nabla I(\mathbf Z_n, \mathbf Z_{n+1})
+
+    where :math:`\mathbf X_n` denotes the gyro-center particle position at time :math:`t = n \Delta t` and :math:`\mathbf Z_n = (\mathbf X_n, v_{\parallel, n})`.
+
+    From the initial guess
+
+    .. math::
+
+        \mathbf Z^0_{n+1} = \mathbf Z_n + \Delta t \mathbb S(\mathbf Z_n) \nabla H(\mathbf Z_n) \,,
+
+    iteratively solve the following equation
+
+    .. math::
+
+        \mathbf Z^{k+1}_{n+1} = \mathbf Z^k_n - J_F^{-1}(\mathbf Z^k_{n+1}) F(\mathbf Z^k_{n+1}) \,,
+
+    where the Jacobian of F is given as
+
+    .. math::
+
+        (J_F)_{i,j} = (J_F)_{i,j} = \frac{\partial F_i}{\partial \mathbf Z_{n+1,j}}  = 
+        \begin{pmatrix}
+            1 & 0 & 0 & 0 \\
+            0 & 1 & 0 & 0 \\
+            0 & 0 & 1 & 0 \\
+            0 & 0 & 0 & 1
+        \end{pmatrix}
+        - \Delta t \mathbb S(\mathbf Z_n) \frac{\partial \bar \nabla I_i}{\partial \mathbf Z_{n+1,j}} \,.
+
+    .. math::
+
+        \mathbb S(\mathbf Z_n, \mathbf Z_{n+1}) &\approx \mathbb S(\mathbf Z_n) = \frac{1}{B^*_\parallel (\mathbf Z_n)} \frac{1}{\sqrt{g(\mathbf X_n)}} \hat{\mathbf B}^{*2} (\mathbf Z_n) \,, 
+        \\
+        \bar \nabla I (\mathbf Z_n, \mathbf Z_{n+1}) &= 
+        \begin{pmatrix}
+            (H(X_{1,n+1},X_{2,n},X_{3,n}, v_{\parallel, n})     - H(X_{1,n},X_{2,n},X_{3,n}, v_{\parallel, n})    ) / (X_{1,n+1} - X_{1,n}) \\
+            (H(X_{1,n+1},X_{2,n+1},X_{3,n}, v_{\parallel, n})   - H(X_{1,n+1},X_{2,n},X_{3,n}, v_{\parallel, n})  ) / (X_{2,n+1} - X_{2,n}) \\
+            (H(X_{1,n+1},X_{2,n+1},X_{3,n+1}, v_{\parallel, n}) - H(X_{1,n+1},X_{2,n+1},X_{3,n}, v_{\parallel, n})) / (X_{3,n+1} - X_{3,n}) \\
+            (H(X_{1,n+1},X_{2,n+1},X_{3,n+1}, v_{\parallel, n+1}) - H(X_{1,n+1},X_{2,n+1},X_{3,n+1}, v_{\parallel, n})) / (v_{\parallel,n+1} - v_{\parallel,n}) \\
+        \end{pmatrix} \,,
+        \\
+        H(\mathbf Z_{n}) &= \mu \hat B^0_\parallel({\mathbf X}_{n}) + \frac{1}{2} v^2_{\parallel,n} \,.
+
+    where magentic moment :math:`\mu` are constant in this step.
     '''
+
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
     bn2 = empty(pn[1] + 1, dtype=float)
@@ -1362,7 +1510,8 @@ def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
         else:
             grad_I[0] = mu*(markers[ip, 20] - markers[ip, 19])/(e_diff[0])
             Jacobian_grad_I[0, 0] = mu * \
-                (markers[ip, 21]*(e_diff[0]) - markers[ip, 20] + markers[ip, 19])/(e_diff[0])**2
+                (markers[ip, 21]*(e_diff[0]) -
+                 markers[ip, 20] + markers[ip, 19])/(e_diff[0])**2
 
         if e_diff[1] == 0.:
             grad_I[1] == 0.
@@ -1371,7 +1520,8 @@ def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
             Jacobian_grad_I[1, 0] = mu * \
                 (markers[ip, 17] - markers[ip, 21])/(e_diff[1])
             Jacobian_grad_I[1, 1] = mu * \
-                (markers[ip, 18]*(e_diff[1]) - markers[ip, 16] + markers[ip, 20])/(e_diff[1])**2
+                (markers[ip, 18]*(e_diff[1]) -
+                 markers[ip, 16] + markers[ip, 20])/(e_diff[1])**2
 
         if e_diff[2] == 0.:
             grad_I[2] == 0.
@@ -1382,7 +1532,8 @@ def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
             Jacobian_grad_I[2, 1] = mu * \
                 (grad_abs_b[1] - markers[ip, 18])/(e_diff[2])
             Jacobian_grad_I[2, 2] = mu * \
-                (grad_abs_b[2]*(e_diff[2]) - abs_b0 + markers[ip, 16])/(e_diff[2])**2
+                (grad_abs_b[2]*(e_diff[2]) - abs_b0 +
+                 markers[ip, 16])/(e_diff[2])**2
 
         grad_I[3] = v_mid
         Jacobian_grad_I[3, 3] = 0.5
@@ -1454,6 +1605,7 @@ def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
         markers[ip, 2] = e_old[2]
 
 
+@stack_array('df', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'b', 'b_star', 'norm_b1', 'curl_norm_b')
 def push_gc_cc_J1_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                         starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1466,8 +1618,15 @@ def push_gc_cc_J1_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                         norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                         curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
                         u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]'):
-    r'''
-    TODO
+    r'''Velocity update step for the `CurrentCoupling5DCurlb <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb>`_
+
+    Marker update :
+
+    .. math::
+
+        v_{\parallel,p}^{n+1} =  v_{\parallel,p}^n - \frac{\Delta t}{2} \hat B^{*,-1}_\parallel(\mathbf X_p, v^n_{\parallel,p}) \frac{1}{\sqrt{g(\mathbf X_p)}} v_{\parallel,p}^n \hat{\mathbf B}^2(\mathbf X_p) \times(\hat \nabla \times \hat{\mathbf b}_0)(\mathbf X_p) \Lambda^v (\mathbf u^{n+1} + \mathbf u^n ) (\mathbf X_p) \,,
+
+    for each marker :math:`p` in markers array.
     '''
 
     # allocate metric coeffs
@@ -1573,6 +1732,7 @@ def push_gc_cc_J1_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         markers[ip, 3] += temp/abs_b_star_para*v*dt
 
 
+@stack_array('df', 'df_t', 'g', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'u0', 'b', 'b_star', 'norm_b1', 'curl_norm_b')
 def push_gc_cc_J1_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                         starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1585,8 +1745,15 @@ def push_gc_cc_J1_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                         norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                         curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
                         u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]'):
-    r'''
-    TODO
+    r'''Velocity update step for the `CurrentCoupling5DCurlb <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb>`_
+
+    Marker update:
+
+    .. math::
+
+        v_{\parallel,p}^{n+1} =  v_{\parallel,p}^n - \frac{\Delta t}{2} \hat B^{*,-1}_\parallel(\mathbf X_p, v^n_{\parallel,p}) \frac{1}{\sqrt{g(\mathbf X_p)}} v_{\parallel,p}^n G^{-1}(\mathbf X_p) \hat{\mathbf B}^2(\mathbf X_p) \times(\hat \nabla \times \hat{\mathbf b}_0)(\mathbf X_p) \Lambda^1 (\mathbf u^{n+1} + \mathbf u^n ) (\mathbf X_p) \,,
+
+    for each marker :math:`p` in markers array.
     '''
 
     # allocate metric coeffs
@@ -1704,6 +1871,7 @@ def push_gc_cc_J1_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
         markers[ip, 3] += temp/abs_b_star_para*v*dt
 
 
+@stack_array('df', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'b', 'b_star', 'norm_b1', 'curl_norm_b')
 def push_gc_cc_J1_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                        starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1716,8 +1884,15 @@ def push_gc_cc_J1_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                        norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                        curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
                        u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]'):
-    r'''
-    TODO
+    r'''Velocity update step for the `CurrentCoupling5DCurlb <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb>`_
+
+    Marker update:
+
+    .. math::
+
+        v_{\parallel,p}^{n+1} =  v_{\parallel,p}^n - \frac{\Delta t}{2} \hat B^{*,-1}_\parallel(\mathbf X_p, v^n_{\parallel,p}) \frac{1}{\sqrt{g(\mathbf X_p)}} \frac{1}{\sqrt{g(\mathbf X_p)}} v_{\parallel,p}^n \hat{\mathbf B}^2(\mathbf X_p) \times(\hat \nabla \times \hat{\mathbf b}_0)(\mathbf X_p) \Lambda^2 (\mathbf u^{n+1} + \mathbf u^n ) (\mathbf X_p) \,,
+
+    for each marker :math:`p` in markers array.
     '''
 
     # allocate metric coeffs
@@ -1826,6 +2001,367 @@ def push_gc_cc_J1_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
         markers[ip, 3] += temp/abs_b_star_para*v*dt
 
 
+@stack_array('df', 'df_t', 'df_inv_t', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'bb', 'b_star', 'norm_b1', 'norm_b2', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b2_prod')
+def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
+                              pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                              starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                              kind_map: int, params_map: 'float[:]',
+                              p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                              ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                              cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                              kappa: float,
+                              b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+                              norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+                              norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+                              curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+                              u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]',
+                              a: 'float[:]', b: 'float[:]', c: 'float[:]'):
+    r'''Single stage of a s-stage explicit pushing step for the `CurrentCoupling5DGradBxB <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DGradBxB>`_
+
+    Marker update:
+
+    .. math::
+
+        \mathbf X^{n+1} = \mathbf X^n - \frac{\Delta t}{2} \hat B^{*,-1}_\parallel(\mathbf X_p, v^n_{\parallel,p}) G^{-1}(\mathbf X_p) \hat{\mathbf b}_0^2(\mathbf X_p) \times G^{-1}(\mathbf X_p) \hat{\mathbf B}^2(\mathbf X_p) \times \Lambda^v (\mathbf u^{n+1} + \mathbf u^n ) (\mathbf X_p) \,,
+
+    for each marker :math:`p` in markers array.
+    '''
+
+    # allocate metric coeffs
+    df = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    df_inv_t = empty((3, 3), dtype=float)
+    g_inv = empty((3, 3), dtype=float)
+
+    # allocate spline values
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    # containers for fields
+    tmp1 = empty((3, 3), dtype=float)
+    tmp2 = empty((3, 3), dtype=float)
+    b_prod = zeros((3, 3), dtype=float)
+    norm_b2_prod = empty((3, 3), dtype=float)
+    e = empty(3, dtype=float)
+    u = empty(3, dtype=float)
+    bb = empty(3, dtype=float)
+    b_star = empty(3, dtype=float)
+    norm_b1 = empty(3, dtype=float)
+    norm_b2 = empty(3, dtype=float)
+    curl_norm_b = empty(3, dtype=float)
+
+    # marker position eta
+    eta = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    # get number of stages
+    n_stages = shape(b)[0]
+
+    if stage == n_stages - 1:
+        last = 1.
+    else:
+        last = 0.
+
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        if markers[ip, 9] == -1.:
+            continue
+
+        eta[:] = markers[ip, 0:3]
+        v = markers[ip, 3]
+
+        # evaluate Jacobian, result in df
+        map_eval.df(eta[0], eta[1], eta[2],
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        # metric coeffs
+        det_df = linalg.det(df)
+        linalg.matrix_inv_with_det(df, det_df, df_inv)
+        linalg.transpose(df_inv, df_inv_t)
+        linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
+
+        # spline evaluation
+        span1 = bsp.find_span(tn1, pn[0], eta[0])
+        span2 = bsp.find_span(tn2, pn[1], eta[1])
+        span3 = bsp.find_span(tn3, pn[2], eta[2])
+
+        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+
+        # eval all the needed field
+        # b; 2form
+        bb[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
+        bb[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
+        bb[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
+
+        # u; 0form
+        u[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u1, starts0)
+        u[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u2, starts0)
+        u[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u3, starts0)
+
+        # norm_b1; 1form
+        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
+        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
+        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+
+        # norm_b; 2form
+        norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
+        norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
+        norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
+
+        # curl_norm_b; 2form
+        curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
+        curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
+        curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
+
+        # operator bx() as matrix
+        b_prod[0, 1] = -bb[2]
+        b_prod[0, 2] = +bb[1]
+        b_prod[1, 0] = +bb[2]
+        b_prod[1, 2] = -bb[0]
+        b_prod[2, 0] = -bb[1]
+        b_prod[2, 1] = +bb[0]
+
+        norm_b2_prod[0, 1] = -norm_b2[2]
+        norm_b2_prod[0, 2] = +norm_b2[1]
+        norm_b2_prod[1, 0] = +norm_b2[2]
+        norm_b2_prod[1, 2] = -norm_b2[0]
+        norm_b2_prod[2, 0] = -norm_b2[1]
+        norm_b2_prod[2, 1] = +norm_b2[0]
+
+        # b_star; 2form in H1vec
+        b_star[:] = (bb + curl_norm_b*v/kappa)/det_df
+
+        # calculate abs_b_star_para
+        abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
+
+        linalg.matrix_matrix(g_inv, norm_b2_prod, tmp1)
+        linalg.matrix_matrix(tmp1, g_inv, tmp2)
+        linalg.matrix_matrix(tmp2, b_prod, tmp1)
+
+        linalg.matrix_vector(tmp1, u, e)
+
+        e /= abs_b_star_para
+
+        # markers[ip, :3] -= e/abs_b_star_para*dt
+
+        markers[ip, 13:16] -= dt*b[stage]*e
+        markers[ip, 0:3] = markers[ip, 9:12] + \
+            dt*a[stage]*e + last*markers[ip, 13:16]
+
+
+@stack_array('df', 'df_t', 'df_inv_t', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'bb', 'b_star', 'norm_b1', 'norm_b2', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b2_prod')
+def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
+                             pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                             starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                             kind_map: int, params_map: 'float[:]',
+                             p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                             ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                             cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                             kappa: float,
+                             b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+                             norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+                             norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+                             curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+                             u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]',
+                             a: 'float[:]', b: 'float[:]', c: 'float[:]'):
+    r'''Single stage of a s-stage explicit pushing step for the `CurrentCoupling5DGradBxB <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DGradBxB>`_
+
+    Marker update:
+
+    .. math::
+
+        \mathbf X^{n+1} = \mathbf X^n - \frac{\Delta t}{2} \hat B^{*,-1}_\parallel(\mathbf X_p, v^n_{\parallel,p}) \frac{1}{\sqrt{g(\mathbf X_p)}} G^{-1}(\mathbf X_p) \hat{\mathbf b}_0^2(\mathbf X_p) \times G^{-1}(\mathbf X_p) \hat{\mathbf B}^2(\mathbf X_p) \times \Lambda^2 (\mathbf u^{n+1} + \mathbf u^n ) (\mathbf X_p) \,,
+
+    for each marker :math:`p` in markers array.
+    '''
+
+    # allocate metric coeffs
+    df = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    df_inv_t = empty((3, 3), dtype=float)
+    g_inv = empty((3, 3), dtype=float)
+
+    # allocate spline values
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    # containers for fields
+    tmp1 = zeros((3, 3), dtype=float)
+    tmp2 = zeros((3, 3), dtype=float)
+    b_prod = zeros((3, 3), dtype=float)
+    norm_b2_prod = zeros((3, 3), dtype=float)
+    e = empty(3, dtype=float)
+    u = empty(3, dtype=float)
+    bb = empty(3, dtype=float)
+    b_star = empty(3, dtype=float)
+    norm_b1 = empty(3, dtype=float)
+    norm_b2 = empty(3, dtype=float)
+    curl_norm_b = empty(3, dtype=float)
+
+    # marker position eta
+    eta = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    # get number of stages
+    n_stages = shape(b)[0]
+
+    if stage == n_stages - 1:
+        last = 1.
+    else:
+        last = 0.
+
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        if markers[ip, 9] == -1.:
+            continue
+
+        eta[:] = markers[ip, 0:3]
+        v = markers[ip, 3]
+
+        # evaluate Jacobian, result in df
+        map_eval.df(eta[0], eta[1], eta[2],
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        # metric coeffs
+        det_df = linalg.det(df)
+        linalg.matrix_inv_with_det(df, det_df, df_inv)
+        linalg.transpose(df_inv, df_inv_t)
+        linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
+
+        # spline evaluation
+        span1 = bsp.find_span(tn1, pn[0], eta[0])
+        span2 = bsp.find_span(tn2, pn[1], eta[1])
+        span3 = bsp.find_span(tn3, pn[2], eta[2])
+
+        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+
+        # eval all the needed field
+        # b; 2form
+        bb[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
+        bb[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
+        bb[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
+
+        # u; 2form
+        u[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u1, starts2[0])
+        u[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u2, starts2[1])
+        u[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u3, starts2[2])
+
+        # norm_b1; 1form
+        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
+        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
+        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+
+        # norm_b; 2form
+        norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
+        norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
+        norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
+
+        # curl_norm_b; 2form
+        curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
+        curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
+        curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
+
+        # operator bx() as matrix
+        b_prod[0, 1] = -bb[2]
+        b_prod[0, 2] = +bb[1]
+        b_prod[1, 0] = +bb[2]
+        b_prod[1, 2] = -bb[0]
+        b_prod[2, 0] = -bb[1]
+        b_prod[2, 1] = +bb[0]
+
+        norm_b2_prod[0, 1] = -norm_b2[2]
+        norm_b2_prod[0, 2] = +norm_b2[1]
+        norm_b2_prod[1, 0] = +norm_b2[2]
+        norm_b2_prod[1, 2] = -norm_b2[0]
+        norm_b2_prod[2, 0] = -norm_b2[1]
+        norm_b2_prod[2, 1] = +norm_b2[0]
+
+        # b_star; 2form in H1vec
+        b_star[:] = (bb + curl_norm_b*v/kappa)/det_df
+
+        # calculate abs_b_star_para
+        abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
+
+        linalg.matrix_matrix(g_inv, norm_b2_prod, tmp1)
+        linalg.matrix_matrix(tmp1, g_inv, tmp2)
+        linalg.matrix_matrix(tmp2, b_prod, tmp1)
+
+        linalg.matrix_vector(tmp1, u, e)
+
+        e /= abs_b_star_para
+        e /= det_df
+
+        # markers[ip, :3] -= e/abs_b_star_para*dt
+
+        markers[ip, 13:16] -= dt*b[stage]*e
+        markers[ip, 0:3] = markers[ip, 9:12] + \
+            dt*a[stage]*e + last*markers[ip, 13:16]
+
+
 def push_gc_cc_J2_dg_prepare_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1839,8 +2375,7 @@ def push_gc_cc_J2_dg_prepare_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                                    norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
                                    curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
                                    u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]'):
-    r'''
-    TODO
+    r'''DRAFT
     '''
 
     # allocate metric coeffs
@@ -1993,8 +2528,7 @@ def push_gc_cc_J2_dg_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                            norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
                            curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
                            u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]'):
-    r'''
-    TODO
+    r'''DRAFT
     '''
 
     # allocate metric coeffs
@@ -2147,8 +2681,7 @@ def push_gc_cc_J2_dg_faster_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                                   norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
                                   curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
                                   u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]'):
-    r'''
-    TODO
+    r'''DRAFT
     '''
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -2218,8 +2751,7 @@ def push_gc_cc_J2_dg_faster_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                                   norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
                                   curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
                                   u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]'):
-    r'''
-    TODO
+    r'''DRAFT
     '''
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -2289,8 +2821,7 @@ def push_gc_cc_J2_dg_faster_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                                  norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
                                  curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
                                  u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]'):
-    r'''
-    TODO
+    r'''DRAFT
     '''
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -2345,347 +2876,3 @@ def push_gc_cc_J2_dg_faster_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
         linalg.matrix_vector(tmp, u, e)
 
         markers[ip, 0:3] = markers[ip, 9:12] - e*dt
-
-
-def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
-                              pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                              starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                              kind_map: int, params_map: 'float[:]',
-                              p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                              ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                              cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                              kappa: float,
-                              b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                              norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                              norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                              curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                              u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]',
-                              a: 'float[:]', b: 'float[:]', c: 'float[:]'):
-    r'''
-    TODO
-    '''
-
-    # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
-    df_inv = empty((3, 3), dtype=float)
-    df_inv_t = empty((3, 3), dtype=float)
-    g_inv = empty((3, 3), dtype=float)
-
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # containers for fields
-    tmp1 = empty((3, 3), dtype=float)
-    tmp2 = empty((3, 3), dtype=float)
-    b_prod = zeros((3, 3), dtype=float)
-    norm_b2_prod = empty((3, 3), dtype=float)
-    e = empty(3, dtype=float)
-    u = empty(3, dtype=float)
-    bb = empty(3, dtype=float)
-    b_star = empty(3, dtype=float)
-    norm_b1 = empty(3, dtype=float)
-    norm_b2 = empty(3, dtype=float)
-    curl_norm_b = empty(3, dtype=float)
-
-    # marker position eta
-    eta = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    # get number of stages
-    n_stages = shape(b)[0]
-
-    if stage == n_stages - 1:
-        last = 1.
-    else:
-        last = 0.
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        if markers[ip, 21] == -1.:
-            continue
-
-        eta[:] = markers[ip, 0:3]
-        v = markers[ip, 3]
-
-        # evaluate Jacobian, result in df
-        map_eval.df(eta[0], eta[1], eta[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    df)
-
-        # metric coeffs
-        det_df = linalg.det(df)
-        linalg.matrix_inv_with_det(df, det_df, df_inv)
-        linalg.transpose(df_inv, df_inv_t)
-        linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
-
-        # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta[0])
-        span2 = bsp.find_span(tn2, pn[1], eta[1])
-        span3 = bsp.find_span(tn3, pn[2], eta[2])
-
-        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # b; 2form
-        bb[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
-        bb[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
-        bb[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
-
-        # u; 0form
-        u[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u1, starts0)
-        u[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u2, starts0)
-        u[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u3, starts0)
-
-        # norm_b1; 1form
-        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
-
-        # norm_b; 2form
-        norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
-        norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
-        norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
-
-        # curl_norm_b; 2form
-        curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-        curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-        curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
-
-        # operator bx() as matrix
-        b_prod[0, 1] = -bb[2]
-        b_prod[0, 2] = +bb[1]
-        b_prod[1, 0] = +bb[2]
-        b_prod[1, 2] = -bb[0]
-        b_prod[2, 0] = -bb[1]
-        b_prod[2, 1] = +bb[0]
-
-        norm_b2_prod[0, 1] = -norm_b2[2]
-        norm_b2_prod[0, 2] = +norm_b2[1]
-        norm_b2_prod[1, 0] = +norm_b2[2]
-        norm_b2_prod[1, 2] = -norm_b2[0]
-        norm_b2_prod[2, 0] = -norm_b2[1]
-        norm_b2_prod[2, 1] = +norm_b2[0]
-
-        # b_star; 2form in H1vec
-        b_star[:] = (bb + curl_norm_b*v/kappa)/det_df
-
-        # calculate abs_b_star_para
-        abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
-
-        linalg.matrix_matrix(g_inv, norm_b2_prod, tmp1)
-        linalg.matrix_matrix(tmp1, g_inv, tmp2)
-        linalg.matrix_matrix(tmp2, b_prod, tmp1)
-
-        linalg.matrix_vector(tmp1, u, e)
-
-        e /= abs_b_star_para
-
-        # markers[ip, :3] -= e/abs_b_star_para*dt
-
-        markers[ip, 13:16] -= dt*b[stage]*e
-        markers[ip, 0:3] = markers[ip, 9:12] + \
-            dt*a[stage]*e + last*markers[ip, 13:16]
-
-
-def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
-                             pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                             starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                             kind_map: int, params_map: 'float[:]',
-                             p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                             ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                             cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                             kappa: float,
-                             b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                             norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                             norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                             curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                             u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]',
-                             a: 'float[:]', b: 'float[:]', c: 'float[:]'):
-    r'''
-    TODO
-    '''
-
-    # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
-    df_inv = empty((3, 3), dtype=float)
-    df_inv_t = empty((3, 3), dtype=float)
-    g_inv = empty((3, 3), dtype=float)
-
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # containers for fields
-    tmp1 = empty((3, 3), dtype=float)
-    tmp2 = empty((3, 3), dtype=float)
-    b_prod = zeros((3, 3), dtype=float)
-    norm_b2_prod = empty((3, 3), dtype=float)
-    e = empty(3, dtype=float)
-    u = empty(3, dtype=float)
-    bb = empty(3, dtype=float)
-    b_star = empty(3, dtype=float)
-    norm_b1 = empty(3, dtype=float)
-    norm_b2 = empty(3, dtype=float)
-    curl_norm_b = empty(3, dtype=float)
-
-    # marker position eta
-    eta = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    # get number of stages
-    n_stages = shape(b)[0]
-
-    if stage == n_stages - 1:
-        last = 1.
-    else:
-        last = 0.
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        if markers[ip, 21] == -1.:
-            continue
-
-        eta[:] = markers[ip, 0:3]
-        v = markers[ip, 3]
-
-        # evaluate Jacobian, result in df
-        map_eval.df(eta[0], eta[1], eta[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    df)
-
-        # metric coeffs
-        det_df = linalg.det(df)
-        linalg.matrix_inv_with_det(df, det_df, df_inv)
-        linalg.transpose(df_inv, df_inv_t)
-        linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
-
-        # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta[0])
-        span2 = bsp.find_span(tn2, pn[1], eta[1])
-        span3 = bsp.find_span(tn3, pn[2], eta[2])
-
-        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # b; 2form
-        bb[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
-        bb[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
-        bb[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
-
-        # u; 2form
-        u[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u1, starts2[0])
-        u[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u2, starts2[1])
-        u[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u3, starts2[2])
-
-        # norm_b1; 1form
-        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
-
-        # norm_b; 2form
-        norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
-        norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
-        norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
-
-        # curl_norm_b; 2form
-        curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-        curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-        curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
-
-        # operator bx() as matrix
-        b_prod[0, 1] = -bb[2]
-        b_prod[0, 2] = +bb[1]
-        b_prod[1, 0] = +bb[2]
-        b_prod[1, 2] = -bb[0]
-        b_prod[2, 0] = -bb[1]
-        b_prod[2, 1] = +bb[0]
-
-        norm_b2_prod[0, 1] = -norm_b2[2]
-        norm_b2_prod[0, 2] = +norm_b2[1]
-        norm_b2_prod[1, 0] = +norm_b2[2]
-        norm_b2_prod[1, 2] = -norm_b2[0]
-        norm_b2_prod[2, 0] = -norm_b2[1]
-        norm_b2_prod[2, 1] = +norm_b2[0]
-
-        # b_star; 2form in H1vec
-        b_star[:] = (bb + curl_norm_b*v/kappa)/det_df
-
-        # calculate abs_b_star_para
-        abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
-
-        linalg.matrix_matrix(g_inv, norm_b2_prod, tmp1)
-        linalg.matrix_matrix(tmp1, g_inv, tmp2)
-        linalg.matrix_matrix(tmp2, b_prod, tmp1)
-
-        linalg.matrix_vector(tmp1, u, e)
-
-        e /= abs_b_star_para/det_df
-
-        # markers[ip, :3] -= e/abs_b_star_para*dt
-
-        markers[ip, 13:16] -= dt*b[stage]*e
-        markers[ip, 0:3] = markers[ip, 9:12] + \
-            dt*a[stage]*e + last*markers[ip, 13:16]

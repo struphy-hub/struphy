@@ -203,19 +203,19 @@ class DriftKinetic(StruphyModel):
 
     .. math::
 
-        \frac{\partial f}{\partial t} + \left[ v_\parallel \frac{\mathbf{B}^*}{B^*_\parallel} + \frac{\mathbf{E}^* \times \mathbf{b}_0}{B^*_\parallel}\right] \cdot \frac{\partial f}{\partial \mathbf{X}} + \left[ \frac{\mathbf{B}^*}{B^*_\parallel} \cdot \mathbf{E}^*\right] \cdot \frac{\partial f}{\partial v_\parallel} = 0\,.
+        \frac{\partial f}{\partial t} + \left[ v_\parallel \frac{\mathbf{B}^*}{B^*_\parallel} + \frac{\mathbf{E}^* \times \mathbf{b}_0}{B^*_\parallel}\right] \cdot \frac{\partial f}{\partial \mathbf{X}} + \left[\frac{1}{\epsilon} \frac{\mathbf{B}^*}{B^*_\parallel} \cdot \mathbf{E}^*\right] \cdot \frac{\partial f}{\partial v_\parallel} = 0\,.
 
     where :math:`f(\mathbf{X}, v_\parallel, \mu, t)` is the guiding center distribution and 
 
     .. math::
 
-        \mathbf{E}^* = - \frac{\mu}{\kappa} \nabla |B_0| \,,  \qquad \mathbf{B}^* = \mathbf{B}_0 + \frac{1}{\kappa} v_\parallel \nabla \times \mathbf{b}_0 \,,\qquad B^*_\parallel = \mathbf B^* \cdot \mathbf b_0  \,.
+        \mathbf{E}^* = - -\epsilon \mu \nabla |B_0| \,,  \qquad \mathbf{B}^* = \mathbf{B}_0 + \epsilon v_\parallel \nabla \times \mathbf{b}_0 \,,\qquad B^*_\parallel = \mathbf B^* \cdot \mathbf b_0  \,.
 
     Moreover, 
 
     .. math::
 
-        \kappa = 2 \pi \frac{\hat \Omega_{\textnormal{c}}}{\hat \omega}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{c}} = \frac{Ze \hat B}{A m_\textnormal{H}}\,.
+        \epsilon = \frac{\hat \omega }{2\pi \hat \Omega_{\textnormal{c}}}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{c}} = \frac{Ze \hat B}{A m_\textnormal{H}}\,.
 
     Parameters
     ----------
@@ -244,11 +244,11 @@ class DriftKinetic(StruphyModel):
     @classmethod
     def options(cls):
         # import propagator options
-        from struphy.propagators.propagators_markers import PushGuidingCenterBxEstar, PushGuidingCenterBstar
+        from struphy.propagators.propagators_markers import PushGuidingCenterbxEstar, PushGuidingCenterBstar
 
         dct = {}
         cls.add_option(species=['kinetic', 'ions'], key='push_bxEstar',
-                       option=PushGuidingCenterBxEstar.options()['algo'], dct=dct)
+                       option=PushGuidingCenterbxEstar.options()['algo'], dct=dct)
         cls.add_option(species=['kinetic', 'ions'], key='push_Bstar',
                        option=PushGuidingCenterBstar.options()['algo'], dct=dct)
 
@@ -281,14 +281,10 @@ class DriftKinetic(StruphyModel):
         self._E0T = self.derham.E['0'].transpose()
         self._EvT = self.derham.E['v'].transpose()
 
-        kappa = 1. / self.equation_params['ions']['epsilon_unit']
-        if abs(kappa - 1) < 1e-6:
-            kappa = 1.
-
         # Initialize propagators/integrators used in splitting substeps
-        self.add_propagator(self.prop_markers.PushGuidingCenterBxEstar(
+        self.add_propagator(self.prop_markers.PushGuidingCenterbxEstar(
             self.pointer['ions'],
-            kappa=kappa,
+            epsilon=self.equation_params['ions']['epsilon_unit'],
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
@@ -296,7 +292,7 @@ class DriftKinetic(StruphyModel):
             **ions_params['options']['push_bxEstar']))
         self.add_propagator(self.prop_markers.PushGuidingCenterBstar(
             self.pointer['ions'],
-            kappa=kappa,
+            epsilon=self.equation_params['ions']['epsilon_unit'],
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
@@ -311,28 +307,27 @@ class DriftKinetic(StruphyModel):
         # MPI operations needed for scalar variables
         self._mpi_sum = SUM
         self._mpi_in_place = IN_PLACE
-        self._en_fv_loc = np.empty(1, dtype=float)
-        self._en_fB_loc = np.empty(1, dtype=float)
+        self._en_fv = np.empty(1, dtype=float)
+        self._en_fB = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
         # particles' kinetic energy
-        self._en_fv_loc[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
+        self._en_fv[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
             self.pointer['ions'].markers[~self.pointer['ions'].holes, 3]**2) / (2.*self.pointer['ions'].n_mks)
         self.derham.comm.Allreduce(
-            self._mpi_in_place, self._en_fv_loc, op=self._mpi_sum)
+            self._mpi_in_place, self._en_fv, op=self._mpi_sum)
 
         # particles' magnetic energy
-        self.pointer['ions'].save_magnetic_energy(self._derham,
-                                                  self._E0T.dot(self.derham.P['0'](self.mhd_equil.absB0)))
+        self.pointer['ions'].save_magnetic_energy(self._derham, self._abs_b)
 
-        self._en_fB_loc[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
+        self._en_fB[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
             self.pointer['ions'].markers[~self.pointer['ions'].holes, 8]) / self.pointer['ions'].n_mks
         self.derham.comm.Allreduce(
-            self._mpi_in_place, self._en_fB_loc, op=self._mpi_sum)
+            self._mpi_in_place, self._en_fB, op=self._mpi_sum)
 
-        self.update_scalar('en_fv', self._en_fv_loc[0])
-        self.update_scalar('en_fB', self._en_fB_loc[0])
-        self.update_scalar('en_tot', self._en_fv_loc[0] + self._en_fB_loc[0])
+        self.update_scalar('en_fv', self._en_fv[0])
+        self.update_scalar('en_fB', self._en_fB[0])
+        self.update_scalar('en_tot', self._en_fv[0] + self._en_fB[0])
 
 
 class ShearAlfven(StruphyModel):

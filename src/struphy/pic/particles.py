@@ -347,6 +347,10 @@ class Particles5D(Particles):
         """
         T1, T2, T3 = derham.Vh_fem['0'].knots
 
+        E0T = derham.E['0'].transpose()
+
+        PB = E0T.dot(PB)
+
         eval_magnetic_energy(self._markers,
                              np.array(derham.p), T1, T2, T3,
                              np.array(derham.Vh['0'].starts),

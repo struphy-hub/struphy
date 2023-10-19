@@ -776,8 +776,11 @@ class Particles(metaclass=ABCMeta):
         Parameters
         ----------
         """
+        # transfer point
+        tp = 0.
+
         # sorting out particles which are inside of the inner hole
-        smaller_than_rmin = self.markers[:, 0] < 0.
+        smaller_than_rmin = self.markers[:, 0] < tp
 
         # exclude holes
         smaller_than_rmin[self.holes] = False
@@ -785,7 +788,7 @@ class Particles(metaclass=ABCMeta):
         # indices or particles that are inside of the inner hole
         transfer_inds = np.nonzero(smaller_than_rmin)[0]
 
-        self._markers[transfer_inds, 0] = 0.
+        self._markers[transfer_inds, 0] = tp + 1e-8
         self._markers[transfer_inds, 1] = 1. - self.markers[transfer_inds, 1]
         self._markers[transfer_inds, 9] = -1.
         self._markers[transfer_inds, 10] = 0
