@@ -36,6 +36,7 @@ class MassMatrixPreconditioner(LinearSolver):
         assert isinstance(mass_operator, WeightedMassOperator)
         assert mass_operator.domain == mass_operator.codomain, 'Only square mass matrices can be inverted!'
 
+        self._dtype = mass_operator.dtype
         self._femspace = mass_operator.domain_femspace
         self._space = mass_operator.domain
 
