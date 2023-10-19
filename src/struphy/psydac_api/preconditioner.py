@@ -1,7 +1,7 @@
 from psydac.linalg.basic import Vector, LinearSolver
 from psydac.linalg.direct_solvers import DirectSolver, SparseSolver
 from psydac.linalg.stencil import StencilMatrix, StencilVector, StencilVectorSpace
-from psydac.linalg.block import BlockLinearOperator, BlockDiagonalSolver
+from psydac.linalg.block import BlockLinearOperator, BlockDiagonalSolver, BlockVector
 from psydac.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 
 from psydac.fem.tensor import TensorFemSpace
@@ -72,7 +72,7 @@ class MassMatrixPreconditioner(LinearSolver):
 
                 # weight function only along in first direction
                 if d == 0:
-                    #pts = [0.5] * (n_dims - 1)
+                    # pts = [0.5] * (n_dims - 1)
                     fun = [[lambda e1: mass_operator.weights[c][c](
                         e1, np.array([.5]), np.array([.5])).squeeze()]]
                 else:
@@ -249,6 +249,70 @@ class MassMatrixPreconditioner(LinearSolver):
             assert isinstance(out, Vector)
             assert out.space == self._space
             A.dot(x, out=out)
+
+        return out
+
+    def toarray(self):
+        # This function returns the preconditioner matrix as a two dimensional numpy array
+
+        # v will be the unit vector with which we compute Av = ith column of A.
+        v = self.space.zeros()
+
+        # For the time being only works in 1 processor
+        if isinstance(v, BlockVector):
+            comm = self.space.spaces[0].cart.comm
+        elif isinstance(v, StencilVector):
+            comm = self.space.cart.comm
+        assert comm.size == 1
+
+        # We declare the matrix form of our preconditioner
+        out = np.zeros(
+            [self.space.dimension, self.space.dimension], dtype=self._dtype)
+        # This auxiliary counter allows us to know which column of A we are computing in the following for loops.
+        cont = 0
+
+        # We define a temporal vector
+        tmp2 = self.space.zeros()
+
+        # V is either a BlockVector or a StencilVector depending on the domain of the linear operator.
+        if isinstance(v, BlockVector):
+            # we collect all starts and ends in two big lists
+            starts = [vi.starts for vi in v]
+            ends = [vi.ends for vi in v]
+
+            # We iterate over each entry of the block vector v, setting one entry to one at the time while all others remain zero.
+            for vv, ss, ee in zip(v, starts, ends):
+                for i in range(ss[0], ee[0]+1):
+                    for j in range(ss[1], ee[1]+1):
+                        for k in range(ss[2], ee[2]+1):
+                            vv[i, j, k] = 1.0
+                            # solve is tantamount to computing the dot product with the preconditioner
+                            self.solve(v, out=tmp2)
+                            # We set the column number cont of our matrix to the dot product of the preconditioner with the unit vector
+                            # number cont
+                            out[:, cont] = tmp2.copy().toarray()
+                            vv[i, j, k] = 0.0
+                            cont += 1
+        elif isinstance(v, StencilVector):
+            # We get the start and endpoint for each sublist in v
+            starts = v.starts
+            ends = v.ends
+            # We iterate over each entry of the stencil vector v, setting one entry to one at the time while all others remain zero.
+            for i in range(starts[0], ends[0]+1):
+                for j in range(starts[1], ends[1]+1):
+                    for k in range(starts[2], ends[2]+1):
+                        v[i, j, k] = 1.0
+                        # solve is tantamount to computing the dot product with the preconditioner
+                        self.solve(v, out=tmp2)
+                        # We set the column number cont of our matrix to the dot product of the preconditioner with the unit vector
+                        # number cont
+                        out[:, cont] = tmp2.copy().toarray()
+                        v[i, j, k] = 0.0
+                        cont += 1
+        else:
+            # I cannot conceive any situation where this error should be thrown, but I put it here just in case something unexpected happens.
+            raise Exception(
+                'Function toarray_struphy() only supports Stencil Vectors or Block Vectors.')
 
         return out
 
