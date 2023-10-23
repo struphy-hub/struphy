@@ -26,3 +26,5 @@ All data generated in this way is stored in the Struphy installation path (obtai
    ../tutorials/tutorial_04_power_spectrum
    ../tutorials/tutorial_05_orbits_tokamak
    ../tutorials/tutorial_06_mapped_domains
+   ../tutorials/tutorial_07_mhd_equilibria
+   ../tutorials/tutorial_08_data_structures

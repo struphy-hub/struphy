@@ -240,6 +240,12 @@ def setup_derham(params_grid, comm, domain=None, mpi_dims_mask=None):
 
     if comm.Get_rank() == 0:
         print('\nDERHAM:')
+        print(f'number of elements:'.ljust(25), Nel)
+        print(f'spline degrees:'.ljust(25), p)
+        print(f'periodic bcs:'.ljust(25), spl_kind)
+        print(f'hom. Dirichlet bc:'.ljust(25), bc)
+        print(f'GL quad pts (L2):'.ljust(25), nq_el)
+        print(f'GL quad pts (hist):'.ljust(25), nq_pr)
         print('MPI proc. per dir.:'.ljust(25),
               derham.domain_decomposition.nprocs)
         print('use polar splines:'.ljust(25), derham.polar_ck == 1)
@@ -374,15 +380,6 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
         print('output folder:'.ljust(25), path_out)
         print('restart:'.ljust(25), restart)
         print('max wall-clock [min]:'.ljust(25), max_sim_time)
-
-        # print grid info
-        print('\nGRID:')
-        print(f'number of elements:'.ljust(25), params['grid']['Nel'])
-        print(f'spline degrees:'.ljust(25), params['grid']['p'])
-        print(f'periodic bcs:'.ljust(25), params['grid']['spl_kind'])
-        print(f'hom. Dirichlet bc:'.ljust(25), params['grid']['bc'])
-        print(f'GL quad pts (L2):'.ljust(25), params['grid']['nq_el'])
-        print(f'GL quad pts (hist):'.ljust(25), params['grid']['nq_pr'])
 
         # print time info
         print('\nTIME:')

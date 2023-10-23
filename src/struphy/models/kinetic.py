@@ -134,23 +134,20 @@ class VlasovMaxwell(StruphyModel):
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['electrons'],
             algo=algo_eta,
-            bc_type=electron_params['markers']['bc']['type'],
-            f0=f0))
+            bc_type=electron_params['markers']['bc']['type']))
 
         self.add_propagator(self.prop_markers.PushVxB(
             self.pointer['electrons'],
             algo=algo_vxb,
             scale_fac=1/self._epsilon,
             b_eq=self._b_background,
-            b_tilde=self.pointer['b2'],
-            f0=f0))
+            b_tilde=self.pointer['b2']))
 
         self.add_propagator(self.prop_coupling.VlasovMaxwell(
             self.pointer['e1'],
             self.pointer['electrons'],
             c1=self._alpha**2/self._epsilon,
             c2=1/self._epsilon,
-            f0=f0,
             **params_coupling))
 
         # Scalar variables to be saved during the simulation
@@ -374,8 +371,7 @@ class LinearVlasovMaxwell(StruphyModel):
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['electrons'],
             algo=algo_eta,
-            bc_type=self._electron_params['markers']['bc']['type'],
-            f0=None))  # no conventional weights update here, thus f0=None
+            bc_type=self._electron_params['markers']['bc']['type']))  
         if self._rank == 0:
             print("Added Step PushEta\n")
 
@@ -399,8 +395,7 @@ class LinearVlasovMaxwell(StruphyModel):
                 algo=algo_vxb,
                 scale_fac=1.,
                 b_eq=self._b_background,
-                b_tilde=None,
-                f0=None))  # no conventional weights update here, thus f0=None
+                b_tilde=None))  
             if self._rank == 0:
                 print("Added Step VxB\n")
 
@@ -731,8 +726,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['electrons'],
             algo=algo_eta,
-            bc_type=self._electron_params['markers']['bc']['type'],
-            f0=None))  # no conventional weights update here, thus f0=None
+            bc_type=self._electron_params['markers']['bc']['type']))  
         if self._rank == 0:
             print("Added Step PushEta\n")
 
@@ -748,8 +742,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
             algo=algo_vxb,
             scale_fac=1.,
             b_eq=self._b_background + self.pointer['b_field'],
-            b_tilde=None,
-            f0=None))  # no conventional weights update here, thus f0=None
+            b_tilde=None))  
         if self._rank == 0:
             print("\nAdded Step VxB\n")
 
@@ -817,9 +810,6 @@ class DeltaFVlasovMaxwell(StruphyModel):
 
         f0_values = self._f0(
             *self.pointer['electrons'].markers_wo_holes[:, :6].T)
-
-        # Initialize fields and particles
-        super().initialize_from_params()
 
         # evaluate f0
         f0_values = self._f0(self.pointer['electrons'].markers[:, 0],

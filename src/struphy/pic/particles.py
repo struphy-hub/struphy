@@ -324,34 +324,34 @@ class Particles5D(Particles):
 
         return self.domain.transform(self.s3(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
 
-    def save_magnetic_moment(self, derham):
+    def save_magnetic_moment(self):
         r"""
         Calculate magnetic moment of each particles :math:`\mu = \frac{m v_\perp^2}{2B}` and asign it into markers[:,4].
         """
-        T1, T2, T3 = derham.Vh_fem['0'].knots
+        T1, T2, T3 = self.derham.Vh_fem['0'].knots
 
-        absB = derham.P['0'](self._mhd_equil.absB0)
+        absB = self.derham.P['0'](self._mhd_equil.absB0)
 
-        E0T = derham.E['0'].transpose()
+        E0T = self.derham.E['0'].transpose()
 
         absB = E0T.dot(absB)
 
-        eval_magnetic_moment_5d(self._markers,
-                                np.array(derham.p), T1, T2, T3,
-                                np.array(derham.Vh['0'].starts),
+        eval_magnetic_moment_5d(self.markers,
+                                np.array(self.derham.p), T1, T2, T3,
+                                np.array(self.derham.Vh['0'].starts),
                                 absB._data)
 
-    def save_magnetic_energy(self, derham, PB):
+    def save_magnetic_energy(self, PB):
         r"""
         Calculate magnetic field energy at each particles' position and asign it into markers[:,8].
         """
-        T1, T2, T3 = derham.Vh_fem['0'].knots
+        T1, T2, T3 = self.derham.Vh_fem['0'].knots
 
-        E0T = derham.E['0'].transpose()
+        E0T = self.derham.E['0'].transpose()
 
         PB = E0T.dot(PB)
 
-        eval_magnetic_energy(self._markers,
-                             np.array(derham.p), T1, T2, T3,
-                             np.array(derham.Vh['0'].starts),
+        eval_magnetic_energy(self.markers,
+                             np.array(self.derham.p), T1, T2, T3,
+                             np.array(self.derham.Vh['0'].starts),
                              PB._data)

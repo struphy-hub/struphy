@@ -1,6 +1,6 @@
 import pytest
 import inspect
-from struphy.tests.test_codes.util import func
+from struphy.tests.test_codes.util import call_model
 
 
 @pytest.mark.mpi(min_size=2)
@@ -27,7 +27,7 @@ def test_toy(fast, map_and_equil, model=None):
                             f'Fast is enabled, mapping {map_and_equil[0]} skipped ...')
                         continue
 
-                func(key, val, map_and_equil)
+                call_model(key, val, map_and_equil)
     else:
         val = getattr(toy, model)
-        func(model, val, map_and_equil)
+        call_model(model, val, map_and_equil)

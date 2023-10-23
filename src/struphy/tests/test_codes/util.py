@@ -7,7 +7,7 @@ from struphy.io.setup import descend_options_dict
 libpath = struphy.__path__[0]
 
 
-def func(key, val, map_and_equil):
+def call_model(key, val, map_and_equil):
     '''Does the options testing of one model.
 
     Parameters
