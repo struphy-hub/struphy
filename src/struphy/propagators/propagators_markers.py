@@ -44,15 +44,11 @@ class PushEta(Propagator):
         # parameters
         params_default = {'algo': 'rk4',
                           'bc_type': ['reflect', 'periodic', 'periodic'],
-                          'f0': Maxwellian6DUniform()}
+                          }
 
         params = set_defaults(params, params_default)
 
-        if params['f0'] is not None:
-            assert callable(params['f0'])
-
         self._bc_type = params['bc_type']
-        self._f0 = params['f0']
 
         # choose algorithm
         if params['algo'] == 'forward_euler':
@@ -93,8 +89,8 @@ class PushEta(Propagator):
                      mpi_sort='last')
 
         # update_weights
-        if self._f0 is not None:
-            self.particles[0].update_weights(self._f0)
+        if self.particles[0].control_variate:
+            self.particles[0].update_weights()
 
     @classmethod
     def options(cls):
@@ -132,8 +128,7 @@ class PushVxB(Propagator):
         params_default = {'algo': 'analytic',
                           'scale_fac': 1.,
                           'b_eq': None,
-                          'b_tilde': None,
-                          'f0': Maxwellian6DUniform()}
+                          'b_tilde': None,}
 
         params = set_defaults(params, params_default)
 
@@ -142,13 +137,9 @@ class PushVxB(Propagator):
         if params['b_tilde'] is not None:
             assert isinstance(params['b_tilde'], (BlockVector, PolarVector))
 
-        if params['f0'] is not None:
-            assert callable(params['f0'])
-
         self._scale_fac = params['scale_fac']
         self._b_eq = params['b_eq']
         self._b_tilde = params['b_tilde']
-        self._f0 = params['f0']
 
         # load pusher
         kernel_name = 'push_vxb_' + params['algo']
@@ -180,8 +171,8 @@ class PushVxB(Propagator):
                      b_full[2]._data)
 
         # update_weights
-        if self._f0 is not None:
-            self.particles[0].update_weights(self._f0)
+        if self.particles[0].control_variate:
+            self.particles[0].update_weights()
 
     @classmethod
     def options(cls):

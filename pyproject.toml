@@ -31,7 +31,6 @@ dependencies = [
     'mistune',
     'sphinx==4.2.0',
     'sphinxcontrib-napoleon',
-    'sphinx-rtd-theme',
     'pydata-sphinx-theme',
     'nbsphinx',
     'notebook',
@@ -42,6 +41,7 @@ dependencies = [
     'tqdm',
     'gvec-to-python>=1.1.0',
     'argcomplete',
+    'ipyparallel',
 ]
 
 [project.urls]

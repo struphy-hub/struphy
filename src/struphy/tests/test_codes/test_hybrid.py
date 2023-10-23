@@ -1,6 +1,6 @@
 import pytest
 import inspect
-from struphy.tests.test_codes.util import func
+from struphy.tests.test_codes.util import call_model
 
 
 @pytest.mark.mpi(min_size=2)
@@ -32,7 +32,7 @@ def test_hybrid(fast, map_and_equil, model=None):
                             f'Fast is enabled, mapping {map_and_equil[0]} skipped ...')
                         continue
 
-                func(key, val, map_and_equil)
+                call_model(key, val, map_and_equil)
     else:
         val = getattr(hybrid, model)
 
@@ -42,4 +42,10 @@ def test_hybrid(fast, map_and_equil, model=None):
                 f'Model {model} is currently excluded from tests with mhd_equil other than HomogenSlab.')
             exit()
 
-        func(model, val, map_and_equil)
+        call_model(model, val, map_and_equil)
+        
+if __name__ == '__main__':
+    
+    test_hybrid(True, ('Cuboid', 'HomogenSlab'), model=None)
+    test_hybrid(True, ('HollowTorus', 'AdhocTorus'), model=None)
+    test_hybrid(True, ('Tokamak', 'EQDSKequilibrium'), model=None)

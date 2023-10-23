@@ -85,15 +85,13 @@ class VlasovMaxwell(Propagator):
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
-                          'verbose': False,
-                          'f0': Maxwellian6DUniform()}
+                          'verbose': False,}
 
         params = set_defaults(params, params_default)
 
         self._c1 = params['c1']
         self._c2 = params['c2']
         self._info = params['info']
-        self._f0 = params['f0']
 
         # Initialize Accumulator object
         self._accum = Accumulator(self.derham, self.domain, 'Hcurl', 'vlasov_maxwell',
@@ -169,8 +167,8 @@ class VlasovMaxwell(Propagator):
                                                            self.particles[0].markers[~self.particles[0].holes, 5]**2)
 
         # update_weights
-        if self._f0 is not None:
-            self.particles[0].update_weights(self._f0)
+        if self.particles[0].control_variate:
+            self.particles[0].update_weights()
 
         # write new coeffs into self.variables
         max_de, = self.feec_vars_update(self._e_temp)
@@ -1009,7 +1007,6 @@ class CurrentCoupling6DCurrent(Propagator):
         params_default = {'u_space': 'Hdiv',
                           'b_eq': None,
                           'b_tilde': None,
-                          'f0': Maxwellian6DUniform(),
                           'type': ('PConjugateGradient', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
@@ -1036,16 +1033,15 @@ class CurrentCoupling6DCurrent(Propagator):
 
         self._b_eq = params['b_eq']
         self._b_tilde = params['b_tilde']
-        self._f0 = params['f0']
 
-        if self._f0 is not None:
-            assert isinstance(self._f0, Maxwellian)
+        if self.particles[0].control_variate:
+            assert isinstance(self.f_backgr, Maxwellian)
 
             # evaluate and save nh0 (0-form) * uh0 (2-form if H1vec or vector if Hdiv) at quadrature points for control variate
             quad_pts = [quad_grid[nquad].points.flatten()
                         for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
 
-            uh0_cart = self._f0.u
+            uh0_cart = self.f_backgr.u
 
             if params['u_space'] == 'H1vec':
                 self._nuh0_at_quad = self.domain.pull(
@@ -1055,11 +1051,11 @@ class CurrentCoupling6DCurrent(Propagator):
                     uh0_cart, *quad_pts, kind='vector', squeeze_out=False, coordinates='logical')
 
             self._nuh0_at_quad[0] *= self.domain.pull(
-                [self._f0.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
+                [self.f_backgr.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
             self._nuh0_at_quad[1] *= self.domain.pull(
-                [self._f0.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
+                [self.f_backgr.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
             self._nuh0_at_quad[2] *= self.domain.pull(
-                [self._f0.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
+                [self.f_backgr.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
 
             # memory allocation for magnetic field at quadrature points
             self._b_quad1 = np.zeros_like(self._nuh0_at_quad[0])
@@ -1137,7 +1133,7 @@ class CurrentCoupling6DCurrent(Propagator):
         self._b_full2.update_ghost_regions()
 
         # perform accumulation (either with or without control variate)
-        if self._f0 is not None:
+        if self.particles[0].control_variate:
 
             # evaluate magnetic field at quadrature points (in-place)
             WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
@@ -1184,8 +1180,8 @@ class CurrentCoupling6DCurrent(Propagator):
         max_du = self.feec_vars_update(self._u_new)
 
         # update weights in case of control variate
-        if self._f0 is not None:
-            self.particles[0].update_weights(self._f0)
+        if self.particles[0].control_variate:
+            self.particles[0].update_weights()
 
         if self._info and self._rank == 0:
             print('Status     for CurrentCoupling6DCurrent:', info['success'])
@@ -1896,7 +1892,7 @@ class CurrentCoupling5DGradBxB_dg(Propagator):
         # discrete gradient solver(mid point)#
         #####################################
         # eval initial particle energy
-        self.particles[0].save_magnetic_energy(self.derham, self._PBb)
+        self.particles[0].save_magnetic_energy(self._PBb)
         self._en_fB_old = self.particles[0].markers[~self.particles[0].holes, 5].dot(
             self.particles[0].markers[~self.particles[0].holes, 8])/self.particles[0].n_mks
 
@@ -1963,7 +1959,7 @@ class CurrentCoupling5DGradBxB_dg(Propagator):
             # eval particle magnetic energy
             self._en_fB_loc = utilities.accum_en_fB(self.particles[0].markers, self.particles[0].n_mks, *self._pusher.args_fem,
                                                     self._PBb._data)[0]
-            # self.particles[0].save_magnetic_energy(self.derham, self._PBb)
+            # self.particles[0].save_magnetic_energy(self._PBb)
             # self._en_fB_loc = self.particles[0].markers[~self.particles[0].holes, 5].dot(
             #     self.particles[0].markers[~self.particles[0].holes, 8])/self.particles[0].n_mks
 

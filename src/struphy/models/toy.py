@@ -161,13 +161,11 @@ class Vlasov(StruphyModel):
             algo=ions_params['options']['push_vxb'],
             scale_fac=1.,
             b_eq=self._b_eq,
-            b_tilde=None,
-            f0=None))
+            b_tilde=None))
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['ions'],
             algo=ions_params['options']['push_eta'],
-            bc_type=ions_params['markers']['bc']['type'],
-            f0=None))
+            bc_type=ions_params['markers']['bc']['type']))
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_f')
@@ -318,7 +316,7 @@ class DriftKinetic(StruphyModel):
             self._mpi_in_place, self._en_fv, op=self._mpi_sum)
 
         # particles' magnetic energy
-        self.pointer['ions'].save_magnetic_energy(self._derham, self._abs_b)
+        self.pointer['ions'].save_magnetic_energy(self._abs_b)
 
         self._en_fB[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
             self.pointer['ions'].markers[~self.pointer['ions'].holes, 8]) / self.pointer['ions'].n_mks

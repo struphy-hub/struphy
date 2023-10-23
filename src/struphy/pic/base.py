@@ -61,15 +61,10 @@ class Particles(metaclass=ABCMeta):
         self.create_marker_array()
 
         # Assume full-f if type is not in parameters
-        if 'type' in params.keys():
-            if params['type'] == 'control_variate':
-                self._use_control_variate = True
-            else:
-                self._use_control_variate = False
-        else:
-            self._use_control_variate = False
+        if params['type'] not in 'full_f':
 
-        if self._use_control_variate:
+            self._control_variate = True
+
             assert f0_params is not None, \
                 'When control variate is used, background parameters must be given!'
             fun_name = f0_params['type']
@@ -79,6 +74,10 @@ class Particles(metaclass=ABCMeta):
                     **f0_params[fun_name])
             else:
                 self._f_backgr = getattr(maxwellians, fun_name)()
+        else:
+
+            self._control_variate = False
+            self._f_backgr = None
 
     @abstractmethod
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
@@ -143,6 +142,11 @@ class Particles(metaclass=ABCMeta):
         return self._f_backgr
 
     @property
+    def control_variate(self):
+        '''Boolean for whether to use the `<https://struphy.pages.mpcdf.de/struphy/sections/discretization.html#control-variate-method>`_.'''
+        return self._control_variate
+
+    @property
     def domain_decomp(self):
         """ Array containing domain decomposition information.
         """
@@ -188,11 +192,11 @@ class Particles(metaclass=ABCMeta):
     def markers(self):
         """ Numpy array holding the marker information, including holes. The i-th row holds the i-th marker info.
 
-        ===== ============== ======================= ======= ====== ====== ==========
-        index  | 0 | 1 | 2 | | 3 | ... | 3+(vdim-1)|  3+vdim 4+vdim 5+vdim >=6+vdim
-        ===== ============== ======================= ======= ====== ====== ==========
-        value position (eta)    velocities           weight   s0     w0    additional
-        ===== ============== ======================= ======= ====== ====== ==========
+        ===== ============== ======================= ======= ====== ====== ========== === ===
+        index  | 0 | 1 | 2 | | 3 | ... | 3+(vdim-1)|  3+vdim 4+vdim 5+vdim >=6+vdim   ... -1
+        ===== ============== ======================= ======= ====== ====== ========== === ===
+        value position (eta)    velocities           weight   s0     w0      other    ... ID
+        ===== ============== ======================= ======= ====== ====== ========== === ===
         """
         return self._markers
 
@@ -216,7 +220,7 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def derham(self):
-        """ struphy.psydac_api.psydac_derham
+        """ struphy.psydac_api.psydac_derham.Derham
         """
         return self._derham
 
@@ -239,40 +243,109 @@ class Particles(metaclass=ABCMeta):
         return self._n_lost_markers
 
     @property
+    def index(self):
+        """ Dict holding the column indices referring to specific marker parameters (coordinates).
+        """
+        out = {}
+        out['pos'] = slice(0, 3) # positions
+        out['vel'] = slice(3, 3 + self.vdim) # velocities
+        out['coords'] = slice(0, 3 + self.vdim) # phasespace_coords
+        out['weights'] = 3 + self.vdim # weights
+        out['s0'] = 4 + self.vdim # sampling_density
+        out['w0'] = 5 + self.vdim # weights0
+        out['ids'] = -1 # marker_inds
+        return out
+
+    @property
     def positions(self):
         """ Array holding the marker positions in logical space, excluding holes. The i-th row holds the i-th marker info.
         """
-        return self.markers[~self.holes, :3]
+        return self.markers[~self.holes, self.index['pos']]
+
+    @positions.setter
+    def positions(self, new):
+        assert isinstance(new, np.ndarray)
+        assert new.shape == (self.n_mks_loc, 3)
+        self._markers[~self.holes, self.index['pos']] = new
 
     @property
     def velocities(self):
         """ Array holding the marker velocities in logical space, excluding holes. The i-th row holds the i-th marker info.
         """
-        return self.markers[~self.holes, 3:3 + self.vdim]
+        return self.markers[~self.holes, self.index['vel']]
+
+    @velocities.setter
+    def velocities(self, new):
+        assert isinstance(new, np.ndarray)
+        assert new.shape == (self.n_mks_loc, self.vdim)
+        self._markers[~self.holes, self.index['vel']] = new
 
     @property
     def phasespace_coords(self):
         """ Array holding the marker velocities in logical space, excluding holes. The i-th row holds the i-th marker info.
         """
-        return self.markers[~self.holes, :3 + self.vdim]
+        return self.markers[~self.holes, self.index['coords']]
+
+    @phasespace_coords.setter
+    def phasespace_coords(self, new):
+        assert isinstance(new, np.ndarray)
+        assert new.shape == (self.n_mks_loc, 3 + self.vdim)
+        self._markers[~self.holes, self.index['coords']] = new
 
     @property
     def weights(self):
         """ Array holding the current marker weights, excluding holes. The i-th row holds the i-th marker info.
         """
-        return self.markers[~self.holes, 3 + self.vdim]
+        return self.markers[~self.holes, self.index['weights']]
+
+    @weights.setter
+    def weights(self, new):
+        assert isinstance(new, np.ndarray)
+        assert new.shape == (self.n_mks_loc,)
+        self._markers[~self.holes, self.index['weights']] = new
 
     @property
     def sampling_density(self):
-        """ Array holding the current marker 0form sampling density, excluding holes. The i-th row holds the i-th marker info.
+        """ Array holding the current marker 0form sampling density s0, excluding holes. The i-th row holds the i-th marker info.
         """
-        return self.markers[~self.holes, 4 + self.vdim]
+        return self.markers[~self.holes, self.index['s0']]
+
+    @sampling_density.setter
+    def sampling_density(self, new):
+        assert isinstance(new, np.ndarray)
+        assert new.shape == (self.n_mks_loc,)
+        self._markers[~self.holes, self.index['s0']] = new
 
     @property
     def weights0(self):
         """ Array holding the initial marker weights, excluding holes. The i-th row holds the i-th marker info.
         """
-        return self.markers[~self.holes, 5 + self.vdim]
+        return self.markers[~self.holes, self.index['w0']]
+
+    @weights0.setter
+    def weights0(self, new):
+        assert isinstance(new, np.ndarray)
+        assert new.shape == (self.n_mks_loc,)
+        self._markers[~self.holes, self.index['w0']] = new
+
+    @property
+    def marker_ids(self):
+        """ Array holding the marker id's on the current process.
+        """
+        return self.markers[~self.holes, self.index['ids']]
+
+    @marker_ids.setter
+    def marker_ids(self, new):
+        assert isinstance(new, np.ndarray)
+        assert new.shape == (self.n_mks_loc,)
+        self._markers[~self.holes, self.index['ids']] = new
+
+    @property
+    def pforms(self):
+        """ Tuple of size 2; each entry must be either "vol" or None, defining the p-form 
+        (space and velocity, respectively) of f_init.
+        """
+        return self._pforms
 
     def create_marker_array(self):
         """ Create marker array (self.markers).
@@ -359,6 +432,14 @@ class Particles(metaclass=ABCMeta):
         # number of markers on the local process at loading stage
         n_mks_load_loc = self.n_mks_load[self.mpi_rank]
 
+        # fill holes in markers array with -1 (all holes are at end of array at loading stage)
+        self._markers[n_mks_load_loc:] = -1.
+
+        # number of holes and markers on process
+        self._holes = self.markers[:, 0] == -1.
+        self._n_holes_loc = np.count_nonzero(self._holes)
+        self._n_mks_loc = self.markers.shape[0] - self._n_holes_loc
+
         # cumulative sum of number of markers on each process at loading stage.
         n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
 
@@ -408,7 +489,7 @@ class Particles(metaclass=ABCMeta):
                     temp = np.random.rand(self.n_mks_load[i], 3 + self.vdim)
 
                     if i == self._mpi_rank:
-                        self._markers[:n_mks_load_loc, :3 + self.vdim] = temp
+                        self.phasespace_coords = temp
                         break
 
                 del temp
@@ -416,7 +497,7 @@ class Particles(metaclass=ABCMeta):
             # 2. plain sobol numbers with skip of first 1000 numbers
             elif self.params['loading']['type'] == 'sobol_standard':
 
-                self._markers[:n_mks_load_loc, :3 + self.vdim] = sobol_seq.i4_sobol_generate(
+                self.phasespace_coords = sobol_seq.i4_sobol_generate(
                     3 + self.vdim, n_mks_load_loc, 1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank])
 
             # 3. symmetric sobol numbers in all 6 dimensions with skip of first 1000 numbers
@@ -437,10 +518,11 @@ class Particles(metaclass=ABCMeta):
                     'Specified particle loading method does not exist!')
 
             # inversion of Gaussian in velocity space
-            for i in range(self.vdim):
-                self._markers[:n_mks_load_loc, 3 + i] = sp.erfinv(
-                    2*self.markers[:n_mks_load_loc, 3 + i] - 1) \
-                    * self.params['loading']['moments'][self.vdim + i] + self.params['loading']['moments'][i]
+            # TODO add other pdfs, maybe for mu -> Byung Kyu
+            u_mean = np.array(self.params['loading']['moments'][:self.vdim])
+            v_th = np.array(self.params['loading']['moments'][self.vdim:])
+
+            self.velocities = sp.erfinv(2*self.velocities - 1)*v_th + u_mean
 
             # inversion method for drawing uniformly on the disc
             _spatial = self.params['loading']['spatial']
@@ -450,11 +532,8 @@ class Particles(metaclass=ABCMeta):
             else:
                 assert _spatial == 'uniform', f'Spatial drawing must be "uniform" or "disc", is {_spatial}.'
 
-        # fill holes in markers array with -1
-        self._markers[n_mks_load_loc:] = -1.
-
         # set markers ID in last column
-        self._markers[:n_mks_load_loc, -1] = (n_mks_load_cum_sum - self.n_mks_load)[
+        self.marker_ids = (n_mks_load_cum_sum - self.n_mks_load)[
             self._mpi_rank] + np.arange(n_mks_load_loc, dtype=float)
 
         # set specific initial condition for some particles
@@ -470,11 +549,6 @@ class Particles(metaclass=ABCMeta):
                             self._markers[counter, j] = specific_markers[i][j]
 
                     counter += 1
-
-        # number of holes and markers on process
-        self._holes = self.markers[:, 0] == -1.
-        self._n_holes_loc = np.count_nonzero(self._holes)
-        self._n_mks_loc = self.markers.shape[0] - self._n_holes_loc
 
         # check if all particle positions are inside the unit cube [0, 1]^3
         n_mks_load_loc = self._n_mks_load[self._mpi_rank]
@@ -552,8 +626,7 @@ class Particles(metaclass=ABCMeta):
         assert self.domain is not None, 'A domain is needed to initialize weights.'
 
         # compute s0 and save at vdim + 4
-        self._markers[~self.holes, 4 + self.vdim] = \
-            self.s0(*self.phasespace_coords.T)
+        self.sampling_density = self.s0(*self.phasespace_coords.T)
 
         # load distribution function (with given parameters or default parameters)
         fun_name = fun_params['type']
@@ -568,52 +641,46 @@ class Particles(metaclass=ABCMeta):
 
         # if diffential forms of f_init is not specified, consider it as 0-form
         if 'pforms' in fun_params:
+            assert len(fun_params['pforms']) == 2
+            self._pforms = fun_params['pforms']
+        else:
+            self._pforms = (None, None)
 
-            # if f_init is vol-form, tramsform to 0-form
-            if fun_params['pforms'][0] == 'vol':
-                f_init /= self.domain.jacobian_det(self.markers_wo_holes)
+        # if f_init is vol-form, tramsform to 0-form
+        if self.pforms[0] == 'vol':
+            f_init /= self.domain.jacobian_det(self.markers_wo_holes)
 
-            if fun_params['pforms'][1] == 'vol':
-                f_init /= self.velocity_jacobian_det(*self.phasespace_coords.T)
+        if self.pforms[1] == 'vol':
+            f_init /= self.velocity_jacobian_det(*self.phasespace_coords.T)
 
         # compute w0 and save at vdim + 5
-        self._markers[~self.holes, 5 + self.vdim] = f_init / \
-            self.sampling_density
+        self.weights0 = f_init / self.sampling_density
 
-        # compute weights and save at vdim + 3
-        if self._use_control_variate:
-            f_backgr = self.f_backgr(*self.phasespace_coords.T)
-
-            # if diffential forms of f_init is not specified, consider it as 0-form
-            if 'pforms' in fun_params:
-
-                # if f_init is vol-form, transform to 0-form
-                if fun_params['pforms'][0] == 'vol':
-                    f_backgr /= self.domain.jacobian_det(self.markers_wo_holes)
-
-                if fun_params['pforms'][1] == 'vol':
-                    f_backgr /= self.velocity_jacobian_det(
-                        *self.phasespace_coords.T)
-
-            self._markers[~self.holes, 3 + self.vdim] = self.weights0 - \
-                f_backgr/self.sampling_density
+        # compute weights
+        if self._control_variate:
+            self.update_weights()
         else:
-            self._markers[~self.holes, 3 + self.vdim] = self.weights0
+            self.weights = self.weights0
 
-    def update_weights(self, f0):
+    def update_weights(self):
         """
-        Applies the control variate method;
-        updates the time-dependent marker weights according to the algorithm in the `Struphy documentation <https://struphy.pages.mpcdf.de/struphy/sections/discretization.html#control-variate-method>`_.
+        Applies the control variate method.
 
-        Parameters
-        ----------
-        f0 : callable
-            The distribution function used as a control variate. Is called as f0(eta1, eta2, eta3, *v).
+        Updates the time-dependent marker weights according to the algorithm in the 
+        `Struphy documentation <https://struphy.pages.mpcdf.de/struphy/sections/discretization.html#control-variate-method>`_.
         """
 
-        if self._use_control_variate:
-            self._markers[~self.holes, 3 + self.vdim] = self.weights0 - \
-                f0(*self.phasespace_coords.T) / self.sampling_density
+        f_backgr = self.f_backgr(*self.phasespace_coords.T)
+
+        # if f_init is vol-form, transform to 0-form
+        if self.pforms[0] == 'vol':
+            f_backgr /= self.domain.jacobian_det(self.markers_wo_holes)
+
+        if self.pforms[1] == 'vol':
+            f_backgr /= self.velocity_jacobian_det(
+                *self.phasespace_coords.T)
+
+        self.weights = self.weights0 - f_backgr/self.sampling_density
 
     def binning(self, components, bin_edges, pforms=['0', '0']):
         r"""

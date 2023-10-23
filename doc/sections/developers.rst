@@ -269,14 +269,19 @@ Struphy uses numpy-style docstrings with "Parameters", "Returns" and "Note" keyw
 Changing the documentation 
 --------------------------
 
-The source files (``.rst``) for the documentation are in ``doc/sections/`` in the repository.
-Tutorial notebooks are in ``doc/tutorials/``. In order to build the ``.html`` file of the documentation,
+Struphy docstrings will automatically appear in the documentation through `Sphinx <https://www.sphinx-doc.org/en/master/>`_.
+
+Moreover, there are source files (``.rst``) for the documentation in ``doc/sections/`` and
+Tutorial notebooks in ``doc/tutorials/``. 
+
+In order to build the ``.html`` file of the documentation,
 `Pandoc <https://pandoc.org/>`_ needs to be installed on your system (for notebook conversion).
-In order to be able to convert the tutorial notebooks to ``.html``, you need to run::
+To convert the tutorial notebooks to ``.html``, you need to run::
 
     struphy tutorials
 
-If you make changes to the ``.rst`` files or the tutorial notebooks, you can review them in your browser (e.g. firefox)::
+If you make changes to docstrings, the ``.rst`` files or the tutorial notebooks, 
+you can review them in your browser (e.g. firefox)::
 
     cd doc
     make html
@@ -397,6 +402,10 @@ Documented modules:
 Struphy data structures
 -----------------------
 
+Check out `Tutorial 08 - Struphy data structures <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_08_data_structures.html>`_
+for a hands-on introduction.
+
+
 FEEC variables
 ^^^^^^^^^^^^^^
 
@@ -406,32 +415,7 @@ fluid/EM-fields variables. FE coefficients are stores as
 * a :class:`StencilVector <psydac.linalg.stencil.StencilVector>` for scalar-valued variables (:code:`H1` or :code:`L2`)
 * a :class:`BlockVector <psydac.linalg.block.BlockVector>` for vector-valued variables (:code:`Hcurl`, :code:`Hdiv` or :code:`H1vec`)
 
-A BlockVector is just a 3-list of StencilVectors. Here are some important commands when
-working with a :class:`StencilVector <psydac.linalg.stencil.StencilVector>`:
-
-* Creation from Struphy's de Rham sequence (available through :class:`StruphyModel <struphy.models.base.StruphyModel>`)::
-
-    from psydac.linalg.stencil import StencilVector
-    from psydac.linalg.block import BlockVector
-
-    vec_H1 = StencilVector(self.derham.Vh['0'])
-    vec_Hcurl = BlockVector(self.derham.Vh['1'])
-
-* Assign values in place::
-
-    vec_H1[:] = 1.
-    vec_H1[:] = vec_H1_other[:] 
-
-* Send info to other MPI processes (important after assigning values)::
-
-    vec_H1.update_ghost_regions()
-
-* StencilVectors can be added, subtracted and multiplie with scalars in the usual way.
-
-* Creation of a zero vector from the same space::
-
-    vec_0 = vec_H1.space.zeros()
-
+A BlockVector is just a 3-list of StencilVectors. 
 
 .. autoclass:: psydac.linalg.stencil.StencilVector
     :members:
@@ -524,13 +508,19 @@ Here is a list of points that need to be followed when creating a new model:
 The docstring should include the model equations (Latex format) and the :ref:`normalization`.
 Do not include discretized equations in the model docstring.
 
+**Suggestion:** 
+
+    As a start for adding a new model, copy-and-paste an existing one, change its name 
+    and make some small change in the docstring. Then follow :ref:`change_doc` to see if your changes have been taken into
+    account. You can already run your "new" model with ``struphy run NEW_NAME``, which will just execute the copied model.  
+
 .. _species:
 
 2. Define :code:`species(cls)`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The :code:`species(cls)` class method must be implemented in every Struphy model.
-It returns a dictionary that holds the information on the models' species
+It returns a dictionary that holds the information on the models' variables (i.e. the unknowns)
 and their respective discrete spaces (PIC or FEEC) in which they are defined.
 In Struphy, three types of species can be defined:
 

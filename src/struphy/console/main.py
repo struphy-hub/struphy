@@ -449,7 +449,7 @@ def struphy():
         with open(os.path.join(libpath, 'i_path.txt'), 'w') as f:
             f.write(i_path)
 
-        print(f'New default Input path has been set:')
+        print(f'New input path has been set:')
         import subprocess
         subprocess.run(['struphy', '-p'])
 
@@ -473,7 +473,7 @@ def struphy():
         with open(os.path.join(libpath, 'o_path.txt'), 'w') as f:
             f.write(o_path)
 
-        print(f'New default Out path has been set:')
+        print(f'New output path has been set:')
         import subprocess
         subprocess.run(['struphy', '-p'])
 
@@ -497,7 +497,7 @@ def struphy():
         with open(os.path.join(libpath, 'b_path.txt'), 'w') as f:
             f.write(b_path)
 
-        print(f'New default Batch path has been set:')
+        print(f'New batch path has been set:')
         import subprocess
         subprocess.run(['struphy', '-p'])
 

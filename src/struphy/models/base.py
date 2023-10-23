@@ -448,6 +448,9 @@ class StruphyModel(metaclass=ABCMeta):
         Set initial conditions for FE coefficients (electromagnetic and fluid) and markers according to parameter file.
         """
 
+        if self.comm.Get_rank() == 0:
+            print('\nINITIAL CONDITIONS:')
+
         # initialize em fields
         if len(self.em_fields) > 0:
 
@@ -539,7 +542,7 @@ class StruphyModel(metaclass=ABCMeta):
                 val['obj'].initialize_weights(val['params']['init'])
 
                 if val['space'] == 'Particles5D':
-                    val['obj'].save_magnetic_moment(self.derham)
+                    val['obj'].save_magnetic_moment()
 
     def initialize_from_restart(self, data):
         """
@@ -1313,7 +1316,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         # compute model units
         units, equation_params = self.model_units(
-            self.params, verbose=True, comm=self.comm)
+            self.params, verbose=False, comm=self.comm)
 
         # units affices for printing
         units_affix = {}

@@ -178,21 +178,18 @@ class LinearMHDVlasovCC(StruphyModel):
             u_space='Hdiv',
             b_eq=self._b_eq,
             b_tilde=self.pointer['b2'],
-            f0=f0,
             **params_current,
             **self._coupling_params))
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['energetic_ions'],
             algo=algo_eta,
-            bc_type=e_ions_params['markers']['bc']['type'],
-            f0=f0))
+            bc_type=e_ions_params['markers']['bc']['type']))
         self.add_propagator(self.prop_markers.PushVxB(
             self.pointer['energetic_ions'],
             algo=algo_vxb,
             scale_fac=self._coupling_params['kappa'],
             b_eq=self._b_eq,
-            b_tilde=self.pointer['b2'],
-            f0=f0))
+            b_tilde=self.pointer['b2']))
         self.add_propagator(self.prop_fields.Magnetosonic(
             self.pointer['mhd_n3'],
             self.pointer['mhd_u2'],
@@ -439,8 +436,7 @@ class LinearMHDVlasovPC(StruphyModel):
             algo=algo_vxb,
             scale_fac=self._coupling_params['kappa'],
             b_eq=self._b_eq,
-            b_tilde=self.pointer['b2'],
-            f0=f0))
+            b_tilde=self.pointer['b2']))
         self.add_propagator(self.prop_fields.Magnetosonic(
             self.pointer['mhd_n3'],
             self.pointer['mhd_u2'],
@@ -849,8 +845,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # absolute value of parallel magnetic field
         self._prop.basis_ops.PB.dot(self._b_full1, out=self._PBb)
 
-        self.pointer['energetic_ions'].save_magnetic_energy(
-            self._derham, self._PBb)
+        self.pointer['energetic_ions'].save_magnetic_energy(self._PBb)
         self._en_fB[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
             self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 8])/self.pointer['energetic_ions'].n_mks
         self.derham.comm.Allreduce(
@@ -1021,15 +1016,13 @@ class ColdPlasmaVlasov(StruphyModel):
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['hotelectrons'],
             algo=algo_eta,
-            bc_type=electron_params['markers']['bc']['type'],
-            f0=None))
+            bc_type=electron_params['markers']['bc']['type']))
         self.add_propagator(self.prop_markers.PushVxB(
             self.pointer['hotelectrons'],
             algo=algo_vxb,
             scale_fac=1/self._epsilon_cold,
             b_eq=self._b_background,
-            b_tilde=self.pointer['b2'],
-            f0=None))
+            b_tilde=self.pointer['b2']))
         self.add_propagator(self.prop_coupling.VlasovMaxwell(
             self.pointer['e1'],
             self.pointer['hotelectrons'],
