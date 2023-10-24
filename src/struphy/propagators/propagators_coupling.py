@@ -85,7 +85,7 @@ class VlasovMaxwell(Propagator):
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
-                          'verbose': False,}
+                          'verbose': False, }
 
         params = set_defaults(params, params_default)
 
@@ -791,7 +791,7 @@ class PressureCoupling6D(Propagator):
             self._space_key_int = 0
         else:
             self._space_key_int = int(
-                self.derham.spaces_dict[params['u_space']])
+                self.derham.space_to_form[params['u_space']])
 
         # Preconditioner
         if params['type'][1] is None:
@@ -1024,7 +1024,7 @@ class CurrentCoupling6DCurrent(Propagator):
             self._space_key_int = 0
         else:
             self._space_key_int = int(
-                self.derham.spaces_dict[params['u_space']])
+                self.derham.space_to_form[params['u_space']])
 
         assert isinstance(params['b_eq'], (BlockVector, PolarVector))
 
@@ -1083,9 +1083,9 @@ class CurrentCoupling6DCurrent(Propagator):
                               'push_bxu_' + params['u_space'])
 
         # FEM spaces and basis extraction operators for u and b
-        u_id = self.derham.spaces_dict[params['u_space']]
-        self._EuT = self.derham.E[u_id].transpose()
-        self._EbT = self.derham.E['2'].transpose()
+        u_id = self.derham.space_to_form[params['u_space']]
+        self._EuT = self.derham.extraction_ops[u_id].transpose()
+        self._EbT = self.derham.extraction_ops['2'].transpose()
 
         # define system [[A B], [C I]] [u_new, v_new] = [[A -B], [-C I]] [u_old, v_old] (without time step size dt)
         _A = getattr(self.mass_ops, 'M' + u_id + 'n')
@@ -1315,7 +1315,7 @@ class CurrentCoupling5DCurlb(Propagator):
             self._space_key_int = 0
         else:
             self._space_key_int = int(
-                self.derham.spaces_dict[params['u_space']])
+                self.derham.space_to_form[params['u_space']])
 
         self._kappa = 1/params['epsilon']
         self._f0 = params['f0']
@@ -1337,10 +1337,10 @@ class CurrentCoupling5DCurlb(Propagator):
         self._coupling_vec = params['Ah'] / params['Ab']
         self._scale_push = 1
 
-        u_id = self.derham.spaces_dict[params['u_space']]
-        self._EuT = self.derham.E[u_id].transpose()
-        self._E2T = self.derham.E['2'].transpose()
-        self._E1T = self.derham.E['1'].transpose()
+        u_id = self.derham.space_to_form[params['u_space']]
+        self._EuT = self.derham.extraction_ops[u_id].transpose()
+        self._E2T = self.derham.extraction_ops['2'].transpose()
+        self._E1T = self.derham.extraction_ops['1'].transpose()
 
         self._unit_b1 = self._E1T.dot(self._unit_b1)
         self._curl_norm_b = self._E2T.dot(self._curl_norm_b)
@@ -1531,7 +1531,6 @@ class CurrentCoupling5DGradBxB(Propagator):
         Solver- and/or other parameters for this splitting step.
     '''
 
-
     def __init__(self, particles, u, **params):
 
         from struphy.pic.pushing.pusher import ButcherTableau
@@ -1564,7 +1563,7 @@ class CurrentCoupling5DGradBxB(Propagator):
             self._space_key_int = 0
         else:
             self._space_key_int = int(
-                self.derham.spaces_dict[params['u_space']])
+                self.derham.space_to_form[params['u_space']])
 
         self._kappa = 1/params['epsilon']
         self._f0 = params['f0']
@@ -1595,11 +1594,11 @@ class CurrentCoupling5DGradBxB(Propagator):
         self._coupling_vec = params['Ah'] / params['Ab']
         self._scale_push = 1
 
-        u_id = self.derham.spaces_dict[params['u_space']]
-        self._E0T = self.derham.E['0'].transpose()
-        self._EuT = self.derham.E[u_id].transpose()
-        self._E1T = self.derham.E['1'].transpose()
-        self._E2T = self.derham.E['2'].transpose()
+        u_id = self.derham.space_to_form[params['u_space']]
+        self._E0T = self.derham.extraction_ops['0'].transpose()
+        self._EuT = self.derham.extraction_ops[u_id].transpose()
+        self._E1T = self.derham.extraction_ops['1'].transpose()
+        self._E2T = self.derham.extraction_ops['2'].transpose()
 
         self._PB = getattr(self.basis_ops, 'PB')
 
@@ -1774,7 +1773,7 @@ class CurrentCoupling5DGradBxB_dg(Propagator):
                           'verbose': False,
                           'Ab': 1,
                           'Ah': 1,
-                          'epsilon' :1.}
+                          'epsilon': 1.}
 
         params = set_defaults(params, params_default)
 
@@ -1783,7 +1782,7 @@ class CurrentCoupling5DGradBxB_dg(Propagator):
             self._space_key_int = 0
         else:
             self._space_key_int = int(
-                self.derham.spaces_dict[params['u_space']])
+                self.derham.space_to_form[params['u_space']])
 
         self._kappa = 1/params['epsilon']
         self._f0 = params['f0']
@@ -1817,7 +1816,7 @@ class CurrentCoupling5DGradBxB_dg(Propagator):
         self._coupling_vec = params['Ah'] / params['Ab']
         self._scale_push = 1
 
-        u_id = self.derham.spaces_dict[params['u_space']]
+        u_id = self.derham.space_to_form[params['u_space']]
 
         self._PB = getattr(self.basis_ops, 'PB')
 

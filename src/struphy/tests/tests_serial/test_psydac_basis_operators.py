@@ -46,7 +46,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     n_quad_pr = [4, 4, 4]
 
     DERHAM_PSY = Derham(Nel, p, spl_kind, nq_pr=n_quad_pr,
-                        quad_order=n_quad_el, comm=MPI_COMM)
+                        nquads=n_quad_el, comm=MPI_COMM)
 
     # grid parameters
     if mpi_rank == 0:

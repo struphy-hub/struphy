@@ -685,12 +685,16 @@ class BasisProjectionOperators:
             print(
                 f'Assembling BasisProjectionOperator "{name}" with V={V_id}, W={W_id}.')
 
-        V_id = self.derham.spaces_dict[V_id]
-        W_id = self.derham.spaces_dict[W_id]
+        V_id = self.derham.space_to_form[V_id]
+        W_id = self.derham.space_to_form[W_id]
 
-        out = BasisProjectionOperator(self.derham.P[W_id], self.derham.Vh_fem[V_id], fun,
-                                      self.derham.E[V_id], self.derham.B[V_id],
-                                      transposed=False, polar_shift=self.domain.pole)
+        out = BasisProjectionOperator(self.derham.P[W_id], 
+                                      self.derham.Vh_fem[V_id], 
+                                      fun,
+                                      self.derham.extraction_ops[V_id], 
+                                      self.derham.boundary_ops[V_id],
+                                      transposed=False, 
+                                      polar_shift=self.domain.pole)
 
         if self.derham.comm.Get_rank() == 0 and verbose:
             print('Done.')

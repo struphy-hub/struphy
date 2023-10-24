@@ -276,8 +276,8 @@ class DriftKinetic(StruphyModel):
                                             self.mhd_equil.unit_b2_2,
                                             self.mhd_equil.unit_b2_3])
 
-        self._E0T = self.derham.E['0'].transpose()
-        self._EvT = self.derham.E['v'].transpose()
+        self._E0T = self.derham.extraction_ops['0'].transpose()
+        self._EvT = self.derham.extraction_ops['v'].transpose()
 
         # Initialize propagators/integrators used in splitting substeps
         self.add_propagator(self.prop_markers.PushGuidingCenterbxEstar(

@@ -16,8 +16,6 @@ from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compo
 
 from struphy.polar.linear_operators import PolarExtractionOperator
 
-from struphy.psydac_api.fields import Field
-
 
 class WeightedMassOperators:
     r"""
@@ -420,7 +418,7 @@ class WeightedMassOperators:
                                        self.weights['eq_mhd'].a1_3])
 
             tmp_a2 = self.derham.curl.dot(a_eq)
-            b02fun = Field('b02', 'Hdiv', self.derham)
+            b02fun = self.derham.create_field('b02', 'Hdiv')
             b02fun.vector = tmp_a2
 
             def b02funx(x, y, z): return b02fun(
@@ -473,7 +471,7 @@ class WeightedMassOperators:
 
             tmp_a2 = self.derham.Vh['2'].zeros()
             self.derham.curl.dot(a_eq, out=tmp_a2)
-            b02fun = Field('b02', 'Hdiv', self.derham)
+            b02fun = self.derham.create_field('b02', 'Hdiv')
             b02fun.vector = tmp_a2
 
             def b02funx(x, y, z): return b02fun(
@@ -580,13 +578,17 @@ class WeightedMassOperators:
             else:
                 assert len(row) == 3
 
-        V_id = self.derham.spaces_dict[V_id]
-        W_id = self.derham.spaces_dict[W_id]
+        V_id = self.derham.space_to_form[V_id]
+        W_id = self.derham.space_to_form[W_id]
 
-        out = WeightedMassOperator(self.derham.Vh_fem[V_id], self.derham.Vh_fem[W_id],
-                                   V_extraction_op=self.derham.E[V_id], W_extraction_op=self.derham.E[W_id],
-                                   V_boundary_op=self.derham.B[V_id], W_boundary_op=self.derham.B[W_id],
-                                   weights_info=fun, transposed=False)
+        out = WeightedMassOperator(self.derham.Vh_fem[V_id], 
+                                   self.derham.Vh_fem[W_id],
+                                   V_extraction_op=self.derham.extraction_ops[V_id], 
+                                   W_extraction_op=self.derham.extraction_ops[W_id],
+                                   V_boundary_op=self.derham.boundary_ops[V_id], 
+                                   W_boundary_op=self.derham.boundary_ops[W_id],
+                                   weights_info=fun, 
+                                   transposed=False)
 
         out.assemble(name=name)
 

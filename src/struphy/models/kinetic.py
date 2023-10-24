@@ -1077,7 +1077,7 @@ class VlasovMasslessElectrons(StruphyModel):
             self._en_f_loc, self._scalar_quantities['en_f'], op=self._mpi_sum, root=0)
 
         self._en_thermal_loc = pic_util.get_electron_thermal_energy(self._accum_density, self._derham, self._domain, int(self._derham.domain_array[int(rank), 2]), int(
-            self._derham.domain_array[int(rank), 5]), int(self._derham.domain_array[int(rank), 8]), int(self._derham.quad_order[0]+1), int(self._derham.quad_order[1]+1), int(self._derham.quad_order[2]+1))
+            self._derham.domain_array[int(rank), 5]), int(self._derham.domain_array[int(rank), 8]), int(self._derham.nquads[0]+1), int(self._derham.nquads[1]+1), int(self._derham.nquads[2]+1))
 
         self.derham.comm.Reduce(self.thermal*self._en_thermal_loc,
                                 self._scalar_quantities['en_thermal'], op=self._mpi_sum, root=0)

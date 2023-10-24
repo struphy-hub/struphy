@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 from struphy.psydac_api.psydac_derham import Derham
 from struphy.psydac_api.projectors import L2_Projector
 from struphy.psydac_api.mass import WeightedMassOperators
-from struphy.psydac_api.fields import Field
 from struphy.geometry import domains
 
 
@@ -48,7 +47,7 @@ def test_l2_projector_V0(Nel, p, spl_kind, mapping, do_plot=False):
     vec = proj(my_fun)
 
     # for evaluating, create Field object
-    field = Field('h', 'H1', derham)
+    field = derham.create_field('h', 'H1')
     field.vector = vec
 
     # evaluate on a mesh
@@ -119,7 +118,7 @@ def test_convergence_l2_proj_V0(p, spl_kind, mapping, do_plot=False):
         vec = proj(my_fun)
 
         # for evaluating, create Field object
-        field = Field('h', 'H1', derham)
+        field = derham.create_field('h', 'H1')
         field.vector = vec
 
         # evaluate on a mesh

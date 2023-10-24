@@ -63,8 +63,8 @@ class InitialMHDAxisymHdivEigFun:
         assert mode.size == 1
         mode = mode[0]
 
-        nnz_pol = derham.B['2'].dim_nz_pol
-        nnz_tor = derham.B['2'].dim_nz_tor
+        nnz_pol = derham.boundary_ops['2'].dim_nz_pol
+        nnz_tor = derham.boundary_ops['2'].dim_nz_tor
 
         eig_vec_1 = U2_eig[0*nnz_pol[0] + 0*nnz_pol[1] + 0*nnz_pol[2]:1*nnz_pol[0] + 0*nnz_pol[1] + 0*nnz_pol[2], mode]
         eig_vec_2 = U2_eig[1*nnz_pol[0] + 0*nnz_pol[1] + 0*nnz_pol[2]:1*nnz_pol[0] + 1*nnz_pol[1] + 0*nnz_pol[2], mode]
@@ -79,7 +79,7 @@ class InitialMHDAxisymHdivEigFun:
         domain_log_h = discretize(
             domain_log, ncells=[derham.Nel[2]], periodic=[True])
         derham_1d = discretize(derham_sym, domain_log_h, degree=[
-                               derham.p[2]], quad_order=[derham.quad_order[2]])
+                               derham.p[2]], nquads=[derham.nquads[2]])
 
         p0, p1 = derham_1d.projectors(nquads=[derham.nq_pr[2]])
 

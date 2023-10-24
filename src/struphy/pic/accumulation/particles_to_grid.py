@@ -63,7 +63,7 @@ class Accumulator:
         self._space_id = space_id
         self._symmetry = symmetry
 
-        space_key = derham.spaces_dict[space_id]
+        self._form = derham.space_to_form[space_id]
 
         # initialize matrices (instances of WeightedMassOperator)
         self._operators = []
@@ -72,17 +72,23 @@ class Accumulator:
         if symmetry == 'pressure':
             for _ in range(6):
                 self._operators += [WeightedMassOperator(
-                    derham.Vh_fem[space_key], derham.Vh_fem[space_key],
-                    V_extraction_op=derham.E[space_key], W_extraction_op=derham.E[space_key],
-                    V_boundary_op=derham.B[space_key], W_boundary_op=derham.B[space_key],
+                    derham.Vh_fem[self.form], 
+                    derham.Vh_fem[self.form],
+                    V_extraction_op=derham.extraction_ops[self.form],
+                    W_extraction_op=derham.extraction_ops[self.form],
+                    V_boundary_op=derham.boundary_ops[self.form],
+                    W_boundary_op=derham.boundary_ops[self.form],
                     weights_info='symm', transposed=False)]
 
         # "normal" treatment (just one matrix)
         else:
             self._operators += [WeightedMassOperator(
-                derham.Vh_fem[space_key], derham.Vh_fem[space_key],
-                V_extraction_op=derham.E[space_key], W_extraction_op=derham.E[space_key],
-                V_boundary_op=derham.B[space_key], W_boundary_op=derham.B[space_key],
+                derham.Vh_fem[self.form], 
+                derham.Vh_fem[self.form],
+                V_extraction_op=derham.extraction_ops[self.form],
+                W_extraction_op=derham.extraction_ops[self.form],
+                V_boundary_op=derham.boundary_ops[self.form],
+                W_boundary_op=derham.boundary_ops[self.form],
                 weights_info=symmetry, transposed=False)]
 
         # collect all _data attributes needed in accumulation kernel
@@ -108,7 +114,7 @@ class Accumulator:
             # special treatment in model LinearMHDVlasovPC (symmetry=pressure, three BlockVectors are needed)
             if symmetry == 'pressure':
                 for i in range(3):
-                    self._vectors += [BlockVector(derham.Vh[space_key])]
+                    self._vectors += [BlockVector(derham.Vh[self.form])]
 
             # normal treatment (just one vector)
             else:
@@ -166,6 +172,12 @@ class Accumulator:
         return self._space_id
 
     @property
+    def form(self):
+        """ p-form ("0", "1", "2", "3" or "v") to be accumulated into.
+        """
+        return self._form
+
+    @property
     def symmetry(self):
         """ Symmetry of the accumulation matrix (diagonal, symmetric, asymmetric, etc.).
         """
@@ -181,13 +193,10 @@ class Accumulator:
     def vectors(self):
         """ List of Stencil-/Block-/PolarVectors of the accumulator.
         """
-
-        space_key = self._derham.spaces_dict[self._space_id]
-
         out = []
         for vec in self._vectors:
-            out += [self._derham.B[space_key].dot(
-                self._derham.E[space_key].dot(vec))]
+            out += [self._derham.boundary_ops[self.form].dot(
+                self._derham.extraction_ops[self.form].dot(vec))]
 
         return out
 
@@ -240,7 +249,7 @@ class Accumulator:
 
         # add analytical contribution (control variate) to vector
         if 'control_vec' in args_control and len(self._vectors) > 0:
-            WeightedMassOperator.assemble_vec(self._derham.Vh_fem[self._derham.spaces_dict[self._space_id]],
+            WeightedMassOperator.assemble_vec(self._derham.Vh_fem[self._derham.space_to_form[self._space_id]],
                                               self._vectors[0], weight=args_control['control_vec'],
                                               clear=False)
 
@@ -332,7 +341,7 @@ class AccumulatorVector:
 
         self._space_id = space_id
 
-        space_key = derham.spaces_dict[space_id]
+        self._form = derham.space_to_form[space_id]
 
         # initialize vectors
         self._vectors = []
@@ -342,10 +351,10 @@ class AccumulatorVector:
 
         if space_id in ("H1", "L2"):
             self._vectors += [StencilVector(
-                derham.Vh_fem[space_key].vector_space)]
+                derham.Vh_fem[self.form].vector_space)]
 
         elif space_id in ("Hcurl", "Hdiv", "H1vec"):
-            self._vectors += [BlockVector(derham.Vh_fem[space_key].vector_space)]
+            self._vectors += [BlockVector(derham.Vh_fem[self.form].vector_space)]
 
         for vec in self._vectors:
             if isinstance(vec, StencilVector):
@@ -395,15 +404,19 @@ class AccumulatorVector:
         return self._space_id
 
     @property
+    def form(self):
+        """ p-form ("0", "1", "2", "3" or "v") to be accumulated into.
+        """
+        return self._form
+
+    @property
     def vectors(self):
         """ List of Stencil-/Block-/PolarVectors of the accumulator.
         """
-        space_key = self.derham.spaces_dict[self._space_id]
-
         out = []
         for vec in self._vectors:
-            out += [self._derham.B[space_key].dot(
-                self._derham.E[space_key].dot(vec))]
+            out += [self._derham.boundary_ops[self.form].dot(
+                self._derham.extraction_ops[self.form].dot(vec))]
 
         return out
 
@@ -456,7 +469,7 @@ class AccumulatorVector:
 
         # add analytical contribution (control variate) to vector
         if 'control_vec' in args_control and len(self._vectors) > 0:
-            WeightedMassOperator.assemble_vec(self._derham.Vh_fem[self._derham.spaces_dict[self._space_id]],
+            WeightedMassOperator.assemble_vec(self._derham.Vh_fem[self._derham.space_to_form[self._space_id]],
                                               self._vectors[0], weight=args_control['control_vec'],
                                               clear=False)
 

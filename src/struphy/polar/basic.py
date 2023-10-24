@@ -39,7 +39,7 @@ class PolarDerhamSpace(VectorSpace):
         self._n = [space.nbasis for space in derham.Vh_fem['0'].spaces]
         self._d = [space.nbasis for space in derham.Vh_fem['3'].spaces]
 
-        self._parent_space = derham.Vh[derham.spaces_dict[space_id]]
+        self._parent_space = derham.Vh[derham.space_to_form[space_id]]
 
         self._starts = self.parent_space.starts
         self._ends = self._parent_space.ends

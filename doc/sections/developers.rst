@@ -316,16 +316,6 @@ Derham sequence (3D)
     :undoc-members:
     :show-inheritance:
 
-.. _fields:
-
-FEEC field 
-^^^^^^^^^^
-
-.. autoclass:: struphy.psydac_api.fields.Field
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 .. _weighted_mass:
 
 Weighted mass operators

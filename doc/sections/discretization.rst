@@ -443,13 +443,14 @@ Elements of the discrete spaces ("FE fields") are linear combinations of the res
 
 The discrete FE fields are represented by their **FE coefficients** :math:`\mathbf p \in \mathbb R^{N_0}`, 
 :math:`\mathbf e \in \mathbb R^{N_1}`, :math:`\mathbf b \in \mathbb R^{N_2}` and :math:`\mathbf n \in \mathbb R^{N_3}`.
-The class for creating such FE fields in Struphy is :class:`struphy.psydac_api.fields.Field`.
+The class for creating such FE fields in Struphy is :class:`struphy.psydac_api.derham.Derham.Field`.
 In particular, each ``Field`` object has 
 
 1. the property ``Field.vector`` holding the FE coefficients, along with a setter method,
 
 2. a ``__call__()`` method for evaluating the field at (an array of) points :math:`(\eta_{ijk})_{ijk}`.
  
+A field can be created via the factory function ``struphy.psydac_api.derham.Derham.create_field()``. 
 The space dimensions are products of the uni-variate dimensions:
 
 .. math::

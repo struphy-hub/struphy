@@ -25,7 +25,6 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000, verbose=False):
 
     from struphy.geometry import domains
     from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.fields import Field
 
     from struphy.pic.particles import Particles6D
     from struphy.pic.accumulation.particles_to_grid import AccumulatorVector

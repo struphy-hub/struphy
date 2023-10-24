@@ -6,22 +6,33 @@ from sympde.topology import Derham as Derham_psy
 from psydac.api.discretization import discretize
 from psydac.fem.vector import VectorFemSpace
 from psydac.feec.global_projectors import Projector_H1vec
+from psydac.linalg.stencil import StencilVector
+from psydac.linalg.block import BlockVector
 
 from struphy.psydac_api.linear_operators import BoundaryOperator, CompositeLinearOperator, IdentityOperator
 from struphy.psydac_api.geom_projectors import Projector
-
 from struphy.polar.basic import PolarDerhamSpace
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
+from struphy.polar.basic import PolarVector
+from struphy.initial import perturbations
+from struphy.initial import eigenfunctions
+from struphy.geometry.base import Domain
+from struphy.b_splines import bspline_evaluation_3d as eval_3d
+from struphy.fields_background.mhd_equil.equils import set_defaults
 
 import numpy as np
+from mpi4py import MPI
 
 
 class Derham:
     """
-    Psydac API for the discrete Derham sequence on the logical unit cube (3d).
+    API for the discrete Derham sequence on the logical unit cube (3d).
 
-    Polar sub-spaces (indicated by a bar) can be added.
+    Check out `Tutorial 09 <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_09_discrete_derham.html>`_ for a hands-on introduction.
+
+    The tensor-product discrete deRham complex is loaded from `Psydac <https://github.com/pyccel/psydac>`_ 
+    and then augmented with polar sub-spaces (indicated by a bar) and boundary operators.
 
     .. image:: ../pics/polar_derham.png
 
@@ -36,14 +47,14 @@ class Derham:
     spl_kind : list[bool]
         Kind of spline in each direction (True=periodic, False=clamped).
 
-    bc : list[str]
-        Homogeneous Dirichlet boundary condition in each direction.
+    bc : list[list[str]]
+        Left and right bcs can be either: "d" (homogeneous Dirichlet), or None (periodic).
 
     nq_pr : list[int]
-        Number of Gauss-Legendre quadrature points in histopolation in each direction (default = p + 1).
+        Number of Gauss-Legendre quadrature points in each direction for geometric projectors (default = p+1, leads to exact integration of degree 2p+1 polynomials).
 
-    quad_order : list[int]
-        Degree of Gauss-Legendre quadrature in each direction (default = p, leads to p + 1 quadrature points per cell).
+    nquads : list[int]
+        Number of Gauss-Legendre quadrature points in each direction (default = p, leads to exact integration of degree 2p-1 polynomials).
 
     comm : mpi4py.MPI.Intracomm
         MPI communicator.
@@ -62,7 +73,18 @@ class Derham:
         Mapping from logical unit cube to physical domain (only needed in case of polar splines polar_ck=1).
     """
 
-    def __init__(self, Nel, p, spl_kind, bc=None, quad_order=None, nq_pr=None, comm=None, mpi_dims_mask=None, with_projectors=True, polar_ck=-1, domain=None):
+    def __init__(self, 
+                 Nel, 
+                 p, 
+                 spl_kind,
+                 bc=None,
+                 nquads=None,
+                 nq_pr=None,
+                 comm=None,
+                 mpi_dims_mask=None,
+                 with_projectors=True,
+                 polar_ck=-1,
+                 domain=None):
 
         # number of elements, spline degrees and kind of splines in each direction (periodic vs. clamped)
         assert len(Nel) == 3
@@ -87,14 +109,14 @@ class Derham:
 
             self._bc = bc
 
-        # default quad_order p: exact integration of products of B-splines
-        if quad_order is None:
-            self._quad_order = [pi for pi in p]
+        # default p: exact integration of degree 2p-1 polynomials
+        if nquads is None:
+            self._nquads = [pi for pi in p]
         else:
-            assert len(quad_order) == 3
-            self._quad_order = quad_order
+            assert len(nquads) == 3
+            self._nquads = nquads
 
-        # default number of histopolation quadrature points per interval p + 1 : exact histopolation of products of B-splines
+        # default p + 1 : exact integration of degree 2p+1 polynomials
         if nq_pr is None:
             self._nq_pr = [pi + 1 for pi in p]
         else:
@@ -108,7 +130,7 @@ class Derham:
         assert polar_ck in {-1, 1}
         self._polar_ck = polar_ck
 
-        # Psydac symbolic logical domain
+        # Psydac symbolic logical domain (unit cube)
         self._domain_log = Cube('C', bounds1=(0, 1),
                                 bounds2=(0, 1),
                                 bounds3=(0, 1))
@@ -126,37 +148,31 @@ class Derham:
 
         # Psydac discrete de Rham, projectors and derivatives
         _derham = discretize(self._derham_symb, self._domain_log_h,
-                             degree=self.p, nquads=self.quad_order)
+                             degree=self.p, nquads=self.nquads)
 
         self._grad, self._curl, self._div = _derham.derivatives_as_matrices
 
         _projectors = _derham.projectors(nquads=self._nq_pr)
 
-        # keys for continuous spaces
-        self._V = {'0': 'H1',
+        # expose name-to-form dict
+        self._space_to_form = {'H1': '0',
+                               'Hcurl': '1',
+                               'Hdiv': '2',
+                               'L2': '3',
+                               'H1vec': 'v'}
+
+        # Psydac vector space and FEM spline spaces
+        _Vnames = {'0': 'H1',
                    '1': 'Hcurl',
                    '2': 'Hdiv',
                    '3': 'L2',
                    'v': 'H1vec'}
 
-        self._forms_dict = {'H1': '0_form',
-                            'Hcurl': '1_form',
-                            'Hdiv': '2_form',
-                            'L2': '3_form',
-                            'H1vec': 'vector'}
-
-        self._spaces_dict = {'H1': '0',
-                             'Hcurl': '1',
-                             'Hdiv': '2',
-                             'L2': '3',
-                             'H1vec': 'v'}
-
-        # Psydac vector space and FEM spline spaces
         self._Vh = {}
         self._Vh_fem = {}
         self._P = {}
 
-        for i, key in enumerate(self._V.keys()):
+        for i, key in enumerate(_Vnames.keys()):
 
             if key == 'v':
                 self._Vh_fem[key] = VectorFemSpace(
@@ -173,7 +189,7 @@ class Derham:
         self._spline_types = {}
         self._spline_types_pyccel = {}
 
-        for i, key in enumerate(self._V.keys()):
+        for i, key in enumerate(_Vnames.keys()):
             fem_space = self._Vh_fem[key]
 
             if key in {'0', '3'}:
@@ -206,9 +222,9 @@ class Derham:
         self._domain_array = self._get_domain_array()
         self._breaks_loc = [self.breaks[k][self.domain_decomposition.starts[k]:
                                            self.domain_decomposition.ends[k] + 2] for k in range(3)]
-        self._index_array_domain = self._get_index_array(
+        
+        self._index_array = self._get_index_array(
             self._domain_decomposition)
-
         self._index_array_N = self._get_index_array(self._Vh['0'].cart)
         self._index_array_D = self._get_index_array(self._Vh['3'].cart)
 
@@ -223,10 +239,10 @@ class Derham:
 
         self._Vh_pol = {}
 
-        self._B = {}
-        self._E = {}
+        self._boundary_ops = {}
+        self._extraction_ops = {}
 
-        for i, key in enumerate(self._V.keys()):
+        for i, key in enumerate(_Vnames.keys()):
 
             vec_space = self._Vh[key]
 
@@ -235,25 +251,25 @@ class Derham:
 
                 pol_space = self._Vh[key]
 
-                self._E[key] = IdentityOperator(pol_space)
+                self._extraction_ops[key] = IdentityOperator(pol_space)
                 P_ex = IdentityOperator(pol_space)
 
             # C^1 polar spline case
             else:
 
-                pol_space = PolarDerhamSpace(self, self._V[key])
+                pol_space = PolarDerhamSpace(self, _Vnames[key])
 
-                self._E[key] = PolarExtractionOperator(
+                self._extraction_ops[key] = PolarExtractionOperator(
                     vec_space, pol_space, ck_blocks.e_ten_to_pol[key])
                 P_ex = PolarExtractionOperator(
                     vec_space, pol_space, ck_blocks.p_ten_to_pol[key], ck_blocks.p_ten_to_ten[key])
 
             self._Vh_pol[key] = pol_space
-            self._B[key] = BoundaryOperator(pol_space, self._V[key], self._bc)
+            self._boundary_ops[key] = BoundaryOperator(pol_space, _Vnames[key], self._bc)
 
             if with_projectors:
                 self._P[key] = Projector(
-                    self._P[key], P_ex, self._E[key], self._B[key])
+                    self._P[key], P_ex, self._extraction_ops[key], self._boundary_ops[key])
 
         # set discrete derivatives with boundary operators
         if self.polar_ck == 1:
@@ -265,11 +281,11 @@ class Derham:
                 self._Vh_pol['2'], self._Vh_pol['3'], self._div, ck_blocks.div_pol_to_ten, ck_blocks.div_pol_to_pol, ck_blocks.div_e3)
 
         self._grad = CompositeLinearOperator(
-            self._B['1'], self._grad, self._B['0'].T)
+            self._boundary_ops['1'], self._grad, self._boundary_ops['0'].T)
         self._curl = CompositeLinearOperator(
-            self._B['2'], self._curl, self._B['1'].T)
+            self._boundary_ops['2'], self._curl, self._boundary_ops['1'].T)
         self._div = CompositeLinearOperator(
-            self._B['3'], self._div, self._B['2'].T)
+            self._boundary_ops['3'], self._div, self._boundary_ops['2'].T)
 
     @property
     def Nel(self):
@@ -291,15 +307,16 @@ class Derham:
 
     @property
     def bc(self):
-        """ List of boundary conditions in each direction.
+        """ List of boundary conditions in each direction. 
+        Each entry is a list with two entries (left and right boundary), "d" (hom. Dirichlet) or None (periodic).
         """
         return self._bc
 
     @property
-    def quad_order(self):
+    def nquads(self):
         """ List of number of Gauss-Legendre quadrature points in each direction (default = p, = p + 1 points per cell).
         """
-        return self._quad_order
+        return self._nquads
 
     @property
     def nq_pr(self):
@@ -363,7 +380,7 @@ class Derham:
         return self._breaks_loc
 
     @property
-    def index_array_domain(self):
+    def index_array(self):
         """
         A 2d array[int] of shape (comm.Get_size(), 6). The row index denotes the process number and
         for n=0,1,2:
@@ -371,7 +388,7 @@ class Derham:
             * arr[i, 2*n + 0] holds the global start index of cells of process i in direction eta_(n+1).
             * arr[i, 2*n + 1] holds the global end index of cells of process i in direction eta_(n+1).
         """
-        return self._index_array_domain
+        return self._index_array
 
     @property
     def index_array_N(self):
@@ -406,22 +423,10 @@ class Derham:
         return self._neighbours
 
     @property
-    def forms_dict(self):
-        """ Dictionary containing the names of the continuous spaces and corresponding names of differential forms.
-        """
-        return self._forms_dict
-
-    @property
-    def spaces_dict(self):
+    def space_to_form(self):
         """ Dictionary containing the names of the continuous spaces and corresponding discrete spaces.
         """
-        return self._spaces_dict
-
-    @property
-    def V(self):
-        """ Dictionary containing names of continuous functions spaces (H1, Hcurl, Hdiv, L2 and H1vec).
-        """
-        return self._V
+        return self._space_to_form
 
     @property
     def Vh(self):
@@ -454,20 +459,20 @@ class Derham:
         return self._spline_types_pyccel
 
     @property
-    def E(self):
+    def extraction_ops(self):
         """ Dictionary holding basis extraction operators, either IdentityOperator or PolarExtractionOperator.
         """
-        return self._E
+        return self._extraction_ops
 
     @property
-    def B(self):
+    def boundary_ops(self):
         """ Dictionary holding essential boundary operators (BoundaryOperator).
         """
-        return self._B
+        return self._boundary_ops
 
     @property
     def P(self):
-        """ Dictionary holding global commuting projectors (BoundaryOperator).
+        """ Dictionary holding global commuting projectors.
         """
         return self._P
 
@@ -496,103 +501,11 @@ class Derham:
         return self._div
 
     # --------------------------
-    #      public methods:
+    #      methods:
     # --------------------------
 
-    def create_buffer_types(self, *datas):
-        """
-        Creates the buffer types for the ghost region sender. Send types are only the slicing information;
-        receving has to be saved in a temporary array and then added to the _data object with the correct indices.
-        Buffers have the same structure as struphy.psydac_api.psydac_derham.Derham.neighbours, i.e. a 3d array with shape (3,3,3)
-        and are initialized with None. If the process has a neighbour, the send/recv information is filled in.
-
-        Parameters
-        ----------
-        *datas : np.ndarrays
-            The 6d (matrices) or 3d (vectors) _data attributes of StencilMatrices/-Vectors whose ghost regions shall be sent.
-
-        Returns
-        -------
-        send_types : list
-            The send types of ghost regions.
-
-        recv_buf : list
-            The receive types of ghost regions.
-        """
-
-        send_types = []
-        recv_buf = []
-
-        neighbours = self.neighbours
-
-        # pads are the same in all spaces (take V0 here)
-        pads = self.Vh['0'].pads
-
-        for k, arg in enumerate(datas):
-            for comp, neigh in np.ndenumerate(neighbours):
-
-                send_types.append(np.array([[[None]*3]*3]*3))
-                recv_buf.append(np.array([[[None]*3]*3]*3))
-
-                if neigh != -1:
-                    send_types[k][comp] = self._create_send_buffer_one_component(
-                        pads, arg.shape, comp)
-                    recv_buf[k][comp] = self._create_recv_buffer_one_component(
-                        pads, arg.shape, comp)
-
-        return send_types, recv_buf
-
-    def send_ghost_regions(self, send_types, recv_types, *datas):
-        """
-        Communicates the ghost regions between all processes using non-blocking communication.
-        In order to avoid communication overhead a sending in one direction component is always accompanied
-        by a receiving (if neighbour is not -1) in the inverted direction. This guarantees that every send signal
-        is received in the same comp iteration.
-
-        Parameters
-        ----------
-        send_types : list
-            The send types of ghost regions (obtained with self.create_buffer_types()).
-
-        recv_buf : list
-            The receive types of ghost regions (obtained with self.create_buffer_types()).
-
-        *datas : np.ndarrays
-            The 6d (matrices) or 3d (vectors) _data attributes of StencilMatrices/-Vectors whose ghost regions shall be sent.
-        """
-
-        comm = self.comm
-        neighbours = self.neighbours
-
-        for dat, send_type, recv_type in zip(datas, send_types, recv_types):
-
-            for comp, send_neigh in np.ndenumerate(neighbours):
-                inv_comp = self._invert_component(comp)
-                recv_neigh = neighbours[inv_comp]
-
-                if send_neigh != -1:
-                    send_type_comp = send_type[comp]
-                    # sending to component direction.
-                    self._send_ghost_regions_one_component(
-                        dat, send_neigh, send_type_comp, comp)
-
-                if recv_neigh != -1:
-                    recv_type_comp = recv_type[inv_comp]
-                    # Receiving from the inverted component direction if there is a neighbour
-                    self._recv_ghost_regions_one_component(
-                        dat, recv_neigh, recv_type_comp, comp)
-
-                    if len(dat.shape) == 6:
-                        recv_type_comp['buf'][:, :, :, :, :, :] == 0.
-                        recv_type_comp['buf'][:, :, :, :, :, :] == 0.
-                    elif len(dat.shape) == 3:
-                        recv_type_comp['buf'][:, :, :] == 0.
-                        recv_type_comp['buf'][:, :, :] == 0.
-                    else:
-                        raise NotImplementedError(
-                            'Unknown shape of data object!')
-
-                comm.Barrier()
+    def create_field(self, name, space_id):
+        return self.Field(name, space_id, self)
 
     # --------------------------
     #      private methods:
@@ -774,7 +687,7 @@ class Derham:
 
         # multiple processes
         else:
-            # initialize array which will be compared to the rows of index_array_domain:
+            # initialize array which will be compared to the rows of index_array:
             # elements with index 2n are the starts and 2n + 1 are the ends.
 
             neigh_inds = [None]*6
@@ -782,8 +695,8 @@ class Derham:
             # in each direction find start/end index for neighbour
             for k, co in enumerate(comp):
                 if co == 1:
-                    neigh_inds[2*k + 0] = self.index_array_domain[rank, 2*k + 0]
-                    neigh_inds[2*k + 1] = self.index_array_domain[rank, 2*k + 1]
+                    neigh_inds[2*k + 0] = self.index_array[rank, 2*k + 0]
+                    neigh_inds[2*k + 1] = self.index_array[rank, 2*k + 1]
 
                 elif co == 0:
                     neigh_inds[2*k + 1] = gl_s[k] - 1
@@ -805,7 +718,7 @@ class Derham:
             inds = np.where(neigh_inds != None)
 
             # find ranks (row index of domain_array) which agree in start/end indices
-            index_temp = np.squeeze(self.index_array_domain[:, inds])
+            index_temp = np.squeeze(self.index_array[:, inds])
             unique_ranks = np.where(
                 np.equal(index_temp, neigh_inds[inds]).all(1))[0]
 
@@ -814,208 +727,827 @@ class Derham:
                 neigh_id = unique_ranks[0]
 
         return neigh_id
-
-    def _create_send_buffer_one_component(self, pads, arg_shape, comp):
+    
+    # --------------------------
+    # Inner classes
+    # --------------------------
+    class Field:
         """
-        creates the send buffer in direction for stencil matrices and vectors. Send buffer is the indexing (MPI.Create_subarray)
+        Initializes a field variable (i.e. its FE coefficients) in memory and creates a method for assigning initial condition.
 
         Parameters
         ----------
-        pads : list
-            contains the paddings in each direction.
+        name : str
+            Field's key to be used for instance when saving to hdf5 file.
 
-        arg_shape : tuple
-            called by arg.shape.
+        space_id : str
+            Space identifier for the field ("H1", "Hcurl", "Hdiv", "L2" or "H1vec").
 
-        comp : tuple
-            component for which the send buffer is to be created; entries are in {0,1,2}.
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete Derham complex.
         """
-        from mpi4py import MPI
 
-        subsizes_sub = list(arg_shape)
+        def __init__(self, name, space_id, derham):
 
-        if len(arg_shape) == 6:
-            starts_sub = [pads[0], pads[1], pads[2], 0, 0, 0]
+            self._name = name
+            self._space_id = space_id
+            self._derham = derham
 
-        elif len(arg_shape) == 3:
-            starts_sub = [pads[0], pads[1], pads[2]]
+            # initialize field in memory (FEM space, vector and tensor product (stencil) vector)
+            self._space_key = derham.space_to_form[space_id]
+            self._space = derham.Vh_fem[self._space_key]
 
+            self._vector = derham.Vh_pol[self._space_key].zeros()
+
+            self._vector_stencil = self._space.vector_space.zeros()
+
+            # transposed basis extraction operator for PolarVector --> Stencil-/BlockVector
+            self._ET = derham.extraction_ops[self._space_key].transpose()
+
+            # global indices of each process, and paddings
+            if self._space_id in {'H1', 'L2'}:
+                self._gl_s = self._space.vector_space.starts
+                self._gl_e = self._space.vector_space.ends
+                self._pads = self._space.vector_space.pads
+            else:
+                self._gl_s = [
+                    comp.starts for comp in self._space.vector_space.spaces]
+                self._gl_e = [
+                    comp.ends for comp in self._space.vector_space.spaces]
+                self._pads = [
+                    comp.pads for comp in self._space.vector_space.spaces]
+
+            # dimensions in each direction
+            # self._nbasis = derham.nbasis[self._space_key]
+
+            if self._space_id in {'H1', 'L2'}:
+                self._nbasis = tuple(
+                    [space.nbasis for space in self._space.spaces])
+            else:
+                self._nbasis = [tuple([space.nbasis for space in vec_space.spaces])
+                                for vec_space in self._space.spaces]
+
+        @property
+        def name(self):
+            """ Name of the field in data container (string).
+            """
+            return self._name
+
+        @property
+        def space_id(self):
+            """ String identifying the continuous space of the field: 'H1', 'Hcurl', 'Hdiv', 'L2' or 'H1vec'.
+            """
+            return self._space_id
+
+        @property
+        def space_key(self):
+            """ String identifying the discrete space of the field: '0', '1', '2', '3' or 'v'.
+            """
+            return self._space_key
+
+        @property
+        def derham(self):
+            """ 3d Derham complex struphy.psydac_api.psydac_derham.Derham.
+            """
+            return self._derham
+
+        @property
+        def space(self):
+            """ Discrete space of the field, either psydac.fem.tensor.TensorFemSpace or psydac.fem.vector.VectorFemSpace.
+            """
+            return self._space
+
+        @property
+        def ET(self):
+            """ Transposed PolarExtractionOperator (or IdentityOperator) for mapping polar coeffs to polar tensor product rings.
+            """
+            return self._ET
+
+        @property
+        def vector(self):
+            """ psydac.linalg.stencil.StencilVector or psydac.linalg.block.BlockVector or struphy.polar.basic.PolarVector.
+            """
+            return self._vector
+
+        @vector.setter
+        def vector(self, value):
+            """ In-place setter for Stencil-/Block-/PolarVector.
+            """
+
+            if isinstance(self._vector, StencilVector):
+
+                assert isinstance(value, (StencilVector, np.ndarray))
+
+                s1, s2, s3 = self.starts
+                e1, e2, e3 = self.ends
+
+                self._vector[s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = \
+                    value[s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
+
+            elif isinstance(self._vector, BlockVector):
+
+                assert isinstance(value, (BlockVector, list, tuple))
+
+                for n in range(3):
+
+                    s1, s2, s3 = self.starts[n]
+                    e1, e2, e3 = self.ends[n]
+
+                    self._vector[n][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = \
+                        value[n][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
+
+            elif isinstance(self._vector, PolarVector):
+
+                assert isinstance(value, (PolarVector, list, tuple))
+
+                if isinstance(value, PolarVector):
+                    self._vector.set_vector(value)
+                else:
+
+                    if isinstance(self._vector.tp, StencilVector):
+
+                        assert isinstance(value[0], np.ndarray)
+                        assert isinstance(value[1], (StencilVector, np.ndarray))
+
+                        self._vector.pol[0][:] = value[0][:]
+
+                        s1, s2, s3 = self.starts
+                        e1, e2, e3 = self.ends
+
+                        self._vector.tp[s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = \
+                            value[1][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
+                    else:
+                        for n in range(3):
+
+                            assert isinstance(value[n][0], np.ndarray)
+                            assert isinstance(
+                                value[n][1], (StencilVector, np.ndarray))
+
+                            self._vector.pol[n][:] = value[n][0][:]
+
+                            s1, s2, s3 = self.starts[n]
+                            e1, e2, e3 = self.ends[n]
+
+                            self._vector.tp[n][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = \
+                                value[n][1][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
+
+        @property
+        def starts(self):
+            """ Global indices of the first FE coefficient on the process, in each direction.
+            """
+            return self._gl_s
+
+        @property
+        def ends(self):
+            """ Global indices of the last FE coefficient on the process, in each direction.
+            """
+            return self._gl_e
+
+        @property
+        def pads(self):
+            """ Paddings for ghost regions, in each direction.
+            """
+            return self._pads
+
+        @property
+        def nbasis(self):
+            """ Tuple(s) of 1d dimensions for each direction.
+            """
+            return self._nbasis
+
+        @property
+        def vector_stencil(self):
+            """ Tensor-product Stencil-/BlockVector corresponding to a copy of self.vector in case of Stencil-/Blockvector 
+
+                OR 
+
+                the extracted coefficients in case of PolarVector. Call self.extract_coeffs() beforehand.
+            """
+            return self._vector_stencil
+
+        def extract_coeffs(self, update_ghost_regions=True):
+            """
+            Maps polar coeffs to polar tensor product rings in case of PolarVector (written in-place to self.vector_stencil) and updates ghost regions.
+
+            Parameters
+            ----------
+                update_ghost_regions : bool
+                    If the ghost regions shall be updated (needed in case of non-local acccess, e.g. in field evaluation).
+            """
+            self._ET.dot(self._vector, out=self._vector_stencil)
+
+            if update_ghost_regions:
+                self._vector_stencil.update_ghost_regions()
+
+        def initialize_coeffs(self, init_params, domain=None):
+            """
+            Sets the initial conditions for self.vector.
+
+            Parameters
+            ----------
+            init_params : dict
+                Parameters of initial condition, see from :ref:`params_yml`.
+
+            domain : struphy.geometry.domains (optional)
+                Domain object for metric coefficients. Needed if init_params[init_params['type']]['coords'] == 'physical'.
+            """
+
+            init_types = []
+            fun_params = []
+
+            # identifying initial conditions of self.vector
+            if init_params['type'] is None:
+                pass
+
+            elif type(init_params['type']) == str:
+
+                if self.name in init_params[init_params['type']]['comps']:
+
+                    init_types += [init_params['type']]
+                    fun_params += [init_params[init_types[0]].copy()]
+
+            elif type(init_params['type']) == list:
+
+                for n, _type in enumerate(init_params['type']):
+
+                    if self.name in init_params[_type]['comps']:
+
+                        init_types += [_type]
+                        fun_params += [init_params[_type].copy()]
+
+            else:
+                raise NotImplemented(
+                    f'The type of initial condition must be null or str or list.')
+
+            ntypes = len(init_types)
+
+            if ntypes != 0:
+
+                # white noise in logical space for different components
+                if any(_type == 'noise' for _type in init_types):
+
+                    assert ntypes == 1, \
+                        AssertionError(
+                            "The init type 'noise' cannot be applied with other init types")
+
+                    params_default = {'comps': {'b2': [True, False, False]},
+                                    'variation_in': 'e3',
+                                    'amp': 0.0001,
+                                    'seed': 1234
+                                    }
+
+                    self._params = set_defaults(fun_params[0], params_default)
+
+                    # component(s) to perturb
+                    if isinstance(fun_params[0]['comps'][self.name], bool):
+                        comps = [fun_params[0]['comps'][self.name]]
+                    else:
+                        comps = fun_params[0]['comps'][self.name]
+
+                    # set white noise FE coefficients
+                    if self.space_id in {'H1', 'L2'}:
+                        if comps[0]:
+                            self._add_noise(fun_params[0])
+
+                    elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
+                        for n, comp in enumerate(comps):
+                            if comp:
+                                self._add_noise(fun_params[0], n=n)
+
+                # loading of eigenfunction
+                elif any(_type[-6:] == 'EigFun' for _type in init_types):
+
+                    assert ntypes == 1, \
+                        AssertionError(
+                            "The init type 'EigFun' cannot be applied with other init types")
+
+                    # select class
+                    funs = getattr(eigenfunctions, init_types[0])(
+                        self.derham, **fun_params[0])
+
+                    # select eigenvector and set coefficients
+                    if hasattr(funs, self.name):
+
+                        eig_vec = getattr(funs, self.name)
+
+                        self.vector = eig_vec
+
+                # Fourier modes
+                elif any(_type in ['ModesSin', 'ModesCos', 'TorusModesSin', 'TorusModesCos'] for _type in init_types):
+
+                    if 'H1vec' in self.space_id:
+                        form_str = 'vector'
+                    else:
+                        form_str = self.space_id + '_form'
+
+                    if self.space_id in {'H1', 'L2'}:
+
+                        assert ntypes == 1, \
+                            AssertionError(
+                                f'Only one init type can be applied to the variables in space {self.space_id}.')
+
+                        coord_tmp = 'logical'
+                        fun_tmp = [None]
+
+                        # coordinates: logical (default) or physical
+                        if 'coords' in fun_params[0]:
+                            coord_tmp = fun_params[0]['coords']
+                            fun_params[0].pop('coords')
+
+                        # get callable(s) for specified init type
+                        fun_class = getattr(perturbations, init_types[0])
+                        fun_params[0].pop('comps')
+                        fun_tmp[0] = fun_class(**fun_params[0])
+
+                        # pullback callable
+                        fun = PulledPform(coord_tmp, fun_tmp, domain, form_str)
+
+                    elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
+
+                        assert ntypes < 4, \
+                            AssertionError(
+                                f'Maximum 3 init types can be applied to the variables in space {self.space_id}.')
+
+                        coord_tmp = 'logical'
+                        coords_tmp = ['logical', 'logical', 'logical']
+                        fun_tmp = [None, None, None]
+
+                        for n, _type in enumerate(init_types):
+
+                            fun_class = getattr(perturbations, _type)
+
+                            comps = fun_params[n]['comps'][self.name]
+                            fun_params[n].pop('comps')
+
+                            if 'coords' in fun_params[n]:
+                                coord_tmp = fun_params[n]['coords']
+                                fun_params[n].pop('coords')
+
+                            for axis, comp in enumerate(comps):
+
+                                if comp:
+                                    fun_tmp[axis] = fun_class(**fun_params[n])
+                                    coords_tmp[axis] = coord_tmp
+
+                        # pullback callable
+                        fun = []
+
+                        fun += [PulledPform(coords_tmp[0], fun_tmp, domain,
+                                            form_str + '_1')]
+                        fun += [PulledPform(coords_tmp[1], fun_tmp, domain,
+                                            form_str + '_2')]
+                        fun += [PulledPform(coords_tmp[2], fun_tmp, domain,
+                                            form_str + '_3')]
+
+                    # peform projection
+                    self.vector = self.derham.P[self.space_key](fun)
+
+                else:
+                    raise NotImplemented(
+                        f'Initial condition {init_types} not available.')
+
+            # apply boundary operator (in-place)
+            self.derham.boundary_ops[self.space_key].dot(
+                self._vector.copy(), out=self._vector)
+
+            # update ghost regions
+            self._vector.update_ghost_regions()
+
+        def initialize_coeffs_from_restart_file(self, file, species=None):
+            """
+            TODO
+            """
+
+            if species is None:
+                key = 'restart/' + self.name
+            else:
+                key = 'restart/' + species + '_' + self.name
+
+            if isinstance(self.vector, StencilVector):
+                self.vector._data[:] = file[key][-1]
+            else:
+                for n in range(3):
+                    self.vector[n]._data[:] = file[key + '/' + str(n + 1)][-1]
+
+            self._vector.update_ghost_regions()
+
+        def __call__(self, eta1, eta2, eta3, squeeze_output=False, local=False):
+            """
+            Evaluates the spline function on the global domain, unless local is given to True (in which case the spline function is evaluated only on the local domain).
+
+            Parameters
+            ----------
+            eta1, eta2, eta3 : array-like
+                Logical coordinates at which to evaluate.
+
+            flat_eval : bool
+                Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
+
+            squeeze_output : bool
+                Whether to remove singleton dimensions in output "values".
+
+            Returns
+            -------
+                values : array[float] or list
+                    The values of the spline function at the given point set (list in case of vector-valued spaces).
+            """
+
+            # all eval points
+            E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
+                eta1, eta2, eta3)
+
+            # check if eval points are "interior points" in domain_array; if so, add small offset
+            dom_arr = self.derham.domain_array
+            if self.derham.comm is not None:
+                rank = self.derham.comm.Get_rank()
+            else:
+                rank = 0
+
+            if dom_arr[rank, 0] != 0.:
+                E1[E1 == dom_arr[rank, 0]] += 1e-8
+            if dom_arr[rank, 1] != 1.:
+                E1[E1 == dom_arr[rank, 1]] += 1e-8
+
+            if dom_arr[rank, 3] != 0.:
+                E2[E2 == dom_arr[rank, 3]] += 1e-8
+            if dom_arr[rank, 4] != 1.:
+                E2[E2 == dom_arr[rank, 4]] += 1e-8
+
+            if dom_arr[rank, 6] != 0.:
+                E3[E3 == dom_arr[rank, 6]] += 1e-8
+            if dom_arr[rank, 7] != 1.:
+                E3[E3 == dom_arr[rank, 7]] += 1e-8
+
+            # True for eval points on current process
+            E1_on_proc = np.logical_and(
+                E1 >= dom_arr[rank, 0], E1 <= dom_arr[rank, 1])
+            E2_on_proc = np.logical_and(
+                E2 >= dom_arr[rank, 3], E2 <= dom_arr[rank, 4])
+            E3_on_proc = np.logical_and(
+                E3 >= dom_arr[rank, 6], E3 <= dom_arr[rank, 7])
+
+            # flag eval points not on current process
+            E1[~E1_on_proc] = -1.
+            E2[~E2_on_proc] = -1.
+            E3[~E3_on_proc] = -1.
+
+            # prepare arrays for AllReduce
+            tmp = np.zeros((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+
+            # extract coefficients and update ghost regions
+            self.extract_coeffs(update_ghost_regions=True)
+
+            # call pyccel kernels
+            T1, T2, T3 = self.derham.Vh_fem['0'].knots
+
+            if isinstance(self._vector_stencil, StencilVector):
+
+                kind = self.derham.spline_types_pyccel[self.space_key]
+
+                if is_sparse_meshgrid:
+                    # eval_mpi needs flagged arrays E1, E2, E3 as input
+                    eval_3d.eval_spline_mpi_sparse_meshgrid(E1, E2, E3, self._vector_stencil._data, kind,
+                                                            np.array(self.derham.p), T1, T2, T3, np.array(self.starts), tmp)
+                else:
+                    # eval_mpi needs flagged arrays E1, E2, E3 as input
+                    eval_3d.eval_spline_mpi_matrix(E1, E2, E3, self._vector_stencil._data, kind,
+                                                np.array(self.derham.p), T1, T2, T3, np.array(self.starts), tmp)
+
+                if self.derham.comm is not None:
+                    if local == False:
+                        self.derham.comm.Allreduce(MPI.IN_PLACE, tmp, op=MPI.SUM)
+
+                # all processes have all values
+                values = tmp
+
+                if squeeze_output:
+                    values = np.squeeze(values)
+
+                if values.ndim == 0:
+                    values = values.item()
+
+            else:
+
+                values = []
+                for n, kind in enumerate(self.derham.spline_types_pyccel[self.space_key]):
+
+                    if is_sparse_meshgrid:
+                        eval_3d.eval_spline_mpi_sparse_meshgrid(E1, E2, E3, self._vector_stencil[n]._data, kind,
+                                                                np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp)
+                    else:
+                        eval_3d.eval_spline_mpi_matrix(E1, E2, E3, self._vector_stencil[n]._data, kind,
+                                                    np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp)
+
+                    if self.derham.comm is not None:
+                        if local == False:
+                            self.derham.comm.Allreduce(
+                                MPI.IN_PLACE, tmp, op=MPI.SUM)
+
+                    # all processes have all values
+                    values += [tmp.copy()]
+                    tmp[:] = 0.
+
+                    if squeeze_output:
+                        values[-1] = np.squeeze(values[-1])
+
+                    if values[-1].ndim == 0:
+                        values[-1] = values[-1].item()
+
+            return values
+
+        def _add_noise(self, fun_params, n=None):
+            """ Add noise to a vector component where init_comps==True, otherwise leave at zero.
+
+            Parameters
+            ----------
+            fun_params : dict
+                From parameter file under init/noise.
+
+            n : int
+                Vector component (0, 1 or 2) to be initialized.
+            """
+
+            _direction = fun_params['variation_in']
+            _ampsize = fun_params['amp']
+            _seed = fun_params['seed']
+
+            # index slices from global start to end in all directions
+            sli = []
+            gl_s = []
+            for d in range(3):
+                if n == None:
+                    sli += [slice(self._gl_s[d], self._gl_e[d] + 1)]
+                    gl_s += [self._gl_s[d]]
+                    vec = self._vector
+                else:
+                    sli += [slice(self._gl_s[n][d], self._gl_e[n][d] + 1)]
+                    gl_s += [self._gl_s[n][d]]
+                    vec = self._vector[n]
+
+            # local shape without ghost regions
+            if n == None:
+                _shape = (self._gl_e[0] + 1 - self._gl_s[0], self._gl_e
+                        [1] + 1 - self._gl_s[1], self._gl_e[2] + 1 - self._gl_s[2])
+            else:
+                _shape = (self._gl_e[n][0] + 1 - self._gl_s[n][0], self._gl_e[n]
+                        [1] + 1 - self._gl_s[n][1], self._gl_e[n][2] + 1 - self._gl_s[n][2])
+
+            if _direction == 'e1':
+                _amps = self._tmp_noise_for_mpi(
+                    _shape[0], direction=_direction, amp_size=_ampsize, seed=_seed)
+                for j in range(_shape[1]):
+                    for k in range(_shape[2]):
+                        vec[sli[0], gl_s[1] + j, gl_s[2] + k] = _amps
+                del _amps
+
+            elif _direction == 'e2':
+                _amps = self._tmp_noise_for_mpi(
+                    _shape[1], direction=_direction, amp_size=_ampsize, seed=_seed)
+                for j in range(_shape[0]):
+                    for k in range(_shape[2]):
+                        vec[gl_s[0] + j, sli[1], gl_s[2] + k] = _amps
+
+            elif _direction == 'e3':
+                _amps = self._tmp_noise_for_mpi(
+                    _shape[2], direction=_direction, amp_size=_ampsize, seed=_seed)
+                for j in range(_shape[0]):
+                    for k in range(_shape[1]):
+                        vec[gl_s[0] + j, gl_s[1] + k, sli[2]] = _amps
+
+            elif _direction == 'e1e2':
+                _amps = self._tmp_noise_for_mpi(
+                    _shape[0], _shape[1], direction=_direction, amp_size=_ampsize, seed=_seed)
+                for j in range(_shape[2]):
+                    vec[sli[0], sli[1], gl_s[2] + j] = _amps
+
+            elif _direction == 'e1e3':
+                _amps = self._tmp_noise_for_mpi(
+                    _shape[0], _shape[2], direction=_direction, amp_size=_ampsize, seed=_seed)
+                for j in range(_shape[1]):
+                    vec[sli[0], gl_s[1] + j, sli[2]] = _amps
+
+            elif _direction == 'e2e3':
+                _amps = self._tmp_noise_for_mpi(
+                    _shape[1], _shape[2], direction=_direction, amp_size=_ampsize, seed=_seed)
+                for j in range(_shape[0]):
+                    vec[gl_s[0] + j, sli[1], sli[2]] = _amps
+
+            elif _direction == 'e1e2e3':
+                _amps = self._tmp_noise_for_mpi(
+                    _shape[0], _shape[1], _shape[2], direction=_direction, amp_size=_ampsize, seed=_seed)
+                vec[sli[0], sli[1], sli[2]] = _amps
+
+            else:
+                raise ValueError('Invalid direction for noise.')
+
+        def _tmp_noise_for_mpi(self, *shapes, direction='e3', amp_size=0.0001, seed=None):
+            '''Initialize same FEEC noise regardless of number of MPI processes.
+
+            Parameters
+            ----------
+            shapes : int
+                Length of local array size in each direction where noise is to be initialized.
+
+            direction : str
+                Noise direction ('e1', 'e2' or 'e3'). Multi-dim. not yet correct.
+
+            amp_size : float
+                Noise amplitude
+
+            seed : int
+                Seed for random number generator.
+
+            Returns
+            -------
+            _amps : np.array
+                The noisy FE coefficients in the desired direction (1d, 2d or 3d array).'''
+
+            if self.derham.comm is not None:
+                comm_size = self.derham.comm.Get_size()
+                rank = self.derham.comm.Get_rank()
+                nprocs = self.derham.domain_decomposition.nprocs
+            else:
+                comm_size = 1
+                rank = 0
+                nprocs = [1, 1, 1]
+
+            domain_array = self.derham.domain_array
+
+            if seed is not None:
+                np.random.seed(seed)
+
+            # temporary
+            _amps = np.zeros(shapes)
+
+            # no process has been drawn for yet
+            already_drawn = np.zeros(nprocs) == 1.
+
+            # 1d mid point arrays in each direction
+            mid_points = []
+            for npr in nprocs:
+                delta = 1./npr
+                mid_points_i = np.zeros(npr)
+                for n in range(npr):
+                    mid_points_i[n] = delta*(n + 1/2)
+                mid_points += [mid_points_i]
+
+            if direction == 'e1':
+                tmp_arrays = np.zeros(nprocs[0]).tolist()
+            elif direction == 'e2':
+                tmp_arrays = np.zeros(nprocs[1]).tolist()
+            elif direction == 'e3':
+                tmp_arrays = np.zeros(nprocs[2]).tolist()
+            elif direction == 'e1e2':
+                tmp_arrays = np.zeros((nprocs[0], nprocs[1])).tolist()
+                Warning, f'2d noise in the directions {direction} is not correctly initilaized for MPI !!'
+            elif direction == 'e1e3':
+                tmp_arrays = np.zeros((nprocs[0], nprocs[2])).tolist()
+                Warning, f'2d noise in the directions {direction} is not correctly initilaized for MPI !!'
+            elif direction == 'e2e3':
+                tmp_arrays = np.zeros((nprocs[1], nprocs[2])).tolist()
+                Warning, f'2d noise in the directions {direction} is not correctly initilaized for MPI !!'
+            elif direction == 'e1e2e3':
+                Warning, f'3d noise in the directions {direction} is not correctly initilaized for MPI !!'
+                pass
+            else:
+                raise ValueError('Invalid direction for tmp_arrays.')
+
+            # 3d index of current process from mid points
+            inds_current = []
+            for n in range(3):
+                mid_pt_current = (
+                    domain_array[rank, 3*n] + domain_array[rank, 3*n + 1]) / 2.
+                inds_current += [np.argmin(np.abs(mid_points[n] - mid_pt_current))]
+
+            # loop over processes
+            for i in range(comm_size):
+
+                # 3d index of process i from mid points
+                inds = []
+                for n in range(3):
+                    mid_pt = (domain_array[i, 3*n] + domain_array[i, 3*n + 1]) / 2.
+                    inds += [np.argmin(np.abs(mid_points[n] - mid_pt))]
+
+                if already_drawn[inds[0], inds[1], inds[2]]:
+
+                    if direction == 'e1':
+                        _amps[:] = tmp_arrays[inds[0]]
+                    elif direction == 'e2':
+                        _amps[:] = tmp_arrays[inds[1]]
+                    elif direction == 'e3':
+                        _amps[:] = tmp_arrays[inds[2]]
+                    elif direction == 'e1e2':
+                        _amps[:] = tmp_arrays[inds[0]][inds[1]]
+                    elif direction == 'e1e3':
+                        _amps[:] = tmp_arrays[inds[0]][inds[2]]
+                    elif direction == 'e2e3':
+                        _amps[:] = tmp_arrays[inds[1]][inds[2]]
+                    elif direction == 'e1e2e3':
+                        _amps[:] = (np.random.rand(*shapes) - .5) * 2. * amp_size
+
+                else:
+
+                    if direction == 'e1':
+                        tmp_arrays[inds[0]] = (np.random.rand(
+                            *shapes) - .5) * 2. * amp_size
+                        already_drawn[inds[0], :, :] = True
+                        _amps[:] = tmp_arrays[inds[0]]
+                    elif direction == 'e2':
+                        tmp_arrays[inds[1]] = (np.random.rand(
+                            *shapes) - .5) * 2. * amp_size
+                        already_drawn[:, inds[1], :] = True
+                        _amps[:] = tmp_arrays[inds[1]]
+                    elif direction == 'e3':
+                        tmp_arrays[inds[2]] = (np.random.rand(
+                            *shapes) - .5) * 2. * amp_size
+                        already_drawn[:, :, inds[2]] = True
+                        _amps[:] = tmp_arrays[inds[2]]
+                    elif direction == 'e1e2':
+                        tmp_arrays[inds[0]][inds[1]] = (
+                            np.random.rand(*shapes) - .5) * 2. * amp_size
+                        already_drawn[inds[0], inds[1], :] = True
+                        _amps[:] = tmp_arrays[inds[0]][inds[1]]
+                    elif direction == 'e1e3':
+                        tmp_arrays[inds[0]][inds[2]] = (
+                            np.random.rand(*shapes) - .5) * 2. * amp_size
+                        already_drawn[inds[0], :, inds[2]] = True
+                        _amps[:] = tmp_arrays[inds[0]][inds[2]]
+                    elif direction == 'e2e3':
+                        tmp_arrays[inds[1]][inds[2]] = (
+                            np.random.rand(*shapes) - .5) * 2. * amp_size
+                        already_drawn[:, inds[1], inds[2]] = True
+                        _amps[:] = tmp_arrays[inds[1]][inds[2]]
+
+                if np.all(np.array([ind_c == ind for ind_c, ind in zip(inds_current, inds)])):
+                    return _amps
+
+
+class PulledPform:
+    """
+    Construct callable (component of) p-form on logical domain (unit cube).
+
+    Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see :ref:`struphy.geometry.map_eval.prepare_args`).
+
+    Parameters
+    ----------
+    coords : str
+        From which coordinate representation to pull, either 'logical' or 'physical'.
+
+    fun : list
+        Callable function components. Has to be length 3 for 1- and 2-forms, length 1 otherwise.
+
+    domain: struphy.geometry.domains
+        All things mapping.
+
+    form : str
+        Which form to pull: '0_form', '3_form' or 'xxx_1', 'xxx_2', 'xxx_3', where xxx is either '1_form', '2_form' or 'vector'.
+
+    Returns
+    -------
+    f : array[float]
+        Array holding the values.
+    """
+
+    def __init__(self, coords, fun, domain, form):
+
+        assert len(fun) == 1 or len(fun) == 3
+
+        self._fun = []
+        for f in fun:
+            if f is None:
+                def f_zero(x, y, z): return 0*x
+                self._fun += [f_zero]
+            else:
+                assert callable(f)
+                self._fun += [f]
+
+        self._coords = coords
+        self._domain = domain
+        self._form = form
+
+        # define which component of the field is evaluated (=0 for scalar fields)
+        if len(self._fun) == 1:
+            self._comp = 0
         else:
-            raise NotImplementedError('Unknown shape of argument!')
+            self._comp = int(self._form[-1]) - 1
 
-        for k in range(3):
-            subsizes_sub[k] -= 2*pads[k]
+        assert isinstance(self._fun, list)
 
-        for k, co in enumerate(comp):
-            # if left neighbour
-            if co == 0:
-                subsizes_sub[k] = pads[k]
-                starts_sub[k] = 0
+    def __call__(self, eta1, eta2, eta3):
+        """ Evaluate the component of the p-form specified in self._form.
+        """
 
-            # if middle neighbour
-            elif co == 1:
-                continue
-
-            # if right neighbour
-            elif co == 2:
-                subsizes_sub[k] = pads[k]
-                starts_sub[k] = arg_shape[k] - pads[k]
-
+        if self._coords == 'logical':
+            f = self._fun[self._comp](eta1, eta2, eta3)
+        elif self._coords == 'physical':
+            if self._form[0] == '0' or self._form[0] == '3':
+                f = self._domain.pull(
+                    self._fun, eta1, eta2, eta3, kind=self._form)
             else:
-                raise ValueError('Unknown value for component!')
-
-        temp = MPI.DOUBLE.Create_subarray(
-            sizes=list(arg_shape),
-            subsizes=subsizes_sub,
-            starts=starts_sub
-        ).Commit()
-
-        return temp
-
-    def _create_recv_buffer_one_component(self, pads, arg_shape, comp):
-        """
-        creates the receive buffer in direction for stencil matrices. The receive buffer is an empty numpy array
-        and the indices where the ghost regions will have to be added to. Left and right are swapped compared to
-        send-types since _send_ghost_regions() does the sending component-wise. Sending to the left means 
-
-        Parameters
-        ----------
-        pads : list
-            contains the paddings in each direction.
-
-        arg_shape : tuple
-            called by arg.shape.
-
-        comp : tuple
-            component for which the send buffer is to be created; entries are in {0,1,2}.
-        """
-
-        subsizes_sub = [arg_shape[k] for k in range(len(arg_shape))]
-
-        if len(arg_shape) == 6:
-            inds = [slice(pads[0], -pads[0])] + [slice(pads[1], -pads[1])] + [slice(pads[2], -pads[2])] \
-                + [slice(None)]*3
-
-        elif len(arg_shape) == 3:
-            inds = [slice(pads[0], -pads[0])] + \
-                [slice(pads[1], -pads[1])] + [slice(pads[2], -pads[2])]
-
+                f = self._domain.pull(
+                    self._fun, eta1, eta2, eta3, kind=self._form[:-2])[self._comp]
         else:
-            raise NotImplementedError('Unknown shape of argument!')
+            raise ValueError(
+                'Coordinates to be used for p-form pullback not properly specified.')
 
-        for k in range(3):
-            subsizes_sub[k] -= 2*pads[k]
-
-        for k, co in enumerate(comp):
-            # if left neighbour
-            if co == 0:
-                subsizes_sub[k] = pads[k]
-                inds[k] = slice(pads[k], 2*pads[k])
-
-            # if middle neighbour
-            elif co == 1:
-                continue
-
-            # if right neighbour
-            elif co == 2:
-                subsizes_sub[k] = pads[k]
-                inds[k] = slice(-2*pads[k], -pads[k])
-
-            else:
-                raise ValueError('Unknown value for component!')
-
-        temp = {
-            'buf': np.zeros(tuple(subsizes_sub), dtype=float),
-            'inds': tuple(inds)
-        }
-
-        return temp
-
-    def _send_ghost_regions_one_component(self, dat, neighbour, send_type, comp):
-        """
-        Does the sending for one direction component using non-blocking communication.
-
-        Parameters
-        ----------
-        dat : array
-            Stencil ._data object; numpy array.
-
-        neighbour : int
-            tag of the neighbour or -1 if no neighbour.
-
-        send_type : MPI.Create_subarrays object
-            MPI.Create_subarrays object; created by _create_buffer_types().
-
-        comp : tuple
-            component direction into which the ghost region is to be sent; entries are in {0,1,2}.
-        """
-
-        comm = self.comm
-        rank = comm.Get_rank()
-
-        send_tag = rank + 1000*comp[0] + 100*comp[1] + 10*comp[2]
-
-        comm.Isend(
-            (dat, 1, send_type), dest=neighbour, tag=send_tag)
-
-    def _recv_ghost_regions_one_component(self, dat, neighbour, recv_type, comp):
-        """
-        Does the receving for one direction component using non-blocking communication.
-
-        Parameters
-        ----------
-        dat : array
-            Stencil ._data object; numpy array.
-
-        neighbour : int
-            tag of the neighbour or -1 if no neighbour.
-
-        recv_type : dict
-            dictionary with keys 'buf' and 'inds' and values are numpy arrays; created by _create_buffer_types().
-
-        comp : tuple
-            component direction from which the ghost region was sent (is only used for computing the tag); entries are in {0,1,2}.
-        """
-        from mpi4py import MPI
-
-        comm = self.comm
-
-        recv_tag = neighbour + 1000*comp[0] + 100*comp[1] + 10*comp[2]
-
-        req_l = comm.Irecv(
-            recv_type['buf'], source=neighbour, tag=recv_tag)
-
-        re_l = False
-        while not re_l:
-            re_l = MPI.Request.Test(req_l)
-
-        dat[recv_type['inds']] += recv_type['buf']
-
-    def _invert_component(self, comp):
-        """
-        Given a component in the 3x3x3 cube this function 'inverts' it, i.e. reflects
-        it on the central component (1,1,1).
-
-        Parameters
-        ----------
-        comp : tuple
-            component index in the 3x3x3 cube; entries are in {0,1,2}.
-
-        Returns
-        -------
-        res : tuple
-            inverse component to input.
-        """
-        res = [-1, -1, -1]
-
-        for k, co in enumerate(comp):
-            if co == 1:
-                res[k] = 1
-            elif co == 0:
-                res[k] = 2
-            elif co == 2:
-                res[k] = 0
-            else:
-                raise ValueError('Unknown component value!')
-
-        return tuple(res)
+        return f

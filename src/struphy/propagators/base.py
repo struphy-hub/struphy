@@ -41,7 +41,7 @@ class Propagator(metaclass=ABCMeta):
     @property
     def feec_vars(self):
         """ List of FEEC variables (not particles) to be updated by the propagator. 
-        Contains FE coefficients from :attr:`struphy.psydac_api_fields.Field.vector`.
+        Contains FE coefficients from :attr:`struphy.psydac_api.Derham.Field.vector`.
         """
         return self._feec_vars
 

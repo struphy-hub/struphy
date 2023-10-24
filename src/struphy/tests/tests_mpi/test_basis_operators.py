@@ -71,7 +71,7 @@ def test_basis_ops(Nel, p, spl_kind, mapping, show_plots=False):
     nq_el = [p[0] + 1, p[1] + 1, p[2] + 1]
     nq_pr = p.copy()
 
-    derham = Derham(Nel, p, spl_kind, quad_order=p, nq_pr=nq_pr, comm=mpi_comm)
+    derham = Derham(Nel, p, spl_kind, nquads=p, nq_pr=nq_pr, comm=mpi_comm)
 
     # Struphy tensor spline space objects (one for tensor product projectors and one for general projectors)
     space1 = Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0])
@@ -499,7 +499,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
              p[2] + 1]
     nq_pr = p.copy()
 
-    derham = Derham(Nel, p, spl_kind, quad_order=p, nq_pr=nq_pr, comm=mpi_comm,
+    derham = Derham(Nel, p, spl_kind, nquads=p, nq_pr=nq_pr, comm=mpi_comm,
                     bc=bc_compatible, with_projectors=True, polar_ck=1, domain=domain)
 
     if mpi_rank == 0:
