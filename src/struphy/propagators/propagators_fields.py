@@ -376,8 +376,8 @@ class ShearAlfvén(Propagator):
         self._rank = self.derham.comm.Get_rank()
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        id_M = 'M' + self.derham.spaces_dict[params['u_space']] + 'n'
-        id_T = 'T' + self.derham.spaces_dict[params['u_space']]
+        id_M = 'M' + self.derham.space_to_form[params['u_space']] + 'n'
+        id_T = 'T' + self.derham.space_to_form[params['u_space']]
 
         _A = getattr(self.mass_ops, id_M)
         _T = getattr(self.basis_ops, id_T)
@@ -718,8 +718,8 @@ class Magnetosonic(Propagator):
         self._rank = self.derham.comm.Get_rank()
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        id_Mn = 'M' + self.derham.spaces_dict[params['u_space']] + 'n'
-        id_MJ = 'M' + self.derham.spaces_dict[params['u_space']] + 'J'
+        id_Mn = 'M' + self.derham.space_to_form[params['u_space']] + 'n'
+        id_MJ = 'M' + self.derham.space_to_form[params['u_space']] + 'J'
 
         if params['u_space'] == 'Hcurl':
             id_S, id_U, id_K, id_Q = 'S1', 'U1', 'K3', 'Q1'
@@ -1309,7 +1309,7 @@ class CurrentCoupling6DDensity(Propagator):
             self._space_key_int = 0
         else:
             self._space_key_int = int(
-                self.derham.spaces_dict[params['u_space']])
+                self.derham.space_to_form[params['u_space']])
 
         assert isinstance(params['b_eq'], (BlockVector, PolarVector))
 
@@ -1363,10 +1363,10 @@ class CurrentCoupling6DDensity(Propagator):
             self.derham, self.domain, params['u_space'], 'cc_lin_mhd_6d_1', add_vector=False, symmetry='asym')
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        self._E2T = self.derham.E['2'].transpose()
+        self._E2T = self.derham.extraction_ops['2'].transpose()
 
         # mass matrix in system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
-        u_id = self.derham.spaces_dict[params['u_space']]
+        u_id = self.derham.space_to_form[params['u_space']]
         self._M = getattr(self.mass_ops, 'M' + u_id + 'n')
 
         # preconditioner
@@ -1563,8 +1563,8 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
                                 'H1', 'cc_lin_mhd_5d_mu', add_vector=True)
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        id_M = 'M' + self.derham.spaces_dict[params['u_space']] + 'n'
-        id_T = 'T' + self.derham.spaces_dict[params['u_space']]
+        id_M = 'M' + self.derham.space_to_form[params['u_space']] + 'n'
+        id_T = 'T' + self.derham.space_to_form[params['u_space']]
 
         _A = getattr(self.mass_ops, id_M)
         _T = getattr(self.basis_ops, id_T)
@@ -1732,7 +1732,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             self._space_key_int = 0
         else:
             self._space_key_int = int(
-                self.derham.spaces_dict[params['u_space']])
+                self.derham.space_to_form[params['u_space']])
 
         self._f0 = params['f0']
 
@@ -1756,8 +1756,8 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                                 params['u_space'], 'cc_lin_mhd_5d_curlMxB', add_vector=True)
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        id_Mn = 'M' + self.derham.spaces_dict[params['u_space']] + 'n'
-        id_MJ = 'M' + self.derham.spaces_dict[params['u_space']] + 'J'
+        id_Mn = 'M' + self.derham.space_to_form[params['u_space']] + 'n'
+        id_MJ = 'M' + self.derham.space_to_form[params['u_space']] + 'J'
 
         if params['u_space'] == 'Hcurl':
             id_S, id_U, id_K, id_Q = 'S1', 'U1', 'K3', 'Q1'
@@ -1903,7 +1903,7 @@ class CurrentCoupling5DDensity(Propagator):
             self._space_key_int = 0
         else:
             self._space_key_int = int(
-                self.derham.spaces_dict[params['u_space']])
+                self.derham.space_to_form[params['u_space']])
 
         assert isinstance(params['b_eq'], (BlockVector, PolarVector))
 
@@ -1928,10 +1928,10 @@ class CurrentCoupling5DDensity(Propagator):
             self.derham, self.domain, params['u_space'], 'cc_lin_mhd_5d_D', add_vector=False, symmetry='asym')
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        self._E2T = self.derham.E['2'].transpose()
+        self._E2T = self.derham.extraction_ops['2'].transpose()
 
         # mass matrix in system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
-        u_id = self.derham.spaces_dict[params['u_space']]
+        u_id = self.derham.space_to_form[params['u_space']]
         self._M = getattr(self.mass_ops, 'M' + u_id + 'n')
 
         # preconditioner

@@ -332,7 +332,7 @@ class Particles5D(Particles):
 
         absB = self.derham.P['0'](self._mhd_equil.absB0)
 
-        E0T = self.derham.E['0'].transpose()
+        E0T = self.derham.extraction_ops['0'].transpose()
 
         absB = E0T.dot(absB)
 
@@ -347,7 +347,7 @@ class Particles5D(Particles):
         """
         T1, T2, T3 = self.derham.Vh_fem['0'].knots
 
-        E0T = self.derham.E['0'].transpose()
+        E0T = self.derham.extraction_ops['0'].transpose()
 
         PB = E0T.dot(PB)
 

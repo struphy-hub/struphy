@@ -150,10 +150,8 @@ def test_eval_field(Nel, p, spl_kind):
 
     from struphy.geometry.base import Domain
     from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.fields import Field
 
     from struphy.psydac_api.utilities import compare_arrays
-    from struphy.b_splines import bsplines_kernels as bsp
     from struphy.b_splines.bspline_evaluation_3d import evaluate_matrix
 
     comm = MPI.COMM_WORLD
@@ -164,11 +162,11 @@ def test_eval_field(Nel, p, spl_kind):
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     # fem field objects
-    p0 = Field('pressure', 'H1', derham)
-    E1 = Field('e_field', 'Hcurl', derham)
-    B2 = Field('b_field', 'Hdiv', derham)
-    n3 = Field('density', 'L2', derham)
-    uv = Field('velocity', 'H1vec', derham)
+    p0 = derham.create_field('pressure', 'H1')
+    E1 = derham.create_field('e_field', 'Hcurl')
+    B2 = derham.create_field('b_field', 'Hdiv')
+    n3 = derham.create_field('density', 'L2')
+    uv = derham.create_field('velocity', 'H1vec')
 
     # initialize fields with sin/cos
     comps = {'pressure':  True,

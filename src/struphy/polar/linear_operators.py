@@ -16,7 +16,7 @@ class PolarExtractionOperator(LinOpWithTransp):
     """
     Linear operator mapping from Stencil-/BlockVectorSpace (V) to PolarDerhamSpace (W).
 
-    For fixed k, the dot product maps tensor-product (tp) basis functions/DOFs a_ijk
+    For fixed third index k, the dot product maps tensor-product (tp) basis functions/DOFs a_ijk
 
         a) with index i < n_rings ("polar rings") to n_polar polar basis functions/DOFs, 
         b) with index i <= n_rings to n2 tp basis functions/DOFs ("first tp ring"),

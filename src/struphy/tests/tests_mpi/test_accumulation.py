@@ -68,7 +68,7 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, Np, verbose=False):
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm)
 
     # space key: one of '1', '2' and 'v'
-    space_key = derham.spaces_dict[space]
+    space_key = derham.space_to_form[space]
 
     if mpi_rank == 0:
         print('Domain decomposition according to', derham.domain_array)
@@ -227,7 +227,7 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, Np, verbose=False):
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm)
 
     # space key: one of '1', '2' and 'v'
-    space_key = derham.spaces_dict[space]
+    space_key = derham.space_to_form[space]
 
     if mpi_rank == 0:
         print(derham.domain_array)

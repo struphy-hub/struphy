@@ -128,7 +128,7 @@ class PushVxB(Propagator):
         params_default = {'algo': 'analytic',
                           'scale_fac': 1.,
                           'b_eq': None,
-                          'b_tilde': None,}
+                          'b_tilde': None, }
 
         params = set_defaults(params, params_default)
 
@@ -146,7 +146,7 @@ class PushVxB(Propagator):
         self._pusher = Pusher(self.derham, self.domain, kernel_name)
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        self._E2T = self.derham.E['2'].transpose()
+        self._E2T = self.derham.extraction_ops['2'].transpose()
 
     def __call__(self, dt):
         """
@@ -228,7 +228,7 @@ class StepPushpxBHybrid(Propagator):
         assert isinstance(self._a,    (BlockVector, PolarVector))
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        self._E2T = self.derham.E['2'].transpose()
+        self._E2T = self.derham.extraction_ops['2'].transpose()
 
     def __call__(self, dt):
         """
@@ -514,9 +514,9 @@ class PushGuidingCenterbxEstar(Propagator):
         grad_abs_b = self.derham.grad.dot(abs_b)
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        E0T = self.derham.E['0'].transpose()
-        E1T = self.derham.E['1'].transpose()
-        E2T = self.derham.E['2'].transpose()
+        E0T = self.derham.extraction_ops['0'].transpose()
+        E1T = self.derham.extraction_ops['1'].transpose()
+        E2T = self.derham.extraction_ops['2'].transpose()
 
         b_eq = E2T.dot(b_eq)
         unit_b1 = E1T.dot(unit_b1)
@@ -711,9 +711,9 @@ class PushGuidingCenterBstar(Propagator):
         grad_abs_b = self.derham.grad.dot(abs_b)
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        E0T = self.derham.E['0'].transpose()
-        E1T = self.derham.E['1'].transpose()
-        E2T = self.derham.E['2'].transpose()
+        E0T = self.derham.extraction_ops['0'].transpose()
+        E1T = self.derham.extraction_ops['1'].transpose()
+        E2T = self.derham.extraction_ops['2'].transpose()
 
         b_eq = E2T.dot(b_eq)
         unit_b1 = E1T.dot(unit_b1)
@@ -1059,9 +1059,9 @@ class PushDriftKineticbxGradB(Propagator):
         self._grad_PBb = self.derham.grad.dot(self._PBb)
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        self._E0T = self.derham.E['0'].transpose()
-        self._E1T = self.derham.E['1'].transpose()
-        self._E2T = self.derham.E['2'].transpose()
+        self._E0T = self.derham.extraction_ops['0'].transpose()
+        self._E1T = self.derham.extraction_ops['1'].transpose()
+        self._E2T = self.derham.extraction_ops['2'].transpose()
 
         self._b_eq = self._E2T.dot(self._b_eq)
         self._unit_b1 = self._E1T.dot(self._unit_b1)
@@ -1281,9 +1281,9 @@ class PushDriftKineticBstar(Propagator):
         self._grad_PBb = self.derham.grad.dot(self._PBb)
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        self._E0T = self.derham.E['0'].transpose()
-        self._E1T = self.derham.E['1'].transpose()
-        self._E2T = self.derham.E['2'].transpose()
+        self._E0T = self.derham.extraction_ops['0'].transpose()
+        self._E1T = self.derham.extraction_ops['1'].transpose()
+        self._E2T = self.derham.extraction_ops['2'].transpose()
 
         self._unit_b1 = self._E1T.dot(self._unit_b1)
         self._unit_b2 = self._E2T.dot(self._unit_b2)

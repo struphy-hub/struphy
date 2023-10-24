@@ -416,7 +416,7 @@ class StruphyModel(metaclass=ABCMeta):
                         pforms = val['params']['init']['pforms']
 
                     else:
-                        pforms = ['0','0']
+                        pforms = ['0', '0']
 
                 else:
                     pforms = val['params']['save_data']['f']['pforms']
@@ -1180,7 +1180,6 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         Creates FEM fields for em-fields and fluid variables and a particle class for kinetic species.
         """
 
-        from struphy.psydac_api.fields import Field
         from struphy.pic import particles
 
         # allocate memory for FE coeffs of electromagnetic fields/potentials
@@ -1189,7 +1188,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             for key, val in self.em_fields.items():
 
                 if 'params' not in key:
-                    val['obj'] = Field(key, val['space'], self.derham)
+                    val['obj'] = self.derham.create_field(key, val['space'])
 
                     self._pointer[key] = val['obj'].vector
 
@@ -1201,8 +1200,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 for variable, subval in val.items():
 
                     if 'params' not in variable:
-                        subval['obj'] = Field(
-                            variable, subval['space'], self.derham)
+                        subval['obj'] = self.derham.create_field(
+                            variable, subval['space'])
 
                         self._pointer[species + '_' +
                                       variable] = subval['obj'].vector
@@ -1215,7 +1214,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 if self.params['kinetic'][species]['markers']['type'] in ['control_variate', 'delta_f']:
                     assert 'background' in self.params['kinetic'][species], \
                         f'If a control variate or delta-f method is used, a maxwellians background must be given!'
-                    
+
                 if 'background' in self.params['kinetic'][species]:
                     f0_params = val['params']['background']
                 else:

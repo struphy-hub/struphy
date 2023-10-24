@@ -225,12 +225,11 @@ def setup_derham(params_grid, comm, domain=None, mpi_dims_mask=None):
     # C^k smoothness at eta_1=0 for polar domains
     polar_ck = params_grid['polar_ck']
 
-    quad_order = [nq_el[0] - 1,
-                  nq_el[1] - 1,
-                  nq_el[2] - 1]
-
-    derham = Derham(Nel, p, spl_kind, bc,
-                    quad_order=quad_order,
+    derham = Derham(Nel, 
+                    p, 
+                    spl_kind, 
+                    bc,
+                    nquads=nq_el,
                     nq_pr=nq_pr,
                     comm=comm,
                     mpi_dims_mask=mpi_dims_mask,

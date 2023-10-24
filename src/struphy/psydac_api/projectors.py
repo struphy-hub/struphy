@@ -57,7 +57,7 @@ class L2_Projector:
         self._derham = derham
         self._lhs_mat = mass_mat
 
-        self._space_key = self.derham.spaces_dict[self.space_id]
+        self._space_key = self.derham.space_to_form[self.space_id]
         self._space = derham.Vh_fem[self.space_key]
 
         if self.space_id in ("H1", "L2"):
@@ -175,7 +175,7 @@ class L2_Projector:
 
         for k in range(3):
             pts[k], wts[k] = np.polynomial.legendre.leggauss(
-                self.derham.quad_order[k])
+                self.derham.nquads[k])
 
         locs = [None]*3
         scaled_weights = [None]*3
