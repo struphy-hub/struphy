@@ -733,7 +733,7 @@ class Derham:
     # --------------------------
     class Field:
         """
-        Initializes a field variable (i.e. its FE coefficients) in memory and creates a method for assigning initial condition.
+        Initializes a callable field variable (i.e. its FE coefficients) in memory and creates a method for assigning initial conditions.
 
         Parameters
         ----------
@@ -1038,7 +1038,7 @@ class Derham:
                     if 'H1vec' in self.space_id:
                         form_str = 'vector'
                     else:
-                        form_str = self.space_id + '_form'
+                        form_str = self.space_key + '_form'
 
                     if self.space_id in {'H1', 'L2'}:
 
