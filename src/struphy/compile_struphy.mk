@@ -53,10 +53,10 @@ F0K  := $(struphy_path)/kinetic_background/f0_kernels
 BEVA := $(struphy_path)/kinetic_background/background_eval
 
 # FEM kernels
-PLP  := $(struphy_path)/psydac_api/basis_projection_kernels
-PLM  := $(struphy_path)/psydac_api/mass_kernels
-PLMH := $(struphy_path)/psydac_api/utilities_kernels
-BTS  := $(struphy_path)/psydac_api/banded_to_stencil_kernels
+PLP  := $(struphy_path)/feec/basis_projection_kernels
+PLM  := $(struphy_path)/feec/mass_kernels
+PLMH := $(struphy_path)/feec/utilities_kernels
+BTS  := $(struphy_path)/feec/banded_to_stencil_kernels
 
 # PIC
 UTL	 := $(struphy_path)/pic/utilities_kernels

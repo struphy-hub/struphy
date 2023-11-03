@@ -3,9 +3,9 @@ import pytest
 from mpi4py import MPI
 import matplotlib.pyplot as plt
 
-from struphy.psydac_api.psydac_derham import Derham
-from struphy.psydac_api.projectors import L2_Projector
-from struphy.psydac_api.mass import WeightedMassOperators
+from struphy.feec.psydac_derham import Derham
+from struphy.feec.projectors import L2_Projector
+from struphy.feec.mass import WeightedMassOperators
 from struphy.geometry import domains
 
 

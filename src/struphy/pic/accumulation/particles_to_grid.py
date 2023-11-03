@@ -6,7 +6,7 @@ import numpy as np
 from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.block import BlockVector
 
-from struphy.psydac_api.mass import WeightedMassOperator
+from struphy.feec.mass import WeightedMassOperator
 
 import struphy.pic.accumulation.accum_kernels as accums
 import struphy.pic.accumulation.accum_kernels_gc as accums_gc
@@ -30,7 +30,7 @@ class Accumulator:
 
     Parameters
     ----------
-    derham : struphy.psydac_api.psydac_derham.Derham
+    derham : struphy.feec.psydac_derham.Derham
         Discrete Derham complex.
 
     domain : struphy.geometry.domains
@@ -316,7 +316,7 @@ class AccumulatorVector:
 
     Parameters
     ----------
-    derham : struphy.psydac_api.psydac_derham.Derham
+    derham : struphy.feec.psydac_derham.Derham
         Discrete Derham complex.
 
     domain : struphy.geometry.domains

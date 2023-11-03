@@ -24,7 +24,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000, verbose=False):
     from mpi4py import MPI
 
     from struphy.geometry import domains
-    from struphy.psydac_api.psydac_derham import Derham
+    from struphy.feec.psydac_derham import Derham
 
     from struphy.pic.particles import Particles6D
     from struphy.pic.accumulation.particles_to_grid import AccumulatorVector

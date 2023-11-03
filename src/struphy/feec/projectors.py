@@ -1,8 +1,8 @@
-from struphy.psydac_api.psydac_derham import Derham
-from struphy.psydac_api import preconditioner
+from struphy.feec.psydac_derham import Derham
+from struphy.feec import preconditioner
 import struphy.linear_algebra.iterative_solvers as it_solvers
 from struphy.fields_background.mhd_equil.equils import set_defaults
-import struphy.psydac_api.utilities_kernels as util_kernels
+import struphy.feec.utilities_kernels as util_kernels
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 

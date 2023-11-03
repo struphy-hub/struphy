@@ -220,7 +220,7 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def derham(self):
-        """ struphy.psydac_api.psydac_derham.Derham
+        """ struphy.feec.psydac_derham.Derham
         """
         return self._derham
 

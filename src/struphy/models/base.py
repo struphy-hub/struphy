@@ -29,8 +29,8 @@ class StruphyModel(metaclass=ABCMeta):
 
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
-        from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
-        from struphy.psydac_api.mass import WeightedMassOperators
+        from struphy.feec.basis_projection_ops import BasisProjectionOperators
+        from struphy.feec.mass import WeightedMassOperators
 
         assert 'em_fields' in self.species()
         assert 'fluid' in self.species()

@@ -22,8 +22,8 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     
     from struphy.eigenvalue_solvers.legacy.mhd_operators_MF import projectors_dot_x
 
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.basis_projection_ops import BasisProjectionOperators
 
     from psydac.linalg.stencil import StencilVector
     from psydac.linalg.block import BlockVector

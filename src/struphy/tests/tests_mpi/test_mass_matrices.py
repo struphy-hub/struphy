@@ -5,13 +5,13 @@ import pytest
 @pytest.mark.parametrize('Nel', [[5, 6, 7]])
 @pytest.mark.parametrize('p',   [[2, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True]])
-@pytest.mark.parametrize('bc', [[[None, None], [None, None], [None, None]],
-                                [[None,  'd'], ['d', None], [None, None]],
-                                [['d', None], [None,  'd'], [None, None]]])
+@pytest.mark.parametrize('dirichlet_bc', [None,
+                                          [[False,  True], [True, False], [False, False]],
+                                          [[True, False], [False,  True], [False, False]]])
 @pytest.mark.parametrize('mapping', [
     ['Colella', {
         'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}]])
-def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
+def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     '''Compare Struphy mass matrices to Struphy-legacy mass matrices.'''
 
     import numpy as np
@@ -20,12 +20,14 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
 
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
-    from struphy.psydac_api.mass import WeightedMassOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
+    from struphy.feec.mass import WeightedMassOperators
     from struphy.fields_background.mhd_equil.equils import ShearedSlab, ScrewPinch
 
     from mpi4py import MPI
+    
+    import copy
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -86,17 +88,18 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
 
     eq_mhd.domain = domain
 
-    # make sure that boundary conditions are compatible with spline space (periodic only allows for None)
-    bc_compatible = []
-
-    for spl_i, bc_i in zip(spl_kind, bc):
-        if spl_i:
-            bc_compatible += [[None, None]]
-        else:
-            bc_compatible += [bc_i]
+    # make sure that boundary conditions are compatible with spline space
+    if dirichlet_bc is not None:
+        for i, knd in enumerate(spl_kind):
+            if knd:
+                dirichlet_bc[i] = [False, False]
+    else:
+        dirichlet_bc = [[False, False]]*3
+        
+    print(f'{dirichlet_bc = }')
 
     # derham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, bc=bc_compatible)
+    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc)
 
     print(f'Rank {mpi_rank} | Local domain : ' +
           str(derham.domain_array[mpi_rank]))
@@ -111,10 +114,18 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
 
     # compare to old STRUPHY
-    spaces = [Spline_space_1d(Nel[0], p[0], spl_kind[0], p[0] + 1, bc_compatible[0]),
+    bc_old = [[None, None], [None, None], [None, None]]
+    for i in range(3):
+        for j in range(2):
+            if dirichlet_bc[i][j]:
+                bc_old[i][j] = 'd'
+            else:
+                bc_old[i][j] = 'f'
+    
+    spaces = [Spline_space_1d(Nel[0], p[0], spl_kind[0], p[0] + 1, bc_old[0]),
               Spline_space_1d(Nel[1], p[1], spl_kind[1],
-                              p[1] + 1, bc_compatible[1]),
-              Spline_space_1d(Nel[2], p[2], spl_kind[2], p[2] + 1, bc_compatible[2])]
+                              p[1] + 1, bc_old[1]),
+              Spline_space_1d(Nel[2], p[2], spl_kind[2], p[2] + 1, bc_old[2])]
 
     spaces[0].set_projectors()
     spaces[1].set_projectors()
@@ -210,12 +221,13 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
 @pytest.mark.parametrize('Nel', [[8, 12, 6]])
 @pytest.mark.parametrize('p',   [[2, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [False, True, False]])
-@pytest.mark.parametrize('bc', [[[None,  'd'], [None, None], [None, ' d']],
-                                [[None, None], [None, None], ['d', None]]])
+@pytest.mark.parametrize('dirichlet_bc', [None, 
+                                          [[False,  True], [False, False], [False, True]],
+                                          [[False, False], [False, False], [True, False]]])
 @pytest.mark.parametrize('mapping', [
     ['IGAPolarCylinder', {
         'a': 1., 'Lz': 3.}]])
-def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
+def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     '''Compare Struphy polar mass matrices to Struphy-legacy polar mass matrices.'''
 
     import numpy as np
@@ -224,14 +236,16 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
 
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
-    from struphy.psydac_api.mass import WeightedMassOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
+    from struphy.feec.mass import WeightedMassOperators
     from struphy.fields_background.mhd_equil.equils import ScrewPinch
 
     from struphy.polar.basic import PolarVector
 
     from mpi4py import MPI
+    
+    import copy
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -270,17 +284,16 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
 
     eq_mhd.domain = domain
 
-    # make sure that boundary conditions are compatible with spline space (periodic only allows for None)
-    bc_compatible = []
-
-    for spl_i, bc_i in zip(spl_kind, bc):
-        if spl_i:
-            bc_compatible += [[None, None]]
-        else:
-            bc_compatible += [bc_i]
+    # make sure that boundary conditions are compatible with spline space
+    if dirichlet_bc is not None:
+        for i, knd in enumerate(spl_kind):
+            if knd:
+                dirichlet_bc[i] = [False, False]
+    else:
+        dirichlet_bc = [[False, False]]*3
 
     # derham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, bc=bc_compatible,
+    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc,
                     with_projectors=False, polar_ck=1, domain=domain)
 
     print(f'Rank {mpi_rank} | Local domain : ' +
@@ -290,10 +303,18 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
 
     # compare to old STRUPHY
-    spaces = [Spline_space_1d(Nel[0], p[0], spl_kind[0], p[0] + 1, bc_compatible[0]),
+    bc_old = [[None, None], [None, None], [None, None]]
+    for i in range(3):
+        for j in range(2):
+            if dirichlet_bc[i][j]:
+                bc_old[i][j] = 'd'
+            else:
+                bc_old[i][j] = 'f'
+    
+    spaces = [Spline_space_1d(Nel[0], p[0], spl_kind[0], p[0] + 1, bc_old[0]),
               Spline_space_1d(Nel[1], p[1], spl_kind[1],
-                              p[1] + 1, bc_compatible[1]),
-              Spline_space_1d(Nel[2], p[2], spl_kind[2], p[2] + 1, bc_compatible[2])]
+                              p[1] + 1, bc_old[1]),
+              Spline_space_1d(Nel[2], p[2], spl_kind[2], p[2] + 1, bc_old[2])]
 
     spaces[0].set_projectors()
     spaces[1].set_projectors()
@@ -406,12 +427,13 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
 @pytest.mark.parametrize('Nel', [[8, 12, 6]])
 @pytest.mark.parametrize('p',   [[2, 3, 2]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [False, True, False]])
-@pytest.mark.parametrize('bc', [[[None,  'd'], [None, None], [None, ' d']],
-                                [[None, None], [None, None], ['d', None]]])
+@pytest.mark.parametrize('dirichlet_bc', [None, 
+                                          [[False,  True], [False, False], [False, True]],
+                                          [[False, False], [False, False], [True, False]]])
 @pytest.mark.parametrize('mapping', [
     ['HollowCylinder', {
         'a1': .1, 'a2': 1., 'Lz': 18.84955592153876}]])
-def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
+def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     '''Compare mass matrix-vector products with Kronecker products of preconditioner, 
     check PC * M = Id and test PCs in solve.'''
 
@@ -422,11 +444,11 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
 
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
-    from struphy.psydac_api.mass import WeightedMassOperators
-    from struphy.psydac_api.preconditioner import MassMatrixPreconditioner
-    from struphy.psydac_api.linear_operators import InverseLinearOperator
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.preconditioner import MassMatrixPreconditioner
+    from struphy.feec.linear_operators import InverseLinearOperator
 
     from struphy.fields_background.mhd_equil.equils import ShearedSlab, ScrewPinch
 
@@ -491,17 +513,16 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
 
     eq_mhd.domain = domain
 
-    # make sure that boundary conditions are compatible with spline space (periodic only allows for None)
-    bc_compatible = []
-
-    for spl_i, bc_i in zip(spl_kind, bc):
-        if spl_i:
-            bc_compatible += [[None, None]]
-        else:
-            bc_compatible += [bc_i]
+    # make sure that boundary conditions are compatible with spline space
+    if dirichlet_bc is not None:
+        for i, knd in enumerate(spl_kind):
+            if knd:
+                dirichlet_bc[i] = [False, False]
+    else:
+        dirichlet_bc = [[False, False]]*3
 
     # derham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, bc=bc_compatible)
+    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc)
 
     fem_spaces = [derham.Vh_fem['0'],
                   derham.Vh_fem['1'],
@@ -715,12 +736,13 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
 @pytest.mark.parametrize('Nel', [[8, 9, 6]])
 @pytest.mark.parametrize('p',   [[2, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [False, True, False]])
-@pytest.mark.parametrize('bc', [[[None,  'd'], [None, None], [None, ' d']],
-                                [[None, None], [None, None], ['d', None]]])
+@pytest.mark.parametrize('dirichlet_bc', [None, 
+                                          [[False,  True], [False, False], [False, True]],
+                                          [[False, False], [False, False], [True, False]]])
 @pytest.mark.parametrize('mapping', [
     ['IGAPolarCylinder', {
         'a': 1., 'Lz': 3.}]])
-def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
+def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     '''Compare polar mass matrix-vector products with Kronecker products of preconditioner, 
     check PC * M = Id and test PCs in solve.'''
 
@@ -731,11 +753,11 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
 
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
-    from struphy.psydac_api.mass import WeightedMassOperators
-    from struphy.psydac_api.preconditioner import MassMatrixPreconditioner
-    from struphy.psydac_api.linear_operators import InverseLinearOperator
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.preconditioner import MassMatrixPreconditioner
+    from struphy.feec.linear_operators import InverseLinearOperator
 
     from struphy.polar.basic import PolarVector
     from struphy.fields_background.mhd_equil.equils import ScrewPinch
@@ -780,16 +802,15 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     eq_mhd.domain = domain
 
     # make sure that boundary conditions are compatible with spline space
-    bc_compatible = []
-
-    for spl_i, bc_i in zip(spl_kind, bc):
-        if spl_i:
-            bc_compatible += [[None, None]]
-        else:
-            bc_compatible += [bc_i]
+    if dirichlet_bc is not None:
+        for i, knd in enumerate(spl_kind):
+            if knd:
+                dirichlet_bc[i] = [False, False]
+    else:
+        dirichlet_bc = [[False, False]]*3
 
     # derham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, bc=bc_compatible,
+    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc,
                     with_projectors=False, polar_ck=1, domain=domain)
 
     print(f'Rank {mpi_rank} | Local domain : ' +
@@ -1022,8 +1043,11 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
 
 
 if __name__ == '__main__':
-    test_mass([6, 7, 4], [2, 3, 1], [False, True, False], [[None, None], [None, None], [
-              None, None]], ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], False)
+    test_mass([5, 6, 7], 
+              [2, 2, 3], 
+              [True, False, True], 
+              [[False,  True], [True, False], [False, False]], 
+              ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], False)
     # test_mass([8, 6, 4], [2, 3, 2], [False, True, False], [['d', 'd'], [None, None], [None, 'd']], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False)
     # test_mass([8, 6, 4], [2, 2, 2], [False, True, True], [['d', 'd'], [None, None], [None, None]], ['HollowCylinder', {'a1': .1, 'a2': 1., 'Lz': 10.}], False)
 

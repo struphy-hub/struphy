@@ -13,8 +13,8 @@ def test_noise_init(Nel, p, spl_kind, space, direction):
     from mpi4py import MPI
     import numpy as np
 
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.utilities import compare_arrays
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import compare_arrays
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2

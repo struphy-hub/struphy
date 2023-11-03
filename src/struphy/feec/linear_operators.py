@@ -8,7 +8,7 @@ from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatr
 from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockLinearOperator
 from psydac.linalg.kron import KroneckerStencilMatrix
 
-from struphy.psydac_api.utilities import apply_essential_bc_to_array
+from struphy.feec.utilities import apply_essential_bc_to_array
 from struphy.polar.basic import PolarDerhamSpace
 
 import struphy.linear_algebra.iterative_solvers as it_solvers
@@ -540,11 +540,11 @@ class BoundaryOperator(LinOpWithTransp):
     space_id : str
         Symbolic space ID of vector_space (H1, Hcurl, Hdiv, L2 or H1vec).
 
-    bc : list
-        Boundary conditions in each direction in format [[bc_e1=0, bc_e1=1], [bc_e2=0, bc_e2=1], [bc_e3=0, bc_e3=1]].
+    dirichlet_bc : list[list[bool]]
+        Whether to apply homogeneous Dirichlet boundary conditions (at left or right boundary in each direction).
     """
 
-    def __init__(self, vector_space, space_id, bc=None):
+    def __init__(self, vector_space, space_id, dirichlet_bc):
 
         assert isinstance(vector_space, VectorSpace)
         assert isinstance(space_id, str)
@@ -554,15 +554,10 @@ class BoundaryOperator(LinOpWithTransp):
         self._dtype = vector_space.dtype
 
         self._space_id = space_id
+        self._bc = dirichlet_bc
 
-        if bc is None:
-            self._bc = [[None, None],
-                        [None, None],
-                        [None, None]]
-        else:
-            assert isinstance(bc, list)
-            assert len(bc) == 3
-            self._bc = bc
+        assert isinstance(dirichlet_bc, list)
+        assert len(dirichlet_bc) == 3
 
         # number of non-zero elements in poloidal/toroidal direction
         if isinstance(vector_space, PolarDerhamSpace):
@@ -574,12 +569,6 @@ class BoundaryOperator(LinOpWithTransp):
             n_pts = vec_space_ten.npts
         else:
             n_pts = [comp.npts for comp in vec_space_ten.spaces]
-
-        def conv(b):
-            if b == 'd':
-                return 1
-            else:
-                return 0
 
         dim_nz1_pol = 1
         dim_nz2_pol = 1
@@ -593,16 +582,13 @@ class BoundaryOperator(LinOpWithTransp):
 
             if isinstance(vector_space, PolarDerhamSpace):
                 dim_nz1_pol *= (n_pts[0] - vector_space.n_rings[0] -
-                                conv(self._bc[0][1]))*n_pts[1]
+                                self.bc[0][1])*n_pts[1]
                 dim_nz1_pol += vector_space.n_polar[0]
             else:
-                dim_nz1_pol *= n_pts[0] - \
-                    conv(self._bc[0][0]) - conv(self._bc[0][1])
-                dim_nz1_pol *= n_pts[1] - \
-                    conv(self._bc[1][0]) - conv(self._bc[1][1])
+                dim_nz1_pol *= n_pts[0] - self.bc[0][0] - self.bc[0][1]
+                dim_nz1_pol *= n_pts[1] - self.bc[1][0] - self.bc[1][1]
 
-            dim_nz1_tor *= n_pts[2] - \
-                conv(self._bc[2][0]) - conv(self._bc[2][1])
+            dim_nz1_tor *= n_pts[2] - self.bc[2][0] - self.bc[2][1]
 
             self._dim_nz_pol = (dim_nz1_pol,)
             self._dim_nz_tor = (dim_nz1_tor,)
@@ -617,30 +603,24 @@ class BoundaryOperator(LinOpWithTransp):
                 dim_nz1_pol += vector_space.n_polar[0]
 
                 dim_nz2_pol *= (n_pts[1][0] - vector_space.n_rings[1] -
-                                conv(self._bc[0][1]))*n_pts[1][1]
+                                self.bc[0][1])*n_pts[1][1]
                 dim_nz2_pol += vector_space.n_polar[1]
 
                 dim_nz3_pol *= (n_pts[2][0] - vector_space.n_rings[2] -
-                                conv(self._bc[0][1]))*n_pts[2][1]
+                                self.bc[0][1])*n_pts[2][1]
                 dim_nz3_pol += vector_space.n_polar[2]
             else:
                 dim_nz1_pol *= n_pts[0][0]
-                dim_nz1_pol *= n_pts[0][1] - \
-                    conv(self._bc[1][0]) - conv(self._bc[1][1])
+                dim_nz1_pol *= n_pts[0][1] - self.bc[1][0] - self.bc[1][1]
 
-                dim_nz2_pol *= n_pts[1][0] - \
-                    conv(self._bc[0][0]) - conv(self._bc[0][1])
+                dim_nz2_pol *= n_pts[1][0] - self.bc[0][0] - self.bc[0][1]
                 dim_nz2_pol *= n_pts[1][1]
 
-                dim_nz3_pol *= n_pts[2][0] - \
-                    conv(self._bc[0][0]) - conv(self._bc[0][1])
-                dim_nz3_pol *= n_pts[2][1] - \
-                    conv(self._bc[1][0]) - conv(self._bc[1][1])
+                dim_nz3_pol *= n_pts[2][0] - self.bc[0][0] - self.bc[0][1]
+                dim_nz3_pol *= n_pts[2][1] - self.bc[1][0] - self.bc[1][1]
 
-            dim_nz1_tor *= n_pts[0][2] - \
-                conv(self._bc[2][0]) - conv(self._bc[2][1])
-            dim_nz2_tor *= n_pts[1][2] - \
-                conv(self._bc[2][0]) - conv(self._bc[2][1])
+            dim_nz1_tor *= n_pts[0][2] - self.bc[2][0] - self.bc[2][1]
+            dim_nz2_tor *= n_pts[1][2] - self.bc[2][0] - self.bc[2][1]
             dim_nz3_tor *= n_pts[2][2]
 
             self._dim_nz_pol = (dim_nz1_pol, dim_nz2_pol, dim_nz3_pol)
@@ -654,7 +634,7 @@ class BoundaryOperator(LinOpWithTransp):
 
             if isinstance(vector_space, PolarDerhamSpace):
                 dim_nz1_pol *= (n_pts[0][0] - vector_space.n_rings[0] -
-                                conv(self._bc[0][1]))*n_pts[0][1]
+                                self.bc[0][1])*n_pts[0][1]
                 dim_nz1_pol += vector_space.n_polar[0]
 
                 dim_nz2_pol *= (n_pts[1][0] -
@@ -665,21 +645,18 @@ class BoundaryOperator(LinOpWithTransp):
                                 vector_space.n_rings[2])*n_pts[2][1]
                 dim_nz3_pol += vector_space.n_polar[2]
             else:
-                dim_nz1_pol *= n_pts[0][0] - \
-                    conv(self._bc[0][0]) - conv(self._bc[0][1])
+                dim_nz1_pol *= n_pts[0][0] - self.bc[0][0] - self.bc[0][1]
                 dim_nz1_pol *= n_pts[0][1]
 
                 dim_nz2_pol *= n_pts[1][0]
-                dim_nz2_pol *= n_pts[1][1] - \
-                    conv(self._bc[1][0]) - conv(self._bc[1][1])
+                dim_nz2_pol *= n_pts[1][1] - self.bc[1][0] - self.bc[1][1]
 
                 dim_nz3_pol *= n_pts[2][0]
                 dim_nz3_pol *= n_pts[2][1]
 
             dim_nz1_tor *= n_pts[0][2]
             dim_nz2_tor *= n_pts[1][2]
-            dim_nz3_tor *= n_pts[2][2] - \
-                conv(self._bc[2][0]) - conv(self._bc[2][1])
+            dim_nz3_tor *= n_pts[2][2] - self.bc[2][0] - self.bc[2][1]
 
             self._dim_nz_pol = (dim_nz1_pol, dim_nz2_pol, dim_nz3_pol)
             self._dim_nz_tor = (dim_nz1_tor, dim_nz2_tor, dim_nz3_tor)
@@ -769,7 +746,7 @@ class BoundaryOperator(LinOpWithTransp):
             v.copy(out=out)
 
         # apply boundary conditions to output vector
-        apply_essential_bc_to_array(self._space_id, out, self._bc)
+        apply_essential_bc_to_array(self._space_id, out, self.bc)
 
         return out
 
@@ -777,7 +754,7 @@ class BoundaryOperator(LinOpWithTransp):
         """
         Returns the transposed operator.
         """
-        return BoundaryOperator(self._domain, self._space_id, self._bc)
+        return BoundaryOperator(self._domain, self._space_id, self.bc)
 
 
 class IdentityOperator(LinOpWithTransp):

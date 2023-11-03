@@ -12,19 +12,19 @@ from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian6DUniform, Maxwellian5DUniform
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
-from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
-from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
-from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
-from struphy.psydac_api.linear_operators import InverseLinearOperator as Inverse
-from struphy.psydac_api.linear_operators import IdentityOperator
-from struphy.psydac_api import preconditioner
-from struphy.psydac_api.mass import WeightedMassOperator
+from struphy.feec.linear_operators import CompositeLinearOperator as Compose
+from struphy.feec.linear_operators import SumLinearOperator as Sum
+from struphy.feec.linear_operators import ScalarTimesLinearOperator as Multiply
+from struphy.feec.linear_operators import InverseLinearOperator as Inverse
+from struphy.feec.linear_operators import IdentityOperator
+from struphy.feec import preconditioner
+from struphy.feec.mass import WeightedMassOperator
 import struphy.linear_algebra.iterative_solvers as it_solvers
 from struphy.linear_algebra.iterative_solvers import PConjugateGradient as pcg
 
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
-import struphy.psydac_api.utilities as util
+import struphy.feec.utilities as util
 from mpi4py import MPI
 
 
@@ -714,7 +714,7 @@ class Magnetosonic(Propagator):
         assert params['u_space'] in {'Hcurl', 'Hdiv', 'H1vec'}
 
         self._info = params['info']
-        self._bc = self.derham.bc
+        self._bc = self.derham.dirichlet_bc
         self._rank = self.derham.comm.Get_rank()
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
@@ -876,7 +876,7 @@ class SonicIon(Propagator):
         params = set_defaults(params, params_default)
 
         self._info = params['info']
-        self._bc = self.derham.bc
+        self._bc = self.derham.dirichlet_bc
         self._rank = self.derham.comm.Get_rank()
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
@@ -1013,7 +1013,7 @@ class SonicElectron(Propagator):
         params = set_defaults(params, params_default)
 
         self._info = params['info']
-        self._bc = self.derham.bc
+        self._bc = self.derham.dirichlet_bc
         self._rank = self.derham.comm.Get_rank()
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
@@ -1746,7 +1746,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
 
         self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
         self._curl_norm_b.update_ghost_regions()
-        self._bc = self.derham.bc
+        self._bc = self.derham.dirichlet_bc
         self._info = params['info']
         self._rank = self.derham.comm.Get_rank()
 

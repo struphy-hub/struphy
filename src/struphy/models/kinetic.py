@@ -168,7 +168,7 @@ class VlasovMaxwell(StruphyModel):
     def initialize_from_params(self):
 
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-        from struphy.psydac_api.projectors import L2_Projector
+        from struphy.feec.projectors import L2_Projector
         from psydac.linalg.stencil import StencilVector
 
         # Initialize fields and particles

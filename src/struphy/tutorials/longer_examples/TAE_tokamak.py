@@ -97,7 +97,7 @@ def diagnostics():
     p = params['grid']['p']
     spl_kind = params['grid']['spl_kind']
     nq_el = params['grid']['nq_el']
-    bc = params['grid']['bc']
+    dirichlet_bc = params['grid']['dirichlet_bc']
     polar_ck = params['grid']['polar_ck']
     
     # create domain and MHD equilibrium
@@ -131,6 +131,13 @@ def diagnostics():
     # perform continuous spectra diagnostics
     spec_path = os.path.join(out_path, 'spec_n_-1.npy')
     n_tor = int(spec_path[-6:-4])
+
+    bc = ['f', 'f']
+    if dirichlet_bc[0]:
+        bc[0] = 'd'
+        
+    if dirichlet_bc[1]:
+        bc[1] = 'd'
 
     fem_1d_1 = Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0], bc[0])
     fem_1d_2 = Spline_space_1d(Nel[1], p[1], spl_kind[1], nq_el[1], bc[1])

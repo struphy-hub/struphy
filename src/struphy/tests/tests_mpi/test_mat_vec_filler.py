@@ -16,7 +16,7 @@ def test_mat_vec_filler(Nel, p, spl_kind, n_markers=1):
     from mpi4py import MPI
     from time import sleep
 
-    from struphy.psydac_api.psydac_derham import Derham
+    from struphy.feec.psydac_derham import Derham
     from struphy.pic.accumulation import mat_vec_filler as mvf
     from struphy.b_splines import bsplines_kernels as bsp
 
