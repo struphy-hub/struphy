@@ -2,7 +2,7 @@ from psydac.linalg.stencil import StencilVector, StencilVectorSpace
 from psydac.linalg.block import BlockVector, BlockVectorSpace
 
 from struphy.linear_algebra.linalg_kron import kron_matvec_2d
-from struphy.psydac_api.linear_operators import LinOpWithTransp
+from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.polar.basic import PolarVector, PolarDerhamSpace
 
 from mpi4py import MPI

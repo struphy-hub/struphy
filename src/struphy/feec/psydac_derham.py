@@ -9,8 +9,8 @@ from psydac.feec.global_projectors import Projector_H1vec
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 
-from struphy.psydac_api.linear_operators import BoundaryOperator, CompositeLinearOperator, IdentityOperator
-from struphy.psydac_api.geom_projectors import Projector
+from struphy.feec.linear_operators import BoundaryOperator, CompositeLinearOperator, IdentityOperator
+from struphy.feec.geom_projectors import PolarCommutingProjector
 from struphy.polar.basic import PolarDerhamSpace
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
@@ -47,8 +47,8 @@ class Derham:
     spl_kind : list[bool]
         Kind of spline in each direction (True=periodic, False=clamped).
 
-    bc : list[list[str]]
-        Left and right bcs can be either: "d" (homogeneous Dirichlet), or None (periodic).
+    dirichlet_bc : list[list[bool]]
+        Whether to apply homogeneous Dirichlet boundary conditions (at left or right boundary in each direction).
 
     nq_pr : list[int]
         Number of Gauss-Legendre quadrature points in each direction for geometric projectors (default = p+1, leads to exact integration of degree 2p+1 polynomials).
@@ -73,11 +73,11 @@ class Derham:
         Mapping from logical unit cube to physical domain (only needed in case of polar splines polar_ck=1).
     """
 
-    def __init__(self, 
-                 Nel, 
-                 p, 
+    def __init__(self,
+                 Nel,
+                 p,
                  spl_kind,
-                 bc=None,
+                 dirichlet_bc=None,
                  nquads=None,
                  nq_pr=None,
                  comm=None,
@@ -96,18 +96,12 @@ class Derham:
         self._spl_kind = spl_kind
 
         # boundary conditions at eta=0 and eta=1 in each direction (None for periodic, 'd' for homogeneous Dirichlet)
-        if bc is None:
-            self._bc = [[None, None], [None, None], [None, None]]
-        else:
-            assert len(bc) == 3
-            if spl_kind[0]:
-                assert bc[0][0] is None and bc[0][1] is None
-            if spl_kind[1]:
-                assert bc[1][0] is None and bc[1][1] is None
-            if spl_kind[2]:
-                assert bc[2][0] is None and bc[2][1] is None
+        if dirichlet_bc is not None:
+            assert len(dirichlet_bc) == 3
+            # make sure that boundary conditions are compatible with spline space
+            assert np.all([bc == [False, False] for i, bc in enumerate(dirichlet_bc) if spl_kind[i]])
 
-            self._bc = bc
+        self._dirichlet_bc = dirichlet_bc
 
         # default p: exact integration of degree 2p-1 polynomials
         if nquads is None:
@@ -222,7 +216,7 @@ class Derham:
         self._domain_array = self._get_domain_array()
         self._breaks_loc = [self.breaks[k][self.domain_decomposition.starts[k]:
                                            self.domain_decomposition.ends[k] + 2] for k in range(3)]
-        
+
         self._index_array = self._get_index_array(
             self._domain_decomposition)
         self._index_array_N = self._get_index_array(self._Vh['0'].cart)
@@ -230,7 +224,7 @@ class Derham:
 
         self._neighbours = self._get_neighbours()
 
-        # set polar sub-spaces, polar basis extraction operators, polar DOF extraction operators and boundary operators
+        # ------ (Polar) deRham spaces and projectors ------
         if self.polar_ck == -1:
             ck_blocks = None
         else:
@@ -238,21 +232,22 @@ class Derham:
             ck_blocks = PolarExtractionBlocksC1(domain, self)
 
         self._Vh_pol = {}
-
         self._boundary_ops = {}
         self._extraction_ops = {}
+        self._dofs_extraction_ops = {}
 
         for i, key in enumerate(_Vnames.keys()):
 
             vec_space = self._Vh[key]
 
+            # ------ Extraction operators ------
             # tensor product case
             if self.polar_ck == -1:
 
                 pol_space = self._Vh[key]
 
                 self._extraction_ops[key] = IdentityOperator(pol_space)
-                P_ex = IdentityOperator(pol_space)
+                self._dofs_extraction_ops[key] = IdentityOperator(pol_space)
 
             # C^1 polar spline case
             else:
@@ -261,15 +256,23 @@ class Derham:
 
                 self._extraction_ops[key] = PolarExtractionOperator(
                     vec_space, pol_space, ck_blocks.e_ten_to_pol[key])
-                P_ex = PolarExtractionOperator(
+
+                self._dofs_extraction_ops[key] = PolarExtractionOperator(
                     vec_space, pol_space, ck_blocks.p_ten_to_pol[key], ck_blocks.p_ten_to_ten[key])
 
             self._Vh_pol[key] = pol_space
-            self._boundary_ops[key] = BoundaryOperator(pol_space, _Vnames[key], self._bc)
+            
+            # ------ Hom. Dirichlet boundary operators ------
+            if self.dirichlet_bc is None:
+                self._boundary_ops[key] = IdentityOperator(pol_space)
+            else:
+                self._boundary_ops[key] = BoundaryOperator(
+                    pol_space, _Vnames[key], self.dirichlet_bc)
 
+            # ------ Assemble projectors ------
             if with_projectors:
-                self._P[key] = Projector(
-                    self._P[key], P_ex, self._extraction_ops[key], self._boundary_ops[key])
+                self._P[key] = PolarCommutingProjector(
+                    self._P[key], self._dofs_extraction_ops[key], self._extraction_ops[key], self._boundary_ops[key])
 
         # set discrete derivatives with boundary operators
         if self.polar_ck == 1:
@@ -306,11 +309,11 @@ class Derham:
         return self._spl_kind
 
     @property
-    def bc(self):
-        """ List of boundary conditions in each direction. 
+    def dirichlet_bc(self):
+        """ None, or list of boundary conditions in each direction. 
         Each entry is a list with two entries (left and right boundary), "d" (hom. Dirichlet) or None (periodic).
         """
-        return self._bc
+        return self._dirichlet_bc
 
     @property
     def nquads(self):
@@ -465,8 +468,14 @@ class Derham:
         return self._extraction_ops
 
     @property
+    def dofs_extraction_ops(self):
+        """ Dictionary holding dof extraction operators for commuting projectors, either IdentityOperator or PolarExtractionOperator.
+        """
+        return self._dofs_extraction_ops
+
+    @property
     def boundary_ops(self):
-        """ Dictionary holding essential boundary operators (BoundaryOperator).
+        """ Dictionary holding essential boundary operators (BoundaryOperator) OR IdentityOperators.
         """
         return self._boundary_ops
 
@@ -727,7 +736,7 @@ class Derham:
                 neigh_id = unique_ranks[0]
 
         return neigh_id
-    
+
     # --------------------------
     # Inner classes
     # --------------------------
@@ -743,7 +752,7 @@ class Derham:
         space_id : str
             Space identifier for the field ("H1", "Hcurl", "Hdiv", "L2" or "H1vec").
 
-        derham : struphy.psydac_api.psydac_derham.Derham
+        derham : struphy.feec.psydac_derham.Derham
             Discrete Derham complex.
         """
 
@@ -807,7 +816,7 @@ class Derham:
 
         @property
         def derham(self):
-            """ 3d Derham complex struphy.psydac_api.psydac_derham.Derham.
+            """ 3d Derham complex struphy.feec.psydac_derham.Derham.
             """
             return self._derham
 
@@ -867,7 +876,8 @@ class Derham:
                     if isinstance(self._vector.tp, StencilVector):
 
                         assert isinstance(value[0], np.ndarray)
-                        assert isinstance(value[1], (StencilVector, np.ndarray))
+                        assert isinstance(
+                            value[1], (StencilVector, np.ndarray))
 
                         self._vector.pol[0][:] = value[0][:]
 
@@ -991,10 +1001,10 @@ class Derham:
                             "The init type 'noise' cannot be applied with other init types")
 
                     params_default = {'comps': {'b2': [True, False, False]},
-                                    'variation_in': 'e3',
-                                    'amp': 0.0001,
-                                    'seed': 1234
-                                    }
+                                      'variation_in': 'e3',
+                                      'amp': 0.0001,
+                                      'seed': 1234
+                                      }
 
                     self._params = set_defaults(fun_params[0], params_default)
 
@@ -1192,7 +1202,8 @@ class Derham:
             E3[~E3_on_proc] = -1.
 
             # prepare arrays for AllReduce
-            tmp = np.zeros((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+            tmp = np.zeros((E1.shape[0], E2.shape[1],
+                           E3.shape[2]), dtype=float)
 
             # extract coefficients and update ghost regions
             self.extract_coeffs(update_ghost_regions=True)
@@ -1211,11 +1222,12 @@ class Derham:
                 else:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
                     eval_3d.eval_spline_mpi_matrix(E1, E2, E3, self._vector_stencil._data, kind,
-                                                np.array(self.derham.p), T1, T2, T3, np.array(self.starts), tmp)
+                                                   np.array(self.derham.p), T1, T2, T3, np.array(self.starts), tmp)
 
                 if self.derham.comm is not None:
                     if local == False:
-                        self.derham.comm.Allreduce(MPI.IN_PLACE, tmp, op=MPI.SUM)
+                        self.derham.comm.Allreduce(
+                            MPI.IN_PLACE, tmp, op=MPI.SUM)
 
                 # all processes have all values
                 values = tmp
@@ -1236,7 +1248,7 @@ class Derham:
                                                                 np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp)
                     else:
                         eval_3d.eval_spline_mpi_matrix(E1, E2, E3, self._vector_stencil[n]._data, kind,
-                                                    np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp)
+                                                       np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp)
 
                     if self.derham.comm is not None:
                         if local == False:
@@ -1287,10 +1299,10 @@ class Derham:
             # local shape without ghost regions
             if n == None:
                 _shape = (self._gl_e[0] + 1 - self._gl_s[0], self._gl_e
-                        [1] + 1 - self._gl_s[1], self._gl_e[2] + 1 - self._gl_s[2])
+                          [1] + 1 - self._gl_s[1], self._gl_e[2] + 1 - self._gl_s[2])
             else:
                 _shape = (self._gl_e[n][0] + 1 - self._gl_s[n][0], self._gl_e[n]
-                        [1] + 1 - self._gl_s[n][1], self._gl_e[n][2] + 1 - self._gl_s[n][2])
+                          [1] + 1 - self._gl_s[n][1], self._gl_e[n][2] + 1 - self._gl_s[n][2])
 
             if _direction == 'e1':
                 _amps = self._tmp_noise_for_mpi(
@@ -1425,7 +1437,8 @@ class Derham:
                 # 3d index of process i from mid points
                 inds = []
                 for n in range(3):
-                    mid_pt = (domain_array[i, 3*n] + domain_array[i, 3*n + 1]) / 2.
+                    mid_pt = (domain_array[i, 3*n] +
+                              domain_array[i, 3*n + 1]) / 2.
                     inds += [np.argmin(np.abs(mid_points[n] - mid_pt))]
 
                 if already_drawn[inds[0], inds[1], inds[2]]:
@@ -1443,7 +1456,8 @@ class Derham:
                     elif direction == 'e2e3':
                         _amps[:] = tmp_arrays[inds[1]][inds[2]]
                     elif direction == 'e1e2e3':
-                        _amps[:] = (np.random.rand(*shapes) - .5) * 2. * amp_size
+                        _amps[:] = (np.random.rand(
+                            *shapes) - .5) * 2. * amp_size
 
                 else:
 

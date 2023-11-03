@@ -13,7 +13,7 @@ class PolarDerhamSpace(VectorSpace):
 
     Parameters
     ----------
-    derham : struphy.psydac_api.psydac_derham.Derham
+    derham : struphy.feec.psydac_derham.Derham
         Discrete Derham complex.
 
     space_id : str

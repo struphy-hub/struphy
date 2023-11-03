@@ -18,14 +18,14 @@ def test_solvers(Nel, p, spl_kind, geom, verbose=False):
     from struphy.models.toy import Maxwell
     from struphy.models.fluid import LinearMHD
 
-    from struphy.psydac_api.utilities import create_equal_random_arrays
+    from struphy.feec.utilities import create_equal_random_arrays
     
     from struphy.linear_algebra.iterative_solvers import ConjugateGradient as STR_CG
     from struphy.linear_algebra.iterative_solvers import PConjugateGradient as STR_PCG
     from struphy.linear_algebra.iterative_solvers import BiConjugateGradientStab as STR_BICGSTAB
     from struphy.linear_algebra.iterative_solvers import PBiConjugateGradientStab as STR_PBICGSTAB
     
-    from struphy.psydac_api.preconditioner import MassMatrixPreconditioner
+    from struphy.feec.preconditioner import MassMatrixPreconditioner
 
     from psydac.linalg.solvers import ConjugateGradient 
     from psydac.linalg.solvers import PConjugateGradient 

@@ -56,7 +56,6 @@ def test_GVEC_equilibrium(plot=False):
     spl_kind = None       # Set values below
     nq_el    = [4, 4, 6]  # Element integration
     nq_pr    = [4, 4, 6]  # Greville integration
-    bc       = ['f', 'f'] # BC in s-direction
     spl_kind = [False, True, True] # Periodic or not.
 
 

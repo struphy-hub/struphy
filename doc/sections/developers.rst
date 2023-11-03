@@ -311,7 +311,7 @@ FEEC base classes
 Derham sequence (3D) 
 ^^^^^^^^^^^^^^^^^^^^
 
-.. autoclass:: struphy.psydac_api.psydac_derham.Derham
+.. autoclass:: struphy.feec.psydac_derham.Derham
     :members:
     :undoc-members:
     :show-inheritance:
@@ -321,12 +321,12 @@ Derham sequence (3D)
 Weighted mass operators
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-.. autoclass:: struphy.psydac_api.mass.WeightedMassOperators
+.. autoclass:: struphy.feec.mass.WeightedMassOperators
     :members:
     :undoc-members:
     :show-inheritance:
 
-.. autoclass:: struphy.psydac_api.mass.WeightedMassOperator
+.. autoclass:: struphy.feec.mass.WeightedMassOperator
     :members:
     :undoc-members:
     :show-inheritance:
@@ -336,12 +336,12 @@ Weighted mass operators
 Basis projection operators
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. autoclass:: struphy.psydac_api.basis_projection_ops.BasisProjectionOperators
+.. autoclass:: struphy.feec.basis_projection_ops.BasisProjectionOperators
     :members:
     :undoc-members:
     :show-inheritance:
 
-.. autoclass:: struphy.psydac_api.basis_projection_ops.BasisProjectionOperator
+.. autoclass:: struphy.feec.basis_projection_ops.BasisProjectionOperator
     :members:
     :undoc-members:
     :show-inheritance:
@@ -447,21 +447,21 @@ Linear algebra
 Linear operators
 ^^^^^^^^^^^^^^^^
 
-.. automodule:: struphy.psydac_api.linear_operators
+.. automodule:: struphy.feec.linear_operators
     :members: 
     :undoc-members:
 
 Preconditioners
 ^^^^^^^^^^^^^^^
 
-.. automodule:: struphy.psydac_api.preconditioner
+.. automodule:: struphy.feec.preconditioner
     :members: 
     :undoc-members:
 
 Stencil data objects
 ^^^^^^^^^^^^^^^^^^^^
 
-.. automodule:: struphy.psydac_api.utilities
+.. automodule:: struphy.feec.utilities
     :members: 
     :undoc-members:
 
@@ -615,7 +615,7 @@ where four different propagators are used for time stepping::
     self.add_propagator(self.prop_markers.PushEta(
         self.pointer['electrons'],
         algo=algo_eta,
-        bc_type=electron_params['markers']['bc']['type'],
+        bc_type=electron_params['markers']['dirichlet_bc']['type'],
         f0=None))
 
     self.add_propagator(self.prop_markers.PushVxB(

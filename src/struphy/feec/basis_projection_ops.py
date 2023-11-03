@@ -7,21 +7,21 @@ from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
-from struphy.psydac_api.geom_projectors import Projector
-from struphy.psydac_api.linear_operators import LinOpWithTransp, CompositeLinearOperator, IdentityOperator, BoundaryOperator
-from struphy.psydac_api import basis_projection_kernels
-from struphy.psydac_api.utilities import RotationMatrix
+from struphy.feec.geom_projectors import PolarCommutingProjector
+from struphy.feec.linear_operators import LinOpWithTransp, CompositeLinearOperator, IdentityOperator, BoundaryOperator
+from struphy.feec import basis_projection_kernels
+from struphy.feec.utilities import RotationMatrix
 
 from struphy.polar.linear_operators import PolarExtractionOperator
 
 
 class BasisProjectionOperators:
     r"""
-    Collection of pre-defined :class:`struphy.psydac_api.basis_projection_ops.BasisProjectionOperator`.
+    Collection of pre-defined :class:`struphy.feec.basis_projection_ops.BasisProjectionOperator`.
 
     Parameters
     ----------
-    derham : struphy.psydac_api.psydac_derham.Derham
+    derham : struphy.feec.psydac_derham.Derham
         Discrete de Rham sequence on the logical unit cube.
 
     domain : :ref:`avail_mappings`
@@ -732,7 +732,7 @@ class BasisProjectionOperator(LinOpWithTransp):
 
     Parameters
     ----------
-    P : struphy.psydac_api.projectors.Projector
+    P : struphy.feec.projectors.Projector
         Global commuting projector mapping into TensorFemSpace/VectorFemSpace W = P.space (codomain of operator).
 
     V : psydac.fem.basic.FemSpace
@@ -759,7 +759,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
 
-        assert isinstance(P, Projector)
+        assert isinstance(P, PolarCommutingProjector)
         assert isinstance(V, FemSpace)
 
         self._P = P

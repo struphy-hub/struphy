@@ -15,12 +15,12 @@ from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian6DUniform, Maxwellian5DUniform
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
-from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
-from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
-from struphy.psydac_api.linear_operators import InverseLinearOperator as Inverse
-from struphy.psydac_api import preconditioner
-from struphy.psydac_api.linear_operators import LinOpWithTransp
-from struphy.psydac_api.mass import WeightedMassOperator
+from struphy.feec.linear_operators import CompositeLinearOperator as Compose
+from struphy.feec.linear_operators import ScalarTimesLinearOperator as Multiply
+from struphy.feec.linear_operators import InverseLinearOperator as Inverse
+from struphy.feec import preconditioner
+from struphy.feec.linear_operators import LinOpWithTransp
+from struphy.feec.mass import WeightedMassOperator
 import struphy.linear_algebra.iterative_solvers as it_solvers
 
 from struphy.linear_algebra.iterative_solvers import PConjugateGradient as pcg
@@ -733,11 +733,11 @@ class PressureCoupling6D(Propagator):
         domain : struphy.geometry.base.Domain
                  Infos regarding mapping.
 
-        mass_ops : struphy.psydac_api.mass.WeightedMassOperators
-                   Weighted mass matrices from struphy.psydac_api.mass.
+        mass_ops : struphy.feec.mass.WeightedMassOperators
+                   Weighted mass matrices from struphy.feec.mass.
 
-        mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
-                  Linear MHD operators from struphy.psydac_api.basis_projection_ops.
+        mhd_ops : struphy.feec.basis_projection_ops.MHDOperators
+                  Linear MHD operators from struphy.feec.basis_projection_ops.
 
         coupling_solver: dict
                          Solver parameters for this splitting step.
@@ -905,7 +905,7 @@ class PressureCoupling6D(Propagator):
 
         Parameters
         ----------
-            derham : struphy.psydac_api.psydac_derham.Derham
+            derham : struphy.feec.psydac_derham.Derham
                 Discrete de Rham sequence on the logical unit cube.
 
             MAT : List of StencilMatrices

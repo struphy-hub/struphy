@@ -5,7 +5,7 @@ import shutil
 import h5py
 import yaml
 
-from struphy.psydac_api.psydac_derham import Derham
+from struphy.feec.psydac_derham import Derham
 from struphy.kinetic_background import maxwellians
 from struphy.io.setup import setup_domain_mhd
 import matplotlib.pyplot as plt
@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 def create_femfields(path, step=1):
     """
-    Creates instances of struphy.psydac_api.Derham.Field from distributed Struphy data.
+    Creates instances of struphy.feec.Derham.Field from distributed Struphy data.
 
     Parameters
     ----------
@@ -28,7 +28,7 @@ def create_femfields(path, step=1):
     Returns
     -------
     fields : dict
-        Nested dictionary holding struphy.psydac_api.Derham.Field: fields[t][name] contains the Field with the name "name" in the hdf5 file at time t.
+        Nested dictionary holding struphy.feec.Derham.Field: fields[t][name] contains the Field with the name "name" in the hdf5 file at time t.
 
     space_ids : dict
         The space IDs of the fields (H1, Hcurl, Hdiv, L2 or H1vec). space_ids[name] contains the space ID of the field with the name "name".

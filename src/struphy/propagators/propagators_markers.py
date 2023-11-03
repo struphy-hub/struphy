@@ -368,7 +368,7 @@ class PushEtaPC(Propagator):
     particles : struphy.pic.particles.Particles6D
         Holdes the markers to push.
 
-    derham : struphy.psydac_api.psydac_derham.Derham
+    derham : struphy.feec.psydac_derham.Derham
         Discrete Derham complex.
 
     domain : struphy.geometry.domains

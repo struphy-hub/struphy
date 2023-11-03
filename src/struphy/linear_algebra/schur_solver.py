@@ -1,7 +1,7 @@
 from psydac.linalg.basic import Vector, LinearOperator, LinearSolver
 
-from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
-from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
+from struphy.feec.linear_operators import SumLinearOperator as Sum
+from struphy.feec.linear_operators import ScalarTimesLinearOperator as Multiply
 
 import struphy.linear_algebra.iterative_solvers as it_solvers
 

@@ -204,11 +204,11 @@ def setup_derham(params_grid, comm, domain=None, mpi_dims_mask=None):
 
     Returns
     -------
-    derham : struphy.psydac_api.psydac_derham.Derham
+    derham : struphy.feec.psydac_derham.Derham
         Discrete de Rham sequence on the logical unit cube.
     """
 
-    from struphy.psydac_api.psydac_derham import Derham
+    from struphy.feec.psydac_derham import Derham
 
     # number of grid cells
     Nel = params_grid['Nel']
@@ -217,7 +217,7 @@ def setup_derham(params_grid, comm, domain=None, mpi_dims_mask=None):
     # spline types (clamped vs. periodic)
     spl_kind = params_grid['spl_kind']
     # boundary conditions (Homogeneous Dirichlet or None)
-    bc = params_grid['bc']
+    dirichlet_bc = params_grid['dirichlet_bc']
     # Number of quadrature points per histopolation cell
     nq_pr = params_grid['nq_pr']
     # Number of quadrature points per grid cell for L^2
@@ -228,7 +228,7 @@ def setup_derham(params_grid, comm, domain=None, mpi_dims_mask=None):
     derham = Derham(Nel, 
                     p, 
                     spl_kind, 
-                    bc,
+                    dirichlet_bc,
                     nquads=nq_el,
                     nq_pr=nq_pr,
                     comm=comm,
@@ -242,7 +242,7 @@ def setup_derham(params_grid, comm, domain=None, mpi_dims_mask=None):
         print(f'number of elements:'.ljust(25), Nel)
         print(f'spline degrees:'.ljust(25), p)
         print(f'periodic bcs:'.ljust(25), spl_kind)
-        print(f'hom. Dirichlet bc:'.ljust(25), bc)
+        print(f'hom. Dirichlet bc:'.ljust(25), dirichlet_bc)
         print(f'GL quad pts (L2):'.ljust(25), nq_el)
         print(f'GL quad pts (hist):'.ljust(25), nq_pr)
         print('MPI proc. per dir.:'.ljust(25),

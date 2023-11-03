@@ -20,7 +20,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     import numpy as np
 
     from struphy.geometry import domains
-    from struphy.psydac_api.psydac_derham import Derham
+    from struphy.feec.psydac_derham import Derham
     from struphy.pic.particles import Particles6D
 
     comm = MPI.COMM_WORLD

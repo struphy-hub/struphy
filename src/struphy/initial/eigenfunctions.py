@@ -15,7 +15,7 @@ class InitialMHDAxisymHdivEigFun:
 
     Parameters
     ----------
-    derham : struphy.psydac_api.psydac_derham.Derham
+    derham : struphy.feec.psydac_derham.Derham
         Discrete Derham complex.
 
     **params
@@ -114,14 +114,14 @@ class InitialMHDAxisymHdivEigFun:
         eigvec_2_ten = np.zeros(derham.nbasis['2'][1], dtype=float)
         eigvec_3_ten = np.zeros(derham.nbasis['2'][2], dtype=float)
 
-        bc1_1 = 1 if derham.bc[0][0] == 'd' else 0
-        bc1_2 = 1 if derham.bc[0][1] == 'd' else 0
+        bc1_1 = derham.dirichlet_bc[0][0]
+        bc1_2 = derham.dirichlet_bc[0][1]
 
-        bc2_1 = 1 if derham.bc[1][0] == 'd' else 0
-        bc2_2 = 1 if derham.bc[1][1] == 'd' else 0
+        bc2_1 = derham.dirichlet_bc[1][0]
+        bc2_2 = derham.dirichlet_bc[1][1]
 
-        bc3_1 = 1 if derham.bc[2][0] == 'd' else 0
-        bc3_2 = 1 if derham.bc[2][1] == 'd' else 0
+        bc3_1 = derham.dirichlet_bc[2][0]
+        bc3_2 = derham.dirichlet_bc[2][1]
 
         if derham.polar_ck == -1:
 

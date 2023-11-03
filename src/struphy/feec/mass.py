@@ -9,21 +9,21 @@ from psydac.fem.vector import VectorFemSpace
 
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
-from struphy.psydac_api import mass_kernels
-from struphy.psydac_api.utilities import RotationMatrix
-from struphy.psydac_api.linear_operators import LinOpWithTransp, BoundaryOperator, IdentityOperator
-from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
+from struphy.feec import mass_kernels
+from struphy.feec.utilities import RotationMatrix
+from struphy.feec.linear_operators import LinOpWithTransp, BoundaryOperator, IdentityOperator
+from struphy.feec.linear_operators import CompositeLinearOperator as Compose
 
 from struphy.polar.linear_operators import PolarExtractionOperator
 
 
 class WeightedMassOperators:
     r"""
-    Collection of pre-defined :class:`struphy.psydac_api.mass.WeightedMassOperator`.
+    Collection of pre-defined :class:`struphy.feec.mass.WeightedMassOperator`.
 
     Parameters
     ----------
-    derham : struphy.psydac_api.psydac_derham.Derham
+    derham : struphy.feec.psydac_derham.Derham
         Discrete de Rham sequence on the logical unit cube.
 
     domain : :ref:`avail_mappings`

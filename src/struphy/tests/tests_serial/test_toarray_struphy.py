@@ -17,16 +17,9 @@ def test_toarray_struphy(Nel, p, spl_kind, mapping):
     import numpy as np
 
     from struphy.geometry import domains
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.mass import WeightedMassOperators
-    from struphy.psydac_api.utilities import create_equal_random_arrays
-    from struphy.psydac_api.linear_operators import LinOpWithTransp
-    from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
-    from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
-    from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
-    from struphy.psydac_api.linear_operators import InverseLinearOperator as Invert
-    from struphy.psydac_api.linear_operators import IdentityOperator as ID
-    from struphy.psydac_api.linear_operators import BoundaryOperator as Boundary
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.utilities import create_equal_random_arrays
 
     # create domain object
     dom_type = mapping[0]

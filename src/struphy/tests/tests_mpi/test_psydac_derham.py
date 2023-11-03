@@ -11,8 +11,8 @@ def test_psydac_derham(Nel, p, spl_kind):
     from mpi4py import MPI
     import numpy as np
 
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.utilities import compare_arrays
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import compare_arrays
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
 
     from psydac.linalg.stencil import StencilVector

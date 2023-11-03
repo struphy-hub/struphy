@@ -7,8 +7,8 @@ from psydac.fem.vector import VectorFemSpace
 from psydac.api.essential_bc import apply_essential_bc_stencil
 
 from struphy.polar.basic import PolarVector
-from struphy.psydac_api import banded_to_stencil_kernels as bts
-import struphy.psydac_api.utilities_kernels as kernels
+from struphy.feec import banded_to_stencil_kernels as bts
+import struphy.feec.utilities_kernels as kernels
 
 import numpy as np
 
@@ -232,7 +232,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
             f'Rank {rank}: Assertion for array comparison passed with atol={atol}.')
 
 
-def apply_essential_bc_to_array(space_id, vector, bc=None):
+def apply_essential_bc_to_array(space_id, vector, bc):
     """
     Sets entries corresponding to boundary B-splines to zero.
 
@@ -244,14 +244,13 @@ def apply_essential_bc_to_array(space_id, vector, bc=None):
         vector : StencilVector | BlockVector
             The vector whose boundary values shall be set to zero.
 
-        bc : list
-            List containing boundary conditions in each direction of the form [[eta1_0, eta1_1], [eta2_0, eta2_1], [eta3_0, eta3_1]]).
+        bc : list[list[bool]]
+            Whether to apply homogeneous Dirichlet boundary conditions (at left or right boundary in each direction).
     """
 
     assert isinstance(vector, (StencilVector, BlockVector, PolarVector))
-
-    if bc is None:
-        return
+    assert isinstance(bc, list)
+    assert len(bc) == 3
 
     if isinstance(vector, PolarVector):
         vec_tp = vector.tp
@@ -263,25 +262,25 @@ def apply_essential_bc_to_array(space_id, vector, bc=None):
         assert isinstance(vec_tp, StencilVector)
 
         # eta1-direction
-        if bc[0][0] == 'd':
+        if bc[0][0]:
             apply_essential_bc_stencil(vec_tp, axis=0, ext=-1, order=0)
-        if bc[0][1] == 'd':
+        if bc[0][1]:
             apply_essential_bc_stencil(vec_tp, axis=0, ext=+1, order=0)
 
         # eta2-direction
-        if bc[1][0] == 'd':
+        if bc[1][0]:
             apply_essential_bc_stencil(vec_tp, axis=1, ext=-1, order=0)
-        if bc[1][1] == 'd':
+        if bc[1][1]:
             apply_essential_bc_stencil(vec_tp, axis=1, ext=+1, order=0)
 
         # eta3-direction
-        if bc[2][0] == 'd':
+        if bc[2][0]:
             apply_essential_bc_stencil(vec_tp, axis=2, ext=-1, order=0)
 
             if isinstance(vector, PolarVector):
                 vector.pol[0][:,  0] = 0.
 
-        if bc[2][1] == 'd':
+        if bc[2][1]:
             apply_essential_bc_stencil(vec_tp, axis=2, ext=+1, order=0)
 
             if isinstance(vector, PolarVector):
@@ -292,23 +291,23 @@ def apply_essential_bc_to_array(space_id, vector, bc=None):
         assert isinstance(vec_tp, BlockVector)
 
         # eta1-direction
-        if bc[0][0] == 'd':
+        if bc[0][0]:
             apply_essential_bc_stencil(vec_tp[1], axis=0, ext=-1, order=0)
             apply_essential_bc_stencil(vec_tp[2], axis=0, ext=-1, order=0)
-        if bc[0][1] == 'd':
+        if bc[0][1]:
             apply_essential_bc_stencil(vec_tp[1], axis=0, ext=+1, order=0)
             apply_essential_bc_stencil(vec_tp[2], axis=0, ext=+1, order=0)
 
         # eta2-direction
-        if bc[1][0] == 'd':
+        if bc[1][0]:
             apply_essential_bc_stencil(vec_tp[0], axis=1, ext=-1, order=0)
             apply_essential_bc_stencil(vec_tp[2], axis=1, ext=-1, order=0)
-        if bc[1][1] == 'd':
+        if bc[1][1]:
             apply_essential_bc_stencil(vec_tp[0], axis=1, ext=+1, order=0)
             apply_essential_bc_stencil(vec_tp[2], axis=1, ext=+1, order=0)
 
         # eta3-direction
-        if bc[2][0] == 'd':
+        if bc[2][0]:
             apply_essential_bc_stencil(vec_tp[0], axis=2, ext=-1, order=0)
             apply_essential_bc_stencil(vec_tp[1], axis=2, ext=-1, order=0)
 
@@ -316,7 +315,7 @@ def apply_essential_bc_to_array(space_id, vector, bc=None):
                 vector.pol[0][:,  0] = 0.
                 vector.pol[1][:,  0] = 0.
 
-        if bc[2][1] == 'd':
+        if bc[2][1]:
             apply_essential_bc_stencil(vec_tp[0], axis=2, ext=+1, order=0)
             apply_essential_bc_stencil(vec_tp[1], axis=2, ext=+1, order=0)
 
@@ -329,25 +328,25 @@ def apply_essential_bc_to_array(space_id, vector, bc=None):
         assert isinstance(vec_tp, BlockVector)
 
         # eta1-direction
-        if bc[0][0] == 'd':
+        if bc[0][0]:
             apply_essential_bc_stencil(vec_tp[0], axis=0, ext=-1, order=0)
-        if bc[0][1] == 'd':
+        if bc[0][1]:
             apply_essential_bc_stencil(vec_tp[0], axis=0, ext=+1, order=0)
 
         # eta2-direction
-        if bc[1][0] == 'd':
+        if bc[1][0]:
             apply_essential_bc_stencil(vec_tp[1], axis=1, ext=-1, order=0)
-        if bc[1][1] == 'd':
+        if bc[1][1]:
             apply_essential_bc_stencil(vec_tp[1], axis=1, ext=+1, order=0)
 
         # eta3-direction
-        if bc[2][0] == 'd':
+        if bc[2][0]:
             apply_essential_bc_stencil(vec_tp[2], axis=2, ext=-1, order=0)
 
             if isinstance(vector, PolarVector):
                 vector.pol[2][:,  0] = 0.
 
-        if bc[2][1] == 'd':
+        if bc[2][1]:
             apply_essential_bc_stencil(vec_tp[2], axis=2, ext=+1, order=0)
 
             if isinstance(vector, PolarVector):
@@ -358,25 +357,25 @@ def apply_essential_bc_to_array(space_id, vector, bc=None):
         assert isinstance(vec_tp, BlockVector)
 
         # eta1-direction
-        if bc[0][0] == 'd':
+        if bc[0][0]:
             apply_essential_bc_stencil(vec_tp[0], axis=0, ext=-1, order=0)
-        if bc[0][1] == 'd':
+        if bc[0][1]:
             apply_essential_bc_stencil(vec_tp[0], axis=0, ext=+1, order=0)
 
         # eta2-direction
-        if bc[1][0] == 'd':
+        if bc[1][0]:
             apply_essential_bc_stencil(vec_tp[1], axis=1, ext=-1, order=0)
-        if bc[1][1] == 'd':
+        if bc[1][1]:
             apply_essential_bc_stencil(vec_tp[1], axis=1, ext=+1, order=0)
 
         # eta3-direction
-        if bc[2][0] == 'd':
+        if bc[2][0]:
             apply_essential_bc_stencil(vec_tp[2], axis=2, ext=-1, order=0)
 
             if isinstance(vector, PolarVector):
                 vector.pol[2][:,  0] = 0.
 
-        if bc[2][1] == 'd':
+        if bc[2][1]:
             apply_essential_bc_stencil(vec_tp[2], axis=2, ext=+1, order=0)
 
             if isinstance(vector, PolarVector):
