@@ -25,10 +25,10 @@ def test_basis_ops(Nel, p, spl_kind, mapping, show_plots=False):
     import struphy.eigenvalue_solvers.mhd_operators as basis_ops_str1
     import struphy.eigenvalue_solvers.legacy.mhd_operators_MF as basis_ops_str2
 
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.basis_projection_ops import BasisProjectionOperators
 
-    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
+    from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
 
     from mpi4py import MPI
 
@@ -71,7 +71,7 @@ def test_basis_ops(Nel, p, spl_kind, mapping, show_plots=False):
     nq_el = [p[0] + 1, p[1] + 1, p[2] + 1]
     nq_pr = p.copy()
 
-    derham = Derham(Nel, p, spl_kind, quad_order=p, nq_pr=nq_pr, comm=mpi_comm)
+    derham = Derham(Nel, p, spl_kind, nquads=p, nq_pr=nq_pr, comm=mpi_comm)
 
     # Struphy tensor spline space objects (one for tensor product projectors and one for general projectors)
     space1 = Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0])
@@ -431,12 +431,13 @@ def test_basis_ops(Nel, p, spl_kind, mapping, show_plots=False):
 @pytest.mark.parametrize('Nel', [[6, 9, 7]])
 @pytest.mark.parametrize('p',   [[2, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [False, True, False]])
-@pytest.mark.parametrize('bc', [[[None,  'd'], [None, None], [None, ' d']],
-                                [[None, None], [None, None], ['d', None]]])
+@pytest.mark.parametrize('dirichlet_bc', [None, 
+                                          [[False,  True], [False, False], [False, True]],
+                                          [[False, False], [False, False], [True, False]]])
 @pytest.mark.parametrize('mapping', [
     ['IGAPolarCylinder', {
         'a': 1., 'Lz': 3.}]])
-def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
+def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 
     import numpy as np
 
@@ -444,9 +445,9 @@ def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
 
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
-    from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
+    from struphy.feec.basis_projection_ops import BasisProjectionOperators
     from struphy.fields_background.mhd_equil.equils import ScrewPinch
     
     from struphy.polar.basic import PolarVector
@@ -485,13 +486,12 @@ def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     eq_mhd.domain = domain
 
     # make sure that boundary conditions are compatible with spline space
-    bc_compatible = []
-
-    for spl_i, bc_i in zip(spl_kind, bc):
-        if spl_i:
-            bc_compatible += [[None, None]]
-        else:
-            bc_compatible += [bc_i]
+    if dirichlet_bc is not None:
+        for i, knd in enumerate(spl_kind):
+            if knd:
+                dirichlet_bc[i] = [False, False]
+    else:
+        dirichlet_bc = [[False, False]]*3
 
     # derham object
     nq_el = [p[0] + 1,
@@ -499,8 +499,8 @@ def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
              p[2] + 1]
     nq_pr = p.copy()
 
-    derham = Derham(Nel, p, spl_kind, quad_order=p, nq_pr=nq_pr, comm=mpi_comm,
-                    bc=bc_compatible, with_projectors=True, polar_ck=1, domain=domain)
+    derham = Derham(Nel, p, spl_kind, nquads=p, nq_pr=nq_pr, comm=mpi_comm,
+                    dirichlet_bc=dirichlet_bc, with_projectors=True, polar_ck=1, domain=domain)
 
     if mpi_rank == 0:
         print()
@@ -509,10 +509,10 @@ def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     mhd_ops_psy = BasisProjectionOperators(derham, domain, eq_mhd=eq_mhd)
 
     # compare to old STRUPHY
-    spaces = [Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0], bc_compatible[0]),
+    spaces = [Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0], dirichlet_bc[0]),
               Spline_space_1d(Nel[1], p[1], spl_kind[1],
-                              nq_el[1], bc_compatible[1]),
-              Spline_space_1d(Nel[2], p[2], spl_kind[2], nq_el[2], bc_compatible[2])]
+                              nq_el[1], dirichlet_bc[1]),
+              Spline_space_1d(Nel[2], p[2], spl_kind[2], nq_el[2], dirichlet_bc[2])]
 
     spaces[0].set_projectors(nq_pr[0])
     spaces[1].set_projectors(nq_pr[1])

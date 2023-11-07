@@ -1,6 +1,6 @@
 import pytest
 import inspect
-from struphy.tests.test_codes.util import func
+from struphy.tests.test_codes.util import call_model
 
 
 @pytest.mark.mpi(min_size=2)
@@ -12,7 +12,7 @@ def test_toy(fast, map_and_equil, model=None):
     '''Tests all models and all possible model.options (except solvers without preconditioner) in models/toy.py.
 
     If model is not None, tests the specified model.
-    
+
     The argument "fast" is a pytest option that can be specified at te command line (see conftest.py).'''
 
     from struphy.models import toy
@@ -20,13 +20,14 @@ def test_toy(fast, map_and_equil, model=None):
     if model is None:
         for key, val in inspect.getmembers(toy):
             if inspect.isclass(val) and 'StruphyModel' not in key:
-                
+
                 if fast:
                     if 'Cuboid' not in map_and_equil[0]:
-                        print(f'Fast is enabled, mapping {map_and_equil[0]} skipped ...')
+                        print(
+                            f'Fast is enabled, mapping {map_and_equil[0]} skipped ...')
                         continue
-                    
-                func(key, val, map_and_equil)
+
+                call_model(key, val, map_and_equil)
     else:
         val = getattr(toy, model)
-        func(model, val, map_and_equil)
+        call_model(model, val, map_and_equil)

@@ -55,4 +55,5 @@ def band_to_stencil_3d(arr: 'float[:, :, :, :, :, :]', out: 'float[:, :, :, :, :
                     for i3 in range(s[2]):
                         for j3 in range(2*p3 + 1):
                             jj3 = mod(i3 - p3 + j3, s[5])
-                            out[i1, i2, i3, j1, j2, j3] = arr[i1, i2, i3, jj1, jj2, jj3]
+                            out[i1, i2, i3, j1, j2, j3] = \
+                                arr[i1, i2, i3, jj1, jj2, jj3]

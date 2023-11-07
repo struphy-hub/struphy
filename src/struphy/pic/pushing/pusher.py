@@ -16,7 +16,7 @@ class Pusher:
 
     Parameters
     ----------
-    derham : struphy.psydac_api.psydac_derham.Derham
+    derham : struphy.feec.psydac_derham.Derham
         Discrete de Rham sequence on the logical unit cube.
 
     domain : struphy.geometry.domains

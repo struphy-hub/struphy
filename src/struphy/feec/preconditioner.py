@@ -9,8 +9,8 @@ from psydac.fem.tensor import TensorFemSpace
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 from psydac.api.essential_bc import apply_essential_bc_stencil
 
-from struphy.psydac_api.linear_operators import CompositeLinearOperator, BoundaryOperator, IdentityOperator
-from struphy.psydac_api.mass import WeightedMassOperator
+from struphy.feec.linear_operators import CompositeLinearOperator, BoundaryOperator, IdentityOperator
+from struphy.feec.mass import WeightedMassOperator
 
 from scipy.linalg import solve_circulant
 import numpy as np
@@ -24,7 +24,7 @@ class MassMatrixPreconditioner(LinearSolver):
 
     Parameters
     ----------
-    mass_operator : struphy.psydac_api.mass.WeightedMassOperator
+    mass_operator : struphy.feec.mass.WeightedMassOperator
         The weighted mass operator for which the approximate inverse is needed.
 
     apply_bc : bool
@@ -55,10 +55,11 @@ class MassMatrixPreconditioner(LinearSolver):
         assert n_dims == 3  # other dims not yet implemented
 
         # get boundary conditions list from BoundaryOperator in ComposedLinearOperator M0 of mass operator
-        if isinstance(mass_operator.M0.operators[0], BoundaryOperator):
+        if apply_bc and isinstance(mass_operator.M0.operators[0], BoundaryOperator):
             bc = mass_operator.M0.operators[0].bc
         else:
-            bc = [[None, None], [None, None], [None, None]]
+            apply_bc = False
+            bc = None
 
         # loop over components
         for c in range(n_comps):
@@ -97,18 +98,18 @@ class MassMatrixPreconditioner(LinearSolver):
                 if apply_bc:
                     if mass_operator._domain_symbolic_name != 'H1vec':
                         if femspace_1d.basis == 'B':
-                            if bc[d][0] == 'd':
+                            if bc[d][0]:
                                 apply_essential_bc_stencil(
                                     M, axis=0, ext=-1, order=0, identity=True)
-                            if bc[d][1] == 'd':
+                            if bc[d][1]:
                                 apply_essential_bc_stencil(
                                     M, axis=0, ext=+1, order=0, identity=True)
                     else:
                         if c == d:
-                            if bc[d][0] == 'd':
+                            if bc[d][0]:
                                 apply_essential_bc_stencil(
                                     M, axis=0, ext=-1, order=0, identity=True)
-                            if bc[d][1] == 'd':
+                            if bc[d][1]:
                                 apply_essential_bc_stencil(
                                     M, axis=0, ext=+1, order=0, identity=True)
 
@@ -263,7 +264,7 @@ class ProjectorPreconditioner(LinearSolver):
 
     Parameters
     ----------
-    projector : struphy.psydac_api.projectors.Projector
+    projector : struphy.feec.projectors.CommutingProjector
         The global commuting projector for which the inter-/histopolation matrix shall be inverted. 
 
     transposed : bool, optional
@@ -285,15 +286,9 @@ class ProjectorPreconditioner(LinearSolver):
 
         # save inter-/histopolation matrix to be inverted
         if transposed:
-            if apply_bc:
-                self._I = projector.I0T
-            else:
-                self._I = projector.IT
+            self._I = projector.IT
         else:
-            if apply_bc:
-                self._I = projector.I0
-            else:
-                self._I = projector.I
+            self._I = projector.I
 
         # temporary vectors for dot product
         tmp_vectors = []

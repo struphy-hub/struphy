@@ -9,11 +9,15 @@ Struphy can be installed in the following ways:
 2. From :ref:`source <source_install>`, for running or adding code 
 3. Using :ref:`Docker images <docker_install>`, also suited :ref:`for developers <docker_devs>`
 
+The use of a :ref:`virtualenv` and :ref:`args` is recommended.
+
 
 .. _require:
 
 Requirements
 ------------
+
+The basic requirements are **Python3**, a **Fortran compiler** and a **working MPI environment**.
 
 - Python >3.7 and <3.12 and pip3
 - A Fortran compiler like gfortran, gcc
@@ -139,6 +143,21 @@ where ``<option>`` is either empty (Python environment installation), ``--user``
 Compile kernels::
 
     struphy compile
+
+
+.. _args:
+
+Argument completion
+-------------------
+
+Struphy provides console argument completion through the package `argcomplete <https://github.com/kislyuk/argcomplete>`_.
+In order to enable it, make sure to have `bash <https://www.cyberciti.biz/faq/add-bash-auto-completion-in-ubuntu-linux/>`_ 
+or `zsh <https://dev.to/zeromeroz/setting-up-zsh-and-oh-my-zhs-with-autocomplete-plugins-1nml>`_ tab comlpetion enabled. 
+After Struphy installation type::
+
+    activate-global-python-argcomplete
+
+and follow the instructions. For activation you need to restart your shell, for instance with ``exec bash``.
 
 
 .. _docker_install:

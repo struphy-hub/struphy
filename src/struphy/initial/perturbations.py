@@ -55,6 +55,10 @@ class ModesSin:
                 Domain lengths.
         '''
 
+        assert len(ls) == len(ms)
+        assert len(ls) == len(ns)
+        assert len(ls) == len(amps)
+
         self._ls = ls
         self._ms = ms
         self._ns = ns
@@ -123,6 +127,10 @@ class ModesCos:
             Lx, Ly, Lz : float
                 Domain lengths.
         '''
+
+        assert len(ls) == len(ms)
+        assert len(ls) == len(ns)
+        assert len(ls) == len(amps)
 
         self._ls = ls
         self._ms = ms

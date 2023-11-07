@@ -33,7 +33,7 @@ def tutorial_04():
                     '--output-abs', os.path.join(o_path, 'tutorial_04a'),
                     '--mpi', '2'], check=True)
 
-    subprocess.run(['struphy', 'pproc', '-d',
+    subprocess.run(['struphy', 'pproc', '--dir-abs',
                    os.path.join(o_path, 'tutorial_04a')], check=True)
 
     subprocess.run(['struphy', 'run', 'LinearMHD',
@@ -42,7 +42,7 @@ def tutorial_04():
                     '--output-abs', os.path.join(o_path, 'tutorial_04b'),
                     '--mpi', '2'], check=True)
 
-    subprocess.run(['struphy', 'pproc', '-d',
+    subprocess.run(['struphy', 'pproc', '--dir-abs',
                     os.path.join(o_path, 'tutorial_04b')], check=True)
 
 
@@ -52,7 +52,7 @@ def tutorial_05():
                                                 'params_05a.yml'),
                     '--output-abs', os.path.join(o_path, 'tutorial_05a')], check=True)
 
-    subprocess.run(['struphy', 'pproc', '-d',
+    subprocess.run(['struphy', 'pproc', '--dir-abs',
                    os.path.join(o_path, 'tutorial_05a')], check=True)
 
     subprocess.run(['struphy', 'run', 'DriftKinetic',
@@ -60,5 +60,5 @@ def tutorial_05():
                                                 'params_05b.yml'),
                     '--output-abs', os.path.join(o_path, 'tutorial_05b')], check=True)
 
-    subprocess.run(['struphy', 'pproc', '-d',
+    subprocess.run(['struphy', 'pproc', '--dir-abs',
                    os.path.join(o_path, 'tutorial_05b')], check=True)

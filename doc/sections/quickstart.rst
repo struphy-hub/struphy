@@ -24,7 +24,7 @@ Get a list of available Struphy models::
 
     struphy run -h
 
-Let us run the model `VlasovMaxwell <file:///home/spossann/git_repos/struphy/doc/_build/html/sections/models.html#struphy.models.kinetic.VlasovMaxwell>`_. 
+Let us run the model `VlasovMaxwell <https://struphy.pages.mpcdf.de/struphy/sections/models.html#struphy.models.kinetic.VlasovMaxwell>`_. 
 We first create the corresponding default parameter file::
 
     struphy params VlasovMaxwell
@@ -55,7 +55,7 @@ and the data of the kinetic particles is stored under::
 
     ls my_first_sim/post_processing/kinetic_data/
 
-Check out `Tutorial 2 - Data, post processing and standard plots <file:///home/spossann/git_repos/struphy/doc/_build/html/sections/tutorials.html>`_
+Check out :ref:`Tutorial 2 - Data, post processing and standard plots <tutorials>`
 for a deeper discussion on Struphy data.
 
 Our first simulation ran for just three time steps. Let us change the end-time of the simulation by opening the parameter file::
@@ -71,7 +71,7 @@ This time we ran for 20 time steps. The physical time unit of the run can be kno
 
     struphy units VlasovMaxwell -i test.yml
 
-Please refer to `Tutorial 1 - Run Struphy main file in a notebook <file:///home/spossann/git_repos/struphy/doc/_build/html/sections/tutorials.html>`_ 
+Please refer to :ref:`Tutorial 1 - Run Struphy main file in a notebook <tutorials>` 
 for more information on the units used in Struphy.
 For completeness, let us post-process the data of the second run::
 
@@ -99,7 +99,7 @@ Finally, each Struphy model has some specific options to it, which in the case o
 
 These options can be set in the parameter file. They usually refer to different types of solvers or solution methods.
 
-If you want to learn more about using Struphy, please check out the `Userguide <file:///home/spossann/git_repos/struphy/doc/_build/html/sections/userguide.html>`_
-as well as the `Jupyter notebook tutorials <file:///home/spossann/git_repos/struphy/doc/_build/html/sections/tutorials.html>`_.
+If you want to learn more about using Struphy, please check out the :ref:`userguide`
+as well as the :ref:`tutorials`.
 
             

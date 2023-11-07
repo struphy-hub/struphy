@@ -10,6 +10,6 @@ See the [Struphy documentation](https://struphy.pages.mpcdf.de/struphy/index.htm
 
 ## Contact
 
-* Stefan Possanner [stefan.possanner@ipp.mpg.de](spossann@ipp.mpg.de)
-* Eric Sonnendrücker [eric.sonnendruecker@ipp.mpg.de](eric.sonnendruecker@ipp.mpg.de)
-* Xin Wang [xin.wang@ipp.mpg.de](xin.wang@ipp.mpg.de)
+* Stefan Possanner [stefan.possanner@ipp.mpg.de](mailto:spossann@ipp.mpg.de)
+* Eric Sonnendrücker [eric.sonnendruecker@ipp.mpg.de](mailto:eric.sonnendruecker@ipp.mpg.de)
+* Xin Wang [xin.wang@ipp.mpg.de](mailto:xin.wang@ipp.mpg.de)

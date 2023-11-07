@@ -2,7 +2,7 @@ grid :
     Nel      : [16, 24, 8] # number of grid cells, >p
     p        : [3, 3, 3]  # spline degree, >1
     spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
-    bc       : [[d, d], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
+    dirichlet_bc : null # [[False, False], [False, False], [False, False]], hom. Dirichlet boundary conditions for N-splines (spl_kind must be False)
     dims_mask : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
     nq_el    : [6, 6, 6] # quadrature points per grid cell
     nq_pr    : [6, 6, 6] # quadrature points per histopolation cell (for commuting projectors)

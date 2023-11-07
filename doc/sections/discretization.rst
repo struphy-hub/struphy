@@ -381,7 +381,7 @@ The operators :math:`\Pi_n,\,0\leq n \leq 3` project (:math:`\Pi_n^2 = \Pi_n`) i
 
 These spaces and the associated operators of the Derham diagram have been implemented in the open-source package
 `Psydac <https://github.com/pyccel/psydac>`_.
-Struphy interfaces to this library by means of the class :class:`struphy.psydac_api.psydac_derham.Derham`.
+Struphy interfaces to this library by means of the class :class:`struphy.feec.psydac_derham.Derham`.
 
 Both the continuous and the discrete spaces form a **complex**, which means
 
@@ -443,13 +443,14 @@ Elements of the discrete spaces ("FE fields") are linear combinations of the res
 
 The discrete FE fields are represented by their **FE coefficients** :math:`\mathbf p \in \mathbb R^{N_0}`, 
 :math:`\mathbf e \in \mathbb R^{N_1}`, :math:`\mathbf b \in \mathbb R^{N_2}` and :math:`\mathbf n \in \mathbb R^{N_3}`.
-The class for creating such FE fields in Struphy is :class:`struphy.psydac_api.fields.Field`.
+The class for creating such FE fields in Struphy is :class:`struphy.feec.derham.Derham.Field`.
 In particular, each ``Field`` object has 
 
 1. the property ``Field.vector`` holding the FE coefficients, along with a setter method,
 
 2. a ``__call__()`` method for evaluating the field at (an array of) points :math:`(\eta_{ijk})_{ijk}`.
  
+A field can be created via the factory function ``struphy.feec.derham.Derham.create_field()``. 
 The space dimensions are products of the uni-variate dimensions:
 
 .. math::

@@ -6,7 +6,7 @@ import pytest
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [False, True, False]])
 def test_spaces(Nel, p, spl_kind):
 
-    from struphy.psydac_api.psydac_derham import Derham
+    from struphy.feec.psydac_derham import Derham
     from struphy.polar.basic import PolarDerhamSpace, PolarVector
 
     derham = Derham(Nel, p, spl_kind)
@@ -175,8 +175,8 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     import numpy as np
 
     from struphy.geometry.domains import IGAPolarCylinder
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
 
     from struphy.polar.extraction_operators import PolarExtractionBlocksC1
     from struphy.polar.basic import PolarDerhamSpace, PolarVector
@@ -257,10 +257,10 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
         print('----------- Test basis extraction operators ---------')
 
     # test basis extraction operator
-    r0_pol = derham.E['0'].dot(f0_tp)
-    r1_pol = derham.E['1'].dot(e1_tp)
-    r2_pol = derham.E['2'].dot(b2_tp)
-    r3_pol = derham.E['3'].dot(p3_tp)
+    r0_pol = derham.extraction_ops['0'].dot(f0_tp)
+    r1_pol = derham.extraction_ops['1'].dot(e1_tp)
+    r2_pol = derham.extraction_ops['2'].dot(b2_tp)
+    r3_pol = derham.extraction_ops['3'].dot(p3_tp)
 
     assert np.allclose(r0_pol.toarray(True), space.E0.dot(f0_tp_leg))
     assert np.allclose(r1_pol.toarray(True), space.E1.dot(e1_tp_leg))
@@ -268,10 +268,10 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     assert np.allclose(r3_pol.toarray(True), space.E3.dot(p3_tp_leg))
 
     # test transposed extraction operators
-    E0T = derham.E['0'].transpose()
-    E1T = derham.E['1'].transpose()
-    E2T = derham.E['2'].transpose()
-    E3T = derham.E['3'].transpose()
+    E0T = derham.extraction_ops['0'].transpose()
+    E1T = derham.extraction_ops['1'].transpose()
+    E2T = derham.extraction_ops['2'].transpose()
+    E3T = derham.extraction_ops['3'].transpose()
 
     r0 = E0T.dot(f0_pol)
     r1 = E1T.dot(e1_pol)
@@ -325,7 +325,7 @@ def test_projectors(Nel, p, spl_kind):
     import numpy as np
 
     from struphy.geometry.domains import IGAPolarCylinder
-    from struphy.psydac_api.psydac_derham import Derham
+    from struphy.feec.psydac_derham import Derham
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
 
@@ -448,6 +448,6 @@ def test_projectors(Nel, p, spl_kind):
 
 
 if __name__ == '__main__':
-    #test_spaces([6, 9, 4], [2, 2, 2], [False, True, False])
-    #test_extraction_ops_and_derivatives([8, 12, 6], [2, 2, 3], [False, True, False])
+    # test_spaces([6, 9, 4], [2, 2, 2], [False, True, False])
+    # test_extraction_ops_and_derivatives([8, 12, 6], [2, 2, 3], [False, True, False])
     test_projectors([8, 15, 6], [2, 2, 3], [False, True, True])

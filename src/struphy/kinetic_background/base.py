@@ -15,9 +15,9 @@ class Maxwellian(metaclass=ABCMeta):
         f(\boldsymbol{\eta}, v_1,\ldots,v_n) = n(\boldsymbol{\eta}) \prod_{i=1}^n \frac{1}{\sqrt{2\pi}\,v_{\mathrm{th},i}(\boldsymbol{\eta})}
         \exp\left[-\frac{(v_i-u_i(\boldsymbol{\eta}))^2}{2\,v_{\mathrm{th},i}(\boldsymbol{\eta})^2}\right],
 
-    defined by its velocity moments: the density :math:`n(\boldsymbol{\eta})`, 
-    the mean-velocities :math:`u_i(\boldsymbol{\eta})`, 
-    and the thermal velocities :math:`v_{\mathrm{th},i}(\boldsymbol{\eta})`. 
+    defined by its velocity moments: the density :math:`n(\boldsymbol{\eta})`,
+    the mean-velocities :math:`u_i(\boldsymbol{\eta})`,
+    and the thermal velocities :math:`v_{\mathrm{th},i}(\boldsymbol{\eta})`.
     """
 
     @property

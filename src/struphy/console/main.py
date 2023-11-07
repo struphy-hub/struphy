@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
+# PYTHON_ARGCOMPLETE_OK
 from argparse import HelpFormatter, _SubParsersAction, RawTextHelpFormatter
+import argcomplete
 import importlib.metadata
 
 __version__ = importlib.metadata.version("struphy")
@@ -24,7 +26,7 @@ def struphy():
     from struphy.console.test import struphy_test
 
     # create argument parser
-    epilog_message = 'Run "struphy COMMAND --help" for more information on a command.\n\n'
+    epilog_message = 'Type "struphy COMMAND --help" for more information on a command.\n\n'
     epilog_message += 'For more help on how to use Struphy, see https://struphy.pages.mpcdf.de/struphy/index.html'
 
     parser = argparse.ArgumentParser(prog='struphy',
@@ -72,11 +74,100 @@ def struphy():
     path_message += f'current input:             {i_path}\n'
     path_message += f'current output:            {o_path}\n'
     path_message += f'current batch scripts:     {b_path}'
+    
+    # check parameter file in current input path:
+    all_files = os.listdir(i_path)
+    params_files = []
+    for name in all_files:
+        if '.yml' in name or '.yaml' in name:
+            params_files += [name]
+            
+    # check output folders in current output path:
+    all_folders = os.listdir(o_path)
+    out_folders = []
+    for name in all_folders:
+        if '.' not in name:
+            out_folders += [name]
+            
+    # check batch scripts in current batch path:
+    all_files = os.listdir(b_path)
+    batch_files = []
+    for name in all_files:
+        if '.sh' in name:
+            batch_files += [name]
 
+    # collect available models
+    list_fluid = []
+    fluid_string = ''
+    for name, obj in inspect.getmembers(fluid):
+        if inspect.isclass(obj):
+            if name not in {'StruphyModel', }:
+                list_fluid += [name]
+                fluid_string += '"' + name + '"\n'
+
+    list_kinetic = []
+    kinetic_string = ''
+    for name, obj in inspect.getmembers(kinetic):
+        if inspect.isclass(obj):
+            if name not in {'StruphyModel', }:
+                list_kinetic += [name]
+                kinetic_string += '"' + name + '"\n'
+
+    list_hybrid = []
+    hybrid_string = ''
+    for name, obj in inspect.getmembers(hybrid):
+        if inspect.isclass(obj):
+            if name not in {'StruphyModel', }:
+                list_hybrid += [name]
+                hybrid_string += '"' + name + '"\n'
+
+    list_toy = []
+    toy_string = ''
+    for name, obj in inspect.getmembers(toy):
+        if inspect.isclass(obj):
+            if name not in {'StruphyModel', }:
+                list_toy += [name]
+                toy_string += '"' + name + '"\n'
+
+    list_models = list_fluid + list_kinetic + list_hybrid + list_toy
+
+    # fluid message
+    fluid_message = 'Fluid models:\n'
+    fluid_message += '-------------\n'
+    fluid_message += fluid_string
+    
+    # kinetic message
+    kinetic_message = 'Kinetic models:\n'
+    kinetic_message += '---------------\n'
+    kinetic_message += kinetic_string
+    
+    # hybrid message
+    hybrid_message = 'Hybrid models:\n'
+    hybrid_message += '--------------\n'
+    hybrid_message += hybrid_string
+    
+    # toy message
+    toy_message = 'Toy models:\n'
+    toy_message += '-----------\n'
+    toy_message += toy_string
+
+    # model message
+    model_message = 'run one of the following models:\n'
+    model_message += '\n' + fluid_message
+    model_message += '\n' + kinetic_message
+    model_message += '\n' + hybrid_message
+    model_message += '\n' + toy_message
+
+    # 0. basic options
     parser.add_argument('-v', '--version', action='version',
                         version=version_message)
     parser.add_argument('-p', '--path', action='version',
                         version=path_message, help='default installations and i/o paths')
+    parser.add_argument('-s', '--short-help', action='store_true', help='display short help')
+    parser.add_argument('--fluid', action='store_true', help='display available fluid models')
+    parser.add_argument('--kinetic', action='store_true', help='display available kinetic models')
+    parser.add_argument('--hybrid', action='store_true', help='display available hybrid models')
+    parser.add_argument('--toy', action='store_true', help='display available toy models')
     parser.add_argument('--set-i',
                         type=str,
                         metavar='PATH',
@@ -124,56 +215,6 @@ def struphy():
                                        description='Run a Struphy model.',
                                        epilog='For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html')
 
-    list_fluid = []
-    fluid_string = ''
-    for name, obj in inspect.getmembers(fluid):
-        if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
-                list_fluid += [name]
-                fluid_string += '"' + name + '"\n'
-
-    list_kinetic = []
-    kinetic_string = ''
-    for name, obj in inspect.getmembers(kinetic):
-        if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
-                list_kinetic += [name]
-                kinetic_string += '"' + name + '"\n'
-
-    list_hybrid = []
-    hybrid_string = ''
-    for name, obj in inspect.getmembers(hybrid):
-        if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
-                list_hybrid += [name]
-                hybrid_string += '"' + name + '"\n'
-
-    list_toy = []
-    toy_string = ''
-    for name, obj in inspect.getmembers(toy):
-        if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
-                list_toy += [name]
-                toy_string += '"' + name + '"\n'
-
-    list_models = list_fluid + list_kinetic + list_hybrid + list_toy
-
-    # model message
-    model_message = 'Available models:\n'
-    model_message += '\nFluid models:\n'
-    model_message += '-------------\n'
-    model_message += fluid_string
-    model_message += '\nKinetic models:\n'
-    model_message += '---------------\n'
-    model_message += kinetic_string
-    model_message += '\nHybrid models:\n'
-    model_message += '--------------\n'
-    model_message += hybrid_string
-    model_message += '\nToy models:\n'
-    model_message += '-----------\n'
-    model_message += toy_string
-    # version_message += 'MIT license\n'
-
     parser_run.add_argument('model',
                             type=str,
                             choices=list_models,
@@ -182,6 +223,7 @@ def struphy():
 
     parser_run.add_argument('-i', '--inp',
                             type=str,
+                            choices=params_files,
                             metavar='FILE',
                             help='parameter file (.yml) in current I/O path',)
 
@@ -203,6 +245,7 @@ def struphy():
 
     parser_run.add_argument('-b', '--batch',
                             type=str,
+                            choices=batch_files,
                             metavar='FILE',
                             help='batch script in current I/O path', )
 
@@ -254,6 +297,7 @@ def struphy():
 
     parser_units.add_argument('-i', '--input',
                               type=str,
+                              choices=params_files,
                               metavar='FILE',
                               help='parameter file (.yml) relative to current I/O path. If absent, default parameters are used.',)
 
@@ -279,7 +323,7 @@ def struphy():
     parser_params.add_argument('-f', '--file',
                                type=str,
                                metavar='FILE',
-                               help='name of the parameter file (.yml) relative to current I/O path (default=params_<model>.yml)',)
+                               help='name of the parameter file (.yml) to be created in the current I/O path (default=params_<model>.yml)',)
 
     parser_params.add_argument('-o', '--options',
                                help='show model options',
@@ -334,6 +378,7 @@ def struphy():
 
     parser_pproc.add_argument('-d', '--dirr',
                               type=str,
+                              choices=out_folders,
                               metavar='DIR',
                               help='simulation output folder to post-process relative to current I/O path (default=sim_1)',
                               default='sim_1',)
@@ -391,16 +436,51 @@ def struphy():
                              action='store_true')
 
     # parse argument
+    argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
     # if no arguments are passed, print help and exit
     print_help = True
     for key, val in args.__dict__.items():
-        if val is not None:
+        if val is None or not val:
+            continue
+        else:
             print_help = False
-
+            
     if print_help:
         parser.print_help()
+        exit()
+         
+    # display short help and exit
+    if args.short_help:   
+        lines = parser.format_help().splitlines()
+        bool_1 = [i for i, x in enumerate(lines) if 'Struphy' in x] 
+        bool_2 = [i for i, x in enumerate(lines) if 'available commands:' in x] 
+        print(lines[bool_1[0]])
+        print(lines[bool_1[0] + 1])
+        for li in lines[bool_2[0]:]:
+            print(li)
+        exit()
+        
+    # display subset of models
+    if args.fluid:
+        print(fluid_message)
+        print('For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html')
+        exit()
+        
+    if args.kinetic:
+        print(kinetic_message)
+        print('For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html')
+        exit()
+        
+    if args.hybrid:
+        print(hybrid_message)
+        print('For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html')
+        exit()
+        
+    if args.toy:
+        print(toy_message)
+        print('For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html')
         exit()
 
     # set default in path
@@ -421,7 +501,7 @@ def struphy():
         with open(os.path.join(libpath, 'i_path.txt'), 'w') as f:
             f.write(i_path)
 
-        print(f'New default Input path has been set:')
+        print(f'New input path has been set:')
         import subprocess
         subprocess.run(['struphy', '-p'])
 
@@ -445,7 +525,7 @@ def struphy():
         with open(os.path.join(libpath, 'o_path.txt'), 'w') as f:
             f.write(o_path)
 
-        print(f'New default Out path has been set:')
+        print(f'New output path has been set:')
         import subprocess
         subprocess.run(['struphy', '-p'])
 
@@ -469,7 +549,7 @@ def struphy():
         with open(os.path.join(libpath, 'b_path.txt'), 'w') as f:
             f.write(b_path)
 
-        print(f'New default Batch path has been set:')
+        print(f'New batch path has been set:')
         import subprocess
         subprocess.run(['struphy', '-p'])
 
@@ -501,6 +581,11 @@ def struphy():
     # transform parser Namespace object to dictionary and remove "command" key
     kwargs = vars(args)
     kwargs.pop('command')
+    kwargs.pop('short_help')
+    kwargs.pop('fluid')
+    kwargs.pop('kinetic')
+    kwargs.pop('hybrid')
+    kwargs.pop('toy')
     kwargs.pop('set_i')
     kwargs.pop('set_o')
     kwargs.pop('set_b')

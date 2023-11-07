@@ -1,6 +1,7 @@
 import pytest
 import inspect
-from struphy.tests.test_codes.util import func
+from struphy.tests.test_codes.util import call_model
+
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('map_and_equil', [('Cuboid', 'HomogenSlab'),
@@ -10,7 +11,7 @@ def test_fluid(fast, map_and_equil, model=None):
     '''Tests all models and all possible model.options (except solvers without preconditioner) in models/fluid.py.
 
     If model is not None, tests the specified model.
-    
+
     The argument "fast" is a pytest option that can be specified at te command line (see conftest.py).'''
 
     from struphy.models import fluid
@@ -24,13 +25,14 @@ def test_fluid(fast, map_and_equil, model=None):
                     print(
                         f'Model {key} is currently excluded from tests with mhd_equil other than HomogenSlab.')
                     continue
-                
+
                 if fast:
                     if 'Cuboid' not in map_and_equil[0]:
-                        print(f'Fast is enabled, mapping {map_and_equil[0]} skipped ...')
+                        print(
+                            f'Fast is enabled, mapping {map_and_equil[0]} skipped ...')
                         continue
 
-                func(key, val, map_and_equil)
+                call_model(key, val, map_and_equil)
     else:
         val = getattr(fluid, model)
 
@@ -40,4 +42,10 @@ def test_fluid(fast, map_and_equil, model=None):
                 f'Model {model} is currently excluded from tests with mhd_equil other than HomogenSlab.')
             exit()
 
-        func(model, val, map_and_equil)
+        call_model(model, val, map_and_equil)
+        
+if __name__ == '__main__':
+    
+    test_fluid(True, ('Cuboid', 'HomogenSlab'), model=None)
+    test_fluid(True, ('HollowTorus', 'AdhocTorus'), model=None)
+    test_fluid(True, ('Tokamak', 'EQDSKequilibrium'), model=None)

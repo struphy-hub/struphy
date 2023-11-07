@@ -15,12 +15,12 @@ from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian6DUniform, Maxwellian5DUniform
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
-from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
-from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
-from struphy.psydac_api.linear_operators import InverseLinearOperator as Inverse
-from struphy.psydac_api import preconditioner
-from struphy.psydac_api.linear_operators import LinOpWithTransp
-from struphy.psydac_api.mass import WeightedMassOperator
+from struphy.feec.linear_operators import CompositeLinearOperator as Compose
+from struphy.feec.linear_operators import ScalarTimesLinearOperator as Multiply
+from struphy.feec.linear_operators import InverseLinearOperator as Inverse
+from struphy.feec import preconditioner
+from struphy.feec.linear_operators import LinOpWithTransp
+from struphy.feec.mass import WeightedMassOperator
 import struphy.linear_algebra.iterative_solvers as it_solvers
 
 from struphy.linear_algebra.iterative_solvers import PConjugateGradient as pcg
@@ -85,7 +85,7 @@ class VlasovMaxwell(Propagator):
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
-                          'verbose': False}
+                          'verbose': False, }
 
         params = set_defaults(params, params_default)
 
@@ -165,6 +165,10 @@ class VlasovMaxwell(Propagator):
         self._new_v_sq[~self.particles[0].holes] = np.sqrt(self.particles[0].markers[~self.particles[0].holes, 3]**2 +
                                                            self.particles[0].markers[~self.particles[0].holes, 4]**2 +
                                                            self.particles[0].markers[~self.particles[0].holes, 5]**2)
+
+        # update_weights
+        if self.particles[0].control_variate:
+            self.particles[0].update_weights()
 
         # write new coeffs into self.variables
         max_de, = self.feec_vars_update(self._e_temp)
@@ -729,11 +733,11 @@ class PressureCoupling6D(Propagator):
         domain : struphy.geometry.base.Domain
                  Infos regarding mapping.
 
-        mass_ops : struphy.psydac_api.mass.WeightedMassOperators
-                   Weighted mass matrices from struphy.psydac_api.mass.
+        mass_ops : struphy.feec.mass.WeightedMassOperators
+                   Weighted mass matrices from struphy.feec.mass.
 
-        mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
-                  Linear MHD operators from struphy.psydac_api.basis_projection_ops.
+        mhd_ops : struphy.feec.basis_projection_ops.MHDOperators
+                  Linear MHD operators from struphy.feec.basis_projection_ops.
 
         coupling_solver: dict
                          Solver parameters for this splitting step.
@@ -787,7 +791,7 @@ class PressureCoupling6D(Propagator):
             self._space_key_int = 0
         else:
             self._space_key_int = int(
-                self.derham.spaces_dict[params['u_space']])
+                self.derham.space_to_form[params['u_space']])
 
         # Preconditioner
         if params['type'][1] is None:
@@ -901,7 +905,7 @@ class PressureCoupling6D(Propagator):
 
         Parameters
         ----------
-            derham : struphy.psydac_api.psydac_derham.Derham
+            derham : struphy.feec.psydac_derham.Derham
                 Discrete de Rham sequence on the logical unit cube.
 
             MAT : List of StencilMatrices
@@ -1003,7 +1007,6 @@ class CurrentCoupling6DCurrent(Propagator):
         params_default = {'u_space': 'Hdiv',
                           'b_eq': None,
                           'b_tilde': None,
-                          'f0': Maxwellian6DUniform(),
                           'type': ('PConjugateGradient', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
@@ -1021,7 +1024,7 @@ class CurrentCoupling6DCurrent(Propagator):
             self._space_key_int = 0
         else:
             self._space_key_int = int(
-                self.derham.spaces_dict[params['u_space']])
+                self.derham.space_to_form[params['u_space']])
 
         assert isinstance(params['b_eq'], (BlockVector, PolarVector))
 
@@ -1030,16 +1033,15 @@ class CurrentCoupling6DCurrent(Propagator):
 
         self._b_eq = params['b_eq']
         self._b_tilde = params['b_tilde']
-        self._f0 = params['f0']
 
-        if self._f0 is not None:
-            assert isinstance(self._f0, Maxwellian)
+        if self.particles[0].control_variate:
+            assert isinstance(self.f_backgr, Maxwellian)
 
             # evaluate and save nh0 (0-form) * uh0 (2-form if H1vec or vector if Hdiv) at quadrature points for control variate
             quad_pts = [quad_grid[nquad].points.flatten()
                         for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
 
-            uh0_cart = self._f0.u
+            uh0_cart = self.f_backgr.u
 
             if params['u_space'] == 'H1vec':
                 self._nuh0_at_quad = self.domain.pull(
@@ -1049,11 +1051,11 @@ class CurrentCoupling6DCurrent(Propagator):
                     uh0_cart, *quad_pts, kind='vector', squeeze_out=False, coordinates='logical')
 
             self._nuh0_at_quad[0] *= self.domain.pull(
-                [self._f0.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
+                [self.f_backgr.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
             self._nuh0_at_quad[1] *= self.domain.pull(
-                [self._f0.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
+                [self.f_backgr.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
             self._nuh0_at_quad[2] *= self.domain.pull(
-                [self._f0.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
+                [self.f_backgr.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
 
             # memory allocation for magnetic field at quadrature points
             self._b_quad1 = np.zeros_like(self._nuh0_at_quad[0])
@@ -1081,9 +1083,9 @@ class CurrentCoupling6DCurrent(Propagator):
                               'push_bxu_' + params['u_space'])
 
         # FEM spaces and basis extraction operators for u and b
-        u_id = self.derham.spaces_dict[params['u_space']]
-        self._EuT = self.derham.E[u_id].transpose()
-        self._EbT = self.derham.E['2'].transpose()
+        u_id = self.derham.space_to_form[params['u_space']]
+        self._EuT = self.derham.extraction_ops[u_id].transpose()
+        self._EbT = self.derham.extraction_ops['2'].transpose()
 
         # define system [[A B], [C I]] [u_new, v_new] = [[A -B], [-C I]] [u_old, v_old] (without time step size dt)
         _A = getattr(self.mass_ops, 'M' + u_id + 'n')
@@ -1131,7 +1133,7 @@ class CurrentCoupling6DCurrent(Propagator):
         self._b_full2.update_ghost_regions()
 
         # perform accumulation (either with or without control variate)
-        if self._f0 is not None:
+        if self.particles[0].control_variate:
 
             # evaluate magnetic field at quadrature points (in-place)
             WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
@@ -1178,8 +1180,8 @@ class CurrentCoupling6DCurrent(Propagator):
         max_du = self.feec_vars_update(self._u_new)
 
         # update weights in case of control variate
-        if self._f0 is not None:
-            self.particles[0].update_weights(self._f0)
+        if self.particles[0].control_variate:
+            self.particles[0].update_weights()
 
         if self._info and self._rank == 0:
             print('Status     for CurrentCoupling6DCurrent:', info['success'])
@@ -1200,9 +1202,90 @@ class CurrentCoupling6DCurrent(Propagator):
         return dct
 
 
-class CurrentCoupling5DCurrent1(Propagator):
-    r'''
-    TODO
+class CurrentCoupling5DCurlb(Propagator):
+    r'''Crank-Nicolson step for the current coupling part (:math:`v_\parallel \nabla \times \mathbf b_0`) in `LinearMHDDriftkineticCC <https://struphy.pages.mpcdf.de/struphy/sections/models.html#struphy.models.hybrid.LinearMHDDriftkineticCC>`_ model,
+
+    Equation:
+
+    .. math::
+
+        \left\{ 
+            \begin{aligned} 
+                n_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} = - \frac{A_h}{A_b} \iint f_{\textnormal{h}} \frac{1}{B^*_\parallel} v_\parallel^2 \nabla \times \mathbf b_0 \textnormal{d} v_\parallel \textnormal{d} \mu \times \mathbf B \,,
+                \\
+                &\frac{\partial v_\parallel}{\partial t} = - \frac{1}{B^*_\parallel} v_\parallel (\nabla \times \mathbf b_0) \cdot (\mathbf B \times \tilde{\mathbf U}) \,.
+            \end{aligned}
+        \right.
+
+    FE coefficients and marker update (:math:`\alpha = 2`):
+
+    .. math::
+
+        \begin{bmatrix} 
+            \mathbf u^{n+1} - \mathbf u^n \\ V_\parallel^{n+1} - V_\parallel^n
+        \end{bmatrix} 
+        = \frac{\Delta t}{2} \,.
+        \begin{bmatrix} 
+            0 & (\mathbb M^\rho_\alpha)^{-1} {\mathbb{P}^2}^\top \mathbb B^{*,-1}_\parallel \mathbb{V}_\parallel \sqrt{\mathbb g}^{-1} \sqrt{\mathbb g}^{-1} \mathbb{B}^\times \mathbb b_0^{\nabla \times}
+            \\  
+            - {\mathbb b_0^{\nabla \times}}^\top \mathbb{B}^\times \sqrt{\mathbb g}^{-1} \sqrt{\mathbb g}^{-1} \mathbb{V}_\parallel \mathbb B^{*,-1}_\parallel \mathbb{P}^2 (\mathbb M^\rho_\alpha)^{-1} & 0 
+        \end{bmatrix} 
+        \begin{bmatrix}
+            \mathbb M^\rho_\alpha (\mathbf u^{n+1} + \mathbf u^n)
+            \\
+            \mathbb W (\bar{V}_\parallel^{n+1} + \bar{V}_\parallel^n)
+        \end{bmatrix} \,,
+
+    where 
+    :math:`\mathbb M^\rho_\alpha` is a :ref:`weighted_mass` being weighted with :math:`\rho_0`, the MHD equilibirum density. 
+    :math:`\alpha \in \{1, 2, v\}` denotes the :math:`\alpha`-form space where the operators correspond to.
+    Moreover, :math:`\mathbb B^\times, \, \mathbb b_0^{\nabla \times}, \, \mathbb P^2` and notations with over-bar are the block matrices which are diagnally staced collocation vectors.
+    Note that following matrices are not assembled but only for representing the accumulation and pushing of particles compactly:
+
+    .. math::
+
+        \begin{alignat}{2}
+            &\mathbb{V}_\parallel := \mathbb{I}_3 \otimes \text{diag}(V_\parallel) && 
+            \bar{V}_\parallel := (V_\parallel, V_\parallel, V_\parallel) \qquad \qquad V_\parallel := (v_{\parallel,1}, \, \dots, v_{\parallel,N_p})^\top
+            \\
+            &\mathbb W_\parallel := \mathbb{I}_3 \otimes \text{diag}(W) && 
+            W := (\omega_1, \, \dots, \omega_{N_p})^\top 
+            \\
+            &\mathbb B^{*,-1}_\parallel := \mathbb{I}_3 \otimes \mathbb{B}^{*, -1}_\parallel && 
+            \bar B^{*,-1}_\parallel := \text{diag}(B^{*, -1}_{\parallel}(\boldsymbol{\eta}_1, v_{\parallel,1}), \, \dots, B^{*, -1}_{\parallel}(\boldsymbol{\eta}_{N_p}, v_{\parallel,N_p}))
+            \\
+            &\sqrt{\mathbb g}^{-1} := \mathbb{I}_3 \otimes  \bar{\sqrt{g}}^{-1} && 
+            \bar{\sqrt{g}}^{-1} := \text{diag}(\sqrt{g(\boldsymbol{\eta}_{1})}^{-1}, \, \dots, \sqrt{g(\boldsymbol{\eta}_{N_p})}^{-1})
+            \\
+            &\mathbb{P}^n := \text{diag}(\mathbb{P}^n_1, \mathbb{P}^n_2, \mathbb{P}^n_3) && 
+            \mathbb{P}^n_\mu := (\Lambda^n_{\mu,i}(\boldsymbol{\eta}_k))_{0\leq i \leq N^n_\mu, \,  1\leq k \leq N_p, \, n \in \{v,1,2\}, \, \mu \in \{ 1,2,3\}}
+            \\
+            &\mathbb{b}^{\nabla \times}_0 := (\mathbb{b}^{\nabla \times}_{0,1}, \mathbb{b}^{\nabla \times}_{0,2}, \mathbb{b}^{\nabla \times}_{0,3}) &&
+            \mathbb{b}^{\nabla\times}_{0,\mu} := ((\widehat \nabla \times \widehat{\mathbf b}^1_{0})_\mu(\boldsymbol{\eta}_k))_{1 \leq k \leq N_p, \mu \in \{1,2,3\}}
+            \\
+            &\mathbb{B}^\times := 
+            \begin{pmatrix}
+                0 & - \mathbb{B}^2_3 & \mathbb{B}^2_2
+                \\
+                \mathbb{B}^2_3 & 0 & -\mathbb{B}^2_1
+                \\
+                - \mathbb{B}^2_2 & \mathbb{B}^2_1 & 0
+            \end{pmatrix} \qquad && 
+            \mathbb{B}^2_\mu = \mathbf b^\top \mathbb{P}^2_\mu + (\widehat{\mathbf B}^2_{0,\mu}(\boldsymbol{\eta}_k))_{1 \leq k \leq N_p, \mu \in \{1,2,3\}}
+        \end{alignat}
+
+    The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
+
+    Parameters
+    ---------- 
+    particles : struphy.pic.particles.Particles6D
+        Particles object.
+
+    u : psydac.linalg.block.BlockVector
+        FE coefficients of MHD velocity.
+
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
     '''
 
     def __init__(self, particles, u, **params):
@@ -1222,7 +1305,7 @@ class CurrentCoupling5DCurrent1(Propagator):
                           'verbose': False,
                           'Ab': 1,
                           'Ah': 1,
-                          'kappa': 1.}
+                          'epsilon': 1.}
 
         params = set_defaults(params, params_default)
 
@@ -1232,9 +1315,9 @@ class CurrentCoupling5DCurrent1(Propagator):
             self._space_key_int = 0
         else:
             self._space_key_int = int(
-                self.derham.spaces_dict[params['u_space']])
+                self.derham.space_to_form[params['u_space']])
 
-        self._kappa = params['kappa']
+        self._kappa = 1/params['epsilon']
         self._f0 = params['f0']
 
         assert isinstance(params['b'], (BlockVector, PolarVector))
@@ -1254,10 +1337,10 @@ class CurrentCoupling5DCurrent1(Propagator):
         self._coupling_vec = params['Ah'] / params['Ab']
         self._scale_push = 1
 
-        u_id = self.derham.spaces_dict[params['u_space']]
-        self._EuT = self.derham.E[u_id].transpose()
-        self._E2T = self.derham.E['2'].transpose()
-        self._E1T = self.derham.E['1'].transpose()
+        u_id = self.derham.space_to_form[params['u_space']]
+        self._EuT = self.derham.extraction_ops[u_id].transpose()
+        self._E2T = self.derham.extraction_ops['2'].transpose()
+        self._E1T = self.derham.extraction_ops['1'].transpose()
 
         self._unit_b1 = self._E1T.dot(self._unit_b1)
         self._curl_norm_b = self._E2T.dot(self._curl_norm_b)
@@ -1343,9 +1426,9 @@ class CurrentCoupling5DCurrent1(Propagator):
         max_du, = self.feec_vars_update(self._u_new)
 
         if self._info and self._rank == 0:
-            print('Status     for CurrentCoupling5DCurrent1:', info['success'])
-            print('Iterations for CurrentCoupling5DCurrent1:', info['niter'])
-            print('Maxdiff up for CurrentCoupling5DCurrent1:', max_du)
+            print('Status     for CurrentCoupling5DCurlb:', info['success'])
+            print('Iterations for CurrentCoupling5DCurlb:', info['niter'])
+            print('Maxdiff up for CurrentCoupling5DCurlb:', max_du)
             print()
 
     @classmethod
@@ -1361,9 +1444,91 @@ class CurrentCoupling5DCurrent1(Propagator):
         return dct
 
 
-class CurrentCoupling5DCurrent2(Propagator):
-    r'''
-    TODO
+class CurrentCoupling5DGradBxB(Propagator):
+    r'''Crank-Nicolson step for the current coupling part (:math:`\mu \nabla B_\parallel \times \mathbf b_0`) in `LinearMHDDriftkineticCC <https://struphy.pages.mpcdf.de/struphy/sections/models.html#struphy.models.hybrid.LinearMHDDriftkineticCC>`_ model,
+
+    Equation:
+
+    .. math::
+
+        \left\{ 
+            \begin{aligned} 
+                n_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} = \frac{A_h}{A_b} \iint f_{\textnormal{h}} \frac{1}{B^*_\parallel} \mathbf b_0 \times (\mu \nabla B_\parallel) \textnormal{d} v_\parallel \textnormal{d} \mu \times \mathbf B \,,
+                \\
+                &\frac{\partial \mathbf X}{\partial t} = \frac{1}{B^*_\parallel} \mathbf b_0 \times \tilde{\mathbf U} \times \mathbf B \,.
+            \end{aligned}
+        \right.
+
+    FE coefficients and marker update (:math:`\alpha = 2`):
+
+    .. math::
+
+        \begin{bmatrix} 
+            \mathbf u^{n+1} - \mathbf u^n \\ \mathbf H^{n+1} - \mathbf H^n
+        \end{bmatrix} 
+        = \frac{\Delta t}{2} \,.
+        \begin{bmatrix} 
+            0 & (\mathbb M^\rho_\alpha)^{-1} {\mathbb{P}^2}^\top \mathbb B^{*,-1}_\parallel \sqrt{\mathbb g}^{-1}\mathbb{B}^\times \bar G^{-1} \mathbb b_0^\times \bar G^{-1}
+            \\  
+            - \bar G^{-1} \mathbb b_0^\times \bar G^{-1} \mathbb{B}^\times \sqrt{\mathbb g}^{-1} \mathbb B^{*,-1}_\parallel \mathbb{P}^2 (\mathbb M^\rho_\alpha)^{-1} & 0 
+        \end{bmatrix} 
+        \begin{bmatrix}
+            \mathbb M^\rho_\alpha (\mathbf u^{n+1} + \mathbf u^n)
+            \\
+            \mathbb{W} \bar \mu \mathbb P^2 \mathbb G \mathcal{P}_b (\mathbf b^{n+1} + \mathbf b^n)
+        \end{bmatrix} \,,
+
+    where 
+    :math:`\mathbb M^\rho_\alpha` is a :ref:`weighted_mass` being weighted with :math:`\rho_0`, the MHD equilibirum density. 
+    :math:`\alpha \in \{1, 2, v\}` denotes the :math:`\alpha`-form space where the operators correspond to.
+    Moreover, :math:`\mathbb B^\times, \, \mathbb b_0^{\times}, \, \mathbb P^2` and notations with over-bar are the block matrices which are diagnally staced collocation vectors.
+    Note that following matrices are not assembled but only for representing the accumulation and pushing of particles compactly:
+
+    .. math::
+
+        \begin{alignat}{2}
+            \\
+            &\mathbf H := (\eta_{1,1}, \dots, \eta_{N_p,1}, \eta_{1,2}, \dots, \eta_{N_p,2}, \eta_{1,3}, \dots, \eta_{N_p,3})^\top
+            \\
+            &\bar \mu := \mathbb{I}_3 \otimes \text{diag}((\mu_1, \, \dots, \mu_{N_p})^\top )
+            \\
+            &\mathbb W_\parallel := \mathbb{I}_3 \otimes \text{diag}(W) && 
+            W := (\omega_1, \, \dots, \omega_{N_p})^\top 
+            \\
+            &\mathbb B^{*,-1}_\parallel := \mathbb{I}_3 \otimes \mathbb{B}^{*, -1}_\parallel && 
+            \bar B^{*,-1}_\parallel := \text{diag}(B^{*, -1}_{\parallel}(\boldsymbol{\eta}_1, v_{\parallel,1}), \, \dots, B^{*, -1}_{\parallel}(\boldsymbol{\eta}_{N_p}, v_{\parallel,N_p}))
+            \\
+            &\bar{G}^{-1} := \text{diag}(G^{-1}(\boldsymbol{\eta}_{1}), \dots, G^{-1}(\boldsymbol{\eta}_{N_p}))
+            \\
+            &\sqrt{\mathbb g}^{-1} := \mathbb{I}_3 \otimes  \bar{\sqrt{g}}^{-1} && 
+            \bar{\sqrt{g}}^{-1} := \text{diag}(\sqrt{g(\boldsymbol{\eta}_{1})}^{-1}, \, \dots, \sqrt{g(\boldsymbol{\eta}_{N_p})}^{-1})
+            \\
+            &\mathbb{P}^n := \text{diag}(\mathbb{P}^n_1, \mathbb{P}^n_2, \mathbb{P}^n_3) && 
+            \mathbb{P}^n_\mu := (\Lambda^n_{\mu,i}(\boldsymbol{\eta}_k))_{0\leq i \leq N^n_\mu, \,  1\leq k \leq N_p, \, n \in \{v,1,2\}, \, \mu \in \{ 1,2,3\}}
+            \\
+            &\mathbb{b}_0^\times := 
+            \begin{pmatrix}
+                0 & - \mathbb{b}^2_{0,3} & \mathbb{b}^2_{0,2}
+                \\
+                \mathbb{b}^2_{0,3} & 0 & -\mathbb{b}^2_{0,1}
+                \\
+                - \mathbb{b}^2_{0,2} & \mathbb{b}^2_{0,1} & 0
+            \end{pmatrix} \qquad && 
+            \mathbb{b}^2_{0,\mu} = (\widehat{\mathbf b}^2_{0,\mu}(\boldsymbol{\eta}_k))_{1 \leq k \leq N_p, \mu \in \{1,2,3\}}
+        \end{alignat}
+
+    The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
+
+    Parameters
+    ---------- 
+    particles : struphy.pic.particles.Particles6D
+        Particles object.
+
+    u : psydac.linalg.block.BlockVector
+        FE coefficients of MHD velocity.
+
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
     '''
 
     def __init__(self, particles, u, **params):
@@ -1387,7 +1552,7 @@ class CurrentCoupling5DCurrent2(Propagator):
                           'verbose': False,
                           'Ab': 1,
                           'Ah': 1,
-                          'kappa': 1.,
+                          'epsilon': 1.,
                           'method': 'rk4'}
 
         params = set_defaults(params, params_default)
@@ -1398,9 +1563,9 @@ class CurrentCoupling5DCurrent2(Propagator):
             self._space_key_int = 0
         else:
             self._space_key_int = int(
-                self.derham.spaces_dict[params['u_space']])
+                self.derham.space_to_form[params['u_space']])
 
-        self._kappa = params['kappa']
+        self._kappa = 1/params['epsilon']
         self._f0 = params['f0']
 
         assert isinstance(params['b'], (BlockVector, PolarVector))
@@ -1429,11 +1594,11 @@ class CurrentCoupling5DCurrent2(Propagator):
         self._coupling_vec = params['Ah'] / params['Ab']
         self._scale_push = 1
 
-        u_id = self.derham.spaces_dict[params['u_space']]
-        self._E0T = self.derham.E['0'].transpose()
-        self._EuT = self.derham.E[u_id].transpose()
-        self._E1T = self.derham.E['1'].transpose()
-        self._E2T = self.derham.E['2'].transpose()
+        u_id = self.derham.space_to_form[params['u_space']]
+        self._E0T = self.derham.extraction_ops['0'].transpose()
+        self._EuT = self.derham.extraction_ops[u_id].transpose()
+        self._E1T = self.derham.extraction_ops['1'].transpose()
+        self._E2T = self.derham.extraction_ops['2'].transpose()
 
         self._PB = getattr(self.basis_ops, 'PB')
 
@@ -1547,7 +1712,7 @@ class CurrentCoupling5DCurrent2(Propagator):
         # call pusher kernel with average field (u_new + u_old)/2 and update ghost regions because of non-local access in kernel
         un.copy(out=self._u_avg1)
         self._u_avg1 += self._u_new
-        self._u_avg1 /= 2
+        self._u_avg1 /= 2.
 
         self._EuT.dot(self._u_avg1, out=self._u_avg2)
         self._u_avg2.update_ghost_regions()
@@ -1566,9 +1731,9 @@ class CurrentCoupling5DCurrent2(Propagator):
         max_du, = self.feec_vars_update(self._u_new)
 
         if self._info and self._rank == 0:
-            print('Status     for CurrentCoupling5DCurrent2:', info['success'])
-            print('Iterations for CurrentCoupling5DCurrent2:', info['niter'])
-            print('Maxdiff up for CurrentCoupling5DCurrent2:', max_du)
+            print('Status     for CurrentCoupling5DGradBxB:', info['success'])
+            print('Iterations for CurrentCoupling5DGradBxB:', info['niter'])
+            print('Maxdiff up for CurrentCoupling5DGradBxB:', max_du)
             print()
 
     @classmethod
@@ -1585,9 +1750,8 @@ class CurrentCoupling5DCurrent2(Propagator):
         return dct
 
 
-class CurrentCoupling5DCurrent2dg(Propagator):
-    r'''
-    TODO
+class CurrentCoupling5DGradBxB_dg(Propagator):
+    r'''Draft
     '''
 
     def __init__(self, particles, u, **params):
@@ -1602,17 +1766,14 @@ class CurrentCoupling5DCurrent2dg(Propagator):
                           'unit_b2': None,
                           'abs_b': None,
                           'f0': Maxwellian5DUniform(),
-                          'type': 'PConjugateGradient',
-                          'pc': 'MassMatrixPreconditioner',
+                          'type': ('PConjugateGradient', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
                           'verbose': False,
                           'Ab': 1,
                           'Ah': 1,
-                          'kappa': 1.,
-                          'integrator': 'explicit',
-                          'method': 'rk4'}
+                          'epsilon': 1.}
 
         params = set_defaults(params, params_default)
 
@@ -1621,9 +1782,9 @@ class CurrentCoupling5DCurrent2dg(Propagator):
             self._space_key_int = 0
         else:
             self._space_key_int = int(
-                self.derham.spaces_dict[params['u_space']])
+                self.derham.space_to_form[params['u_space']])
 
-        self._kappa = params['kappa']
+        self._kappa = 1/params['epsilon']
         self._f0 = params['f0']
 
         assert isinstance(params['b'], (BlockVector, PolarVector))
@@ -1655,7 +1816,7 @@ class CurrentCoupling5DCurrent2dg(Propagator):
         self._coupling_vec = params['Ah'] / params['Ab']
         self._scale_push = 1
 
-        u_id = self.derham.spaces_dict[params['u_space']]
+        u_id = self.derham.space_to_form[params['u_space']]
 
         self._PB = getattr(self.basis_ops, 'PB')
 
@@ -1730,7 +1891,7 @@ class CurrentCoupling5DCurrent2dg(Propagator):
         # discrete gradient solver(mid point)#
         #####################################
         # eval initial particle energy
-        self.particles[0].save_magnetic_energy(self.derham, self._PBb)
+        self.particles[0].save_magnetic_energy(self._PBb)
         self._en_fB_old = self.particles[0].markers[~self.particles[0].holes, 5].dot(
             self.particles[0].markers[~self.particles[0].holes, 8])/self.particles[0].n_mks
 
@@ -1752,7 +1913,7 @@ class CurrentCoupling5DCurrent2dg(Propagator):
 
         self._rhs1.update_ghost_regions()
 
-        info = self._solver.solve(self._A, self._rhs1, self._pc,
+        info = self._solver.solve(self._A, self._rhs1, pc=self._pc, solver_name=self._type,
                                   x0=self._u_old, tol=self._tol,
                                   maxiter=self._maxiter, verbose=self._verbose,
                                   out=self._u_new)[1]
@@ -1797,7 +1958,7 @@ class CurrentCoupling5DCurrent2dg(Propagator):
             # eval particle magnetic energy
             self._en_fB_loc = utilities.accum_en_fB(self.particles[0].markers, self.particles[0].n_mks, *self._pusher.args_fem,
                                                     self._PBb._data)[0]
-            # self.particles[0].save_magnetic_energy(self.derham, self._PBb)
+            # self.particles[0].save_magnetic_energy(self._PBb)
             # self._en_fB_loc = self.particles[0].markers[~self.particles[0].holes, 5].dot(
             #     self.particles[0].markers[~self.particles[0].holes, 8])/self.particles[0].n_mks
 
@@ -1901,7 +2062,7 @@ class CurrentCoupling5DCurrent2dg(Propagator):
             diff = np.sqrt(self._u_norm_loc + self._sum_H_diff_loc)
             print('diff', diff)
 
-            if diff < 1e-8:
+            if diff < 1e-5:
                 print('converged!')
                 break
 
@@ -1914,3 +2075,15 @@ class CurrentCoupling5DCurrent2dg(Propagator):
             print('Iterations for CurrentCoupling5DCurrent2dg:', info['niter'])
             print('Maxdiff up for CurrentCoupling5DCurrent2dg:', max_du)
             print()
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['u_space'] = ['Hcurl', 'Hdiv', 'H1vec']
+        dct['solver'] = {'type': [('PConjugateGradient', 'MassMatrixPreconditioner'),
+                                  ('ConjugateGradient', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False}
+        return dct

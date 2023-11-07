@@ -1,4 +1,10 @@
-def assemble_dofs_for_weighted_basisfuns_1d(mat : 'float[:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', fun_q : 'float[:]', wts1 : 'float[:,:]', span1 : 'int[:,:]', basis1 : 'float[:,:,:]', sub1 : 'int[:]', dim1_in : int, p1_out : int):
+def assemble_dofs_for_weighted_basisfuns_1d(
+    mat: 'float[:,:]',
+    starts_in: 'int[:]', ends_in: 'int[:]', pads_in: 'int[:]',
+    starts_out: 'int[:]', ends_out: 'int[:]', pads_out: 'int[:]',
+    fun_q: 'float[:]', wts1: 'float[:,:]', span1: 'int[:,:]',
+    basis1: 'float[:,:,:]', sub1: 'int[:]', dim1_in: int, p1_out: int
+):
     '''Kernel for assembling the matrix
 
     A_(i,j) = DOFS_i(fun*Lambda^in_j) ,
@@ -32,7 +38,7 @@ def assemble_dofs_for_weighted_basisfuns_1d(mat : 'float[:,:]', starts_in : 'int
 
         fun_q : 1d float array
             The function evaluated at the points (nq*ii + iq), where iq a local quadrature point of interval ii.
-            
+
         wts1 : 2d float array
             Quadrature weights in format (ii, iq).
 
@@ -51,7 +57,7 @@ def assemble_dofs_for_weighted_basisfuns_1d(mat : 'float[:,:]', starts_in : 'int
         p1_out : int
             Spline degree of the first direction of the output space
     '''
-    
+
     from numpy import sum
 
     # Start/end indices and paddings for distributed stencil matrix of input space
@@ -66,7 +72,7 @@ def assemble_dofs_for_weighted_basisfuns_1d(mat : 'float[:,:]', starts_in : 'int
 
     # Spline degrees of input space
     p1 = basis1.shape[2] - 1
-    
+
     # number of quadrature points
     nq1 = span1.shape[1]
 
@@ -114,7 +120,16 @@ def assemble_dofs_for_weighted_basisfuns_1d(mat : 'float[:,:]', starts_in : 'int
                 mat[po1 + i, col1] += value
 
 
-def assemble_dofs_for_weighted_basisfuns_2d(mat : 'float[:,:,:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', fun_q : 'float[:,:]', wts1 : 'float[:,:]', wts2 : 'float[:,:]', span1 : 'int[:,:]', span2 : 'int[:,:]', basis1 : 'float[:,:,:]', basis2 : 'float[:,:,:]', sub1 : 'int[:]', sub2 : 'int[:]', dim1_in : int, dim2_in : int, p1_out : int, p2_out : int):
+def assemble_dofs_for_weighted_basisfuns_2d(
+    mat: 'float[:,:,:,:]',
+    starts_in: 'int[:]', ends_in: 'int[:]', pads_in: 'int[:]',
+    starts_out: 'int[:]', ends_out: 'int[:]', pads_out: 'int[:]',
+    fun_q: 'float[:,:]', wts1: 'float[:,:]', wts2: 'float[:,:]',
+    span1: 'int[:,:]', span2: 'int[:,:]',
+    basis1: 'float[:,:,:]', basis2: 'float[:,:,:]',
+    sub1: 'int[:]', sub2: 'int[:]', dim1_in: int, dim2_in: int,
+    p1_out: int, p2_out: int
+):
     '''Kernel for assembling the matrix
 
     A_(ij,kl) = DOFS_ij(fun*Lambda^in_kl) ,
@@ -148,10 +163,10 @@ def assemble_dofs_for_weighted_basisfuns_2d(mat : 'float[:,:,:,:]', starts_in : 
 
         fun_q : 2d float array
             The function evaluated at the points (nq_i*ii + iq, nq_j*jj + jq), where iq a local quadrature point of interval ii.
-            
+
         wts1 : 2d float array
             Quadrature weights in direction eta1 in format (ii, iq).
-            
+
         wts2 : 2d float array
             Quadrature weights in direction eta2 in format (jj, jq).
 
@@ -207,7 +222,7 @@ def assemble_dofs_for_weighted_basisfuns_2d(mat : 'float[:,:,:,:]', starts_in : 
     # Spline degrees of input space
     p1 = basis1.shape[2] - 1
     p2 = basis2.shape[2] - 1
-    
+
     # number of quadrature points
     nq1 = span1.shape[1]
     nq2 = span2.shape[1]
@@ -236,7 +251,8 @@ def assemble_dofs_for_weighted_basisfuns_2d(mat : 'float[:,:,:,:]', starts_in : 
             for iq in range(nq1):
                 for jq in range(nq2):
 
-                    funval = fun_q[nq1*ii + iq, nq2*jj + jq] * wts1[ii, iq] * wts2[jj, jq]
+                    funval = fun_q[nq1*ii + iq, nq2*jj + jq] * \
+                        wts1[ii, iq] * wts2[jj, jq]
 
                     # Basis function of input space:
                     # ------------------------------
@@ -284,8 +300,18 @@ def assemble_dofs_for_weighted_basisfuns_2d(mat : 'float[:,:,:,:]', starts_in : 
                             mat[po1 + i, po2 + j, col1, col2] += value
 
 
-
-def assemble_dofs_for_weighted_basisfuns_3d(mat : 'float[:,:,:,:,:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', fun_q : 'float[:,:,:]', wts1 : 'float[:,:]', wts2 : 'float[:,:]', wts3 : 'float[:,:]', span1 : 'int[:,:]', span2 : 'int[:,:]', span3 : 'int[:,:]', basis1 : 'float[:,:,:]', basis2 : 'float[:,:,:]', basis3 : 'float[:,:,:]', sub1 : 'int[:]', sub2 : 'int[:]', sub3 : 'int[:]', dim1_in : int, dim2_in : int, dim3_in : int, p1_out : int, p2_out : int, p3_out : int):
+def assemble_dofs_for_weighted_basisfuns_3d(
+    mat: 'float[:,:,:,:,:,:]',
+    starts_in: 'int[:]', ends_in: 'int[:]', pads_in: 'int[:]',
+    starts_out: 'int[:]', ends_out: 'int[:]', pads_out: 'int[:]',
+    fun_q: 'float[:,:,:]',
+    wts1: 'float[:,:]', wts2: 'float[:,:]', wts3: 'float[:,:]',
+    span1: 'int[:,:]', span2: 'int[:,:]', span3: 'int[:,:]',
+    basis1: 'float[:,:,:]', basis2: 'float[:,:,:]', basis3: 'float[:,:,:]',
+    sub1: 'int[:]', sub2: 'int[:]', sub3: 'int[:]',
+    dim1_in: int, dim2_in: int, dim3_in: int,
+    p1_out: int, p2_out: int, p3_out: int
+):
     '''Kernel for assembling the matrix
 
     A_(ijk,mno) = DOFS_ijk(fun*Lambda^in_mno) ,
@@ -319,13 +345,13 @@ def assemble_dofs_for_weighted_basisfuns_3d(mat : 'float[:,:,:,:,:,:]', starts_i
 
         fun_q : 3d float array
             The function evaluated at the points (nq_i*ii + iq, nq_j*jj + jq, nq_k*kk + kq), where iq a local quadrature point of interval ii.
-            
+
         wts1 : 2d float array
             Quadrature weights in direction eta1 in format (ii, iq).
-            
+
         wts2 : 2d float array
             Quadrature weights in direction eta2 in format (jj, jq).
-            
+
         wts3 : 2d float array
             Quadrature weights in direction eta3 in format (kk, kq).
 
@@ -403,7 +429,7 @@ def assemble_dofs_for_weighted_basisfuns_3d(mat : 'float[:,:,:,:,:,:]', starts_i
     p1 = basis1.shape[2] - 1
     p2 = basis2.shape[2] - 1
     p3 = basis3.shape[2] - 1
-    
+
     # number of quadrature points
     nq1 = span1.shape[1]
     nq2 = span2.shape[1]
@@ -440,7 +466,8 @@ def assemble_dofs_for_weighted_basisfuns_3d(mat : 'float[:,:,:,:,:,:]', starts_i
                     for jq in range(nq2):
                         for kq in range(nq3):
 
-                            funval = fun_q[nq1*ii + iq, nq2*jj + jq, nq3*kk + kq] * wts1[ii, iq] * wts2[jj, jq] * wts3[kk, kq] 
+                            funval = fun_q[nq1*ii + iq, nq2*jj + jq, nq3*kk +
+                                           kq] * wts1[ii, iq] * wts2[jj, jq] * wts3[kk, kq]
 
                             # Basis function of input space:
                             # ------------------------------
@@ -505,4 +532,5 @@ def assemble_dofs_for_weighted_basisfuns_3d(mat : 'float[:,:,:,:,:,:]', starts_i
                                         col3 = pi3 + o - (k + so3)
 
                                         # Row index: padding + local index.
-                                        mat[po1 + i, po2 + j, po3 + k, col1, col2, col3] += value
+                                        mat[po1 + i, po2 + j, po3 + k,
+                                            col1, col2, col3] += value

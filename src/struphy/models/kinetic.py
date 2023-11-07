@@ -70,27 +70,23 @@ class VlasovMaxwell(StruphyModel):
 
     @classmethod
     def options(cls):
-        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
-
         # import propagator options
         from struphy.propagators.propagators_fields import Maxwell, ImplicitDiffusion
         from struphy.propagators.propagators_markers import PushEta, PushVxB
         from struphy.propagators.propagators_coupling import VlasovMaxwell
-        dct['em_fields']['options'] = {}
-        dct['em_fields']['options']['solvers'] = {}
-        dct['em_fields']['options']['solvers']['maxwell'] = Maxwell.options()[
-            'solver']
-        dct['em_fields']['options']['solvers']['poisson'] = ImplicitDiffusion.options()[
-            'solver']
-        dct['kinetic']['electrons'] = {}
-        dct['kinetic']['electrons']['options'] = {}
-        dct['kinetic']['electrons']['options']['algos'] = {}
-        dct['kinetic']['electrons']['options']['algos']['push_eta'] = PushEta.options()[
-            'algo']
-        dct['kinetic']['electrons']['options']['algos']['push_vxb'] = PushVxB.options()[
-            'algo']
-        dct['kinetic']['electrons']['options']['solver'] = VlasovMaxwell.options()[
-            'solver']
+
+        dct = {}
+        cls.add_option(species='em_fields', key=['solvers', 'maxwell'],
+                       option=Maxwell.options()['solver'], dct=dct)
+        cls.add_option(species='em_fields', key=['solvers', 'poisson'],
+                       option=ImplicitDiffusion.options()['solver'], dct=dct)
+        cls.add_option(species=['kinetic', 'electrons'], key=['algos', 'push_eta'],
+                       option=PushEta.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'electrons'], key=['algos', 'push_vxb'],
+                       option=PushVxB.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'electrons'], key='solver',
+                       option=VlasovMaxwell.options()['solver'], dct=dct)
+
         return dct
 
     def __init__(self, params, comm):
@@ -104,6 +100,13 @@ class VlasovMaxwell(StruphyModel):
 
         # prelim
         electron_params = params['kinetic']['electrons']
+
+        self._marker_type = electron_params['markers']['type']
+        assert self._marker_type in ['full_f', 'control_variate']
+        if self._marker_type == 'full_f':
+            f0 = None
+        else:
+            f0 = self.pointer['electrons'].f_backgr
 
         # model parameters
         self._alpha = self.equation_params['electrons']['alpha_unit']
@@ -131,16 +134,14 @@ class VlasovMaxwell(StruphyModel):
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['electrons'],
             algo=algo_eta,
-            bc_type=electron_params['markers']['bc']['type'],
-            f0=None))
+            bc_type=electron_params['markers']['bc']['type']))
 
         self.add_propagator(self.prop_markers.PushVxB(
             self.pointer['electrons'],
             algo=algo_vxb,
             scale_fac=1/self._epsilon,
             b_eq=self._b_background,
-            b_tilde=self.pointer['b2'],
-            f0=None))
+            b_tilde=self.pointer['b2']))
 
         self.add_propagator(self.prop_coupling.VlasovMaxwell(
             self.pointer['e1'],
@@ -167,6 +168,7 @@ class VlasovMaxwell(StruphyModel):
     def initialize_from_params(self):
 
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+        from struphy.feec.projectors import L2_Projector
         from psydac.linalg.stencil import StencilVector
 
         # Initialize fields and particles
@@ -180,10 +182,12 @@ class VlasovMaxwell(StruphyModel):
             self.derham, self.domain, "H1", "vlasov_maxwell_poisson")
         charge_accum.accumulate(self.pointer['electrons'])
 
-        # Locally subtract mean charge for solvability with periodic bc
-        if np.all(charge_accum.vectors[0].space.periods):
-            charge_accum._vectors[0][:] -= np.mean(charge_accum.vectors[0].toarray()[
-                                                   charge_accum.vectors[0].toarray() != 0])
+        # add contribution from background in control variate method
+        if self._marker_type == 'control_variate':
+            _proj = L2_Projector(self._mass_ops.M0, space='H1', derham=self.derham)
+            _phi_bckgr = _proj(self.pointer['electrons'].f_backgr.n)
+            # TODO: what to do with this?
+
         # Instantiate Poisson solver
         _phi = StencilVector(self.derham.Vh['0'])
         poisson_solver = self.prop_fields.ImplicitDiffusion(
@@ -197,6 +201,7 @@ class VlasovMaxwell(StruphyModel):
         if self._rank == 0:
             print('Solving ...')
         poisson_solver(1.)
+
         self.derham.grad.dot(-_phi, out=self.pointer['e1'])
         if self._rank == 0:
             print('Done.')
@@ -211,8 +216,10 @@ class VlasovMaxwell(StruphyModel):
 
         # alpha^2 / 2 / N * sum_p w_p v_p^2
         self._tmp[0] = self._alpha**2 / (2 * self.pointer['electrons'].n_mks) * \
-            np.dot(self.pointer['electrons'].markers_wo_holes[:, 3]**2 + self.pointer['electrons'].markers_wo_holes[:, 4] ** 2 +
-                   self.pointer['electrons'].markers_wo_holes[:, 5]**2, self.pointer['electrons'].markers_wo_holes[:, 6])
+            np.dot(self.pointer['electrons'].markers_wo_holes[:, 3]**2 +
+                   self.pointer['electrons'].markers_wo_holes[:, 4] ** 2 +
+                   self.pointer['electrons'].markers_wo_holes[:, 5]**2,
+                   self.pointer['electrons'].markers_wo_holes[:, 6])
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._tmp, op=self._mpi_sum)
         self.update_scalar('en_f', self._tmp[0])
@@ -292,27 +299,21 @@ class LinearVlasovMaxwell(StruphyModel):
 
     @classmethod
     def options(cls):
-        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
-
         # import propagator options
         from struphy.propagators.propagators_fields import Maxwell, ImplicitDiffusion
         from struphy.propagators.propagators_markers import PushEta, PushVxB
         from struphy.propagators.propagators_coupling import EfieldWeightsImplicit
-        dct['em_fields']['options'] = {}
-        dct['em_fields']['options']['solvers'] = {}
-        dct['em_fields']['options']['solvers']['maxwell'] = Maxwell.options()[
-            'solver']
-        dct['em_fields']['options']['solvers']['poisson'] = ImplicitDiffusion.options()[
-            'solver']
-        dct['kinetic']['electrons'] = {}
-        dct['kinetic']['electrons']['options'] = {}
-        dct['kinetic']['electrons']['options']['algos'] = {}
-        dct['kinetic']['electrons']['options']['algos']['push_eta'] = PushEta.options()[
-            'algo']
-        dct['kinetic']['electrons']['options']['algos']['push_vxb'] = PushVxB.options()[
-            'algo']
-        dct['kinetic']['electrons']['options']['solver'] = EfieldWeightsImplicit.options()[
-            'solver']
+        dct = {}
+        cls.add_option(['em_fields'], ['solvers', 'maxwell'],
+                       Maxwell.options()['solver'], dct)
+        cls.add_option(['em_fields'], ['solvers', 'poisson'],
+                       ImplicitDiffusion.options()['solver'], dct)
+        cls.add_option(['kinetic', 'electrons'], ['algos', 'push_eta'],
+                        PushEta.options()['algo'], dct)
+        cls.add_option(['kinetic', 'electrons'], ['algos', 'push_vxb'],
+                        PushVxB.options()['algo'], dct)
+        cls.add_option(['kinetic', 'electrons'], ['solver'],
+                       EfieldWeightsImplicit.options()['solver'], dct)
         return dct
 
     def __init__(self, params, comm):
@@ -370,8 +371,7 @@ class LinearVlasovMaxwell(StruphyModel):
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['electrons'],
             algo=algo_eta,
-            bc_type=self._electron_params['markers']['bc']['type'],
-            f0=None))  # no conventional weights update here, thus f0=None
+            bc_type=self._electron_params['markers']['bc']['type']))  
         if self._rank == 0:
             print("Added Step PushEta\n")
 
@@ -395,8 +395,7 @@ class LinearVlasovMaxwell(StruphyModel):
                 algo=algo_vxb,
                 scale_fac=1.,
                 b_eq=self._b_background,
-                b_tilde=None,
-                f0=None))  # no conventional weights update here, thus f0=None
+                b_tilde=None))  
             if self._rank == 0:
                 print("Added Step VxB\n")
 
@@ -465,7 +464,7 @@ class LinearVlasovMaxwell(StruphyModel):
         # self.pointer['electrons'].show_distribution_function(components, edges, self.domain)
 
         # overwrite binning function to always bin marker data for f_1, not h
-        def new_binning(self, components, bin_edges, domain=None, velocity_det=None):
+        def new_binning(self, components, bin_edges, pforms=['0','0']):
             """
             Overwrite the binning method of the parent class to correctly bin data from f_1
             and not from f_1/sqrt(f_0).
@@ -482,7 +481,7 @@ class LinearVlasovMaxwell(StruphyModel):
                                  self.markers[:, 5])[~self.holes]
             self.markers[~self.holes, 6] *= np.sqrt(f0_values)
             res = Particles.binning(
-                self, components, bin_edges, domain, velocity_det)
+                self, components, bin_edges, pforms)
             self.markers[~self.holes, 6] /= np.sqrt(f0_values)
             return res
 
@@ -650,30 +649,25 @@ class DeltaFVlasovMaxwell(StruphyModel):
 
     @classmethod
     def options(cls):
-        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
-
         # import propagator options
         from struphy.propagators.propagators_fields import Maxwell, ImplicitDiffusion
         from struphy.propagators.propagators_markers import PushEta, PushVxB
         from struphy.propagators.propagators_coupling import EfieldWeightsImplicit, EfieldWeightsAnalytic
-        dct['em_fields']['options'] = {}
-        dct['em_fields']['options']['solvers'] = {}
-        dct['em_fields']['options']['solvers']['maxwell'] = Maxwell.options()[
-            'solver']
-        dct['em_fields']['options']['solvers']['poisson'] = ImplicitDiffusion.options()[
-            'solver']
-        dct['kinetic']['electrons'] = {}
-        dct['kinetic']['electrons']['options'] = {}
-        dct['kinetic']['electrons']['options']['algos'] = {}
-        dct['kinetic']['electrons']['options']['algos']['push_eta'] = PushEta.options()[
-            'algo']
-        dct['kinetic']['electrons']['options']['algos']['push_vxb'] = PushVxB.options()[
-            'algo']
-        dct['kinetic']['electrons']['options']['solvers'] = {}
-        dct['kinetic']['electrons']['options']['solvers']['implicit'] = EfieldWeightsImplicit.options()[
-            'solver']
-        dct['kinetic']['electrons']['options']['solvers']['analytic'] = EfieldWeightsAnalytic.options()[
-            'solver']
+
+        dct = {}
+        cls.add_option(['em_fields'], ['solvers', 'maxwell'],
+                       Maxwell.options()['solver'], dct)
+        cls.add_option(['em_fields'], ['solvers', 'poisson'],
+                       ImplicitDiffusion.options()['solver'], dct)
+        cls.add_option(['kinetic', 'electrons'], ['algos', 'push_eta'],
+                       PushEta.options()['algo'], dct)
+        cls.add_option(['kinetic', 'electrons'], ['algos', 'push_vxb'],
+                       PushVxB.options()['algo'], dct)
+        cls.add_option(['kinetic', 'electrons'], ['solvers', 'implicit'],
+                       EfieldWeightsImplicit.options()['solver'], dct)
+        cls.add_option(['kinetic', 'electrons'], ['solvers', 'analytic'],
+                       EfieldWeightsAnalytic.options()['solver'], dct)
+
         return dct
 
     def __init__(self, params, comm):
@@ -732,8 +726,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['electrons'],
             algo=algo_eta,
-            bc_type=self._electron_params['markers']['bc']['type'],
-            f0=None))  # no conventional weights update here, thus f0=None
+            bc_type=self._electron_params['markers']['bc']['type']))  
         if self._rank == 0:
             print("Added Step PushEta\n")
 
@@ -749,8 +742,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
             algo=algo_vxb,
             scale_fac=1.,
             b_eq=self._b_background + self.pointer['b_field'],
-            b_tilde=None,
-            f0=None))  # no conventional weights update here, thus f0=None
+            b_tilde=None))  
         if self._rank == 0:
             print("\nAdded Step VxB\n")
 
@@ -819,9 +811,6 @@ class DeltaFVlasovMaxwell(StruphyModel):
         f0_values = self._f0(
             *self.pointer['electrons'].markers_wo_holes[:, :6].T)
 
-        # Initialize fields and particles
-        super().initialize_from_params()
-
         # evaluate f0
         f0_values = self._f0(self.pointer['electrons'].markers[:, 0],
                              self.pointer['electrons'].markers[:, 1],
@@ -834,7 +823,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
         self.pointer['electrons']._f0 = self._f0
 
         # overwrite binning function to always bin marker data for f_1, not h
-        def new_binning(self, components, bin_edges, domain=None, velocity_det=None):
+        def new_binning(self, components, bin_edges, pforms=['0','0']):
             """
             Overwrite the binning method of the parent class to correctly bin data from f_1
             and not from f_0 - (f_0 - f_1) ln(f_0).
@@ -858,7 +847,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
                 (1 - ln_f0_values) / self.markers[~self.holes, 7]
 
             res = Particles.binning(
-                self, components, bin_edges, domain, velocity_det)
+                self, components, bin_edges, pforms)
             self.markers[~self.holes, 6] -= f0_values * \
                 (1 - ln_f0_values) / self.markers[~self.holes, 7]
             self.markers[~self.holes, 6] /= (-1) * ln_f0_values
@@ -1088,7 +1077,7 @@ class VlasovMasslessElectrons(StruphyModel):
             self._en_f_loc, self._scalar_quantities['en_f'], op=self._mpi_sum, root=0)
 
         self._en_thermal_loc = pic_util.get_electron_thermal_energy(self._accum_density, self._derham, self._domain, int(self._derham.domain_array[int(rank), 2]), int(
-            self._derham.domain_array[int(rank), 5]), int(self._derham.domain_array[int(rank), 8]), int(self._derham.quad_order[0]+1), int(self._derham.quad_order[1]+1), int(self._derham.quad_order[2]+1))
+            self._derham.domain_array[int(rank), 5]), int(self._derham.domain_array[int(rank), 8]), int(self._derham.nquads[0]+1), int(self._derham.nquads[1]+1), int(self._derham.nquads[2]+1))
 
         self.derham.comm.Reduce(self.thermal*self._en_thermal_loc,
                                 self._scalar_quantities['en_thermal'], op=self._mpi_sum, root=0)
