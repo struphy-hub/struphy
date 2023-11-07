@@ -2,7 +2,7 @@ grid :
     Nel      : [32, 72, 2] # number of grid cells, >p
     p        : [3, 3, 1]  # spline degree
     spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
-    bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
+    dirichlet_bc : null # [[False, False], [False, False], [False, False]], hom. Dirichlet boundary conditions for N-splines (spl_kind must be False)
     dims_mask : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
     nq_el    : [6, 6, 6] # quadrature points per grid cell
     nq_pr    : [4, 4, 4] # quadrature points per histopolation cell (for commuting projectors)
@@ -70,6 +70,16 @@ kinetic :
             type : Maxwellian6DUniform
             Maxwellian6DUniform:
                 n : 0.05
+        background :
+            type : Maxwellian6DUniform
+            Maxwellian6DUniform :
+                n  : 1.
+                u1 : 0.
+                u2 : 0.
+                u3 : 0.
+                vth1 : 1.
+                vth2 : 1.
+                vth3 : 1.
         save_data :
             n_markers : 4 # number of markers to be save during simulation
         options: {push_eta: rk4, push_vxb: analytic}

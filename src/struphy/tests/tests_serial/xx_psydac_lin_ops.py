@@ -6,7 +6,7 @@ def test_lin_mhd_ops():
     and fun is an arbitrary (matrix-valued) function.
     '''
 
-    from struphy.psydac_api.mhd_ops import MHD_ops
+    from struphy.feec.mhd_ops import MHD_ops
     from struphy.feec.projectors.pro_global.mhd_operators_MF_for_tests import projectors_dot_x
 
     from struphy.geometry.domain_3d            import Domain
@@ -55,7 +55,6 @@ def test_lin_mhd_ops():
     p        = [3, 3, 3]
     spl_kind = [False, True, True] 
     n_quad   = [4, 4, 4]
-    bc       = [['f', 'f'], None, None]
     if mpi_rank == 0:
         print(f'Rank {mpi_rank} | Nel: {Nel}')
         print(f'Rank {mpi_rank} | p: {p}')

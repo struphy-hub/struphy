@@ -22,8 +22,8 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     
     from struphy.eigenvalue_solvers.legacy.mhd_operators_MF import projectors_dot_x
 
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.basis_projection_ops import BasisProjectionOperators
 
     from psydac.linalg.stencil import StencilVector
     from psydac.linalg.block import BlockVector
@@ -46,7 +46,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     n_quad_pr = [4, 4, 4]
 
     DERHAM_PSY = Derham(Nel, p, spl_kind, nq_pr=n_quad_pr,
-                        quad_order=n_quad_el, comm=MPI_COMM)
+                        nquads=n_quad_el, comm=MPI_COMM)
 
     # grid parameters
     if mpi_rank == 0:

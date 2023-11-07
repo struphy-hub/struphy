@@ -1477,8 +1477,8 @@ def push_pc_GXu_full(markers: 'float[:,:]', dt: float, stage: int,
 
     for each marker :math:`p` in markers array, where :math:`\mathbf u` 
     are the coefficients of the mhd velocity field (either 1-form or 2-form) and :math:`\mathcal X`
-    is either the MHD operator :meth:`struphy.psydac_api.basis_projection_ops.MHDOperators.assemble_X1` (if u is 1-form)
-    or :meth:`struphy.psydac_api.basis_projection_ops.MHDOperators.assemble_X2` (if u is 2-form).
+    is either the MHD operator :meth:`struphy.feec.basis_projection_ops.MHDOperators.assemble_X1` (if u is 1-form)
+    or :meth:`struphy.feec.basis_projection_ops.MHDOperators.assemble_X2` (if u is 2-form).
 
     Parameters
     ----------
@@ -1589,8 +1589,8 @@ def push_pc_GXu(markers: 'float[:,:]', dt: float, stage: int,
 
     for each marker :math:`p` in markers array, where :math:`\mathbf u`
     are the coefficients of the mhd velocity field (either 1-form or 2-form) and :math:`\mathcal X`
-    is either the MHD operator :meth:`struphy.psydac_api.basis_projection_ops.MHDOperators.assemble_X1` (if u is 1-form)
-    or :meth:`struphy.psydac_api.basis_projection_ops.MHDOperators.assemble_X2` (if u is 2-form).
+    is either the MHD operator :meth:`struphy.feec.basis_projection_ops.MHDOperators.assemble_X1` (if u is 1-form)
+    or :meth:`struphy.feec.basis_projection_ops.MHDOperators.assemble_X2` (if u is 2-form).
 
     Parameters
     ----------

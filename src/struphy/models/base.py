@@ -1,6 +1,8 @@
 from abc import ABCMeta, abstractmethod
 import numpy as np
 import yaml
+from functools import reduce
+import operator
 
 
 class StruphyModel(metaclass=ABCMeta):
@@ -25,11 +27,10 @@ class StruphyModel(metaclass=ABCMeta):
 
         from struphy.io.setup import setup_domain_mhd, setup_electric_background, setup_derham
 
-        from struphy.polar.basic import PolarVector
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
-        from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
-        from struphy.psydac_api.mass import WeightedMassOperators
+        from struphy.feec.basis_projection_ops import BasisProjectionOperators
+        from struphy.feec.mass import WeightedMassOperators
 
         assert 'em_fields' in self.species()
         assert 'fluid' in self.species()
@@ -95,7 +96,8 @@ class StruphyModel(metaclass=ABCMeta):
             self._pparams = self._print_plasma_params(verbose=False)
 
         # options of current run
-        self._show_chosen_options()
+        if comm.Get_rank() == 0:
+            self._show_chosen_options()
 
         if comm.Get_rank() == 0:
             print('\nOPERATOR ASSEMBLY:')
@@ -154,6 +156,50 @@ class StruphyModel(metaclass=ABCMeta):
     def options(cls):
         '''Dictionary for available species options of the form {'em_fields': {}, 'fluid': {}, 'kinetic': {}}.'''
         pass
+
+    @classmethod
+    def add_option(cls, species, key, option, dct):
+        """ Add an option to the dictionary of parameters.
+
+        The value (what) is added in the dictionary at the point
+            dct[who]['options'][key] = what
+        If the path (or a part of it) does not exist it will be created as an empty dictionary.
+
+        Parameters
+        ----------
+        species : str or list
+            path in the dict before the 'options' key
+
+        key : str or list
+            path in the dict after the 'options' key
+
+        option : any
+            value which should be added in the dict
+
+        dct : dict
+            dictionary to which the value should be added at the corresponding position
+        """
+        def getFromDict(dataDict, mapList):
+            return reduce(operator.getitem, mapList, dataDict)
+
+        def setInDict(dataDict, mapList, value):
+            # Loop over dicitionary and creaty empty dicts where the path does not exist
+            for k in range(len(mapList)):
+                if not mapList[k] in getFromDict(dataDict, mapList[:k]).keys():
+                    getFromDict(dataDict, mapList[:k])[mapList[k]] = {}
+            getFromDict(dataDict, mapList[:-1])[mapList[-1]] = value
+
+        # make sure that the base keys are top-level keys
+        for base_key in ['em_fields', 'fluid', 'kinetic']:
+            if not base_key in dct.keys():
+                dct[base_key] = {}
+
+        if isinstance(species, str):
+            species = [species]
+        if isinstance(key, str):
+            key = [key]
+
+        setInDict(dct, species + ['options'] + key, option)
 
     @abstractmethod
     def update_scalar_quantities(self):
@@ -363,17 +409,29 @@ class StruphyModel(metaclass=ABCMeta):
 
             if 'f' in val['params']['save_data']:
 
+                # if diffential forms is not specified, bin the initialized forms
+                if 'pforms' not in val['params']['save_data']['f']:
+
+                    if 'pforms' in val['params']['init']:
+                        pforms = val['params']['init']['pforms']
+
+                    else:
+                        pforms = ['0', '0']
+
+                else:
+                    pforms = val['params']['save_data']['f']['pforms']
+
                 for slice_i, edges in val['bin_edges'].items():
 
                     dims = (len(slice_i) - 2)//3 + 1
                     comps = [slice_i[3*i:3*i + 2] for i in range(dims)]
-                    components = [False]*6
+                    components = [False]*(val['obj'].vdim + 3)
 
                     for comp in comps:
                         components[dim_to_int[comp]] = True
 
                     val['kinetic_data']['f'][slice_i][:] = val['obj'].binning(
-                        components, edges, self.domain)
+                        components, edges, pforms)
 
     def print_scalar_quantities(self):
         '''
@@ -389,6 +447,9 @@ class StruphyModel(metaclass=ABCMeta):
         """
         Set initial conditions for FE coefficients (electromagnetic and fluid) and markers according to parameter file.
         """
+
+        if self.comm.Get_rank() == 0:
+            print('\nINITIAL CONDITIONS:')
 
         # initialize em fields
         if len(self.em_fields) > 0:
@@ -475,19 +536,13 @@ class StruphyModel(metaclass=ABCMeta):
                 val['obj'].mpi_sort_markers(do_test=True)
 
                 typ = val['params']['markers']['type']
-                if typ == 'full_f':
-                    val['obj'].initialize_weights(val['params']['init'])
-                elif typ == 'delta_f':
-                    val['obj'].initialize_weights(val['params']['init'])
-                elif typ == 'control_variate':
-                    val['obj'].initialize_weights(
-                        val['params']['init'], val['params']['background'])
-                else:
-                    raise NotImplementedError(
-                        f'Type {typ} for distribution function is not known!')
+                assert typ in ['full_f', 'delta_f', 'control_variate'], \
+                    f'Type {typ} for distribution function is not known!'
+
+                val['obj'].initialize_weights(val['params']['init'])
 
                 if val['space'] == 'Particles5D':
-                    val['obj'].save_magnetic_moment(self.derham)
+                    val['obj'].save_magnetic_moment()
 
     def initialize_from_restart(self, data):
         """
@@ -1036,7 +1091,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             if not prompt:
                 yn = 'Y'
             else:
-                yn = input(f'Writing to {file}, are you sure (Y/n)?')
+                yn = input(f'Writing to {file}, are you sure (Y/n)? ')
 
             if yn == 'n':
                 pass
@@ -1061,14 +1116,16 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         self._fluid = {}
         self._kinetic = {}
 
-        print('\nMODEL SPECIES:')
+        if self.comm.Get_rank() == 0:
+            print('\nMODEL SPECIES:')
 
         # create dictionaries for each em-field/species and fill in space/class name and parameters
         for var_name, space in self.species()['em_fields'].items():
             assert space in {'H1', 'Hcurl', 'Hdiv', 'L2', 'H1vec'}
             assert 'em_fields' in self.params, 'Top-level key "em_fields" is missing in parameter file.'
 
-            print('em_field:'.ljust(25), var_name, ',', space)
+            if self.comm.Get_rank() == 0:
+                print('em_field:'.ljust(25), var_name, ',', space)
 
             self._em_fields[var_name] = {}
             self._em_fields[var_name]['space'] = space
@@ -1087,7 +1144,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             assert var_name in self.params[
                 'fluid'], f'Fluid species {var_name} is missing in parameter file.'
 
-            print('fluid:'.ljust(25), var_name, ',', space)
+            if self.comm.Get_rank() == 0:
+                print('fluid:'.ljust(25), var_name, ',', space)
 
             self._fluid[var_name] = {}
             for sub_var_name, sub_space in space.items():
@@ -1106,10 +1164,11 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         for var_name, space in self.species()['kinetic'].items():
             assert space in {'Particles6D', 'Particles5D'}
             assert 'kinetic' in self.params, 'Top-level key "kinetic" is missing in parameter file.'
-            assert var_name in self.params[
-                'kinetic'], f'Kinetic species {var_name} is missing in parameter file.'
+            assert var_name in self.params['kinetic'], \
+                f'Kinetic species {var_name} is missing in parameter file.'
 
-            print('kinetic:'.ljust(25), var_name, ',', space)
+            if self.comm.Get_rank() == 0:
+                print('kinetic:'.ljust(25), var_name, ',', space)
 
             self._kinetic[var_name] = {}
             self._kinetic[var_name]['space'] = space
@@ -1121,7 +1180,6 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         Creates FEM fields for em-fields and fluid variables and a particle class for kinetic species.
         """
 
-        from struphy.psydac_api.fields import Field
         from struphy.pic import particles
 
         # allocate memory for FE coeffs of electromagnetic fields/potentials
@@ -1130,7 +1188,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             for key, val in self.em_fields.items():
 
                 if 'params' not in key:
-                    val['obj'] = Field(key, val['space'], self.derham)
+                    val['obj'] = self.derham.create_field(key, val['space'])
 
                     self._pointer[key] = val['obj'].vector
 
@@ -1142,8 +1200,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 for variable, subval in val.items():
 
                     if 'params' not in variable:
-                        subval['obj'] = Field(
-                            variable, subval['space'], self.derham)
+                        subval['obj'] = self.derham.create_field(
+                            variable, subval['space'])
 
                         self._pointer[species + '_' +
                                       variable] = subval['obj'].vector
@@ -1157,6 +1215,11 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     assert 'background' in self.params['kinetic'][species], \
                         f'If a control variate or delta-f method is used, a maxwellians background must be given!'
 
+                if 'background' in self.params['kinetic'][species]:
+                    f0_params = val['params']['background']
+                else:
+                    f0_params = None
+
                 kinetic_class = getattr(particles, val['space'])
 
                 val['obj'] = kinetic_class(species,
@@ -1165,7 +1228,9 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                                            derham=self.derham,
                                            domain=self.domain,
                                            mhd_equil=self.mhd_equil,
-                                           units_basic=self.units)
+                                           epsilon=self.equation_params[species]['epsilon_unit'],
+                                           units_basic=self.units,
+                                           f0_params=f0_params)
 
                 self._pointer[species] = val['obj']
 
@@ -1250,7 +1315,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         # compute model units
         units, equation_params = self.model_units(
-            self.params, verbose=True, comm=self.comm)
+            self.params, verbose=False, comm=self.comm)
 
         # units affices for printing
         units_affix = {}

@@ -5,13 +5,13 @@ import pytest
 @pytest.mark.parametrize('Nel', [[5, 6, 7]])
 @pytest.mark.parametrize('p',   [[2, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True]])
-@pytest.mark.parametrize('bc', [[[None, None], [None, None], [None, None]],
-                                [[None,  'd'], ['d', None], [None, None]],
-                                [['d', None], [None,  'd'], [None, None]]])
+@pytest.mark.parametrize('dirichlet_bc', [None,
+                                          [[False,  True], [True, False], [False, False]],
+                                          [[True, False], [False,  True], [False, False]]])
 @pytest.mark.parametrize('mapping', [
     ['Colella', {
         'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}]])
-def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
+def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     '''Compare Struphy mass matrices to Struphy-legacy mass matrices.'''
 
     import numpy as np
@@ -20,12 +20,14 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
 
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
-    from struphy.psydac_api.mass import WeightedMassOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
+    from struphy.feec.mass import WeightedMassOperators
     from struphy.fields_background.mhd_equil.equils import ShearedSlab, ScrewPinch
-    
+
     from mpi4py import MPI
+    
+    import copy
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -50,53 +52,54 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
     # load MHD equilibrium
     if mapping[0] == 'Cuboid':
         eq_mhd = ShearedSlab(**{'a': (mapping[1]['r1'] - mapping[1]['l1']),
-                              'R0': (mapping[1]['r3'] - mapping[1]['l3'])/(2*np.pi),
-                              'B0': 1.0, 'q0': 1.05,
-                              'q1': 1.8, 'n1': 3.0,
-                              'n2': 4.0, 'na': 0.0,
-                              'beta': .1})
+                                'R0': (mapping[1]['r3'] - mapping[1]['l3'])/(2*np.pi),
+                                'B0': 1.0, 'q0': 1.05,
+                                'q1': 1.8, 'n1': 3.0,
+                                'n2': 4.0, 'na': 0.0,
+                                'beta': .1})
 
     elif mapping[0] == 'Colella':
         eq_mhd = ShearedSlab(**{'a': mapping[1]['Lx'],
-                              'R0': mapping[1]['Lz']/(2*np.pi),
-                              'B0': 1.0,
-                              'q0': 1.05,
-                              'q1': 1.8,
-                              'n1': 3.0,
-                              'n2': 4.0,
-                              'na': 0.0,
-                              'beta': .1})
+                                'R0': mapping[1]['Lz']/(2*np.pi),
+                                'B0': 1.0,
+                                'q0': 1.05,
+                                'q1': 1.8,
+                                'n1': 3.0,
+                                'n2': 4.0,
+                                'na': 0.0,
+                                'beta': .1})
 
         if show_plots:
             eq_mhd.plot_profiles()
 
     elif mapping[0] == 'HollowCylinder':
         eq_mhd = ScrewPinch(**{'a': mapping[1]['a2'],
-                             'R0': 3.,
-                             'B0': 1.0,
-                             'q0': 1.05,
-                             'q1': 1.8,
-                             'n1': 3.0,
-                             'n2': 4.0,
-                             'na': 0.0,
-                             'beta': .1})
+                               'R0': 3.,
+                               'B0': 1.0,
+                               'q0': 1.05,
+                               'q1': 1.8,
+                               'n1': 3.0,
+                               'n2': 4.0,
+                               'na': 0.0,
+                               'beta': .1})
 
         if show_plots:
             eq_mhd.plot_profiles()
 
     eq_mhd.domain = domain
 
-    # make sure that boundary conditions are compatible with spline space (periodic only allows for None)
-    bc_compatible = []
-
-    for spl_i, bc_i in zip(spl_kind, bc):
-        if spl_i:
-            bc_compatible += [[None, None]]
-        else:
-            bc_compatible += [bc_i]
+    # make sure that boundary conditions are compatible with spline space
+    if dirichlet_bc is not None:
+        for i, knd in enumerate(spl_kind):
+            if knd:
+                dirichlet_bc[i] = [False, False]
+    else:
+        dirichlet_bc = [[False, False]]*3
+        
+    print(f'{dirichlet_bc = }')
 
     # derham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, bc=bc_compatible)
+    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc)
 
     print(f'Rank {mpi_rank} | Local domain : ' +
           str(derham.domain_array[mpi_rank]))
@@ -111,10 +114,18 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
 
     # compare to old STRUPHY
-    spaces = [Spline_space_1d(Nel[0], p[0], spl_kind[0], p[0] + 1, bc_compatible[0]),
+    bc_old = [[None, None], [None, None], [None, None]]
+    for i in range(3):
+        for j in range(2):
+            if dirichlet_bc[i][j]:
+                bc_old[i][j] = 'd'
+            else:
+                bc_old[i][j] = 'f'
+    
+    spaces = [Spline_space_1d(Nel[0], p[0], spl_kind[0], p[0] + 1, bc_old[0]),
               Spline_space_1d(Nel[1], p[1], spl_kind[1],
-                              p[1] + 1, bc_compatible[1]),
-              Spline_space_1d(Nel[2], p[2], spl_kind[2], p[2] + 1, bc_compatible[2])]
+                              p[1] + 1, bc_old[1]),
+              Spline_space_1d(Nel[2], p[2], spl_kind[2], p[2] + 1, bc_old[2])]
 
     spaces[0].set_projectors()
     spaces[1].set_projectors()
@@ -210,12 +221,13 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
 @pytest.mark.parametrize('Nel', [[8, 12, 6]])
 @pytest.mark.parametrize('p',   [[2, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [False, True, False]])
-@pytest.mark.parametrize('bc', [[[None,  'd'], [None, None], [None, ' d']],
-                                [[None, None], [None, None], ['d', None]]])
+@pytest.mark.parametrize('dirichlet_bc', [None, 
+                                          [[False,  True], [False, False], [False, True]],
+                                          [[False, False], [False, False], [True, False]]])
 @pytest.mark.parametrize('mapping', [
     ['IGAPolarCylinder', {
         'a': 1., 'Lz': 3.}]])
-def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
+def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     '''Compare Struphy polar mass matrices to Struphy-legacy polar mass matrices.'''
 
     import numpy as np
@@ -224,14 +236,16 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
 
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
-    from struphy.psydac_api.mass import WeightedMassOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
+    from struphy.feec.mass import WeightedMassOperators
     from struphy.fields_background.mhd_equil.equils import ScrewPinch
-    
+
     from struphy.polar.basic import PolarVector
 
     from mpi4py import MPI
+    
+    import copy
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -256,31 +270,30 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
 
     # load MHD equilibrium
     eq_mhd = ScrewPinch(**{'a': mapping[1]['a'],
-                         'R0': mapping[1]['Lz'],
-                         'B0': 1.0,
-                         'q0': 1.05,
-                         'q1': 1.8,
-                         'n1': 3.0,
-                         'n2': 4.0,
-                         'na': 0.0,
-                         'beta': .1})
+                           'R0': mapping[1]['Lz'],
+                           'B0': 1.0,
+                           'q0': 1.05,
+                           'q1': 1.8,
+                           'n1': 3.0,
+                           'n2': 4.0,
+                           'na': 0.0,
+                           'beta': .1})
 
     if show_plots:
         eq_mhd.plot_profiles()
 
     eq_mhd.domain = domain
 
-    # make sure that boundary conditions are compatible with spline space (periodic only allows for None)
-    bc_compatible = []
-
-    for spl_i, bc_i in zip(spl_kind, bc):
-        if spl_i:
-            bc_compatible += [[None, None]]
-        else:
-            bc_compatible += [bc_i]
+    # make sure that boundary conditions are compatible with spline space
+    if dirichlet_bc is not None:
+        for i, knd in enumerate(spl_kind):
+            if knd:
+                dirichlet_bc[i] = [False, False]
+    else:
+        dirichlet_bc = [[False, False]]*3
 
     # derham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, bc=bc_compatible,
+    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc,
                     with_projectors=False, polar_ck=1, domain=domain)
 
     print(f'Rank {mpi_rank} | Local domain : ' +
@@ -290,10 +303,18 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
 
     # compare to old STRUPHY
-    spaces = [Spline_space_1d(Nel[0], p[0], spl_kind[0], p[0] + 1, bc_compatible[0]),
+    bc_old = [[None, None], [None, None], [None, None]]
+    for i in range(3):
+        for j in range(2):
+            if dirichlet_bc[i][j]:
+                bc_old[i][j] = 'd'
+            else:
+                bc_old[i][j] = 'f'
+    
+    spaces = [Spline_space_1d(Nel[0], p[0], spl_kind[0], p[0] + 1, bc_old[0]),
               Spline_space_1d(Nel[1], p[1], spl_kind[1],
-                              p[1] + 1, bc_compatible[1]),
-              Spline_space_1d(Nel[2], p[2], spl_kind[2], p[2] + 1, bc_compatible[2])]
+                              p[1] + 1, bc_old[1]),
+              Spline_space_1d(Nel[2], p[2], spl_kind[2], p[2] + 1, bc_old[2])]
 
     spaces[0].set_projectors()
     spaces[1].set_projectors()
@@ -406,12 +427,13 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
 @pytest.mark.parametrize('Nel', [[8, 12, 6]])
 @pytest.mark.parametrize('p',   [[2, 3, 2]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [False, True, False]])
-@pytest.mark.parametrize('bc', [[[None,  'd'], [None, None], [None, ' d']],
-                                [[None, None], [None, None], ['d', None]]])
+@pytest.mark.parametrize('dirichlet_bc', [None, 
+                                          [[False,  True], [False, False], [False, True]],
+                                          [[False, False], [False, False], [True, False]]])
 @pytest.mark.parametrize('mapping', [
     ['HollowCylinder', {
         'a1': .1, 'a2': 1., 'Lz': 18.84955592153876}]])
-def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
+def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     '''Compare mass matrix-vector products with Kronecker products of preconditioner, 
     check PC * M = Id and test PCs in solve.'''
 
@@ -422,14 +444,14 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
 
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
-    from struphy.psydac_api.mass import WeightedMassOperators
-    from struphy.psydac_api.preconditioner import MassMatrixPreconditioner
-    from struphy.psydac_api.linear_operators import InverseLinearOperator
-    
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.preconditioner import MassMatrixPreconditioner
+    from struphy.feec.linear_operators import InverseLinearOperator
+
     from struphy.fields_background.mhd_equil.equils import ShearedSlab, ScrewPinch
-    
+
     from mpi4py import MPI
 
     mpi_comm = MPI.COMM_WORLD
@@ -455,53 +477,52 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     # load MHD equilibrium
     if mapping[0] == 'Cuboid':
         eq_mhd = ShearedSlab(**{'a': (mapping[1]['r1'] - mapping[1]['l1']),
-                              'R0': (mapping[1]['r3'] - mapping[1]['l3'])/(2*np.pi),
-                              'B0': 1.0, 'q0': 1.05,
-                              'q1': 1.8, 'n1': 3.0,
-                              'n2': 4.0, 'na': 0.0,
-                              'beta': .1})
+                                'R0': (mapping[1]['r3'] - mapping[1]['l3'])/(2*np.pi),
+                                'B0': 1.0, 'q0': 1.05,
+                                'q1': 1.8, 'n1': 3.0,
+                                'n2': 4.0, 'na': 0.0,
+                                'beta': .1})
 
     elif mapping[0] == 'Colella':
         eq_mhd = ShearedSlab(**{'a': mapping[1]['Lx'],
-                              'R0': mapping[1]['Lz']/(2*np.pi),
-                              'B0': 1.0,
-                              'q0': 1.05,
-                              'q1': 1.8,
-                              'n1': 3.0,
-                              'n2': 4.0,
-                              'na': 0.0,
-                              'beta': .1})
+                                'R0': mapping[1]['Lz']/(2*np.pi),
+                                'B0': 1.0,
+                                'q0': 1.05,
+                                'q1': 1.8,
+                                'n1': 3.0,
+                                'n2': 4.0,
+                                'na': 0.0,
+                                'beta': .1})
 
         if show_plots:
             eq_mhd.plot_profiles()
 
     elif mapping[0] == 'HollowCylinder':
         eq_mhd = ScrewPinch(**{'a': mapping[1]['a2'],
-                             'R0': 3.,
-                             'B0': 1.0,
-                             'q0': 1.05,
-                             'q1': 1.8,
-                             'n1': 3.0,
-                             'n2': 4.0,
-                             'na': 0.0,
-                             'beta': .1})
+                               'R0': 3.,
+                               'B0': 1.0,
+                               'q0': 1.05,
+                               'q1': 1.8,
+                               'n1': 3.0,
+                               'n2': 4.0,
+                               'na': 0.0,
+                               'beta': .1})
 
         if show_plots:
             eq_mhd.plot_profiles()
 
     eq_mhd.domain = domain
 
-    # make sure that boundary conditions are compatible with spline space (periodic only allows for None)
-    bc_compatible = []
-
-    for spl_i, bc_i in zip(spl_kind, bc):
-        if spl_i:
-            bc_compatible += [[None, None]]
-        else:
-            bc_compatible += [bc_i]
+    # make sure that boundary conditions are compatible with spline space
+    if dirichlet_bc is not None:
+        for i, knd in enumerate(spl_kind):
+            if knd:
+                dirichlet_bc[i] = [False, False]
+    else:
+        dirichlet_bc = [[False, False]]*3
 
     # derham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, bc=bc_compatible)
+    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc)
 
     fem_spaces = [derham.Vh_fem['0'],
                   derham.Vh_fem['1'],
@@ -598,15 +619,15 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
 
         assert np.allclose(mass_mats.M0.dot(M0pre.solve(
-            x0)).toarray(), derham.B['0'].dot(x0).toarray())
+            x0)).toarray(), derham.boundary_ops['0'].dot(x0).toarray())
         assert np.allclose(mass_mats.M1.dot(M1pre.solve(
-            x1)).toarray(), derham.B['1'].dot(x1).toarray())
+            x1)).toarray(), derham.boundary_ops['1'].dot(x1).toarray())
         assert np.allclose(mass_mats.M2.dot(M2pre.solve(
-            x2)).toarray(), derham.B['2'].dot(x2).toarray())
+            x2)).toarray(), derham.boundary_ops['2'].dot(x2).toarray())
         assert np.allclose(mass_mats.M3.dot(M3pre.solve(
-            x3)).toarray(), derham.B['3'].dot(x3).toarray())
+            x3)).toarray(), derham.boundary_ops['3'].dot(x3).toarray())
         assert np.allclose(mass_mats.Mv.dot(Mvpre.solve(
-            xv)).toarray(), derham.B['v'].dot(xv).toarray())
+            xv)).toarray(), derham.boundary_ops['v'].dot(xv).toarray())
 
     # test preconditioner in iterative solver
     M0inv = InverseLinearOperator(
@@ -630,9 +651,9 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M0 with preconditioner')
-        r0 = M0inv.dot(derham.B['0'].dot(x0), verbose=True)
+        r0 = M0inv.dot(derham.boundary_ops['0'].dot(x0), verbose=True)
     else:
-        r0 = M0inv.dot(derham.B['0'].dot(x0), verbose=False)
+        r0 = M0inv.dot(derham.boundary_ops['0'].dot(x0), verbose=False)
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
         assert M0inv.info['niter'] == 1
@@ -640,9 +661,9 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M1 with preconditioner')
-        r1 = M1inv.dot(derham.B['1'].dot(x1), verbose=True)
+        r1 = M1inv.dot(derham.boundary_ops['1'].dot(x1), verbose=True)
     else:
-        r1 = M1inv.dot(derham.B['1'].dot(x1), verbose=False)
+        r1 = M1inv.dot(derham.boundary_ops['1'].dot(x1), verbose=False)
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
         assert M1inv.info['niter'] == 1
@@ -650,9 +671,9 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M2 with preconditioner')
-        r2 = M2inv.dot(derham.B['2'].dot(x2), verbose=True)
+        r2 = M2inv.dot(derham.boundary_ops['2'].dot(x2), verbose=True)
     else:
-        r2 = M2inv.dot(derham.B['2'].dot(x2), verbose=False)
+        r2 = M2inv.dot(derham.boundary_ops['2'].dot(x2), verbose=False)
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
         assert M2inv.info['niter'] == 1
@@ -660,9 +681,9 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M3 with preconditioner')
-        r3 = M3inv.dot(derham.B['3'].dot(x3), verbose=True)
+        r3 = M3inv.dot(derham.boundary_ops['3'].dot(x3), verbose=True)
     else:
-        r3 = M3inv.dot(derham.B['3'].dot(x3), verbose=False)
+        r3 = M3inv.dot(derham.boundary_ops['3'].dot(x3), verbose=False)
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
         assert M3inv.info['niter'] == 1
@@ -670,9 +691,9 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert Mv with preconditioner')
-        rv = Mvinv.dot(derham.B['v'].dot(xv), verbose=True)
+        rv = Mvinv.dot(derham.boundary_ops['v'].dot(xv), verbose=True)
     else:
-        rv = Mvinv.dot(derham.B['v'].dot(xv), verbose=False)
+        rv = Mvinv.dot(derham.boundary_ops['v'].dot(xv), verbose=False)
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
         assert Mvinv.info['niter'] == 1
@@ -680,9 +701,9 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Apply M1n with preconditioner')
-        r1n = M1ninv.dot(derham.B['1'].dot(x1), verbose=True)
+        r1n = M1ninv.dot(derham.boundary_ops['1'].dot(x1), verbose=True)
     else:
-        r1n = M1ninv.dot(derham.B['1'].dot(x1), verbose=False)
+        r1n = M1ninv.dot(derham.boundary_ops['1'].dot(x1), verbose=False)
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
         assert M1ninv.info['niter'] == 1
@@ -690,9 +711,9 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Apply M2n with preconditioner')
-        r2n = M2ninv.dot(derham.B['2'].dot(x2), verbose=True)
+        r2n = M2ninv.dot(derham.boundary_ops['2'].dot(x2), verbose=True)
     else:
-        r2n = M2ninv.dot(derham.B['2'].dot(x2), verbose=False)
+        r2n = M2ninv.dot(derham.boundary_ops['2'].dot(x2), verbose=False)
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
         assert M2ninv.info['niter'] == 1
@@ -700,9 +721,9 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Apply Mvn with preconditioner')
-        rvn = Mvninv.dot(derham.B['v'].dot(xv), verbose=True)
+        rvn = Mvninv.dot(derham.boundary_ops['v'].dot(xv), verbose=True)
     else:
-        rvn = Mvninv.dot(derham.B['v'].dot(xv), verbose=False)
+        rvn = Mvninv.dot(derham.boundary_ops['v'].dot(xv), verbose=False)
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
         assert Mvninv.info['niter'] == 1
@@ -715,12 +736,13 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
 @pytest.mark.parametrize('Nel', [[8, 9, 6]])
 @pytest.mark.parametrize('p',   [[2, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [False, True, False]])
-@pytest.mark.parametrize('bc', [[[None,  'd'], [None, None], [None, ' d']],
-                                [[None, None], [None, None], ['d', None]]])
+@pytest.mark.parametrize('dirichlet_bc', [None, 
+                                          [[False,  True], [False, False], [False, True]],
+                                          [[False, False], [False, False], [True, False]]])
 @pytest.mark.parametrize('mapping', [
     ['IGAPolarCylinder', {
         'a': 1., 'Lz': 3.}]])
-def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
+def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     '''Compare polar mass matrix-vector products with Kronecker products of preconditioner, 
     check PC * M = Id and test PCs in solve.'''
 
@@ -731,15 +753,15 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
 
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
-    from struphy.psydac_api.mass import WeightedMassOperators
-    from struphy.psydac_api.preconditioner import MassMatrixPreconditioner
-    from struphy.psydac_api.linear_operators import InverseLinearOperator
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.preconditioner import MassMatrixPreconditioner
+    from struphy.feec.linear_operators import InverseLinearOperator
 
     from struphy.polar.basic import PolarVector
     from struphy.fields_background.mhd_equil.equils import ScrewPinch
-    
+
     from mpi4py import MPI
 
     mpi_comm = MPI.COMM_WORLD
@@ -765,14 +787,14 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
 
     # load MHD equilibrium
     eq_mhd = ScrewPinch(**{'a': mapping[1]['a'],
-                         'R0': mapping[1]['Lz'],
-                         'B0': 1.0,
-                         'q0': 1.05,
-                         'q1': 1.8,
-                         'n1': 3.0,
-                         'n2': 4.0,
-                         'na': 0.0,
-                         'beta': .1})
+                           'R0': mapping[1]['Lz'],
+                           'B0': 1.0,
+                           'q0': 1.05,
+                           'q1': 1.8,
+                           'n1': 3.0,
+                           'n2': 4.0,
+                           'na': 0.0,
+                           'beta': .1})
 
     if show_plots:
         eq_mhd.plot_profiles()
@@ -780,16 +802,15 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     eq_mhd.domain = domain
 
     # make sure that boundary conditions are compatible with spline space
-    bc_compatible = []
-
-    for spl_i, bc_i in zip(spl_kind, bc):
-        if spl_i:
-            bc_compatible += [[None, None]]
-        else:
-            bc_compatible += [bc_i]
+    if dirichlet_bc is not None:
+        for i, knd in enumerate(spl_kind):
+            if knd:
+                dirichlet_bc[i] = [False, False]
+    else:
+        dirichlet_bc = [[False, False]]*3
 
     # derham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, bc=bc_compatible,
+    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc,
                     with_projectors=False, polar_ck=1, domain=domain)
 
     print(f'Rank {mpi_rank} | Local domain : ' +
@@ -877,20 +898,22 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M0 with preconditioner')
-        r0 = M0inv.dot(derham.B['0'].dot(x0_pol), verbose=True)
+        r0 = M0inv.dot(derham.boundary_ops['0'].dot(x0_pol), verbose=True)
         print('Number of iterations : ', M0inv.info['niter'])
     else:
-        r0 = M0inv.dot(derham.B['0'].dot(x0_pol), verbose=False)
+        r0 = M0inv.dot(derham.boundary_ops['0'].dot(x0_pol), verbose=False)
 
     assert M0inv.info['success']
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M0 without preconditioner')
-        r0 = M0inv_nopc.dot(derham.B['0'].dot(x0_pol), verbose=False)
+        r0 = M0inv_nopc.dot(
+            derham.boundary_ops['0'].dot(x0_pol), verbose=False)
         print('Number of iterations : ', M0inv_nopc.info['niter'])
     else:
-        r0 = M0inv_nopc.dot(derham.B['0'].dot(x0_pol), verbose=False)
+        r0 = M0inv_nopc.dot(
+            derham.boundary_ops['0'].dot(x0_pol), verbose=False)
 
     assert M0inv.info['niter'] < M0inv_nopc.info['niter']
     # =======================================================
@@ -899,20 +922,22 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M1 with preconditioner')
-        r1 = M1inv.dot(derham.B['1'].dot(x1_pol), verbose=True)
+        r1 = M1inv.dot(derham.boundary_ops['1'].dot(x1_pol), verbose=True)
         print('Number of iterations : ', M1inv.info['niter'])
     else:
-        r1 = M1inv.dot(derham.B['1'].dot(x1_pol), verbose=False)
+        r1 = M1inv.dot(derham.boundary_ops['1'].dot(x1_pol), verbose=False)
 
     assert M1inv.info['success']
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M1 without preconditioner')
-        r1 = M1inv_nopc.dot(derham.B['1'].dot(x1_pol), verbose=False)
+        r1 = M1inv_nopc.dot(
+            derham.boundary_ops['1'].dot(x1_pol), verbose=False)
         print('Number of iterations : ', M1inv_nopc.info['niter'])
     else:
-        r1 = M1inv_nopc.dot(derham.B['1'].dot(x1_pol), verbose=False)
+        r1 = M1inv_nopc.dot(
+            derham.boundary_ops['1'].dot(x1_pol), verbose=False)
 
     assert M1inv.info['niter'] < M1inv_nopc.info['niter']
     # =======================================================
@@ -921,20 +946,22 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M2 with preconditioner')
-        r2 = M2inv.dot(derham.B['2'].dot(x2_pol), verbose=True)
+        r2 = M2inv.dot(derham.boundary_ops['2'].dot(x2_pol), verbose=True)
         print('Number of iterations : ', M2inv.info['niter'])
     else:
-        r2 = M2inv.dot(derham.B['2'].dot(x2_pol), verbose=False)
+        r2 = M2inv.dot(derham.boundary_ops['2'].dot(x2_pol), verbose=False)
 
     assert M2inv.info['success']
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M2 without preconditioner')
-        r2 = M2inv_nopc.dot(derham.B['2'].dot(x2_pol), verbose=False)
+        r2 = M2inv_nopc.dot(
+            derham.boundary_ops['2'].dot(x2_pol), verbose=False)
         print('Number of iterations : ', M2inv_nopc.info['niter'])
     else:
-        r2 = M2inv_nopc.dot(derham.B['2'].dot(x2_pol), verbose=False)
+        r2 = M2inv_nopc.dot(
+            derham.boundary_ops['2'].dot(x2_pol), verbose=False)
 
     assert M2inv.info['niter'] < M2inv_nopc.info['niter']
     # =======================================================
@@ -943,20 +970,22 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M3 with preconditioner')
-        r3 = M3inv.dot(derham.B['3'].dot(x3_pol), verbose=True)
+        r3 = M3inv.dot(derham.boundary_ops['3'].dot(x3_pol), verbose=True)
         print('Number of iterations : ', M3inv.info['niter'])
     else:
-        r3 = M3inv.dot(derham.B['3'].dot(x3_pol), verbose=False)
+        r3 = M3inv.dot(derham.boundary_ops['3'].dot(x3_pol), verbose=False)
 
     assert M3inv.info['success']
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M3 without preconditioner')
-        r3 = M3inv_nopc.dot(derham.B['3'].dot(x3_pol), verbose=False)
+        r3 = M3inv_nopc.dot(
+            derham.boundary_ops['3'].dot(x3_pol), verbose=False)
         print('Number of iterations : ', M3inv_nopc.info['niter'])
     else:
-        r3 = M3inv_nopc.dot(derham.B['3'].dot(x3_pol), verbose=False)
+        r3 = M3inv_nopc.dot(
+            derham.boundary_ops['3'].dot(x3_pol), verbose=False)
 
     assert M3inv.info['niter'] < M3inv_nopc.info['niter']
     # =======================================================
@@ -965,20 +994,22 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M1n with preconditioner')
-        r1 = M1ninv.dot(derham.B['1'].dot(x1_pol), verbose=True)
+        r1 = M1ninv.dot(derham.boundary_ops['1'].dot(x1_pol), verbose=True)
         print('Number of iterations : ', M1ninv.info['niter'])
     else:
-        r1 = M1ninv.dot(derham.B['1'].dot(x1_pol), verbose=False)
+        r1 = M1ninv.dot(derham.boundary_ops['1'].dot(x1_pol), verbose=False)
 
     assert M1ninv.info['success']
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M1n without preconditioner')
-        r1 = M1ninv_nopc.dot(derham.B['1'].dot(x1_pol), verbose=False)
+        r1 = M1ninv_nopc.dot(
+            derham.boundary_ops['1'].dot(x1_pol), verbose=False)
         print('Number of iterations : ', M1ninv_nopc.info['niter'])
     else:
-        r1 = M1ninv_nopc.dot(derham.B['1'].dot(x1_pol), verbose=False)
+        r1 = M1ninv_nopc.dot(
+            derham.boundary_ops['1'].dot(x1_pol), verbose=False)
 
     assert M1ninv.info['niter'] < M1ninv_nopc.info['niter']
     # =======================================================
@@ -987,20 +1018,22 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M2n with preconditioner')
-        r2 = M2ninv.dot(derham.B['2'].dot(x2_pol), verbose=True)
+        r2 = M2ninv.dot(derham.boundary_ops['2'].dot(x2_pol), verbose=True)
         print('Number of iterations : ', M2ninv.info['niter'])
     else:
-        r2 = M2ninv.dot(derham.B['2'].dot(x2_pol), verbose=False)
+        r2 = M2ninv.dot(derham.boundary_ops['2'].dot(x2_pol), verbose=False)
 
     assert M2ninv.info['success']
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M2n without preconditioner')
-        r2 = M2ninv_nopc.dot(derham.B['2'].dot(x2_pol), verbose=False)
+        r2 = M2ninv_nopc.dot(
+            derham.boundary_ops['2'].dot(x2_pol), verbose=False)
         print('Number of iterations : ', M2ninv_nopc.info['niter'])
     else:
-        r2 = M2ninv_nopc.dot(derham.B['2'].dot(x2_pol), verbose=False)
+        r2 = M2ninv_nopc.dot(
+            derham.boundary_ops['2'].dot(x2_pol), verbose=False)
 
     assert M2ninv.info['niter'] < M2ninv_nopc.info['niter']
     # =======================================================
@@ -1010,15 +1043,18 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
 
 
 if __name__ == '__main__':
-    test_mass([6, 7, 4], [2, 3, 1], [False, True, False], [[None, None], [None, None], [
-              None, None]], ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], False)
+    test_mass([5, 6, 7], 
+              [2, 2, 3], 
+              [True, False, True], 
+              [[False,  True], [True, False], [False, False]], 
+              ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], False)
     # test_mass([8, 6, 4], [2, 3, 2], [False, True, False], [['d', 'd'], [None, None], [None, 'd']], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False)
     # test_mass([8, 6, 4], [2, 2, 2], [False, True, True], [['d', 'd'], [None, None], [None, None]], ['HollowCylinder', {'a1': .1, 'a2': 1., 'Lz': 10.}], False)
 
-    #test_mass_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)
+    # test_mass_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)
 
-    #test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [['d', 'd'], [None, None], [None, None]], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
-    #test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [['d', 'd'], [None, None], [None, None]], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .05, 'Lz' : 10.}], False)
-    #test_mass_preconditioner([6, 9, 4], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['HollowCylinder', {'a1' : .1, 'a2' : 1., 'Lz' : 18.84955592153876}], False)
+    # test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [['d', 'd'], [None, None], [None, None]], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
+    # test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [['d', 'd'], [None, None], [None, None]], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .05, 'Lz' : 10.}], False)
+    # test_mass_preconditioner([6, 9, 4], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['HollowCylinder', {'a1' : .1, 'a2' : 1., 'Lz' : 18.84955592153876}], False)
 
-    #test_mass_preconditioner_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)
+    # test_mass_preconditioner_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)

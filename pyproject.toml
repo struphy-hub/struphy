@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "2.0.4"
+version = "2.0.5"
 readme = "README.md"
 requires-python = ">=3.7, <3.12"
 license = {file = "LICENSE"}
@@ -31,7 +31,6 @@ dependencies = [
     'mistune',
     'sphinx==4.2.0',
     'sphinxcontrib-napoleon',
-    'sphinx-rtd-theme',
     'pydata-sphinx-theme',
     'nbsphinx',
     'notebook',
@@ -41,6 +40,8 @@ dependencies = [
     'wheel',
     'tqdm',
     'gvec-to-python>=1.1.0',
+    'argcomplete',
+    'ipyparallel',
 ]
 
 [project.urls]

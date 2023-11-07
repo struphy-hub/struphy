@@ -1,11 +1,14 @@
 from abc import abstractmethod
 
+from mpi4py import MPI
+import numpy as np
+
 from psydac.linalg.basic import Vector, VectorSpace, LinearOperator, LinearSolver
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockLinearOperator
 from psydac.linalg.kron import KroneckerStencilMatrix
 
-from struphy.psydac_api.utilities import apply_essential_bc_to_array
+from struphy.feec.utilities import apply_essential_bc_to_array
 from struphy.polar.basic import PolarDerhamSpace
 
 import struphy.linear_algebra.iterative_solvers as it_solvers
@@ -19,6 +22,70 @@ class LinOpWithTransp(LinearOperator):
     @abstractmethod
     def transpose(self):
         pass
+
+    # Function that returns the matrix corresponding to the linear operator. Returns a numpy array.
+    # At the moment only works in one processor.
+    def toarray_struphy(self, out=None):
+        # v will be the unit vector with which we compute Av = ith column of A.
+        v = self.domain.zeros()
+
+        # For the time being only works in 1 processor
+        if isinstance(v, BlockVector):
+            comm = self.domain.spaces[0].cart.comm
+        elif isinstance(v, StencilVector):
+            comm = self.domain.cart.comm
+        assert comm.size == 1
+
+        # We declare the matrix form of our linear operator
+        out = np.zeros(
+            [self.codomain.dimension, self.domain.dimension], dtype=self.dtype)
+        # This auxiliary counter allows us to know which column of A we are computing in the following for loops.
+        cont = 0
+
+        # We define a temporal vector
+        tmp2 = self.codomain.zeros()
+
+        # V is either a BlockVector or a StencilVector depending on the domain of the linear operator.
+        if isinstance(v, BlockVector):
+            # we collect all starts and ends in two big lists
+            starts = [vi.starts for vi in v]
+            ends = [vi.ends for vi in v]
+
+            # We iterate over each entry of the block vector v, setting one entry to one at the time while all others remain zero.
+            for vv, ss, ee in zip(v, starts, ends):
+                for i in range(ss[0], ee[0]+1):
+                    for j in range(ss[1], ee[1]+1):
+                        for k in range(ss[2], ee[2]+1):
+                            vv[i, j, k] = 1.0
+                            # Compute dot product with the linear operator
+                            self.dot(v, out=tmp2)
+                            # We set the column number cont of our matrix to the dot product of the linear operator with the unit vector
+                            # number cont
+                            out[:, cont] = tmp2.copy().toarray()
+                            vv[i, j, k] = 0.0
+                            cont += 1
+        elif isinstance(v, StencilVector):
+            # We get the start and endpoint for each sublist in v
+            starts = v.starts
+            ends = v.ends
+            # We iterate over each entry of the stencil vector v, setting one entry to one at the time while all others remain zero.
+            for i in range(starts[0], ends[0]+1):
+                for j in range(starts[1], ends[1]+1):
+                    for k in range(starts[2], ends[2]+1):
+                        v[i, j, k] = 1.0
+                        # Compute dot product with the linear operator.
+                        self.dot(v, out=tmp2)
+                        # We set the column number cont of our matrix to the dot product of the linear operator with the unit vector
+                        # number cont
+                        out[:, cont] = tmp2.copy().toarray()
+                        v[i, j, k] = 0.0
+                        cont += 1
+        else:
+            # I cannot conceive any situation where this error should be thrown, but I put it here just in case something unexpected happens.
+            raise Exception(
+                'Function toarray_struphy() only supports Stencil Vectors or Block Vectors.')
+
+        return out
 
 
 class CompositeLinearOperator(LinOpWithTransp):
@@ -473,11 +540,11 @@ class BoundaryOperator(LinOpWithTransp):
     space_id : str
         Symbolic space ID of vector_space (H1, Hcurl, Hdiv, L2 or H1vec).
 
-    bc : list
-        Boundary conditions in each direction in format [[bc_e1=0, bc_e1=1], [bc_e2=0, bc_e2=1], [bc_e3=0, bc_e3=1]].
+    dirichlet_bc : list[list[bool]]
+        Whether to apply homogeneous Dirichlet boundary conditions (at left or right boundary in each direction).
     """
 
-    def __init__(self, vector_space, space_id, bc=None):
+    def __init__(self, vector_space, space_id, dirichlet_bc):
 
         assert isinstance(vector_space, VectorSpace)
         assert isinstance(space_id, str)
@@ -487,15 +554,10 @@ class BoundaryOperator(LinOpWithTransp):
         self._dtype = vector_space.dtype
 
         self._space_id = space_id
+        self._bc = dirichlet_bc
 
-        if bc is None:
-            self._bc = [[None, None],
-                        [None, None],
-                        [None, None]]
-        else:
-            assert isinstance(bc, list)
-            assert len(bc) == 3
-            self._bc = bc
+        assert isinstance(dirichlet_bc, list)
+        assert len(dirichlet_bc) == 3
 
         # number of non-zero elements in poloidal/toroidal direction
         if isinstance(vector_space, PolarDerhamSpace):
@@ -507,12 +569,6 @@ class BoundaryOperator(LinOpWithTransp):
             n_pts = vec_space_ten.npts
         else:
             n_pts = [comp.npts for comp in vec_space_ten.spaces]
-
-        def conv(b):
-            if b == 'd':
-                return 1
-            else:
-                return 0
 
         dim_nz1_pol = 1
         dim_nz2_pol = 1
@@ -526,16 +582,13 @@ class BoundaryOperator(LinOpWithTransp):
 
             if isinstance(vector_space, PolarDerhamSpace):
                 dim_nz1_pol *= (n_pts[0] - vector_space.n_rings[0] -
-                                conv(self._bc[0][1]))*n_pts[1]
+                                self.bc[0][1])*n_pts[1]
                 dim_nz1_pol += vector_space.n_polar[0]
             else:
-                dim_nz1_pol *= n_pts[0] - \
-                    conv(self._bc[0][0]) - conv(self._bc[0][1])
-                dim_nz1_pol *= n_pts[1] - \
-                    conv(self._bc[1][0]) - conv(self._bc[1][1])
+                dim_nz1_pol *= n_pts[0] - self.bc[0][0] - self.bc[0][1]
+                dim_nz1_pol *= n_pts[1] - self.bc[1][0] - self.bc[1][1]
 
-            dim_nz1_tor *= n_pts[2] - \
-                conv(self._bc[2][0]) - conv(self._bc[2][1])
+            dim_nz1_tor *= n_pts[2] - self.bc[2][0] - self.bc[2][1]
 
             self._dim_nz_pol = (dim_nz1_pol,)
             self._dim_nz_tor = (dim_nz1_tor,)
@@ -550,30 +603,24 @@ class BoundaryOperator(LinOpWithTransp):
                 dim_nz1_pol += vector_space.n_polar[0]
 
                 dim_nz2_pol *= (n_pts[1][0] - vector_space.n_rings[1] -
-                                conv(self._bc[0][1]))*n_pts[1][1]
+                                self.bc[0][1])*n_pts[1][1]
                 dim_nz2_pol += vector_space.n_polar[1]
 
                 dim_nz3_pol *= (n_pts[2][0] - vector_space.n_rings[2] -
-                                conv(self._bc[0][1]))*n_pts[2][1]
+                                self.bc[0][1])*n_pts[2][1]
                 dim_nz3_pol += vector_space.n_polar[2]
             else:
                 dim_nz1_pol *= n_pts[0][0]
-                dim_nz1_pol *= n_pts[0][1] - \
-                    conv(self._bc[1][0]) - conv(self._bc[1][1])
+                dim_nz1_pol *= n_pts[0][1] - self.bc[1][0] - self.bc[1][1]
 
-                dim_nz2_pol *= n_pts[1][0] - \
-                    conv(self._bc[0][0]) - conv(self._bc[0][1])
+                dim_nz2_pol *= n_pts[1][0] - self.bc[0][0] - self.bc[0][1]
                 dim_nz2_pol *= n_pts[1][1]
 
-                dim_nz3_pol *= n_pts[2][0] - \
-                    conv(self._bc[0][0]) - conv(self._bc[0][1])
-                dim_nz3_pol *= n_pts[2][1] - \
-                    conv(self._bc[1][0]) - conv(self._bc[1][1])
+                dim_nz3_pol *= n_pts[2][0] - self.bc[0][0] - self.bc[0][1]
+                dim_nz3_pol *= n_pts[2][1] - self.bc[1][0] - self.bc[1][1]
 
-            dim_nz1_tor *= n_pts[0][2] - \
-                conv(self._bc[2][0]) - conv(self._bc[2][1])
-            dim_nz2_tor *= n_pts[1][2] - \
-                conv(self._bc[2][0]) - conv(self._bc[2][1])
+            dim_nz1_tor *= n_pts[0][2] - self.bc[2][0] - self.bc[2][1]
+            dim_nz2_tor *= n_pts[1][2] - self.bc[2][0] - self.bc[2][1]
             dim_nz3_tor *= n_pts[2][2]
 
             self._dim_nz_pol = (dim_nz1_pol, dim_nz2_pol, dim_nz3_pol)
@@ -587,7 +634,7 @@ class BoundaryOperator(LinOpWithTransp):
 
             if isinstance(vector_space, PolarDerhamSpace):
                 dim_nz1_pol *= (n_pts[0][0] - vector_space.n_rings[0] -
-                                conv(self._bc[0][1]))*n_pts[0][1]
+                                self.bc[0][1])*n_pts[0][1]
                 dim_nz1_pol += vector_space.n_polar[0]
 
                 dim_nz2_pol *= (n_pts[1][0] -
@@ -598,21 +645,18 @@ class BoundaryOperator(LinOpWithTransp):
                                 vector_space.n_rings[2])*n_pts[2][1]
                 dim_nz3_pol += vector_space.n_polar[2]
             else:
-                dim_nz1_pol *= n_pts[0][0] - \
-                    conv(self._bc[0][0]) - conv(self._bc[0][1])
+                dim_nz1_pol *= n_pts[0][0] - self.bc[0][0] - self.bc[0][1]
                 dim_nz1_pol *= n_pts[0][1]
 
                 dim_nz2_pol *= n_pts[1][0]
-                dim_nz2_pol *= n_pts[1][1] - \
-                    conv(self._bc[1][0]) - conv(self._bc[1][1])
+                dim_nz2_pol *= n_pts[1][1] - self.bc[1][0] - self.bc[1][1]
 
                 dim_nz3_pol *= n_pts[2][0]
                 dim_nz3_pol *= n_pts[2][1]
 
             dim_nz1_tor *= n_pts[0][2]
             dim_nz2_tor *= n_pts[1][2]
-            dim_nz3_tor *= n_pts[2][2] - \
-                conv(self._bc[2][0]) - conv(self._bc[2][1])
+            dim_nz3_tor *= n_pts[2][2] - self.bc[2][0] - self.bc[2][1]
 
             self._dim_nz_pol = (dim_nz1_pol, dim_nz2_pol, dim_nz3_pol)
             self._dim_nz_tor = (dim_nz1_tor, dim_nz2_tor, dim_nz3_tor)
@@ -702,7 +746,7 @@ class BoundaryOperator(LinOpWithTransp):
             v.copy(out=out)
 
         # apply boundary conditions to output vector
-        apply_essential_bc_to_array(self._space_id, out, self._bc)
+        apply_essential_bc_to_array(self._space_id, out, self.bc)
 
         return out
 
@@ -710,7 +754,7 @@ class BoundaryOperator(LinOpWithTransp):
         """
         Returns the transposed operator.
         """
-        return BoundaryOperator(self._domain, self._space_id, self._bc)
+        return BoundaryOperator(self._domain, self._space_id, self.bc)
 
 
 class IdentityOperator(LinOpWithTransp):

@@ -2,7 +2,7 @@ import numpy as np
 from mpi4py import MPI
 
 from struphy.geometry import domains
-from struphy.psydac_api.psydac_derham import Derham
+from struphy.feec.psydac_derham import Derham
 from struphy.pic.particles import Particles6D
 
 

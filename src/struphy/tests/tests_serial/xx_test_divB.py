@@ -60,7 +60,6 @@ def test_divB():
     spl_kind = None       # Set values below
     nq_el    = [4, 4, 6]  # Element integration
     nq_pr    = [4, 4, 6]  # Greville integration
-    bc       = ['f', 'f'] # BC in s-direction
     X, Y, Z = None, None, None
 
     # Case 1: Identity mapping. (x,y,z) -> (x,y,z) = (s,u,v). It is not periodic.

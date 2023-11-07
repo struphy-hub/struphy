@@ -39,8 +39,6 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
-    'sphinx_rtd_theme',
-    #'m2r2',
     "nbsphinx",
 ]
 

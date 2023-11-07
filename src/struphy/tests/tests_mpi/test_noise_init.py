@@ -13,9 +13,8 @@ def test_noise_init(Nel, p, spl_kind, space, direction):
     from mpi4py import MPI
     import numpy as np
 
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.fields import Field
-    from struphy.psydac_api.utilities import compare_arrays
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import compare_arrays
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
@@ -23,10 +22,10 @@ def test_noise_init(Nel, p, spl_kind, space, direction):
 
     # Psydac discrete Derham sequence and field of space
     derham = Derham(Nel, p, spl_kind, comm=comm)
-    field = Field('field', space, derham)
+    field = derham.create_field('field', space)
     
     derham_np = Derham(Nel, p, spl_kind, comm=None)
-    field_np = Field('field', space, derham_np)
+    field_np = derham_np.create_field('field', space)
 
     # initial conditions
     init_params = {

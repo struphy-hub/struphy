@@ -244,11 +244,11 @@ if __name__ == '__main__':
     p = params['grid']['p']
     spl_kind = params['grid']['spl_kind']
     nq_el = params['grid']['nq_el']
-    bc = params['grid']['bc']
+    dirichlet_bc = params['grid']['dirichlet_bc']
     polar_ck = params['grid']['polar_ck']
     
-    fem_1d_1 = Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0], bc[0])
-    fem_1d_2 = Spline_space_1d(Nel[1], p[1], spl_kind[1], nq_el[1], bc[1])
+    fem_1d_1 = Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0], dirichlet_bc[0])
+    fem_1d_2 = Spline_space_1d(Nel[1], p[1], spl_kind[1], nq_el[1], dirichlet_bc[1])
 
     fem_2d = Tensor_spline_space([fem_1d_1, fem_1d_2], polar_ck, domain.cx[:, :, 0], domain.cy[:, :, 0], n_tor=n_tor, basis_tor='i')
     

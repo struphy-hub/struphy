@@ -1,3 +1,13 @@
+# Contact
+
+* [RocketChat developer's channel](https://chat.gwdg.de/channel/struphy-developers)
+* [Issue tracker](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/issues) (MPCDF account needed, contacts below)
+* [LinkedIn](https://www.linkedin.com/company/struphy/)
+* [stefan.possanner@ipp.mpg.de](mailto:spossann@ipp.mpg.de)
+* [eric.sonnendruecker@ipp.mpg.de](mailto:eric.sonnendruecker@ipp.mpg.de)
+* [xin.wang@ipp.mpg.de](mailto:xin.wang@ipp.mpg.de)
+
+
 # Repository
 
 Struphy has two main branches, **master** and **devel**. 
@@ -7,16 +17,6 @@ The **master** branch holds the current release of the code.
 
 **devel** is the main branch for developers. Feature branches must be checked out and merged into **devel**.
 
-# Open development
-
-When adding code to struphy it is important that other developers can follow your plans. For this we use the [Issue tracker](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/issues).
-There, you can add a short description of your plans and choose one of the following ``labels``:
-
-* Bug
-* Discussion
-* Documentation
-* Feature Request
-* ToDo
 
 # Forking
 

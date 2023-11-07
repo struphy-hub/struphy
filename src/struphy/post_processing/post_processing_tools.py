@@ -5,8 +5,7 @@ import shutil
 import h5py
 import yaml
 
-from struphy.psydac_api.psydac_derham import Derham
-from struphy.psydac_api.fields import Field
+from struphy.feec.psydac_derham import Derham
 from struphy.kinetic_background import maxwellians
 from struphy.io.setup import setup_domain_mhd
 import matplotlib.pyplot as plt
@@ -16,7 +15,7 @@ from tqdm import tqdm
 
 def create_femfields(path, step=1):
     """
-    Creates instances of struphy.psydac_api.fields.Field from distributed Struphy data.
+    Creates instances of struphy.feec.Derham.Field from distributed Struphy data.
 
     Parameters
     ----------
@@ -29,7 +28,7 @@ def create_femfields(path, step=1):
     Returns
     -------
     fields : dict
-        Nested dictionary holding struphy.psydac_api.field.Field: fields[t][name] contains the Field with the name "name" in the hdf5 file at time t.
+        Nested dictionary holding struphy.feec.Derham.Field: fields[t][name] contains the Field with the name "name" in the hdf5 file at time t.
 
     space_ids : dict
         The space IDs of the fields (H1, Hcurl, Hdiv, L2 or H1vec). space_ids[name] contains the space ID of the field with the name "name".
@@ -70,7 +69,7 @@ def create_femfields(path, step=1):
     for t in t_grid:
         fields[t] = {}
         for field_name, ID in space_ids.items():
-            fields[t][field_name] = Field(field_name, ID, derham)
+            fields[t][field_name] = derham.create_field(field_name, ID)
 
     # get hdf5 data
     for rank in range(int(nproc)):
@@ -378,6 +377,22 @@ def post_process_markers(path_in, path_out, species, step=1):
         # test if all markers have been collected in temp    
         ids = temp[:, -1]
         ids = ids.astype('int')
+
+        # sorting out lost particles
+        ids_lost_particles = np.setdiff1d(np.arange(n_markers), ids)
+
+        if len(ids_lost_particles) > 0:
+
+            ind_lost_particles = [False]*n_markers
+
+            for d in ids_lost_particles:
+                ind_lost_particles[d] = True
+
+            # lost markers are saved as [0, ..., 0, ids]
+            temp[ind_lost_particles, -1] = ids_lost_particles
+
+            ids = np.unique(np.append(ids, ids_lost_particles))
+            
         assert np.all(ids == np.arange(n_markers))
         
         # compute physical positions (x, y, z)
@@ -388,6 +403,9 @@ def post_process_markers(path_in, path_out, species, step=1):
         
         np.save(file_npy, temp[:, :7])
         np.savetxt(file_txt, temp[:, :4], fmt='%12.6f', delimiter=', ')
+
+        # clear buffer
+        temp[:,:] = 0
 
     # close hdf5 files
     for file in files:
@@ -421,7 +439,6 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
     with open(os.path.join(path_in, 'meta.txt'), 'r') as f:
         lines = f.readlines()
 
-    model = lines[3].split()[-1]
     nproc = lines[4].split()[-1]
 
     # load parameters

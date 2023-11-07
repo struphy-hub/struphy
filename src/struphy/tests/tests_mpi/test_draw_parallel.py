@@ -20,7 +20,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     import numpy as np
 
     from struphy.geometry import domains
-    from struphy.psydac_api.psydac_derham import Derham
+    from struphy.feec.psydac_derham import Derham
     from struphy.pic.particles import Particles6D
 
     comm = MPI.COMM_WORLD
@@ -60,7 +60,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     # test weights
     particles.initialize_weights(init_params)
     _vdim = particles.vdim
-    _w0 = particles.markers_wo_holes[:, 3 + _vdim]
+    _w0 = particles.weights
     print('Test weights:')
     print(f'rank {rank}:', _w0.shape, np.min(_w0), np.max(_w0))
 

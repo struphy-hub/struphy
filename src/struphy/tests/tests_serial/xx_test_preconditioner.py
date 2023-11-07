@@ -15,10 +15,10 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
     from mpi4py import MPI
 
     from struphy.geometry import domains
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.mass import WeightedMassOperators
-    from struphy.psydac_api.preconditioner import MassMatrixPreconditioner
-    from struphy.psydac_api.linear_operators import InverseLinearOperator
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.preconditioner import MassMatrixPreconditioner
+    from struphy.feec.linear_operators import InverseLinearOperator
 
     from psydac.linalg.stencil import StencilVector
     from psydac.linalg.block import BlockVector

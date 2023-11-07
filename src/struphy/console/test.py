@@ -55,7 +55,7 @@ def struphy_test(group, mpi=0, fast=False):
                            check=True, cwd=libpath)
 
         subprocess.run(['pytest',
-                        'tests/test_pproc'])
+                        'tests/test_pproc'], check=True, cwd=libpath)
 
     else:
         from struphy.tests.test_codes import test_toy, test_fluid, test_kinetic, test_hybrid

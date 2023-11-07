@@ -108,7 +108,7 @@ Simulation parameters
 
 Aside from the console, the ``.yml`` parameter file is the main point of interaction for a Struphy user. 
 It stores the dictionary that is read-in by the Struphy main execution file 
-at the start of a simulation, see `Tutorial 1 - Run Struphy main file in a notebook  <file:///home/spossann/git_repos/struphy/doc/_build/html/sections/tutorials.html>`_.
+at the start of a simulation, see :ref:`Tutorial 1 - Run Struphy main file in a notebook  <tutorials>`.
 All information relevant to the disretization and the physics of the PDE model are in this file.
 
 The ``.yml`` parameter file has some generic structure that is uniform for all (present and future) Struphy models.
@@ -136,8 +136,7 @@ An example is given in the file ``<install_path>/io/inp/parameters.yml``, where 
 is obtained from ``struphy -p``. We list the content of this file below.
 
 The dictionary structure for a particular input, for example a mapping or an MHD equilibrium,
-can be obtained from the respective section in the 
-`Struphy documentation <file:///home/spossann/git_repos/struphy/doc/_build/html/index.html>`_.
+can be obtained from the respective section in this documentation.
 
 Some hints for editing a parameter file:
 
@@ -155,14 +154,14 @@ grid
 
 ::
 
-    Nel       : [12, 14, 4] # number of grid cells, >p
-    p         : [3, 4, 2]  # spline degree
-    spl_kind  : [False, True, True] # spline type: True=periodic, False=clamped
-    bc        : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
-    dims_mask : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
-    nq_el     : [2, 2, 2] # quadrature points per grid cell
-    nq_pr     : [2, 2, 2] # quadrature points per histopolation cell (for commuting projectors)
-    polar_ck  : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
+    Nel          : [12, 14, 4] # number of grid cells, >p
+    p            : [3, 4, 2]  # spline degree
+    spl_kind     : [False, True, True] # spline type: True=periodic, False=clamped
+    dirichlet_bc : [[False, False], [False, False], [False, False]] # hom. Dirichlet boundary conditions for N-splines (spl_kind must be False)
+    dims_mask    : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
+    nq_el        : [2, 2, 2] # quadrature points per grid cell
+    nq_pr        : [2, 2, 2] # quadrature points per histopolation cell (for commuting projectors)
+    polar_ck     : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
 
 .. _time:
 

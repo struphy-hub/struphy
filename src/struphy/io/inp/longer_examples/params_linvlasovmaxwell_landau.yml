@@ -13,7 +13,7 @@ grid :
     Nel      : [128, 2, 2] # number of grid cells, >p
     p        : [3, 1, 1]  # spline degree
     spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
-    bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
+    dirichlet_bc : null # [[False, False], [False, False], [False, False]], hom. Dirichlet boundary conditions for N-splines (spl_kind must be False)
     dims_mask : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
     nq_el    : [2, 2, 2] # quadrature points per grid cell
     nq_pr    : [2, 2, 2] # quadrature points per histopolation cell (for commuting projectors)
@@ -26,7 +26,7 @@ units :
 
 time :
     dt         : 0.05 # time step
-    Tend       : 50. # simulation time interval is [0, Tend]
+    Tend       : 100. # simulation time interval is [0, Tend]
     split_algo : LieTrotter # LieTrotter | Strang
 
 geometry :
@@ -56,6 +56,20 @@ electric_equilibrium :
 em_fields :
     init :
         type : null # initial conditions (possible types seen below)
+    options:
+        solvers:
+            maxwell:
+                type: [PConjugateGradient, MassMatrixPreconditioner]
+                tol: 1.0e-10
+                maxiter: 3000
+                info: false
+                verbose: false
+            poisson:
+                type: [PConjugateGradient, MassMatrixPreconditioner]
+                tol: 1.0e-10
+                maxiter: 3000
+                info: false
+                verbose: false
 
 kinetic :
     electrons :
@@ -107,6 +121,14 @@ kinetic :
                 vth1 : 1.
                 vth2 : 1.
                 vth3 : 1.
+        options:
+            algos: {push_eta: rk4, push_vxb: analytic}
+            solver:
+                type: [PConjugateGradient, MassMatrixPreconditioner]
+                tol: 1.0e-10
+                maxiter: 3000
+                info: false
+                verbose: false
         save_data :
             n_markers : 1 # number of markers to be saved during simulation
             f :

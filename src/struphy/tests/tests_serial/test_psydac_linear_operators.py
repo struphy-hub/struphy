@@ -21,16 +21,16 @@ def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
     import numpy as np
 
     from struphy.geometry import domains
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.mass import WeightedMassOperators
-    from struphy.psydac_api.utilities import create_equal_random_arrays
-    from struphy.psydac_api.linear_operators import LinOpWithTransp
-    from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
-    from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
-    from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
-    from struphy.psydac_api.linear_operators import InverseLinearOperator as Invert
-    from struphy.psydac_api.linear_operators import IdentityOperator as ID
-    from struphy.psydac_api.linear_operators import BoundaryOperator as Boundary
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.feec.linear_operators import LinOpWithTransp
+    from struphy.feec.linear_operators import CompositeLinearOperator as Compose
+    from struphy.feec.linear_operators import SumLinearOperator as Sum
+    from struphy.feec.linear_operators import ScalarTimesLinearOperator as Multiply
+    from struphy.feec.linear_operators import InverseLinearOperator as Invert
+    from struphy.feec.linear_operators import IdentityOperator
+    from struphy.feec.linear_operators import BoundaryOperator as Boundary
 
     # create domain object
     dom_type = mapping[0]
@@ -62,8 +62,8 @@ def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
     out1 = v1.space.zeros()
     
     # ========= test IdentityOperator =================
-    I0 = ID(M0.domain)
-    I1 = ID(M1.domain)
+    I0 = IdentityOperator(M0.domain)
+    I1 = IdentityOperator(M1.domain)
     print(f'type I0: {type(I0)}')
     print(f'shape I0: {I0.shape}')
     print(f'type I1: {type(I1)}')
@@ -79,21 +79,21 @@ def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
     assert np.allclose(out1.toarray(), v1.toarray())
     
     # ========= test BoundaryOperator =================
-    B0 = Boundary(M0.domain, space_id='H1')
-    B1 = Boundary(M1.domain, space_id='Hcurl')
-    print(f'type B0: {type(B0)}')
-    print(f'shape B0: {B0.shape}')
-    print(f'type B1: {type(B1)}')
-    print(f'shape B1: {B1.shape}')
+    # B0 = Boundary(M0.domain, space_id='H1')
+    # B1 = Boundary(M1.domain, space_id='Hcurl')
+    # print(f'type B0: {type(B0)}')
+    # print(f'shape B0: {B0.shape}')
+    # print(f'type B1: {type(B1)}')
+    # print(f'shape B1: {B1.shape}')
     
-    # not in-place
-    assert np.allclose(B0.dot(v0).toarray(), v0.toarray())
-    assert np.allclose(B1.dot(v1).toarray(), v1.toarray())
-    # in-place
-    B0.dot(v0, out=out0)
-    B1.dot(v1, out=out1)
-    assert np.allclose(out0.toarray(), v0.toarray())
-    assert np.allclose(out1.toarray(), v1.toarray())
+    # # not in-place
+    # assert np.allclose(B0.dot(v0).toarray(), v0.toarray())
+    # assert np.allclose(B1.dot(v1).toarray(), v1.toarray())
+    # # in-place
+    # B0.dot(v0, out=out0)
+    # B1.dot(v1, out=out1)
+    # assert np.allclose(out0.toarray(), v0.toarray())
+    # assert np.allclose(out1.toarray(), v1.toarray())
 
     # ========= test CompositeLinearOperator ==========
     A = Compose(M1, derham.grad, M0)

@@ -13,9 +13,9 @@ from time import sleep
 def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
     '''Compares evaluation_kernel_3d with eval_spline_mpi_kernel.'''
 
-    from struphy.psydac_api.psydac_derham import Derham
+    from struphy.feec.psydac_derham import Derham
 
-    from struphy.psydac_api.utilities import create_equal_random_arrays as cera
+    from struphy.feec.utilities import create_equal_random_arrays as cera
     from struphy.b_splines import bsplines_kernels as bsp
     from struphy.b_splines.bspline_evaluation_3d import evaluation_kernel_3d as eval3d
     from struphy.b_splines.bspline_evaluation_3d import eval_spline_mpi_kernel as eval3d_mpi
@@ -149,11 +149,9 @@ def test_eval_field(Nel, p, spl_kind):
     '''Compares distributed array spline evaluation in Field object with legacy code.'''
 
     from struphy.geometry.base import Domain
-    from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.fields import Field
+    from struphy.feec.psydac_derham import Derham
 
-    from struphy.psydac_api.utilities import compare_arrays
-    from struphy.b_splines import bsplines_kernels as bsp
+    from struphy.feec.utilities import compare_arrays
     from struphy.b_splines.bspline_evaluation_3d import evaluate_matrix
 
     comm = MPI.COMM_WORLD
@@ -164,11 +162,11 @@ def test_eval_field(Nel, p, spl_kind):
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     # fem field objects
-    p0 = Field('pressure', 'H1', derham)
-    E1 = Field('e_field', 'Hcurl', derham)
-    B2 = Field('b_field', 'Hdiv', derham)
-    n3 = Field('density', 'L2', derham)
-    uv = Field('velocity', 'H1vec', derham)
+    p0 = derham.create_field('pressure', 'H1')
+    E1 = derham.create_field('e_field', 'Hcurl')
+    B2 = derham.create_field('b_field', 'Hdiv')
+    n3 = derham.create_field('density', 'L2')
+    uv = derham.create_field('velocity', 'H1vec')
 
     # initialize fields with sin/cos
     comps = {'pressure':  True,

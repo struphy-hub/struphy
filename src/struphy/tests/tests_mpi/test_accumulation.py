@@ -14,8 +14,8 @@ def test_accumulation(Nel, p, spl_kind, mapping, Np=40, verbose=False):
     ../test_pic_legacy_files) and the new way using the Accumulator object (ghost_region_sender, mat_vec_filler).
 
     The two accumulation matrices are computed with the same random magnetic field produced by
-    psydac_api.utilities.create_equal_random_arrays and compared against each other at the bottom using
-    psydac_api.utilities.compare_arrays().
+    feec.utilities.create_equal_random_arrays and compared against each other at the bottom using
+    feec.utilities.compare_arrays().
 
     The times for both legacy and the new way are printed if verbose == True. This comparison only makes sense if the
     ..test_pic_legacy_files/ are also all compiled.
@@ -41,10 +41,10 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, Np, verbose=False):
     from mpi4py import MPI
     from time import time
 
-    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
+    from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
 
     from struphy.geometry import domains
-    from struphy.psydac_api.psydac_derham import Derham
+    from struphy.feec.psydac_derham import Derham
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
 
     from struphy.pic.particles import Particles6D
@@ -68,7 +68,7 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, Np, verbose=False):
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm)
 
     # space key: one of '1', '2' and 'v'
-    space_key = derham.spaces_dict[space]
+    space_key = derham.space_to_form[space]
 
     if mpi_rank == 0:
         print('Domain decomposition according to', derham.domain_array)
@@ -200,10 +200,10 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, Np, verbose=False):
     from mpi4py import MPI
     from time import time
 
-    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
+    from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
 
     from struphy.geometry import domains
-    from struphy.psydac_api.psydac_derham import Derham
+    from struphy.feec.psydac_derham import Derham
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
 
     from struphy.pic.particles import Particles6D
@@ -227,7 +227,7 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, Np, verbose=False):
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm)
 
     # space key: one of '1', '2' and 'v'
-    space_key = derham.spaces_dict[space]
+    space_key = derham.space_to_form[space]
 
     if mpi_rank == 0:
         print(derham.domain_array)
@@ -389,10 +389,10 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     from mpi4py import MPI
     from time import time
 
-    from struphy.psydac_api.utilities import compare_arrays
+    from struphy.feec.utilities import compare_arrays
 
     from struphy.geometry import domains
-    from struphy.psydac_api.psydac_derham import Derham
+    from struphy.feec.psydac_derham import Derham
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
 
     from struphy.tests.tests_mpi.test_pic_legacy_files.accumulation_kernels_3d import kernel_step_ph_full

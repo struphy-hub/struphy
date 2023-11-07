@@ -77,9 +77,6 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     time_params = params['time']
 
     # set initial conditions for all variables
-    if rank == 0:
-        print('\nINITIAL CONDITIONS:')
-
     if not restart:
         model.initialize_from_params()
 

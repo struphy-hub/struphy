@@ -12,7 +12,7 @@ def eval_field_at_particles(fe_coeffs, derham, space_id, particles):
         fe_coeffs : psydac.linalg.stencil.StencilVector or psydac.linalg.block.BlockVector
             FE coefficients of a form.
 
-        derham : struphy.psydac_api.psydac_derham.Derham
+        derham : struphy.feec.psydac_derham.Derham
             Discrete Derham complex.
 
         space_id : str
@@ -79,7 +79,7 @@ def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):
         fe_coeffs : psydac.linalg.stencil.StencilVector or psydac.linalg.block.BlockVector
             FE coefficients of 1 form, i.e., vector potential.
 
-        derham : struphy.psydac_api.psydac_derham.Derham
+        derham : struphy.feec.psydac_derham.Derham
             Discrete Derham complex.
 
         particles : struphy.pic.particles.Particles6D
@@ -106,7 +106,7 @@ def get_electron_thermal_energy(density_0_form, derham, domain, nel1, nel2, nel3
         density_0_form : psydac.linalg.stencil.StencilVector
             values of density at quadrature points, 3-form.
 
-        derham : struphy.psydac_api.psydac_derham.Derham
+        derham : struphy.feec.psydac_derham.Derham
             Discrete Derham complex.
     """
 

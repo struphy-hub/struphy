@@ -80,7 +80,7 @@ class ConjugateGradient(LinearSolver):
         assert isinstance(A, LinearOperator)
         assert A.shape[0] == A.shape[1]
         assert b.shape[0] == A.shape[0]
-
+        
         # first guess of solution
         if out is not None:
             assert isinstance(out, Vector)

@@ -17,7 +17,7 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     from mpi4py import MPI
     import numpy as np
 
-    from struphy.psydac_api.psydac_derham import Derham
+    from struphy.feec.psydac_derham import Derham
     from struphy.linear_algebra.stencil_dot_kernels import matvec_1d_kernel
 
     from psydac.linalg.stencil import StencilMatrix, StencilVector
@@ -142,7 +142,7 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     from mpi4py import MPI
     import numpy as np
 
-    from struphy.psydac_api.psydac_derham import Derham
+    from struphy.feec.psydac_derham import Derham
     from struphy.linear_algebra.stencil_dot_kernels import matvec_3d_kernel
 
     from psydac.linalg.stencil import StencilMatrix, StencilVector

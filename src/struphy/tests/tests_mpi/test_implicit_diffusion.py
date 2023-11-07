@@ -7,12 +7,12 @@ from mpi4py import MPI
 import numpy as np
 
 from struphy.geometry import domains
-from struphy.psydac_api.psydac_derham import Derham
-from struphy.psydac_api.mass import WeightedMassOperators
-from struphy.psydac_api.mass import WeightedMassOperator
+from struphy.feec.psydac_derham import Derham
+from struphy.feec.mass import WeightedMassOperators
+from struphy.feec.mass import WeightedMassOperator
 from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import ImplicitDiffusion
-from struphy.psydac_api.utilities import compare_arrays
+from struphy.feec.utilities import compare_arrays
 from psydac.linalg.stencil import StencilVector
 
 
