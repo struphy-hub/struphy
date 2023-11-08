@@ -2,6 +2,7 @@ from abc import abstractmethod
 
 from mpi4py import MPI
 import numpy as np
+from scipy import sparse
 
 from psydac.linalg.basic import Vector, VectorSpace, LinearOperator, LinearSolver
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
@@ -26,6 +27,19 @@ class LinOpWithTransp(LinearOperator):
     # Function that returns the matrix corresponding to the linear operator. Returns a numpy array.
     # At the moment only works in one processor.
     def toarray_struphy(self, out=None):
+        """
+        Transforms the linear operator into a matrix.
+
+        Parameters
+        ----------
+        out : Numpy.ndarray, optional
+            If given, the output will be written in-place into this array.
+
+        Returns
+        -------
+        out : Numpy.ndarray
+            The matrix form of the linear operator.
+        """
         # v will be the unit vector with which we compute Av = ith column of A.
         v = self.domain.zeros()
 
@@ -36,9 +50,14 @@ class LinOpWithTransp(LinearOperator):
             comm = self.domain.cart.comm
         assert comm.size == 1
 
-        # We declare the matrix form of our linear operator
-        out = np.zeros(
-            [self.codomain.dimension, self.domain.dimension], dtype=self.dtype)
+        if out is None:
+            # We declare the matrix form of our linear operator
+            out = np.zeros(
+                [self.codomain.dimension, self.domain.dimension], dtype=self.dtype)
+        else:
+            assert isinstance(out, np.ndarray)
+            assert out.shape[0] == self.codomain.dimension
+            assert out.shape[1] == self.domain.dimension
         # This auxiliary counter allows us to know which column of A we are computing in the following for loops.
         cont = 0
 
@@ -86,6 +105,118 @@ class LinOpWithTransp(LinearOperator):
                 'Function toarray_struphy() only supports Stencil Vectors or Block Vectors.')
 
         return out
+    
+    # Function that returns the sparse matrix corresponding to the linear operator. Returns a scipy sparse matrix.
+    # At the moment only works in one processor.
+    def tosparse_struphy(self, format = "csr"):
+        """
+        Transforms the linear operator into a Scipy sparse matrix.
+
+        Parameters
+        ----------
+        format : string, optional
+            Specifies the format in which the sparse matrix is to be stored. Choose from "csr" (Compressed Sparse Row, default),
+            "csc" (Compressed Sparse Column), "bsr" (Block Sparse Row ), "lil" (List of Lists), "dok" (Dictionary of Keys), 
+            "coo" (COOrdinate format) and "dia" (DIAgonal).
+
+        Returns
+        -------
+        out : scipy.sparse.csr.csr_matrix
+            The sparse matrix form of the linear operator in the specified format.
+        """
+        
+        # v will be the unit vector with which we compute Av = ith column of A.
+        v = self.domain.zeros()
+
+        # For the time being only works in 1 processor
+        if isinstance(v, BlockVector):
+            comm = self.domain.spaces[0].cart.comm
+        elif isinstance(v, StencilVector):
+            comm = self.domain.cart.comm
+        assert comm.size == 1
+
+        #We define a list to store the non-zero data, a list to sotre the row index of said data and a list to store the column index.
+        data = []
+        row = []
+        col = []
+        
+        # This auxiliary counter allows us to know which column of A we are computing in the following for loops.
+        cont = 0
+
+        # We define a temporal vector
+        tmp2 = self.codomain.zeros()
+        # We define the 1D numpy array version of this vector
+        aux = tmp2.toarray()
+        #We define the number of rows for our matrix
+        numrows = len(aux)
+
+        # V is either a BlockVector or a StencilVector depending on the domain of the linear operator.
+        if isinstance(v, BlockVector):
+            # we collect all starts and ends in two big lists
+            starts = [vi.starts for vi in v]
+            ends = [vi.ends for vi in v]
+
+            # We iterate over each entry of the block vector v, setting one entry to one at the time while all others remain zero.
+            for vv, ss, ee in zip(v, starts, ends):
+                for i in range(ss[0], ee[0]+1):
+                    for j in range(ss[1], ee[1]+1):
+                        for k in range(ss[2], ee[2]+1):
+                            vv[i, j, k] = 1.0
+                            # Compute dot product with the linear operator
+                            self.dot(v, out=tmp2)
+                            aux = tmp2.toarray()
+                            # We now need to now which entries on tmp2 are non-zero and store then in our data list
+                            for l in np.where(aux !=0)[0]:
+                                data.append(aux[l])
+                                col.append(cont)
+                                row.append(l) 
+                            vv[i, j, k] = 0.0
+                            cont += 1
+        elif isinstance(v, StencilVector):
+            # We get the start and endpoint for each sublist in v
+            starts = v.starts
+            ends = v.ends
+            # We iterate over each entry of the stencil vector v, setting one entry to one at the time while all others remain zero.
+            for i in range(starts[0], ends[0]+1):
+                for j in range(starts[1], ends[1]+1):
+                    for k in range(starts[2], ends[2]+1):
+                        v[i, j, k] = 1.0
+                        # Compute dot product with the linear operator.
+                        self.dot(v, out=tmp2)
+                        aux = tmp2.toarray()
+                        # We now need to now which entries on tmp2 are non-zero and store then in our data list
+                        for l in np.where(aux !=0)[0]:
+                            data.append(aux[l])
+                            col.append(cont)
+                            row.append(l) 
+                        v[i, j, k] = 0.0
+                        cont += 1
+        else:
+            # I cannot conceive any situation where this error should be thrown, but I put it here just in case something unexpected happens.
+            raise Exception(
+                'Function toarray_struphy() only supports Stencil Vectors or Block Vectors.')
+        
+        
+        if format == "csr":
+            return sparse.csr_matrix((data, (row, col)), shape=(numrows, cont))
+        elif format == "csc":
+            return sparse.csc_matrix((data, (row, col)), shape=(numrows, cont))
+        elif format == "bsr":
+            return sparse.bsr_matrix((data, (row, col)), shape=(numrows, cont))
+        elif format == "lil":
+            return sparse.csr_matrix((data, (row, col)), shape=(numrows, cont)).tolil()
+        elif format == "dok":
+            return sparse.csr_matrix((data, (row, col)), shape=(numrows, cont)).todok()
+        elif format == "coo":
+            return sparse.coo_matrix((data, (row, col)), shape=(numrows, cont))
+        elif format == "dia":
+            return sparse.csr_matrix((data, (row, col)), shape=(numrows, cont)).todia()
+        else:
+            raise Exception(
+                'The selected sparse matrix format must be one of the following : csr, csc, bsr, lil, dok,  coo or dia.')
+        
+        
+        
 
 
 class CompositeLinearOperator(LinOpWithTransp):
@@ -397,8 +528,8 @@ class InverseLinearOperator(LinOpWithTransp):
     operator : LinOpWithTransp | StencilMatrix | BlockLinearOperator
         The linear operator to be inverted.
 
-    pc : NoneType | psydac.linalg.basic.LinearSolver
-         Preconditioner for "operator", it should approximate the inverse of "operator". Must have a "solve(rhs, out)" method.
+    pc : NoneType | psydac.linalg.basic.LinearOperator
+         Preconditioner for "operator", it should approximate the inverse of "operator". Must have a dot method.
 
     tol : float
         Absolute tolerance for L2-norm of residual r = A*x - b.
@@ -421,7 +552,7 @@ class InverseLinearOperator(LinOpWithTransp):
         assert operator.domain == operator.codomain
 
         if pc is not None:
-            assert isinstance(pc, LinearSolver)
+            assert isinstance(pc, LinearOperator)
 
         self._domain = operator.domain
         self._codomain = operator.codomain

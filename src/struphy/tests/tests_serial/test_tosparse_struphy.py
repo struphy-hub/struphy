@@ -1,4 +1,5 @@
 import pytest
+import time
 
 
 @pytest.mark.parametrize('Nel', [[8, 10, 4],[12,5,2]])
@@ -47,10 +48,16 @@ def test_toarray_struphy(Nel, p, spl_kind, mapping):
     
     # ========= test toarray_struphy =================
     #Get the matrix form of the linear operators M0 to M3
-    M0arr = M0.toarray_struphy()
-    M1arr = M1.toarray_struphy()
-    M2arr = M2.toarray_struphy()
-    M3arr = M3.toarray_struphy()
+    start = time.time()
+    M0arr = M0.tosparse_struphy("csr")
+    M1arr = M1.tosparse_struphy("csc")
+    M2arr = M2.tosparse_struphy("bsr")
+    M3arr = M3.tosparse_struphy("lil")
+    M0arrad = M0.tosparse_struphy("dok")
+    M1arrad = M1.tosparse_struphy("coo")
+    M2arrad = M2.tosparse_struphy("dia")
+    end = time.time()
+    print("Time converting to sparse = "+str(end-start))
     
     v0arr = v0.toarray()
     v1arr = v1.toarray()
@@ -58,30 +65,16 @@ def test_toarray_struphy(Nel, p, spl_kind, mapping):
     v3arr = v3.toarray()
     
     # not in-place
-    assert np.allclose(M0.dot(v0).toarray(), np.matmul(M0arr,v0arr))
-    assert np.allclose(M1.dot(v1).toarray(), np.matmul(M1arr,v1arr))
-    assert np.allclose(M2.dot(v2).toarray(), np.matmul(M2arr,v2arr))
-    assert np.allclose(M3.dot(v3).toarray(), np.matmul(M3arr,v3arr))
+    assert np.allclose(M0.dot(v0).toarray(), M0arr.dot(v0arr))
+    assert np.allclose(M1.dot(v1).toarray(), M1arr.dot(v1arr))
+    assert np.allclose(M2.dot(v2).toarray(), M2arr.dot(v2arr))
+    assert np.allclose(M3.dot(v3).toarray(), M3arr.dot(v3arr))
+    assert np.allclose(M0.dot(v0).toarray(), M0arrad.dot(v0arr))
+    assert np.allclose(M1.dot(v1).toarray(), M1arrad.dot(v1arr))
+    assert np.allclose(M2.dot(v2).toarray(), M2arrad.dot(v2arr))
     
-    #Now we test the in-place version 
-    IM0 = np.zeros([M0.codomain.dimension, M0.domain.dimension],dtype=M0.dtype)
-    IM1 = np.zeros([M1.codomain.dimension, M1.domain.dimension],dtype=M1.dtype)
-    IM2 = np.zeros([M2.codomain.dimension, M2.domain.dimension],dtype=M2.dtype)
-    IM3 = np.zeros([M3.codomain.dimension, M3.domain.dimension],dtype=M3.dtype)
+    print('test_tosparse_struphy passed!')
     
-    M0.toarray_struphy(out = IM0)
-    M1.toarray_struphy(out = IM1)
-    M2.toarray_struphy(out = IM2)
-    M3.toarray_struphy(out = IM3)
-    
-    assert np.allclose(M0.dot(v0).toarray(), np.matmul(IM0,v0arr))
-    assert np.allclose(M1.dot(v1).toarray(), np.matmul(IM1,v1arr))
-    assert np.allclose(M2.dot(v2).toarray(), np.matmul(IM2,v2arr))
-    assert np.allclose(M3.dot(v3).toarray(), np.matmul(IM3,v3arr))
-    
-    print('test_toarry_struphy passed!')
-    
-    # assert np.allclose(out1.toarray(), v1.toarray(), atol=1e-5)
 
 
 if __name__ == '__main__':

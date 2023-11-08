@@ -209,8 +209,8 @@ class PConjugateGradient(LinearSolver):
         b : psydac.linalg.basic.Vector
             The right-hand side vector of the liner system. From the same space as the domain/codomain of A.
 
-        pc : psydac.linalg.basic.Vector.LinearSolver
-            The preconditioner that approximates the inverse of A. Must have a "solve" method.
+        pc : psydac.linalg.basic.Vector.LinearOperator
+            The preconditioner that approximates the inverse of A. Must have a dot method.
 
         x0 : psydac.linalg.basic.Vector, optional
             Initial guess for the solution.
@@ -260,7 +260,7 @@ class PConjugateGradient(LinearSolver):
                 x = x0.copy()
 
         # preconditioner (must have a .solve method)
-        assert isinstance(pc, LinearSolver), 'If you do not use a preconditioner, please use the solver "ConjugateGradient" instead of "PConjugateGradient".'
+        assert isinstance(pc, LinearOperator), 'If you do not use a preconditioner, please use the solver "ConjugateGradient" instead of "PConjugateGradient".'
 
         # extract temporary vectors
         v = self._tmps['v']
@@ -275,7 +275,7 @@ class PConjugateGradient(LinearSolver):
         A.dot(x, out=v)
         b.copy(out=r)
         r -= v
-        pc.solve(r, out=p)
+        pc.dot(r, out=p)
         alphap = r.dot(p)
 
         # squared residual norm and squared tolerance
@@ -309,7 +309,7 @@ class PConjugateGradient(LinearSolver):
             r -= lv
 
             # z = PC @ r
-            pc.solve(r, out=z)
+            pc.dot(r, out=z)
 
             # alphap = r.z, p = z + (alphap_new/alphap)*p
             alphap_new = r.dot(z)
@@ -559,8 +559,8 @@ class PBiConjugateGradientStab(LinearSolver):
         b : psydac.linalg.basic.Vector
             The right-hand side vector of the liner system. From the same space as the domain/codomain of A.
 
-        pc : psydac.linalg.basic.Vector.LinearSolver
-            The preconditioner that approximates the inverse of A. Must have a "solve" method.
+        pc : psydac.linalg.basic.Vector.LinearOperator
+            The preconditioner that approximates the inverse of A. Must have a dot method.
 
         x0 : psydac.linalg.basic.Vector, optional
             Initial guess for the solution.
@@ -610,7 +610,7 @@ class PBiConjugateGradientStab(LinearSolver):
                 x = x0.copy()
 
         # preconditioner (must have a .solve method)
-        assert isinstance(pc, LinearSolver)
+        assert isinstance(pc, LinearOperator)
 
         # extract temporary vectors
         v = self._tmps['v']
@@ -634,7 +634,7 @@ class PBiConjugateGradientStab(LinearSolver):
         b.copy(out=r)
         r -= v
 
-        pc.solve(r, out=rp)
+        pc.dot(r, out=rp)
         rp.copy(out=pp)
 
         rhop = rp.dot(rp)
@@ -661,7 +661,7 @@ class PBiConjugateGradientStab(LinearSolver):
 
             # v = A @ pp, vp = PC @ v, alphap = rhop/(vp.rp0)
             A.dot(pp, out=v)
-            pc.solve(v, out=vp)
+            pc.dot(v, out=vp)
             alphap = rhop / vp.dot(rp0)
 
             # s = r - alphap*v, sp = PC @ s
@@ -669,11 +669,11 @@ class PBiConjugateGradientStab(LinearSolver):
             v.copy(out=av)
             av *= alphap
             s -= av
-            pc.solve(s, out=sp)
+            pc.dot(s, out=sp)
 
             # t = A @ sp, tp = PC @ t, omegap = (tp.sp)/(tp.tp)
             A.dot(sp, out=t)
-            pc.solve(t, out=tp)
+            pc.dot(t, out=tp)
             omegap = tp.dot(sp) / tp.dot(tp)
 
             # x = x + alphap*pp + omegap*sp

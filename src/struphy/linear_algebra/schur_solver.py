@@ -76,7 +76,7 @@ class SchurSolver:
 
         # preconditioner
         if pc is not None:
-            assert isinstance(pc, LinearSolver)
+            assert isinstance(pc, LinearOperator)
         self._pc = pc
 
         # stop tolerance, maximum number of iterations and printing

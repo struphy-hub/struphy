@@ -1,7 +1,7 @@
-from psydac.linalg.basic import Vector, LinearSolver
+from psydac.linalg.basic import Vector, LinearSolver, LinearOperator
 from psydac.linalg.direct_solvers import DirectSolver, SparseSolver
 from psydac.linalg.stencil import StencilMatrix, StencilVector, StencilVectorSpace
-from psydac.linalg.block import BlockLinearOperator, BlockDiagonalSolver
+from psydac.linalg.block import BlockLinearOperator, BlockDiagonalSolver, BlockVector
 from psydac.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 
 from psydac.fem.tensor import TensorFemSpace
@@ -14,9 +14,9 @@ from struphy.feec.mass import WeightedMassOperator
 
 from scipy.linalg import solve_circulant
 import numpy as np
+from scipy import sparse
 
-
-class MassMatrixPreconditioner(LinearSolver):
+class MassMatrixPreconditioner(LinearOperator):
     """
     Preconditioner for inverting 3d weighted mass matrices. 
 
@@ -36,9 +36,13 @@ class MassMatrixPreconditioner(LinearSolver):
         assert isinstance(mass_operator, WeightedMassOperator)
         assert mass_operator.domain == mass_operator.codomain, 'Only square mass matrices can be inverted!'
 
+        self._mass_operator = mass_operator
         self._femspace = mass_operator.domain_femspace
         self._space = mass_operator.domain
-
+        self._dtype = mass_operator.dtype
+        self._codomain = mass_operator.codomain
+        self._apply_bc = apply_bc
+        
         # 3d Kronecker stencil matrices and solvers
         solverblocks = []
         matrixblocks = []
@@ -209,6 +213,34 @@ class MassMatrixPreconditioner(LinearSolver):
         """ KroneckerLinearSolver or BlockDiagonalSolver for exactly inverting the approximate mass matrix self.matrix.
         """
         return self._solver
+    
+    @property
+    def domain(self):
+        """ The domain of the linear operator - an element of Vectorspace """
+        return self._space
+
+    @property
+    def codomain(self):
+        """ The codomain of the linear operator - an element of Vectorspace """
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def transpose(self, conjugate=False):
+        """
+        Returns the transposed operator.
+        """
+        return MassMatrixPreconditioner(self._mass_operator.transpose(), self._apply_bc)
+
+
 
     def solve(self, rhs, out=None):
         """
@@ -252,9 +284,29 @@ class MassMatrixPreconditioner(LinearSolver):
             A.dot(x, out=out)
 
         return out
+    
+    def dot(self, v, out=None):
+        """ Apply linear operator to Vector v. Result is written to Vector out, if provided."""
+        
+        assert isinstance(v, Vector)
+        assert v.space == self.domain
+
+        # newly created output vector
+        if out is None:
+            out = self.solve(v)
+
+        # in-place dot-product (result is written to out)
+        else:
+
+            assert isinstance(out, Vector)
+            assert out.space == self.codomain
+            self.solve(v, out= out)
+            
+
+        return out
 
 
-class ProjectorPreconditioner(LinearSolver):
+class ProjectorPreconditioner(LinearOperator):
     """
     Preconditioner for approximately inverting a (polar) 3d inter-/histopolation matrix via
 
@@ -278,7 +330,15 @@ class ProjectorPreconditioner(LinearSolver):
 
         # vector space in tensor product case/polar case
         self._space = projector.I.domain
-
+        
+        self._codomain = projector.I.codomain
+        
+        self._dtype = projector.I.dtype
+        
+        self._projector = projector
+        
+        self._apply_bc = apply_bc
+        
         # save Kronecker solver (needed in solve method)
         self._solver = projector.projector_tensor.solver
 
@@ -315,6 +375,32 @@ class ProjectorPreconditioner(LinearSolver):
         """
         return self._transposed
 
+    @property
+    def domain(self):
+        """ The domain of the linear operator - an element of Vectorspace """
+        return self._space
+
+    @property
+    def codomain(self):
+        """ The codomain of the linear operator - an element of Vectorspace """
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def transpose(self, conjugate=False):
+        """
+        Returns the transposed operator.
+        """
+        return ProjectorPreconditioner(self._projector, True, self._apply_bc)
+    
     def solve(self, rhs, out=None):
         """
         Computes (B * P * I^(-1) * E^T * B^T) * rhs, resp. (B * P * I^(-T) * E^T * B^T) * rhs (transposed=True) as an approximation for an inverse inter-/histopolation matrix.
@@ -355,6 +441,26 @@ class ProjectorPreconditioner(LinearSolver):
             assert isinstance(out, Vector)
             assert out.space == self._space
             A.dot(x, out=out)
+
+        return out
+    
+    def dot(self, v, out=None):
+        """ Apply linear operator to Vector v. Result is written to Vector out, if provided."""
+        
+        assert isinstance(v, Vector)
+        assert v.space == self.domain
+
+        # newly created output vector
+        if out is None:
+            out = self.solve(v)
+
+        # in-place dot-product (result is written to out)
+        else:
+
+            assert isinstance(out, Vector)
+            assert out.space == self.codomain
+            self.solve(v, out= out)
+            
 
         return out
 
