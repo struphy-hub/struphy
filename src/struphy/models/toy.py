@@ -391,7 +391,11 @@ class ShearAlfven(StruphyModel):
 
         # extract necessary parameters
         alfven_solver = params['fluid']['mhd']['options']['solvers']['shear_alfven']
-
+        
+        #Time step needed to initialize preconditioners dependent on the Schur Complement
+        dtaux = params['time']['dt']
+        #Time splitting algorithm
+        split = params['time']['split_algo']
         # project background magnetic field (2-form) and pressure (3-form)
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
                                          self.mhd_equil.b2_2,
@@ -401,6 +405,8 @@ class ShearAlfven(StruphyModel):
         self.add_propagator(self.prop_fields.ShearAlfvén(
             self.pointer['mhd_u2'],
             self.pointer['b2'],
+            dtaux,
+            split,
             **alfven_solver))
 
         # Scalar variables to be saved during simulation

@@ -356,7 +356,7 @@ class ShearAlfvén(Propagator):
         Solver- and/or other parameters for this splitting step.
     '''
 
-    def __init__(self, u, b, **params):
+    def __init__(self, u, b, dtaux, split, **params):
 
         super().__init__(u, b)
 
@@ -386,15 +386,21 @@ class ShearAlfvén(Propagator):
                            self.derham.curl.T, self.mass_ops.M2))
         self._C = Multiply(1/2, Compose(self.derham.curl, _T))
 
+        # instantiate Schur solver (constant in this case)
+        _BC = Compose(self._B, self._C)
+        
         # Preconditioner
         if params['type'][1] is None:
             pc = None
-        else:
+        elif params['type'][1] == "MassMatrixPreconditioner" :
             pc_class = getattr(preconditioner, params['type'][1])
             pc = pc_class(getattr(self.mass_ops, id_M))
-
-        # instantiate Schur solver (constant in this case)
-        _BC = Compose(self._B, self._C)
+        elif params['type'][1] == "JacobiPreconditioner" :
+            pc_class = getattr(preconditioner, params['type'][1])
+            if split == "LieTrotter":
+                pc = pc_class(Sum(_A, Multiply(-dtaux**2, _BC)))
+            elif split == "Strang":
+                pc = pc_class(Sum(_A, Multiply(-(dtaux*0.5)**2, _BC)))
 
         self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'][0],
                                          tol=params['tol'], maxiter=params['maxiter'],
@@ -409,6 +415,7 @@ class ShearAlfvén(Propagator):
 
     def __call__(self, dt):
 
+        print("dt = "+ str(dt))
         # current variables
         un = self.feec_vars[0]
         bn = self.feec_vars[1]

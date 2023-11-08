@@ -306,6 +306,200 @@ class MassMatrixPreconditioner(LinearOperator):
         return out
 
 
+class JacobiPreconditioner(LinearOperator):
+    """
+    Preconditioner for inverting the diagonal part of the system matrix A. 
+
+    Parameters
+    ----------
+    A : psydac.linalg.basic.LinearOperator
+        The linear system's matrix whose diagonal part shall be inverted.
+
+    apply_bc : bool
+        Whether to include boundary operators.
+    """
+
+    def __init__(self, A, apply_bc=True):
+
+        assert isinstance(A, LinearOperator)
+        assert A.domain == A.codomain, 'Only square mass matrices can be inverted!'
+
+        self._A = A
+        self._space = A.domain
+        self._dtype = A.dtype
+        self._codomain = A.codomain
+        self._apply_bc = apply_bc
+        
+        #We are gonna extract the diagonal elements of A and invert them
+        #for that we use a modified version of the tosparse_struphy method of linear operators
+        
+        # v will be the unit vector with which we compute Av = ith column of A.
+        v = A.domain.zeros()
+
+        # For the time being only works in 1 processor
+        if isinstance(v, BlockVector):
+            comm = A.domain.spaces[0].cart.comm
+        elif isinstance(v, StencilVector):
+            comm = A.domain.cart.comm
+        assert comm.size == 1
+
+        #We define a list to store the non-zero data, a list to sotre the row index of said data and a list to store the column index.
+        data = []
+        row = []
+        col = []
+        
+        # This auxiliary counter allows us to know which column of A we are computing in the following for loops.
+        cont = 0
+
+        # We define a temporal vector
+        tmp2 = A.codomain.zeros()
+        # We define the 1D numpy array version of this vector
+        aux = tmp2.toarray()
+        #We define the number of rows for our matrix
+        numrows = len(aux)
+
+        # V is either a BlockVector or a StencilVector depending on the domain of the linear operator.
+        if isinstance(v, BlockVector):
+            # we collect all starts and ends in two big lists
+            starts = [vi.starts for vi in v]
+            ends = [vi.ends for vi in v]
+
+            # We iterate over each entry of the block vector v, setting one entry to one at the time while all others remain zero.
+            for vv, ss, ee in zip(v, starts, ends):
+                for i in range(ss[0], ee[0]+1):
+                    for j in range(ss[1], ee[1]+1):
+                        for k in range(ss[2], ee[2]+1):
+                            vv[i, j, k] = 1.0
+                            # Compute dot product with the linear operator
+                            A.dot(v, out=tmp2)
+                            aux = tmp2.toarray()
+                            # We now check the values of the diagonal element and take its reciprocal
+                            if(aux[cont] != 0):
+                                data.append(1/aux[cont])
+                            else:
+                                data.append(1000000.0)
+                            col.append(cont)
+                            row.append(cont) 
+                            vv[i, j, k] = 0.0
+                            cont += 1
+        elif isinstance(v, StencilVector):
+            # We get the start and endpoint for each sublist in v
+            starts = v.starts
+            ends = v.ends
+            # We iterate over each entry of the stencil vector v, setting one entry to one at the time while all others remain zero.
+            for i in range(starts[0], ends[0]+1):
+                for j in range(starts[1], ends[1]+1):
+                    for k in range(starts[2], ends[2]+1):
+                        v[i, j, k] = 1.0
+                        # Compute dot product with the linear operator.
+                        A.dot(v, out=tmp2)
+                        aux = tmp2.toarray()
+                        # We now check the values of the diagonal element and take its reciprocal
+                        if(aux[cont] != 0):
+                            data.append(1/aux[cont])
+                        else:
+                            data.append(1000000.0)
+                        col.append(cont)
+                        row.append(cont) 
+                        v[i, j, k] = 0.0
+                        cont += 1
+        else:
+            # I cannot conceive any situation where this error should be thrown, but I put it here just in case something unexpected happens.
+            raise Exception(
+                'Function toarray_struphy() only supports Stencil Vectors or Block Vectors.')
+        
+        self._J = sparse.csr_matrix((data, (row, col)), shape=(numrows, cont))
+        
+
+    @property
+    def space(self):
+        """ Stencil-/BlockVectorSpace or PolarDerhamSpace.
+        """
+        return self._space
+
+    @property
+    def matrix(self):
+        """ Jacobi preconditioner matrix. Returned as a sparse matrix in csr format
+        """
+        return self._J
+    
+    @property
+    def domain(self):
+        """ The domain of the linear operator - an element of Vectorspace """
+        return self._space
+
+    @property
+    def codomain(self):
+        """ The codomain of the linear operator - an element of Vectorspace """
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def transpose(self, conjugate=False):
+        """
+        Returns the transposed operator.
+        """
+        return JacobiPreconditioner(self._A, self._apply_bc)
+    
+    def dot(self, v, out=None):
+        """ Apply preconditioner to Vector v. Result is written to Vector out, if provided."""
+        
+        assert isinstance(v, Vector)
+        assert v.space == self.domain
+
+        
+        if isinstance(v, BlockVector):
+            aux = self._J.dot(v.toarray())
+            # newly created output vector
+            if out is None:
+                out = self.codomain.zeros()   
+            # in-place dot-product (result is written to out)
+            else:
+                assert isinstance(out, BlockVector)
+                assert out.space == self.codomain
+            # we collect all starts and ends in two big lists
+            starts = [vi.starts for vi in out]
+            ends = [vi.ends for vi in out]
+
+            cont = 0
+            # We iterate over each entry of the block vector out, to fill it with the information stored in aux.
+            for vv, ss, ee in zip(out, starts, ends):
+                for i in range(ss[0], ee[0]+1):
+                    for j in range(ss[1], ee[1]+1):
+                        for k in range(ss[2], ee[2]+1):
+                            vv[i, j, k] = aux[cont]
+                            cont += 1        
+        elif isinstance(v, StencilVector):
+            
+            aux = self._J.dot(v.toarray())
+            # newly created output vector
+            if out is None:
+                out = self.codomain.zeros()
+            else:
+                assert isinstance(out, StencilVector)
+                assert out.space == self.codomain
+            # We get the start and endpoint for each sublist in v
+            starts = out.starts
+            ends = out.ends
+            cont = 0
+            # We iterate over each entry of the stencil vector v, setting one entry to one at the time while all others remain zero.
+            for i in range(starts[0], ends[0]+1):
+                for j in range(starts[1], ends[1]+1):
+                    for k in range(starts[2], ends[2]+1):
+                        out[i, j, k] = aux[cont]
+                        cont += 1
+        
+        return out
+
+
 class ProjectorPreconditioner(LinearOperator):
     """
     Preconditioner for approximately inverting a (polar) 3d inter-/histopolation matrix via
