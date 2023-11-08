@@ -363,7 +363,9 @@ class JacobiPreconditioner(LinearOperator):
             # we collect all starts and ends in two big lists
             starts = [vi.starts for vi in v]
             ends = [vi.ends for vi in v]
-
+            
+            #This auxiliar variable allow us to know in which of the three StencilSectors inside the BlockVector we currently are
+            aux=0
             # We iterate over each entry of the block vector v, setting one entry to one at the time while all others remain zero.
             for vv, ss, ee in zip(v, starts, ends):
                 for i in range(ss[0], ee[0]+1):
@@ -372,16 +374,16 @@ class JacobiPreconditioner(LinearOperator):
                             vv[i, j, k] = 1.0
                             # Compute dot product with the linear operator
                             A.dot(v, out=tmp2)
-                            aux = tmp2.toarray()
-                            # We now check the values of the diagonal element and take its reciprocal
-                            if(aux[cont] != 0):
-                                data.append(1/aux[cont])
+                            #We now check the values of the diagonal element and take its reciprocal
+                            if(tmp2[aux][i,j,k] != 0):
+                                data.append(1/tmp2[aux][i,j,k])
                             else:
                                 data.append(1000000.0)
                             col.append(cont)
                             row.append(cont) 
                             vv[i, j, k] = 0.0
                             cont += 1
+                aux +=1
         elif isinstance(v, StencilVector):
             # We get the start and endpoint for each sublist in v
             starts = v.starts
@@ -393,10 +395,9 @@ class JacobiPreconditioner(LinearOperator):
                         v[i, j, k] = 1.0
                         # Compute dot product with the linear operator.
                         A.dot(v, out=tmp2)
-                        aux = tmp2.toarray()
-                        # We now check the values of the diagonal element and take its reciprocal
-                        if(aux[cont] != 0):
-                            data.append(1/aux[cont])
+                        #We now check the values of the diagonal element and take its reciprocal
+                        if(tmp2[i,j,k] != 0):
+                            data.append(1/tmp2[i,j,k])
                         else:
                             data.append(1000000.0)
                         col.append(cont)
