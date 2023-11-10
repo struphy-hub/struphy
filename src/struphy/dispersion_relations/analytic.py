@@ -217,7 +217,7 @@ class ExtendedMhd1D(DispersionRelations1D):
         Zb = self.params['Z']
 
         omega_ch = (Zb*ee*Bu)/(Ab*mH)
-        kappa = omega_ch*tu/(2.0 * np.pi)
+        kappa = omega_ch*tu
 
         if abs(kappa - 1) < 1e-6:
             kappa = 1.

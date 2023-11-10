@@ -44,9 +44,9 @@ class LinOpWithTransp(LinearOperator):
         v = self.domain.zeros()
 
         # For the time being only works in 1 processor
-        if isinstance(v, BlockVector):
+        if isinstance(self.domain, BlockVectorSpace):
             comm = self.domain.spaces[0].cart.comm
-        elif isinstance(v, StencilVector):
+        elif isinstance(self.domain, StencilVectorSpace):
             comm = self.domain.cart.comm
         assert comm.size == 1
 
@@ -65,7 +65,7 @@ class LinOpWithTransp(LinearOperator):
         tmp2 = self.codomain.zeros()
 
         # V is either a BlockVector or a StencilVector depending on the domain of the linear operator.
-        if isinstance(v, BlockVector):
+        if isinstance(self.domain, BlockVectorSpace):
             # we collect all starts and ends in two big lists
             starts = [vi.starts for vi in v]
             ends = [vi.ends for vi in v]
@@ -83,7 +83,7 @@ class LinOpWithTransp(LinearOperator):
                             out[:, cont] = tmp2.copy().toarray()
                             vv[i, j, k] = 0.0
                             cont += 1
-        elif isinstance(v, StencilVector):
+        elif isinstance(self.domain, StencilVectorSpace):
             # We get the start and endpoint for each sublist in v
             starts = v.starts
             ends = v.ends
