@@ -1,6 +1,4 @@
 # coding: utf-8
-#
-# Copyright 2020 Florian Holderied
 
 """
 Basic functions for point-wise B-spline evaluation
@@ -655,9 +653,32 @@ def b_spl_1st_der_slim(t: 'float[:]', p: 'int', eta: 'float', span: 'int', value
     values[p] = saved
 
 
+@pure
 def piecewise(p: 'int', delta: 'float', eta: 'float') -> 'float':
-    # definition of B-splines defined piecewisely
-    # eta is eta_j - eta_k
+    r"""
+    evaluate a hat function (B-spline) centered at eta0 (the center of the support) at eta1, i.e. 
+    
+    .. math::
+        1.0 / delta * S((eta1 - eta0)/ delta)
+
+    where S is the B-spline of degree p, delta is the cell size of a uniform mesh.
+    Here we use the expression of the B-spline in each cell directly. For the moment, p = 0, 1, or 2.
+
+    Parameters
+    ----------
+    p : int
+        degree of the hat function (B-spline)
+
+    delta : float
+        the cell size of a uniform mesh.
+
+    eta : float
+        eta = eta1 - eta0
+
+    Returns:
+    --------
+        value of the hat function
+    """
     if abs(eta) > delta * (p+1)*0.5:
         return 0.0
     else:
@@ -676,12 +697,34 @@ def piecewise(p: 'int', delta: 'float', eta: 'float') -> 'float':
                 temp = eta/delta + 1.5
                 return 0.5*(-3.0 + 6.0 * temp - 2 * temp**2.0)
         else:
-            print('higher degree B-splines has not been implemented')
+            return -1.0
 
 
+@pure
 def piecewise_der(p: 'int', delta: 'float', eta: 'float') -> 'float':
-    # definition of B-splines defined piecewisely
-    # eta is eta_j - eta_k
+    r"""
+    evaluate the derivative of a hat function (B-spline) centered at eta0 (the center of the support) at eta1, i.e. 
+    .. math::
+        1.0 / delta^2 * S'((eta1 - eta0)/ delta)
+
+    where S is the B-spline of degree p, delta is the cell size of a uniform mesh.
+    Here we use the expression of the derivative of the B-spline in each cell directly. For the moment, p = 0, 1, or 2.
+
+    Parameters
+    ----------
+    p : int
+        degree of the hat function (B-spline)
+
+    delta : float
+        the cell size of a uniform mesh.
+
+    eta : float
+        eta = eta1 - eta0
+
+    Returns:
+    --------
+        value of the derivative of the hat function
+    """
     if abs(eta) > delta * (p+1)*0.5:
         return 0.0
     else:
@@ -703,15 +746,36 @@ def piecewise_der(p: 'int', delta: 'float', eta: 'float') -> 'float':
                 temp = eta / delta + 1.5
                 return 0.5 * (6.0 - 4.0 * temp) / delta
         else:
-            print('higher degree B-splines has not been implemented')
+            return -1.0
 
 
 @pure
 @stack_array('values_stored', 'values_temp', 'w')
 def convolution(p: 'int', grids: 'float[:]', eta: 'float') -> 'float':
-    # convolution is the function which could give us the B-spline values at evaluatioin point eta
-    # p is the degree of the shape function
-    # 'grids' is the knots in the support of shape function centered at particle position
+    r"""
+    evaluate a hat function (B-spline) at eta, i.e. 
+    
+    .. math::
+        1.0 / delta * S(eta/ delta)
+
+    where S is the B-spline of degree p.
+    Here we use the definition by convolution of the B-splines.
+
+    Parameters
+    ----------
+    p : int
+        degree of the hat function (B-spline)
+
+    grids : float array
+        p + 2 points used in the definition of B-splines.
+
+    eta : float
+        evluation point
+
+    Returns:
+    --------
+        value of the hat function at eta
+    """
     if eta < grids[p+1] and eta >= grids[0]:
         value_stored = zeros(p + 1, dtype=float)
         value_temp = zeros(p + 1, dtype=float)
@@ -743,9 +807,30 @@ def convolution(p: 'int', grids: 'float[:]', eta: 'float') -> 'float':
 @pure
 @stack_array('values_stored', 'values_temp', 'w')
 def convolution_der(p: 'int', grids: 'float[:]', eta: 'float') -> 'float':
-    # convolution is the function which could give us the B-spline values at evaluatioin point eta
-    # p is the degree of the shape function
-    # 'grids' is the knots in the support of shape function centered at particle position, length is p + 1
+    r"""
+    evaluate the derivative of a hat function (B-spline) at eta, i.e. 
+    
+    .. math::
+        1.0 / delta^2 * S'(eta/ delta)
+
+    where S is the B-spline of degree p.
+    Here we use the definition by convolution of the B-splines.
+
+    Parameters
+    ----------
+    p : int
+        degree of the hat function (B-spline)
+
+    grids : float array
+        p + 2 points used in the definition of B-splines.
+
+    eta : float
+        evluation point
+
+    Returns:
+    --------
+        value of the derivative of the hat function at eta
+    """
     if eta < grids[p+1] and eta >= grids[0]:
         value_stored = zeros(p + 1, dtype=float)
         value_temp = zeros(p + 1, dtype=float)

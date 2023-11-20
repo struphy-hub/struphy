@@ -17,10 +17,10 @@ The use of a :ref:`virtualenv` and :ref:`args` is recommended.
 Requirements
 ------------
 
-The basic requirements are **Python3**, a **Fortran compiler** and a **working MPI environment**.
+The basic requirements are **Python3**, a **C or Fortran compiler** and a **working MPI environment**.
 
 - Python >3.7 and <3.12 and pip3
-- A Fortran compiler like gfortran, gcc
+- C or Fortran compiler like gcc, gfortran
 - Linear algebra packages BLAS and LAPACK
 - An MPI library like open-mpi, mpich
 - OpenMP
@@ -122,6 +122,9 @@ Compile kernels::
 
     struphy compile
 
+The default language compiled is ``c``. You can compile in Fortran via ``struphy compile --language=fortran``.
+Other compile roptions can be accessed with ``struphy compile -h``.
+
 
 .. _source_install:
 
@@ -143,6 +146,9 @@ where ``<option>`` is either empty (Python environment installation), ``--user``
 Compile kernels::
 
     struphy compile
+
+The default language compiled is ``c``. You can compile in Fortran via ``struphy compile --language=fortran``.
+Other compile roptions can be accessed with ``struphy compile -h``.
 
 
 .. _args:

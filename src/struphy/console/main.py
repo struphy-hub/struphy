@@ -195,12 +195,28 @@ def struphy():
                                            help='compile computational kernels, install psydac (on first call only)',
                                            description='Compile Struphy kernels using pyccel, https://github.com/pyccel/pyccel.')
 
-    parser_compile.add_argument('--no-openmp',
-                                help='compile without OpenMP',
+    parser_compile.add_argument('--language',
+                                type=str,
+                                metavar='LANGUAGE',
+                                help='either "c" (default) or "fortran"',
+                                default='c')
+    
+    parser_compile.add_argument('--compiler',
+                                type=str,
+                                metavar='COMPILER',
+                                help='either "GNU" (default), "intel", "PGI", "nvidia" or the path to a JSON compiler file.',
+                                default='GNU')
+
+    parser_compile.add_argument('--omp-pic',
+                                help='compile PIC kernels with OpenMP',
+                                action='store_true')
+    
+    parser_compile.add_argument('--omp-feec',
+                                help='compile FEEC kernels with OpenMP',
                                 action='store_true')
 
     parser_compile.add_argument('-d', '--delete',
-                                help='remove .f90 and .so files (for running pure Python code)',
+                                help='remove .f90/.c and .so files (for running pure Python code)',
                                 action='store_true')
 
     parser_compile.add_argument('-v', '--verbose',

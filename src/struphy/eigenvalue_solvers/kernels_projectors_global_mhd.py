@@ -1,5 +1,6 @@
 from numpy import shape
 
+from psydac.core.arrays import max_vec_int
 
 # ===========================================================================================================
 #                                                   1d
@@ -164,8 +165,7 @@ def rhs12_2d(row1 : 'int[:]', row2 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]',
             col[i]   = n2j*col1[i1] + col2[i2]      
 
 
-
-            
+          
 # =============================================================================
 def rhs2_2d(row1 : 'int[:]', row2 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', subs1 : 'int[:]', subs2 : 'int[:]', subs_cum1 : 'int[:]', subs_cum2 : 'int[:]', wts1 : 'float[:,:]', wts2 : 'float[:,:]', bsp1 : 'float[:,:,:]', bsp2 : 'float[:,:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'float[:,:,:,:]', rhs : 'float[:]', row : 'int[:]', col : 'int[:]'):
     
@@ -206,12 +206,12 @@ def rhs2_2d(row1 : 'int[:]', row2 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', 
             col[i] = n2j*col1[i1] + col2[i2]
             
             
-                
+    
 # =============================================================================                
 def rhs0_f_2d(indices1 : 'int[:,:]', indices2 : 'int[:,:]', bsp11 : 'float[:,:]', bsp12 : 'float[:,:]', bsp21 : 'float[:,:]', bsp22 : 'float[:,:]', mat_eq : 'float[:,:]', f : 'complex[:,:]', rhs : 'complex[:]', row : 'int[:]', col : 'int[:]'):  
     
-    nv1 = indices1[3].max() + 1
-    nv2 = indices2[3].max() + 1
+    nv1 = max_vec_int(indices1[3]) + 1
+    nv2 = max_vec_int(indices2[3]) + 1
     
     n1i = shape(bsp11)[1]
     n2i = shape(bsp21)[1]
@@ -240,8 +240,8 @@ def rhs11_f_2d(indices1 : 'int[:,:]', indices2 : 'int[:,:]', subs1 : 'int[:]', s
         
     nq1 = shape(wts1)[1]
     
-    nv1 = indices1[3].max() + 1
-    nv2 = indices2[3].max() + 1
+    nv1 = max_vec_int(indices1[3]) + 1
+    nv2 = max_vec_int(indices2[3]) + 1
     
     n1i = shape(bsp11)[2]
     n2i = shape(bsp21)[1]
@@ -275,8 +275,8 @@ def rhs12_f_2d(indices1 : 'int[:,:]', indices2 : 'int[:,:]', subs2 : 'int[:]', s
         
     nq2 = shape(wts2)[1]
     
-    nv1 = indices1[3].max() + 1
-    nv2 = indices2[3].max() + 1
+    nv1 = max_vec_int(indices1[3]) + 1
+    nv2 = max_vec_int(indices2[3]) + 1
     
     n1i = shape(bsp11)[1]
     n2i = shape(bsp21)[2]
@@ -666,9 +666,9 @@ def rhs11_f(indices1 : 'int[:,:]', indices2 : 'int[:,:]', indices3 : 'int[:,:]',
         
     nq1 = shape(wts1)[1]
     
-    nv1 = indices1[3].max() + 1
-    nv2 = indices2[3].max() + 1
-    nv3 = indices3[3].max() + 1
+    nv1 = max_vec_int(indices1[3]) + 1
+    nv2 = max_vec_int(indices2[3]) + 1
+    nv3 = max_vec_int(indices3[3]) + 1
     
     n1i = shape(bsp11)[2]
     n2i = shape(bsp21)[1]
@@ -706,9 +706,9 @@ def rhs12_f(indices1 : 'int[:,:]', indices2 : 'int[:,:]', indices3 : 'int[:,:]',
         
     nq2 = shape(wts2)[1]
     
-    nv1 = indices1[3].max() + 1
-    nv2 = indices2[3].max() + 1
-    nv3 = indices3[3].max() + 1
+    nv1 = max_vec_int(indices1[3]) + 1
+    nv2 = max_vec_int(indices2[3]) + 1
+    nv3 = max_vec_int(indices3[3]) + 1
     
     n1i = shape(bsp11)[1]
     n2i = shape(bsp21)[2]
@@ -746,9 +746,9 @@ def rhs13_f(indices1 : 'int[:,:]', indices2 : 'int[:,:]', indices3 : 'int[:,:]',
         
     nq3 = shape(wts3)[1]
     
-    nv1 = indices1[3].max() + 1
-    nv2 = indices2[3].max() + 1
-    nv3 = indices3[3].max() + 1
+    nv1 = max_vec_int(indices1[3]) + 1
+    nv2 = max_vec_int(indices2[3]) + 1
+    nv3 = max_vec_int(indices3[3]) + 1
     
     n1i = shape(bsp11)[1]
     n2i = shape(bsp21)[1]

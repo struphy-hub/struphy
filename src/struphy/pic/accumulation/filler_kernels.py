@@ -12,7 +12,7 @@ __all__ = [ 'fill_mat',
 """
 
 from pyccel.decorators import pure
-import struphy.b_splines.bsplines_kernels_particles as bsp
+import struphy.b_splines.bsplines_kernels as bsp
 
 
 @pure

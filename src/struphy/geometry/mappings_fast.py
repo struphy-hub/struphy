@@ -9,7 +9,7 @@ import struphy.b_splines.bspline_evaluation_2d as eva_2d
 import struphy.b_splines.bspline_evaluation_3d as eva_3d
 
 
-@stack_array('b1', 'b2', 'b3')
+@stack_array('b1', 'b2', 'b3', 'tmp1', 'tmp2', 'tmp3')
 def spline_3d(eta1: float, eta2: float, eta3: float,
               t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p: 'int[:]',
               ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]',
@@ -50,25 +50,29 @@ def spline_3d(eta1: float, eta2: float, eta3: float,
     """
 
     # mapping spans
-    span1 = bsp.find_span(t1, p[0], eta1)
-    span2 = bsp.find_span(t2, p[1], eta2)
-    span3 = bsp.find_span(t3, p[2], eta3)
+    span1 = bsp.find_span(t1, int(p[0]), eta1)
+    span2 = bsp.find_span(t2, int(p[1]), eta2)
+    span3 = bsp.find_span(t3, int(p[2]), eta3)
 
     # p + 1 non-zero mapping splines
-    b1 = zeros(p[0] + 1, dtype=float)
-    b2 = zeros(p[1] + 1, dtype=float)
-    b3 = zeros(p[2] + 1, dtype=float)
+    b1 = zeros(int(p[0]) + 1, dtype=float)
+    b2 = zeros(int(p[1]) + 1, dtype=float)
+    b3 = zeros(int(p[2]) + 1, dtype=float)
 
-    bsp.b_splines_slim(t1, p[0], eta1, span1, b1)
-    bsp.b_splines_slim(t2, p[1], eta2, span2, b2)
-    bsp.b_splines_slim(t3, p[2], eta3, span3, b3)
+    bsp.b_splines_slim(t1, int(p[0]), eta1, span1, b1)
+    bsp.b_splines_slim(t2, int(p[1]), eta2, span2, b2)
+    bsp.b_splines_slim(t3, int(p[2]), eta3, span3, b3)
 
     # Evaluate spline mapping
-    f_out[0] = eva_3d.evaluation_kernel_3d(p[0], p[1], p[2], b1, b2, b3, ind1[span1 - p[0], :], ind2[span2 - p[1], :], ind3[span3 - p[2], :], cx)
-    f_out[1] = eva_3d.evaluation_kernel_3d(p[0], p[1], p[2], b1, b2, b3, ind1[span1 - p[0], :], ind2[span2 - p[1], :], ind3[span3 - p[2], :], cy)
-    f_out[2] = eva_3d.evaluation_kernel_3d(p[0], p[1], p[2], b1, b2, b3, ind1[span1 - p[0], :], ind2[span2 - p[1], :], ind3[span3 - p[2], :], cz)
+    tmp1 = ind1[span1 - int(p[0]), :]
+    tmp2 = ind2[span2 - int(p[1]), :]
+    tmp3 = ind3[span3 - int(p[2]), :]
+    
+    f_out[0] = eva_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, cx)
+    f_out[1] = eva_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, cy)
+    f_out[2] = eva_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, cz)
 
-@stack_array('b1', 'b2', 'b3', 'der1', 'der2', 'der3')
+@stack_array('b1', 'b2', 'b3', 'der1', 'der2', 'der3', 'tmp1', 'tmp2', 'tmp3')
 def spline_3d_df(eta1: float, eta2: float, eta3: float,
                  t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p: 'int[:]',
                  ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]',
@@ -79,35 +83,39 @@ def spline_3d_df(eta1: float, eta2: float, eta3: float,
     """
 
     # mapping spans
-    span1 = bsp.find_span(t1, p[0], eta1)
-    span2 = bsp.find_span(t2, p[1], eta2)
-    span3 = bsp.find_span(t3, p[2], eta3)
+    span1 = bsp.find_span(t1, int(p[0]), eta1)
+    span2 = bsp.find_span(t2, int(p[1]), eta2)
+    span3 = bsp.find_span(t3, int(p[2]), eta3)
 
     # non-zero splines of mapping, and derivatives
-    b1 = zeros(p[0] + 1, dtype=float)
-    b2 = zeros(p[1] + 1, dtype=float)
-    b3 = zeros(p[2] + 1, dtype=float)
+    b1 = zeros(int(p[0]) + 1, dtype=float)
+    b2 = zeros(int(p[1]) + 1, dtype=float)
+    b3 = zeros(int(p[2]) + 1, dtype=float)
 
-    der1 = zeros(p[0] + 1, dtype=float)
-    der2 = zeros(p[1] + 1, dtype=float)
-    der3 = zeros(p[2] + 1, dtype=float)
+    der1 = zeros(int(p[0]) + 1, dtype=float)
+    der2 = zeros(int(p[1]) + 1, dtype=float)
+    der3 = zeros(int(p[2]) + 1, dtype=float)
 
-    bsp.b_der_splines_slim(t1, p[0], eta1, span1, b1, der1)
-    bsp.b_der_splines_slim(t2, p[1], eta2, span2, b2, der2)
-    bsp.b_der_splines_slim(t3, p[2], eta3, span3, b3, der3)
+    bsp.b_der_splines_slim(t1, int(p[0]), eta1, span1, b1, der1)
+    bsp.b_der_splines_slim(t2, int(p[1]), eta2, span2, b2, der2)
+    bsp.b_der_splines_slim(t3, int(p[2]), eta3, span3, b3, der3)
 
     # Evaluation of Jacobian
-    df_out[0, 0] = eva_3d.evaluation_kernel_3d(p[0], p[1], p[2], der1, b2, b3, ind1[span1 - p[0], :], ind2[span2 - p[1], :], ind3[span3 - p[2], :], cx)
-    df_out[0, 1] = eva_3d.evaluation_kernel_3d(p[0], p[1], p[2], b1, der2, b3, ind1[span1 - p[0], :], ind2[span2 - p[1], :], ind3[span3 - p[2], :], cx)
-    df_out[0, 2] = eva_3d.evaluation_kernel_3d(p[0], p[1], p[2], b1, b2, der3, ind1[span1 - p[0], :], ind2[span2 - p[1], :], ind3[span3 - p[2], :], cx)
-    df_out[1, 0] = eva_3d.evaluation_kernel_3d(p[0], p[1], p[2], der1, b2, b3, ind1[span1 - p[0], :], ind2[span2 - p[1], :], ind3[span3 - p[2], :], cy)
-    df_out[1, 1] = eva_3d.evaluation_kernel_3d(p[0], p[1], p[2], b1, der2, b3, ind1[span1 - p[0], :], ind2[span2 - p[1], :], ind3[span3 - p[2], :], cy)
-    df_out[1, 2] = eva_3d.evaluation_kernel_3d(p[0], p[1], p[2], b1, b2, der3, ind1[span1 - p[0], :], ind2[span2 - p[1], :], ind3[span3 - p[2], :], cy)
-    df_out[2, 0] = eva_3d.evaluation_kernel_3d(p[0], p[1], p[2], der1, b2, b3, ind1[span1 - p[0], :], ind2[span2 - p[1], :], ind3[span3 - p[2], :], cz)
-    df_out[2, 1] = eva_3d.evaluation_kernel_3d(p[0], p[1], p[2], b1, der2, b3, ind1[span1 - p[0], :], ind2[span2 - p[1], :], ind3[span3 - p[2], :], cz)
-    df_out[2, 2] = eva_3d.evaluation_kernel_3d(p[0], p[1], p[2], b1, b2, der3, ind1[span1 - p[0], :], ind2[span2 - p[1], :], ind3[span3 - p[2], :], cz)
+    tmp1 = ind1[span1 - int(p[0]), :]
+    tmp2 = ind2[span2 - int(p[1]), :]
+    tmp3 = ind3[span3 - int(p[2]), :]
+    
+    df_out[0, 0] = eva_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, cx)
+    df_out[0, 1] = eva_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, cx)
+    df_out[0, 2] = eva_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, cx)
+    df_out[1, 0] = eva_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, cy)
+    df_out[1, 1] = eva_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, cy)
+    df_out[1, 2] = eva_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, cy)
+    df_out[2, 0] = eva_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, cz)
+    df_out[2, 1] = eva_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, cz)
+    df_out[2, 2] = eva_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, cz)
 
-@stack_array('b1', 'b2')
+@stack_array('b1', 'b2', 'tmp1', 'tmp2')
 def spline_2d_straight(eta1: float, eta2: float, eta3: float,
                        t1: 'float[:]', t2: 'float[:]', p: 'int[:]',
                        ind1: 'int[:,:]', ind2: 'int[:,:]',
@@ -154,19 +162,22 @@ def spline_2d_straight(eta1: float, eta2: float, eta3: float,
     """
 
     # mapping spans
-    span1 = bsp.find_span(t1, p[0], eta1)
-    span2 = bsp.find_span(t2, p[1], eta2)
+    span1 = bsp.find_span(t1, int(p[0]), eta1)
+    span2 = bsp.find_span(t2, int(p[1]), eta2)
 
     # p + 1 non-zero mapping splines
-    b1 = zeros(p[0] + 1, dtype=float)
-    b2 = zeros(p[1] + 1, dtype=float)
+    b1 = zeros(int(p[0]) + 1, dtype=float)
+    b2 = zeros(int(p[1]) + 1, dtype=float)
 
-    bsp.b_splines_slim(t1, p[0], eta1, span1, b1)
-    bsp.b_splines_slim(t2, p[1], eta2, span2, b2)
+    bsp.b_splines_slim(t1, int(p[0]), eta1, span1, b1)
+    bsp.b_splines_slim(t2, int(p[1]), eta2, span2, b2)
 
     # Evaluate mapping
-    f_out[0] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx)
-    f_out[1] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cy)
+    tmp1 = ind1[span1 - int(p[0]), :]
+    tmp2 = ind2[span2 - int(p[1]), :]
+    
+    f_out[0] = eva_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, b2, tmp1, tmp2, cx)
+    f_out[1] = eva_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, b2, tmp1, tmp2, cy)
     f_out[2] = lz * eta3
 
     # TODO: explanation
@@ -176,7 +187,7 @@ def spline_2d_straight(eta1: float, eta2: float, eta3: float,
     if eta1 == 0. and cy[0, 0] == cy[0, 1]:
         f_out[1] = cy[0, 0]
 
-@stack_array('b1', 'b2', 'der1', 'der2')
+@stack_array('b1', 'b2', 'der1', 'der2', 'tmp1', 'tmp2')
 def spline_2d_straight_df(eta1: float, eta2: float,
                           t1: 'float[:]', t2: 'float[:]', p: 'int[:]',
                           ind1: 'int[:,:]', ind2: 'int[:,:]',
@@ -188,25 +199,28 @@ def spline_2d_straight_df(eta1: float, eta2: float,
     """
 
     # mapping spans
-    span1 = bsp.find_span(t1, p[0], eta1)
-    span2 = bsp.find_span(t2, p[1], eta2)
+    span1 = bsp.find_span(t1, int(p[0]), eta1)
+    span2 = bsp.find_span(t2, int(p[1]), eta2)
 
     # non-zero splines of mapping, and derivatives
-    b1 = zeros(p[0] + 1, dtype=float)
-    b2 = zeros(p[1] + 1, dtype=float)
+    b1 = zeros(int(p[0]) + 1, dtype=float)
+    b2 = zeros(int(p[1]) + 1, dtype=float)
 
-    der1 = zeros(p[0] + 1, dtype=float)
-    der2 = zeros(p[1] + 1, dtype=float)
+    der1 = zeros(int(p[0]) + 1, dtype=float)
+    der2 = zeros(int(p[1]) + 1, dtype=float)
 
-    bsp.b_der_splines_slim(t1, p[0], eta1, span1, b1, der1)
-    bsp.b_der_splines_slim(t2, p[1], eta2, span2, b2, der2)
+    bsp.b_der_splines_slim(t1, int(p[0]), eta1, span1, b1, der1)
+    bsp.b_der_splines_slim(t2, int(p[1]), eta2, span2, b2, der2)
 
     # Evaluation of Jacobian
-    df_out[0, 0] = eva_2d.evaluation_kernel_2d(p[0], p[1], der1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx)
-    df_out[0, 1] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, der2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx)
+    tmp1 = ind1[span1 - int(p[0]), :]
+    tmp2 = ind2[span2 - int(p[1]), :]
+    
+    df_out[0, 0] = eva_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), der1, b2, tmp1, tmp2, cx)
+    df_out[0, 1] = eva_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, der2, tmp1, tmp2, cx)
     df_out[0, 2] = 0.
-    df_out[1, 0] = eva_2d.evaluation_kernel_2d(p[0], p[1], der1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cy)
-    df_out[1, 1] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, der2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cy)
+    df_out[1, 0] = eva_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), der1, b2, tmp1, tmp2, cy)
+    df_out[1, 1] = eva_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, der2, tmp1, tmp2, cy)
     df_out[1, 2] = 0.
     df_out[2, 0] = 0.
     df_out[2, 1] = 0.
@@ -219,7 +233,7 @@ def spline_2d_straight_df(eta1: float, eta2: float,
     if eta1 == 0. and cy[0, 0] == cy[0, 1]:
         df_out[1, 1] = 0.
 
-@stack_array('b1', 'b2')
+@stack_array('b1', 'b2', 'tmp1', 'tmp2')
 def spline_2d_torus(eta1: float, eta2: float, eta3: float,
                     t1: 'float[:]', t2: 'float[:]', p: 'int[:]',
                     ind1: 'int[:,:]', ind2: 'int[:,:]',
@@ -270,20 +284,23 @@ def spline_2d_torus(eta1: float, eta2: float, eta3: float,
     """
 
     # mapping spans
-    span1 = bsp.find_span(t1, p[0], eta1)
-    span2 = bsp.find_span(t2, p[1], eta2)
+    span1 = bsp.find_span(t1, int(p[0]), eta1)
+    span2 = bsp.find_span(t2, int(p[1]), eta2)
 
     # p + 1 non-zero mapping splines
-    b1 = zeros(p[0] + 1, dtype=float)
-    b2 = zeros(p[1] + 1, dtype=float)
+    b1 = zeros(int(p[0]) + 1, dtype=float)
+    b2 = zeros(int(p[1]) + 1, dtype=float)
 
-    bsp.b_splines_slim(t1, p[0], eta1, span1, b1)
-    bsp.b_splines_slim(t2, p[1], eta2, span2, b2)
+    bsp.b_splines_slim(t1, int(p[0]), eta1, span1, b1)
+    bsp.b_splines_slim(t2, int(p[1]), eta2, span2, b2)
 
     # Evaluate mapping
-    f_out[0] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx) * cos(2*pi*eta3 / tor_period)
-    f_out[1] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx) * (-1) * sin(2*pi*eta3 / tor_period)
-    f_out[2] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cy)
+    tmp1 = ind1[span1 - int(p[0]), :]
+    tmp2 = ind2[span2 - int(p[1]), :]
+    
+    f_out[0] = eva_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, b2, tmp1, tmp2, cx) * cos(2*pi*eta3 / tor_period)
+    f_out[1] = eva_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, b2, tmp1, tmp2, cx) * (-1) * sin(2*pi*eta3 / tor_period)
+    f_out[2] = eva_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, b2, tmp1, tmp2, cy)
 
     # TODO: explanation
     if eta1 == 0. and cx[0, 0] == cx[0, 1]:
@@ -293,7 +310,7 @@ def spline_2d_torus(eta1: float, eta2: float, eta3: float,
     if eta1 == 0. and cy[0, 0] == cy[0, 1]:
         f_out[2] = cy[0, 0]
         
-@stack_array('b1', 'b2', 'der1', 'der2')
+@stack_array('b1', 'b2', 'der1', 'der2', 'tmp1', 'tmp2')
 def spline_2d_torus_df(eta1: float, eta2: float, eta3: float,
                        t1: 'float[:]', t2: 'float[:]', p: 'int[:]',
                        ind1: 'int[:,:]', ind2: 'int[:,:]',
@@ -305,27 +322,30 @@ def spline_2d_torus_df(eta1: float, eta2: float, eta3: float,
     """
 
     # mapping spans
-    span1 = bsp.find_span(t1, p[0], eta1)
-    span2 = bsp.find_span(t2, p[1], eta2)
+    span1 = bsp.find_span(t1, int(p[0]), eta1)
+    span2 = bsp.find_span(t2, int(p[1]), eta2)
 
     # non-zero splines of mapping, and derivatives
-    b1 = zeros(p[0] + 1, dtype=float)
-    b2 = zeros(p[1] + 1, dtype=float)
+    b1 = zeros(int(p[0]) + 1, dtype=float)
+    b2 = zeros(int(p[1]) + 1, dtype=float)
 
-    der1 = zeros(p[0] + 1, dtype=float)
-    der2 = zeros(p[1] + 1, dtype=float)
+    der1 = zeros(int(p[0]) + 1, dtype=float)
+    der2 = zeros(int(p[1]) + 1, dtype=float)
 
-    bsp.b_der_splines_slim(t1, p[0], eta1, span1, b1, der1)
-    bsp.b_der_splines_slim(t2, p[1], eta2, span2, b2, der2)
+    bsp.b_der_splines_slim(t1, int(p[0]), eta1, span1, b1, der1)
+    bsp.b_der_splines_slim(t2, int(p[1]), eta2, span2, b2, der2)
 
-    df_out[0, 0] = eva_2d.evaluation_kernel_2d(p[0], p[1], der1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx) * cos(2*pi*eta3 / tor_period)
-    df_out[0, 1] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, der2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx) * cos(2*pi*eta3 / tor_period)
-    df_out[0, 2] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx) * sin(2*pi*eta3 / tor_period) * (-2*pi / tor_period)
-    df_out[1, 0] = eva_2d.evaluation_kernel_2d(p[0], p[1], der1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx) * (-1) * sin(2*pi*eta3 / tor_period)
-    df_out[1, 1] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, der2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx) * (-1) * sin(2*pi*eta3 / tor_period)
-    df_out[1, 2] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cx) * (-1) * cos(2*pi*eta3 / tor_period) * 2*pi / tor_period
-    df_out[2, 0] = eva_2d.evaluation_kernel_2d(p[0], p[1], der1, b2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cy)
-    df_out[2, 1] = eva_2d.evaluation_kernel_2d(p[0], p[1], b1, der2, ind1[span1 - p[0], :], ind2[span2 - p[1], :], cy)
+    tmp1 = ind1[span1 - int(p[0]), :]
+    tmp2 = ind2[span2 - int(p[1]), :]
+
+    df_out[0, 0] = eva_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), der1, b2, tmp1, tmp2, cx) * cos(2*pi*eta3 / tor_period)
+    df_out[0, 1] = eva_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, der2, tmp1, tmp2, cx) * cos(2*pi*eta3 / tor_period)
+    df_out[0, 2] = eva_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, b2,   tmp1, tmp2, cx) * sin(2*pi*eta3 / tor_period) * (-2*pi / tor_period)
+    df_out[1, 0] = eva_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), der1, b2, tmp1, tmp2, cx) * (-1) * sin(2*pi*eta3 / tor_period)
+    df_out[1, 1] = eva_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, der2, tmp1, tmp2, cx) * (-1) * sin(2*pi*eta3 / tor_period)
+    df_out[1, 2] = eva_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, b2,   tmp1, tmp2, cx) * (-1) * cos(2*pi*eta3 / tor_period) * 2*pi / tor_period
+    df_out[2, 0] = eva_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), der1, b2, tmp1, tmp2, cy)
+    df_out[2, 1] = eva_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, der2, tmp1, tmp2, cy)
     df_out[2, 2] = 0.
 
     # TODO: explanation

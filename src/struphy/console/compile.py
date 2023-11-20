@@ -1,17 +1,27 @@
-def struphy_compile(no_openmp=False, delete=False, verbose=False):
+def struphy_compile(language, compiler, omp_pic, omp_feec, delete, verbose):
     """
     Compile Struphy kernels.
 
     Parameters
     ----------
-    no_openmp : bool, optional
-        Whether to compile kernels with (no_openmp=False) or without (no_openmp=True).
+    language : str
+        Either "c" (default) or "fortran".
+    
+    compiler : str
+        Either "GNU" (default), "intel", "PGI", "nvidia" or the path to a JSON compiler file.
+        Only "GNU" is regularly tested at the moment.
+    
+    omp_pic : bool
+        Whether to compile PIC kernels with OpenMP (default=False).
 
-    delete : bool, optional
-        If True, deletes generated Fortran and .so files.
+    omp_feec : bool
+        WHether to compile FEEC kernels with OpenMP (default=False).
 
-    verbose : bool, optional
-        Call pyccel in verbose mode.
+    delete : bool
+        If True, deletes generated Fortran/C files and .so files (default=False).
+
+    verbose : bool
+        Call pyccel in verbose mode (default=False).
     """
 
     import subprocess
@@ -28,7 +38,7 @@ def struphy_compile(no_openmp=False, delete=False, verbose=False):
     if delete:
 
         # (change dir not to be in source path)
-        print('\nDeleting .f90 and .so files ...')
+        print('\nDeleting .f90/.c and .so files ...')
         subprocess.run(['make',
                         'clean',
                         '-f',
@@ -39,24 +49,27 @@ def struphy_compile(no_openmp=False, delete=False, verbose=False):
     else:
 
         # struphy and psydac (change dir not to be in source path)
-        flag_omp_pic = '--openmp'
-        flag_omp_mhd = ''
-        if no_openmp:
-            flag_omp_pic = ''
+        flag_omp_pic = ''
+        flag_omp_feec = ''
+        if omp_pic:
+            flag_omp_pic = '--openmp'
+        if omp_feec:
+            flag_omp_feec = '--openmp'
 
         # pyccel flags
-        flags = ''
+        flags = '--language=' +  language
+        flags += ' --compiler=' + compiler
 
         _li = pyccel.__version__.split('.')
         _num = int(_li[0])*100 + int(_li[1])*10 + int(_li[2])
         if _num >= 180:
-            flags += '--conda-warnings off'
+            flags += ' --conda-warnings=off'
 
         if verbose:
             flags += ' --verbose'
 
         # install psydac from wheel if not there
-        current_ver = '0.1.2'
+        current_ver = '0.1.3'
         psydac_file = 'psydac-' + current_ver + '-py3-none-any.whl'
 
         try:
@@ -90,7 +103,9 @@ def struphy_compile(no_openmp=False, delete=False, verbose=False):
             print('Done.')
 
         # gvec_to_python (change dir not to be in source path)
-        subprocess.run(['compile-gvec-tp'], check=True, cwd=libpath)
+        subprocess.run(['compile-gvec-tp',
+                        '--language=' +  language,
+                        '--compiler=' + compiler], check=True, cwd=libpath)
 
         print('\nCompiling Struphy and Psydac kernels ...')
         subprocess.run(['make',
@@ -98,6 +113,6 @@ def struphy_compile(no_openmp=False, delete=False, verbose=False):
                         'compile_struphy.mk',
                         'flags=' + flags,
                         'flags_openmp_pic=' + flag_omp_pic,
-                        'flags_openmp_mhd=' + flag_omp_mhd,
+                        'flags_openmp_mhd=' + flag_omp_feec,
                         ], check=True, cwd=libpath)
         print('Done.')

@@ -1,6 +1,4 @@
 # coding: utf-8
-#
-# Copyright 2021 Florian Holderied (florian.holderied@ipp.mpg.de)
 
 from pyccel.decorators import pure
 
@@ -10,7 +8,7 @@ def kernel_mass(nel: 'int[:]', p: 'int[:]', nq: 'int[:]', ni: 'int[:]', nj: 'int
 
     mat[:, :, :, :] = 0.
 
-    #$ omp parallel private(ie1, ie2, il1, il2, jl1, jl2, value, q1, q2, wvol, bi, bj)
+    #$ omp parallel private(ie1, ie2, il1, il2, jl1, jl2, value, q1, q2, wvol, bi, bj) shared(mat)
     #$ omp for reduction ( + : mat)
     for ie1 in range(nel[0]):
         for ie2 in range(nel[1]):
@@ -32,7 +30,7 @@ def kernel_mass(nel: 'int[:]', p: 'int[:]', nq: 'int[:]', ni: 'int[:]', nj: 'int
                                     value += wvol * bi * bj
 
                             mat[ind_base1[ie1, il1], ind_base2[ie2, il2], p[0] + jl1 - il1, p[1] + jl2 - il2] += value
-    # $ omp end parallel
+    #$ omp end parallel
 
     ierr = 0
 
@@ -42,7 +40,7 @@ def kernel_inner(nel: 'int[:]', n3: 'int', p: 'int[:]', nq: 'int[:]', ni: 'int[:
 
     mat[:, :, :] = 0.
 
-    #$ omp parallel private(ie1, ie2, ie3, il1, il2, value, q1, q2, wvol, bi)
+    #$ omp parallel private(ie1, ie2, ie3, il1, il2, value, q1, q2, wvol, bi) shared(mat)
     #$ omp for reduction ( + : mat)
     for ie1 in range(nel[0]):
         for ie2 in range(nel[1]):
@@ -72,8 +70,6 @@ def kernel_l2error(nel: 'int[:]', p: 'int[:]', nq: 'int[:]', w1: 'float[:,:]', w
 
     #$ omp parallel private(ie1, ie2, q1, q2, wvol, bi, bj, il1, il2, jl1, jl2)
     #$ omp for
-
-    # loop over all elements
     for ie1 in range(nel[0]):
         for ie2 in range(nel[1]):
 
@@ -99,7 +95,6 @@ def kernel_l2error(nel: 'int[:]', p: 'int[:]', nq: 'int[:]', w1: 'float[:,:]', w
 
                     # compare this value to exact one and add contribution to error in element
                     error[ie1, ie2] += wvol * (bi - mat_f1[ie1, q1, ie2, q2]) * (bj - mat_f2[ie1, q1, ie2, q2])
-
     #$ omp end parallel
 
     ierr = 0

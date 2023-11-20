@@ -4,11 +4,12 @@ corresponding to mappings (x, y, z) = F(eta_1, eta_2, eta_3).
 """
 from pyccel.decorators import pure, stack_array
 
-from numpy import shape, empty
+from numpy import shape, empty, zeros
 import struphy.geometry.mappings_fast as maps
 from struphy.linear_algebra.core import det, matrix_matrix, transpose, matrix_inv
 
 
+@stack_array('tmp1', 'tmp2', 'tmp3')
 def f(eta1: float, eta2: float, eta3: float,  # evaluation point
       kind_map: int, params: 'float[:]',  # mapping parameters
       # spline mapping knots and degrees
@@ -49,15 +50,19 @@ def f(eta1: float, eta2: float, eta3: float,  # evaluation point
         Output values.
     """
 
+    tmp1 = p[:2]
+    tmp2 = cx[:, :, 0]
+    tmp3 = cy[:, :, 0]
+
     if kind_map == 0:
         maps.spline_3d(eta1, eta2, eta3, t1, t2, t3, p,
                        ind1, ind2, ind3, cx, cy, cz, f_out)
     elif kind_map == 1:
         maps.spline_2d_straight(
-            eta1, eta2, eta3, t1, t2, p[:2], ind1, ind2, cx[:, :, 0], cy[:, :, 0], params[0], f_out)
+            eta1, eta2, eta3, t1, t2, tmp1, ind1, ind2, tmp2, tmp3, params[0], f_out)
     elif kind_map == 2:
         maps.spline_2d_torus(eta1, eta2, eta3, t1, t2,
-                             p[:2], ind1, ind2, cx[:, :, 0], cy[:, :, 0], params[0], f_out)
+                             tmp1, ind1, ind2, tmp2, tmp3, params[0], f_out)
     elif kind_map == 10:
         maps.cuboid(eta1, eta2, eta3, params[0], params[1],
                     params[2], params[3], params[4], params[5], f_out)
@@ -85,7 +90,9 @@ def f(eta1: float, eta2: float, eta3: float,  # evaluation point
     elif kind_map == 32:
         maps.shafranov_dshaped(eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4],
                                params[5], params[6], f_out)
-    
+
+
+@stack_array('tmp1', 'tmp2', 'tmp3')    
 def df(eta1: float, eta2: float, eta3: float,  # evaluation point
        kind_map: int, params: 'float[:]',  # mapping parameters
        # spline mapping knots and degrees
@@ -126,15 +133,19 @@ def df(eta1: float, eta2: float, eta3: float,  # evaluation point
         Output values.
     """
 
+    tmp1 = p[:2]
+    tmp2 = cx[:, :, 0]
+    tmp3 = cy[:, :, 0]
+
     if kind_map == 0:
         maps.spline_3d_df(eta1, eta2, eta3, t1, t2, t3, p,
                           ind1, ind2, ind3, cx, cy, cz, df_out)
     elif kind_map == 1:
         maps.spline_2d_straight_df(
-            eta1, eta2, t1, t2, p[:2], ind1, ind2, cx[:, :, 0], cy[:, :, 0], params[0], df_out)
+            eta1, eta2, t1, t2, tmp1, ind1, ind2, tmp2, tmp3, params[0], df_out)
     elif kind_map == 2:
         maps.spline_2d_torus_df(
-            eta1, eta2, eta3, t1, t2, p[:2], ind1, ind2, cx[:, :, 0], cy[:, :, 0], params[0], df_out)
+            eta1, eta2, eta3, t1, t2, tmp1, ind1, ind2, tmp2, tmp3, params[0], df_out)
     elif kind_map == 10:
         maps.cuboid_df(params[0], params[1], params[2],
                        params[3], params[4], params[5], df_out)
@@ -568,6 +579,8 @@ def g_inv(eta1: float, eta2: float, eta3: float,  # evaluation point
         ginv_out[2, 0] = 0.
         ginv_out[2, 1] = 0.
     
+    
+@stack_array('tmp1')
 def select_fun(eta1: float, eta2: float, eta3: float,  # evaluation point
                kind_map: int, params: 'float[:]',  # mapping parameters
                # spline mapping knots and degrees
@@ -625,8 +638,10 @@ def select_fun(eta1: float, eta2: float, eta3: float,  # evaluation point
     
     # mapping F
     elif kind_coeff == 0:
+        tmp1 = mat_f[:, 0]
         f(eta1, eta2, eta3, kind_map, params, t1, t2,
-          t3, p, ind1, ind2, ind3, cx, cy, cz, mat_f[:, 0])
+          t3, p, ind1, ind2, ind3, cx, cy, cz, tmp1)
+        mat_f[:, 0] = tmp1
 
     # Jacobian matrix DF
     elif kind_coeff == 1:
@@ -653,8 +668,9 @@ def select_fun(eta1: float, eta2: float, eta3: float,  # evaluation point
     elif kind_coeff == 5:
         g_inv(eta1, eta2, eta3, kind_map, params, t1, t2,
               t3, p, ind1, ind2, ind3, cx, cy, cz, mat_f)
+
     
-@stack_array('mat')
+@stack_array('n1', 'n2', 'n3', 'sparse_factor', 'e1', 'e2', 'e3', 'tmp1')
 def kernel_evaluate(eta1 : 'float[:,:,:]', eta2 : 'float[:,:,:]', eta3 : 'float[:,:,:]', kind_coeff : int, kind_map : int, params : 'float[:]', p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', ind1 : 'int[:,:]', ind2 : 'int[:,:]', ind3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', mat_f : 'float[:,:,:,:,:]', is_sparse_meshgrid : bool):
     """
     Evaluation of metric coefficients on a given 3d grid of evaluation points.
@@ -692,6 +708,8 @@ def kernel_evaluate(eta1 : 'float[:,:,:]', eta2 : 'float[:,:,:]', eta3 : 'float[
         Whether the 3d evaluation points were obtained from a sparse meshgrid.
     """
 
+    tmp1 = zeros((3, 3), dtype=float)
+
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
     n3 = shape(eta3)[2]
@@ -709,11 +727,15 @@ def kernel_evaluate(eta1 : 'float[:,:,:]', eta2 : 'float[:,:,:]', eta3 : 'float[
                 e2 = eta2[i1*sparse_factor, i2, i3*sparse_factor]
                 e3 = eta3[i1*sparse_factor, i2*sparse_factor, i3]
                 
+                tmp1[:] = mat_f[i1, i2, i3, :, :]
+                
                 select_fun(e1, e2, e3, kind_map, params, t1, t2,
-                           t3, p, ind1, ind2, ind3, cx, cy, cz, mat_f[:, :, i1, i2, i3], kind_coeff)
+                           t3, p, ind1, ind2, ind3, cx, cy, cz, tmp1, kind_coeff)
+                
+                mat_f[i1, i2, i3, :, :] = tmp1
                 
                 
-@stack_array('mat')
+@stack_array('np', 'counter' 'e1', 'e2', 'e3', 'tmp1')
 def kernel_evaluate_pic(markers : 'float[:,:]', kind_coeff : int, kind_map : int, params : 'float[:]', p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', ind1 : 'int[:,:]', ind2 : 'int[:,:]', ind3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', mat_f : 'float[:,:,:]', remove_outside : bool) -> int:
     """
     Evaluation of metric coefficients for given markers.
@@ -756,6 +778,8 @@ def kernel_evaluate_pic(markers : 'float[:,:]', kind_coeff : int, kind_map : int
         How many markers have been treated (not been skipped).
     """
 
+    tmp1 = zeros((3, 3), dtype=float)
+
     np = shape(markers)[0]
     counter = 0
 
@@ -769,16 +793,22 @@ def kernel_evaluate_pic(markers : 'float[:,:]', kind_coeff : int, kind_map : int
             if remove_outside:
                 continue
             else:
+                
                 if kind_coeff >= 0:
-                    mat_f[:, :, counter] = -1.
+                    mat_f[counter, :, :] = -1.
                 else:
-                    mat_f[0, 0, counter] = e1
-                    mat_f[1, 0, counter] = e2
-                    mat_f[2, 0, counter] = e3
+                    mat_f[counter, 0, 0] = e1
+                    mat_f[counter, 1, 0] = e2
+                    mat_f[counter, 2, 0] = e3
                 counter += 1
         else:
+            tmp1[:] = mat_f[counter, :, :]
+            
             select_fun(e1, e2, e3, kind_map, params, t1, t2,
-                       t3, p, ind1, ind2, ind3, cx, cy, cz, mat_f[:, :, counter], kind_coeff)
+                       t3, p, ind1, ind2, ind3, cx, cy, cz, tmp1, kind_coeff)
+            
+            mat_f[counter, :, :] = tmp1
+            
             counter += 1
         
     return counter

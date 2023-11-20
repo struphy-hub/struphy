@@ -72,7 +72,7 @@ def a_documentation():
     print('This is just the docstring function.')
 
 
-@stack_array('df', 'df_t', 'g', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'k', 'bb', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'b_star', 'temp1', 'temp2')
+@stack_array('dfm', 'df_t', 'g', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'k', 'bb', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'b_star', 'temp1', 'temp2')
 def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int,
                                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                         starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -103,7 +103,7 @@ def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage:
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     df_t = empty((3, 3), dtype=float)
     g = empty((3, 3), dtype=float)
     g_inv = empty((3, 3), dtype=float)
@@ -156,21 +156,21 @@ def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage:
         v = markers[ip, 3]
         mu = markers[ip, 4]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # evaluate inverse of G
-        linalg.transpose(df, df_t)
-        linalg.matrix_matrix(df_t, df, g)
+        linalg.transpose(dfm, df_t)
+        linalg.matrix_matrix(df_t, dfm, g)
         linalg.matrix_inv(g, g_inv)
 
         # metric coeffs
-        det_df = linalg.det(df)
+        det_df = linalg.det(dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], e[0])
@@ -245,7 +245,7 @@ def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage:
             dt*a[stage]*k + last*markers[ip, 13:16]
 
 
-@stack_array('df', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'k', 'bb', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'b_star')
+@stack_array('dfm', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'k', 'bb', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'b_star')
 def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int,
                                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -276,7 +276,7 @@ def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: i
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
 
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -327,16 +327,16 @@ def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: i
         v = markers[ip, 3]
         mu = markers[ip, 4]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        det_df = linalg.det(df)
+        det_df = linalg.det(dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], e[0])
@@ -405,7 +405,7 @@ def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: i
             a[stage]*k_v + last*markers[ip, 16]
 
 
-@stack_array('df', 'df_t', 'g', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'k', 'bb', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'b_star', 'temp1', 'temp2', 'temp3')
+@stack_array('dfm', 'df_t', 'g', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'k', 'bb', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'b_star', 'temp1', 'temp2', 'temp3')
 def push_gc_all_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int,
                                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                     starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -436,7 +436,7 @@ def push_gc_all_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     df_t = empty((3, 3), dtype=float)
     g = empty((3, 3), dtype=float)
     g_inv = empty((3, 3), dtype=float)
@@ -494,21 +494,21 @@ def push_gc_all_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int
         v = markers[ip, 3]
         mu = markers[ip, 4]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # evaluate inverse of G
-        linalg.transpose(df, df_t)
-        linalg.matrix_matrix(df_t, df, g)
+        linalg.transpose(dfm, df_t)
+        linalg.matrix_matrix(df_t, dfm, g)
         linalg.matrix_inv(g, g_inv)
 
         # metric coeffs
-        det_df = linalg.det(df)
+        det_df = linalg.det(dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], e[0])
@@ -1553,31 +1553,39 @@ def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
         det_J = linalg.det4(Jacobian)
 
         Jacobian_inv[0, 0] = linalg.det(Jacobian[1:, 1:])/det_J
-        Jacobian_inv[0, 1] = -linalg.det(Jacobian[(0, 2, 3), 1:])/det_J
-        Jacobian_inv[0, 2] = linalg.det(Jacobian[(0, 1, 3), 1:])/det_J
+        Jacobian_temp33[:] = Jacobian[(0, 2, 3), 1:]
+        Jacobian_inv[0, 1] = -linalg.det(Jacobian_temp33)/det_J
+        Jacobian_temp33[:] = Jacobian[(0, 1, 3), 1:]
+        Jacobian_inv[0, 2] = linalg.det(Jacobian_temp33)/det_J
         Jacobian_inv[0, 3] = -linalg.det(Jacobian[:3, 1:])/det_J
 
-        Jacobian_inv[1, 0] = -linalg.det(Jacobian[1:, (0, 2, 3)])/det_J
-        Jacobian_temp34 = Jacobian[(0, 2, 3), :]
-        Jacobian_temp33 = Jacobian_temp34[:, (0, 2, 3)]
+        Jacobian_temp33[:] = Jacobian[1:, (0, 2, 3)]
+        Jacobian_inv[1, 0] = -linalg.det(Jacobian_temp33)/det_J
+        Jacobian_temp34[:] = Jacobian[(0, 2, 3), :]
+        Jacobian_temp33[:] = Jacobian_temp34[:, (0, 2, 3)]
         Jacobian_inv[1, 1] = linalg.det(Jacobian_temp33)/det_J
-        Jacobian_temp34 = Jacobian[(0, 1, 3), :]
-        Jacobian_temp33 = Jacobian_temp34[:, (0, 2, 3)]
+        Jacobian_temp34[:] = Jacobian[(0, 1, 3), :]
+        Jacobian_temp33[:] = Jacobian_temp34[:, (0, 2, 3)]
         Jacobian_inv[1, 2] = -linalg.det(Jacobian_temp33)/det_J
-        Jacobian_inv[1, 3] = linalg.det(Jacobian[:3, (0, 2, 3)])/det_J
+        Jacobian_temp33[:] = Jacobian[:3, (0, 2, 3)]
+        Jacobian_inv[1, 3] = linalg.det(Jacobian_temp33)/det_J
 
-        Jacobian_inv[2, 0] = linalg.det(Jacobian[1:, (0, 1, 3)])/det_J
-        Jacobian_temp34 = Jacobian[(0, 2, 3), :]
-        Jacobian_temp33 = Jacobian_temp34[:, (0, 1, 3)]
+        Jacobian_temp33[:] = Jacobian[1:, (0, 1, 3)]
+        Jacobian_inv[2, 0] = linalg.det(Jacobian_temp33)/det_J
+        Jacobian_temp34[:] = Jacobian[(0, 2, 3), :]
+        Jacobian_temp33[:] = Jacobian_temp34[:, (0, 1, 3)]
         Jacobian_inv[2, 1] = -linalg.det(Jacobian_temp33)/det_J
-        Jacobian_temp34 = Jacobian[(0, 1, 3), :]
-        Jacobian_temp33 = Jacobian_temp34[:, (0, 1, 3)]
+        Jacobian_temp34[:] = Jacobian[(0, 1, 3), :]
+        Jacobian_temp33[:] = Jacobian_temp34[:, (0, 1, 3)]
         Jacobian_inv[2, 2] = linalg.det(Jacobian_temp33)/det_J
-        Jacobian_inv[2, 3] = -linalg.det(Jacobian[:3, (0, 1, 3)])/det_J
+        Jacobian_temp33[:] = Jacobian[:3, (0, 1, 3)]
+        Jacobian_inv[2, 3] = -linalg.det(Jacobian_temp33)/det_J
 
         Jacobian_inv[3, 0] = -linalg.det(Jacobian[1:, :3])/det_J
-        Jacobian_inv[3, 1] = linalg.det(Jacobian[(0, 2, 3), :3])/det_J
-        Jacobian_inv[3, 2] = -linalg.det(Jacobian[(0, 1, 3), :3])/det_J
+        Jacobian_temp33[:] = Jacobian[(0, 2, 3), :3]
+        Jacobian_inv[3, 1] = linalg.det(Jacobian_temp33)/det_J
+        Jacobian_temp33[:] = Jacobian[(0, 1, 3), :3]
+        Jacobian_inv[3, 2] = -linalg.det(Jacobian_temp33)/det_J
         Jacobian_inv[3, 3] = linalg.det(Jacobian[:3, :3])/det_J
 
         # calculate eta_new
@@ -1605,7 +1613,7 @@ def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
         markers[ip, 2] = e_old[2]
 
 
-@stack_array('df', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'b', 'b_star', 'norm_b1', 'curl_norm_b')
+@stack_array('dfm', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'b', 'b_star', 'norm_b1', 'curl_norm_b')
 def push_gc_cc_J1_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                         starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1630,7 +1638,7 @@ def push_gc_cc_J1_H1vec(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
 
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -1664,16 +1672,16 @@ def push_gc_cc_J1_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         eta[:] = markers[ip, 0:3]
         v = markers[ip, 3]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        det_df = linalg.det(df)
+        det_df = linalg.det(dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], eta[0])
@@ -1732,7 +1740,7 @@ def push_gc_cc_J1_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         markers[ip, 3] += temp/abs_b_star_para*v*dt
 
 
-@stack_array('df', 'df_t', 'g', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'u0', 'b', 'b_star', 'norm_b1', 'curl_norm_b')
+@stack_array('dfm', 'df_t', 'g', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'u0', 'b', 'b_star', 'norm_b1', 'curl_norm_b')
 def push_gc_cc_J1_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                         starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1757,7 +1765,7 @@ def push_gc_cc_J1_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     df_t = empty((3, 3), dtype=float)
     g = empty((3, 3), dtype=float)
     g_inv = empty((3, 3), dtype=float)
@@ -1795,21 +1803,21 @@ def push_gc_cc_J1_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
         eta[:] = markers[ip, 0:3]
         v = markers[ip, 3]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # evaluate inverse of G
-        linalg.transpose(df, df_t)
-        linalg.matrix_matrix(df_t, df, g)
+        linalg.transpose(dfm, df_t)
+        linalg.matrix_matrix(df_t, dfm, g)
         linalg.matrix_inv(g, g_inv)
 
         # metric coeffs
-        det_df = linalg.det(df)
+        det_df = linalg.det(dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], eta[0])
@@ -1871,7 +1879,7 @@ def push_gc_cc_J1_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
         markers[ip, 3] += temp/abs_b_star_para*v*dt
 
 
-@stack_array('df', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'b', 'b_star', 'norm_b1', 'curl_norm_b')
+@stack_array('dfm', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'b', 'b_star', 'norm_b1', 'curl_norm_b')
 def push_gc_cc_J1_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                        starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1896,7 +1904,7 @@ def push_gc_cc_J1_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
 
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -1930,16 +1938,16 @@ def push_gc_cc_J1_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
         eta[:] = markers[ip, 0:3]
         v = markers[ip, 3]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        det_df = linalg.det(df)
+        det_df = linalg.det(dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], eta[0])
@@ -2001,7 +2009,7 @@ def push_gc_cc_J1_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
         markers[ip, 3] += temp/abs_b_star_para*v*dt
 
 
-@stack_array('df', 'df_t', 'df_inv_t', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'bb', 'b_star', 'norm_b1', 'norm_b2', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b2_prod')
+@stack_array('dfm', 'df_t', 'df_inv_t', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'bb', 'b_star', 'norm_b1', 'norm_b2', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b2_prod')
 def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                               pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                               starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -2028,7 +2036,7 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     df_inv = empty((3, 3), dtype=float)
     df_inv_t = empty((3, 3), dtype=float)
     g_inv = empty((3, 3), dtype=float)
@@ -2081,17 +2089,17 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         eta[:] = markers[ip, 0:3]
         v = markers[ip, 3]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        det_df = linalg.det(df)
-        linalg.matrix_inv_with_det(df, det_df, df_inv)
+        det_df = linalg.det(dfm)
+        linalg.matrix_inv_with_det(dfm, det_df, df_inv)
         linalg.transpose(df_inv, df_inv_t)
         linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
 
@@ -2181,7 +2189,7 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
             dt*a[stage]*e + last*markers[ip, 13:16]
 
 
-@stack_array('df', 'df_t', 'df_inv_t', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'bb', 'b_star', 'norm_b1', 'norm_b2', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b2_prod')
+@stack_array('dfm', 'df_t', 'df_inv_t', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'bb', 'b_star', 'norm_b1', 'norm_b2', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b2_prod')
 def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                              pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                              starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -2208,7 +2216,7 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     df_inv = empty((3, 3), dtype=float)
     df_inv_t = empty((3, 3), dtype=float)
     g_inv = empty((3, 3), dtype=float)
@@ -2261,17 +2269,17 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
         eta[:] = markers[ip, 0:3]
         v = markers[ip, 3]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        det_df = linalg.det(df)
-        linalg.matrix_inv_with_det(df, det_df, df_inv)
+        det_df = linalg.det(dfm)
+        linalg.matrix_inv_with_det(dfm, det_df, df_inv)
         linalg.transpose(df_inv, df_inv_t)
         linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
 
@@ -2379,7 +2387,7 @@ def push_gc_cc_J2_dg_prepare_H1vec(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     df_inv = empty((3, 3), dtype=float)
     df_inv_t = empty((3, 3), dtype=float)
     g_inv = empty((3, 3), dtype=float)
@@ -2421,17 +2429,17 @@ def push_gc_cc_J2_dg_prepare_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         eta[:] = markers[ip, 0:3]
         v = markers[ip, 3]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        det_df = linalg.det(df)
-        linalg.matrix_inv_with_det(df, det_df, df_inv)
+        det_df = linalg.det(dfm)
+        linalg.matrix_inv_with_det(dfm, det_df, df_inv)
         linalg.transpose(df_inv, df_inv_t)
         linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
 
@@ -2532,7 +2540,7 @@ def push_gc_cc_J2_dg_H1vec(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     df_inv = empty((3, 3), dtype=float)
     df_inv_t = empty((3, 3), dtype=float)
     g_inv = empty((3, 3), dtype=float)
@@ -2574,17 +2582,17 @@ def push_gc_cc_J2_dg_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         eta[:] = markers[ip, 0:3]
         v = markers[ip, 3]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        det_df = linalg.det(df)
-        linalg.matrix_inv_with_det(df, det_df, df_inv)
+        det_df = linalg.det(dfm)
+        linalg.matrix_inv_with_det(dfm, det_df, df_inv)
         linalg.transpose(df_inv, df_inv_t)
         linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
 

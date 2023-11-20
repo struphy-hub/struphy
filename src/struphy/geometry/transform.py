@@ -43,14 +43,15 @@
 - 2-form --> vector : (a_1, a_2, a_3) =          (a^2_1, a^2_2, a^2_3) / |det(DF)|
 """
 
-from pyccel.decorators import pure, stack_array
+from pyccel.decorators import stack_array
 
-from numpy import shape, empty, sqrt, sum
+from numpy import shape, empty, sqrt, zeros
 
 from struphy.geometry.map_eval import df
 from struphy.linear_algebra.core import det, transpose, matrix_vector, matrix_inv_with_det, matrix_inv
 
 
+@stack_array('dfmat1', 'dfmat2')
 def pull(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', out: 'float[:]'):
     """
     Pull-back of a Cartesian scalar/vector field to a differential p-form.
@@ -122,7 +123,8 @@ def pull(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, ki
         matrix_inv(dfmat1, dfmat2)
         matrix_vector(dfmat2, a, out)
         
-        
+
+@stack_array('dfmat1', 'dfmat2', 'dfmat3')        
 def push(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', out: 'float[:]'):
     """
     Pushforward of a differential p-forms to a Cartesian scalar/vector field.
@@ -193,6 +195,7 @@ def push(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, ki
         matrix_vector(dfmat1, a, out)
 
 
+@stack_array('dfmat1', 'dfmat2', 'dfmat3', 'vec1', 'vec2') 
 def tran(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', out: 'float[:]'):
     """
     Transformations between differential p-forms and/or vector fields.
@@ -266,24 +269,24 @@ def tran(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, ki
     
     # norm vector to vector
     elif kind_fun == 12:
-        out[0] = a[0] / sqrt(sum(dfmat1[:, 0]**2))
-        out[1] = a[1] / sqrt(sum(dfmat1[:, 1]**2))
-        out[2] = a[2] / sqrt(sum(dfmat1[:, 2]**2))
+        out[0] = a[0] / sqrt(dfmat1[0, 0]**2 + dfmat1[1, 0]**2 + dfmat1[2, 0]**2)
+        out[1] = a[1] / sqrt(dfmat1[0, 1]**2 + dfmat1[1, 1]**2 + dfmat1[2, 1]**2)
+        out[2] = a[2] / sqrt(dfmat1[0, 2]**2 + dfmat1[1, 2]**2 + dfmat1[2, 2]**2)
         
     # norm vector to 1-form (a^1 = G * a)
     elif kind_fun == 13:
-        vec1[0] = a[0] / sqrt(sum(dfmat1[:, 0]**2))
-        vec1[1] = a[1] / sqrt(sum(dfmat1[:, 1]**2))
-        vec1[2] = a[2] / sqrt(sum(dfmat1[:, 2]**2))
+        vec1[0] = a[0] / sqrt(dfmat1[0, 0]**2 + dfmat1[1, 0]**2 + dfmat1[2, 0]**2)
+        vec1[1] = a[1] / sqrt(dfmat1[0, 1]**2 + dfmat1[1, 1]**2 + dfmat1[2, 1]**2)
+        vec1[2] = a[2] / sqrt(dfmat1[0, 2]**2 + dfmat1[1, 2]**2 + dfmat1[2, 2]**2)
         transpose(dfmat1, dfmat2)
         matrix_vector(dfmat1, vec1, vec2)
         matrix_vector(dfmat2, vec2, out)
         
     # norm vector to 2-form (a^2 = |det(DF)| * a)
     elif kind_fun == 14:
-        out[0] = a[0] / sqrt(sum(dfmat1[:, 0]**2))
-        out[1] = a[1] / sqrt(sum(dfmat1[:, 1]**2))
-        out[2] = a[2] / sqrt(sum(dfmat1[:, 2]**2))
+        out[0] = a[0] / sqrt(dfmat1[0, 0]**2 + dfmat1[1, 0]**2 + dfmat1[2, 0]**2)
+        out[1] = a[1] / sqrt(dfmat1[0, 1]**2 + dfmat1[1, 1]**2 + dfmat1[2, 1]**2)
+        out[2] = a[2] / sqrt(dfmat1[0, 2]**2 + dfmat1[1, 2]**2 + dfmat1[2, 2]**2)
         out[:] = out * abs(detdf)
         
     # vector to 1-form (a^1 = G * a)
@@ -308,7 +311,8 @@ def tran(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, ki
         out[:] = a / abs(detdf)
 
 
-def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', kind_transform : int, kind_fun: int, kind_map: int, params_map: 'float[:]', pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', is_sparse_meshgrid: bool, out: 'float[:,:,:,:]'):
+@stack_array('tmp1', 'tmp2') 
+def kernel_pullpush(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', kind_transform : int, kind_fun: int, kind_map: int, params_map: 'float[:]', pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', is_sparse_meshgrid: bool, out: 'float[:,:,:,:]'):
     """
     Pull-backs, pushforwards and transformations on a given 3d grid of evaluation points.
 
@@ -351,6 +355,9 @@ def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,
         Output values.
     """
 
+    tmp1 = zeros(3, dtype=float)
+    tmp2 = zeros(3, dtype=float)
+
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
     n3 = shape(eta3)[2]
@@ -368,14 +375,21 @@ def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,
                 e2 = eta2[i1*sparse_factor, i2, i3*sparse_factor]
                 e3 = eta3[i1*sparse_factor, i2*sparse_factor, i3]
                 
+                tmp1[:] = a[:, i1, i2, i3]
+                tmp2[:] = out[:, i1, i2, i3]
+                
                 if kind_transform == 0:
-                    pull(a[:, i1, i2, i3], e1, e2, e3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, out[:, i1, i2, i3])
+                    pull(tmp1, e1, e2, e3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, tmp2)
                 elif kind_transform == 1:
-                    push(a[:, i1, i2, i3], e1, e2, e3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, out[:, i1, i2, i3])
+                    push(tmp1, e1, e2, e3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, tmp2)
                 else:
-                    tran(a[:, i1, i2, i3], e1, e2, e3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, out[:, i1, i2, i3])
+                    tran(tmp1, e1, e2, e3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, tmp2)
+                    
+                out[:, i1, i2, i3] = tmp2
 
-def kernel_evaluate_pic(a: 'float[:,:]', markers: 'float[:,:]', kind_transform : int, kind_fun: int, kind_map: int, params_map: 'float[:]', pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', out: 'float[:,:]', remove_outside : bool) -> int:
+
+@stack_array('tmp1', 'tmp2')
+def kernel_pullpush_pic(a: 'float[:,:]', markers: 'float[:,:]', kind_transform : int, kind_fun: int, kind_map: int, params_map: 'float[:]', pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', out: 'float[:,:]', remove_outside : bool) -> int:
     """
     Pull-backs, pushforwards and transformations for given markers.
 
@@ -418,6 +432,9 @@ def kernel_evaluate_pic(a: 'float[:,:]', markers: 'float[:,:]', kind_transform :
         Whether to remove values that originate from markers outside of [0, 1]^d.
     """
 
+    tmp1 = zeros(3, dtype=float)
+    tmp2 = zeros(3, dtype=float)
+
     np = shape(markers)[0]
     
     # check if a has holes or not
@@ -451,12 +468,17 @@ def kernel_evaluate_pic(a: 'float[:,:]', markers: 'float[:,:]', kind_transform :
         # treatment of "true" marker
         else:
             
+            tmp1[:] = a[:, counter_a]
+            tmp2[:] = out[:, counter_o]
+            
             if kind_transform == 0:
-                pull(a[:, counter_a], e1, e2, e3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, out[:, counter_o])
+                pull(tmp1, e1, e2, e3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, tmp2)
             elif kind_transform == 1:
-                push(a[:, counter_a], e1, e2, e3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, out[:, counter_o])
+                push(tmp1, e1, e2, e3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, tmp2)
             else:
-                tran(a[:, counter_a], e1, e2, e3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, out[:, counter_o])
+                tran(tmp1, e1, e2, e3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, tmp2)
+            
+            out[:, counter_o] = tmp2
             
             counter_a += 1
             counter_o += 1
