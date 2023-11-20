@@ -3,6 +3,7 @@ from abc import abstractmethod
 from mpi4py import MPI
 import numpy as np
 from scipy import sparse
+import itertools
 
 from psydac.linalg.basic import Vector, VectorSpace, LinearOperator, LinearSolver
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
@@ -26,197 +27,257 @@ class LinOpWithTransp(LinearOperator):
 
     # Function that returns the matrix corresponding to the linear operator. Returns a numpy array.
     # At the moment only works in one processor.
-    def toarray_struphy(self, out=None):
+    def toarray_struphy(self, out=None, is_sparse=False, format="csr"):
         """
-        Transforms the linear operator into a matrix.
+        Transforms the linear operator into a matrix, which is either stored in dense or sparse format.
 
         Parameters
         ----------
         out : Numpy.ndarray, optional
             If given, the output will be written in-place into this array.
+        is_sparse : bool, optional
+            If set to True the method returns the matrix as a Scipy sparse matrix, if set to false
+            it returns the full matrix as a Numpy.ndarray
+        format : string, optional
+            Only relevant if is_sparse is True. Specifies the format in which the sparse matrix is to be stored. 
+            Choose from "csr" (Compressed Sparse Row, default),"csc" (Compressed Sparse Column), "bsr" (Block Sparse Row ), 
+            "lil" (List of Lists), "dok" (Dictionary of Keys), "coo" (COOrdinate format) and "dia" (DIAgonal).
 
         Returns
         -------
-        out : Numpy.ndarray
-            The matrix form of the linear operator.
+        out : Numpy.ndarray or scipy.sparse.csr.csr_matrix
+            The matrix form of the linear operator. If ran in parallel each rank gets the full
+            matrix representation of the linear operator.
         """
         # v will be the unit vector with which we compute Av = ith column of A.
         v = self.domain.zeros()
+        # We define a temporal vector
+        tmp2 = self.codomain.zeros()
 
-        # For the time being only works in 1 processor
         if isinstance(self.domain, BlockVectorSpace):
             comm = self.domain.spaces[0].cart.comm
         elif isinstance(self.domain, StencilVectorSpace):
             comm = self.domain.cart.comm
-        assert comm.size == 1
+        rank = comm.Get_rank()
+        size = comm.Get_size()
 
-        if out is None:
-            # We declare the matrix form of our linear operator
-            out = np.zeros(
-                [self.codomain.dimension, self.domain.dimension], dtype=self.dtype)
+        if (is_sparse == False):
+            if out is None:
+                # We declare the matrix form of our linear operator
+                out = np.zeros(
+                    [self.codomain.dimension, self.domain.dimension], dtype=self.dtype)
+            else:
+                assert isinstance(out, np.ndarray)
+                assert out.shape[0] == self.codomain.dimension
+                assert out.shape[1] == self.domain.dimension
+
+            # We use this matrix to store the partial results that we shall combine into the final matrix with a reduction at the end
+            result = np.zeros(
+                (self.codomain.dimension, self.domain.dimension), dtype=self.dtype)
         else:
-            assert isinstance(out, np.ndarray)
-            assert out.shape[0] == self.codomain.dimension
-            assert out.shape[1] == self.domain.dimension
-        # This auxiliary counter allows us to know which column of A we are computing in the following for loops.
-        cont = 0
-
-        # We define a temporal vector
-        tmp2 = self.codomain.zeros()
+            if out is not None:
+                raise Exception(
+                    'If is_sparse is True then out must be set to None.')
+            numrows = self.codomain.dimension
+            numcols = self.domain.dimension
+            # We define a list to store the non-zero data, a list to sotre the row index of said data and a list to store the column index.
+            data = []
+            row = []
+            colarr = []
 
         # V is either a BlockVector or a StencilVector depending on the domain of the linear operator.
         if isinstance(self.domain, BlockVectorSpace):
             # we collect all starts and ends in two big lists
             starts = [vi.starts for vi in v]
             ends = [vi.ends for vi in v]
+            # We collect the dimension of the BlockVector
+            npts = [sp.npts for sp in self.domain.spaces]
+            # We get the number of space we have
+            nsp = len(self.domain.spaces)
+            # We get the number of dimensions each space has.
+            ndim = [sp.ndim for sp in self.domain.spaces]
 
-            # We iterate over each entry of the block vector v, setting one entry to one at the time while all others remain zero.
-            for vv, ss, ee in zip(v, starts, ends):
-                for i in range(ss[0], ee[0]+1):
-                    for j in range(ss[1], ee[1]+1):
-                        for k in range(ss[2], ee[2]+1):
-                            vv[i, j, k] = 1.0
-                            # Compute dot product with the linear operator
-                            self.dot(v, out=tmp2)
-                            # We set the column number cont of our matrix to the dot product of the linear operator with the unit vector
-                            # number cont
-                            out[:, cont] = tmp2.copy().toarray()
-                            vv[i, j, k] = 0.0
-                            cont += 1
-        elif isinstance(self.domain, StencilVectorSpace):
-            # We get the start and endpoint for each sublist in v
-            starts = v.starts
-            ends = v.ends
-            # We iterate over each entry of the stencil vector v, setting one entry to one at the time while all others remain zero.
-            for i in range(starts[0], ends[0]+1):
-                for j in range(starts[1], ends[1]+1):
-                    for k in range(starts[2], ends[2]+1):
-                        v[i, j, k] = 1.0
+            # First each rank is going to need to know the starts and ends of all other ranks
+            startsarr = np.array([starts[i][j] for i in range(nsp)
+                                 for j in range(ndim[i])], dtype=int)
+
+            # Create an array to store gathered data from all ranks
+            allstarts = np.empty(size * len(startsarr), dtype=int)
+
+            # Use Allgather to gather 'starts' from all ranks into 'allstarts'
+            comm.Allgather(startsarr, allstarts)
+
+            # Reshape 'allstarts' to have 9 columns and 'size' rows
+            allstarts = allstarts.reshape((size, len(startsarr)))
+
+            endsarr = np.array([ends[i][j] for i in range(nsp)
+                               for j in range(ndim[i])], dtype=int)
+            # Create an array to store gathered data from all ranks
+            allends = np.empty(size * len(endsarr), dtype=int)
+
+            # Use Allgather to gather 'ends' from all ranks into 'allends'
+            comm.Allgather(endsarr, allends)
+
+            # Reshape 'allends' to have 9 columns and 'size' rows
+            allends = allends.reshape((size, len(endsarr)))
+
+            currentrank = 0
+            # Each rank will take care of setting to 1 each one of its entries while all other entries remain zero.
+            while (currentrank < size):
+                # since the size of npts changes denpending on h we need to compute a starting point for
+                # our column index
+                spoint = 0
+                npredim = 0
+                # We iterate over the stencil vectors inside the BlockVector
+                for h in range(nsp):
+                    itterables = []
+                    for i in range(ndim[h]):
+                        itterables.append(
+                            range(allstarts[currentrank][i+npredim], allends[currentrank][i+npredim]+1))
+                    # We iterate over all the entries that belong to rank number currentrank
+                    for i in itertools.product(*itterables):
+                        if (rank == currentrank):
+                            v[h][i] = 1.0
                         # Compute dot product with the linear operator.
                         self.dot(v, out=tmp2)
-                        # We set the column number cont of our matrix to the dot product of the linear operator with the unit vector
-                        # number cont
-                        out[:, cont] = tmp2.copy().toarray()
-                        v[i, j, k] = 0.0
-                        cont += 1
-        else:
-            # I cannot conceive any situation where this error should be thrown, but I put it here just in case something unexpected happens.
-            raise Exception(
-                'Function toarray_struphy() only supports Stencil Vectors or Block Vectors.')
-
-        return out
-    
-    # Function that returns the sparse matrix corresponding to the linear operator. Returns a scipy sparse matrix.
-    # At the moment only works in one processor.
-    def tosparse_struphy(self, format = "csr"):
-        """
-        Transforms the linear operator into a Scipy sparse matrix.
-
-        Parameters
-        ----------
-        format : string, optional
-            Specifies the format in which the sparse matrix is to be stored. Choose from "csr" (Compressed Sparse Row, default),
-            "csc" (Compressed Sparse Column), "bsr" (Block Sparse Row ), "lil" (List of Lists), "dok" (Dictionary of Keys), 
-            "coo" (COOrdinate format) and "dia" (DIAgonal).
-
-        Returns
-        -------
-        out : scipy.sparse.csr.csr_matrix
-            The sparse matrix form of the linear operator in the specified format.
-        """
-        
-        # v will be the unit vector with which we compute Av = ith column of A.
-        v = self.domain.zeros()
-
-        # For the time being only works in 1 processor
-        if isinstance(v, BlockVector):
-            comm = self.domain.spaces[0].cart.comm
-        elif isinstance(v, StencilVector):
-            comm = self.domain.cart.comm
-        assert comm.size == 1
-
-        #We define a list to store the non-zero data, a list to sotre the row index of said data and a list to store the column index.
-        data = []
-        row = []
-        col = []
-        
-        # This auxiliary counter allows us to know which column of A we are computing in the following for loops.
-        cont = 0
-
-        # We define a temporal vector
-        tmp2 = self.codomain.zeros()
-        # We define the 1D numpy array version of this vector
-        aux = tmp2.toarray()
-        #We define the number of rows for our matrix
-        numrows = len(aux)
-
-        # V is either a BlockVector or a StencilVector depending on the domain of the linear operator.
-        if isinstance(v, BlockVector):
-            # we collect all starts and ends in two big lists
-            starts = [vi.starts for vi in v]
-            ends = [vi.ends for vi in v]
-
-            # We iterate over each entry of the block vector v, setting one entry to one at the time while all others remain zero.
-            for vv, ss, ee in zip(v, starts, ends):
-                for i in range(ss[0], ee[0]+1):
-                    for j in range(ss[1], ee[1]+1):
-                        for k in range(ss[2], ee[2]+1):
-                            vv[i, j, k] = 1.0
-                            # Compute dot product with the linear operator
-                            self.dot(v, out=tmp2)
+                        # Compute to which column this iteration belongs
+                        col = spoint
+                        col += np.ravel_multi_index(i, npts[h])
+                        if is_sparse == False:
+                            result[:, col] = tmp2.copy().toarray()
+                        else:
                             aux = tmp2.toarray()
                             # We now need to now which entries on tmp2 are non-zero and store then in our data list
-                            for l in np.where(aux !=0)[0]:
+                            for l in np.where(aux != 0)[0]:
                                 data.append(aux[l])
-                                col.append(cont)
-                                row.append(l) 
-                            vv[i, j, k] = 0.0
-                            cont += 1
-        elif isinstance(v, StencilVector):
+                                colarr.append(col)
+                                row.append(l)
+                        if (rank == currentrank):
+                            v[h][i] = 0.0
+                    cummulative = 1
+                    for i in range(ndim[h]):
+                        cummulative *= npts[h][i]
+                    spoint += cummulative
+                    npredim += ndim[h]
+                currentrank += 1
+        elif isinstance(self.domain, StencilVectorSpace):
             # We get the start and endpoint for each sublist in v
             starts = v.starts
             ends = v.ends
-            # We iterate over each entry of the stencil vector v, setting one entry to one at the time while all others remain zero.
-            for i in range(starts[0], ends[0]+1):
-                for j in range(starts[1], ends[1]+1):
-                    for k in range(starts[2], ends[2]+1):
-                        v[i, j, k] = 1.0
-                        # Compute dot product with the linear operator.
-                        self.dot(v, out=tmp2)
+            # We get the dimensions of the StencilVector
+            npts = self.domain.npts
+            # We get the number of space we have
+            nsp = 1
+            # We get the number of dimensions the StencilVectorSpace has.
+            ndim = self.domain.ndim
+
+            # First each rank is going to need to know the starts and ends of all other ranks
+            startsarr = np.array([starts[j] for j in range(ndim)], dtype=int)
+            # Create an array to store gathered data from all ranks
+            allstarts = np.empty(size * len(startsarr), dtype=int)
+
+            # Use Allgather to gather 'starts' from all ranks into 'allstarts'
+            comm.Allgather(startsarr, allstarts)
+
+            # Reshape 'allstarts' to have 3 columns and 'size' rows
+            allstarts = allstarts.reshape((size, len(startsarr)))
+
+            endsarr = np.array([ends[j] for j in range(ndim)], dtype=int)
+            # Create an array to store gathered data from all ranks
+            allends = np.empty(size * len(endsarr), dtype=int)
+
+            # Use Allgather to gather 'ends' from all ranks into 'allends'
+            comm.Allgather(endsarr, allends)
+
+            # Reshape 'allends' to have 3 columns and 'size' rows
+            allends = allends.reshape((size, len(endsarr)))
+
+            currentrank = 0
+            # Each rank will take care of setting to 1 each one of its entries while all other entries remain zero.
+            while (currentrank < size):
+                itterables = []
+                for i in range(ndim):
+                    itterables.append(
+                        range(allstarts[currentrank][i], allends[currentrank][i]+1))
+                # We iterate over all the entries that belong to rank number currentrank
+                for i in itertools.product(*itterables):
+                    if (rank == currentrank):
+                        v[i] = 1.0
+                    # Compute dot product with the linear operator.
+                    self.dot(v, out=tmp2)
+                    # Compute to which column this iteration belongs
+                    col = np.ravel_multi_index(i, npts)
+                    if is_sparse == False:
+                        result[:, col] = tmp2.copy().toarray()
+                    else:
                         aux = tmp2.toarray()
                         # We now need to now which entries on tmp2 are non-zero and store then in our data list
-                        for l in np.where(aux !=0)[0]:
+                        for l in np.where(aux != 0)[0]:
                             data.append(aux[l])
-                            col.append(cont)
-                            row.append(l) 
-                        v[i, j, k] = 0.0
-                        cont += 1
+                            colarr.append(col)
+                            row.append(l)
+                    if (rank == currentrank):
+                        v[i] = 0.0
+                currentrank += 1
         else:
             # I cannot conceive any situation where this error should be thrown, but I put it here just in case something unexpected happens.
             raise Exception(
                 'Function toarray_struphy() only supports Stencil Vectors or Block Vectors.')
-        
-        
-        if format == "csr":
-            return sparse.csr_matrix((data, (row, col)), shape=(numrows, cont))
-        elif format == "csc":
-            return sparse.csc_matrix((data, (row, col)), shape=(numrows, cont))
-        elif format == "bsr":
-            return sparse.bsr_matrix((data, (row, col)), shape=(numrows, cont))
-        elif format == "lil":
-            return sparse.csr_matrix((data, (row, col)), shape=(numrows, cont)).tolil()
-        elif format == "dok":
-            return sparse.csr_matrix((data, (row, col)), shape=(numrows, cont)).todok()
-        elif format == "coo":
-            return sparse.coo_matrix((data, (row, col)), shape=(numrows, cont))
-        elif format == "dia":
-            return sparse.csr_matrix((data, (row, col)), shape=(numrows, cont)).todia()
+
+        if is_sparse == False:
+            # Use Allreduce to perform addition reduction and give one copy of the result to all ranks.
+            comm.Allreduce(result, out, op=MPI.SUM)
+            return out
         else:
-            raise Exception(
-                'The selected sparse matrix format must be one of the following : csr, csc, bsr, lil, dok,  coo or dia.')
-        
-        
-        
+            # Gather all rows on rank 0
+            gathered_rows = comm.gather(row, root=0)
+            # Gather all colarr on rank 0
+            gathered_cols = comm.gather(colarr, root=0)
+            # Gather all data on rank 0
+            gathered_data = comm.gather(data, root=0)
+
+            if rank == 0:
+                # Rank 0 collects all rows from other ranks
+                all_rows = [
+                    item for sublist in gathered_rows for item in sublist]
+                # Rank 0 collects all columns from other ranks
+                all_cols = [
+                    item for sublist in gathered_cols for item in sublist]
+                # Rank 0 collects all data from other ranks
+                all_data = [
+                    item for sublist in gathered_data for item in sublist]
+
+                # Broadcast 'all_rows' to all other ranks
+                comm.bcast(all_rows, root=0)
+                # Broadcast 'all_cols' to all other ranks
+                comm.bcast(all_cols, root=0)
+                # Broadcast 'all_data' to all other ranks
+                comm.bcast(all_data, root=0)
+            else:
+                # Other ranks receive the 'all_rows' list through broadcast
+                all_rows = comm.bcast(None, root=0)
+                # Other ranks receive the 'all_cols' list through broadcast
+                all_cols = comm.bcast(None, root=0)
+                # Other ranks receive the 'all_data' list through broadcast
+                all_data = comm.bcast(None, root=0)
+
+            if format == "csr":
+                return sparse.csr_matrix((all_data, (all_rows, all_cols)), shape=(numrows, numcols))
+            elif format == "csc":
+                return sparse.csc_matrix((all_data, (all_rows, all_cols)), shape=(numrows, numcols))
+            elif format == "bsr":
+                return sparse.bsr_matrix((all_data, (all_rows, all_cols)), shape=(numrows, numcols))
+            elif format == "lil":
+                return sparse.csr_matrix((all_data, (all_rows, all_cols)), shape=(numrows, numcols)).tolil()
+            elif format == "dok":
+                return sparse.csr_matrix((all_data, (all_rows, all_cols)), shape=(numrows, numcols)).todok()
+            elif format == "coo":
+                return sparse.coo_matrix((all_data, (all_rows, all_cols)), shape=(numrows, numcols))
+            elif format == "dia":
+                return sparse.csr_matrix((all_data, (all_rows, all_cols)), shape=(numrows, numcols)).todia()
+            else:
+                raise Exception(
+                    'The selected sparse matrix format must be one of the following : csr, csc, bsr, lil, dok,  coo or dia.')
 
 
 class CompositeLinearOperator(LinOpWithTransp):
