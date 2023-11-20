@@ -604,10 +604,14 @@ class Domain(metaclass=ABCMeta):
 
             markers = etas[0]
 
-            out = np.empty((3, 3, markers.shape[0]), dtype=float)
+            # to keep C-ordering the (3, 3)-part is in the last indices
+            out = np.empty((markers.shape[0], 3, 3), dtype=float)
 
             n_inside = map_eval.kernel_evaluate_pic(
                 markers, which, *self.args_map, out, remove_outside)
+            
+            # move the (3, 3)-part to front
+            out = np.transpose(out, axes=(1, 2, 0))
 
             # remove holes
             out = out[:, :, :n_inside]
@@ -632,11 +636,15 @@ class Domain(metaclass=ABCMeta):
             E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
                 etas[0], etas[1], etas[2], flat_eval=False)
 
+            # to keep C-ordering the (3, 3)-part is in the last indices
             out = np.empty(
-                (3, 3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+                (E1.shape[0], E2.shape[1], E3.shape[2], 3, 3), dtype=float)
 
             map_eval.kernel_evaluate(
                 E1, E2, E3, which, *self.args_map, out, is_sparse_meshgrid)
+
+            # move the (3, 3)-part to front
+            out = np.transpose(out, axes=(3, 4, 0, 1, 2))
 
             if transposed:
                 out = np.transpose(out, axes=(1, 0, 2, 3, 4))
@@ -743,7 +751,7 @@ class Domain(metaclass=ABCMeta):
             # call evaluation kernel
             out = np.empty((3, markers.shape[0]), dtype=float)
 
-            n_inside = transform.kernel_evaluate_pic(
+            n_inside = transform.kernel_pullpush_pic(
                 A, markers, self._transformation_ids[which], kind_int, *self.args_map, out, remove_outside)
 
             # remove holes
@@ -779,7 +787,7 @@ class Domain(metaclass=ABCMeta):
             out = np.empty(
                 (3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
 
-            transform.kernel_evaluate(
+            transform.kernel_pullpush(
                 A, E1, E2, E3, self._transformation_ids[which], kind_int, *self.args_map, is_sparse_meshgrid, out)
 
             # change output order

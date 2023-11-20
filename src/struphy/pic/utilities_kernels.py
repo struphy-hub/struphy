@@ -113,8 +113,8 @@ def eval_1_form_at_particles(markers: 'float[:,:]',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3)
-    #$ omp for reduction( + : res)
+    #$ omp parallel private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3) shared(res)
+    #$ omp for reduction (+:res)
     for ip in range(n_markers):
 
         eta1 = markers[ip, 0]
@@ -623,7 +623,7 @@ def accum_gradI_const(markers: 'float[:,:]', n_markers_tot: 'int',
     return res/n_markers_tot
 
 
-@stack_array('PB', 'bn1', 'bn2', 'bn3')
+@stack_array('bn1', 'bn2', 'bn3')
 def accum_en_fB(markers: 'float[:,:]', n_markers_tot: 'int',
                 pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                 starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -764,7 +764,7 @@ def check_eta_mid(markers: 'float[:,:]'):
         markers[ip, 0:3] = e_mid[:]
 
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'e', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'a_form', 'dfta_form')
+@stack_array('dfm', 'dfinv', 'dfinv_t', 'e', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'a_form', 'dfta_form')
 def canonical_kinetic_particles(res: 'float[:]', markers: 'float[:,:]',
                                 pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                 starts1: 'int[:,:]',
@@ -807,7 +807,7 @@ def canonical_kinetic_particles(res: 'float[:]', markers: 'float[:,:]',
 
     res[:] = 0.0
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
     dfinv_t = empty((3, 3), dtype=float)
 
@@ -830,7 +830,7 @@ def canonical_kinetic_particles(res: 'float[:]', markers: 'float[:,:]',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private (ip, e, v, w, df, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, a_form, dfta_form)
+    #$ omp parallel private (ip, e, v, w, dfm, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, a_form, dfta_form)
     #$ omp for reduction( + : res)
     for ip in range(n_markers):
 
@@ -841,15 +841,15 @@ def canonical_kinetic_particles(res: 'float[:]', markers: 'float[:,:]',
         e[:] = markers[ip, 0:3]
         v[:] = markers[ip, 3:6]
         w = markers[ip,   6]
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
-        linalg.matrix_inv(df, dfinv)
+        linalg.matrix_inv(dfm, dfinv)
         linalg.transpose(dfinv, dfinv_t)
 
         # spline evaluation
@@ -882,7 +882,7 @@ def canonical_kinetic_particles(res: 'float[:]', markers: 'float[:,:]',
     #$ omp end parallel
 
 
-@stack_array('det_df', 'df')
+@stack_array('det_df', 'dfm')
 def thermal_energy(res: 'float[:]', density: 'float[:,:,:,:,:,:]',
                    pads1: int, pads2: int, pads3: int,
                    nel1: 'int', nel2: 'int', nel3: 'int',
@@ -934,9 +934,9 @@ def thermal_energy(res: 'float[:]', density: 'float[:,:,:,:,:,:]',
     res[:] = 0.0
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
 
-    #$ omp parallel private (iel1, iel2, iel3, q1, q2, q3, eta1, eta2, eta3, wvol, vv, df, det_df)
+    #$ omp parallel private (iel1, iel2, iel3, q1, q2, q3, eta1, eta2, eta3, wvol, vv, dfm, det_df)
     #$ omp for reduction( + : res)
 
     for iel1 in range(nel1):
@@ -959,11 +959,11 @@ def thermal_energy(res: 'float[:]', density: 'float[:,:,:,:,:,:]',
                             if abs(vv) < 0.00001:
                                 vv = 1.0
 
-                            # evaluate Jacobian, result in df
+                            # evaluate Jacobian, result in dfm
                             map_eval.df(eta1, eta2, eta3, kind_map, params_map, t1_map, t2_map,
-                                        t3_map, p_map, ind1_map, ind2_map, ind3_map, cx, cy, cz, df)
+                                        t3_map, p_map, ind1_map, ind2_map, ind3_map, cx, cy, cz, dfm)
 
-                            det_df = linalg.det(df)
+                            det_df = linalg.det(dfm)
 
                             res[0] += vv * det_df * log(vv) * wvol
 

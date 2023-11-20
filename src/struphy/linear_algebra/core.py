@@ -1,4 +1,5 @@
-from pyccel.decorators import pure
+from pyccel.decorators import pure, stack_array
+from numpy import zeros
 
 
 @pure
@@ -165,7 +166,7 @@ def outer(a: 'float[:]', b: 'float[:]', c: 'float[:,:]'):
             c[i, j] = a[i] * b[j]
 
 
-@pure
+@stack_array('det_a')
 def matrix_inv(a: 'float[:,:]', b: 'float[:,:]'):
     """
     Computes the inverse of a 3x3 matrix.
@@ -223,6 +224,7 @@ def matrix_inv_with_det(a: 'float[:,:]', det_a: float, b: 'float[:,:]'):
     b[2, 1] = (a[2, 0]*a[0, 1] - a[0, 0]*a[2, 1]) / det_a
     b[2, 2] = (a[0, 0]*a[1, 1] - a[1, 0]*a[0, 1]) / det_a
 
+
 @pure
 def matrix_vector4(a: 'float[:,:]', b: 'float[:]', c: 'float[:]'):
     """
@@ -245,6 +247,7 @@ def matrix_vector4(a: 'float[:,:]', b: 'float[:]', c: 'float[:]'):
     for i in range(4):
         for j in range(4):
             c[i] += a[i, j] * b[j]
+
 
 @pure
 def matrix_matrix4(a: 'float[:,:]', b: 'float[:,:]', c: 'float[:,:]'):
@@ -270,7 +273,8 @@ def matrix_matrix4(a: 'float[:,:]', b: 'float[:,:]', c: 'float[:,:]'):
             for k in range(4):
                 c[i, j] += a[i, k] * b[k, j]
 
-@pure
+
+@stack_array('tmp1', 'tmp2')
 def det4(a: 'float[:,:]') -> float:
     """
     Computes the determinant of a 4x4 matrix.
@@ -286,8 +290,22 @@ def det4(a: 'float[:,:]') -> float:
             The determinant of the 3x3 matrix a.
     """
 
-    plus =  a[0,0]*det(a[1:,1:])      + a[2,0]*det(a[(0,1,3),1:])
-    minus = a[1,0]*det(a[(0,2,3),1:]) + a[3,0]*det(a[:3,1:])
+    tmp1 = zeros((3, 3), dtype=float)
+    tmp2 = zeros((3, 3), dtype=float)
+
+    tmp1[0] = a[0, 1:]
+    tmp1[1] = a[1, 1:]
+    tmp1[2] = a[3, 1:]
+
+    tmp2[:] = a[1:, 1:]
+
+    plus = a[0, 0]*det(tmp2) + a[2, 0]*det(tmp1)
+
+    tmp1[2] = a[2, 1:]
+
+    tmp2[:] = a[:3, 1:]
+
+    minus = a[1, 0]*det(tmp1) + a[3, 0]*det(tmp2)
 
     det_a = plus - minus
 

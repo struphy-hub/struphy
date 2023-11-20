@@ -751,4 +751,5 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
 
 
 if __name__ == '__main__':
-    pass
+    test_accumulation([8, 9, 10], [2, 3, 4], [False, False, True], ['Cuboid', {
+        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])

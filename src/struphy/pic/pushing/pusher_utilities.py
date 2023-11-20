@@ -1,6 +1,6 @@
 from pyccel.decorators import pure, stack_array
 
-from numpy import empty, sqrt, floor
+from numpy import empty, sqrt, floor, zeros
 
 import struphy.geometry.map_eval as map_eval
 import struphy.b_splines.bsplines_kernels as bsp
@@ -9,7 +9,7 @@ import struphy.linear_algebra.core as linalg
 
 # @pure
 # @stack_array('vg', 'basis', 'basis_inv')
-# def reflect(df : 'float[:,:]', df_inv : 'float[:,:]', v : 'float[:]'):
+# def reflect(dfm : 'float[:,:]', df_inv : 'float[:,:]', v : 'float[:]'):
 #     '''TODO'''
 
 #     vg        = empty( 3    , dtype=float)
@@ -21,13 +21,13 @@ import struphy.linear_algebra.core as linalg
 #     # calculate normalized basis vectors
 #     norm1 = sqrt(df_inv[0, 0]**2 + df_inv[0, 1]**2 + df_inv[0, 2]**2)
 
-#     norm2 = sqrt(df[0, 1]**2 + df[1, 1]**2 + df[2, 1]**2)
-#     norm3 = sqrt(df[0, 2]**2 + df[1, 2]**2 + df[2, 2]**2)
+#     norm2 = sqrt(dfm[0, 1]**2 + dfm[1, 1]**2 + dfm[2, 1]**2)
+#     norm3 = sqrt(dfm[0, 2]**2 + dfm[1, 2]**2 + dfm[2, 2]**2)
 
 #     basis[:, 0] = df_inv[0, :]/norm1
 
-#     basis[:, 1] = df[:, 1]/norm2
-#     basis[:, 2] = df[:, 2]/norm3
+#     basis[:, 1] = dfm[:, 1]/norm2
+#     basis[:, 2] = dfm[:, 2]/norm3
 
 #     linalg.matrix_inv(basis, basis_inv)
 
@@ -38,7 +38,7 @@ import struphy.linear_algebra.core as linalg
 #     linalg.matrix_vector(basis, vg, v)
 
 
-@stack_array('df', 'dfinv', 'dfinv_T', 'basis_normal', 'basis_normal_inv', 'norm_df', 'norm_dfinv_T', 'eta', 'eta_old', 'eta_boundary', 'v', 'v_logical', 'v_normal', 't')
+@stack_array('dfm', 'dfinv', 'dfinv_T', 'basis_normal', 'basis_normal_inv', 'norm_df', 'norm_dfinv_T', 'eta', 'eta_old', 'eta_boundary', 'v', 'v_logical', 'v_normal', 't')
 def reflect(markers: 'float[:,:]',
             kind_map: 'int', params_map: 'float[:]',
             p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
@@ -86,11 +86,11 @@ def reflect(markers: 'float[:,:]',
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
-    dfinv = empty((3, 3), dtype=float)
-    dfinv_T = empty((3, 3), dtype=float)
-    basis_normal = empty((3, 3), dtype=float)
-    basis_normal_inv = empty((3, 3), dtype=float)
+    dfm = zeros((3, 3), dtype=float)
+    dfinv = zeros((3, 3), dtype=float)
+    dfinv_T = zeros((3, 3), dtype=float)
+    basis_normal = zeros((3, 3), dtype=float)
+    basis_normal_inv = zeros((3, 3), dtype=float)
     norm_df = empty(3, dtype=float)
 
     # marker position and velocity
@@ -107,15 +107,15 @@ def reflect(markers: 'float[:,:]',
         eta_old[:] = markers[ip, 9:12]
         v[:] = markers[ip, 3:6]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta_old[0], eta_old[1], eta_old[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
-        linalg.matrix_inv(df, dfinv)
+        linalg.matrix_inv(dfm, dfinv)
 
         # pull back of the velocity
         linalg.matrix_vector(dfinv, v, v_logical)
@@ -132,24 +132,27 @@ def reflect(markers: 'float[:,:]',
 
             # assert allclose(eta_boundary[axis], 0.)
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta_boundary[0], eta_boundary[1], eta_boundary[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        linalg.matrix_inv(df, dfinv)
+        linalg.matrix_inv(dfm, dfinv)
         linalg.transpose(dfinv, dfinv_T)
 
         # assemble normalized basis which is normal to the reflection plane
-        norm_df[:] = sqrt(df[0, :]**2 + df[1, :]**2 + df[2, :]**2)
+        norm_df[0] = sqrt(dfm[0, 0]**2 + dfm[1, 0]**2 + dfm[2, 0]**2)
+        norm_df[1] = sqrt(dfm[0, 1]**2 + dfm[1, 1]**2 + dfm[2, 1]**2)
+        norm_df[2] = sqrt(dfm[0, 2]**2 + dfm[1, 2]**2 + dfm[2, 2]**2)
+        
         norm_dfinv_T = sqrt(dfinv_T[0, axis]**2 +
                             dfinv_T[1, axis]**2 + dfinv_T[2, axis]**2)
 
-        basis_normal = df/norm_df
+        basis_normal[:] = dfm/norm_df
         basis_normal[:, axis] = dfinv_T[:, axis]/norm_dfinv_T
 
         linalg.matrix_inv(basis_normal, basis_normal_inv)
@@ -261,7 +264,7 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                        n_quad1: 'int', n_quad2: 'int', n_quad3: 'int',
-                       df: 'float[:,:]', df_inv: 'float[:,:]',
+                       dfm: 'float[:,:]', df_inv: 'float[:,:]',
                        bn1: 'float[:]', bn2: 'float[:]', bn3: 'float[:]',
                        bd1: 'float[:]', bd2: 'float[:]', bd3: 'float[:]',
                        taus: 'float[:]',
@@ -338,8 +341,8 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
 
     # Use Euler method as a predictor for positions
     map_eval.df(eta1, eta2, eta3, kind_map, params_map, t1_map, t2_map,
-                t3_map, p_map, ind1_map, ind2_map, ind3_map, cx, cy, cz, df)
-    linalg.matrix_inv(df, df_inv)
+                t3_map, p_map, ind1_map, ind2_map, ind3_map, cx, cy, cz, dfm)
+    linalg.matrix_inv(dfm, df_inv)
 
     v1_curv = kappa * (df_inv[0, 0] * (v1_curr + v1) + df_inv[0, 1] *
                        (v2_curr + v2) + df_inv[0, 2] * (v3_curr + v3))
@@ -377,10 +380,10 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
                     t1_map, t2_map, t3_map,
                     p_map,
                     ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz, df)
+                    cx, cy, cz, dfm)
 
         # evaluate inverse Jacobian matrix
-        linalg.matrix_inv(df, df_inv)
+        linalg.matrix_inv(dfm, df_inv)
 
         # ======================================================================================
         # update the positions and place them back into the computational domain

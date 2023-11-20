@@ -11,7 +11,7 @@ import struphy.geometry.map_eval as map_eval
 from numpy import empty, shape, zeros, sqrt, log, abs
 
 
-@stack_array('df', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'S', 'b', 'b_star', 'bcross', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'temp', 'temp1', 'temp2')
+@stack_array('dfm', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'S', 'b', 'b_star', 'bcross', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'temp', 'temp1', 'temp2')
 def init_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float,
                                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -31,7 +31,7 @@ def init_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float,
     """
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     df_t = empty((3, 3), dtype=float)
     g = empty((3, 3), dtype=float)
     g_inv = empty((3, 3), dtype=float)
@@ -74,21 +74,21 @@ def init_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float,
         v = markers[ip, 3]
         mu = markers[ip, 4]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # evaluate inverse of G
-        linalg.transpose(df, df_t)
-        linalg.matrix_matrix(df_t, df, g)
+        linalg.transpose(dfm, df_t)
+        linalg.matrix_matrix(df_t, dfm, g)
         linalg.matrix_inv(g, g_inv)
 
         # metric coeffs
-        det_df = linalg.det(df)
+        det_df = linalg.det(dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], e[0])
@@ -179,7 +179,7 @@ def init_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float,
         markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 9:12])/2.
 
 
-@stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'b', 'grad_abs_b', 'curl_norm_b', 'b_star', 'norm_b1')
+@stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'b', 'grad_abs_b', 'curl_norm_b', 'b_star', 'norm_b1')
 def init_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float,
                                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                     starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -199,7 +199,7 @@ def init_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float,
     """
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
 
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -236,16 +236,16 @@ def init_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float,
         v = markers[ip, 3]
         mu = markers[ip, 4]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        det_df = linalg.det(df)
+        det_df = linalg.det(dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], e[0])
@@ -315,7 +315,7 @@ def init_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float,
         markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 9:13])/2.
 
 
-@stack_array('df', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'S', 'b', 'b_star', 'bcross', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'temp', 'temp1', 'temp2')
+@stack_array('dfm', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'S', 'b', 'b_star', 'bcross', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'temp', 'temp1', 'temp2')
 def init_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
                                              pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                              starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -335,7 +335,7 @@ def init_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
     """
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     df_t = empty((3, 3), dtype=float)
     g = empty((3, 3), dtype=float)
     g_inv = empty((3, 3), dtype=float)
@@ -378,21 +378,21 @@ def init_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
         v = markers[ip, 3]
         mu = markers[ip, 4]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # evaluate inverse of G
-        linalg.transpose(df, df_t)
-        linalg.matrix_matrix(df_t, df, g)
+        linalg.transpose(dfm, df_t)
+        linalg.matrix_matrix(df_t, dfm, g)
         linalg.matrix_inv(g, g_inv)
 
         # metric coeffs
-        det_df = linalg.det(df)
+        det_df = linalg.det(dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], e[0])
@@ -485,7 +485,7 @@ def init_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
         markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 9:12])/2.
 
 
-@stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'b', 'grad_abs_b', 'curl_norm_b', 'b_star', 'norm_b1')
+@stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'b', 'grad_abs_b', 'curl_norm_b', 'b_star', 'norm_b1')
 def init_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
                                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -505,7 +505,7 @@ def init_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
     """
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
 
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -542,16 +542,16 @@ def init_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
         v = markers[ip, 3]
         mu = markers[ip, 4]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        det_df = linalg.det(df)
+        det_df = linalg.det(dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], e[0])
@@ -622,7 +622,7 @@ def init_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
         markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 9:13])/2.
 
 
-@stack_array('df', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'S', 'b', 'b_star', 'bcross', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'temp', 'temp1', 'temp2')
+@stack_array('dfm', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'S', 'b', 'b_star', 'bcross', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'temp', 'temp1', 'temp2')
 def init_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float,
                                                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -642,7 +642,7 @@ def init_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
     """
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     df_t = empty((3, 3), dtype=float)
     g = empty((3, 3), dtype=float)
     g_inv = empty((3, 3), dtype=float)
@@ -685,21 +685,21 @@ def init_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
         v = markers[ip, 3]
         mu = markers[ip, 4]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # evaluate inverse of G
-        linalg.transpose(df, df_t)
-        linalg.matrix_matrix(df_t, df, g)
+        linalg.transpose(dfm, df_t)
+        linalg.matrix_matrix(df_t, dfm, g)
         linalg.matrix_inv(g, g_inv)
 
         # metric coeffs
-        det_df = linalg.det(df)
+        det_df = linalg.det(dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], e[0])
@@ -792,7 +792,7 @@ def init_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
         markers[ip, 0] = markers[ip, 16]
 
 
-@stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'b', 'grad_abs_b', 'curl_norm_b', 'b_star', 'norm_b1')
+@stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'b', 'grad_abs_b', 'curl_norm_b', 'b_star', 'norm_b1')
 def init_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float,
                                                 pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                                 starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -812,7 +812,7 @@ def init_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
     """
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
 
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -849,16 +849,16 @@ def init_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
         v = markers[ip, 3]
         mu = markers[ip, 4]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        det_df = linalg.det(df)
+        det_df = linalg.det(dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], e[0])
@@ -929,7 +929,7 @@ def init_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
         markers[ip, 0] = markers[ip, 16]
 
 
-@stack_array('df', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'S', 'b', 'b_star', 'bcross', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'temp1', 'temp2')
+@stack_array('dfm', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'S', 'b', 'b_star', 'bcross', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'temp1', 'temp2')
 def gc_bxEstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
                                             pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                             starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -949,7 +949,7 @@ def gc_bxEstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
     """
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     df_t = empty((3, 3), dtype=float)
     g = empty((3, 3), dtype=float)
     g_inv = empty((3, 3), dtype=float)
@@ -995,21 +995,21 @@ def gc_bxEstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
         markers[ip, 0:3] = markers[ip, 16:19]
         mu = markers[ip, 4]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e_mid[0], e_mid[1], e_mid[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # evaluate inverse of G
-        linalg.transpose(df, df_t)
-        linalg.matrix_matrix(df_t, df, g)
+        linalg.transpose(dfm, df_t)
+        linalg.matrix_matrix(df_t, dfm, g)
         linalg.matrix_inv(g, g_inv)
 
         # metric coeffs
-        det_df = linalg.det(df)
+        det_df = linalg.det(dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], e_mid[0])
@@ -1090,7 +1090,7 @@ def gc_bxEstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
         markers[ip, 16:19] = mu*grad_abs_b[:]
 
 
-@stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e_mid', 'b', 'grad_abs_b', 'curl_norm_b', 'b_star', 'norm_b1')
+@stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e_mid', 'b', 'grad_abs_b', 'curl_norm_b', 'b_star', 'norm_b1')
 def gc_Bstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
                                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1110,7 +1110,7 @@ def gc_Bstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
     """
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
 
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -1148,16 +1148,16 @@ def gc_Bstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
         markers[ip, 0:4] = markers[ip, 17:21]
         mu = markers[ip, 4]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e_mid[0], e_mid[1], e_mid[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        det_df = linalg.det(df)
+        det_df = linalg.det(dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], e_mid[0])
@@ -1213,7 +1213,7 @@ def gc_Bstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
         markers[ip, 17:20] = mu*grad_abs_b[:]
 
 
-@stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e_mid', 'grad_abs_b')
+@stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e_mid', 'grad_abs_b')
 def gc_bxEstar_discrete_gradient_faster_eval_gradI(markers: 'float[:,:]', dt: float,
                                                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1284,7 +1284,7 @@ def gc_bxEstar_discrete_gradient_faster_eval_gradI(markers: 'float[:,:]', dt: fl
         markers[ip, 16:19] = mu*grad_abs_b[:]
 
 
-@stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e_mid', 'grad_abs_b')
+@stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e_mid', 'grad_abs_b')
 def gc_Bstar_discrete_gradient_faster_eval_gradI(markers: 'float[:,:]', dt: float,
                                                  pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                                  starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1355,7 +1355,7 @@ def gc_Bstar_discrete_gradient_faster_eval_gradI(markers: 'float[:,:]', dt: floa
         markers[ip, 17:20] = mu*grad_abs_b[:]
 
 
-@stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
+@stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
 def gc_bxEstar_discrete_gradient_Itoh_Newton_eval1(markers: 'float[:,:]', dt: float,
                                                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1376,7 +1376,7 @@ def gc_bxEstar_discrete_gradient_Itoh_Newton_eval1(markers: 'float[:,:]', dt: fl
     """
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
 
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -1404,13 +1404,13 @@ def gc_bxEstar_discrete_gradient_Itoh_Newton_eval1(markers: 'float[:,:]', dt: fl
 
         e[:] = markers[ip, 0:3]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], e[0])
@@ -1434,7 +1434,7 @@ def gc_bxEstar_discrete_gradient_Itoh_Newton_eval1(markers: 'float[:,:]', dt: fl
         markers[ip, 1] = markers[ip, 17]
 
 
-@stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
+@stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
 def gc_bxEstar_discrete_gradient_Itoh_Newton_eval2(markers: 'float[:,:]', dt: float,
                                                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1455,7 +1455,7 @@ def gc_bxEstar_discrete_gradient_Itoh_Newton_eval2(markers: 'float[:,:]', dt: fl
     """
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
 
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -1486,13 +1486,13 @@ def gc_bxEstar_discrete_gradient_Itoh_Newton_eval2(markers: 'float[:,:]', dt: fl
         # send particles to the (eta^0_n+1, eta^0_n+1, eta^0_n+1)
         markers[ip, 2] = markers[ip, 18]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], e[0])
@@ -1515,7 +1515,7 @@ def gc_bxEstar_discrete_gradient_Itoh_Newton_eval2(markers: 'float[:,:]', dt: fl
             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
 
 
-@stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
+@stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
 def gc_Bstar_discrete_gradient_Itoh_Newton_eval1(markers: 'float[:,:]', dt: float,
                                                  pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                                  starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1535,7 +1535,7 @@ def gc_Bstar_discrete_gradient_Itoh_Newton_eval1(markers: 'float[:,:]', dt: floa
     """
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
 
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -1563,13 +1563,13 @@ def gc_Bstar_discrete_gradient_Itoh_Newton_eval1(markers: 'float[:,:]', dt: floa
 
         e[:] = markers[ip, 0:3]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], e[0])
@@ -1593,7 +1593,7 @@ def gc_Bstar_discrete_gradient_Itoh_Newton_eval1(markers: 'float[:,:]', dt: floa
         markers[ip, 1] = markers[ip, 17]
 
 
-@stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
+@stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
 def gc_Bstar_discrete_gradient_Itoh_Newton_eval2(markers: 'float[:,:]', dt: float,
                                                  pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                                  starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1613,7 +1613,7 @@ def gc_Bstar_discrete_gradient_Itoh_Newton_eval2(markers: 'float[:,:]', dt: floa
     """
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
 
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -1644,13 +1644,13 @@ def gc_Bstar_discrete_gradient_Itoh_Newton_eval2(markers: 'float[:,:]', dt: floa
         # send particles to the (eta^0_n+1,eta^0_n+1, eta^0_n+1)
         markers[ip, 2] = markers[ip, 18]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], e[0])

@@ -6,7 +6,6 @@ from pyccel.decorators import stack_array
 import struphy.linear_algebra.core as linalg
 import struphy.geometry.map_eval as map_eval
 import struphy.b_splines.bsplines_kernels as bsp
-import struphy.b_splines.bsplines_kernels_particles as bspparticle
 import struphy.b_splines.bspline_evaluation_3d as eval_3d
 
 from struphy.pic.pushing.pusher_utilities import aux_fun_x_v_stat_e
@@ -73,7 +72,7 @@ def a_documentation():
     print('This is just the docstring function.')
 
 
-@stack_array('df', 'df_inv', 'df_inv_t', 'e_form', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+@stack_array('dfm', 'df_inv', 'df_inv_t', 'e_form', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                        starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -98,7 +97,7 @@ def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
     dfinvt = empty((3, 3), dtype=float)
 
@@ -118,7 +117,7 @@ def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, df, dfinv, dfinvt, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, e_form, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, dfinv, dfinvt, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, e_form, e_cart)
     #$ omp for
     for ip in range(n_markers):
 
@@ -130,17 +129,17 @@ def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta1, eta2, eta3,
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        det_df = linalg.det(df)
-        linalg.matrix_inv_with_det(df, det_df, dfinv)
+        det_df = linalg.det(dfm)
+        linalg.matrix_inv_with_det(dfm, det_df, dfinv)
         linalg.transpose(dfinv, dfinvt)
 
         # spline evaluation
@@ -169,7 +168,7 @@ def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
     #$ omp end parallel
 
 
-@stack_array('df', 'b_form', 'b_cart', 'b_norm', 'e', 'v', 'vperp', 'vxb_norm', 'b_normxvperp', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+@stack_array('dfm', 'b_form', 'b_cart', 'b_norm', 'e', 'v', 'vperp', 'vxb_norm', 'b_normxvperp', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_vxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -193,7 +192,7 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
 
     # allocate for field evaluations (2-form components, Cartesian components and normalized Cartesian components)
     b_form = empty(3, dtype=float)
@@ -221,7 +220,7 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private (ip, e, v, df, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
+    #$ omp parallel private (ip, e, v, dfm, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
     #$ omp for
     for ip in range(n_markers):
 
@@ -232,16 +231,16 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
         e[:] = markers[ip, 0:3]
         v[:] = markers[ip, 3:6]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        det_df = linalg.det(df)
+        det_df = linalg.det(dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], e[0])
@@ -261,7 +260,7 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
 
         # magnetic field: Cartesian components
-        linalg.matrix_vector(df, b_form, b_cart)
+        linalg.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart/det_df
 
         # magnetic field: magnitude
@@ -289,7 +288,7 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
     #$ omp end parallel
 
 
-@stack_array('df', 'b_form', 'b_cart', 'b_prod', 'e', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'identity', 'rhs', 'lhs', 'lhs_inv', 'vec', 'res')
+@stack_array('dfm', 'b_form', 'b_cart', 'b_prod', 'e', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'identity', 'rhs', 'lhs', 'lhs_inv', 'vec', 'res')
 def push_vxb_implicit(markers: 'float[:,:]', dt: float, stage: int,
                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -313,7 +312,7 @@ def push_vxb_implicit(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
 
     # allocate for field evaluations (2-form components, Cartesian components and rotation matrix such that vxB = B_prod.v)
     b_form = empty(3, dtype=float)
@@ -352,7 +351,7 @@ def push_vxb_implicit(markers: 'float[:,:]', dt: float, stage: int,
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel firstprivate(b_prod) private (ip, e, v, df, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
+    #$ omp parallel firstprivate(b_prod) private (ip, e, v, dfm, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
     #$ omp for
     for ip in range(n_markers):
 
@@ -363,16 +362,16 @@ def push_vxb_implicit(markers: 'float[:,:]', dt: float, stage: int,
         e[:] = markers[ip, 0:3]
         v[:] = markers[ip, 3:6]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        det_df = linalg.det(df)
+        det_df = linalg.det(dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], e[0])
@@ -392,7 +391,7 @@ def push_vxb_implicit(markers: 'float[:,:]', dt: float, stage: int,
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
 
         # magnetic field: Cartesian components
-        linalg.matrix_vector(df, b_form, b_cart)
+        linalg.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart/det_df
 
         # magnetic field: rotation matrix
@@ -419,7 +418,7 @@ def push_vxb_implicit(markers: 'float[:,:]', dt: float, stage: int,
     #$ omp end parallel
 
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'rot_temp', 'b_form', 'b_cart', 'b_norm', 'e', 'v', 'vperp', 'vxb_norm', 'b_normxvperp', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+@stack_array('dfm', 'dfinv', 'dfinv_t', 'rot_temp', 'b_form', 'b_cart', 'b_norm', 'e', 'v', 'vperp', 'vxb_norm', 'b_normxvperp', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -444,7 +443,7 @@ def push_pxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
     dfinv_t = empty((3, 3), dtype=float)
 
@@ -478,7 +477,7 @@ def push_pxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private (ip, e, v, df, dfinv, dfinv_t, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, a_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
+    #$ omp parallel private (ip, e, v, dfm, dfinv, dfinv_t, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, a_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
     #$ omp for
     for ip in range(n_markers):
 
@@ -489,18 +488,18 @@ def push_pxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
         e[:] = markers[ip, 0:3]
         v[:] = markers[ip, 3:6]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
-        linalg.matrix_inv(df, dfinv)
+        linalg.matrix_inv(dfm, dfinv)
         linalg.transpose(dfinv, dfinv_t)
         # metric coeffs
-        det_df = linalg.det(df)
+        det_df = linalg.det(dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], e[0])
@@ -539,7 +538,7 @@ def push_pxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
         v[2] = v[2] - rot_temp[2]
 
         # magnetic field: Cartesian components
-        linalg.matrix_vector(df, b_form, b_cart)
+        linalg.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart/det_df
 
         # normalized magnetic field direction
@@ -567,7 +566,7 @@ def push_pxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
     #$ omp end parallel
 
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'eta1', 'eta2', 'eta3')
+@stack_array('dfm', 'dfinv', 'dfinv_t', 'eta1', 'eta2', 'eta3')
 def push_hybrid_xp_lnn(markers: 'float[:,:]', dt: float, stage: int,
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                        starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -589,7 +588,7 @@ def push_hybrid_xp_lnn(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
     dfinv_t = empty((3, 3), dtype=float)
 
@@ -620,7 +619,7 @@ def push_hybrid_xp_lnn(markers: 'float[:,:]', dt: float, stage: int,
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, df, dfinv, dfinv_t, det_df, point_left, point_right, cell_left, cell_number, i, grids_shapex, grids_shapey, grids_shapez, x_ii, y_ii, z_ii, il1, il2, il3, q1, q2, q3, temp1, temp4, temp6, valuexyz, dvaluexyz, temp8, ww)
+    #$ omp parallel private (ip, eta1, eta2, eta3, dfm, dfinv, dfinv_t, det_df, point_left, point_right, cell_left, cell_number, i, grids_shapex, grids_shapey, grids_shapez, x_ii, y_ii, z_ii, il1, il2, il3, q1, q2, q3, temp1, temp4, temp6, valuexyz, dvaluexyz, temp8, ww)
     #$ omp for
     for ip in range(n_markers):
 
@@ -632,18 +631,18 @@ def push_hybrid_xp_lnn(markers: 'float[:,:]', dt: float, stage: int,
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta1, eta2, eta3,
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
-        linalg.matrix_inv(df, dfinv)
+        linalg.matrix_inv(dfm, dfinv)
         linalg.transpose(dfinv, dfinv_t)
         # metric coeffs
-        det_df = linalg.det(df)
+        det_df = linalg.det(dfm)
 
         point_left[0] = eta1 - 0.5*compact[0]
         point_right[0] = eta1 + 0.5*compact[0]
@@ -702,19 +701,19 @@ def push_hybrid_xp_lnn(markers: 'float[:,:]', dt: float, stage: int,
 
                                 if temp4[0] < 0 and temp4[1] < 0 and temp4[2] < 0:
 
-                                    valuexyz[0] = bspparticle.convolution(
+                                    valuexyz[0] = bsp.convolution(
                                         p_shape[0], grids_shapex, temp1[0])
-                                    dvaluexyz[0] = bspparticle.convolution_der(
+                                    dvaluexyz[0] = bsp.convolution_der(
                                         p_shape[0], grids_shapex, temp1[0])
 
-                                    valuexyz[1] = bspparticle.piecewise(
+                                    valuexyz[1] = bsp.piecewise(
                                         p_shape[1], p_size[1], temp1[1] - eta2)
-                                    dvaluexyz[1] = bspparticle.piecewise(
+                                    dvaluexyz[1] = bsp.piecewise(
                                         p_shape[2], p_size[2], temp1[2] - eta3)
 
-                                    valuexyz[2] = bspparticle.piecewise_der(
+                                    valuexyz[2] = bsp.piecewise_der(
                                         p_shape[1], p_size[1], temp1[1] - eta2)
-                                    dvaluexyz[2] = bspparticle.piecewise_der(
+                                    dvaluexyz[2] = bsp.piecewise_der(
                                         p_shape[2], p_size[2], temp1[2] - eta3)
 
                                     temp8[0] = dvaluexyz[0] * \
@@ -747,7 +746,7 @@ def push_hybrid_xp_lnn(markers: 'float[:,:]', dt: float, stage: int,
     #$ omp end parallel
 
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+@stack_array('dfm', 'dfinv', 'dfinv_t', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_hybrid_xp_ap(markers: 'float[:,:]', dt: float, stage: int,
                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -766,7 +765,7 @@ def push_hybrid_xp_ap(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
     dfinv_t = empty((3, 3), dtype=float)
 
@@ -825,7 +824,7 @@ def push_hybrid_xp_ap(markers: 'float[:,:]', dt: float, stage: int,
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private (ip, e, v, df, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, bdd1, bdd2, bdd3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, a_form, a_xx, a_xxtrans, matrixp, matrixpp, matrixppp, lhs, rhs, lhsinv)
+    #$ omp parallel private (ip, e, v, dfm, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, bdd1, bdd2, bdd3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, a_form, a_xx, a_xxtrans, matrixp, matrixpp, matrixppp, lhs, rhs, lhsinv)
     #$ omp for
     for ip in range(n_markers):
 
@@ -836,15 +835,15 @@ def push_hybrid_xp_ap(markers: 'float[:,:]', dt: float, stage: int,
         e[:] = markers[ip, 0:3]
         v[:] = markers[ip, 3:6]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
-        linalg.matrix_inv(df, dfinv)
+        linalg.matrix_inv(dfm, dfinv)
         linalg.transpose(dfinv, dfinv_t)
 
         # spline evaluation
@@ -955,7 +954,7 @@ def push_hybrid_xp_ap(markers: 'float[:,:]', dt: float, stage: int,
     #$ omp end parallel
 
 
-@stack_array('df', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+@stack_array('dfm', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -983,7 +982,7 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
 
     # allocate for field evaluations (2-form and Cartesian components)
     b_form = empty(3, dtype=float)
@@ -1006,7 +1005,7 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, df, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, u_form, u_cart, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, u_form, u_cart, e_cart)
     #$ omp for
     for ip in range(n_markers):
 
@@ -1019,16 +1018,16 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta1, eta2, eta3,
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        det_df = linalg.det(df)
+        det_df = linalg.det(dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], eta1)
@@ -1048,7 +1047,7 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
 
         # magnetic field: Cartesian components
-        linalg.matrix_vector(df, b_form, b_cart)
+        linalg.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart/det_df
 
         # velocity field: 2-form components
@@ -1059,7 +1058,7 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
         u_form[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u2_3, starts2[2])
 
-        linalg.matrix_vector(df, u_form, u_cart)
+        linalg.matrix_vector(dfm, u_form, u_cart)
         u_cart[:] = u_cart/det_df
 
         # electric field E = B x U
@@ -1071,7 +1070,7 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
     #$ omp end parallel
 
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+@stack_array('dfm', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_bxu_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1099,7 +1098,7 @@ def push_bxu_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
     dfinv_t = empty((3, 3), dtype=float)
 
@@ -1124,7 +1123,7 @@ def push_bxu_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, df, det_df, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, u_form, u_cart, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, u_form, u_cart, e_cart)
     #$ omp for
     for ip in range(n_markers):
 
@@ -1137,17 +1136,17 @@ def push_bxu_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta1, eta2, eta3,
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        det_df = linalg.det(df)
-        linalg.matrix_inv_with_det(df, det_df, dfinv)
+        det_df = linalg.det(dfm)
+        linalg.matrix_inv_with_det(dfm, det_df, dfinv)
         linalg.transpose(dfinv, dfinv_t)
 
         # spline evaluation
@@ -1168,7 +1167,7 @@ def push_bxu_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
 
         # magnetic field: Cartesian components
-        linalg.matrix_vector(df, b_form, b_cart)
+        linalg.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart/det_df
 
         # velocity field: 1-form components
@@ -1191,7 +1190,7 @@ def push_bxu_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
     #$ omp end parallel
 
 
-@stack_array('df', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+@stack_array('dfm', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1219,7 +1218,7 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
 
     # allocate for field evaluations (2-form and Cartesian components)
     b_form = empty(3, dtype=float)
@@ -1242,7 +1241,7 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, df, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, u_form, u_cart, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, u_form, u_cart, e_cart)
     #$ omp for
     for ip in range(n_markers):
 
@@ -1255,16 +1254,16 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta1, eta2, eta3,
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        det_df = linalg.det(df)
+        det_df = linalg.det(dfm)
 
         # spline evaluation
         span1 = bsp.find_span(tn1, pn[0], eta1)
@@ -1284,7 +1283,7 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
 
         # magnetic field: Cartesian components
-        linalg.matrix_vector(df, b_form, b_cart)
+        linalg.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart/det_df
 
         # velocity field: vector field components
@@ -1296,7 +1295,7 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, uv_3, starts0)
 
         # velocity field: Cartesian components
-        linalg.matrix_vector(df, u_form, u_cart)
+        linalg.matrix_vector(dfm, u_form, u_cart)
 
         # electric field E = B x U
         linalg.cross(b_cart, u_cart, e_cart)
@@ -1307,7 +1306,7 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
     #$ omp end parallel
 
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_diff', 'b_cart', 'u_cart', 'b_grad', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'der1', 'der2', 'der3')
+@stack_array('dfm', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_diff', 'b_cart', 'u_cart', 'b_grad', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'der1', 'der2', 'der3')
 def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                         starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1343,7 +1342,7 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
     dfinv_t = empty((3, 3), dtype=float)
 
@@ -1374,7 +1373,7 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, df, det_df, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, der1, der2, der3, bd1, bd2, bd3, b_form, b_cart, b_diff, b_grad, u_form, u_cart, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, der1, der2, der3, bd1, bd2, bd3, b_form, b_cart, b_diff, b_grad, u_form, u_cart, e_cart)
     #$ omp for
     for ip in range(n_markers):
 
@@ -1387,17 +1386,17 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta1, eta2, eta3,
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        det_df = linalg.det(df)
-        linalg.matrix_inv_with_det(df, det_df, dfinv)
+        det_df = linalg.det(dfm)
+        linalg.matrix_inv_with_det(dfm, det_df, dfinv)
         linalg.transpose(dfinv, dfinv_t)
 
         # spline evaluation
@@ -1422,7 +1421,7 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
 
         # magnetic field: Cartesian components
-        linalg.matrix_vector(df, b_form, b_cart)
+        linalg.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart/det_df
 
         # magnetic field: evaluation of gradient (1-form)
@@ -1444,7 +1443,7 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
         u_form[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u2_3, starts2[2])
 
-        linalg.matrix_vector(df, u_form, u_cart)
+        linalg.matrix_vector(dfm, u_form, u_cart)
         u_cart[:] = u_cart/det_df
 
         # electric field E = B x U
@@ -1487,7 +1486,7 @@ def push_pc_GXu_full(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
     dfinv_t = empty((3, 3), dtype=float)
 
@@ -1520,16 +1519,16 @@ def push_pc_GXu_full(markers: 'float[:,:]', dt: float, stage: int,
         eta3 = markers[ip, 2]
         v[:] = markers[ip, 3:6]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta1, eta2, eta3,
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        linalg.matrix_inv(df, dfinv)
+        linalg.matrix_inv(dfm, dfinv)
         linalg.transpose(dfinv, dfinv_t)
 
         # spline evaluation
@@ -1599,7 +1598,7 @@ def push_pc_GXu(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
     dfinv_t = empty((3, 3), dtype=float)
 
@@ -1633,16 +1632,16 @@ def push_pc_GXu(markers: 'float[:,:]', dt: float, stage: int,
         eta3 = markers[ip, 2]
         v[:] = markers[ip, 3:6]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta1, eta2, eta3,
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        linalg.matrix_inv(df, dfinv)
+        linalg.matrix_inv(dfm, dfinv)
         linalg.transpose(dfinv, dfinv_t)
 
         # spline evaluation
@@ -1678,7 +1677,7 @@ def push_pc_GXu(markers: 'float[:,:]', dt: float, stage: int,
         markers[ip, 3:6] -= dt*e_cart/2.
 
 
-@stack_array('df', 'dfinv', 'e', 'v', 'k')
+@stack_array('dfm', 'dfinv', 'e', 'v', 'k')
 def push_eta_stage(markers: 'float[:,:]', dt: float, stage: int,
                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1697,7 +1696,7 @@ def push_eta_stage(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
 
     # marker position e and velocity v
@@ -1718,7 +1717,7 @@ def push_eta_stage(markers: 'float[:,:]', dt: float, stage: int,
     else:
         last = 0.
 
-    #$ omp parallel private(ip, e, v, df, dfinv, k)
+    #$ omp parallel private(ip, e, v, dfm, dfinv, k)
     #$ omp for
     for ip in range(n_markers):
 
@@ -1729,16 +1728,16 @@ def push_eta_stage(markers: 'float[:,:]', dt: float, stage: int,
         e[:] = markers[ip, 0:3]
         v[:] = markers[ip, 3:6]
 
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # evaluate inverse Jacobian matrix
-        linalg.matrix_inv(df, dfinv)
+        linalg.matrix_inv(dfm, dfinv)
 
         # pull-back of velocity
         linalg.matrix_vector(dfinv, v, k)
@@ -1753,7 +1752,7 @@ def push_eta_stage(markers: 'float[:,:]', dt: float, stage: int,
     #$ omp end parallel
 
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+@stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: float, stage: int,
                                pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1784,7 +1783,7 @@ def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
     dfinv_t = empty((3, 3), dtype=float)
     ginv = empty((3, 3), dtype=float)
@@ -1840,16 +1839,16 @@ def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: float, stage: int,
         v[:] = markers[ip, 3:6]
 
         # ----------------- stage n in Runge-Kutta method -------------------
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        linalg.matrix_inv(df, dfinv)
+        linalg.matrix_inv(dfm, dfinv)
         linalg.transpose(dfinv, dfinv_t)
         linalg.matrix_matrix(dfinv, dfinv_t, ginv)
 
@@ -1887,7 +1886,7 @@ def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: float, stage: int,
                             cont + dt*markers[ip, 12:15] * last)
 
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+@stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: float, stage: int,
                               pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                               starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1918,7 +1917,7 @@ def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
     dfinv_t = empty((3, 3), dtype=float)
     ginv = empty((3, 3), dtype=float)
@@ -1971,17 +1970,17 @@ def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: float, stage: int,
         v[:] = markers[ip, 3:6]
 
         # ----------------- stage n in Runge-Kutta method -------------------
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        det_df = linalg.det(df)
-        linalg.matrix_inv(df, dfinv)
+        det_df = linalg.det(dfm)
+        linalg.matrix_inv(dfm, dfinv)
         linalg.transpose(dfinv, dfinv_t)
         linalg.matrix_matrix(dfinv, dfinv_t, ginv)
 
@@ -2019,7 +2018,7 @@ def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: float, stage: int,
                             cont + dt*markers[ip, 12:15] * last)
 
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+@stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: float, stage: int,
                                pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -2050,7 +2049,7 @@ def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
     dfinv_t = empty((3, 3), dtype=float)
     ginv = empty((3, 3), dtype=float)
@@ -2105,16 +2104,16 @@ def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: float, stage: int,
         v[:] = markers[ip, 3:6]
 
         # ----------------- stage n in Runge-Kutta method -------------------
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        linalg.matrix_inv(df, dfinv)
+        linalg.matrix_inv(dfm, dfinv)
         linalg.transpose(dfinv, dfinv_t)
         linalg.matrix_matrix(dfinv, dfinv_t, ginv)
 
@@ -2149,7 +2148,7 @@ def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: float, stage: int,
                             cont + dt*markers[ip, 12:15] * last)
 
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+@stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -2180,7 +2179,7 @@ def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
     dfinv_t = empty((3, 3), dtype=float)
     ginv = empty((3, 3), dtype=float)
@@ -2236,16 +2235,16 @@ def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
         v[:] = markers[ip, 3:6]
 
         # ----------------- stage n in Runge-Kutta method -------------------
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        linalg.matrix_inv(df, dfinv)
+        linalg.matrix_inv(dfm, dfinv)
         linalg.transpose(dfinv, dfinv_t)
         linalg.matrix_matrix(dfinv, dfinv_t, ginv)
 
@@ -2282,7 +2281,7 @@ def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                             cont + dt*markers[ip, 12:15] * last)
 
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+@stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                          pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                          starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -2313,7 +2312,7 @@ def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
     dfinv_t = empty((3, 3), dtype=float)
     ginv = empty((3, 3), dtype=float)
@@ -2366,17 +2365,17 @@ def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
         v[:] = markers[ip, 3:6]
 
         # ----------------- stage n in Runge-Kutta method -------------------
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        det_df = linalg.det(df)
-        linalg.matrix_inv(df, dfinv)
+        det_df = linalg.det(dfm)
+        linalg.matrix_inv(dfm, dfinv)
         linalg.transpose(dfinv, dfinv_t)
         linalg.matrix_matrix(dfinv, dfinv_t, ginv)
 
@@ -2413,7 +2412,7 @@ def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                             cont + dt*markers[ip, 12:15] * last)
 
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+@stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -2444,7 +2443,7 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
     '''
 
     # allocate metric coeffs
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
     dfinv_t = empty((3, 3), dtype=float)
     ginv = empty((3, 3), dtype=float)
@@ -2499,16 +2498,16 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         v[:] = markers[ip, 3:6]
 
         # ----------------- stage n in Runge-Kutta method -------------------
-        # evaluate Jacobian, result in df
+        # evaluate Jacobian, result in dfm
         map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # metric coeffs
-        linalg.matrix_inv(df, dfinv)
+        linalg.matrix_inv(dfm, dfinv)
         linalg.transpose(dfinv, dfinv_t)
         linalg.matrix_matrix(dfinv, dfinv_t, ginv)
 
@@ -2542,7 +2541,7 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                             cont + dt*markers[ip, 12:15] * last)
 
 
-@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'df', 'df_inv', 'v', 'df_inv_v')
+@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'dfm', 'df_inv', 'v', 'df_inv_v')
 def push_weights_with_efield_lin_vm(markers: 'float[:,:]', dt: float, stage: int,
                                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                     starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -2591,7 +2590,7 @@ def push_weights_with_efield_lin_vm(markers: 'float[:,:]', dt: float, stage: int
     bd2 = empty(pn[1], dtype=float)
     bd3 = empty(pn[2], dtype=float)
 
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     df_inv = empty((3, 3), dtype=float)
     v = empty(3, dtype=float)
     df_inv_v = empty(3, dtype=float)
@@ -2599,7 +2598,7 @@ def push_weights_with_efield_lin_vm(markers: 'float[:,:]', dt: float, stage: int
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, df, df_inv, v, df_inv_v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, e_vec_1, e_vec_2, e_vec_3, update)
+    #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, e_vec_1, e_vec_2, e_vec_3, update)
     #$ omp for
     for ip in range(n_markers):
         if markers[ip, 0] == -1:
@@ -2634,10 +2633,10 @@ def push_weights_with_efield_lin_vm(markers: 'float[:,:]', dt: float, stage: int
                     p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # invert Jacobian matrix
-        linalg.matrix_inv(df, df_inv)
+        linalg.matrix_inv(dfm, df_inv)
 
         # compute DF^{-1} v
         linalg.matrix_vector(df_inv, v, df_inv_v)
@@ -2658,7 +2657,7 @@ def push_weights_with_efield_lin_vm(markers: 'float[:,:]', dt: float, stage: int
     #$ omp end parallel
 
 
-@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'df', 'df_inv', 'v', 'df_inv_v')
+@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'dfm', 'df_inv', 'v', 'df_inv_v')
 def push_weights_with_efield_delta_f_vm(markers: 'float[:,:]', dt: float, stage: int,
                                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                         starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -2710,7 +2709,7 @@ def push_weights_with_efield_delta_f_vm(markers: 'float[:,:]', dt: float, stage:
     bd2 = empty(pn[1], dtype=float)
     bd3 = empty(pn[2], dtype=float)
 
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     df_inv = empty((3, 3), dtype=float)
     v = empty(3, dtype=float)
     df_inv_v = empty(3, dtype=float)
@@ -2718,7 +2717,7 @@ def push_weights_with_efield_delta_f_vm(markers: 'float[:,:]', dt: float, stage:
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, df, df_inv, v, df_inv_v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, e_vec_1, e_vec_2, e_vec_3, update)
+    #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, e_vec_1, e_vec_2, e_vec_3, update)
     #$ omp for
     for ip in range(n_markers):
         if markers[ip, 0] == -1:
@@ -2748,7 +2747,7 @@ def push_weights_with_efield_delta_f_vm(markers: 'float[:,:]', dt: float, stage:
                     p_map,
                     ind1_map, ind2_map, ind3_map,
                     cx, cy, cz,
-                    df)
+                    dfm)
 
         # compute shifted and stretched velocity
         v[0] = markers[ip, 3]
@@ -2756,7 +2755,7 @@ def push_weights_with_efield_delta_f_vm(markers: 'float[:,:]', dt: float, stage:
         v[2] = markers[ip, 5]
 
         # invert Jacobian matrix
-        linalg.matrix_inv(df, df_inv)
+        linalg.matrix_inv(dfm, df_inv)
         linalg.matrix_vector(df_inv, v, df_inv_v)
 
         # E-field (1-form)
@@ -2782,7 +2781,7 @@ def push_weights_with_efield_delta_f_vm(markers: 'float[:,:]', dt: float, stage:
     #$ omp end parallel
 
 
-@stack_array('particle', 'df', 'df_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'taus')
+@stack_array('particle', 'dfm', 'df_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'taus')
 def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -2839,7 +2838,7 @@ def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
     bd2 = empty(pn[1], dtype=float)
     bd3 = empty(pn[2], dtype=float)
 
-    df = empty((3, 3), dtype=float)
+    dfm = empty((3, 3), dtype=float)
     df_inv = empty((3, 3), dtype=float)
 
     # number of quadrature points in direction 1
@@ -2852,7 +2851,7 @@ def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
     # Create array for storing the tau values
     taus = empty(20, dtype=float)
 
-    #$ omp parallel private(ip, run, bn1, bn2, bn3, bd1, bd2, bd3, df, df_inv, taus, temp, k, particle, dt2)
+    #$ omp parallel private(ip, run, bn1, bn2, bn3, bd1, bd2, bd3, dfm, df_inv, taus, temp, k, particle, dt2)
     #$ omp for
     for ip in range(n_markers):
 
@@ -2886,7 +2885,7 @@ def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
                                           ind1_map, ind2_map, ind3_map,
                                           cx, cy, cz,
                                           n_quad1, n_quad2, n_quad3,
-                                          df, df_inv,
+                                          dfm, df_inv,
                                           bn1, bn2, bn3, bd1, bd2, bd3,
                                           taus,
                                           dt2,

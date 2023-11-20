@@ -58,7 +58,7 @@ def assemble_dofs_for_weighted_basisfuns_1d(
             Spline degree of the first direction of the output space
     '''
 
-    from numpy import sum
+    from numpy import shape
 
     # Start/end indices and paddings for distributed stencil matrix of input space
     # si1 = starts_in[0}
@@ -80,7 +80,10 @@ def assemble_dofs_for_weighted_basisfuns_1d(
     mat[:] = 0.
 
     # Dimensions of output space
-    dim1_out = span1.shape[0] - sum(sub1)
+    _sum = 0.
+    for i in range(sub1.shape[0]):
+        _sum += sub1[i]
+    dim1_out = span1.shape[0] - _sum
     # Interval (either element or sub-interval thereof)
     # -------------------------------------------------
     cumsub_i = 0  # Cumulative sub-interval index
@@ -201,7 +204,7 @@ def assemble_dofs_for_weighted_basisfuns_2d(
             Spline degree of the second direction of the output space
     '''
 
-    from numpy import sum
+    from numpy import shape
 
     # Start/end indices and paddings for distributed stencil matrix of input space
     # si1 = starts_in[0]
@@ -231,8 +234,15 @@ def assemble_dofs_for_weighted_basisfuns_2d(
     mat[:] = 0.
 
     # Dimensions of output space
-    dim1_out = span1.shape[0] - sum(sub1)
-    dim2_out = span2.shape[0] - sum(sub2)
+    _sum = 0.
+    for i in range(sub1.shape[0]):
+        _sum += sub1[i]
+    dim1_out = span1.shape[0] - _sum
+    
+    _sum = 0.
+    for i in range(sub2.shape[0]):
+        _sum += sub2[i]
+    dim2_out = span2.shape[0] - _sum
 
     # Interval (either element or sub-interval thereof)
     # -------------------------------------------------
@@ -401,7 +411,7 @@ def assemble_dofs_for_weighted_basisfuns_3d(
             Spline degree of the third direction of the output space
     '''
 
-    from numpy import sum
+    from numpy import shape
 
     # Start/end indices and paddings for distributed stencil matrix of input space
     # si1 = starts_in[0]
@@ -439,9 +449,20 @@ def assemble_dofs_for_weighted_basisfuns_3d(
     mat[:] = 0.
 
     # Dimensions of output space
-    dim1_out = span1.shape[0] - sum(sub1)
-    dim2_out = span2.shape[0] - sum(sub2)
-    dim3_out = span3.shape[0] - sum(sub3)
+    _sum = 0.
+    for i in range(sub1.shape[0]):
+        _sum += sub1[i]
+    dim1_out = span1.shape[0] - _sum
+    
+    _sum = 0.
+    for i in range(sub2.shape[0]):
+        _sum += sub2[i]
+    dim2_out = span2.shape[0] - _sum
+    
+    _sum = 0.
+    for i in range(sub3.shape[0]):
+        _sum += sub3[i]
+    dim3_out = span3.shape[0] - _sum
 
     # Interval (either element or sub-interval thereof)
     # -------------------------------------------------

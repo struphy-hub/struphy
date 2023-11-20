@@ -60,7 +60,7 @@ def evaluation_kernel_2d(p1: int, p2: int, basis1: 'float[:]', basis2: 'float[:]
 
 
 @pure
-def evaluate(kind1: int, kind2: int, t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'float[:,:]', eta1: float, eta2: float) -> float:
+def evaluate_2d(kind1: int, kind2: int, t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'float[:,:]', eta1: float, eta2: float) -> float:
     """
     Point-wise evaluation of a tensor-product spline. 
 
@@ -138,7 +138,7 @@ def evaluate(kind1: int, kind2: int, t1: 'float[:]', t2: 'float[:]', p1: int, p2
 
 
 @pure
-def evaluate_tensor_product(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'float[:,:]', eta1: 'float[:]', eta2: 'float[:]', spline_values: 'float[:,:]', kind: int):
+def evaluate_tensor_product_2d(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'float[:,:]', eta1: 'float[:]', eta2: 'float[:]', spline_values: 'float[:,:]', kind: int):
     """
     Tensor-product evaluation of a tensor-product spline. 
 
@@ -179,35 +179,35 @@ def evaluate_tensor_product(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, in
         for i2 in range(len(eta2)):
 
             if kind == 0:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     1, 1, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1], eta2[i2])
             elif kind == 11:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     2, 1, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1], eta2[i2])
             elif kind == 12:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     1, 2, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1], eta2[i2])
             elif kind == 2:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     2, 2, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1], eta2[i2])
             elif kind == 31:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     3, 1, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1], eta2[i2])
             elif kind == 32:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     1, 3, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1], eta2[i2])
             elif kind == 41:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     4, 1, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1], eta2[i2])
             elif kind == 42:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     1, 4, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1], eta2[i2])
             elif kind == 43:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     3, 3, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1], eta2[i2])
 
 @pure
-def evaluate_matrix(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'float[:,:]', eta1: 'float[:,:]', eta2: 'float[:,:]', spline_values: 'float[:,:]', kind: int):
+def evaluate_matrix_2d(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'float[:,:]', eta1: 'float[:,:]', eta2: 'float[:,:]', spline_values: 'float[:,:]', kind: int):
     """
     General evaluation of a tensor-product spline. 
 
@@ -253,35 +253,35 @@ def evaluate_matrix(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int
         for i2 in range(n2):
 
             if kind == 0:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     1, 1, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, i2], eta2[i1, i2])
             elif kind == 11:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     2, 1, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, i2], eta2[i1, i2])
             elif kind == 12:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     1, 2, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, i2], eta2[i1, i2])
             elif kind == 2:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     2, 2, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, i2], eta2[i1, i2])
             elif kind == 31:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     3, 1, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, i2], eta2[i1, i2])
             elif kind == 32:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     1, 3, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, i2], eta2[i1, i2])
             elif kind == 41:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     4, 1, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, i2], eta2[i1, i2])
             elif kind == 42:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     1, 4, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, i2], eta2[i1, i2])
             elif kind == 43:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     3, 3, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, i2], eta2[i1, i2])
 
 @pure
-def evaluate_sparse(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'float[:,:]', eta1: 'float[:,:]', eta2: 'float[:,:]', spline_values: 'float[:,:]', kind: int):
+def evaluate_sparse_2d(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'float[:,:]', eta1: 'float[:,:]', eta2: 'float[:,:]', spline_values: 'float[:,:]', kind: int):
     """
     Evaluation of a tensor-product spline using sparse meshgrids. 
 
@@ -327,31 +327,31 @@ def evaluate_sparse(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int
         for i2 in range(n2):
 
             if kind == 0:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     1, 1, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, 0], eta2[0, i2])
             elif kind == 11:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     2, 1, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, 0], eta2[0, i2])
             elif kind == 12:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     1, 2, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, 0], eta2[0, i2])
             elif kind == 2:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     2, 2, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, 0], eta2[0, i2])
             elif kind == 31:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     3, 1, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, 0], eta2[0, i2])
             elif kind == 32:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     1, 3, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, 0], eta2[0, i2])
             elif kind == 41:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     4, 1, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, 0], eta2[0, i2])
             elif kind == 42:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     1, 4, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, 0], eta2[0, i2])
             elif kind == 43:
-                spline_values[i1, i2] = evaluate(
+                spline_values[i1, i2] = evaluate_2d(
                     3, 3, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, 0], eta2[0, i2])
 
 @pure

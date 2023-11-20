@@ -113,7 +113,7 @@ def test_interpolation_2d(spl_kind, plot=False, p_range=7, N_range=8):
             coeff, T, indN = base.spline_interpolation_nd([p, p], spl_kind, grids_1d, fun(ee1, ee2))
 
             # evaluate spline interpolant at plot points (need to use low-level evaluation routine, not spline_space class)
-            eva.evaluate_tensor_product(
+            eva.evaluate_tensor_product_2d(
                 T[0], T[1], p, p, indN[0], indN[1], coeff, eta_plot[0], eta_plot[1], fh_plot, 0)
 
             # error
