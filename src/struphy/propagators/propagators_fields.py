@@ -2387,10 +2387,8 @@ class VariationalVelocityAdvection(Propagator):
         return dct
     
 
-class VariationalMomentumAdvection(Propagator):
-    r"""TODO
-    """
-
+"""class VariationalMomentumAdvection(Propagator):
+    #TODO : documentation
     def __init__(self, rho, u, **params):
 
         super().__init__(rho, u)
@@ -2587,9 +2585,5 @@ class VariationalMomentumAdvection(Propagator):
                           'verbose': False,
                           'proj':'geom',
                           'backend' : 'pyccel-gcc'}
-        return dct
-
-
-
-        
+        return dct"""
 

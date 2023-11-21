@@ -508,7 +508,7 @@ class VariationalBurgers(StruphyModel):
 
 
 
-class VariationalEnergylessFluid(StruphyModel):
+"""class VariationalEnergylessFluid(StruphyModel):
     r'''TODO
 
     Parameters
@@ -580,5 +580,5 @@ class VariationalEnergylessFluid(StruphyModel):
         self.WMM.dot(self.pointer['fluid_uv'], out=self._tmp_u1)
 
         en_U = self.pointer['fluid_uv'] .dot(self._tmp_u1)/2
-        self.update_scalar('en_U', en_U)
+        self.update_scalar('en_U', en_U)"""
 
