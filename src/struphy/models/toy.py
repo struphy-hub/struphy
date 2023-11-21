@@ -2,6 +2,8 @@
 
 import numpy as np
 from struphy.models.base import StruphyModel
+from struphy.feec.mass import WeightedMassOperator
+from psydac.fem.basic      import FemField
 
 
 class Maxwell(StruphyModel):
@@ -443,3 +445,140 @@ class ShearAlfven(StruphyModel):
         en_Btot = self._tmp_b1.dot(self._tmp_b2)/2
 
         self.update_scalar('en_B_tot', en_Btot)
+
+class VariationalBurgers(StruphyModel):
+    r'''TODO
+
+    Parameters
+    ----------
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
+
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
+    '''
+
+    @classmethod
+    def species(cls):
+        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
+        dct['fluid']['fluid'] = {'uv': 'H1vec'}
+        return dct
+
+    @classmethod
+    def bulk_species(cls):
+        return 'fluid'
+
+    @classmethod
+    def velocity_scale(cls):
+        return 'alfvén'
+    
+    @classmethod
+    def options(cls):
+        # import propagator options
+        from struphy.propagators.propagators_fields import VariationalVelocityAdvection
+        dct = {}
+
+        cls.add_option(species=['fluid', 'fluid'], key=['solvers'],
+                       option=VariationalVelocityAdvection.options()['solver'], dct=dct)
+        return dct
+
+    def __init__(self, params, comm):
+
+        # initialize base class
+        super().__init__(params, comm)
+
+        from struphy.polar.basic import PolarVector
+        
+        # Initialize propagators/integrators used in splitting substeps
+        self.add_propagator(self.prop_fields.VariationalVelocityAdvection(
+            self.pointer['fluid_uv']))
+
+        # Scalar variables to be saved during simulation
+        self.add_scalar('en_U')
+
+        # temporary vectors for scalar quantities
+        self._tmp_u1 = self.derham.Vh['v'].zeros()
+
+    def update_scalar_quantities(self):
+        # perturbed fields
+        self._mass_ops.Mv.dot(self.pointer['fluid_uv'], out=self._tmp_u1)
+
+        en_U = self.pointer['fluid_uv'] .dot(self._tmp_u1)/2
+        self.update_scalar('en_U', en_U)
+
+
+
+class VariationalEnergylessFluid(StruphyModel):
+    r'''TODO
+
+    Parameters
+    ----------
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
+
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
+    '''
+
+    @classmethod
+    def species(cls):
+        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
+        dct['fluid']['fluid'] = {'rho3': 'L2', 'uv': 'H1vec'}
+        return dct
+
+    @classmethod
+    def bulk_species(cls):
+        return 'fluid'
+
+    @classmethod
+    def velocity_scale(cls):
+        return 'alfvén'
+    
+    @classmethod
+    def options(cls):
+        # import propagator options
+        from struphy.propagators.propagators_fields import VariationalMomentumAdvection
+        dct = {}
+
+        cls.add_option(species=['fluid', 'fluid'], key=['solvers'],
+                       option=VariationalMomentumAdvection.options()['solver'], dct=dct)
+        return dct
+
+    def __init__(self, params, comm):
+
+        # initialize base class
+        super().__init__(params, comm)
+
+        from struphy.polar.basic import PolarVector
+        
+        # Initialize propagators/integrators used in splitting substeps
+        self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
+            self.pointer['fluid_rho3'],
+            self.pointer['fluid_uv']))
+
+        # Scalar variables to be saved during simulation
+        Xh = self.derham.Vh_fem['v']
+        V3h = self.derham.Vh_fem['3']  
+        self.rhof   = FemField(V3h,self.pointer['fluid_rho3'])
+      
+        self.WMM    = WeightedMassOperator(Xh, Xh, weights_info="diag")
+        self._Mrho  = self.WMM.assemble([[self.rhof, None, None],
+                                         [None, self.rhof, None],
+                                         [None, None, self.rhof]])        
+        self.add_scalar('en_U')
+
+        # temporary vectors for scalar quantities
+        self._tmp_u1 = self.derham.Vh['v'].zeros()
+
+    def update_scalar_quantities(self):
+        # perturbed fields
+        self.rhof._coeffs = self.pointer['fluid_rho3']
+        self.WMM.assemble([[self.rhof, 0, 0],
+                            [0, self.rhof, 0],
+                            [0, 0, self.rhof]])
+
+        self.WMM.dot(self.pointer['fluid_uv'], out=self._tmp_u1)
+
+        en_U = self.pointer['fluid_uv'] .dot(self._tmp_u1)/2
+        self.update_scalar('en_U', en_U)
+

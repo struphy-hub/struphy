@@ -23,8 +23,25 @@ import struphy.linear_algebra.iterative_solvers as it_solvers
 from struphy.linear_algebra.iterative_solvers import PConjugateGradient as pcg
 
 from psydac.linalg.stencil import StencilVector
-from psydac.linalg.block import BlockVector
+from psydac.linalg.block   import BlockVector
+from psydac.api.discretization import discretize
+from psydac.api.settings   import PSYDAC_BACKENDS
+from psydac.fem.basic      import FemField
+
+from sympde.topology  import element_of
+from sympde.calculus  import Dot, Grad
+from sympde.expr.expr import LinearForm, integral
+from sympde.topology  import VectorFunctionSpace
+
+from struphy.projectors_valentin.basis_projectors import BasisProjectionOperator_V, CoordinateInclusion, CoordinateProjector, preprocess_grid_with_ff
+
+
 import struphy.feec.utilities as util
+
+
+
+
+
 from mpi4py import MPI
 
 
@@ -2174,3 +2191,405 @@ class ImplicitDiffusion(Propagator):
                          'info': False,
                          'verbose': False}
         return dct
+    
+
+class VariationalVelocityAdvection(Propagator):
+    r"""TODO
+    """
+
+    def __init__(self, u, **params):
+
+        super().__init__(u)
+
+        # parameters
+        params_default = {'tol': 1e-8,
+                          'maxiter': 100,
+                          'info': False,
+                          'verbose': False,
+                          'proj':'geom',
+                          'backend' : 'pyccel-gcc'}
+
+        params = set_defaults(params, params_default)
+
+        self._params = params
+
+
+        if self._params['proj'] == 'geom':
+            Xh = self.derham.Vh_fem['v']
+            V0h = self.derham.Vh_fem['0']
+            V1h = self.derham.Vh_fem['1']
+            
+
+            Pcoord1 = CoordinateProjector(0, Xh, V0h)
+            Pcoord2 = CoordinateProjector(1, Xh, V0h)
+            Pcoord3 = CoordinateProjector(2, Xh, V0h)
+
+            grad = self.derham.grad
+
+            #gradient of the component of the vector field
+            self.gp1   = grad@Pcoord1
+            self.gp2   = grad@Pcoord2
+            self.gp3   = grad@Pcoord3
+
+            #projector as psydac globalprojector type
+            P0 = self.derham.P['0'].projector_tensor
+            
+            self.gp1u  = self.gp1.dot(u)
+            self.gp2u  = self.gp2.dot(u)
+            self.gp3u  = self.gp3.dot(u)
+
+            #Femfields for the projectors
+            self.gu1f  = FemField(V1h, self.gp1u) #grad(u[0])
+            self.gu2f  = FemField(V1h, self.gp2u) #grad(u[1])
+            self.gu3f  = FemField(V1h, self.gp3u) #grad(u[2])
+
+            self.uf    = FemField(Xh, u) #grad(u[0])
+
+
+            self.preproc_grid_P0_V1_dot_u = preprocess_grid_with_ff(P0, V1h, [[self.uf[0] , self.uf[1], self.uf[2]]])
+
+            self.preproc_grid_P0_X_dot_gu = preprocess_grid_with_ff(P0, Xh, [[self.gu1f[0] , self.gu1f[1], self.gu1f[2]]])
+
+
+
+            self.PiuT   = BasisProjectionOperator_V(P0, V1h, [[self.uf[0], self.uf[1], self.uf[2]]], transposed=True, preproc_grid=self.preproc_grid_P0_V1_dot_u)
+            
+            self.Pigu1T = BasisProjectionOperator_V(P0,  Xh, [[self.gu1f[0], self.gu1f[1], self.gu1f[2]]], transposed=True, preproc_grid=self.preproc_grid_P0_X_dot_gu)
+            self.Pigu2T = BasisProjectionOperator_V(P0,  Xh, [[self.gu2f[0], self.gu2f[1], self.gu2f[2]]], transposed=True, preproc_grid=self.preproc_grid_P0_X_dot_gu)
+            self.Pigu3T = BasisProjectionOperator_V(P0,  Xh, [[self.gu3f[0], self.gu3f[1], self.gu3f[2]]], transposed=True, preproc_grid=self.preproc_grid_P0_X_dot_gu)
+            
+            #v-> int(Pi(grad v_i . u)m_i)
+            m1ugv1= self.gp1.T@self.PiuT@Pcoord1
+            m2ugv2= self.gp2.T@self.PiuT@Pcoord2 
+            m3ugv3= self.gp3.T@self.PiuT@Pcoord3
+
+            #v-> int(Pi(grad u_i . v)m_i)
+            m1vgu1=self.Pigu1T@Pcoord1
+            m2vgu2=self.Pigu2T@Pcoord2
+            m3vgu3=self.Pigu3T@Pcoord3
+
+            #v-> int(Pi([u,v]) . m)
+            self.mbrackuv = m1vgu1+m2vgu2+m3vgu3-m1ugv1-m2ugv2-m3ugv3
+
+            #bunch of temporaries to avoid allocating in the loop
+            self._tmp_un1  = u.space.zeros()
+            self._tmp_un12 = u.space.zeros()
+            self._tmp_diff = u.space.zeros()
+            self._tmp_weak_diff = u.space.zeros()
+
+            self._un_ff    = FemField(Xh)
+            self._un1_ff   = FemField(Xh)
+            self._tmp_mn12 = Xh.vector_space.zeros()
+            self._tmp_mn1  = Xh.vector_space.zeros()
+            self.tmp_out_mbrackuv = Xh.vector_space.zeros()
+            self.advection = u.space.zeros()
+
+            #mass matrix to compute L2 norm of error
+            self._Mv = self.mass_ops.Mv
+            self._Mvinv = Inverse(self._Mv, tol=1e-16)
+
+            self._tmp_mn = self._Mv.dot(u)
+
+
+
+
+        else:
+            raise NotImplementedError("Only geom projection available for VariationalMomentumAdvection at the moment.")
+
+    def __call__(self, dt):
+
+        un   = self.feec_vars[0]
+        un1  = self._tmp_un1
+        un12 = self._tmp_un12
+        mn12 = self._tmp_mn12
+        mn   = self._tmp_mn 
+        mn1  = self._tmp_mn1
+        self._Mv.dot(un, out=mn)
+        mn.copy(out=mn1)
+        un.copy(out=un1)
+        tol = self._params['tol']
+        err = tol+1
+        for it in range(self._params['maxiter']):
+            #Picard iteration
+            if err<tol:
+                break
+
+            #half time step approximation
+            mn.copy(out = mn12)
+            mn12 +=mn1
+            mn12 *=0.5
+            un.copy(out = un12)
+            un12 +=un1
+            un12 *=0.5
+
+            self.gp1.dot(un12, out = self.gp1u)
+            self.gp2.dot(un12, out = self.gp2u)
+            self.gp3.dot(un12, out = self.gp3u)
+            
+            #To avoid tmp we need to update the femfields we created.
+            self.gu1f._coeffs = self.gp1u
+            self.gu2f._coeffs = self.gp2u
+            self.gu3f._coeffs = self.gp3u
+            self.uf._coeffs   = un12
+            self.gu1f._fields[0]._coeffs = self.gp1u[0]
+            self.gu1f._fields[1]._coeffs = self.gp1u[1]
+            self.gu1f._fields[2]._coeffs = self.gp1u[2]
+            self.gu2f._fields[0]._coeffs = self.gp2u[0]
+            self.gu2f._fields[1]._coeffs = self.gp2u[1]
+            self.gu2f._fields[2]._coeffs = self.gp2u[2]
+            self.gu3f._fields[0]._coeffs = self.gp3u[0]
+            self.gu3f._fields[1]._coeffs = self.gp3u[1]
+            self.gu3f._fields[2]._coeffs = self.gp3u[2]
+            self.uf._fields[0]._coeffs   = un12[0]
+            self.uf._fields[1]._coeffs   = un12[1]
+            self.uf._fields[2]._coeffs   = un12[2]
+
+
+            self.PiuT.update_fun([[self.uf[0], self.uf[1], self.uf[2]]])
+            
+            self.Pigu1T.update_fun([[self.gu1f[0], self.gu1f[1], self.gu1f[2]]])
+            self.Pigu2T.update_fun([[self.gu2f[0], self.gu2f[1], self.gu2f[2]]])
+            self.Pigu3T.update_fun([[self.gu3f[0], self.gu3f[1], self.gu3f[2]]])
+
+            self.mbrackuv.dot(mn12, out=self.advection)
+
+            self.advection *= dt
+            self.advection.update_ghost_regions()
+
+            #Difference with the previous approximation : 
+            # diff = m^{n+1,r}-m^{n+1,r+1} = m^{n+1,r}-m^{n}-advection
+            mn1.copy(out = self._tmp_diff)
+            self._tmp_diff -= mn
+            self._tmp_diff += self.advection
+
+            #Compute the norm of the difference
+            self._Mvinv.dot(self._tmp_diff, out = self._tmp_weak_diff)
+            err = self._tmp_diff.dot(self._tmp_weak_diff)
+
+            #Update : u^{n+1,r+1} = u^n+advection
+            mn.copy(out=mn1)
+            mn1 -= self.advection
+            print(self.advection.dot(un12))
+            self._Mvinv.dot(mn1, out=un1)
+
+        mn1.copy(out=mn)
+        self.feec_vars_update(un1)
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['solver'] = {'tol': 1e-8,
+                          'maxiter': 3000,
+                          'info': False,
+                          'verbose': False,
+                          'proj':'geom',
+                          'backend' : 'pyccel-gcc'}
+        return dct
+    
+
+class VariationalMomentumAdvection(Propagator):
+    r"""TODO
+    """
+
+    def __init__(self, rho, u, **params):
+
+        super().__init__(rho, u)
+
+        # parameters
+        params_default = {'tol': 1e-8,
+                          'maxiter': 100,
+                          'info': False,
+                          'verbose': False,
+                          'proj':'geom',
+                          'backend' : 'pyccel-gcc'}
+
+        params = set_defaults(params, params_default)
+
+        self._params = params
+
+
+        if self._params['proj'] == 'geom':
+            Xh = self.derham.Vh_fem['v']
+            V0h = self.derham.Vh_fem['0']
+            V1h = self.derham.Vh_fem['1']
+            V3h = self.derham.Vh_fem['3']
+            
+
+            Pcoord1 = CoordinateProjector(0, Xh, V0h)
+            Pcoord2 = CoordinateProjector(1, Xh, V0h)
+            Pcoord3 = CoordinateProjector(2, Xh, V0h)
+
+            grad = self.derham.grad
+
+            #gradient of the component of the vector field
+            self.gp1   = grad@Pcoord1
+            self.gp2   = grad@Pcoord2
+            self.gp3   = grad@Pcoord3
+
+            #projector as psydac globalprojector type
+            P0 = self.derham.P['0'].projector_tensor
+            
+            self.gp1u  = self.gp1.dot(u)
+            self.gp2u  = self.gp2.dot(u)
+            self.gp3u  = self.gp3.dot(u)
+
+            #Femfields for the projectors
+            self.gu1f  = FemField(V1h, self.gp1u) #grad(u[0])
+            self.gu2f  = FemField(V1h, self.gp2u) #grad(u[1])
+            self.gu3f  = FemField(V1h, self.gp3u) #grad(u[2])
+
+            self.uf    = FemField(Xh, u) #grad(u[0])
+
+
+            self.preproc_grid_P0_V1_dot_u = preprocess_grid_with_ff(P0, V1h, [[self.uf[0] , self.uf[1], self.uf[2]]])
+
+            self.preproc_grid_P0_X_dot_gu = preprocess_grid_with_ff(P0, Xh, [[self.gu1f[0] , self.gu1f[1], self.gu1f[2]]])
+
+
+
+            self.PiuT   = BasisProjectionOperator_V(P0, V1h, [[self.uf[0], self.uf[1], self.uf[2]]], transposed=True, preproc_grid=self.preproc_grid_P0_V1_dot_u)
+            
+            self.Pigu1T = BasisProjectionOperator_V(P0,  Xh, [[self.gu1f[0], self.gu1f[1], self.gu1f[2]]], transposed=True, preproc_grid=self.preproc_grid_P0_X_dot_gu)
+            self.Pigu2T = BasisProjectionOperator_V(P0,  Xh, [[self.gu2f[0], self.gu2f[1], self.gu2f[2]]], transposed=True, preproc_grid=self.preproc_grid_P0_X_dot_gu)
+            self.Pigu3T = BasisProjectionOperator_V(P0,  Xh, [[self.gu3f[0], self.gu3f[1], self.gu3f[2]]], transposed=True, preproc_grid=self.preproc_grid_P0_X_dot_gu)
+            
+            #v-> int(Pi(grad v_i . u)m_i)
+            m1ugv1= self.gp1.T@self.PiuT@Pcoord1
+            m2ugv2= self.gp2.T@self.PiuT@Pcoord2 
+            m3ugv3= self.gp3.T@self.PiuT@Pcoord3
+
+            #v-> int(Pi(grad u_i . v)m_i)
+            m1vgu1=self.Pigu1T@Pcoord1
+            m2vgu2=self.Pigu2T@Pcoord2
+            m3vgu3=self.Pigu3T@Pcoord3
+
+            #v-> int(Pi([u,v]) . m)
+            self.mbrackuv = m1vgu1+m2vgu2+m3vgu3-m1ugv1-m2ugv2-m3ugv3
+
+            #bunch of temporaries to avoid allocating in the loop
+            self._tmp_un1  = u.space.zeros()
+            self._tmp_un12 = u.space.zeros()
+            self._tmp_diff = u.space.zeros()
+            self._tmp_weak_diff = u.space.zeros()
+
+            self._un_ff    = FemField(Xh)
+            self._un1_ff   = FemField(Xh)
+
+            self._tmp_mn1  = Xh.vector_space.zeros()
+            self.tmp_out_mbrackuv = Xh.vector_space.zeros()
+            self.advection = u.space.zeros()
+
+            #mass matrix to compute L2 norm of error
+            self.rhof = FemField(V3h,rho)
+            self.WMM    = WeightedMassOperator(Xh, Xh, weights_info="diag")
+            self._Mrho  = self.WMM.assemble([[self.rhof, None, None],
+                                             [None, self.rhof, None],
+                                             [None, None, self.rhof]])
+            self._Mrhoinv = Inverse(self._Mrho, tol=1e-16)
+
+            self._tmp_mn = self._Mv.dot(u)
+
+
+
+
+        else:
+            raise NotImplementedError("Only geom projection available for VariationalMomentumAdvection at the moment.")
+
+    def __call__(self, dt):
+
+        rhon = self.feec_vars[0]
+        un   = self.feec_vars[1]
+        un1  = self._tmp_un1
+        un12 = self._tmp_un12
+        mn   = self._tmp_mn 
+        mn1  = self._tmp_mn1
+
+        self.rhof._coeffs = rhon
+        self.WMM.assemble([[self.rhof, 0, 0],
+                            [0, self.rhof, 0],
+                            [0, 0, self.rhof]])
+
+        self._Mrho.dot(un, out=mn)
+        mn.copy(out=mn1)
+        un.copy(out=un1)
+        tol = self._params['tol']
+        err = tol+1
+        for it in range(self._params['maxiter']):
+            #Picard iteration
+            if err<tol:
+                break
+
+            #half time step approximation
+            un.copy(out = un12)
+            un12 +=un1
+            un12 *=0.5
+
+            #gradient of field component
+            self.gp1.dot(un12, out = self.gp1u)
+            self.gp2.dot(un12, out = self.gp2u)
+            self.gp3.dot(un12, out = self.gp3u)
+            
+            #To avoid tmp we need to update the femfields we created.
+            self.gu1f._coeffs = self.gp1u
+            self.gu2f._coeffs = self.gp2u
+            self.gu3f._coeffs = self.gp3u
+            self.uf._coeffs   = un12
+            self.gu1f._fields[0]._coeffs = self.gp1u[0]
+            self.gu1f._fields[1]._coeffs = self.gp1u[1]
+            self.gu1f._fields[2]._coeffs = self.gp1u[2]
+            self.gu2f._fields[0]._coeffs = self.gp2u[0]
+            self.gu2f._fields[1]._coeffs = self.gp2u[1]
+            self.gu2f._fields[2]._coeffs = self.gp2u[2]
+            self.gu3f._fields[0]._coeffs = self.gp3u[0]
+            self.gu3f._fields[1]._coeffs = self.gp3u[1]
+            self.gu3f._fields[2]._coeffs = self.gp3u[2]
+            self.uf._fields[0]._coeffs   = un12[0]
+            self.uf._fields[1]._coeffs   = un12[1]
+            self.uf._fields[2]._coeffs   = un12[2]
+
+            #update the projections
+            self.PiuT.update_fun([[self.uf[0], self.uf[1], self.uf[2]]])
+            
+            self.Pigu1T.update_fun([[self.gu1f[0], self.gu1f[1], self.gu1f[2]]])
+            self.Pigu2T.update_fun([[self.gu2f[0], self.gu2f[1], self.gu2f[2]]])
+            self.Pigu3T.update_fun([[self.gu3f[0], self.gu3f[1], self.gu3f[2]]])
+
+            #v -> int m^n.[v,u^{n+1/2}]
+            self.mbrackuv.dot(mn, out=self.advection)
+
+            self.advection *= dt
+            self.advection.update_ghost_regions()
+
+            #Difference with the previous approximation : 
+            # diff = m^{n+1,r}-m^{n+1,r+1} = m^{n+1,r}-m^{n}-advection
+            mn1.copy(out = self._tmp_diff)
+            self._tmp_diff -= mn
+            self._tmp_diff += self.advection
+
+            #Compute the norm of the difference
+            self._Mrhoinv.dot(self._tmp_diff, out = self._tmp_weak_diff)
+            err = self._tmp_diff.dot(self._tmp_weak_diff)
+
+            #Update : u^{n+1,r+1} = u^n+advection
+            mn.copy(out=mn1)
+            mn1 -= self.advection
+            print(self.advection.dot(un12))
+            self._Mrhoinv.dot(mn1, out=un1)
+
+        self.feec_vars_update(un1)
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['solver'] = {'tol': 1e-8,
+                          'maxiter': 3000,
+                          'info': False,
+                          'verbose': False,
+                          'proj':'geom',
+                          'backend' : 'pyccel-gcc'}
+        return dct
+
+
+
+        
+

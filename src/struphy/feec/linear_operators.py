@@ -323,7 +323,7 @@ class CompositeLinearOperator(LinOpWithTransp):
 
         return out
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         """
         Returns the transposed operator.
         """
