@@ -28,11 +28,6 @@ from psydac.api.discretization import discretize
 from psydac.api.settings   import PSYDAC_BACKENDS
 from psydac.fem.basic      import FemField
 
-from sympde.topology  import element_of
-from sympde.calculus  import Dot, Grad
-from sympde.expr.expr import LinearForm, integral
-from sympde.topology  import VectorFunctionSpace
-
 from struphy.projectors_valentin.basis_projectors import BasisProjectionOperator_V, CoordinateInclusion, CoordinateProjector, preprocess_grid_with_ff
 
 
@@ -2194,8 +2189,7 @@ class ImplicitDiffusion(Propagator):
     
 
 class VariationalVelocityAdvection(Propagator):
-    r"""TODO
-    """
+    #TODO : documentation
 
     def __init__(self, u, **params):
 
@@ -2318,10 +2312,11 @@ class VariationalVelocityAdvection(Propagator):
             mn.copy(out = mn12)
             mn12 +=mn1
             mn12 *=0.5
+            mn12.update_ghost_regions()
             un.copy(out = un12)
             un12 +=un1
             un12 *=0.5
-
+            un12.update_ghost_regions()
             self.gp1.dot(un12, out = self.gp1u)
             self.gp2.dot(un12, out = self.gp2u)
             self.gp3.dot(un12, out = self.gp3u)
@@ -2369,7 +2364,6 @@ class VariationalVelocityAdvection(Propagator):
             #Update : u^{n+1,r+1} = u^n+advection
             mn.copy(out=mn1)
             mn1 -= self.advection
-            print(self.advection.dot(un12))
             self._Mvinv.dot(mn1, out=un1)
 
         mn1.copy(out=mn)
@@ -2387,7 +2381,7 @@ class VariationalVelocityAdvection(Propagator):
         return dct
     
 
-"""class VariationalMomentumAdvection(Propagator):
+class VariationalMomentumAdvection(Propagator):
     #TODO : documentation
     def __init__(self, rho, u, **params):
 
@@ -2480,12 +2474,10 @@ class VariationalVelocityAdvection(Propagator):
             #mass matrix to compute L2 norm of error
             self.rhof = FemField(V3h,rho)
             self.WMM    = WeightedMassOperator(Xh, Xh, weights_info="diag")
-            self._Mrho  = self.WMM.assemble([[self.rhof, None, None],
-                                             [None, self.rhof, None],
-                                             [None, None, self.rhof]])
+            self._Mrho  = self.WMM.matrix
             self._Mrhoinv = Inverse(self._Mrho, tol=1e-16)
 
-            self._tmp_mn = self._Mv.dot(u)
+            self._tmp_mn = u.space.zeros()
 
 
 
@@ -2503,10 +2495,10 @@ class VariationalVelocityAdvection(Propagator):
         mn1  = self._tmp_mn1
 
         self.rhof._coeffs = rhon
-        self.WMM.assemble([[self.rhof, 0, 0],
-                            [0, self.rhof, 0],
-                            [0, 0, self.rhof]])
-
+        self.WMM.assemble([[self.rhof, None, None],
+                            [None, self.rhof, None],
+                            [None, None, self.rhof]],
+                            verbose=False)
         self._Mrho.dot(un, out=mn)
         mn.copy(out=mn1)
         un.copy(out=un1)
@@ -2571,10 +2563,9 @@ class VariationalVelocityAdvection(Propagator):
             #Update : u^{n+1,r+1} = u^n+advection
             mn.copy(out=mn1)
             mn1 -= self.advection
-            print(self.advection.dot(un12))
-            self._Mrhoinv.dot(mn1, out=un1)
+            self._Mrhoinv.dot(mn1, out=un1, x0=un)
 
-        self.feec_vars_update(un1)
+        self.feec_vars_update(rhon,un1)
 
     @classmethod
     def options(cls):
@@ -2585,5 +2576,5 @@ class VariationalVelocityAdvection(Propagator):
                           'verbose': False,
                           'proj':'geom',
                           'backend' : 'pyccel-gcc'}
-        return dct"""
+        return dct
 

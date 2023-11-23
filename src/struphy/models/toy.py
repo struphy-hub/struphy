@@ -2,8 +2,6 @@
 
 import numpy as np
 from struphy.models.base import StruphyModel
-from struphy.feec.mass import WeightedMassOperator
-from psydac.fem.basic      import FemField
 
 
 class Maxwell(StruphyModel):
@@ -447,16 +445,7 @@ class ShearAlfven(StruphyModel):
         self.update_scalar('en_B_tot', en_Btot)
 
 class VariationalBurgers(StruphyModel):
-    r'''TODO
-
-    Parameters
-    ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
-
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
-    '''
+    #TODO : docu
 
     @classmethod
     def species(cls):
@@ -508,17 +497,8 @@ class VariationalBurgers(StruphyModel):
 
 
 
-"""class VariationalEnergylessFluid(StruphyModel):
-    r'''TODO
-
-    Parameters
-    ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
-
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
-    '''
+class VariationalEnergylessFluid(StruphyModel):
+    #TODO
 
     @classmethod
     def species(cls):
@@ -550,6 +530,8 @@ class VariationalBurgers(StruphyModel):
         super().__init__(params, comm)
 
         from struphy.polar.basic import PolarVector
+        from struphy.feec.mass import WeightedMassOperator
+        from psydac.fem.basic      import FemField
         
         # Initialize propagators/integrators used in splitting substeps
         self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
@@ -562,9 +544,7 @@ class VariationalBurgers(StruphyModel):
         self.rhof   = FemField(V3h,self.pointer['fluid_rho3'])
       
         self.WMM    = WeightedMassOperator(Xh, Xh, weights_info="diag")
-        self._Mrho  = self.WMM.assemble([[self.rhof, None, None],
-                                         [None, self.rhof, None],
-                                         [None, None, self.rhof]])        
+        self._Mrho  = self.WMM.matrix    
         self.add_scalar('en_U')
 
         # temporary vectors for scalar quantities
@@ -573,12 +553,13 @@ class VariationalBurgers(StruphyModel):
     def update_scalar_quantities(self):
         # perturbed fields
         self.rhof._coeffs = self.pointer['fluid_rho3']
-        self.WMM.assemble([[self.rhof, 0, 0],
-                            [0, self.rhof, 0],
-                            [0, 0, self.rhof]])
+        self.WMM.assemble([[self.rhof, None, None],
+                            [None, self.rhof, None],
+                            [None, None, self.rhof]],
+                            verbose=False)
 
         self.WMM.dot(self.pointer['fluid_uv'], out=self._tmp_u1)
 
         en_U = self.pointer['fluid_uv'] .dot(self._tmp_u1)/2
-        self.update_scalar('en_U', en_U)"""
+        self.update_scalar('en_U', en_U)
 

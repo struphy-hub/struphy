@@ -1037,6 +1037,9 @@ class WeightedMassOperator(LinOpWithTransp):
             Name of the operator.
         """
 
+        from psydac.fem.basic      import FemField
+
+
         # clear data
         if clear:
             if isinstance(self._mat, StencilMatrix):
@@ -1141,9 +1144,19 @@ class WeightedMassOperator(LinOpWithTransp):
                     print(f'Assemble block {a, b}')
 
                 # evaluate weight at quadrature points
-                if callable(self._weights[a][b]):
-                    PTS = np.meshgrid(*pts, indexing='ij')
-                    mat_w = self._weights[a][b](*PTS).copy()
+                loc_weights = self._weights[a][b]
+                if callable(loc_weights):
+                    if isinstance(loc_weights, FemField):
+                        from struphy.b_splines.bspline_evaluation_3d import evaluate_tensor_product
+                        space = loc_weights.space
+                        mat_w = np.zeros((len(pts[0]),len(pts[1]),len(pts[2])))
+                        if space.symbolic_space.name == 'L2':
+                            indN     = [(np.indices((space_i.ncells, space_i.degree + 1 - 0))[1] + np.arange(space_i.ncells)[:, None])%space_i.nbasis for space_i in space.spaces]
+                            evaluate_tensor_product(*space.knots,*space.degree,*indN,loc_weights._coeffs._data,*pts,mat_w,3)
+                        #print(pts)
+                    else :
+                        PTS = np.meshgrid(*pts, indexing='ij')
+                        mat_w = self._weights[a][b](*PTS).copy()
                 elif isinstance(self._weights[a][b], np.ndarray):
                     mat_w = self._weights[a][b]
 
