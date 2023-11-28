@@ -26,7 +26,7 @@ def test_basis_ops(Nel, p, spl_kind, mapping, show_plots=False):
     import struphy.eigenvalue_solvers.legacy.mhd_operators_MF as basis_ops_str2
 
     from struphy.feec.psydac_derham import Derham
-    from struphy.feec.basis_projection_ops import BasisProjectionOperators
+    from struphy.feec.basis_projection_ops import BasisProjectionOperators, BasisProjectionOperator, prepare_projection_of_basis
 
     from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
 
@@ -147,6 +147,35 @@ def test_basis_ops(Nel, p, spl_kind, mapping, show_plots=False):
 
     print(f'Rank {mpi_rank} | Asserting transposed MHD operator K3T.')
     compare_arrays(r_psy, r_str1, mpi_rank, atol=1e-14)
+    print(f'Rank {mpi_rank} | Assertion passed.')
+    # Create a hand-made BasisProjectionOperator to evaluate with weights and compare
+    fun = lambda e1, e2, e3: basis_psy.weights['eq_mhd'].p3(
+                e1, e2, e3) / basis_psy.sqrt_g(e1, e2, e3)
+    
+    #create adapted quadrature grid for the basis projection operator
+    P3_space = derham.P['3'].space
+    starts_out = np.array(P3_space.vector_space.starts)
+    ends_out = np.array(P3_space.vector_space.ends)
+
+    ptsG, _, _, _, _ = prepare_projection_of_basis(derham.Vh_fem['3'].spaces, 
+                                                    P3_space.spaces, starts_out, 
+                                                    ends_out, n_quad=derham.nquads)
+
+
+    ptsG = [pts.flatten() for pts in ptsG]
+    PTS = np.meshgrid(*ptsG, indexing='ij')
+
+    #evaluate function and set the weight matrix
+    mat_w = fun(*PTS).copy()
+    weights = [[mat_w]]
+    
+    #hand-made BasisProjectionOperator
+    P = BasisProjectionOperator(derham.P['3'], derham.Vh_fem['3'], weights)
+
+    r_w = P.dot(x3_psy)
+
+    print(f'Rank {mpi_rank} | Asserting hand created basis projection with weights.')
+    np.allclose(r_psy._data, r_w._data, atol=1e-14)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
     # ===== operator Qv (V0vec --> V2) ============

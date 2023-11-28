@@ -927,7 +927,7 @@ class BasisProjectionOperator(LinOpWithTransp):
                                        not self.transposed, self._polar_shift)
 
     @staticmethod
-    def assemble_mat(P, V, fun, polar_shift=False):
+    def assemble_mat(P, V, weights, polar_shift=False):
         """
         Assembles the tensor-product DOF matrix sigma_i(fun*Lambda_j), where i=(i1, i2, ...) and j=(j1, j2, ...) depending on the number of spatial dimensions (1d, 2d or 3d).
 
@@ -939,8 +939,8 @@ class BasisProjectionOperator(LinOpWithTransp):
         V : TensorFemSpace | VectorFemSpace
             The spline space which shall be projected.
 
-        fun : list
-            Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
+        weights : list
+            Weight function(s) (callables or np.ndarrays) in a 2d list of shape corresponding to number of components of domain/codomain.
 
         polar_shift : bool
             Whether there are metric coefficients contained in "fun" which are singular at eta1=0. If True, interpolation points at eta1=0 are shifted away from the singularity by 1e-5.
@@ -975,12 +975,12 @@ class BasisProjectionOperator(LinOpWithTransp):
         blocks = []
 
         # ouptut vector space (codomain), row of block
-        for Wspace, W1d, nq, fun_line in zip(_Wspaces, _W1ds, _nqs, fun):
+        for Wspace, W1d, nq, weight_line in zip(_Wspaces, _W1ds, _nqs, weights):
             blocks += [[]]
             _Wdegrees = [space.degree for space in W1d]
 
             # input vector space (domain), column of block
-            for Vspace, V1d, f in zip(_Vspaces, _V1ds, fun_line):
+            for Vspace, V1d, loc_weight in zip(_Vspaces, _V1ds, weight_line):
 
                 # instantiate cell of block matrix
                 dofs_mat = StencilMatrix(
@@ -1002,17 +1002,23 @@ class BasisProjectionOperator(LinOpWithTransp):
                 _Vnbases = [space.nbasis for space in V1d]
 
                 # Evaluate weight function at quadrature points
-                pts = np.meshgrid(*_ptsG, indexing='ij')
-                _fun_q = f(*pts).copy()
+                # evaluate weight at quadrature points
+                if callable(loc_weight):
+                    PTS = np.meshgrid(*_ptsG, indexing='ij')
+                    mat_w = loc_weight(*PTS).copy()
+                elif isinstance(loc_weight, np.ndarray):
+                    mat_w = loc_weight
+                else :
+                    raise TypeError("weights must be np.ndarray or callable")
 
                 # Call the kernel if weight function is not zero
-                if np.any(np.abs(_fun_q) > 1e-14):
+                if np.any(np.abs(mat_w) > 1e-14):
 
                     kernel = getattr(basis_projection_kernels,
                                      'assemble_dofs_for_weighted_basisfuns_' + str(V.ldim) + 'd')
 
                     kernel(dofs_mat._data, _starts_in, _ends_in, _pads_in, _starts_out, _ends_out,
-                           _pads_out, _fun_q, *_wtsG, *_spans, *_bases, *_subs, *_Vnbases, *_Wdegrees)
+                           _pads_out, mat_w, *_wtsG, *_spans, *_bases, *_subs, *_Vnbases, *_Wdegrees)
 
                     blocks[-1] += [dofs_mat]
 
