@@ -522,7 +522,7 @@ class Particles(metaclass=ABCMeta):
             u_mean = np.array(self.params['loading']['moments'][:self.vdim])
             v_th = np.array(self.params['loading']['moments'][self.vdim:])
 
-            self.velocities = sp.erfinv(2*self.velocities - 1)*v_th + u_mean
+            self.velocities = sp.erfinv(2*self.velocities - 1) * np.sqrt(2) * v_th + u_mean
 
             # inversion method for drawing uniformly on the disc
             _spatial = self.params['loading']['spatial']

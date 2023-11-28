@@ -1,42 +1,42 @@
 from struphy.feec.psydac_derham import Derham
 from struphy.feec import preconditioner
-import struphy.linear_algebra.iterative_solvers as it_solvers
 from struphy.fields_background.mhd_equil.equils import set_defaults
 import struphy.feec.utilities_kernels as util_kernels
+
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
+from psydac.linalg.solvers import inverse
 
 import numpy as np
 
 
 class L2_Projector:
-    """
-    A projector for functions based on the L2 scalar product.
+    r"""
+    A projector into the discrete de Rham spaces based on the L2-scalar product.
+    
     Computes the L2 scalar product with basis functions via Gauss-Legendre quadrature:
 
     .. math::
 
-        <f, \Lambda^a_i> = \int_{[0,1]^3} f(\eta) \Lambda^a_i(\eta) \, \\text{d} \eta = \sum_k w_k f(\eta_k) \Lambda^a_i(\eta_k)
+        <f, \Lambda^\alpha_i> = \int_{[0,1]^3} f(\eta) \Lambda^\alpha_i(\eta) \, \text{d} \eta \approx \sum_k w_k f(\eta_k) \Lambda^\alpha_i(\eta_k)
 
     TODO (for now only a=0, i.e. space=H1)
     and solves the following system for the FE-coefficients
 
     .. math::
 
-        M^a_{ij} f_j = <f, \Lambda^a_i>
+        M^\alpha_{ij} f_j = <f, \Lambda^\alpha_i>
 
     Parameters:
     -----------
     """
 
-    def __init__(
-        self, mass_mat, derham: Derham,
-        **params
-    ):
+    def __init__(self, mass_mat, derham: Derham, **params):
+        
         params_default = {
             'space': 'H1',
             'solver_params': {
-                'type': ('PConjugateGradient', 'MassMatrixPreconditioner'),
+                'type': ('pcg', 'MassMatrixPreconditioner'),
                 'tol': 1.e-14,
                 'maxiter': 3000,
                 'info': False,
@@ -77,8 +77,12 @@ class L2_Projector:
             pc_class = getattr(preconditioner, self.solver_params['type'][1])
             self._pc = pc_class(mass_mat)
 
-        self._solver = getattr(
-            it_solvers, self.solver_params['type'][0])(mass_mat.domain)
+        self._solver = inverse(mass_mat, 
+                               self.solver_params['type'][0],
+                               pc=self._pc,
+                               tol=self.solver_params['tol'], 
+                               maxiter=self.solver_params['maxiter'],
+                               verbose=self.solver_params['verbose'])
 
         self._kernel = getattr(util_kernels, 'l2_projection_V0')
 
@@ -150,13 +154,9 @@ class L2_Projector:
             raise ValueError(
                 f'fun must be either a callable function or a numpy array but is of type {type(fun)}')
 
-        self._solver.solve(
-            self.lhs_mat, self._rhs, pc=self._pc,
-            tol=self.solver_params['tol'], maxiter=self.solver_params['maxiter'],
-            verbose=self.solver_params['verbose'], out=self._lhs
-        )
+        x = self._solver.solve(self._rhs, out=self._lhs)
 
-        return self._lhs
+        return x
 
     def generate_quad_points(self):
         """ Generate the quadrature points and weights for all cells.

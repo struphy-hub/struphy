@@ -29,7 +29,7 @@ def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
     from struphy.feec.linear_operators import SumLinearOperator as Sum
     from struphy.feec.linear_operators import ScalarTimesLinearOperator as Multiply
     from struphy.feec.linear_operators import InverseLinearOperator as Invert
-    from struphy.feec.linear_operators import IdentityOperator
+    from psydac.linalg.basic import IdentityOperator
     from struphy.feec.linear_operators import BoundaryOperator as Boundary
 
     # create domain object

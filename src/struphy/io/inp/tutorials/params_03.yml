@@ -70,13 +70,13 @@ fluid :
         options:
             solvers:
                 shear_alfven:
-                    type: [PConjugateGradient, MassMatrixPreconditioner]
+                    type: [pcg, MassMatrixPreconditioner]
                     tol: 1.0e-08
                     maxiter: 3000
                     info: false
                     verbose: false
                 magnetosonic:
-                    type: [PBiConjugateGradientStab, MassMatrixPreconditioner]
+                    type: [pbicgstab, MassMatrixPreconditioner]
                     tol: 1.0e-08
                     maxiter: 3000
                     info: false

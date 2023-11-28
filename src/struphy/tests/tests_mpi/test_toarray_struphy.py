@@ -52,6 +52,7 @@ def test_toarray_struphy(Nel, p, spl_kind, mapping):
     # ========= test toarray_struphy =================
     # Get the matrix form of the linear operators M0 to M3
     M0arr = M0.toarray_struphy()
+    print('M0 done.')
     M1arr = M1.toarray_struphy()
     M2arr = M2.toarray_struphy()
     M3arr = M3.toarray_struphy()

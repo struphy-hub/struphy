@@ -2,39 +2,38 @@ from abc import ABCMeta, abstractmethod
 
 from psydac.linalg.block import BlockLinearOperator
 from psydac.linalg.kron import KroneckerStencilMatrix
-from psydac.linalg.basic import Vector
+from psydac.linalg.basic import Vector, IdentityOperator
+from psydac.linalg.solvers import inverse
 from psydac.feec.global_projectors import GlobalProjector
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
-from struphy.feec.linear_operators import CompositeLinearOperator, BoundaryOperator, IdentityOperator
 from struphy.feec.preconditioner import ProjectorPreconditioner
 from struphy.polar.linear_operators import PolarExtractionOperator
-from struphy.linear_algebra.iterative_solvers import PBiConjugateGradientStab
 
 import numpy as np
 
 
 # class Projector(metaclass=ABCMeta):
 #     """Projector into one of the discrete de Rham spaces.
-    
+
 #     The __call__ method takes callable functions as an input and returns a Stencil-/BlockVector.
 #     """
-    
+
 #     def __init__(self, derham, space_id, solver=('tensor_product', None), tol=1e-14, maxiter=1000, verbose=False):
 #         """
 #         Parameters
 #         ----------
 #         derham : struphy.feec.psydac_derham.Derham
 #             Struphy de Rham sequence.
-            
+
 #         space_id : str
 #             Space to project into ("H1", "Hcurl", "Hdiv", "L2" or "H1vec").
-            
+
 #         solver : tuple
-#             Tuple of the form (solver_name, preconditioner), describing the solver to be used in the projection problem. 
+#             Tuple of the form (solver_name, preconditioner), describing the solver to be used in the projection problem.
 #             Solvers from :ref:`struphy.linear_algebra.direct_solvers` or from `struphy.linear_algebra.iterative_solvers`.
 #             Preconditioners from :ref:`struphy.feec.preconditioner`.
-            
+
 #         tol : float, optional
 #             Stop tolerance in iterative solve (only used in polar case).
 
@@ -44,57 +43,57 @@ import numpy as np
 #         verbose : bool, optional
 #             Whether to print some information in each iteration in iterative solve (only used in polar case).
 #         """
-        
+
 #         self._derham = derham
 #         self._space_id = space_id
 #         self._form = derham.space_to_form[space_id]
-        
+
 #         if 'tensor_product' in solver[0]:
-            
+
 #             if solver[1] is None:
 #                 self._solver = derham.P[self.form].solver
-                
+
 #             elif solver[1] == 'imat_inverse':
 #                 self._solver = PBiConjugateGradientStab(derham.Vh[self.form])
-                
+
 #             else:
 #                 raise ValueError(f'solver[1] must be None or "imat_inverse", but is {solver[1] = }')
-        
+
 #     @property
 #     def derham(self):
 #         """:class:`struphy.feec.psydac_derham.Derham`"""
 #         return self._derham
-    
+
 #     @property
 #     def space_id(self):
 #         """Space to project from ("H1", "Hcurl", "Hdiv", "L2" or "H1vec")."""
 #         return self._space_id
-    
+
 #     @property
 #     def form(self):
 #         """p-form proxy ("0", "1", "2", "3" or "v")."""
 #         return self._form
-    
+
 #     @property
 #     def solver(self):
 #         """The solver to be used in the projection problem. """
 #         return self._solver
-    
+
 #     @abstractmethod
 #     def get_dofs(self, fun):
 #         """Computes the right-hand side of the projection problem.
-        
+
 #         Parameters
 #         ----------
 #         fun : callable | list
 #             The function to be projected. List of three callables for vector-valued functions.
-            
+
 #         Returns
 #         -------
 #             A Stencil-/BlockVector corresponding to self.space_id.
-#         """        
+#         """
 #         pass
-    
+
 #     def __call__(self, fun):
 #         """
 #         Applies projector to given callable(s).
@@ -111,14 +110,14 @@ import numpy as np
 #         """
 #         rhs = self.get_dofs(fun)
 #         self.solver.solve(rhs, out=self._out)
-        
+
 #         return self._out
 
 
 # class CommutingProjector(Projector):
 #     """
-#     A commuting projector in a 3d tensor-product de Rham diagram. 
-    
+#     A commuting projector in a 3d tensor-product de Rham diagram.
+
 #     The general structure of the inter-/histopolation problem reads
 
 #          (B * I * B^T) * coeffs = B * dofs,
@@ -134,7 +133,7 @@ import numpy as np
 #     ----------
 #     derham : struphy.feec.psydac_derham.Derham
 #         Struphy de Rham sequence.
-            
+
 #     space_id : str
 #         Space to project into ("H1", "Hcurl", "Hdiv", "L2" or "H1vec").
 #     """
@@ -150,13 +149,13 @@ import numpy as np
 
 #         # ------ the following is only relevant when apply_bc=True ------
 #         self._projector_tensor = derham.P[self.form]
-        
+
 #         print(f'{self.projector_tensor = }')
 #         print(f'{self.solver = }')
 
 #         imat = derham.P[self.form].imat_kronecker
 #         imatT = self._imat.T
-        
+
 #         print(f'{imat = }')
 
 #         B = derham.boundary_ops[self.form]
@@ -165,7 +164,7 @@ import numpy as np
 #         self._I = CompositeLinearOperator(B, imat, B.T)
 #         self._IT = CompositeLinearOperator(B, imatT, B.T)
 
-#         # preconditioner B * I^(-1) * B^T 
+#         # preconditioner B * I^(-1) * B^T
 #         self._pc = ProjectorPreconditioner(self, transposed=False)
 #         self._pcT = ProjectorPreconditioner(self, transposed=True)
 
@@ -241,12 +240,12 @@ import numpy as np
 #             if self.is_polar:
 #                 if apply_bc:
 #                     x, self._polar_info = self._polar_solver.solve(
-#                         self.I0T, self.I0T.operators[0].dot(rhs),
+#                         self.I0T, self.I0T.multiplicants[0].dot(rhs),
 #                         self.pc0T, tol=tol, maxiter=maxiter,
 #                         verbose=verbose, out=out)
 #                 else:
 #                     x, self._polar_info = self._polar_solver.solve(
-#                         self.IT, self.IT.operators[0].dot(rhs),
+#                         self.IT, self.IT.multiplicants[0].dot(rhs),
 #                         self.pcT, tol=tol, maxiter=maxiter,
 #                         verbose=verbose, out=out)
 
@@ -263,12 +262,12 @@ import numpy as np
 #             if self.is_polar:
 #                 if apply_bc:
 #                     x, self._polar_info = self._polar_solver.solve(
-#                         self.I0, self.I0.operators[0].dot(rhs),
+#                         self.I0, self.I0.multiplicants[0].dot(rhs),
 #                         self.pc0, tol=tol, maxiter=maxiter,
 #                         verbose=verbose, out=out)
 #                 else:
 #                     x, self._polar_info = self._polar_solver.solve(
-#                         self.I, self.I.operators[0].dot(rhs),
+#                         self.I, self.I.multiplicants[0].dot(rhs),
 #                         self.pc, tol=tol, maxiter=maxiter,
 #                         verbose=verbose, out=out)
 
@@ -343,7 +342,7 @@ import numpy as np
 class PolarCommutingProjector():
     """
     A commuting projector in a 3d polar de Rham diagram. 
-    
+
     The general structure of the inter-/histopolation problem reads
 
          (B * P * I * E^T * B^T) * coeffs = B * P * dofs,
@@ -380,24 +379,18 @@ class PolarCommutingProjector():
         self._projector_tensor = projector_tensor
 
         if dofs_extraction_op is not None:
-            assert isinstance(dofs_extraction_op,
-                              (PolarExtractionOperator, IdentityOperator))
             self._dofs_extraction_op = dofs_extraction_op
         else:
             self._dofs_extraction_op = IdentityOperator(
                 self.space.vector_space)
 
         if base_extraction_op is not None:
-            assert isinstance(base_extraction_op,
-                              (PolarExtractionOperator, IdentityOperator))
             self._base_extraction_op = base_extraction_op
         else:
             self._base_extraction_op = IdentityOperator(
                 self.space.vector_space)
 
         if boundary_op is not None:
-            assert isinstance(
-                boundary_op, (BoundaryOperator, IdentityOperator))
             self._boundary_op = boundary_op
         else:
             self._boundary_op = IdentityOperator(self.space.vector_space)
@@ -443,14 +436,12 @@ class PolarCommutingProjector():
         B = self._boundary_op
 
         # build inter-/histopolation matrix I = ID * P * I * E^T * ID^T and I0 = B * P * I * E^T * B^T as ComposedLinearOperator
-        self._I = CompositeLinearOperator(IdentityOperator(
-            P.codomain), P, self._imat, E.T, IdentityOperator(E.codomain).T)
-        self._I0 = CompositeLinearOperator(B, P, self._imat, E.T, B.T)
+        self._I = P @ self._imat @ E.T
+        self._I0 = B @ self._I @ B.T
 
         # transposed
-        self._IT = CompositeLinearOperator(IdentityOperator(
-            E.codomain), E, self._imatT, P.T, IdentityOperator(P.codomain).T)
-        self._I0T = CompositeLinearOperator(B, E, self._imatT, P.T, B.T)
+        self._IT = E @ self._imatT @ P.T
+        self._I0T = B @ self._IT @ B.T
 
         # preconditioner ID * P * I^(-1) * E^T * ID^T and B * P * I^(-1) * E^T * B^T for iterative polar projections
         self._pc = ProjectorPreconditioner(
@@ -466,7 +457,14 @@ class PolarCommutingProjector():
 
         # linear solver used for polar projections
         if self._is_polar:
-            self._polar_solver = PBiConjugateGradientStab(self._I.domain)
+            self._polar_solver = inverse(
+                self._I, 'pbicgstab', pc=self._pc, tol=1e-14, maxiter=1000, verbose=False)
+            self._polar_solver0 = inverse(
+                self._I0, 'pbicgstab', pc=self._pc0, tol=1e-14, maxiter=1000, verbose=False)
+            self._polar_solverT = inverse(
+                self._IT, 'pbicgstab', pc=self._pcT, tol=1e-14, maxiter=1000, verbose=False)
+            self._polar_solver0T = inverse(
+                self._I0T, 'pbicgstab', pc=self._pc0T, tol=1e-14, maxiter=1000, verbose=False)
         else:
             self._polar_solver = None
 
@@ -556,7 +554,7 @@ class PolarCommutingProjector():
         """
         return self._pc0T
 
-    def solve(self, rhs, transposed=False, apply_bc=False, tol=1e-14, maxiter=1000, verbose=False, out=None):
+    def solve(self, rhs, transposed=False, apply_bc=False, out=None):
         """
         Solves the linear system I * x = rhs, resp. I^T * x = rhs for x, where I is the composite inter-/histopolation matrix.
 
@@ -593,42 +591,29 @@ class PolarCommutingProjector():
         assert rhs.space == self._I.domain
 
         if transposed:
-
             # polar case (iterative solve with PBiConjugateGradientStab)
             if self.is_polar:
                 if apply_bc:
-                    x, self._polar_info = self._polar_solver.solve(
-                        self.I0T, self.I0T.operators[0].dot(rhs),
-                        self.pc0T, tol=tol, maxiter=maxiter,
-                        verbose=verbose, out=out)
+                    x = self._polar_solver0T.solve(
+                        self._boundary_op.T.dot(rhs), out=out)
                 else:
-                    x, self._polar_info = self._polar_solver.solve(
-                        self.IT, self.IT.operators[0].dot(rhs),
-                        self.pcT, tol=tol, maxiter=maxiter,
-                        verbose=verbose, out=out)
-
+                    x = self._polar_solverT.solve(
+                        self._boundary_op.T.dot(rhs), out=out)
             # standard (tensor product) case (Kronecker solver)
             else:
                 if apply_bc:
                     x = self.pc0T.solve(rhs, out=out)
                 else:
                     x = self.pcT.solve(rhs, out=out)
-
         else:
-
             # polar case (iterative solve with PBiConjugateGradientStab)
             if self.is_polar:
                 if apply_bc:
-                    x, self._polar_info = self._polar_solver.solve(
-                        self.I0, self.I0.operators[0].dot(rhs),
-                        self.pc0, tol=tol, maxiter=maxiter,
-                        verbose=verbose, out=out)
+                    x = self._polar_solver0.solve(
+                        self._boundary_op.T.dot(rhs), out=out)
                 else:
-                    x, self._polar_info = self._polar_solver.solve(
-                        self.I, self.I.operators[0].dot(rhs),
-                        self.pc, tol=tol, maxiter=maxiter,
-                        verbose=verbose, out=out)
-
+                    x = self._polar_solver.solve(
+                        self._boundary_op.T.dot(rhs), out=out)
             # standard (tensor product) case (Kronecker solver)
             else:
                 if apply_bc:
@@ -693,14 +678,13 @@ class PolarCommutingProjector():
             The FEM spline coefficients after projection.
         """
         return self.solve(self.get_dofs(fun, apply_bc), transposed=False,
-                          apply_bc=apply_bc, tol=tol,
-                          maxiter=maxiter, verbose=verbose)
+                          apply_bc=apply_bc)
 
 
 # class L2Projector:
 #     r"""
 #     A projector into the discrete de Rham spaces based on the L2-scalar product.
-    
+
 #     Computes the L2 scalar product with basis functions via Gauss-Legendre quadrature:
 
 #     .. math::

@@ -39,7 +39,7 @@ em_fields :
             seed : 1234    # seed for random number generator
     options:
         solver:
-            type: [PConjugateGradient, MassMatrixPreconditioner]
+            type: [pcg, MassMatrixPreconditioner]
             tol: 1.0e-08
             maxiter: 3000
             info: false

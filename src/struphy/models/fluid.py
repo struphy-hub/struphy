@@ -215,6 +215,8 @@ class LinearExtendedMHD(StruphyModel):
         dct = {}
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'shear_alfven'],
                        option=ShearAlfvénB1.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'M1_inv'],
+                       option=ShearAlfvénB1.options()['M1_inv'], dct=dct)
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'hall'],
                        option=Hall.options()['solver'], dct=dct)
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'sonic_ion'],
@@ -232,6 +234,7 @@ class LinearExtendedMHD(StruphyModel):
 
         # extract necessary parameters
         alfven_solver = params['fluid']['mhd']['options']['solvers']['shear_alfven']
+        M1_inv = params['fluid']['mhd']['options']['solvers']['M1_inv']
         Hall_solver = params['fluid']['mhd']['options']['solvers']['hall']
         SonicIon_solver = params['fluid']['mhd']['options']['solvers']['sonic_ion']
         SonicElectron_solver = params['fluid']['mhd']['options']['solvers']['sonic_electron']
@@ -266,7 +269,8 @@ class LinearExtendedMHD(StruphyModel):
         self.add_propagator(self.prop_fields.ShearAlfvénB1(
             self.pointer['mhd_u2'],
             self.pointer['b1'],
-            **alfven_solver))
+            **alfven_solver,
+            **M1_inv))
         self.add_propagator(self.prop_fields.Hall(
             self.pointer['b1'],
             **Hall_solver,

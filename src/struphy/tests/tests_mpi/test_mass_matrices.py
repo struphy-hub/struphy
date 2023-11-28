@@ -441,16 +441,13 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
     import time
 
     from struphy.geometry import domains
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-    from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
-
     from struphy.feec.psydac_derham import Derham
-    from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
+    from struphy.feec.utilities import create_equal_random_arrays
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.preconditioner import MassMatrixPreconditioner
-    from struphy.feec.linear_operators import InverseLinearOperator
-
     from struphy.fields_background.mhd_equil.equils import ShearedSlab, ScrewPinch
+    
+    from psydac.linalg.solvers import inverse
 
     from mpi4py import MPI
 
@@ -567,8 +564,8 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
 
     # compare mass matrix-vector products with Kronecker products of preconditioner
     do_this_test = False
-
-    if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder' and do_this_test:
+    
+    if (mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder') and do_this_test:
 
         if mpi_rank == 0:
             print(
@@ -630,103 +627,103 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
             xv)).toarray(), derham.boundary_ops['v'].dot(xv).toarray())
 
     # test preconditioner in iterative solver
-    M0inv = InverseLinearOperator(
-        mass_mats.M0, pc=M0pre, tol=1e-8, maxiter=1000)
-    M1inv = InverseLinearOperator(
-        mass_mats.M1, pc=M1pre, tol=1e-8, maxiter=1000)
-    M2inv = InverseLinearOperator(
-        mass_mats.M2, pc=M2pre, tol=1e-8, maxiter=1000)
-    M3inv = InverseLinearOperator(
-        mass_mats.M3, pc=M3pre, tol=1e-8, maxiter=1000)
-    Mvinv = InverseLinearOperator(
-        mass_mats.Mv, pc=Mvpre, tol=1e-8, maxiter=1000)
+    M0inv = inverse(
+        mass_mats.M0, 'pcg', pc=M0pre, tol=1e-8, maxiter=1000)
+    M1inv = inverse(
+        mass_mats.M1, 'pcg', pc=M1pre, tol=1e-8, maxiter=1000)
+    M2inv = inverse(
+        mass_mats.M2, 'pcg', pc=M2pre, tol=1e-8, maxiter=1000)
+    M3inv = inverse(
+        mass_mats.M3, 'pcg', pc=M3pre, tol=1e-8, maxiter=1000)
+    Mvinv = inverse(
+        mass_mats.Mv, 'pcg', pc=Mvpre, tol=1e-8, maxiter=1000)
 
-    M1ninv = InverseLinearOperator(
-        mass_mats.M1n, pc=M1npre, tol=1e-8, maxiter=1000)
-    M2ninv = InverseLinearOperator(
-        mass_mats.M2n, pc=M2npre, tol=1e-8, maxiter=1000)
-    Mvninv = InverseLinearOperator(
-        mass_mats.Mvn, pc=Mvnpre, tol=1e-8, maxiter=1000)
+    M1ninv = inverse(
+        mass_mats.M1n, 'pcg', pc=M1npre, tol=1e-8, maxiter=1000)
+    M2ninv = inverse(
+        mass_mats.M2n, 'pcg', pc=M2npre, tol=1e-8, maxiter=1000)
+    Mvninv = inverse(
+        mass_mats.Mvn, 'pcg', pc=Mvnpre, tol=1e-8, maxiter=1000)
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M0 with preconditioner')
-        r0 = M0inv.dot(derham.boundary_ops['0'].dot(x0), verbose=True)
+        r0 = M0inv.dot(derham.boundary_ops['0'].dot(x0))
     else:
-        r0 = M0inv.dot(derham.boundary_ops['0'].dot(x0), verbose=False)
+        r0 = M0inv.dot(derham.boundary_ops['0'].dot(x0))
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
-        assert M0inv.info['niter'] == 1
+        assert M0inv._info['niter'] == 2
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M1 with preconditioner')
-        r1 = M1inv.dot(derham.boundary_ops['1'].dot(x1), verbose=True)
+        r1 = M1inv.dot(derham.boundary_ops['1'].dot(x1))
     else:
-        r1 = M1inv.dot(derham.boundary_ops['1'].dot(x1), verbose=False)
+        r1 = M1inv.dot(derham.boundary_ops['1'].dot(x1))
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
-        assert M1inv.info['niter'] == 1
+        assert M1inv._info['niter'] == 2
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M2 with preconditioner')
-        r2 = M2inv.dot(derham.boundary_ops['2'].dot(x2), verbose=True)
+        r2 = M2inv.dot(derham.boundary_ops['2'].dot(x2))
     else:
-        r2 = M2inv.dot(derham.boundary_ops['2'].dot(x2), verbose=False)
+        r2 = M2inv.dot(derham.boundary_ops['2'].dot(x2))
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
-        assert M2inv.info['niter'] == 1
+        assert M2inv._info['niter'] == 2
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M3 with preconditioner')
-        r3 = M3inv.dot(derham.boundary_ops['3'].dot(x3), verbose=True)
+        r3 = M3inv.dot(derham.boundary_ops['3'].dot(x3))
     else:
-        r3 = M3inv.dot(derham.boundary_ops['3'].dot(x3), verbose=False)
+        r3 = M3inv.dot(derham.boundary_ops['3'].dot(x3))
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
-        assert M3inv.info['niter'] == 1
+        assert M3inv._info['niter'] == 2
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert Mv with preconditioner')
-        rv = Mvinv.dot(derham.boundary_ops['v'].dot(xv), verbose=True)
+        rv = Mvinv.dot(derham.boundary_ops['v'].dot(xv))
     else:
-        rv = Mvinv.dot(derham.boundary_ops['v'].dot(xv), verbose=False)
+        rv = Mvinv.dot(derham.boundary_ops['v'].dot(xv))
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
-        assert Mvinv.info['niter'] == 1
+        assert Mvinv._info['niter'] == 2
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Apply M1n with preconditioner')
-        r1n = M1ninv.dot(derham.boundary_ops['1'].dot(x1), verbose=True)
+        r1n = M1ninv.dot(derham.boundary_ops['1'].dot(x1))
     else:
-        r1n = M1ninv.dot(derham.boundary_ops['1'].dot(x1), verbose=False)
+        r1n = M1ninv.dot(derham.boundary_ops['1'].dot(x1))
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
-        assert M1ninv.info['niter'] == 1
+        assert M1ninv._info['niter'] == 2
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Apply M2n with preconditioner')
-        r2n = M2ninv.dot(derham.boundary_ops['2'].dot(x2), verbose=True)
+        r2n = M2ninv.dot(derham.boundary_ops['2'].dot(x2))
     else:
-        r2n = M2ninv.dot(derham.boundary_ops['2'].dot(x2), verbose=False)
+        r2n = M2ninv.dot(derham.boundary_ops['2'].dot(x2))
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
-        assert M2ninv.info['niter'] == 1
+        assert M2ninv._info['niter'] == 2
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Apply Mvn with preconditioner')
-        rvn = Mvninv.dot(derham.boundary_ops['v'].dot(xv), verbose=True)
+        rvn = Mvninv.dot(derham.boundary_ops['v'].dot(xv))
     else:
-        rvn = Mvninv.dot(derham.boundary_ops['v'].dot(xv), verbose=False)
+        rvn = Mvninv.dot(derham.boundary_ops['v'].dot(xv))
 
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
-        assert Mvninv.info['niter'] == 1
+        assert Mvninv._info['niter'] == 2
 
     time.sleep(2)
     print(f'Rank {mpi_rank} | All tests passed!')
@@ -750,17 +747,14 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     import time
 
     from struphy.geometry import domains
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-    from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
-
     from struphy.feec.psydac_derham import Derham
-    from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
+    from struphy.feec.utilities import create_equal_random_arrays
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.preconditioner import MassMatrixPreconditioner
-    from struphy.feec.linear_operators import InverseLinearOperator
-
     from struphy.polar.basic import PolarVector
     from struphy.fields_background.mhd_equil.equils import ScrewPinch
+    
+    from psydac.linalg.solvers import inverse
 
     from mpi4py import MPI
 
@@ -866,176 +860,176 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
         x3_pol.pol[0].shape[0], x3_pol.pol[0].shape[1])]
 
     # test preconditioner in iterative solver and compare to case without preconditioner
-    M0inv = InverseLinearOperator(
-        mass_mats.M0, pc=M0pre, tol=1e-8, maxiter=500)
-    M1inv = InverseLinearOperator(
-        mass_mats.M1, pc=M1pre, tol=1e-8, maxiter=500)
-    M2inv = InverseLinearOperator(
-        mass_mats.M2, pc=M2pre, tol=1e-8, maxiter=500)
-    M3inv = InverseLinearOperator(
-        mass_mats.M3, pc=M3pre, tol=1e-8, maxiter=500)
+    M0inv = inverse(
+        mass_mats.M0, 'pcg', pc=M0pre, tol=1e-8, maxiter=500)
+    M1inv = inverse(
+        mass_mats.M1, 'pcg', pc=M1pre, tol=1e-8, maxiter=500)
+    M2inv = inverse(
+        mass_mats.M2, 'pcg', pc=M2pre, tol=1e-8, maxiter=500)
+    M3inv = inverse(
+        mass_mats.M3, 'pcg', pc=M3pre, tol=1e-8, maxiter=500)
 
-    M1ninv = InverseLinearOperator(
-        mass_mats.M1n, pc=M1npre, tol=1e-8, maxiter=500)
-    M2ninv = InverseLinearOperator(
-        mass_mats.M2n, pc=M2npre, tol=1e-8, maxiter=500)
+    M1ninv = inverse(
+        mass_mats.M1n, 'pcg', pc=M1npre, tol=1e-8, maxiter=500)
+    M2ninv = inverse(
+        mass_mats.M2n, 'pcg', pc=M2npre, tol=1e-8, maxiter=500)
 
-    M0inv_nopc = InverseLinearOperator(
-        mass_mats.M0, pc=None, tol=1e-8, maxiter=500)
-    M1inv_nopc = InverseLinearOperator(
-        mass_mats.M1, pc=None, tol=1e-8, maxiter=500)
-    M2inv_nopc = InverseLinearOperator(
-        mass_mats.M2, pc=None, tol=1e-8, maxiter=500)
-    M3inv_nopc = InverseLinearOperator(
-        mass_mats.M3, pc=None, tol=1e-8, maxiter=500)
+    M0inv_nopc = inverse(
+        mass_mats.M0, 'pcg', pc=None, tol=1e-8, maxiter=500)
+    M1inv_nopc = inverse(
+        mass_mats.M1, 'pcg', pc=None, tol=1e-8, maxiter=500)
+    M2inv_nopc = inverse(
+        mass_mats.M2, 'pcg', pc=None, tol=1e-8, maxiter=500)
+    M3inv_nopc = inverse(
+        mass_mats.M3, 'pcg', pc=None, tol=1e-8, maxiter=500)
 
-    M1ninv_nopc = InverseLinearOperator(
-        mass_mats.M1n, pc=None, tol=1e-8, maxiter=500)
-    M2ninv_nopc = InverseLinearOperator(
-        mass_mats.M2n, pc=None, tol=1e-8, maxiter=500)
+    M1ninv_nopc = inverse(
+        mass_mats.M1n, 'pcg', pc=None, tol=1e-8, maxiter=500)
+    M2ninv_nopc = inverse(
+        mass_mats.M2n, 'pcg', pc=None, tol=1e-8, maxiter=500)
 
     # =============== M0 ===================================
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M0 with preconditioner')
-        r0 = M0inv.dot(derham.boundary_ops['0'].dot(x0_pol), verbose=True)
-        print('Number of iterations : ', M0inv.info['niter'])
+        r0 = M0inv.dot(derham.boundary_ops['0'].dot(x0_pol))
+        print('Number of iterations : ', M0inv._info['niter'])
     else:
-        r0 = M0inv.dot(derham.boundary_ops['0'].dot(x0_pol), verbose=False)
+        r0 = M0inv.dot(derham.boundary_ops['0'].dot(x0_pol))
 
-    assert M0inv.info['success']
+    assert M0inv._info['success']
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M0 without preconditioner')
         r0 = M0inv_nopc.dot(
-            derham.boundary_ops['0'].dot(x0_pol), verbose=False)
-        print('Number of iterations : ', M0inv_nopc.info['niter'])
+            derham.boundary_ops['0'].dot(x0_pol))
+        print('Number of iterations : ', M0inv_nopc._info['niter'])
     else:
         r0 = M0inv_nopc.dot(
-            derham.boundary_ops['0'].dot(x0_pol), verbose=False)
+            derham.boundary_ops['0'].dot(x0_pol))
 
-    assert M0inv.info['niter'] < M0inv_nopc.info['niter']
+    assert M0inv._info['niter'] < M0inv_nopc._info['niter']
     # =======================================================
 
     # =============== M1 ===================================
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M1 with preconditioner')
-        r1 = M1inv.dot(derham.boundary_ops['1'].dot(x1_pol), verbose=True)
-        print('Number of iterations : ', M1inv.info['niter'])
+        r1 = M1inv.dot(derham.boundary_ops['1'].dot(x1_pol))
+        print('Number of iterations : ', M1inv._info['niter'])
     else:
-        r1 = M1inv.dot(derham.boundary_ops['1'].dot(x1_pol), verbose=False)
+        r1 = M1inv.dot(derham.boundary_ops['1'].dot(x1_pol))
 
-    assert M1inv.info['success']
+    assert M1inv._info['success']
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M1 without preconditioner')
         r1 = M1inv_nopc.dot(
-            derham.boundary_ops['1'].dot(x1_pol), verbose=False)
-        print('Number of iterations : ', M1inv_nopc.info['niter'])
+            derham.boundary_ops['1'].dot(x1_pol))
+        print('Number of iterations : ', M1inv_nopc._info['niter'])
     else:
         r1 = M1inv_nopc.dot(
-            derham.boundary_ops['1'].dot(x1_pol), verbose=False)
+            derham.boundary_ops['1'].dot(x1_pol))
 
-    assert M1inv.info['niter'] < M1inv_nopc.info['niter']
+    assert M1inv._info['niter'] < M1inv_nopc._info['niter']
     # =======================================================
 
     # =============== M2 ===================================
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M2 with preconditioner')
-        r2 = M2inv.dot(derham.boundary_ops['2'].dot(x2_pol), verbose=True)
-        print('Number of iterations : ', M2inv.info['niter'])
+        r2 = M2inv.dot(derham.boundary_ops['2'].dot(x2_pol))
+        print('Number of iterations : ', M2inv._info['niter'])
     else:
-        r2 = M2inv.dot(derham.boundary_ops['2'].dot(x2_pol), verbose=False)
+        r2 = M2inv.dot(derham.boundary_ops['2'].dot(x2_pol))
 
-    assert M2inv.info['success']
+    assert M2inv._info['success']
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M2 without preconditioner')
         r2 = M2inv_nopc.dot(
-            derham.boundary_ops['2'].dot(x2_pol), verbose=False)
-        print('Number of iterations : ', M2inv_nopc.info['niter'])
+            derham.boundary_ops['2'].dot(x2_pol))
+        print('Number of iterations : ', M2inv_nopc._info['niter'])
     else:
         r2 = M2inv_nopc.dot(
-            derham.boundary_ops['2'].dot(x2_pol), verbose=False)
+            derham.boundary_ops['2'].dot(x2_pol))
 
-    assert M2inv.info['niter'] < M2inv_nopc.info['niter']
+    assert M2inv._info['niter'] < M2inv_nopc._info['niter']
     # =======================================================
 
     # =============== M3 ===================================
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M3 with preconditioner')
-        r3 = M3inv.dot(derham.boundary_ops['3'].dot(x3_pol), verbose=True)
-        print('Number of iterations : ', M3inv.info['niter'])
+        r3 = M3inv.dot(derham.boundary_ops['3'].dot(x3_pol))
+        print('Number of iterations : ', M3inv._info['niter'])
     else:
-        r3 = M3inv.dot(derham.boundary_ops['3'].dot(x3_pol), verbose=False)
+        r3 = M3inv.dot(derham.boundary_ops['3'].dot(x3_pol))
 
-    assert M3inv.info['success']
+    assert M3inv._info['success']
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M3 without preconditioner')
         r3 = M3inv_nopc.dot(
-            derham.boundary_ops['3'].dot(x3_pol), verbose=False)
-        print('Number of iterations : ', M3inv_nopc.info['niter'])
+            derham.boundary_ops['3'].dot(x3_pol))
+        print('Number of iterations : ', M3inv_nopc._info['niter'])
     else:
         r3 = M3inv_nopc.dot(
-            derham.boundary_ops['3'].dot(x3_pol), verbose=False)
+            derham.boundary_ops['3'].dot(x3_pol))
 
-    assert M3inv.info['niter'] < M3inv_nopc.info['niter']
+    assert M3inv._info['niter'] < M3inv_nopc._info['niter']
     # =======================================================
 
     # =============== M1n ===================================
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M1n with preconditioner')
-        r1 = M1ninv.dot(derham.boundary_ops['1'].dot(x1_pol), verbose=True)
-        print('Number of iterations : ', M1ninv.info['niter'])
+        r1 = M1ninv.dot(derham.boundary_ops['1'].dot(x1_pol))
+        print('Number of iterations : ', M1ninv._info['niter'])
     else:
-        r1 = M1ninv.dot(derham.boundary_ops['1'].dot(x1_pol), verbose=False)
+        r1 = M1ninv.dot(derham.boundary_ops['1'].dot(x1_pol))
 
-    assert M1ninv.info['success']
+    assert M1ninv._info['success']
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M1n without preconditioner')
         r1 = M1ninv_nopc.dot(
-            derham.boundary_ops['1'].dot(x1_pol), verbose=False)
-        print('Number of iterations : ', M1ninv_nopc.info['niter'])
+            derham.boundary_ops['1'].dot(x1_pol))
+        print('Number of iterations : ', M1ninv_nopc._info['niter'])
     else:
         r1 = M1ninv_nopc.dot(
-            derham.boundary_ops['1'].dot(x1_pol), verbose=False)
+            derham.boundary_ops['1'].dot(x1_pol))
 
-    assert M1ninv.info['niter'] < M1ninv_nopc.info['niter']
+    assert M1ninv._info['niter'] < M1ninv_nopc._info['niter']
     # =======================================================
 
     # =============== M2n ===================================
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M2n with preconditioner')
-        r2 = M2ninv.dot(derham.boundary_ops['2'].dot(x2_pol), verbose=True)
-        print('Number of iterations : ', M2ninv.info['niter'])
+        r2 = M2ninv.dot(derham.boundary_ops['2'].dot(x2_pol))
+        print('Number of iterations : ', M2ninv._info['niter'])
     else:
-        r2 = M2ninv.dot(derham.boundary_ops['2'].dot(x2_pol), verbose=False)
+        r2 = M2ninv.dot(derham.boundary_ops['2'].dot(x2_pol))
 
-    assert M2ninv.info['success']
+    assert M2ninv._info['success']
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M2n without preconditioner')
         r2 = M2ninv_nopc.dot(
-            derham.boundary_ops['2'].dot(x2_pol), verbose=False)
-        print('Number of iterations : ', M2ninv_nopc.info['niter'])
+            derham.boundary_ops['2'].dot(x2_pol))
+        print('Number of iterations : ', M2ninv_nopc._info['niter'])
     else:
         r2 = M2ninv_nopc.dot(
-            derham.boundary_ops['2'].dot(x2_pol), verbose=False)
+            derham.boundary_ops['2'].dot(x2_pol))
 
-    assert M2ninv.info['niter'] < M2ninv_nopc.info['niter']
+    assert M2ninv._info['niter'] < M2ninv_nopc._info['niter']
     # =======================================================
 
     time.sleep(2)
@@ -1043,18 +1037,18 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
 
 
 if __name__ == '__main__':
-    test_mass([5, 6, 7], 
-              [2, 2, 3], 
-              [True, False, True], 
-              [[False,  True], [True, False], [False, False]], 
-              ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], False)
+    # test_mass([5, 6, 7], 
+    #           [2, 2, 3], 
+    #           [True, False, True], 
+    #           [[False,  True], [True, False], [False, False]], 
+    #           ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], False)
     # test_mass([8, 6, 4], [2, 3, 2], [False, True, False], [['d', 'd'], [None, None], [None, 'd']], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False)
     # test_mass([8, 6, 4], [2, 2, 2], [False, True, True], [['d', 'd'], [None, None], [None, None]], ['HollowCylinder', {'a1': .1, 'a2': 1., 'Lz': 10.}], False)
 
     # test_mass_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)
 
-    # test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [['d', 'd'], [None, None], [None, None]], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
+    test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [[True, True], [False, False], [False, False]], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
     # test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [['d', 'd'], [None, None], [None, None]], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .05, 'Lz' : 10.}], False)
     # test_mass_preconditioner([6, 9, 4], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['HollowCylinder', {'a1' : .1, 'a2' : 1., 'Lz' : 18.84955592153876}], False)
 
-    # test_mass_preconditioner_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)
+    test_mass_preconditioner_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[False, True], [False, False], [True, False]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)

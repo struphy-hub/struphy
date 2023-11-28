@@ -110,10 +110,10 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
             f'\nSTART TIME STEPPING WITH "{split_algo}" SPLITTING:')
 
     # time loop
+    run_time_now = 0.0
     while True:
 
         comm.Barrier()
-        run_time_now = (time.time() - start_simulation)/60
 
         # stop time loop?
         break_cond_1 = time_state['value'][0] >= time_params['Tend']
@@ -139,6 +139,8 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
         time_state['value'][0] = round(
             time_state['value'][0] + time_params['dt'], 10)
         time_state['index'][0] += 1
+        
+        run_time_now = (time.time() - start_simulation)/60
 
         # update diagnostics data and save data
         if time_state['index'][0] % save_step == 0:

@@ -30,7 +30,7 @@ def test_poisson_solver(Nel, p, spl_kind, mapping):
     """
 
     solver_params = {
-        'type': ('PConjugateGradient', 'MassMatrixPreconditioner'),
+        'type': ('pcg', 'MassMatrixPreconditioner'),
         'tol': 1.e-15,
         'maxiter': 3000,
         'info': True,
