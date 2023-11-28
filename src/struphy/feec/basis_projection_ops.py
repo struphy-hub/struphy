@@ -2,13 +2,13 @@ import numpy as np
 
 from psydac.linalg.stencil import StencilMatrix
 from psydac.linalg.block import BlockLinearOperator
-from psydac.linalg.basic import Vector
+from psydac.linalg.basic import Vector, IdentityOperator
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
 from struphy.feec.geom_projectors import PolarCommutingProjector
-from struphy.feec.linear_operators import LinOpWithTransp, CompositeLinearOperator, IdentityOperator, BoundaryOperator
+from struphy.feec.linear_operators import LinOpWithTransp, BoundaryOperator
 from struphy.feec import basis_projection_kernels
 from struphy.feec.utilities import RotationMatrix
 
@@ -769,8 +769,6 @@ class BasisProjectionOperator(LinOpWithTransp):
         self._P_extraction_op = P.dofs_extraction_op
 
         if V_extraction_op is not None:
-            assert isinstance(
-                V_extraction_op, (PolarExtractionOperator, IdentityOperator))
             self._V_extraction_op = V_extraction_op
         else:
             self._V_extraction_op = IdentityOperator(V.vector_space)
@@ -779,8 +777,6 @@ class BasisProjectionOperator(LinOpWithTransp):
         self._P_boundary_op = P.boundary_op
 
         if V_boundary_op is not None:
-            assert isinstance(
-                V_boundary_op, (BoundaryOperator, IdentityOperator))
             self._V_boundary_op = V_boundary_op
         else:
             self._V_boundary_op = IdentityOperator(V.vector_space)
@@ -814,8 +810,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         # ========================================================
 
         # build composite linear operator BP * P * DOF * EV^T * BV^T
-        self._dof_operator = CompositeLinearOperator(self._P_boundary_op, self._P_extraction_op, dof_mat,
-                                                     self._V_extraction_op.T, self._V_boundary_op.T)
+        self._dof_operator = self._P_boundary_op @ self._P_extraction_op @ dof_mat @ self._V_extraction_op.T @ self._V_boundary_op.T
 
         if transposed:
             self._dof_operator = self._dof_operator.transpose()
@@ -901,11 +896,11 @@ class BasisProjectionOperator(LinOpWithTransp):
             if self.transposed:
                 # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
                 out = self.dof_operator.dot(self._P.solve(
-                    v, True, apply_bc=True, tol=tol, maxiter=maxiter, verbose=verbose))
+                    v, True, apply_bc=True))
             else:
                 # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
                 out = self._P.solve(self.dof_operator.dot(
-                    v), False, apply_bc=True, tol=tol, maxiter=maxiter, verbose=verbose)
+                    v), False, apply_bc=True)
 
         else:
 
@@ -914,14 +909,12 @@ class BasisProjectionOperator(LinOpWithTransp):
 
             if self.transposed:
                 # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
-                self._P.solve(v, True, apply_bc=True, tol=tol,
-                              maxiter=maxiter, verbose=verbose, out=self._tmp_dom)
+                self._P.solve(v, True, apply_bc=True, out=self._tmp_dom)
                 self.dof_operator.dot(self._tmp_dom, out=out)
             else:
                 # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
                 self.dof_operator.dot(v, out=self._tmp_codom)
-                self._P.solve(self._tmp_codom, False, apply_bc=True,
-                              tol=tol, maxiter=maxiter, verbose=verbose, out=out)
+                self._P.solve(self._tmp_codom, False, apply_bc=True, out=out)
 
         return out
 

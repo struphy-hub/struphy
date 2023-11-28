@@ -62,13 +62,13 @@ fluid :
         options:
             solvers:
                 shear_alfven:
-                    type: [PConjugateGradient, MassMatrixPreconditioner]
+                    type: [pcg, MassMatrixPreconditioner]
                     tol: 1.0e-08
                     maxiter: 3000
                     info: false
                     verbose: false
                 magnetosonic:
-                    type: [PBiConjugateGradientStab, MassMatrixPreconditioner]
+                    type: [pbicgstab, MassMatrixPreconditioner]
                     tol: 1.0e-08
                     maxiter: 3000
                     info: false
@@ -118,13 +118,13 @@ kinetic :
             algos: {push_eta: rk4, push_vxb: analytic}
             solvers:
                 density:
-                    type: [PBiConjugateGradientStab, MassMatrixPreconditioner]
+                    type: [pbicgstab, MassMatrixPreconditioner]
                     tol: 1.0e-08
                     maxiter: 3000
                     info: false
                     verbose: false
                 current:
-                    type: [PConjugateGradient, MassMatrixPreconditioner]
+                    type: [pcg, MassMatrixPreconditioner]
                     tol: 1.0e-08
                     maxiter: 3000
                     info: false

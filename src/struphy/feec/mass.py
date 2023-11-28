@@ -2,7 +2,7 @@ import numpy as np
 
 from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.block import BlockVector, BlockLinearOperator
-from psydac.linalg.basic import Vector
+from psydac.linalg.basic import Vector, IdentityOperator
 
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
@@ -11,10 +11,7 @@ from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
 from struphy.feec import mass_kernels
 from struphy.feec.utilities import RotationMatrix
-from struphy.feec.linear_operators import LinOpWithTransp, BoundaryOperator, IdentityOperator
-from struphy.feec.linear_operators import CompositeLinearOperator as Compose
-
-from struphy.polar.linear_operators import PolarExtractionOperator
+from struphy.feec.linear_operators import LinOpWithTransp
 
 
 class WeightedMassOperators:
@@ -284,7 +281,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.Ginv(e1, e2, e3)[:, :, :, m, n] * self.sqrt_g(
                         e1, e2, e3) / self.weights['eq_mhd'].n0(e1, e2, e3, squeeze_out=False)]
 
-            self._M1ninv = self.assemble_weighted_mass(fun, 'Hcurl', 'Hcurl')
+            self._M1ninv = self.assemble_weighted_mass(fun, 'Hcurl', 'Hcurl', name='M1ninv')
 
         return self._M1ninv
 
@@ -527,7 +524,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m,
                                 n=n: (self.Ginv(e1, e2, e3) @ rot_B(e1, e2, e3) @ self.Ginv(e1, e2, e3))[:, :, :, m, n] * (self.sqrt_g(e1, e2, e3) / self.weights['eq_mhd'].n0(e1, e2, e3, squeeze_out=False))]
 
-            self._M1Bninv = self.assemble_weighted_mass(fun, 'Hcurl', 'Hcurl')
+            self._M1Bninv = self.assemble_weighted_mass(fun, 'Hcurl', 'Hcurl', name='M1Bninv')
 
         return self._M1Bninv
 
@@ -656,16 +653,12 @@ class WeightedMassOperator(LinOpWithTransp):
 
         # set basis extraction operators
         if V_extraction_op is not None:
-            assert isinstance(
-                V_extraction_op, (PolarExtractionOperator, IdentityOperator))
             assert V_extraction_op.domain == V.vector_space
             self._V_extraction_op = V_extraction_op
         else:
             self._V_extraction_op = IdentityOperator(V.vector_space)
 
         if W_extraction_op is not None:
-            assert isinstance(
-                W_extraction_op, (PolarExtractionOperator, IdentityOperator))
             assert W_extraction_op.domain == W.vector_space
             self._W_extraction_op = W_extraction_op
         else:
@@ -673,16 +666,12 @@ class WeightedMassOperator(LinOpWithTransp):
 
         # set boundary operators
         if V_boundary_op is not None:
-            assert isinstance(
-                V_boundary_op, (BoundaryOperator, IdentityOperator))
             self._V_boundary_op = V_boundary_op
         else:
             self._V_boundary_op = IdentityOperator(
                 self._V_extraction_op.codomain)
 
         if W_boundary_op is not None:
-            assert isinstance(
-                W_boundary_op, (BoundaryOperator, IdentityOperator))
             self._W_boundary_op = W_boundary_op
         else:
             self._W_boundary_op = IdentityOperator(
@@ -863,13 +852,11 @@ class WeightedMassOperator(LinOpWithTransp):
 
         # build composite linear operators BW * EW * M * EV^T * BV^T, resp. IDV * EV * M^T * EW^T * IDW^T
         if transposed:
-            self._M = Compose(IdentityOperator(EV.codomain), EV,
-                              self._mat, EW.T, IdentityOperator(EW.codomain).T)
-            self._M0 = Compose(BV, EV, self._mat, EW.T, BW.T)
+            self._M = EV @ self._mat @ EW.T
+            self._M0 = BV @ self._M @ BW.T
         else:
-            self._M = Compose(IdentityOperator(EW.codomain), EW,
-                              self._mat, EV.T, IdentityOperator(EV.codomain).T)
-            self._M0 = Compose(BW, EW, self._mat, EV.T, BV.T)
+            self._M = EW @ self._mat @ EV.T
+            self._M0 = BW @ self._M @ BV.T
 
         # set domain and codomain
         self._domain = self._M.domain

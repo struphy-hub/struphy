@@ -41,6 +41,7 @@ def struphy_test(group, mpi=0, fast=False):
                             '-n',
                             '2',
                             'pytest',
+                            '-s',
                             '--with-mpi',
                             'tests/test_codes'],
                            check=True, cwd=libpath)
@@ -49,6 +50,7 @@ def struphy_test(group, mpi=0, fast=False):
                             '-n',
                             '2',
                             'pytest',
+                            '-s',
                             '--with-mpi',
                             'tests/test_codes',
                             '--fast'],

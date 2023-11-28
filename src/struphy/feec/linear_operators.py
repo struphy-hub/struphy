@@ -5,15 +5,12 @@ import numpy as np
 from scipy import sparse
 import itertools
 
-from psydac.linalg.basic import Vector, VectorSpace, LinearOperator, LinearSolver
-from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
-from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockLinearOperator
-from psydac.linalg.kron import KroneckerStencilMatrix
+from psydac.linalg.basic import Vector, VectorSpace, LinearOperator
+from psydac.linalg.stencil import StencilVectorSpace
+from psydac.linalg.block import BlockVectorSpace
 
 from struphy.feec.utilities import apply_essential_bc_to_array
 from struphy.polar.basic import PolarDerhamSpace
-
-import struphy.linear_algebra.iterative_solvers as it_solvers
 
 
 class LinOpWithTransp(LinearOperator):
@@ -138,13 +135,15 @@ class LinOpWithTransp(LinearOperator):
                     for i in itertools.product(*itterables):
                         if (rank == currentrank):
                             v[h][i] = 1.0
+                        v[h].update_ghost_regions()
                         # Compute dot product with the linear operator.
+                        tmp2 *= 0.
                         self.dot(v, out=tmp2)
                         # Compute to which column this iteration belongs
                         col = spoint
                         col += np.ravel_multi_index(i, npts[h])
                         if is_sparse == False:
-                            result[:, col] = tmp2.copy().toarray()
+                            result[:, col] = tmp2.toarray()
                         else:
                             aux = tmp2.toarray()
                             # We now need to now which entries on tmp2 are non-zero and store then in our data list
@@ -154,6 +153,7 @@ class LinOpWithTransp(LinearOperator):
                                 row.append(l)
                         if (rank == currentrank):
                             v[h][i] = 0.0
+                        v[h].update_ghost_regions()
                     cummulative = 1
                     for i in range(ndim[h]):
                         cummulative *= npts[h][i]
@@ -203,12 +203,13 @@ class LinOpWithTransp(LinearOperator):
                 for i in itertools.product(*itterables):
                     if (rank == currentrank):
                         v[i] = 1.0
+                    v.update_ghost_regions()
                     # Compute dot product with the linear operator.
                     self.dot(v, out=tmp2)
                     # Compute to which column this iteration belongs
                     col = np.ravel_multi_index(i, npts)
                     if is_sparse == False:
-                        result[:, col] = tmp2.copy().toarray()
+                        result[:, col] = tmp2.toarray()
                     else:
                         aux = tmp2.toarray()
                         # We now need to now which entries on tmp2 are non-zero and store then in our data list
@@ -218,6 +219,7 @@ class LinOpWithTransp(LinearOperator):
                             row.append(l)
                     if (rank == currentrank):
                         v[i] = 0.0
+                    v.update_ghost_regions()
                 currentrank += 1
         else:
             # I cannot conceive any situation where this error should be thrown, but I put it here just in case something unexpected happens.
@@ -278,446 +280,6 @@ class LinOpWithTransp(LinearOperator):
             else:
                 raise Exception(
                     'The selected sparse matrix format must be one of the following : csr, csc, bsr, lil, dok,  coo or dia.')
-
-
-class CompositeLinearOperator(LinOpWithTransp):
-    r"""
-    Composition of n linear operators: :math:`A(\mathbf v)=L_n(L_{n-1}(...L_2(L_1(\mathbf v))...)`.
-    A 'None' operator is treated as identity.
-
-    Parameters
-    ----------
-    operators: LinOpWithTransp | StencilMatrix | BlockLinearOperator | None
-        The sequence of n linear operators (None is treated as identity).
-    """
-
-    def __init__(self, *operators):
-
-        self._operators = [op for op in list(
-            operators)[::-1] if op is not None]
-
-        if len(self._operators) > 1:
-
-            for op2, op1 in zip(self._operators[1:], self._operators[:-1]):
-                assert isinstance(op1, (LinearOperator, LinOpWithTransp, StencilMatrix,
-                                        BlockLinearOperator, KroneckerStencilMatrix))
-                assert isinstance(op2, (LinearOperator, LinOpWithTransp, StencilMatrix,
-                                        BlockLinearOperator, KroneckerStencilMatrix))
-                assert op2.domain == op1.codomain
-
-        self._domain = self._operators[0].domain
-        self._codomain = self._operators[-1].codomain
-        self._dtype = self._operators[-1].dtype
-
-        # temporary vectors for dot product
-        tmp_vectors = []
-        for op in self._operators[:-1]:
-            tmp_vectors.append(op.codomain.zeros())
-
-        self._tmp_vectors = tuple(tmp_vectors)
-
-    @property
-    def domain(self):
-        return self._domain
-
-    @property
-    def codomain(self):
-        return self._codomain
-
-    @property
-    def dtype(self):
-        return self._dtype
-
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
-    @property
-    def otype(self):
-        return [type(op) for op in self._operators]
-
-    @property
-    def operators(self):
-        return self._operators
-
-    def dot(self, v, out=None):
-        """
-        Dot product of the operator with a vector.
-
-        Parameters
-        ----------
-        v : psydac.linalg.basic.Vector
-            The input (domain) vector.
-
-        out : psydac.linalg.basic.Vector, optional
-            If given, the output will be written in-place into this vector.
-
-        Returns
-        -------
-        out : psydac.linalg.basic.Vector
-            The output (codomain) vector.
-        """
-
-        assert isinstance(v, Vector)
-        assert v.space == self._domain
-
-        # successive dot products with all but last operator
-        x = v
-        for i in range(len(self._tmp_vectors)):
-            y = self._tmp_vectors[i]
-            A = self._operators[i]
-            A.dot(x, out=y)
-            x = y
-
-        # last operator
-        A = self._operators[-1]
-        if out is None:
-            out = A.dot(x)
-        else:
-            assert isinstance(out, Vector)
-            assert out.space == self._codomain
-            A.dot(x, out=out)
-
-        return out
-
-    def transpose(self):
-        """
-        Returns the transposed operator.
-        """
-        return CompositeLinearOperator(*[op.transpose() for op in self._operators])
-
-
-class ScalarTimesLinearOperator(LinOpWithTransp):
-    r"""
-    Multiplication of a linear operator with a scalar: :math:`A(\mathbf v)=aL(\mathbf v)` with :math:`a \in \mathbb R`.
-
-    Parameters
-    ----------
-    a : float
-        The scalar that is multiplied with the linear operator. 
-
-    operator: LinOpWithTransp | StencilMatrix | BlockLinearOperator
-        The linear operator.
-    """
-
-    def __init__(self, a, operator):
-
-        assert isinstance(a, (int, float, complex))
-        assert isinstance(operator, (LinearOperator, LinOpWithTransp, StencilMatrix,
-                                     BlockLinearOperator, KroneckerStencilMatrix))
-
-        self._a = a
-        self._operator = operator
-
-        self._domain = operator.domain
-        self._codomain = operator.codomain
-        self._dtype = operator.dtype
-
-    @property
-    def domain(self):
-        return self._domain
-
-    @property
-    def codomain(self):
-        return self._codomain
-
-    @property
-    def dtype(self):
-        return self._dtype
-
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
-    @property
-    def otype(self):
-        return type(self._operator)
-
-    def dot(self, v, out=None):
-        """
-        Dot product of operator with a vector.
-
-        Parameters
-        ----------
-        v : psydac.linalg.basic.Vector
-            The input (domain) vector.
-
-        out : psydac.linalg.basic.Vector, optional
-            If given, the output will be written in-place into this vector.
-
-        Returns
-        -------
-        out : psydac.linalg.basic.Vector
-            The output (codomain) vector.
-        """
-
-        assert isinstance(v, Vector)
-        assert v.space == self._domain
-
-        if out is None:
-            out = self._operator.dot(v)
-        else:
-            assert isinstance(out, Vector)
-            assert out.space == self._codomain
-            self._operator.dot(v, out=out)
-
-        out *= self._a
-
-        return out
-
-    def transpose(self):
-        """
-        Returns the transposed operator.
-        """
-        return ScalarTimesLinearOperator(self._a, self._operator.transpose())
-
-
-class SumLinearOperator(LinOpWithTransp):
-    r"""
-    Sum of n linear operators: :math:`A(\mathbf v)=(L_n + L_{n-1} + ... + L_2 + L_1)(\mathbf v)`.
-
-    Parameters
-    ----------
-    operators: LinOpWithTransp | StencilMatrix | BlockLinearOperator
-        The sequence of n linear operators.
-    """
-
-    def __init__(self, *operators):
-
-        self._operators = list(operators)
-
-        assert len(self._operators) > 1
-
-        for op2, op1 in zip(self._operators[::-1][1:], self._operators[::-1][:-1]):
-            assert isinstance(op1, (LinearOperator, LinOpWithTransp, StencilMatrix,
-                                    BlockLinearOperator, KroneckerStencilMatrix))
-            assert isinstance(op2, (LinearOperator, LinOpWithTransp, StencilMatrix,
-                                    BlockLinearOperator, KroneckerStencilMatrix))
-            assert op2.domain == op1.domain
-            assert op2.codomain == op1.codomain
-
-        self._domain = operators[0].domain
-        self._codomain = operators[0].codomain
-        self._dtype = operators[0].dtype
-
-        # temporary vectors for summing
-        self._tmp1 = self._codomain.zeros()
-        self._tmp2 = self._codomain.zeros()
-
-    @property
-    def domain(self):
-        return self._domain
-
-    @property
-    def codomain(self):
-        return self._codomain
-
-    @property
-    def dtype(self):
-        return self._dtype
-
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
-    @property
-    def otype(self):
-        return [type(op) for op in self._operators]
-
-    def dot(self, v, out=None):
-        """
-        Dot product of the operator with a vector.
-
-        Parameters
-        ----------
-        v : psydac.linalg.basic.Vector
-            The input (domain) vector.
-
-        out : psydac.linalg.basic.Vector, optional
-            If given, the output will be written in-place into this vector.
-
-        Returns
-        -------
-        out : psydac.linalg.basic.Vector
-            The output (codomain) vector.
-        """
-
-        assert isinstance(v, Vector)
-        assert v.space == self._domain
-
-        # reset array
-        self._tmp1 *= 0.
-
-        for op in self._operators:
-            op.dot(v, out=self._tmp2)
-            self._tmp1 += self._tmp2
-
-        if out is None:
-            out = self._tmp1.copy()
-        else:
-            assert isinstance(v, Vector)
-            assert out.space == self._codomain
-            self._tmp1.copy(out=out)
-
-        return out
-
-    def transpose(self):
-        """
-        Returns the transposed operator.
-        """
-        return SumLinearOperator(*[op.transpose() for op in self._operators])
-
-
-class InverseLinearOperator(LinOpWithTransp):
-    r"""
-    Inverse linear operator: :math:`A(\mathbf v)=L^{-1}(\mathbf v)`.
-
-    Parameters
-    ----------
-    operator : LinOpWithTransp | StencilMatrix | BlockLinearOperator
-        The linear operator to be inverted.
-
-    pc : NoneType | psydac.linalg.basic.LinearOperator
-         Preconditioner for "operator", it should approximate the inverse of "operator". Must have a dot method.
-
-    tol : float
-        Absolute tolerance for L2-norm of residual r = A*x - b.
-
-    maxiter : int
-        Maximum number of iterations.
-
-    solver_name : str
-        The name of the iterative solver to be used for matrix inversion. Currently available:
-            * ConjugateGradient (default)
-            * BiConjugateGradientStab
-    """
-
-    def __init__(self, operator, pc=None, tol=1e-6, maxiter=1000, solver_name='ConjugateGradient'):
-
-        assert isinstance(operator, (LinearOperator, LinOpWithTransp, StencilMatrix,
-                                     BlockLinearOperator, KroneckerStencilMatrix))
-
-        # only square matrices possible
-        assert operator.domain == operator.codomain
-
-        if pc is not None:
-            assert isinstance(pc, LinearOperator)
-
-        self._domain = operator.domain
-        self._codomain = operator.codomain
-        self._dtype = operator.dtype
-
-        self._operator = operator
-        self._pc = pc
-        self._tol = tol
-        self._maxiter = maxiter
-
-        # load linear solver (if pc is given, load pre-conditioned solver)
-        self._solver_name = solver_name
-        if pc is None:
-            self._solver = getattr(it_solvers, solver_name)(operator.domain)
-        else:
-            self._solver = getattr(
-                it_solvers, 'P' + self._solver_name)(operator.domain)
-        self._info = None
-
-    @property
-    def domain(self):
-        return self._domain
-
-    @property
-    def codomain(self):
-        return self._codomain
-
-    @property
-    def dtype(self):
-        return self._dtype
-
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
-    @property
-    def otype(self):
-        return type(self._operator)
-
-    @property
-    def info(self):
-        return self._info
-
-    def dot(self, v, out=None, x0=None, verbose=False):
-        """
-        Dot product of the operator with a vector.
-
-        Parameters
-        ----------
-        v : psydac.linalg.basic.Vector
-            The input (domain) vector.
-
-        out : psydac.linalg.basic.Vector, optional
-            If given, the output will be written in-place into this vector.
-
-        x0 : psydac.linalg.basic.Vector, optional
-            Initial guess for the output vector.
-
-        verbose : bool
-            Whether to print information about the residual norm in each iteration step.
-
-        Returns
-        -------
-        out : psydac.linalg.basic.Vector
-            The output (codomain) vector.
-        """
-
-        assert isinstance(v, Vector)
-        assert v.space == self.codomain
-
-        # solve linear system (in-place if out is not None)
-
-        # solvers with preconditioner (must start with a 'P')
-        if self._pc is not None:
-            x, self._info = self._solver.solve(self._operator, v,
-                                               self._pc, x0=x0, tol=self._tol,
-                                               maxiter=self._maxiter,
-                                               verbose=verbose, out=out)
-
-        # solvers without preconditioner
-        else:
-            x, self._info = self._solver.solve(self._operator, v,
-                                               x0=x0, tol=self._tol,
-                                               maxiter=self._maxiter,
-                                               verbose=verbose, out=out)
-
-        return x
-
-    def transpose(self, new_pc=None):
-        """
-        Returns the transposed operator.
-        """
-        if new_pc is None:
-            return InverseLinearOperator(self._operator.T, pc=self._pc,
-                                         tol=self._tol, maxiter=self._maxiter,
-                                         solver_name=self._solver_name)
-        else:
-            return InverseLinearOperator(self._operator.T, pc=new_pc,
-                                         tol=self._tol, maxiter=self._maxiter,
-                                         solver_name=self._solver_name)
 
 
 class BoundaryOperator(LinOpWithTransp):
@@ -942,83 +504,8 @@ class BoundaryOperator(LinOpWithTransp):
 
         return out
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         """
         Returns the transposed operator.
         """
         return BoundaryOperator(self._domain, self._space_id, self.bc)
-
-
-class IdentityOperator(LinOpWithTransp):
-    r"""
-    Identity operation applied to a vector in a certain vector space.
-
-    Parameters
-    ----------
-    vector_space : psydac.linalg.basic.VectorSpace
-        The vector space associated to the operator.
-    """
-
-    def __init__(self, vector_space):
-
-        assert isinstance(vector_space, VectorSpace)
-
-        self._domain = vector_space
-        self._codomain = vector_space
-        self._dtype = vector_space.dtype
-
-    @property
-    def domain(self):
-        return self._domain
-
-    @property
-    def codomain(self):
-        return self._codomain
-
-    @property
-    def dtype(self):
-        return self._dtype
-
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
-    def dot(self, v, out=None):
-        """
-        Dot product of the operator with a vector.
-
-        Parameters
-        ----------
-        v : psydac.linalg.basic.Vector
-            The input (domain) vector.
-
-        out : psydac.linalg.basic.Vector, optional
-            If given, the output will be written in-place into this vector.
-
-        Returns
-        -------
-        out : psydac.linalg.basic.Vector
-            The output (codomain) vector.
-        """
-
-        assert isinstance(v, Vector)
-        assert v.space == self._domain
-
-        if out is None:
-            out = v.copy()
-        else:
-            assert isinstance(out, Vector)
-            assert out.space == self._codomain
-            v.copy(out=out)
-
-        return out
-
-    def transpose(self):
-        """
-        Returns the transposed operator.
-        """
-        return IdentityOperator(self._domain)

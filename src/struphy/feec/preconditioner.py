@@ -1,7 +1,7 @@
-from psydac.linalg.basic import Vector, LinearSolver, LinearOperator
+from psydac.linalg.basic import Vector, LinearSolver, LinearOperator, ComposedLinearOperator
 from psydac.linalg.direct_solvers import DirectSolver, SparseSolver
-from psydac.linalg.stencil import StencilMatrix, StencilVector, StencilVectorSpace
-from psydac.linalg.block import BlockLinearOperator, BlockDiagonalSolver, BlockVector
+from psydac.linalg.stencil import StencilMatrix, StencilVectorSpace
+from psydac.linalg.block import BlockLinearOperator, BlockDiagonalSolver
 from psydac.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 
 from psydac.fem.tensor import TensorFemSpace
@@ -9,7 +9,7 @@ from psydac.fem.tensor import TensorFemSpace
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 from psydac.api.essential_bc import apply_essential_bc_stencil
 
-from struphy.feec.linear_operators import CompositeLinearOperator, BoundaryOperator, IdentityOperator
+from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator
 
 from scipy.linalg import solve_circulant
@@ -20,7 +20,10 @@ class MassMatrixPreconditioner(LinearOperator):
     """
     Preconditioner for inverting 3d weighted mass matrices. 
 
-    The mass matrix is approximated by a Kronecker product of 1d mass matrices in each direction with correct boundary conditions (block diagonal in case of vector-valued spaces). In this process, the 3d weight function is appoximated by a 1d counterpart in the FIRST (eta_1) direction at the fixed point (eta_2=0.5, eta_3=0.5). The inversion is then performed with a Kronecker solver.
+    The mass matrix is approximated by a Kronecker product of 1d mass matrices 
+    in each direction with correct boundary conditions (block diagonal in case of vector-valued spaces). 
+    In this process, the 3d weight function is appoximated by a 1d counterpart in the FIRST (eta_1) direction
+    at the fixed point (eta_2=0.5, eta_3=0.5). The inversion is then performed with a Kronecker solver.
 
     Parameters
     ----------
@@ -59,8 +62,12 @@ class MassMatrixPreconditioner(LinearOperator):
         assert n_dims == 3  # other dims not yet implemented
 
         # get boundary conditions list from BoundaryOperator in ComposedLinearOperator M0 of mass operator
-        if apply_bc and isinstance(mass_operator.M0.operators[0], BoundaryOperator):
-            bc = mass_operator.M0.operators[0].bc
+        if apply_bc and isinstance(mass_operator.M0, ComposedLinearOperator):
+            if isinstance(mass_operator.M0.multiplicants[-1], BoundaryOperator):
+                bc = mass_operator.M0.multiplicants[-1].bc
+            else:
+                apply_bc = False
+                bc = None
         else:
             apply_bc = False
             bc = None
@@ -188,13 +195,18 @@ class MassMatrixPreconditioner(LinearOperator):
             self._M = mass_operator.M0
         else:
             self._M = mass_operator.M
-
+            
+        self._is_composed = isinstance(self._M, ComposedLinearOperator)
+        
         # temporary vectors for dot product
-        tmp_vectors = []
-        for op in self._M._operators[:-1]:
-            tmp_vectors.append(op.codomain.zeros())
+        if self._is_composed:
+            tmp_vectors = []
+            for op in self._M.multiplicants[1:]:
+                tmp_vectors.append(op.codomain.zeros())
 
-        self._tmp_vectors = tuple(tmp_vectors)
+            self._tmp_vectors = tuple(tmp_vectors)
+        else:
+            self._tmp_vector = self._M.codomain.zeros() 
 
     @property
     def space(self):
@@ -264,24 +276,30 @@ class MassMatrixPreconditioner(LinearOperator):
         assert rhs.space == self._space
 
         # successive dot products with all but last operator
-        x = rhs
-        for i in range(len(self._tmp_vectors)):
-            y = self._tmp_vectors[i]
-            A = self._M._operators[i]
-            if isinstance(A, (StencilMatrix, BlockLinearOperator)):
-                self.solver.solve(x, out=y)
-            else:
-                A.dot(x, out=y)
-            x = y
+        if self._is_composed:
+            x = rhs
+            for i in range(len(self._tmp_vectors)):
+                y = self._tmp_vectors[-1 - i]
+                A = self._M.multiplicants[-1 - i]
+                if isinstance(A, (StencilMatrix, BlockLinearOperator)):
+                    self.solver.solve(x, out=y)
+                else:
+                    A.dot(x, out=y)
+                x = y
 
-        # last operator
-        A = self._M.operators[-1]
-        if out is None:
-            out = A.dot(x)
+            # last operator
+            A = self._M.multiplicants[0]
+            if out is None:
+                out = A.dot(x)
+            else:
+                assert isinstance(out, Vector)
+                assert out.space == self._space
+                A.dot(x, out=out)
+                
         else:
-            assert isinstance(out, Vector)
-            assert out.space == self._space
-            A.dot(x, out=out)
+            if out is None:
+                out = self._tmp_vector
+            self.solver.solve(rhs, out=out)
 
         return out
     
@@ -349,13 +367,18 @@ class ProjectorPreconditioner(LinearOperator):
             self._I = projector.IT
         else:
             self._I = projector.I
-
+          
+        self._is_composed = isinstance(self._I, ComposedLinearOperator)
+        
         # temporary vectors for dot product
-        tmp_vectors = []
-        for op in self._I._operators[:-1]:
-            tmp_vectors.append(op.codomain.zeros())
+        if self._is_composed:
+            tmp_vectors = []
+            for op in self._I.multiplicants[1:]:
+                tmp_vectors.append(op.codomain.zeros())
 
-        self._tmp_vectors = tuple(tmp_vectors)
+            self._tmp_vectors = tuple(tmp_vectors)
+        else:
+            self._tmp_vector = self._I.codomain.zeros() 
 
     @property
     def space(self):
@@ -422,25 +445,31 @@ class ProjectorPreconditioner(LinearOperator):
         assert isinstance(rhs, Vector)
         assert rhs.space == self._space
 
-        # successive dot products with all but last operator
-        x = rhs
-        for i in range(len(self._tmp_vectors)):
-            y = self._tmp_vectors[i]
-            A = self._I._operators[i]
-            if isinstance(A, (StencilMatrix, KroneckerStencilMatrix, BlockLinearOperator)):
-                self.solver.solve(x, out=y, transposed=self._transposed)
-            else:
-                A.dot(x, out=y)
-            x = y
+        # successive dot products with all but last operator    
+        if self._is_composed:
+            x = rhs
+            for i in range(len(self._tmp_vectors)):
+                y = self._tmp_vectors[-1 - i]
+                A = self._I.multiplicants[-1 - i]
+                if isinstance(A, (StencilMatrix, KroneckerStencilMatrix, BlockLinearOperator)):
+                    self.solver.solve(x, out=y, transposed=self._transposed)
+                else:
+                    A.dot(x, out=y)
+                x = y
 
-        # last operator
-        A = self._I.operators[-1]
-        if out is None:
-            out = A.dot(x)
+            # last operator
+            A = self._I.multiplicants[0]
+            if out is None:
+                out = A.dot(x)
+            else:
+                assert isinstance(out, Vector)
+                assert out.space == self._space
+                A.dot(x, out=out)
+                
         else:
-            assert isinstance(out, Vector)
-            assert out.space == self._space
-            A.dot(x, out=out)
+            if out is None:
+                out = self._tmp_vector
+            self.solver.solve(rhs, out=out, transposed=self._transposed)
 
         return out
     

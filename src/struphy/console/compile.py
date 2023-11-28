@@ -69,7 +69,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, verbose):
             flags += ' --verbose'
 
         # install psydac from wheel if not there
-        current_ver = '0.1.3'
+        current_ver = '0.1.4'
         psydac_file = 'psydac-' + current_ver + '-py3-none-any.whl'
 
         try:

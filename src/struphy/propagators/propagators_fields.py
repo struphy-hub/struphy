@@ -12,16 +12,11 @@ from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian6DUniform, Maxwellian5DUniform
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
-from struphy.feec.linear_operators import CompositeLinearOperator as Compose
-from struphy.feec.linear_operators import SumLinearOperator as Sum
-from struphy.feec.linear_operators import ScalarTimesLinearOperator as Multiply
-from struphy.feec.linear_operators import InverseLinearOperator as Inverse
-from struphy.feec.linear_operators import IdentityOperator
 from struphy.feec import preconditioner
 from struphy.feec.mass import WeightedMassOperator
-import struphy.linear_algebra.iterative_solvers as it_solvers
-from struphy.linear_algebra.iterative_solvers import PConjugateGradient as pcg
 
+from psydac.linalg.solvers import inverse
+from psydac.linalg.basic import IdentityOperator
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 import struphy.feec.utilities as util
@@ -56,7 +51,7 @@ class Maxwell(Propagator):
         super().__init__(e, b)
 
         # parameters
-        params_default = {'type': ('PConjugateGradient', 'MassMatrixPreconditioner'),
+        params_default = {'type': ('pcg', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
@@ -71,8 +66,8 @@ class Maxwell(Propagator):
         _A = self.mass_ops.M1
 
         # no dt
-        self._B = Multiply(-1/2, Compose(self.derham.curl.T, self.mass_ops.M2))
-        self._C = Multiply(1/2, self.derham.curl)
+        self._B = -1/2 * self.derham.curl.T @ self.mass_ops.M2
+        self._C = 1/2 * self.derham.curl
 
         # Preconditioner
         if params['type'][1] is None:
@@ -82,10 +77,13 @@ class Maxwell(Propagator):
             pc = pc_class(self.mass_ops.M1)
 
         # Instantiate Schur solver (constant in this case)
-        _BC = Compose(self._B, self._C)
+        _BC = self._B @ self._C
 
-        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'][0],
-                                         tol=params['tol'], maxiter=params['maxiter'],
+        self._schur_solver = SchurSolver(_A, _BC, 
+                                         params['type'][0],
+                                         pc=pc,
+                                         tol=params['tol'], 
+                                         maxiter=params['maxiter'],
                                          verbose=params['verbose'])
 
         # allocate place-holder vectors to avoid temporary array allocations in __call__
@@ -104,17 +102,17 @@ class Maxwell(Propagator):
         # solve for new e coeffs
         self._B.dot(bn, out=self._byn)
 
-        info = self._schur_solver(en, self._byn, dt, out=self._e_tmp1)[1]
+        en1, info = self._schur_solver(en, self._byn, dt, out=self._e_tmp1)
 
         # new b coeffs
-        en.copy(out=self._e_tmp2)
-        self._e_tmp2 += self._e_tmp1
-        self._C.dot(self._e_tmp2, out=self._b_tmp1)
-        self._b_tmp1 *= -dt
-        self._b_tmp1 += bn
+        _e = en.copy(out=self._e_tmp2)
+        _e += en1
+        bn1 = self._C.dot(_e, out=self._b_tmp1)
+        bn1 *= -dt
+        bn1 += bn
 
         # write new coeffs into self.feec_vars
-        max_de, max_db = self.feec_vars_update(self._e_tmp1, self._b_tmp1)
+        max_de, max_db = self.feec_vars_update(en1, bn1)
 
         if self._info and self._rank == 0:
             print('Status     for Maxwell:', info['success'])
@@ -126,8 +124,8 @@ class Maxwell(Propagator):
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'type': [('PConjugateGradient', 'MassMatrixPreconditioner'),
-                                  ('ConjugateGradient', None)],
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
@@ -172,7 +170,7 @@ class OhmCold(Propagator):
         super().__init__(e, j)
 
         # parameters
-        params_default = {'type': ('PConjugateGradient', 'MassMatrixPreconditioner'),
+        params_default = {'type': ('pcg', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
@@ -189,9 +187,7 @@ class OhmCold(Propagator):
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = self.mass_ops.M1ninv
 
-        self._B = Multiply(-1/2 * 1/self._epsilon, self.mass_ops.M1)  # no dt
-        self._C = Multiply(1/2 * self._alpha**2 / self._epsilon,
-                           IdentityOperator(self.derham._Vh["1"]))  # no dt
+        self._B = -1/2 * 1/self._epsilon * self.mass_ops.M1  # no dt
 
         # Preconditioner
         if params['type'][1] is None:
@@ -201,11 +197,19 @@ class OhmCold(Propagator):
             pc = pc_class(self.mass_ops.M1ninv)
 
         # Instantiate Schur solver (constant in this case)
-        _BC = Compose(self._B, self._C)
+        _BC = 1/2 * self._alpha**2 / self._epsilon * self._B
 
-        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'][0],
-                                         tol=params['tol'], maxiter=params['maxiter'],
+        self._schur_solver = SchurSolver(_A, _BC, 
+                                         params['type'][0],
+                                         pc=pc,
+                                         tol=params['tol'],
+                                         maxiter=params['maxiter'],
                                          verbose=params['verbose'])
+
+        self._tmp_j1 = j.space.zeros()
+        self._tmp_j2 = j.space.zeros()
+        self._tmp_e1 = e.space.zeros()
+        self._tmp_e2 = e.space.zeros()
 
     def __call__(self, dt):
 
@@ -213,12 +217,19 @@ class OhmCold(Propagator):
         en = self.feec_vars[0]
         jn = self.feec_vars[1]
 
-        # allocate temporary FemFields _e, _j during solution
-        _j, info = self._schur_solver(jn, self._B.dot(en), dt)
-        _e = en - dt * self._C.dot(_j + jn)
+        # in-place solution (no tmps created here)
+        Ben = self._B.dot(en, out=self._tmp_e1)
+        
+        jn1, info = self._schur_solver(jn, Ben, dt, out=self._tmp_j1)
+        
+        en1 = jn.copy(out=self._tmp_j2)
+        en1 += jn1
+        en1 *= 1/2 * self._alpha**2 / self._epsilon
+        en1 *= -dt
+        en1 += en  
 
         # write new coeffs into Propagator.variables
-        max_de, max_dj = self.feec_vars_update(_e, _j)
+        max_de, max_dj = self.feec_vars_update(en1, jn1)
 
         if self._info:
             print('Status     for OhmCold:', info['success'])
@@ -226,12 +237,12 @@ class OhmCold(Propagator):
             print('Maxdiff e1 for OhmCold:', max_de)
             print('Maxdiff j1 for OhmCold:', max_dj)
             print()
-            
+
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'type': [('PConjugateGradient', 'MassMatrixPreconditioner'),
-                                  ('ConjugateGradient', None)],
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
@@ -260,7 +271,7 @@ class JxBCold(Propagator):
         super().__init__(j)
 
         # parameters
-        params_default = {'type': ('PConjugateGradient', 'MassMatrixPreconditioner'),
+        params_default = {'type': ('pcg', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
@@ -278,17 +289,23 @@ class JxBCold(Propagator):
 
         # mass matrix in system (M - dt/2 * A)*j^(n + 1) = (M + dt/2 * A)*j^n
         self._M = self.mass_ops.M1ninv
-        self._A = Multiply(-1/self._epsc, self.mass_ops.M1Bninv)  # no dt
+        self._A = -1/self._epsc * self.mass_ops.M1Bninv  # no dt
 
         # Preconditioner
         if params['type'][1] is None:
-            self._pc = None
+            pc = None
         else:
             pc_class = getattr(preconditioner, params['type'][1])
-            self._pc = pc_class(self.mass_ops.M1ninv)
+            pc = pc_class(self.mass_ops.M1ninv)
 
         # Instantiate linear solver
-        self._solver = getattr(it_solvers, params['type'][0])(self._M.domain)
+        self._solver = inverse(self._M,
+                               params['type'][0],
+                               pc=pc,
+                               x0=self.feec_vars[0], 
+                               tol=self._tol,
+                               maxiter=self._maxiter, 
+                               verbose=self._verbose)
 
         # allocate dummy vectors to avoid temporary array allocations
         self._rhs_j = self._M.codomain.zeros()
@@ -300,31 +317,32 @@ class JxBCold(Propagator):
         jn = self.feec_vars[0]
 
         # define system (M - dt/2 * A)*b^(n + 1) = (M + dt/2 * A)*b^n
-        lhs = Sum(self._M, Multiply(-dt/2.0, self._A))
-        rhs = Sum(self._M, Multiply(dt/2.0, self._A))
+        lhs = self._M - dt/2.0 * self._A
+        rhs = self._M + dt/2.0 * self._A
 
-        # solve linear system for updated u coefficients (in-place)
-        rhs.dot(jn, out=self._rhs_j)
-
-        info = self._solver.solve(lhs, self._rhs_j, self._pc,
-                                  x0=jn, tol=self._tol,
-                                  maxiter=self._maxiter, verbose=self._verbose,
-                                  out=self._j_new)[1]
+        rhsv = rhs.dot(jn, out=self._rhs_j)
+        #print(f'{self.derham.comm.Get_rank() = }, after dot')
+        
+        self._solver.linop = lhs
+        
+        # solve linear system for updated j coefficients (in-place)
+        jn1 = self._solver.solve(rhsv, out=self._j_new)
+        info = self._solver._info
 
         # write new coeffs into Propagator.variables
-        max_dj = self.feec_vars_update(self._j_new)[0]
+        max_dj = self.feec_vars_update(jn1)[0]
 
         if self._info:
             print('Status     for FluidCold:', info['success'])
             print('Iterations for FluidCold:', info['niter'])
             print('Maxdiff j1 for FluidCold:', max_dj)
             print()
-            
+
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'type': [('PConjugateGradient', 'MassMatrixPreconditioner'),
-                                  ('ConjugateGradient', None)],
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
@@ -362,7 +380,7 @@ class ShearAlfvén(Propagator):
 
         # parameters
         params_default = {'u_space': 'Hdiv',
-                          'type': ('PConjugateGradient', 'MassMatrixPreconditioner'),
+                          'type': ('pcg', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
@@ -382,9 +400,8 @@ class ShearAlfvén(Propagator):
         _A = getattr(self.mass_ops, id_M)
         _T = getattr(self.basis_ops, id_T)
 
-        self._B = Multiply(-1/2, Compose(_T.T,
-                           self.derham.curl.T, self.mass_ops.M2))
-        self._C = Multiply(1/2, Compose(self.derham.curl, _T))
+        self._B = -1/2 * _T.T @ self.derham.curl.T @ self.mass_ops.M2
+        self._C = 1/2 * self.derham.curl @ _T
 
         # Preconditioner
         if params['type'][1] is None:
@@ -394,10 +411,13 @@ class ShearAlfvén(Propagator):
             pc = pc_class(getattr(self.mass_ops, id_M))
 
         # instantiate Schur solver (constant in this case)
-        _BC = Compose(self._B, self._C)
+        _BC = self._B @ self._C
 
-        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'][0],
-                                         tol=params['tol'], maxiter=params['maxiter'],
+        self._schur_solver = SchurSolver(_A, _BC, 
+                                         params['type'][0],
+                                         pc=pc,
+                                         tol=params['tol'], 
+                                         maxiter=params['maxiter'],
                                          verbose=params['verbose'])
 
         # allocate dummy vectors to avoid temporary array allocations
@@ -414,19 +434,19 @@ class ShearAlfvén(Propagator):
         bn = self.feec_vars[1]
 
         # solve for new u coeffs
-        self._B.dot(bn, out=self._byn)
+        byn = self._B.dot(bn, out=self._byn)
 
-        info = self._schur_solver(un, self._byn, dt, out=self._u_tmp1)[1]
+        un1, info = self._schur_solver(un, byn, dt, out=self._u_tmp1)
 
         # new b coeffs
-        un.copy(out=self._u_tmp2)
-        self._u_tmp2 += self._u_tmp1
-        self._C.dot(self._u_tmp2, out=self._b_tmp1)
-        self._b_tmp1 *= -dt
-        self._b_tmp1 += bn
+        _u = un.copy(out=self._u_tmp2)
+        _u += self._u_tmp1
+        bn1 = self._C.dot(_u, out=self._b_tmp1)
+        bn1 *= -dt
+        bn1 += bn
 
         # write new coeffs into self.feec_vars
-        max_du, max_db = self.feec_vars_update(self._u_tmp1, self._b_tmp1)
+        max_du, max_db = self.feec_vars_update(un1, bn1)
 
         if self._info and self._rank == 0:
             print('Status     for ShearAlfvén:', info['success'])
@@ -434,13 +454,13 @@ class ShearAlfvén(Propagator):
             print('Maxdiff up for ShearAlfvén:', max_du)
             print('Maxdiff b2 for ShearAlfvén:', max_db)
             print()
-            
+
     @classmethod
     def options(cls):
         dct = {}
         dct['u_space'] = ['Hcurl', 'Hdiv', 'H1vec']
-        dct['solver'] = {'type': [('PConjugateGradient', 'MassMatrixPreconditioner'),
-                                  ('ConjugateGradient', None)],
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
@@ -477,25 +497,41 @@ class ShearAlfvénB1(Propagator):
         super().__init__(u, b)
 
         # parameters
-        params_default = {'type': ('PConjugateGradient', 'MassMatrixPreconditioner'),
+        params_default = {'type': ('pcg', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
-                          'verbose': False}
+                          'verbose': False,
+                          'type_M1': ('pcg', 'MassMatrixPreconditioner'),
+                          'tol_M1': 1e-8,
+                          'maxiter_M1': 3000,
+                          'info_M1': False,
+                          'verbose_M1': False}
 
         params = set_defaults(params, params_default)
 
         self._info = params['info']
         self._rank = self.derham.comm.Get_rank()
+        
+        # define inverse of M1
+        if params['type_M1'][1] is None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, params['type_M1'][1])
+            pc = pc_class(self.mass_ops.M1)
+            
+        self._M1inv = inverse(self.mass_ops.M1, 
+                              params['type_M1'][0], 
+                              pc=pc,
+                              tol=params['tol_M1'], 
+                              maxiter=params['maxiter_M1'],
+                              verbose=params['verbose_M1'])
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = self.mass_ops.M2n
-        self._M1inv = Inverse(self.mass_ops.M1, tol=1e-8)
-        self._B = Multiply(1/2, Compose(self.mass_ops.M2B,
-                           self.derham.curl))
+        self._B = 1/2 * self.mass_ops.M2B @ self.derham.curl
         # I still have to invert M1
-        self._C = Multiply(
-            1/2, Compose(self._M1inv, self.derham.curl.T, self.mass_ops.M2B))
+        self._C = 1/2 * self._M1inv @ self.derham.curl.T @ self.mass_ops.M2B
 
         # Preconditioner
         if params['type'][1] is None:
@@ -505,10 +541,13 @@ class ShearAlfvénB1(Propagator):
             pc = pc_class(getattr(self.mass_ops, 'M2n'))
 
         # instantiate Schur solver (constant in this case)
-        _BC = Compose(self._B, self._C)
+        _BC = self._B @ self._C
 
-        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'][0],
-                                         tol=params['tol'], maxiter=params['maxiter'],
+        self._schur_solver = SchurSolver(_A, _BC,
+                                         params['type'][0],
+                                         pc=pc,
+                                         tol=params['tol'], 
+                                         maxiter=params['maxiter'],
                                          verbose=params['verbose'])
 
         # allocate dummy vectors to avoid temporary array allocations
@@ -525,19 +564,19 @@ class ShearAlfvénB1(Propagator):
         bn = self.feec_vars[1]
 
         # solve for new u coeffs
-        self._B.dot(bn, out=self._byn)
+        byn = self._B.dot(bn, out=self._byn)
 
-        info = self._schur_solver(un, self._byn, dt, out=self._u_tmp1)[1]
+        un1, info = self._schur_solver(un, byn, dt, out=self._u_tmp1)
 
-        # new b coeffs
-        un.copy(out=self._u_tmp2)
-        self._u_tmp2 += self._u_tmp1
-        self._C.dot(self._u_tmp2, out=self._b_tmp1)
-        self._b_tmp1 *= -dt
-        self._b_tmp1 += bn
+        # new b coeffs (no tmps created here)
+        _u = un.copy(out=self._u_tmp2)
+        _u += un1
+        bn1 = self._C.dot(_u, out=self._b_tmp1)
+        bn1 *= -dt
+        bn1 += bn
 
         # write new coeffs into self.feec_vars
-        max_du, max_db = self.feec_vars_update(self._u_tmp1, self._b_tmp1)
+        max_du, max_db = self.feec_vars_update(un1, bn1)
 
         if self._info and self._rank == 0:
             print('Status     for ShearAlfvénB1:', info['success'])
@@ -545,16 +584,22 @@ class ShearAlfvénB1(Propagator):
             print('Maxdiff up for ShearAlfvénB1:', max_du)
             print('Maxdiff b2 for ShearAlfvénB1:', max_db)
             print()
-            
+
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'type': [('PConjugateGradient', 'MassMatrixPreconditioner'),
-                                  ('ConjugateGradient', None)],
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
                          'verbose': False}
+        dct['M1_inv'] = {'type_M1': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
+                         'tol_M1': 1.e-8,
+                         'maxiter_M1': 3000,
+                         'info_M1': False,
+                         'verbose_M1': False}
         return dct
 
 
@@ -584,7 +629,7 @@ class Hall(Propagator):
         super().__init__(b)
 
         # parameters
-        params_default = {'type': ('PBiConjugateGradientStab', 'MassMatrixPreconditioner'),
+        params_default = {'type': ('pbicgstab', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
@@ -605,18 +650,23 @@ class Hall(Propagator):
         id_M2Bn = 'M2Bn'
         self._M = getattr(self.mass_ops, id_M)
         self._M2Bn = getattr(self.mass_ops, id_M2Bn)
-        self._A = Multiply(self._kappa, Compose(
-            self.derham.curl.T, self._M2Bn, self.derham.curl))
+        self._A = self._kappa * self.derham.curl.T @ self._M2Bn @ self.derham.curl
 
         # Preconditioner
         if params['type'][1] is None:
-            self._pc = None
+            pc = None
         else:
             pc_class = getattr(preconditioner, params['type'][1])
-            self._pc = pc_class(getattr(self.mass_ops, id_M))
+            pc = pc_class(getattr(self.mass_ops, id_M))
 
         # Instantiate linear solver
-        self._solver = getattr(it_solvers, params['type'][0])(self._M.domain)
+        self._solver = inverse(self._M, 
+                               params['type'][0],
+                               pc=pc,
+                               x0=self.feec_vars[0], 
+                               tol=self._tol,
+                               maxiter=self._maxiter, 
+                               verbose=self._verbose)
 
         # allocate dummy vectors to avoid temporary array allocations
         self._rhs_b = self._M.codomain.zeros()
@@ -628,31 +678,30 @@ class Hall(Propagator):
         bn = self.feec_vars[0]
 
         # define system (M - dt/2 * A)*b^(n + 1) = (M + dt/2 * A)*b^n
-        lhs = Sum(self._M, Multiply(-dt/2.0, self._A))
-        rhs = Sum(self._M, Multiply(dt/2.0, self._A))
+        lhs = self._M - dt/2.0 * self._A
+        rhs = self._M + dt/2.0 * self._A
 
-        # solve linear system for updated u coefficients (in-place)
-        rhs.dot(bn, out=self._rhs_b)
+        # solve linear system for updated b coefficients (in-place)
+        rhs = rhs.dot(bn, out=self._rhs_b)
+        self._solver.linop = lhs
 
-        info = self._solver.solve(lhs, self._rhs_b, self._pc,
-                                  x0=bn, tol=self._tol,
-                                  maxiter=self._maxiter, verbose=self._verbose,
-                                  out=self._b_new)[1]
+        bn1 = self._solver.solve(rhs, out=self._b_new)
+        info = self._solver._info
 
         # write new coeffs into self.feec_vars
-        max_db = self.feec_vars_update(self._b_new)
+        max_db = self.feec_vars_update(bn1)
 
         if self._info and self._rank == 0:
             print('Status     for Hall:', info['success'])
             print('Iterations for Hall:', info['niter'])
             print('Maxdiff b1 for Hall:', max_db)
             print()
-            
+
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'type': [('PBiConjugateGradientStab', 'MassMatrixPreconditioner'),
-                                  ('BiConjugateGradientStab', None)],
+        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
+                                  ('bicgstab', None)],
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
@@ -703,7 +752,7 @@ class Magnetosonic(Propagator):
         # parameters
         params_default = {'u_space': 'Hdiv',
                           'b': self.derham.Vh['2'].zeros(),
-                          'type': ('PBiConjugateGradientStab', 'MassMatrixPreconditioner'),
+                          'type': ('pbicgstab', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
@@ -733,18 +782,16 @@ class Magnetosonic(Propagator):
         _K = getattr(self.basis_ops, id_K)
 
         if id_U is None:
-            _U, _UT = None, None
+            _U, _UT = IdentityOperator(u.space), IdentityOperator(u.space)
         else:
             _U = getattr(self.basis_ops, id_U)
             _UT = _U.T
 
-        self._B = Multiply(-1/2., Compose(_UT,
-                           self.derham.div.T, self.mass_ops.M3))
-        self._C = Multiply(1/2., Sum(Compose(self.derham.div, _S),
-                           Multiply(2/3, Compose(_K, self.derham.div, _U))))
+        self._B = -1/2. * _UT @ self.derham.div.T @ self.mass_ops.M3
+        self._C = 1/2. * self.derham.div @ _S + 2/3 * _K @ self.derham.div @ _U
 
         self._MJ = getattr(self.mass_ops, id_MJ)
-        self._DQ = Compose(self.derham.div, getattr(self.basis_ops, id_Q))
+        self._DQ = self.derham.div @ getattr(self.basis_ops, id_Q)
 
         self._b = params['b']
 
@@ -756,10 +803,13 @@ class Magnetosonic(Propagator):
             pc = pc_class(getattr(self.mass_ops, id_Mn))
 
         # instantiate Schur solver (constant in this case)
-        _BC = Compose(self._B, self._C)
+        _BC = self._B @ self._C
 
-        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'][0],
-                                         tol=params['tol'], maxiter=params['maxiter'],
+        self._schur_solver = SchurSolver(_A, _BC,
+                                         params['type'][0],
+                                         pc=pc,
+                                         tol=params['tol'], 
+                                         maxiter=params['maxiter'],
                                          verbose=params['verbose'])
 
         # allocate dummy vectors to avoid temporary array allocations
@@ -779,29 +829,29 @@ class Magnetosonic(Propagator):
         un = self.feec_vars[1]
         pn = self.feec_vars[2]
 
-        # solve for new u coeffs
-        self._B.dot(pn, out=self._byn1)
-        self._MJ.dot(self._b, out=self._byn2)
-        self._byn2 *= 1/2
-        self._byn1 -= self._byn2
+        # solve for new u coeffs (no tmps created here)
+        byn1 = self._B.dot(pn, out=self._byn1)
+        byn2 = self._MJ.dot(self._b, out=self._byn2)
+        byn2 *= 1/2
+        byn1 -= byn2
 
-        info = self._schur_solver(un, self._byn1, dt, out=self._u_tmp1)[1]
+        un1, info = self._schur_solver(un, byn1, dt, out=self._u_tmp1)
 
-        # new p, n, b coeffs
-        un.copy(out=self._u_tmp2)
-        self._u_tmp2 += self._u_tmp1
-        self._C.dot(self._u_tmp2, out=self._p_tmp1)
-        self._p_tmp1 *= -dt
-        self._p_tmp1 += pn
+        # new p, n, b coeffs (no tmps created here)
+        _u = un.copy(out=self._u_tmp2)
+        _u += un1
+        pn1 = self._C.dot(_u, out=self._p_tmp1)
+        pn1 *= -dt
+        pn1 += pn
 
-        self._DQ.dot(self._u_tmp2, out=self._n_tmp1)
-        self._n_tmp1 *= -dt/2
-        self._n_tmp1 += nn
+        nn1 = self._DQ.dot(_u, out=self._n_tmp1)
+        nn1 *= -dt/2
+        nn1 += nn
 
         # write new coeffs into self.feec_vars
-        max_dn, max_du, max_dp = self.feec_vars_update(self._n_tmp1,
-                                                       self._u_tmp1,
-                                                       self._p_tmp1)
+        max_dn, max_du, max_dp = self.feec_vars_update(nn1,
+                                                       un1,
+                                                       pn1)
 
         if self._info and self._rank == 0:
             print('Status     for Magnetosonic:', info['success'])
@@ -810,13 +860,13 @@ class Magnetosonic(Propagator):
             print('Maxdiff up for Magnetosonic:', max_du)
             print('Maxdiff p3 for Magnetosonic:', max_dp)
             print()
-            
+
     @classmethod
     def options(cls):
         dct = {}
         dct['u_space'] = ['Hcurl', 'Hdiv', 'H1vec']
-        dct['solver'] = {'type': [('PBiConjugateGradientStab', 'MassMatrixPreconditioner'),
-                                  ('BiConjugateGradientStab', None)],
+        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
+                                  ('bicgstab', None)],
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
@@ -867,7 +917,7 @@ class SonicIon(Propagator):
         super().__init__(n, u, p)
 
         # parameters
-        params_default = {'type': ('PBiConjugateGradientStab', 'MassMatrixPreconditioner'),
+        params_default = {'type': ('pbicgstab', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
@@ -886,10 +936,10 @@ class SonicIon(Propagator):
         _A = getattr(self.mass_ops, id_Mn)
         _K = getattr(self.basis_ops, id_K)
 
-        self._B = Multiply(-1/2., Compose(self.derham.div.T, self.mass_ops.M3))
-        self._C = Multiply(5/6., Compose(_K, self.derham.div))
+        self._B = -1/2. * self.derham.div.T @ self.mass_ops.M3
+        self._C = 5/6. * _K @ self.derham.div
 
-        self._QD = Compose(getattr(self.basis_ops, id_Q), self.derham.div)
+        self._QD = getattr(self.basis_ops, id_Q) @ self.derham.div
 
         # preconditioner
         if params['type'][1] is None:
@@ -899,10 +949,13 @@ class SonicIon(Propagator):
             pc = pc_class(getattr(self.mass_ops, id_Mn))
 
         # instantiate Schur solver (constant in this case)
-        _BC = Compose(self._B, self._C)
+        _BC = self._B @ self._C
 
-        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'][0],
-                                         tol=params['tol'], maxiter=params['maxiter'],
+        self._schur_solver = SchurSolver(_A, _BC, 
+                                         params['type'][0],
+                                         pc=pc,
+                                         tol=params['tol'],
+                                         maxiter=params['maxiter'],
                                          verbose=params['verbose'])
 
         # allocate dummy vectors to avoid temporary array allocations
@@ -921,25 +974,25 @@ class SonicIon(Propagator):
         pn = self.feec_vars[2]
 
         # solve for new u coeffs
-        self._B.dot(pn, out=self._byn1)
+        byn1 = self._B.dot(pn, out=self._byn1)
 
-        info = self._schur_solver(un, self._byn1, dt, out=self._u_tmp1)[1]
+        un1, info = self._schur_solver(un, byn1, dt, out=self._u_tmp1)
 
-        # new p, n, b coeffs
-        un.copy(out=self._u_tmp2)
-        self._u_tmp2 += self._u_tmp1
-        self._C.dot(self._u_tmp2, out=self._p_tmp1)
-        self._p_tmp1 *= -dt
-        self._p_tmp1 += pn
+        # new p, n, b coeffs (no tmps created here)
+        _u = un.copy(out=self._u_tmp2)
+        _u += un1
+        pn1 = self._C.dot(_u, out=self._p_tmp1)
+        pn1 *= -dt
+        pn1 += pn
 
-        self._QD.dot(self._u_tmp2, out=self._n_tmp1)
-        self._n_tmp1 *= -dt/2.0
-        self._n_tmp1 += nn
+        nn1 = self._QD.dot(_u, out=self._n_tmp1)
+        nn1 *= -dt/2.0
+        nn1 += nn
 
         # write new coeffs into self.feec_vars
-        max_dn, max_du, max_dp = self.feec_vars_update(self._n_tmp1,
-                                                       self._u_tmp1,
-                                                       self._p_tmp1)
+        max_dn, max_du, max_dp = self.feec_vars_update(nn1,
+                                                       un1,
+                                                       pn1)
 
         if self._info and self._rank == 0:
             print('Status     for Magnetosonic:', info['success'])
@@ -948,12 +1001,12 @@ class SonicIon(Propagator):
             print('Maxdiff up for Magnetosonic:', max_du)
             print('Maxdiff p3 for Magnetosonic:', max_dp)
             print()
-            
+
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'type': [('PBiConjugateGradientStab', 'MassMatrixPreconditioner'),
-                                  ('BiConjugateGradientStab', None)],
+        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
+                                  ('bicgstab', None)],
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
@@ -1004,7 +1057,7 @@ class SonicElectron(Propagator):
         super().__init__(n, u, p)
 
         # parameters
-        params_default = {'type': ('PBiConjugateGradientStab', 'MassMatrixPreconditioner'),
+        params_default = {'type': ('pbicgstab', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
@@ -1025,10 +1078,10 @@ class SonicElectron(Propagator):
         _A = getattr(self.mass_ops, id_Mn)
         _K = getattr(self.basis_ops, id_K)
 
-        self._B = Multiply(-1/2., Compose(self.derham.div.T, self.mass_ops.M3))
-        self._C = Multiply(5/6., Compose(_K, self.derham.div))
+        self._B = -1/2. * self.derham.div.T @ self.mass_ops.M3
+        self._C = 5/6. * _K @ self.derham.div
 
-        self._QD = Compose(getattr(self.basis_ops, id_Q), self.derham.div)
+        self._QD = getattr(self.basis_ops, id_Q) @ self.derham.div
 
         # preconditioner
         if params['type'][1] is None:
@@ -1038,10 +1091,13 @@ class SonicElectron(Propagator):
             pc = pc_class(getattr(self.mass_ops, id_Mn))
 
         # instantiate Schur solver (constant in this case)
-        _BC = Compose(self._B, self._C)
+        _BC = self._B @ self._C
 
-        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'][0],
-                                         tol=params['tol'], maxiter=params['maxiter'],
+        self._schur_solver = SchurSolver(_A, _BC, 
+                                         params['type'][0],
+                                         pc=pc,
+                                         tol=params['tol'], 
+                                         maxiter=params['maxiter'],
                                          verbose=params['verbose'])
 
         # allocate dummy vectors to avoid temporary array allocations
@@ -1059,26 +1115,26 @@ class SonicElectron(Propagator):
         un = self.feec_vars[1]
         pn = self.feec_vars[2]
 
-        # solve for new u coeffs
-        self._B.dot(pn, out=self._byn1)
+        # solve for new u coeffs (no tmps created here)
+        byn1 = self._B.dot(pn, out=self._byn1)
 
-        info = self._schur_solver(un, self._byn1, dt, out=self._u_tmp1)[1]
+        un1, info = self._schur_solver(un, byn1, dt, out=self._u_tmp1)
 
-        # new p, n, b coeffs
-        un.copy(out=self._u_tmp2)
-        self._u_tmp2 += self._u_tmp1
-        self._C.dot(self._u_tmp2, out=self._p_tmp1)
-        self._p_tmp1 *= -dt
-        self._p_tmp1 += pn
+        # new p, n, b coeffs (no tmps created here)
+        _u = un.copy(out=self._u_tmp2)
+        _u += un1
+        pn1 = self._C.dot(_u, out=self._p_tmp1)
+        pn1 *= -dt
+        pn1 += pn
 
-        self._QD.dot(self._u_tmp2, out=self._n_tmp1)
-        self._n_tmp1 *= -dt/2.0
-        self._n_tmp1 += nn
+        nn1 = self._QD.dot(_u, out=self._n_tmp1)
+        nn1 *= -dt/2.0
+        nn1 += nn
 
         # write new coeffs into self.feec_vars
-        max_dn, max_du, max_dp = self.feec_vars_update(self._n_tmp1,
-                                                       self._u_tmp1,
-                                                       self._p_tmp1)
+        max_dn, max_du, max_dp = self.feec_vars_update(nn1,
+                                                       un1,
+                                                       pn1)
 
         if self._info and self._rank == 0:
             print('Status     for Magnetosonic:', info['success'])
@@ -1087,12 +1143,12 @@ class SonicElectron(Propagator):
             print('Maxdiff up for Magnetosonic:', max_du)
             print('Maxdiff p3 for Magnetosonic:', max_dp)
             print()
-            
+
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'type': [('PBiConjugateGradientStab', 'MassMatrixPreconditioner'),
-                                  ('BiConjugateGradientStab', None)],
+        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
+                                  ('bicgstab', None)],
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
@@ -1201,8 +1257,7 @@ class FaradayExtended(Propagator):
             self._pc = pc_class(self.mass_ops.M1)
 
         self._Minv = Inverse(self.mass_ops.M1, tol=1e-8)
-        self._CMC = Compose(self.derham.curl.transpose(),
-                            Compose(self.mass_ops.M2, self.derham.curl))
+        self._CMC = self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl
         self._M1 = self.mass_ops.M1
         self._M2 = self.mass_ops.M2
 
@@ -1218,10 +1273,11 @@ class FaradayExtended(Propagator):
             self._pts_x), np.array(self._pts_y), np.array(self._pts_z), np.array(self._p_shape), np.array(self._p_size))
         self._accum_potential.accumulate(self._particles)
 
-        self._L2 = Multiply(-dt/2, Compose(self._Minv,
-                            Sum(self._accum_potential._operators[0].matrix, self._CMC)))
+        self._L2 = -dt/2 * \
+            self._Minv @ (
+                self._accum_potential._operators[0].matrix + self._CMC)
         self._RHS = -(self._L2.dot(self._a)) - dt*(self._Minv.dot(
-            self._accum_potential._vectors[0] - Compose(self.derham.curl.transpose(), self._M2).dot(self._beq)))
+            self._accum_potential._vectors[0] - self.derham.curl.T @ self._M2).dot(self._beq))
         self._rhs = self._M1.dot(self._a)
 
         for _ in range(10):
@@ -1242,7 +1298,7 @@ class FaradayExtended(Propagator):
                 self._weight, 'Hcurl', 'Hcurl')
 
             # next prepare for solving linear system
-            _LHS = Sum(self._M1, Compose(HybridM1, self._L2))
+            _LHS = self._M1 + HybridM1 @ self._L2
             _RHS2 = HybridM1.dot(self._RHS) + self._rhs
 
             a_new, info = pcg(_LHS, _RHS2, self._pc, x0=self._a, tol=self._solver_params['tol'],
@@ -1254,12 +1310,12 @@ class FaradayExtended(Propagator):
             # we can modify the diff function in in_place_update to get another type errors
             if max_da[0] < 10**(-6):
                 break
-            
+
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'type': [('PConjugateGradient', 'MassMatrixPreconditioner'),
-                                  ('ConjugateGradient', None)],
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
@@ -1290,7 +1346,7 @@ class CurrentCoupling6DDensity(Propagator):
                           'b_eq': None,
                           'b_tilde': None,
                           'f0': Maxwellian6DUniform(),
-                          'type': ('PBiConjugateGradientStab', 'MassMatrixPreconditioner'),
+                          'type': ('pbicgstab', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
@@ -1371,13 +1427,19 @@ class CurrentCoupling6DDensity(Propagator):
 
         # preconditioner
         if params['type'][1] is None:
-            self._pc = None
+            pc = None
         else:
             pc_class = getattr(preconditioner, params['type'][1])
-            self._pc = pc_class(self._M)
+            pc = pc_class(self._M)
 
         # linear solver
-        self._solver = getattr(it_solvers, params['type'][0])(self._M.domain)
+        self._solver = inverse(self._M, 
+                               params['type'][0],
+                               pc=pc,
+                               x0=self.feec_vars[0], 
+                               tol=self._tol,
+                               maxiter=self._maxiter, 
+                               verbose=self._verbose)
 
         # temporary vectors to avoid memory allocation
         self._b_full1 = self._b_eq.space.zeros()
@@ -1387,9 +1449,6 @@ class CurrentCoupling6DDensity(Propagator):
         self._u_new = u.space.zeros()
 
     def __call__(self, dt):
-        """
-        TODO
-        """
 
         # pointer to old coefficients
         un = self.feec_vars[0]
@@ -1437,19 +1496,18 @@ class CurrentCoupling6DDensity(Propagator):
                                          self._space_key_int, self._coupling_const)
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
-        lhs = Sum(self._M, Multiply(-dt/2, self._accumulator.operators[0]))
-        rhs = Sum(self._M, Multiply(dt/2, self._accumulator.operators[0]))
+        lhs = self._M - dt/2 * self._accumulator.operators[0]
+        rhs = self._M + dt/2 * self._accumulator.operators[0]
 
         # solve linear system for updated u coefficients (in-place)
-        rhs.dot(un, out=self._rhs_v)
+        rhs = rhs.dot(un, out=self._rhs_v)
+        self._solver.linop = lhs
 
-        info = self._solver.solve(lhs, self._rhs_v, self._pc,
-                                  x0=un, tol=self._tol,
-                                  maxiter=self._maxiter, verbose=self._verbose,
-                                  out=self._u_new)[1]
+        un1 = self._solver.solve(rhs, out=self._u_new)
+        info = self._solver._info
 
         # write new coeffs into Propagator.variables
-        max_du = self.feec_vars_update(self._u_new)
+        max_du = self.feec_vars_update(un1)
 
         if self._info and self._rank == 0:
             print('Status     for CurrentCoupling6DDensity:', info['success'])
@@ -1461,8 +1519,8 @@ class CurrentCoupling6DDensity(Propagator):
     def options(cls):
         dct = {}
         dct['u_space'] = ['Hcurl', 'Hdiv', 'H1vec']
-        dct['solver'] = {'type': [('PBiConjugateGradientStab', 'MassMatrixPreconditioner'),
-                                  ('BiConjugateGradientStab', None)],
+        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
+                                  ('bicgstab', None)],
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
@@ -1530,7 +1588,7 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
                           'u_space': 'Hdiv',
                           'b_eq': None,
                           'f0': Maxwellian5DUniform(),
-                          'type': ('PConjugateGradient', 'MassMatrixPreconditioner'),
+                          'type': ('pcg', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
@@ -1569,11 +1627,9 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
         _A = getattr(self.mass_ops, id_M)
         _T = getattr(self.basis_ops, id_T)
 
-        self._B = Multiply(-1/2, Compose(_T.T,
-                           self.derham.curl.T, self.mass_ops.M2))
-        self._C = Multiply(1/2, Compose(self.derham.curl, _T))
-        self._B2 = Multiply(-1/2., Compose(_T.T,
-                            self.derham.curl.T, self._PB.T))
+        self._B = -1/2 * _T.T @ self.derham.curl.T @ self.mass_ops.M2
+        self._C = 1/2 * self.derham.curl @ _T
+        self._B2 = -1/2. * _T.T @ self.derham.curl.T @ self._PB.T
 
         # Preconditioner
         if params['type'][1] is None:
@@ -1583,10 +1639,13 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
             pc = pc_class(getattr(self.mass_ops, id_M))
 
         # Instantiate Schur solver (constant in this case)
-        _BC = Compose(self._B, self._C)
+        _BC = self._B @ self._C
 
-        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'][0],
-                                         tol=params['tol'], maxiter=params['maxiter'],
+        self._schur_solver = SchurSolver(_A, _BC,
+                                         params['type'][0],
+                                         pc=pc,
+                                         tol=params['tol'], 
+                                         maxiter=params['maxiter'],
                                          verbose=params['verbose'])
 
         # allocate dummy vectors to avoid temporary array allocations
@@ -1595,6 +1654,7 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
         self._b_tmp1 = b.space.zeros()
 
         self._byn = self._B.codomain.zeros()
+        self._tmp_acc = self._B2.codomain.zeros()
 
     def __call__(self, dt):
 
@@ -1605,21 +1665,22 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
         # accumulate scalar
         self._ACC.accumulate(self._particles, self._coupling_const)
 
-        # solve for new u coeffs
-        self._B.dot(bn, out=self._byn)
-        self._byn += self._B2.dot(self._ACC.vectors[0])
+        # solve for new u coeffs (no tmps created here)
+        byn = self._B.dot(bn, out=self._byn)
+        b2acc = self._B2.dot(self._ACC.vectors[0], out=self._tmp_acc) 
+        byn += b2acc
 
-        info = self._schur_solver(un, self._byn, dt, out=self._u_tmp1)[1]
+        un1, info = self._schur_solver(un, byn, dt, out=self._u_tmp1)
 
-        # new b coeffs
-        un.copy(out=self._u_tmp2)
-        self._u_tmp2 += self._u_tmp1
-        self._C.dot(self._u_tmp2, out=self._b_tmp1)
-        self._b_tmp1 *= -dt
-        self._b_tmp1 += bn
+        # new b coeffs (no tmps created here)
+        _u = un.copy(out=self._u_tmp2)
+        _u += un1
+        bn1 = self._C.dot(_u, out=self._b_tmp1)
+        bn1 *= -dt
+        bn1 += bn
 
         # write new coeffs into self.feec_vars
-        max_du, max_db = self.feec_vars_update(self._u_tmp1, self._b_tmp1)
+        max_du, max_db = self.feec_vars_update(un1, bn1)
 
         if self._info and self._rank == 0:
             print('Status     for ShearAlfvén:', info['success'])
@@ -1627,13 +1688,13 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
             print('Maxdiff up for ShearAlfvén:', max_du)
             print('Maxdiff b2 for ShearAlfvén:', max_db)
             print()
-            
+
     @classmethod
     def options(cls):
         dct = {}
         dct['u_space'] = ['Hcurl', 'Hdiv', 'H1vec']
-        dct['solver'] = {'type': [('PConjugateGradient', 'MassMatrixPreconditioner'),
-                                  ('ConjugateGradient', None)],
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
@@ -1714,7 +1775,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                           'u_space': 'Hdiv',
                           'unit_b1': None,
                           'f0': Maxwellian5DUniform(),
-                          'type': ('PBiConjugateGradientStab', 'MassMatrixPreconditioner'),
+                          'type': ('pbicgstab', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
@@ -1771,18 +1832,16 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         _K = getattr(self.basis_ops, id_K)
 
         if id_U is None:
-            _U, _UT = None, None
+            _U, _UT = IdentityOperator(u.space), IdentityOperator(u.space)
         else:
             _U = getattr(self.basis_ops, id_U)
             _UT = _U.T
 
-        self._B = Multiply(-1/2., Compose(_UT,
-                           self.derham.div.T, self.mass_ops.M3))
-        self._C = Multiply(1/2., Sum(Compose(self.derham.div, _S),
-                           Multiply(2/3, Compose(_K, self.derham.div, _U))))
+        self._B = -1/2. * _UT @ self.derham.div.T @ self.mass_ops.M3
+        self._C = 1/2. * (self.derham.div @ _S + 2/3. * _K @ self.derham.div @ _U)
 
         self._MJ = getattr(self.mass_ops, id_MJ)
-        self._DQ = Compose(self.derham.div, getattr(self.basis_ops, id_Q))
+        self._DQ = self.derham.div @ getattr(self.basis_ops, id_Q)
 
         # preconditioner
         if params['type'][1] is None:
@@ -1792,10 +1851,13 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             pc = pc_class(getattr(self.mass_ops, id_Mn))
 
         # instantiate Schur solver (constant in this case)
-        _BC = Compose(self._B, self._C)
+        _BC = self._B @ self._C
 
-        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_name=params['type'][0],
-                                         tol=params['tol'], maxiter=params['maxiter'],
+        self._schur_solver = SchurSolver(_A, _BC,
+                                         params['type'][0],
+                                         pc=pc,
+                                         tol=params['tol'], 
+                                         maxiter=params['maxiter'],
                                          verbose=params['verbose'])
 
         # allocate dummy vectors to avoid temporary array allocations
@@ -1821,30 +1883,30 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                              self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
                              self._space_key_int, self._coupling_const)
 
-        # solve for new u coeffs
-        self._B.dot(pn, out=self._byn1)
-        self._MJ.dot(self._b, out=self._byn2)
-        self._byn2 -= self._ACC.vectors[0]
-        self._byn2 *= 1/2
-        self._byn1 -= self._byn2
+        # solve for new u coeffs (no tmps created here)
+        byn1 = self._B.dot(pn, out=self._byn1)
+        byn2 = self._MJ.dot(self._b, out=self._byn2)
+        byn2 -= self._ACC.vectors[0]
+        byn2 *= 1/2
+        byn1 -= byn2
 
-        info = self._schur_solver(un, self._byn1, dt, out=self._u_tmp1)[1]
+        un1, info = self._schur_solver(un, byn1, dt, out=self._u_tmp1)
 
-        # new p, n, b coeffs
-        un.copy(out=self._u_tmp2)
-        self._u_tmp2 += self._u_tmp1
-        self._C.dot(self._u_tmp2, out=self._p_tmp1)
-        self._p_tmp1 *= -dt
-        self._p_tmp1 += pn
+        # new p, n, b coeffs (no tmps created here)
+        _u = un.copy(out=self._u_tmp2)
+        _u += un1
+        pn1 = self._C.dot(_u, out=self._p_tmp1)
+        pn1 *= -dt
+        pn1 += pn
 
-        self._DQ.dot(self._u_tmp2, out=self._n_tmp1)
-        self._n_tmp1 *= -dt/2
-        self._n_tmp1 += nn
+        nn1 = self._DQ.dot(_u, out=self._n_tmp1)
+        nn1 *= -dt/2
+        nn1 += nn
 
         # write new coeffs into self.feec_vars
-        max_dn, max_du, max_dp = self.feec_vars_update(self._n_tmp1,
-                                                       self._u_tmp1,
-                                                       self._p_tmp1)
+        max_dn, max_du, max_dp = self.feec_vars_update(nn1,
+                                                       un1,
+                                                       pn1)
 
         if self._info and self._rank == 0:
             print('Status     for Magnetosonic:', info['success'])
@@ -1853,13 +1915,13 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             print('Maxdiff up for Magnetosonic:', max_du)
             print('Maxdiff p3 for Magnetosonic:', max_dp)
             print()
-            
+
     @classmethod
     def options(cls):
         dct = {}
         dct['u_space'] = ['Hcurl', 'Hdiv', 'H1vec']
-        dct['solver'] = {'type': [('PBiConjugateGradientStab', 'MassMatrixPreconditioner'),
-                                  ('BiConjugateGradientStab', None)],
+        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
+                                  ('bicgstab', None)],
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
@@ -1883,7 +1945,7 @@ class CurrentCoupling5DDensity(Propagator):
                           'b_eq': None,
                           'b_tilde': None,
                           'f0': Maxwellian5DUniform(),
-                          'type': 'PBiConjugateGradientStab',
+                          'type': 'pbicgstab',
                           'pc': 'MassMatrixPreconditioner',
                           'tol': 1e-8,
                           'maxiter': 3000,
@@ -1942,7 +2004,13 @@ class CurrentCoupling5DDensity(Propagator):
             self._pc = pc_class(self._M)
 
         # linear solver
-        self._solver = getattr(it_solvers, params['type'][0])(self._M.domain)
+        self._solver = inverse(self._M, 
+                               params['type'][0],
+                               self._pc,
+                               x0=self.feec_vars[0], 
+                               tol=self._tol,
+                               maxiter=self._maxiter, 
+                               verbose=self._verbose)
 
         # temporary vectors to avoid memory allocation
         self._b_full1 = self._b_eq.space.zeros()
@@ -1979,31 +2047,30 @@ class CurrentCoupling5DDensity(Propagator):
                                      self._space_key_int, self._coupling_const)
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
-        lhs = Sum(self._M, Multiply(-dt/2, self._accumulator.operators[0]))
-        rhs = Sum(self._M, Multiply(dt/2, self._accumulator.operators[0]))
+        lhs = self._M - dt/2 * self._accumulator.operators[0]
+        rhs = self._M + dt/2 * self._accumulator.operators[0]
 
         # solve linear system for updated u coefficients (in-place)
-        rhs.dot(un, out=self._rhs_v)
+        rhs = rhs.dot(un, out=self._rhs_v)
+        self._solver.linop = lhs
 
-        info = self._solver.solve(lhs, self._rhs_v, self._pc,
-                                  x0=un, tol=self._tol,
-                                  maxiter=self._maxiter, verbose=self._verbose,
-                                  out=self._u_new)[1]
+        un1 = self._solver.solve(rhs, out=self._u_new)
+        info = self._solver._info
 
         # write new coeffs into Propagator.variables
-        max_du = self.feec_vars_update(self._u_new)
+        max_du = self.feec_vars_update(un1)
 
         if self._info and self._rank == 0:
             print('Status     for CurrentCoupling5DDensity:', info['success'])
             print('Iterations for CurrentCoupling5DDensity:', info['niter'])
             print('Maxdiff up for CurrentCoupling5DDensity:', max_du)
             print()
-            
+
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'type': [('PConjugateGradient', 'MassMatrixPreconditioner'),
-                                  ('ConjugateGradient', None)],
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
@@ -2054,7 +2121,7 @@ class ImplicitDiffusion(Propagator):
         super().__init__(phi)
 
         # parameters
-        params_default = {'type': ('PConjugateGradient', 'MassMatrixPreconditioner'),
+        params_default = {'type': ('pcg', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
@@ -2083,19 +2150,25 @@ class ImplicitDiffusion(Propagator):
 
         # Set lhs matrices
         self._A1 = sigma * self.mass_ops.M0
-        self._A2 = Compose(self.derham.grad.T,
-                           self.mass_ops.M1,
-                           self.derham.grad)
+        self._A2 = self.derham.grad.T @ self.mass_ops.M1 @ self.derham.grad
 
         # preconditioner and solver for Ax=b
         if params['type'][1] is None:
-            self._pc = None
+            pc = None
         else:
             pc_class = getattr(preconditioner, params['type'][1])
-            self._pc = pc_class(self.mass_ops.M0)
+            pc = pc_class(self.mass_ops.M0)
 
         # solver for Ax=b with A=const.
-        self.solver = getattr(it_solvers, params['type'][0])(self.derham.Vh['0'])
+        self.solver = inverse(self._A2,
+                              params['type'][0],
+                              pc=pc,
+                              x0=self._x0,
+                              tol=self._params['tol'],
+                              maxiter=self._params['maxiter'],
+                              verbose=self._params['verbose'])
+        
+        self._tmp = phi.space.zeros()
 
     def check_rhs(self, phi_n):
         '''Checks space of rhs and, for periodic boundary conditions and sigma=0,
@@ -2150,25 +2223,20 @@ class ImplicitDiffusion(Propagator):
 
     def __call__(self, dt):
 
-        out, info = self.solver.solve(self._A1 + dt * self._A2,
-                                      self._phi_n,
-                                      pc=self._pc,
-                                      x0=self._x0,
-                                      tol=self._params['tol'],
-                                      maxiter=self._params['maxiter'],
-                                      verbose=self._params['verbose']
-                                      )
+        self.solver.linop = self._A1 + dt * self._A2
+        out = self.solver.solve(self._phi_n, out=self._tmp)
+        info = self.solver._info
 
         if self._params['info']:
             print(info)
 
         self.feec_vars_update(out)
-        
+
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'type': [('PConjugateGradient', 'MassMatrixPreconditioner'),
-                                  ('ConjugateGradient', None)],
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,

@@ -8,8 +8,9 @@ from psydac.fem.vector import VectorFemSpace
 from psydac.feec.global_projectors import Projector_H1vec
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
+from psydac.linalg.basic import IdentityOperator
 
-from struphy.feec.linear_operators import BoundaryOperator, CompositeLinearOperator, IdentityOperator
+from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.geom_projectors import PolarCommutingProjector
 from struphy.polar.basic import PolarDerhamSpace
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
@@ -283,12 +284,9 @@ class Derham:
             self._div = PolarLinearOperator(
                 self._Vh_pol['2'], self._Vh_pol['3'], self._div, ck_blocks.div_pol_to_ten, ck_blocks.div_pol_to_pol, ck_blocks.div_e3)
 
-        self._grad = CompositeLinearOperator(
-            self._boundary_ops['1'], self._grad, self._boundary_ops['0'].T)
-        self._curl = CompositeLinearOperator(
-            self._boundary_ops['2'], self._curl, self._boundary_ops['1'].T)
-        self._div = CompositeLinearOperator(
-            self._boundary_ops['3'], self._div, self._boundary_ops['2'].T)
+        self._grad = self._boundary_ops['1'] @ self._grad @ self._boundary_ops['0'].T
+        self._curl = self._boundary_ops['2'] @ self._curl @ self._boundary_ops['1'].T
+        self._div = self._boundary_ops['3'] @ self._div @ self._boundary_ops['2'].T
 
     @property
     def Nel(self):
