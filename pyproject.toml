@@ -77,7 +77,7 @@ struphy = "struphy.console.main:struphy"
                     ]
                     
 struphy = ['compile_struphy.mk',
-           'psydac-0.1.4-py3-none-any.whl',
+           'psydac-0.1.5-py3-none-any.whl',
            'i_path.txt',
            'o_path.txt',
            'p_path.txt',
