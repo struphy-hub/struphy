@@ -14,7 +14,6 @@ from struphy.feec.utilities import RotationMatrix
 
 from struphy.polar.linear_operators import PolarExtractionOperator
 
-
 class BasisProjectionOperators:
     r"""
     Collection of pre-defined :class:`struphy.feec.basis_projection_ops.BasisProjectionOperator`.
@@ -738,8 +737,8 @@ class BasisProjectionOperator(LinOpWithTransp):
     V : psydac.fem.basic.FemSpace
         Finite element spline space (domain, input space).
 
-    fun : list
-        Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
+    weights : list
+        Weight function(s) (callables or np.ndarrays) in a 2d list of shape corresponding to number of components of domain/codomain.
 
     V_extraction_op : PolarExtractionOperator | IdentityOperator
         Extraction operator to polar sub-space of V.
@@ -751,10 +750,13 @@ class BasisProjectionOperator(LinOpWithTransp):
         Whether to assemble the transposed operator.
 
     polar_shift : bool
-            Whether there are metric coefficients contained in "fun" which are singular at eta1=0. If True, interpolation points at eta1=0 are shifted away from the singularity by 1e-5.
+        Whether there are metric coefficients contained in "weights" which are singular at eta1=0. If True, interpolation points at eta1=0 are shifted away from the singularity by 1e-5.
+    
+    use_cache : bool
+        Whether to store some information computed in _assemble_mat for reuse. Set it to true if planned to update the weights later.
     """
 
-    def __init__(self, P, V, fun, V_extraction_op=None, V_boundary_op=None, transposed=False, polar_shift=False):
+    def __init__(self, P, V, weights, V_extraction_op=None, V_boundary_op=None, transposed=False, polar_shift=False, use_cache=False):
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
@@ -781,10 +783,15 @@ class BasisProjectionOperator(LinOpWithTransp):
         else:
             self._V_boundary_op = IdentityOperator(V.vector_space)
 
-        self._fun = fun
+        self._weights = weights
         self._transposed = transposed
         self._polar_shift = polar_shift
         self._dtype = V.vector_space.dtype
+        self._use_cache = use_cache
+
+        # Create cache
+        if use_cache:
+            self._cache = {}
 
         # set domain and codomain symbolic names
         if hasattr(P.space.symbolic_space, 'name'):
@@ -804,16 +811,29 @@ class BasisProjectionOperator(LinOpWithTransp):
             self._domain_symbolic_name = V_name
             self._codomain_symbolic_name = P_name
 
-        # ============= assemble tensor-product dof matrix =======
-        dof_mat = BasisProjectionOperator.assemble_mat(
-            P.projector_tensor, V, fun, polar_shift)
+        # Are both space scalar spaces : useful to know if _dof_mat will be Stencil or Block Matrix
+        self._is_scalar = True 
+        if not isinstance(V, TensorFemSpace):
+            self._is_scalar = False 
+
+        if not isinstance(P.space, TensorFemSpace):
+            self._is_scalar = False
+
+        # ============= create and assemble tensor-product dof matrix =======
+        if self._is_scalar :
+            self._dof_mat = StencilMatrix(V.vector_space, P.space.vector_space)
+        else :
+            self._dof_mat = BlockLinearOperator(V.vector_space, P.space.vector_space)
+        
+        self._dof_mat = self._assemble_mat()
         # ========================================================
 
-        # build composite linear operator BP * P * DOF * EV^T * BV^T
-        self._dof_operator = self._P_boundary_op @ self._P_extraction_op @ dof_mat @ self._V_extraction_op.T @ self._V_boundary_op.T
-
+        # build composed linear operator BP * P * DOF * EV^T * BV^T or transposed
         if transposed:
-            self._dof_operator = self._dof_operator.transpose()
+            self._dof_mat_T = self._dof_mat.T
+            self._dof_operator = self._V_boundary_op @ self._V_extraction_op @ self._dof_mat_T @ self._P_extraction_op.T @ self._P_boundary_op.T
+        else : 
+            self._dof_operator = self._P_boundary_op @ self._P_extraction_op @ self._dof_mat @ self._V_extraction_op.T @ self._V_boundary_op.T
 
         # set domain and codomain
         self._domain = self.dof_operator.domain
@@ -922,35 +942,43 @@ class BasisProjectionOperator(LinOpWithTransp):
         """
         Returns the transposed operator.
         """
-        return BasisProjectionOperator(self._P, self._V, self._fun,
+        return BasisProjectionOperator(self._P, self._V, self._weights,
                                        self._V_extraction_op, self._V_boundary_op,
-                                       not self.transposed, self._polar_shift)
-
-    @staticmethod
-    def assemble_mat(P, V, weights, polar_shift=False):
-        """
-        Assembles the tensor-product DOF matrix sigma_i(fun*Lambda_j), where i=(i1, i2, ...) and j=(j1, j2, ...) depending on the number of spatial dimensions (1d, 2d or 3d).
-
+                                       not self.transposed, self._polar_shift, self._use_cache)
+    
+    def update_weights(self, weights):
+        '''Updates self.weights and computes new DOF matrix.
+        
         Parameters
         ----------
-        P : GlobalProjector
-            The psydac global tensor product projector defining the space onto which the input shall be projected.
-
-        V : TensorFemSpace | VectorFemSpace
-            The spline space which shall be projected.
-
         weights : list
             Weight function(s) (callables or np.ndarrays) in a 2d list of shape corresponding to number of components of domain/codomain.
+        '''
 
-        polar_shift : bool
-            Whether there are metric coefficients contained in "fun" which are singular at eta1=0. If True, interpolation points at eta1=0 are shifted away from the singularity by 1e-5.
+        self._weights = weights
 
-        Returns
-        -------
-        dof_mat : StencilMatrix | BlockLinearOperator
-            Degrees of freedom matrix in the full tensor product setting.
+        # assemble tensor-product dof matrix 
+        self._dof_mat = self._assemble_mat()
+
+        # only need to update the transposed in case where it's needed 
+        # (no need to recreate a new ComposedOperator)
+        if self._transposed:
+            self._dof_mat_T = self._dof_mat.transpose(out = self._dof_mat_T)
+  
+
+    def _assemble_mat(self):
+        """
+        Assembles the tensor-product DOF matrix sigma_i(weights[i,j]*Lambda_j), where i=(i1, i2, ...) 
+        and j=(j1, j2, ...) depending on the number of spatial dimensions (1d, 2d or 3d). And 
+        store it in self._dof_mat.
         """
 
+        #get the needed data :
+        V = self._V
+        P = self._P.projector_tensor
+        weights = self._weights
+        polar_shift = self._polar_shift
+        
         # input space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
         if isinstance(V, TensorFemSpace):
             _Vspaces = [V.vector_space]
@@ -971,31 +999,35 @@ class BasisProjectionOperator(LinOpWithTransp):
         _nqs = [[P.grid_x[comp][direction].shape[1]
                  for direction in range(V.ldim)] for comp in range(len(_W1ds))]
 
-        # blocks of dof matrix
-        blocks = []
-
         # ouptut vector space (codomain), row of block
-        for Wspace, W1d, nq, weight_line in zip(_Wspaces, _W1ds, _nqs, weights):
-            blocks += [[]]
+        for i, (Wspace, W1d, nq, weight_line) in enumerate(zip(_Wspaces, _W1ds, _nqs, weights)):
+
             _Wdegrees = [space.degree for space in W1d]
 
             # input vector space (domain), column of block
-            for Vspace, V1d, loc_weight in zip(_Vspaces, _V1ds, weight_line):
+            for j, (Vspace, V1d, loc_weight) in enumerate(zip(_Vspaces, _V1ds, weight_line)):
 
-                # instantiate cell of block matrix
-                dofs_mat = StencilMatrix(
-                    Vspace, Wspace, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
+                _starts_in = np.array(Vspace.starts)
+                _ends_in = np.array(Vspace.ends)
+                _pads_in = np.array(Vspace.pads)
 
-                _starts_in = np.array(dofs_mat.domain.starts)
-                _ends_in = np.array(dofs_mat.domain.ends)
-                _pads_in = np.array(dofs_mat.domain.pads)
+                _starts_out = np.array(Wspace.starts)
+                _ends_out = np.array(Wspace.ends)
+                _pads_out = np.array(Wspace.pads)
 
-                _starts_out = np.array(dofs_mat.codomain.starts)
-                _ends_out = np.array(dofs_mat.codomain.ends)
-                _pads_out = np.array(dofs_mat.codomain.pads)
+                # use cached information if asked
+                if self._use_cache :
+                    if (i,j) in self._cache:
+                        _ptsG, _wtsG, _spans, _bases, _subs = self._cache[(i,j)]
+                    else :
+                        _ptsG, _wtsG, _spans, _bases, _subs = prepare_projection_of_basis(
+                        V1d, W1d, _starts_out, _ends_out, nq, polar_shift)
 
-                _ptsG, _wtsG, _spans, _bases, _subs = prepare_projection_of_basis(
-                    V1d, W1d, _starts_out, _ends_out, nq, polar_shift)
+                        self._cache[(i,j)] = (_ptsG, _wtsG, _spans, _bases, _subs)
+                else : 
+                    # no cache
+                    _ptsG, _wtsG, _spans, _bases, _subs = prepare_projection_of_basis(
+                        V1d, W1d, _starts_out, _ends_out, nq, polar_shift)
 
                 _ptsG = [pts.flatten() for pts in _ptsG]
 
@@ -1011,29 +1043,34 @@ class BasisProjectionOperator(LinOpWithTransp):
                 else :
                     raise TypeError("weights must be np.ndarray or callable")
 
-                # Call the kernel if weight function is not zero
-                if np.any(np.abs(mat_w) > 1e-14):
+                # Call the kernel if weight function is not zero or in the scalar case
+                # to avoid calling _block of a StencilMatrix in the else
+                if np.any(np.abs(mat_w) > 1e-14) or self._is_scalar:
+
+                    # get cell of block matrix (don't instantiate if all zeros)
+                    if self._is_scalar :
+                        dofs_mat = self._dof_mat
+                    else :
+                        dofs_mat = self._dof_mat[i, j]
+
+                    if dofs_mat is None :
+                        #Maybe in a previous iteration we had more zeros
+                        self._dof_mat[i, j] = StencilMatrix(
+                            Vspace, Wspace, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
+                        dofs_mat = self._dof_mat[i, j]
 
                     kernel = getattr(basis_projection_kernels,
                                      'assemble_dofs_for_weighted_basisfuns_' + str(V.ldim) + 'd')
 
                     kernel(dofs_mat._data, _starts_in, _ends_in, _pads_in, _starts_out, _ends_out,
                            _pads_out, mat_w, *_wtsG, *_spans, *_bases, *_subs, *_Vnbases, *_Wdegrees)
+                    
+                else:    
+                    self._dof_mat[i, j] = None
 
-                    blocks[-1] += [dofs_mat]
-
-                else:
-                    blocks[-1] += [None]
-
-        # build BlockLinearOperator (if necessary) and return
-        if len(blocks) == len(blocks[0]) == 1:
-            if blocks[0][0] is not None:
-                return blocks[0][0]
-            else:
-                return dofs_mat
-        else:
-            return BlockLinearOperator(V.vector_space, P.space.vector_space, blocks)
-
+        dofs_mat.update_ghost_regions()
+        dofs_mat.set_backend(backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
+        return self._dof_mat
 
 def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, polar_shift=False):
     '''Obtain knot span indices and basis functions evaluated at projection point sets of a given space.

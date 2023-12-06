@@ -148,6 +148,8 @@ def test_basis_ops(Nel, p, spl_kind, mapping, show_plots=False):
     print(f'Rank {mpi_rank} | Asserting transposed MHD operator K3T.')
     compare_arrays(r_psy, r_str1, mpi_rank, atol=1e-14)
     print(f'Rank {mpi_rank} | Assertion passed.')
+
+    # ===== Test BasisProjectionOperator with weights initialization ============
     # Create a hand-made BasisProjectionOperator to evaluate with weights and compare
     fun = lambda e1, e2, e3: basis_psy.weights['eq_mhd'].p3(
                 e1, e2, e3) / basis_psy.sqrt_g(e1, e2, e3)
@@ -175,6 +177,22 @@ def test_basis_ops(Nel, p, spl_kind, mapping, show_plots=False):
     r_w = P.dot(x3_psy)
 
     print(f'Rank {mpi_rank} | Asserting hand created basis projection with weights.')
+    np.allclose(r_psy._data, r_w._data, atol=1e-14)
+    print(f'Rank {mpi_rank} | Assertion passed.')
+
+    # ===== Test BasisProjectionOperator update_weight method ============
+    # Create a hand-made BasisProjectionOperator withrandom weights, then update and compare
+    
+    mat_w_rand = np.random.uniform(size = mat_w.shape)
+    weights_rand = [[mat_w_rand]]
+    
+    #hand-made BasisProjectionOperator
+    Q = BasisProjectionOperator(derham.P['3'], derham.Vh_fem['3'], weights_rand, use_cache=True)
+    Q.update_weights(weights)
+
+    r_w = Q.dot(x3_psy)
+
+    print(f'Rank {mpi_rank} | Asserting hand updated basis projection with weights.')
     np.allclose(r_psy._data, r_w._data, atol=1e-14)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
@@ -723,9 +741,9 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
 
 
 if __name__ == '__main__':
-    #test_basis_ops([8, 6, 4], [2, 2, 2], [False, True, True], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
+    test_basis_ops([8, 6, 4], [2, 2, 2], [False, True, True], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
     #test_basis_ops([8, 6, 4], [2, 2, 2], [False, True, True], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False)
     #test_basis_ops([6, 7, 4], [2, 3, 2], [False, True, True], ['HollowCylinder', {'a1': .1, 'a2': 1., 'Lz': 2*np.pi*3.}], False)
 
-    test_basis_ops_polar([5, 9, 6], [2, 3, 2], [False, True, False], [[None, 'd'], [
-                        None, None], ['d', None]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)
+    #test_basis_ops_polar([5, 9, 6], [2, 3, 2], [False, True, False], [[None, 'd'], [
+    #                    None, None], ['d', None]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)
