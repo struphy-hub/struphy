@@ -118,6 +118,16 @@ class HomogenSlab(CartesianMHDequilibrium):
 
         return nn
 
+    # equilibrium current (curl of equilibrium magnetic field)
+    def gradB_xyz(self, x, y, z):
+        """ Current density.
+        """
+        gradBx = 0*x
+        gradBy = 0*x
+        gradBz = 0*x
+
+        return gradBx, gradBy, gradBz
+
 
 class ShearedSlab(CartesianMHDequilibrium):
     r"""
@@ -322,6 +332,24 @@ class ShearedSlab(CartesianMHDequilibrium):
         nn = self.n_x(x)
 
         return nn
+
+    # gradient of equilibrium magnetic field (grad of equilibrium magnetic field)
+    def gradB_xyz(self, x, y, z):
+        """ Gradient of magnetic field.
+        """
+        gradBy = 0*x
+        gradBz = 0*x
+
+        q = self.q_x(x)
+        eps = self.params['a']/self.params['R0']
+        if np.all(q >= 100.):
+            gradBx = 0*x
+        else:
+            gradBx = -self.params['B0']*eps**2 / \
+                np.sqrt(1+eps**2/self.q_x(x)**2) * \
+                self.q_x(x, der=1)/self.q_x(x)**3
+
+        return gradBx, gradBy, gradBz
 
 
 class ScrewPinch(CartesianMHDequilibrium):
@@ -562,6 +590,24 @@ class ScrewPinch(CartesianMHDequilibrium):
         nn = self.n_r(self.r(x, y, z))
 
         return nn
+
+    # gradient of equilibrium magnetic field (grad of equilibrium magnetic field)
+    def gradB_xyz(self, x, y, z):
+        """ Gradient of magnetic field.
+        """
+        r = self.r(x, y, z)
+        theta = self.theta(x, y, z)
+        q = self.q_r(r)
+        if np.all(q >= 100.):
+            gradBr = 0*x
+        else:
+            gradBr = self.params['B0']/self.params['R0']**2/np.sqrt(1+r**2/self.q_r(
+                r)**2/self.params['R0']**2)*(r/self.q_r(r)**2 - r**2/self.q_r(r)**3*self.q_r(r, der=1))
+        gradBx = gradBr*np.cos(theta)
+        gradBy = gradBr*np.sin(theta)
+        gradBz = 0*x
+
+        return gradBx, gradBy, gradBz
 
 
 class AdhocTorus(AxisymmMHDequilibrium):
@@ -998,6 +1044,8 @@ class AdhocTorus(AxisymmMHDequilibrium):
             d2r_dR2 = (r - (R - self.params['R0'])*dr_dR)/r**2
             d2r_dZ2 = (r - Z*dr_dZ)/r**2
 
+            d2r_dRdZ = -Z*(R - self.params['R0'])/r**3
+
             if dR == 1 and dZ == 0:
                 out = self.psi_r(r, der=1) * dr_dR
             elif dR == 0 and dZ == 1:
@@ -1008,9 +1056,12 @@ class AdhocTorus(AxisymmMHDequilibrium):
             elif dR == 0 and dZ == 2:
                 out = self.psi_r(r, der=2) * dr_dZ**2 + \
                     self.psi_r(r, der=1) * d2r_dZ2
+            elif dR == 1 and dZ == 1:
+                out = self.psi_r(r, der=2) * dr_dR * dr_dZ + \
+                    self.psi_r(r, der=1) * d2r_dRdZ
             else:
                 raise NotImplementedError(
-                    'Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0) and (dR=0, dZ=2) possible!')
+                    'Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0), (dR=0, dZ=2) and (dR=1, dZ=1) possible!')
 
         return out
 
@@ -1926,6 +1977,12 @@ class GVECequilibrium(LogicalMHDequilibrium):
         """
         # TODO: which density to set?
         return self.gvec.p0(eta1, eta2, eta3) * 0
+
+    def gradB1(self, eta1, eta2, eta3, squeeze_out=True):
+        """1-form gradient of magnetic field on logical cube [0, 1]^3.
+        """
+        raise NotImplementedError(
+            '1-form gradient of magnetic field of GVECequilibrium is not implemented')
 
 
 def set_defaults(params_in, params_default):

@@ -144,6 +144,8 @@ class NumEqTest(LogicalMHDequilibrium):
     def n0(self, *etas, squeeze_out=True):
         return self._equil.n0(*etas, squeeze_out=squeeze_out)
 
+    def gradB1(self, *etas, squeeze_out=True):
+        return self._equil.gradB1(*etas, squeeze_out=squeeze_out)
 
 if __name__ == '__main__':
     test_transformations(

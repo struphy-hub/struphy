@@ -596,15 +596,17 @@ class LinearMHDDriftkineticCC(StruphyModel):
     @classmethod
     def options(cls):
         # import propagator options
-        from struphy.propagators.propagators_fields import ShearAlfvénCurrentCoupling5D, MagnetosonicCurrentCoupling5D
+        from struphy.propagators.propagators_fields import ShearAlfvénCurrentCoupling5D, MagnetosonicCurrentCoupling5D, CurrentCoupling5DDensity
         from struphy.propagators.propagators_markers import PushDriftKineticbxGradB, PushDriftKineticBstar
-        from struphy.propagators.propagators_coupling import CurrentCoupling5DCurlb, CurrentCoupling5DGradBxB, CurrentCoupling5DGradBxB_dg
+        from struphy.propagators.propagators_coupling import CurrentCoupling5DCurlb, CurrentCoupling5DGradBxB
 
         dct = {}
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'shear_alfven'],
                        option=ShearAlfvénCurrentCoupling5D.options()['solver'], dct=dct)
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'magnetosonic'],
                        option=MagnetosonicCurrentCoupling5D.options()['solver'], dct=dct)
+        cls.add_option(species=['kinetic', 'energetic_ions'], key=['solvers', 'density'],
+                       option=CurrentCoupling5DDensity.options()['solver'], dct=dct)
         cls.add_option(species=['kinetic', 'energetic_ions'], key=['algos', 'push_bxgradb'],
                        option=PushDriftKineticbxGradB.options()['algo'], dct=dct)
         cls.add_option(species=['kinetic', 'energetic_ions'], key=['algos', 'push_bstar'],
@@ -615,8 +617,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
                        option=CurrentCoupling5DGradBxB.options()['solver'], dct=dct)
         cls.add_option(species=['kinetic', 'energetic_ions'], key=['algos', 'push_cc2'],
                        option=CurrentCoupling5DGradBxB.options()['algo'], dct=dct)
-        cls.add_option(species=['kinetic', 'energetic_ions'], key=['solvers', 'cc2'],
-                       option=CurrentCoupling5DGradBxB_dg.options()['solver'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -662,6 +662,15 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._unit_b2 = self.derham.P['2']([self.mhd_equil.unit_b2_1,
                                            self.mhd_equil.unit_b2_2,
                                            self.mhd_equil.unit_b2_3])
+
+        self._gradB1 = self.derham.P['1']([self.mhd_equil.gradB1_1,
+                                           self.mhd_equil.gradB1_2,
+                                           self.mhd_equil.gradB1_3])
+
+        self._curl_unit_b2 = self.derham.P['2']([self.mhd_equil.curl_unit_b2_1,
+                                                 self.mhd_equil.curl_unit_b2_2,
+                                                 self.mhd_equil.curl_unit_b2_3])
+
         self._p_eq = self.derham.P['3'](self.mhd_equil.p3)
         self._ones = self._p_eq.space.zeros()
 
@@ -677,6 +686,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # propagator parameters
         params_shear_alfven = params['fluid']['mhd']['options']['solvers']['shear_alfven']
         params_magnetosonic = params['fluid']['mhd']['options']['solvers']['magnetosonic']
+        params_density = params['kinetic']['energetic_ions']['options']['solvers']['density']
         algo_bxgradb = params['kinetic']['energetic_ions']['options']['algos']['push_bxgradb']
         algo_bstar = params['kinetic']['energetic_ions']['options']['algos']['push_bstar']
         params_cc1 = params['kinetic']['energetic_ions']['options']['solvers']['cc1']
@@ -692,6 +702,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
             abs_b=self._abs_b,
+            gradB1=self._gradB1,
+            curl_unit_b2=self._curl_unit_b2,
             **algo_bxgradb))
         self.add_propagator(self.prop_markers.PushDriftKineticBstar(
             self.pointer['energetic_ions'],
@@ -701,6 +713,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
             abs_b=self._abs_b,
+            gradB1=self._gradB1,
+            curl_unit_b2=self._curl_unit_b2,
             **algo_bstar))
         self.add_propagator(self.prop_coupling.CurrentCoupling5DGradBxB(
             self.pointer['energetic_ions'],
@@ -711,24 +725,13 @@ class LinearMHDDriftkineticCC(StruphyModel):
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
             abs_b=self._abs_b,
+            gradB1=self._gradB1,
+            curl_unit_b2=self._curl_unit_b2,
             f0=f0,
             u_space='Hdiv',
             **params_cc2,
             **self._coupling_params,
             method=algo_cc2))
-        # self.add_propagator(self.prop_coupling.CurrentCoupling5DGradBxB_dg(
-        #     self.pointer['energetic_ions'],
-        #     self.pointer['mhd_u2'],
-        #     epsilon=epsilon,
-        #     b=self.pointer['b2'],
-        #     b_eq=self._b_eq,
-        #     unit_b1=self._unit_b1,
-        #     unit_b2=self._unit_b2,
-        #     abs_b=self._abs_b,
-        #     f0=f0,
-        #     u_space='Hdiv',
-        #     **params_cc2,
-        #     **self._coupling_params))
         self.add_propagator(self.prop_coupling.CurrentCoupling5DCurlb(
             self.pointer['energetic_ions'],
             self.pointer['mhd_u2'],
@@ -736,9 +739,24 @@ class LinearMHDDriftkineticCC(StruphyModel):
             b=self.pointer['b2'],
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
+            curl_unit_b2=self._curl_unit_b2,
             f0=f0,
             u_space='Hdiv',
             **params_cc1,
+            **self._coupling_params))
+        self.add_propagator(self.prop_fields.CurrentCoupling5DDensity(
+            self.pointer['mhd_u2'],
+            particles=self.pointer['energetic_ions'],
+            epsilon=epsilon,
+            u_space='Hdiv',
+            b_eq=self._b_eq,
+            b_tilde=self.pointer['b2'],
+            unit_b1=self._unit_b1,
+            abs_b=self._abs_b,
+            gradB1=self._gradB1,
+            curl_unit_b2=self._curl_unit_b2,
+            f0=f0,
+            **params_density,
             **self._coupling_params))
         self.add_propagator(self.prop_fields.ShearAlfvénCurrentCoupling5D(
             self.pointer['mhd_u2'],
@@ -756,6 +774,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             b=self.pointer['b2'],
             particles=self.pointer['energetic_ions'],
             unit_b1=self._unit_b1,
+            curl_unit_b2=self._curl_unit_b2,
             f0=f0,
             u_space='Hdiv',
             **params_magnetosonic,
@@ -843,7 +862,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
         #     self._mass_ops.M2.dot(self._b_full1, apply_bc=False))/2.
 
         # absolute value of parallel magnetic field
-        self._prop.basis_ops.PB.dot(self._b_full1, out=self._PBb)
+        self._prop.basis_ops.PB.dot(self.pointer['b2'], out=self._PBb)
+        self._PBb += self._abs_b
 
         self.pointer['energetic_ions'].save_magnetic_energy(self._PBb)
         self._en_fB[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
@@ -867,7 +887,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._n_lost_particles, op=self._mpi_sum)
         if self.derham.comm.Get_rank() == 0 :
-            print('ratio of lost particles: ',self._n_lost_particles[0]/self.pointer['energetic_ions'].n_mks *100,'%')
+            print('ratio of lost particles: ',self._n_lost_particles[0]/self.pointer['energetic_ions'].n_mks*100,'%')
 
 
 class ColdPlasmaVlasov(StruphyModel):

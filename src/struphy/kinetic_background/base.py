@@ -27,6 +27,13 @@ class Maxwellian(metaclass=ABCMeta):
         """
         pass
 
+    @property
+    @abstractmethod
+    def is_polar(self):
+        """List of booleans. True if the velocity coordinates are polar coordinates.
+        """
+        pass
+
     @abstractmethod
     def n(self, *etas):
         """ Number density (0-form). 
@@ -74,8 +81,8 @@ class Maxwellian(metaclass=ABCMeta):
         """
         pass
 
-    def gaussian(self, v, u=0., vth=1.):
-        """1D normal distribution, to which array-valued mean- and thermal velocities can be passed.
+    def gaussian(self, v, u=0., vth=1., is_polar=False):
+        """n-D normal distribution, to which array-valued mean- and thermal velocities can be passed.
 
         Parameters
         ----------
@@ -88,6 +95,9 @@ class Maxwellian(metaclass=ABCMeta):
         vth : float | array-like
             Thermal velocity evaluated at position array, same shape as u.
 
+        is_polar : boolean
+            True if the velocity coordinates are polar coordinates.
+
         Returns
         -------
         An array of size(u).
@@ -96,7 +106,11 @@ class Maxwellian(metaclass=ABCMeta):
         if isinstance(v, np.ndarray) and isinstance(u, np.ndarray):
             assert v.shape == u.shape
 
-        return 1./(np.sqrt(2.*np.pi) * vth) * np.exp(-(v - u)**2/(2.*vth**2))
+        if not is_polar:
+            return 1./(np.sqrt(2.*np.pi) * vth) * np.exp(-(v - u)**2/(2.*vth**2))
+        else:
+            return 1./vth**2 * v * np.exp(-(v - u)**2/(2.*vth**2))
+
 
     def __call__(self, *args):
         """
@@ -118,6 +132,6 @@ class Maxwellian(metaclass=ABCMeta):
         vths = self.vth(*args[:-self.vdim])
 
         for i, v in enumerate(args[-self.vdim:]):
-            res *= self.gaussian(v, u=us[i], vth=vths[i])
+            res *= self.gaussian(v, u=us[i], vth=vths[i], is_polar=self.is_polar[i])
 
         return res

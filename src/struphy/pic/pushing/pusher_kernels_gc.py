@@ -80,7 +80,7 @@ def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage:
                                         p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                         ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                         cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                        kappa: float,
+                                        epsilon: float,
                                         b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                         norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                                         norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
@@ -143,6 +143,8 @@ def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage:
     else:
         last = 0.
 
+    #$ omp parallel private(ip, e, v, mu, k, det_df, dfm, df_t, g, g_inv, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, bb, grad_abs_b, curl_norm_b, norm_b1, norm_b2, b_star, temp1, temp2, abs_b_star_para)
+    #$ omp for
     for ip in range(n_markers):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -223,7 +225,7 @@ def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage:
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # eval Bstar and transform to H1vec
-        b_star[:] = bb + 1/kappa*v*curl_norm_b
+        b_star[:] = bb + epsilon*v*curl_norm_b
         b_star /= det_df
 
         # calculate abs_b_star_para
@@ -235,7 +237,7 @@ def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage:
         linalg.matrix_vector(g_inv, temp2, temp1)
 
         # calculate k
-        k[:] = 1/kappa*mu/abs_b_star_para*temp1
+        k[:] = epsilon*mu/abs_b_star_para*temp1
 
         # accumulation for last stage
         markers[ip, 13:16] += dt*b[stage]*k
@@ -243,6 +245,8 @@ def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage:
         # update positions for intermediate stages or last stage
         markers[ip, 0:3] = markers[ip, 9:12] + \
             dt*a[stage]*k + last*markers[ip, 13:16]
+
+    #$ omp end parallel
 
 
 @stack_array('dfm', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'k', 'bb', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'b_star')
@@ -253,7 +257,7 @@ def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: i
                                       p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                       ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                       cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                      kappa: float,
+                                      epsilon: float,
                                       b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                       norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                                       norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
@@ -310,6 +314,8 @@ def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: i
     else:
         last = 0.
 
+    #$ omp parallel private(ip, e, v, mu, k, k_v, det_df, dfm, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, bb, grad_abs_b, curl_norm_b, norm_b1, b_star, temp, abs_b_star_para)
+    #$ omp for
     for ip in range(n_markers):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -381,7 +387,7 @@ def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: i
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # calculate Bstar and transform to H1vec
-        b_star[:] = bb + 1/kappa*v*curl_norm_b
+        b_star[:] = bb + epsilon*v*curl_norm_b
         b_star /= det_df
 
         # calculate abs_b_star_para
@@ -404,6 +410,8 @@ def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: i
         markers[ip, 3] = markers[ip, 12] + dt * \
             a[stage]*k_v + last*markers[ip, 16]
 
+    #$ omp end parallel
+
 
 @stack_array('dfm', 'df_t', 'g', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'k', 'bb', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'b_star', 'temp1', 'temp2', 'temp3')
 def push_gc_all_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int,
@@ -413,7 +421,7 @@ def push_gc_all_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int
                                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                     cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                    kappa: float,
+                                    epsilon: float,
                                     b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                     norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                                     norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
@@ -561,7 +569,7 @@ def push_gc_all_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # transform to H1vec
-        b_star[:] = bb + 1/kappa*v*curl_norm_b
+        b_star[:] = bb + epsilon*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -575,7 +583,7 @@ def push_gc_all_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int
         linalg.matrix_vector(g_inv, temp2, temp3)
 
         # calculate k
-        k[:] = (1/kappa*mu*temp3 + b_star*v)/abs_b_star_para
+        k[:] = (epsilon*mu*temp3 + b_star*v)/abs_b_star_para
 
         # calculate k_v for v
         temp = linalg.scalar_dot(b_star, grad_abs_b)
@@ -601,7 +609,7 @@ def push_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: i
                                       p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                       ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                       cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                      kappa: float,
+                                      epsilon: float,
                                       abs_b: 'float[:,:,:]',
                                       b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                       norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -740,7 +748,7 @@ def push_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: int
                                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                     cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                    kappa: float,
+                                    epsilon: float,
                                     abs_b: 'float[:,:,:]',
                                     b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                     norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -875,7 +883,7 @@ def push_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, s
                                              p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                              ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                              cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                             kappa: float,
+                                             epsilon: float,
                                              abs_b: 'float[:,:,:]',
                                              b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                              norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -1013,7 +1021,7 @@ def push_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, sta
                                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                           kappa: float,
+                                           epsilon: float,
                                            abs_b: 'float[:,:,:]',
                                            b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                            norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -1148,7 +1156,7 @@ def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
                                                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                                   cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                  kappa: float,
+                                                  epsilon: float,
                                                   abs_b: 'float[:,:,:]',
                                                   b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                                   norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -1359,7 +1367,7 @@ def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
                                                 p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                                 ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                                 cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                kappa: float,
+                                                epsilon: float,
                                                 abs_b: 'float[:,:,:]',
                                                 b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                                 norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -1621,7 +1629,7 @@ def push_gc_cc_J1_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                         p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                         ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                         cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                        kappa: float,
+                        epsilon: float,
                         b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                         norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                         curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
@@ -1726,7 +1734,7 @@ def push_gc_cc_J1_H1vec(markers: 'float[:,:]', dt: float, stage: int,
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # b_star; 2form in H1vec
-        b_star[:] = (b + curl_norm_b*v/kappa)/det_df
+        b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
@@ -1748,7 +1756,7 @@ def push_gc_cc_J1_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                         p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                         ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                         cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                        kappa: float,
+                        epsilon: float,
                         b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                         norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                         curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
@@ -1862,7 +1870,7 @@ def push_gc_cc_J1_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # b_star; 2form in H1vec
-        b_star[:] = (b + curl_norm_b*v/kappa)/det_df
+        b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
@@ -1887,7 +1895,7 @@ def push_gc_cc_J1_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                       kappa: float,
+                       epsilon: float,
                        b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                        norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                        curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
@@ -1992,7 +2000,7 @@ def push_gc_cc_J1_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # b_star; 2form in H1vec
-        b_star[:] = (b + curl_norm_b*v/kappa)/det_df
+        b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
@@ -2017,7 +2025,7 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                               p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                               ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                               cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                              kappa: float,
+                              epsilon: float,
                               b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                               norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                               norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
@@ -2169,7 +2177,7 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         norm_b2_prod[2, 1] = +norm_b2[0]
 
         # b_star; 2form in H1vec
-        b_star[:] = (bb + curl_norm_b*v/kappa)/det_df
+        b_star[:] = (bb + curl_norm_b*v*epsilon)/det_df
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
@@ -2197,7 +2205,7 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                              p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                              ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                              cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                             kappa: float,
+                             epsilon: float,
                              b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                              norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                              norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
@@ -2349,7 +2357,7 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
         norm_b2_prod[2, 1] = +norm_b2[0]
 
         # b_star; 2form in H1vec
-        b_star[:] = (bb + curl_norm_b*v/kappa)/det_df
+        b_star[:] = (bb + curl_norm_b*v*epsilon)/det_df
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
@@ -2370,517 +2378,517 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
             dt*a[stage]*e + last*markers[ip, 13:16]
 
 
-def push_gc_cc_J2_dg_prepare_H1vec(markers: 'float[:,:]', dt: float, stage: int,
-                                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                                   kind_map: int, params_map: 'float[:]',
-                                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                   cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                   kappa: float,
-                                   b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                   norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                   norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                   curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                   u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]'):
-    r'''DRAFT
-    '''
-
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-    df_inv = empty((3, 3), dtype=float)
-    df_inv_t = empty((3, 3), dtype=float)
-    g_inv = empty((3, 3), dtype=float)
-
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # containers for fields
-    tmp1 = empty((3, 3), dtype=float)
-    tmp2 = empty((3, 3), dtype=float)
-    b_prod = zeros((3, 3), dtype=float)
-    norm_b2_prod = zeros((3, 3), dtype=float)
-    e = empty(3, dtype=float)
-    u = empty(3, dtype=float)
-    b = empty(3, dtype=float)
-    b_star = empty(3, dtype=float)
-    norm_b1 = empty(3, dtype=float)
-    norm_b2 = empty(3, dtype=float)
-    curl_norm_b = empty(3, dtype=float)
-
-    # marker position eta
-    eta = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        eta[:] = markers[ip, 0:3]
-        v = markers[ip, 3]
-
-        # evaluate Jacobian, result in dfm
-        map_eval.df(eta[0], eta[1], eta[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
-
-        # metric coeffs
-        det_df = linalg.det(dfm)
-        linalg.matrix_inv_with_det(dfm, det_df, df_inv)
-        linalg.transpose(df_inv, df_inv_t)
-        linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
-
-        # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta[0])
-        span2 = bsp.find_span(tn2, pn[1], eta[1])
-        span3 = bsp.find_span(tn3, pn[2], eta[2])
-
-        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # b; 2form
-        b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
-        b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
-        b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
-
-        # u; 0form
-        u[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u1, starts0)
-        u[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u2, starts0)
-        u[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u3, starts0)
-
-        # norm_b1; 1form
-        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
-
-        # norm_b; 2form
-        norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
-        norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
-        norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
-
-        # curl_norm_b; 2form
-        curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-        curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-        curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
-
-        # operator bx() as matrix
-        b_prod[0, 1] = -b[2]
-        b_prod[0, 2] = +b[1]
-        b_prod[1, 0] = +b[2]
-        b_prod[1, 2] = -b[0]
-        b_prod[2, 0] = -b[1]
-        b_prod[2, 1] = +b[0]
-
-        norm_b2_prod[0, 1] = -norm_b2[2]
-        norm_b2_prod[0, 2] = +norm_b2[1]
-        norm_b2_prod[1, 0] = +norm_b2[2]
-        norm_b2_prod[1, 2] = -norm_b2[0]
-        norm_b2_prod[2, 0] = -norm_b2[1]
-        norm_b2_prod[2, 1] = +norm_b2[0]
-
-        # b_star; 2form in H1vec
-        b_star[:] = (b + curl_norm_b*v/kappa)/det_df
-
-        # calculate abs_b_star_para
-        abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
-
-        linalg.matrix_matrix(g_inv, norm_b2_prod, tmp1)
-        linalg.matrix_matrix(tmp1, g_inv, tmp2)
-        linalg.matrix_matrix(tmp2, b_prod, tmp1)
-
-        linalg.matrix_vector(tmp1, u, e)
-
-        markers[ip, 0:3] = markers[ip, 9:12] - e/abs_b_star_para*dt
-
-
-def push_gc_cc_J2_dg_H1vec(markers: 'float[:,:]', dt: float, stage: int,
-                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                           kind_map: int, params_map: 'float[:]',
-                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                           kappa: float,
-                           b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                           norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                           norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                           curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                           u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]'):
-    r'''DRAFT
-    '''
-
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-    df_inv = empty((3, 3), dtype=float)
-    df_inv_t = empty((3, 3), dtype=float)
-    g_inv = empty((3, 3), dtype=float)
-
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # containers for fields
-    tmp1 = empty((3, 3), dtype=float)
-    tmp2 = empty((3, 3), dtype=float)
-    b_prod = zeros((3, 3), dtype=float)
-    norm_b2_prod = zeros((3, 3), dtype=float)
-    e = empty(3, dtype=float)
-    u = empty(3, dtype=float)
-    b = empty(3, dtype=float)
-    b_star = empty(3, dtype=float)
-    norm_b1 = empty(3, dtype=float)
-    norm_b2 = empty(3, dtype=float)
-    curl_norm_b = empty(3, dtype=float)
-
-    # marker position eta
-    eta = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        eta[:] = markers[ip, 0:3]
-        v = markers[ip, 3]
-
-        # evaluate Jacobian, result in dfm
-        map_eval.df(eta[0], eta[1], eta[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
-
-        # metric coeffs
-        det_df = linalg.det(dfm)
-        linalg.matrix_inv_with_det(dfm, det_df, df_inv)
-        linalg.transpose(df_inv, df_inv_t)
-        linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
-
-        # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta[0])
-        span2 = bsp.find_span(tn2, pn[1], eta[1])
-        span3 = bsp.find_span(tn3, pn[2], eta[2])
-
-        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # b; 2form
-        b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
-        b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
-        b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
-
-        # u; 0form
-        u[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u1, starts0)
-        u[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u2, starts0)
-        u[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u3, starts0)
-
-        # norm_b1; 1form
-        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
-
-        # norm_b; 2form
-        norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
-        norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
-        norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
-
-        # curl_norm_b; 2form
-        curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-        curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-        curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
-
-        # operator bx() as matrix
-        b_prod[0, 1] = -b[2]
-        b_prod[0, 2] = +b[1]
-        b_prod[1, 0] = +b[2]
-        b_prod[1, 2] = -b[0]
-        b_prod[2, 0] = -b[1]
-        b_prod[2, 1] = +b[0]
-
-        norm_b2_prod[0, 1] = -norm_b2[2]
-        norm_b2_prod[0, 2] = +norm_b2[1]
-        norm_b2_prod[1, 0] = +norm_b2[2]
-        norm_b2_prod[1, 2] = -norm_b2[0]
-        norm_b2_prod[2, 0] = -norm_b2[1]
-        norm_b2_prod[2, 1] = +norm_b2[0]
-
-        # b_star; 2form in H1vec
-        b_star[:] = (b + curl_norm_b*v/kappa)/det_df
-
-        # calculate abs_b_star_para
-        abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
-
-        linalg.matrix_matrix(g_inv, norm_b2_prod, tmp1)
-        linalg.matrix_matrix(tmp1, g_inv, tmp2)
-        linalg.matrix_matrix(tmp2, b_prod, tmp1)
-
-        linalg.matrix_vector(tmp1, u, e)
-
-        markers[ip, 0:3] = markers[ip, 9:12] - e/abs_b_star_para*dt
-
-
-def push_gc_cc_J2_dg_faster_H1vec(markers: 'float[:,:]', dt: float, stage: int,
-                                  pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                  starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                                  kind_map: int, params_map: 'float[:]',
-                                  p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                  ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                  cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                  kappa: float,
-                                  b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                  norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                  norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                  curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                  u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]'):
-    r'''DRAFT
-    '''
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # containers for fields
-    tmp = empty((3, 3), dtype=float)
-    e = empty(3, dtype=float)
-    u = empty(3, dtype=float)
-
-    # marker position eta
-    eta = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        eta[:] = markers[ip, 0:3]
-
-        # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta[0])
-        span2 = bsp.find_span(tn2, pn[1], eta[1])
-        span3 = bsp.find_span(tn3, pn[2], eta[2])
-
-        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # u; 0form
-        u[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u1, starts0)
-        u[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u2, starts0)
-        u[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u3, starts0)
-
-        tmp[:, :] = ((markers[ip, 18], markers[ip, 19], markers[ip, 20]),
-                     (markers[ip, 19], markers[ip, 21], markers[ip, 22]),
-                     (markers[ip, 20], markers[ip, 22], markers[ip, 23]))
-
-        linalg.matrix_vector(tmp, u, e)
-
-        markers[ip, 0:3] = markers[ip, 9:12] - e*dt
-
-
-def push_gc_cc_J2_dg_faster_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
-                                  pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                  starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                                  kind_map: int, params_map: 'float[:]',
-                                  p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                  ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                  cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                  kappa: float,
-                                  b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                  norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                  norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                  curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                  u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]'):
-    r'''DRAFT
-    '''
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # containers for fields
-    tmp = empty((3, 3), dtype=float)
-    e = empty(3, dtype=float)
-    u = empty(3, dtype=float)
-
-    # marker position eta
-    eta = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        eta[:] = markers[ip, 0:3]
-
-        # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta[0])
-        span2 = bsp.find_span(tn2, pn[1], eta[1])
-        span3 = bsp.find_span(tn3, pn[2], eta[2])
-
-        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # u; 1form
-        u[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u1, starts1[0])
-        u[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u2, starts1[1])
-        u[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u3, starts1[2])
-
-        tmp[:, :] = ((markers[ip, 18], markers[ip, 19], markers[ip, 20]),
-                     (markers[ip, 19], markers[ip, 21], markers[ip, 22]),
-                     (markers[ip, 20], markers[ip, 22], markers[ip, 23]))
-
-        linalg.matrix_vector(tmp, u, e)
-
-        markers[ip, 0:3] = markers[ip, 9:12] - e*dt
-
-
-def push_gc_cc_J2_dg_faster_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
-                                 pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                 starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                                 kind_map: int, params_map: 'float[:]',
-                                 p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                 ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                 cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                 kappa: float,
-                                 b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                 norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                 norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                 curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                 u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]'):
-    r'''DRAFT
-    '''
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # containers for fields
-    tmp = empty((3, 3), dtype=float)
-    e = empty(3, dtype=float)
-    u = empty(3, dtype=float)
-
-    # marker position eta
-    eta = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        eta[:] = markers[ip, 0:3]
-
-        # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta[0])
-        span2 = bsp.find_span(tn2, pn[1], eta[1])
-        span3 = bsp.find_span(tn3, pn[2], eta[2])
-
-        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # u; 2form
-        u[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u1, starts2[0])
-        u[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u2, starts2[1])
-        u[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u3, starts2[2])
-
-        tmp[:, :] = ((markers[ip, 18], markers[ip, 19], markers[ip, 20]),
-                     (markers[ip, 19], markers[ip, 21], markers[ip, 22]),
-                     (markers[ip, 20], markers[ip, 22], markers[ip, 23]))
-
-        linalg.matrix_vector(tmp, u, e)
-
-        markers[ip, 0:3] = markers[ip, 9:12] - e*dt
+# def push_gc_cc_J2_dg_prepare_H1vec(markers: 'float[:,:]', dt: float, stage: int,
+#                                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+#                                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+#                                    kind_map: int, params_map: 'float[:]',
+#                                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+#                                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+#                                    cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+#                                    epsilon: float,
+#                                    b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+#                                    norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+#                                    norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+#                                    curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+#                                    u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]'):
+#     r'''DRAFT
+#     '''
+
+#     # allocate metric coeffs
+#     dfm = empty((3, 3), dtype=float)
+#     df_inv = empty((3, 3), dtype=float)
+#     df_inv_t = empty((3, 3), dtype=float)
+#     g_inv = empty((3, 3), dtype=float)
+
+#     # allocate spline values
+#     bn1 = empty(pn[0] + 1, dtype=float)
+#     bn2 = empty(pn[1] + 1, dtype=float)
+#     bn3 = empty(pn[2] + 1, dtype=float)
+
+#     bd1 = empty(pn[0], dtype=float)
+#     bd2 = empty(pn[1], dtype=float)
+#     bd3 = empty(pn[2], dtype=float)
+
+#     # containers for fields
+#     tmp1 = empty((3, 3), dtype=float)
+#     tmp2 = empty((3, 3), dtype=float)
+#     b_prod = zeros((3, 3), dtype=float)
+#     norm_b2_prod = zeros((3, 3), dtype=float)
+#     e = empty(3, dtype=float)
+#     u = empty(3, dtype=float)
+#     b = empty(3, dtype=float)
+#     b_star = empty(3, dtype=float)
+#     norm_b1 = empty(3, dtype=float)
+#     norm_b2 = empty(3, dtype=float)
+#     curl_norm_b = empty(3, dtype=float)
+
+#     # marker position eta
+#     eta = empty(3, dtype=float)
+
+#     # get number of markers
+#     n_markers = shape(markers)[0]
+
+#     for ip in range(n_markers):
+
+#         # only do something if particle is a "true" particle (i.e. not a hole)
+#         if markers[ip, 0] == -1.:
+#             continue
+
+#         eta[:] = markers[ip, 0:3]
+#         v = markers[ip, 3]
+
+#         # evaluate Jacobian, result in dfm
+#         map_eval.df(eta[0], eta[1], eta[2],
+#                     kind_map, params_map,
+#                     t1_map, t2_map, t3_map, p_map,
+#                     ind1_map, ind2_map, ind3_map,
+#                     cx, cy, cz,
+#                     dfm)
+
+#         # metric coeffs
+#         det_df = linalg.det(dfm)
+#         linalg.matrix_inv_with_det(dfm, det_df, df_inv)
+#         linalg.transpose(df_inv, df_inv_t)
+#         linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
+
+#         # spline evaluation
+#         span1 = bsp.find_span(tn1, pn[0], eta[0])
+#         span2 = bsp.find_span(tn2, pn[1], eta[1])
+#         span3 = bsp.find_span(tn3, pn[2], eta[2])
+
+#         bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+#         bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+#         bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+
+#         # eval all the needed field
+#         # b; 2form
+#         b[0] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
+#         b[1] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
+#         b[2] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
+
+#         # u; 0form
+#         u[0] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u1, starts0)
+#         u[1] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u2, starts0)
+#         u[2] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u3, starts0)
+
+#         # norm_b1; 1form
+#         norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
+#         norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
+#         norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+
+#         # norm_b; 2form
+#         norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
+#         norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
+#         norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
+
+#         # curl_norm_b; 2form
+#         curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
+#         curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
+#         curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
+
+#         # operator bx() as matrix
+#         b_prod[0, 1] = -b[2]
+#         b_prod[0, 2] = +b[1]
+#         b_prod[1, 0] = +b[2]
+#         b_prod[1, 2] = -b[0]
+#         b_prod[2, 0] = -b[1]
+#         b_prod[2, 1] = +b[0]
+
+#         norm_b2_prod[0, 1] = -norm_b2[2]
+#         norm_b2_prod[0, 2] = +norm_b2[1]
+#         norm_b2_prod[1, 0] = +norm_b2[2]
+#         norm_b2_prod[1, 2] = -norm_b2[0]
+#         norm_b2_prod[2, 0] = -norm_b2[1]
+#         norm_b2_prod[2, 1] = +norm_b2[0]
+
+#         # b_star; 2form in H1vec
+#         b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
+
+#         # calculate abs_b_star_para
+#         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
+
+#         linalg.matrix_matrix(g_inv, norm_b2_prod, tmp1)
+#         linalg.matrix_matrix(tmp1, g_inv, tmp2)
+#         linalg.matrix_matrix(tmp2, b_prod, tmp1)
+
+#         linalg.matrix_vector(tmp1, u, e)
+
+#         markers[ip, 0:3] = markers[ip, 9:12] - e/abs_b_star_para*dt
+
+
+# def push_gc_cc_J2_dg_H1vec(markers: 'float[:,:]', dt: float, stage: int,
+#                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+#                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+#                            kind_map: int, params_map: 'float[:]',
+#                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+#                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+#                            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+#                            epsilon: float,
+#                            b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+#                            norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+#                            norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+#                            curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+#                            u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]'):
+#     r'''DRAFT
+#     '''
+
+#     # allocate metric coeffs
+#     dfm = empty((3, 3), dtype=float)
+#     df_inv = empty((3, 3), dtype=float)
+#     df_inv_t = empty((3, 3), dtype=float)
+#     g_inv = empty((3, 3), dtype=float)
+
+#     # allocate spline values
+#     bn1 = empty(pn[0] + 1, dtype=float)
+#     bn2 = empty(pn[1] + 1, dtype=float)
+#     bn3 = empty(pn[2] + 1, dtype=float)
+
+#     bd1 = empty(pn[0], dtype=float)
+#     bd2 = empty(pn[1], dtype=float)
+#     bd3 = empty(pn[2], dtype=float)
+
+#     # containers for fields
+#     tmp1 = empty((3, 3), dtype=float)
+#     tmp2 = empty((3, 3), dtype=float)
+#     b_prod = zeros((3, 3), dtype=float)
+#     norm_b2_prod = zeros((3, 3), dtype=float)
+#     e = empty(3, dtype=float)
+#     u = empty(3, dtype=float)
+#     b = empty(3, dtype=float)
+#     b_star = empty(3, dtype=float)
+#     norm_b1 = empty(3, dtype=float)
+#     norm_b2 = empty(3, dtype=float)
+#     curl_norm_b = empty(3, dtype=float)
+
+#     # marker position eta
+#     eta = empty(3, dtype=float)
+
+#     # get number of markers
+#     n_markers = shape(markers)[0]
+
+#     for ip in range(n_markers):
+
+#         # only do something if particle is a "true" particle (i.e. not a hole)
+#         if markers[ip, 0] == -1.:
+#             continue
+
+#         eta[:] = markers[ip, 0:3]
+#         v = markers[ip, 3]
+
+#         # evaluate Jacobian, result in dfm
+#         map_eval.df(eta[0], eta[1], eta[2],
+#                     kind_map, params_map,
+#                     t1_map, t2_map, t3_map, p_map,
+#                     ind1_map, ind2_map, ind3_map,
+#                     cx, cy, cz,
+#                     dfm)
+
+#         # metric coeffs
+#         det_df = linalg.det(dfm)
+#         linalg.matrix_inv_with_det(dfm, det_df, df_inv)
+#         linalg.transpose(df_inv, df_inv_t)
+#         linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
+
+#         # spline evaluation
+#         span1 = bsp.find_span(tn1, pn[0], eta[0])
+#         span2 = bsp.find_span(tn2, pn[1], eta[1])
+#         span3 = bsp.find_span(tn3, pn[2], eta[2])
+
+#         bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+#         bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+#         bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+
+#         # eval all the needed field
+#         # b; 2form
+#         b[0] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
+#         b[1] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
+#         b[2] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
+
+#         # u; 0form
+#         u[0] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u1, starts0)
+#         u[1] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u2, starts0)
+#         u[2] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u3, starts0)
+
+#         # norm_b1; 1form
+#         norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
+#         norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
+#         norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+
+#         # norm_b; 2form
+#         norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
+#         norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
+#         norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
+
+#         # curl_norm_b; 2form
+#         curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
+#         curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
+#         curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
+
+#         # operator bx() as matrix
+#         b_prod[0, 1] = -b[2]
+#         b_prod[0, 2] = +b[1]
+#         b_prod[1, 0] = +b[2]
+#         b_prod[1, 2] = -b[0]
+#         b_prod[2, 0] = -b[1]
+#         b_prod[2, 1] = +b[0]
+
+#         norm_b2_prod[0, 1] = -norm_b2[2]
+#         norm_b2_prod[0, 2] = +norm_b2[1]
+#         norm_b2_prod[1, 0] = +norm_b2[2]
+#         norm_b2_prod[1, 2] = -norm_b2[0]
+#         norm_b2_prod[2, 0] = -norm_b2[1]
+#         norm_b2_prod[2, 1] = +norm_b2[0]
+
+#         # b_star; 2form in H1vec
+#         b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
+
+#         # calculate abs_b_star_para
+#         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
+
+#         linalg.matrix_matrix(g_inv, norm_b2_prod, tmp1)
+#         linalg.matrix_matrix(tmp1, g_inv, tmp2)
+#         linalg.matrix_matrix(tmp2, b_prod, tmp1)
+
+#         linalg.matrix_vector(tmp1, u, e)
+
+#         markers[ip, 0:3] = markers[ip, 9:12] - e/abs_b_star_para*dt
+
+
+# def push_gc_cc_J2_dg_faster_H1vec(markers: 'float[:,:]', dt: float, stage: int,
+#                                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+#                                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+#                                   kind_map: int, params_map: 'float[:]',
+#                                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+#                                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+#                                   cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+#                                   epsilon: float,
+#                                   b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+#                                   norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+#                                   norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+#                                   curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+#                                   u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]'):
+#     r'''DRAFT
+#     '''
+#     # allocate spline values
+#     bn1 = empty(pn[0] + 1, dtype=float)
+#     bn2 = empty(pn[1] + 1, dtype=float)
+#     bn3 = empty(pn[2] + 1, dtype=float)
+
+#     bd1 = empty(pn[0], dtype=float)
+#     bd2 = empty(pn[1], dtype=float)
+#     bd3 = empty(pn[2], dtype=float)
+
+#     # containers for fields
+#     tmp = empty((3, 3), dtype=float)
+#     e = empty(3, dtype=float)
+#     u = empty(3, dtype=float)
+
+#     # marker position eta
+#     eta = empty(3, dtype=float)
+
+#     # get number of markers
+#     n_markers = shape(markers)[0]
+
+#     for ip in range(n_markers):
+
+#         # only do something if particle is a "true" particle (i.e. not a hole)
+#         if markers[ip, 0] == -1.:
+#             continue
+
+#         eta[:] = markers[ip, 0:3]
+
+#         # spline evaluation
+#         span1 = bsp.find_span(tn1, pn[0], eta[0])
+#         span2 = bsp.find_span(tn2, pn[1], eta[1])
+#         span3 = bsp.find_span(tn3, pn[2], eta[2])
+
+#         bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+#         bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+#         bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+
+#         # eval all the needed field
+#         # u; 0form
+#         u[0] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u1, starts0)
+#         u[1] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u2, starts0)
+#         u[2] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u3, starts0)
+
+#         tmp[:, :] = ((markers[ip, 18], markers[ip, 19], markers[ip, 20]),
+#                      (markers[ip, 19], markers[ip, 21], markers[ip, 22]),
+#                      (markers[ip, 20], markers[ip, 22], markers[ip, 23]))
+
+#         linalg.matrix_vector(tmp, u, e)
+
+#         markers[ip, 0:3] = markers[ip, 9:12] - e*dt
+
+
+# def push_gc_cc_J2_dg_faster_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
+#                                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+#                                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+#                                   kind_map: int, params_map: 'float[:]',
+#                                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+#                                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+#                                   cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+#                                   epsilon: float,
+#                                   b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+#                                   norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+#                                   norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+#                                   curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+#                                   u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]'):
+#     r'''DRAFT
+#     '''
+#     # allocate spline values
+#     bn1 = empty(pn[0] + 1, dtype=float)
+#     bn2 = empty(pn[1] + 1, dtype=float)
+#     bn3 = empty(pn[2] + 1, dtype=float)
+
+#     bd1 = empty(pn[0], dtype=float)
+#     bd2 = empty(pn[1], dtype=float)
+#     bd3 = empty(pn[2], dtype=float)
+
+#     # containers for fields
+#     tmp = empty((3, 3), dtype=float)
+#     e = empty(3, dtype=float)
+#     u = empty(3, dtype=float)
+
+#     # marker position eta
+#     eta = empty(3, dtype=float)
+
+#     # get number of markers
+#     n_markers = shape(markers)[0]
+
+#     for ip in range(n_markers):
+
+#         # only do something if particle is a "true" particle (i.e. not a hole)
+#         if markers[ip, 0] == -1.:
+#             continue
+
+#         eta[:] = markers[ip, 0:3]
+
+#         # spline evaluation
+#         span1 = bsp.find_span(tn1, pn[0], eta[0])
+#         span2 = bsp.find_span(tn2, pn[1], eta[1])
+#         span3 = bsp.find_span(tn3, pn[2], eta[2])
+
+#         bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+#         bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+#         bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+
+#         # eval all the needed field
+#         # u; 1form
+#         u[0] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u1, starts1[0])
+#         u[1] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u2, starts1[1])
+#         u[2] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u3, starts1[2])
+
+#         tmp[:, :] = ((markers[ip, 18], markers[ip, 19], markers[ip, 20]),
+#                      (markers[ip, 19], markers[ip, 21], markers[ip, 22]),
+#                      (markers[ip, 20], markers[ip, 22], markers[ip, 23]))
+
+#         linalg.matrix_vector(tmp, u, e)
+
+#         markers[ip, 0:3] = markers[ip, 9:12] - e*dt
+
+
+# def push_gc_cc_J2_dg_faster_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
+#                                  pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+#                                  starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+#                                  kind_map: int, params_map: 'float[:]',
+#                                  p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+#                                  ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+#                                  cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+#                                  epsilon: float,
+#                                  b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+#                                  norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+#                                  norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+#                                  curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+#                                  u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]'):
+#     r'''DRAFT
+#     '''
+#     # allocate spline values
+#     bn1 = empty(pn[0] + 1, dtype=float)
+#     bn2 = empty(pn[1] + 1, dtype=float)
+#     bn3 = empty(pn[2] + 1, dtype=float)
+
+#     bd1 = empty(pn[0], dtype=float)
+#     bd2 = empty(pn[1], dtype=float)
+#     bd3 = empty(pn[2], dtype=float)
+
+#     # containers for fields
+#     tmp = empty((3, 3), dtype=float)
+#     e = empty(3, dtype=float)
+#     u = empty(3, dtype=float)
+
+#     # marker position eta
+#     eta = empty(3, dtype=float)
+
+#     # get number of markers
+#     n_markers = shape(markers)[0]
+
+#     for ip in range(n_markers):
+
+#         # only do something if particle is a "true" particle (i.e. not a hole)
+#         if markers[ip, 0] == -1.:
+#             continue
+
+#         eta[:] = markers[ip, 0:3]
+
+#         # spline evaluation
+#         span1 = bsp.find_span(tn1, pn[0], eta[0])
+#         span2 = bsp.find_span(tn2, pn[1], eta[1])
+#         span3 = bsp.find_span(tn3, pn[2], eta[2])
+
+#         bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+#         bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+#         bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+
+#         # eval all the needed field
+#         # u; 2form
+#         u[0] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u1, starts2[0])
+#         u[1] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u2, starts2[1])
+#         u[2] = eval_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u3, starts2[2])
+
+#         tmp[:, :] = ((markers[ip, 18], markers[ip, 19], markers[ip, 20]),
+#                      (markers[ip, 19], markers[ip, 21], markers[ip, 22]),
+#                      (markers[ip, 20], markers[ip, 22], markers[ip, 23]))
+
+#         linalg.matrix_vector(tmp, u, e)
+
+#         markers[ip, 0:3] = markers[ip, 9:12] - e*dt

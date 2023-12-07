@@ -1774,6 +1774,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                           'particles': Particles5D,
                           'u_space': 'Hdiv',
                           'unit_b1': None,
+                          'curl_unit_b2': None,
                           'f0': Maxwellian5DUniform(),
                           'type': ('pbicgstab', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
@@ -1796,16 +1797,9 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                 self.derham.space_to_form[params['u_space']])
 
         self._f0 = params['f0']
-
-        assert isinstance(params['b'], (BlockVector, PolarVector))
         self._b = params['b']
-
-        assert isinstance(params['unit_b1'], (BlockVector, PolarVector))
         self._unit_b1 = params['unit_b1']
-
-        assert params['u_space'] in {'Hcurl', 'Hdiv', 'H1vec'}
-
-        self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
+        self._curl_norm_b = params['curl_unit_b2']
         self._curl_norm_b.update_ghost_regions()
         self._bc = self.derham.dirichlet_bc
         self._info = params['info']
@@ -1826,6 +1820,8 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             id_S, id_U, id_K, id_Q = 'S2', None, 'K3', 'Q2'
         elif params['u_space'] == 'H1vec':
             id_S, id_U, id_K, id_Q = 'Sv', 'Uv', 'K3', 'Qv'
+
+        self._E2T = self.derham.extraction_ops['2'].transpose()
 
         _A = getattr(self.mass_ops, id_Mn)
         _S = getattr(self.basis_ops, id_S)
@@ -1865,8 +1861,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._u_tmp2 = u.space.zeros()
         self._p_tmp1 = p.space.zeros()
         self._n_tmp1 = n.space.zeros()
-        self._b_tmp1 = self._b.space.zeros()
-
+        self._b_tmp = self._E2T.codomain.zeros()
         self._byn1 = self._B.codomain.zeros()
         self._byn2 = self._B.codomain.zeros()
 
@@ -1877,9 +1872,11 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         un = self.feec_vars[1]
         pn = self.feec_vars[2]
 
+        Eb = self._E2T.dot(self._b, out=self._b_tmp)
+
         # accumulate
         self._ACC.accumulate(self._particles,
-                             self._b[0]._data, self._b[1]._data, self._b[2]._data,
+                             Eb[0]._data, Eb[1]._data, Eb[2]._data,
                              self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
                              self._space_key_int, self._coupling_const)
 
@@ -1944,6 +1941,10 @@ class CurrentCoupling5DDensity(Propagator):
                           'u_space': 'Hdiv',
                           'b_eq': None,
                           'b_tilde': None,
+                          'unit_b1': None,
+                          'abs_b': None,
+                          'gradB1': None,
+                          'curl_unit_b2': None,
                           'f0': Maxwellian5DUniform(),
                           'type': 'pbicgstab',
                           'pc': 'MassMatrixPreconditioner',
@@ -1953,7 +1954,7 @@ class CurrentCoupling5DDensity(Propagator):
                           'verbose': False,
                           'Ab': 1,
                           'Ah': 1,
-                          'kappa': 1.}
+                          'epsilon': 1.}
 
         params = set_defaults(params, params_default)
 
@@ -1967,14 +1968,14 @@ class CurrentCoupling5DDensity(Propagator):
             self._space_key_int = int(
                 self.derham.space_to_form[params['u_space']])
 
-        assert isinstance(params['b_eq'], (BlockVector, PolarVector))
-
-        if params['b_tilde'] is not None:
-            assert isinstance(params['b_tilde'], (BlockVector, PolarVector))
-
         self._particles = params['particles']
         self._b_eq = params['b_eq']
         self._b_tilde = params['b_tilde']
+        self._unit_b1 = params['unit_b1']
+        self._abs_b = params['abs_b']
+        self._grad_abs_b = params['gradB1']
+        self._curl_norm_b = params['curl_unit_b2']
+        self._epsilon = params['epsilon']
         self._f0 = params['f0']
 
         self._type = params['type'][0]
@@ -1984,17 +1985,20 @@ class CurrentCoupling5DDensity(Propagator):
         self._verbose = params['verbose']
         self._rank = self.derham.comm.Get_rank()
 
-        self._coupling_const = params['Ah'] * params['kappa'] / params['Ab']
-        # load accumulator
+        self._coupling_const = params['Ah'] / params['Ab']
         self._accumulator = Accumulator(
             self.derham, self.domain, params['u_space'], 'cc_lin_mhd_5d_D', add_vector=False, symmetry='asym')
 
-        # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        self._E2T = self.derham.extraction_ops['2'].transpose()
-
-        # mass matrix in system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
         u_id = self.derham.space_to_form[params['u_space']]
         self._M = getattr(self.mass_ops, 'M' + u_id + 'n')
+
+        self._E0T = self.derham.extraction_ops['0'].transpose()
+        self._EuT = self.derham.extraction_ops[u_id].transpose()
+        self._E1T = self.derham.extraction_ops['1'].transpose()
+        self._E2T = self.derham.extraction_ops['2'].transpose()
+
+        self._PB = getattr(self.basis_ops, 'PB')
+        self._unit_b1 = self._E1T.dot(self._unit_b1)
 
         # preconditioner
         if params['type'][1] is None:
@@ -2006,7 +2010,7 @@ class CurrentCoupling5DDensity(Propagator):
         # linear solver
         self._solver = inverse(self._M, 
                                params['type'][0],
-                               self._pc,
+                               pc=self._pc,
                                x0=self.feec_vars[0], 
                                tol=self._tol,
                                maxiter=self._maxiter, 
@@ -2015,7 +2019,8 @@ class CurrentCoupling5DDensity(Propagator):
         # temporary vectors to avoid memory allocation
         self._b_full1 = self._b_eq.space.zeros()
         self._b_full2 = self._E2T.codomain.zeros()
-
+        self._tmp1 = self._abs_b.space.zeros()
+        self._tmp2 = self._E0T.codomain.zeros()
         self._rhs_v = u.space.zeros()
         self._u_new = u.space.zeros()
 
@@ -2031,19 +2036,25 @@ class CurrentCoupling5DDensity(Propagator):
         un = self.feec_vars[0]
 
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
-        self._b_eq.copy(out=self._b_full1)
+        b_full = self._b_eq.copy(out=self._b_full1)
 
         if self._b_tilde is not None:
-            self._b_full1 += self._b_tilde
+            b_full += self._b_tilde
 
-        # extract coefficients to tensor product space (in-place)
-        self._E2T.dot(self._b_full1, out=self._b_full2)
+        PBb = self._PB.dot(self._b_tilde, out=self._tmp1)
+        PBb += self._abs_b
 
-        # update ghost regions because of non-local access in accumulation kernel!
-        self._b_full2.update_ghost_regions()
+        Eb_full = self._E2T.dot(b_full, out=self._b_full2)
+        Eb_full.update_ghost_regions()
 
-        self._accumulator.accumulate(self._particles,
-                                     self._b_full2[0]._data, self._b_full2[1]._data, self._b_full2[2]._data,
+        EPBb = self._E0T.dot(PBb, out=self._tmp2)
+        EPBb.update_ghost_regions()
+
+        self._accumulator.accumulate(self._particles, self._epsilon,
+                                     EPBb._data,
+                                     Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
+                                     self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                     self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
                                      self._space_key_int, self._coupling_const)
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n

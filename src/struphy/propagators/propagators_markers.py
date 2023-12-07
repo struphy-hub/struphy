@@ -493,6 +493,8 @@ class PushGuidingCenterbxEstar(Propagator):
                           'unit_b1': None,
                           'unit_b2': None,
                           'abs_b': None,
+                          'gradB1': None,
+                          'curl_unit_b2': None,
                           'method': 'discrete_gradient',
                           'maxiter': 20,
                           'tol': 1e-07,
@@ -504,14 +506,13 @@ class PushGuidingCenterbxEstar(Propagator):
 
         self._mpi_sort = params['mpi_sort']
         self._verbose = params['verbose']
-        kappa = 1/params['epsilon']
+        epsilon = params['epsilon']
         b_eq = params['b_eq']
         unit_b1 = params['unit_b1']
         unit_b2 = params['unit_b2']
         abs_b = params['abs_b']
-
-        curl_norm_b = self.derham.curl.dot(unit_b1)
-        grad_abs_b = self.derham.grad.dot(abs_b)
+        grad_abs_b = params['gradB1']
+        curl_norm_b = params['curl_unit_b2']
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         E0T = self.derham.extraction_ops['0'].transpose()
@@ -585,7 +586,7 @@ class PushGuidingCenterbxEstar(Propagator):
                                   'push_gc_bxEstar_explicit_multistage',
                                   n_stages=butcher.n_stages)
 
-            self._pusher_inputs = (kappa, b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
+            self._pusher_inputs = (epsilon, b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
                                    unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
                                    unit_b2[0]._data, unit_b2[1]._data, unit_b2[2]._data,
                                    curl_norm_b[0]._data, curl_norm_b[1]._data, curl_norm_b[2]._data,
@@ -600,7 +601,7 @@ class PushGuidingCenterbxEstar(Propagator):
                                   maxiter=params['maxiter'],
                                   tol=params['tol'])
 
-            self._pusher_inputs = (kappa, abs_b._data,
+            self._pusher_inputs = (epsilon, abs_b._data,
                                    b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
                                    unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
                                    unit_b2[0]._data, unit_b2[1]._data, unit_b2[2]._data,
@@ -690,6 +691,8 @@ class PushGuidingCenterBstar(Propagator):
                           'unit_b1': None,
                           'unit_b2': None,
                           'abs_b': None,
+                          'gradB1': None,
+                          'curl_unit_b2': None,
                           'method': 'discrete_gradient_faster',
                           'maxiter': 20,
                           'tol': 1e-07,
@@ -701,14 +704,13 @@ class PushGuidingCenterBstar(Propagator):
 
         self._mpi_sort = params['mpi_sort']
         self._verbose = params['verbose']
-        kappa = 1/params['epsilon']
+        epsilon = params['epsilon']
         b_eq = params['b_eq']
         unit_b1 = params['unit_b1']
         unit_b2 = params['unit_b2']
         abs_b = params['abs_b']
-
-        curl_norm_b = self.derham.curl.dot(unit_b1)
-        grad_abs_b = self.derham.grad.dot(abs_b)
+        grad_abs_b = params['gradB1']
+        curl_norm_b = params['curl_unit_b2']
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         E0T = self.derham.extraction_ops['0'].transpose()
@@ -783,7 +785,7 @@ class PushGuidingCenterBstar(Propagator):
                                   'push_gc_Bstar_explicit_multistage',
                                   n_stages=butcher.n_stages)
 
-            self._pusher_inputs = (kappa, b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
+            self._pusher_inputs = (epsilon, b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
                                    unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
                                    unit_b2[0]._data, unit_b2[1]._data, unit_b2[2]._data,
                                    curl_norm_b[0]._data, curl_norm_b[1]._data, curl_norm_b[2]._data,
@@ -798,7 +800,7 @@ class PushGuidingCenterBstar(Propagator):
                                   maxiter=params['maxiter'],
                                   tol=params['tol'])
 
-            self._pusher_inputs = (kappa, abs_b._data,
+            self._pusher_inputs = (epsilon, abs_b._data,
                                    b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
                                    unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
                                    unit_b2[0]._data, unit_b2[1]._data, unit_b2[2]._data,
@@ -1028,6 +1030,8 @@ class PushDriftKineticbxGradB(Propagator):
                           'unit_b1': None,
                           'unit_b2': None,
                           'abs_b': None,
+                          'gradB1': None,
+                          'curl_unit_b2': None,
                           'method': 'discrete_gradient',
                           'maxiter': 20,
                           'tol': 1e-07,
@@ -1039,31 +1043,31 @@ class PushDriftKineticbxGradB(Propagator):
 
         self._mpi_sort = params['mpi_sort']
         self._verbose = params['verbose']
-        self._kappa = 1/params['epsilon']
+        self._epsilon = params['epsilon']
         self._b = params['b']
         self._b_eq = params['b_eq']
         self._unit_b1 = params['unit_b1']
         self._unit_b2 = params['unit_b2']
         self._abs_b = params['abs_b']
+        self._grad_abs_b = params['gradB1']
+        self._curl_norm_b = params['curl_unit_b2']
         self._maxiter = params['maxiter']
         self._tol = params['tol']
 
-        self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
-
-        # sum up total magnetic field
-        self._b_full = self._b_eq.copy()
+        self._b_full = self._b_eq.space.zeros()
 
         # define gradient of absolute value of parallel magnetic field
         self._PB = getattr(self.basis_ops, 'PB')
-        self._PBb = self._PB.dot(self._b_full)
+        self._PBb = self._PB.dot(self._b)
         self._grad_PBb = self.derham.grad.dot(self._PBb)
+        self._PBb += self._abs_b
+        self._grad_PBb += self._grad_abs_b
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         self._E0T = self.derham.extraction_ops['0'].transpose()
         self._E1T = self.derham.extraction_ops['1'].transpose()
         self._E2T = self.derham.extraction_ops['2'].transpose()
 
-        self._b_eq = self._E2T.dot(self._b_eq)
         self._unit_b1 = self._E1T.dot(self._unit_b1)
         self._unit_b2 = self._E2T.dot(self._unit_b2)
         self._curl_norm_b = self._E2T.dot(self._curl_norm_b)
@@ -1145,8 +1149,10 @@ class PushDriftKineticbxGradB(Propagator):
             self._b_full += self._b
 
         # define gradient of absolute value of parallel magnetic field
-        self._PBb = self._PB.dot(self._b_full)
+        self._PBb = self._PB.dot(self._b)
         self._grad_PBb = self.derham.grad.dot(self._PBb)
+        self._PBb += self._abs_b
+        self._grad_PBb += self._grad_abs_b
 
         self._b_full = self._E2T.dot(self._b_full)
         self._PBb = self._E0T.dot(self._PBb)
@@ -1157,7 +1163,7 @@ class PushDriftKineticbxGradB(Propagator):
         self._grad_PBb.update_ghost_regions()
 
         if self._method == 'explicit':
-            self._pusher_inputs = (self._kappa,
+            self._pusher_inputs = (self._epsilon,
                                    self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
@@ -1165,7 +1171,7 @@ class PushDriftKineticbxGradB(Propagator):
                                    self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data,
                                    self._butcher.a, self._butcher.b, self._butcher.c)
         else:
-            self._pusher_inputs = (self._kappa, self._PBb._data,
+            self._pusher_inputs = (self._epsilon, self._PBb._data,
                                    self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
@@ -1249,6 +1255,8 @@ class PushDriftKineticBstar(Propagator):
                           'unit_b1': None,
                           'unit_b2': None,
                           'abs_b': None,
+                          'gradB1': None,
+                          'curl_unit_b2': None,
                           'method': 'discrete_gradient',
                           'maxiter': 20,
                           'tol': 1e-07,
@@ -1260,25 +1268,25 @@ class PushDriftKineticBstar(Propagator):
 
         self._mpi_sort = params['mpi_sort']
         self._verbose = params['verbose']
-        self._kappa = 1/params['epsilon']
+        self._epsilon = params['epsilon']
         self._b = params['b']
         self._b_eq = params['b_eq']
         self._unit_b1 = params['unit_b1']
         self._unit_b2 = params['unit_b2']
         self._abs_b = params['abs_b']
+        self._grad_abs_b = params['gradB1']
+        self._curl_norm_b = params['curl_unit_b2']
         self._maxiter = params['maxiter']
         self._tol = params['tol']
 
-        self._curl_norm_b = self.derham.curl.dot(self._unit_b1)
-
-        # sum up total magnetic field
-        self._b_full = self._b_eq.copy()
+        self._b_full = self._b_eq.space.zeros()
 
         # define gradient of absolute value of parallel magnetic field
         self._PB = getattr(self.basis_ops, 'PB')
-        self._PBb = self._PB.dot(self._b_full)
-
+        self._PBb = self._PB.dot(self._b)
         self._grad_PBb = self.derham.grad.dot(self._PBb)
+        self._PBb += self._abs_b
+        self._grad_PBb += self._grad_abs_b
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         self._E0T = self.derham.extraction_ops['0'].transpose()
@@ -1367,8 +1375,10 @@ class PushDriftKineticBstar(Propagator):
             self._b_full += self._b
 
         # define gradient of absolute value of parallel magnetic field
-        self._PBb = self._PB.dot(self._b_full)
+        self._PBb = self._PB.dot(self._b)
         self._grad_PBb = self.derham.grad.dot(self._PBb)
+        self._PBb += self._abs_b
+        self._grad_PBb += self._grad_abs_b
 
         self._b_full = self._E2T.dot(self._b_full)
         self._PBb = self._E0T.dot(self._PBb)
@@ -1379,7 +1389,7 @@ class PushDriftKineticBstar(Propagator):
         self._grad_PBb.update_ghost_regions()
 
         if self._method == 'explicit':
-            self._pusher_inputs = (self._kappa,
+            self._pusher_inputs = (self._epsilon,
                                    self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
@@ -1387,7 +1397,7 @@ class PushDriftKineticBstar(Propagator):
                                    self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data,
                                    self._butcher.a, self._butcher.b, self._butcher.c)
         else:
-            self._pusher_inputs = (self._kappa, self._PBb._data,
+            self._pusher_inputs = (self._epsilon, self._PBb._data,
                                    self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
