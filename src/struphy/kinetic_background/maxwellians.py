@@ -66,6 +66,12 @@ class Maxwellian6DUniform(Maxwellian):
         """Dimension of the velocity space.
         """
         return 3
+    
+    @property
+    def is_polar(self):
+        """List of booleans. True if the velocity coordinates are polar coordinates.
+        """
+        return [False, False, False]
 
     def n(self, eta1, eta2, eta3):
         """ Number density (0-form). 
@@ -222,6 +228,12 @@ class Maxwellian6DPerturbed(Maxwellian):
         """Dimension of the velocity space.
         """
         return 3
+
+    @property
+    def is_polar(self):
+        """List of booleans. True if the velocity coordinates are polar coordinates.
+        """
+        return [False, False, False]
 
     def modes_sin(self, eta1, eta2, eta3, l, m, n, amps):
         """
@@ -488,6 +500,12 @@ class Maxwellian6DITPA(Maxwellian):
         """
         return 3
 
+    @property
+    def is_polar(self):
+        """List of booleans. True if the velocity coordinates are polar coordinates.
+        """
+        return [False, False, False]
+
     def n(self, eta1, eta2, eta3):
         """ Number density (0-form). 
 
@@ -609,6 +627,12 @@ class Maxwellian5DUniform(Maxwellian):
         """Dimension of the velocity space.
         """
         return 2
+    
+    @property
+    def is_polar(self):
+        """List of booleans. True if the velocity coordinates are polar coordinates.
+        """
+        return [False, True]
 
     def n(self, eta1, eta2, eta3):
         """ Number density (0-form). 
@@ -661,5 +685,147 @@ class Maxwellian5DUniform(Maxwellian):
 
         res_list += [self.params['u_parallel'] - 0*eta1]
         res_list += [self.params['u_perp'] - 0*eta1]
+
+        return np.array(res_list)
+
+
+class Maxwellian5DITPA(Maxwellian):
+    r"""
+    5d Maxwellian distribution function defined on :math:`[0, 1]^3 \times \mathbb R^3`, 
+    with logical position and Cartesian velocity coordinates, with isotropic, shifted distribution in velocity space and 1d density variation in first direction.
+
+    .. math::
+
+        f(\eta_1, v_\parallel) &= \,\frac{n(\eta_1)}{\sqrt{2\pi}\,v_\mathrm{th}}\,\exp\left[-\frac{(v_\parallel-u_\parallel)^2}{2v_{\mathrm{th}}^2}\right]\,,
+        \\
+        f(\eta_1, v_\perp) &= \,\frac{n(\eta_1)}{v^2_\mathrm{th}} v_\perp \,\exp\left[-\frac{(v_\perp-u_\perp)^2}{2v_{\mathrm{th}}^2}\right]\,,
+
+    with the density profile
+
+    .. math::
+
+        n(\eta_1) = c_3\exp\left[-\frac{c_2}{c_1}\tanh\left(\frac{\eta_1 - c_0}{c_2}\right)\right]\,.
+
+    Parameters
+    ----------
+    **params
+        Keyword arguments defining the moments of the 6d Maxwellian. For the density profile a dictionary of the form {'c0' : float, 'c1' : float, 'c2' : float, 'c3' : float} must be passed.
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``kinetic/<species>``::
+
+        init :
+            type : Maxwellian5DITPA
+            Maxwellian5DITPA :
+                n : 
+                    n0: 0.00720655
+                    c0: 0.49123
+                    c1: 0.298228
+                    c2: 0.198739
+                    c3: 0.521298
+                vth : 1.0
+
+    Can use ``background :`` instead of ``init :``.
+    """
+
+    def __init__(self, **params):
+
+        # set default ITPA default parameters if not given
+        if 'n' not in params.keys():
+            params['n'] = {}
+            params['n']['n0'] = 0.00720655
+            params['n']['c0'] = 0.491230
+            params['n']['c1'] = 0.298228
+            params['n']['c2'] = 0.198739
+            params['n']['c3'] = 0.521298
+
+        if 'vth' not in params.keys():
+            params['vth'] = 1.
+
+        self._params = params
+
+    @property
+    def params(self):
+        """Parameters dictionary defining the moments of the Maxwellian.
+        """
+        return self._params
+
+    @property
+    def vdim(self):
+        """Dimension of the velocity space.
+        """
+        return 2
+
+    @property
+    def is_polar(self):
+        """List of booleans. True if the velocity coordinates are polar coordinates.
+        """
+        return [False, True]
+
+    def n(self, eta1, eta2, eta3):
+        """ Number density (0-form). 
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : numpy.array
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+
+        Returns
+        -------
+        A numpy.array with the density evaluated at evaluation points (same shape as etas).
+        """
+
+        n0 = self.params['n']['n0']
+        c0 = self.params['n']['c0']
+        c1 = self.params['n']['c1']
+        c2 = self.params['n']['c2']
+        c3 = self.params['n']['c3']
+
+        if c2 == 0.:
+            res = n0*c3 - 0*eta1
+        else:
+            res = n0*c3*np.exp(-c2/c1*np.tanh((eta1 - c0)/c2))
+
+        return res
+
+    def vth(self, eta1, eta2, eta3):
+        """ Thermal velocities (0-forms).
+
+        Parameters
+        ----------
+        etas : numpy.arrays
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+
+        Returns
+        -------
+        A numpy.array with the thermal velocity evaluated at evaluation points (one dimension more than etas).
+        The additional dimension is in the first index.
+        """
+
+        res_list = []
+
+        res_list += [self.params['vth'] - 0*eta1]
+        res_list += [self.params['vth'] - 0*eta1]
+
+        return np.array(res_list)
+
+    def u(self, eta1, eta2, eta3):
+        """ Mean velocities (Cartesian components evaluated at x = F(eta)).
+
+        Parameters
+        ----------
+        eta1, eta2, eta3  : numpy.array
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+
+        Returns
+        -------
+        A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
+        The additional dimension is in the first index.
+        """
+        res_list = []
+
+        res_list += [0*eta1]
+        res_list += [0*eta1]
 
         return np.array(res_list)

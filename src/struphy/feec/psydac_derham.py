@@ -275,7 +275,7 @@ class Derham:
                 self._P[key] = PolarCommutingProjector(
                     self._P[key], self._dofs_extraction_ops[key], self._extraction_ops[key], self._boundary_ops[key])
 
-        # set discrete derivatives with boundary operators
+        # set discrete derivatives with polar linear operators
         if self.polar_ck == 1:
             self._grad = PolarLinearOperator(
                 self._Vh_pol['0'], self._Vh_pol['1'], self._grad, ck_blocks.grad_pol_to_ten, ck_blocks.grad_pol_to_pol, ck_blocks.grad_e3)
@@ -283,6 +283,11 @@ class Derham:
                 self._Vh_pol['1'], self._Vh_pol['2'], self._curl, ck_blocks.curl_pol_to_ten, ck_blocks.curl_pol_to_pol, ck_blocks.curl_e3)
             self._div = PolarLinearOperator(
                 self._Vh_pol['2'], self._Vh_pol['3'], self._div, ck_blocks.div_pol_to_ten, ck_blocks.div_pol_to_pol, ck_blocks.div_e3)
+
+        # set discrete derivatives with and without boundary operators
+        self._grad_bcfree = self._grad
+        self._curl_bcfree = self._curl
+        self._div_bcfree = self._div
 
         self._grad = self._boundary_ops['1'] @ self._grad @ self._boundary_ops['0'].T
         self._curl = self._boundary_ops['2'] @ self._curl @ self._boundary_ops['1'].T
@@ -488,6 +493,24 @@ class Derham:
         """ Polar sub-spaces, either PolarDerhamSpace (with polar splines) or Stencil-/BlockVectorSpace (same as self.Vh)
         """
         return self._Vh_pol
+
+    @property
+    def grad_bcfree(self):
+        """ Discrete gradient Vh0_pol (H1) -> Vh1_pol (Hcurl) w/o boundary operator.
+        """
+        return self._grad_bcfree
+
+    @property
+    def curl_bcfree(self):
+        """ Discrete curl Vh1_pol (Hcurl) -> Vh2_pol (Hdiv) w/o boundary operator.
+        """
+        return self._curl_bcfree
+
+    @property
+    def div_bcfree(self):
+        """ Discrete divergence Vh2_pol (Hdiv) -> Vh3_pol (L2) w/o boundary operator.
+        """
+        return self._div_bcfree
 
     @property
     def grad(self):

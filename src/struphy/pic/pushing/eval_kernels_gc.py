@@ -19,7 +19,7 @@ def init_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float,
                                       p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                       ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                       cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                      kappa: float,
+                                      epsilon: float,
                                       abs_b: 'float[:,:,:]',
                                       b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                       norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -148,7 +148,7 @@ def init_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float,
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
-        b_star[:] = b + 1/kappa*v*curl_norm_b
+        b_star[:] = b + epsilon*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -167,7 +167,7 @@ def init_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float,
         linalg.matrix_matrix(g_inv, temp1, temp2)
 
         # calculate S
-        S[:, :] = (1/kappa*temp2)/abs_b_star_para
+        S[:, :] = (epsilon*temp2)/abs_b_star_para
 
         # calculate S1 * grad I1
         linalg.matrix_vector(S, grad_abs_b, temp)
@@ -187,7 +187,7 @@ def init_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float,
                                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                     cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                    kappa: float,
+                                    epsilon: float,
                                     abs_b: 'float[:,:,:]',
                                     b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                     norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -297,7 +297,7 @@ def init_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float,
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
-        b_star[:] = b + 1/kappa*v*curl_norm_b
+        b_star[:] = b + epsilon*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -323,7 +323,7 @@ def init_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
                                              p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                              ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                              cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                             kappa: float,
+                                             epsilon: float,
                                              abs_b: 'float[:,:,:]',
                                              b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                              norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -449,7 +449,7 @@ def init_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
-        b_star[:] = b + 1/kappa*v*curl_norm_b
+        b_star[:] = b + epsilon*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -468,7 +468,7 @@ def init_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
         linalg.matrix_matrix(g_inv, temp1, temp2)
 
         # calculate S
-        S[:, :] = (1/kappa*temp2)/abs_b_star_para
+        S[:, :] = (epsilon*temp2)/abs_b_star_para
 
         # save at the markers
         markers[ip, 13:15] = S[0, 1:3]
@@ -493,7 +493,7 @@ def init_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
                                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                           kappa: float,
+                                           epsilon: float,
                                            abs_b: 'float[:,:,:]',
                                            b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                            norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -600,7 +600,7 @@ def init_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
-        b_star[:] = b + 1/kappa*v*curl_norm_b
+        b_star[:] = b + epsilon*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -630,7 +630,7 @@ def init_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
                                                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                                   cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                  kappa: float,
+                                                  epsilon: float,
                                                   abs_b: 'float[:,:,:]',
                                                   b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                                   norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -756,7 +756,7 @@ def init_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
-        b_star[:] = b + 1/kappa*v*curl_norm_b
+        b_star[:] = b + epsilon*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -775,7 +775,7 @@ def init_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
         linalg.matrix_matrix(g_inv, temp1, temp2)
 
         # calculate S
-        S[:, :] = (1/kappa*temp2)/abs_b_star_para
+        S[:, :] = (epsilon*temp2)/abs_b_star_para
 
         # save at the markers
         markers[ip, 13:15] = S[0, 1:3]
@@ -800,7 +800,7 @@ def init_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
                                                 p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                                 ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                                 cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                kappa: float,
+                                                epsilon: float,
                                                 abs_b: 'float[:,:,:]',
                                                 b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                                 norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -907,7 +907,7 @@ def init_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
-        b_star[:] = b + 1/kappa*v*curl_norm_b
+        b_star[:] = b + epsilon*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -937,7 +937,7 @@ def gc_bxEstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
                                             p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                             ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                             cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                            kappa: float,
+                                            epsilon: float,
                                             abs_b: 'float[:,:,:]',
                                             b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                             norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -1062,7 +1062,7 @@ def gc_bxEstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
-        b_star[:] = b + 1/kappa*v*curl_norm_b
+        b_star[:] = b + epsilon*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -1081,7 +1081,7 @@ def gc_bxEstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
         linalg.matrix_matrix(g_inv, temp1, temp2)
 
         # calculate S
-        S[:, :] = (1/kappa*temp2)/abs_b_star_para
+        S[:, :] = (epsilon*temp2)/abs_b_star_para
 
         # save at the markers
         markers[ip, 13:15] = S[0, 1:3]
@@ -1098,7 +1098,7 @@ def gc_Bstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
                                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                          kappa: float,
+                                          epsilon: float,
                                           abs_b: 'float[:,:,:]',
                                           b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                           norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -1202,7 +1202,7 @@ def gc_Bstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
 
         # transform to H1vec
-        b_star[:] = b + 1/kappa*v_mid*curl_norm_b
+        b_star[:] = b + epsilon*v_mid*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
@@ -1221,7 +1221,7 @@ def gc_bxEstar_discrete_gradient_faster_eval_gradI(markers: 'float[:,:]', dt: fl
                                                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                                    cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                   kappa: float,
+                                                   epsilon: float,
                                                    abs_b: 'float[:,:,:]',
                                                    b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                                    norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -1292,7 +1292,7 @@ def gc_Bstar_discrete_gradient_faster_eval_gradI(markers: 'float[:,:]', dt: floa
                                                  p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                                  ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                                  cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                 kappa: float,
+                                                 epsilon: float,
                                                  abs_b: 'float[:,:,:]',
                                                  b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                                  norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -1363,7 +1363,7 @@ def gc_bxEstar_discrete_gradient_Itoh_Newton_eval1(markers: 'float[:,:]', dt: fl
                                                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                                    cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                   kappa: float,
+                                                   epsilon: float,
                                                    abs_b: 'float[:,:,:]',
                                                    b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                                    norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -1442,7 +1442,7 @@ def gc_bxEstar_discrete_gradient_Itoh_Newton_eval2(markers: 'float[:,:]', dt: fl
                                                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                                    cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                   kappa: float,
+                                                   epsilon: float,
                                                    abs_b: 'float[:,:,:]',
                                                    b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                                    norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -1523,7 +1523,7 @@ def gc_Bstar_discrete_gradient_Itoh_Newton_eval1(markers: 'float[:,:]', dt: floa
                                                  p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                                  ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                                  cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                 kappa: float,
+                                                 epsilon: float,
                                                  abs_b: 'float[:,:,:]',
                                                  b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                                  norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
@@ -1601,7 +1601,7 @@ def gc_Bstar_discrete_gradient_Itoh_Newton_eval2(markers: 'float[:,:]', dt: floa
                                                  p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                                  ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                                  cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                 kappa: float,
+                                                 epsilon: float,
                                                  abs_b: 'float[:,:,:]',
                                                  b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                                                  norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',

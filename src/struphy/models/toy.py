@@ -276,6 +276,14 @@ class DriftKinetic(StruphyModel):
                                             self.mhd_equil.unit_b2_2,
                                             self.mhd_equil.unit_b2_3])
 
+        self._gradB1 = self.derham.P['1']([self.mhd_equil.gradB1_1,
+                                           self.mhd_equil.gradB1_2,
+                                           self.mhd_equil.gradB1_3])
+
+        self._curl_unit_b2 = self.derham.P['2']([self.mhd_equil.curl_unit_b2_1,
+                                                 self.mhd_equil.curl_unit_b2_2,
+                                                 self.mhd_equil.curl_unit_b2_3])
+
         self._E0T = self.derham.extraction_ops['0'].transpose()
         self._EvT = self.derham.extraction_ops['v'].transpose()
 
@@ -287,6 +295,8 @@ class DriftKinetic(StruphyModel):
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
             abs_b=self._abs_b,
+            gradB1=self._gradB1,
+            curl_unit_b2=self._curl_unit_b2,
             **ions_params['options']['push_bxEstar']))
         self.add_propagator(self.prop_markers.PushGuidingCenterBstar(
             self.pointer['ions'],
@@ -295,6 +305,8 @@ class DriftKinetic(StruphyModel):
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
             abs_b=self._abs_b,
+            gradB1=self._gradB1,
+            curl_unit_b2=self._curl_unit_b2,
             **ions_params['options']['push_Bstar']))
 
         # Scalar variables to be saved during simulation

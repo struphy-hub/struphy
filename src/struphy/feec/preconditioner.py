@@ -468,7 +468,7 @@ class ProjectorPreconditioner(LinearOperator):
                 
         else:
             if out is None:
-                out = self._tmp_vector
+                out = self.solver.solve(rhs, transposed=self._transposed)
             self.solver.solve(rhs, out=out, transposed=self._transposed)
 
         return out
