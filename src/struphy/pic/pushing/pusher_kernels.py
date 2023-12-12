@@ -3,12 +3,11 @@
 
 from pyccel.decorators import stack_array
 
-import struphy.linear_algebra.core as linalg
-import struphy.geometry.map_eval as map_eval
-import struphy.b_splines.bsplines_kernels as bsp
-import struphy.b_splines.bspline_evaluation_3d as eval_3d
-
-from struphy.pic.pushing.pusher_utilities import aux_fun_x_v_stat_e
+import struphy.linear_algebra.linalg_kernels as linalg_kernels 
+import struphy.geometry.evaluation_kernels as evaluation_kernels 
+import struphy.bsplines.bsplines_kernels as bsplines_kernels 
+import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d 
+import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels 
 
 from numpy import zeros, empty, shape, sqrt, cos, sin, floor, log
 
@@ -16,22 +15,22 @@ from numpy import zeros, empty, shape, sqrt, cos, sin, floor, log
 def a_documentation():
     r'''
     Explainer for arguments of pusher kernels.
-    
+
     Function naming conventions:
-    
+
     * starts with ``push_``
     * add a short description of the pusher, e.g. ``push_bxu_H1vec``.
-    
+
     These kernels are passed to :class:`struphy.pic.pushing.pusher.Pusher` and called via::
-    
+
         Pusher()
-        
+
     The arguments passed to each kernel have a pre-defined order, defined in :class:`struphy.pic.pushing.pusher.Pusher`.
     This order is as follows (you can copy and paste from existing pusher_kernels functions):
 
     1. Marker info:
         * ``markers: 'float[:,:]'``          # local marker array
-        
+
     2. Step info:
         * ``dt: 'float'``                    # time step
         * ``stage: 'int'``                   # current stage of the pusher (e.g. 0,1,2,3 for RK4)
@@ -130,37 +129,37 @@ def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        det_df = linalg.det(dfm)
-        linalg.matrix_inv_with_det(dfm, det_df, dfinv)
-        linalg.transpose(dfinv, dfinvt)
+        det_df = linalg_kernels.det(dfm)
+        linalg_kernels.matrix_inv_with_det(dfm, det_df, dfinv)
+        linalg_kernels.transpose(dfinv, dfinvt)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         # electric field: 1-form components
-        e_form[0] = eval_3d.eval_spline_mpi_kernel(
+        e_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, e1_1, starts1[0])
-        e_form[1] = eval_3d.eval_spline_mpi_kernel(
+        e_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, e1_2, starts1[1])
-        e_form[2] = eval_3d.eval_spline_mpi_kernel(
+        e_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, e1_3, starts1[2])
 
         # electric field: Cartesian components
-        linalg.matrix_vector(dfinvt, e_form, e_cart)
+        linalg_kernels.matrix_vector(dfinvt, e_form, e_cart)
 
         # update velocities
         markers[ip, 3:6] += dt * kappa * e_cart
@@ -232,35 +231,35 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(e[0], e[1], e[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(e[0], e[1], e[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        det_df = linalg.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], e[0])
-        span2 = bsp.find_span(tn2, pn[1], e[1])
-        span3 = bsp.find_span(tn3, pn[2], e[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
 
         # magnetic field: 2-form components
-        b_form[0] = eval_3d.eval_spline_mpi_kernel(
+        b_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts2[0])
-        b_form[1] = eval_3d.eval_spline_mpi_kernel(
+        b_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
-        b_form[2] = eval_3d.eval_spline_mpi_kernel(
+        b_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
 
         # magnetic field: Cartesian components
-        linalg.matrix_vector(dfm, b_form, b_cart)
+        linalg_kernels.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart/det_df
 
         # magnetic field: magnitude
@@ -272,14 +271,14 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
             b_norm[:] = b_cart/b_abs
 
             # parallel velocity v.b_norm
-            vpar = linalg.scalar_dot(v, b_norm)
+            vpar = linalg_kernels.scalar_dot(v, b_norm)
 
             # first component of perpendicular velocity
-            linalg.cross(v, b_norm, vxb_norm)
-            linalg.cross(b_norm, vxb_norm, vperp)
+            linalg_kernels.cross(v, b_norm, vxb_norm)
+            linalg_kernels.cross(b_norm, vxb_norm, vperp)
 
             # second component of perpendicular velocity
-            linalg.cross(b_norm, vperp, b_normxvperp)
+            linalg_kernels.cross(b_norm, vperp, b_normxvperp)
 
             # analytic rotation
             markers[ip, 3:6] = vpar*b_norm + \
@@ -363,35 +362,35 @@ def push_vxb_implicit(markers: 'float[:,:]', dt: float, stage: int,
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(e[0], e[1], e[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(e[0], e[1], e[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        det_df = linalg.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], e[0])
-        span2 = bsp.find_span(tn2, pn[1], e[1])
-        span3 = bsp.find_span(tn3, pn[2], e[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
 
         # magnetic field: 2-form components
-        b_form[0] = eval_3d.eval_spline_mpi_kernel(
+        b_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts2[0])
-        b_form[1] = eval_3d.eval_spline_mpi_kernel(
+        b_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
-        b_form[2] = eval_3d.eval_spline_mpi_kernel(
+        b_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
 
         # magnetic field: Cartesian components
-        linalg.matrix_vector(dfm, b_form, b_cart)
+        linalg_kernels.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart/det_df
 
         # magnetic field: rotation matrix
@@ -408,10 +407,10 @@ def push_vxb_implicit(markers: 'float[:,:]', dt: float, stage: int,
         rhs[:, :] = identity + dt/2*b_prod
         lhs[:, :] = identity - dt/2*b_prod
 
-        linalg.matrix_inv(lhs, lhs_inv)
+        linalg_kernels.matrix_inv(lhs, lhs_inv)
 
-        linalg.matrix_vector(rhs, v, vec)
-        linalg.matrix_vector(lhs_inv, vec, res)
+        linalg_kernels.matrix_vector(rhs, v, vec)
+        linalg_kernels.matrix_vector(lhs_inv, vec, res)
 
         markers[ip, 3:6] = res
 
@@ -489,41 +488,41 @@ def push_pxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(e[0], e[1], e[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(e[0], e[1], e[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
-        linalg.matrix_inv(dfm, dfinv)
-        linalg.transpose(dfinv, dfinv_t)
+        linalg_kernels.matrix_inv(dfm, dfinv)
+        linalg_kernels.transpose(dfinv, dfinv_t)
         # metric coeffs
-        det_df = linalg.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], e[0])
-        span2 = bsp.find_span(tn2, pn[1], e[1])
-        span3 = bsp.find_span(tn3, pn[2], e[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
 
         # magnetic field: 2-form components
-        b_form[0] = eval_3d.eval_spline_mpi_kernel(
+        b_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts2[0])
-        b_form[1] = eval_3d.eval_spline_mpi_kernel(
+        b_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
-        b_form[2] = eval_3d.eval_spline_mpi_kernel(
+        b_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
 
         # magnetic field: 2-form components
-        a_form[0] = eval_3d.eval_spline_mpi_kernel(
+        a_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, a1_1, starts1[0])
-        a_form[1] = eval_3d.eval_spline_mpi_kernel(
+        a_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, a1_2, starts1[1])
-        a_form[2] = eval_3d.eval_spline_mpi_kernel(
+        a_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, a1_3, starts1[2])
 
         rot_temp[0] = dfinv_t[0, 0] * a_form[0] + \
@@ -538,7 +537,7 @@ def push_pxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
         v[2] = v[2] - rot_temp[2]
 
         # magnetic field: Cartesian components
-        linalg.matrix_vector(dfm, b_form, b_cart)
+        linalg_kernels.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart/det_df
 
         # normalized magnetic field direction
@@ -550,14 +549,14 @@ def push_pxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
             b_norm[:] = b_cart
 
         # parallel velocity v.b_norm
-        vpar = linalg.scalar_dot(v, b_norm)
+        vpar = linalg_kernels.scalar_dot(v, b_norm)
 
         # first component of perpendicular velocity
-        linalg.cross(v, b_norm, vxb_norm)
-        linalg.cross(b_norm, vxb_norm, vperp)
+        linalg_kernels.cross(v, b_norm, vxb_norm)
+        linalg_kernels.cross(b_norm, vxb_norm, vperp)
 
         # second component of perpendicular velocity
-        linalg.cross(b_norm, vperp, b_normxvperp)
+        linalg_kernels.cross(b_norm, vperp, b_normxvperp)
 
         # analytic rotation
         markers[ip, 3:6] = vpar*b_norm + \
@@ -632,17 +631,17 @@ def push_hybrid_xp_lnn(markers: 'float[:,:]', dt: float, stage: int,
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
-        linalg.matrix_inv(dfm, dfinv)
-        linalg.transpose(dfinv, dfinv_t)
+        linalg_kernels.matrix_inv(dfm, dfinv)
+        linalg_kernels.transpose(dfinv, dfinv_t)
         # metric coeffs
-        det_df = linalg.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         point_left[0] = eta1 - 0.5*compact[0]
         point_right[0] = eta1 + 0.5*compact[0]
@@ -701,19 +700,19 @@ def push_hybrid_xp_lnn(markers: 'float[:,:]', dt: float, stage: int,
 
                                 if temp4[0] < 0 and temp4[1] < 0 and temp4[2] < 0:
 
-                                    valuexyz[0] = bsp.convolution(
+                                    valuexyz[0] = bsplines_kernels.convolution(
                                         p_shape[0], grids_shapex, temp1[0])
-                                    dvaluexyz[0] = bsp.convolution_der(
+                                    dvaluexyz[0] = bsplines_kernels.convolution_der(
                                         p_shape[0], grids_shapex, temp1[0])
 
-                                    valuexyz[1] = bsp.piecewise(
+                                    valuexyz[1] = bsplines_kernels.piecewise(
                                         p_shape[1], p_size[1], temp1[1] - eta2)
-                                    dvaluexyz[1] = bsp.piecewise(
+                                    dvaluexyz[1] = bsplines_kernels.piecewise(
                                         p_shape[2], p_size[2], temp1[2] - eta3)
 
-                                    valuexyz[2] = bsp.piecewise_der(
+                                    valuexyz[2] = bsplines_kernels.piecewise_der(
                                         p_shape[1], p_size[1], temp1[1] - eta2)
-                                    dvaluexyz[2] = bsp.piecewise_der(
+                                    dvaluexyz[2] = bsplines_kernels.piecewise_der(
                                         p_shape[2], p_size[2], temp1[2] - eta3)
 
                                     temp8[0] = dvaluexyz[0] * \
@@ -836,24 +835,24 @@ def push_hybrid_xp_ap(markers: 'float[:,:]', dt: float, stage: int,
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(e[0], e[1], e[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(e[0], e[1], e[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
-        linalg.matrix_inv(dfm, dfinv)
-        linalg.transpose(dfinv, dfinv_t)
+        linalg_kernels.matrix_inv(dfm, dfinv)
+        linalg_kernels.transpose(dfinv, dfinv_t)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], e[0])
-        span2 = bsp.find_span(tn2, pn[1], e[1])
-        span3 = bsp.find_span(tn3, pn[2], e[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
 
-        bsp.basis_funs_all(tn1, pn[0], e[0], span1, l1, r1, b1, d1)
-        bsp.basis_funs_all(tn2, pn[1], e[1], span2, l2, r2, b2, d2)
-        bsp.basis_funs_all(tn3, pn[2], e[2], span3, l3, r3, b3, d3)
+        bsplines_kernels.basis_funs_all(tn1, pn[0], e[0], span1, l1, r1, b1, d1)
+        bsplines_kernels.basis_funs_all(tn2, pn[1], e[1], span2, l2, r2, b2, d2)
+        bsplines_kernels.basis_funs_all(tn3, pn[2], e[2], span3, l3, r3, b3, d3)
 
         # N-splines and D-splines
         bn1[:] = b1[pn[0], :]
@@ -879,38 +878,38 @@ def push_hybrid_xp_ap(markers: 'float[:,:]', dt: float, stage: int,
             bdd3[il3] = b3[pd3 - 1, il3] * d3[il3] * d3[il3]
 
         # vector potential: 1-form components
-        a_form[0] = eval_3d.eval_spline_mpi_kernel(
+        a_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, a1_1, starts1[0])
-        a_form[1] = eval_3d.eval_spline_mpi_kernel(
+        a_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, a1_2, starts1[1])
-        a_form[2] = eval_3d.eval_spline_mpi_kernel(
+        a_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, a1_3, starts1[2])
 
-        a_xx[0, 0] = eval_3d.eval_spline_derivative_mpi_kernel(
+        a_xx[0, 0] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             pn[0] - 2, pn[1], pn[2], bdd1, bn2, bn3, span1, span2, span3, a1_1, starts1[0], int(1))
-        a_xx[0, 1] = eval_3d.eval_spline_derivative_mpi_kernel(
+        a_xx[0, 1] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, a1_1, starts1[1], int(2))
-        a_xx[0, 2] = eval_3d.eval_spline_derivative_mpi_kernel(
+        a_xx[0, 2] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, a1_1, starts1[2], int(3))
 
-        a_xx[1, 0] = eval_3d.eval_spline_derivative_mpi_kernel(
+        a_xx[1, 0] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, a1_2, starts1[0], int(1))
-        a_xx[1, 1] = eval_3d.eval_spline_derivative_mpi_kernel(
+        a_xx[1, 1] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             pn[0], pn[1] - 2, pn[2], bn1, bdd2, bn3, span1, span2, span3, a1_2, starts1[1], int(2))
-        a_xx[1, 2] = eval_3d.eval_spline_derivative_mpi_kernel(
+        a_xx[1, 2] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, a1_2, starts1[2], int(3))
 
-        a_xx[2, 0] = eval_3d.eval_spline_derivative_mpi_kernel(
+        a_xx[2, 0] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, a1_3, starts1[0], int(1))
-        a_xx[2, 1] = eval_3d.eval_spline_derivative_mpi_kernel(
+        a_xx[2, 1] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, a1_3, starts1[1], int(2))
-        a_xx[2, 2] = eval_3d.eval_spline_derivative_mpi_kernel(
+        a_xx[2, 2] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             pn[0], pn[1], pn[2] - 2, bn1, bn2, bdd3, span1, span2, span3, a1_3, starts1[2], int(3))
 
-        linalg.transpose(a_xx, a_xxtrans)
-        linalg.matrix_matrix(a_xxtrans, dfinv, matrixp)
-        linalg.matrix_matrix(dfinv_t, matrixp, matrixpp)  # left matrix
-        linalg.matrix_matrix(matrixpp, dfinv_t, matrixppp)  # right matrix
+        linalg_kernels.transpose(a_xx, a_xxtrans)
+        linalg_kernels.matrix_matrix(a_xxtrans, dfinv, matrixp)
+        linalg_kernels.matrix_matrix(dfinv_t, matrixp, matrixpp)  # left matrix
+        linalg_kernels.matrix_matrix(matrixpp, dfinv_t, matrixppp)  # right matrix
 
         lhs[0, 0] = 1.0 - dt*matrixpp[0, 0]
         lhs[0, 1] = - dt*matrixpp[0, 1]
@@ -924,12 +923,12 @@ def push_hybrid_xp_ap(markers: 'float[:,:]', dt: float, stage: int,
         lhs[2, 1] = - dt*matrixpp[2, 1]
         lhs[2, 2] = 1.0 - dt*matrixpp[2, 2]
 
-        linalg.matrix_vector(matrixppp, a_form, rhs)
+        linalg_kernels.matrix_vector(matrixppp, a_form, rhs)
         rhs[0] = v[0] - dt*rhs[0]
         rhs[1] = v[1] - dt*rhs[1]
         rhs[2] = v[2] - dt*rhs[2]
 
-        linalg.matrix_inv(lhs, lhsinv)
+        linalg_kernels.matrix_inv(lhs, lhsinv)
         # update velocity
         markers[ip, 3] = lhsinv[0, 0]*rhs[0] + \
             lhsinv[0, 1]*rhs[1] + lhsinv[0, 2]*rhs[2]
@@ -939,7 +938,7 @@ def push_hybrid_xp_ap(markers: 'float[:,:]', dt: float, stage: int,
             lhsinv[2, 1]*rhs[1] + lhsinv[2, 2]*rhs[2]
 
         # update position
-        linalg.matrix_vector(dfinv_t, a_form, rhs)
+        linalg_kernels.matrix_vector(dfinv_t, a_form, rhs)
         rhs[0] = markers[ip, 3] - rhs[0]
         rhs[1] = markers[ip, 4] - rhs[1]
         rhs[2] = markers[ip, 5] - rhs[2]
@@ -1019,50 +1018,50 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        det_df = linalg.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         # magnetic field: 2-form components
-        b_form[0] = eval_3d.eval_spline_mpi_kernel(
+        b_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts2[0])
-        b_form[1] = eval_3d.eval_spline_mpi_kernel(
+        b_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
-        b_form[2] = eval_3d.eval_spline_mpi_kernel(
+        b_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
 
         # magnetic field: Cartesian components
-        linalg.matrix_vector(dfm, b_form, b_cart)
+        linalg_kernels.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart/det_df
 
         # velocity field: 2-form components
-        u_form[0] = eval_3d.eval_spline_mpi_kernel(
+        u_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u2_1, starts2[0])
-        u_form[1] = eval_3d.eval_spline_mpi_kernel(
+        u_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u2_2, starts2[1])
-        u_form[2] = eval_3d.eval_spline_mpi_kernel(
+        u_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u2_3, starts2[2])
 
-        linalg.matrix_vector(dfm, u_form, u_cart)
+        linalg_kernels.matrix_vector(dfm, u_form, u_cart)
         u_cart[:] = u_cart/det_df
 
         # electric field E = B x U
-        linalg.cross(b_cart, u_cart, e_cart)
+        linalg_kernels.cross(b_cart, u_cart, e_cart)
 
         # update velocities
         markers[ip, 3:6] += dt*e_cart
@@ -1137,52 +1136,52 @@ def push_bxu_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        det_df = linalg.det(dfm)
-        linalg.matrix_inv_with_det(dfm, det_df, dfinv)
-        linalg.transpose(dfinv, dfinv_t)
+        det_df = linalg_kernels.det(dfm)
+        linalg_kernels.matrix_inv_with_det(dfm, det_df, dfinv)
+        linalg_kernels.transpose(dfinv, dfinv_t)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         # magnetic field: 2-form components
-        b_form[0] = eval_3d.eval_spline_mpi_kernel(
+        b_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts2[0])
-        b_form[1] = eval_3d.eval_spline_mpi_kernel(
+        b_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
-        b_form[2] = eval_3d.eval_spline_mpi_kernel(
+        b_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
 
         # magnetic field: Cartesian components
-        linalg.matrix_vector(dfm, b_form, b_cart)
+        linalg_kernels.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart/det_df
 
         # velocity field: 1-form components
-        u_form[0] = eval_3d.eval_spline_mpi_kernel(
+        u_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u1_1, starts1[0])
-        u_form[1] = eval_3d.eval_spline_mpi_kernel(
+        u_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u1_2, starts1[1])
-        u_form[2] = eval_3d.eval_spline_mpi_kernel(
+        u_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u1_3, starts1[2])
 
         # velocity field: Cartesian components
-        linalg.matrix_vector(dfinv_t, u_form, u_cart)
+        linalg_kernels.matrix_vector(dfinv_t, u_form, u_cart)
 
         # electric field E = B x U
-        linalg.cross(b_cart, u_cart, e_cart)
+        linalg_kernels.cross(b_cart, u_cart, e_cart)
 
         # update velocities
         markers[ip, 3:6] += dt*e_cart
@@ -1255,50 +1254,50 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        det_df = linalg.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         # magnetic field: 2-form components
-        b_form[0] = eval_3d.eval_spline_mpi_kernel(
+        b_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts2[0])
-        b_form[1] = eval_3d.eval_spline_mpi_kernel(
+        b_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
-        b_form[2] = eval_3d.eval_spline_mpi_kernel(
+        b_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
 
         # magnetic field: Cartesian components
-        linalg.matrix_vector(dfm, b_form, b_cart)
+        linalg_kernels.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart/det_df
 
         # velocity field: vector field components
-        u_form[0] = eval_3d.eval_spline_mpi_kernel(
+        u_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, uv_1, starts0)
-        u_form[1] = eval_3d.eval_spline_mpi_kernel(
+        u_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, uv_2, starts0)
-        u_form[2] = eval_3d.eval_spline_mpi_kernel(
+        u_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, uv_3, starts0)
 
         # velocity field: Cartesian components
-        linalg.matrix_vector(dfm, u_form, u_cart)
+        linalg_kernels.matrix_vector(dfm, u_form, u_cart)
 
         # electric field E = B x U
-        linalg.cross(b_cart, u_cart, e_cart)
+        linalg_kernels.cross(b_cart, u_cart, e_cart)
 
         # update velocities
         markers[ip, 3:6] += dt*e_cart
@@ -1387,67 +1386,67 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        det_df = linalg.det(dfm)
-        linalg.matrix_inv_with_det(dfm, det_df, dfinv)
-        linalg.transpose(dfinv, dfinv_t)
+        det_df = linalg_kernels.det(dfm)
+        linalg_kernels.matrix_inv_with_det(dfm, det_df, dfinv)
+        linalg_kernels.transpose(dfinv, dfinv_t)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
 
-        bsp.b_der_splines_slim(tn1, pn[0], eta1, span1, bn1, der1)
-        bsp.b_der_splines_slim(tn2, pn[1], eta2, span2, bn2, der2)
-        bsp.b_der_splines_slim(tn3, pn[2], eta3, span3, bn3, der3)
+        bsplines_kernels.b_der_splines_slim(tn1, pn[0], eta1, span1, bn1, der1)
+        bsplines_kernels.b_der_splines_slim(tn2, pn[1], eta2, span2, bn2, der2)
+        bsplines_kernels.b_der_splines_slim(tn3, pn[2], eta3, span3, bn3, der3)
 
-        bsp.d_splines_slim(tn1, pn[0], eta1, span1, bd1)
-        bsp.d_splines_slim(tn2, pn[1], eta2, span2, bd2)
-        bsp.d_splines_slim(tn3, pn[2], eta3, span3, bd3)
+        bsplines_kernels.d_splines_slim(tn1, pn[0], eta1, span1, bd1)
+        bsplines_kernels.d_splines_slim(tn2, pn[1], eta2, span2, bd2)
+        bsplines_kernels.d_splines_slim(tn3, pn[2], eta3, span3, bd3)
 
         # magnetic field: 2-form components
-        b_form[0] = eval_3d.eval_spline_mpi_kernel(
+        b_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts2[0])
-        b_form[1] = eval_3d.eval_spline_mpi_kernel(
+        b_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
-        b_form[2] = eval_3d.eval_spline_mpi_kernel(
+        b_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
 
         # magnetic field: Cartesian components
-        linalg.matrix_vector(dfm, b_form, b_cart)
+        linalg_kernels.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart/det_df
 
         # magnetic field: evaluation of gradient (1-form)
-        b_diff[0] = eval_3d.eval_spline_mpi_kernel(
+        b_diff[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], der1, bn2, bn3, span1, span2, span3, b0, starts1[0])
-        b_diff[1] = eval_3d.eval_spline_mpi_kernel(
+        b_diff[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, der2, bn3, span1, span2, span3, b0, starts1[1])
-        b_diff[2] = eval_3d.eval_spline_mpi_kernel(
+        b_diff[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, der3, span1, span2, span3, b0, starts1[2])
 
         # magnetic field: evaluation of gradient (Cartesian components)
-        linalg.matrix_vector(dfinv_t, b_diff, b_grad)
+        linalg_kernels.matrix_vector(dfinv_t, b_diff, b_grad)
 
         # velocity field: 2-form components
-        u_form[0] = eval_3d.eval_spline_mpi_kernel(
+        u_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u2_1, starts2[0])
-        u_form[1] = eval_3d.eval_spline_mpi_kernel(
+        u_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u2_2, starts2[1])
-        u_form[2] = eval_3d.eval_spline_mpi_kernel(
+        u_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u2_3, starts2[2])
 
-        linalg.matrix_vector(dfm, u_form, u_cart)
+        linalg_kernels.matrix_vector(dfm, u_form, u_cart)
         u_cart[:] = u_cart/det_df
 
         # electric field E = B x U
-        linalg.cross(b_cart, u_cart, e_cart)
+        linalg_kernels.cross(b_cart, u_cart, e_cart)
 
         # additional artificial electric field of Pauli markers
         e_cart[:] = e_cart - mu[ip]*b_grad
@@ -1520,51 +1519,51 @@ def push_pc_GXu_full(markers: 'float[:,:]', dt: float, stage: int,
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        linalg.matrix_inv(dfm, dfinv)
-        linalg.transpose(dfinv, dfinv_t)
+        linalg_kernels.matrix_inv(dfm, dfinv)
+        linalg_kernels.transpose(dfinv, dfinv_t)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         # Evaluate grad(X(u, v)) at the particle positions
-        GXu[0, 0] = eval_3d.eval_spline_mpi_kernel(
+        GXu[0, 0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_11, starts1[0])
-        GXu[1, 0] = eval_3d.eval_spline_mpi_kernel(
+        GXu[1, 0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_21, starts1[0])
-        GXu[2, 0] = eval_3d.eval_spline_mpi_kernel(
+        GXu[2, 0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_31, starts1[0])
-        GXu[0, 1] = eval_3d.eval_spline_mpi_kernel(
+        GXu[0, 1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_12, starts1[1])
-        GXu[1, 1] = eval_3d.eval_spline_mpi_kernel(
+        GXu[1, 1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_22, starts1[1])
-        GXu[2, 1] = eval_3d.eval_spline_mpi_kernel(
+        GXu[2, 1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_32, starts1[1])
-        GXu[0, 2] = eval_3d.eval_spline_mpi_kernel(
+        GXu[0, 2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_13, starts1[2])
-        GXu[1, 2] = eval_3d.eval_spline_mpi_kernel(
+        GXu[1, 2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_23, starts1[2])
-        GXu[2, 2] = eval_3d.eval_spline_mpi_kernel(
+        GXu[2, 2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_33, starts1[2])
 
         e[0] = GXu[0, 0] * v[0] + GXu[1, 0] * v[1] + GXu[2, 0] * v[2]
         e[1] = GXu[0, 1] * v[0] + GXu[1, 1] * v[1] + GXu[2, 1] * v[2]
         e[2] = GXu[0, 2] * v[0] + GXu[1, 2] * v[1] + GXu[2, 2] * v[2]
 
-        linalg.matrix_vector(dfinv_t, e, e_cart)
+        linalg_kernels.matrix_vector(dfinv_t, e, e_cart)
 
         # update velocities
         markers[ip, 3:6] -= dt*e_cart/2.
@@ -1633,45 +1632,45 @@ def push_pc_GXu(markers: 'float[:,:]', dt: float, stage: int,
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        linalg.matrix_inv(dfm, dfinv)
-        linalg.transpose(dfinv, dfinv_t)
+        linalg_kernels.matrix_inv(dfm, dfinv)
+        linalg_kernels.transpose(dfinv, dfinv_t)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         # Evaluate grad(X(u, v)) at the particle positions
-        GXu[0, 0] = eval_3d.eval_spline_mpi_kernel(
+        GXu[0, 0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_11, starts1[0])
-        GXu[1, 0] = eval_3d.eval_spline_mpi_kernel(
+        GXu[1, 0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_21, starts1[0])
-        GXu[0, 1] = eval_3d.eval_spline_mpi_kernel(
+        GXu[0, 1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_12, starts1[1])
-        GXu[1, 1] = eval_3d.eval_spline_mpi_kernel(
+        GXu[1, 1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_22, starts1[1])
-        GXu[0, 2] = eval_3d.eval_spline_mpi_kernel(
+        GXu[0, 2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_13, starts1[2])
-        GXu[1, 2] = eval_3d.eval_spline_mpi_kernel(
+        GXu[1, 2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_23, starts1[2])
 
         e[0] = GXu[0, 0] * v[0] + GXu[1, 0] * v[1]
         e[1] = GXu[0, 1] * v[0] + GXu[1, 1] * v[1]
         e[2] = GXu[0, 2] * v[0] + GXu[1, 2] * v[1]
 
-        linalg.matrix_vector(dfinv_t, e, e_cart)
+        linalg_kernels.matrix_vector(dfinv_t, e, e_cart)
 
         # update velocities
         markers[ip, 3:6] -= dt*e_cart/2.
@@ -1729,18 +1728,18 @@ def push_eta_stage(markers: 'float[:,:]', dt: float, stage: int,
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(e[0], e[1], e[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(e[0], e[1], e[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # evaluate inverse Jacobian matrix
-        linalg.matrix_inv(dfm, dfinv)
+        linalg_kernels.matrix_inv(dfm, dfinv)
 
         # pull-back of velocity
-        linalg.matrix_vector(dfinv, v, k)
+        linalg_kernels.matrix_vector(dfinv, v, k)
 
         # accumulation for last stage
         markers[ip, 12:15] += dt*b[stage]*k
@@ -1840,40 +1839,40 @@ def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: float, stage: int,
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta[0], eta[1], eta[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta[0], eta[1], eta[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        linalg.matrix_inv(dfm, dfinv)
-        linalg.transpose(dfinv, dfinv_t)
-        linalg.matrix_matrix(dfinv, dfinv_t, ginv)
+        linalg_kernels.matrix_inv(dfm, dfinv)
+        linalg_kernels.transpose(dfinv, dfinv_t)
+        linalg_kernels.matrix_matrix(dfinv, dfinv_t, ginv)
 
         # pull-back of velocity
-        linalg.matrix_vector(dfinv, v, k_v)
+        linalg_kernels.matrix_vector(dfinv, v, k_v)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta[0])
-        span2 = bsp.find_span(tn2, pn[1], eta[1])
-        span3 = bsp.find_span(tn3, pn[2], eta[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # U-field
-        u[0] = eval_3d.eval_spline_mpi_kernel(
+        u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts1[0])
-        u[1] = eval_3d.eval_spline_mpi_kernel(
+        u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts1[1])
-        u[2] = eval_3d.eval_spline_mpi_kernel(
+        u[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u_3, starts1[2])
 
         # transform to vector field
-        linalg.matrix_vector(ginv, u, k_u)
+        linalg_kernels.matrix_vector(ginv, u, k_u)
 
         # sum contribs
         k[:] = k_v + k_u
@@ -1971,37 +1970,37 @@ def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: float, stage: int,
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta[0], eta[1], eta[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta[0], eta[1], eta[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        det_df = linalg.det(dfm)
-        linalg.matrix_inv(dfm, dfinv)
-        linalg.transpose(dfinv, dfinv_t)
-        linalg.matrix_matrix(dfinv, dfinv_t, ginv)
+        det_df = linalg_kernels.det(dfm)
+        linalg_kernels.matrix_inv(dfm, dfinv)
+        linalg_kernels.transpose(dfinv, dfinv_t)
+        linalg_kernels.matrix_matrix(dfinv, dfinv_t, ginv)
 
         # pull-back of velocity
-        linalg.matrix_vector(dfinv, v, k_v)
+        linalg_kernels.matrix_vector(dfinv, v, k_v)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta[0])
-        span2 = bsp.find_span(tn2, pn[1], eta[1])
-        span3 = bsp.find_span(tn3, pn[2], eta[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # U-field
-        u[0] = eval_3d.eval_spline_mpi_kernel(
+        u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts2[0])
-        u[1] = eval_3d.eval_spline_mpi_kernel(
+        u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts2[1])
-        u[2] = eval_3d.eval_spline_mpi_kernel(
+        u[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u_3, starts2[2])
 
         # transform to vector field
@@ -2105,36 +2104,36 @@ def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: float, stage: int,
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta[0], eta[1], eta[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta[0], eta[1], eta[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        linalg.matrix_inv(dfm, dfinv)
-        linalg.transpose(dfinv, dfinv_t)
-        linalg.matrix_matrix(dfinv, dfinv_t, ginv)
+        linalg_kernels.matrix_inv(dfm, dfinv)
+        linalg_kernels.transpose(dfinv, dfinv_t)
+        linalg_kernels.matrix_matrix(dfinv, dfinv_t, ginv)
 
         # pull-back of velocity
-        linalg.matrix_vector(dfinv, v, k_v)
+        linalg_kernels.matrix_vector(dfinv, v, k_v)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta[0])
-        span2 = bsp.find_span(tn2, pn[1], eta[1])
-        span3 = bsp.find_span(tn3, pn[2], eta[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # U-field
-        u[0] = eval_3d.eval_spline_mpi_kernel(
+        u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_1, starts0)
-        u[1] = eval_3d.eval_spline_mpi_kernel(
+        u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_2, starts0)
-        u[2] = eval_3d.eval_spline_mpi_kernel(
+        u[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_3, starts0)
 
         # sum contribs
@@ -2236,39 +2235,39 @@ def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta[0], eta[1], eta[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta[0], eta[1], eta[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        linalg.matrix_inv(dfm, dfinv)
-        linalg.transpose(dfinv, dfinv_t)
-        linalg.matrix_matrix(dfinv, dfinv_t, ginv)
+        linalg_kernels.matrix_inv(dfm, dfinv)
+        linalg_kernels.transpose(dfinv, dfinv_t)
+        linalg_kernels.matrix_matrix(dfinv, dfinv_t, ginv)
 
         # pull-back of velocity
-        linalg.matrix_vector(dfinv, v, k_v)
+        linalg_kernels.matrix_vector(dfinv, v, k_v)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta[0])
-        span2 = bsp.find_span(tn2, pn[1], eta[1])
-        span3 = bsp.find_span(tn3, pn[2], eta[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # U-field
-        u[0] = eval_3d.eval_spline_mpi_kernel(
+        u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts1[0])
-        u[1] = eval_3d.eval_spline_mpi_kernel(
+        u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts1[1])
         u[2] = 0.
 
         # transform to vector field
-        linalg.matrix_vector(ginv, u, k_u)
+        linalg_kernels.matrix_vector(ginv, u, k_u)
 
         # sum contribs
         k[:] = k_v + k_u
@@ -2366,35 +2365,35 @@ def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta[0], eta[1], eta[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta[0], eta[1], eta[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        det_df = linalg.det(dfm)
-        linalg.matrix_inv(dfm, dfinv)
-        linalg.transpose(dfinv, dfinv_t)
-        linalg.matrix_matrix(dfinv, dfinv_t, ginv)
+        det_df = linalg_kernels.det(dfm)
+        linalg_kernels.matrix_inv(dfm, dfinv)
+        linalg_kernels.transpose(dfinv, dfinv_t)
+        linalg_kernels.matrix_matrix(dfinv, dfinv_t, ginv)
 
         # pull-back of velocity
-        linalg.matrix_vector(dfinv, v, k_v)
+        linalg_kernels.matrix_vector(dfinv, v, k_v)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta[0])
-        span2 = bsp.find_span(tn2, pn[1], eta[1])
-        span3 = bsp.find_span(tn3, pn[2], eta[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # U-field
-        u[0] = eval_3d.eval_spline_mpi_kernel(
+        u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts2[0])
-        u[1] = eval_3d.eval_spline_mpi_kernel(
+        u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts2[1])
         u[2] = 0.
 
@@ -2499,34 +2498,34 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta[0], eta[1], eta[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta[0], eta[1], eta[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        linalg.matrix_inv(dfm, dfinv)
-        linalg.transpose(dfinv, dfinv_t)
-        linalg.matrix_matrix(dfinv, dfinv_t, ginv)
+        linalg_kernels.matrix_inv(dfm, dfinv)
+        linalg_kernels.transpose(dfinv, dfinv_t)
+        linalg_kernels.matrix_matrix(dfinv, dfinv_t, ginv)
 
         # pull-back of velocity
-        linalg.matrix_vector(dfinv, v, k_v)
+        linalg_kernels.matrix_vector(dfinv, v, k_v)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta[0])
-        span2 = bsp.find_span(tn2, pn[1], eta[1])
-        span3 = bsp.find_span(tn3, pn[2], eta[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # U-field
-        u[0] = eval_3d.eval_spline_mpi_kernel(
+        u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_1, starts0)
-        u[1] = eval_3d.eval_spline_mpi_kernel(
+        u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_2, starts0)
         u[2] = 0.
 
@@ -2565,8 +2564,7 @@ def push_weights_with_efield_lin_vm(markers: 'float[:,:]', dt: float, stage: int
             Value of f0 for each particle.
 
         f0_params : array[float]
-            Parameters needed to specify the moments; the order is specified in :ref:`struphy.kinetic_background.moments_kernels`
-            for the respective functions available.
+            Parameters needed to specify the moments, in ascending order.
 
         n_markers_tot : int
             total number of particles
@@ -2615,38 +2613,38 @@ def push_weights_with_efield_lin_vm(markers: 'float[:,:]', dt: float, stage: int
         v[2] = markers[ip, 5] / f0_params[6]**2
 
         # spans (i.e. index for non-vanishing basis functions)
-        span1 = bsp.find_span(tn1, pn1, eta1)
-        span2 = bsp.find_span(tn2, pn2, eta2)
-        span3 = bsp.find_span(tn3, pn3, eta3)
+        span1 = bsplines_kernels.find_span(tn1, pn1, eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn2, eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn3, eta3)
 
         # compute bn, bd, i.e. values for non-vanishing B-/D-splines at position eta
-        bsp.b_d_splines_slim(tn1, pn1, eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn2, eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn3, eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn1, eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn2, eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn3, eta3, span3, bn3, bd3)
 
         f0 = f0_values[ip]
 
         # Compute Jacobian matrix
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map,
-                    p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map,
+                              p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # invert Jacobian matrix
-        linalg.matrix_inv(dfm, df_inv)
+        linalg_kernels.matrix_inv(dfm, df_inv)
 
         # compute DF^{-1} v
-        linalg.matrix_vector(df_inv, v, df_inv_v)
+        linalg_kernels.matrix_vector(df_inv, v, df_inv_v)
 
         # E-field (1-form)
-        e_vec_1 = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3,
+        e_vec_1 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3,
                                                  span1, span2, span3, e1_1, starts1[0])
-        e_vec_2 = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3,
+        e_vec_2 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3,
                                                  span1, span2, span3, e1_2, starts1[1])
-        e_vec_3 = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3,
+        e_vec_3 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3,
                                                  span1, span2, span3, e1_3, starts1[2])
 
         # w_{n+1} = w_n + dt * kappa / (2 * s_0) * sqrt(f_0) * ( DF^{-1} \V_th * v_p ) \cdot ( e_{n+1} + e_n )
@@ -2681,8 +2679,7 @@ def push_weights_with_efield_delta_f_vm(markers: 'float[:,:]', dt: float, stage:
         Value of f0 for each particle.
 
     f0_params : array[float]
-        Parameters needed to specify the moments; the order is specified in :ref:`struphy.kinetic_background.moments_kernels`
-        for the respective functions available.
+        Parameters needed to specify the moments, in ascending order.
 
     n_markers_tot : int
         total number of particles
@@ -2729,25 +2726,25 @@ def push_weights_with_efield_delta_f_vm(markers: 'float[:,:]', dt: float, stage:
         eta3 = markers[ip, 2]
 
         # spans (i.e. index for non-vanishing basis functions)
-        span1 = bsp.find_span(tn1, pn1, eta1)
-        span2 = bsp.find_span(tn2, pn2, eta2)
-        span3 = bsp.find_span(tn3, pn3, eta3)
+        span1 = bsplines_kernels.find_span(tn1, pn1, eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn2, eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn3, eta3)
 
         # compute bn, bd, i.e. values for non-vanishing B-/D-splines at position eta
-        bsp.b_d_splines_slim(tn1, pn1, eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn2, eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn3, eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn1, eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn2, eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn3, eta3, span3, bn3, bd3)
 
         f0 = f0_values[ip]
 
         # Compute Jacobian matrix
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map,
-                    p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map,
+                              p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # compute shifted and stretched velocity
         v[0] = markers[ip, 3]
@@ -2755,18 +2752,19 @@ def push_weights_with_efield_delta_f_vm(markers: 'float[:,:]', dt: float, stage:
         v[2] = markers[ip, 5]
 
         # invert Jacobian matrix
-        linalg.matrix_inv(dfm, df_inv)
-        linalg.matrix_vector(df_inv, v, df_inv_v)
+        linalg_kernels.matrix_inv(dfm, df_inv)
+        linalg_kernels.matrix_vector(df_inv, v, df_inv_v)
 
         # E-field (1-form)
-        e_vec_1 = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3,
+        e_vec_1 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3,
                                                  span1, span2, span3, e1_1, starts1[0])
-        e_vec_2 = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3,
+        e_vec_2 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3,
                                                  span1, span2, span3, e1_2, starts1[1])
-        e_vec_3 = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3,
+        e_vec_3 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3,
                                                  span1, span2, span3, e1_3, starts1[2])
 
-        update = kappa * (df_inv_v[0] * e_vec_1 + df_inv_v[1] * e_vec_2 + df_inv_v[2] * e_vec_3)
+        update = kappa * (df_inv_v[0] * e_vec_1 +
+                          df_inv_v[1] * e_vec_2 + df_inv_v[2] * e_vec_3)
         if substep == 0:
             # w_p += dt * kappa / s_0 * (DL^{-1} v_p) * e_vec
             # with e_vec = e(0) - dt / 2 * M_1^{-1} accum_vec
@@ -2877,7 +2875,7 @@ def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
             dt2 = dt/k
 
             for _ in range(k):
-                temp = aux_fun_x_v_stat_e(particle,
+                temp = pusher_utilities_kernels.aux_fun_x_v_stat_e(particle,
                                           pn, tn1, tn2, tn3,
                                           starts1[0], starts1[1], starts1[2],
                                           kind_map, params_map,

@@ -56,17 +56,16 @@ def struphy_run(model,
     import shutil
     import os
     import struphy
+    import yaml
 
     libpath = struphy.__path__[0]
+    
+    with open(os.path.join(libpath, 'state.yml')) as f:
+        state = yaml.load(f, Loader=yaml.FullLoader)
 
-    with open(os.path.join(libpath, 'i_path.txt')) as f:
-        i_path = f.readlines()[0]
-
-    with open(os.path.join(libpath, 'o_path.txt')) as f:
-        o_path = f.readlines()[0]
-
-    with open(os.path.join(libpath, 'b_path.txt')) as f:
-        b_path = f.readlines()[0]
+    i_path = state['i_path']
+    o_path = state['o_path']
+    b_path = state['b_path']
 
     # create absolute i/o paths
     if input_abs is None:

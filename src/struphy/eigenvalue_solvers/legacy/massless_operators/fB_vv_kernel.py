@@ -1,6 +1,6 @@
 from pyccel.decorators import types
 import numpy as np
-import struphy.linear_algebra.core as linalg
+import struphy.linear_algebra.linalg_kernels as linalg
 import struphy.feec.bsplines_kernels as bsp
 import struphy.geometry.mappings_3d_fast as mapping_fast
 

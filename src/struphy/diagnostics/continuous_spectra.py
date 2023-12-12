@@ -39,7 +39,7 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
     
     import numpy as np
 
-    import struphy.b_splines.bsplines as bsp
+    import struphy.bsplines.bsplines as bsp
     
     # greville points in radial direction (s)
     gN_1 = bsp.greville(space.T[0], space.p[0]    , space.spl_kind[0])
@@ -210,8 +210,10 @@ if __name__ == '__main__':
     import struphy
     libpath = struphy.__path__[0]
     
-    with open(os.path.join(libpath, 'o_path.txt')) as f:
-        o_path = f.readlines()[0]
+    with open(os.path.join(libpath, 'state.yml')) as f:
+        state = yaml.load(f, Loader=yaml.FullLoader)
+
+    o_path = state['o_path']
     
     # create absolute input folder path
     if args.input_abs is None:

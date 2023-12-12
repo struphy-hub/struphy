@@ -5,7 +5,7 @@
 import numpy        as np
 import scipy.sparse as spa
 
-import struphy.b_splines.bsplines as bsp
+import struphy.bsplines.bsplines as bsp
 
 
 

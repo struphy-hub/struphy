@@ -5,7 +5,7 @@ import input_run.equilibrium_PIC as equ_PIC
 # import module for mapping evaluation
 import struphy.geometry.mappings_3d      as mapping3d
 # import module for matrix-matrix and matrix-vector multiplications
-import struphy.linear_algebra.core as linalg
+import struphy.linear_algebra.linalg_kernels as linalg
 import struphy.feec.bsplines_kernels as bsp
 import struphy.feec.basics.spline_evaluation_3d as eva
 import struphy.geometry.mappings_3d_fast as mapping_fast

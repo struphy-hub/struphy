@@ -3,8 +3,7 @@ import scipy         as sc
 import scipy.special as sp
 import scipy.sparse  as spa
 
-import struphy.b_splines.Bspline  as Bsp
-import struphy.b_splines.bsplines as bsp
+import struphy.bsplines.bsplines as bsp
 
 import struphy.eigenvalue_solvers.spline_space      as spl
 import struphy.eigenvalue_solvers.mass_matrices_1d  as mass
