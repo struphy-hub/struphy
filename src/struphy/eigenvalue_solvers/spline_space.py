@@ -14,11 +14,11 @@ import matplotlib
 matplotlib.rcParams.update({'font.size': 16})
 import matplotlib.pyplot as plt
 
-import struphy.b_splines.bsplines as bsp
+import struphy.bsplines.bsplines as bsp
 
-import struphy.b_splines.bspline_evaluation_1d as eva_1d
-import struphy.b_splines.bspline_evaluation_2d as eva_2d
-import struphy.b_splines.bspline_evaluation_3d as eva_3d
+import struphy.bsplines.evaluation_kernels_1d as eva_1d
+import struphy.bsplines.evaluation_kernels_2d as eva_2d
+import struphy.bsplines.evaluation_kernels_3d as eva_3d
 
 import struphy.eigenvalue_solvers.mass_matrices_1d as mass_1d
 import struphy.eigenvalue_solvers.mass_matrices_2d as mass_2d

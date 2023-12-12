@@ -20,7 +20,8 @@ RUN dnf install -y python3-pip \
     && dnf install -y environment-modules \
     && dnf install -y python3-mpi4py-openmpi \
     && dnf install -y python3-devel \
-    && dnf install -y pandoc
+    && dnf install -y pandoc \
+    && dnf install -y sqlite
 
 # create new working dir
 WORKDIR /your_working_dir/

@@ -3,6 +3,7 @@ def main():
     
     import numpy as np
     import argparse, os
+    import yaml
     
     # parse arguments
     parser = argparse.ArgumentParser(description='Restrict a full .npy eigenspectrum to a range of eigenfrequencies.')
@@ -36,8 +37,10 @@ def main():
     import struphy
     libpath = struphy.__path__[0]
     
-    with open(os.path.join(libpath, 'o_path.txt')) as f:
-        o_path = f.readlines()[0]
+    with open(os.path.join(libpath, 'state.yml')) as f:
+        state = yaml.load(f, Loader=yaml.FullLoader)
+
+    o_path = state['o_path']
     
     # create absolute input folder path
     if args.input_abs is None:

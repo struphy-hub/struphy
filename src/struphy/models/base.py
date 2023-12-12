@@ -1078,8 +1078,10 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
 
         # write to current input path
-        with open(os.path.join(libpath, 'i_path.txt'), 'r') as f:
-            i_path = f.readlines()[0]
+        with open(os.path.join(libpath, 'state.yml')) as f:
+            state = yaml.load(f, Loader=yaml.FullLoader)
+
+        i_path = state['i_path']
 
         if file is None:
             file = os.path.join(i_path, 'params_' + cls.__name__ + '.yml')

@@ -42,6 +42,7 @@ dependencies = [
     'gvec-to-python',
     'argcomplete',
     'ipyparallel',
+    'pytest-monitor',
 ]
 
 [project.urls]
@@ -77,8 +78,5 @@ struphy = "struphy.console.main:struphy"
                     ]
                     
 struphy = ['compile_struphy.mk',
-           'psydac-0.1.5-py3-none-any.whl',
-           'i_path.txt',
-           'o_path.txt',
-           'p_path.txt',
+           'psydac-0.1.6-py3-none-any.whl',
            ]

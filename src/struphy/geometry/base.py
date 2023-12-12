@@ -4,11 +4,9 @@
 
 from abc import ABCMeta, abstractmethod
 
-from sympde.topology import Mapping
-
-from struphy.geometry import map_eval, transform
+from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.linear_algebra import linalg_kron
-import struphy.b_splines.bsplines as bsp
+import struphy.bsplines.bsplines as bsp
 
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve
@@ -607,7 +605,7 @@ class Domain(metaclass=ABCMeta):
             # to keep C-ordering the (3, 3)-part is in the last indices
             out = np.empty((markers.shape[0], 3, 3), dtype=float)
 
-            n_inside = map_eval.kernel_evaluate_pic(
+            n_inside = evaluation_kernels.kernel_evaluate_pic(
                 markers, which, *self.args_map, out, remove_outside)
             
             # move the (3, 3)-part to front
@@ -640,7 +638,7 @@ class Domain(metaclass=ABCMeta):
             out = np.empty(
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3, 3), dtype=float)
 
-            map_eval.kernel_evaluate(
+            evaluation_kernels.kernel_evaluate(
                 E1, E2, E3, which, *self.args_map, out, is_sparse_meshgrid)
 
             # move the (3, 3)-part to front
@@ -743,23 +741,26 @@ class Domain(metaclass=ABCMeta):
                 A = Domain.prepare_arg(a, markers)
 
             # check if A includes holes or not
-            if A.shape[1] == markers.shape[0]:
+            if A.shape[0] == markers.shape[0]:
                 A_has_holes = True
             else:
                 A_has_holes = False
 
             # call evaluation kernel
-            out = np.empty((3, markers.shape[0]), dtype=float)
+            out = np.empty((markers.shape[0], 3), dtype=float)
 
-            n_inside = transform.kernel_pullpush_pic(
+            n_inside = transform_kernels.kernel_pullpush_pic(
                 A, markers, self._transformation_ids[which], kind_int, *self.args_map, out, remove_outside)
+
+            # move the (3, 3)-part to front
+            out = np.transpose(out, axes=(1, 0))
 
             # remove holes
             out = out[:, :n_inside]
 
             # check if A has correct shape
             if not A_has_holes and remove_outside:
-                assert A.shape[1] == out.shape[1]
+                assert A.shape[0] == out.shape[1]
 
             # change output order
             if kind_int < 10:
@@ -785,10 +786,13 @@ class Domain(metaclass=ABCMeta):
 
             # call evaluation kernel
             out = np.empty(
-                (3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+                (E1.shape[0], E2.shape[1], E3.shape[2], 3), dtype=float)
 
-            transform.kernel_pullpush(
+            transform_kernels.kernel_pullpush(
                 A, E1, E2, E3, self._transformation_ids[which], kind_int, *self.args_map, is_sparse_meshgrid, out)
+
+            # move the (3, 3)-part to front
+            out = np.transpose(out, axes=(3, 0, 1, 2))
 
             # change output order
             if kind_int < 10:
@@ -1077,15 +1081,17 @@ class Domain(metaclass=ABCMeta):
             raise TypeError('Argument a must be either a float OR a list/tuple of 1 or 3 callable(s)/numpy array(s)/float(s) \
             OR a single numpy array OR a single callable!')
 
-        # make sure that output array is 2d and of shape (1,:) or (3,:) for flat evaluation
+        # make sure that output array is 2d and of shape (:, 1) or (:, 3) for flat evaluation
         if flat_eval:
             assert a_out.ndim == 2
             assert a_out.shape[0] == 1 or a_out.shape[0] == 3
+            a_out = np.ascontiguousarray(np.transpose(a_out, axes=(1, 0)))
 
-        # make sure that output array is 4d and of shape (1,:,:,:) or (3,:,:,:) for tensor-product/slice evaluation
+        # make sure that output array is 4d and of shape (:,:,:, 1) or (:,:,:, 3) for tensor-product/slice evaluation
         else:
             assert a_out.ndim == 4
             assert a_out.shape[0] == 1 or a_out.shape[0] == 3
+            a_out = np.ascontiguousarray(np.transpose(a_out, axes=(1, 2, 3, 0)))
 
         return a_out
 

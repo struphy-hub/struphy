@@ -76,6 +76,4 @@ logs
 
 # I/O
 src/struphy/io/out/
-src/struphy/i_path.txt
-src/struphy/o_path.txt
-src/struphy/b_path.txt
+src/struphy/state.yml

@@ -4,7 +4,7 @@ import struphy.feec.bsplines_kernels as bsp
 
 import struphy.geometry.mappings_3d_fast as mapping_fast
 
-import struphy.linear_algebra.core as linalg
+import struphy.linear_algebra.linalg_kernels as linalg
 #==============================================================================================
 @types('int','int[:]','int[:]','int[:]','double[:]','double[:,:]','double[:,:,:]','double[:,:,:,:,:,:]','int[:]','double[:]', 'double[:]', 'double[:]','int[:]','int[:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
 def kernel_0_form(Np, p, Nel, p_shape, p_size, particle, lambdas, kernel_0, num_cell, coeff_x, coeff_y, coeff_z, NbaseN, related, Np_loc, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz):

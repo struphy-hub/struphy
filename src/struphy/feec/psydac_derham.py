@@ -19,7 +19,7 @@ from struphy.polar.basic import PolarVector
 from struphy.initial import perturbations
 from struphy.initial import eigenfunctions
 from struphy.geometry.base import Domain
-from struphy.b_splines import bspline_evaluation_3d as eval_3d
+from struphy.bsplines import evaluation_kernels_3d as eval_3d
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
 import numpy as np
@@ -1521,7 +1521,7 @@ class PulledPform:
     """
     Construct callable (component of) p-form on logical domain (unit cube).
 
-    Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see :ref:`struphy.geometry.map_eval.prepare_args`).
+    Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see :ref:`struphy.geometry.base.prepare_arg`).
 
     Parameters
     ----------

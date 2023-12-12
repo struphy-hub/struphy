@@ -432,7 +432,7 @@ Utilities
 Linear algebra
 ^^^^^^^^^^^^^^
 
-.. automodule:: struphy.linear_algebra.core
+.. automodule:: struphy.linear_algebra.linalg_kernels
     :members: 
     :undoc-members:
 

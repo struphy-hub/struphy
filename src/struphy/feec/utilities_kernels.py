@@ -1,9 +1,9 @@
 from pyccel.decorators import pure, stack_array
 from numpy import empty
 
-import struphy.b_splines.bsplines_kernels as bsp
-import struphy.pic.accumulation.filler_kernels as fk
-import struphy.geometry.map_eval as kernel
+import struphy.bsplines.bsplines_kernels as bsplines_kernels 
+import struphy.pic.accumulation.filler_kernels as filler_kernels 
+import struphy.geometry.evaluation_kernels as evaluation_kernels 
 
 
 @pure
@@ -58,23 +58,23 @@ def l2_projection_V0(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float
 
     for i in range(nr_points_1):
         eta1 = quad_locs_1[i]
-        span1 = bsp.find_span(tn1, pn1, eta1)
-        bsp.b_splines_slim(tn1, pn1, eta1, span1, bn1)
+        span1 = bsplines_kernels.find_span(tn1, pn1, eta1)
+        bsplines_kernels.b_splines_slim(tn1, pn1, eta1, span1, bn1)
 
         for j in range(nr_points_2):
             eta2 = quad_locs_2[j]
-            span2 = bsp.find_span(tn2, pn2, eta2)
-            bsp.b_splines_slim(tn2, pn2, eta2, span2, bn2)
+            span2 = bsplines_kernels.find_span(tn2, pn2, eta2)
+            bsplines_kernels.b_splines_slim(tn2, pn2, eta2, span2, bn2)
 
             for k in range(nr_points_3):
                 eta3 = quad_locs_3[k]
-                span3 = bsp.find_span(tn3, pn3, eta3)
-                bsp.b_splines_slim(tn3, pn3, eta3, span3, bn3)
+                span3 = bsplines_kernels.find_span(tn3, pn3, eta3)
+                bsplines_kernels.b_splines_slim(tn3, pn3, eta3, span3, bn3)
 
                 fill = fun_vals[i, j, k] * scaled_wts_1[i] * \
                     scaled_wts_2[j] * scaled_wts_3[k]
 
-                fk.fill_vec(pn1, pn2, pn3, bn1, bn2, bn3, span1,
+                filler_kernels.fill_vec(pn1, pn2, pn3, bn1, bn2, bn3, span1,
                             span2, span3, starts0, vec, fill)
 
 
@@ -154,9 +154,9 @@ def hybrid_weight(pads1: int, pads2: int, pads3: int,
                             eta2 = pts2[iel2, q2]
                             eta3 = pts3[iel3, q3]
 
-                            kernel.df(eta1, eta2, eta3, kind_map, params_map, t1,
+                            evaluation_kernels.df(eta1, eta2, eta3, kind_map, params_map, t1,
                                       t2, t3, p_map, ind1, ind2, ind3, cx, cy, cz, df_out)
-                            # sqrtg = kernel.det_df(eta1, eta2, eta3, kind_map, params_map, t1, t2, t3, p_map, ind1, ind2, ind3, cx, cy, cz)
+                            # sqrtg = evaluation_kernels.det_df(eta1, eta2, eta3, kind_map, params_map, t1, t2, t3, p_map, ind1, ind2, ind3, cx, cy, cz)
 
                             G[0, 0] = df_out[0, 0]*df_out[0, 0] + df_out[1, 0]*df_out[1, 0] + \
                                 df_out[2, 0]*df_out[2, 0]

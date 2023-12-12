@@ -52,8 +52,10 @@ def main():
         scalars_plot = args.scalars
 
     libpath = struphy.__path__[0]
-    with open(os.path.join(libpath, 'o_path.txt')) as f:
-        o_path = f.readlines()[0]
+    with open(os.path.join(libpath, 'state.yml')) as f:
+        state = yaml.load(f, Loader=yaml.FullLoader)
+
+    o_path = state['o_path']
 
     path = os.path.join(o_path, foldername)
 

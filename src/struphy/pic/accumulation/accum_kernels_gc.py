@@ -5,11 +5,11 @@ from pyccel.decorators import stack_array
 
 from numpy import zeros, empty, shape
 
-import struphy.geometry.map_eval as map_eval
-import struphy.b_splines.bsplines_kernels as bsp
-import struphy.b_splines.bspline_evaluation_3d as eval_3d
-import struphy.linear_algebra.core as linalg
-import struphy.pic.accumulation.mat_vec_filler as mvf
+import struphy.geometry.evaluation_kernels as evaluation_kernels 
+import struphy.bsplines.bsplines_kernels as bsplines_kernels 
+import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d 
+import struphy.linear_algebra.linalg_kernels as linalg_kernels 
+import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels 
 
 
 def a_documentation():
@@ -169,39 +169,39 @@ def cc_lin_mhd_5d_D(markers: 'float[:,:]', n_markers_tot: 'int',
         v = markers[ip, 3]
 
         # b-field evaluation
-        span1 = bsp.find_span(tn1, int(pn[0]), eta1)
-        span2 = bsp.find_span(tn2, int(pn[1]), eta2)
-        span3 = bsp.find_span(tn3, int(pn[2]), eta3)
+        span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
+        span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
+        span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
 
-        bsp.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
 
-        b[0] = eval_3d.eval_spline_mpi_kernel(
+        b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts2[0])
-        b[1] = eval_3d.eval_spline_mpi_kernel(
+        b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
-        b[2] = eval_3d.eval_spline_mpi_kernel(
+        b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
 
         # abs_b; 0form
-        b_para = eval_3d.eval_spline_mpi_kernel(
+        b_para = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, PB0, starts0)
 
         # norm_b1; 1form
-        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
+        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
+        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
+        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
 
         # curl_norm_b; 2form
-        curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
+        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-        curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
+        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-        curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
+        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # operator bx() as matrix
@@ -213,21 +213,21 @@ def cc_lin_mhd_5d_D(markers: 'float[:,:]', n_markers_tot: 'int',
         b_prod[2, 1] = +b[0]
 
         # evaluate Jacobian matrix and Jacobian determinant
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
-        det_df = linalg.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # calculate Bstar and transform to H1vec
         b_star[:] = b + epsilon*v*curl_norm_b
         b_star /= det_df
 
         # calculate abs_b_star_para
-        b_star_para = linalg.scalar_dot(norm_b1, b_star)
+        b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # calculate scaling constant
         density_const = 1 - b_para/b_star_para
@@ -243,7 +243,7 @@ def cc_lin_mhd_5d_D(markers: 'float[:,:]', n_markers_tot: 'int',
             filling_m23 = - weight * density_const * b_prod[1, 2] * scale_mat
 
             # call the appropriate matvec filler
-            mvf.mat_fill_v0vec_asym(pn, span1, span2, span3,
+            particle_to_mat_kernels.mat_fill_v0vec_asym(pn, span1, span2, span3,
                                     bn1, bn2, bn3,
                                     starts0,
                                     mat12, mat13, mat23,
@@ -252,18 +252,18 @@ def cc_lin_mhd_5d_D(markers: 'float[:,:]', n_markers_tot: 'int',
         elif basis_u == 1:
 
             # filling functions
-            linalg.matrix_inv_with_det(dfm, det_df, df_inv)
-            linalg.transpose(df_inv, df_inv_t)
-            linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
-            linalg.matrix_matrix(g_inv, b_prod, tmp1)
-            linalg.matrix_matrix(tmp1, g_inv, tmp2)
+            linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+            linalg_kernels.transpose(df_inv, df_inv_t)
+            linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
+            linalg_kernels.matrix_matrix(g_inv, b_prod, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
 
             filling_m12 = - weight * density_const * tmp2[0, 1] * scale_mat
             filling_m13 = - weight * density_const * tmp2[0, 2] * scale_mat
             filling_m23 = - weight * density_const * tmp2[1, 2] * scale_mat
 
             # call the appropriate matvec filler
-            mvf.mat_fill_v1_asym(pn, span1, span2, span3,
+            particle_to_mat_kernels.mat_fill_v1_asym(pn, span1, span2, span3,
                                  bn1, bn2, bn3,
                                  bd1, bd2, bd3,
                                  starts1,
@@ -278,7 +278,7 @@ def cc_lin_mhd_5d_D(markers: 'float[:,:]', n_markers_tot: 'int',
             filling_m23 = - weight * density_const * b_prod[1, 2] * scale_mat / det_df**2
 
             # call the appropriate matvec filler
-            mvf.mat_fill_v2_asym(pn, span1, span2, span3,
+            particle_to_mat_kernels.mat_fill_v2_asym(pn, span1, span2, span3,
                                  bn1, bn2, bn3,
                                  bd1, bd2, bd3,
                                  starts1,
@@ -404,56 +404,56 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
         v = markers[ip, 3]
 
         # b-field evaluation
-        span1 = bsp.find_span(tn1, int(pn[0]), eta1)
-        span2 = bsp.find_span(tn2, int(pn[1]), eta2)
-        span3 = bsp.find_span(tn3, int(pn[2]), eta3)
+        span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
+        span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
+        span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
 
-        bsp.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
-        det_df = linalg.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # b; 2form
-        b[0] = eval_3d.eval_spline_mpi_kernel(
+        b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
-        b[1] = eval_3d.eval_spline_mpi_kernel(
+        b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
-        b[2] = eval_3d.eval_spline_mpi_kernel(
+        b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
 
         # norm_b1; 1form
-        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
+        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]) - 1, int(pn[1]), int(pn[2]), bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
+        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]), int(pn[1]) - 1, int(pn[2]), bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
+        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
 
         # curl_norm_b; 2form
-        curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
+        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-        curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
+        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-        curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
+        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # b_star; 2form in H1vec
         b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
 
         # calculate abs_b_star_para
-        abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
+        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # calculate tensor product of two curl_norm_b
-        linalg.outer(curl_norm_b, curl_norm_b, tmp)
+        linalg_kernels.outer(curl_norm_b, curl_norm_b, tmp)
 
         # operator bx() as matrix
         b_prod[0, 1] = -b[2]
@@ -467,9 +467,9 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
 
         if basis_u == 0:
 
-            linalg.matrix_matrix(b_prod, tmp, tmp1)
-            linalg.matrix_matrix(tmp1, b_prod_neg, tmp_m)
-            linalg.matrix_vector(b_prod, curl_norm_b, tmp_v)
+            linalg_kernels.matrix_matrix(b_prod, tmp, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
+            linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
 
             filling_m[:, :] = weight * tmp_m * v**2 / \
                 abs_b_star_para**2 / det_df**2 * scale_mat
@@ -477,7 +477,7 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
                 abs_b_star_para / det_df * scale_vec
 
             # call the appropriate matvec filler
-            mvf.m_v_fill_v0vec_symm(pn, span1, span2, span3,
+            particle_to_mat_kernels.m_v_fill_v0vec_symm(pn, span1, span2, span3,
                                     bn1, bn2, bn3,
                                     starts0,
                                     mat11, mat12, mat13,
@@ -492,15 +492,15 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
         elif basis_u == 1:
 
             # needed metric coefficients
-            linalg.matrix_inv_with_det(dfm, det_df, df_inv)
-            linalg.transpose(df_inv, df_inv_t)
-            linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
-            linalg.matrix_matrix(g_inv, b_prod, tmp1)
-            linalg.matrix_vector(tmp1, curl_norm_b, tmp_v)
+            linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+            linalg_kernels.transpose(df_inv, df_inv_t)
+            linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
+            linalg_kernels.matrix_matrix(g_inv, b_prod, tmp1)
+            linalg_kernels.matrix_vector(tmp1, curl_norm_b, tmp_v)
 
-            linalg.matrix_matrix(tmp1, tmp, tmp2)
-            linalg.matrix_matrix(tmp2, b_prod_neg, tmp1)
-            linalg.matrix_matrix(tmp1, g_inv, tmp_m)
+            linalg_kernels.matrix_matrix(tmp1, tmp, tmp2)
+            linalg_kernels.matrix_matrix(tmp2, b_prod_neg, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, g_inv, tmp_m)
 
             filling_m[:, :] = weight * tmp_m * v**2 / \
                 abs_b_star_para**2 / det_df**2 * scale_mat
@@ -508,7 +508,7 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
                 abs_b_star_para / det_df * scale_vec
 
             # call the appropriate matvec filler
-            mvf.m_v_fill_v1_symm(pn, span1, span2, span3,
+            particle_to_mat_kernels.m_v_fill_v1_symm(pn, span1, span2, span3,
                                  bn1, bn2, bn3,
                                  bd1, bd2, bd3,
                                  starts1,
@@ -523,9 +523,9 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
 
         elif basis_u == 2:
 
-            linalg.matrix_matrix(b_prod, tmp, tmp1)
-            linalg.matrix_matrix(tmp1, b_prod_neg, tmp_m)
-            linalg.matrix_vector(b_prod, curl_norm_b, tmp_v)
+            linalg_kernels.matrix_matrix(b_prod, tmp, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
+            linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
 
             filling_m[:, :] = weight * tmp_m * v**2 / \
                 abs_b_star_para**2 / det_df**4 * scale_mat
@@ -533,7 +533,7 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
                 abs_b_star_para / det_df**2 * scale_vec
 
             # call the appropriate matvec filler
-            mvf.m_v_fill_v2_symm(pn, span1, span2, span3,
+            particle_to_mat_kernels.m_v_fill_v2_symm(pn, span1, span2, span3,
                                  bn1, bn2, bn3,
                                  bd1, bd2, bd3,
                                  starts2,
@@ -610,18 +610,18 @@ def cc_lin_mhd_5d_mu(markers: 'float[:,:]', n_markers_tot: 'int',
         mu = markers[ip, 4]
 
         # b-field evaluation
-        span1 = bsp.find_span(tn1, int(pn[0]), eta1)
-        span2 = bsp.find_span(tn2, int(pn[1]), eta2)
-        span3 = bsp.find_span(tn3, int(pn[2]), eta3)
+        span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
+        span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
+        span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
 
-        bsp.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
 
         filling = weight * mu * coupling_const
 
         # call the appropriate matvec filler
-        mvf.scalar_fill_v0(pn, span1, span2, span3, bn1,
+        particle_to_mat_kernels.scalar_fill_v0(pn, span1, span2, span3, bn1,
                            bn2, bn3, starts0, vec, filling)
 
     vec /= n_markers_tot
@@ -722,53 +722,53 @@ def cc_lin_mhd_5d_curlMxB(markers: 'float[:,:]', n_markers_tot: 'int',
         mu = markers[ip, 4]
 
         # b-field evaluation
-        span1 = bsp.find_span(tn1, int(pn[0]), eta1)
-        span2 = bsp.find_span(tn2, int(pn[1]), eta2)
-        span3 = bsp.find_span(tn3, int(pn[2]), eta3)
+        span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
+        span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
+        span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
 
-        bsp.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
-        det_df = linalg.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # needed metric coefficients
-        linalg.matrix_inv_with_det(dfm, det_df, df_inv)
-        linalg.transpose(df_inv, df_inv_t)
-        linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
+        linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+        linalg_kernels.transpose(df_inv, df_inv_t)
+        linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
 
         # b; 2form
-        b[0] = eval_3d.eval_spline_mpi_kernel(
+        b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
-        b[1] = eval_3d.eval_spline_mpi_kernel(
+        b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
-        b[2] = eval_3d.eval_spline_mpi_kernel(
+        b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
 
         # curl_norm_b; 2form
-        curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
+        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-        curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
+        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-        curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
+        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
-        linalg.cross(curl_norm_b, b, tmp_v1)
+        linalg_kernels.cross(curl_norm_b, b, tmp_v1)
         tmp_v1 /= det_df
 
         if basis_u == 0:
 
             filling_v[:] = weight * mu * tmp_v1 * scale_vec
 
-            mvf.vec_fill_v0(pn, span1, span2, span3,
+            particle_to_mat_kernels.vec_fill_v0(pn, span1, span2, span3,
                             bn1, bn2, bn3,
                             starts0,
                             vec1, vec2, vec3,
@@ -776,11 +776,11 @@ def cc_lin_mhd_5d_curlMxB(markers: 'float[:,:]', n_markers_tot: 'int',
 
         elif basis_u == 1:
 
-            linalg.matrix_vector(g_inv, tmp_v1, tmp_v2)
+            linalg_kernels.matrix_vector(g_inv, tmp_v1, tmp_v2)
 
             filling_v[:] = weight * mu * tmp_v2 * scale_vec
 
-            mvf.vec_fill_v1(pn, span1, span2, span3,
+            particle_to_mat_kernels.vec_fill_v1(pn, span1, span2, span3,
                             bn1, bn2, bn3, bd1, bd2, bd3,
                             starts1,
                             vec1, vec2, vec3,
@@ -790,7 +790,7 @@ def cc_lin_mhd_5d_curlMxB(markers: 'float[:,:]', n_markers_tot: 'int',
 
             filling_v[:] = weight * mu * tmp_v1 / det_df * scale_vec
 
-            mvf.vec_fill_v2(pn, span1, span2, span3,
+            particle_to_mat_kernels.vec_fill_v2(pn, span1, span2, span3,
                             bn1, bn2, bn3, bd1, bd2, bd3,
                             starts2,
                             vec1, vec2, vec3,
@@ -929,67 +929,67 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
         mu = markers[ip, 4]
 
         # b-field evaluation
-        span1 = bsp.find_span(tn1, int(pn[0]), eta1)
-        span2 = bsp.find_span(tn2, int(pn[1]), eta2)
-        span3 = bsp.find_span(tn3, int(pn[2]), eta3)
+        span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
+        span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
+        span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
 
-        bsp.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
-        det_df = linalg.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # needed metric coefficients
-        linalg.matrix_inv_with_det(dfm, det_df, df_inv)
-        linalg.transpose(df_inv, df_inv_t)
-        linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
+        linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+        linalg_kernels.transpose(df_inv, df_inv_t)
+        linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
 
         # b; 2form
-        b[0] = eval_3d.eval_spline_mpi_kernel(
+        b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
-        b[1] = eval_3d.eval_spline_mpi_kernel(
+        b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
-        b[2] = eval_3d.eval_spline_mpi_kernel(
+        b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
 
         # norm_b1; 1form
-        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
+        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]) - 1, int(pn[1]), int(pn[2]), bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
+        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]), int(pn[1]) - 1, int(pn[2]), bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
+        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
 
         # norm_b2; 2form
-        norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
+        norm_b2[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
-        norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
+        norm_b2[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
-        norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
+        norm_b2[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
 
         # curl_norm_b; 2form
-        curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
+        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-        curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
+        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-        curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
+        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
         # grad_PB; 1form
-        grad_PB[0] = eval_3d.eval_spline_mpi_kernel(
+        grad_PB[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]) - 1, int(pn[1]), int(pn[2]), bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts1[0])
-        grad_PB[1] = eval_3d.eval_spline_mpi_kernel(
+        grad_PB[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]), int(pn[1]) - 1, int(pn[2]), bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts1[1])
-        grad_PB[2] = eval_3d.eval_spline_mpi_kernel(
+        grad_PB[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
 
         grad_PB_mat[0, 0] = grad_PB[0]
@@ -1000,7 +1000,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
         b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
 
         # calculate abs_b_star_para
-        abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
+        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # operator bx() as matrix
         b_prod[0, 1] = -b[2]
@@ -1019,23 +1019,23 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
         if basis_u == 0:
 
-            linalg.matrix_matrix(b_prod, g_inv, tmp1)
-            linalg.matrix_matrix(tmp1, norm_b2_prod, tmp2)
-            linalg.matrix_matrix(tmp2, g_inv, tmp1)
+            linalg_kernels.matrix_matrix(b_prod, g_inv, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, norm_b2_prod, tmp2)
+            linalg_kernels.matrix_matrix(tmp2, g_inv, tmp1)
 
-            linalg.transpose(tmp1, tmp_t)
+            linalg_kernels.transpose(tmp1, tmp_t)
 
-            linalg.matrix_vector(tmp1, grad_PB, tmp_v)
+            linalg_kernels.matrix_vector(tmp1, grad_PB, tmp_v)
 
-            linalg.matrix_matrix(tmp1, grad_PB_mat, tmp2)
-            linalg.matrix_matrix(tmp2, tmp_t, tmp_m)
+            linalg_kernels.matrix_matrix(tmp1, grad_PB_mat, tmp2)
+            linalg_kernels.matrix_matrix(tmp2, tmp_t, tmp_m)
 
             filling_m[:, :] = weight * tmp_m * \
                 mu / abs_b_star_para**2 * scale_mat
             filling_v[:] = weight * tmp_v * mu / abs_b_star_para * scale_vec
 
             # call the appropriate matvec filler
-            mvf.m_v_fill_v0vec_symm(pn, span1, span2, span3,
+            particle_to_mat_kernels.m_v_fill_v0vec_symm(pn, span1, span2, span3,
                                     bn1, bn2, bn3,
                                     starts0,
                                     mat11, mat12, mat13,
@@ -1049,24 +1049,24 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
         elif basis_u == 1:
 
-            linalg.matrix_matrix(g_inv, b_prod, tmp1)
-            linalg.matrix_matrix(tmp1, g_inv, tmp2)
-            linalg.matrix_matrix(tmp2, norm_b2_prod, tmp1)
-            linalg.matrix_matrix(tmp1, g_inv, tmp2)
+            linalg_kernels.matrix_matrix(g_inv, b_prod, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
+            linalg_kernels.matrix_matrix(tmp2, norm_b2_prod, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
 
-            linalg.transpose(tmp2, tmp_t)
+            linalg_kernels.transpose(tmp2, tmp_t)
 
-            linalg.matrix_vector(tmp2, grad_PB, tmp_v)
+            linalg_kernels.matrix_vector(tmp2, grad_PB, tmp_v)
 
-            linalg.matrix_matrix(tmp2, grad_PB_mat, tmp1)
-            linalg.matrix_matrix(tmp1, tmp_t, tmp_m)
+            linalg_kernels.matrix_matrix(tmp2, grad_PB_mat, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, tmp_t, tmp_m)
 
             filling_m[:, :] = weight * tmp_m * \
                 mu / abs_b_star_para**2 * scale_mat
             filling_v[:] = weight * tmp_v * mu / abs_b_star_para * scale_vec
 
             # call the appropriate matvec filler
-            mvf.m_v_fill_v1_symm(pn, span1, span2, span3,
+            particle_to_mat_kernels.m_v_fill_v1_symm(pn, span1, span2, span3,
                                  bn1, bn2, bn3,
                                  bd1, bd2, bd3,
                                  starts1,
@@ -1081,16 +1081,16 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
         elif basis_u == 2:
 
-            linalg.matrix_matrix(b_prod, g_inv, tmp1)
-            linalg.matrix_matrix(tmp1, norm_b2_prod, tmp2)
-            linalg.matrix_matrix(tmp2, g_inv, tmp1)
+            linalg_kernels.matrix_matrix(b_prod, g_inv, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, norm_b2_prod, tmp2)
+            linalg_kernels.matrix_matrix(tmp2, g_inv, tmp1)
 
-            linalg.transpose(tmp1, tmp_t)
+            linalg_kernels.transpose(tmp1, tmp_t)
 
-            linalg.matrix_vector(tmp1, grad_PB, tmp_v)
+            linalg_kernels.matrix_vector(tmp1, grad_PB, tmp_v)
 
-            linalg.matrix_matrix(tmp1, grad_PB_mat, tmp2)
-            linalg.matrix_matrix(tmp2, tmp_t, tmp_m)
+            linalg_kernels.matrix_matrix(tmp1, grad_PB_mat, tmp2)
+            linalg_kernels.matrix_matrix(tmp2, tmp_t, tmp_m)
 
             filling_m[:, :] = weight * tmp_m * mu / \
                 abs_b_star_para**2 / det_df**2 * scale_mat
@@ -1098,7 +1098,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
                 abs_b_star_para / det_df * scale_vec
 
             # call the appropriate matvec filler
-            mvf.m_v_fill_v2_symm(pn, span1, span2, span3,
+            particle_to_mat_kernels.m_v_fill_v2_symm(pn, span1, span2, span3,
                                  bn1, bn2, bn3,
                                  bd1, bd2, bd3,
                                  starts2,
@@ -1219,13 +1219,13 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 #         mu = markers[ip, 4]
 
 #         # b-field evaluation
-#         span1 = bsp.find_span(tn1, int(pn[0]), eta1)
-#         span2 = bsp.find_span(tn2, int(pn[1]), eta2)
-#         span3 = bsp.find_span(tn3, int(pn[2]), eta3)
+#         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
+#         span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
+#         span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
 
-#         bsp.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
-#         bsp.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
-#         bsp.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
+#         bsplines_kernels.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
+#         bsplines_kernels.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
+#         bsplines_kernels.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
 
 #         # evaluate Jacobian, result in dfm
 #         map_eval.df(eta1, eta2, eta3,
@@ -1235,58 +1235,58 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 #                     cx, cy, cz,
 #                     dfm)
 
-#         det_df = linalg.det(dfm)
+#         det_df = linalg_kernels.det(dfm)
 
 #         # needed metric coefficients
-#         linalg.matrix_inv_with_det(dfm, det_df, df_inv)
-#         linalg.transpose(df_inv, df_inv_t)
-#         linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
+#         linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+#         linalg_kernels.transpose(df_inv, df_inv_t)
+#         linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
 
 #         # b; 2form
-#         b[0] = eval_3d.eval_spline_mpi_kernel(
+#         b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
-#         b[1] = eval_3d.eval_spline_mpi_kernel(
+#         b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
-#         b[2] = eval_3d.eval_spline_mpi_kernel(
+#         b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
 
 #         # norm_b1; 1form
-#         norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
+#         norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]), int(pn[2]), bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-#         norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
+#         norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]) - 1, int(pn[2]), bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-#         norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
+#         norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
 
 #         # norm_b2; 2form
-#         norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
+#         norm_b2[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
-#         norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
+#         norm_b2[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
-#         norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
+#         norm_b2[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
 
 #         # curl_norm_b; 2form
-#         curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
+#         curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-#         curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
+#         curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-#         curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
+#         curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
 #         # grad_PB; 1form
-#         grad_PB[0] = eval_3d.eval_spline_mpi_kernel(
+#         grad_PB[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]), int(pn[2]), bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts1[0])
-#         grad_PB[1] = eval_3d.eval_spline_mpi_kernel(
+#         grad_PB[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]) - 1, int(pn[2]), bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts1[1])
-#         grad_PB[2] = eval_3d.eval_spline_mpi_kernel(
+#         grad_PB[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
 
 #         # b_star; 2form transformed into H1vec
 #         b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
 
 #         # calculate abs_b_star_para
-#         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
+#         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
 #         # operator bx() as matrix
 #         b_prod[0, 1] = -b[2]
@@ -1305,11 +1305,11 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
 #         if basis_u == 0:
 
-#             linalg.matrix_matrix(b_prod, g_inv, tmp1)
-#             linalg.matrix_matrix(tmp1, norm_b2_prod, tmp2)
-#             linalg.matrix_matrix(tmp2, g_inv, tmp1)
-#             linalg.matrix_vector(tmp1, grad_PB, tmp_v1)
-#             linalg.matrix_vector(tmp1, markers[ip, 15:18], tmp_v2)
+#             linalg_kernels.matrix_matrix(b_prod, g_inv, tmp1)
+#             linalg_kernels.matrix_matrix(tmp1, norm_b2_prod, tmp2)
+#             linalg_kernels.matrix_matrix(tmp2, g_inv, tmp1)
+#             linalg_kernels.matrix_vector(tmp1, grad_PB, tmp_v1)
+#             linalg_kernels.matrix_vector(tmp1, markers[ip, 15:18], tmp_v2)
 
 #             filling_v[:] = (weight*tmp_v1*mu + tmp_v2 *
 #                             gradI_const)/abs_b_star_para * scale_vec
@@ -1323,12 +1323,12 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
 #         elif basis_u == 1:
 
-#             linalg.matrix_matrix(g_inv, b_prod, tmp1)
-#             linalg.matrix_matrix(tmp1, g_inv, tmp2)
-#             linalg.matrix_matrix(tmp2, norm_b2_prod, tmp1)
-#             linalg.matrix_matrix(tmp1, g_inv, tmp2)
-#             linalg.matrix_vector(tmp2, grad_PB, tmp_v1)
-#             linalg.matrix_vector(tmp2, markers[ip, 15:18], tmp_v2)
+#             linalg_kernels.matrix_matrix(g_inv, b_prod, tmp1)
+#             linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
+#             linalg_kernels.matrix_matrix(tmp2, norm_b2_prod, tmp1)
+#             linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
+#             linalg_kernels.matrix_vector(tmp2, grad_PB, tmp_v1)
+#             linalg_kernels.matrix_vector(tmp2, markers[ip, 15:18], tmp_v2)
 
 #             filling_v[:] = (weight*tmp_v1*mu + tmp_v2 *
 #                             gradI_const)/abs_b_star_para * scale_vec
@@ -1343,11 +1343,11 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
 #         elif basis_u == 2:
 
-#             linalg.matrix_matrix(b_prod, g_inv, tmp1)
-#             linalg.matrix_matrix(tmp1, norm_b2_prod, tmp2)
-#             linalg.matrix_matrix(tmp2, g_inv, tmp1)
-#             linalg.matrix_vector(tmp1, grad_PB, tmp_v1)
-#             linalg.matrix_vector(tmp1, markers[ip, 15:18], tmp_v2)
+#             linalg_kernels.matrix_matrix(b_prod, g_inv, tmp1)
+#             linalg_kernels.matrix_matrix(tmp1, norm_b2_prod, tmp2)
+#             linalg_kernels.matrix_matrix(tmp2, g_inv, tmp1)
+#             linalg_kernels.matrix_vector(tmp1, grad_PB, tmp_v1)
+#             linalg_kernels.matrix_vector(tmp1, markers[ip, 15:18], tmp_v2)
 
 #             filling_v[:] = (weight*tmp_v1*mu + tmp_v2*gradI_const) / \
 #                 abs_b_star_para/det_df * scale_vec
@@ -1464,13 +1464,13 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 #         mu = markers[ip, 4]
 
 #         # b-field evaluation
-#         span1 = bsp.find_span(tn1, int(pn[0]), eta1)
-#         span2 = bsp.find_span(tn2, int(pn[1]), eta2)
-#         span3 = bsp.find_span(tn3, int(pn[2]), eta3)
+#         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
+#         span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
+#         span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
 
-#         bsp.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
-#         bsp.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
-#         bsp.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
+#         bsplines_kernels.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
+#         bsplines_kernels.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
+#         bsplines_kernels.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
 
 #         # evaluate Jacobian, result in dfm
 #         map_eval.df(eta1, eta2, eta3,
@@ -1480,58 +1480,58 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 #                     cx, cy, cz,
 #                     dfm)
 
-#         det_df = linalg.det(dfm)
+#         det_df = linalg_kernels.det(dfm)
 
 #         # needed metric coefficients
-#         linalg.matrix_inv_with_det(dfm, det_df, df_inv)
-#         linalg.transpose(df_inv, df_inv_t)
-#         linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
+#         linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+#         linalg_kernels.transpose(df_inv, df_inv_t)
+#         linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
 
 #         # b; 2form
-#         b[0] = eval_3d.eval_spline_mpi_kernel(
+#         b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
-#         b[1] = eval_3d.eval_spline_mpi_kernel(
+#         b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
-#         b[2] = eval_3d.eval_spline_mpi_kernel(
+#         b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
 
 #         # norm_b1; 1form
-#         norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
+#         norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]), int(pn[2]), bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-#         norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
+#         norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]) - 1, int(pn[2]), bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-#         norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
+#         norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
 
 #         # norm_b2; 2form
-#         norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
+#         norm_b2[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
-#         norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
+#         norm_b2[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
-#         norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
+#         norm_b2[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
 
 #         # curl_norm_b; 2form
-#         curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
+#         curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-#         curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
+#         curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-#         curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
+#         curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
 #         # grad_PB; 1form
-#         grad_PB[0] = eval_3d.eval_spline_mpi_kernel(
+#         grad_PB[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]), int(pn[2]), bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts1[0])
-#         grad_PB[1] = eval_3d.eval_spline_mpi_kernel(
+#         grad_PB[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]) - 1, int(pn[2]), bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts1[1])
-#         grad_PB[2] = eval_3d.eval_spline_mpi_kernel(
+#         grad_PB[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
 
 #         # b_star; 2form transformed into H1vec
 #         b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
 
 #         # calculate abs_b_star_para
-#         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
+#         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
 #         # operator bx() as matrix
 #         b_prod[0, 1] = -b[2]
@@ -1550,10 +1550,10 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
 #         if basis_u == 0:
 
-#             linalg.matrix_matrix(b_prod, g_inv, tmp1)
-#             linalg.matrix_matrix(tmp1, norm_b2_prod, tmp2)
-#             linalg.matrix_matrix(tmp2, g_inv, tmp1)
-#             linalg.matrix_vector(tmp1, grad_PB, tmp_v)
+#             linalg_kernels.matrix_matrix(b_prod, g_inv, tmp1)
+#             linalg_kernels.matrix_matrix(tmp1, norm_b2_prod, tmp2)
+#             linalg_kernels.matrix_matrix(tmp2, g_inv, tmp1)
+#             linalg_kernels.matrix_vector(tmp1, grad_PB, tmp_v)
 
 #             filling_v[:] = weight * tmp_v * mu / abs_b_star_para * scale_vec
 
@@ -1566,11 +1566,11 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
 #         elif basis_u == 1:
 
-#             linalg.matrix_matrix(g_inv, b_prod, tmp1)
-#             linalg.matrix_matrix(tmp1, g_inv, tmp2)
-#             linalg.matrix_matrix(tmp2, norm_b2_prod, tmp1)
-#             linalg.matrix_matrix(tmp1, g_inv, tmp2)
-#             linalg.matrix_vector(tmp2, grad_PB, tmp_v)
+#             linalg_kernels.matrix_matrix(g_inv, b_prod, tmp1)
+#             linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
+#             linalg_kernels.matrix_matrix(tmp2, norm_b2_prod, tmp1)
+#             linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
+#             linalg_kernels.matrix_vector(tmp2, grad_PB, tmp_v)
 
 #             filling_v[:] = weight * tmp_v * mu / abs_b_star_para * scale_vec
 
@@ -1584,10 +1584,10 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
 #         elif basis_u == 2:
 
-#             linalg.matrix_matrix(b_prod, g_inv, tmp1)
-#             linalg.matrix_matrix(tmp1, norm_b2_prod, tmp2)
-#             linalg.matrix_matrix(tmp2, g_inv, tmp1)
-#             linalg.matrix_vector(tmp1, grad_PB, tmp_v)
+#             linalg_kernels.matrix_matrix(b_prod, g_inv, tmp1)
+#             linalg_kernels.matrix_matrix(tmp1, norm_b2_prod, tmp2)
+#             linalg_kernels.matrix_matrix(tmp2, g_inv, tmp1)
+#             linalg_kernels.matrix_vector(tmp1, grad_PB, tmp_v)
 
 #             filling_v[:] = weight * tmp_v * mu / \
 #                 abs_b_star_para / det_df * scale_vec
@@ -1689,20 +1689,20 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 #         mu = markers[ip, 4]
 
 #         # b-field evaluation
-#         span1 = bsp.find_span(tn1, int(pn[0]), eta1)
-#         span2 = bsp.find_span(tn2, int(pn[1]), eta2)
-#         span3 = bsp.find_span(tn3, int(pn[2]), eta3)
+#         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
+#         span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
+#         span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
 
-#         bsp.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
-#         bsp.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
-#         bsp.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
+#         bsplines_kernels.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
+#         bsplines_kernels.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
+#         bsplines_kernels.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
 
 #         # grad_PB; 1form
-#         grad_PB[0] = eval_3d.eval_spline_mpi_kernel(
+#         grad_PB[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]), int(pn[2]), bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts1[0])
-#         grad_PB[1] = eval_3d.eval_spline_mpi_kernel(
+#         grad_PB[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]) - 1, int(pn[2]), bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts1[1])
-#         grad_PB[2] = eval_3d.eval_spline_mpi_kernel(
+#         grad_PB[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
 
 #         tmp[:, :] = ((markers[ip, 18], markers[ip, 19], markers[ip, 20]),
@@ -1711,8 +1711,8 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
 #         if basis_u == 0:
 
-#             linalg.matrix_vector(tmp, grad_PB, tmp_v1)
-#             linalg.matrix_vector(tmp, markers[ip, 15:18], tmp_v2)
+#             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v1)
+#             linalg_kernels.matrix_vector(tmp, markers[ip, 15:18], tmp_v2)
 
 #             filling_v[:] = (tmp_v1 * mu * scale_vec +
 #                             tmp_v2*gradI_const) * weight
@@ -1726,8 +1726,8 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
 #         elif basis_u == 1:
 
-#             linalg.matrix_vector(tmp, grad_PB, tmp_v1)
-#             linalg.matrix_vector(tmp, markers[ip, 15:18], tmp_v2)
+#             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v1)
+#             linalg_kernels.matrix_vector(tmp, markers[ip, 15:18], tmp_v2)
 
 #             filling_v[:] = (tmp_v1 * mu * scale_vec +
 #                             tmp_v2*gradI_const) * weight
@@ -1742,8 +1742,8 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
 #         elif basis_u == 2:
 
-#             linalg.matrix_vector(tmp, grad_PB, tmp_v1)
-#             linalg.matrix_vector(tmp, markers[ip, 15:18], tmp_v2)
+#             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v1)
+#             linalg_kernels.matrix_vector(tmp, markers[ip, 15:18], tmp_v2)
 
 #             filling_v[:] = (tmp_v1 * mu * scale_vec +
 #                             tmp_v2*gradI_const) * weight
@@ -1863,13 +1863,13 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 #         mu = markers[ip, 4]
 
 #         # b-field evaluation
-#         span1 = bsp.find_span(tn1, int(pn[0]), eta1)
-#         span2 = bsp.find_span(tn2, int(pn[1]), eta2)
-#         span3 = bsp.find_span(tn3, int(pn[2]), eta3)
+#         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
+#         span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
+#         span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
 
-#         bsp.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
-#         bsp.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
-#         bsp.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
+#         bsplines_kernels.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
+#         bsplines_kernels.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
+#         bsplines_kernels.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
 
 #         # evaluate Jacobian, result in dfm
 #         map_eval.df(eta1, eta2, eta3,
@@ -1879,58 +1879,58 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 #                     cx, cy, cz,
 #                     dfm)
 
-#         det_df = linalg.det(dfm)
+#         det_df = linalg_kernels.det(dfm)
 
 #         # needed metric coefficients
-#         linalg.matrix_inv_with_det(dfm, det_df, df_inv)
-#         linalg.transpose(df_inv, df_inv_t)
-#         linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
+#         linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+#         linalg_kernels.transpose(df_inv, df_inv_t)
+#         linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
 
 #         # b; 2form
-#         b[0] = eval_3d.eval_spline_mpi_kernel(
+#         b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
-#         b[1] = eval_3d.eval_spline_mpi_kernel(
+#         b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
-#         b[2] = eval_3d.eval_spline_mpi_kernel(
+#         b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
 
 #         # norm_b1; 1form
-#         norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
+#         norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]), int(pn[2]), bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-#         norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
+#         norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]) - 1, int(pn[2]), bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-#         norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
+#         norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
 
 #         # norm_b2; 2form
-#         norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
+#         norm_b2[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
-#         norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
+#         norm_b2[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
-#         norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
+#         norm_b2[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
 
 #         # curl_norm_b; 2form
-#         curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
+#         curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-#         curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
+#         curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-#         curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
+#         curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
 
 #         # grad_PB; 1form
-#         grad_PB[0] = eval_3d.eval_spline_mpi_kernel(
+#         grad_PB[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]) - 1, int(pn[1]), int(pn[2]), bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts1[0])
-#         grad_PB[1] = eval_3d.eval_spline_mpi_kernel(
+#         grad_PB[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]) - 1, int(pn[2]), bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts1[1])
-#         grad_PB[2] = eval_3d.eval_spline_mpi_kernel(
+#         grad_PB[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
 #             int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
 
 #         # b_star; 2form transformed into H1vec
 #         b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
 
 #         # calculate abs_b_star_para
-#         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
+#         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
 #         # operator bx() as matrix
 #         b_prod[0, 1] = -b[2]
@@ -1949,10 +1949,10 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
 #         if basis_u == 0:
 
-#             linalg.matrix_matrix(b_prod, g_inv, tmp1)
-#             linalg.matrix_matrix(tmp1, norm_b2_prod, tmp2)
-#             linalg.matrix_matrix(tmp2, g_inv, tmp1)
-#             linalg.matrix_vector(tmp1, grad_PB, tmp_v)
+#             linalg_kernels.matrix_matrix(b_prod, g_inv, tmp1)
+#             linalg_kernels.matrix_matrix(tmp1, norm_b2_prod, tmp2)
+#             linalg_kernels.matrix_matrix(tmp2, g_inv, tmp1)
+#             linalg_kernels.matrix_vector(tmp1, grad_PB, tmp_v)
 
 #             # saving S(H_n)
 #             markers[ip, 18:21] = tmp1[0, :]/abs_b_star_para
@@ -1970,11 +1970,11 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
 #         elif basis_u == 1:
 
-#             linalg.matrix_matrix(g_inv, b_prod, tmp1)
-#             linalg.matrix_matrix(tmp1, g_inv, tmp2)
-#             linalg.matrix_matrix(tmp2, norm_b2_prod, tmp1)
-#             linalg.matrix_matrix(tmp1, g_inv, tmp2)
-#             linalg.matrix_vector(tmp2, grad_PB, tmp_v)
+#             linalg_kernels.matrix_matrix(g_inv, b_prod, tmp1)
+#             linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
+#             linalg_kernels.matrix_matrix(tmp2, norm_b2_prod, tmp1)
+#             linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
+#             linalg_kernels.matrix_vector(tmp2, grad_PB, tmp_v)
 
 #             # saving S(H_n)
 #             markers[ip, 18:21] = tmp2[0, :]/abs_b_star_para
@@ -1993,10 +1993,10 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
 #         elif basis_u == 2:
 
-#             linalg.matrix_matrix(b_prod, g_inv, tmp1)
-#             linalg.matrix_matrix(tmp1, norm_b2_prod, tmp2)
-#             linalg.matrix_matrix(tmp2, g_inv, tmp1)
-#             linalg.matrix_vector(tmp1, grad_PB, tmp_v)
+#             linalg_kernels.matrix_matrix(b_prod, g_inv, tmp1)
+#             linalg_kernels.matrix_matrix(tmp1, norm_b2_prod, tmp2)
+#             linalg_kernels.matrix_matrix(tmp2, g_inv, tmp1)
+#             linalg_kernels.matrix_vector(tmp1, grad_PB, tmp_v)
 
 #             # saving S(H_n)
 #             markers[ip, 18:21] = tmp1[0, :]/det_df/abs_b_star_para
