@@ -62,14 +62,6 @@ default_venv:
     - python3 -m pip install --upgrade pip
     - pip install -U pytest coverage twine
     - pip list
-    - deactivate
-    - python3 -m venv env_fortran_$CI_PIPELINE_ID
-    - ls
-    - pwd
-    - source env_fortran_$CI_PIPELINE_ID/bin/activate
-    - python3 -m pip install --upgrade pip
-    - pip install -U pytest coverage twine
-    - pip list
 
 # Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
 ci_vars:
@@ -214,6 +206,7 @@ linting:
   artifacts:
     paths:
       - linting/
+    expire_in: 1 day
 
 # build on mpcdf server
 default_build:
@@ -231,6 +224,7 @@ default_build:
   artifacts:
     paths:
       - dist/
+    expire_in: 1 day
 
 # Install from wheel and compile on mpcdf cluster arch
 fortran_install:
@@ -327,7 +321,6 @@ fortran_tutorial_tests:
 # default tests, language c (always)
 default_install:
   stage: test
-  #needs: ["default_build"]
   needs: 
   - job: fortran_unit_tests
   - job: fortran_propagator_tests
@@ -560,7 +553,7 @@ pages:
   script:
     - pip install dist/struphy*.whl
     - pip show struphy
-    - struphy
+    - struphy -h
     - struphy compile --status
     - struphy compile
     - struphy test tutorials
@@ -586,6 +579,7 @@ vars:
   artifacts:
     reports:
       dotenv: vars.env
+    expire_in: 1 day
 
 release_job:
   stage: release
