@@ -378,7 +378,7 @@ ubuntu_23_04_tests:
   before_script:
     - apt update -y && apt clean 
     - apt install -y python3-pip 
-    - apt install -y python3.10-venv  # Example Python version for Ubuntu 22.04
+    - apt install -y python3-venv  # Example Python version for Ubuntu 22.04
     - apt install -y gfortran gcc 
     - DEBIAN_FRONTEND=noninteractive TZ="Europe/Berlin" apt-get install -y liblapack-dev libopenmpi-dev 
     - apt install -y libblas-dev openmpi-bin 
@@ -393,7 +393,7 @@ ubuntu_23_04_tests:
     - struphy compile
     - struphy test codes --fast
 
-fedora_tests:
+fedora_37_tests:
   stage: test
   image: fedora:37
   needs: ["default_build"]
@@ -509,8 +509,8 @@ centos_7_python_3_8_build:
     
   script:
     - echo "Starting build and test process"
-    - pip list
-    - pip install dist/struphy*.whl
+    - pip3 list
+    - pip3 install dist/struphy*.whl
     - struphy compile
     - struphy test codes --fast
     - echo "Build and test process completed"
@@ -550,8 +550,8 @@ centos_7_python_3_9_build:
 
   script:
     - echo "Starting build and test process"
-    - pip list
-    - pip install dist/struphy*.whl
+    - pip3 list
+    - pip3 install dist/struphy*.whl
     - struphy compile
     - struphy test codes --fast
     - echo "Build and test process completed"
