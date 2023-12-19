@@ -52,7 +52,11 @@ def test_l2_projector_V0(Nel, p, spl_kind, mapping, do_plot=False):
 
     # evaluate on a mesh
     x = np.linspace(0, 1., 200)
-    y = field(x, x, 0.)
+
+    # test optional out and tmp argument
+    tmp_y = np.zeros((200,200,1), dtype=float)
+    tmp_test = np.zeros((200,200,1), dtype=float)
+    y = field(x, x, 0., out=tmp_y, tmp=tmp_test)
 
     # assert that projected function approximates values of analytical function
     # in eta1-direction
