@@ -1,13 +1,15 @@
 .. _models:
 
-Struphy models
-==============
+Models
+======
 
-This page lists the currently available model PDEs in Struphy 
-(`fluid <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.models.fluid.html>`_,
-`kinetic <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.models.kinetic.html>`_,
-`hybrid <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.models.hybrid.html>`_,
-and `toy <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.models.toy.html>`_).
+This page lists the currently available model PDEs in Struphy:
+
+- `fluid <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.models.fluid.html>`_
+- `kinetic <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.models.kinetic.html>`_
+- `hybrid <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.models.hybrid.html>`_
+- `toy <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.models.toy.html>`_
+
 The list can be called from the console via::
 
     struphy run -h
@@ -25,16 +27,6 @@ Struphy models must be added to one of the following sub-modules:
     struphy.models.kinetic
     struphy.models.hybrid
     struphy.models.toy
-
-.. _model_list:
-
-.. toctree::
-    :caption: Lists of available models:
-
-    STUBDIR/struphy.models.fluid
-    STUBDIR/struphy.models.kinetic
-    STUBDIR/struphy.models.hybrid
-    STUBDIR/struphy.models.toy
 
 
 .. _fluid_models:

@@ -66,6 +66,19 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 #html_theme = 'press'
 html_theme = 'pydata_sphinx_theme'
 
+html_theme_options = {
+    "sidebarwidth": 270,
+    "show_nav_level": 3,
+    "show_toc_level": 2,
+    "navigation_depth": 4,
+    "header_links_before_dropdown": 8,
+    "primary_sidebar_end": ["sidebar-ethical-ads"],
+    "external_links": [
+        {"name": "Struphy repo", "url": "https://gitlab.mpcdf.mpg.de/struphy/struphy"},
+        {"name": "Struphy LinkedIn", "url": "https://www.linkedin.com/company/struphy/"},
+        {"name": "Struphy RocketChat", "url": "https://chat.gwdg.de/channel/struphy-developers"}
+    ]
+}
 
 # html_theme_options = {
 #     "rightsidebar": "false",
@@ -76,7 +89,7 @@ html_theme = 'pydata_sphinx_theme'
 # }
 
 html_sidebars = {
-   '**': ['localtoc.html', 'relations.html', 'searchbox.html'],
+   '**': ['globaltoc.html', 'relations.html', 'searchbox.html'],
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,

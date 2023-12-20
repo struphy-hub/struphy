@@ -1,11 +1,11 @@
 .. _diagnostics:
 
 Diagnostic tools
-================
+----------------
 
 
 Tools
------
+^^^^^
 
 .. automodule:: struphy.diagnostics.diagn_tools
     :members:
@@ -15,7 +15,7 @@ Tools
 .. _dispersions:
 
 Dispersion relations 
---------------------
+^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: struphy.dispersion_relations.analytic
     :members:

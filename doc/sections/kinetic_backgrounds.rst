@@ -1,7 +1,12 @@
 .. _kinetic_backgrounds:
 
-Kinetic initial conditions/backgrounds
-======================================
+Kinetic initial conditions
+--------------------------
+
+This page lists the currently available kinetic backgrounds/initial conditions in Struphy:
+
+- `Maxwellians <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.kinetic_background.maxwellians.html>`_
+
 
 Documented modules:
 
@@ -14,15 +19,9 @@ Documented modules:
     struphy.kinetic_background.base
     struphy.kinetic_background.maxwellians
 
-.. toctree::
-    :caption: Lists of available kinetic initial conditions/backgrounds:
-
-    STUBDIR/struphy.kinetic_background.base
-    STUBDIR/struphy.kinetic_background.maxwellians
-
 
 Base classes
-------------
+^^^^^^^^^^^^
 
 .. automodule:: struphy.kinetic_background.base
     :members:
@@ -31,7 +30,7 @@ Base classes
 
 
 Available Maxwellians
----------------------
+^^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: struphy.kinetic_background.maxwellians
     :members:

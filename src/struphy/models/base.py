@@ -1095,12 +1095,14 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             else:
                 yn = input(f'Writing to {file}, are you sure (Y/n)? ')
 
-            if yn == 'n':
-                pass
-            else:
+            if yn in ('', 'Y', 'y', 'yes', 'Yes'):
                 with open(file, 'w') as outfile:
                     yaml.dump(parameters, outfile, Dumper=MyDumper,
                               default_flow_style=None, sort_keys=False, indent=4, line_break='\n')
+                print(
+                    f'Default parameter file for {cls.__name__} has been created; you can now launch with "struphy run {cls.__name__}".')
+            else:
+                pass
 
         return parameters
 

@@ -9,7 +9,7 @@ Get help on Struphy console commands::
 
 Check if kernels are compiled::
 
-    struphy compile
+    struphy compile --status
 
 Check the current I/O paths::
 
@@ -24,10 +24,9 @@ Get a list of available Struphy models::
 
     struphy run -h
 
-Let us run the model `VlasovMaxwell <https://struphy.pages.mpcdf.de/struphy/sections/models.html#struphy.models.kinetic.VlasovMaxwell>`_. 
-We first create the corresponding default parameter file::
+Let us run the model `VlasovMaxwell <https://struphy.pages.mpcdf.de/struphy/sections/models.html#struphy.models.kinetic.VlasovMaxwell>`_::
 
-    struphy params VlasovMaxwell
+    struphy run VlasovMaxwell
 
 After hitting ``enter`` on prompt, the parameter file ``params_VlasovMaxwell.yml`` is created
 in the current input path (cwd). Let us rename it for convenience::

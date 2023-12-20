@@ -1,7 +1,11 @@
 .. _mhd_equil:
 
 MHD equilibria
-==============
+--------------
+
+This page lists the currently available MHD equilibira in Struphy:
+
+- `available MHD equilibira <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.fields_background.mhd_equil.equils.html>`_
 
 Documented modules:
 
@@ -14,17 +18,11 @@ Documented modules:
     struphy.fields_background.mhd_equil.base
     struphy.fields_background.mhd_equil.equils
 
-.. toctree::
-    :caption: Lists of available MHD equilibria:
-
-    STUBDIR/struphy.fields_background.mhd_equil.base
-    STUBDIR/struphy.fields_background.mhd_equil.equils
-
     
 .. _mhd_base:
 
 Base classes
-------------
+^^^^^^^^^^^^
 
 .. automodule:: struphy.fields_background.mhd_equil.base
     :members:
@@ -36,7 +34,7 @@ Base classes
 .. _mhd_equil_avail:
 
 Available MHD equilibria
-------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: struphy.fields_background.mhd_equil.equils
     :members:
