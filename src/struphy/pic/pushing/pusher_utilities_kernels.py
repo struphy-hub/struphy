@@ -388,16 +388,26 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
         taus[0] = 0.0
         taus[length + 1] = 1.0
 
-        find_taus(eta1_curr, eta1_next,
-                  Nel[0], tn1, 1, taus[1:length1 + 1])
-        find_taus(eta2_curr, eta2_next,
-                  Nel[1], tn2, 1, taus[length1 + 1:length1 + length2 + 1])
-        find_taus(eta3_curr, eta3_next,
-                  Nel[2], tn3, 1, taus[length1 + length2 + 1:length + 1])
+        tmp1 = taus[1:length1 + 1]
+        find_taus(eta1_curr, eta1_next, Nel[0], tn1, 1, tmp1)
+        taus[1:length1 + 1] = tmp1
+        
+        tmp2 = taus[length1 + 1:length1 + length2 + 1]
+        find_taus(eta2_curr, eta2_next, Nel[1], tn2, 1, tmp2)
+        taus[length1 + 1:length1 + length2 + 1] = tmp2
+        
+        tmp3 = taus[length1 + length2 + 1:length + 1]
+        find_taus(eta3_curr, eta3_next, Nel[2], tn3, 1, tmp3)
+        taus[length1 + length2 + 1:length + 1] = tmp3
+
+        del tmp1, tmp2, tmp3
 
         if length != 0:
-            quicksort(taus[0:length + 1], 1, length)
-
+            tmp4 = taus[0:length + 1]
+            quicksort(tmp4, 1, length)
+            taus[0:length + 1] = tmp4
+            del tmp4
+        
         # ======================================================================================
         # update velocity in direction 1
 

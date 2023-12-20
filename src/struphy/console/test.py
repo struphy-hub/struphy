@@ -6,7 +6,7 @@ import struphy
 import pyccel
 
 
-def struphy_test(group, mpi=2, fast=False, verbose=False, monitor=False, n=None):
+def struphy_test(group, mpi=2, fast=False, verbose=False, monitor=False, n=None, Tend=None):
     """
     Run Struphy unit and/or code tests.
 
@@ -26,6 +26,9 @@ def struphy_test(group, mpi=2, fast=False, verbose=False, monitor=False, n=None)
 
     n : int
         Number of specific tutorial simulation to run. If None, all tutorial simulations are run.
+        
+    Tend : float
+        If group is a model name, simulation end time in units of the model (default=0.015 with dt=0.005). Data is only saved at Tend if set.
     """
 
     assert mpi >= 2, 'Tests require at least 2 MPI processes.'
@@ -90,7 +93,7 @@ def struphy_test(group, mpi=2, fast=False, verbose=False, monitor=False, n=None)
                             '--tag',
                             f'pyccel={pyccel.__version__}',
                             '--tag',
-                            f'model_opt_fast={fast}',],
+                            f'model_opt_fast={fast}'],
                            check=True, cwd=libpath)
         else:
             subprocess.run(['mpirun',
@@ -161,25 +164,47 @@ def struphy_test(group, mpi=2, fast=False, verbose=False, monitor=False, n=None)
         else:
             test_only = str(n).zfill(2)
 
-        retcode = pytest.main(['-k',
-                               test_only,
-                               '-s',
-                               '--restrict-scope-to',
-                               'function' + ' --no-monitor'*(not monitor),
-                               '--db',
-                               os.path.join(
-                                   libpath, '_pymon/.pymon_tutorials'),
-                               '--description',
-                               f'language={state["last_used_language"]}, compiler={state["last_used_compiler"]}, omp_pic={state["last_used_omp_pic"]}, omp_feec={state["last_used_omp_feec"]}',
-                               '--tag',
-                               f'struphy={importlib.metadata.version("struphy")}',
-                               '--tag',
-                               f'pyccel={pyccel.__version__}',
-                               os.path.join(libpath, 'tutorials')])
+        subprocess.run(['mpirun',
+                        '-n',
+                        str(mpi),
+                        'pytest',
+                        '-k',
+                        test_only,
+                        '-s',
+                        '--with-mpi',
+                        '--restrict-scope-to',
+                        'function',
+                        '--db',
+                        '_pymon/.pymon_tutorials',
+                        '--description',
+                        f'language={state["last_used_language"]}, compiler={state["last_used_compiler"]}, omp_pic={state["last_used_omp_pic"]}, omp_feec={state["last_used_omp_feec"]}',
+                        '--tag',
+                        f'struphy={importlib.metadata.version("struphy")}',
+                        '--tag',
+                        f'pyccel={pyccel.__version__}',
+                        'tutorials/',
+                        '--no-monitor'*(not monitor),],
+                        check=True, cwd=libpath)
+
+        # retcode = pytest.main(['-k',
+        #                        test_only,
+        #                        '-s',
+        #                        '--restrict-scope-to',
+        #                        'function' + ' --no-monitor'*(not monitor),
+        #                        '--db',
+        #                        os.path.join(
+        #                            libpath, '_pymon/.pymon_tutorials'),
+        #                        '--description',
+        #                        f'language={state["last_used_language"]}, compiler={state["last_used_compiler"]}, omp_pic={state["last_used_omp_pic"]}, omp_feec={state["last_used_omp_feec"]}',
+        #                        '--tag',
+        #                        f'struphy={importlib.metadata.version("struphy")}',
+        #                        '--tag',
+        #                        f'pyccel={pyccel.__version__}',
+        #                        os.path.join(libpath, 'tutorials')])
 
     elif 'timings' in group:
 
-        for gr in ['unit', 'models', 'propagators', 'tutorials', 'pproc']:
+        for gr in ['unit', 'models', 'propagators', 'tutorials']:
             _file = os.path.join(pymon_abs, '.pymon_' + gr)
             if os.path.isfile(_file):
                 pymon_html_json(gr, verbose=verbose)
@@ -192,13 +217,13 @@ def struphy_test(group, mpi=2, fast=False, verbose=False, monitor=False, n=None)
                 test_kinetic_models.test_kinetic, test_hybrid_models.test_hybrid]
         for obj in objs:
             try:
-                obj(('Cuboid', 'HomogenSlab'), model=group, fast=fast)
+                obj(('Cuboid', 'HomogenSlab'), fast, model=group, Tend=Tend)
                 if fast:
                     print(
                         f'Fast is enabled, mappings other than Cuboid are skipped ...')
                 else:
-                    obj(('HollowTorus', 'AdhocTorus'), model=group, fast=fast)
-                    obj(('Tokamak', 'EQDSKequilibrium'), model=group, fast=fast)
+                    obj(('HollowTorus', 'AdhocTorus'), fast, model=group, Tend=Tend)
+                    obj(('Tokamak', 'EQDSKequilibrium'), fast, model=group, Tend=Tend)
             except AttributeError:
                 pass
 
@@ -237,7 +262,7 @@ def pymon_html_json(group, verbose=False):
                     '.headers on',
                     '-cmd',
                     '.output _pymon/pymon_' + group + '_contexts_' + language + '.html',
-                    'select ENV_H, CPU_COUNT, CPU_FREQUENCY_MHZ, CPU_TYPE, CPU_VENDOR, RAM_TOTAL_MB, MACHINE_TYPE, MACHINE_ARCH, SYSTEM_INFO, PYTHON_INFO from EXECUTION_CONTEXTS',
+                    'select CPU_COUNT, CPU_FREQUENCY_MHZ, CPU_TYPE, CPU_VENDOR, RAM_TOTAL_MB, MACHINE_TYPE, MACHINE_ARCH, SYSTEM_INFO, PYTHON_INFO from EXECUTION_CONTEXTS',
                     ], check=True, cwd=libpath)
     subprocess.run(['sqlite3',
                     '_pymon/.pymon_' + group,
@@ -247,7 +272,7 @@ def pymon_html_json(group, verbose=False):
                     '.headers on',
                     '-cmd',
                     '.output _pymon/pymon_' + group + '_sessions_' + language + '.html',
-                    'select SESSION_H, RUN_DATE, RUN_DESCRIPTION from TEST_SESSIONS',
+                    'select RUN_DATE, RUN_DESCRIPTION from TEST_SESSIONS',
                     ], check=True, cwd=libpath)
     subprocess.run(['sqlite3',
                     '_pymon/.pymon_' + group,
@@ -257,7 +282,7 @@ def pymon_html_json(group, verbose=False):
                     '.headers on',
                     '-cmd',
                     '.output _pymon/pymon_' + group + '_metrics_' + language + '.html',
-                    'select ENV_H, ITEM_PATH, ITEM, TOTAL_TIME, MEM_USAGE from TEST_METRICS order by KIND DESC',
+                    'select ITEM_PATH, ITEM, TOTAL_TIME, MEM_USAGE from TEST_METRICS order by KIND DESC',
                     ], check=True, cwd=libpath)
 
     # add html TABLE keyword

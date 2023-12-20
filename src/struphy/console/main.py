@@ -237,6 +237,10 @@ def struphy():
     parser_compile.add_argument('--dependencies',
                                 help='print Struphy kernels to be compiled (.py) and their dependencies (.so) on screen',
                                 action='store_true')
+    
+    parser_compile.add_argument('-y', '--yes',
+                                help='say yes to prompt when changing the language',
+                                action='store_true')
 
     # 2. "run" sub-command
     parser_run = subparsers.add_parser('run',
@@ -444,17 +448,17 @@ def struphy():
                              ['models'] + ['unit'] + ['propagators'] +
                              ['tutorials'] + ['timings'],
                              metavar='GROUP',
-                             help='can be either:\na) a model name (tests in "Cuboid", "HollowTorus" and "Tokamak" geometries) \
+                             help='can be either:\na) a model name (tests on 1 MPI process in "Cuboid", "HollowTorus" and "Tokamak" geometries) \
                                 \nb) "models" for quick testing of all models \
                                 \nc) "unit" for performing unit tests \
                                 \nd) "propagators" for testing all propagators \
-                                \ne) "tutorials" for notebook tutorials, see `https://struphy.pages.mpcdf.de/struphy/sections/tutorials.html`_. \
+                                \ne) "tutorials" for notebook tutorials, see `https://struphy.pages.mpcdf.de/struphy/sections/tutorials.html`_ \
                                 \nf) "timings" for creating .html and .json files of test metrics (include --verbose to print metrics to screen)',)
 
     parser_test.add_argument('--mpi',
                              type=int,
                              metavar='N',
-                             help='set number of MPI processes used in tests (must be >1, default=2)',
+                             help='set number of MPI processes used in tests (must be >1, default=2), has no effect if GROUP=a)',
                              default=2)
 
     parser_test.add_argument('-f', '--fast',
@@ -472,6 +476,11 @@ def struphy():
     parser_test.add_argument('-n',
                              type=int,
                              help='specific tutorial simulation to run (int, optional)',
+                             default=None)
+    
+    parser_test.add_argument('-T', '--Tend',
+                             type=float,
+                             help='if GROUP=a), simulation end time in units of the model (default=0.015 with dt=0.005), data is only saved at TEND if set',
                              default=None)
 
     # parse argument
@@ -627,6 +636,9 @@ def struphy():
     kwargs.pop('set_iob')
 
     # start sub-command function with all parameters of that function
+    # for k, v in kwargs.items():
+    #     print(k, v)
+    # exit()
     func(**kwargs)
 
 

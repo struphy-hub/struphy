@@ -12,7 +12,7 @@ Possible combinations for tensor product (B):
 * (D)
 * (dN/deta)
 """
-from pyccel.decorators import pure
+from pyccel.decorators import pure, stack_array
 
 from numpy import empty, zeros
 
@@ -57,6 +57,7 @@ def evaluation_kernel_1d(p1: int, basis1: 'float[:]', ind1: 'int[:]', coeff: 'fl
 
 # =============================================================================
 @pure
+@stack_array('tmp1', 'tmp2')
 def evaluate(kind1: int, t1: 'float[:]', p1: int, ind1: 'int[:,:]', coeff: 'float[:]', eta1: float) -> float:
     """
     Point-wise evaluation of a spline. 
@@ -96,10 +97,9 @@ def evaluate(kind1: int, t1: 'float[:]', p1: int, ind1: 'int[:,:]', coeff: 'floa
 
     # evaluate non-vanishing basis functions
     b1 = empty(p1 + 1, dtype=float)
-
     bl1 = empty(p1, dtype=float)
-
     br1 = empty(p1, dtype=float)
+    tmp1 = zeros(p1 + 1, dtype=int)
 
     if kind1 == 1:
         bsplines_kernels.basis_funs(t1, p1, eta1, span1, bl1, br1, b1)
@@ -109,12 +109,13 @@ def evaluate(kind1: int, t1: 'float[:]', p1: int, ind1: 'int[:,:]', coeff: 'floa
     elif kind1 == 3:
         bsplines_kernels.basis_funs_1st_der(t1, p1, eta1, span1, bl1, br1, b1)
     elif kind1 == 4:
-        tmp = zeros((3, p1 + 1), dtype=float)
-        bsplines_kernels.basis_funs_all_ders(t1, p1, eta1, span1, bl1, br1, 2, tmp)
-        b1[:] = tmp[2, :]
+        tmp2 = zeros((3, p1 + 1), dtype=float)
+        bsplines_kernels.basis_funs_all_ders(t1, p1, eta1, span1, bl1, br1, 2, tmp2)
+        b1[:] = tmp2[2, :]
 
     # sum up non-vanishing contributions
-    spline_value = evaluation_kernel_1d(p1, b1, ind1[span1 - p1, :], coeff)
+    tmp1[:] = ind1[span1 - p1, :]
+    spline_value = evaluation_kernel_1d(p1, b1, tmp1, coeff)
 
     return spline_value
 

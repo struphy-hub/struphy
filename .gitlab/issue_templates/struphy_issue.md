@@ -2,7 +2,7 @@
 
 ...
 
-**Expected behaviour:**
+**Expected behavior:**
 
 ...
 

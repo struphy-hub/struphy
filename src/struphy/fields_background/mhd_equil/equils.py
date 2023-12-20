@@ -1846,7 +1846,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
     Parameters
     ----------
     rel_path : bool
-        Whether dat_file (json_file) are relative to "<struphy_path>/fields_background/mhd_equil/gvec", or are absolute paths (default: True).
+        Whether dat_file (json_file) are relative to "<struphy_path>/fields_background/mhd_equil/gvec/", or are absolute paths (default: True).
     dat_file : str
         Path to .dat file (default: "/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat").    
     json_file : str
@@ -1869,7 +1869,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
         mhd_equilibrium :
             type : GVECequilibrium
             GVECequilibrium : 
-                rel_path : True # whether file path is relative to "<struphy_path>/fields_background/mhd_equil/gvec", or the absolute path
+                rel_path : True # whether file path is relative to "<struphy_path>/fields_background/mhd_equil/gvec/", or the absolute path
                 dat_file : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file 
                 json_file : null # give directly the parsed json file, if it exists (then dat_file is not used)
                 use_pest : False # whether to use straight-field line coordinates (PEST)
@@ -1887,9 +1887,14 @@ class GVECequilibrium(LogicalMHDequilibrium):
         from gvec_to_python import GVEC
 
         import struphy
+        import os
+        from mpi4py import MPI
+        
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
 
         params_default = {'rel_path': True,
-                          'dat_file': '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat',
+                          'dat_file': 'ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat',
                           'json_file': None,
                           'use_pest': False,
                           'use_nfp': True,
@@ -1905,8 +1910,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
             assert self._params['json_file'][-5:] == '.json'
 
             if self._params['rel_path']:
-                json_file = struphy.__path__[
-                    0] + '/fields_background/mhd_equil/gvec' + self._params['json_file']
+                json_file = os.path.join(struphy.__path__[0], 'fields_background/mhd_equil/gvec', self._params['json_file'])
             else:
                 json_file = self._params['json_file']
 
@@ -1915,13 +1919,15 @@ class GVECequilibrium(LogicalMHDequilibrium):
             assert self._params['dat_file'][-4:] == '.dat'
 
             if self._params['rel_path']:
-                dat_file = struphy.__path__[
-                    0] + '/fields_background/mhd_equil/gvec' + self._params['dat_file']
+                dat_file = os.path.join(struphy.__path__[0], 'fields_background/mhd_equil/gvec', self._params['dat_file'])
             else:
                 dat_file = params['dat_file']
 
             json_file = dat_file[:-4] + '.json'
-            create_GVEC_json(dat_file, json_file)
+            #TODO: better read/write for MPI
+            if rank == 0:
+                create_GVEC_json(dat_file, json_file)
+            comm.Barrier()
 
         if self._params['use_pest']:
             mapping = 'unit_pest'

@@ -1,6 +1,6 @@
 from pyccel.decorators import stack_array
 
-import struphy.bsplines.bsplines_kernels as bsplines_kernels 
+import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
 import struphy.geometry.evaluation_kernels as evaluation_kernels
@@ -64,7 +64,7 @@ def eval_0_form_at_particles(markers: 'float[:,:]',
 
         # sum up result
         res = res + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                           bn1, bn2, bn3, span1, span2, span3, coeffs, starts)
+                                                                 bn1, bn2, bn3, span1, span2, span3, coeffs, starts)
 
     #$ omp end parallel
 
@@ -75,7 +75,7 @@ def eval_0_form_at_particles(markers: 'float[:,:]',
 def eval_1_form_at_particles(markers: 'float[:,:]',
                              pn: 'int[:]',
                              tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                             starts: 'int[:,:]',
+                             starts: 'int[:]',
                              coeffs1: 'float[:,:,:]', coeffs2: 'float[:,:,:]', coeffs3: 'float[:,:,:]',
                              res: 'float[:]'):
     """
@@ -132,11 +132,11 @@ def eval_1_form_at_particles(markers: 'float[:,:]',
 
         # sum up result
         res[0] = res[0] + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                                 bd1, bn2, bn3, span1, span2, span3, coeffs1, starts[0])
+                                                                       bd1, bn2, bn3, span1, span2, span3, coeffs1, starts)
         res[1] = res[1] + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                                 bn1, bd2, bn3, span1, span2, span3, coeffs2, starts[1])
+                                                                       bn1, bd2, bn3, span1, span2, span3, coeffs2, starts)
         res[2] = res[2] + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                                 bn1, bn2, bd3, span1, span2, span3, coeffs3, starts[2])
+                                                                       bn1, bn2, bd3, span1, span2, span3, coeffs3, starts)
 
     #$ omp end parallel
 
@@ -145,7 +145,7 @@ def eval_1_form_at_particles(markers: 'float[:,:]',
 def eval_2_form_at_particles(markers: 'float[:,:]',
                              pn: 'int[:]',
                              tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                             starts: 'int[:,:]',
+                             starts: 'int[:]',
                              coeffs1: 'float[:,:,:]', coeffs2: 'float[:,:,:]', coeffs3: 'float[:,:,:]',
                              res: 'float[:]'):
     """
@@ -202,11 +202,11 @@ def eval_2_form_at_particles(markers: 'float[:,:]',
 
         # sum up result
         res[0] = res[0] + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                                 bn1, bd2, bd3, span1, span2, span3, coeffs1, starts[0])
+                                                                       bn1, bd2, bd3, span1, span2, span3, coeffs1, starts)
         res[1] = res[1] + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                                 bd1, bn2, bd3, span1, span2, span3, coeffs2, starts[1])
+                                                                       bd1, bn2, bd3, span1, span2, span3, coeffs2, starts)
         res[2] = res[2] + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                                 bd1, bd2, bn3, span1, span2, span3, coeffs3, starts[2])
+                                                                       bd1, bd2, bn3, span1, span2, span3, coeffs3, starts)
 
     #$ omp end parallel
 
@@ -266,7 +266,7 @@ def eval_3_form_at_particles(markers: 'float[:,:]',
 
         # sum up result
         res = res + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                           bd1, bd2, bd3, span1, span2, span3, coeffs, starts)
+                                                                 bd1, bd2, bd3, span1, span2, span3, coeffs, starts)
 
     #$ omp end parallel
 
@@ -330,11 +330,11 @@ def eval_H1vec_at_particles(markers: 'float[:,:]',
 
         # sum up result
         res[0] = res[0] + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                                 bn1, bn2, bn3, span1, span2, span3, coeffs1, starts)
+                                                                       bn1, bn2, bn3, span1, span2, span3, coeffs1, starts)
         res[1] = res[1] + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                                 bn1, bn2, bn3, span1, span2, span3, coeffs2, starts)
+                                                                       bn1, bn2, bn3, span1, span2, span3, coeffs2, starts)
         res[2] = res[2] + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                                 bn1, bn2, bn3, span1, span2, span3, coeffs3, starts)
+                                                                       bn1, bn2, bn3, span1, span2, span3, coeffs3, starts)
 
     #$ omp end parallel
 
@@ -343,7 +343,7 @@ def eval_H1vec_at_particles(markers: 'float[:,:]',
 def eval_magnetic_moment_6d(markers: 'float[:,:]',
                             pn: 'int[:]',
                             tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                            starts0: 'int[:]',
+                            starts: 'int[:]',
                             b_cart_1: 'float[:,:,:]',
                             b_cart_2: 'float[:,:,:]',
                             b_cart_3: 'float[:,:,:]'):
@@ -364,7 +364,7 @@ def eval_magnetic_moment_6d(markers: 'float[:,:]',
         tn1, tn2, tn3 : array[float]
             knot vectors
 
-        starts0 : array[int]
+        starts : array[int]
             starts of the stencil objects (0-form)
 
         unit_b_cart_x : array[float]
@@ -405,11 +405,11 @@ def eval_magnetic_moment_6d(markers: 'float[:,:]',
 
         # b_cart
         b_cart[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b_cart_1, starts0)
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b_cart_1, starts)
         b_cart[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b_cart_2, starts0)
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b_cart_2, starts)
         b_cart[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b_cart_3, starts0)
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b_cart_3, starts)
 
         # calculate absB
         absB = sqrt(b_cart[0]**2 + b_cart[1]**2 + b_cart[2]**2)
@@ -440,7 +440,7 @@ def eval_magnetic_moment_6d(markers: 'float[:,:]',
 def eval_magnetic_moment_5d(markers: 'float[:,:]',
                             pn: 'int[:]',
                             tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                            starts0: 'int[:]',
+                            starts: 'int[:]',
                             absB: 'float[:,:,:]'):
     """
     Evaluate parallel velocity and magnetic moment of each particles and asign it into markers[ip,3] and markers[ip,4] respectively.
@@ -459,7 +459,7 @@ def eval_magnetic_moment_5d(markers: 'float[:,:]',
         tn1, tn2, tn3 : array[float]
             knot vectors
 
-        starts0 : array[int]
+        starts : array[int]
             starts of the stencil objects (0-form)
 
         unit_b_cart_x : array[float]
@@ -493,7 +493,7 @@ def eval_magnetic_moment_5d(markers: 'float[:,:]',
         bsplines_kernels.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
 
         B0 = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, absB, starts0)
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, absB, starts)
 
         # magnetic moment
         markers[ip, 4] = 1/2 * v_perp**2 / abs(B0)
@@ -503,7 +503,7 @@ def eval_magnetic_moment_5d(markers: 'float[:,:]',
 def eval_magnetic_energy(markers: 'float[:,:]',
                          pn: 'int[:]',
                          tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                         starts0: 'int[:]',
+                         starts: 'int[:]',
                          PB: 'float[:,:,:]'):
     """
     Evaluate magnetic field energy of each particles
@@ -519,7 +519,7 @@ def eval_magnetic_energy(markers: 'float[:,:]',
         tn1, tn2, tn3 : array[float]
             knot vectors
 
-        starts0 : array[int]
+        starts : array[int]
             starts of the stencil objects (0-form)
 
         b0 : array[float]
@@ -552,7 +552,7 @@ def eval_magnetic_energy(markers: 'float[:,:]',
         bsplines_kernels.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
 
         B0 = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, PB, starts0)
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, PB, starts)
 
         # if B0 < 0:
         #     print('minus', B0)
@@ -560,16 +560,17 @@ def eval_magnetic_energy(markers: 'float[:,:]',
         markers[ip, 8] = B0*markers[ip, 4]
 
 
-@stack_array('grad_PB', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+@stack_array('grad_PB', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'tmp')
 def accum_gradI_const(markers: 'float[:,:]', n_markers_tot: 'int',
                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                      starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                      starts: 'int[:]',
                       grad_PB1: 'float[:,:,:]', grad_PB2: 'float[:,:,:]', grad_PB3: 'float[:,:,:]',
                       scale: 'float'):
     r"""TODO
     """
     # allocate for magnetic field evaluation
     grad_PB = empty(3, dtype=float)
+    tmp = empty(3, dtype=float)
 
     bn1 = empty(pn[0] + 1, dtype=float)
     bn2 = empty(pn[1] + 1, dtype=float)
@@ -611,14 +612,14 @@ def accum_gradI_const(markers: 'float[:,:]', n_markers_tot: 'int',
 
         # grad_PB; 1form
         grad_PB[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts1[0])
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts)
         grad_PB[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts1[1])
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts)
         grad_PB[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts)
 
-        res += linalg_kernels.scalar_dot(markers[ip, 15:18],
-                                 grad_PB) * weight * mu * scale
+        tmp[:] = markers[ip, 15:18]
+        res += linalg_kernels.scalar_dot(tmp, grad_PB) * weight * mu * scale
 
     return res/n_markers_tot
 
@@ -626,7 +627,7 @@ def accum_gradI_const(markers: 'float[:,:]', n_markers_tot: 'int',
 @stack_array('bn1', 'bn2', 'bn3')
 def accum_en_fB(markers: 'float[:,:]', n_markers_tot: 'int',
                 pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                starts: 'int[:]',
                 PB: 'float[:,:,:]'):
     r"""TODO
     """
@@ -666,7 +667,7 @@ def accum_en_fB(markers: 'float[:,:]', n_markers_tot: 'int',
         bsplines_kernels.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
 
         B0 = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, PB, starts0)
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, PB, starts)
 
         res += abs(B0)*mu*weight
 
@@ -767,7 +768,7 @@ def check_eta_mid(markers: 'float[:,:]'):
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'e', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'a_form', 'dfta_form')
 def canonical_kinetic_particles(res: 'float[:]', markers: 'float[:,:]',
                                 pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                starts1: 'int[:,:]',
+                                starts: 'int[:]',
                                 kind_map: int, params_map: 'float[:]',
                                 p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                 ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -863,11 +864,11 @@ def canonical_kinetic_particles(res: 'float[:]', markers: 'float[:,:]',
 
         # magnetic field: 2-form components
         a_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, a1_1, starts1[0])
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, a1_1, starts)
         a_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, a1_2, starts1[1])
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, a1_2, starts)
         a_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, a1_3, starts1[2])
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, a1_3, starts)
 
         dfta_form[0] = dfinv_t[0, 0] * a_form[0] + \
             dfinv_t[0, 1] * a_form[1] + dfinv_t[0, 2] * a_form[2]

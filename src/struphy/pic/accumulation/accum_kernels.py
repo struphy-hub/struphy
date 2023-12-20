@@ -5,11 +5,11 @@ from pyccel.decorators import stack_array
 
 from numpy import zeros, empty, sqrt, shape, floor, log
 
-import struphy.geometry.evaluation_kernels as evaluation_kernels 
-import struphy.bsplines.bsplines_kernels as bsplines_kernels 
-import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d 
-import struphy.linear_algebra.linalg_kernels as linalg_kernels 
-import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels 
+import struphy.geometry.evaluation_kernels as evaluation_kernels
+import struphy.bsplines.bsplines_kernels as bsplines_kernels
+import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
+import struphy.linear_algebra.linalg_kernels as linalg_kernels
+import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels
 import struphy.pic.accumulation.filler_kernels as filler_kernels
 
 
@@ -39,11 +39,8 @@ def a_documentation():
         * ``tn2: 'float[:]'``
         * ``tn3: 'float[:]'``    
 
-    3. mpi.comm info of all spaces:
-        - ``starts0: 'int[:]'``               # start indices of current process of elements in space V0
-        - ``starts1: 'int[:,:]'``             # start indices of current process of elements in space V1 in format (component, direction)
-        - ``starts2: 'int[:,:]'``             # start indices of current process of elements in space V2 in format (component, direction)
-        - ``starts3: 'int[:]'``               # start indices of current process of elements in space V3
+    3. mpi.comm start indices of FE coeffs on current process:
+        - ``starts: 'int[:]'``               # start indices of current process 
 
     4. Mapping info:
         - ``kind_map: 'int'``                # mapping identifier 
@@ -88,7 +85,7 @@ def a_documentation():
 @stack_array('bn1', 'bn2', 'bn3')
 def poisson(markers: 'float[:,:]', n_markers_tot: 'int',
             pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+            starts: 'int[:]',
             kind_map: 'int', params_map: 'float[:]',
             p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
             ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -121,8 +118,8 @@ def poisson(markers: 'float[:,:]', n_markers_tot: 'int',
     bn2 = empty(int(pn[1]) + 1, dtype=float)
     bn3 = empty(int(pn[2]) + 1, dtype=float)
 
-    #$omp parallel private (ip, eta1, eta2, eta3, f0, filling)
-    #$omp for reduction ( + :vec)
+    #$ omp parallel private (ip, eta1, eta2, eta3, f0, filling)
+    #$ omp for reduction ( + :vec)
     for ip in range(shape(markers)[0]):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -149,15 +146,15 @@ def poisson(markers: 'float[:,:]', n_markers_tot: 'int',
 
         # call the appropriate matvec filler
         filler_kernels.fill_vec(int(pn[0]), int(pn[1]), int(pn[2]), bn1, bn2, bn3, span1, span2, span3,
-                                starts0, vec, filling)
+                                starts, vec, filling)
 
-    #$omp end parallel
+    #$ omp end parallel
 
 
 @stack_array('cell_left', 'point_left', 'point_right', 'cell_number', 'temp1', 'temp4', 'compact', 'grids_shapex', 'grids_shapey', 'grids_shapez')
 def hybrid_fA_density(markers: 'float[:,:]', n_markers_tot: 'int',
                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                      starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                      starts: 'int[:]',
                       kind_map: 'int', params_map: 'float[:]',
                       p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                       ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -201,8 +198,8 @@ def hybrid_fA_density(markers: 'float[:,:]', n_markers_tot: 'int',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$omp parallel private (dfm, det_df, cell_left, point_left, point_right, cell_number, temp1, temp4, compact, grids_shapex, grids_shapey, grids_shapez, n_markers, ip, eta1, eta2, eta3, weight, ie1, ie2, ie3, il1, il2, il3, jl1, jl2, jl3, i1, i2, i3, value_x, value_y, value_z, span1, span2, span3)
-    #$omp for reduction ( + : mat)
+    #$ omp parallel private (dfm, det_df, cell_left, point_left, point_right, cell_number, temp1, temp4, compact, grids_shapex, grids_shapey, grids_shapez, n_markers, ip, eta1, eta2, eta3, weight, ie1, ie2, ie3, il1, il2, il3, jl1, jl2, jl3, i1, i2, i3, value_x, value_y, value_z, span1, span2, span3)
+    #$ omp for reduction ( + : mat)
     for ip in range(n_markers):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -265,15 +262,15 @@ def hybrid_fA_density(markers: 'float[:,:]', n_markers_tot: 'int',
         span3 = int(eta3*Nel[2]) + int(pn[2])
 
         # =========== kernel part (periodic bundary case) ==========
-        particle_to_mat_kernels.hybrid_density(Nel, pn, cell_left, cell_number, span1, span2, span3, starts0, ie1, ie2, ie3, temp1, temp4, quad, quad_pts_x,
+        particle_to_mat_kernels.hybrid_density(Nel, pn, cell_left, cell_number, span1, span2, span3, starts, ie1, ie2, ie3, temp1, temp4, quad, quad_pts_x,
                                                quad_pts_y, quad_pts_z, compact, eta1, eta2, eta3, mat, weight, p_shape, p_size, grids_shapex, grids_shapey, grids_shapez)
-    #$omp end parallel
+    #$ omp end parallel
 
 
-@stack_array('dfm', 'df_t', 'df_inv', 'df_inv_times_v', 'filling_m', 'filling_v')
+@stack_array('dfm', 'df_t', 'df_inv', 'df_inv_times_v', 'filling_m', 'filling_v', 'v')
 def hybrid_fA_Arelated(markers: 'float[:,:]', n_markers_tot: 'int',
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                       starts: 'int[:]',
                        kind_map: 'int', params_map: 'float[:]',
                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -309,12 +306,13 @@ def hybrid_fA_Arelated(markers: 'float[:,:]', n_markers_tot: 'int',
     df_inv_times_v = empty(3, dtype=float)
     filling_m = empty((3, 3), dtype=float)
     filling_v = empty(3, dtype=float)
+    v = empty(3, dtype=float)
 
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$omp parallel private (ip, eta1, eta2, eta3, v, dfm, df_inv, df_inv_times_v, weight, filling_m, filling_v)
-    #$omp for reduction ( + : mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32, mat33, vec1, vec2, vec3)
+    #$ omp parallel private (ip, eta1, eta2, eta3, v, dfm, df_inv, df_inv_times_v, weight, filling_m, filling_v)
+    #$ omp for reduction ( + : mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32, mat33, vec1, vec2, vec3)
     for ip in range(n_markers):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -327,7 +325,7 @@ def hybrid_fA_Arelated(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # evaluate background
-        v = markers[ip, 3:6]
+        v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(eta1, eta2, eta3,
@@ -369,7 +367,7 @@ def hybrid_fA_Arelated(markers: 'float[:,:]', n_markers_tot: 'int',
         filling_v[:] = weight / n_markers_tot * df_inv_times_v
 
         # call the appropriate matvec filler
-        particle_to_mat_kernels.m_v_fill_b_v1_symm(pn, tn1, tn2, tn3, starts1,
+        particle_to_mat_kernels.m_v_fill_b_v1_symm(pn, tn1, tn2, tn3, starts,
                                                    eta1, eta2, eta3,
                                                    mat11, mat12, mat13, mat22, mat23, mat33,
                                                    filling_m[0, 0], filling_m[0,
@@ -379,13 +377,13 @@ def hybrid_fA_Arelated(markers: 'float[:,:]', n_markers_tot: 'int',
                                                    vec1, vec2, vec3,
                                                    filling_v[0], filling_v[1], filling_v[2])
 
-    #$omp end parallel
+    #$ omp end parallel
 
 
 @stack_array('bn1', 'bn2', 'bn3')
 def linear_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
                                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                  starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                  starts: 'int[:]',
                                   kind_map: 'int', params_map: 'float[:]',
                                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -428,8 +426,8 @@ def linear_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
     bn2 = empty(int(pn[1]) + 1, dtype=float)
     bn3 = empty(int(pn[2]) + 1, dtype=float)
 
-    #$omp parallel private (ip, eta1, eta2, eta3, f0, filling)
-    #$omp for reduction ( + :vec)
+    #$ omp parallel private (ip, eta1, eta2, eta3, f0, filling)
+    #$ omp for reduction ( + :vec)
     for ip in range(n_markers):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -458,15 +456,15 @@ def linear_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
 
         # call the appropriate matvec filler
         filler_kernels.fill_vec(int(pn[0]), int(pn[1]), int(pn[2]), bn1, bn2, bn3, span1, span2, span3,
-                                starts0, vec, filling)
+                                starts, vec, filling)
 
-    #$omp end parallel
+    #$ omp end parallel
 
 
 @stack_array('dfm', 'df_inv', 'v', 'df_inv_times_v', 'filling_m', 'filling_v')
 def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                          starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                          starts: 'int[:]',
                           kind_map: 'int', params_map: 'float[:]',
                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -526,8 +524,8 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$omp parallel private (ip, eta1, eta2, eta3, f0, dfm, df_inv, v, df_inv_times_v, filling_m, filling_v)
-    #$omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
+    #$ omp parallel private (ip, eta1, eta2, eta3, f0, dfm, df_inv, v, df_inv_times_v, filling_m, filling_v)
+    #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
     for ip in range(n_markers):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -572,7 +570,7 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_b_v1_symm(pn,
                                                    tn1, tn2, tn3,
-                                                   starts1,
+                                                   starts,
                                                    eta1, eta2, eta3,
                                                    mat11, mat12, mat13, mat22, mat23, mat33,
                                                    filling_m[0, 0], filling_m[0,
@@ -582,13 +580,13 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                                                    vec1, vec2, vec3,
                                                    filling_v[0], filling_v[1], filling_v[2])
 
-    #$omp end parallel
+    #$ omp end parallel
 
 
 @stack_array('bn1', 'bn2', 'bn3')
 def vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                           starts: 'int[:]',
                            kind_map: 'int', params_map: 'float[:]',
                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -614,8 +612,8 @@ def vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
     bn2 = empty(int(pn[1]) + 1, dtype=float)
     bn3 = empty(int(pn[2]) + 1, dtype=float)
 
-    #$omp parallel private (ip, eta1, eta2, eta3, f0, filling)
-    #$omp for reduction ( + :vec)
+    #$ omp parallel private (ip, eta1, eta2, eta3, f0, filling)
+    #$ omp for reduction ( + :vec)
     for ip in range(shape(markers)[0]):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -642,15 +640,15 @@ def vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
 
         # call the appropriate matvec filler
         filler_kernels.fill_vec(int(pn[0]), int(pn[1]), int(pn[2]), bn1, bn2, bn3, span1, span2, span3,
-                                starts0, vec, filling)
+                                starts, vec, filling)
 
-    #$omp end parallel
+    #$ omp end parallel
 
 
 @stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'v', 'df_inv_times_v', 'filling_m', 'filling_v')
 def vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                   starts: 'int[:]',
                    kind_map: 'int', params_map: 'float[:]',
                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -693,8 +691,8 @@ def vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
     filling_m = empty((3, 3), dtype=float)
     filling_v = empty(3, dtype=float)
 
-    #$omp parallel private (ip, eta1, eta2, eta3, f0, dfm, df_inv, v, df_inv_times_v, filling_m, filling_v)
-    #$omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
+    #$ omp parallel private (ip, eta1, eta2, eta3, f0, dfm, df_inv, v, df_inv_times_v, filling_m, filling_v)
+    #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
     for ip in range(shape(markers)[0]):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -734,7 +732,7 @@ def vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_b_v1_symm(pn,
                                                    tn1, tn2, tn3,
-                                                   starts1,
+                                                   starts,
                                                    eta1, eta2, eta3,
                                                    mat11, mat12, mat13, mat22, mat23, mat33,
                                                    filling_m[0, 0], filling_m[0,
@@ -744,12 +742,12 @@ def vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                                                    vec1, vec2, vec3,
                                                    filling_v[0], filling_v[1], filling_v[2])
 
-    #$omp end parallel
+    #$ omp end parallel
 
 
 def delta_f_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
                                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                   starts: 'int[:]',
                                    kind_map: 'int', params_map: 'float[:]',
                                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -787,8 +785,8 @@ def delta_f_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$omp parallel private (ip, eta1, eta2, eta3, f0, filling)
-    #$omp for reduction ( + :vec)
+    #$ omp parallel private (ip, eta1, eta2, eta3, f0, filling)
+    #$ omp for reduction ( + :vec)
     for ip in range(n_markers):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -808,16 +806,16 @@ def delta_f_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.scalar_fill_b_v0(pn, tn1, tn2, tn3,
-                                                 starts0, eta1, eta2, eta3,
+                                                 starts, eta1, eta2, eta3,
                                                  vec, filling)
 
-    #$omp end parallel
+    #$ omp end parallel
 
 
 @stack_array('dfm', 'df_inv', 'v', 'df_inv_times_v', 'filling_v')
 def delta_f_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                           starts: 'int[:]',
                            kind_map: 'int', params_map: 'float[:]',
                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -864,8 +862,8 @@ def delta_f_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$omp parallel private (ip, eta1, eta2, eta3, f0, dfm, df_inv, v, df_inv_times_v, filling_v)
-    #$omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
+    #$ omp parallel private (ip, eta1, eta2, eta3, f0, dfm, df_inv, v, df_inv_times_v, filling_v)
+    #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
     for ip in range(n_markers):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -906,18 +904,18 @@ def delta_f_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                 markers[ip, 6] / (n_markers_tot * log(f0))
 
         # call the appropriate matvec filler
-        particle_to_mat_kernels.vec_fill_b_v1(pn, tn1, tn2, tn3, starts1,
+        particle_to_mat_kernels.vec_fill_b_v1(pn, tn1, tn2, tn3, starts,
                                               eta1, eta2, eta3,
                                               vec1, vec2, vec3,
                                               filling_v[0], filling_v[1], filling_v[2])
 
-    #$omp end parallel
+    #$ omp end parallel
 
 
 @stack_array('dfm', 'df_inv', 'v', 'df_inv_times_v', 'filling_v', 'filling_m')
 def delta_f_vlasov_maxwell_scn(markers: 'float[:,:]', n_markers_tot: 'int',
                                pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                               starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                               starts: 'int[:]',
                                kind_map: 'int', params_map: 'float[:]',
                                p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -972,8 +970,8 @@ def delta_f_vlasov_maxwell_scn(markers: 'float[:,:]', n_markers_tot: 'int',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$omp parallel private (ip, eta1, eta2, eta3, f0, dfm, df_inv, v, df_inv_times_v, filling_v)
-    #$omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
+    #$ omp parallel private (ip, eta1, eta2, eta3, f0, dfm, df_inv, v, df_inv_times_v, filling_v)
+    #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
     for ip in range(n_markers):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1014,7 +1012,7 @@ def delta_f_vlasov_maxwell_scn(markers: 'float[:,:]', n_markers_tot: 'int',
             (n_markers_tot * log(f0))
 
         # call the appropriate matvec filler
-        particle_to_mat_kernels.m_v_fill_b_v1_symm(pn, tn1, tn2, tn3, starts1,
+        particle_to_mat_kernels.m_v_fill_b_v1_symm(pn, tn1, tn2, tn3, starts,
                                                    eta1, eta2, eta3,
                                                    mat11, mat12, mat13,
                                                    mat22, mat23, mat33,
@@ -1027,13 +1025,13 @@ def delta_f_vlasov_maxwell_scn(markers: 'float[:,:]', n_markers_tot: 'int',
                                                    vec1, vec2, vec3,
                                                    filling_v[0], filling_v[1], filling_v[2])
 
-    #$omp end parallel
+    #$ omp end parallel
 
 
 @stack_array('b', 'b_prod', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'dfm', 'df_inv', 'df_inv_t' 'g_inv', 'tmp1', 'tmp2')
 def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                    starts: 'int[:]',
                     kind_map: 'int', params_map: 'float[:]',
                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1088,8 +1086,8 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
     # get local number of markers
     n_markers_loc = shape(markers)[0]
 
-    #$omp parallel firstprivate(b_prod) private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, dfm, det_df, weight, df_inv, df_inv_t, g_inv, tmp1, tmp2, filling_m12, filling_m13, filling_m23)
-    #$omp for reduction ( + : mat12, mat13, mat23)
+    #$ omp parallel firstprivate(b_prod) private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, dfm, det_df, weight, df_inv, df_inv_t, g_inv, tmp1, tmp2, filling_m12, filling_m13, filling_m23)
+    #$ omp for reduction ( + : mat12, mat13, mat23)
     for ip in range(n_markers_loc):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1114,11 +1112,11 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
             tn3, int(pn[2]), eta3, span3, bn3, bd3)
 
         b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts2[0])
+            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts)
         b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
+            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts)
         b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
+            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b2_3, starts)
 
         # operator bx() as matrix
         b_prod[0, 1] = -b[2]
@@ -1151,7 +1149,7 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
             # call the appropriate matvec filler
             particle_to_mat_kernels.mat_fill_v0vec_asym(pn, span1, span2, span3,
                                                         bn1, bn2, bn3,
-                                                        starts0,
+                                                        starts,
                                                         mat12, mat13, mat23,
                                                         filling_m12, filling_m13, filling_m23)
 
@@ -1172,7 +1170,7 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
             particle_to_mat_kernels.mat_fill_v1_asym(pn, span1, span2, span3,
                                                      bn1, bn2, bn3,
                                                      bd1, bd2, bd3,
-                                                     starts1,
+                                                     starts,
                                                      mat12, mat13, mat23,
                                                      filling_m12, filling_m13, filling_m23)
 
@@ -1187,21 +1185,21 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
             particle_to_mat_kernels.mat_fill_v2_asym(pn, span1, span2, span3,
                                                      bn1, bn2, bn3,
                                                      bd1, bd2, bd3,
-                                                     starts1,
+                                                     starts,
                                                      mat12, mat13, mat23,
                                                      filling_m12, filling_m13, filling_m23)
 
-    #$omp end parallel
+    #$ omp end parallel
 
     mat12 /= n_markers_tot
     mat13 /= n_markers_tot
     mat23 /= n_markers_tot
 
 
-@stack_array('b', 'b_prod', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'dfm', 'df_inv', 'df_inv_t', 'g_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp2', 'tmp_t', 'tmp_v', 'tmp_m')
+@stack_array('b', 'b_prod', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'dfm', 'df_inv', 'df_inv_t', 'g_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp2', 'tmp_t', 'tmp_v', 'tmp_m', 'v')
 def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                    starts: 'int[:]',
                     kind_map: 'int', params_map: 'float[:]',
                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1260,6 +1258,7 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
     # allocate for filling
     filling_m = empty((3, 3), dtype=float)
     filling_v = empty(3, dtype=float)
+    v = empty(3, dtype=float)
 
     tmp1 = empty((3, 3), dtype=float)
     tmp2 = empty((3, 3), dtype=float)
@@ -1272,8 +1271,8 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
     # get number of markers
     n_markers_loc = shape(markers)[0]
 
-    #$omp parallel firstprivate(b_prod) private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, dfm, det_df, weight, v, df_inv, df_inv_t, g_inv, tmp1, tmp2, tmp_t, tmp_m, tmp_v, filling_m, filling_v)
-    #$omp for reduction ( + : mat12, mat13, mat23)
+    #$ omp parallel firstprivate(b_prod) private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, dfm, det_df, weight, v, df_inv, df_inv_t, g_inv, tmp1, tmp2, tmp_t, tmp_m, tmp_v, filling_m, filling_v)
+    #$ omp for reduction ( + : mat12, mat13, mat23)
     for ip in range(n_markers_loc):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1298,11 +1297,11 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
             tn3, int(pn[2]), eta3, span3, bn3, bd3)
 
         b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts2[0])
+            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts)
         b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
+            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts)
         b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
+            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b2_3, starts)
 
         # operator bx() as matrix
         b_prod[0, 1] = -b[2]
@@ -1324,7 +1323,7 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
 
         # marker weight and velocity
         weight = markers[ip, 6]
-        v = markers[ip, 3:6]
+        v[:] = markers[ip, 3:6]
 
         if basis_u == 0:
 
@@ -1347,7 +1346,7 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
             # call the appropriate matvec filler
             particle_to_mat_kernels.m_v_fill_v0vec_symm(pn, span1, span2, span3,
                                                         bn1, bn2, bn3,
-                                                        starts0,
+                                                        starts,
                                                         mat11, mat12, mat13,
                                                         mat22, mat23,
                                                         mat33,
@@ -1382,7 +1381,7 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
             particle_to_mat_kernels.m_v_fill_v1_symm(pn, span1, span2, span3,
                                                      bn1, bn2, bn3,
                                                      bd1, bd2, bd3,
-                                                     starts1,
+                                                     starts,
                                                      mat11, mat12, mat13,
                                                      mat22, mat23,
                                                      mat33,
@@ -1416,7 +1415,7 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
             particle_to_mat_kernels.m_v_fill_v2_symm(pn, span1, span2, span3,
                                                      bn1, bn2, bn3,
                                                      bd1, bd2, bd3,
-                                                     starts2,
+                                                     starts,
                                                      mat11, mat12, mat13,
                                                      mat22, mat23,
                                                      mat33,
@@ -1428,7 +1427,7 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
                                                      vec1, vec2, vec3,
                                                      filling_v[0], filling_v[1], filling_v[2])
 
-    #$omp end parallel
+    #$ omp end parallel
 
     mat11 /= n_markers_tot
     mat12 /= n_markers_tot
@@ -1445,7 +1444,7 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
 @stack_array('dfm', 'df_t', 'df_inv', 'df_inv_t', 'filling_m', 'filling_v', 'tmp1', 'v', 'tmp_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def pc_lin_mhd_6d_full(markers: 'float[:,:]', n_markers_tot: 'int',
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                       starts: 'int[:]',
                        kind_map: 'int', params_map: 'float[:]',
                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1589,7 +1588,7 @@ def pc_lin_mhd_6d_full(markers: 'float[:,:]', n_markers_tot: 'int',
         particle_to_mat_kernels.m_v_fill_v1_pressure_full(pn, span1, span2, span3,
                                                           bn1, bn2, bn3,
                                                           bd1, bd2, bd3,
-                                                          starts1,
+                                                          starts,
                                                           mat11_11, mat12_11, mat13_11,
                                                           mat22_11, mat23_11,
                                                           mat33_11,
@@ -1623,7 +1622,7 @@ def pc_lin_mhd_6d_full(markers: 'float[:,:]', n_markers_tot: 'int',
 @stack_array('dfm', 'df_inv_t', 'df_inv', 'filling_m', 'filling_v', 'tmp1', 'v', 'tmp_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def pc_lin_mhd_6d(markers: 'float[:,:]', n_markers_tot: 'int',
                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                  starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                  starts: 'int[:]',
                   kind_map: 'int', params_map: 'float[:]',
                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1766,7 +1765,7 @@ def pc_lin_mhd_6d(markers: 'float[:,:]', n_markers_tot: 'int',
         particle_to_mat_kernels.m_v_fill_v1_pressure(pn, span1, span2, span3,
                                                      bn1, bn2, bn3,
                                                      bd1, bd2, bd3,
-                                                     starts1,
+                                                     starts,
                                                      mat11_11, mat12_11, mat13_11,
                                                      mat22_11, mat23_11,
                                                      mat33_11,
