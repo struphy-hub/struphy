@@ -77,8 +77,7 @@ def derive_units(Z_bulk=1, A_bulk=1., x=1., B=1., n=1., velocity_scale='alfvén'
     units['t'] = units['x'] / units['v']
     # pressure (Pa)
     units['p'] = A_bulk * mH * units['n'] * units['x']**3 / \
-        (units['x'] * units['t'] **
-         2)  # this is equal to B^2/(mu0*n) if velocity_scale='alfvén'
+        (units['x'] * units['t']**2)  # this is equal to B^2/(mu0*n) if velocity_scale='alfvén'
     # mass density (kg/m^3)
     units['rho'] = A_bulk * mH * units['n']
 

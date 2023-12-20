@@ -1,6 +1,13 @@
+import pytest
+from struphy.main import main
+from struphy.post_processing import pproc_struphy
+
 import os
-import subprocess
 import struphy
+from mpi4py import MPI
+
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
 
 libpath = struphy.__path__[0]
 i_path = os.path.join(libpath, 'io', 'inp')
@@ -8,58 +15,54 @@ o_path = os.path.join(libpath, 'io', 'out')
 
 # These tests must be run without MPI (is called in subprocess) !!
 
+@pytest.mark.mpi(min_size=2)
 def test_tutorial_02():
-    subprocess.run(['struphy', 'run', 'LinearMHDVlasovCC',
-                    '--input-abs', os.path.join(i_path,
-                                                'tutorials', 'params_02.yml'),
-                    '--output-abs', os.path.join(o_path, 'tutorial_02'),
-                    '--mpi', '2'], check=True)
+    main('LinearMHDVlasovCC', 
+         os.path.join(i_path, 'tutorials', 'params_02.yml'), 
+         os.path.join(o_path, 'tutorial_02'))
 
-
+@pytest.mark.mpi(min_size=2)
 def test_tutorial_03():
-    subprocess.run(['struphy', 'run', 'LinearMHD',
-                    '--input-abs', os.path.join(i_path,
-                                                'tutorials', 'params_03.yml'),
-                    '--output-abs', os.path.join(o_path, 'tutorial_03'),
-                    '--mpi', '2'], check=True)
+    main('LinearMHD', 
+         os.path.join(i_path, 'tutorials', 'params_03.yml'), 
+         os.path.join(o_path, 'tutorial_03'))
 
-    subprocess.run(['struphy', 'pproc', '--dir-abs',
-                   os.path.join(o_path, 'tutorial_03')], check=True)
+    comm.Barrier()
+    if rank == 0:
+        pproc_struphy.main(os.path.join(o_path, 'tutorial_03'))
 
-
+@pytest.mark.mpi(min_size=2)
 def test_tutorial_04():
-    subprocess.run(['struphy', 'run', 'Maxwell',
-                    '--input-abs', os.path.join(i_path,
-                                                'tutorials', 'params_04a.yml'),
-                    '--output-abs', os.path.join(o_path, 'tutorial_04a'),
-                    '--mpi', '2'], check=True)
+    main('Maxwell', 
+         os.path.join(i_path, 'tutorials', 'params_04a.yml'), 
+         os.path.join(o_path, 'tutorial_04a'))
 
-    subprocess.run(['struphy', 'pproc', '--dir-abs',
-                   os.path.join(o_path, 'tutorial_04a')], check=True)
+    comm.Barrier()
+    if rank == 0:
+        pproc_struphy.main(os.path.join(o_path, 'tutorial_04a'))
+    
+    main('LinearMHD', 
+         os.path.join(i_path, 'tutorials', 'params_04b.yml'), 
+         os.path.join(o_path, 'tutorial_04b'))
 
-    subprocess.run(['struphy', 'run', 'LinearMHD',
-                    '--input-abs', os.path.join(i_path,
-                                                'tutorials', 'params_04b.yml'),
-                    '--output-abs', os.path.join(o_path, 'tutorial_04b'),
-                    '--mpi', '2'], check=True)
+    comm.Barrier()
+    if rank == 0:
+        pproc_struphy.main(os.path.join(o_path, 'tutorial_04b'))
 
-    subprocess.run(['struphy', 'pproc', '--dir-abs',
-                    os.path.join(o_path, 'tutorial_04b')], check=True)
-
-
+@pytest.mark.mpi(min_size=2)
 def test_tutorial_05():
-    subprocess.run(['struphy', 'run', 'Vlasov',
-                    '--input-abs', os.path.join(i_path, 'tutorials',
-                                                'params_05a.yml'),
-                    '--output-abs', os.path.join(o_path, 'tutorial_05a')], check=True)
+    main('Vlasov', 
+         os.path.join(i_path, 'tutorials', 'params_05a.yml'), 
+         os.path.join(o_path, 'tutorial_05a'))
 
-    subprocess.run(['struphy', 'pproc', '--dir-abs',
-                   os.path.join(o_path, 'tutorial_05a')], check=True)
+    comm.Barrier()
+    if rank == 0:
+        pproc_struphy.main(os.path.join(o_path, 'tutorial_05a'))
+    
+    main('DriftKinetic', 
+         os.path.join(i_path, 'tutorials', 'params_05b.yml'), 
+         os.path.join(o_path, 'tutorial_05b'))
 
-    subprocess.run(['struphy', 'run', 'DriftKinetic',
-                    '--input-abs', os.path.join(i_path, 'tutorials',
-                                                'params_05b.yml'),
-                    '--output-abs', os.path.join(o_path, 'tutorial_05b')], check=True)
-
-    subprocess.run(['struphy', 'pproc', '--dir-abs',
-                   os.path.join(o_path, 'tutorial_05b')], check=True)
+    comm.Barrier()
+    if rank == 0:
+        pproc_struphy.main(os.path.join(o_path, 'tutorial_05b'))

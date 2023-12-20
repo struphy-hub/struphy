@@ -15,7 +15,7 @@ Possible combinations for tensor product (BB):
 * (dN/deta N)
 * (N dN/deta)
 """
-from pyccel.decorators import pure
+from pyccel.decorators import pure, stack_array
 
 from numpy import empty, zeros
 
@@ -60,6 +60,7 @@ def evaluation_kernel_2d(p1: int, p2: int, basis1: 'float[:]', basis2: 'float[:]
 
 
 @pure
+@stack_array('tmp1', 'tmp2', 'tmp3', 'tmp4')
 def evaluate_2d(kind1: int, kind2: int, t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'float[:,:]', eta1: float, eta2: float) -> float:
     """
     Point-wise evaluation of a tensor-product spline. 
@@ -104,6 +105,9 @@ def evaluate_2d(kind1: int, kind2: int, t1: 'float[:]', t2: 'float[:]', p1: int,
     br1 = empty(p1, dtype=float)
     br2 = empty(p2, dtype=float)
 
+    tmp1 = zeros(p1 + 1, dtype=int)
+    tmp2 = zeros(p2 + 1, dtype=int)
+
     # 1st direction
     if kind1 == 1:
         bsplines_kernels.basis_funs(t1, p1, eta1, span1, bl1, br1, b1)
@@ -113,9 +117,10 @@ def evaluate_2d(kind1: int, kind2: int, t1: 'float[:]', t2: 'float[:]', p1: int,
     elif kind1 == 3:
         bsplines_kernels.basis_funs_1st_der(t1, p1, eta1, span1, bl1, br1, b1)
     elif kind1 == 4:
-        tmp = zeros((3, p1 + 1), dtype=float)
-        bsplines_kernels.basis_funs_all_ders(t1, p1, eta1, span1, bl1, br1, 2, tmp)
-        b1[:] = tmp[2, :]
+        tmp3 = zeros((3, p1 + 1), dtype=float)
+        bsplines_kernels.basis_funs_all_ders(
+            t1, p1, eta1, span1, bl1, br1, 2, tmp3)
+        b1[:] = tmp3[2, :]
 
     # 2nd direction
     if kind2 == 1:
@@ -126,13 +131,15 @@ def evaluate_2d(kind1: int, kind2: int, t1: 'float[:]', t2: 'float[:]', p1: int,
     elif kind2 == 3:
         bsplines_kernels.basis_funs_1st_der(t2, p2, eta2, span2, bl2, br2, b2)
     elif kind2 == 4:
-        tmp2 = zeros((3, p2 + 1), dtype=float)
-        bsplines_kernels.basis_funs_all_ders(t2, p2, eta2, span2, bl2, br2, 2, tmp2)
-        b2[:] = tmp2[2, :]
+        tmp4 = zeros((3, p2 + 1), dtype=float)
+        bsplines_kernels.basis_funs_all_ders(
+            t2, p2, eta2, span2, bl2, br2, 2, tmp4)
+        b2[:] = tmp4[2, :]
 
     # sum up non-vanishing contributions
-    spline_value = evaluation_kernel_2d(
-        p1, p2, b1, b2, ind1[span1 - p1, :], ind2[span2 - p2, :], coeff)
+    tmp1[:] = ind1[span1 - p1, :]
+    tmp2[:] = ind2[span2 - p2, :]
+    spline_value = evaluation_kernel_2d(p1, p2, b1, b2, tmp1, tmp2, coeff)
 
     return spline_value
 
@@ -205,6 +212,7 @@ def evaluate_tensor_product_2d(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int,
             elif kind == 43:
                 spline_values[i1, i2] = evaluate_2d(
                     3, 3, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1], eta2[i2])
+
 
 @pure
 def evaluate_matrix_2d(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'float[:,:]', eta1: 'float[:,:]', eta2: 'float[:,:]', spline_values: 'float[:,:]', kind: int):
@@ -280,6 +288,7 @@ def evaluate_matrix_2d(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: '
                 spline_values[i1, i2] = evaluate_2d(
                     3, 3, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, i2], eta2[i1, i2])
 
+
 @pure
 def evaluate_sparse_2d(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'float[:,:]', eta1: 'float[:,:]', eta2: 'float[:,:]', spline_values: 'float[:,:]', kind: int):
     """
@@ -353,6 +362,7 @@ def evaluate_sparse_2d(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: '
             elif kind == 43:
                 spline_values[i1, i2] = evaluate_2d(
                     3, 3, t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1, 0], eta2[0, i2])
+
 
 @pure
 def eval_spline_mpi_2d(p1: 'int', p2: 'int', basis1: 'float[:]', basis2: 'float[:]', span1: 'int', span2: 'int', coeff: 'float[:,:]', starts: 'int[:]', pn: 'int[:]') -> float:

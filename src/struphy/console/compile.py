@@ -1,4 +1,4 @@
-def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbose, dependencies):
+def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbose, dependencies, yes):
     """
     Compile Struphy kernels. All files that contain "kernels" are detected automatically and saved to state.yml.
 
@@ -28,6 +28,9 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
 
     dependencies : bool
         Whether to print Struphy kernels (to be compiled) and their dependencies on screen.
+        
+    yes : bool
+        Whether to say yes to prompt when changing the language.
     """
 
     import subprocess
@@ -55,7 +58,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         state['kernels'] = []
         for subdir, dirs, files in os.walk(libpath):
             for file in files:
-                if 'kernels' in file and '.py' in file and 'test' not in file and 'legacy' not in subdir and '__pycache__' not in subdir:
+                if 'kernels' in file and '.py' in file and '_tmp.py' not in file and 'test' not in file and 'legacy' not in subdir and '__pycache__' not in subdir:
                     state['kernels'] += [os.path.join(subdir, file)]
 
         # set initial compiler infos to None
@@ -82,7 +85,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
                         'sources=' + sources,
                         ], check=True, cwd=libpath)
         print('Done.')
-        
+
         subprocess.run(['struphy',
                        'compile',
                         '--status',
@@ -175,11 +178,18 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
 
         # state
         if state['last_used_language'] not in (language, None):
-            if state['compiled_in_' + state['last_used_language']] > 0:
-                print(f'Kernels compiled in language {state["last_used_language"]} exist, deleting ...')
+            if yes:
+                yesno = 'Y'
+            else:
+                yesno = input(
+                    f'Kernels compiled in language {state["last_used_language"]} exist, will be deleted, continue (Y/n)?')
+                
+            if yesno in ('', 'Y', 'y', 'yes'):
                 subprocess.run(['struphy',
                                 'compile',
                                 '--delete',], check=True, cwd=libpath)
+            else:
+                return
 
         state['last_used_language'] = language
         state['last_used_compiler'] = compiler

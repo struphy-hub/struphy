@@ -7,7 +7,7 @@ from struphy.io.setup import descend_options_dict
 libpath = struphy.__path__[0]
 
 
-def call_model(key, val, map_and_equil):
+def call_model(key, val, map_and_equil, Tend=None):
     '''Does the options testing of one model.
 
     Parameters
@@ -19,7 +19,11 @@ def call_model(key, val, map_and_equil):
         Model class.
 
     map_and_equil : tuple[str]
-        Name of mapping and MHD equilibirum.'''
+        Name of mapping and MHD equilibirum.
+        
+    Tend : float
+        End time of simulation other than default.
+    '''
 
     d_opts = {'em_fields': [], 'fluid': {}, 'kinetic': {}}
 
@@ -84,8 +88,14 @@ def call_model(key, val, map_and_equil):
 
     params_default = copy.deepcopy(parameters)
 
-    # run with default
-    main(key, parameters, path_out)
+    if Tend is not None:
+        parameters['time']['Tend'] = Tend
+        main(key, parameters, path_out, save_step=int(Tend/parameters['time']['dt']))
+        return
+    else:
+        # run with default
+        main(key, parameters, path_out)
+    
 
     # run available options (if present)
     if len(d_opts['em_fields']) > 0:
