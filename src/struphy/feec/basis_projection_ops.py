@@ -1043,12 +1043,12 @@ class BasisProjectionOperator(LinOpWithTransp):
                     mat_w = loc_weight(*PTS).copy()
                 elif isinstance(loc_weight, np.ndarray):
                     mat_w = loc_weight
-                else:
-                    raise TypeError("weights must be np.ndarray or callable")
+                elif loc_weight is not None:
+                    raise TypeError("weights must be np.ndarray, callable or None")
 
                 # Call the kernel if weight function is not zero or in the scalar case
                 # to avoid calling _block of a StencilMatrix in the else
-                if np.any(np.abs(mat_w) > 1e-14) or self._is_scalar:
+                if loc_weight is not None and np.any(np.abs(mat_w) > 1e-14) or self._is_scalar:
 
                     # get cell of block matrix (don't instantiate if all zeros)
                     if self._is_scalar:
