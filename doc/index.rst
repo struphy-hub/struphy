@@ -1,5 +1,5 @@
-Struphy - Structure-preserving hybrid codes
-===========================================
+Struphy: structure-preserving hybrid codes
+==========================================
 
 **A Python package for plasma physics PDEs.**
 
@@ -28,20 +28,12 @@ which can be solved on a variety of `mapped domains <https://struphy.pages.mpcdf
    sections/install
    sections/quickstart
    sections/tutorials
-   sections/userguide
-   sections/discretization
-   sections/developers
    sections/models
-   sections/propagators
-   sections/accumulators
-   sections/domains
-   sections/mhd_equils
-   sections/kinetic_backgrounds
-   sections/inits
-   sections/diagnostics
-   sections/dispersions
+   sections/discretization
+   sections/userguide
+   sections/developers
+   sections/inventory
    sections/examples
-   sections/performance_tests
 
 
 Reference paper

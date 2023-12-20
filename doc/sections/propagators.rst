@@ -1,15 +1,16 @@
 .. _propagators:
 
 Propagators
-===========
+-----------
 
-This page lists currently available Struphy propagators 
-(for `fields <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.propagators.propagators_fields.html>`_,
-for `markers <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.propagators.propagators_markers.html>`_,
-and for `a mix of both <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.propagators.propagators_coupling.html>`_).
+This page lists currently available Struphy propagators (for time stepping :math:`t \to t + \Delta t`):
+
+- `field propagators <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.propagators.propagators_fields.html>`_
+- `marker propagators <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.propagators.propagators_markers.html>`_
+- `hybrid propagators <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.propagators.propagators_coupling.html>`_
+
 Propagators are the main building blocks of :ref:`models`, as they define the 
-time splitting scheme of the algorithm.
-
+time splitting scheme of every algorithm.
 Check out :ref:`add_prop` for a manual on writing new propagators.
 
 Propagators are implemented within the following sub-modules:
@@ -29,20 +30,6 @@ Propagators are implemented within the following sub-modules:
     struphy.pic.pushing.pusher_kernels_gc
     struphy.pic.pushing.eval_kernels_gc
 
-.. _prop_list:
-
-.. toctree::
-    :caption: Lists of available propagators (and particle pushers therein):
-
-    STUBDIR/struphy.propagators.base
-    STUBDIR/struphy.propagators.propagators_markers
-    STUBDIR/struphy.propagators.propagators_fields
-    STUBDIR/struphy.propagators.propagators_coupling
-    STUBDIR/struphy.pic.pushing.pusher
-    STUBDIR/struphy.pic.pushing.pusher_kernels
-    STUBDIR/struphy.pic.pushing.pusher_kernels_gc
-    STUBDIR/struphy.pic.pushing.eval_kernels_gc
-
 Notation:
 
 ================= ============================================ ==========================================================
@@ -61,7 +48,7 @@ See :ref:`gempic` for more details on the used symbols.
 .. _prop_base:
 
 Propagator base class
----------------------
+^^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: struphy.propagators.base
     :members:
@@ -71,7 +58,7 @@ Propagator base class
 
 
 Particle propagators
---------------------
+^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: struphy.propagators.propagators_markers
     :members:
@@ -81,7 +68,7 @@ Particle propagators
 
 
 Field propagators
------------------
+^^^^^^^^^^^^^^^^^
 
 .. automodule:: struphy.propagators.propagators_fields
     :members:
@@ -91,7 +78,7 @@ Field propagators
 
 
 Particle-field propagators
---------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: struphy.propagators.propagators_coupling
     :members:
@@ -103,7 +90,7 @@ Particle-field propagators
 .. _pushers:
 
 Pusher base classes
--------------------
+^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: struphy.pic.pushing.pusher
     :members:
@@ -113,7 +100,7 @@ Pusher base classes
 
 
 Pusher kernels
---------------
+^^^^^^^^^^^^^^
 
 .. automodule:: struphy.pic.pushing.pusher_kernels
     :members:
@@ -123,7 +110,7 @@ Pusher kernels
 
 
 Pusher kernels guiding center
------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: struphy.pic.pushing.pusher_kernels_gc
     :members:

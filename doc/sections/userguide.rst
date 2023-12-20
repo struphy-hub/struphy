@@ -38,7 +38,7 @@ is created in the current input path (on prompt).
 If we choose to do so, the file is created (or overwritten) and the code exits. 
 To run the model with default parameters we can now type::
 
-    struphy run MODEL -i params_MODEL.yml
+    struphy run MODEL
 
 The current I/O paths can be obtained from::
 

@@ -1,7 +1,12 @@
 .. _avail_inits:
 
 Field/fluid initial conditions
-==============================
+------------------------------
+
+This page lists the currently available field/fluid backgrounds/initial conditions in Struphy:
+
+- `perturbations <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.initial.perturbations.html>`_
+
 
 Documented modules:
 
@@ -12,14 +17,10 @@ Documented modules:
     :toctree: STUBDIR
 
     struphy.initial.perturbations
-
-.. toctree::
-    :caption: Lists of available field/fluid initial conditions:
-
-    STUBDIR/struphy.initial.perturbations
+    
 
 Noise
------
+^^^^^
 
 Noise must be specified under the keyword ``init`` in the parameter file, under the respective species::
 
@@ -40,7 +41,7 @@ while the second component as well as the 3-forms ``n3`` and ``p3`` are left as 
 
 
 Analytical initial conditions
------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: struphy.initial.perturbations
     :members:

@@ -1,7 +1,7 @@
 .. _install:
 
-Installation
-============
+Install
+=======
 
 Struphy can be installed in the following ways:
 

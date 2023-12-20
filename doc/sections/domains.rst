@@ -1,9 +1,11 @@
 .. _avail_mappings:
 
 3D mapped domains
-=================
+-----------------
 
-This page lists the `currently available mapped domains <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.geometry.domains.html>`_ in Struphy.
+This page lists the currently available geometries in Struphy:
+
+- `available mapped domains <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.geometry.domains.html>`_
 
 Domain-related code stands in the following sub-modules:
 
@@ -17,16 +19,9 @@ Domain-related code stands in the following sub-modules:
     struphy.geometry.domains
     struphy.geometry.utilities
 
-.. toctree::
-    :caption: Lists of available domains/utilities:
-
-    STUBDIR/struphy.geometry.base
-    STUBDIR/struphy.geometry.domains
-    STUBDIR/struphy.geometry.utilities
-
 
 Base classes
-------------
+^^^^^^^^^^^^
 
 .. automodule:: struphy.geometry.base
     :members:
@@ -36,7 +31,7 @@ Base classes
 
 
 Available domains
------------------
+^^^^^^^^^^^^^^^^^
 
 .. automodule:: struphy.geometry.domains
     :members:
@@ -47,7 +42,7 @@ Available domains
 .. _field_tracing:
 
 Utilities
----------
+^^^^^^^^^
 
 .. automodule:: struphy.geometry.utilities
     :members:
