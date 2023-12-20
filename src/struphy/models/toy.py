@@ -519,7 +519,86 @@ class VariationalBurgers(StruphyModel):
         self._tmp_u1 = self.derham.Vh['v'].zeros()
 
     def update_scalar_quantities(self):
-        self._mass_ops.Mv.dot(self.pointer['fluid_uv'], out=self._tmp_u1)
+        mu1 = self._mass_ops.Mv.dot(self.pointer['fluid_uv'], out=self._tmp_u1)
 
-        en_U = self.pointer['fluid_uv'] .dot(self._tmp_u1)/2
+        en_U = self.pointer['fluid_uv'] .dot(mu1)/2
+        self.update_scalar('en_U', en_U)
+
+
+class VariationalPressurelessFluid(StruphyModel):
+    r'''Pressure-less fluid equations discretized with a variational method.
+
+    Implemented equations:
+
+    .. math::
+
+        \int_{\Omega} \partial_t \mathbf u \cdot \mathbf v \, \textnormal d^3 \mathbf x 
+        - \int_{\Omega} \mathbf u \cdot [\mathbf u, \mathbf v] \, \textnormal d^3 \mathbf x 
+        + \int_{\Omega} \frac{| \mathbf u |^2}{2} \nabla \cdot (\rho \mathbf v) \, \textnormal d^3 \mathbf x = 0 ~ ,
+
+        \partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 ~ ,
+
+    where :
+    
+    .. math::
+        [\mathbf u,\mathbf v] = \mathbf u \cdot \nabla \mathbf v - \mathbf v \cdot \nabla \mathbf u ~ .
+
+    Parameters
+    ----------
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
+
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
+    '''
+    @classmethod
+    def species(cls):
+        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
+        dct['fluid']['fluid'] = {'rho3' : 'L2', 'uv': 'H1vec'}
+        return dct
+
+    @classmethod
+    def bulk_species(cls):
+        return 'fluid'
+
+    @classmethod
+    def velocity_scale(cls):
+        return 'alfvén'
+
+    @classmethod
+    def options(cls):
+        # import propagator options
+        from struphy.propagators.propagators_fields import VariationalMomentumAdvection, VariationalDensityEvolvePL
+        dct = {}
+
+        cls.add_option(species=['fluid', 'fluid'], key=['solvers'],
+                       option=VariationalMomentumAdvection.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'fluid'], key=['solvers'],
+                       option=VariationalDensityEvolvePL.options()['solver'], dct=dct)
+        return dct
+
+    def __init__(self, params, comm):
+
+        # initialize base class
+        super().__init__(params, comm)
+
+        # Initialize propagators/integrators used in splitting substeps
+        self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
+         self.pointer['fluid_uv'], rho = self.pointer['fluid_rho3']))
+        self.add_propagator(self.prop_fields.VariationalDensityEvolvePL(
+            self.pointer['fluid_rho3'], self.pointer['fluid_uv']))
+        
+
+        # Scalar variables to be saved during simulation
+        self.add_scalar('en_U')
+
+        # temporary vectors for scalar quantities
+        self._tmp_u1 = self.derham.Vh['v'].zeros()
+
+    def update_scalar_quantities(self):
+        self._propagators[0]._update_weighted_MM()
+        WMM = self._propagators[0].WMM.matrix
+        m1 = WMM.dot(self.pointer['fluid_uv'], out=self._tmp_u1)
+
+        en_U = self.pointer['fluid_uv'] .dot(m1)/2
         self.update_scalar('en_U', en_U)
