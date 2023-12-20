@@ -2798,7 +2798,7 @@ class VariationalDensityEvolve(Propagator):
                           'model': 'pressurless'}
 
         assert 'model' in params, 'model must be provided for VariationalDensityEvolve'
-        assert params['model'] in ['pressurless', 'barotropic']
+        assert params['model'] in ['pressureless', 'barotropic']
         params = set_defaults(params, params_default)
 
         self._params = params
