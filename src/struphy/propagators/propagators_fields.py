@@ -2794,7 +2794,8 @@ class VariationalDensityEvolve(Propagator):
                           'maxiter': 100,
                           'type_linear_solver': ('pcg', 'MassMatrixPreconditioner'),
                           'info': False,
-                          'verbose': False}
+                          'verbose': False,
+                          'model': None}
 
         assert 'model' in params, 'model must be provided for VariationalDensityEvolve'
         assert params['model'] in ['pressureless', 'barotropic']
