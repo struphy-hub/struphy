@@ -2502,7 +2502,7 @@ class VariationalMomentumAdvection(Propagator):
                           'type_linear_solver': ('pcg', 'MassMatrixPreconditioner'),
                           'info': False,
                           'verbose': False,
-                          'rho' : None}
+                          'rho': None}
 
         assert 'rho' in params
 
@@ -2683,15 +2683,16 @@ class VariationalMomentumAdvection(Propagator):
         if self._params['type_linear_solver'][1] is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, self._params['type_linear_solver'][1])
+            pc_class = getattr(
+                preconditioner, self._params['type_linear_solver'][1])
             pc = pc_class(self.mass_ops.Mv)
 
         self._Mrhoinv = inverse(self._Mrho,
-                        self._params['type_linear_solver'][0],
-                        pc=pc,
-                        tol=self._params['tol'],
-                        maxiter=self._params['maxiter'],
-                        verbose=self._params['verbose'])
+                                self._params['type_linear_solver'][0],
+                                pc=pc,
+                                tol=self._params['tol'],
+                                maxiter=self._params['maxiter'],
+                                verbose=self._params['verbose'])
 
         self._integration_grid = [quad_grid[nquad].points.flatten()
                                   for quad_grid, nquad in zip(Xh.spaces[0]._quad_grids, Xh.spaces[0].nquads)]
@@ -2707,7 +2708,6 @@ class VariationalMomentumAdvection(Propagator):
         self._tmp_integration_grid = np.zeros(grid_shape, dtype=float)
 
         self._full_term_mass = deepcopy(metric)
-
 
     def _update_all_weights(self,):
         """Update the weights of all the `BasisProjectionOperators` appearing in the bracket term"""
@@ -2749,26 +2749,28 @@ class VariationalMomentumAdvection(Propagator):
                           verbose=False)
 
 
-class VariationalDensityEvolvePL(Propagator):
-    r'''Crank-Nicolson step for the evolution of the density terms in the pressureless fluid model,
+class VariationalDensityEvolve(Propagator):
+    r'''Crank-Nicolson step for the evolution of the density terms in fluids models,
 
     .. math::
 
         \int_{\Omega} \partial_t \mathbf u \cdot \mathbf v \, \textnormal d^3 \mathbf x 
-        + \int_{\Omega} \frac{| \mathbf u |^2}{2} \nabla \cdot (\rho \mathbf v) \, \textnormal d^3 \mathbf x = 0 ~ ,
+        + \int_{\Omega} \big( \frac{| \mathbf u |^2}{2} - \frac{\partial \rho e}{\partial \rho} \big) \nabla \cdot (\rho \mathbf v) \, \textnormal d^3 \mathbf x = 0 ~ ,
 
         \partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 ~ ,
 
-    which is discretized as
+    where $e$ depends on the chosen model.
+
+    It is discretized as
 
     .. math::
 
         \frac{\mathbb M_v[\rho^{n+1}] \mathbf u^{n+1}- \mathbb M_v[\rho^{n}] \mathbf u^n}{\Delta t} + 
-        (\mathbb D \hat{\Pi^{X->2}}[\rho^{n+1/2}])^\top l^3(\frac{u^{n+1} \cdot u^{n}}{2}) = 0 ~ ,
+        (\mathbb D \hat{\Pi^{X->2}}[\rho^{n+1/2}])^\top l^3\big( \frac{u^{n+1} \cdot u^{n}}{2} - \frac{\rho^{n+1}e(\rho^{n+1})-\rho^{n}e(\rho^{n}}{\rho^{n+1}-\rho^n}) \big) = 0 ~ ,
 
         \frac{\mathbf \rho^{n+1}- \mathbf \rho^n}{\Delta t} + \mathbb D \hat{\Pi^{X->2}}[\rho^{n+1/2}] \mathbf u^{n+1/2} = 0 ~ ,
 
-    where l^3(f) denotes the vector representing the linear form $v \mapsto \int_\Omega f(\mathbf x) v(\mathbf x) d \mathbf x$ .
+    where l^3(f) denotes the vector representing the linear form $v \mapsto \int_{\Omega} f(\mathbf x) v(\mathbf x) d \mathbf x$ .
 
     Parameters
     ----------
@@ -2779,7 +2781,7 @@ class VariationalDensityEvolvePL(Propagator):
         FE coefficients of a discrete vector field,velocity of the solution.
 
     **params : dict
-        Parameters for the iterative solver.
+        Parameters for the iterative solver, the linear solver and the model.
 
     '''
 
@@ -2792,8 +2794,11 @@ class VariationalDensityEvolvePL(Propagator):
                           'maxiter': 100,
                           'type_linear_solver': ('pcg', 'MassMatrixPreconditioner'),
                           'info': False,
-                          'verbose': False}
+                          'verbose': False,
+                          'model': None}
 
+        assert 'model' in params, 'model must be provided for VariationalDensityEvolve'
+        assert params['model'] in ['pressureless', 'barotropic']
         params = set_defaults(params, params_default)
 
         self._params = params
@@ -2949,15 +2954,16 @@ class VariationalDensityEvolvePL(Propagator):
         if self._params['type_linear_solver'][1] is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, self._params['type_linear_solver'][1])
+            pc_class = getattr(
+                preconditioner, self._params['type_linear_solver'][1])
             pc = pc_class(self.mass_ops.Mv)
 
         self._Mrhoinv = inverse(self._Mrho,
-                        self._params['type_linear_solver'][0],
-                        pc=pc,
-                        tol=self._params['tol'],
-                        maxiter=self._params['maxiter'],
-                        verbose=self._params['verbose'])
+                                self._params['type_linear_solver'][0],
+                                pc=pc,
+                                tol=self._params['tol'],
+                                maxiter=self._params['maxiter'],
+                                verbose=self._params['verbose'])
 
         self._integration_grid_X = [quad_grid[nquad].points.flatten()
                                     for quad_grid, nquad in zip(Xh.spaces[0]._quad_grids, Xh.spaces[0].nquads)]
@@ -2985,6 +2991,11 @@ class VariationalDensityEvolvePL(Propagator):
         self._uf_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
         self._uf1_values = [np.zeros(grid_shape, dtype=float)
                             for i in range(3)]
+
+        if self._params['model'] == 'barotropic':
+            self._rhof_values_V3 = np.zeros(grid_shape, dtype=float)
+            self._rhof1_values_V3 = np.zeros(grid_shape, dtype=float)
+
         self._tmp_integration_grid_V3 = np.zeros(grid_shape, dtype=float)
 
     def _update_all_weights(self,):
@@ -3019,18 +3030,32 @@ class VariationalDensityEvolvePL(Propagator):
                               out=self._uf1_values, tmp=self._tmp_integration_grid_V3)
 
         # TODO : probably could be faster, tmp (mabe use a kernel?)
-        eval_u2 = (uf_values[0]*self._proj_u2_metric_term[0, 0]*uf1_values[0]
-                   + uf_values[0]*self._proj_u2_metric_term[0, 1]*uf1_values[1]
-                   + uf_values[0]*self._proj_u2_metric_term[0, 2]*uf1_values[2]
-                   + uf_values[1]*self._proj_u2_metric_term[1, 0]*uf1_values[0]
-                   + uf_values[1]*self._proj_u2_metric_term[1, 1]*uf1_values[1]
-                   + uf_values[1]*self._proj_u2_metric_term[1, 2]*uf1_values[2]
-                   + uf_values[2]*self._proj_u2_metric_term[2, 0]*uf1_values[0]
-                   + uf_values[2]*self._proj_u2_metric_term[2, 1]*uf1_values[1]
-                   + uf_values[2]*self._proj_u2_metric_term[2, 2]*uf1_values[2])/2
+        eval_dl_drho = (uf_values[0]*self._proj_u2_metric_term[0, 0]*uf1_values[0]
+                        + uf_values[0] *
+                        self._proj_u2_metric_term[0, 1]*uf1_values[1]
+                        + uf_values[0] *
+                        self._proj_u2_metric_term[0, 2]*uf1_values[2]
+                        + uf_values[1] *
+                        self._proj_u2_metric_term[1, 0]*uf1_values[0]
+                        + uf_values[1] *
+                        self._proj_u2_metric_term[1, 1]*uf1_values[1]
+                        + uf_values[1] *
+                        self._proj_u2_metric_term[1, 2]*uf1_values[2]
+                        + uf_values[2] *
+                        self._proj_u2_metric_term[2, 0]*uf1_values[0]
+                        + uf_values[2] *
+                        self._proj_u2_metric_term[2, 1]*uf1_values[1]
+                        + uf_values[2]*self._proj_u2_metric_term[2, 2]*uf1_values[2])/2
+
+        if self._params['model'] == 'barotropic':
+            rhof_values = self.rhof(*self._integration_grid_V3,
+                                    out=self._rhof_values_V3, tmp=self._tmp_integration_grid_V3)
+            rhof1_values = self.rhof1(*self._integration_grid_V3,
+                                      out=self._rhof1_values_V3, tmp=self._tmp_integration_grid_V3)
+            eval_dl_drho -= (rhof_values + rhof1_values)/2
 
         WeightedMassOperator.assemble_vec(
-            V3h, self._linear_form_dl_drho, weight=[eval_u2])
+            V3h, self._linear_form_dl_drho, weight=[eval_dl_drho])
 
     def _get_error(self, un_diff, rhon_diff):
         weak_un_diff = self.mass_ops.Mv.dot(
