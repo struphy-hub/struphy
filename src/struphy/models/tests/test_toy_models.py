@@ -8,7 +8,7 @@ from struphy.models.tests.util import call_model
                                            ('HollowTorus', 'AdhocTorus'),
                                            ('Tokamak', 'EQDSKequilibrium')
                                            ])
-def test_toy(map_and_equil, model=None, fast=True):
+def test_toy(map_and_equil, fast, model=None, Tend=None):
     '''Tests all models and all possible model.options (except solvers without preconditioner) in models/toy.py.
 
     If model is not None, tests the specified model.
@@ -27,10 +27,10 @@ def test_toy(map_and_equil, model=None, fast=True):
                             f'Fast is enabled, mapping {map_and_equil[0]} skipped ...')
                         continue
 
-                call_model(key, val, map_and_equil)
+                call_model(key, val, map_and_equil, Tend=Tend)
     else:
         val = getattr(toy, model)
-        call_model(model, val, map_and_equil)
+        call_model(model, val, map_and_equil, Tend=Tend)
         
 if __name__ == '__main__':
     

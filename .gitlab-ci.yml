@@ -243,7 +243,7 @@ fortran_install:
     - pyccel --version
     - struphy compile --status
     - struphy compile --delete
-    - struphy compile --language=fortran # compiles struphy, psydac with language fortran 
+    - struphy compile --language=fortran -y # compiles struphy, psydac with language fortran 
     - struphy compile --status 
 
 # fortran tests (always)
@@ -341,7 +341,7 @@ default_install:
     - pyccel --version
     - struphy compile --status
     - struphy compile --delete
-    - struphy compile # compiles struphy, psydac with language c 
+    - struphy compile -y # compiles struphy, psydac with language c 
     - struphy compile --status
 
 default_unit_tests:
@@ -499,7 +499,7 @@ ubuntu_tests:
     - pip install dist/struphy*.whl
     - struphy compile --status
     - make -v
-    - struphy compile
+    - struphy compile -y
     - struphy test models --fast
 
 fedora_tests:
@@ -528,7 +528,7 @@ fedora_tests:
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
     - pip list
-    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install dist/struphy*.whl && struphy compile --status && make -v && struphy compile && struphy test models --fast" 
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install dist/struphy*.whl && struphy compile --status && make -v && struphy compile -y && struphy test models --fast" 
 
 # release
 deploy:
@@ -555,7 +555,7 @@ pages:
     - pip show struphy
     - struphy -h
     - struphy compile --status
-    - struphy compile
+    - struphy compile -y
     - struphy test tutorials
     - ls $(python3 -c "import struphy as _; print(_.__path__[0])")/io/out
     #- struphy test timings

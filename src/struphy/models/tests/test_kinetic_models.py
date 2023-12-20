@@ -7,7 +7,7 @@ from struphy.models.tests.util import call_model
 @pytest.mark.parametrize('map_and_equil', [('Cuboid', 'HomogenSlab'),
                                            ('HollowTorus', 'AdhocTorus'),
                                            ('Tokamak', 'EQDSKequilibrium')])
-def test_kinetic(map_and_equil, model=None, fast=True):
+def test_kinetic(map_and_equil, fast, model=None, Tend=None):
     '''Tests all models and all possible model.options (except solvers without preconditioner) in models/kinetic.py.
 
     If model is not None, tests the specified model.
@@ -32,7 +32,7 @@ def test_kinetic(map_and_equil, model=None, fast=True):
                             f'Fast is enabled, mapping {map_and_equil[0]} skipped ...')
                         continue
 
-                call_model(key, val, map_and_equil)
+                call_model(key, val, map_and_equil, Tend=Tend)
     else:
         val = getattr(kinetic, model)
 
@@ -42,7 +42,7 @@ def test_kinetic(map_and_equil, model=None, fast=True):
                 f'Model {model} is currently excluded from tests.')
             exit()
 
-        call_model(model, val, map_and_equil)
+        call_model(model, val, map_and_equil, Tend=Tend)
 
 if __name__ == '__main__':
     

@@ -54,11 +54,10 @@ class Pusher:
 
         # get FEM information
         self._args_fem = (np.array(derham.p),
-                          derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
-                          np.array(derham.Vh['0'].starts),
-                          np.array(derham.Vh['1'].starts),
-                          np.array(derham.Vh['2'].starts),
-                          np.array(derham.Vh['3'].starts))
+                          derham.Vh_fem['0'].knots[0], 
+                          derham.Vh_fem['0'].knots[1], 
+                          derham.Vh_fem['0'].knots[2],
+                          np.array(derham.Vh['0'].starts))
 
         # select pusher kernel
         assert kernel_name[:5] == 'push_'

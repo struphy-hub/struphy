@@ -456,16 +456,16 @@ def fill_mat_vec_pressure(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3:
 
 
 @pure
-def hy_density(Nel: 'int[:]', pn: 'int[:]', cell_left: 'int[:]', cell_number: 'int[:]', span1: 'int', span2: 'int', span3: 'int', starts0: 'int[:]', ie1: 'int', ie2: 'int', ie3: 'int', temp1: 'float[:]', temp4: 'float[:]', quad: 'int[:]', quad_pts_x: 'float[:]', quad_pts_y: 'float[:]', quad_pts_z: 'float[:]', compact: 'float[:]', eta1: 'float', eta2: 'float', eta3: 'float', mat: 'float[:,:,:,:,:,:]', weight: 'float', p_shape: 'int[:]', p_size: 'float[:]', grids_shapex: 'float[:]', grids_shapey: 'float[:]', grids_shapez: 'float[:]'):
+def hy_density(Nel: 'int[:]', pn: 'int[:]', cell_left: 'int[:]', cell_number: 'int[:]', span1: 'int', span2: 'int', span3: 'int', starts: 'int[:]', ie1: 'int', ie2: 'int', ie3: 'int', temp1: 'float[:]', temp4: 'float[:]', quad: 'int[:]', quad_pts_x: 'float[:]', quad_pts_y: 'float[:]', quad_pts_z: 'float[:]', compact: 'float[:]', eta1: 'float', eta2: 'float', eta3: 'float', mat: 'float[:,:,:,:,:,:]', weight: 'float', p_shape: 'int[:]', p_size: 'float[:]', grids_shapex: 'float[:]', grids_shapey: 'float[:]', grids_shapez: 'float[:]'):
     """
     TODO
     """
     for il1 in range(cell_number[0]):
-        i1 = cell_left[0] + il1 - starts0[0] + pn[0]
+        i1 = cell_left[0] + il1 - starts[0] + pn[0]
         for il2 in range(cell_number[1]):
-            i2 = cell_left[1] + il2 - starts0[1] + pn[1]
+            i2 = cell_left[1] + il2 - starts[1] + pn[1]
             for il3 in range(cell_number[2]):
-                i3 = cell_left[2] + il3 - starts0[2] + pn[2]
+                i3 = cell_left[2] + il3 - starts[2] + pn[2]
 
                 for jl1 in range(quad[0]):
                     # quad_pts_x contains the quadrature points in x direction.
