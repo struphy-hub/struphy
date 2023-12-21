@@ -67,6 +67,33 @@ class MHDequilibrium(metaclass=ABCMeta):
         out = np.array([b[0]/absB, b[1]/absB, b[2]/absB], dtype=float)
         return out, xyz
 
+    def curl_unit_b1(self, *etas, squeeze_out=True):
+        """ 1-form components of curl of unit equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
+        """
+        return self.domain.pull(self.curl_unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='1_form', squeeze_out=squeeze_out)
+
+    def curl_unit_b2(self, *etas, squeeze_out=True):
+        """ 2-form components of curl of unit equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
+        """
+        return self.domain.pull(self.curl_unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='2_form', squeeze_out=squeeze_out)
+    
+    def curl_unit_bv(self, *etas, squeeze_out=True):
+        """ Contra-variant components of curl of unit equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
+        """
+        return self.domain.pull(self.curl_unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='vector', squeeze_out=squeeze_out)
+
+    def curl_unit_b_cart(self, *etas, squeeze_out=True):
+        """ Cartesian components of curl of unit equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
+        """
+        b, xyz = self.b_cart(*etas, squeeze_out=squeeze_out)
+        j, xyz = self.j_cart(*etas, squeeze_out=squeeze_out)
+        gradB, xyz = self.gradB_cart(*etas, squeeze_out=squeeze_out)
+        absB = self.absB0(*etas, squeeze_out=squeeze_out)
+        out = np.array([j[0]/absB + (b[1]*gradB[2] - b[2]*gradB[1])/absB**2, 
+                        j[1]/absB + (b[2]*gradB[0] - b[0]*gradB[2])/absB**2, 
+                        j[2]/absB + (b[0]*gradB[1] - b[1]*gradB[0])/absB**2], dtype=float)
+        return out, xyz
+
     def a1(self, *etas, squeeze_out=True):
         """ 1-form components of equilibrium vector potential on logical cube [0, 1]^3.
         """
@@ -113,6 +140,28 @@ class MHDequilibrium(metaclass=ABCMeta):
         """
         j_out = self.domain.push(self.j2(*etas, squeeze_out=False), *etas, kind='2_form', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
         return j_out, self.domain(*etas)
+
+    def gradB1(self, *etas, squeeze_out=True):
+        """ 1-form components of gradient of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
+        """
+        xyz = self.domain(*etas, squeeze_out=False)
+        return self.domain.pull(self.gradB_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='1_form', squeeze_out=squeeze_out)
+
+    def gradB2(self, *etas, squeeze_out=True):
+        """ 2-form components of gradient of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
+        """
+        return self.domain.transform(self.gradB1(*etas, squeeze_out=False), *etas, kind='1_to_2', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+
+    def gradBv(self, *etas, squeeze_out=True):
+        """ Contra-variant components of gradient of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
+        """
+        return self.domain.transform(self.gradB1(*etas, squeeze_out=False), *etas, kind='1_to_v', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+
+    def gradB_cart(self, *etas, squeeze_out=True):
+        """ Cartesian components of gradient of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
+        """
+        gradB_out = self.domain.push(self.gradB1(*etas, squeeze_out=False), *etas, kind='1_form', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return gradB_out, self.domain(*etas)
 
     def p0(self, *etas, squeeze_out=True):
         """ 0-form equilibrium pressure on logical cube [0, 1]^3.
@@ -229,6 +278,24 @@ class MHDequilibrium(metaclass=ABCMeta):
     
     def j2_3(self, *etas, squeeze_out=True):
         return self.j2(*etas, squeeze_out=squeeze_out)[2]
+
+    def gradB1_1(self, *etas, squeeze_out=True):
+        return self.gradB1(*etas, squeeze_out=squeeze_out)[0]
+
+    def gradB1_2(self, *etas, squeeze_out=True):
+        return self.gradB1(*etas, squeeze_out=squeeze_out)[1]
+
+    def gradB1_3(self, *etas, squeeze_out=True):
+        return self.gradB1(*etas, squeeze_out=squeeze_out)[2]
+
+    def curl_unit_b2_1(self, *etas, squeeze_out=True):
+        return self.curl_unit_b2(*etas, squeeze_out=squeeze_out)[0]
+
+    def curl_unit_b2_2(self, *etas, squeeze_out=True):
+        return self.curl_unit_b2(*etas, squeeze_out=squeeze_out)[1]
+
+    def curl_unit_b2_3(self, *etas, squeeze_out=True):
+        return self.curl_unit_b2(*etas, squeeze_out=squeeze_out)[2]
 
     ##########
     # Plotting
@@ -450,6 +517,12 @@ class CartesianMHDequilibrium(MHDequilibrium):
         """
         pass
 
+    @abstractmethod
+    def gradB_xyz(self, x, y, z):
+        """ Cartesian gradient of equilibrium magnetic field in physical space. Must return the components as a tuple.
+        """
+        pass
+
 
 class LogicalMHDequilibrium(MHDequilibrium):
     """
@@ -485,6 +558,12 @@ class LogicalMHDequilibrium(MHDequilibrium):
     @abstractmethod
     def n0(self, *etas, squeeze_out=True):
         """0-form equilibrium density on logical cube [0, 1]^3.
+        """
+        pass
+
+    @abstractmethod
+    def gradB1(self, *etas, squeeze_out=True):
+        """1-form gradient of equilibrium magnetic field on logical cube [0, 1]^3. Must return the components as a tuple.
         """
         pass
 
@@ -578,6 +657,26 @@ class AxisymmMHDequilibrium(CartesianMHDequilibrium):
 
         return jx, jy, jz
     
+    def gradB_xyz(self, x, y, z):
+        """ Cartesian gradient |B| components calculated as grad(sqrt(BR**2 + BPhi**2 + BZ**2)).
+        """
+        
+        R, Phi, Z = self.inverse_map(x, y, z)
+
+        RabsB = np.sqrt(self.psi(R, Z, dZ=1)**2 + self.g_tor(R,Z)**2 + self.psi(R, Z, dR=1)**2)
+
+        # at phi = 0° (gradB = grad(absB))
+        gradBR = -RabsB/R**2 + (self.psi(R, Z, dZ=1)*self.psi(R, Z, dR=1, dZ=1) + self.psi(R, Z, dR=1)*self.psi(R, Z, dR=2))/RabsB/R
+        gradBP = 0.
+        gradBZ = (self.psi(R, Z, dZ=1)*self.psi(R, Z, dZ=2) + self.psi(R, Z, dR=1)*self.psi(R, Z, dR=1, dZ=1))/RabsB/R
+        
+        # push-forward to Cartesian components
+        gradBx = gradBR*np.cos(Phi) - gradBP*np.sin(Phi)
+        gradBy = gradBR*np.sin(Phi) + gradBP*np.cos(Phi)
+        gradBz = 1*gradBZ
+
+        return gradBx, gradBy, gradBz
+
     @staticmethod
     def inverse_map(x, y, z):
         """ Inverse cylindrical mapping.

@@ -34,7 +34,7 @@ geometry :
 mhd_equilibrium :
     type : EQDSKequilibrium # (possible choices seen below)
     EQDSKequilibrium :
-        rel_path        : True # whether eqdsk file path relative to "<struphy_path>/fields_background/mhd_equil/gvec", or the absolute path
+        rel_path        : True # whether eqdsk file path relative to "<struphy_path>/fields_background/mhd_equil/gvec/", or the absolute path
         file            : 'AUGNLED_g031213.00830.high' # path to eqdsk file
         data_type       : 0 # 0: there is no space between data, 1: there is space between data
         p_for_psi       : [3, 3] # spline degrees used in interpolation of poloidal flux function grid data
@@ -70,13 +70,13 @@ fluid :
         options:
             solvers:
                 shear_alfven:
-                    type: [PConjugateGradient, MassMatrixPreconditioner]
+                    type: [pcg, MassMatrixPreconditioner]
                     tol: 1.0e-08
                     maxiter: 3000
                     info: false
                     verbose: false
                 magnetosonic:
-                    type: [PBiConjugateGradientStab, MassMatrixPreconditioner]
+                    type: [pbicgstab, MassMatrixPreconditioner]
                     tol: 1.0e-08
                     maxiter: 3000
                     info: false

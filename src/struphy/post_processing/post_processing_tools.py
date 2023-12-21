@@ -127,7 +127,7 @@ def create_femfields(path, step=1):
 
         file.close()
 
-    print('Creation of PSYDAC FemFields done.')
+    print('Creation of Struphy Fields done.')
 
     return fields, space_ids, model
 

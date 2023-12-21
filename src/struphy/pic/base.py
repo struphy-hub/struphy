@@ -4,8 +4,8 @@ import numpy as np
 import h5py
 import scipy.special as sp
 
-from struphy.pic import sampling, sobol_seq
-from struphy.pic.pushing.pusher_utilities import reflect
+from struphy.pic import sampling_kernels, sobol_seq
+from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.utilities_kernels import eval_magnetic_energy
 from struphy.kinetic_background import maxwellians
 from struphy.fields_background.mhd_equil.equils import set_defaults
@@ -426,6 +426,42 @@ class Particles(metaclass=ABCMeta):
 
         2. Uniform distribution on the disc: :math:`n^3(\eta) = 2\eta_1` (radial coordinate = volume element of square-to-disc mapping) 
 
+        Velocities are sampled via inverse transform sampling.
+        In case of Particles6D, velocities are sampled as a Maxwellian in each 3 directions,
+
+        .. math::
+
+            r_i = \int^{v_i}_{-\infty} \mathcal M(v^\prime_i) \textnormal{d} v^\prime_i = \frac{1}{2}\left[ 1 + \text{erf}\left(\frac{v_i - u_i}{\sqrt{2}v_{\mathrm{th},i}}\right)\right] \,,
+
+        where :math:`r_i \in \mathcal R(0,1)` is a uniformly drawn random number in the unit interval. So then
+
+        .. math::
+
+            v_i = \text{erfinv}(2r_i - 1)\sqrt{2}v_{\mathrm{th},i} + u_i \,.
+
+        In case of Particles5D, parallel velocity is sampled as a Maxwellian and perpendicular particle speed :math:`v_\perp = \sqrt{v_1^2 + v_2^2}` is sampled as a 2D Maxweillian in polar coordinates,
+
+        .. math::
+
+            \mathcal{M}(v_1, v_2) \, \textnormal{d} v_1 \textnormal{d} v_2 &=  \prod_{i=1}^{2} \frac{1}{\sqrt{2\pi}}\frac{1}{v_{\mathrm{th},i}}
+                \exp\left[-\frac{(v_i-u_i)^2}{2 v_{\mathrm{th},i}^2}\right] \textnormal{d} v_i\,,
+            \\
+            &= \frac{1}{v_\mathrm{th}^2}v_\perp \exp\left[-\frac{(v_\perp-u)^2}{2 v_\mathrm{th}^2}\right] \textnormal{d} v_\perp\,,
+            \\
+            &= \mathcal{M}^{\textnormal{pol}}(v_\perp) \, \textnormal{d} v_\perp \,.
+
+        Then,
+
+        .. math::
+
+            r = \int^{v_\perp}_0 \mathcal{M}^{\textnormal{pol}} \textnormal{d} v_\perp = 1 - \exp\left[-\frac{(v_\perp-u)^2}{2 v_\mathrm{th}^2}\right] \,.
+
+        So then,
+
+        .. math::
+
+            v_\perp = \sqrt{- \ln(1-r)}\sqrt(2)v_\mathrm{th} + u \,.
+
         All needed parameters can be set in the parameter file, in the section ``kinetic/<species>/markers/loading``.
         """
 
@@ -509,7 +545,7 @@ class Particles(metaclass=ABCMeta):
                 temp_markers = sobol_seq.i4_sobol_generate(
                     3 + self.vdim, n_mks_load_loc//64, 1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank]//64)
 
-                sampling.set_particles_symmetric_3d_3v(
+                sampling_kernels.set_particles_symmetric_3d_3v(
                     temp_markers, self.markers)
 
             # 4. Wrong specification
@@ -517,12 +553,21 @@ class Particles(metaclass=ABCMeta):
                 raise ValueError(
                     'Specified particle loading method does not exist!')
 
-            # inversion of Gaussian in velocity space
-            # TODO add other pdfs, maybe for mu -> Byung Kyu
+            # inverse transform sampling in velocity space
             u_mean = np.array(self.params['loading']['moments'][:self.vdim])
             v_th = np.array(self.params['loading']['moments'][self.vdim:])
 
-            self.velocities = sp.erfinv(2*self.velocities - 1)*v_th + u_mean
+            # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
+            if self.vdim == 3:
+                self.velocities = sp.erfinv(2*self.velocities - 1)*np.sqrt(2)*v_th + u_mean
+
+            # Particles5D: (1d Maxwellian, 2d Maxwellian)
+            elif self.vdim == 2:
+                self.markers[:n_mks_load_loc, 3] = sp.erfinv(2*self.velocities[:,0] - 1)*np.sqrt(2)*v_th[0] + u_mean[0]
+                self.markers[:n_mks_load_loc, 4] = np.sqrt(-1*np.log(1-self.velocities[:,1]))*np.sqrt(2)*v_th[1] + u_mean[1]
+
+            else:
+                raise NotImplementedError('Inverse transform sampling of given vdim is not implemented!')
 
             # inversion method for drawing uniformly on the disc
             _spatial = self.params['loading']['spatial']
@@ -843,11 +888,8 @@ class Particles(metaclass=ABCMeta):
         Parameters
         ----------
         """
-        # transfer point
-        tp = 0.
-
         # sorting out particles which are inside of the inner hole
-        smaller_than_rmin = self.markers[:, 0] < tp
+        smaller_than_rmin = self.markers[:, 0] < 0.
 
         # exclude holes
         smaller_than_rmin[self.holes] = False
@@ -855,7 +897,7 @@ class Particles(metaclass=ABCMeta):
         # indices or particles that are inside of the inner hole
         transfer_inds = np.nonzero(smaller_than_rmin)[0]
 
-        self._markers[transfer_inds, 0] = tp + 1e-8
+        self._markers[transfer_inds, 0] = 1e-8
         self._markers[transfer_inds, 1] = 1. - self.markers[transfer_inds, 1]
         self._markers[transfer_inds, 9] = -1.
         self._markers[transfer_inds, 10] = 0

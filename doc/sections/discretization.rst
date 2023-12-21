@@ -1,7 +1,7 @@
 .. _gempic:
 
-GEMPIC discretization
-=====================
+Numerics
+========
 
 Struphy discretization is performed according to the GEMPIC (Geometric Electro-Magnetic Particle-In-Cell) framework.
 Relevant publications are (and the references therein):

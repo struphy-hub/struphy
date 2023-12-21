@@ -39,7 +39,7 @@ def diagnostics():
     Perform diagnostics and plot results for the example run.
     """
     
-    import os, h5py, pickle
+    import os, h5py, pickle, yaml
     
     import numpy as np
     import matplotlib.pyplot as plt
@@ -48,8 +48,10 @@ def diagnostics():
 
     libpath = struphy.__path__[0]
     
-    with open(os.path.join(libpath, 'o_path.txt')) as f:
-        o_path = f.readlines()[0]
+    with open(os.path.join(libpath, 'state.yml')) as f:
+        state = yaml.load(f, Loader=yaml.FullLoader)
+
+    o_path = state['o_path']
     
     out_name = 'sim_example_linearmhdvlasovpc'
     out_path = os.path.join(o_path, out_name)

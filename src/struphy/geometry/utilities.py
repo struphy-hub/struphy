@@ -7,10 +7,10 @@ from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import splu
 from scipy.optimize import root_scalar, newton, root
 
-from struphy.b_splines import bsplines as bsp
+from struphy.bsplines import bsplines as bsp
 from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
 from struphy.geometry.base import PoloidalSplineTorus
-from struphy.geometry.kernels import weighted_arc_lengths_flux_surface
+from struphy.geometry.utilities_kernels import weighted_arc_lengths_flux_surface
 
 
 def field_line_tracing(psi, psi_axis_R, psi_axis_Z, psi0, psi1, Nel, p, psi_power=1, xi_param='equal_angle', Nel_pre=[64, 256], p_pre=[3, 3], r0=0.3):

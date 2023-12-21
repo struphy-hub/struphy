@@ -18,7 +18,8 @@ RUN apt update -y && apt clean \
     && apt install -y libblas-dev openmpi-bin \
     && apt install -y libomp-dev libomp5 \
     && apt install -y git \
-    && apt install -y pandoc
+    && apt install -y pandoc \
+    && apt install -y sqlite3 
 
 # create new working dir
 WORKDIR /your_working_dir/

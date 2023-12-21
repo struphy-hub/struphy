@@ -15,6 +15,7 @@ def struphy():
     import os
     import inspect
     import argparse
+    import yaml
     from struphy.models import fluid, kinetic, hybrid, toy
     from struphy.console.compile import struphy_compile
     from struphy.console.run import struphy_run
@@ -22,8 +23,11 @@ def struphy():
     from struphy.console.params import struphy_params
     from struphy.console.profile import struphy_profile
     from struphy.console.pproc import struphy_pproc
-    from struphy.console.tutorials import struphy_tutorials
     from struphy.console.test import struphy_test
+
+    # struphy path
+    import struphy
+    libpath = struphy.__path__[0]
 
     # create argument parser
     epilog_message = 'Type "struphy COMMAND --help" for more information on a command.\n\n'
@@ -39,56 +43,54 @@ def struphy():
     version_message += 'Copyright 2019-2023 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n'
     version_message += 'MIT license\n'
 
+    # state dictionary
+    try:
+        with open(os.path.join(libpath, 'state.yml')) as f:
+            state = yaml.load(f, Loader=yaml.FullLoader)
+    except FileNotFoundError:
+        state = {}
+
+    if 'i_path' in state:
+        i_path = state['i_path']
+    else:
+        i_path = os.path.join(libpath, 'io/inp')
+        state['i_path'] = i_path
+
+    if 'o_path' in state:
+        o_path = state['o_path']
+    else:
+        o_path = os.path.join(libpath, 'io/out')
+        state['o_path'] = o_path
+
+    if 'b_path' in state:
+        b_path = state['b_path']
+    else:
+        b_path = os.path.join(libpath, 'io/batch')
+        state['b_path'] = b_path
+
+    with open(os.path.join(libpath, 'state.yml'), 'w') as f:
+        yaml.dump(state, f)
+
     # path message
-    import struphy
-    libpath = struphy.__path__[0]
-
-    try:
-        with open(os.path.join(libpath, 'i_path.txt'), 'r') as f:
-            i_path = f.readlines()[0]
-    except FileNotFoundError:
-        # setting default input path
-        with open(os.path.join(libpath, 'i_path.txt'), 'w') as f:
-            i_path = os.path.join(libpath, 'io/inp')
-            f.write(i_path)
-
-    try:
-        with open(os.path.join(libpath, 'o_path.txt'), 'r') as f:
-            o_path = f.readlines()[0]
-    except FileNotFoundError:
-        # setting default output path
-        with open(os.path.join(libpath, 'o_path.txt'), 'w') as f:
-            o_path = os.path.join(libpath, 'io/out')
-            f.write(o_path)
-
-    try:
-        with open(os.path.join(libpath, 'b_path.txt'), 'r') as f:
-            b_path = f.readlines()[0]
-    except FileNotFoundError:
-        # setting default output path
-        with open(os.path.join(libpath, 'b_path.txt'), 'w') as f:
-            b_path = os.path.join(libpath, 'io/batch')
-            f.write(b_path)
-
     path_message = f'Struphy installation path: {libpath}\n'
     path_message += f'current input:             {i_path}\n'
     path_message += f'current output:            {o_path}\n'
     path_message += f'current batch scripts:     {b_path}'
-    
+
     # check parameter file in current input path:
     all_files = os.listdir(i_path)
     params_files = []
     for name in all_files:
         if '.yml' in name or '.yaml' in name:
             params_files += [name]
-            
+
     # check output folders in current output path:
     all_folders = os.listdir(o_path)
     out_folders = []
     for name in all_folders:
         if '.' not in name:
             out_folders += [name]
-            
+
     # check batch scripts in current batch path:
     all_files = os.listdir(b_path)
     batch_files = []
@@ -135,17 +137,17 @@ def struphy():
     fluid_message = 'Fluid models:\n'
     fluid_message += '-------------\n'
     fluid_message += fluid_string
-    
+
     # kinetic message
     kinetic_message = 'Kinetic models:\n'
     kinetic_message += '---------------\n'
     kinetic_message += kinetic_string
-    
+
     # hybrid message
     hybrid_message = 'Hybrid models:\n'
     hybrid_message += '--------------\n'
     hybrid_message += hybrid_string
-    
+
     # toy message
     toy_message = 'Toy models:\n'
     toy_message += '-----------\n'
@@ -163,11 +165,16 @@ def struphy():
                         version=version_message)
     parser.add_argument('-p', '--path', action='version',
                         version=path_message, help='default installations and i/o paths')
-    parser.add_argument('-s', '--short-help', action='store_true', help='display short help')
-    parser.add_argument('--fluid', action='store_true', help='display available fluid models')
-    parser.add_argument('--kinetic', action='store_true', help='display available kinetic models')
-    parser.add_argument('--hybrid', action='store_true', help='display available hybrid models')
-    parser.add_argument('--toy', action='store_true', help='display available toy models')
+    parser.add_argument('-s', '--short-help',
+                        action='store_true', help='display short help')
+    parser.add_argument('--fluid', action='store_true',
+                        help='display available fluid models')
+    parser.add_argument('--kinetic', action='store_true',
+                        help='display available kinetic models')
+    parser.add_argument('--hybrid', action='store_true',
+                        help='display available hybrid models')
+    parser.add_argument('--toy', action='store_true',
+                        help='display available toy models')
     parser.add_argument('--set-i',
                         type=str,
                         metavar='PATH',
@@ -195,16 +202,44 @@ def struphy():
                                            help='compile computational kernels, install psydac (on first call only)',
                                            description='Compile Struphy kernels using pyccel, https://github.com/pyccel/pyccel.')
 
-    parser_compile.add_argument('--no-openmp',
-                                help='compile without OpenMP',
+    parser_compile.add_argument('--language',
+                                type=str,
+                                metavar='LANGUAGE',
+                                help='either "c" (default) or "fortran"',
+                                default='c')
+
+    parser_compile.add_argument('--compiler',
+                                type=str,
+                                metavar='COMPILER',
+                                help='either "GNU" (default), "intel", "PGI", "nvidia" or the path to a JSON compiler file.',
+                                default='GNU')
+
+    parser_compile.add_argument('--omp-pic',
+                                help='compile PIC kernels with OpenMP',
+                                action='store_true')
+
+    parser_compile.add_argument('--omp-feec',
+                                help='compile FEEC kernels with OpenMP',
                                 action='store_true')
 
     parser_compile.add_argument('-d', '--delete',
-                                help='remove .f90 and .so files (for running pure Python code)',
+                                help='remove .f90/.c and .so files (for running pure Python code)',
+                                action='store_true')
+
+    parser_compile.add_argument('-s', '--status',
+                                help='print current Struphy compilation status on screen',
                                 action='store_true')
 
     parser_compile.add_argument('-v', '--verbose',
                                 help='call pyccel with --verbose compiler option',
+                                action='store_true')
+    
+    parser_compile.add_argument('--dependencies',
+                                help='print Struphy kernels to be compiled (.py) and their dependencies (.so) on screen',
+                                action='store_true')
+    
+    parser_compile.add_argument('-y', '--yes',
+                                help='say yes to prompt when changing the language',
                                 action='store_true')
 
     # 2. "run" sub-command
@@ -311,8 +346,8 @@ def struphy():
         'params',
         formatter_class=lambda prog: argparse.RawTextHelpFormatter(
             prog, max_help_position=30),
-        help='create default parameter file for a model',
-        description='Creates a default parameter file for a specific model.')
+        help='create default parameter file for a model, or show model\'s options',
+        description='Creates a default parameter file for a specific model, or shows a model\'s options.')
 
     parser_params.add_argument('model',
                                type=str,
@@ -328,7 +363,7 @@ def struphy():
     parser_params.add_argument('-o', '--options',
                                help='show model options',
                                action='store_true')
-    
+
     parser_params.add_argument('-y', '--yes',
                                help='Say yes on prompt to overwrite .yml FILE',
                                action='store_true')
@@ -400,40 +435,53 @@ def struphy():
                               help='divide each grid cell by N for field evaluation (default=1)',
                               default=1)
 
-    # 7. "tutorials" sub-command
-    parser_tutorials = subparsers.add_parser(
-        'tutorials',
-        help='run Struphy simulation(s) for notebook tutorials',
-        description='Run Struphy simulation(s) necessary to run notebook tutorials.',
-        epilog='Find the notebook tutorials at https://struphy.pages.mpcdf.de/struphy/sections/tutorials.html')
-
-    parser_tutorials.add_argument('-n',
-                                  type=int,
-                                  help='specific tutorial simulation to run (int, optional)',
-                                  default=None)
-
-    # 8. "test" sub-command
+    # 7. "test" sub-command
     parser_test = subparsers.add_parser('test',
                                         formatter_class=lambda prog: argparse.RawTextHelpFormatter(
                                             prog, max_help_position=30),
                                         help='run Struphy tests',
-                                        description='Run available unit tests; or test Struphy models (with post processing) for all available options and for three different mappings (Cuboid, HollowTorus and Tokamak).')
+                                        description='Run available unit tests or test Struphy models, propagators or tutorials.')
 
     parser_test.add_argument('group',
                              type=str,
-                             choices=list_models + ['codes'] + ['unit'],
+                             choices=list_models +
+                             ['models'] + ['unit'] + ['propagators'] +
+                             ['tutorials'] + ['timings'],
                              metavar='GROUP',
-                             help='can be a model name, "codes" (tests all models on 2 mpi processes) or "unit" (perform unit tests)',)
+                             help='can be either:\na) a model name (tests on 1 MPI process in "Cuboid", "HollowTorus" and "Tokamak" geometries) \
+                                \nb) "models" for quick testing of all models \
+                                \nc) "unit" for performing unit tests \
+                                \nd) "propagators" for testing all propagators \
+                                \ne) "tutorials" for notebook tutorials, see `https://struphy.pages.mpcdf.de/struphy/sections/tutorials.html`_ \
+                                \nf) "timings" for creating .html and .json files of test metrics (include --verbose to print metrics to screen)',)
 
     parser_test.add_argument('--mpi',
                              type=int,
                              metavar='N',
-                             help='run parallel unit tests (with N number of processes) instead of serial ones',
-                             default=0)
+                             help='set number of MPI processes used in tests (must be >1, default=2), has no effect if GROUP=a)',
+                             default=2)
 
-    parser_test.add_argument('--fast',
+    parser_test.add_argument('-f', '--fast',
                              help='test model(s) just in slab geometry (Cuboid)',
                              action='store_true')
+
+    parser_test.add_argument('-v', '--verbose',
+                             help='print timings to screen',
+                             action='store_true')
+    
+    parser_test.add_argument('--monitor',
+                             help='use pytest-monitor in tests',
+                             action='store_true')
+
+    parser_test.add_argument('-n',
+                             type=int,
+                             help='specific tutorial simulation to run (int, optional)',
+                             default=None)
+    
+    parser_test.add_argument('-T', '--Tend',
+                             type=float,
+                             help='if GROUP=a), simulation end time in units of the model (default=0.015 with dt=0.005), data is only saved at TEND if set',
+                             default=None)
 
     # parse argument
     argcomplete.autocomplete(parser)
@@ -446,38 +494,38 @@ def struphy():
             continue
         else:
             print_help = False
-            
+
     if print_help:
         parser.print_help()
         exit()
-         
+
     # display short help and exit
-    if args.short_help:   
+    if args.short_help:
         lines = parser.format_help().splitlines()
-        bool_1 = [i for i, x in enumerate(lines) if 'Struphy' in x] 
-        bool_2 = [i for i, x in enumerate(lines) if 'available commands:' in x] 
+        bool_1 = [i for i, x in enumerate(lines) if 'Struphy' in x]
+        bool_2 = [i for i, x in enumerate(lines) if 'available commands:' in x]
         print(lines[bool_1[0]])
         print(lines[bool_1[0] + 1])
         for li in lines[bool_2[0]:]:
             print(li)
         exit()
-        
+
     # display subset of models
     if args.fluid:
         print(fluid_message)
         print('For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html')
         exit()
-        
+
     if args.kinetic:
         print(kinetic_message)
         print('For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html')
         exit()
-        
+
     if args.hybrid:
         print(hybrid_message)
         print('For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html')
         exit()
-        
+
     if args.toy:
         print(toy_message)
         print('For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html')
@@ -498,13 +546,11 @@ def struphy():
 
         i_path = os.path.abspath(i_path)
 
-        with open(os.path.join(libpath, 'i_path.txt'), 'w') as f:
-            f.write(i_path)
+        state['i_path'] = i_path
+        with open(os.path.join(libpath, 'state.yml'), 'w') as f:
+            yaml.dump(state, f)
 
-        print(f'New input path has been set:')
-        import subprocess
-        subprocess.run(['struphy', '-p'])
-
+        print(f'New input path has been set to {state["i_path"]}')
         exit()
 
     # set default out path
@@ -522,13 +568,12 @@ def struphy():
 
         o_path = os.path.abspath(o_path)
 
-        with open(os.path.join(libpath, 'o_path.txt'), 'w') as f:
-            f.write(o_path)
+        state['o_path'] = o_path
 
-        print(f'New output path has been set:')
-        import subprocess
-        subprocess.run(['struphy', '-p'])
+        with open(os.path.join(libpath, 'state.yml'), 'w') as f:
+            yaml.dump(state, f)
 
+        print(f'New output path has been set to {state["o_path"]}')
         exit()
 
     # set default out path
@@ -546,13 +591,12 @@ def struphy():
 
         b_path = os.path.abspath(b_path)
 
-        with open(os.path.join(libpath, 'b_path.txt'), 'w') as f:
-            f.write(b_path)
+        state['b_path'] = b_path
 
-        print(f'New batch path has been set:')
-        import subprocess
-        subprocess.run(['struphy', '-p'])
+        with open(os.path.join(libpath, 'state.yml'), 'w') as f:
+            yaml.dump(state, f)
 
+        print(f'New batch path has been set to {state["b_path"]}')
         exit()
 
     # set paths for inp, out and batch (with io/inp etc. prefices)
@@ -592,6 +636,9 @@ def struphy():
     kwargs.pop('set_iob')
 
     # start sub-command function with all parameters of that function
+    # for k, v in kwargs.items():
+    #     print(k, v)
+    # exit()
     func(**kwargs)
 
 

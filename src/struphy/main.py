@@ -110,10 +110,10 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
             f'\nSTART TIME STEPPING WITH "{split_algo}" SPLITTING:')
 
     # time loop
+    run_time_now = 0.0
     while True:
 
         comm.Barrier()
-        run_time_now = (time.time() - start_simulation)/60
 
         # stop time loop?
         break_cond_1 = time_state['value'][0] >= time_params['Tend']
@@ -139,6 +139,8 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
         time_state['value'][0] = round(
             time_state['value'][0] + time_params['dt'], 10)
         time_state['index'][0] += 1
+        
+        run_time_now = (time.time() - start_simulation)/60
 
         # update diagnostics data and save data
         if time_state['index'][0] % save_step == 0:
@@ -190,14 +192,14 @@ if __name__ == '__main__':
     import argparse
     import os
     import struphy
+    import yaml
 
     libpath = struphy.__path__[0]
 
-    with open(os.path.join(libpath, 'i_path.txt')) as f:
-        i_path = f.readlines()[0]
+    with open(os.path.join(libpath, 'state.yml')) as f:
+        state = yaml.load(f, Loader=yaml.FullLoader)
 
-    with open(os.path.join(libpath, 'o_path.txt')) as f:
-        o_path = f.readlines()[0]
+    o_path = state['o_path']
 
     parser = argparse.ArgumentParser(description='Run an Struphy model.')
 

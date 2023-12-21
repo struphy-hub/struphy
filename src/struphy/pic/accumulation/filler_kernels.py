@@ -12,7 +12,7 @@ __all__ = [ 'fill_mat',
 """
 
 from pyccel.decorators import pure
-import struphy.b_splines.bsplines_kernels_particles as bsp
+import struphy.bsplines.bsplines_kernels as bsplines_kernels
 
 
 @pure
@@ -456,16 +456,16 @@ def fill_mat_vec_pressure(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3:
 
 
 @pure
-def hy_density(Nel: 'int[:]', pn: 'int[:]', cell_left: 'int[:]', cell_number: 'int[:]', span1: 'int', span2: 'int', span3: 'int', starts0: 'int[:]', ie1: 'int', ie2: 'int', ie3: 'int', temp1: 'float[:]', temp4: 'float[:]', quad: 'int[:]', quad_pts_x: 'float[:]', quad_pts_y: 'float[:]', quad_pts_z: 'float[:]', compact: 'float[:]', eta1: 'float', eta2: 'float', eta3: 'float', mat: 'float[:,:,:,:,:,:]', weight: 'float', p_shape: 'int[:]', p_size: 'float[:]', grids_shapex: 'float[:]', grids_shapey: 'float[:]', grids_shapez: 'float[:]'):
+def hy_density(Nel: 'int[:]', pn: 'int[:]', cell_left: 'int[:]', cell_number: 'int[:]', span1: 'int', span2: 'int', span3: 'int', starts: 'int[:]', ie1: 'int', ie2: 'int', ie3: 'int', temp1: 'float[:]', temp4: 'float[:]', quad: 'int[:]', quad_pts_x: 'float[:]', quad_pts_y: 'float[:]', quad_pts_z: 'float[:]', compact: 'float[:]', eta1: 'float', eta2: 'float', eta3: 'float', mat: 'float[:,:,:,:,:,:]', weight: 'float', p_shape: 'int[:]', p_size: 'float[:]', grids_shapex: 'float[:]', grids_shapey: 'float[:]', grids_shapez: 'float[:]'):
     """
     TODO
     """
     for il1 in range(cell_number[0]):
-        i1 = cell_left[0] + il1 - starts0[0] + pn[0]
+        i1 = cell_left[0] + il1 - starts[0] + pn[0]
         for il2 in range(cell_number[1]):
-            i2 = cell_left[1] + il2 - starts0[1] + pn[1]
+            i2 = cell_left[1] + il2 - starts[1] + pn[1]
             for il3 in range(cell_number[2]):
-                i3 = cell_left[2] + il3 - starts0[2] + pn[2]
+                i3 = cell_left[2] + il3 - starts[2] + pn[2]
 
                 for jl1 in range(quad[0]):
                     # quad_pts_x contains the quadrature points in x direction.
@@ -484,11 +484,11 @@ def hy_density(Nel: 'int[:]', pn: 'int[:]', cell_left: 'int[:]', cell_number: 'i
                                 compact[2]/2.0  # if > 0, result is 0
 
                             if temp4[0] < 0.0 and temp4[1] < 0.0 and temp4[2] < 0.0:
-                                value_x = bsp.convolution(
+                                value_x = bsplines_kernels.convolution(
                                     p_shape[0], grids_shapex, temp1[0])
-                                value_y = bsp.piecewise(
+                                value_y = bsplines_kernels.piecewise(
                                     p_shape[1], p_size[1], temp1[1] - eta2)
-                                value_z = bsp.piecewise(
+                                value_z = bsplines_kernels.piecewise(
                                     p_shape[2], p_size[2], temp1[2] - eta3)
 
                                 mat[i1, i2, i3, jl1, jl2, jl3] += weight * \

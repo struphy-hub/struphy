@@ -8,8 +8,9 @@ from psydac.fem.vector import VectorFemSpace
 from psydac.feec.global_projectors import Projector_H1vec
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
+from psydac.linalg.basic import IdentityOperator
 
-from struphy.feec.linear_operators import BoundaryOperator, CompositeLinearOperator, IdentityOperator
+from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.geom_projectors import PolarCommutingProjector
 from struphy.polar.basic import PolarDerhamSpace
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
@@ -18,7 +19,7 @@ from struphy.polar.basic import PolarVector
 from struphy.initial import perturbations
 from struphy.initial import eigenfunctions
 from struphy.geometry.base import Domain
-from struphy.b_splines import bspline_evaluation_3d as eval_3d
+from struphy.bsplines import evaluation_kernels_3d as eval_3d
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
 import numpy as np
@@ -274,7 +275,7 @@ class Derham:
                 self._P[key] = PolarCommutingProjector(
                     self._P[key], self._dofs_extraction_ops[key], self._extraction_ops[key], self._boundary_ops[key])
 
-        # set discrete derivatives with boundary operators
+        # set discrete derivatives with polar linear operators
         if self.polar_ck == 1:
             self._grad = PolarLinearOperator(
                 self._Vh_pol['0'], self._Vh_pol['1'], self._grad, ck_blocks.grad_pol_to_ten, ck_blocks.grad_pol_to_pol, ck_blocks.grad_e3)
@@ -283,12 +284,14 @@ class Derham:
             self._div = PolarLinearOperator(
                 self._Vh_pol['2'], self._Vh_pol['3'], self._div, ck_blocks.div_pol_to_ten, ck_blocks.div_pol_to_pol, ck_blocks.div_e3)
 
-        self._grad = CompositeLinearOperator(
-            self._boundary_ops['1'], self._grad, self._boundary_ops['0'].T)
-        self._curl = CompositeLinearOperator(
-            self._boundary_ops['2'], self._curl, self._boundary_ops['1'].T)
-        self._div = CompositeLinearOperator(
-            self._boundary_ops['3'], self._div, self._boundary_ops['2'].T)
+        # set discrete derivatives with and without boundary operators
+        self._grad_bcfree = self._grad
+        self._curl_bcfree = self._curl
+        self._div_bcfree = self._div
+
+        self._grad = self._boundary_ops['1'] @ self._grad @ self._boundary_ops['0'].T
+        self._curl = self._boundary_ops['2'] @ self._curl @ self._boundary_ops['1'].T
+        self._div = self._boundary_ops['3'] @ self._div @ self._boundary_ops['2'].T
 
     @property
     def Nel(self):
@@ -490,6 +493,24 @@ class Derham:
         """ Polar sub-spaces, either PolarDerhamSpace (with polar splines) or Stencil-/BlockVectorSpace (same as self.Vh)
         """
         return self._Vh_pol
+
+    @property
+    def grad_bcfree(self):
+        """ Discrete gradient Vh0_pol (H1) -> Vh1_pol (Hcurl) w/o boundary operator.
+        """
+        return self._grad_bcfree
+
+    @property
+    def curl_bcfree(self):
+        """ Discrete curl Vh1_pol (Hcurl) -> Vh2_pol (Hdiv) w/o boundary operator.
+        """
+        return self._curl_bcfree
+
+    @property
+    def div_bcfree(self):
+        """ Discrete divergence Vh2_pol (Hdiv) -> Vh3_pol (L2) w/o boundary operator.
+        """
+        return self._div_bcfree
 
     @property
     def grad(self):
@@ -1141,7 +1162,7 @@ class Derham:
 
             self._vector.update_ghost_regions()
 
-        def __call__(self, eta1, eta2, eta3, squeeze_output=False, local=False):
+        def __call__(self, eta1, eta2, eta3, out=None, tmp=None, squeeze_output=False, local=False):
             """
             Evaluates the spline function on the global domain, unless local is given to True (in which case the spline function is evaluated only on the local domain).
 
@@ -1149,6 +1170,12 @@ class Derham:
             ----------
             eta1, eta2, eta3 : array-like
                 Logical coordinates at which to evaluate.
+
+            out : array[float] or list
+                Array in which to store the values of the spline function at the given point set (list in case of vector-valued spaces).
+
+            tmp : array[float]
+                Array that has shape the size of the grid that will be used as a temporary for AllReduce, to avoid creating it a each call.
 
             flat_eval : bool
                 Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
@@ -1158,7 +1185,7 @@ class Derham:
 
             Returns
             -------
-                values : array[float] or list
+                out : array[float] or list
                     The values of the spline function at the given point set (list in case of vector-valued spaces).
             """
 
@@ -1202,8 +1229,15 @@ class Derham:
             E3[~E3_on_proc] = -1.
 
             # prepare arrays for AllReduce
-            tmp = np.zeros((E1.shape[0], E2.shape[1],
-                           E3.shape[2]), dtype=float)
+            if tmp is None:
+                tmp = np.zeros((E1.shape[0], E2.shape[1],
+                                E3.shape[2]), dtype=float)
+            else :
+                assert isinstance(tmp, np.ndarray)
+                assert tmp.shape == (E1.shape[0], E2.shape[1],
+                                E3.shape[2])
+                assert tmp.dtype.type is np.float64
+                tmp[:] = 0.
 
             # extract coefficients and update ghost regions
             self.extract_coeffs(update_ghost_regions=True)
@@ -1230,17 +1264,23 @@ class Derham:
                             MPI.IN_PLACE, tmp, op=MPI.SUM)
 
                 # all processes have all values
-                values = tmp
+                if out is None : 
+                    out = tmp
+                else :
+                    out *= 0.
+                    out += tmp
 
                 if squeeze_output:
-                    values = np.squeeze(values)
+                    out = np.squeeze(out)
 
-                if values.ndim == 0:
-                    values = values.item()
+                if out.ndim == 0:
+                    out = out.item()
 
             else:
 
-                values = []
+                out_is_None = out is None
+                if out_is_None:
+                    out = []
                 for n, kind in enumerate(self.derham.spline_types_pyccel[self.space_key]):
 
                     if is_sparse_meshgrid:
@@ -1256,16 +1296,21 @@ class Derham:
                                 MPI.IN_PLACE, tmp, op=MPI.SUM)
 
                     # all processes have all values
-                    values += [tmp.copy()]
+                    if out_is_None:
+                        out += [tmp.copy()]
+                    else :
+                        out[n] *= 0.
+                        out[n] += tmp
+
                     tmp[:] = 0.
 
                     if squeeze_output:
-                        values[-1] = np.squeeze(values[-1])
+                        out[-1] = np.squeeze(out[-1])
 
-                    if values[-1].ndim == 0:
-                        values[-1] = values[-1].item()
+                    if out[-1].ndim == 0:
+                        out[-1] = out[-1].item()
 
-            return values
+            return out
 
         def _add_noise(self, fun_params, n=None):
             """ Add noise to a vector component where init_comps==True, otherwise leave at zero.
@@ -1500,7 +1545,7 @@ class PulledPform:
     """
     Construct callable (component of) p-form on logical domain (unit cube).
 
-    Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see :ref:`struphy.geometry.map_eval.prepare_args`).
+    Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see :ref:`struphy.geometry.base.prepare_arg`).
 
     Parameters
     ----------

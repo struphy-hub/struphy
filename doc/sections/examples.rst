@@ -1,6 +1,6 @@
 .. _gallery:
 
-Struphy gallery
-===============
+Gallery
+=======
 
 Coming soon !

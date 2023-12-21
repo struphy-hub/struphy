@@ -35,7 +35,8 @@ def eval_field_at_particles(fe_coeffs, derham, space_id, particles):
         utils.eval_1_form_at_particles(particles.markers,
                                        np.array(derham.p),
                                        derham.V1.knots[0], derham.V1.knots[1], derham.V1.knots[2],
-                                       np.array(derham.V1.vector_space.starts),
+                                       np.array(
+                                                 derham.V0.vector_space.starts),
                                        fe_coeffs.blocks[0]._data, fe_coeffs.blocks[1]._data, fe_coeffs.blocks[2]._data,
                                        res)
 
@@ -44,7 +45,8 @@ def eval_field_at_particles(fe_coeffs, derham, space_id, particles):
         utils.eval_2_form_at_particles(particles.markers,
                                        np.array(derham.p),
                                        derham.V2.knots[0], derham.V2.knots[1], derham.V2.knots[2],
-                                       np.array(derham.V2.vector_space.starts),
+                                       np.array(
+                                                 derham.V0.vector_space.starts),
                                        fe_coeffs.blocks[0]._data, fe_coeffs.blocks[1]._data, fe_coeffs.blocks[2]._data,
                                        res)
 
@@ -53,14 +55,15 @@ def eval_field_at_particles(fe_coeffs, derham, space_id, particles):
                                              np.array(derham.p),
                                              derham.V3.knots[0], derham.V3.knots[1], derham.V3.knots[2],
                                              np.array(
-                                                 derham.V3.vector_space.starts),
+                                                 derham.V0.vector_space.starts),
                                              fe_coeffs)
     elif space_id == 'H1vec':
         res = np.empty(3, dtype=float)
-        utils.eval_2_form_at_particles(particles.markers,
+        utils.eval_H1vec_at_particles(particles.markers,
                                        np.array(derham.p),
                                        derham.V0.knots[0], derham.V0.knots[1], derham.V0.knots[2],
-                                       np.array(derham.V0.vector_space.starts),
+                                       np.array(
+                                                 derham.V0.vector_space.starts),
                                        fe_coeffs.blocks[0]._data, fe_coeffs.blocks[1]._data, fe_coeffs.blocks[2]._data,
                                        res)
 
@@ -90,7 +93,8 @@ def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):
     utils.canonical_kinetic_particles(res, particles.markers,
                                       np.array(derham.p),
                                       derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
-                                      np.array(derham.Vh['1'].starts),
+                                      np.array(
+                                                 derham.V0.vector_space.starts),
                                       *domain.args_map,
                                       fe_coeffs.blocks[0]._data, fe_coeffs.blocks[1]._data, fe_coeffs.blocks[2]._data)
 

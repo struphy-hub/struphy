@@ -1,4 +1,5 @@
 import os
+import yaml
 
 import numpy as np
 
@@ -34,8 +35,10 @@ class InitialMHDAxisymHdivEigFun:
         import struphy
         libpath = struphy.__path__[0]
 
-        with open(os.path.join(libpath, 'o_path.txt')) as f:
-            o_path = f.readlines()[0]
+        with open(os.path.join(libpath, 'state.yml')) as f:
+            state = yaml.load(f, Loader=yaml.FullLoader)
+
+        o_path = state['o_path']
 
         params_default = {'spec': 'sim_1/spec_n_-1.npy',
                           'spec_abs': None,

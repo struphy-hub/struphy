@@ -1078,8 +1078,10 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
 
         # write to current input path
-        with open(os.path.join(libpath, 'i_path.txt'), 'r') as f:
-            i_path = f.readlines()[0]
+        with open(os.path.join(libpath, 'state.yml')) as f:
+            state = yaml.load(f, Loader=yaml.FullLoader)
+
+        i_path = state['i_path']
 
         if file is None:
             file = os.path.join(i_path, 'params_' + cls.__name__ + '.yml')
@@ -1093,12 +1095,14 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             else:
                 yn = input(f'Writing to {file}, are you sure (Y/n)? ')
 
-            if yn == 'n':
-                pass
-            else:
+            if yn in ('', 'Y', 'y', 'yes', 'Yes'):
                 with open(file, 'w') as outfile:
                     yaml.dump(parameters, outfile, Dumper=MyDumper,
                               default_flow_style=None, sort_keys=False, indent=4, line_break='\n')
+                print(
+                    f'Default parameter file for {cls.__name__} has been created; you can now launch with "struphy run {cls.__name__}".')
+            else:
+                pass
 
         return parameters
 

@@ -1,9 +1,5 @@
-from psydac.linalg.basic import Vector, LinearOperator, LinearSolver
-
-from struphy.feec.linear_operators import SumLinearOperator as Sum
-from struphy.feec.linear_operators import ScalarTimesLinearOperator as Multiply
-
-import struphy.linear_algebra.iterative_solvers as it_solvers
+from psydac.linalg.basic import Vector, LinearOperator
+from psydac.linalg.solvers import inverse
 
 
 class SchurSolver:
@@ -42,27 +38,14 @@ class SchurSolver:
     BC : psydac.linalg.basic.LinearOperator
         Product from [[A B], [C Id]].
 
-    pc : NoneType | psydac.linalg.basic.LinearSolver
-         Preconditioner for "operator", it should approximate the inverse of "operator". Must have a "solve(rhs, out)" method.
-
     solver_name : str
-        The name of the iterative solver used for inverting S. Currently available:
-            * ConjugateGradient (for positive-definite S, pc=None possible in this case)
-            * PConjugateGradient (for positive-definite S, recommended in this case)
-            * BiConjugateGradientStab (for general S, pc=None possible in this case)
-            * PBiConjugateGradientStab (for general S)
+        See [psydac.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
 
-    tol : float
-        Absolute tolerance for L2-norm of residual r = A*x - b.
-
-    maxiter : int
-        Maximum number of iterations.
-
-    verbose : bool
-        If True, L2-norm of residual r is printed at each iteration. 
+    **solver_params : 
+        Must correspond to the chosen solver.
     '''
 
-    def __init__(self, A, BC, pc, solver_name, tol, maxiter, verbose):
+    def __init__(self, A, BC, solver_name, **solver_params):
 
         assert isinstance(A, LinearOperator)
         assert isinstance(BC, LinearOperator)
@@ -74,19 +57,9 @@ class SchurSolver:
         self._A = A
         self._BC = BC
 
-        # preconditioner
-        if pc is not None:
-            assert isinstance(pc, LinearSolver)
-        self._pc = pc
-
-        # stop tolerance, maximum number of iterations and printing
-        self._tol = tol
-        self._maxiter = maxiter
-        self._verbose = verbose
-
-        # load linear solver
+        # initialize solver with dummy matrix A
         self._solver_name = solver_name
-        self._solver = getattr(it_solvers, solver_name)(A.domain)
+        self._solver = inverse(A, solver_name, **solver_params)
 
         # right-hand side vector (avoids temporary memory allocation!)
         self._rhs = A.codomain.zeros()
@@ -148,27 +121,19 @@ class SchurSolver:
         assert Byn.space == self._A.codomain
 
         # left- and right-hand side operators
-        schur = Sum(self._A, Multiply(-dt**2, self._BC))
-        rhs_m = Sum(self._A, Multiply(dt**2, self._BC))
+        schur = self._A - dt**2 * self._BC
+        rhs_m = self._A + dt**2 * self._BC
+        
+        # use setter to update lhs matrix
+        self._solver.linop = schur
 
         # right-hand side vector rhs = 2*dt*[ rhs_m/(2*dt) @ xn - Byn ] (in-place!)
-        rhs_m.dot(xn, out=self._rhs)
-        self._rhs /= 2*dt
-        self._rhs -= Byn
-        self._rhs *= 2*dt
+        rhs = rhs_m.dot(xn, out=self._rhs)
+        rhs /= 2*dt
+        rhs -= Byn
+        rhs *= 2*dt
 
         # solve linear system (in-place if out is not None)
+        x = self._solver.dot(rhs, out=out)
 
-        # solvers with preconditioner (must start with a 'P')
-        if self._solver_name[0] == 'P':
-            x, info = self._solver.solve(schur, self._rhs, self._pc,
-                                         x0=xn, tol=self._tol,
-                                         maxiter=self._maxiter,
-                                         verbose=self._verbose, out=out)
-        else:
-            x, info = self._solver.solve(schur, self._rhs,
-                                         x0=xn, tol=self._tol,
-                                         maxiter=self._maxiter,
-                                         verbose=self._verbose, out=out)
-
-        return x, info
+        return x, self._solver._info
