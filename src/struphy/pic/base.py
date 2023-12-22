@@ -4,8 +4,8 @@ import numpy as np
 import h5py
 import scipy.special as sp
 
-from struphy.pic import sampling, sobol_seq
-from struphy.pic.pushing.pusher_utilities import reflect
+from struphy.pic import sampling_kernels, sobol_seq
+from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.utilities_kernels import eval_magnetic_energy
 from struphy.kinetic_background import maxwellians
 from struphy.fields_background.mhd_equil.equils import set_defaults
@@ -545,7 +545,7 @@ class Particles(metaclass=ABCMeta):
                 temp_markers = sobol_seq.i4_sobol_generate(
                     3 + self.vdim, n_mks_load_loc//64, 1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank]//64)
 
-                sampling.set_particles_symmetric_3d_3v(
+                sampling_kernels.set_particles_symmetric_3d_3v(
                     temp_markers, self.markers)
 
             # 4. Wrong specification

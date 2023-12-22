@@ -1,7 +1,7 @@
 .. _install:
 
-Installation
-============
+Install
+=======
 
 Struphy can be installed in the following ways:
 
@@ -40,6 +40,7 @@ Sample environment on **Debian-Ubuntu-Mint**::
     sudo apt install -y libomp-dev libomp5
     sudo apt install -y git
     sudo apt install -y pandoc
+    sudo apt install -y sqlite3 
 
 Sample environment on **Fedora-CentOS-RHEL**::
 
@@ -55,6 +56,7 @@ Sample environment on **Fedora-CentOS-RHEL**::
     sudo dnf install -y python3-mpi4py-openmpi
     sudo dnf install -y python3-devel
     sudo dnf install -y pandoc
+    sudo dnf install -y sqlite
 
 Sample environment on **Mac OS**::
 

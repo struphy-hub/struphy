@@ -9,17 +9,15 @@ default:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/module-image
 
   before_script:
+    - uname -a
     - module purge
     - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc
     - module list
+    - make -v
+    - python3 --version
+    - sqlite3 -version
     - source env_$CI_PIPELINE_ID/bin/activate
     - pip list
-    - ENV_PATH=$(python3 -c "import sysconfig; print(sysconfig.get_path('platlib'))")
-    #- ENV_PATH=$(python3 -m site --user-site)
-    - LIBDIR=$(python3 -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")
-    - echo $ENV_PATH
-    - echo $LIBDIR
-    - ls
 
   tags:
     - cloud
@@ -39,7 +37,7 @@ variables:
   PYTHON_VERSION_1: "3.8"
   PYTHON_VERSION_2: "3.9"
 
-# python virtual environment into cache
+# python virtual environments into cache
 default_venv:
   stage: startup
   rules:
@@ -59,14 +57,13 @@ default_venv:
     - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc
     - module list
   script:
-    - echo "Creating virtual environment..."
     - pip install -U virtualenv
     - python3 -m venv env_$CI_PIPELINE_ID
     - ls
     - pwd
     - source env_$CI_PIPELINE_ID/bin/activate
     - python3 -m pip install --upgrade pip
-    - pip install -U pytest coverage build twine # somehow the build package is not cached
+    - pip install -U pytest coverage twine
     - pip list
 
 # Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
@@ -212,6 +209,7 @@ linting:
   artifacts:
     paths:
       - linting/
+    expire_in: 1 day
 
 # build on mpcdf server
 default_build:
@@ -222,33 +220,131 @@ default_build:
     - if: $CI_PIPELINE_SOURCE == "push"
     - if: $CI_PIPELINE_SOURCE == "schedule"
   needs: ["default_venv"]
-  script:
+  script:  
+    - pip install -U build
     - pip list
     - python3 -m build # build struphy (.whl) 
   artifacts:
     paths:
       - dist/
+    expire_in: 1 day
 
 # Install from wheel and compile on mpcdf cluster arch
-default_install:
+fortran_install:
   stage: install
   needs: ["default_build"]
   rules:
     - if: $CI_COMMIT_TAG
       when: never
-    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
     - pip install dist/struphy*.whl
     - pip show struphy
+    - pip list
     - struphy
     - pyccel --version
+    - struphy compile --status
     - struphy compile --delete
-    - struphy compile # compiles struphy, psydac and gvec_to_python
-    - ./src/struphy/verify_compilation.sh
-    - pip list
+    - struphy compile --language=fortran -y # compiles struphy, psydac with language fortran 
+    - struphy compile --status 
 
-# default tests (always)
+# fortran tests (always)
+fortran_unit_tests:
+  stage: test
+  needs: ["fortran_install"]
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  script:
+    - pwd
+    - ls -1
+    - struphy compile --status
+    - struphy test unit
+    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
+
+fortran_propagator_tests:
+  stage: test
+  needs: ["fortran_install"]
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  script:
+    - pwd
+    - ls -1
+    - struphy compile --status
+    - struphy test propagators
+    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
+
+fortran_model_tests:
+  stage: test
+  needs: ["fortran_install"]
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+  script:
+    - pwd
+    - ls -1
+    - struphy compile --status
+    - struphy test models --fast 
+    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
+
+fortran_model_cronjob_tests:
+  stage: test
+  needs: ["fortran_install"]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  script:
+    - pwd
+    - ls -1
+    - struphy compile --status
+    - struphy test models
+    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
+
+fortran_tutorial_cronjob_tests:
+  stage: test
+  needs: ["fortran_install"]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  script:
+    - pwd
+    - ls -1
+    - struphy compile --status
+    - struphy test tutorials
+    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
+
+# default tests, language c (always)
+default_install:
+  stage: test
+  needs: 
+  - job: fortran_unit_tests
+  - job: fortran_propagator_tests
+  - job: fortran_model_tests
+    optional: true
+  - job: fortran_model_cronjob_tests
+    optional: true
+  - job: fortran_tutorial_cronjob_tests
+    optional: true
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  script:
+    - pip show struphy
+    - pip list
+    - struphy
+    - pyccel --version
+    - struphy compile --status
+    - struphy compile --delete
+    - struphy compile -y # compiles struphy, psydac with language c 
+    - struphy compile --status
+
 default_unit_tests:
   stage: test
   needs: ["default_install"]
@@ -260,10 +356,26 @@ default_unit_tests:
   script:
     - pwd
     - ls -1
-    - struphy test unit
-    - struphy test unit --mpi 2
+    - struphy compile --status
+    - struphy test unit  
+    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
 
-default_code_tests:
+default_propagator_tests:
+  stage: test
+  needs: ["default_install"]
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  script:
+    - pwd
+    - ls -1
+    - struphy compile --status
+    - struphy test propagators
+    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
+
+default_model_tests:
   stage: test
   needs: ["default_install"]
   rules:
@@ -273,9 +385,11 @@ default_code_tests:
   script:
     - pwd
     - ls -1
-    - struphy test codes --fast
+    - struphy compile --status
+    - struphy test models --fast
+    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
 
-cronjob_code_tests:
+default_model_cronjob_tests:
   stage: test
   needs: ["default_install"]
   rules:
@@ -283,9 +397,80 @@ cronjob_code_tests:
   script:
     - pwd
     - ls -1
-    - struphy test codes 
+    - struphy compile --status
+    - struphy test models 
+    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
 
-ubuntu_latest_tests:
+default_tutorial_cronjob_tests:
+  stage: test
+  needs: ["default_install"]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  script:
+    - pwd
+    - ls -1
+    - struphy compile --status
+    - struphy test tutorials
+    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
+
+# # collect timings
+# timings:
+#   stage: test
+#   needs: 
+#     - job: fortran_unit_tests
+#     - job: fortran_propagator_tests
+#     - job: fortran_model_tests
+#       optional: true
+#     - job: fortran_model_cronjob_tests
+#       optional: true
+#     - job: fortran_tutorial_tests
+#     - job: default_unit_tests
+#     - job: default_propagator_tests
+#     - job: default_model_tests
+#       optional: true
+#     - job: default_model_cronjob_tests
+#       optional: true
+#     - job: default_tutorial_tests
+#   rules:
+#     - if: $CI_COMMIT_TAG
+#       when: never
+#     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+#     - if: $CI_PIPELINE_SOURCE == "schedule"
+#   script:
+#     - source env_fotran_$CI_PIPELINE_ID/bin/activate
+#     - pwd
+#     - ls -1
+#     - ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
+#     - struphy test timings --verbose
+#     - ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
+#     - cp -r $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon/. src/struphy/_pymon/
+#     - ls src/struphy/_pymon/ --all
+#     - deactivate
+#     - source env_$CI_PIPELINE_ID/bin/activate
+#     - pwd
+#     - ls -1
+#     - ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
+#     - struphy test timings --verbose
+#     - ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
+#     - cp -r $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon/. src/struphy/_pymon/
+#     - ls src/struphy/_pymon/ --all
+#   artifacts:
+#     paths:
+#       - src/struphy/_pymon/*
+
+# load_timings:
+#   stage: test
+#   needs: ['timings']
+#   rules:
+#     - if: $CI_COMMIT_TAG
+#       when: never
+#     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+#     - if: $CI_PIPELINE_SOURCE == "schedule"
+#   script:
+#     - 
+
+# test other images
+ubuntu_tests:
   stage: test
   image: ubuntu:latest
   needs: ["default_build"]
@@ -304,13 +489,16 @@ ubuntu_latest_tests:
     - apt install -y libomp-dev libomp5 
     - apt install -y git
     - apt install -y pandoc
+    - apt install -y sqlite3
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
     - pip list
     - pip install dist/struphy*.whl
-    - struphy compile
-    - struphy test codes --fast
+    - struphy compile --status
+    - make -v
+    - struphy compile -y
+    - struphy test models --fast
 
 ubuntu_20_04_python_3_8_tests:
   stage: test
@@ -414,11 +602,12 @@ fedora_37_tests:
     - dnf install -y python3-mpi4py-openmpi 
     - dnf install -y python3-devel 
     - dnf install -y pandoc
+    - dnf install -y sqlite
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
     - pip list
-    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install dist/struphy*.whl && struphy compile && struphy test codes --fast" 
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install dist/struphy*.whl && struphy compile --status && make -v && struphy compile -y && struphy test models --fast" 
 
 fedora_38_tests:
   stage: test
@@ -575,12 +764,17 @@ pages:
     - if: $CI_COMMIT_REF_PROTECTED == "true" 
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
-  needs: ["default_install"]
+  needs: ["default_build"]
   script:
+    - pip install dist/struphy*.whl
     - pip show struphy
-    - struphy
-    - struphy compile
-    - struphy tutorials 
+    - struphy -h
+    - struphy compile --status
+    - struphy compile -y
+    - struphy test tutorials
+    - ls $(python3 -c "import struphy as _; print(_.__path__[0])")/io/out
+    #- struphy test timings
+    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
     - cd doc ; make html
     - mv _build/html/ ../public/
   artifacts:
@@ -600,6 +794,7 @@ vars:
   artifacts:
     reports:
       dotenv: vars.env
+    expire_in: 1 day
 
 release_job:
   stage: release

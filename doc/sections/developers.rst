@@ -276,9 +276,9 @@ Tutorial notebooks in ``doc/tutorials/``.
 
 In order to build the ``.html`` file of the documentation,
 `Pandoc <https://pandoc.org/>`_ needs to be installed on your system (for notebook conversion).
-To convert the tutorial notebooks to ``.html``, you need to run::
+To convert the tutorial notebooks to ``.html``, you need first to generate the data by running::
 
-    struphy tutorials
+    struphy test tutorials
 
 If you make changes to docstrings, the ``.rst`` files or the tutorial notebooks, 
 you can review them in your browser (e.g. firefox)::
@@ -432,7 +432,7 @@ Utilities
 Linear algebra
 ^^^^^^^^^^^^^^
 
-.. automodule:: struphy.linear_algebra.core
+.. automodule:: struphy.linear_algebra.linalg_kernels
     :members: 
     :undoc-members:
 
@@ -480,7 +480,7 @@ Adding a new PDE model
 
 Struphy provides an extensive framework for adding new model equations.
 A model consists of a set of PDEs that has been discretized within the 
-:ref:`gempic` framework.
+:ref:`GEMPIC <gempic>` framework.
 
 Struphy models must be added under ``src/struphy/models/`` in one of the four modules
 
@@ -735,7 +735,7 @@ Writing a new propagator
 Coming soon - for now, please check out :ref:`existing propagators <propagators>` for templates.
 
 
-
+.. include:: performance_tests.rst
 
 
 

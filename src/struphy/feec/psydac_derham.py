@@ -19,7 +19,7 @@ from struphy.polar.basic import PolarVector
 from struphy.initial import perturbations
 from struphy.initial import eigenfunctions
 from struphy.geometry.base import Domain
-from struphy.b_splines import bspline_evaluation_3d as eval_3d
+from struphy.bsplines import evaluation_kernels_3d as eval_3d
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
 import numpy as np
@@ -1162,7 +1162,7 @@ class Derham:
 
             self._vector.update_ghost_regions()
 
-        def __call__(self, eta1, eta2, eta3, squeeze_output=False, local=False):
+        def __call__(self, eta1, eta2, eta3, out=None, tmp=None, squeeze_output=False, local=False):
             """
             Evaluates the spline function on the global domain, unless local is given to True (in which case the spline function is evaluated only on the local domain).
 
@@ -1170,6 +1170,12 @@ class Derham:
             ----------
             eta1, eta2, eta3 : array-like
                 Logical coordinates at which to evaluate.
+
+            out : array[float] or list
+                Array in which to store the values of the spline function at the given point set (list in case of vector-valued spaces).
+
+            tmp : array[float]
+                Array that has shape the size of the grid that will be used as a temporary for AllReduce, to avoid creating it a each call.
 
             flat_eval : bool
                 Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
@@ -1179,7 +1185,7 @@ class Derham:
 
             Returns
             -------
-                values : array[float] or list
+                out : array[float] or list
                     The values of the spline function at the given point set (list in case of vector-valued spaces).
             """
 
@@ -1223,8 +1229,15 @@ class Derham:
             E3[~E3_on_proc] = -1.
 
             # prepare arrays for AllReduce
-            tmp = np.zeros((E1.shape[0], E2.shape[1],
-                           E3.shape[2]), dtype=float)
+            if tmp is None:
+                tmp = np.zeros((E1.shape[0], E2.shape[1],
+                                E3.shape[2]), dtype=float)
+            else :
+                assert isinstance(tmp, np.ndarray)
+                assert tmp.shape == (E1.shape[0], E2.shape[1],
+                                E3.shape[2])
+                assert tmp.dtype.type is np.float64
+                tmp[:] = 0.
 
             # extract coefficients and update ghost regions
             self.extract_coeffs(update_ghost_regions=True)
@@ -1251,17 +1264,23 @@ class Derham:
                             MPI.IN_PLACE, tmp, op=MPI.SUM)
 
                 # all processes have all values
-                values = tmp
+                if out is None : 
+                    out = tmp
+                else :
+                    out *= 0.
+                    out += tmp
 
                 if squeeze_output:
-                    values = np.squeeze(values)
+                    out = np.squeeze(out)
 
-                if values.ndim == 0:
-                    values = values.item()
+                if out.ndim == 0:
+                    out = out.item()
 
             else:
 
-                values = []
+                out_is_None = out is None
+                if out_is_None:
+                    out = []
                 for n, kind in enumerate(self.derham.spline_types_pyccel[self.space_key]):
 
                     if is_sparse_meshgrid:
@@ -1277,16 +1296,21 @@ class Derham:
                                 MPI.IN_PLACE, tmp, op=MPI.SUM)
 
                     # all processes have all values
-                    values += [tmp.copy()]
+                    if out_is_None:
+                        out += [tmp.copy()]
+                    else :
+                        out[n] *= 0.
+                        out[n] += tmp
+
                     tmp[:] = 0.
 
                     if squeeze_output:
-                        values[-1] = np.squeeze(values[-1])
+                        out[-1] = np.squeeze(out[-1])
 
-                    if values[-1].ndim == 0:
-                        values[-1] = values[-1].item()
+                    if out[-1].ndim == 0:
+                        out[-1] = out[-1].item()
 
-            return values
+            return out
 
         def _add_noise(self, fun_params, n=None):
             """ Add noise to a vector component where init_comps==True, otherwise leave at zero.
@@ -1521,7 +1545,7 @@ class PulledPform:
     """
     Construct callable (component of) p-form on logical domain (unit cube).
 
-    Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see :ref:`struphy.geometry.map_eval.prepare_args`).
+    Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see :ref:`struphy.geometry.base.prepare_arg`).
 
     Parameters
     ----------

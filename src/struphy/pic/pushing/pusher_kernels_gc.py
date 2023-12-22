@@ -3,10 +3,10 @@
 
 from pyccel.decorators import stack_array
 
-import struphy.linear_algebra.core as linalg
-import struphy.geometry.map_eval as map_eval
-import struphy.b_splines.bsplines_kernels as bsp
-import struphy.b_splines.bspline_evaluation_3d as eval_3d
+import struphy.linear_algebra.linalg_kernels as linalg_kernels 
+import struphy.geometry.evaluation_kernels as evaluation_kernels 
+import struphy.bsplines.bsplines_kernels as bsplines_kernels 
+import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d 
 
 from numpy import zeros, empty, shape, sqrt
 
@@ -40,11 +40,8 @@ def a_documentation():
         * ``tn2: 'float[:]'``
         * ``tn3: 'float[:]'``    
 
-    4. mpi.comm info of all spaces:
-        - ``starts0: 'int[:]'``               # start indices of current process of elements in space V0
-        - ``starts1: 'int[:,:]'``             # start indices of current process of elements in space V1 in format (component, direction)
-        - ``starts2: 'int[:,:]'``             # start indices of current process of elements in space V2 in format (component, direction)
-        - ``starts3: 'int[:]'``               # start indices of current process of elements in space V3
+    4. mpi.comm start indices of FE coeffs on current process:
+        - ``starts: 'int[:]'``               # start indices of current process
 
     5. Mapping info:
         - ``kind_map: 'int'``                # mapping identifier 
@@ -75,7 +72,7 @@ def a_documentation():
 @stack_array('dfm', 'df_t', 'g', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'k', 'bb', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'b_star', 'temp1', 'temp2')
 def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int,
                                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                        starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                        starts: 'int[:]',
                                         kind_map: int, params_map: 'float[:]',
                                         p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                         ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -159,82 +156,82 @@ def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage:
         mu = markers[ip, 4]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(e[0], e[1], e[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(e[0], e[1], e[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # evaluate inverse of G
-        linalg.transpose(dfm, df_t)
-        linalg.matrix_matrix(df_t, dfm, g)
-        linalg.matrix_inv(g, g_inv)
+        linalg_kernels.transpose(dfm, df_t)
+        linalg_kernels.matrix_matrix(df_t, dfm, g)
+        linalg_kernels.matrix_inv(g, g_inv)
 
         # metric coeffs
-        det_df = linalg.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], e[0])
-        span2 = bsp.find_span(tn2, pn[1], e[1])
-        span3 = bsp.find_span(tn3, pn[2], e[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
 
         # eval fields
         # grad_abs_b; 1form
-        grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
-        grad_abs_b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
-        grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
+        grad_abs_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
+        grad_abs_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts)
+        grad_abs_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts)
 
         # norm_b1; 1form
-        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
+        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
+        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
 
         # norm_b2; 2form
-        norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
-        norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
-        norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
+        norm_b2[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts)
+        norm_b2[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts)
+        norm_b2[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts)
 
         # b; 2form
-        bb[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
-        bb[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
-        bb[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
+        bb[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
+        bb[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
+        bb[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts)
 
         # curl_norm_b; 2form
-        curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-        curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-        curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
+        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
+        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
+        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
 
         # eval Bstar and transform to H1vec
         b_star[:] = bb + epsilon*v*curl_norm_b
         b_star /= det_df
 
         # calculate abs_b_star_para
-        abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
+        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # calculate norm_b X grad_abs_b and transform to H1vec
-        linalg.matrix_vector(g_inv, grad_abs_b, temp1)
-        linalg.cross(norm_b2, temp1, temp2)
-        linalg.matrix_vector(g_inv, temp2, temp1)
+        linalg_kernels.matrix_vector(g_inv, grad_abs_b, temp1)
+        linalg_kernels.cross(norm_b2, temp1, temp2)
+        linalg_kernels.matrix_vector(g_inv, temp2, temp1)
 
         # calculate k
         k[:] = epsilon*mu/abs_b_star_para*temp1
@@ -252,7 +249,7 @@ def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage:
 @stack_array('dfm', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'k', 'bb', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'b_star')
 def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int,
                                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                      starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                      starts: 'int[:]',
                                       kind_map: int, params_map: 'float[:]',
                                       p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                       ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -334,70 +331,70 @@ def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: i
         mu = markers[ip, 4]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(e[0], e[1], e[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(e[0], e[1], e[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        det_df = linalg.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], e[0])
-        span2 = bsp.find_span(tn2, pn[1], e[1])
-        span3 = bsp.find_span(tn3, pn[2], e[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
 
         # eval fields
         # grad_abs_b; 1form
-        grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
-        grad_abs_b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
-        grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
+        grad_abs_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
+        grad_abs_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts)
+        grad_abs_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts)
 
         # norm_b1; 1form
-        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
+        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
+        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
 
         # b; 2form
-        bb[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
-        bb[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
-        bb[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
+        bb[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
+        bb[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
+        bb[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts)
 
         # curl_norm_b; 2form
-        curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-        curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-        curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
+        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
+        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
+        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
 
         # calculate Bstar and transform to H1vec
         b_star[:] = bb + epsilon*v*curl_norm_b
         b_star /= det_df
 
         # calculate abs_b_star_para
-        abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
+        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # calculate k for X
         k[:] = b_star/abs_b_star_para*v
 
         # calculate k_v for v
-        temp = linalg.scalar_dot(b_star, grad_abs_b)
+        temp = linalg_kernels.scalar_dot(b_star, grad_abs_b)
         k_v = -1*mu/abs_b_star_para*temp
 
         # accumulation for last stage
@@ -416,7 +413,7 @@ def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: i
 @stack_array('dfm', 'df_t', 'g', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'k', 'bb', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'b_star', 'temp1', 'temp2', 'temp3')
 def push_gc_all_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int,
                                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                    starts: 'int[:]',
                                     kind_map: int, params_map: 'float[:]',
                                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -503,90 +500,90 @@ def push_gc_all_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int
         mu = markers[ip, 4]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(e[0], e[1], e[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(e[0], e[1], e[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # evaluate inverse of G
-        linalg.transpose(dfm, df_t)
-        linalg.matrix_matrix(df_t, dfm, g)
-        linalg.matrix_inv(g, g_inv)
+        linalg_kernels.transpose(dfm, df_t)
+        linalg_kernels.matrix_matrix(df_t, dfm, g)
+        linalg_kernels.matrix_inv(g, g_inv)
 
         # metric coeffs
-        det_df = linalg.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], e[0])
-        span2 = bsp.find_span(tn2, pn[1], e[1])
-        span3 = bsp.find_span(tn3, pn[2], e[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
 
         # eval all the needed field
         # grad_abs_b; 1form
-        grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
-        grad_abs_b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
-        grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
+        grad_abs_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
+        grad_abs_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts)
+        grad_abs_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts)
 
         # norm_b1; 1form
-        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
+        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
+        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
 
         # norm_b2; 2form
-        norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
-        norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
-        norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
+        norm_b2[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts)
+        norm_b2[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts)
+        norm_b2[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts)
 
         # b; 2form
-        bb[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
-        bb[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
-        bb[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
+        bb[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
+        bb[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
+        bb[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts)
 
         # curl_norm_b; 2form
-        curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-        curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-        curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
+        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
+        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
+        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
 
         # transform to H1vec
         b_star[:] = bb + epsilon*v*curl_norm_b
         b_star[:] = b_star/det_df
 
         # calculate abs_b_star_para
-        abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
+        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # calculate norm_b X grad_abs_b
-        linalg.matrix_vector(g_inv, grad_abs_b, temp1)
+        linalg_kernels.matrix_vector(g_inv, grad_abs_b, temp1)
 
-        linalg.cross(norm_b2, temp1, temp2)
+        linalg_kernels.cross(norm_b2, temp1, temp2)
 
-        linalg.matrix_vector(g_inv, temp2, temp3)
+        linalg_kernels.matrix_vector(g_inv, temp2, temp3)
 
         # calculate k
         k[:] = (epsilon*mu*temp3 + b_star*v)/abs_b_star_para
 
         # calculate k_v for v
-        temp = linalg.scalar_dot(b_star, grad_abs_b)
+        temp = linalg_kernels.scalar_dot(b_star, grad_abs_b)
 
         k_v = -1*mu/abs_b_star_para*temp
 
@@ -601,10 +598,10 @@ def push_gc_all_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int
             a[stage]*k_v + last*markers[ip, 16]
 
 
-@stack_array('bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'grad_I', 'S', 'temp')
+@stack_array('bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'grad_I', 'S', 'temp', 'tmp2')
 def push_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: int,
                                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                      starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                      starts: 'int[:]',
                                       kind_map: int, params_map: 'float[:]',
                                       p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                       ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -647,6 +644,7 @@ def push_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: i
 
     # containers for fields
     temp = empty(3, dtype=float)
+    tmp2 = empty(3, dtype=float)
     S = zeros((3, 3), dtype=float)
     grad_I = empty(3, dtype=float)
 
@@ -685,18 +683,18 @@ def push_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: i
                 e_diff[axis] += 1.
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], e[0])
-        span2 = bsp.find_span(tn2, pn[1], e[1])
-        span3 = bsp.find_span(tn3, pn[2], e[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
 
         # eval all the needed field
         # abs_b; 0form
-        abs_b0 = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts0)
+        abs_b0 = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
 
         # assemble S
         S[0, 1] = markers[ip, 13]
@@ -707,13 +705,14 @@ def push_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: i
         S[2, 1] = -markers[ip, 15]
 
         # calculate grad_I
-        temp_scalar = linalg.scalar_dot(e_diff[:], markers[ip, 16:19])
+        tmp2[:] = markers[ip, 16:19]
+        temp_scalar = linalg_kernels.scalar_dot(e_diff, tmp2)
         temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + e_diff[2]**2
 
         grad_I[:] = markers[ip, 16:19] + e_diff[:] * \
             (abs_b0*mu - markers[ip, 19] - temp_scalar)/temp_scalar2
 
-        linalg.matrix_vector(S, grad_I, temp)
+        linalg_kernels.matrix_vector(S, grad_I, temp)
 
         markers[ip, 0:3] = markers[ip, 9:12] + dt*temp[:]
 
@@ -740,10 +739,10 @@ def push_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: i
         markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 9:12])/2.
 
 
-@stack_array('bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'grad_I')
+@stack_array('bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'grad_I', 'tmp')
 def push_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: int,
                                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                    starts: 'int[:]',
                                     kind_map: int, params_map: 'float[:]',
                                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -791,6 +790,7 @@ def push_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: int
     # marker position e
     e = empty(3, dtype=float)
     e_diff = empty(3, dtype=float)
+    tmp = empty(3, dtype=float)
 
     # get number of markers
     n_markers = shape(markers)[0]
@@ -820,21 +820,22 @@ def push_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: int
         mu = markers[ip, 4]
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], e[0])
-        span2 = bsp.find_span(tn2, pn[1], e[1])
-        span3 = bsp.find_span(tn3, pn[2], e[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
 
         # eval all the needed field
         # abs_b; 0form
-        abs_b0 = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts0)
+        abs_b0 = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
 
         # calculate grad_I
-        temp_scalar = linalg.scalar_dot(e_diff[:], markers[ip, 17:20])
+        tmp[:] = markers[ip, 17:20]
+        temp_scalar = linalg_kernels.scalar_dot(e_diff, tmp)
         temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + \
             e_diff[2]**2 + (v - v_old)**2
 
@@ -848,7 +849,8 @@ def push_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: int
             grad_Iv = v_mid + (v - v_old)*(abs_b0*mu -
                                            markers[ip, 16] - temp_scalar)/temp_scalar2
 
-        temp_scalar3 = linalg.scalar_dot(markers[ip, 13:16], grad_I)
+        tmp[:] = markers[ip, 13:16]
+        temp_scalar3 = linalg_kernels.scalar_dot(tmp, grad_I)
 
         markers[ip, 0:3] = markers[ip, 9:12] + dt*markers[ip, 13:16]*grad_Iv
         markers[ip, 3] = markers[ip, 12] - dt*temp_scalar3
@@ -875,10 +877,10 @@ def push_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: int
         markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 9:13])/2.
 
 
-@stack_array('bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'grad_I', 'S', 'temp')
+@stack_array('bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'grad_I', 'S', 'temp', 'tmp2')
 def push_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, stage: int,
                                              pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                             starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                             starts: 'int[:]',
                                              kind_map: int, params_map: 'float[:]',
                                              p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                              ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -921,6 +923,7 @@ def push_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, s
 
     # containers for fields
     temp = empty(3, dtype=float)
+    tmp2 = empty(3, dtype=float)
     S = zeros((3, 3), dtype=float)
     grad_I = empty(3, dtype=float)
 
@@ -958,18 +961,18 @@ def push_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, s
                 e_diff[axis] += 1.
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], e[0])
-        span2 = bsp.find_span(tn2, pn[1], e[1])
-        span3 = bsp.find_span(tn3, pn[2], e[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
 
         # eval all the needed field
         # abs_b; 0form
-        abs_b0 = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts0)
+        abs_b0 = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
 
         # assemble S
         S[0, 1] = markers[ip, 13]
@@ -980,13 +983,14 @@ def push_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, s
         S[2, 1] = -markers[ip, 15]
 
         # calculate grad_I
-        temp_scalar = linalg.scalar_dot(e_diff[:], markers[ip, 16:19])
+        tmp2[:] = markers[ip, 16:19]
+        temp_scalar = linalg_kernels.scalar_dot(e_diff, tmp2)
         temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + e_diff[2]**2
 
         grad_I[:] = markers[ip, 16:19] + e_diff[:] * \
             (abs_b0*mu - markers[ip, 19] - temp_scalar)/temp_scalar2
 
-        linalg.matrix_vector(S, grad_I, temp)
+        linalg_kernels.matrix_vector(S, grad_I, temp)
 
         markers[ip, 0:3] = markers[ip, 9:12] + dt*temp[:]
 
@@ -1013,10 +1017,10 @@ def push_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, s
         markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 9:12])/2.
 
 
-@stack_array('bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'grad_I')
+@stack_array('bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'grad_I', 'tmp')
 def push_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, stage: int,
                                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                           starts: 'int[:]',
                                            kind_map: int, params_map: 'float[:]',
                                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1064,6 +1068,7 @@ def push_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, sta
     # marker position e
     e = empty(3, dtype=float)
     e_diff = empty(3, dtype=float)
+    tmp = empty(3, dtype=float)
 
     # get number of markers
     n_markers = shape(markers)[0]
@@ -1093,21 +1098,22 @@ def push_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, sta
         mu = markers[ip, 4]
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], e[0])
-        span2 = bsp.find_span(tn2, pn[1], e[1])
-        span3 = bsp.find_span(tn3, pn[2], e[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
 
         # eval all the needed field
         # abs_b; 0form
-        abs_b0 = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts0)
+        abs_b0 = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
 
         # calculate grad_I
-        temp_scalar = linalg.scalar_dot(e_diff[:], markers[ip, 17:20])
+        tmp[:] = markers[ip, 17:20]
+        temp_scalar = linalg_kernels.scalar_dot(e_diff, tmp)
         temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + \
             e_diff[2]**2 + (v - v_old)**2
 
@@ -1121,7 +1127,8 @@ def push_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, sta
             grad_Iv = v_mid + (v - v_old)*(abs_b0*mu -
                                            markers[ip, 16] - temp_scalar)/temp_scalar2
 
-        temp_scalar3 = linalg.scalar_dot(markers[ip, 13:16], grad_I)
+        tmp[:] = markers[ip, 13:16]
+        temp_scalar3 = linalg_kernels.scalar_dot(tmp, grad_I)
 
         markers[ip, 0:3] = markers[ip, 9:12] + dt*markers[ip, 13:16]*grad_Iv
         markers[ip, 3] = markers[ip, 12] - dt*temp_scalar3
@@ -1151,7 +1158,7 @@ def push_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, sta
 @stack_array('bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'e_old', 'F', 'S', 'temp', 'identity', 'grad_abs_b', 'grad_I', 'Jacobian_grad_I', 'Jacobian', 'Jacobian_inv')
 def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float, stage: int,
                                                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                                  starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                                  starts: 'int[:]',
                                                   kind_map: int, params_map: 'float[:]',
                                                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1281,26 +1288,26 @@ def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
         identity[2, 2] = 1.
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], e[0])
-        span2 = bsp.find_span(tn2, pn[1], e[1])
-        span3 = bsp.find_span(tn3, pn[2], e[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
 
         # eval all the needed field
         # abs_b; 0form
-        abs_b0 = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts0)
+        abs_b0 = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
 
         # grad_abs_b; 1form
-        grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
-        grad_abs_b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
-        grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
+        grad_abs_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
+        grad_abs_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts)
+        grad_abs_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts)
 
         # assemble gradI
         grad_I[0] = mu*(markers[ip, 20] - markers[ip, 19])/(e_diff[0])
@@ -1308,7 +1315,7 @@ def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
         grad_I[2] = mu*(abs_b0 - markers[ip, 16])/(e_diff[2])
 
         # calculate F = eta - eta_old + dt*S*grad_I
-        linalg.matrix_vector(S, grad_I, F)
+        linalg_kernels.matrix_vector(S, grad_I, F)
         F *= -dt
         F += e_diff[:]
 
@@ -1330,14 +1337,14 @@ def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
                                     abs_b0 + markers[ip, 16])/(e_diff[2])**2
 
         # assemble Jacobian and its inverse
-        linalg.matrix_matrix(S, Jacobian_grad_I, Jacobian)
+        linalg_kernels.matrix_matrix(S, Jacobian_grad_I, Jacobian)
         Jacobian *= dt
         Jacobian += identity
 
-        linalg.matrix_inv(Jacobian, Jacobian_inv)
+        linalg_kernels.matrix_inv(Jacobian, Jacobian_inv)
 
         # calculate eta_new
-        linalg.matrix_vector(Jacobian_inv, F, temp)
+        linalg_kernels.matrix_vector(Jacobian_inv, F, temp)
         markers[ip, 16:19] = e[:] - temp
 
         diff = sqrt((temp[0]/e[0])**2 + (temp[1]/e[1])**2 + (temp[2]/e[2])**2)
@@ -1359,10 +1366,10 @@ def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
         markers[ip, 2] = e_old[2]
 
 
-@stack_array('bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'e_old', 'F', 'S', 'temp', 'identity', 'grad_abs_b', 'grad_I', 'Jacobian_grad_I', 'Jacobian', 'Jacobian_inv', 'Jacobian_temp34', 'Jacobian_temp33')
+@stack_array('bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'e_old', 'F', 'S', 'temp', 'identity', 'grad_abs_b', 'grad_I', 'Jacobian_grad_I', 'Jacobian', 'Jacobian_inv', 'Jacobian_temp34', 'Jacobian_temp33', 'tmp')
 def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float, stage: int,
                                                 pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                                starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                                starts: 'int[:]',
                                                 kind_map: int, params_map: 'float[:]',
                                                 p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                                 ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1447,6 +1454,7 @@ def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
     Jacobian_inv = zeros((4, 4), dtype=float)
     Jacobian_temp34 = zeros((3, 4), dtype=float)
     Jacobian_temp33 = zeros((3, 3), dtype=float)
+    tmp = zeros((3, 3), dtype=float)
 
     # marker position e
     e = empty(3, dtype=float)
@@ -1491,26 +1499,26 @@ def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
         identity[3, 3] = 1.
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], e[0])
-        span2 = bsp.find_span(tn2, pn[1], e[1])
-        span3 = bsp.find_span(tn3, pn[2], e[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
 
         # eval all the needed field
         # abs_b; 0form
-        abs_b0 = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts0)
+        abs_b0 = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
 
         # grad_abs_b; 1form
-        grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
-        grad_abs_b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
-        grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
+        grad_abs_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
+        grad_abs_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts)
+        grad_abs_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts)
 
         # assemble gradI and Jacobian_grad_I
         if e_diff[0] == 0.:
@@ -1547,57 +1555,61 @@ def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
         Jacobian_grad_I[3, 3] = 0.5
 
         # calculate F = eta - eta_old + dt*S*grad_I
-        linalg.matrix_vector4(S, grad_I, F)
+        linalg_kernels.matrix_vector4(S, grad_I, F)
         F *= -dt
         F[0:3] += e_diff[:]
         F[3] += v - v_old
 
         # assemble Jacobian and its inverse
-        linalg.matrix_matrix4(S, Jacobian_grad_I, Jacobian)
+        linalg_kernels.matrix_matrix4(S, Jacobian_grad_I, Jacobian)
         Jacobian *= -dt
         Jacobian += identity
 
         # Inverse of the Jacobian
-        det_J = linalg.det4(Jacobian)
+        det_J = linalg_kernels.det4(Jacobian)
 
-        Jacobian_inv[0, 0] = linalg.det(Jacobian[1:, 1:])/det_J
+        tmp[:] = Jacobian[1:, 1:]
+        Jacobian_inv[0, 0] = linalg_kernels.det(tmp)/det_J
         Jacobian_temp33[:] = Jacobian[(0, 2, 3), 1:]
-        Jacobian_inv[0, 1] = -linalg.det(Jacobian_temp33)/det_J
+        Jacobian_inv[0, 1] = -linalg_kernels.det(Jacobian_temp33)/det_J
         Jacobian_temp33[:] = Jacobian[(0, 1, 3), 1:]
-        Jacobian_inv[0, 2] = linalg.det(Jacobian_temp33)/det_J
-        Jacobian_inv[0, 3] = -linalg.det(Jacobian[:3, 1:])/det_J
+        Jacobian_inv[0, 2] = linalg_kernels.det(Jacobian_temp33)/det_J
+        tmp[:] = Jacobian[:3, 1:]
+        Jacobian_inv[0, 3] = -linalg_kernels.det(tmp)/det_J
 
         Jacobian_temp33[:] = Jacobian[1:, (0, 2, 3)]
-        Jacobian_inv[1, 0] = -linalg.det(Jacobian_temp33)/det_J
+        Jacobian_inv[1, 0] = -linalg_kernels.det(Jacobian_temp33)/det_J
         Jacobian_temp34[:] = Jacobian[(0, 2, 3), :]
         Jacobian_temp33[:] = Jacobian_temp34[:, (0, 2, 3)]
-        Jacobian_inv[1, 1] = linalg.det(Jacobian_temp33)/det_J
+        Jacobian_inv[1, 1] = linalg_kernels.det(Jacobian_temp33)/det_J
         Jacobian_temp34[:] = Jacobian[(0, 1, 3), :]
         Jacobian_temp33[:] = Jacobian_temp34[:, (0, 2, 3)]
-        Jacobian_inv[1, 2] = -linalg.det(Jacobian_temp33)/det_J
+        Jacobian_inv[1, 2] = -linalg_kernels.det(Jacobian_temp33)/det_J
         Jacobian_temp33[:] = Jacobian[:3, (0, 2, 3)]
-        Jacobian_inv[1, 3] = linalg.det(Jacobian_temp33)/det_J
+        Jacobian_inv[1, 3] = linalg_kernels.det(Jacobian_temp33)/det_J
 
         Jacobian_temp33[:] = Jacobian[1:, (0, 1, 3)]
-        Jacobian_inv[2, 0] = linalg.det(Jacobian_temp33)/det_J
+        Jacobian_inv[2, 0] = linalg_kernels.det(Jacobian_temp33)/det_J
         Jacobian_temp34[:] = Jacobian[(0, 2, 3), :]
         Jacobian_temp33[:] = Jacobian_temp34[:, (0, 1, 3)]
-        Jacobian_inv[2, 1] = -linalg.det(Jacobian_temp33)/det_J
+        Jacobian_inv[2, 1] = -linalg_kernels.det(Jacobian_temp33)/det_J
         Jacobian_temp34[:] = Jacobian[(0, 1, 3), :]
         Jacobian_temp33[:] = Jacobian_temp34[:, (0, 1, 3)]
-        Jacobian_inv[2, 2] = linalg.det(Jacobian_temp33)/det_J
+        Jacobian_inv[2, 2] = linalg_kernels.det(Jacobian_temp33)/det_J
         Jacobian_temp33[:] = Jacobian[:3, (0, 1, 3)]
-        Jacobian_inv[2, 3] = -linalg.det(Jacobian_temp33)/det_J
+        Jacobian_inv[2, 3] = -linalg_kernels.det(Jacobian_temp33)/det_J
 
-        Jacobian_inv[3, 0] = -linalg.det(Jacobian[1:, :3])/det_J
+        tmp[:] = Jacobian[1:, :3]
+        Jacobian_inv[3, 0] = -linalg_kernels.det(tmp)/det_J
         Jacobian_temp33[:] = Jacobian[(0, 2, 3), :3]
-        Jacobian_inv[3, 1] = linalg.det(Jacobian_temp33)/det_J
+        Jacobian_inv[3, 1] = linalg_kernels.det(Jacobian_temp33)/det_J
         Jacobian_temp33[:] = Jacobian[(0, 1, 3), :3]
-        Jacobian_inv[3, 2] = -linalg.det(Jacobian_temp33)/det_J
-        Jacobian_inv[3, 3] = linalg.det(Jacobian[:3, :3])/det_J
+        Jacobian_inv[3, 2] = -linalg_kernels.det(Jacobian_temp33)/det_J
+        tmp[:] = Jacobian[:3, :3]
+        Jacobian_inv[3, 3] = linalg_kernels.det(tmp)/det_J
 
         # calculate eta_new
-        linalg.matrix_vector4(Jacobian_inv, F, temp)
+        linalg_kernels.matrix_vector4(Jacobian_inv, F, temp)
         markers[ip, 16:19] = e[:] - temp[0:3]
         markers[ip, 3] = v - temp[3]
 
@@ -1624,7 +1636,7 @@ def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
 @stack_array('dfm', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'b', 'b_star', 'norm_b1', 'curl_norm_b')
 def push_gc_cc_J1_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                        starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                        starts: 'int[:]',
                         kind_map: int, params_map: 'float[:]',
                         p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                         ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1681,69 +1693,69 @@ def push_gc_cc_J1_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         v = markers[ip, 3]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta[0], eta[1], eta[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta[0], eta[1], eta[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        det_df = linalg.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta[0])
-        span2 = bsp.find_span(tn2, pn[1], eta[1])
-        span3 = bsp.find_span(tn3, pn[2], eta[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # eval all the needed field
         # b; 2form
-        b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
-        b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
-        b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
+        b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
+        b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
+        b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts)
 
         # u; 0form
-        u[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u1, starts0)
-        u[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u2, starts0)
-        u[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u3, starts0)
+        u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u1, starts)
+        u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u2, starts)
+        u[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u3, starts)
 
         # norm_b1; 1form
-        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
+        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
+        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
 
         # curl_norm_b; 2form
-        curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-        curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-        curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
+        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
+        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
+        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
 
         # b_star; 2form in H1vec
         b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
 
         # calculate abs_b_star_para
-        abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
+        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # electric field E(1) = B(2) X U(0)
-        linalg.cross(b, u, e)
+        linalg_kernels.cross(b, u, e)
 
         # curl_norm_b dot electric field
-        temp = linalg.scalar_dot(e, curl_norm_b) / det_df
+        temp = linalg_kernels.scalar_dot(e, curl_norm_b) / det_df
 
         markers[ip, 3] += temp/abs_b_star_para*v*dt
 
@@ -1751,7 +1763,7 @@ def push_gc_cc_J1_H1vec(markers: 'float[:,:]', dt: float, stage: int,
 @stack_array('dfm', 'df_t', 'g', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'u0', 'b', 'b_star', 'norm_b1', 'curl_norm_b')
 def push_gc_cc_J1_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                        starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                        starts: 'int[:]',
                         kind_map: int, params_map: 'float[:]',
                         p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                         ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1812,77 +1824,77 @@ def push_gc_cc_J1_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
         v = markers[ip, 3]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta[0], eta[1], eta[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta[0], eta[1], eta[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # evaluate inverse of G
-        linalg.transpose(dfm, df_t)
-        linalg.matrix_matrix(df_t, dfm, g)
-        linalg.matrix_inv(g, g_inv)
+        linalg_kernels.transpose(dfm, df_t)
+        linalg_kernels.matrix_matrix(df_t, dfm, g)
+        linalg_kernels.matrix_inv(g, g_inv)
 
         # metric coeffs
-        det_df = linalg.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta[0])
-        span2 = bsp.find_span(tn2, pn[1], eta[1])
-        span3 = bsp.find_span(tn3, pn[2], eta[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # eval all the needed field
         # b; 2form
-        b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
-        b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
-        b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
+        b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
+        b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
+        b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts)
 
         # u; 1form
-        u[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u1, starts1[0])
-        u[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u2, starts1[1])
-        u[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u3, starts1[2])
+        u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u1, starts)
+        u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u2, starts)
+        u[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u3, starts)
 
         # norm_b1; 1form
-        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
+        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
+        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
 
         # curl_norm_b; 2form
-        curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-        curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-        curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
+        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
+        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
+        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
 
         # b_star; 2form in H1vec
         b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
 
         # calculate abs_b_star_para
-        abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
+        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # transform u into H1vec
-        linalg.matrix_vector(g_inv, u, u0)
+        linalg_kernels.matrix_vector(g_inv, u, u0)
 
         # electric field E(1) = B(2) X U(0)
-        linalg.cross(b, u0, e)
+        linalg_kernels.cross(b, u0, e)
 
         # curl_norm_b dot electric field
-        temp = linalg.scalar_dot(e, curl_norm_b) / det_df
+        temp = linalg_kernels.scalar_dot(e, curl_norm_b) / det_df
 
         markers[ip, 3] += temp/abs_b_star_para*v*dt
 
@@ -1890,7 +1902,7 @@ def push_gc_cc_J1_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
 @stack_array('dfm', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'b', 'b_star', 'norm_b1', 'curl_norm_b')
 def push_gc_cc_J1_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                       starts: 'int[:]',
                        kind_map: int, params_map: 'float[:]',
                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1947,72 +1959,72 @@ def push_gc_cc_J1_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
         v = markers[ip, 3]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta[0], eta[1], eta[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta[0], eta[1], eta[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        det_df = linalg.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta[0])
-        span2 = bsp.find_span(tn2, pn[1], eta[1])
-        span3 = bsp.find_span(tn3, pn[2], eta[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # eval all the needed field
         # b; 2form
-        b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
-        b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
-        b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
+        b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
+        b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
+        b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts)
 
         # u; 2form
-        u[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u1, starts2[0])
-        u[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u2, starts2[1])
-        u[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u3, starts2[2])
+        u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u1, starts)
+        u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u2, starts)
+        u[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u3, starts)
 
         # norm_b1; 1form
-        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
+        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
+        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
 
         # curl_norm_b; 2form
-        curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-        curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-        curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
+        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
+        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
+        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
 
         # b_star; 2form in H1vec
         b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
 
         # calculate abs_b_star_para
-        abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
+        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # transform u into H1vec
         u = u/det_df
 
         # electric field E(1) = B(2) X U(0)
-        linalg.cross(b, u, e)
+        linalg_kernels.cross(b, u, e)
 
         # curl_norm_b dot electric field
-        temp = linalg.scalar_dot(e, curl_norm_b) / det_df
+        temp = linalg_kernels.scalar_dot(e, curl_norm_b) / det_df
 
         markers[ip, 3] += temp/abs_b_star_para*v*dt
 
@@ -2020,7 +2032,7 @@ def push_gc_cc_J1_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 @stack_array('dfm', 'df_t', 'df_inv_t', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'bb', 'b_star', 'norm_b1', 'norm_b2', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b2_prod')
 def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                               pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                              starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                              starts: 'int[:]',
                               kind_map: int, params_map: 'float[:]',
                               p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                               ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -2098,68 +2110,68 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         v = markers[ip, 3]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta[0], eta[1], eta[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta[0], eta[1], eta[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        det_df = linalg.det(dfm)
-        linalg.matrix_inv_with_det(dfm, det_df, df_inv)
-        linalg.transpose(df_inv, df_inv_t)
-        linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
+        det_df = linalg_kernels.det(dfm)
+        linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+        linalg_kernels.transpose(df_inv, df_inv_t)
+        linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta[0])
-        span2 = bsp.find_span(tn2, pn[1], eta[1])
-        span3 = bsp.find_span(tn3, pn[2], eta[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # eval all the needed field
         # b; 2form
-        bb[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
-        bb[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
-        bb[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
+        bb[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
+        bb[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
+        bb[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts)
 
         # u; 0form
-        u[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u1, starts0)
-        u[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u2, starts0)
-        u[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u3, starts0)
+        u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u1, starts)
+        u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u2, starts)
+        u[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u3, starts)
 
         # norm_b1; 1form
-        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
+        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
+        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
 
         # norm_b; 2form
-        norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
-        norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
-        norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
+        norm_b2[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts)
+        norm_b2[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts)
+        norm_b2[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts)
 
         # curl_norm_b; 2form
-        curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-        curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-        curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
+        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
+        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
+        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
 
         # operator bx() as matrix
         b_prod[0, 1] = -bb[2]
@@ -2180,13 +2192,13 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         b_star[:] = (bb + curl_norm_b*v*epsilon)/det_df
 
         # calculate abs_b_star_para
-        abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
+        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
-        linalg.matrix_matrix(g_inv, norm_b2_prod, tmp1)
-        linalg.matrix_matrix(tmp1, g_inv, tmp2)
-        linalg.matrix_matrix(tmp2, b_prod, tmp1)
+        linalg_kernels.matrix_matrix(g_inv, norm_b2_prod, tmp1)
+        linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
+        linalg_kernels.matrix_matrix(tmp2, b_prod, tmp1)
 
-        linalg.matrix_vector(tmp1, u, e)
+        linalg_kernels.matrix_vector(tmp1, u, e)
 
         e /= abs_b_star_para
 
@@ -2200,7 +2212,7 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
 @stack_array('dfm', 'df_t', 'df_inv_t', 'g_inv', 'bn1', 'bn2', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'bb', 'b_star', 'norm_b1', 'norm_b2', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b2_prod')
 def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                              pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                             starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                             starts: 'int[:]',
                              kind_map: int, params_map: 'float[:]',
                              p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                              ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -2278,68 +2290,68 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
         v = markers[ip, 3]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta[0], eta[1], eta[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta[0], eta[1], eta[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        det_df = linalg.det(dfm)
-        linalg.matrix_inv_with_det(dfm, det_df, df_inv)
-        linalg.transpose(df_inv, df_inv_t)
-        linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
+        det_df = linalg_kernels.det(dfm)
+        linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+        linalg_kernels.transpose(df_inv, df_inv_t)
+        linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta[0])
-        span2 = bsp.find_span(tn2, pn[1], eta[1])
-        span3 = bsp.find_span(tn3, pn[2], eta[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # eval all the needed field
         # b; 2form
-        bb[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
-        bb[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
-        bb[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
+        bb[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
+        bb[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
+        bb[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts)
 
         # u; 2form
-        u[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u1, starts2[0])
-        u[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u2, starts2[1])
-        u[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u3, starts2[2])
+        u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u1, starts)
+        u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u2, starts)
+        u[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u3, starts)
 
         # norm_b1; 1form
-        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
+        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
+        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
 
         # norm_b; 2form
-        norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
-        norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
-        norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
+        norm_b2[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts)
+        norm_b2[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts)
+        norm_b2[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts)
 
         # curl_norm_b; 2form
-        curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-        curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-        curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
+        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
+        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
+        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
 
         # operator bx() as matrix
         b_prod[0, 1] = -bb[2]
@@ -2360,13 +2372,13 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
         b_star[:] = (bb + curl_norm_b*v*epsilon)/det_df
 
         # calculate abs_b_star_para
-        abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
+        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
-        linalg.matrix_matrix(g_inv, norm_b2_prod, tmp1)
-        linalg.matrix_matrix(tmp1, g_inv, tmp2)
-        linalg.matrix_matrix(tmp2, b_prod, tmp1)
+        linalg_kernels.matrix_matrix(g_inv, norm_b2_prod, tmp1)
+        linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
+        linalg_kernels.matrix_matrix(tmp2, b_prod, tmp1)
 
-        linalg.matrix_vector(tmp1, u, e)
+        linalg_kernels.matrix_vector(tmp1, u, e)
 
         e /= abs_b_star_para
         e /= det_df
@@ -2380,7 +2392,7 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 
 # def push_gc_cc_J2_dg_prepare_H1vec(markers: 'float[:,:]', dt: float, stage: int,
 #                                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-#                                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+#                                    starts: 'int[:]',
 #                                    kind_map: int, params_map: 'float[:]',
 #                                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
 #                                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -2446,60 +2458,60 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 #                     dfm)
 
 #         # metric coeffs
-#         det_df = linalg.det(dfm)
-#         linalg.matrix_inv_with_det(dfm, det_df, df_inv)
-#         linalg.transpose(df_inv, df_inv_t)
-#         linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
+#         det_df = linalg_kernels.det(dfm)
+#         linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+#         linalg_kernels.transpose(df_inv, df_inv_t)
+#         linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
 
 #         # spline evaluation
-#         span1 = bsp.find_span(tn1, pn[0], eta[0])
-#         span2 = bsp.find_span(tn2, pn[1], eta[1])
-#         span3 = bsp.find_span(tn3, pn[2], eta[2])
+#         span1 = bsplines_kernels.find_span(tn1, pn[0], eta[0])
+#         span2 = bsplines_kernels.find_span(tn2, pn[1], eta[1])
+#         span3 = bsplines_kernels.find_span(tn3, pn[2], eta[2])
 
-#         bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-#         bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-#         bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+#         bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+#         bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+#         bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
 #         # eval all the needed field
 #         # b; 2form
-#         b[0] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
-#         b[1] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
-#         b[2] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
+#         b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
+#         b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
+#         b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts)
 
 #         # u; 0form
-#         u[0] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u1, starts0)
-#         u[1] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u2, starts0)
-#         u[2] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u3, starts0)
+#         u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u1, starts)
+#         u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u2, starts)
+#         u[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u3, starts)
 
 #         # norm_b1; 1form
-#         norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-#         norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-#         norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+#         norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
+#         norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
+#         norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
 
 #         # norm_b; 2form
-#         norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
-#         norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
-#         norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
+#         norm_b2[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts)
+#         norm_b2[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts)
+#         norm_b2[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts)
 
 #         # curl_norm_b; 2form
-#         curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-#         curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-#         curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
+#         curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
+#         curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
+#         curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
 
 #         # operator bx() as matrix
 #         b_prod[0, 1] = -b[2]
@@ -2520,20 +2532,20 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 #         b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
 
 #         # calculate abs_b_star_para
-#         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
+#         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
-#         linalg.matrix_matrix(g_inv, norm_b2_prod, tmp1)
-#         linalg.matrix_matrix(tmp1, g_inv, tmp2)
-#         linalg.matrix_matrix(tmp2, b_prod, tmp1)
+#         linalg_kernels.matrix_matrix(g_inv, norm_b2_prod, tmp1)
+#         linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
+#         linalg_kernels.matrix_matrix(tmp2, b_prod, tmp1)
 
-#         linalg.matrix_vector(tmp1, u, e)
+#         linalg_kernels.matrix_vector(tmp1, u, e)
 
 #         markers[ip, 0:3] = markers[ip, 9:12] - e/abs_b_star_para*dt
 
 
 # def push_gc_cc_J2_dg_H1vec(markers: 'float[:,:]', dt: float, stage: int,
 #                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-#                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+#                            starts: 'int[:]',
 #                            kind_map: int, params_map: 'float[:]',
 #                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
 #                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -2599,60 +2611,60 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 #                     dfm)
 
 #         # metric coeffs
-#         det_df = linalg.det(dfm)
-#         linalg.matrix_inv_with_det(dfm, det_df, df_inv)
-#         linalg.transpose(df_inv, df_inv_t)
-#         linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
+#         det_df = linalg_kernels.det(dfm)
+#         linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+#         linalg_kernels.transpose(df_inv, df_inv_t)
+#         linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
 
 #         # spline evaluation
-#         span1 = bsp.find_span(tn1, pn[0], eta[0])
-#         span2 = bsp.find_span(tn2, pn[1], eta[1])
-#         span3 = bsp.find_span(tn3, pn[2], eta[2])
+#         span1 = bsplines_kernels.find_span(tn1, pn[0], eta[0])
+#         span2 = bsplines_kernels.find_span(tn2, pn[1], eta[1])
+#         span3 = bsplines_kernels.find_span(tn3, pn[2], eta[2])
 
-#         bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-#         bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-#         bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+#         bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+#         bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+#         bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
 #         # eval all the needed field
 #         # b; 2form
-#         b[0] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts2[0])
-#         b[1] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts2[1])
-#         b[2] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts2[2])
+#         b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
+#         b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
+#         b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts)
 
 #         # u; 0form
-#         u[0] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u1, starts0)
-#         u[1] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u2, starts0)
-#         u[2] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u3, starts0)
+#         u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u1, starts)
+#         u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u2, starts)
+#         u[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u3, starts)
 
 #         # norm_b1; 1form
-#         norm_b1[0] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
-#         norm_b1[1] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
-#         norm_b1[2] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+#         norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
+#         norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
+#         norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
 
 #         # norm_b; 2form
-#         norm_b2[0] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
-#         norm_b2[1] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
-#         norm_b2[2] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
+#         norm_b2[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts)
+#         norm_b2[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts)
+#         norm_b2[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts)
 
 #         # curl_norm_b; 2form
-#         curl_norm_b[0] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts2[0])
-#         curl_norm_b[1] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts2[1])
-#         curl_norm_b[2] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts2[2])
+#         curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
+#         curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
+#         curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
 
 #         # operator bx() as matrix
 #         b_prod[0, 1] = -b[2]
@@ -2673,20 +2685,20 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 #         b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
 
 #         # calculate abs_b_star_para
-#         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
+#         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
-#         linalg.matrix_matrix(g_inv, norm_b2_prod, tmp1)
-#         linalg.matrix_matrix(tmp1, g_inv, tmp2)
-#         linalg.matrix_matrix(tmp2, b_prod, tmp1)
+#         linalg_kernels.matrix_matrix(g_inv, norm_b2_prod, tmp1)
+#         linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
+#         linalg_kernels.matrix_matrix(tmp2, b_prod, tmp1)
 
-#         linalg.matrix_vector(tmp1, u, e)
+#         linalg_kernels.matrix_vector(tmp1, u, e)
 
 #         markers[ip, 0:3] = markers[ip, 9:12] - e/abs_b_star_para*dt
 
 
 # def push_gc_cc_J2_dg_faster_H1vec(markers: 'float[:,:]', dt: float, stage: int,
 #                                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-#                                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+#                                   starts: 'int[:]',
 #                                   kind_map: int, params_map: 'float[:]',
 #                                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
 #                                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -2728,35 +2740,35 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 #         eta[:] = markers[ip, 0:3]
 
 #         # spline evaluation
-#         span1 = bsp.find_span(tn1, pn[0], eta[0])
-#         span2 = bsp.find_span(tn2, pn[1], eta[1])
-#         span3 = bsp.find_span(tn3, pn[2], eta[2])
+#         span1 = bsplines_kernels.find_span(tn1, pn[0], eta[0])
+#         span2 = bsplines_kernels.find_span(tn2, pn[1], eta[1])
+#         span3 = bsplines_kernels.find_span(tn3, pn[2], eta[2])
 
-#         bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-#         bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-#         bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+#         bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+#         bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+#         bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
 #         # eval all the needed field
 #         # u; 0form
-#         u[0] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u1, starts0)
-#         u[1] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u2, starts0)
-#         u[2] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u3, starts0)
+#         u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u1, starts)
+#         u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u2, starts)
+#         u[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u3, starts)
 
 #         tmp[:, :] = ((markers[ip, 18], markers[ip, 19], markers[ip, 20]),
 #                      (markers[ip, 19], markers[ip, 21], markers[ip, 22]),
 #                      (markers[ip, 20], markers[ip, 22], markers[ip, 23]))
 
-#         linalg.matrix_vector(tmp, u, e)
+#         linalg_kernels.matrix_vector(tmp, u, e)
 
 #         markers[ip, 0:3] = markers[ip, 9:12] - e*dt
 
 
 # def push_gc_cc_J2_dg_faster_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
 #                                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-#                                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+#                                   starts: 'int[:]',
 #                                   kind_map: int, params_map: 'float[:]',
 #                                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
 #                                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -2798,35 +2810,35 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 #         eta[:] = markers[ip, 0:3]
 
 #         # spline evaluation
-#         span1 = bsp.find_span(tn1, pn[0], eta[0])
-#         span2 = bsp.find_span(tn2, pn[1], eta[1])
-#         span3 = bsp.find_span(tn3, pn[2], eta[2])
+#         span1 = bsplines_kernels.find_span(tn1, pn[0], eta[0])
+#         span2 = bsplines_kernels.find_span(tn2, pn[1], eta[1])
+#         span3 = bsplines_kernels.find_span(tn3, pn[2], eta[2])
 
-#         bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-#         bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-#         bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+#         bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+#         bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+#         bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
 #         # eval all the needed field
 #         # u; 1form
-#         u[0] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u1, starts1[0])
-#         u[1] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u2, starts1[1])
-#         u[2] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u3, starts1[2])
+#         u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u1, starts)
+#         u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u2, starts)
+#         u[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u3, starts)
 
 #         tmp[:, :] = ((markers[ip, 18], markers[ip, 19], markers[ip, 20]),
 #                      (markers[ip, 19], markers[ip, 21], markers[ip, 22]),
 #                      (markers[ip, 20], markers[ip, 22], markers[ip, 23]))
 
-#         linalg.matrix_vector(tmp, u, e)
+#         linalg_kernels.matrix_vector(tmp, u, e)
 
 #         markers[ip, 0:3] = markers[ip, 9:12] - e*dt
 
 
 # def push_gc_cc_J2_dg_faster_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 #                                  pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-#                                  starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+#                                  starts: 'int[:]',
 #                                  kind_map: int, params_map: 'float[:]',
 #                                  p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
 #                                  ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -2868,27 +2880,27 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 #         eta[:] = markers[ip, 0:3]
 
 #         # spline evaluation
-#         span1 = bsp.find_span(tn1, pn[0], eta[0])
-#         span2 = bsp.find_span(tn2, pn[1], eta[1])
-#         span3 = bsp.find_span(tn3, pn[2], eta[2])
+#         span1 = bsplines_kernels.find_span(tn1, pn[0], eta[0])
+#         span2 = bsplines_kernels.find_span(tn2, pn[1], eta[1])
+#         span3 = bsplines_kernels.find_span(tn3, pn[2], eta[2])
 
-#         bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
-#         bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
-#         bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+#         bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+#         bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+#         bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
 #         # eval all the needed field
 #         # u; 2form
-#         u[0] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u1, starts2[0])
-#         u[1] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u2, starts2[1])
-#         u[2] = eval_3d.eval_spline_mpi_kernel(
-#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u3, starts2[2])
+#         u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u1, starts)
+#         u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u2, starts)
+#         u[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u3, starts)
 
 #         tmp[:, :] = ((markers[ip, 18], markers[ip, 19], markers[ip, 20]),
 #                      (markers[ip, 19], markers[ip, 21], markers[ip, 22]),
 #                      (markers[ip, 20], markers[ip, 22], markers[ip, 23]))
 
-#         linalg.matrix_vector(tmp, u, e)
+#         linalg_kernels.matrix_vector(tmp, u, e)
 
 #         markers[ip, 0:3] = markers[ip, 9:12] - e*dt

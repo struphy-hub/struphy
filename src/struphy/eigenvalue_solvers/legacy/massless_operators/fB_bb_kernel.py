@@ -1,6 +1,6 @@
 from pyccel.decorators import types
 
-import struphy.linear_algebra.core as linalg
+import struphy.linear_algebra.linalg_kernels as linalg
 
 
 

@@ -1,9 +1,9 @@
 from pyccel.decorators import stack_array
 
-import struphy.b_splines.bsplines_kernels as bsp
-from struphy.b_splines.bspline_evaluation_3d import eval_spline_mpi_kernel
-import struphy.linear_algebra.core as linalg
-import struphy.geometry.map_eval as map_eval
+import struphy.bsplines.bsplines_kernels as bsplines_kernels
+import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
+import struphy.linear_algebra.linalg_kernels as linalg_kernels
+import struphy.geometry.evaluation_kernels as evaluation_kernels
 
 from numpy import empty, shape, zeros, sqrt, log, abs
 
@@ -54,17 +54,17 @@ def eval_0_form_at_particles(markers: 'float[:,:]',
         eta3 = markers[ip, 2]
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
 
-        bsp.b_splines_slim(tn1, pn[0], eta1, span1, bn1)
-        bsp.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
-        bsp.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
+        bsplines_kernels.b_splines_slim(tn1, pn[0], eta1, span1, bn1)
+        bsplines_kernels.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
+        bsplines_kernels.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
 
         # sum up result
-        res = res + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                           bn1, bn2, bn3, span1, span2, span3, coeffs, starts)
+        res = res + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
+                                                                 bn1, bn2, bn3, span1, span2, span3, coeffs, starts)
 
     #$ omp end parallel
 
@@ -75,7 +75,7 @@ def eval_0_form_at_particles(markers: 'float[:,:]',
 def eval_1_form_at_particles(markers: 'float[:,:]',
                              pn: 'int[:]',
                              tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                             starts: 'int[:,:]',
+                             starts: 'int[:]',
                              coeffs1: 'float[:,:,:]', coeffs2: 'float[:,:,:]', coeffs3: 'float[:,:,:]',
                              res: 'float[:]'):
     """
@@ -122,21 +122,21 @@ def eval_1_form_at_particles(markers: 'float[:,:]',
         eta3 = markers[ip, 2]
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         # sum up result
-        res[0] = res[0] + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                                 bd1, bn2, bn3, span1, span2, span3, coeffs1, starts[0])
-        res[1] = res[1] + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                                 bn1, bd2, bn3, span1, span2, span3, coeffs2, starts[1])
-        res[2] = res[2] + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                                 bn1, bn2, bd3, span1, span2, span3, coeffs3, starts[2])
+        res[0] = res[0] + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
+                                                                       bd1, bn2, bn3, span1, span2, span3, coeffs1, starts)
+        res[1] = res[1] + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
+                                                                       bn1, bd2, bn3, span1, span2, span3, coeffs2, starts)
+        res[2] = res[2] + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
+                                                                       bn1, bn2, bd3, span1, span2, span3, coeffs3, starts)
 
     #$ omp end parallel
 
@@ -145,7 +145,7 @@ def eval_1_form_at_particles(markers: 'float[:,:]',
 def eval_2_form_at_particles(markers: 'float[:,:]',
                              pn: 'int[:]',
                              tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                             starts: 'int[:,:]',
+                             starts: 'int[:]',
                              coeffs1: 'float[:,:,:]', coeffs2: 'float[:,:,:]', coeffs3: 'float[:,:,:]',
                              res: 'float[:]'):
     """
@@ -192,21 +192,21 @@ def eval_2_form_at_particles(markers: 'float[:,:]',
         eta3 = markers[ip, 2]
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         # sum up result
-        res[0] = res[0] + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                                 bn1, bd2, bd3, span1, span2, span3, coeffs1, starts[0])
-        res[1] = res[1] + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                                 bd1, bn2, bd3, span1, span2, span3, coeffs2, starts[1])
-        res[2] = res[2] + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                                 bd1, bd2, bn3, span1, span2, span3, coeffs3, starts[2])
+        res[0] = res[0] + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
+                                                                       bn1, bd2, bd3, span1, span2, span3, coeffs1, starts)
+        res[1] = res[1] + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
+                                                                       bd1, bn2, bd3, span1, span2, span3, coeffs2, starts)
+        res[2] = res[2] + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
+                                                                       bd1, bd2, bn3, span1, span2, span3, coeffs3, starts)
 
     #$ omp end parallel
 
@@ -256,17 +256,17 @@ def eval_3_form_at_particles(markers: 'float[:,:]',
         eta3 = markers[ip, 2]
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
 
-        bsp.d_splines_slim(tn1, pn[0], eta1, span1, bd1)
-        bsp.d_splines_slim(tn2, pn[1], eta2, span2, bd2)
-        bsp.d_splines_slim(tn3, pn[2], eta3, span3, bd3)
+        bsplines_kernels.d_splines_slim(tn1, pn[0], eta1, span1, bd1)
+        bsplines_kernels.d_splines_slim(tn2, pn[1], eta2, span2, bd2)
+        bsplines_kernels.d_splines_slim(tn3, pn[2], eta3, span3, bd3)
 
         # sum up result
-        res = res + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                           bd1, bd2, bd3, span1, span2, span3, coeffs, starts)
+        res = res + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
+                                                                 bd1, bd2, bd3, span1, span2, span3, coeffs, starts)
 
     #$ omp end parallel
 
@@ -320,21 +320,21 @@ def eval_H1vec_at_particles(markers: 'float[:,:]',
         eta3 = markers[ip, 2]
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
 
-        bsp.b_splines_slim(tn1, pn[0], eta1, span1, bn1)
-        bsp.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
-        bsp.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
+        bsplines_kernels.b_splines_slim(tn1, pn[0], eta1, span1, bn1)
+        bsplines_kernels.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
+        bsplines_kernels.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
 
         # sum up result
-        res[0] = res[0] + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                                 bn1, bn2, bn3, span1, span2, span3, coeffs1, starts)
-        res[1] = res[1] + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                                 bn1, bn2, bn3, span1, span2, span3, coeffs2, starts)
-        res[2] = res[2] + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
-                                                 bn1, bn2, bn3, span1, span2, span3, coeffs3, starts)
+        res[0] = res[0] + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
+                                                                       bn1, bn2, bn3, span1, span2, span3, coeffs1, starts)
+        res[1] = res[1] + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
+                                                                       bn1, bn2, bn3, span1, span2, span3, coeffs2, starts)
+        res[2] = res[2] + evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
+                                                                       bn1, bn2, bn3, span1, span2, span3, coeffs3, starts)
 
     #$ omp end parallel
 
@@ -343,7 +343,7 @@ def eval_H1vec_at_particles(markers: 'float[:,:]',
 def eval_magnetic_moment_6d(markers: 'float[:,:]',
                             pn: 'int[:]',
                             tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                            starts0: 'int[:]',
+                            starts: 'int[:]',
                             b_cart_1: 'float[:,:,:]',
                             b_cart_2: 'float[:,:,:]',
                             b_cart_3: 'float[:,:,:]'):
@@ -364,7 +364,7 @@ def eval_magnetic_moment_6d(markers: 'float[:,:]',
         tn1, tn2, tn3 : array[float]
             knot vectors
 
-        starts0 : array[int]
+        starts : array[int]
             starts of the stencil objects (0-form)
 
         unit_b_cart_x : array[float]
@@ -395,21 +395,21 @@ def eval_magnetic_moment_6d(markers: 'float[:,:]',
         v[:] = markers[ip, 3:6]
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
 
-        bsp.b_splines_slim(tn1, pn[0], eta1, span1, bn1)
-        bsp.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
-        bsp.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
+        bsplines_kernels.b_splines_slim(tn1, pn[0], eta1, span1, bn1)
+        bsplines_kernels.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
+        bsplines_kernels.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
 
         # b_cart
-        b_cart[0] = eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b_cart_1, starts0)
-        b_cart[1] = eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b_cart_2, starts0)
-        b_cart[2] = eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b_cart_3, starts0)
+        b_cart[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b_cart_1, starts)
+        b_cart[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b_cart_2, starts)
+        b_cart[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b_cart_3, starts)
 
         # calculate absB
         absB = sqrt(b_cart[0]**2 + b_cart[1]**2 + b_cart[2]**2)
@@ -420,11 +420,11 @@ def eval_magnetic_moment_6d(markers: 'float[:,:]',
             norm_b_cart[:] = b_cart
 
         # calculate parallel velocity
-        v_parallel = linalg.scalar_dot(norm_b_cart, v)
+        v_parallel = linalg_kernels.scalar_dot(norm_b_cart, v)
 
         # extract perpendicular velocity
-        linalg.cross(v, norm_b_cart, temp)
-        linalg.cross(norm_b_cart, temp, v_perp)
+        linalg_kernels.cross(v, norm_b_cart, temp)
+        linalg_kernels.cross(norm_b_cart, temp, v_perp)
 
         v_perp_square = (v_perp[0]**2 + v_perp[1]**2 + v_perp[2]**2)
 
@@ -440,7 +440,7 @@ def eval_magnetic_moment_6d(markers: 'float[:,:]',
 def eval_magnetic_moment_5d(markers: 'float[:,:]',
                             pn: 'int[:]',
                             tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                            starts0: 'int[:]',
+                            starts: 'int[:]',
                             absB: 'float[:,:,:]'):
     """
     Evaluate parallel velocity and magnetic moment of each particles and asign it into markers[ip,3] and markers[ip,4] respectively.
@@ -459,7 +459,7 @@ def eval_magnetic_moment_5d(markers: 'float[:,:]',
         tn1, tn2, tn3 : array[float]
             knot vectors
 
-        starts0 : array[int]
+        starts : array[int]
             starts of the stencil objects (0-form)
 
         unit_b_cart_x : array[float]
@@ -484,16 +484,16 @@ def eval_magnetic_moment_5d(markers: 'float[:,:]',
         v_perp = markers[ip, 4]
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
 
-        bsp.b_splines_slim(tn1, pn[0], eta1, span1, bn1)
-        bsp.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
-        bsp.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
+        bsplines_kernels.b_splines_slim(tn1, pn[0], eta1, span1, bn1)
+        bsplines_kernels.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
+        bsplines_kernels.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
 
-        B0 = eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, absB, starts0)
+        B0 = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, absB, starts)
 
         # magnetic moment
         markers[ip, 4] = 1/2 * v_perp**2 / abs(B0)
@@ -503,7 +503,7 @@ def eval_magnetic_moment_5d(markers: 'float[:,:]',
 def eval_magnetic_energy(markers: 'float[:,:]',
                          pn: 'int[:]',
                          tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                         starts0: 'int[:]',
+                         starts: 'int[:]',
                          PB: 'float[:,:,:]'):
     """
     Evaluate magnetic field energy of each particles
@@ -519,7 +519,7 @@ def eval_magnetic_energy(markers: 'float[:,:]',
         tn1, tn2, tn3 : array[float]
             knot vectors
 
-        starts0 : array[int]
+        starts : array[int]
             starts of the stencil objects (0-form)
 
         b0 : array[float]
@@ -543,16 +543,16 @@ def eval_magnetic_energy(markers: 'float[:,:]',
         eta3 = markers[ip, 2]
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
 
-        bsp.b_splines_slim(tn1, pn[0], eta1, span1, bn1)
-        bsp.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
-        bsp.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
+        bsplines_kernels.b_splines_slim(tn1, pn[0], eta1, span1, bn1)
+        bsplines_kernels.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
+        bsplines_kernels.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
 
-        B0 = eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, PB, starts0)
+        B0 = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, PB, starts)
 
         # if B0 < 0:
         #     print('minus', B0)
@@ -560,16 +560,17 @@ def eval_magnetic_energy(markers: 'float[:,:]',
         markers[ip, 8] = B0*markers[ip, 4]
 
 
-@stack_array('grad_PB', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+@stack_array('grad_PB', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'tmp')
 def accum_gradI_const(markers: 'float[:,:]', n_markers_tot: 'int',
                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                      starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                      starts: 'int[:]',
                       grad_PB1: 'float[:,:,:]', grad_PB2: 'float[:,:,:]', grad_PB3: 'float[:,:,:]',
                       scale: 'float'):
     r"""TODO
     """
     # allocate for magnetic field evaluation
     grad_PB = empty(3, dtype=float)
+    tmp = empty(3, dtype=float)
 
     bn1 = empty(pn[0] + 1, dtype=float)
     bn2 = empty(pn[1] + 1, dtype=float)
@@ -601,24 +602,24 @@ def accum_gradI_const(markers: 'float[:,:]', n_markers_tot: 'int',
         mu = markers[ip, 4]
 
         # b-field evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         # grad_PB; 1form
-        grad_PB[0] = eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts1[0])
-        grad_PB[1] = eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts1[1])
-        grad_PB[2] = eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts1[2])
+        grad_PB[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts)
+        grad_PB[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts)
+        grad_PB[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts)
 
-        res += linalg.scalar_dot(markers[ip, 15:18],
-                                 grad_PB) * weight * mu * scale
+        tmp[:] = markers[ip, 15:18]
+        res += linalg_kernels.scalar_dot(tmp, grad_PB) * weight * mu * scale
 
     return res/n_markers_tot
 
@@ -626,7 +627,7 @@ def accum_gradI_const(markers: 'float[:,:]', n_markers_tot: 'int',
 @stack_array('bn1', 'bn2', 'bn3')
 def accum_en_fB(markers: 'float[:,:]', n_markers_tot: 'int',
                 pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                starts: 'int[:]',
                 PB: 'float[:,:,:]'):
     r"""TODO
     """
@@ -657,16 +658,16 @@ def accum_en_fB(markers: 'float[:,:]', n_markers_tot: 'int',
         weight = markers[ip, 5]
 
         # b-field evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
 
-        bsp.b_splines_slim(tn1, pn[0], eta1, span1, bn1)
-        bsp.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
-        bsp.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
+        bsplines_kernels.b_splines_slim(tn1, pn[0], eta1, span1, bn1)
+        bsplines_kernels.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
+        bsplines_kernels.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
 
-        B0 = eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, PB, starts0)
+        B0 = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, PB, starts)
 
         res += abs(B0)*mu*weight
 
@@ -767,7 +768,7 @@ def check_eta_mid(markers: 'float[:,:]'):
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'e', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'a_form', 'dfta_form')
 def canonical_kinetic_particles(res: 'float[:]', markers: 'float[:,:]',
                                 pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                starts1: 'int[:,:]',
+                                starts: 'int[:]',
                                 kind_map: int, params_map: 'float[:]',
                                 p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                 ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -842,32 +843,32 @@ def canonical_kinetic_particles(res: 'float[:]', markers: 'float[:,:]',
         v[:] = markers[ip, 3:6]
         w = markers[ip,   6]
         # evaluate Jacobian, result in dfm
-        map_eval.df(e[0], e[1], e[2],
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(e[0], e[1], e[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
-        linalg.matrix_inv(dfm, dfinv)
-        linalg.transpose(dfinv, dfinv_t)
+        linalg_kernels.matrix_inv(dfm, dfinv)
+        linalg_kernels.transpose(dfinv, dfinv_t)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], e[0])
-        span2 = bsp.find_span(tn2, pn[1], e[1])
-        span3 = bsp.find_span(tn3, pn[2], e[2])
+        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
 
         # magnetic field: 2-form components
-        a_form[0] = eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, a1_1, starts1[0])
-        a_form[1] = eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, a1_2, starts1[1])
-        a_form[2] = eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, a1_3, starts1[2])
+        a_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, a1_1, starts)
+        a_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, a1_2, starts)
+        a_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, a1_3, starts)
 
         dfta_form[0] = dfinv_t[0, 0] * a_form[0] + \
             dfinv_t[0, 1] * a_form[1] + dfinv_t[0, 2] * a_form[2]
@@ -960,10 +961,10 @@ def thermal_energy(res: 'float[:]', density: 'float[:,:,:,:,:,:]',
                                 vv = 1.0
 
                             # evaluate Jacobian, result in dfm
-                            map_eval.df(eta1, eta2, eta3, kind_map, params_map, t1_map, t2_map,
-                                        t3_map, p_map, ind1_map, ind2_map, ind3_map, cx, cy, cz, dfm)
+                            evaluation_kernels.df(eta1, eta2, eta3, kind_map, params_map, t1_map, t2_map,
+                                                  t3_map, p_map, ind1_map, ind2_map, ind3_map, cx, cy, cz, dfm)
 
-                            det_df = linalg.det(dfm)
+                            det_df = linalg_kernels.det(dfm)
 
                             res[0] += vv * det_df * log(vv) * wvol
 

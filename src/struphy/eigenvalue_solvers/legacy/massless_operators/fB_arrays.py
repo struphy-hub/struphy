@@ -2,7 +2,7 @@ from mpi4py import MPI
 import numpy                                as np
 import scipy.sparse                         as spa
 import struphy.geometry.mappings_3d_fast    as mapping_fast
-import struphy.linear_algebra.core          as linalg
+import struphy.linear_algebra.linalg_kernels          as linalg
 import struphy.geometry.mappings_3d         as mapping3d
 
 import time

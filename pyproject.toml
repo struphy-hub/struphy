@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "2.0.5"
+version = "2.1.1"
 readme = "README.md"
 requires-python = ">=3.7, <3.12"
 license = {file = "LICENSE"}
@@ -19,29 +19,30 @@ classifiers = [
     "Programming Language :: Python :: 3",
     ]
 dependencies = [
+    'numpy',
+    'scipy',
+    'mpi4py',
     'h5py',
     'matplotlib',
-    'mpi4py',
-    'numpy',
-    'pyccel>=1.10.0',
     'PyYAML',
-    'scipy',
+    'vtk',
     'pytest',
     'pytest-mpi',
-    'mistune',
     'sphinx',
     'sphinxcontrib-napoleon',
     'pydata-sphinx-theme',
     'nbsphinx',
     'notebook',
     'm2r2',
-    'vtk',
+    'mistune',
     'docutils',
     'wheel',
     'tqdm',
-    'gvec-to-python',
     'argcomplete',
     'ipyparallel',
+    'pytest-monitor',
+    'pyccel>=1.10.0',
+    'gvec-to-python',
 ]
 
 [project.urls]
@@ -77,8 +78,5 @@ struphy = "struphy.console.main:struphy"
                     ]
                     
 struphy = ['compile_struphy.mk',
-           'psydac-0.1.5-py3-none-any.whl',
-           'i_path.txt',
-           'o_path.txt',
-           'p_path.txt',
+           'psydac-0.1.7-py3-none-any.whl',
            ]

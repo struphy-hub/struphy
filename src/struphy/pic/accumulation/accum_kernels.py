@@ -5,27 +5,27 @@ from pyccel.decorators import stack_array
 
 from numpy import zeros, empty, sqrt, shape, floor, log
 
-import struphy.geometry.map_eval as map_eval
-import struphy.b_splines.bsplines_kernels as bsp
-import struphy.b_splines.bspline_evaluation_3d as eval_3d
-import struphy.linear_algebra.core as linalg
-import struphy.pic.accumulation.mat_vec_filler as mvf
-import struphy.pic.accumulation.filler_kernels as fk
+import struphy.geometry.evaluation_kernels as evaluation_kernels
+import struphy.bsplines.bsplines_kernels as bsplines_kernels
+import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
+import struphy.linear_algebra.linalg_kernels as linalg_kernels
+import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels
+import struphy.pic.accumulation.filler_kernels as filler_kernels
 
 
 def a_documentation():
     r'''
     Explainer for arguments of accumulation kernels.
-    
+
     Function naming conventions:
-    
+
     * use the model name, all lower-case letters (e.g. ``lin_vlasov_maxwell``)
     * in case of multiple accumulations in one model, attach ``_1``, ``_2`` or the species name.
-    
+
     These kernels are passed to :class:`struphy.pic.accumulation.particles_to_grid.Accumulator` and called via::
-    
+
         Accumulator.accumulate()
-        
+
     The arguments passed to each kernel have a pre-defined order, defined in :class:`struphy.pic.accumulation.particles_to_grid.Accumulator`.
     This order is as follows (you can copy and paste from existing accum_kernels functions):
 
@@ -39,11 +39,8 @@ def a_documentation():
         * ``tn2: 'float[:]'``
         * ``tn3: 'float[:]'``    
 
-    3. mpi.comm info of all spaces:
-        - ``starts0: 'int[:]'``               # start indices of current process of elements in space V0
-        - ``starts1: 'int[:,:]'``             # start indices of current process of elements in space V1 in format (component, direction)
-        - ``starts2: 'int[:,:]'``             # start indices of current process of elements in space V2 in format (component, direction)
-        - ``starts3: 'int[:]'``               # start indices of current process of elements in space V3
+    3. mpi.comm start indices of FE coeffs on current process:
+        - ``starts: 'int[:]'``               # start indices of current process 
 
     4. Mapping info:
         - ``kind_map: 'int'``                # mapping identifier 
@@ -88,7 +85,7 @@ def a_documentation():
 @stack_array('bn1', 'bn2', 'bn3')
 def poisson(markers: 'float[:,:]', n_markers_tot: 'int',
             pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+            starts: 'int[:]',
             kind_map: 'int', params_map: 'float[:]',
             p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
             ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -138,18 +135,18 @@ def poisson(markers: 'float[:,:]', n_markers_tot: 'int',
         filling = alpha**2 / epsilon * markers[ip, 6] / n_markers_tot
 
         # spans (i.e. index for non-vanishing B-spline basis functions)
-        span1 = bsp.find_span(tn1, int(pn[0]), eta1)
-        span2 = bsp.find_span(tn2, int(pn[1]), eta2)
-        span3 = bsp.find_span(tn3, int(pn[2]), eta3)
+        span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
+        span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
+        span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
 
         # compute bn, bd, i.e. values for non-vanishing B-/splines at position eta
-        bsp.b_splines_slim(tn1, int(pn[0]), eta1, span1, bn1)
-        bsp.b_splines_slim(tn2, int(pn[1]), eta2, span2, bn2)
-        bsp.b_splines_slim(tn3, int(pn[2]), eta3, span3, bn3)
+        bsplines_kernels.b_splines_slim(tn1, int(pn[0]), eta1, span1, bn1)
+        bsplines_kernels.b_splines_slim(tn2, int(pn[1]), eta2, span2, bn2)
+        bsplines_kernels.b_splines_slim(tn3, int(pn[2]), eta3, span3, bn3)
 
         # call the appropriate matvec filler
-        fk.fill_vec(int(pn[0]), int(pn[1]), int(pn[2]), bn1, bn2, bn3, span1, span2, span3,
-                    starts0, vec, filling)
+        filler_kernels.fill_vec(int(pn[0]), int(pn[1]), int(pn[2]), bn1, bn2, bn3, span1, span2, span3,
+                                starts, vec, filling)
 
     #$ omp end parallel
 
@@ -157,7 +154,7 @@ def poisson(markers: 'float[:,:]', n_markers_tot: 'int',
 @stack_array('cell_left', 'point_left', 'point_right', 'cell_number', 'temp1', 'temp4', 'compact', 'grids_shapex', 'grids_shapey', 'grids_shapez')
 def hybrid_fA_density(markers: 'float[:,:]', n_markers_tot: 'int',
                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                      starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                      starts: 'int[:]',
                       kind_map: 'int', params_map: 'float[:]',
                       p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                       ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -215,15 +212,15 @@ def hybrid_fA_density(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # metric coeffs
-        det_df = linalg.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         weight = markers[ip, 6] / \
             (p_size[0]*p_size[1]*p_size[2])/n_markers_tot/det_df
@@ -265,15 +262,15 @@ def hybrid_fA_density(markers: 'float[:,:]', n_markers_tot: 'int',
         span3 = int(eta3*Nel[2]) + int(pn[2])
 
         # =========== kernel part (periodic bundary case) ==========
-        mvf.hybrid_density(Nel, pn, cell_left, cell_number, span1, span2, span3, starts0, ie1, ie2, ie3, temp1, temp4, quad, quad_pts_x,
-                           quad_pts_y, quad_pts_z, compact, eta1, eta2, eta3, mat, weight, p_shape, p_size, grids_shapex, grids_shapey, grids_shapez)
+        particle_to_mat_kernels.hybrid_density(Nel, pn, cell_left, cell_number, span1, span2, span3, starts, ie1, ie2, ie3, temp1, temp4, quad, quad_pts_x,
+                                               quad_pts_y, quad_pts_z, compact, eta1, eta2, eta3, mat, weight, p_shape, p_size, grids_shapex, grids_shapey, grids_shapez)
     #$ omp end parallel
 
 
-@stack_array('dfm', 'df_t', 'df_inv', 'df_inv_times_v', 'filling_m', 'filling_v')
+@stack_array('dfm', 'df_t', 'df_inv', 'df_inv_times_v', 'filling_m', 'filling_v', 'v')
 def hybrid_fA_Arelated(markers: 'float[:,:]', n_markers_tot: 'int',
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                       starts: 'int[:]',
                        kind_map: 'int', params_map: 'float[:]',
                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -296,18 +293,6 @@ def hybrid_fA_Arelated(markers: 'float[:,:]', n_markers_tot: 'int',
 
         B_p^\mu &= \sqrt{f_0(\eta_p, v_p)} * w_p * [ DF^{-1}(\eta_p) * v_p ]_\mu  
 
-    Parameters
-    ----------
-        f0_spec : int
-            Specifier for kinetic background, see :ref:`kinetic_backgrounds`  
-
-        moms_spec : array[int]
-            Specifier for the seven moments n0, u0x, u0y, u0z, vth0x, vth0y, vth0z (in this order).
-            Is 0 for constant moment, for more see :meth:`struphy.kinetic_background.moments_kernels.moments`.
-
-        f0_params : array[float]
-            Parameters needed to specify the moments; the order is specified in :ref:`kinetic_moments` for the respective functions available.
-
     Note
     ----
         The above parameter list contains only the model specific input arguments.
@@ -321,6 +306,7 @@ def hybrid_fA_Arelated(markers: 'float[:,:]', n_markers_tot: 'int',
     df_inv_times_v = empty(3, dtype=float)
     filling_m = empty((3, 3), dtype=float)
     filling_v = empty(3, dtype=float)
+    v = empty(3, dtype=float)
 
     # get number of markers
     n_markers = shape(markers)[0]
@@ -339,19 +325,19 @@ def hybrid_fA_Arelated(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # evaluate background
-        v = markers[ip, 3:6]
+        v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # filling functions
-        linalg.matrix_inv(dfm, df_inv)
-        linalg.matrix_vector(df_inv, v, df_inv_times_v)
+        linalg_kernels.matrix_inv(dfm, df_inv)
+        linalg_kernels.matrix_vector(df_inv, v, df_inv_times_v)
 
         weight = markers[ip, 6]
 
@@ -381,15 +367,15 @@ def hybrid_fA_Arelated(markers: 'float[:,:]', n_markers_tot: 'int',
         filling_v[:] = weight / n_markers_tot * df_inv_times_v
 
         # call the appropriate matvec filler
-        mvf.m_v_fill_b_v1_symm(pn, tn1, tn2, tn3, starts1,
-                               eta1, eta2, eta3,
-                               mat11, mat12, mat13, mat22, mat23, mat33,
-                               filling_m[0, 0], filling_m[0,
-                                                          1], filling_m[0, 2],
-                               filling_m[1, 1], filling_m[1,
-                                                          2], filling_m[2, 2],
-                               vec1, vec2, vec3,
-                               filling_v[0], filling_v[1], filling_v[2])
+        particle_to_mat_kernels.m_v_fill_b_v1_symm(pn, tn1, tn2, tn3, starts,
+                                                   eta1, eta2, eta3,
+                                                   mat11, mat12, mat13, mat22, mat23, mat33,
+                                                   filling_m[0, 0], filling_m[0,
+                                                                              1], filling_m[0, 2],
+                                                   filling_m[1, 1], filling_m[1,
+                                                                              2], filling_m[2, 2],
+                                                   vec1, vec2, vec3,
+                                                   filling_v[0], filling_v[1], filling_v[2])
 
     #$ omp end parallel
 
@@ -397,7 +383,7 @@ def hybrid_fA_Arelated(markers: 'float[:,:]', n_markers_tot: 'int',
 @stack_array('bn1', 'bn2', 'bn3')
 def linear_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
                                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                  starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                  starts: 'int[:]',
                                   kind_map: 'int', params_map: 'float[:]',
                                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -459,18 +445,18 @@ def linear_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
         filling = alpha**2 * kappa * markers[ip, 6] * sqrt(f0) / n_markers_tot
 
         # spans (i.e. index for non-vanishing B-spline basis functions)
-        span1 = bsp.find_span(tn1, int(pn[0]), eta1)
-        span2 = bsp.find_span(tn2, int(pn[1]), eta2)
-        span3 = bsp.find_span(tn3, int(pn[2]), eta3)
+        span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
+        span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
+        span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
 
         # compute bn, bd, i.e. values for non-vanishing B-/splines at position eta
-        bsp.b_splines_slim(tn1, int(pn[0]), eta1, span1, bn1)
-        bsp.b_splines_slim(tn2, int(pn[1]), eta2, span2, bn2)
-        bsp.b_splines_slim(tn3, int(pn[2]), eta3, span3, bn3)
+        bsplines_kernels.b_splines_slim(tn1, int(pn[0]), eta1, span1, bn1)
+        bsplines_kernels.b_splines_slim(tn2, int(pn[1]), eta2, span2, bn2)
+        bsplines_kernels.b_splines_slim(tn3, int(pn[2]), eta3, span3, bn3)
 
         # call the appropriate matvec filler
-        fk.fill_vec(int(pn[0]), int(pn[1]), int(pn[2]), bn1, bn2, bn3, span1, span2, span3,
-                    starts0, vec, filling)
+        filler_kernels.fill_vec(int(pn[0]), int(pn[1]), int(pn[2]), bn1, bn2, bn3, span1, span2, span3,
+                                starts, vec, filling)
 
     #$ omp end parallel
 
@@ -478,7 +464,7 @@ def linear_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
 @stack_array('dfm', 'df_inv', 'v', 'df_inv_times_v', 'filling_m', 'filling_v')
 def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                          starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                          starts: 'int[:]',
                           kind_map: 'int', params_map: 'float[:]',
                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -559,38 +545,40 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
         f0 = f0_values[ip]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # invert Jacobian matrix
-        linalg.matrix_inv(dfm, df_inv)
+        linalg_kernels.matrix_inv(dfm, df_inv)
 
         # compute DF^{-1} v
-        linalg.matrix_vector(df_inv, v, df_inv_v)
+        linalg_kernels.matrix_vector(df_inv, v, df_inv_v)
 
         # filling_m = alpha^2 * kappa^2 * f0 / (N * s_0 * v_th^2) * (DF^{-1} v_p)_mu * (DF^{-1} v_p)_nu
-        linalg.outer(df_inv_v, df_inv_v, filling_m)
-        filling_m[:, :] *= alpha**2 * kappa**2 * f0 / (vth**2 * n_markers_tot * markers[ip, 7])
+        linalg_kernels.outer(df_inv_v, df_inv_v, filling_m)
+        filling_m[:, :] *= alpha**2 * kappa**2 * f0 / \
+            (vth**2 * n_markers_tot * markers[ip, 7])
 
         # filling_v = alpha^2 * kappa / N * w_p * sqrt{f_0} DL^{-1} * v_p
-        filling_v[:] = alpha**2 * kappa * sqrt(f0) * markers[ip, 6] * df_inv_v / n_markers_tot
+        filling_v[:] = alpha**2 * kappa * \
+            sqrt(f0) * markers[ip, 6] * df_inv_v / n_markers_tot
 
         # call the appropriate matvec filler
-        mvf.m_v_fill_b_v1_symm(pn,
-                               tn1, tn2, tn3,
-                               starts1,
-                               eta1, eta2, eta3,
-                               mat11, mat12, mat13, mat22, mat23, mat33,
-                               filling_m[0, 0], filling_m[0,
-                                                          1], filling_m[0, 2],
-                               filling_m[1, 1], filling_m[1,
-                                                          2], filling_m[2, 2],
-                               vec1, vec2, vec3,
-                               filling_v[0], filling_v[1], filling_v[2])
+        particle_to_mat_kernels.m_v_fill_b_v1_symm(pn,
+                                                   tn1, tn2, tn3,
+                                                   starts,
+                                                   eta1, eta2, eta3,
+                                                   mat11, mat12, mat13, mat22, mat23, mat33,
+                                                   filling_m[0, 0], filling_m[0,
+                                                                              1], filling_m[0, 2],
+                                                   filling_m[1, 1], filling_m[1,
+                                                                              2], filling_m[2, 2],
+                                                   vec1, vec2, vec3,
+                                                   filling_v[0], filling_v[1], filling_v[2])
 
     #$ omp end parallel
 
@@ -598,7 +586,7 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
 @stack_array('bn1', 'bn2', 'bn3')
 def vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                           starts: 'int[:]',
                            kind_map: 'int', params_map: 'float[:]',
                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -641,18 +629,18 @@ def vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
         filling = markers[ip, 6] / n_markers_tot
 
         # spans (i.e. index for non-vanishing B-spline basis functions)
-        span1 = bsp.find_span(tn1, int(pn[0]), eta1)
-        span2 = bsp.find_span(tn2, int(pn[1]), eta2)
-        span3 = bsp.find_span(tn3, int(pn[2]), eta3)
+        span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
+        span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
+        span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
 
         # compute bn, bd, i.e. values for non-vanishing B-/splines at position eta
-        bsp.b_splines_slim(tn1, int(pn[0]), eta1, span1, bn1)
-        bsp.b_splines_slim(tn2, int(pn[1]), eta2, span2, bn2)
-        bsp.b_splines_slim(tn3, int(pn[2]), eta3, span3, bn3)
+        bsplines_kernels.b_splines_slim(tn1, int(pn[0]), eta1, span1, bn1)
+        bsplines_kernels.b_splines_slim(tn2, int(pn[1]), eta2, span2, bn2)
+        bsplines_kernels.b_splines_slim(tn3, int(pn[2]), eta3, span3, bn3)
 
         # call the appropriate matvec filler
-        fk.fill_vec(int(pn[0]), int(pn[1]), int(pn[2]), bn1, bn2, bn3, span1, span2, span3,
-                    starts0, vec, filling)
+        filler_kernels.fill_vec(int(pn[0]), int(pn[1]), int(pn[2]), bn1, bn2, bn3, span1, span2, span3,
+                                starts, vec, filling)
 
     #$ omp end parallel
 
@@ -660,7 +648,7 @@ def vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
 @stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'v', 'df_inv_times_v', 'filling_m', 'filling_v')
 def vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                   starts: 'int[:]',
                    kind_map: 'int', params_map: 'float[:]',
                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -717,12 +705,12 @@ def vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # compute shifted and stretched velocity
         v[0] = markers[ip, 3]
@@ -730,10 +718,10 @@ def vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
         v[2] = markers[ip, 5]
 
         # filling functions
-        linalg.matrix_inv(dfm, df_inv)
-        linalg.transpose(df_inv, df_inv_t)
-        linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
-        linalg.matrix_vector(df_inv, v, df_inv_times_v)
+        linalg_kernels.matrix_inv(dfm, df_inv)
+        linalg_kernels.transpose(df_inv, df_inv_t)
+        linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
+        linalg_kernels.matrix_vector(df_inv, v, df_inv_times_v)
 
         # filling_m = w_p * DF^{-1} * DF^{-T}
         filling_m[:, :] = markers[ip, 6] * g_inv / n_markers_tot
@@ -742,24 +730,24 @@ def vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
         filling_v[:] = markers[ip, 6] * df_inv_times_v / n_markers_tot
 
         # call the appropriate matvec filler
-        mvf.m_v_fill_b_v1_symm(pn,
-                               tn1, tn2, tn3,
-                               starts1,
-                               eta1, eta2, eta3,
-                               mat11, mat12, mat13, mat22, mat23, mat33,
-                               filling_m[0, 0], filling_m[0,
-                                                          1], filling_m[0, 2],
-                               filling_m[1, 1], filling_m[1,
-                                                          2], filling_m[2, 2],
-                               vec1, vec2, vec3,
-                               filling_v[0], filling_v[1], filling_v[2])
+        particle_to_mat_kernels.m_v_fill_b_v1_symm(pn,
+                                                   tn1, tn2, tn3,
+                                                   starts,
+                                                   eta1, eta2, eta3,
+                                                   mat11, mat12, mat13, mat22, mat23, mat33,
+                                                   filling_m[0, 0], filling_m[0,
+                                                                              1], filling_m[0, 2],
+                                                   filling_m[1, 1], filling_m[1,
+                                                                              2], filling_m[2, 2],
+                                                   vec1, vec2, vec3,
+                                                   filling_v[0], filling_v[1], filling_v[2])
 
     #$ omp end parallel
 
 
 def delta_f_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
                                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                                   starts: 'int[:]',
                                    kind_map: 'int', params_map: 'float[:]',
                                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -817,9 +805,9 @@ def delta_f_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
             f0)) * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2
 
         # call the appropriate matvec filler
-        mvf.scalar_fill_b_v0(pn, tn1, tn2, tn3,
-                             starts0, eta1, eta2, eta3,
-                             vec, filling)
+        particle_to_mat_kernels.scalar_fill_b_v0(pn, tn1, tn2, tn3,
+                                                 starts, eta1, eta2, eta3,
+                                                 vec, filling)
 
     #$ omp end parallel
 
@@ -827,7 +815,7 @@ def delta_f_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
 @stack_array('dfm', 'df_inv', 'v', 'df_inv_times_v', 'filling_v')
 def delta_f_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                           starts: 'int[:]',
                            kind_map: 'int', params_map: 'float[:]',
                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -890,12 +878,12 @@ def delta_f_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
         f0 = f0_values[ip]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # compute shifted and stretched velocity
         v[0] = markers[ip, 3]
@@ -903,8 +891,8 @@ def delta_f_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
         v[2] = markers[ip, 5]
 
         # filling functions
-        linalg.matrix_inv(dfm, df_inv)
-        linalg.matrix_vector(df_inv, v, filling_v)
+        linalg_kernels.matrix_inv(dfm, df_inv)
+        linalg_kernels.matrix_vector(df_inv, v, filling_v)
 
         if substep == 0:
             # filling_v = alpha^2 / (N * s_0) * (f_0 / ln(f_0) - f_0) * DL^{-1} * v_p
@@ -912,13 +900,14 @@ def delta_f_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                 (f0 / log(f0) - f0)
         elif substep == 1:
             # filling_v = alpha^2 * kappa * w_p / (N * ln(f_0)) * DL^{-1} * v_p
-            filling_v[:] *= alpha**2 * kappa * markers[ip, 6] / (n_markers_tot * log(f0))
+            filling_v[:] *= alpha**2 * kappa * \
+                markers[ip, 6] / (n_markers_tot * log(f0))
 
         # call the appropriate matvec filler
-        mvf.vec_fill_b_v1(pn, tn1, tn2, tn3, starts1,
-                          eta1, eta2, eta3,
-                          vec1, vec2, vec3,
-                          filling_v[0], filling_v[1], filling_v[2])
+        particle_to_mat_kernels.vec_fill_b_v1(pn, tn1, tn2, tn3, starts,
+                                              eta1, eta2, eta3,
+                                              vec1, vec2, vec3,
+                                              filling_v[0], filling_v[1], filling_v[2])
 
     #$ omp end parallel
 
@@ -926,7 +915,7 @@ def delta_f_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
 @stack_array('dfm', 'df_inv', 'v', 'df_inv_times_v', 'filling_v', 'filling_m')
 def delta_f_vlasov_maxwell_scn(markers: 'float[:,:]', n_markers_tot: 'int',
                                pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                               starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                               starts: 'int[:]',
                                kind_map: 'int', params_map: 'float[:]',
                                p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -940,7 +929,8 @@ def delta_f_vlasov_maxwell_scn(markers: 'float[:,:]', n_markers_tot: 'int',
                                vec1: 'float[:,:,:]',
                                vec2: 'float[:,:,:]',
                                vec3: 'float[:,:,:]',
-                               f0_values: 'float[:]',  # model specific argument
+                               # model specific argument
+                               f0_values: 'float[:]',
                                vth: 'float',  # model specific argument
                                alpha: 'float',  # model specific argument
                                kappa: 'float'):  # model specific argument
@@ -996,12 +986,12 @@ def delta_f_vlasov_maxwell_scn(markers: 'float[:,:]', n_markers_tot: 'int',
         f0 = f0_values[ip]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
         # compute shifted and stretched velocity
         v[0] = markers[ip, 3]
@@ -1009,9 +999,9 @@ def delta_f_vlasov_maxwell_scn(markers: 'float[:,:]', n_markers_tot: 'int',
         v[2] = markers[ip, 5]
 
         # filling functions
-        linalg.matrix_inv(dfm, df_inv)
-        linalg.matrix_vector(df_inv, v, df_inv_times_v)
-        linalg.outer(df_inv_times_v, df_inv_times_v, filling_m)
+        linalg_kernels.matrix_inv(dfm, df_inv)
+        linalg_kernels.matrix_vector(df_inv, v, df_inv_times_v)
+        linalg_kernels.outer(df_inv_times_v, df_inv_times_v, filling_m)
 
         # filling_m = alpha^2 * kappa^2 * w_p / (N * vth^2 * log^2(f_0))
         filling_m[:, :] *= alpha**2 * kappa**2 * markers[ip, 6] / \
@@ -1022,18 +1012,18 @@ def delta_f_vlasov_maxwell_scn(markers: 'float[:,:]', n_markers_tot: 'int',
             (n_markers_tot * log(f0))
 
         # call the appropriate matvec filler
-        mvf.m_v_fill_b_v1_symm(pn, tn1, tn2, tn3, starts1,
-                               eta1, eta2, eta3,
-                               mat11, mat12, mat13,
-                               mat22, mat23, mat33,
-                               filling_m[0, 0],
-                               filling_m[0, 1],
-                               filling_m[0, 2],
-                               filling_m[1, 1],
-                               filling_m[1, 2],
-                               filling_m[2, 2],
-                               vec1, vec2, vec3,
-                               filling_v[0], filling_v[1], filling_v[2])
+        particle_to_mat_kernels.m_v_fill_b_v1_symm(pn, tn1, tn2, tn3, starts,
+                                                   eta1, eta2, eta3,
+                                                   mat11, mat12, mat13,
+                                                   mat22, mat23, mat33,
+                                                   filling_m[0, 0],
+                                                   filling_m[0, 1],
+                                                   filling_m[0, 2],
+                                                   filling_m[1, 1],
+                                                   filling_m[1, 2],
+                                                   filling_m[2, 2],
+                                                   vec1, vec2, vec3,
+                                                   filling_v[0], filling_v[1], filling_v[2])
 
     #$ omp end parallel
 
@@ -1041,7 +1031,7 @@ def delta_f_vlasov_maxwell_scn(markers: 'float[:,:]', n_markers_tot: 'int',
 @stack_array('b', 'b_prod', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'dfm', 'df_inv', 'df_inv_t' 'g_inv', 'tmp1', 'tmp2')
 def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                    starts: 'int[:]',
                     kind_map: 'int', params_map: 'float[:]',
                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1110,20 +1100,23 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # b-field evaluation
-        span1 = bsp.find_span(tn1, int(pn[0]), eta1)
-        span2 = bsp.find_span(tn2, int(pn[1]), eta2)
-        span3 = bsp.find_span(tn3, int(pn[2]), eta3)
+        span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
+        span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
+        span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
 
-        bsp.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(
+            tn1, int(pn[0]), eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(
+            tn2, int(pn[1]), eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(
+            tn3, int(pn[2]), eta3, span3, bn3, bd3)
 
-        b[0] = eval_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts2[0])
-        b[1] = eval_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
-        b[2] = eval_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
+        b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts)
+        b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts)
+        b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b2_3, starts)
 
         # operator bx() as matrix
         b_prod[0, 1] = -b[2]
@@ -1134,14 +1127,14 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
         b_prod[2, 1] = +b[0]
 
         # evaluate Jacobian matrix and Jacobian determinant
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
-        det_df = linalg.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # marker weight
         weight = markers[ip, 6]
@@ -1154,32 +1147,32 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
             filling_m23 = - weight * b_prod[1, 2] * scale_mat
 
             # call the appropriate matvec filler
-            mvf.mat_fill_v0vec_asym(pn, span1, span2, span3,
-                                    bn1, bn2, bn3,
-                                    starts0,
-                                    mat12, mat13, mat23,
-                                    filling_m12, filling_m13, filling_m23)
+            particle_to_mat_kernels.mat_fill_v0vec_asym(pn, span1, span2, span3,
+                                                        bn1, bn2, bn3,
+                                                        starts,
+                                                        mat12, mat13, mat23,
+                                                        filling_m12, filling_m13, filling_m23)
 
         elif basis_u == 1:
 
             # filling functions
-            linalg.matrix_inv_with_det(dfm, det_df, df_inv)
-            linalg.transpose(df_inv, df_inv_t)
-            linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
-            linalg.matrix_matrix(g_inv, b_prod, tmp1)
-            linalg.matrix_matrix(tmp1, g_inv, tmp2)
+            linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+            linalg_kernels.transpose(df_inv, df_inv_t)
+            linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
+            linalg_kernels.matrix_matrix(g_inv, b_prod, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
 
             filling_m12 = - weight * tmp2[0, 1] * scale_mat
             filling_m13 = - weight * tmp2[0, 2] * scale_mat
             filling_m23 = - weight * tmp2[1, 2] * scale_mat
 
             # call the appropriate matvec filler
-            mvf.mat_fill_v1_asym(pn, span1, span2, span3,
-                                 bn1, bn2, bn3,
-                                 bd1, bd2, bd3,
-                                 starts1,
-                                 mat12, mat13, mat23,
-                                 filling_m12, filling_m13, filling_m23)
+            particle_to_mat_kernels.mat_fill_v1_asym(pn, span1, span2, span3,
+                                                     bn1, bn2, bn3,
+                                                     bd1, bd2, bd3,
+                                                     starts,
+                                                     mat12, mat13, mat23,
+                                                     filling_m12, filling_m13, filling_m23)
 
         elif basis_u == 2:
 
@@ -1189,12 +1182,12 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
             filling_m23 = - weight * b_prod[1, 2] * scale_mat / det_df**2
 
             # call the appropriate matvec filler
-            mvf.mat_fill_v2_asym(pn, span1, span2, span3,
-                                 bn1, bn2, bn3,
-                                 bd1, bd2, bd3,
-                                 starts1,
-                                 mat12, mat13, mat23,
-                                 filling_m12, filling_m13, filling_m23)
+            particle_to_mat_kernels.mat_fill_v2_asym(pn, span1, span2, span3,
+                                                     bn1, bn2, bn3,
+                                                     bd1, bd2, bd3,
+                                                     starts,
+                                                     mat12, mat13, mat23,
+                                                     filling_m12, filling_m13, filling_m23)
 
     #$ omp end parallel
 
@@ -1203,10 +1196,10 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
     mat23 /= n_markers_tot
 
 
-@stack_array('b', 'b_prod', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'dfm', 'df_inv', 'df_inv_t', 'g_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp2', 'tmp_t', 'tmp_v', 'tmp_m')
+@stack_array('b', 'b_prod', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'dfm', 'df_inv', 'df_inv_t', 'g_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp2', 'tmp_t', 'tmp_v', 'tmp_m', 'v')
 def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                    starts: 'int[:]',
                     kind_map: 'int', params_map: 'float[:]',
                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1265,6 +1258,7 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
     # allocate for filling
     filling_m = empty((3, 3), dtype=float)
     filling_v = empty(3, dtype=float)
+    v = empty(3, dtype=float)
 
     tmp1 = empty((3, 3), dtype=float)
     tmp2 = empty((3, 3), dtype=float)
@@ -1291,20 +1285,23 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # b-field evaluation
-        span1 = bsp.find_span(tn1, int(pn[0]), eta1)
-        span2 = bsp.find_span(tn2, int(pn[1]), eta2)
-        span3 = bsp.find_span(tn3, int(pn[2]), eta3)
+        span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
+        span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
+        span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
 
-        bsp.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(
+            tn1, int(pn[0]), eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(
+            tn2, int(pn[1]), eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(
+            tn3, int(pn[2]), eta3, span3, bn3, bd3)
 
-        b[0] = eval_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts2[0])
-        b[1] = eval_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
-        b[2] = eval_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
+        b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts)
+        b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts)
+        b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b2_3, starts)
 
         # operator bx() as matrix
         b_prod[0, 1] = -b[2]
@@ -1315,117 +1312,120 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
         b_prod[2, 1] = +b[0]
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
-        det_df = linalg.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # marker weight and velocity
         weight = markers[ip, 6]
-        v = markers[ip, 3:6]
+        v[:] = markers[ip, 3:6]
 
         if basis_u == 0:
 
             # needed metric coefficients
-            linalg.matrix_inv_with_det(dfm, det_df, df_inv)
-            linalg.transpose(df_inv, df_inv_t)
-            linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
+            linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+            linalg_kernels.transpose(df_inv, df_inv_t)
+            linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
 
             # filling functions tmp_m = tmp1 * tmp1^T and tmp_v = tmp1 * v, where tmp1 = B^x * DF^(-1)
-            linalg.matrix_matrix(b_prod, df_inv, tmp1)
+            linalg_kernels.matrix_matrix(b_prod, df_inv, tmp1)
 
-            linalg.transpose(tmp1, tmp_t)
+            linalg_kernels.transpose(tmp1, tmp_t)
 
-            linalg.matrix_matrix(tmp1, tmp_t, tmp_m)
-            linalg.matrix_vector(tmp1, v, tmp_v)
+            linalg_kernels.matrix_matrix(tmp1, tmp_t, tmp_m)
+            linalg_kernels.matrix_vector(tmp1, v, tmp_v)
 
             filling_m[:, :] = weight * tmp_m * scale_mat
             filling_v[:] = weight * tmp_v * scale_vec
 
             # call the appropriate matvec filler
-            mvf.m_v_fill_v0vec_symm(pn, span1, span2, span3,
-                                    bn1, bn2, bn3,
-                                    starts0,
-                                    mat11, mat12, mat13,
-                                    mat22, mat23,
-                                    mat33,
-                                    filling_m[0, 0], filling_m[0,
-                                                               1], filling_m[0, 2],
-                                    filling_m[1, 1], filling_m[1, 2],
-                                    filling_m[2, 2],
-                                    vec1, vec2, vec3,
-                                    filling_v[0], filling_v[1], filling_v[2])
+            particle_to_mat_kernels.m_v_fill_v0vec_symm(pn, span1, span2, span3,
+                                                        bn1, bn2, bn3,
+                                                        starts,
+                                                        mat11, mat12, mat13,
+                                                        mat22, mat23,
+                                                        mat33,
+                                                        filling_m[0, 0], filling_m[0,
+                                                                                   1], filling_m[0, 2],
+                                                        filling_m[1,
+                                                                  1], filling_m[1, 2],
+                                                        filling_m[2, 2],
+                                                        vec1, vec2, vec3,
+                                                        filling_v[0], filling_v[1], filling_v[2])
 
         elif basis_u == 1:
 
             # needed metric coefficients
-            linalg.matrix_inv_with_det(dfm, det_df, df_inv)
-            linalg.transpose(df_inv, df_inv_t)
-            linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
+            linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+            linalg_kernels.transpose(df_inv, df_inv_t)
+            linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
 
             # filling functions tmp_m = tmp2 * tmp2^T and tmp_v = tmp2 * v, where tmp2 = G^(-1) * B^x * DF^(-1)
-            linalg.matrix_matrix(g_inv, b_prod, tmp1)
-            linalg.matrix_matrix(tmp1, df_inv, tmp2)
+            linalg_kernels.matrix_matrix(g_inv, b_prod, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, df_inv, tmp2)
 
-            linalg.transpose(tmp2, tmp_t)
+            linalg_kernels.transpose(tmp2, tmp_t)
 
-            linalg.matrix_matrix(tmp2, tmp_t, tmp_m)
-            linalg.matrix_vector(tmp2, v, tmp_v)
+            linalg_kernels.matrix_matrix(tmp2, tmp_t, tmp_m)
+            linalg_kernels.matrix_vector(tmp2, v, tmp_v)
 
             filling_m[:, :] = weight * tmp_m * scale_mat
             filling_v[:] = weight * tmp_v * scale_vec
 
             # call the appropriate matvec filler
-            mvf.m_v_fill_v1_symm(pn, span1, span2, span3,
-                                 bn1, bn2, bn3,
-                                 bd1, bd2, bd3,
-                                 starts1,
-                                 mat11, mat12, mat13,
-                                 mat22, mat23,
-                                 mat33,
-                                 filling_m[0, 0], filling_m[0,
-                                                            1], filling_m[0, 2],
-                                 filling_m[1, 1], filling_m[1, 2],
-                                 filling_m[2, 2],
-                                 vec1, vec2, vec3,
-                                 filling_v[0], filling_v[1], filling_v[2])
+            particle_to_mat_kernels.m_v_fill_v1_symm(pn, span1, span2, span3,
+                                                     bn1, bn2, bn3,
+                                                     bd1, bd2, bd3,
+                                                     starts,
+                                                     mat11, mat12, mat13,
+                                                     mat22, mat23,
+                                                     mat33,
+                                                     filling_m[0, 0], filling_m[0,
+                                                                                1], filling_m[0, 2],
+                                                     filling_m[1,
+                                                               1], filling_m[1, 2],
+                                                     filling_m[2, 2],
+                                                     vec1, vec2, vec3,
+                                                     filling_v[0], filling_v[1], filling_v[2])
 
         elif basis_u == 2:
 
             # needed metric coefficients
-            linalg.matrix_inv_with_det(dfm, det_df, df_inv)
-            linalg.transpose(df_inv, df_inv_t)
-            linalg.matrix_matrix(df_inv, df_inv_t, g_inv)
+            linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+            linalg_kernels.transpose(df_inv, df_inv_t)
+            linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
 
             # filling functions tmp_m = tmp1 * tmp1^T and tmp_v = tmp1 * v, where tmp1 = B^x * DF^(-1) / det(DF)
-            linalg.matrix_matrix(b_prod, df_inv, tmp1)
+            linalg_kernels.matrix_matrix(b_prod, df_inv, tmp1)
 
-            linalg.transpose(tmp1, tmp_t)
+            linalg_kernels.transpose(tmp1, tmp_t)
 
-            linalg.matrix_matrix(tmp1, tmp_t, tmp_m)
-            linalg.matrix_vector(tmp1, v, tmp_v)
+            linalg_kernels.matrix_matrix(tmp1, tmp_t, tmp_m)
+            linalg_kernels.matrix_vector(tmp1, v, tmp_v)
 
             filling_m[:, :] = weight * tmp_m * scale_mat / det_df**2
             filling_v[:] = weight * tmp_v * scale_vec / det_df
 
             # call the appropriate matvec filler
-            mvf.m_v_fill_v2_symm(pn, span1, span2, span3,
-                                 bn1, bn2, bn3,
-                                 bd1, bd2, bd3,
-                                 starts2,
-                                 mat11, mat12, mat13,
-                                 mat22, mat23,
-                                 mat33,
-                                 filling_m[0, 0], filling_m[0,
-                                                            1], filling_m[0, 2],
-                                 filling_m[1, 1], filling_m[1, 2],
-                                 filling_m[2, 2],
-                                 vec1, vec2, vec3,
-                                 filling_v[0], filling_v[1], filling_v[2])
+            particle_to_mat_kernels.m_v_fill_v2_symm(pn, span1, span2, span3,
+                                                     bn1, bn2, bn3,
+                                                     bd1, bd2, bd3,
+                                                     starts,
+                                                     mat11, mat12, mat13,
+                                                     mat22, mat23,
+                                                     mat33,
+                                                     filling_m[0, 0], filling_m[0,
+                                                                                1], filling_m[0, 2],
+                                                     filling_m[1,
+                                                               1], filling_m[1, 2],
+                                                     filling_m[2, 2],
+                                                     vec1, vec2, vec3,
+                                                     filling_v[0], filling_v[1], filling_v[2])
 
     #$ omp end parallel
 
@@ -1444,7 +1444,7 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
 @stack_array('dfm', 'df_t', 'df_inv', 'df_inv_t', 'filling_m', 'filling_v', 'tmp1', 'v', 'tmp_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def pc_lin_mhd_6d_full(markers: 'float[:,:]', n_markers_tot: 'int',
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                       starts: 'int[:]',
                        kind_map: 'int', params_map: 'float[:]',
                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1549,32 +1549,35 @@ def pc_lin_mhd_6d_full(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # b-field evaluation
-        span1 = bsp.find_span(tn1, int(pn[0]), eta1)
-        span2 = bsp.find_span(tn2, int(pn[1]), eta2)
-        span3 = bsp.find_span(tn3, int(pn[2]), eta3)
+        span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
+        span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
+        span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
 
-        bsp.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(
+            tn1, int(pn[0]), eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(
+            tn2, int(pn[1]), eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(
+            tn3, int(pn[2]), eta3, span3, bn3, bd3)
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
-        # Avoid second computation of dfm, use linear_algebra.core routines to get g_inv:
-        linalg.matrix_inv(dfm, df_inv)
-        linalg.transpose(dfm, df_t)
-        linalg.transpose(df_inv, df_inv_t)
+        # Avoid second computation of dfm, use linear_algebra.linalg_kernels routines to get g_inv:
+        linalg_kernels.matrix_inv(dfm, df_inv)
+        linalg_kernels.transpose(dfm, df_t)
+        linalg_kernels.transpose(df_inv, df_inv_t)
 
         # filling functions
         v[:] = markers[ip, 3:6]
 
-        linalg.matrix_matrix(df_inv, df_inv_t, tmp1)
-        linalg.matrix_vector(df_inv, v, tmp_v)
+        linalg_kernels.matrix_matrix(df_inv, df_inv_t, tmp1)
+        linalg_kernels.matrix_vector(df_inv, v, tmp_v)
 
         weight = markers[ip, 8]
 
@@ -1582,43 +1585,44 @@ def pc_lin_mhd_6d_full(markers: 'float[:,:]', n_markers_tot: 'int',
         filling_v[:] = weight * tmp_v / n_markers_tot * scale_vec
 
         # call the appropriate matvec filler
-        mvf.m_v_fill_v1_pressure_full(pn, span1, span2, span3,
-                                      bn1, bn2, bn3,
-                                      bd1, bd2, bd3,
-                                      starts1,
-                                      mat11_11, mat12_11, mat13_11,
-                                      mat22_11, mat23_11,
-                                      mat33_11,
-                                      mat11_12, mat12_12, mat13_12,
-                                      mat22_12, mat23_12,
-                                      mat33_12,
-                                      mat11_13, mat12_13, mat13_13,
-                                      mat22_13, mat23_13,
-                                      mat33_13,
-                                      mat11_22, mat12_22, mat13_22,
-                                      mat22_22, mat23_22,
-                                      mat33_22,
-                                      mat11_23, mat12_23, mat13_23,
-                                      mat22_23, mat23_23,
-                                      mat33_23,
-                                      mat11_33, mat12_33, mat13_33,
-                                      mat22_33, mat23_33,
-                                      mat33_33,
-                                      filling_m[0, 0], filling_m[0,
-                                                                 1], filling_m[0, 2],
-                                      filling_m[1, 1], filling_m[1, 2],
-                                      filling_m[2, 2],
-                                      vec1_1, vec2_1, vec3_1,
-                                      vec1_2, vec2_2, vec3_2,
-                                      vec1_3, vec2_3, vec3_3,
-                                      filling_v[0], filling_v[1], filling_v[2],
-                                      v[0], v[1], v[2])
+        particle_to_mat_kernels.m_v_fill_v1_pressure_full(pn, span1, span2, span3,
+                                                          bn1, bn2, bn3,
+                                                          bd1, bd2, bd3,
+                                                          starts,
+                                                          mat11_11, mat12_11, mat13_11,
+                                                          mat22_11, mat23_11,
+                                                          mat33_11,
+                                                          mat11_12, mat12_12, mat13_12,
+                                                          mat22_12, mat23_12,
+                                                          mat33_12,
+                                                          mat11_13, mat12_13, mat13_13,
+                                                          mat22_13, mat23_13,
+                                                          mat33_13,
+                                                          mat11_22, mat12_22, mat13_22,
+                                                          mat22_22, mat23_22,
+                                                          mat33_22,
+                                                          mat11_23, mat12_23, mat13_23,
+                                                          mat22_23, mat23_23,
+                                                          mat33_23,
+                                                          mat11_33, mat12_33, mat13_33,
+                                                          mat22_33, mat23_33,
+                                                          mat33_33,
+                                                          filling_m[0, 0], filling_m[0,
+                                                                                     1], filling_m[0, 2],
+                                                          filling_m[1,
+                                                                    1], filling_m[1, 2],
+                                                          filling_m[2, 2],
+                                                          vec1_1, vec2_1, vec3_1,
+                                                          vec1_2, vec2_2, vec3_2,
+                                                          vec1_3, vec2_3, vec3_3,
+                                                          filling_v[0], filling_v[1], filling_v[2],
+                                                          v[0], v[1], v[2])
 
 
 @stack_array('dfm', 'df_inv_t', 'df_inv', 'filling_m', 'filling_v', 'tmp1', 'v', 'tmp_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def pc_lin_mhd_6d(markers: 'float[:,:]', n_markers_tot: 'int',
                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                  starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                  starts: 'int[:]',
                   kind_map: 'int', params_map: 'float[:]',
                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1726,56 +1730,60 @@ def pc_lin_mhd_6d(markers: 'float[:,:]', n_markers_tot: 'int',
         v[:] = markers[ip, 3:6]
 
         # evaluation
-        span1 = bsp.find_span(tn1, int(pn[0]), eta1)
-        span2 = bsp.find_span(tn2, int(pn[1]), eta2)
-        span3 = bsp.find_span(tn3, int(pn[2]), eta3)
+        span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
+        span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
+        span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
 
-        bsp.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(
+            tn1, int(pn[0]), eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(
+            tn2, int(pn[1]), eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(
+            tn3, int(pn[2]), eta3, span3, bn3, bd3)
 
         # evaluate Jacobian, result in dfm
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    dfm)
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
-        det_df = linalg.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
-        # Avoid second computation of dfm, use linear_algebra.core routines to get g_inv:
-        linalg.matrix_inv_with_det(dfm, det_df, df_inv)
-        linalg.transpose(df_inv, df_inv_t)
+        # Avoid second computation of dfm, use linear_algebra.linalg_kernels routines to get g_inv:
+        linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+        linalg_kernels.transpose(df_inv, df_inv_t)
 
-        linalg.matrix_matrix(df_inv, df_inv_t, tmp1)
-        linalg.matrix_vector(df_inv, v, tmp_v)
+        linalg_kernels.matrix_matrix(df_inv, df_inv_t, tmp1)
+        linalg_kernels.matrix_vector(df_inv, v, tmp_v)
 
         filling_m[:, :] = weight * tmp1 * scale_mat
         filling_v[:] = weight * tmp_v * scale_vec
 
         # call the appropriate matvec filler
-        mvf.m_v_fill_v1_pressure(pn, span1, span2, span3,
-                                 bn1, bn2, bn3,
-                                 bd1, bd2, bd3,
-                                 starts1,
-                                 mat11_11, mat12_11, mat13_11,
-                                 mat22_11, mat23_11,
-                                 mat33_11,
-                                 mat11_12, mat12_12, mat13_12,
-                                 mat22_12, mat23_12,
-                                 mat33_12,
-                                 mat11_22, mat12_22, mat13_22,
-                                 mat22_22, mat23_22,
-                                 mat33_22,
-                                 filling_m[0, 0], filling_m[0,
-                                                            1], filling_m[0, 2],
-                                 filling_m[1, 1], filling_m[1, 2],
-                                 filling_m[2, 2],
-                                 vec1_1, vec2_1, vec3_1,
-                                 vec1_2, vec2_2, vec3_2,
-                                 filling_v[0], filling_v[1], filling_v[2],
-                                 v[0], v[1])
+        particle_to_mat_kernels.m_v_fill_v1_pressure(pn, span1, span2, span3,
+                                                     bn1, bn2, bn3,
+                                                     bd1, bd2, bd3,
+                                                     starts,
+                                                     mat11_11, mat12_11, mat13_11,
+                                                     mat22_11, mat23_11,
+                                                     mat33_11,
+                                                     mat11_12, mat12_12, mat13_12,
+                                                     mat22_12, mat23_12,
+                                                     mat33_12,
+                                                     mat11_22, mat12_22, mat13_22,
+                                                     mat22_22, mat23_22,
+                                                     mat33_22,
+                                                     filling_m[0, 0], filling_m[0,
+                                                                                1], filling_m[0, 2],
+                                                     filling_m[1,
+                                                               1], filling_m[1, 2],
+                                                     filling_m[2, 2],
+                                                     vec1_1, vec2_1, vec3_1,
+                                                     vec1_2, vec2_2, vec3_2,
+                                                     filling_v[0], filling_v[1], filling_v[2],
+                                                     v[0], v[1])
 
     mat11_11 /= n_markers_tot
     mat12_11 /= n_markers_tot
