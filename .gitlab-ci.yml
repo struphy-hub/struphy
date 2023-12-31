@@ -566,8 +566,8 @@ ubuntu_23_04_tests:
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
-    - pip list
-    - pip install struphy.whl
+    - python3 -m pip list
+    - python3 -m pip install struphy
     - struphy compile
     - struphy test models --fast
 
@@ -653,7 +653,7 @@ fedora_latest_tests:
     - dnf install -y pandoc
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
-     - export OMPI_MCA_pml=ob1
+    - export OMPI_MCA_pml=ob1
     - export OMPI_MCA_btl=tcp,self
   script:
     - pip list
