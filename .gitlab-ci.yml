@@ -567,9 +567,9 @@ ubuntu_23_04_tests:
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
     - pip list
-    - pip install dist/struphy*.whl
+    - pip install struphy.whl
     - struphy compile
-    - struphy test codes --fast
+    - struphy test models --fast
 
 fedora_37_tests:
   stage: test
@@ -628,7 +628,7 @@ fedora_38_tests:
     - pip list
     - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy && struphy compile" 
     - echo ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch)" >> /root/.bashrc
-    - struphy test codes --fast
+    - struphy test models --fast
 
 fedora_latest_tests:
   stage: test
@@ -659,14 +659,13 @@ fedora_latest_tests:
     - pip list
     - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy && struphy compile" 
     - echo ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch)" >> /root/.bashrc
-    - struphy test codes --fast
+    - struphy test models --fast
 
 centos_7_python_3_8_tests:
-  stage: build
+  stage: test
   image: centos:7
 
   before_script:
-    # Update and clean up
     - yum update -y
     - yum clean all
     - yum install -y centos-release-scl
@@ -674,8 +673,7 @@ centos_7_python_3_8_tests:
     - yum install -y lapack-devel openmpi-devel blas-devel libgomp
     - yum install -y git pandoc
     - yum groupinstall -y "Development Tools"
-    - yum install -y wget openssl-devel bzip2-devel libffi-devel libxml2-devel libxslt-devel
-    - yum install -y sqlite-devel
+    - yum install -y wget openssl openssl-devel bzip2-devel libffi-devel libxml2-devel libxslt-devel sqlite-devel
 
     # Enable new version of GCC from SCL
     - source /opt/rh/devtoolset-8/enable
@@ -689,22 +687,26 @@ centos_7_python_3_8_tests:
     - make
     - make install
 
-    # Install Python 3.8
+    # Update the shared library cache for OpenSSL
+    - echo "/usr/local/ssl/lib" > /etc/ld.so.conf.d/openssl-1.1.1k.conf
+    - ldconfig
+
+    # Install Python 3.8 with SSL support
     - cd /usr/local/src
     - wget https://www.python.org/ftp/python/3.8.0/Python-3.8.0.tar.xz
     - tar -xf Python-3.8.0.tar.xz
     - cd Python-3.8.0
-    - ./configure --enable-shared CFLAGS="-fPIC" --with-openssl=/usr/local/ssl --enable-loadable-sqlite-extensions
+    - ./configure --enable-shared --with-ensurepip=install --with-openssl=/usr/local/ssl
     - make
     - make install
 
-    # Update the shared library cache
+    # Update the shared library cache for Python
     - echo '/usr/local/lib' > /etc/ld.so.conf.d/python3.8.conf
     - ldconfig
 
-    # Ensure the newly installed Python version is used
-    - ln -s /usr/local/bin/python3.8 /usr/bin/python3
-    - ln -s /usr/local/bin/pip3.8 /usr/bin/pip3
+    # Set Python 3.8 as the default Python
+    - ln -sf /usr/local/bin/python3.8 /usr/bin/python3
+    - ln -sf /usr/local/bin/pip3.8 /usr/bin/pip3
 
     # Set environment variables for OpenMPI
     - export PATH="/usr/lib64/openmpi/bin:${PATH}"
@@ -718,18 +720,17 @@ centos_7_python_3_8_tests:
 
     # Compile struphy
     - scl enable devtoolset-8 'struphy compile'
-  
+
   script:
     - echo "Starting build and test process"
     - struphy test codes --fast
     - echo "Build and test process completed"
 
 centos_7_python_3_9_tests:
-  stage: build
+  stage: test
   image: centos:7
 
   before_script:
-    # Update and clean up
     - yum update -y
     - yum clean all
     - yum install -y centos-release-scl
@@ -737,8 +738,7 @@ centos_7_python_3_9_tests:
     - yum install -y lapack-devel openmpi-devel blas-devel libgomp
     - yum install -y git pandoc
     - yum groupinstall -y "Development Tools"
-    - yum install -y wget openssl-devel bzip2-devel libffi-devel libxml2-devel libxslt-devel
-    - yum install -y sqlite-devel
+    - yum install -y wget openssl openssl-devel bzip2-devel libffi-devel libxml2-devel libxslt-devel sqlite-devel
 
     # Enable new version of GCC from SCL
     - source /opt/rh/devtoolset-8/enable
@@ -752,22 +752,26 @@ centos_7_python_3_9_tests:
     - make
     - make install
 
-    # Install Python 3.9
+    # Update the shared library cache for OpenSSL
+    - echo "/usr/local/ssl/lib" > /etc/ld.so.conf.d/openssl-1.1.1k.conf
+    - ldconfig
+
+    # Install Python 3.9 with SSL support
     - cd /usr/local/src
     - wget https://www.python.org/ftp/python/3.9.0/Python-3.9.0.tar.xz
     - tar -xf Python-3.9.0.tar.xz
     - cd Python-3.9.0
-    - ./configure --enable-shared CFLAGS="-fPIC" --with-openssl=/usr/local/ssl --enable-loadable-sqlite-extensions
+    - ./configure --enable-shared --with-ensurepip=install --with-openssl=/usr/local/ssl
     - make
     - make install
 
-    # Update the shared library cache
+    # Update the shared library cache for Python
     - echo '/usr/local/lib' > /etc/ld.so.conf.d/python3.9.conf
     - ldconfig
 
-    # Ensure the newly installed Python version is used
-    - ln -s /usr/local/bin/python3.9 /usr/bin/python3
-    - ln -s /usr/local/bin/pip3.9 /usr/bin/pip3
+    # Set Python 3.9 as the default Python
+    - ln -sf /usr/local/bin/python3.9 /usr/bin/python3
+    - ln -sf /usr/local/bin/pip3.9 /usr/bin/pip3
 
     # Set environment variables for OpenMPI
     - export PATH="/usr/lib64/openmpi/bin:${PATH}"
@@ -781,7 +785,7 @@ centos_7_python_3_9_tests:
 
     # Compile struphy
     - scl enable devtoolset-8 'struphy compile'
-  
+
   script:
     - echo "Starting build and test process"
     - struphy test codes --fast
