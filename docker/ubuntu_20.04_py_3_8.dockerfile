@@ -35,10 +35,7 @@ RUN python3.8 -m venv /opt/venv \
 # Set environment variable to ensure commands run inside the virtual environment
 ENV PATH="/opt/venv/bin:$PATH"
 
-# create new working dir
 WORKDIR /ubuntu_20_04_py_3_8/
 
-# allow mpirun as root
 ENV OMPI_ALLOW_RUN_AS_ROOT=1
 ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
-

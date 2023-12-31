@@ -10,7 +10,7 @@
 FROM fedora:latest
 
 # install linux packages 
-RUN dnf install -y python3-pip \
+RUN dnf install -y python38 \
     && dnf install -y gcc \
     && dnf install -y gfortran \ 
     && dnf install -y blas-devel lapack-devel \ 
@@ -32,4 +32,19 @@ ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 ENV OMPI_MCA_pml=ob1
 ENV OMPI_MCA_btl=tcp,self
 
-#RUN bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy && struphy compile" 
+RUN alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
+
+RUN python3.8 -m ensurepip
+RUN python3.8 -m pip install --upgrade pip
+RUN bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && python3.8 -m pip install sympy==1.5 struphy gvec_to_python" 
+
+RUN struphy compile
+
+RUN echo ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch)" >> /root/.bashrc
+
+# RUN python3.8 -m venv /opt/venv \
+#     && . /opt/venv/bin/activate \
+#     && pip install sympy==1.5 struphy gvec_to_python 
+    # \
+    # && struphy compile
+

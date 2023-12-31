@@ -32,7 +32,5 @@ ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 ENV OMPI_MCA_pml=ob1
 ENV OMPI_MCA_btl=tcp,self
 
-RUN . /etc/profile.d/modules.sh \
-    && module load mpi/openmpi-$(arch) \
-    && module list && pip install struphy \
-    && struphy compile
+RUN bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy && struphy compile" 
+RUN echo ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch)" >> /root/.bashrc

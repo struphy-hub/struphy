@@ -6,6 +6,7 @@
 # docker login gitlab-registry.mpcdf.mpg.de -u docker_api -p glpat--z6kJtobeG-xM_LdL6k6
 # docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu -f docker/ubuntu.dockerfile .
 # docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu
+
 FROM ubuntu:20.04
 
 ENV DEBIAN_FRONTEND=noninteractive
