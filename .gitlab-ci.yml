@@ -511,20 +511,15 @@ ubuntu_20_04_python_3_8_tests:
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   before_script:
     - apt update -y && apt clean 
-    - apt install -y python3-pip 
-    - apt install -y python3.8-venv  # Example Python version for Ubuntu 20.04
-    - apt install -y gfortran gcc 
-    - DEBIAN_FRONTEND=noninteractive TZ="Europe/Berlin" apt-get install -y liblapack-dev libopenmpi-dev 
-    - apt install -y libblas-dev openmpi-bin 
-    - apt install -y libomp-dev libomp5 
-    - apt install -y git
-    - apt install -y pandoc
+    - apt install -y python3.8 python3.8-venv python3.8-dev python3-pip gfortran gcc liblapack-dev libopenmpi-dev libblas-dev openmpi-bin libomp-dev libomp5 git pandoc
+    - python3.8 -m venv /opt/venv
+    - source /opt/venv/bin/activate
+    - pip install --upgrade pip
+    - pip install sympy==1.5 struphy gvec_to_python
+    - struphy compile
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
-    - pip list
-    - pip install dist/struphy*.whl
-    - struphy compile
     - struphy test codes --fast
 
 ubuntu_20_04_python_3_9_tests:
@@ -538,20 +533,15 @@ ubuntu_20_04_python_3_9_tests:
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   before_script:
     - apt update -y && apt clean 
-    - apt install -y python3-pip 
-    - apt install -y python3.8-venv  # Example Python version for Ubuntu 20.04
-    - apt install -y gfortran gcc 
-    - DEBIAN_FRONTEND=noninteractive TZ="Europe/Berlin" apt-get install -y liblapack-dev libopenmpi-dev 
-    - apt install -y libblas-dev openmpi-bin 
-    - apt install -y libomp-dev libomp5 
-    - apt install -y git
-    - apt install -y pandoc
+    - apt install -y python3.9 python3.9-venv python3.9-dev python3-pip gfortran gcc liblapack-dev libopenmpi-dev libblas-dev openmpi-bin libomp-dev libomp5 git pandoc
+    - python3.9 -m venv /opt/venv
+    - source /opt/venv/bin/activate
+    - pip install --upgrade pip
+    - pip install sympy==1.5 struphy gvec_to_python
+    - struphy compile
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
-    - pip list
-    - pip install dist/struphy*.whl
-    - struphy compile
     - struphy test codes --fast
 
 ubuntu_23_04_tests:
@@ -566,7 +556,7 @@ ubuntu_23_04_tests:
   before_script:
     - apt update -y && apt clean 
     - apt install -y python3-pip 
-    - apt install -y python3-venv  # Example Python version for Ubuntu 22.04
+    - apt install -y python3-venv
     - apt install -y gfortran gcc 
     - DEBIAN_FRONTEND=noninteractive TZ="Europe/Berlin" apt-get install -y liblapack-dev libopenmpi-dev 
     - apt install -y libblas-dev openmpi-bin 
@@ -632,9 +622,13 @@ fedora_38_tests:
     - dnf install -y pandoc
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+    - export OMPI_MCA_pml=ob1
+    - export OMPI_MCA_btl=tcp,self
   script:
     - pip list
-    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install dist/struphy*.whl && struphy compile && struphy test codes --fast" 
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy && struphy compile" 
+    - echo ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch)" >> /root/.bashrc
+    - struphy test codes --fast
 
 fedora_latest_tests:
   stage: test
@@ -659,11 +653,15 @@ fedora_latest_tests:
     - dnf install -y pandoc
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+     - export OMPI_MCA_pml=ob1
+    - export OMPI_MCA_btl=tcp,self
   script:
     - pip list
-    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install dist/struphy*.whl && struphy compile && struphy test codes --fast" 
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy && struphy compile" 
+    - echo ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch)" >> /root/.bashrc
+    - struphy test codes --fast
 
-centos_7_python_3_8_build:
+centos_7_python_3_8_tests:
   stage: build
   image: centos:7
 
@@ -671,40 +669,62 @@ centos_7_python_3_8_build:
     # Update and clean up
     - yum update -y
     - yum clean all
-    - yum install -y gcc-gfortran
+    - yum install -y centos-release-scl
+    - yum install -y devtoolset-8-gcc devtoolset-8-gcc-c++ devtoolset-8-gcc-gfortran
     - yum install -y lapack-devel openmpi-devel blas-devel libgomp
     - yum install -y git pandoc
-    - export OMPI_ALLOW_RUN_AS_ROOT=1
-    - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
-
     - yum groupinstall -y "Development Tools"
-    - yum install -y wget openssl-devel bzip2-devel libffi-devel
+    - yum install -y wget openssl-devel bzip2-devel libffi-devel libxml2-devel libxslt-devel
+    - yum install -y sqlite-devel
 
-    # Download Python and extract it
+    # Enable new version of GCC from SCL
+    - source /opt/rh/devtoolset-8/enable
+
+    # Install OpenSSL
+    - cd /usr/local/src
+    - wget https://www.openssl.org/source/openssl-1.1.1k.tar.gz
+    - tar -xzf openssl-1.1.1k.tar.gz
+    - cd openssl-1.1.1k
+    - ./config --prefix=/usr/local/ssl --openssldir=/usr/local/ssl shared zlib
+    - make
+    - make install
+
+    # Install Python 3.8
+    - cd /usr/local/src
     - wget https://www.python.org/ftp/python/3.8.0/Python-3.8.0.tar.xz
-    - tar xvf Python-3.8.0.tar.xz
-
-    # Compile and install Python
+    - tar -xf Python-3.8.0.tar.xz
     - cd Python-3.8.0
-    - ./configure --enable-optimizations
-    - make altinstall
-    - cd ..
+    - ./configure --enable-shared CFLAGS="-fPIC" --with-openssl=/usr/local/ssl --enable-loadable-sqlite-extensions
+    - make
+    - make install
+
+    # Update the shared library cache
+    - echo '/usr/local/lib' > /etc/ld.so.conf.d/python3.8.conf
+    - ldconfig
 
     # Ensure the newly installed Python version is used
     - ln -s /usr/local/bin/python3.8 /usr/bin/python3
     - ln -s /usr/local/bin/pip3.8 /usr/bin/pip3
-    - python3 --version
-    - pip3 --version
-    
+
+    # Set environment variables for OpenMPI
+    - export PATH="/usr/lib64/openmpi/bin:${PATH}"
+    - export LD_LIBRARY_PATH="/usr/lib64/openmpi/lib:${LD_LIBRARY_PATH}"
+    - export OMPI_ALLOW_RUN_AS_ROOT=1
+    - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
+    # Upgrade pip and install struphy
+    - pip3 install --upgrade pip
+    - pip3 install struphy
+
+    # Compile struphy
+    - scl enable devtoolset-8 'struphy compile'
+  
   script:
     - echo "Starting build and test process"
-    - pip3 list
-    - pip3 install dist/struphy*.whl
-    - struphy compile
     - struphy test codes --fast
     - echo "Build and test process completed"
 
-centos_7_python_3_9_build:
+centos_7_python_3_9_tests:
   stage: build
   image: centos:7
 
@@ -712,36 +732,58 @@ centos_7_python_3_9_build:
     # Update and clean up
     - yum update -y
     - yum clean all
-    - yum install -y gcc-gfortran
+    - yum install -y centos-release-scl
+    - yum install -y devtoolset-8-gcc devtoolset-8-gcc-c++ devtoolset-8-gcc-gfortran
     - yum install -y lapack-devel openmpi-devel blas-devel libgomp
     - yum install -y git pandoc
-    - export OMPI_ALLOW_RUN_AS_ROOT=1
-    - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
-
     - yum groupinstall -y "Development Tools"
-    - yum install -y wget openssl-devel bzip2-devel libffi-devel
+    - yum install -y wget openssl-devel bzip2-devel libffi-devel libxml2-devel libxslt-devel
+    - yum install -y sqlite-devel
 
-    # Download Python and extract it
+    # Enable new version of GCC from SCL
+    - source /opt/rh/devtoolset-8/enable
+
+    # Install OpenSSL
+    - cd /usr/local/src
+    - wget https://www.openssl.org/source/openssl-1.1.1k.tar.gz
+    - tar -xzf openssl-1.1.1k.tar.gz
+    - cd openssl-1.1.1k
+    - ./config --prefix=/usr/local/ssl --openssldir=/usr/local/ssl shared zlib
+    - make
+    - make install
+
+    # Install Python 3.9
+    - cd /usr/local/src
     - wget https://www.python.org/ftp/python/3.9.0/Python-3.9.0.tar.xz
-    - tar xvf Python-3.9.0.tar.xz
-
-    # Compile and install Python
+    - tar -xf Python-3.9.0.tar.xz
     - cd Python-3.9.0
-    - ./configure --enable-optimizations
-    - make altinstall
-    - cd ..
+    - ./configure --enable-shared CFLAGS="-fPIC" --with-openssl=/usr/local/ssl --enable-loadable-sqlite-extensions
+    - make
+    - make install
+
+    # Update the shared library cache
+    - echo '/usr/local/lib' > /etc/ld.so.conf.d/python3.9.conf
+    - ldconfig
 
     # Ensure the newly installed Python version is used
     - ln -s /usr/local/bin/python3.9 /usr/bin/python3
     - ln -s /usr/local/bin/pip3.9 /usr/bin/pip3
-    - python3 --version
-    - pip3 --version
 
+    # Set environment variables for OpenMPI
+    - export PATH="/usr/lib64/openmpi/bin:${PATH}"
+    - export LD_LIBRARY_PATH="/usr/lib64/openmpi/lib:${LD_LIBRARY_PATH}"
+    - export OMPI_ALLOW_RUN_AS_ROOT=1
+    - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
+    # Upgrade pip and install struphy
+    - pip3 install --upgrade pip
+    - pip3 install struphy
+
+    # Compile struphy
+    - scl enable devtoolset-8 'struphy compile'
+  
   script:
     - echo "Starting build and test process"
-    - pip3 list
-    - pip3 install dist/struphy*.whl
-    - struphy compile
     - struphy test codes --fast
     - echo "Build and test process completed"
 
