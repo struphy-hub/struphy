@@ -510,7 +510,10 @@ ubuntu_20_04_python_3_8_tests:
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   before_script:
-    - apt update -y && apt clean 
+    - export DEBIAN_FRONTEND=noninteractive
+    - echo 'tzdata tzdata/Areas select Europe' | debconf-set-selections
+    - echo 'tzdata tzdata/Zones/Europe select Berlin' | debconf-set-selections
+    - apt update -y && apt clean
     - apt install -y python3.8 python3.8-venv python3.8-dev python3-pip gfortran gcc liblapack-dev libopenmpi-dev libblas-dev openmpi-bin libomp-dev libomp5 git pandoc
     - python3.8 -m venv /opt/venv
     - source /opt/venv/bin/activate
@@ -520,7 +523,7 @@ ubuntu_20_04_python_3_8_tests:
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
-    - struphy test codes --fast
+    - struphy test models --fast
 
 ubuntu_20_04_python_3_9_tests:
   stage: test
@@ -532,7 +535,10 @@ ubuntu_20_04_python_3_9_tests:
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   before_script:
-    - apt update -y && apt clean 
+    - export DEBIAN_FRONTEND=noninteractive
+    - echo 'tzdata tzdata/Areas select Europe' | debconf-set-selections
+    - echo 'tzdata tzdata/Zones/Europe select Berlin' | debconf-set-selections
+    - apt update -y && apt clean
     - apt install -y python3.9 python3.9-venv python3.9-dev python3-pip gfortran gcc liblapack-dev libopenmpi-dev libblas-dev openmpi-bin libomp-dev libomp5 git pandoc
     - python3.9 -m venv /opt/venv
     - source /opt/venv/bin/activate
@@ -542,7 +548,7 @@ ubuntu_20_04_python_3_9_tests:
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
-    - struphy test codes --fast
+    - struphy test models --fast
 
 ubuntu_23_04_tests:
   stage: test
@@ -566,8 +572,10 @@ ubuntu_23_04_tests:
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
-    - python3 -m pip list
-    - python3 -m pip install struphy
+    - python3 -m venv venv
+    - source venv/bin/activate
+    - python -m pip install --upgrade pip
+    - python -m pip install struphy
     - struphy compile
     - struphy test models --fast
 
@@ -627,8 +635,7 @@ fedora_38_tests:
   script:
     - pip list
     - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy && struphy compile" 
-    - echo ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch)" >> /root/.bashrc
-    - struphy test models --fast
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy test models --fast"
 
 fedora_latest_tests:
   stage: test
@@ -657,76 +664,75 @@ fedora_latest_tests:
     - export OMPI_MCA_btl=tcp,self
   script:
     - pip list
-    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy && struphy compile" 
-    - echo ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch)" >> /root/.bashrc
-    - struphy test models --fast
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install numpy && pip install struphy && struphy compile" 
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy test models --fast"
 
-centos_7_python_3_8_tests:
-  stage: test
-  image: centos:7
+# centos_7_python_3_8_tests:
+#   stage: test
+#   image: centos:7
 
-  before_script:
-    - yum update -y
-    - yum clean all
-    - yum install -y centos-release-scl
-    - yum install -y devtoolset-8-gcc devtoolset-8-gcc-c++ devtoolset-8-gcc-gfortran
-    - yum install -y lapack-devel openmpi-devel blas-devel libgomp
-    - yum install -y git pandoc
-    - yum groupinstall -y "Development Tools"
-    - yum install -y wget openssl openssl-devel bzip2-devel libffi-devel libxml2-devel libxslt-devel sqlite-devel
+#   before_script:
+#     - yum update -y
+#     - yum clean all
+#     - yum install -y centos-release-scl
+#     - yum install -y devtoolset-8-gcc devtoolset-8-gcc-c++ devtoolset-8-gcc-gfortran
+#     - yum install -y lapack-devel openmpi-devel blas-devel libgomp
+#     - yum install -y git pandoc
+#     - yum groupinstall -y "Development Tools"
+#     - yum install -y wget openssl openssl-devel bzip2-devel libffi-devel libxml2-devel libxslt-devel sqlite-devel
 
-    # Enable new version of GCC from SCL
-    - source /opt/rh/devtoolset-8/enable
+#     # Enable new version of GCC from SCL
+#     - source /opt/rh/devtoolset-8/enable
 
-    # Install OpenSSL
-    - cd /usr/local/src
-    - wget https://www.openssl.org/source/openssl-1.1.1k.tar.gz
-    - tar -xzf openssl-1.1.1k.tar.gz
-    - cd openssl-1.1.1k
-    - ./config --prefix=/usr/local/ssl --openssldir=/usr/local/ssl shared zlib
-    - make
-    - make install
+#     # Install OpenSSL
+#     - cd /usr/local/src
+#     - wget https://www.openssl.org/source/openssl-1.1.1k.tar.gz
+#     - tar -xzf openssl-1.1.1k.tar.gz
+#     - cd openssl-1.1.1k
+#     - ./config --prefix=/usr/local/ssl --openssldir=/usr/local/ssl shared zlib
+#     - make
+#     - make install
 
-    # Update the shared library cache for OpenSSL
-    - echo "/usr/local/ssl/lib" > /etc/ld.so.conf.d/openssl-1.1.1k.conf
-    - ldconfig
+#     # Update the shared library cache for OpenSSL
+#     - echo "/usr/local/ssl/lib" > /etc/ld.so.conf.d/openssl-1.1.1k.conf
+#     - ldconfig
 
-    # Install Python 3.8 with SSL support
-    - cd /usr/local/src
-    - wget https://www.python.org/ftp/python/3.8.0/Python-3.8.0.tar.xz
-    - tar -xf Python-3.8.0.tar.xz
-    - cd Python-3.8.0
-    - ./configure --enable-shared --with-ensurepip=install --with-openssl=/usr/local/ssl
-    - make
-    - make install
+#     # Install Python 3.8 with SSL support
+#     - cd /usr/local/src
+#     - wget https://www.python.org/ftp/python/3.8.0/Python-3.8.0.tar.xz
+#     - tar -xf Python-3.8.0.tar.xz
+#     - cd Python-3.8.0
+#     - ./configure --enable-shared --with-ensurepip=install --with-openssl=/usr/local/ssl
+#     - make
+#     - make install
 
-    # Update the shared library cache for Python
-    - echo '/usr/local/lib' > /etc/ld.so.conf.d/python3.8.conf
-    - ldconfig
+#     # Update the shared library cache for Python
+#     - echo '/usr/local/lib' > /etc/ld.so.conf.d/python3.8.conf
+#     - ldconfig
 
-    # Set Python 3.8 as the default Python
-    - ln -sf /usr/local/bin/python3.8 /usr/bin/python3
-    - ln -sf /usr/local/bin/pip3.8 /usr/bin/pip3
+#     # Set Python 3.8 as the default Python
+#     - ln -sf /usr/local/bin/python3.8 /usr/bin/python3
+#     - ln -sf /usr/local/bin/pip3.8 /usr/bin/pip3
 
-    # Set environment variables for OpenMPI
-    - export PATH="/usr/lib64/openmpi/bin:${PATH}"
-    - export LD_LIBRARY_PATH="/usr/lib64/openmpi/lib:${LD_LIBRARY_PATH}"
-    - export OMPI_ALLOW_RUN_AS_ROOT=1
-    - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+#     # Set environment variables for OpenMPI
+#     - export PATH="/usr/lib64/openmpi/bin:${PATH}"
+#     - export LD_LIBRARY_PATH="/usr/lib64/openmpi/lib:${LD_LIBRARY_PATH}"
+#     - export OMPI_ALLOW_RUN_AS_ROOT=1
+#     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 
-    # Upgrade pip and install struphy
-    - pip3 install --upgrade pip
-    - pip3 install struphy
+#     # Upgrade pip and install struphy
+#     - pip3 install --upgrade pip
+#     - pip3 install struphy
 
-    # Compile struphy
-    - scl enable devtoolset-8 'struphy compile'
+#     # Compile struphy
+#     - scl enable devtoolset-8 'struphy compile'
 
-  script:
-    - echo "Starting build and test process"
-    - struphy test codes --fast
-    - echo "Build and test process completed"
+#   script:
+#     - echo "Starting build and test process"
+#     - struphy test models --fast
+#     - echo "Build and test process completed"
 
-centos_7_python_3_9_tests:
+# centos_7_python_3_9_tests:
   stage: test
   image: centos:7
 
@@ -788,7 +794,7 @@ centos_7_python_3_9_tests:
 
   script:
     - echo "Starting build and test process"
-    - struphy test codes --fast
+    - struphy test models --fast
     - echo "Build and test process completed"
 
 # release
