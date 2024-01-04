@@ -325,3 +325,105 @@ class TorusModesCos:
                                              eta2 + ni*2.*np.pi*eta3)
 
         return val
+    
+
+class Shear_y:
+    r'''Double shear layer in y (-1 in outer regions, 1 in inner regions).
+
+    .. math::
+
+        u(x, y, z) = -tanh((y + 0.25)/delta)+tanh((y + 0.75)/delta) - 1 ~, 
+
+    Can be used in logical space with Lx=Ly=Lz=1.0 (default).
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``fluid/<species>``::
+
+        init :
+            type : ModesSin
+            ModesSin :
+                coords : 'physical' # in which coordinates (logical or physical)
+                comps :
+                    n3 : False                # components to be initialized 
+                    u2 : [True, False, True]  # components to be initialized 
+                    p3 : False                # components to be initialized 
+                ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
+                ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
+                ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
+                amps : [0.001] # amplitudes of each mode
+                Lx : 7.853981633974483 # domain length in x
+                Ly : 1.                # domain length in y
+                Lz : 1.                # domain length in z
+    '''
+
+    def __init__(self, amp = 1e-4, delta = 1/15):
+        '''
+        Parameters
+        ----------
+            amps : float
+                Amplitude of the velocity on each side.
+
+            delta : float
+                Characteristic size of the shear layer
+        '''
+
+        self._amp = amp
+        self._delta = delta
+
+    def __call__(self, x, y, z):
+
+        val = self._amp*(-np.tanh((y - 0.75)/self._delta)+np.tanh((y- 0.25)/self._delta) - 1)
+
+        return val
+    
+
+class Shear_z:
+    r'''Double shear layer in z (-1 in outer regions, 1 in inner regions).
+
+    .. math::
+
+        u(x, y, z) = -tanh((y + 0.25)/delta)+tanh((y + 0.75)/delta) - 1 ~, 
+
+    Can be used in logical space with Lx=Ly=Lz=1.0 (default).
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``fluid/<species>``::
+
+        init :
+            type : ModesSin
+            ModesSin :
+                coords : 'physical' # in which coordinates (logical or physical)
+                comps :
+                    n3 : False                # components to be initialized 
+                    u2 : [True, False, True]  # components to be initialized 
+                    p3 : False                # components to be initialized 
+                ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
+                ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
+                ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
+                amps : [0.001] # amplitudes of each mode
+                Lx : 7.853981633974483 # domain length in x
+                Ly : 1.                # domain length in y
+                Lz : 1.                # domain length in z
+    '''
+
+    def __init__(self, amp = 1e-4, delta = 1/15):
+        '''
+        Parameters
+        ----------
+            amps : float
+                Amplitude of the velocity on each side.
+
+            delta : float
+                Characteristic size of the shear layer
+        '''
+
+        self._amp = amp
+        self._delta = delta
+
+    def __call__(self, x, y, z):
+
+        val = self._amp*(-np.tanh((z - 0.75)/self._delta)+np.tanh((z- 0.25)/self._delta) - 1)
+
+        return val

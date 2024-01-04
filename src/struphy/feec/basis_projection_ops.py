@@ -1,4 +1,5 @@
 import numpy as np
+from mpi4py import MPI
 
 from psydac.linalg.stencil import StencilMatrix
 from psydac.linalg.block import BlockLinearOperator, BlockVector
@@ -816,6 +817,9 @@ class BasisProjectionOperator(LinOpWithTransp):
         self._is_scalar = True
         if not isinstance(V, TensorFemSpace):
             self._is_scalar = False
+            self._mpi_comm = V.vector_space.spaces[0].cart.comm
+        else :
+            self._mpi_comm = V.vector_space.cart.comm
 
         if not isinstance(P.space, TensorFemSpace):
             self._is_scalar = False
@@ -1048,7 +1052,10 @@ class BasisProjectionOperator(LinOpWithTransp):
 
                 # Call the kernel if weight function is not zero or in the scalar case
                 # to avoid calling _block of a StencilMatrix in the else
-                if loc_weight is not None and np.any(np.abs(mat_w) > 1e-14) or self._is_scalar:
+                #if loc_weight is not None and np.any(np.abs(mat_w) > 1e-14) or self._is_scalar:
+                not_weight_zero = np.array(int(np.any(np.abs(mat_w) > 1e-14)))
+                self._mpi_comm.Allreduce(MPI.IN_PLACE, not_weight_zero, op=MPI.LOR)
+                if loc_weight is not None and not_weight_zero or self._is_scalar:
 
                     # get cell of block matrix (don't instantiate if all zeros)
                     if self._is_scalar:
@@ -1070,10 +1077,12 @@ class BasisProjectionOperator(LinOpWithTransp):
 
                     dofs_mat.set_backend(
                         backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
+                    
+                    dofs_mat.update_ghost_regions()                 
 
                 else:
                     self._dof_mat[i, j] = None
-
+   
         return self._dof_mat
 
 

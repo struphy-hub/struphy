@@ -725,3 +725,110 @@ def eval_spline_mpi_sparse_meshgrid(eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', 
 
                 values[i, j, k] = eval_spline_mpi(
                     eta1[i, 0, 0], eta2[0, j, 0], eta3[0, 0, k], _data, kind, pn, tn1, tn2, tn3, starts)
+
+
+def kernel_evaluate_field_3d_grid(fun_q: 'float[:,:,:]', starts_c: 'int[:]', ends_c: 'int[:]', pads_c: 'int[:]', coeffs_f: 'float[:,:,:]', span_c1: 'int[:,:]', span_c2: 'int[:,:]', span_c3: 'int[:,:]', basis_c1: 'float[:,:,:]', basis_c2: 'float[:,:,:]', basis_c3: 'float[:,:,:]', dim1_c: int, dim2_c: int, dim3_c: int):
+    '''Kernel for evluating a Field on a grid (used for fast evaluation of Field then passed to BasisProjectionOperator or )
+    ----------
+        fun_q : 3d float array
+            Array to fill with the values.
+
+        starts_c : 1d int array
+            Starting indices of the coefficient (femfield f) space.
+
+        ends_c : 1d int array
+            Ending indices of the coefficient (femfield f) space.
+
+        pads_c : 1d int array
+            Paddings of the coefficient (femfield f) space.
+
+        coeffs_f : 3d float array
+            Coefficient of the femfield f
+
+        span_c1 : 2d int array
+            Knot span indices in direction eta1 in format (ii, iq) for the coefficient FemField f.
+
+        span_c2 : 2d int array
+            Knot span indices in direction eta2 in format (jj, jq) for the coefficient FemField f.
+
+        span_c3 : 2d int array
+            Knot span indices in direction eta3 in format (jj, jq) for the coefficient FemField f.
+
+        basis_c1 : 3d float array
+            Values of p1 + 1 non-zero eta-1 basis functions of the space of f at quadrature points in format (ii, iq, basis function).
+
+        basis_c2 : 3d float array
+            Values of p2 + 1 non-zero eta-2 basis functions of the space of f at quadrature points in format (jj, jq, basis function).
+
+        basis_c3 : 3d float array
+            Values of p3 + 1 non-zero eta-3 basis functions of the space of f at quadrature points in format (kk, kq, basis function).
+
+        dim1_c : int
+            Dimension of the first direction of the coefficient space
+
+        dim2_c : int
+            Dimension of the second direction of the coefficient space
+
+        dim3_c : int
+            Dimension of the third direction of the coefficient space
+
+    '''
+
+    sc1 = starts_c[0]
+    sc2 = starts_c[1]
+    sc3 = starts_c[2]
+    ec1 = ends_c[0]
+    ec2 = ends_c[1]
+    ec3 = ends_c[2]
+    pc1 = pads_c[0]
+    pc2 = pads_c[1]
+    pc3 = pads_c[2]
+
+    p1_c = basis_c1.shape[2] - 1
+    p2_c = basis_c2.shape[2] - 1
+    p3_c = basis_c3.shape[2] - 1
+
+    # number of quadrature points
+    nq1 = span_c1.shape[1]
+    nq2 = span_c2.shape[1]
+    nq3 = span_c3.shape[1]
+
+    # Set output to zero
+    #fun_q[:] = 0.
+
+    # Element
+    # -------------------------------------------------
+    # local DOF index
+    for i in range(span_c1.shape[0]):
+        for j in range(span_c2.shape[0]):
+            for k in range(span_c3.shape[0]):
+
+                # Point index in element
+                # ----------------------------------
+                for iq in range(nq1):
+                    for jq in range(nq2):
+                        for kq in range(nq3):
+
+                            for b1 in range(p1_c + 1):
+                                # global index
+                                m = (span_c1[i, iq] - p1_c + b1)
+                                # local index
+                                m_loc = m-sc1+pc1
+                                if m_loc > ec1+2*pc1:
+                                    m_loc -= dim1_c
+                                for b2 in range(p2_c + 1):
+                                    # global index
+                                    n = (span_c2[j, jq] - p2_c + b2)
+                                    # local index
+                                    n_loc = n-sc2+pc2
+                                    if n_loc > ec2+2*pc2:
+                                        n_loc -= dim2_c
+                                    for b3 in range(p3_c + 1):
+                                        # global index
+                                        o = (span_c3[k, kq] - p3_c + b3)
+                                        # local index
+                                        o_loc = o-sc3+pc3
+                                        if o_loc > ec3+2*pc3:
+                                            o_loc -= dim3_c
+                                        fun_q[nq1*i + iq, nq2*j + jq, nq3*k +
+                                              kq] += basis_c1[i, iq, b1] * basis_c2[j, jq, b2] * basis_c3[k, kq, b3] * coeffs_f[m_loc, n_loc, o_loc]

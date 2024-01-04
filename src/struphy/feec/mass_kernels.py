@@ -265,17 +265,23 @@ def kernel_3d_mat(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int
                                         value = 0.
 
                                         for q1 in range(nq1):
+                                            w1_eval = w1[iel1, q1]
+                                            bi1_eval = bi1[iel1, il1, 0, q1]
+                                            bj1_eval = bj1[iel1, jl1, 0, q1]
                                             for q2 in range(nq2):
+                                                w2_eval = w2[iel2, q2]
+                                                bi2_eval = bi2[iel2, il2, 0, q2]
+                                                bj2_eval = bj2[iel2, jl2, 0, q2]
                                                 for q3 in range(nq3):
-
-                                                    wvol = w1[iel1, q1] * w2[iel2, q2] * w3[iel3, q3] * \
+                                                    w3_eval = w3[iel3, q3]
+                                                    bi3_eval = bi3[iel3, il3, 0, q3]
+                                                    bj3_eval = bj3[iel3, jl3, 0, q3]
+                                                    wvol = w1_eval * w2_eval * w3_eval * \
                                                         mat_fun[iel1 * nq1 + q1,
                                                                 iel2 * nq2 + q2,
                                                                 iel3 * nq3 + q3]
-                                                    bi = bi1[iel1, il1, 0, q1] \
-                                                        * bi2[iel2, il2, 0, q2] * bi3[iel3, il3, 0, q3]
-                                                    bj = bj1[iel1, jl1, 0, q1] \
-                                                        * bj2[iel2, jl2, 0, q2] * bj3[iel3, jl3, 0, q3]
+                                                    bi = bi1_eval * bi2_eval * bi3_eval
+                                                    bj = bj1_eval * bj2_eval * bj3_eval
 
                                                     value += wvol * bi * bj
 

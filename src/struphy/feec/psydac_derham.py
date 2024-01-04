@@ -5,6 +5,7 @@ from sympde.topology import Derham as Derham_psy
 
 from psydac.api.discretization import discretize
 from psydac.fem.vector import VectorFemSpace
+from psydac.fem.tensor import TensorFemSpace
 from psydac.feec.global_projectors import Projector_H1vec
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
@@ -1063,8 +1064,8 @@ class Derham:
 
                         self.vector = eig_vec
 
-                # Fourier modes
-                elif any(_type in ['ModesSin', 'ModesCos', 'TorusModesSin', 'TorusModesCos'] for _type in init_types):
+                # Fourier modes or shear layer
+                elif any(_type in ['ModesSin', 'ModesCos', 'TorusModesSin', 'TorusModesCos', 'Shear_y', 'Shear_z'] for _type in init_types):
 
                     if 'H1vec' in self.space_id:
                         form_str = 'vector'
@@ -1265,7 +1266,7 @@ class Derham:
 
                 # all processes have all values
                 if out is None : 
-                    out = tmp
+                    out = tmp.copy()
                 else :
                     out *= 0.
                     out += tmp
@@ -1540,7 +1541,6 @@ class Derham:
                 if np.all(np.array([ind_c == ind for ind_c, ind in zip(inds_current, inds)])):
                     return _amps
 
-
 class PulledPform:
     """
     Construct callable (component of) p-form on logical domain (unit cube).
@@ -1610,3 +1610,142 @@ class PulledPform:
                 'Coordinates to be used for p-form pullback not properly specified.')
 
         return f
+    
+
+class Grid_Evaluator:
+    r"""Fast evaluation of a spline on a structured grid"""
+
+    def __init__(self, grid, space):
+        # TODO : maybe a couple of asserts for the space and the grid to check everything on the right format
+        self.kernel = getattr(eval_3d, 'kernel_evaluate_field_3d_grid')
+        if isinstance(space, TensorFemSpace):
+            self._is_scalar = True
+            v_space = space.vector_space
+            self._starts = np.array(v_space.starts)
+            self._ends = np.array(v_space.ends)
+            self._pads = np.array(v_space.pads)
+            self._spans, self._basis = prepare_projection_of_basis(grid, space)
+            self._dims = [s.nbasis for s in space.spaces]
+
+        elif isinstance(space, VectorFemSpace):
+            from copy import deepcopy
+            self._is_scalar = False
+            self._starts, self._ends, self._pads, self._spans, self._basis, self._dims = [], [], [], [], [], []
+            for s_space in space.spaces :
+                v_space = s_space.vector_space
+                self._starts.append(np.array(v_space.starts))
+                self._ends.append(np.array(v_space.ends))
+                self._pads.append(np.array(v_space.pads))
+                tmp_spans, tmp_basis = prepare_projection_of_basis(grid, s_space)
+                self._spans.append(deepcopy(tmp_spans))
+                self._basis.append(deepcopy(tmp_basis))
+                self._dims.append([s.nbasis for s in s_space.spaces])
+        else : 
+            raise ValueError("space must be either TensorFemSpace or VectorFemSpace")
+
+    def __call__(self, coeffs, out=None):
+        if out is None:
+            raise NotImplementedError("should provide an out for Grid_Evaluator")
+            out = np.zeros()
+        if self._is_scalar:
+            out[:] = 0.
+            self.kernel(out, self._starts, self._ends, self._pads, coeffs._data, *self._spans, *self._basis, *self._dims)
+        else :
+            for i in range(3):
+                out[i][:] = 0.
+                self.kernel(out[i], self._starts[i], self._ends[i], self._pads[i], coeffs[i]._data, *self._spans[i], *self._basis[i], *self._dims[i])
+
+        
+        return out
+
+def prepare_projection_of_basis(unflatten_grid, space):
+    '''Obtain knot span indices and basis functions evaluated at projection point sets of a given space.
+
+    Parameters
+    ----------
+    V1d : 3-list
+        Three SplineSpace objects from Psydac from the input space (to be projected).
+
+    W1d : 3-list
+        Three SplineSpace objects from Psydac from the output space (projected onto).
+
+    starts_out : 3-list
+        Global starting indices of process. 
+
+    ends_out : 3-list
+        Global ending indices of process.
+
+    n_quad : 3_list
+        Number of quadrature points per histpolation interval. If not given, is set to V1d.degree + 1.
+
+    Returns
+    -------
+    ptsG : 3-tuple of 2d float arrays
+        Quadrature points (or Greville points for interpolation) in each dimension in format (interval, quadrature point).
+
+    wtsG : 3-tuple of 2d float arrays
+        Quadrature weights (or ones for interpolation) in each dimension in format (interval, quadrature point).
+
+    spans : 3-tuple of 2d int arrays
+        Knot span indices in each direction in format (n, nq).
+
+    bases : 3-tuple of 3d float arrays
+        Values of p + 1 non-zero eta basis functions at quadrature points in format (n, nq, basis).
+    '''
+
+    import psydac.core.bsplines as bsp
+
+    spans, bases = [], []
+
+    # Loop over direction, prepare point sets and evaluate basis functions
+    direction = 0
+    for loc_pts, space_1d in zip(unflatten_grid, space.spaces):
+        s, b = get_span_and_basis(loc_pts, space_1d)
+
+        spans += [s]
+        bases += [b]
+
+        direction += 1
+
+    return tuple(spans), tuple(bases)
+
+
+def get_span_and_basis(pts, space):
+    '''Compute the knot span index and the values of p + 1 basis function at each point in pts.
+
+    Parameters
+    ----------
+    pts : np.array
+        2d array of points (interval, quadrature point).
+
+    space : SplineSpace
+        Psydac object, the 1d spline space to be projected.
+
+    Returns
+    -------
+    span : np.array
+        2d array indexed by (n, nq), where n is the interval and nq is the quadrature point in the interval.
+
+    basis : np.array
+        3d array of values of basis functions indexed by (n, nq, basis function). 
+    '''
+
+    import psydac.core.bsplines as bsp
+
+    # Extract knot vectors, degree and kind of basis
+    T = space.knots
+    p = space.degree
+
+    span = np.zeros(pts.shape, dtype=int)
+    basis = np.zeros((*pts.shape, p + 1), dtype=float)
+
+    for n in range(pts.shape[0]):
+        for nq in range(pts.shape[1]):
+            # avoid 1. --> 0. for clamped interpolation
+            x = pts[n, nq] % (1. + 1e-14)
+            span_tmp = bsp.find_span(T, p, x)
+            basis[n, nq, :] = bsp.basis_funs_all_ders(
+                T, p, x, span_tmp, 0, normalization=space.basis)
+            span[n, nq] = span_tmp  # % space.nbasis
+
+    return span, basis
