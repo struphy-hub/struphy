@@ -66,6 +66,24 @@ default_venv:
     - pip install -U pytest coverage twine
     - pip list
 
+# build on mpcdf server
+default_build:
+  stage: build
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  needs: ["default_venv"]
+  script:  
+    - pip install -U build
+    - pip list
+    - python3 -m build # build struphy (.whl) 
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 day
+    
 # Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
 ci_vars:
   stage: startup
