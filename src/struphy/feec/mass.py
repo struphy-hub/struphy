@@ -1012,7 +1012,8 @@ class WeightedMassOperator(LinOpWithTransp):
         Parameters
         ----------
         weights : list | NoneType
-            Weight function(s) (callables or np.ndarrays) in a 2d list of shape corresponding to number of components of domain/codomain. If weights=None, the weight is taken from the given weights in the instanziation of the object, else it will ne overriden.
+            Weight function(s) (callables or np.ndarrays) in a 2d list of shape corresponding to number of components of domain/codomain. 
+            If weights=None, the weight is taken from the given weights in the instanziation of the object, else it will be overriden.
 
         clear : bool
             Whether to first set all data to zero before assembly. If False, the new contributions are added to existing ones.
