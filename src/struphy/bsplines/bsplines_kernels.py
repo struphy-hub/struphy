@@ -56,7 +56,6 @@ def find_span(t: 'float[:]', p: 'int', eta: 'float') -> 'int':
 
     # Knot index at left/right boundary
     low = p
-    high = 0
     high = len(t) - 1 - p
 
     # Check if point is exactly on left/right boundary, or outside domain

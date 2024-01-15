@@ -231,7 +231,7 @@ class Domain(metaclass=ABCMeta):
         return self._dict_transformations
 
     # ========================
-    def __call__(self, *etas, change_out_order=False, squeeze_out=True, remove_outside=True, identity_map=False):
+    def __call__(self, *etas, change_out_order=False, squeeze_out=False, remove_outside=True, identity_map=False):
         r"""
         Evaluates the mapping :math:`F : (0, 1)^3 \to \mathbb R^3,\, \boldsymbol \eta \mapsto \mathbf x`. 
         
@@ -271,7 +271,7 @@ class Domain(metaclass=ABCMeta):
         return self._evaluate_metric_coefficient(*etas, which=which, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside)
 
     # ========================
-    def jacobian(self, *etas, transposed=False, change_out_order=False, squeeze_out=True, remove_outside=True):
+    def jacobian(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
         r"""
         Evaluates the Jacobian matrix :math:`DF : (0, 1)^3 \to \mathbb R^{3 \times 3}`. 
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
@@ -304,7 +304,7 @@ class Domain(metaclass=ABCMeta):
         return self._evaluate_metric_coefficient(*etas, which=1, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
 
     # ========================
-    def jacobian_det(self, *etas, squeeze_out=True, remove_outside=True):
+    def jacobian_det(self, *etas, squeeze_out=False, remove_outside=True):
         r"""
         Evaluates the Jacobian determinant :math:`\sqrt g : (0, 1)^3 \to \mathbb R^+` (only right-handed mappings allowed). 
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
@@ -331,7 +331,7 @@ class Domain(metaclass=ABCMeta):
         return self._evaluate_metric_coefficient(*etas, which=2, squeeze_out=squeeze_out, remove_outside=remove_outside)
 
     # ========================
-    def jacobian_inv(self, *etas, transposed=False, change_out_order=False, squeeze_out=True, remove_outside=True):
+    def jacobian_inv(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
         r"""
         Evaluates the inverse Jacobian matrix :math:`DF^{-1} : (0, 1)^3 \to \mathbb R^{3 \times 3}`. 
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
@@ -364,7 +364,7 @@ class Domain(metaclass=ABCMeta):
         return self._evaluate_metric_coefficient(*etas, which=3, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
 
     # ========================
-    def metric(self, *etas, transposed=False, change_out_order=False, squeeze_out=True, remove_outside=True):
+    def metric(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
         r"""
         Evaluates the metric tensor :math:`G: (0, 1)^3 \to \mathbb R^{3\times 3}`. 
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
@@ -397,7 +397,7 @@ class Domain(metaclass=ABCMeta):
         return self._evaluate_metric_coefficient(*etas, which=4, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
 
     # ========================
-    def metric_inv(self, *etas, transposed=False, change_out_order=False, squeeze_out=True, remove_outside=True):
+    def metric_inv(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
         r"""
         Evaluates the inverse metric tensor :math:`G^{-1}: (0, 1)^3 \to \mathbb R^{3\times 3}`. 
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
@@ -430,7 +430,7 @@ class Domain(metaclass=ABCMeta):
         return self._evaluate_metric_coefficient(*etas, which=5, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
 
     # ================================
-    def pull(self, a, *etas, kind='0_form', a_kwargs={}, change_out_order=False, squeeze_out=True, remove_outside=True, coordinates='physical'):
+    def pull(self, a, *etas, kind='0_form', a_kwargs={}, change_out_order=False, squeeze_out=False, remove_outside=True, coordinates='physical'):
         """
         Pull-back of a Cartesian scalar/vector field to a differential p-form.
 
@@ -477,7 +477,7 @@ class Domain(metaclass=ABCMeta):
         return self._pull_push_transform('pull', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside, coordinates=coordinates, a_kwargs=a_kwargs)
 
     # ================================
-    def push(self, a, *etas, kind='0_form', a_kwargs={}, change_out_order=False, squeeze_out=True, remove_outside=True):
+    def push(self, a, *etas, kind='0_form', a_kwargs={}, change_out_order=False, squeeze_out=False, remove_outside=True):
         """
         Pushforward of a differential p-form to a Cartesian scalar/vector field .
 
@@ -520,7 +520,7 @@ class Domain(metaclass=ABCMeta):
         return self._pull_push_transform('push', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside, a_kwargs=a_kwargs)
 
     # ================================
-    def transform(self, a, *etas, kind='0_to_3', a_kwargs={}, change_out_order=False, squeeze_out=True, remove_outside=True):
+    def transform(self, a, *etas, kind='0_to_3', a_kwargs={}, change_out_order=False, squeeze_out=False, remove_outside=True):
         """
         Transformation between different differential p-forms and/or vector fields. 
 

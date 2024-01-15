@@ -571,10 +571,14 @@ def is_circulant(mat):
 
     assert isinstance(mat, np.ndarray)
     assert len(mat.shape) == 2
-
-    for i in range(mat.shape[0] - 1):
-        circulant = np.allclose(mat[i, :], np.roll(mat[i + 1, :], -1))
-        if not circulant:
-            return circulant
+    assert mat.shape[0] == mat.shape[1]
+    
+    if mat.shape[0] > 1:
+        for i in range(mat.shape[0] - 1):
+            circulant = np.allclose(mat[i, :], np.roll(mat[i + 1, :], -1))
+            if not circulant:
+                return circulant
+    else:
+        circulant = True
 
     return circulant

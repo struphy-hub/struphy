@@ -40,7 +40,7 @@ class BasisProjectionOperators:
 
     def __init__(self, derham, domain, **weights):
 
-        if np.any(np.array(derham.p) == 1):
+        if np.any([p == 1 and Nel > 1 for p, Nel in zip(derham.p, derham.Nel)]):
             if derham.comm.Get_rank() == 0:
                 print(
                     f'\nWARNING: Class "BasisProjectionOperators" called with p={derham.p} (interpolation of piece-wise constants should be avoided).\n')
