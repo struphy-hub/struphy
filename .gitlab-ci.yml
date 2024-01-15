@@ -226,8 +226,7 @@ fedora_latest_tests:
     - dnf install -y openmpi openmpi-devel 
     - dnf install -y libgomp 
     - dnf install -y git 
-    - dnf install -y environment-modules 
-    - dnf install -y python38-mpi4py-openmpi # Ensure mpi4py is for Python 3.8
+    - dnf install -y environment-modules
     - dnf install -y python38-devel # Python 3.8 development files
     - dnf install -y pandoc
     - python3.8 -m ensurepip # Ensure pip is installed for Python 3.8
@@ -235,6 +234,7 @@ fedora_latest_tests:
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
     - export OMPI_MCA_pml=ob1
     - export OMPI_MCA_btl=tcp,self
+    - python3.8 -m pip install mpi4py
 
   script:
     - pip3.8 list # Use pip for Python 3.8
