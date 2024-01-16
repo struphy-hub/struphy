@@ -219,8 +219,10 @@ fedora_latest_tests:
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   before_script:
-    - 'echo "Current PATH: $PATH"'
+    - export MPI_INCLUDE_PATH=/usr/include/openmpi-x86_64
+    - export LD_LIBRARY_PATH=/usr/lib64/openmpi/lib:$LD_LIBRARY_PATH 
     - source /etc/profile.d/modules.sh
+    - module load openmpi
     - bash -c "pip install struphy && struphy compile" 
   script:
     - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy test models --fast"
