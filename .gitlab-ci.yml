@@ -211,36 +211,15 @@ ci_vars:
 
 fedora_latest_tests:
   stage: test
-  image: fedora:latest
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora_latest
   needs: ["default_build"]
   cache: []
   rules:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
-  before_script:
-    - dnf install -y python38 # Install Python 3.8
-    - dnf install -y gcc 
-    - dnf install -y gfortran  
-    - dnf install -y blas-devel lapack-devel  
-    - dnf install -y openmpi openmpi-devel 
-    - dnf install -y libgomp 
-    - dnf install -y git 
-    - dnf install -y environment-modules
-    - dnf install -y pandoc
-    - python3.8 -m ensurepip # Ensure pip is installed for Python 3.8
-    - python3.8 -m pip install mpi4py
-    - python3.8 -m pip install python38-devel
-    - export OMPI_ALLOW_RUN_AS_ROOT=1
-    - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
-    - export OMPI_MCA_pml=ob1
-    - export OMPI_MCA_btl=tcp,self
-
   script:
-    - pip3.8 list # Use pip for Python 3.8
-    - echo "Python shared object extension (SO_EXT):"
-    - python3.8 -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))" # Use Python 3.8
-    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip3.8 install numpy && pip3.8 install struphy && struphy compile" # Use pip3.8
+    - bash -c "pip install struphy && struphy compile" 
     - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy test models --fast"
 
 # release
