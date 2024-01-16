@@ -236,10 +236,10 @@ deploy:
 
 centos_7_python_3_8_tests:
   stage: test
-  image: centos:7
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/centos_7_py_3_8
 
   before_script:
-    - pip3 install struphy
+    - python3.8 -m pip install struphy
     - scl enable devtoolset-8 'struphy compile'
 
   script:
@@ -249,10 +249,10 @@ centos_7_python_3_8_tests:
 
 centos_7_python_3_9_tests:
   stage: test
-  image: centos:7
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/centos_7_py_3_9
 
   before_script:
-    - pip3 install struphy
+    - python3.9 -m pip install struphy
     - scl enable devtoolset-8 'struphy compile'
 
   script:
