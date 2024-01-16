@@ -241,7 +241,7 @@ centos_7_python_3_8_tests:
   before_script:
     - python3.8 -m pip install struphy
   script:
-    - scl enable devtoolset-8 'echo $PATH && which make && make --version'
+    - scl enable devtoolset-8 'echo $PATH && command -v make && make --version'
     - scl enable devtoolset-8 'struphy compile'
     - struphy test models --fast
 
