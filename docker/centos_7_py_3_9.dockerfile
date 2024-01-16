@@ -1,7 +1,15 @@
+# Here is how to build the image and upload it to the mpcdf gitlab registry:
+#
+# We suppose you are in the struphy repo directory. Start the docker engine and then run:
+#
+# docker info
+# docker login gitlab-registry.mpcdf.mpg.de -u docker_api -p glpat--z6kJtobeG-xM_LdL6k6
+# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/centos_7_py_3_9 -f docker/centos_7_py_3_9.dockerfile .
+# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/centos_7_py_3_9
+
 # Use CentOS 7 as the base image
 FROM centos:7
 
-# Install necessary packages and development tools
 RUN yum update -y \
     && yum install -y centos-release-scl \
     && yum install -y devtoolset-8-gcc devtoolset-8-gcc-c++ devtoolset-8-gcc-gfortran \
@@ -47,24 +55,7 @@ RUN echo '/usr/local/lib' > /etc/ld.so.conf.d/python3.9.conf && \
 RUN ln -s /usr/local/bin/python3.9 /usr/bin/python3 \
     && ln -s /usr/local/bin/pip3.9 /usr/bin/pip3
 
-# Upgrade pip
 RUN python3.9 -m pip install pip --upgrade
 
-# Install OpenMPI development package (this is already installed in an earlier step, so this line is redundant)
-# RUN yum install -y openmpi-devel
-
-# Set environment variables for OpenMPI
 ENV PATH="/usr/lib64/openmpi/bin:${PATH}"
 ENV LD_LIBRARY_PATH="/usr/lib64/openmpi/lib:${LD_LIBRARY_PATH}"
-
-# Install struphy
-RUN python3.9 -m pip install struphy
-
-RUN scl enable devtoolset-8 'struphy compile'
-
-# Create a new user and change ownership
-RUN adduser centos_7_py_3_9_user \
-    && chown -R centos_7_py_3_9_user:centos_7_py_3_9_user /usr/local/lib/python3.9/site-packages/struphy/
-
-# Switch to non-root user
-USER centos_7_py_3_9_user

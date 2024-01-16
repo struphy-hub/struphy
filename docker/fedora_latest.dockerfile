@@ -36,15 +36,4 @@ RUN alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
 
 RUN python3.8 -m ensurepip
 RUN python3.8 -m pip install --upgrade pip
-RUN bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && python3.8 -m pip install sympy==1.5 struphy gvec_to_python" 
-
-RUN struphy compile
-
-RUN echo ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch)" >> /root/.bashrc
-
-# RUN python3.8 -m venv /opt/venv \
-#     && . /opt/venv/bin/activate \
-#     && pip install sympy==1.5 struphy gvec_to_python 
-    # \
-    # && struphy compile
-
+RUN bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && python3.8 -m pip install sympy==1.5 gvec_to_python" 
