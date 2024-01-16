@@ -218,10 +218,11 @@ fedora_latest_tests:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
-  script:
+  before_script:
     - 'echo "Current PATH: $PATH"'
     - source /etc/profile.d/modules.sh
     - bash -c "pip install struphy && struphy compile" 
+  script:
     - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy test models --fast"
 
 # release
