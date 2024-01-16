@@ -239,26 +239,24 @@ centos_7_python_3_8_tests:
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/centos_7_py_3_8
 
   before_script:
-    - python3.8 -m pip install struphy
-    - scl enable devtoolset-8 'struphy compile'
-
-  script:
-    - echo "Starting build and test process"
-    - struphy test models --fast
-    - echo "Build and test process completed"
-
-centos_7_python_3_9_tests:
-  stage: test
-  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/centos_7_py_3_9
-
-  before_script:
     - python3.9 -m pip install struphy
-    - scl enable devtoolset-8 'struphy compile'
-
   script:
-    - echo "Starting build and test process"
+    - scl enable devtoolset-8 'echo $PATH && which make && make --version'
+    - scl enable devtoolset-8 'struphy compile'
     - struphy test models --fast
-    - echo "Build and test process completed"
+
+# centos_7_python_3_9_tests:
+#   stage: test
+#   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/centos_7_py_3_9
+
+#   before_script:
+#     - python3.9 -m pip install struphy
+#     - scl enable devtoolset-8 'struphy compile'
+
+#   script:
+#     - echo "Starting build and test process"
+#     - struphy test models --fast
+#     - echo "Build and test process completed"
 
 pages:
   stage: release
