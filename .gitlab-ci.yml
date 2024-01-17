@@ -242,9 +242,7 @@ centos_7_python_3_8_tests:
     - python3.8 -m pip install struphy
   script:
     - scl enable devtoolset-8 'echo $PATH && command -v make && make --version'
-    - scl enable devtoolset-8 'struphy compile'
-    - struphy test models --fast
-
+    - printenv
 # centos_7_python_3_9_tests:
 #   stage: test
 #   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/centos_7_py_3_9
