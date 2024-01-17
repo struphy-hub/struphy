@@ -4,210 +4,210 @@
 # Official language image. Look for the different tagged releases at:
 # https://hub.docker.com/r/library/python/tags/
 
-default:
+# default:
 
-  image: gitlab-registry.mpcdf.mpg.de/mpcdf/module-image
+#   image: gitlab-registry.mpcdf.mpg.de/mpcdf/module-image
 
-  before_script:
-    - uname -a
-    - module purge
-    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc
-    - module list
-    - make -v
-    - python3 --version
-    - sqlite3 -version
-    - source env_$CI_PIPELINE_ID/bin/activate
-    - pip list
+#   before_script:
+#     - uname -a
+#     - module purge
+#     - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc
+#     - module list
+#     - make -v
+#     - python3 --version
+#     - sqlite3 -version
+#     - source env_$CI_PIPELINE_ID/bin/activate
+#     - pip list
 
-  tags:
-    - cloud
+#   tags:
+#     - cloud
 
-  cache:
-    key: 'python-env'
-    paths:
-      - env_$CI_PIPELINE_ID/
+#   cache:
+#     key: 'python-env'
+#     paths:
+#       - env_$CI_PIPELINE_ID/
 
 stages:
-  - startup
-  - build
-  - install
+  # - startup
+  # - build
+  # - install
   - test
-  - release 
-variables:
-  PYTHON_VERSION_1: "3.8"
-  PYTHON_VERSION_2: "3.9"
+#   # - release 
+# variables:
+#   PYTHON_VERSION_1: "3.8"
+#   PYTHON_VERSION_2: "3.9"
 
 # python virtual environments into cache
-default_venv:
-  stage: startup
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "push"
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-  before_script:
-    - uname -s # get system info
-    - uname -v
-    - uname -m
-    - uname -o
-    - echo "Hello ${GITLAB_USER_NAME} !"
-    - echo "This is job ${CI_JOB_ID}"
-    - module purge
-    - module avail
-    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc
-    - module list
-  script:
-    - pip install -U virtualenv
-    - python3 -m venv env_$CI_PIPELINE_ID
-    - ls
-    - pwd
-    - source env_$CI_PIPELINE_ID/bin/activate
-    - python3 -m pip install --upgrade pip
-    - pip install -U pytest coverage twine
-    - pip list
+# default_venv:
+#   stage: startup
+#   rules:
+#     - if: $CI_COMMIT_TAG
+#       when: never
+#     - if: $CI_PIPELINE_SOURCE == "push"
+#     - if: $CI_PIPELINE_SOURCE == "schedule"
+#   before_script:
+#     - uname -s # get system info
+#     - uname -v
+#     - uname -m
+#     - uname -o
+#     - echo "Hello ${GITLAB_USER_NAME} !"
+#     - echo "This is job ${CI_JOB_ID}"
+#     - module purge
+#     - module avail
+#     - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc
+#     - module list
+#   script:
+#     - pip install -U virtualenv
+#     - python3 -m venv env_$CI_PIPELINE_ID
+#     - ls
+#     - pwd
+#     - source env_$CI_PIPELINE_ID/bin/activate
+#     - python3 -m pip install --upgrade pip
+#     - pip install -U pytest coverage twine
+#     - pip list
 
 # build on mpcdf server
-default_build:
-  stage: build
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "push"
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-  needs: ["default_venv"]
-  script:  
-    - pip install -U build
-    - pip list
-    - python3 -m build # build struphy (.whl) 
-  artifacts:
-    paths:
-      - dist/
-    expire_in: 1 day
+# default_build:
+#   stage: build
+#   rules:
+#     - if: $CI_COMMIT_TAG
+#       when: never
+#     - if: $CI_PIPELINE_SOURCE == "push"
+#     - if: $CI_PIPELINE_SOURCE == "schedule"
+#   needs: ["default_venv"]
+#   script:  
+#     - pip install -U build
+#     - pip list
+#     - python3 -m build # build struphy (.whl) 
+#   artifacts:
+#     paths:
+#       - dist/
+#     expire_in: 1 day
 
-# Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
-ci_vars:
-  stage: startup
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "push"
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-  cache: []
-  before_script:
-    - module purge
-    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc
-    - module list
-  script:
-    - echo "All CI predefined variables:"
-    - echo $CHAT_CHANNEL
-    - echo $CHAT_INPUT
-    - echo $CHAT_USER_ID
-    - echo $CI
-    - echo $CI_API_V4_URL
-    - echo $CI_BUILDS_DIR
-    - echo $CI_COMMIT_AUTHOR
-    - echo $CI_COMMIT_BEFORE_SHA
-    - echo $CI_COMMIT_BRANCH
-    - echo $CI_COMMIT_DESCRIPTION
-    - echo $CI_COMMIT_MESSAGE
-    - echo $CI_COMMIT_REF_NAME
-    - echo $CI_COMMIT_REF_PROTECTED
-    - echo $CI_COMMIT_REF_SLUG
-    - echo $CI_COMMIT_SHA
-    - echo $CI_COMMIT_SHORT_SHA
-    - echo $CI_COMMIT_TAG
-    - echo $CI_COMMIT_TIMESTAMP
-    - echo $CI_COMMIT_TITLE
-    - echo $CI_CONCURRENT_ID
-    - echo $CI_CONCURRENT_PROJECT_ID
-    - echo $CI_CONFIG_PATH
-    - echo $CI_DEBUG_TRACE
-    - echo $CI_DEFAULT_BRANCH
-    - echo $CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX
-    - echo $CI_DEPENDENCY_PROXY_DIRECT_GROUP_IMAGE_PREFIX
-    - echo $CI_DEPENDENCY_PROXY_PASSWORD
-    - echo $CI_DEPENDENCY_PROXY_SERVER
-    - echo $CI_DEPENDENCY_PROXY_USER
-    - echo $CI_DEPLOY_FREEZE
-    - echo $CI_DEPLOY_PASSWORD
-    - echo $CI_DEPLOY_USER
-    - echo $CI_DISPOSABLE_ENVIRONMENT
-    - echo $CI_ENVIRONMENT_NAME
-    - echo $CI_ENVIRONMENT_SLUG
-    - echo $CI_ENVIRONMENT_URL
-    - echo $CI_ENVIRONMENT_ACTION
-    - echo $CI_ENVIRONMENT_TIER
-    - echo $CI_HAS_OPEN_REQUIREMENTS
-    - echo $CI_JOB_ID
-    - echo $CI_JOB_IMAGE
-    - echo $CI_JOB_JWT
-    - echo $CI_JOB_JWT_V1
-    - echo $CI_JOB_JWT_V2
-    - echo $CI_JOB_MANUAL
-    - echo $CI_JOB_NAME
-    - echo $CI_JOB_STAGE
-    - echo $CI_JOB_STATUS
-    - echo $CI_JOB_TOKEN
-    - echo $CI_JOB_URL
-    - echo $CI_JOB_STARTED_AT
-    - echo $CI_KUBERNETES_ACTIVE
-    - echo $CI_NODE_INDEX
-    - echo $CI_NODE_TOTAL
-    - echo $CI_OPEN_MERGE_REQUESTS
-    - echo $CI_PAGES_DOMAIN
-    - echo $CI_PAGES_URL
-    - echo $CI_PIPELINE_ID
-    - echo $CI_PIPELINE_IID
-    - echo $CI_PIPELINE_SOURCE
-    - echo $CI_PIPELINE_TRIGGERED
-    - echo $CI_PIPELINE_URL
-    - echo $CI_PIPELINE_CREATED_AT
-    - echo $CI_PROJECT_CONFIG_PATH
-    - echo $CI_PROJECT_DIR
-    - echo $CI_PROJECT_ID
-    - echo $CI_PROJECT_NAME
-    - echo $CI_PROJECT_NAMESPACE
-    - echo $CI_PROJECT_PATH_SLUG
-    - echo $CI_PROJECT_PATH
-    - echo $CI_PROJECT_REPOSITORY_LANGUAGES
-    - echo $CI_PROJECT_ROOT_NAMESPACE
-    - echo $CI_PROJECT_TITLE
-    - echo $CI_PROJECT_URL
-    - echo $CI_PROJECT_VISIBILITY
-    - echo $CI_PROJECT_CLASSIFICATION_LABEL
-    - echo $CI_REGISTRY_IMAGE
-    - echo $CI_REGISTRY_PASSWORD
-    - echo $CI_REGISTRY_USER
-    - echo $CI_REGISTRY
-    - echo $CI_REPOSITORY_URL
-    - echo $CI_RUNNER_DESCRIPTION
-    - echo $CI_RUNNER_EXECUTABLE_ARCH
-    - echo $CI_RUNNER_ID
-    - echo $CI_RUNNER_REVISION
-    - echo $CI_RUNNER_SHORT_TOKEN
-    - echo $CI_RUNNER_TAGS
-    - echo $CI_RUNNER_VERSION
-    - echo $CI_SERVER_HOST
-    - echo $CI_SERVER_NAME
-    - echo $CI_SERVER_PORT
-    - echo $CI_SERVER_PROTOCOL
-    - echo $CI_SERVER_REVISION
-    - echo $CI_SERVER_URL
-    - echo $CI_SERVER_VERSION_MAJOR
-    - echo $CI_SERVER_VERSION_MINOR
-    - echo $CI_SERVER_VERSION_PATCH
-    - echo $CI_SERVER_VERSION
-    - echo $CI_SERVER
-    - echo $CI_SHARED_ENVIRONMENT
-    - echo $GITLAB_CI
-    - echo $GITLAB_FEATURES
-    - echo $GITLAB_USER_EMAIL
-    - echo $GITLAB_USER_ID
-    - echo $GITLAB_USER_LOGIN
-    - echo $GITLAB_USER_NAME
-    - echo $TRIGGER_PAYLOAD
-    - echo $TWINE_PASSWORD
-    - echo $TWINE_USERNAME
+# # Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
+# ci_vars:
+#   stage: startup
+#   rules:
+#     - if: $CI_COMMIT_TAG
+#       when: never
+#     - if: $CI_PIPELINE_SOURCE == "push"
+#     - if: $CI_PIPELINE_SOURCE == "schedule"
+#   cache: []
+#   before_script:
+#     - module purge
+#     - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc
+#     - module list
+#   script:
+#     - echo "All CI predefined variables:"
+#     - echo $CHAT_CHANNEL
+#     - echo $CHAT_INPUT
+#     - echo $CHAT_USER_ID
+#     - echo $CI
+#     - echo $CI_API_V4_URL
+#     - echo $CI_BUILDS_DIR
+#     - echo $CI_COMMIT_AUTHOR
+#     - echo $CI_COMMIT_BEFORE_SHA
+#     - echo $CI_COMMIT_BRANCH
+#     - echo $CI_COMMIT_DESCRIPTION
+#     - echo $CI_COMMIT_MESSAGE
+#     - echo $CI_COMMIT_REF_NAME
+#     - echo $CI_COMMIT_REF_PROTECTED
+#     - echo $CI_COMMIT_REF_SLUG
+#     - echo $CI_COMMIT_SHA
+#     - echo $CI_COMMIT_SHORT_SHA
+#     - echo $CI_COMMIT_TAG
+#     - echo $CI_COMMIT_TIMESTAMP
+#     - echo $CI_COMMIT_TITLE
+#     - echo $CI_CONCURRENT_ID
+#     - echo $CI_CONCURRENT_PROJECT_ID
+#     - echo $CI_CONFIG_PATH
+#     - echo $CI_DEBUG_TRACE
+#     - echo $CI_DEFAULT_BRANCH
+#     - echo $CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX
+#     - echo $CI_DEPENDENCY_PROXY_DIRECT_GROUP_IMAGE_PREFIX
+#     - echo $CI_DEPENDENCY_PROXY_PASSWORD
+#     - echo $CI_DEPENDENCY_PROXY_SERVER
+#     - echo $CI_DEPENDENCY_PROXY_USER
+#     - echo $CI_DEPLOY_FREEZE
+#     - echo $CI_DEPLOY_PASSWORD
+#     - echo $CI_DEPLOY_USER
+#     - echo $CI_DISPOSABLE_ENVIRONMENT
+#     - echo $CI_ENVIRONMENT_NAME
+#     - echo $CI_ENVIRONMENT_SLUG
+#     - echo $CI_ENVIRONMENT_URL
+#     - echo $CI_ENVIRONMENT_ACTION
+#     - echo $CI_ENVIRONMENT_TIER
+#     - echo $CI_HAS_OPEN_REQUIREMENTS
+#     - echo $CI_JOB_ID
+#     - echo $CI_JOB_IMAGE
+#     - echo $CI_JOB_JWT
+#     - echo $CI_JOB_JWT_V1
+#     - echo $CI_JOB_JWT_V2
+#     - echo $CI_JOB_MANUAL
+#     - echo $CI_JOB_NAME
+#     - echo $CI_JOB_STAGE
+#     - echo $CI_JOB_STATUS
+#     - echo $CI_JOB_TOKEN
+#     - echo $CI_JOB_URL
+#     - echo $CI_JOB_STARTED_AT
+#     - echo $CI_KUBERNETES_ACTIVE
+#     - echo $CI_NODE_INDEX
+#     - echo $CI_NODE_TOTAL
+#     - echo $CI_OPEN_MERGE_REQUESTS
+#     - echo $CI_PAGES_DOMAIN
+#     - echo $CI_PAGES_URL
+#     - echo $CI_PIPELINE_ID
+#     - echo $CI_PIPELINE_IID
+#     - echo $CI_PIPELINE_SOURCE
+#     - echo $CI_PIPELINE_TRIGGERED
+#     - echo $CI_PIPELINE_URL
+#     - echo $CI_PIPELINE_CREATED_AT
+#     - echo $CI_PROJECT_CONFIG_PATH
+#     - echo $CI_PROJECT_DIR
+#     - echo $CI_PROJECT_ID
+#     - echo $CI_PROJECT_NAME
+#     - echo $CI_PROJECT_NAMESPACE
+#     - echo $CI_PROJECT_PATH_SLUG
+#     - echo $CI_PROJECT_PATH
+#     - echo $CI_PROJECT_REPOSITORY_LANGUAGES
+#     - echo $CI_PROJECT_ROOT_NAMESPACE
+#     - echo $CI_PROJECT_TITLE
+#     - echo $CI_PROJECT_URL
+#     - echo $CI_PROJECT_VISIBILITY
+#     - echo $CI_PROJECT_CLASSIFICATION_LABEL
+#     - echo $CI_REGISTRY_IMAGE
+#     - echo $CI_REGISTRY_PASSWORD
+#     - echo $CI_REGISTRY_USER
+#     - echo $CI_REGISTRY
+#     - echo $CI_REPOSITORY_URL
+#     - echo $CI_RUNNER_DESCRIPTION
+#     - echo $CI_RUNNER_EXECUTABLE_ARCH
+#     - echo $CI_RUNNER_ID
+#     - echo $CI_RUNNER_REVISION
+#     - echo $CI_RUNNER_SHORT_TOKEN
+#     - echo $CI_RUNNER_TAGS
+#     - echo $CI_RUNNER_VERSION
+#     - echo $CI_SERVER_HOST
+#     - echo $CI_SERVER_NAME
+#     - echo $CI_SERVER_PORT
+#     - echo $CI_SERVER_PROTOCOL
+#     - echo $CI_SERVER_REVISION
+#     - echo $CI_SERVER_URL
+#     - echo $CI_SERVER_VERSION_MAJOR
+#     - echo $CI_SERVER_VERSION_MINOR
+#     - echo $CI_SERVER_VERSION_PATCH
+#     - echo $CI_SERVER_VERSION
+#     - echo $CI_SERVER
+#     - echo $CI_SHARED_ENVIRONMENT
+#     - echo $GITLAB_CI
+#     - echo $GITLAB_FEATURES
+#     - echo $GITLAB_USER_EMAIL
+#     - echo $GITLAB_USER_ID
+#     - echo $GITLAB_USER_LOGIN
+#     - echo $GITLAB_USER_NAME
+#     - echo $TRIGGER_PAYLOAD
+#     - echo $TWINE_PASSWORD
+#     - echo $TWINE_USERNAME
 
 # fedora_latest_tests:
 #   stage: test
@@ -224,15 +224,15 @@ ci_vars:
 #     - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy test models --fast"
 
 # release
-deploy:
-  stage: release
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_NAME == "master" 
-  needs: ["default_build"]
-  script:
-    - twine upload dist/*
+# deploy:
+#   stage: release
+#   rules:
+#     - if: $CI_COMMIT_TAG
+#       when: never
+#     - if: $CI_COMMIT_REF_NAME == "master" 
+#   needs: ["default_build"]
+#   script:
+#     - twine upload dist/*
 
 centos_7_python_3_8_tests:
   stage: test
@@ -243,6 +243,9 @@ centos_7_python_3_8_tests:
   script:
     - scl enable devtoolset-8 'echo $PATH && command -v make && make --version'
     - printenv
+    - scl enable devtoolset-8 'struphy compile'
+    - struphy test models --fast
+
 # centos_7_python_3_9_tests:
 #   stage: test
 #   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/centos_7_py_3_9
@@ -256,68 +259,68 @@ centos_7_python_3_8_tests:
 #     - struphy test models --fast
 #     - echo "Build and test process completed"
 
-pages:
-  stage: release
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_PROTECTED == "true" 
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-  needs: ["default_build"]
-  script:
-    - pip install dist/struphy*.whl
-    - pip show struphy
-    - struphy -h
-    - struphy compile --status
-    - struphy compile -y
-    - struphy test tutorials
-    - ls $(python3 -c "import struphy as _; print(_.__path__[0])")/io/out
-    #- struphy test timings
-    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
-    - cd doc ; make html
-    - mv _build/html/ ../public/
-  artifacts:
-    paths:
-      - public/
+# pages:
+#   stage: release
+#   rules:
+#     - if: $CI_COMMIT_TAG
+#       when: never
+#     - if: $CI_COMMIT_REF_PROTECTED == "true" 
+#     - if: $CI_PIPELINE_SOURCE == "schedule"
+#       when: never
+#   needs: ["default_build"]
+#   script:
+#     - pip install dist/struphy*.whl
+#     - pip show struphy
+#     - struphy -h
+#     - struphy compile --status
+#     - struphy compile -y
+#     - struphy test tutorials
+#     - ls $(python3 -c "import struphy as _; print(_.__path__[0])")/io/out
+#     #- struphy test timings
+#     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
+#     - cd doc ; make html
+#     - mv _build/html/ ../public/
+#   artifacts:
+#     paths:
+#       - public/
 
-vars:
-  stage: release
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_NAME == "master"
-  before_script:
-    - uname -s # get system info
-  script:
-    - echo "VERSION=$(var=$(<pyproject.toml); set -- $var; echo ${14} | sed 's/^.//' | sed 's/.$//')" >> vars.env
-  artifacts:
-    reports:
-      dotenv: vars.env
-    expire_in: 1 day
+# vars:
+#   stage: release
+#   rules:
+#     - if: $CI_COMMIT_TAG
+#       when: never
+#     - if: $CI_COMMIT_REF_NAME == "master"
+#   before_script:
+#     - uname -s # get system info
+#   script:
+#     - echo "VERSION=$(var=$(<pyproject.toml); set -- $var; echo ${14} | sed 's/^.//' | sed 's/.$//')" >> vars.env
+#   artifacts:
+#     reports:
+#       dotenv: vars.env
+#     expire_in: 1 day
 
-release_job:
-  stage: release
-  image: registry.gitlab.com/gitlab-org/release-cli:latest
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_NAME == "master"
-  needs: ['vars']
-  before_script:
-    - uname -s # get system info
-  script:
-    - cat /etc/*-release
-    - echo $VERSION
-  release:                                         # See https://docs.gitlab.com/ee/ci/yaml/#release for available properties
-    tag_name: 'v$VERSION'                          # The version is incremented per pipeline.
-    name: 'v$VERSION'
-    ref: '$CI_COMMIT_SHA'                          # The tag is created from the pipeline SHA.
-    description: 'CHANGELOG.md'
-    assets:
-      links:
-        - name: 'Documentation'
-          url: 'https://struphy.pages.mpcdf.de/struphy/index.html'
-        - name: 'PyPI'
-          url: 'https://pypi.org/project/struphy/'
+# release_job:
+#   stage: release
+#   image: registry.gitlab.com/gitlab-org/release-cli:latest
+#   rules:
+#     - if: $CI_COMMIT_TAG
+#       when: never
+#     - if: $CI_COMMIT_REF_NAME == "master"
+#   needs: ['vars']
+#   before_script:
+#     - uname -s # get system info
+#   script:
+#     - cat /etc/*-release
+#     - echo $VERSION
+#   release:                                         # See https://docs.gitlab.com/ee/ci/yaml/#release for available properties
+#     tag_name: 'v$VERSION'                          # The version is incremented per pipeline.
+#     name: 'v$VERSION'
+#     ref: '$CI_COMMIT_SHA'                          # The tag is created from the pipeline SHA.
+#     description: 'CHANGELOG.md'
+#     assets:
+#       links:
+#         - name: 'Documentation'
+#           url: 'https://struphy.pages.mpcdf.de/struphy/index.html'
+#         - name: 'PyPI'
+#           url: 'https://pypi.org/project/struphy/'
 
