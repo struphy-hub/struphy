@@ -208,7 +208,7 @@ ci_vars:
     - echo $TRIGGER_PAYLOAD
     - echo $TWINE_PASSWORD
     - echo $TWINE_USERNAME
-ubuntu_tests:
+ubuntu_latest_tests:
   stage: test
   image: ubuntu:latest
   needs: ["default_build"]
@@ -235,7 +235,7 @@ ubuntu_tests:
     - pip install dist/struphy*.whl
     - struphy compile --status
     - make -v
-    - struphy compile -y
+    - struphy compile --language=fortran -y
     - struphy test models --fast
 
 ubuntu_20_04_python_3_8_tests:
@@ -257,7 +257,7 @@ ubuntu_20_04_python_3_8_tests:
     - source /opt/venv/bin/activate
     - pip install --upgrade pip
     - pip install sympy==1.5 struphy gvec_to_python
-    - struphy compile
+    - struphy compile --language=fortran -y
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
@@ -282,7 +282,7 @@ ubuntu_20_04_python_3_9_tests:
     - source /opt/venv/bin/activate
     - pip install --upgrade pip
     - pip install sympy==1.5 struphy gvec_to_python
-    - struphy compile
+    - struphy compile --language=fortran -y
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
@@ -313,7 +313,7 @@ ubuntu_23_04_tests:
     - python3 -m venv venv
     - source venv/bin/activate
     - python -m pip install --upgrade pip
-    - python -m pip install struphy
+    - struphy compile --language=fortran -y
     - struphy compile
     - struphy test models --fast
 
@@ -343,7 +343,7 @@ fedora_37_tests:
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
     - pip list
-    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install dist/struphy*.whl && struphy compile --status && make -v && struphy compile -y && struphy test models --fast" 
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install dist/struphy*.whl && struphy compile --status && make -v && struphy compile --language=fortran -y && struphy test models --fast" 
 
 fedora_38_tests:
   stage: test
@@ -372,7 +372,7 @@ fedora_38_tests:
     - export OMPI_MCA_btl=tcp,self
   script:
     - pip list
-    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy && struphy compile" 
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy && struphy compile --language=fortran -y" 
     - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy test models --fast"\
 
 fedora_latest_tests:
@@ -385,7 +385,7 @@ fedora_latest_tests:
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   before_script:
-    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy && struphy compile" 
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy && struphy compile --language=fortran -y " 
   script:
     - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy test models --fast"
 
