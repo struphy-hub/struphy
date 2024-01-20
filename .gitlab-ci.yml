@@ -378,7 +378,7 @@ fedora_38_tests:
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
     - export OMPI_MCA_pml=ob1
     - export OMPI_MCA_btl=tcp,self
-    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy 
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy"
   script:
     - pip list
     - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy compile && struphy test models --fast"
@@ -394,7 +394,7 @@ fedora_latest_tests:
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   before_script:
-    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy &&" 
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy" 
   script:
     - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy compile && struphy test models --fast"
     - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy compile --language=fortran -y && struphy test models --fast"
