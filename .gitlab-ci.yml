@@ -406,7 +406,7 @@ centos_7_python_3_8_tests:
   before_script:
     - git clone https://gitlab.mpcdf.mpg.de/struphy/struphy.git
     - cd struphy
-    - git checkout debug_centos
+    - git checkout debug_centos_7
     - python3.8 -m pip install .
   script:
     - scl enable devtoolset-8 'struphy compile'
