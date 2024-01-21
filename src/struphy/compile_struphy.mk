@@ -31,13 +31,14 @@ OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 #--------------------------------------
 # PYCCELIZE
 #--------------------------------------
-
-.PHONY: all
-all: $(OUTPUTS)
-
 # New target to echo OUTPUTS
-echo-outputs:
-	@echo "Outputs: $(OUTPUTS)"
+.PHONY: all debug
+
+# Debug target to print the value of OUTPUTS
+debug:
+	@echo "OUTPUTS = $(OUTPUTS)"
+
+all: $(OUTPUTS)
 
 .SECONDEXPANSION:
 %$(SO_EXT) : %.py $$(shell $$(PYTHON) $$(struphy_path)/dependencies.py $$@)
