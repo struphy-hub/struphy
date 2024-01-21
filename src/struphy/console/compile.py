@@ -247,14 +247,16 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
                         '--compiler=' + compiler], check=True, cwd=libpath)
 
         print('\nCompiling Struphy and Psydac kernels ...')
-        subprocess.run(['make',
-                        '-f',
-                        'compile_struphy.mk',
-                        'sources=' + sources,
-                        'flags=' + flags,
-                        'flags_openmp_pic=' + flag_omp_pic,
-                        'flags_openmp_mhd=' + flag_omp_feec,
-                        ], check=True, cwd=libpath)
+        subprocess.run(['make', 'echo-outputs', '-f', 'compile_struphy.mk'], check=True, cwd=libpath)
+        
+        # subprocess.run(['make',
+        #                 '-f',
+        #                 'compile_struphy.mk',
+        #                 'sources=' + sources,
+        #                 'flags=' + flags,
+        #                 'flags_openmp_pic=' + flag_omp_pic,
+        #                 'flags_openmp_mhd=' + flag_omp_feec,
+        #                 ], check=True, cwd=libpath)
         print('Done.')
 
         subprocess.run(['struphy',

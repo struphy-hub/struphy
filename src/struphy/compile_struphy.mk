@@ -35,6 +35,10 @@ OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 .PHONY: all
 all: $(OUTPUTS)
 
+# New target to echo OUTPUTS
+echo-outputs:
+	@echo "Outputs: $(OUTPUTS)"
+
 .SECONDEXPANSION:
 %$(SO_EXT) : %.py $$(shell $$(PYTHON) $$(struphy_path)/dependencies.py $$@)
 	@echo "Building $@"
