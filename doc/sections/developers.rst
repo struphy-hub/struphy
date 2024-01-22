@@ -331,6 +331,23 @@ Weighted mass operators
     :undoc-members:
     :show-inheritance:
 
+
+.. _projectors:
+
+Projections into Derham
+^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: struphy.feec.projectors.CommutingProjector
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.feec.projectors.L2Projector
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 .. _basis_ops:
 
 Basis projection operators

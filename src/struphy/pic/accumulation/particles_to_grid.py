@@ -7,7 +7,6 @@ from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.block import BlockVector
 
 from struphy.feec.mass import WeightedMassOperator
-
 import struphy.pic.accumulation.accum_kernels as accums
 import struphy.pic.accumulation.accum_kernels_gc as accums_gc
 
@@ -209,6 +208,14 @@ class Accumulator:
         """
         return self._kernel
 
+    def init_control_variate(self, mass_ops):
+        '''Set up the use of noise reduction by control variate.'''
+        
+        from struphy.feec.projectors import L2Projector
+        
+        # L2 projector for dofs
+        self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
+
     def accumulate(self, particles, *args_add, **args_control):
         """
         Performs the accumulation into the matrix/vector by calling the chosen accumulation kernel and additional analytical contributions (control variate, optional).
@@ -246,10 +253,7 @@ class Accumulator:
 
         # add analytical contribution (control variate) to vector
         if 'control_vec' in args_control and len(self._vectors) > 0:
-            WeightedMassOperator.assemble_vec(self._derham.Vh_fem[self._derham.space_to_form[self._space_id]],
-                                              self._vectors[0], weight=args_control['control_vec'],
-                                              clear=False)
-
+            self._get_L2dofs(args_control['control_vec'], dofs=self._vectors[0], clear=False)
             vec_finished = True
 
         # add analytical contribution (control variate) to matrix and finish
@@ -425,6 +429,14 @@ class AccumulatorVector:
         """ The accumulation kernel.
         """
         return self._kernel
+    
+    def init_control_variate(self, mass_ops):
+        '''Set up the use of noise reduction by control variate.'''
+        
+        from struphy.feec.projectors import L2Projector
+        
+        # L2 projector for dofs
+        self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
 
     def accumulate(self, particles, *args_add, **args_control):
         """
@@ -463,10 +475,7 @@ class AccumulatorVector:
 
         # add analytical contribution (control variate) to vector
         if 'control_vec' in args_control and len(self._vectors) > 0:
-            WeightedMassOperator.assemble_vec(self._derham.Vh_fem[self._derham.space_to_form[self._space_id]],
-                                              self._vectors[0], weight=args_control['control_vec'],
-                                              clear=False)
-
+            self._get_L2dofs(args_control['control_vec'], dofs=self._vectors[0], clear=False)
             vec_finished = True
 
         # finish vector: accumulate ghost regions and update ghost regions

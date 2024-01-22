@@ -781,7 +781,7 @@ class Domain(metaclass=ABCMeta):
                 A = Domain.prepare_arg(
                     a, E1, E2, E3, is_sparse_meshgrid=is_sparse_meshgrid, a_kwargs=a_kwargs)
             else:
-                X = self(E1, E2, E3, squeeze_out=False)
+                X = self(E1, E2, E3)
                 A = Domain.prepare_arg(a, X[0], X[1], X[2], a_kwargs=a_kwargs)
 
             # call evaluation kernel
@@ -1184,7 +1184,7 @@ class Domain(metaclass=ABCMeta):
                 E1, E2 = np.meshgrid(e1, e2, indexing='ij')
                 X = np.stack((E1, E2), axis=0)
             else:
-                XYZ = self(e1, e2, 0.)
+                XYZ = self(e1, e2, 0., squeeze_out=True)
 
             X = XYZ[0]
             if self.__class__.__name__ == 'GVECunit' or 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'Tokamak':
@@ -1229,8 +1229,8 @@ class Domain(metaclass=ABCMeta):
                 E1, E2 = np.meshgrid(e1, e2, indexing='ij')
                 X = np.stack((E1, E2), axis=0)
             else:
-                theta_0 = self(e1, 0., e3)
-                theta_pi = self(e1, .5, e3)
+                theta_0 = self(e1, 0., e3, squeeze_out=True)
+                theta_pi = self(e1, .5, e3, squeeze_out=True)
 
             X_0 = theta_0[0]
             X_pi = theta_pi[0]
@@ -1298,7 +1298,7 @@ class Domain(metaclass=ABCMeta):
                     ax.plot(E1[:, j], E2[:, j], 'tab:blue', alpha=.5)
 
             else:
-                X = self(e1, e2, 0.)
+                X = self(e1, e2, 0., squeeze_out=True)
 
                 # plot xz-plane for torus mappings, xy-plane else
                 if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit' or self.__class__.__name__ == 'Tokamak':
@@ -1347,7 +1347,7 @@ class Domain(metaclass=ABCMeta):
                                 color=first_line[0].get_color(), alpha=.25)
 
                 else:
-                    X = self(e1, e2, 0.)
+                    X = self(e1, e2, 0., squeeze_out=True)
 
                     # plot xz-plane for torus mappings, xy-plane else
                     if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit' or self.__class__.__name__ == 'Tokamak':
@@ -1413,7 +1413,7 @@ class Domain(metaclass=ABCMeta):
                         # TODO: needed for eta3=0
                         tmp = markers[:, i, :].copy()
                         tmp[:, 2] = 0.  # TODO: needed for eta3 = 0
-                        X = self(tmp, remove_outside=True)
+                        X = self(tmp, remove_outside=True, squeeze_out=True)
                     else:
                         X = (markers[:, i, 0].copy(), markers[:,
                              i, 1].copy(), markers[:, i, 2].copy())

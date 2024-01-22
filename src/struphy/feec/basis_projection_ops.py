@@ -8,12 +8,10 @@ from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
-from struphy.feec.geom_projectors import PolarCommutingProjector
+from struphy.feec.projectors import CommutingProjector
 from struphy.feec.linear_operators import LinOpWithTransp, BoundaryOperator
 from struphy.feec import basis_projection_kernels
 from struphy.feec.utilities import RotationMatrix
-
-from struphy.polar.linear_operators import PolarExtractionOperator
 
 
 class BasisProjectionOperators:
@@ -763,7 +761,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
 
-        assert isinstance(P, PolarCommutingProjector)
+        assert isinstance(P, CommutingProjector)
         assert isinstance(V, FemSpace)
 
         self._P = P
@@ -1121,84 +1119,124 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
         Values of p + 1 non-zero eta basis functions at quadrature points in format (n, nq, basis).
     '''
 
-    import psydac.core.bsplines as bsp
-
-    x_grid, subs, pts, wts, spans, bases = [], [], [], [], [], []
+    pts, wts, subs, spans, bases = [], [], [], [], []
+    
+    if n_quad is None:
+        n_quad = [None]*3
 
     # Loop over direction, prepare point sets and evaluate basis functions
-    direction = 0
-    for space_in, space_out, s, e in zip(V1d, W1d, starts_out, ends_out):
+    for d, (space_in, space_out, s, e) in enumerate(zip(V1d, W1d, starts_out, ends_out)):
 
-        greville_loc = space_out.greville[s: e + 1].copy()
-        histopol_loc = space_out.histopolation_grid[s: e + 2].copy()
+        # point sets and weights for inter-/histopolation
+        pts_i, wts_i, subs_i = get_pts_and_wts(space_out, s, e, n_quad=n_quad[d], polar_shift= d == 0 and polar_shift)
 
-        # make sure that greville points used for interpolation are in [0, 1]
-        assert np.all(np.logical_and(greville_loc >= 0., greville_loc <= 1.))
-
-        # interpolation
-        if space_out.basis == 'B':
-            x_grid += [greville_loc]
-            pts += [greville_loc[:, None]]
-            wts += [np.ones(pts[-1].shape, dtype=float)]
-
-            # sub-interval index is always 0 for interpolation.
-            subs += [np.zeros(pts[-1].shape[0], dtype=int)]
-
-            # !! shift away first interpolation point in eta_1 direction for polar domains !!
-            if direction == 0 and pts[0][0] == 0. and polar_shift:
-                pts[0][0] += 0.00001
-
-        # histopolation
-        elif space_out.basis == 'M':
-
-            if space_out.degree % 2 == 0:
-                union_breaks = space_out.breaks
-            else:
-                union_breaks = space_out.breaks[:-1]
-
-            # Make union of Greville and break points
-            tmp = set(np.round_(space_out.histopolation_grid, decimals=14)).union(
-                np.round_(union_breaks, decimals=14))
-
-            tmp = list(tmp)
-            tmp.sort()
-            tmp_a = np.array(tmp)
-
-            x_grid += [tmp_a[np.logical_and(tmp_a >= np.min(
-                histopol_loc) - 1e-14, tmp_a <= np.max(histopol_loc) + 1e-14)]]
-
-            # determine subinterval index (= 0 or 1):
-            subs += [np.zeros(x_grid[-1][:-1].size, dtype=int)]
-            for n, x_h in enumerate(x_grid[-1][:-1]):
-                add = 1
-                for x_g in histopol_loc:
-                    if abs(x_h - x_g) < 1e-14:
-                        add = 0
-                subs[-1][n] += add
-
-            # Gauss - Legendre quadrature points and weights
-            if n_quad is None:
-                # products of basis functions are integrated exactly
-                nq = space_in.degree + 1
-            else:
-                nq = n_quad[direction]
-
-            pts_loc, wts_loc = np.polynomial.legendre.leggauss(nq)
-
-            x, w = bsp.quadrature_grid(x_grid[-1], pts_loc, wts_loc)
-
-            pts += [x % 1.]
-            wts += [w]
+        pts += [pts_i]
+        wts += [wts_i]
+        subs += [subs_i]
 
         # Knot span indices and V-basis functions evaluated at W-point sets
-        s, b = get_span_and_basis(pts[-1], space_in)
+        s_i, b_i = get_span_and_basis(pts[-1], space_in)
 
-        spans += [s]
-        bases += [b]
-
-        direction += 1
+        spans += [s_i]
+        bases += [b_i]
 
     return tuple(pts), tuple(wts), tuple(spans), tuple(bases), tuple(subs)
+
+
+def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
+    '''Obtain local projection point sets and weights in one grid direction.
+    
+    Parameters
+    ----------
+    space_1d : SplineSpace
+        Psydac object for uni-variate spline space.
+        
+    start : int
+        Start index on current process.
+        
+    end : int
+        End index on current process.
+        
+    n_quad : int
+        Number of quadrature points for Gauss-Legendre histopolation.
+        If None, is set to p + 1 where p is the space_1d degree (products of basis functions are integrated exactly).
+        
+    polar_shift : bool
+        Whether to shift the first interpolation point away from 0.0 by 1e-5 (needed only in eta_1 and for polar domains).
+        
+    Returns
+    -------
+    pts : 2D float array
+        Quadrature points (or Greville points for interpolation) in format (ii, iq) = (interval, quadrature point).
+
+    wts : 2D float array
+        Quadrature weights (or 1's for interpolation) in format (ii, iq) = (interval, quadrature point).
+        
+    subs : 1D int array
+        One entry for each interval ii; usually has value 0. 
+        A value of 1 indicates that the cell ii is the second subinterval of a split Greville cell (for histopolation with even degree).'''
+        
+    import psydac.core.bsplines as bsp
+        
+    greville_loc = space_1d.greville[start: end + 1].copy()
+    histopol_loc = space_1d.histopolation_grid[start: end + 2].copy()
+
+    # make sure that greville points used for interpolation are in [0, 1]
+    assert np.all(np.logical_and(greville_loc >= 0., greville_loc <= 1.))
+
+    # interpolation
+    if space_1d.basis == 'B':
+        x_grid = greville_loc
+        pts = greville_loc[:, None]
+        wts = np.ones(pts.shape, dtype=float)
+
+        # sub-interval index is always 0 for interpolation.
+        subs = np.zeros(pts.shape[0], dtype=int)
+
+        # !! shift away first interpolation point in eta_1 direction for polar domains !!
+        if pts[0] == 0. and polar_shift:
+            pts[0] += 0.00001
+
+    # histopolation
+    elif space_1d.basis == 'M':
+
+        if space_1d.degree % 2 == 0:
+            union_breaks = space_1d.breaks
+        else:
+            union_breaks = space_1d.breaks[:-1]
+
+        # Make union of Greville and break points
+        tmp = set(np.round_(space_1d.histopolation_grid, decimals=14)).union(
+            np.round_(union_breaks, decimals=14))
+
+        tmp = list(tmp)
+        tmp.sort()
+        tmp_a = np.array(tmp)
+
+        x_grid = tmp_a[np.logical_and(tmp_a >= np.min(
+            histopol_loc) - 1e-14, tmp_a <= np.max(histopol_loc) + 1e-14)]
+
+        # determine subinterval index (= 0 or 1):
+        subs = np.zeros(x_grid[:-1].size, dtype=int)
+        for n, x_h in enumerate(x_grid[:-1]):
+            add = 1
+            for x_g in histopol_loc:
+                if abs(x_h - x_g) < 1e-14:
+                    add = 0
+            subs[n] += add
+
+        # Gauss - Legendre quadrature points and weights
+        if n_quad is None:
+            # products of basis functions are integrated exactly
+            n_quad = space_1d.degree + 1
+
+        pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
+
+        x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
+
+        pts = x % 1.
+        
+    return pts, wts, subs
 
 
 def get_span_and_basis(pts, space):
