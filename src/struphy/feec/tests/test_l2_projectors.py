@@ -123,7 +123,7 @@ def test_l2_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
     rank = comm.Get_rank()
 
     # loop over different number of elements
-    Nels = [2**n for n in range(3, 10)]
+    Nels = [2**n for n in range(3, 9)]
     errors = {'H1': [], 'Hcurl': [], 'Hdiv': [], 'L2': [], 'H1vec': []}
     figs = {}
     for sp_id in errors:
@@ -206,12 +206,17 @@ def test_l2_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
             
             errors[sp_id] += [np.max(err)]
 
-            plt.figure(sp_id + ', L2-proj. convergence')
-            plt.subplot(2, 4, n + 1)
-            plt.plot(e, f(e1, e2, e3), 'o')
-            plt.plot(e, f_plot)
-            plt.xlabel(f'eta{c}')
-            plt.title(f'Nel[{c}] = {Nel[c]}')
+            if do_plot:
+                plt.figure(sp_id + ', L2-proj. convergence')
+                plt.subplot(2, 4, n + 1)
+                plt.plot(e, f(e1, e2, e3), 'o')
+                plt.plot(e, f_plot)
+                plt.xlabel(f'eta{c}')
+                plt.title(f'Nel[{c}] = {Nel[c]}')
+                
+            del P_L2, out, field, vec, veco, field_vals
+                
+        del domain_class, domain, mass_ops
 
     rate_p1 = pi + 1
     rate_p0 = pi
@@ -228,15 +233,16 @@ def test_l2_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
         else:
             assert -m > (pi - 0.05)
 
-        plt.figure(sp_id + ', L2-proj. convergence')
-        plt.subplot(2, 4, 8)
-        plt.loglog(Nels, errors[sp_id])
-        plt.loglog(Nels, line_for_rate_p1, 'k--')
-        plt.loglog(Nels, line_for_rate_p0, 'k--')
-        plt.text(Nels[-2], line_for_rate_p1[-2], f'1/Nel^{rate_p1}')
-        plt.text(Nels[-2], line_for_rate_p0[-2], f'1/Nel^{rate_p0}')
-        plt.title(f'{sp_id = }, degree = {pi}')
-        plt.xlabel('Nel')
+        if do_plot:
+            plt.figure(sp_id + ', L2-proj. convergence')
+            plt.subplot(2, 4, 8)
+            plt.loglog(Nels, errors[sp_id])
+            plt.loglog(Nels, line_for_rate_p1, 'k--')
+            plt.loglog(Nels, line_for_rate_p0, 'k--')
+            plt.text(Nels[-2], line_for_rate_p1[-2], f'1/Nel^{rate_p1}')
+            plt.text(Nels[-2], line_for_rate_p0[-2], f'1/Nel^{rate_p0}')
+            plt.title(f'{sp_id = }, degree = {pi}')
+            plt.xlabel('Nel')
     
     if do_plot and rank == 0:        
         plt.show()

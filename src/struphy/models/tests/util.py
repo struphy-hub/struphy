@@ -28,6 +28,12 @@ def call_model(key, val, map_and_equil, Tend=None):
     d_opts = {'em_fields': [], 'fluid': {}, 'kinetic': {}}
 
     parameters = val.generate_default_parameter_file(save=False)
+
+    # Use ad hoc init conditions for the non-linear models to avoid negative density
+    if key in ['VariationalBarotropicFluid', 'VariationalPressurelessFluid']:
+        parameters['fluid']['fluid']['init'] = {'type': ['ModesCos', 'ModesSin'], 
+                                                'ModesCos': {'amps': [1.], 'comps': {'rho3': True}},
+                                                'ModesSin': {'ms': [1], 'amps': [.1], 'comps': {'uv': [False, True, False]}}}
     # set mapping and mhd equilibirum
     parameters['geometry']['type'] = map_and_equil[0]
     parameters['geometry'][map_and_equil[0]] = {}
