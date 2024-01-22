@@ -38,7 +38,7 @@ OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 debug:
 	@echo "OUTPUTS = $(OUTPUTS)"
 
-all: $(OUTPUTS)
+# all: $(OUTPUTS)
 
 .SECONDEXPANSION:
 %$(SO_EXT) : %.py $$(shell $$(PYTHON) $$(struphy_path)/dependencies.py $$@)
