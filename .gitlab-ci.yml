@@ -407,7 +407,7 @@ centos_7_python_3_8_tests:
     - git clone https://gitlab.mpcdf.mpg.de/struphy/struphy.git
     - cd struphy
     - git checkout debug_centos_7
-    - python3.8 -m pip install .
+    - python3.8 -m pip install --struphyUser .
   script:
     - scl enable devtoolset-8 'struphy compile'
     - struphy test models --fast
