@@ -124,7 +124,7 @@ def evaluate(kind1: int, t1: 'float[:]', p1: int, ind1: 'int[:,:]', coeff: 'floa
 @pure
 def evaluate_vector(t1: 'float[:]', p1: int, ind1: 'int[:,:]', coeff: 'float[:]', eta1: 'float[:]', spline_values: 'float[:]', kind: int):
     """
-    Vector evaluation of a tensor-product spline. 
+    Vector evaluation of a uni-variate spline. 
 
     Parameters
     ----------

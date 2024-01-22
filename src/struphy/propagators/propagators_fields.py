@@ -2564,7 +2564,7 @@ class VariationalMomentumAdvection(Propagator):
         for it in range(self._params['maxiter']):
 
             # Picard iteration
-            if err < tol:
+            if err < tol**2:
                 break
             # half time step approximation
             mn12 = mn.copy(out=self._tmp_mn12)
@@ -2643,27 +2643,33 @@ class VariationalMomentumAdvection(Propagator):
         self.Pcoord3 = CoordinateProjector(2, Xh, V0h)
 
         # Lambda for the initializations
-        def uf1(x, y, z): return self.uf(x, y, z)[0]
+        def f_init(x, y, z): return np.zeros((x.shape[0],y.shape[0],z.shape[0]))
 
         # Initialize the BasisProjectionOperators
         self.PiuT = BasisProjectionOperator(
-            P0, V1h, [[uf1, uf1, uf1]], transposed=True, use_cache=True)
+            P0, V1h, [[f_init, f_init, f_init]], transposed=True, use_cache=True)
 
         self.PiguT_1 = BasisProjectionOperator(
-            P0,  Xh, [[uf1, uf1, uf1]], transposed=True, use_cache=True)
+            P0,  Xh, [[f_init, f_init, f_init]], transposed=True, use_cache=True)
         self.PiguT_2 = BasisProjectionOperator(
-            P0,  Xh, [[uf1, uf1, uf1]], transposed=True, use_cache=True)
+            P0,  Xh, [[f_init, f_init, f_init]], transposed=True, use_cache=True)
         self.PiguT_3 = BasisProjectionOperator(
-            P0,  Xh, [[uf1, uf1, uf1]], transposed=True, use_cache=True)
+            P0,  Xh, [[f_init, f_init, f_init]], transposed=True, use_cache=True)
 
         # Store the interpolation grid for later use in _update_all_weights
-        self._interpolation_grid = self.PiuT._cache[(0, 0)][0]
-        self._interpolation_grid = [pts.flatten()
-                                    for pts in self._interpolation_grid]
+        interpolation_grid = self.PiuT._cache[(0, 0)][0]
+        interpolation_grid = [pts.flatten()
+                                    for pts in interpolation_grid]
+
+        self.interpolation_grid_spans, self.interpolation_grid_bn, self.interpolation_grid_bd = self.derham.prepare_eval_tp_fixed(interpolation_grid)
+
+        self.interpolation_grid_gradient = [[self.interpolation_grid_bd[0], self.interpolation_grid_bn[1], self.interpolation_grid_bn[2]],
+                                            [self.interpolation_grid_bn[0], self.interpolation_grid_bd[1], self.interpolation_grid_bn[2]],
+                                            [self.interpolation_grid_bn[0], self.interpolation_grid_bn[1], self.interpolation_grid_bd[2]]]
 
         # Create tmps for later use in evaluating on the grid
         grid_shape = tuple([len(loc_grid)
-                           for loc_grid in self._interpolation_grid])
+                           for loc_grid in interpolation_grid])
         self._uf_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
         self._guf1_values = [np.zeros(grid_shape, dtype=float)
                              for i in range(3)]
@@ -2671,8 +2677,6 @@ class VariationalMomentumAdvection(Propagator):
                              for i in range(3)]
         self._guf3_values = [np.zeros(grid_shape, dtype=float)
                              for i in range(3)]
-
-        self._tmp_interpolation_grid = np.zeros(grid_shape, dtype=float)
 
         # weighted mass matrix to go from m to u
         # Mass Femfield
@@ -2694,33 +2698,36 @@ class VariationalMomentumAdvection(Propagator):
                                 maxiter=self._params['maxiter'],
                                 verbose=self._params['verbose'])
 
-        self._integration_grid = [quad_grid[nquad].points.flatten()
+        integration_grid = [quad_grid[nquad].points.flatten()
                                   for quad_grid, nquad in zip(Xh.spaces[0]._quad_grids, Xh.spaces[0].nquads)]
 
-        metric = self.domain.metric(*self._integration_grid)
+        self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = self.derham.prepare_eval_tp_fixed(integration_grid)
+
+        metric = self.domain.metric(*integration_grid)
         self._mass_metric_term = metric
 
         # Create tmps for later use
         grid_shape = tuple([len(loc_grid)
-                           for loc_grid in self._integration_grid])
+                           for loc_grid in integration_grid])
 
         self._rhof_values = np.zeros(grid_shape, dtype=float)
-        self._tmp_integration_grid = np.zeros(grid_shape, dtype=float)
 
         self._full_term_mass = deepcopy(metric)
 
     def _update_all_weights(self,):
         """Update the weights of all the `BasisProjectionOperators` appearing in the bracket term"""
 
-        uf_values = self.uf(*self._interpolation_grid,
-                            out=self._uf_values, tmp=self._tmp_interpolation_grid)
+        uf_values = self.uf.eval_tp_fixed_loc(
+            self.interpolation_grid_spans, [self.interpolation_grid_bn]*3, out=self._uf_values)
 
-        guf1_values = self.gu1f(
-            *self._interpolation_grid, out=self._guf1_values, tmp=self._tmp_interpolation_grid)
-        guf2_values = self.gu2f(
-            *self._interpolation_grid, out=self._guf2_values, tmp=self._tmp_interpolation_grid)
-        guf3_values = self.gu3f(
-            *self._interpolation_grid, out=self._guf3_values, tmp=self._tmp_interpolation_grid)
+        guf1_values = self.gu1f.eval_tp_fixed_loc(self.interpolation_grid_spans,
+                                                  self.interpolation_grid_gradient, out=self._guf1_values)
+        
+        guf2_values = self.gu2f.eval_tp_fixed_loc(self.interpolation_grid_spans,
+                                                  self.interpolation_grid_gradient, out=self._guf2_values)
+        
+        guf3_values = self.gu3f.eval_tp_fixed_loc(self.interpolation_grid_spans,
+                                                  self.interpolation_grid_gradient, out=self._guf3_values)
 
         self.PiuT.update_weights([[uf_values[0], uf_values[1], uf_values[2]]])
 
@@ -2735,12 +2742,13 @@ class VariationalMomentumAdvection(Propagator):
         """update the weighted mass matrix operator"""
         rhon = self._params['rho']
         self.rhof.vector = rhon
-        rhof_values = self.rhof(
-            *self._integration_grid, out=self._rhof_values, tmp=self._tmp_integration_grid)
+        
+        rhof_values = self.rhof.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values)
+        
         for i in range(3):
             for j in range(3):
                 self._full_term_mass[i, j][:] = 0.
-                self._full_term_mass += self._mass_metric_term
+                self._full_term_mass[i, j] += self._mass_metric_term[i, j]
         self._full_term_mass *= rhof_values
         self.WMM.assemble([[self._full_term_mass[0, 0], self._full_term_mass[0, 1], self._full_term_mass[0, 2]],
                            [self._full_term_mass[1, 0], self._full_term_mass[1, 1],
@@ -2854,7 +2862,7 @@ class VariationalDensityEvolve(Propagator):
         for it in range(self._params['maxiter']):
 
             # Picard iteration
-            if err < tol:
+            if err < tol**2:
                 break
             # half time step approximation
             rhon12 = rhon.copy(out=self._tmp_rhon12)
@@ -2902,6 +2910,7 @@ class VariationalDensityEvolve(Propagator):
             # Inverse the mass matrix to get the velocity
             self.rhof1.vector = rhon1
             self._update_weighted_MM()
+            self._Mrhoinv._options['x0'] = un1
             un1 = self._Mrhoinv.dot(mn1, out=self._tmp_un1)
 
             # get the error
@@ -2938,14 +2947,43 @@ class VariationalDensityEvolve(Propagator):
         Xh = self.derham.Vh_fem['v']
         V3h = self.derham.Vh_fem['3']
 
+        def f_init(x, y, z): return np.zeros((x.shape[0],y.shape[0],z.shape[0]))
+
         # Initialize the BasisProjectionOperators
         self.Pirho = BasisProjectionOperator(
-            P2, Xh, [[self.rhof, None, None],
-                     [None, self.rhof, None],
-                     [None, None, self.rhof]],
+            P2, Xh, [[f_init, None, None],
+                     [None, f_init, None],
+                     [None, None, f_init]],
             transposed=False, use_cache=True)
 
         self.PirhoT = self.Pirho.T
+
+        histopolation_grid_0 = self.Pirho._cache[(0, 0)][0]
+        histopolation_grid_1 = self.Pirho._cache[(1, 1)][0]
+        histopolation_grid_2 = self.Pirho._cache[(2, 2)][0]
+
+        histopolation_grid_0 = [pts.flatten()
+                                    for pts in histopolation_grid_0]
+        histopolation_grid_1 = [pts.flatten()
+                                    for pts in histopolation_grid_1]
+        histopolation_grid_2 = [pts.flatten()
+                                    for pts in histopolation_grid_2]
+        
+        self.histopolation_grid_0_spans, self.histopolation_grid_0_bn, self.histopolation_grid_0_bd = self.derham.prepare_eval_tp_fixed(histopolation_grid_0)
+        self.histopolation_grid_1_spans, self.histopolation_grid_1_bn, self.histopolation_grid_1_bd = self.derham.prepare_eval_tp_fixed(histopolation_grid_1)
+        self.histopolation_grid_2_spans, self.histopolation_grid_2_bn, self.histopolation_grid_2_bd = self.derham.prepare_eval_tp_fixed(histopolation_grid_2)
+
+        grid_shape = tuple([len(loc_grid)
+                           for loc_grid in histopolation_grid_0])
+        self._rhof_0_values = np.zeros(grid_shape, dtype=float)
+
+        grid_shape = tuple([len(loc_grid)
+                           for loc_grid in histopolation_grid_1])
+        self._rhof_1_values = np.zeros(grid_shape, dtype=float)
+
+        grid_shape = tuple([len(loc_grid)
+                           for loc_grid in histopolation_grid_2])
+        self._rhof_2_values = np.zeros(grid_shape, dtype=float)
 
         # weighted mass matrix to go from m to u
         # Mass Femfield
@@ -2967,10 +3005,12 @@ class VariationalDensityEvolve(Propagator):
                                 maxiter=self._params['maxiter'],
                                 verbose=self._params['verbose'])
 
-        self._integration_grid_X = [quad_grid[nquad].points.flatten()
+        integration_grid_X = [quad_grid[nquad].points.flatten()
                                     for quad_grid, nquad in zip(Xh.spaces[0]._quad_grids, Xh.spaces[0].nquads)]
 
-        metric = self.domain.metric(*self._integration_grid_X)
+        self.integration_grid_X_spans, self.integration_grid_X_bn, self.integration_grid_X_bd = self.derham.prepare_eval_tp_fixed(integration_grid_X)
+
+        metric = self.domain.metric(*integration_grid_X)
         self._mass_metric_term = deepcopy(metric)
 
         # L2-projector for V3
@@ -2978,21 +3018,27 @@ class VariationalDensityEvolve(Propagator):
 
         # tmps
         grid_shape = tuple([len(loc_grid)
-                           for loc_grid in self._integration_grid_X])
+                           for loc_grid in integration_grid_X])
         self._rhof_values = np.zeros(grid_shape, dtype=float)
-        self._tmp_integration_grid_X = np.zeros(grid_shape, dtype=float)
+
         self._full_term_mass = deepcopy(metric)
 
         # prepare for integration of linear form
-        self._integration_grid_V3 = [quad_grid[nquad].points.flatten()
+        integration_grid_V3 = [quad_grid[nquad].points.flatten()
                                      for quad_grid, nquad in zip(V3h._quad_grids, V3h.nquads)]
 
-        metric = self.domain.metric(*self._integration_grid_V3)
+        self.integration_grid_V3_spans, self.integration_grid_V3_bn, self.integration_grid_V3_bd = self.derham.prepare_eval_tp_fixed(integration_grid_V3)
+
+        metric = self.domain.metric(*integration_grid_V3)
         self._proj_u2_metric_term = deepcopy(metric)
+
+        metric = 1./self.domain.jacobian_det(*integration_grid_V3)
+        self._proj_rho2_metric_term = deepcopy(metric)
+
 
         # tmps
         grid_shape = tuple([len(loc_grid)
-                           for loc_grid in self._integration_grid_V3])
+                           for loc_grid in integration_grid_V3])
         self._uf_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
         self._uf1_values = [np.zeros(grid_shape, dtype=float)
                             for i in range(3)]
@@ -3001,23 +3047,30 @@ class VariationalDensityEvolve(Propagator):
             self._rhof_values_V3 = np.zeros(grid_shape, dtype=float)
             self._rhof1_values_V3 = np.zeros(grid_shape, dtype=float)
 
-        self._tmp_integration_grid_V3 = np.zeros(grid_shape, dtype=float)
 
     def _update_all_weights(self,):
         """Update the weights of the `BasisProjectionOperator` appearing in the equations"""
-        self.Pirho.update_weights([[self.rhof, None, None],
-                                   [None, self.rhof, None],
-                                   [None, None, self.rhof]])
+
+        rhof0_values = self.rhof.eval_tp_fixed_loc(self.histopolation_grid_0_spans, self.histopolation_grid_0_bd, out=self._rhof_0_values)
+        rhof1_values = self.rhof.eval_tp_fixed_loc(self.histopolation_grid_1_spans, self.histopolation_grid_1_bd, out=self._rhof_1_values)
+        rhof2_values = self.rhof.eval_tp_fixed_loc(self.histopolation_grid_2_spans, self.histopolation_grid_2_bd, out=self._rhof_2_values)
+
+        self.Pirho.update_weights([[rhof0_values, None, None],
+                                   [None, rhof1_values, None],
+                                   [None, None, rhof2_values]])
+        
+        self.PirhoT.update_weights([[rhof0_values, None, None],
+                                    [None, rhof1_values, None],
+                                    [None, None, rhof2_values]])
 
     def _update_weighted_MM(self,):
         """update the weighted mass matrix operator"""
 
-        rhof_values = self.rhof1(
-            *self._integration_grid_X, out=self._rhof_values, tmp=self._tmp_integration_grid_X)
+        rhof_values = self.rhof1.eval_tp_fixed_loc(self.integration_grid_X_spans, self.integration_grid_X_bd, out=self._rhof_values)
         for i in range(3):
             for j in range(3):
                 self._full_term_mass[i, j][:] = 0.
-                self._full_term_mass += self._mass_metric_term
+                self._full_term_mass[i, j] += self._mass_metric_term[i, j]
         self._full_term_mass *= rhof_values
         self.WMM.assemble([[self._full_term_mass[0, 0], self._full_term_mass[0, 1], self._full_term_mass[0, 2]],
                            [self._full_term_mass[1, 0], self._full_term_mass[1,
@@ -3029,10 +3082,8 @@ class VariationalDensityEvolve(Propagator):
         """Update the linearform representing integration in V3 against kynetic energy"""
         V3h = self.derham.Vh_fem['3']
 
-        uf_values = self.uf(*self._integration_grid_V3,
-                            out=self._uf_values, tmp=self._tmp_integration_grid_V3)
-        uf1_values = self.uf1(*self._integration_grid_V3,
-                              out=self._uf1_values, tmp=self._tmp_integration_grid_V3)
+        uf_values = self.uf.eval_tp_fixed_loc(self.integration_grid_V3_spans, [self.integration_grid_V3_bn]*3, out=self._uf_values)
+        uf1_values = self.uf1.eval_tp_fixed_loc(self.integration_grid_V3_spans, [self.integration_grid_V3_bn]*3, out=self._uf1_values)
 
         # TODO : probably could be faster, tmp (mabe use a kernel?)
         eval_dl_drho = (uf_values[0]*self._proj_u2_metric_term[0, 0]*uf1_values[0]
@@ -3053,11 +3104,13 @@ class VariationalDensityEvolve(Propagator):
                         + uf_values[2]*self._proj_u2_metric_term[2, 2]*uf1_values[2])/2
 
         if self._params['model'] == 'barotropic':
-            rhof_values = self.rhof(*self._integration_grid_V3,
-                                    out=self._rhof_values_V3, tmp=self._tmp_integration_grid_V3)
-            rhof1_values = self.rhof1(*self._integration_grid_V3,
-                                      out=self._rhof1_values_V3, tmp=self._tmp_integration_grid_V3)
-            eval_dl_drho -= (rhof_values + rhof1_values)/2
+            
+            rhof_values = self.rhof.eval_tp_fixed_loc(self.integration_grid_V3_spans, self.integration_grid_V3_bd, out=self._rhof_values_V3)
+            rhof1_values = self.rhof1.eval_tp_fixed_loc(self.integration_grid_V3_spans, self.integration_grid_V3_bd, out=self._rhof1_values_V3)
+
+            eval_dl_drho -= self._proj_rho2_metric_term * \
+                (rhof_values + rhof1_values)/2
+
 
         self._get_L2dofs_V3(eval_dl_drho, dofs=self._linear_form_dl_drho)
 

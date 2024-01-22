@@ -1117,6 +1117,9 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
 
     bases : 3-tuple of 3d float arrays
         Values of p + 1 non-zero eta basis functions at quadrature points in format (n, nq, basis).
+        
+    subs : 3-tuple of 1f int arrays
+        Sub-interval indices (either 0 or 1). This index is 1 if an element has to be split for exact integration (even spline degree).
     '''
 
     pts, wts, subs, spans, bases = [], [], [], [], []
@@ -1245,7 +1248,7 @@ def get_span_and_basis(pts, space):
     Parameters
     ----------
     pts : np.array
-        2d array of points (interval, quadrature point).
+        2d array of points (ii, iq) = (interval, quadrature point).
 
     space : SplineSpace
         Psydac object, the 1d spline space to be projected.

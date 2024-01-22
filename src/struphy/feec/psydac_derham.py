@@ -5,6 +5,7 @@ from sympde.topology import Derham as Derham_psy
 
 from psydac.api.discretization import discretize
 from psydac.fem.vector import VectorFemSpace
+from psydac.fem.tensor import TensorFemSpace
 from psydac.feec.global_projectors import Projector_H1vec
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
@@ -21,6 +22,7 @@ from struphy.initial import perturbations
 from struphy.initial import eigenfunctions
 from struphy.geometry.base import Domain
 from struphy.bsplines import evaluation_kernels_3d as eval_3d
+from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
 import numpy as np
@@ -101,7 +103,8 @@ class Derham:
         if dirichlet_bc is not None:
             assert len(dirichlet_bc) == 3
             # make sure that boundary conditions are compatible with spline space
-            assert np.all([bc == [False, False] for i, bc in enumerate(dirichlet_bc) if spl_kind[i]])
+            assert np.all([bc == [False, False]
+                          for i, bc in enumerate(dirichlet_bc) if spl_kind[i]])
 
         self._dirichlet_bc = dirichlet_bc
 
@@ -644,7 +647,49 @@ class Derham:
     # --------------------------
 
     def create_field(self, name, space_id):
+        '''Creat a callable spline field.
+        
+        Parameters
+        ----------
+        name : str
+            Field's key to be used for instance when saving to hdf5 file.
+
+        space_id : str
+            Space identifier for the field ("H1", "Hcurl", "Hdiv", "L2" or "H1vec").
+        '''
         return self.Field(name, space_id, self)
+
+    def prepare_eval_tp_fixed(self, grids_1d):
+        '''Obtain knot span indices and spline basis functions evaluated at tensor product grid.
+
+        Parameters
+        ----------
+        grids_1d : 3-list of 1d arrays
+            Points of the tensor product grid.
+
+        space : FemSpace
+            The Vh_fem space from which we want to evaluate the splines.
+
+        Returns
+        -------
+        spans : 3-tuple of 2d int arrays
+            Knot span indices in each direction in format (n, nq).
+
+        bases : 3-tuple of 3d float arrays
+            Values of p + 1 non-zero eta basis functions at quadrature points in format (n, nq, basis).
+        '''
+
+        # spline degree and knot vectors must come from N-spline spaces (V0 space)
+        spans, bns, bds = [], [], []
+
+        for etas, space_1d, end in zip(grids_1d, self.Vh_fem['0'].spaces, self.Vh['0'].ends):
+            span, bn, bd = self._get_span_and_basis_for_eval_mpi(
+                etas, space_1d, end)
+            spans += [span]
+            bns += [bn]
+            bds += [bd]
+
+        return tuple(spans), tuple(bns), tuple(bds)
 
     # --------------------------
     #      private methods:
@@ -867,9 +912,67 @@ class Derham:
 
         return neigh_id
 
+    def _get_span_and_basis_for_eval_mpi(self, etas, Nspace, end):
+        '''Compute 
+
+        the knot span index, 
+        pn + 1 values of N-splines,
+        pn values of D-splines,
+
+        at each point in etas.
+
+        Parameters
+        ----------
+        etas : np.array
+            1d array of evaluation points (ascending).
+
+        Nspace : SplineSpace
+            Psydac object, must be a 1d N-spline space.
+            
+        end : int
+            End coeff index on current process for N-spline space.
+
+        Returns
+        -------
+        spans : np.array
+            1d array of knot span indices.
+
+        bn : np.array
+            2d array of pn + 1 values of N-splines indexed by (eta, spline value). 
+
+        bd : np.array
+            2d array of pn values of D-splines indexed by (eta, spline value). 
+        '''
+
+        from struphy.bsplines import bsplines_kernels
+
+        # Extract knot vectors, degree and kind of basis
+        Tn = Nspace.knots
+        pn = Nspace.degree
+
+        spans = np.zeros(etas.size, dtype=int)
+        bns = np.zeros((etas.size, pn + 1), dtype=float)
+        bds = np.zeros((etas.size, pn), dtype=float)
+        bn = np.zeros(pn + 1, dtype=float)
+        bd = np.zeros(pn, dtype=float)
+
+        for n in range(etas.size):
+            # avoid 1. --> 0. for clamped interpolation
+            eta = etas[n] % (1. + 1e-14)
+            span = bsplines_kernels.find_span(Tn, pn, eta)
+            bsplines_kernels.b_d_splines_slim(Tn, pn, eta, span, bn, bd)
+            # correct span for mpi spline eval
+            if span > end + pn + 1:
+                span -= Nspace.nbasis
+            spans[n] = span
+            bns[n] = bn
+            bds[n] = bd
+
+        return spans, bns, bds
     # --------------------------
     # Inner classes
     # --------------------------
+
     class Field:
         """
         Initializes a callable field variable (i.e. its FE coefficients) in memory and creates a method for assigning initial conditions.
@@ -1030,6 +1133,8 @@ class Derham:
 
                             self._vector.tp[n][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = \
                                 value[n][1][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
+                                
+            self._vector.update_ghost_regions()
 
         @property
         def starts(self):
@@ -1065,6 +1170,9 @@ class Derham:
             """
             return self._vector_stencil
 
+        ###############
+        ### Methods ###
+        ###############
         def extract_coeffs(self, update_ghost_regions=True):
             """
             Maps polar coeffs to polar tensor product rings in case of PolarVector (written in-place to self.vector_stencil) and updates ghost regions.
@@ -1271,6 +1379,69 @@ class Derham:
 
             self._vector.update_ghost_regions()
 
+        def eval_tp_fixed_loc(self, spans, bases, out=None):
+            '''Spline evaluation on pre-defined grid.
+            
+            Input spans must be on local process, start <= span <= end.
+            
+            Parameters
+            ----------
+            spans : 3-tuple of 1d int arrays
+                Knot span indices in each direction (start <= span <= end).
+
+            bases : 3-tuple of 2d float arrays
+                Values of non-zero eta basis functions at evaluation points indexed by (eta, basis function).
+                
+            Returns
+            -------
+            out : array[float]
+                3d array of spline values S_ijk corresponding to the sizes of spans.
+            '''
+
+            if isinstance(self.vector, StencilVector) :
+
+                assert [span.size for span in spans] == [base.shape[0]
+                                                        for base in bases]
+
+                if out is None:
+                    out = np.empty([span.size for span in spans], dtype=float)
+                else:
+                    assert out.shape == tuple([span.size for span in spans])
+
+                eval_spline_mpi_tensor_product_fixed(*spans,
+                                                    *bases,
+                                                    self.vector._data,
+                                                    self.derham.spline_types_pyccel[self.space_key],
+                                                    np.array(self.derham.p),
+                                                    np.array(self.starts),
+                                                    out)
+            
+            else :
+                out_is_none = False
+                if out is None:
+                    out = []
+                    out_is_none = True
+
+                for i in range(3):
+                    
+                    assert [span.size for span in spans] == [base.shape[0]
+                                                        for base in bases[i]]
+
+                    if out_is_none:
+                        out += np.empty([span.size for span in spans], dtype=float)
+                    else:
+                        assert out[i].shape == tuple([span.size for span in spans])
+
+                    eval_spline_mpi_tensor_product_fixed(*spans,
+                                                        *bases[i],
+                                                        self.vector[i]._data,
+                                                        self.derham.spline_types_pyccel[self.space_key][i],
+                                                        np.array(self.derham.p),
+                                                        np.array(self.starts[i]),
+                                                        out[i])
+
+            return out
+
         def __call__(self, eta1, eta2, eta3, out=None, tmp=None, squeeze_output=False, local=False):
             """
             Evaluates the spline function on the global domain, unless local is given to True (in which case the spline function is evaluated only on the local domain).
@@ -1341,10 +1512,10 @@ class Derham:
             if tmp is None:
                 tmp = np.zeros((E1.shape[0], E2.shape[1],
                                 E3.shape[2]), dtype=float)
-            else :
+            else:
                 assert isinstance(tmp, np.ndarray)
                 assert tmp.shape == (E1.shape[0], E2.shape[1],
-                                E3.shape[2])
+                                     E3.shape[2])
                 assert tmp.dtype.type is np.float64
                 tmp[:] = 0.
 
@@ -1373,9 +1544,9 @@ class Derham:
                             MPI.IN_PLACE, tmp, op=MPI.SUM)
 
                 # all processes have all values
-                if out is None : 
+                if out is None:
                     out = tmp
-                else :
+                else:
                     out *= 0.
                     out += tmp
 
@@ -1407,7 +1578,7 @@ class Derham:
                     # all processes have all values
                     if out_is_None:
                         out += [tmp.copy()]
-                    else :
+                    else:
                         out[n] *= 0.
                         out[n] += tmp
 
@@ -1421,6 +1592,9 @@ class Derham:
 
             return out
 
+        #######################
+        ### Private methods ###
+        #######################
         def _add_noise(self, fun_params, n=None):
             """ Add noise to a vector component where init_comps==True, otherwise leave at zero.
 

@@ -8,7 +8,7 @@ from time import sleep
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 10]])
-@pytest.mark.parametrize('p', [[1, 2, 3]])
+@pytest.mark.parametrize('p', [[1, 2, 3], [3, 1, 2]])
 @pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, False]])
 def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
     '''Compares evaluation_kernel_3d with eval_spline_mpi_kernel.'''
@@ -28,14 +28,9 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     # derham attributes
-    pn = np.array(derham.p)
     tn1, tn2, tn3 = derham.Vh_fem['0'].knots
     indN = derham.indN
     indD = derham.indD
-    dims0 = derham.Vh['0'].npts
-    dims1 = [space.vector_space.npts for space in derham.Vh_fem['1'].spaces]
-    dims2 = [space.vector_space.npts for space in derham.Vh_fem['2'].spaces]
-    dims3 = derham.Vh['3'].npts
 
     # Random spline coeffs_loc
     x0, x0_psy = cera(derham.Vh_fem['0'])
@@ -143,253 +138,418 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 10]])
-@pytest.mark.parametrize('p', [[3, 2, 4]])
+@pytest.mark.parametrize('p', [[1, 2, 3], [3, 1, 2]])
 @pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, False]])
-def test_eval_field(Nel, p, spl_kind):
-    '''Compares distributed array spline evaluation in Field object with legacy code.'''
+def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
+    '''Compares evaluate_3d with eval_spline_mpi.'''
 
-    from struphy.geometry.base import Domain
     from struphy.feec.psydac_derham import Derham
 
-    from struphy.feec.utilities import compare_arrays
-    from struphy.bsplines.evaluation_kernels_3d import evaluate_matrix
+    from struphy.feec.utilities import create_equal_random_arrays as cera
+    from struphy.bsplines import bsplines_kernels as bsp
+    from struphy.bsplines.evaluation_kernels_3d import evaluate_3d
+    from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
     rank = comm.Get_rank()
 
-    # derham object
+    # Psydac discrete Derham sequence
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
-    # fem field objects
-    p0 = derham.create_field('pressure', 'H1')
-    E1 = derham.create_field('e_field', 'Hcurl')
-    B2 = derham.create_field('b_field', 'Hdiv')
-    n3 = derham.create_field('density', 'L2')
-    uv = derham.create_field('velocity', 'H1vec')
+    # derham attributes
+    tn1, tn2, tn3 = derham.Vh_fem['0'].knots
 
-    # initialize fields with sin/cos
-    comps = {'pressure':  True,
-             'e_field': [True, True, True],
-             'b_field': [True, True, True],
-             'density':  True,
-             'velocity': [True, True, True]}
+    # Random spline coeffs_loc
+    x0, x0_psy = cera(derham.Vh_fem['0'])
+    x1, x1_psy = cera(derham.Vh_fem['1'])
+    x2, x2_psy = cera(derham.Vh_fem['2'])
+    x3, x3_psy = cera(derham.Vh_fem['3'])
 
-    init_params = {'type': 'ModesCos', 'ModesCos': {'coords': 'logical',
-                                                    'comps': comps, 'ls': [0], 'ms': [0], 'ns': [1], 'amps': [5.]}}
+    # Random points in domain of process
+    dom = derham.domain_array[rank]
+    eta1s = np.random.rand(n_markers)*(dom[1] - dom[0]) + dom[0]
+    eta2s = np.random.rand(n_markers)*(dom[4] - dom[3]) + dom[3]
+    eta3s = np.random.rand(n_markers)*(dom[7] - dom[6]) + dom[6]
 
-    p0.initialize_coeffs(init_params)
-    E1.initialize_coeffs(init_params)
-    B2.initialize_coeffs(init_params)
-    n3.initialize_coeffs(init_params)
-    uv.initialize_coeffs(init_params)
+    for eta1, eta2, eta3 in zip(eta1s, eta2s, eta3s):
 
-    # evaluation points
-    eta1 = np.linspace(0, 1, 11)
-    eta2 = np.linspace(0, 1, 14)
-    eta3 = np.linspace(0, 1, 17)
+        comm.Barrier()
+        sleep(.02*(rank + 1))
+        print(f'rank {rank} | eta1 = {eta1}')
+        print(f'rank {rank} | eta2 = {eta2}')
+        print(f'rank {rank} | eta3 = {eta3}\n')
+        comm.Barrier()
 
-    # arrays for legacy evaluation
-    arr1, arr2, arr3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-        eta1, eta2, eta3)
-    tmp = np.zeros_like(arr1)
+        # compare spline evaluation routines in V0
+        val = evaluate_3d(1, 1, 1,
+                          tn1, tn2, tn3,
+                          *derham.p,
+                          *derham.indN,
+                          x0[0], eta1, eta2, eta3)
 
-    ######
-    # V0 #
-    ######
-    # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(p0.vector.toarray(), p0.nbasis)
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
-    compare_arrays(p0.vector, coeffs, rank)
+        val_mpi = eval_spline_mpi(eta1, eta2, eta3,
+                                  x0_psy._data,
+                                  derham.spline_types_pyccel['0'],
+                                  np.array(derham.p),
+                                  tn1, tn2, tn3,
+                                  np.array(x0_psy.starts))
 
-    # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
-                    p[0], p[1], p[2],
-                    derham.indN[0], derham.indN[1], derham.indN[2],
-                    coeffs, arr1, arr2, arr3, tmp, 0)
-    val_legacy = np.squeeze(tmp.copy())
-    tmp[:] = 0
+        assert np.allclose(val, val_mpi)
 
-    # distributed evaluation and comparison
-    val = p0(eta1, eta2, eta3, squeeze_output=True)
-    assert np.allclose(val, val_legacy)
+        # compare spline evaluation routines in V1
+        # 1st component
+        val = evaluate_3d(2, 1, 1,
+                          tn1[1:-1], tn2, tn3,
+                          derham.p[0] - 1, derham.p[1], derham.p[2],
+                          derham.indD[0], derham.indN[1], derham.indN[2],
+                          x1[0], eta1, eta2, eta3)
 
-    ######
-    # V1 #
-    ######
-    # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(E1.vector[0].toarray(), E1.nbasis[0])
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
-    compare_arrays(E1.vector[0], coeffs, rank)
+        val_mpi = eval_spline_mpi(eta1, eta2, eta3,
+                                  x1_psy[0]._data,
+                                  derham.spline_types_pyccel['1'][0],
+                                  np.array(derham.p),
+                                  tn1, tn2, tn3,
+                                  np.array(x0_psy.starts))
 
-    # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['3'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
-                    p[0] - 1, p[1], p[2],
-                    derham.indD[0], derham.indN[1], derham.indN[2],
-                    coeffs, arr1, arr2, arr3, tmp, 11)
-    val_legacy_1 = np.squeeze(tmp.copy())
-    tmp[:] = 0
+        assert np.allclose(val, val_mpi)
 
-    # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(E1.vector[1].toarray(), E1.nbasis[1])
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
-    compare_arrays(E1.vector[1], coeffs, rank)
+        # 2nd component
+        val = evaluate_3d(1, 2, 1,
+                          tn1, tn2[1:-1], tn3,
+                          derham.p[0], derham.p[1] - 1, derham.p[2],
+                          derham.indN[0], derham.indD[1], derham.indN[2],
+                          x1[1], eta1, eta2, eta3)
 
-    # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['3'].knots[1], derham.Vh_fem['0'].knots[2],
-                    p[0], p[1] - 1, p[2],
-                    derham.indN[0], derham.indD[1], derham.indN[2],
-                    coeffs, arr1, arr2, arr3, tmp, 12)
-    val_legacy_2 = np.squeeze(tmp.copy())
-    tmp[:] = 0
+        val_mpi = eval_spline_mpi(eta1, eta2, eta3,
+                                  x1_psy[1]._data,
+                                  derham.spline_types_pyccel['1'][1],
+                                  np.array(derham.p),
+                                  tn1, tn2, tn3,
+                                  np.array(x0_psy.starts))
 
-    # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(E1.vector[2].toarray(), E1.nbasis[2])
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
-    compare_arrays(E1.vector[2], coeffs, rank)
+        assert np.allclose(val, val_mpi)
 
-    # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['3'].knots[2],
-                    p[0], p[1], p[2] - 1,
-                    derham.indN[0], derham.indN[1], derham.indD[2],
-                    coeffs, arr1, arr2, arr3, tmp, 13)
-    val_legacy_3 = np.squeeze(tmp.copy())
-    tmp[:] = 0
+        # 3rd component
+        val = evaluate_3d(1, 1, 2,
+                          tn1, tn2, tn3[1:-1],
+                          derham.p[0], derham.p[1], derham.p[2] - 1,
+                          derham.indN[0], derham.indN[1], derham.indD[2],
+                          x1[2], eta1, eta2, eta3)
 
-    # distributed evaluation and comparison
-    val1, val2, val3 = E1(eta1, eta2, eta3, squeeze_output=True)
-    assert np.allclose(val1, val_legacy_1)
-    assert np.allclose(val2, val_legacy_2)
-    assert np.allclose(val3, val_legacy_3)
+        val_mpi = eval_spline_mpi(eta1, eta2, eta3,
+                                  x1_psy[2]._data,
+                                  derham.spline_types_pyccel['1'][2],
+                                  np.array(derham.p),
+                                  tn1, tn2, tn3,
+                                  np.array(x0_psy.starts))
 
-    ######
-    # V2 #
-    ######
-    # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(B2.vector[0].toarray(), B2.nbasis[0])
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
-    compare_arrays(B2.vector[0], coeffs, rank)
+        assert np.allclose(val, val_mpi)
 
-    # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['3'].knots[1], derham.Vh_fem['3'].knots[2],
-                    p[0], p[1] - 1, p[2] - 1,
-                    derham.indN[0], derham.indD[1], derham.indD[2],
-                    coeffs, arr1, arr2, arr3, tmp, 21)
-    val_legacy_1 = np.squeeze(tmp.copy())
-    tmp[:] = 0
+        # compare spline evaluation routines in V2
+        # 1st component
+        val = evaluate_3d(1, 2, 2,
+                          tn1, tn2[1:-1], tn3[1:-1],
+                          derham.p[0], derham.p[1] - 1, derham.p[2] - 1,
+                          derham.indN[0], derham.indD[1], derham.indD[2],
+                          x2[0], eta1, eta2, eta3)
 
-    # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(B2.vector[1].toarray(), B2.nbasis[1])
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
-    compare_arrays(B2.vector[1], coeffs, rank)
+        val_mpi = eval_spline_mpi(eta1, eta2, eta3,
+                                  x2_psy[0]._data,
+                                  derham.spline_types_pyccel['2'][0],
+                                  np.array(derham.p),
+                                  tn1, tn2, tn3,
+                                  np.array(x0_psy.starts))
 
-    # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['3'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['3'].knots[2],
-                    p[0] - 1, p[1], p[2] - 1,
-                    derham.indD[0], derham.indN[1], derham.indD[2],
-                    coeffs, arr1, arr2, arr3, tmp, 22)
-    val_legacy_2 = np.squeeze(tmp.copy())
-    tmp[:] = 0
+        assert np.allclose(val, val_mpi)
 
-    # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(B2.vector[2].toarray(), B2.nbasis[2])
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
-    compare_arrays(B2.vector[2], coeffs, rank)
+        # 2nd component
+        val = evaluate_3d(2, 1, 2,
+                          tn1[1:-1], tn2, tn3[1:-1],
+                          derham.p[0] - 1, derham.p[1], derham.p[2] - 1,
+                          derham.indD[0], derham.indN[1], derham.indD[2],
+                          x2[1], eta1, eta2, eta3)
 
-    # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['3'].knots[0], derham.Vh_fem['3'].knots[1], derham.Vh_fem['0'].knots[2],
-                    p[0] - 1, p[1] - 1, p[2],
-                    derham.indD[0], derham.indD[1], derham.indN[2],
-                    coeffs, arr1, arr2, arr3, tmp, 23)
-    val_legacy_3 = np.squeeze(tmp.copy())
-    tmp[:] = 0
+        val_mpi = eval_spline_mpi(eta1, eta2, eta3,
+                                  x2_psy[1]._data,
+                                  derham.spline_types_pyccel['2'][1],
+                                  np.array(derham.p),
+                                  tn1, tn2, tn3,
+                                  np.array(x0_psy.starts))
 
-    # distributed evaluation and comparison
-    val1, val2, val3 = B2(eta1, eta2, eta3, squeeze_output=True)
-    assert np.allclose(val1, val_legacy_1)
-    assert np.allclose(val2, val_legacy_2)
-    assert np.allclose(val3, val_legacy_3)
+        assert np.allclose(val, val_mpi)
 
-    ######
-    # V3 #
-    ######
-    # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(n3.vector.toarray(), n3.nbasis)
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
-    compare_arrays(n3.vector, coeffs, rank)
+        # 3rd component
+        val = evaluate_3d(2, 2, 1,
+                          tn1[1:-1], tn2[1:-1], tn3,
+                          derham.p[0] - 1, derham.p[1] - 1, derham.p[2],
+                          derham.indD[0], derham.indD[1], derham.indN[2],
+                          x2[2], eta1, eta2, eta3)
 
-    # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['3'].knots[0], derham.Vh_fem['3'].knots[1], derham.Vh_fem['3'].knots[2],
-                    p[0] - 1, p[1] - 1, p[2] - 1,
-                    derham.indD[0], derham.indD[1], derham.indD[2],
-                    coeffs, arr1, arr2, arr3, tmp, 3)
-    val_legacy = np.squeeze(tmp.copy())
-    tmp[:] = 0
+        val_mpi = eval_spline_mpi(eta1, eta2, eta3,
+                                  x2_psy[2]._data,
+                                  derham.spline_types_pyccel['2'][2],
+                                  np.array(derham.p),
+                                  tn1, tn2, tn3,
+                                  np.array(x0_psy.starts))
 
-    # distributed evaluation and comparison
-    val = n3(eta1, eta2, eta3, squeeze_output=True)
-    assert np.allclose(val, val_legacy)
+        assert np.allclose(val, val_mpi)
 
-    #########
-    # V0vec #
-    #########
-    # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(uv.vector[0].toarray(), uv.nbasis[0])
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
-    compare_arrays(uv.vector[0], coeffs, rank)
+        # compare spline evaluation routines in V3
+        val = evaluate_3d(2, 2, 2,
+                          tn1[1:-1], tn2[1:-1], tn3[1:-1],
+                          derham.p[0] - 1, derham.p[1] - 1, derham.p[2] - 1,
+                          *derham.indD,
+                          x3[0], eta1, eta2, eta3)
 
-    # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
-                    p[0], p[1], p[2],
-                    derham.indN[0], derham.indN[1], derham.indN[2],
-                    coeffs, arr1, arr2, arr3, tmp, 0)
-    val_legacy_1 = np.squeeze(tmp.copy())
-    tmp[:] = 0
+        val_mpi = eval_spline_mpi(eta1, eta2, eta3,
+                                  x3_psy._data,
+                                  derham.spline_types_pyccel['3'],
+                                  np.array(derham.p),
+                                  tn1, tn2, tn3,
+                                  np.array(x0_psy.starts))
 
-    # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(uv.vector[1].toarray(), uv.nbasis[1])
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
-    compare_arrays(uv.vector[1], coeffs, rank)
+        assert np.allclose(val, val_mpi)
 
-    # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
-                    p[0], p[1], p[2],
-                    derham.indN[0], derham.indN[1], derham.indN[2],
-                    coeffs, arr1, arr2, arr3, tmp, 0)
-    val_legacy_2 = np.squeeze(tmp.copy())
-    tmp[:] = 0
 
-    # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(uv.vector[2].toarray(), uv.nbasis[2])
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
-    compare_arrays(uv.vector[2], coeffs, rank)
+@pytest.mark.mpi(min_size=2)
+@pytest.mark.parametrize('Nel', [[8, 9, 10]])
+@pytest.mark.parametrize('p', [[1, 2, 3], [3, 1, 2]])
+@pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, False]])
+def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
+    '''Compares 
 
-    # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
-                    p[0], p[1], p[2],
-                    derham.indN[0], derham.indN[1], derham.indN[2],
-                    coeffs, arr1, arr2, arr3, tmp, 0)
-    val_legacy_3 = np.squeeze(tmp.copy())
-    tmp[:] = 0
+    evaluate_tensor_product
+    eval_spline_mpi_tensor_product
+    eval_spline_mpi_tensor_product_fast
 
-    # distributed evaluation and comparison
-    val1, val2, val3 = uv(eta1, eta2, eta3, squeeze_output=True)
-    assert np.allclose(val1, val_legacy_1)
-    assert np.allclose(val2, val_legacy_2)
-    assert np.allclose(val3, val_legacy_3)
+    on random tensor product points.
+    '''
+
+    from struphy.feec.psydac_derham import Derham
+
+    from struphy.feec.utilities import create_equal_random_arrays as cera
+    from struphy.bsplines.evaluation_kernels_3d import evaluate_tensor_product
+    from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product
+    from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fast
+
+    import time
+
+    comm = MPI.COMM_WORLD
+    assert comm.size >= 2
+    rank = comm.Get_rank()
+
+    # Psydac discrete Derham sequence
+    derham = Derham(Nel, p, spl_kind, comm=comm)
+
+    # derham attributes
+    tn1, tn2, tn3 = derham.Vh_fem['0'].knots
+
+    # Random spline coeffs_loc
+    x0, x0_psy = cera(derham.Vh_fem['0'])
+    x3, x3_psy = cera(derham.Vh_fem['3'])
+
+    # Random points in domain of process
+    dom = derham.domain_array[rank]
+    eta1s = np.random.rand(n_markers)*(dom[1] - dom[0]) + dom[0]
+    eta2s = np.random.rand(n_markers + 1)*(dom[4] - dom[3]) + dom[3]
+    eta3s = np.random.rand(n_markers + 2)*(dom[7] - dom[6]) + dom[6]
+
+    vals = np.zeros((n_markers, n_markers + 1, n_markers + 2), dtype=float)
+    vals_mpi = np.zeros((n_markers, n_markers + 1, n_markers + 2), dtype=float)
+    vals_mpi_fast = np.zeros(
+        (n_markers, n_markers + 1, n_markers + 2), dtype=float)
+
+    comm.Barrier()
+    sleep(.02*(rank + 1))
+    print(f'rank {rank} | eta1 = {eta1s}')
+    print(f'rank {rank} | eta2 = {eta2s}')
+    print(f'rank {rank} | eta3 = {eta3s}\n')
+    comm.Barrier()
+
+    # compare spline evaluation routines in V0
+    t0 = time.time()
+    evaluate_tensor_product(tn1, tn2, tn3,
+                            *derham.p,
+                            *derham.indN,
+                            x0[0],
+                            eta1s, eta2s, eta3s,
+                            vals,
+                            0)
+    t1 = time.time()
+    if rank == 0:
+        print('V0 evaluate_tensor_product:'.ljust(40), t1 - t0)
+
+    t0 = time.time()
+    eval_spline_mpi_tensor_product(eta1s, eta2s, eta3s,
+                                   x0_psy._data,
+                                   derham.spline_types_pyccel['0'],
+                                   np.array(derham.p),
+                                   tn1, tn2, tn3,
+                                   np.array(x0_psy.starts),
+                                   vals_mpi)
+    t1 = time.time()
+    if rank == 0:
+        print('V0 eval_spline_mpi_tensor_product:'.ljust(40), t1 - t0)
+
+    t0 = time.time()
+    eval_spline_mpi_tensor_product_fast(eta1s, eta2s, eta3s,
+                                        x0_psy._data,
+                                        derham.spline_types_pyccel['0'],
+                                        np.array(derham.p),
+                                        tn1, tn2, tn3,
+                                        np.array(x0_psy.starts),
+                                        vals_mpi_fast)
+    t1 = time.time()
+    if rank == 0:
+        print('v0 eval_spline_mpi_tensor_product_fast:'.ljust(40), t1 - t0)
+
+    assert np.allclose(vals, vals_mpi)
+    assert np.allclose(vals, vals_mpi_fast)
+
+    # compare spline evaluation routines in V3
+    t0 = time.time()
+    evaluate_tensor_product(tn1[1:-1], tn2[1:-1], tn3[1:-1],
+                            derham.p[0] - 1, derham.p[1] - 1, derham.p[2] - 1,
+                            *derham.indD,
+                            x3[0],
+                            eta1s, eta2s, eta3s,
+                            vals,
+                            3)
+    t1 = time.time()
+    if rank == 0:
+        print('V3 evaluate_tensor_product:'.ljust(40), t1 - t0)
+
+    t0 = time.time()
+    eval_spline_mpi_tensor_product(eta1s, eta2s, eta3s,
+                                   x3_psy._data,
+                                   derham.spline_types_pyccel['3'],
+                                   np.array(derham.p),
+                                   tn1, tn2, tn3,
+                                   np.array(x0_psy.starts),
+                                   vals_mpi)
+    t1 = time.time()
+    if rank == 0:
+        print('V3 eval_spline_mpi_tensor_product:'.ljust(40), t1 - t0)
+
+    t0 = time.time()
+    eval_spline_mpi_tensor_product_fast(eta1s, eta2s, eta3s,
+                                        x3_psy._data,
+                                        derham.spline_types_pyccel['3'],
+                                        np.array(derham.p),
+                                        tn1, tn2, tn3,
+                                        np.array(x0_psy.starts),
+                                        vals_mpi_fast)
+    t1 = time.time()
+    if rank == 0:
+        print('v3 eval_spline_mpi_tensor_product_fast:'.ljust(40), t1 - t0)
+
+    assert np.allclose(vals, vals_mpi)
+    assert np.allclose(vals, vals_mpi_fast)
+
+
+@pytest.mark.mpi(min_size=2)
+@pytest.mark.parametrize('Nel', [[8, 9, 10]])
+@pytest.mark.parametrize('p', [[1, 2, 1], [2, 1, 2], [3, 4, 3]])
+@pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, False]])
+def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
+    '''Compares 
+
+    evaluate_tensor_product
+    eval_spline_mpi_tensor_product_fixed
+
+    on histopolation grid of V3.
+    '''
+
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.basis_projection_ops import prepare_projection_of_basis
+
+    from struphy.feec.utilities import create_equal_random_arrays as cera
+    from struphy.bsplines.evaluation_kernels_3d import evaluate_tensor_product
+    from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
+
+    import time
+
+    comm = MPI.COMM_WORLD
+    assert comm.size >= 2
+    rank = comm.Get_rank()
+
+    # Psydac discrete Derham sequence
+    derham = Derham(Nel, p, spl_kind, comm=comm)
+
+    # derham attributes
+    tn1, tn2, tn3 = derham.Vh_fem['0'].knots
+
+    # Random spline coeffs_loc
+    x0, x0_psy = cera(derham.Vh_fem['0'])
+    x3, x3_psy = cera(derham.Vh_fem['3'])
+
+    # Histopolation grids
+    spaces = derham.Vh_fem['3'].spaces
+    ptsG, wtsG, spans, bases, subs = prepare_projection_of_basis(spaces, spaces,
+                                                                 derham.Vh['3'].starts,
+                                                                 derham.Vh['3'].ends)
+    eta1s = ptsG[0].flatten()
+    eta2s = ptsG[1].flatten()
+    eta3s = ptsG[2].flatten()
+    
+    spans_f, bns_f, bds_f = derham.prepare_eval_tp_fixed([eta1s, eta2s, eta3s])
+
+    # output arrays
+    vals = np.zeros((eta1s.size, eta2s.size, eta3s.size), dtype=float)
+    vals_mpi_fixed = np.zeros(
+        (eta1s.size, eta2s.size, eta3s.size), dtype=float)
+    vals_mpi_grid = np.zeros(
+        (eta1s.size, eta2s.size, eta3s.size), dtype=float)
+
+    comm.Barrier()
+    sleep(.02*(rank + 1))
+    print(f'rank {rank} | {eta1s = }')
+    print(f'rank {rank} | {eta2s = }')
+    print(f'rank {rank} | {eta3s = }\n')
+    comm.Barrier()
+
+    # compare spline evaluation routines
+    t0 = time.time()
+    evaluate_tensor_product(tn1[1:-1], tn2[1:-1], tn3[1:-1],
+                            derham.p[0] - 1, derham.p[1] - 1, derham.p[2] - 1,
+                            *derham.indD,
+                            x3[0],
+                            eta1s, eta2s, eta3s,
+                            vals,
+                            3)
+    t1 = time.time()
+    if rank == 0:
+        print('V3 evaluate_tensor_product:'.ljust(40), t1 - t0)
+
+    t0 = time.time()
+    eval_spline_mpi_tensor_product_fixed(*spans_f,
+                                         *bds_f,
+                                         x3_psy._data,
+                                         derham.spline_types_pyccel['3'],
+                                         np.array(derham.p),
+                                         np.array(x0_psy.starts),
+                                         vals_mpi_fixed)
+    t1 = time.time()
+    if rank == 0:
+        print('v3 eval_spline_mpi_tensor_product_fixed:'.ljust(40), t1 - t0)
+        
+    assert np.allclose(vals, vals_mpi_fixed)
+    
+    field = derham.create_field('test', 'L2')
+    field.vector = x3_psy
+    
+    assert np.allclose(field.vector._data, x3_psy._data)
+    
+    t0 = time.time()
+    field.eval_tp_fixed_loc(spans_f, bds_f, out=vals_mpi_fixed)
+    t1 = time.time()
+    if rank == 0:
+        print('v3 field.eval_tp_fixed:'.ljust(40), t1 - t0)
+        
+    assert np.allclose(vals, vals_mpi_fixed)
 
 
 if __name__ == '__main__':
-    #test_eval_kernels([8, 9, 10], [2, 3, 4], [False, False, True], n_markers=1)
-    test_eval_field([8, 9, 10], [2, 3, 4], [False, True, True])
+    #test_eval_tensor_product([8, 9, 10], [2, 1, 2], [True, False, False], n_markers=10)
+    test_eval_tensor_product_grid([8, 9, 10], [2, 1, 2], [False, True, False], n_markers=10)
