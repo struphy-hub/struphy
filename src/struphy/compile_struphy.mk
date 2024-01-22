@@ -36,7 +36,7 @@ OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
 # Debug target to print the value of OUTPUTS
 debug:
-	@echo "OUTPUTS = $(OUTPUTS)"
+	@echo "OUTPUTS = $(OUTPUTS) End of Outputs"
 
 # all: $(OUTPUTS)
 
