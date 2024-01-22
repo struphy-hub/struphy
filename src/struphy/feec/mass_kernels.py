@@ -1,11 +1,13 @@
+'''
+Integral kernels for mass matrices and L2-projections.
+'''
+
 from numpy import shape
 
 # ================= 1d =================================
-
-
 def kernel_1d_mat(spans1: 'int[:]', pi1: int, pj1: int, starts1: int, pads1: int, w1: 'float[:,:]', bi1: 'float[:,:,:,:]', bj1: 'float[:,:,:,:]', mat_fun: 'float[:]', data: 'float[:,:]'):
     """
-    Performs the integration Lambda_ijk * mat_fun(eta1, eta2, eta3) * Lambda_lmn for the basis functions on the calling process.
+    Performs the integration of Lambda_i * mat_fun(eta1) * Lambda_l for the basis functions (i, l) available on the calling process.
 
     The results are written into data (attention: data is NOT set to zero first, but the results are added to data).
     """
@@ -38,12 +40,13 @@ def kernel_1d_mat(spans1: 'int[:]', pi1: int, pj1: int, starts1: int, pads1: int
 
 def kernel_1d_vec(spans1: 'int[:]', pi1: int, starts1: int, pads1: int, w1: 'float[:,:]', bi1: 'float[:,:,:,:]', mat_fun: 'float[:]', data: 'float[:]'):
     """
-    Performs the integration Lambda_i * mat_fun(eta1) for the basis functions on the calling process.
+    Performs the integration of Lambda_i * mat_fun(eta1) for the basis functions (i) available on the calling process.
 
     The results are written into data (attention: data is NOT set to zero first, but the results are added to data).
     """
 
     ne1 = spans1.size
+    
 
     nq1 = shape(w1)[1]
 
@@ -95,11 +98,9 @@ def kernel_1d_eval(spans1: 'int[:]', pi1: int, starts1: int, pads1: int, bi1: 'f
                     * bi1[iel1, il1, 0, q1]
 
 # ================= 2d =================================
-
-
 def kernel_2d_mat(spans1: 'int[:]', spans2: 'int[:]', pi1: int, pi2: int, pj1: int, pj2: int, starts1: int, starts2: int, pads1: int, pads2: int, w1: 'float[:,:]', w2: 'float[:,:]', bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', bj1: 'float[:,:,:,:]', bj2: 'float[:,:,:,:]', mat_fun: 'float[:,:]', data: 'float[:,:,:,:]'):
     """
-    Performs the integration Lambda_ijk * mat_fun(eta1, eta2, eta3) * Lambda_lmn for the basis functions on the calling process.
+    Performs the integration of Lambda_ij * mat_fun(eta1, eta2) * Lambda_lm for the basis functions (ij, lm) available on the calling process.
 
     The results are written into data (attention: data is NOT set to zero first, but the results are added to data).
     """
@@ -147,7 +148,7 @@ def kernel_2d_mat(spans1: 'int[:]', spans2: 'int[:]', pi1: int, pi2: int, pj1: i
 
 def kernel_2d_vec(spans1: 'int[:]', spans2: 'int[:]', pi1: int, pi2: int, starts1: int, starts2: int, pads1: int, pads2: int, w1: 'float[:,:]', w2: 'float[:,:]', bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', mat_fun: 'float[:,:]', data: 'float[:,:]'):
     """
-    Performs the integration Lambda_ij * mat_fun(eta1, eta2) for the basis functions on the calling process.
+    Performs the integration of Lambda_ij * mat_fun(eta1, eta2) for the basis functions (ij) available on the calling process.
 
     The results are written into data (attention: data is NOT set to zero first, but the results are added to data).
     """
@@ -223,11 +224,9 @@ def kernel_2d_eval(spans1: 'int[:]', spans2: 'int[:]', pi1: int, pi2: int, start
                                 * bi2[iel2, il2, 0, q2]
 
 # ================= 3d =================================
-
-
 def kernel_3d_mat(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3: int, starts1: int, starts2: int, starts3: int, pads1: int, pads2: int, pads3: int, w1: 'float[:,:]', w2: 'float[:,:]', w3: 'float[:,:]', bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', bi3: 'float[:,:,:,:]', bj1: 'float[:,:,:,:]', bj2: 'float[:,:,:,:]', bj3: 'float[:,:,:,:]', mat_fun: 'float[:,:,:]', data: 'float[:,:,:,:,:,:]'):
     """
-    Performs the integration Lambda_ijk * mat_fun(eta1, eta2, eta3) * Lambda_lmn for the basis functions on the calling process.
+    Performs the integration of Lambda_ijk * mat_fun(eta1, eta2, eta3) * Lambda_lmn for the basis functions (ijk, lmn) available on the calling process.
 
     The results are written into data (attention: data is NOT set to zero first, but the results are added to data).
     """
@@ -285,7 +284,7 @@ def kernel_3d_mat(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int
 
 def kernel_3d_vec(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int, pi2: int, pi3: int, starts1: int, starts2: int, starts3: int, pads1: int, pads2: int, pads3: int, w1: 'float[:,:]', w2: 'float[:,:]', w3: 'float[:,:]', bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', bi3: 'float[:,:,:,:]', mat_fun: 'float[:,:,:]', data: 'float[:,:,:]'):
     """
-    Performs the integration Lambda_ijk * mat_fun(eta1, eta2, eta3) for the basis functions on the calling process.
+    Performs the integration of Lambda_ijk * mat_fun(eta1, eta2, eta3) for the basis functions (ijk) available on the calling process.
 
     The results are written into data (attention: data is NOT set to zero first, but the results are added to data).
     """

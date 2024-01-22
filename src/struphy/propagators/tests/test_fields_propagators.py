@@ -9,7 +9,7 @@ import numpy as np
 from struphy.geometry import domains
 from struphy.feec.psydac_derham import Derham
 from struphy.feec.mass import WeightedMassOperators
-from struphy.feec.mass import WeightedMassOperator
+from struphy.feec.projectors import L2Projector
 from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import ImplicitDiffusion
 from struphy.feec.utilities import compare_arrays
@@ -46,6 +46,14 @@ def test_poisson_solver(Nel, p, spl_kind, mapping):
     # create derham object
     derham = Derham(Nel, p, spl_kind, comm=MPI.COMM_WORLD)
 
+    # create weighted mass operators
+    mass_ops = WeightedMassOperators(derham, domain)
+
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+    
+    # create right-hand side
     def rho(e1, e2, e3):
         return np.sin(2*np.pi*e1)
 
@@ -53,16 +61,9 @@ def test_poisson_solver(Nel, p, spl_kind, mapping):
         return np.sin(2*np.pi*e1) / (4 * np.pi**2)
 
     rho_vec = StencilVector(derham.Vh['0'])
-    WeightedMassOperator.assemble_vec(derham.Vh_fem['0'], rho_vec, [rho])
-
+    L2Projector('H1', mass_ops).get_dofs(rho, dofs=rho_vec)
+    
     sol_vec = derham.P['0'](sol)
-
-    # create weighted mass operators
-    mass_ops = WeightedMassOperators(derham, domain)
-
-    Propagator.derham = derham
-    Propagator.domain = domain
-    Propagator.mass_ops = mass_ops
 
     # Create Poisson solver
     _phi = StencilVector(derham.Vh['0'])

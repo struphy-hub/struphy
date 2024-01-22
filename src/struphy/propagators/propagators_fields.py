@@ -2930,6 +2930,8 @@ class VariationalDensityEvolve(Propagator):
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and `CoordinateProjector` needed to compute the bracket term"""
 
+        from struphy.feec.projectors import L2Projector
+
         # Get the projector and the spaces
         P2 = self.derham.P['2']
 
@@ -2970,6 +2972,9 @@ class VariationalDensityEvolve(Propagator):
 
         metric = self.domain.metric(*self._integration_grid_X)
         self._mass_metric_term = deepcopy(metric)
+
+        # L2-projector for V3
+        self._get_L2dofs_V3 = L2Projector('L2', self.mass_ops).get_dofs
 
         # tmps
         grid_shape = tuple([len(loc_grid)
@@ -3054,8 +3059,7 @@ class VariationalDensityEvolve(Propagator):
                                       out=self._rhof1_values_V3, tmp=self._tmp_integration_grid_V3)
             eval_dl_drho -= (rhof_values + rhof1_values)/2
 
-        WeightedMassOperator.assemble_vec(
-            V3h, self._linear_form_dl_drho, weight=[eval_dl_drho])
+        self._get_L2dofs_V3(eval_dl_drho, dofs=self._linear_form_dl_drho)
 
     def _get_error(self, un_diff, rhon_diff):
         weak_un_diff = self.mass_ops.Mv.dot(

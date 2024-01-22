@@ -11,7 +11,8 @@ from psydac.linalg.block import BlockVector
 from psydac.linalg.basic import IdentityOperator
 
 from struphy.feec.linear_operators import BoundaryOperator
-from struphy.feec.geom_projectors import PolarCommutingProjector
+from struphy.feec.projectors import CommutingProjector
+from struphy.feec.basis_projection_ops import get_pts_and_wts
 from struphy.polar.basic import PolarDerhamSpace
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
@@ -28,11 +29,11 @@ from mpi4py import MPI
 
 class Derham:
     """
-    API for the discrete Derham sequence on the logical unit cube (3d).
+    The discrete Derham sequence on the logical unit cube (3d).
 
     Check out `Tutorial 09 <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_09_discrete_derham.html>`_ for a hands-on introduction.
 
-    The tensor-product discrete deRham complex is loaded from `Psydac <https://github.com/pyccel/psydac>`_ 
+    The tensor-product discrete deRham complex is loaded using the `Psydac API <https://github.com/pyccel/psydac>`_ 
     and then augmented with polar sub-spaces (indicated by a bar) and boundary operators.
 
     .. image:: ../pics/polar_derham.png
@@ -147,7 +148,7 @@ class Derham:
 
         self._grad, self._curl, self._div = _derham.derivatives_as_matrices
 
-        _projectors = _derham.projectors(nquads=self._nq_pr)
+        _projectors = _derham.projectors(nquads=self.nq_pr)
 
         # expose name-to-form dict
         self._space_to_form = {'H1': '0',
@@ -156,51 +157,123 @@ class Derham:
                                'L2': '3',
                                'H1vec': 'v'}
 
-        # Psydac vector space and FEM spline spaces
-        _Vnames = {'0': 'H1',
-                   '1': 'Hcurl',
-                   '2': 'Hdiv',
-                   '3': 'L2',
-                   'v': 'H1vec'}
-
+        # Attributes for vector spaces, FE spline spaces and projectors
         self._Vh = {}
         self._Vh_fem = {}
         self._P = {}
-
-        for i, key in enumerate(_Vnames.keys()):
-
-            if key == 'v':
-                self._Vh_fem[key] = VectorFemSpace(
-                    _derham.V0, _derham.V0, _derham.V0)
-                self._P[key] = Projector_H1vec(self._Vh_fem[key])
-            else:
-                self._Vh_fem[key] = getattr(_derham, 'V' + str(i))
-                self._P[key] = _projectors[i]
-
-            self._Vh[key] = self._Vh_fem[key].vector_space
-
-        # total number of basis functions and spline types of 1d spaces in each direction ('B' or 'M', resp. 0 or 1)
+        
+        # info for 1d spline spaces grids
         self._nbasis = {}
         self._spline_types = {}
         self._spline_types_pyccel = {}
+        self._proj_grid_pts = {}
+        self._proj_grid_wts = {}
+        self._proj_grid_subs = {}
+        self._quad_grid_pts = {}
+        self._quad_grid_wts = {}
+        self._quad_grid_spans = {}
+        self._quad_grid_bases = {}
 
-        for i, key in enumerate(_Vnames.keys()):
-            fem_space = self._Vh_fem[key]
+        for i, sp_form in enumerate(self.space_to_form.values()):
 
-            if key in {'0', '3'}:
-                self._nbasis[key] = [
-                    space.nbasis for space in fem_space.spaces]
-                self._spline_types[key] = [
-                    space.basis for space in fem_space.spaces]
-                self._spline_types_pyccel[key] = np.array(
-                    [int(space.basis == 'M') for space in fem_space.spaces])
+            # FEM space and projector
+            if sp_form == 'v':
+                self._Vh_fem[sp_form] = VectorFemSpace(
+                    _derham.V0, _derham.V0, _derham.V0)
+                self._P[sp_form] = Projector_H1vec(self.Vh_fem[sp_form])
             else:
-                self._nbasis[key] = [[space.nbasis for space in comp.spaces]
-                                     for comp in fem_space.spaces]
-                self._spline_types[key] = [
-                    [space.basis for space in comp.spaces] for comp in fem_space.spaces]
-                self._spline_types_pyccel[key] = [np.array(
-                    [int(space.basis == 'M') for space in comp.spaces]) for comp in fem_space.spaces]
+                self._Vh_fem[sp_form] = getattr(_derham, 'V' + str(i))
+                self._P[sp_form] = _projectors[i]
+
+            # Vector space
+            self._Vh[sp_form] = self.Vh_fem[sp_form].vector_space
+            
+            # grid attributes
+            self._nbasis[sp_form] = []
+            self._spline_types[sp_form] = []
+            self._spline_types_pyccel[sp_form] = []
+            self._proj_grid_pts[sp_form] = []
+            self._proj_grid_wts[sp_form] = []
+            self._proj_grid_subs[sp_form] = []
+            self._quad_grid_pts[sp_form] = []
+            self._quad_grid_wts[sp_form] = []
+            self._quad_grid_spans[sp_form] = []
+            self._quad_grid_bases[sp_form] = []
+
+            fem_space = self.Vh_fem[sp_form]
+            if isinstance(fem_space, VectorFemSpace):
+                
+                for comp_space in fem_space.spaces:
+                    
+                    self._nbasis[sp_form] += [[]]
+                    self._spline_types[sp_form] += [[]]
+                    self._spline_types_pyccel[sp_form] += [[]]
+                    self._proj_grid_pts[sp_form] += [[]]
+                    self._proj_grid_wts[sp_form] += [[]]
+                    self._proj_grid_subs[sp_form] += [[]]
+                    self._quad_grid_pts[sp_form] += [[]]
+                    self._quad_grid_wts[sp_form] += [[]]
+                    self._quad_grid_spans[sp_form] += [[]]
+                    self._quad_grid_bases[sp_form] += [[]]
+                    
+                    for d, (space, s, e, quad_grid, nquad) in enumerate(zip(comp_space.spaces, 
+                                                                            comp_space.vector_space.starts, 
+                                                                            comp_space.vector_space.ends, 
+                                                                            comp_space._quad_grids, 
+                                                                            comp_space.nquads)):
+                    
+                        self._nbasis[sp_form][-1] += [space.nbasis ]
+                        self._spline_types[sp_form][-1] += [space.basis]
+                        self._spline_types_pyccel[sp_form][-1] += [int(space.basis == 'M')]
+                        
+                        pts, wts, subs = get_pts_and_wts(space, s, e, polar_shift= d == 0 and self.polar_ck == 1)
+                        self._proj_grid_pts[sp_form][-1] += [pts] 
+                        self._proj_grid_wts[sp_form][-1] += [wts] 
+                        self._proj_grid_subs[sp_form][-1] += [subs] 
+                        
+                        self._quad_grid_pts[sp_form][-1] += [quad_grid[nquad].points]
+                        self._quad_grid_wts[sp_form][-1] += [quad_grid[nquad].weights]
+                        self._quad_grid_spans[sp_form][-1] += [quad_grid[nquad].spans]
+                        self._quad_grid_bases[sp_form][-1] += [quad_grid[nquad].basis]
+                        
+                    self._spline_types_pyccel[sp_form][-1] = np.array(self._spline_types_pyccel[sp_form][-1])
+                  
+            else:
+                
+                for d, (space, s, e, quad_grid, nquad) in enumerate(zip(fem_space.spaces, 
+                                                                        fem_space.vector_space.starts, 
+                                                                        fem_space.vector_space.ends, 
+                                                                        fem_space._quad_grids, 
+                                                                        fem_space.nquads)):
+                    
+                    self._nbasis[sp_form] += [space.nbasis ]
+                    self._spline_types[sp_form] += [space.basis]
+                    self._spline_types_pyccel[sp_form] += [int(space.basis == 'M')]
+                    
+                    pts, wts, subs = get_pts_and_wts(space, s, e, polar_shift= d == 0 and self.polar_ck == 1)
+                    self._proj_grid_pts[sp_form] += [pts] 
+                    self._proj_grid_wts[sp_form] += [wts] 
+                    self._proj_grid_subs[sp_form] += [subs] 
+                    
+                    self._quad_grid_pts[sp_form] += [quad_grid[nquad].points]
+                    self._quad_grid_wts[sp_form] += [quad_grid[nquad].weights]
+                    self._quad_grid_spans[sp_form] += [quad_grid[nquad].spans]
+                    self._quad_grid_bases[sp_form] += [quad_grid[nquad].basis]
+                    
+                self._spline_types_pyccel[sp_form] = np.array(self._spline_types_pyccel[sp_form])
+                   
+            # print('#'*30) 
+            # print(f'{sp_form = }')
+            # print(f'{self._nbasis[sp_form] = }')
+            # print(f'{self._spline_types[sp_form] = }')
+            # print(f'{self._spline_types_pyccel[sp_form] = }')
+            # print(f'{self._proj_grid_pts[sp_form] = }')
+            # print(f'{self._proj_grid_wts[sp_form] = }')
+            # print(f'{self._proj_grid_subs[sp_form] = }')
+            # print(f'{self._quad_grid_pts[sp_form] = }')
+            # print(f'{self._quad_grid_wts[sp_form] = }')
+            # print(f'{self._quad_grid_spans[sp_form] = }')
+            # print(f'{self._quad_grid_bases[sp_form] = }')
 
         # break points
         self._breaks = [space.breaks for space in _derham.spaces[0].spaces]
@@ -237,43 +310,43 @@ class Derham:
         self._extraction_ops = {}
         self._dofs_extraction_ops = {}
 
-        for i, key in enumerate(_Vnames.keys()):
+        for i, (sp_id, sp_form)  in enumerate(self.space_to_form.items()):
 
-            vec_space = self._Vh[key]
+            vec_space = self._Vh[sp_form]
 
             # ------ Extraction operators ------
             # tensor product case
             if self.polar_ck == -1:
 
-                pol_space = self._Vh[key]
+                pol_space = self._Vh[sp_form]
 
-                self._extraction_ops[key] = IdentityOperator(pol_space)
-                self._dofs_extraction_ops[key] = IdentityOperator(pol_space)
+                self._extraction_ops[sp_form] = IdentityOperator(pol_space)
+                self._dofs_extraction_ops[sp_form] = IdentityOperator(pol_space)
 
             # C^1 polar spline case
             else:
 
-                pol_space = PolarDerhamSpace(self, _Vnames[key])
+                pol_space = PolarDerhamSpace(self, sp_id)
 
-                self._extraction_ops[key] = PolarExtractionOperator(
-                    vec_space, pol_space, ck_blocks.e_ten_to_pol[key])
+                self._extraction_ops[sp_form] = PolarExtractionOperator(
+                    vec_space, pol_space, ck_blocks.e_ten_to_pol[sp_form])
 
-                self._dofs_extraction_ops[key] = PolarExtractionOperator(
-                    vec_space, pol_space, ck_blocks.p_ten_to_pol[key], ck_blocks.p_ten_to_ten[key])
+                self._dofs_extraction_ops[sp_form] = PolarExtractionOperator(
+                    vec_space, pol_space, ck_blocks.p_ten_to_pol[sp_form], ck_blocks.p_ten_to_ten[sp_form])
 
-            self._Vh_pol[key] = pol_space
+            self._Vh_pol[sp_form] = pol_space
             
             # ------ Hom. Dirichlet boundary operators ------
             if self.dirichlet_bc is None:
-                self._boundary_ops[key] = IdentityOperator(pol_space)
+                self._boundary_ops[sp_form] = IdentityOperator(pol_space)
             else:
-                self._boundary_ops[key] = BoundaryOperator(
-                    pol_space, _Vnames[key], self.dirichlet_bc)
+                self._boundary_ops[sp_form] = BoundaryOperator(
+                    pol_space, sp_id, self.dirichlet_bc)
 
             # ------ Assemble projectors ------
             if with_projectors:
-                self._P[key] = PolarCommutingProjector(
-                    self._P[key], self._dofs_extraction_ops[key], self._extraction_ops[key], self._boundary_ops[key])
+                self._P[sp_form] = CommutingProjector(
+                    self._P[sp_form], self._dofs_extraction_ops[sp_form], self._extraction_ops[sp_form], self._boundary_ops[sp_form])
 
         # set discrete derivatives with polar linear operators
         if self.polar_ck == 1:
@@ -320,7 +393,7 @@ class Derham:
 
     @property
     def nquads(self):
-        """ List of number of Gauss-Legendre quadrature points in each direction (default = p, = p + 1 points per cell).
+        """ List of number of Gauss-Legendre quadrature points in each direction (default = p, leads to exact integration of degree 2p-1 polynomials).
         """
         return self._nquads
 
@@ -463,6 +536,42 @@ class Derham:
         """ Dictionary holding 1d spline types for each component and spatial direction, entries either 0 (='B') or 1 (='M').
         """
         return self._spline_types_pyccel
+    
+    @property
+    def proj_grid_pts(self):
+        '''Dictionary of quadrature points for histopolation (or Greville points for interpolation) in format (ii, iq) = (interval, quadrature point).'''
+        return self._proj_grid_pts
+    
+    @property
+    def proj_grid_wts(self):
+        '''Dictionary of quadrature weights for histopolation (or 1's for interpolation) in format (ii, iq) = (interval, quadrature point).'''
+        return self._proj_grid_wts
+    
+    @property
+    def proj_grid_subs(self):
+        '''Dictionary of histopolation subintervals (or 0's for interpolation) as 1d arrays.
+        A value of 1 indicates that the corresponding cell is the second subinterval of a split Greville cell (for histopolation with even degree).'''
+        return self._proj_grid_subs
+    
+    @property
+    def quad_grid_pts(self):
+        '''Dictionary of quadrature points for integration over grid cells in format (ni, nq) = (cell, quadrature point).'''
+        return self._quad_grid_pts
+    
+    @property
+    def quad_grid_wts(self):
+        '''Dictionary of quadrature weights for integration over grid cells in format (ni, nq) = (cell, quadrature point).'''
+        return self._quad_grid_wts
+    
+    @property
+    def quad_grid_spans(self):
+        '''Dictionary of knot span indices of grid cells.'''
+        return self._quad_grid_spans
+    
+    @property
+    def quad_grid_bases(self):
+        '''Dictionary of basis functions evaluated at quadrature grids in format (ni, bl, 0, nq) = (cell, basis function, derivative=0, quadrature point).'''
+        return self._quad_grid_bases
 
     @property
     def extraction_ops(self):

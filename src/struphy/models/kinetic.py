@@ -168,7 +168,7 @@ class VlasovMaxwell(StruphyModel):
     def initialize_from_params(self):
 
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-        from struphy.feec.projectors import L2_Projector
+        from struphy.feec.projectors import L2Projector
         from psydac.linalg.stencil import StencilVector
 
         # Initialize fields and particles
@@ -184,7 +184,7 @@ class VlasovMaxwell(StruphyModel):
 
         # add contribution from background in control variate method
         if self._marker_type == 'control_variate':
-            _proj = L2_Projector(self._mass_ops.M0, space='H1', derham=self.derham)
+            _proj = L2Projector(self._mass_ops.M0, space='H1', derham=self.derham)
             _phi_bckgr = _proj(self.pointer['electrons'].f_backgr.n)
             # TODO: what to do with this?
 

@@ -65,15 +65,15 @@ class WeightedMassOperators:
     # Wrapper functions for evaluating metric coefficients in right order (3x3 entries are last two axes!!)
     def G(self, e1, e2, e3):
         '''Metric tensor callable.'''
-        return self.domain.metric(e1, e2, e3, change_out_order=True, squeeze_out=False)
+        return self.domain.metric(e1, e2, e3, change_out_order=True)
 
     def Ginv(self, e1, e2, e3):
         '''Inverse metric tensor callable.'''
-        return self.domain.metric_inv(e1, e2, e3, change_out_order=True, squeeze_out=False)
+        return self.domain.metric_inv(e1, e2, e3, change_out_order=True)
 
     def sqrt_g(self, e1, e2, e3):
         '''Jacobian determinant callable.'''
-        return abs(self.domain.jacobian_det(e1, e2, e3, squeeze_out=False))
+        return abs(self.domain.jacobian_det(e1, e2, e3))
 
     #######################################################################
     # Mass matrices related to L2-scalar products in all 3d derham spaces #
@@ -281,7 +281,8 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.Ginv(e1, e2, e3)[:, :, :, m, n] * self.sqrt_g(
                         e1, e2, e3) / self.weights['eq_mhd'].n0(e1, e2, e3, squeeze_out=False)]
 
-            self._M1ninv = self.assemble_weighted_mass(fun, 'Hcurl', 'Hcurl', name='M1ninv')
+            self._M1ninv = self.assemble_weighted_mass(
+                fun, 'Hcurl', 'Hcurl', name='M1ninv')
 
         return self._M1ninv
 
@@ -524,7 +525,8 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m,
                                 n=n: (self.Ginv(e1, e2, e3) @ rot_B(e1, e2, e3) @ self.Ginv(e1, e2, e3))[:, :, :, m, n] * (self.sqrt_g(e1, e2, e3) / self.weights['eq_mhd'].n0(e1, e2, e3, squeeze_out=False))]
 
-            self._M1Bninv = self.assemble_weighted_mass(fun, 'Hcurl', 'Hcurl', name='M1Bninv')
+            self._M1Bninv = self.assemble_weighted_mass(
+                fun, 'Hcurl', 'Hcurl', name='M1Bninv')
 
         return self._M1Bninv
 
@@ -578,13 +580,13 @@ class WeightedMassOperators:
         V_id = self.derham.space_to_form[V_id]
         W_id = self.derham.space_to_form[W_id]
 
-        out = WeightedMassOperator(self.derham.Vh_fem[V_id], 
+        out = WeightedMassOperator(self.derham.Vh_fem[V_id],
                                    self.derham.Vh_fem[W_id],
-                                   V_extraction_op=self.derham.extraction_ops[V_id], 
+                                   V_extraction_op=self.derham.extraction_ops[V_id],
                                    W_extraction_op=self.derham.extraction_ops[W_id],
-                                   V_boundary_op=self.derham.boundary_ops[V_id], 
+                                   V_boundary_op=self.derham.boundary_ops[V_id],
                                    W_boundary_op=self.derham.boundary_ops[W_id],
-                                   weights_info=fun, 
+                                   weights_info=fun,
                                    transposed=False)
 
         out.assemble(name=name)
@@ -1172,102 +1174,6 @@ class WeightedMassOperator(LinOpWithTransp):
 
         if rank == 0 and verbose:
             print('Done.')
-
-    @staticmethod
-    def assemble_vec(W, vec, weight=None, clear=True):
-        """
-        Assembles (in 3d) vec_ijk = integral[ weight * Lambda_ijk ] into the Stencil-/BlockVector vec,
-        where Lambda_ijk are the basis functions of the spline space and weight is some weight function.
-
-        The integration is performed with Gauss-Legendre quadrature over the whole logical domain.
-
-        Parameters
-        ----------
-        W : TensorFemSpace | VectorFemSpace
-            Tensor product spline space from psydac.fem.tensor.
-
-        vec : StencilVector | BlockVector
-            The vector to be filled.
-
-        weight : list | NoneType
-            Weight function(s) (callables or np.ndarrays) in a 1d list of shape corresponding to number of components.
-
-        clear : bool
-            Whether to first set all data to zero before assembly. If False, the new contributions are added to existing ones in vec.
-        """
-
-        assert isinstance(W, (TensorFemSpace, VectorFemSpace))
-        assert isinstance(vec, (StencilVector, BlockVector))
-        assert W.vector_space == vec.space
-
-        # collect TensorFemSpaces for each component in tuple
-        if isinstance(W, TensorFemSpace):
-            Wspaces = (W,)
-        else:
-            Wspaces = W.spaces
-
-        # loag assembly kernel
-        kernel = getattr(mass_kernels, 'kernel_' + str(W.ldim) + 'd_vec')
-
-        # clear data
-        if clear:
-            if isinstance(vec, StencilVector):
-                vec._data[:] = 0.
-            else:
-                for block in vec.blocks:
-                    block._data[:] = 0.
-
-        # loop over components
-        for a, wspace in enumerate(Wspaces):
-
-            # knot span indices of elements of local domain
-            spans = [quad_grid[nquad].spans for quad_grid,
-                     nquad in zip(wspace._quad_grids, wspace.nquads)]
-
-            # global start spline index on process
-            starts = [int(start) for start in wspace.vector_space.starts]
-
-            # pads (ghost regions)
-            pads = wspace.vector_space.pads
-
-            # global quadrature points (flattened) and weights in format (local element, local weight)
-            pts = [quad_grid[nquad].points.flatten()
-                   for quad_grid, nquad in zip(wspace._quad_grids, wspace.nquads)]
-            wts = [quad_grid[nquad].weights for quad_grid,
-                   nquad in zip(wspace._quad_grids, wspace.nquads)]
-
-            # evaluated basis functions at quadrature points of codomain space
-            basis = [quad_grid[nquad].basis for quad_grid,
-                     nquad in zip(wspace._quad_grids, wspace.nquads)]
-
-            if weight is not None:
-                if weight[a] is not None:
-
-                    if callable(weight[a]):
-                        PTS = np.meshgrid(*pts, indexing='ij')
-                        mat_w = weight[a](*PTS).copy()
-                    elif isinstance(weight[a], np.ndarray):
-                        mat_w = weight[a]
-
-                else:
-                    mat_w = np.zeros([pt.size for pt in pts], dtype=float)
-            else:
-                mat_w = np.ones([pt.size for pt in pts], dtype=float)
-
-            assert mat_w.shape == tuple([pt.size for pt in pts])
-
-            # assemble vector (if mat_w is not zero) by calling the appropriate kernel (1d, 2d or 3d)
-            if np.any(np.abs(mat_w) > 1e-14):
-                if isinstance(vec, StencilVector):
-                    kernel(*spans, *wspace.degree, *starts, *pads,
-                           *wts, *basis, mat_w, vec._data)
-                else:
-                    kernel(*spans, *wspace.degree, *starts, *pads,
-                           *wts, *basis, mat_w, vec[a]._data)
-
-        # exchange assembly data (accumulate ghost regions) and update ghost regions
-        vec.exchange_assembly_data()
-        vec.update_ghost_regions()
 
     @staticmethod
     def eval_quad(W, coeffs, out=None):
