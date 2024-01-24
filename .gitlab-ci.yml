@@ -33,6 +33,9 @@ stages:
   - install
   - test
   - release 
+variables:
+  PYTHON_VERSION_1: "3.8"
+  PYTHON_VERSION_2: "3.9"
 
 # python virtual environments into cache
 default_venv:
@@ -77,116 +80,8 @@ ci_vars:
     - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc
     - module list
   script:
-    - echo "All CI predefined variables:"
-    - echo $CHAT_CHANNEL
-    - echo $CHAT_INPUT
-    - echo $CHAT_USER_ID
-    - echo $CI
-    - echo $CI_API_V4_URL
-    - echo $CI_BUILDS_DIR
-    - echo $CI_COMMIT_AUTHOR
-    - echo $CI_COMMIT_BEFORE_SHA
-    - echo $CI_COMMIT_BRANCH
-    - echo $CI_COMMIT_DESCRIPTION
-    - echo $CI_COMMIT_MESSAGE
-    - echo $CI_COMMIT_REF_NAME
-    - echo $CI_COMMIT_REF_PROTECTED
-    - echo $CI_COMMIT_REF_SLUG
-    - echo $CI_COMMIT_SHA
-    - echo $CI_COMMIT_SHORT_SHA
-    - echo $CI_COMMIT_TAG
-    - echo $CI_COMMIT_TIMESTAMP
-    - echo $CI_COMMIT_TITLE
-    - echo $CI_CONCURRENT_ID
-    - echo $CI_CONCURRENT_PROJECT_ID
-    - echo $CI_CONFIG_PATH
-    - echo $CI_DEBUG_TRACE
-    - echo $CI_DEFAULT_BRANCH
-    - echo $CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX
-    - echo $CI_DEPENDENCY_PROXY_DIRECT_GROUP_IMAGE_PREFIX
-    - echo $CI_DEPENDENCY_PROXY_PASSWORD
-    - echo $CI_DEPENDENCY_PROXY_SERVER
-    - echo $CI_DEPENDENCY_PROXY_USER
-    - echo $CI_DEPLOY_FREEZE
-    - echo $CI_DEPLOY_PASSWORD
-    - echo $CI_DEPLOY_USER
-    - echo $CI_DISPOSABLE_ENVIRONMENT
-    - echo $CI_ENVIRONMENT_NAME
-    - echo $CI_ENVIRONMENT_SLUG
-    - echo $CI_ENVIRONMENT_URL
-    - echo $CI_ENVIRONMENT_ACTION
-    - echo $CI_ENVIRONMENT_TIER
-    - echo $CI_HAS_OPEN_REQUIREMENTS
-    - echo $CI_JOB_ID
-    - echo $CI_JOB_IMAGE
-    - echo $CI_JOB_JWT
-    - echo $CI_JOB_JWT_V1
-    - echo $CI_JOB_JWT_V2
-    - echo $CI_JOB_MANUAL
-    - echo $CI_JOB_NAME
-    - echo $CI_JOB_STAGE
-    - echo $CI_JOB_STATUS
-    - echo $CI_JOB_TOKEN
-    - echo $CI_JOB_URL
-    - echo $CI_JOB_STARTED_AT
-    - echo $CI_KUBERNETES_ACTIVE
-    - echo $CI_NODE_INDEX
-    - echo $CI_NODE_TOTAL
-    - echo $CI_OPEN_MERGE_REQUESTS
-    - echo $CI_PAGES_DOMAIN
-    - echo $CI_PAGES_URL
-    - echo $CI_PIPELINE_ID
-    - echo $CI_PIPELINE_IID
-    - echo $CI_PIPELINE_SOURCE
-    - echo $CI_PIPELINE_TRIGGERED
-    - echo $CI_PIPELINE_URL
-    - echo $CI_PIPELINE_CREATED_AT
-    - echo $CI_PROJECT_CONFIG_PATH
-    - echo $CI_PROJECT_DIR
-    - echo $CI_PROJECT_ID
-    - echo $CI_PROJECT_NAME
-    - echo $CI_PROJECT_NAMESPACE
-    - echo $CI_PROJECT_PATH_SLUG
-    - echo $CI_PROJECT_PATH
-    - echo $CI_PROJECT_REPOSITORY_LANGUAGES
-    - echo $CI_PROJECT_ROOT_NAMESPACE
-    - echo $CI_PROJECT_TITLE
-    - echo $CI_PROJECT_URL
-    - echo $CI_PROJECT_VISIBILITY
-    - echo $CI_PROJECT_CLASSIFICATION_LABEL
-    - echo $CI_REGISTRY_IMAGE
-    - echo $CI_REGISTRY_PASSWORD
-    - echo $CI_REGISTRY_USER
-    - echo $CI_REGISTRY
-    - echo $CI_REPOSITORY_URL
-    - echo $CI_RUNNER_DESCRIPTION
-    - echo $CI_RUNNER_EXECUTABLE_ARCH
-    - echo $CI_RUNNER_ID
-    - echo $CI_RUNNER_REVISION
-    - echo $CI_RUNNER_SHORT_TOKEN
-    - echo $CI_RUNNER_TAGS
-    - echo $CI_RUNNER_VERSION
-    - echo $CI_SERVER_HOST
-    - echo $CI_SERVER_NAME
-    - echo $CI_SERVER_PORT
-    - echo $CI_SERVER_PROTOCOL
-    - echo $CI_SERVER_REVISION
-    - echo $CI_SERVER_URL
-    - echo $CI_SERVER_VERSION_MAJOR
-    - echo $CI_SERVER_VERSION_MINOR
-    - echo $CI_SERVER_VERSION_PATCH
-    - echo $CI_SERVER_VERSION
-    - echo $CI_SERVER
-    - echo $CI_SHARED_ENVIRONMENT
-    - echo $GITLAB_CI
-    - echo $GITLAB_FEATURES
-    - echo $GITLAB_USER_EMAIL
-    - echo $GITLAB_USER_ID
-    - echo $GITLAB_USER_LOGIN
-    - echo $GITLAB_USER_NAME
-    - echo $TRIGGER_PAYLOAD
-    - echo $TWINE_PASSWORD
-    - echo $TWINE_USERNAME
+    - echo "All environment variables:"
+    - env
 
 # Verify the PEP-8 guidelines for your code
 linting:
@@ -408,66 +303,9 @@ default_tutorial_cronjob_tests:
     - ls -1
     - struphy compile --status
     - struphy test tutorials
-    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
 
-# # collect timings
-# timings:
-#   stage: test
-#   needs: 
-#     - job: fortran_unit_tests
-#     - job: fortran_propagator_tests
-#     - job: fortran_model_tests
-#       optional: true
-#     - job: fortran_model_cronjob_tests
-#       optional: true
-#     - job: fortran_tutorial_tests
-#     - job: default_unit_tests
-#     - job: default_propagator_tests
-#     - job: default_model_tests
-#       optional: true
-#     - job: default_model_cronjob_tests
-#       optional: true
-#     - job: default_tutorial_tests
-#   rules:
-#     - if: $CI_COMMIT_TAG
-#       when: never
-#     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
-#     - if: $CI_PIPELINE_SOURCE == "schedule"
-#   script:
-#     - source env_fotran_$CI_PIPELINE_ID/bin/activate
-#     - pwd
-#     - ls -1
-#     - ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
-#     - struphy test timings --verbose
-#     - ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
-#     - cp -r $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon/. src/struphy/_pymon/
-#     - ls src/struphy/_pymon/ --all
-#     - deactivate
-#     - source env_$CI_PIPELINE_ID/bin/activate
-#     - pwd
-#     - ls -1
-#     - ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
-#     - struphy test timings --verbose
-#     - ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
-#     - cp -r $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon/. src/struphy/_pymon/
-#     - ls src/struphy/_pymon/ --all
-#   artifacts:
-#     paths:
-#       - src/struphy/_pymon/*
-
-# load_timings:
-#   stage: test
-#   needs: ['timings']
-#   rules:
-#     - if: $CI_COMMIT_TAG
-#       when: never
-#     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
-#     - if: $CI_PIPELINE_SOURCE == "schedule"
-#   script:
-#     - 
-
-# test other images
-ubuntu_tests:
+# ubuntu latest test (always)
+ubuntu_latest_tests:
   stage: test
   image: ubuntu:latest
   needs: ["default_build"]
@@ -476,6 +314,7 @@ ubuntu_tests:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
   before_script:
     - apt update -y && apt clean 
     - apt install -y python3-pip 
@@ -494,18 +333,116 @@ ubuntu_tests:
     - pip install dist/struphy*.whl
     - struphy compile --status
     - make -v
-    - struphy compile -y
+    - struphy compile
+    - struphy test models --fast
+    - struphy compile --language=fortran -y
     - struphy test models --fast
 
-fedora_tests:
+# older ubuntu tests (scheduled)
+ubuntu_20_04_python_3_8_tests:
   stage: test
-  image: fedora:37
+  image: ubuntu:20.04
   needs: ["default_build"]
+  cache: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  before_script:
+    - export DEBIAN_FRONTEND=noninteractive
+    - echo 'tzdata tzdata/Areas select Europe' | debconf-set-selections
+    - echo 'tzdata tzdata/Zones/Europe select Berlin' | debconf-set-selections
+    - apt update -y && apt clean
+    - apt install -y python3.8 python3.8-venv python3.8-dev python3-pip gfortran gcc liblapack-dev libopenmpi-dev libblas-dev openmpi-bin libomp-dev libomp5 git pandoc
+    - python3.8 -m venv /opt/venv
+    - source /opt/venv/bin/activate
+    - pip install --upgrade pip
+    - pip install sympy==1.5 struphy gvec_to_python
+    - export OMPI_ALLOW_RUN_AS_ROOT=1
+    - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+  script:
+    - struphy compile
+    - struphy test models --fast
+    - struphy compile --language=fortran -y
+    - struphy test models --fast
+
+ubuntu_20_04_python_3_9_tests:
+  stage: test
+  image: ubuntu:20.04
+  needs: ["default_build"]
+  cache: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  before_script:
+    - export DEBIAN_FRONTEND=noninteractive
+    - echo 'tzdata tzdata/Areas select Europe' | debconf-set-selections
+    - echo 'tzdata tzdata/Zones/Europe select Berlin' | debconf-set-selections
+    - apt update -y && apt clean
+    - apt install -y python3.9 python3.9-venv python3.9-dev python3-pip gfortran gcc liblapack-dev libopenmpi-dev libblas-dev openmpi-bin libomp-dev libomp5 git pandoc
+    - python3.9 -m venv /opt/venv
+    - source /opt/venv/bin/activate
+    - pip install --upgrade pip
+    - pip install sympy==1.5 struphy gvec_to_python
+    - export OMPI_ALLOW_RUN_AS_ROOT=1
+    - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+  script:
+    - struphy compile
+    - struphy test models --fast
+    - struphy compile --language=fortran -y
+    - struphy test models --fast
+
+ubuntu_23_04_tests:
+  stage: test
+  image: ubuntu:23.04
+  needs: ["default_build"]
+  cache: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  before_script:
+    - apt update -y && apt clean 
+    - apt install -y python3-pip 
+    - apt install -y python3-venv
+    - apt install -y gfortran gcc 
+    - DEBIAN_FRONTEND=noninteractive TZ="Europe/Berlin" apt-get install -y liblapack-dev libopenmpi-dev 
+    - apt install -y libblas-dev openmpi-bin 
+    - apt install -y libomp-dev libomp5 
+    - apt install -y git
+    - apt install -y pandoc
+    - export OMPI_ALLOW_RUN_AS_ROOT=1
+    - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+  script:
+    - python3 -m venv venv
+    - source venv/bin/activate
+    - python -m pip install --upgrade pip
+    - python -m pip install struphy
+    - struphy compile
+    - struphy test models --fast
+    - struphy compile --language=fortran -y
+    - struphy test models --fast
+
+# fedora latest test (always)
+fedora_latest_tests:
+  stage: test
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora_latest
+  needs: []
   cache: []
   rules:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  before_script:
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy" 
+  script:
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy compile && struphy test models --fast"
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy compile --language=fortran -y && struphy test models --fast"
+
+# older fedora tests (scheduled)
+fedora_37_tests:
+  stage: test
+  image: fedora:37
+  needs: ["default_build"]
+  cache: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
   before_script:
     - dnf install -y python3-pip 
     - dnf install -y gcc 
@@ -523,9 +460,39 @@ fedora_tests:
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
     - pip list
-    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install dist/struphy*.whl && struphy compile --status && make -v && struphy compile -y && struphy test models --fast" 
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install dist/struphy*.whl && struphy compile --status && make -v && struphy compile --language=fortran -y && struphy test models --fast" 
 
-# release
+fedora_38_tests:
+  stage: test
+  image: fedora:38
+  needs: ["default_build"]
+  cache: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  before_script:
+    - dnf install -y python3-pip 
+    - dnf install -y gcc 
+    - dnf install -y gfortran  
+    - dnf install -y blas-devel lapack-devel  
+    - dnf install -y openmpi openmpi-devel 
+    - dnf install -y libgomp 
+    - dnf install -y git 
+    - dnf install -y environment-modules 
+    - dnf install -y python3-mpi4py-openmpi 
+    - dnf install -y python3-devel 
+    - dnf install -y pandoc
+    - export OMPI_ALLOW_RUN_AS_ROOT=1
+    - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+    - export OMPI_MCA_pml=ob1
+    - export OMPI_MCA_btl=tcp,self
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy"
+  script:
+    - pip list
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy compile && struphy test models --fast"
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy compile --language=fortran -y && struphy test models --fast"
+
+
+#release
 deploy:
   stage: release
   rules:
@@ -600,4 +567,3 @@ release_job:
           url: 'https://struphy.pages.mpcdf.de/struphy/index.html'
         - name: 'PyPI'
           url: 'https://pypi.org/project/struphy/'
-
