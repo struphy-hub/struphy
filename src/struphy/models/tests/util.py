@@ -34,6 +34,10 @@ def call_model(key, val, map_and_equil, Tend=None):
         parameters['fluid']['fluid']['init'] = {'type': ['ModesCos', 'ModesSin'], 
                                                 'ModesCos': {'amps': [1.], 'comps': {'rho3': True}},
                                                 'ModesSin': {'ms': [1], 'amps': [.1], 'comps': {'uv': [False, True, False]}}}
+    elif key in ['VariationalCompressibleFluid']:
+        parameters['fluid']['fluid']['init'] = {'type': ['ModesCos', 'ModesSin'], 
+                                                'ModesCos': {'amps': [1.], 'comps': {'rho3': True, 's3': True}},
+                                                'ModesSin': {'ms': [1], 'amps': [.1], 'comps': {'uv': [False, True, False]}}}
     # set mapping and mhd equilibirum
     parameters['geometry']['type'] = map_and_equil[0]
     parameters['geometry'][map_and_equil[0]] = {}

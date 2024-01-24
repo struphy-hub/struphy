@@ -579,16 +579,18 @@ class VariationalPressurelessFluid(StruphyModel):
 
     def __init__(self, params, comm):
 
+        from struphy.feec.mass import WeightedMassOperator
+
         # initialize base class
         super().__init__(params, comm)
-
+        # Initialize mass matrix
+        self.WMM = WeightedMassOperator(self.derham.Vh_fem['v'], self.derham.Vh_fem['v'])        
         # Initialize propagators/integrators used in splitting substeps
-        self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
-         self.pointer['fluid_uv'], rho = self.pointer['fluid_rho3']))
         self.add_propagator(self.prop_fields.VariationalDensityEvolve(
-            self.pointer['fluid_rho3'], self.pointer['fluid_uv'], model='pressureless'))
+            self.pointer['fluid_rho3'], self.pointer['fluid_uv'], model='pressureless', mass_ops = self.WMM))
+        self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
+         self.pointer['fluid_uv'], rho = self.pointer['fluid_rho3'], mass_ops = self.WMM))
         
-
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U')
 
@@ -596,8 +598,7 @@ class VariationalPressurelessFluid(StruphyModel):
         self._tmp_u1 = self.derham.Vh['v'].zeros()
 
     def update_scalar_quantities(self):
-        self._propagators[0]._update_weighted_MM()
-        WMM = self._propagators[0].WMM.matrix
+        WMM = self.WMM.matrix
         m1 = WMM.dot(self.pointer['fluid_uv'], out=self._tmp_u1)
 
         en_U = self.pointer['fluid_uv'] .dot(m1)/2
@@ -617,12 +618,15 @@ class VariationalBarotropicFluid(StruphyModel):
 
         \partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 ~ ,
 
-    where :
-    
+    where
+
     .. math::
         [\mathbf u,\mathbf v] = \mathbf u \cdot \nabla \mathbf v - \mathbf v \cdot \nabla \mathbf u ~ .
 
-        e = \frac{\rho}{2}
+    and
+
+    .. math::
+        e = \frac{\rho}{2} ~ .
 
     Parameters
     ----------
@@ -660,15 +664,17 @@ class VariationalBarotropicFluid(StruphyModel):
 
     def __init__(self, params, comm):
 
+        from struphy.feec.mass import WeightedMassOperator
+
         # initialize base class
         super().__init__(params, comm)
-
+        # Initialize mass matrix
+        self.WMM = WeightedMassOperator(self.derham.Vh_fem['v'], self.derham.Vh_fem['v']) 
         # Initialize propagators/integrators used in splitting substeps
-        self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
-         self.pointer['fluid_uv'], rho = self.pointer['fluid_rho3']))
         self.add_propagator(self.prop_fields.VariationalDensityEvolve(
-            self.pointer['fluid_rho3'], self.pointer['fluid_uv'], model='barotropic'))
-        
+            self.pointer['fluid_rho3'], self.pointer['fluid_uv'], model='barotropic', mass_ops = self.WMM))
+        self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
+         self.pointer['fluid_uv'], rho = self.pointer['fluid_rho3'], mass_ops = self.WMM))    
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U')
@@ -680,8 +686,7 @@ class VariationalBarotropicFluid(StruphyModel):
         self._tmp_rho1 = self.derham.Vh['3'].zeros()
 
     def update_scalar_quantities(self):
-        self._propagators[0]._update_weighted_MM()
-        WMM = self._propagators[0].WMM.matrix
+        WMM = self.WMM.matrix
         m1 = WMM.dot(self.pointer['fluid_uv'], out=self._tmp_m1)
 
         en_U = self.pointer['fluid_uv'] .dot(m1)/2
@@ -694,5 +699,126 @@ class VariationalBarotropicFluid(StruphyModel):
         en_tot = en_U + en_thermo
         self.update_scalar('en_tot', en_tot)
 
+class VariationalCompressibleFluid(StruphyModel):
+    r'''Fully compressible fluid equations discretized with a variational method.
 
+    Implemented equations:
+
+    .. math::
+
+        \int_{\Omega} \partial_t \mathbf u \cdot \mathbf v \, \textnormal d^3 \mathbf x 
+        - \int_{\Omega} \mathbf u \cdot [\mathbf u, \mathbf v] \, \textnormal d^3 \mathbf x 
+        + \int_{\Omega} \big( \frac{| \mathbf u |^2}{2} - \frac{\rho e}{\partial \rho} \big) \nabla \cdot (\rho \mathbf v) \, \textnormal d^3 \mathbf x
+        + \int_{\Omega} \big( - \frac{\rho e}{\partial s} \big) \nabla \cdot (s \mathbf v) \, \textnormal d^3 \mathbf x = 0 ~ ,
+
+        \partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 ~ ,
+
+        \partial_t s + \nabla \cdot ( s \mathbf u ) = 0 ~ ,
+
+    where
+
+    .. math::
+        [\mathbf u,\mathbf v] = \mathbf u \cdot \nabla \mathbf v - \mathbf v \cdot \nabla \mathbf u ~ .
+
+    and
+
+    .. math::
+        e = \rho^{\gamma-1} \exp(s / \rho) ~ .
+
+    Parameters
+    ----------
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
+
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
+    '''
+    @classmethod
+    def species(cls):
+        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
+        dct['fluid']['fluid'] = {'rho3' : 'L2', 's3' : 'L2', 'uv': 'H1vec'}
+        return dct
+
+    @classmethod
+    def bulk_species(cls):
+        return 'fluid'
+
+    @classmethod
+    def velocity_scale(cls):
+        return 'alfvén'
+
+    @classmethod
+    def options(cls):
+        # import propagator options
+        from struphy.propagators.propagators_fields import VariationalMomentumAdvection, VariationalDensityEvolve, VariationalEntropyEvolve
+        dct = {}
+
+        cls.add_option(species=['fluid', 'fluid'], key=['solvers'],
+                       option=VariationalMomentumAdvection.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'fluid'], key=['solvers'],
+                       option=VariationalDensityEvolve.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'fluid'], key=['solvers'],
+                       option=VariationalEntropyEvolve.options()['solver'], dct=dct)
+        return dct
+
+    def __init__(self, params, comm):
+
+        from struphy.feec.projectors import L2Projector
+        from struphy.feec.mass import WeightedMassOperator
+
+        # initialize base class
+        super().__init__(params, comm)
+        # Initialize mass matrix
+        self.WMM = WeightedMassOperator(self.derham.Vh_fem['v'], self.derham.Vh_fem['v']) 
+
+        # Initialize propagators/integrators used in splitting substeps
+        gamma = params['fluid']['fluid']['options']['solvers']['gamma']
+
+        self.add_propagator(self.prop_fields.VariationalDensityEvolve(
+            self.pointer['fluid_rho3'], self.pointer['fluid_uv'], model='full', s = self.pointer['fluid_s3'], gamma = gamma, mass_ops = self.WMM))
+        self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
+         self.pointer['fluid_uv'], rho = self.pointer['fluid_rho3'], mass_ops = self.WMM))
+        self.add_propagator(self.prop_fields.VariationalEntropyEvolve(
+            self.pointer['fluid_s3'], self.pointer['fluid_uv'], model='full', rho = self.pointer['fluid_rho3'], gamma = gamma, mass_ops = self.WMM))
+        
+
+        # Scalar variables to be saved during simulation
+        self.add_scalar('en_U')
+        self.add_scalar('en_thermo')
+        self.add_scalar('en_tot')
+
+        # temporary vectors for scalar quantities
+        self._tmp_m1 = self.derham.Vh['v'].zeros()
+        self._tmp_rho1 = self.derham.Vh['3'].zeros()
+        projV3 = L2Projector('L2', self._mass_ops)
+        f = lambda e1, e2, e3 : 1
+        f = np.vectorize(f)
+        self._integrator = projV3(f)
+
+    def update_scalar_quantities(self):
+
+        WMM = self.WMM.matrix
+        m1 = WMM.dot(self.pointer['fluid_uv'], out=self._tmp_m1)
+
+        en_U = self.pointer['fluid_uv'] .dot(m1)/2
+        self.update_scalar('en_U', en_U)
+
+        en_thermo = self.update_thermo_energy()
+
+        en_tot = en_U + en_thermo
+        self.update_scalar('en_tot', en_tot)
+
+    def update_thermo_energy(self):
+        # Reuse tmp used in VariationalEntropyEvolve to compute the thermodynamical energy.
+        en_prop = self._propagators[2]
+        en_prop.sf.vector = self.pointer['fluid_s3']
+        en_prop.rhof.vector = self.pointer['fluid_rho3']
+        sf_values = en_prop.sf.eval_tp_fixed_loc(en_prop.integration_grid_V3_spans, en_prop.integration_grid_V3_bd, out=en_prop._sf_values_V3)
+        rhof_values = en_prop.rhof.eval_tp_fixed_loc(en_prop.integration_grid_V3_spans, en_prop.integration_grid_V3_bd, out=en_prop._rhof_values_V3)
+        e = en_prop._ener
+        ener_values = en_prop._proj_ener_metric_term*e(rhof_values,sf_values)
+        en_prop._get_L2dofs_V3(ener_values, dofs=en_prop._linear_form_dl_ds)
+        en_thermo = self._integrator.dot(en_prop._linear_form_dl_ds)
+        self.update_scalar('en_thermo', en_thermo)
+        return en_thermo
 
