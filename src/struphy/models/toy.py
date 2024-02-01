@@ -532,8 +532,8 @@ class VariationalPressurelessFluid(StruphyModel):
 
     .. math::
 
-        \int_{\Omega} \partial_t \mathbf u \cdot \mathbf v \, \textnormal d^3 \mathbf x 
-        - \int_{\Omega} \mathbf u \cdot [\mathbf u, \mathbf v] \, \textnormal d^3 \mathbf x 
+        \int_{\Omega} \partial_t (\rho \mathbf u) \cdot \mathbf v \, \textnormal d^3 \mathbf x 
+        - \int_{\Omega} \rho \mathbf u \cdot [\mathbf u, \mathbf v] \, \textnormal d^3 \mathbf x 
         + \int_{\Omega} \frac{| \mathbf u |^2}{2} \nabla \cdot (\rho \mathbf v) \, \textnormal d^3 \mathbf x = 0 ~ ,
 
         \partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 ~ ,
@@ -589,7 +589,7 @@ class VariationalPressurelessFluid(StruphyModel):
         self.add_propagator(self.prop_fields.VariationalDensityEvolve(
             self.pointer['fluid_rho3'], self.pointer['fluid_uv'], model='pressureless', mass_ops = self.WMM))
         self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
-         self.pointer['fluid_uv'], rho = self.pointer['fluid_rho3'], mass_ops = self.WMM))
+         self.pointer['fluid_uv'], mass_ops = self.WMM))
         
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U')
@@ -612,9 +612,9 @@ class VariationalBarotropicFluid(StruphyModel):
 
     .. math::
 
-        \int_{\Omega} \partial_t \mathbf u \cdot \mathbf v \, \textnormal d^3 \mathbf x 
-        - \int_{\Omega} \mathbf u \cdot [\mathbf u, \mathbf v] \, \textnormal d^3 \mathbf x 
-        + \int_{\Omega} \big( \frac{| \mathbf u |^2}{2} - \frac{\rho e}{\partial \rho} \big) \nabla \cdot (\rho \mathbf v) \, \textnormal d^3 \mathbf x = 0 ~ ,
+        \int_{\Omega} \partial_t (\rho \mathbf u) \cdot \mathbf v \, \textnormal d^3 \mathbf x 
+        - \int_{\Omega}\rho \mathbf u \cdot [\mathbf u, \mathbf v] \, \textnormal d^3 \mathbf x 
+        + \int_{\Omega} \big( \frac{| \mathbf u |^2}{2} - \frac{\partial \rho e}{\partial \rho} \big) \nabla \cdot (\rho \mathbf v) \, \textnormal d^3 \mathbf x = 0 ~ ,
 
         \partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 ~ ,
 
@@ -674,7 +674,7 @@ class VariationalBarotropicFluid(StruphyModel):
         self.add_propagator(self.prop_fields.VariationalDensityEvolve(
             self.pointer['fluid_rho3'], self.pointer['fluid_uv'], model='barotropic', mass_ops = self.WMM))
         self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
-         self.pointer['fluid_uv'], rho = self.pointer['fluid_rho3'], mass_ops = self.WMM))    
+         self.pointer['fluid_uv'], mass_ops = self.WMM))    
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U')
@@ -699,6 +699,7 @@ class VariationalBarotropicFluid(StruphyModel):
         en_tot = en_U + en_thermo
         self.update_scalar('en_tot', en_tot)
 
+
 class VariationalCompressibleFluid(StruphyModel):
     r'''Fully compressible fluid equations discretized with a variational method.
 
@@ -706,10 +707,10 @@ class VariationalCompressibleFluid(StruphyModel):
 
     .. math::
 
-        \int_{\Omega} \partial_t \mathbf u \cdot \mathbf v \, \textnormal d^3 \mathbf x 
-        - \int_{\Omega} \mathbf u \cdot [\mathbf u, \mathbf v] \, \textnormal d^3 \mathbf x 
-        + \int_{\Omega} \big( \frac{| \mathbf u |^2}{2} - \frac{\rho e}{\partial \rho} \big) \nabla \cdot (\rho \mathbf v) \, \textnormal d^3 \mathbf x
-        + \int_{\Omega} \big( - \frac{\rho e}{\partial s} \big) \nabla \cdot (s \mathbf v) \, \textnormal d^3 \mathbf x = 0 ~ ,
+        \int_{\Omega} \partial_t (\rho \mathbf u) \cdot \mathbf v \, \textnormal d^3 \mathbf x 
+        - \int_{\Omega}\rho \mathbf u \cdot [\mathbf u, \mathbf v] \, \textnormal d^3 \mathbf x 
+        + \int_{\Omega} \big( \frac{| \mathbf u |^2}{2} - \frac{\partial \rho e}{\partial \rho} \big) \nabla \cdot (\rho \mathbf v) \, \textnormal d^3 \mathbf x
+        + \int_{\Omega} \big( - \frac{\partial \rho e}{\partial s} \big) \nabla \cdot (s \mathbf v) \, \textnormal d^3 \mathbf x = 0 ~ ,
 
         \partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 ~ ,
 
@@ -777,7 +778,7 @@ class VariationalCompressibleFluid(StruphyModel):
         self.add_propagator(self.prop_fields.VariationalDensityEvolve(
             self.pointer['fluid_rho3'], self.pointer['fluid_uv'], model='full', s = self.pointer['fluid_s3'], gamma = gamma, mass_ops = self.WMM))
         self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
-         self.pointer['fluid_uv'], rho = self.pointer['fluid_rho3'], mass_ops = self.WMM))
+         self.pointer['fluid_uv'], mass_ops = self.WMM))
         self.add_propagator(self.prop_fields.VariationalEntropyEvolve(
             self.pointer['fluid_s3'], self.pointer['fluid_uv'], model='full', rho = self.pointer['fluid_rho3'], gamma = gamma, mass_ops = self.WMM))
         
@@ -789,7 +790,6 @@ class VariationalCompressibleFluid(StruphyModel):
 
         # temporary vectors for scalar quantities
         self._tmp_m1 = self.derham.Vh['v'].zeros()
-        self._tmp_rho1 = self.derham.Vh['3'].zeros()
         projV3 = L2Projector('L2', self._mass_ops)
         f = lambda e1, e2, e3 : 1
         f = np.vectorize(f)

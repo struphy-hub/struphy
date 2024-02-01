@@ -229,7 +229,7 @@ class Derham:
                         self._spline_types[sp_form][-1] += [space.basis]
                         self._spline_types_pyccel[sp_form][-1] += [int(space.basis == 'M')]
                         
-                        pts, wts, subs = get_pts_and_wts(space, s, e, polar_shift= d == 0 and self.polar_ck == 1)
+                        pts, wts, subs = get_pts_and_wts(space, s, e, n_quad=self.nq_pr[d], polar_shift= d == 0 and self.polar_ck == 1)
                         self._proj_grid_pts[sp_form][-1] += [pts] 
                         self._proj_grid_wts[sp_form][-1] += [wts] 
                         self._proj_grid_subs[sp_form][-1] += [subs] 
@@ -253,7 +253,7 @@ class Derham:
                     self._spline_types[sp_form] += [space.basis]
                     self._spline_types_pyccel[sp_form] += [int(space.basis == 'M')]
                     
-                    pts, wts, subs = get_pts_and_wts(space, s, e, polar_shift= d == 0 and self.polar_ck == 1)
+                    pts, wts, subs = get_pts_and_wts(space, s, e, n_quad=self.nq_pr[d], polar_shift= d == 0 and self.polar_ck == 1)
                     self._proj_grid_pts[sp_form] += [pts] 
                     self._proj_grid_wts[sp_form] += [wts] 
                     self._proj_grid_subs[sp_form] += [subs] 
