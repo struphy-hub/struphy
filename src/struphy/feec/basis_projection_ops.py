@@ -1051,9 +1051,9 @@ class BasisProjectionOperator(LinOpWithTransp):
                 # Call the kernel if weight function is not zero or in the scalar case
                 # to avoid calling _block of a StencilMatrix in the else
 
-                not_weight_zero = np.array(int(np.any(np.abs(mat_w) > 1e-14)))
+                not_weight_zero = np.array(int(loc_weight is not None and np.any(np.abs(mat_w) > 1e-14)))
                 self._mpi_comm.Allreduce(MPI.IN_PLACE, not_weight_zero, op=MPI.LOR)
-                if loc_weight is not None and not_weight_zero or self._is_scalar:
+                if not_weight_zero or self._is_scalar:
 
                     # get cell of block matrix (don't instantiate if all zeros)
                     if self._is_scalar:
