@@ -1218,7 +1218,12 @@ class Derham:
 
             # identifying initial conditions of self.vector
             if init_params['type'] is None:
-                pass
+                # apply boundary operator (in-place)
+                self.derham.boundary_ops[self.space_key].dot(
+                    self._vector.copy(), out=self._vector)
+                # update ghost regions
+                self._vector.update_ghost_regions()
+                return
             elif type(init_params['type']) == str:
                 init_params['type'] = [init_params['type']]
             else:
@@ -1296,8 +1301,8 @@ class Derham:
 
                         self.vector = eig_vec
 
-                # Fourier modes
-                elif any(_type in ['ModesSin', 'ModesCos', 'TorusModesSin', 'TorusModesCos'] for _type in init_types):
+                # Fourier modes or shear layer
+                elif any(_type in ['ModesSin', 'ModesCos', 'TorusModesSin', 'TorusModesCos', 'Shear_x', 'Shear_y', 'Shear_z'] for _type in init_types):
 
                     if self.space_id in {'H1', 'L2'}:
 

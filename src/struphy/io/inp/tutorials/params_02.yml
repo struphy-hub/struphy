@@ -41,13 +41,11 @@ em_fields :
     init :
         type : ModesSin # type of initialization
         ModesSin :
-            coords : 'physical' # in which coordinates (logical or physical)
-            comps :
-                b2 : [False, False, True] # components to be initialized (for scalar fields: no list)
-            ls : [1] # Integer mode numbers in x or eta_1 (depending on coords)
-            ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
-            ns : [0] # Integer mode numbers in z or eta_3 (depending on coords)
-            amps : [0.001] # amplitudes of each mode
+            comps : {b2: [null, null, 'physical']} # components to be initialized (for scalar fields: no list)
+            ls : {b2: [null, null, [1]]} # Integer mode numbers in x or eta_1 (depending on coords)
+            ms : {b2: [null, null, [0]]} # Integer mode numbers in y or eta_2 (depending on coords)
+            ns : {b2: [null, null, [0]]} # Integer mode numbers in z or eta_3 (depending on coords)
+            amps : {b2: [null, null, [0.001]]} # amplitudes of each mode
             Lx : 7.853981633974483 # 2*pi/0.8
             Ly : 1.
             Lz : 1.
