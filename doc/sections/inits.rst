@@ -43,6 +43,8 @@ while the second component as well as the 3-forms ``n3`` and ``p3`` are left as 
 Analytical initial conditions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+.. inheritance-diagram:: struphy.initial.perturbations
+
 .. automodule:: struphy.initial.perturbations
     :members:
     :show-inheritance:

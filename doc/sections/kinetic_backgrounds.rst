@@ -32,6 +32,8 @@ Base classes
 Available Maxwellians
 ^^^^^^^^^^^^^^^^^^^^^
 
+.. inheritance-diagram:: struphy.kinetic_background.maxwellians
+    
 .. automodule:: struphy.kinetic_background.maxwellians
     :members:
     :undoc-members: 

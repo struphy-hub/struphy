@@ -60,6 +60,8 @@ Propagator base class
 Particle propagators
 ^^^^^^^^^^^^^^^^^^^^
 
+.. inheritance-diagram:: struphy.propagators.propagators_markers
+
 .. automodule:: struphy.propagators.propagators_markers
     :members:
     :undoc-members:
@@ -69,6 +71,8 @@ Particle propagators
 
 Field propagators
 ^^^^^^^^^^^^^^^^^
+
+.. inheritance-diagram:: struphy.propagators.propagators_fields
 
 .. automodule:: struphy.propagators.propagators_fields
     :members:
@@ -80,6 +84,8 @@ Field propagators
 Particle-field propagators
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+.. inheritance-diagram:: struphy.propagators.propagators_coupling
+
 .. automodule:: struphy.propagators.propagators_coupling
     :members:
     :undoc-members:
@@ -89,8 +95,8 @@ Particle-field propagators
 
 .. _pushers:
 
-Pusher base classes
-^^^^^^^^^^^^^^^^^^^
+Pusher class
+^^^^^^^^^^^^
 
 .. automodule:: struphy.pic.pushing.pusher
     :members:

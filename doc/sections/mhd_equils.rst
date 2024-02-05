@@ -36,6 +36,8 @@ Base classes
 Available MHD equilibria
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
+.. inheritance-diagram:: struphy.fields_background.mhd_equil.equils
+
 .. automodule:: struphy.fields_background.mhd_equil.equils
     :members:
     :undoc-members:

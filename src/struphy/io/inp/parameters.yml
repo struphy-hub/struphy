@@ -45,13 +45,23 @@ em_fields :
         type : TorusModesCos
         TorusModesCos :
             comps :
-                e1 : [False, True, True]  # components to be initialized (for scalar fields: no list)
-                b2 : [False, True, False] # components to be initialized (for scalar fields: no list)
-            ms : [3] # poloidal mode numbers
-            ns : [1] # toroidal mode numbers
-            amps : [0.001] # amplitudes of each mode
-            pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'cos' or 'exp')
-            pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin" and "cos"
+                e1 : [null, 'v', null] # space of components to be initialized (for scalar fields: no list)
+                b2 : [null, 'v', null]    # space of components to be initialized (for scalar fields: no list)
+            ms :
+                e1 : [null, [3], null]  # poloidal mode numbers
+                b2 : [null, [3], null] # poloidal mode numbers
+            ns :
+                e1 : [null, [1], null] # toroidal mode numbers
+                b2 : [null, [1], null] # toroidal mode numbers
+            amps :
+                e1 : [null, [0.001], null] # amplitudes of each mode
+                b2 : [null, [0.001], null] # amplitudes of each mode
+            pfuns :
+                e1 : [null, ['sin'], null] # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
+                b2 : [null, ['sin'], null] # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
+            pfun_params :
+                e1 : [null, null, null] # Provides [r_0, sigma] parameters for each "exp" or "d_exp" profile fucntion, and null for "sin" and "cos"
+                b2 : [null, null, null] # Provides [r_0, sigma] parameters for each "exp" or "d_exp" profile fucntion, and null for "sin" and "cos"
 
 fluid :
     mhd :
@@ -63,14 +73,29 @@ fluid :
             type : TorusModesCos
             TorusModesCos :
                 comps :
-                    n3 : False                # components to be initialized (for scalar fields: no list)
-                    u2 : [False, True, False] # components to be initialized (for scalar fields: no list)
-                    p3 : False                # components to be initialized (for scalar fields: no list)
-                ms : [3] # poloidal mode numbers
-                ns : [1] # toroidal mode numbers
-                amps : [0.001] # amplitudes of each mode
-                pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'cos' or 'exp')
-                pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin" and "cos"
+                    n3 : null                     # space of components to be initialized (for scalar fields: no list)
+                    u2 : [null, 'v', null] # space of components to be initialized (for scalar fields: no list)
+                    p3 : '0'                     # space of components to be initialized (for scalar fields: no list)
+                ms :
+                    n3 : null              # poloidal mode numbers
+                    u2 : [null, [3], null] # poloidal mode numbers
+                    p3 : [3]              # poloidal mode numbers
+                ns :
+                    n3 : null              # toroidal mode numbers
+                    u2 : [null, [1], null] # toroidal mode numbers
+                    p3 : [1]              # toroidal mode numbers
+                amps :
+                    n3 : null                   # amplitude of each mode
+                    u2 : [null, [0.001], null] # amplitude of each mode
+                    p3 : [0.001]                   # amplitude of each mode
+                pfuns :
+                    n3 : null                  # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
+                    u2 : [null, ['sin'], null] # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
+                    p3 : ['sin']                  # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')        
+                pfun_params :
+                    n3 : null               # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"
+                    u2 : [null, null, null] # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"
+                    p3 : null               # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"        
 
 kinetic :
     ions :

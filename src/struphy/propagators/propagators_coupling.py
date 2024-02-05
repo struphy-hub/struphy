@@ -1062,17 +1062,17 @@ class CurrentCoupling6DCurrent(Propagator):
 
             if params['u_space'] == 'H1vec':
                 self._nuh0_at_quad = self.domain.pull(
-                    uh0_cart, *quad_pts, kind='2_form', squeeze_out=False, coordinates='logical')
+                    uh0_cart, *quad_pts, kind='2', squeeze_out=False, coordinates='logical')
             else:
                 self._nuh0_at_quad = self.domain.pull(
-                    uh0_cart, *quad_pts, kind='vector', squeeze_out=False, coordinates='logical')
+                    uh0_cart, *quad_pts, kind='v', squeeze_out=False, coordinates='logical')
 
             self._nuh0_at_quad[0] *= self.domain.pull(
-                [self.f_backgr.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
+                [self.f_backgr.n], *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
             self._nuh0_at_quad[1] *= self.domain.pull(
-                [self.f_backgr.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
+                [self.f_backgr.n], *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
             self._nuh0_at_quad[2] *= self.domain.pull(
-                [self.f_backgr.n], *quad_pts, kind='0_form', squeeze_out=False, coordinates='logical')
+                [self.f_backgr.n], *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
 
             # memory allocation for magnetic field at quadrature points
             self._b_quad1 = np.zeros_like(self._nuh0_at_quad[0])
