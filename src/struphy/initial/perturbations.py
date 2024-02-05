@@ -398,3 +398,138 @@ class TorusModesCos:
                                              eta2 + ni*2.*np.pi*eta3)
 
         return val
+   
+    
+class Shear_x:
+    r'''Double shear layer in eta1 (-1 in outer regions, 1 in inner regions).
+
+    .. math::
+    
+        u(\eta_, \eta_2, \eta_3) = A*(-\tanh((\eta_1 - 0.25)/\delta)+\tanh((\eta_1 - 0.75)/\delta) - 1) \,. 
+
+    Can only be used in logical space.
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``fluid/<species>``::
+
+        init :
+            type : Shear_x
+            Shear_x :
+                comps :
+                    rho3 : null                   # choices: null, 'physical', '0', '3'
+                    uv : ['physical', 'v', '2']   # choices: null, 'physical', '1', '2', 'v', 'norm'
+                    s3 : H1                       # choices: null, 'physical', '0', '3'
+                amp : 0.001 # amplitudes of each mode
+                delta : 0.03333 # characteristic size of the shear layer
+    '''
+
+    def __init__(self, amp = 1e-4, delta = 1/15):
+        '''
+        Parameters
+        ----------
+            amps : float
+                Amplitude of the velocity on each side.
+
+            delta : float
+                Characteristic size of the shear layer
+        '''
+
+        self._amp = amp
+        self._delta = delta
+
+    def __call__(self, e1, e2, e3):
+
+        val = self._amp*(-np.tanh((e1 - 0.75)/self._delta) + np.tanh((e1 - 0.25)/self._delta) - 1)
+
+        return val
+
+
+class Shear_y:
+    r'''Double shear layer in eta2 (-1 in outer regions, 1 in inner regions).
+
+    .. math::
+
+        u(\eta_1, \eta_2, \eta_3) = A*(-\tanh((\eta_2 - 0.25)/\delta) + \tanh((\eta_2 - 0.75)/\delta) - 1) \,.
+
+    Can only be used in logical space.
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``fluid/<species>``::
+
+        init :
+            type : Shear_y
+            Shear_y :
+                comps :
+                    rho3 : null                   # choices: null, 'physical', '0', '3'
+                    uv : ['physical', 'v', '2']   # choices: null, 'physical', '1', '2', 'v', 'norm'
+                    s3 : H1                       # choices: null, 'physical', '0', '3'
+                amp : 0.001 # amplitudes of each mode
+                delta : 0.03333 # characteristic size of the shear layer
+    '''
+
+    def __init__(self, amp = 1e-4, delta = 1/15):
+        '''
+        Parameters
+        ----------
+            amps : float
+                Amplitude of the velocity on each side.
+
+            delta : float
+                Characteristic size of the shear layer
+        '''
+
+        self._amp = amp
+        self._delta = delta
+
+    def __call__(self, e1, e2, e3):
+
+        val = self._amp*(-np.tanh((e2 - 0.75)/self._delta) + np.tanh((e2 - 0.25)/self._delta) - 1)
+
+        return val
+    
+
+class Shear_z:
+    r'''Double shear layer in eta3 (-1 in outer regions, 1 in inner regions).
+
+    .. math::
+
+        u(\eta_1, \eta_2, \eta_3) = A*(-\tanh((\eta_3 - 0.25)/\delta) + \tanh((\eta_3 - 0.75)/\delta) - 1) \,. 
+
+    Can only be used in logical space.
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``fluid/<species>``::
+
+        init :
+            type : Shear_y
+            Shear_y :
+                comps :
+                    rho3 : null                   # choices: null, 'physical', '0', '3'
+                    uv : ['physical', 'v', '2']   # choices: null, 'physical', '1', '2', 'v', 'norm'
+                    s3 : H1                       # choices: null, 'physical', '0', '3'
+                amp : 0.001 # amplitudes of each mode
+                delta : 0.03333 # characteristic size of the shear layer
+    '''
+
+    def __init__(self, amp = 1e-4, delta = 1/15):
+        '''
+        Parameters
+        ----------
+            amps : float
+                Amplitude of the velocity on each side.
+
+            delta : float
+                Characteristic size of the shear layer
+        '''
+
+        self._amp = amp
+        self._delta = delta
+
+    def __call__(self, e1, e2, e3):
+
+        val = self._amp*(-np.tanh((e3 - 0.75)/self._delta) + np.tanh((e3- 0.25)/self._delta) - 1)
+
+        return val

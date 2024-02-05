@@ -71,6 +71,9 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
         if inspect.isclass(val):
             print(key, val)
             
+            if 'Modes' not in key:
+                continue
+            
             # skip impossible combinations
             if 'Torus' not in key and (isinstance(domain, domains.HollowTorus) or isinstance(domain, domains.HollowCylinder)):
                 continue

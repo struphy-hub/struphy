@@ -57,16 +57,15 @@ fluid :
         init :
             type : TorusModesSin # initialization
             TorusModesSin :
-                coords : 'logical' # in which coordinates (logical or physical)
                 comps :
-                    n3 : False              # components to be initialized (for scalar fields: no list)
-                    u2 : [False, True, False] # components to be initialized (for scalar fields: no list)
-                    p3 : False              # components to be initialized (for scalar fields: no list)
-                ms : [3] # poloidal mode numbers
-                ns : [1] # toroidal mode numbers
-                amps : [0.001] # amplitudes of each mode
-                pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
-                pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
+                    n3 : null              # components to be initialized (for scalar fields: no list)
+                    u2 : [null, '2', null] # components to be initialized (for scalar fields: no list)
+                    p3 : null              # components to be initialized (for scalar fields: no list)
+                ms : {u2: [null, [3], null]} # poloidal mode numbers
+                ns : {u2: [null, [1], null]} # toroidal mode numbers
+                amps : {u2: [null, [0.001], null]} # amplitudes of each mode
+                pfuns : {u2: [null, ['sin'], null]} # profile function in eta1-direction ('sin' or 'exp')
+                pfun_params : {u2: [null, null, null]} # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
         options:
             solvers:
                 shear_alfven:
