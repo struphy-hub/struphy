@@ -98,22 +98,13 @@ class Domain(metaclass=ABCMeta):
                                     'push': 1,
                                     'tran': 2}
 
-        # keys for performing pull-backs
-        dict_pull = {
-            '0_form': 0,
-            '3_form': 1,
-            '1_form': 10,
-            '2_form': 11,
-            'vector': 12
-        }
-
-        # keys for performing push-forwards
-        dict_push = {
-            '0_form': 0,
-            '3_form': 1,
-            '1_form': 10,
-            '2_form': 11,
-            'vector': 12
+        # keys for performing pull-backs and push-forwards
+        dict_pullpush = {
+            '0': 0,
+            '3': 1,
+            '1': 10,
+            '2': 11,
+            'v': 12
         }
 
         # keys for performing transformation
@@ -131,8 +122,8 @@ class Domain(metaclass=ABCMeta):
             '2_to_v': 18
         }
 
-        self._dict_transformations = {'pull': dict_pull,
-                                      'push': dict_push,
+        self._dict_transformations = {'pull': dict_pullpush,
+                                      'push': dict_pullpush,
                                       'tran': dict_tran}
 
     @property
@@ -278,11 +269,6 @@ class Domain(metaclass=ABCMeta):
 
         Parameters
         ----------
-        *etas : array-like | tuple
-            Logical coordinates at which to evaluate. Two cases are possible:
-                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
-                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-
         transposed : bool
             If True, the transposed Jacobian matrix is evaluated.
 
@@ -430,7 +416,7 @@ class Domain(metaclass=ABCMeta):
         return self._evaluate_metric_coefficient(*etas, which=5, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
 
     # ================================
-    def pull(self, a, *etas, kind='0_form', a_kwargs={}, change_out_order=False, squeeze_out=False, remove_outside=True, coordinates='physical'):
+    def pull(self, a, *etas, kind='0', a_kwargs={}, change_out_order=False, squeeze_out=False, remove_outside=True, coordinates='physical'):
         """
         Pull-back of a Cartesian scalar/vector field to a differential p-form.
 
@@ -446,7 +432,7 @@ class Domain(metaclass=ABCMeta):
             2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
         kind : str
-            Which pull-back to apply, see dict_transformations['pull'].
+            Which pull-back to apply, '0', '1', '2', '3' or 'v'.
 
         a_kwargs : dict
             Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
@@ -468,16 +454,12 @@ class Domain(metaclass=ABCMeta):
         -------
         out : ndarray | float
             Pullback of Cartesian vector/scalar field to p-form evaluated at given logical coordinates.
-
-        Note
-        ----
-        Possible choices for kind are '0_form', '1_form', '2_form', '3_form' and 'vector'.
         """
 
         return self._pull_push_transform('pull', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside, coordinates=coordinates, a_kwargs=a_kwargs)
 
     # ================================
-    def push(self, a, *etas, kind='0_form', a_kwargs={}, change_out_order=False, squeeze_out=False, remove_outside=True):
+    def push(self, a, *etas, kind='0', a_kwargs={}, change_out_order=False, squeeze_out=False, remove_outside=True):
         """
         Pushforward of a differential p-form to a Cartesian scalar/vector field .
 
@@ -493,7 +475,7 @@ class Domain(metaclass=ABCMeta):
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
         kind : str
-            Which pushforward to apply, see dict_transformations['push'].
+            Which pushforward to apply, '0', '1', '2', '3' or 'v'.
 
         a_kwargs : dict
             Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
@@ -511,10 +493,6 @@ class Domain(metaclass=ABCMeta):
         -------
         out : ndarray | float
             Pushforward of p-form to Cartesian vector/scalar field evaluated at given logical coordinates.
-
-        Notes
-        -----
-        Possible choices for kind are '0_form', '1_form', '2_form', '3_form' and 'vector'.
         """
 
         return self._pull_push_transform('push', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside, a_kwargs=a_kwargs)
@@ -536,7 +514,7 @@ class Domain(metaclass=ABCMeta):
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
         kind : str
-            Which transformation to apply, see see dict_transformations['tran'].
+            Which transformation to apply, such as '0_to_3' for example, see dict_transformations['tran'] for all options.
 
         a_kwargs : dict
             Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
@@ -684,7 +662,7 @@ class Domain(metaclass=ABCMeta):
             The function/values to be transformed.
 
         kind_fun : str
-            The kind of transformation (e.g. "0_form" or "1_form" in case of which="pull").
+            The kind of transformation (e.g. "0" or "1" in case of which="pull").
 
         *etas : array-like| tuple
             Logical coordinates at which to evaluate. Two cases are possible:
@@ -888,7 +866,7 @@ class Domain(metaclass=ABCMeta):
             elif isinstance(x, list):
                 arg_x = np.array(x)
             elif isinstance(x, np.ndarray):
-                arg_x = x
+                arg_x = x.copy()
             else:
                 raise ValueError(f'data type {type(x)} not supported')
 
@@ -899,7 +877,7 @@ class Domain(metaclass=ABCMeta):
             elif isinstance(y, list):
                 arg_y = np.array(y)
             elif isinstance(y, np.ndarray):
-                arg_y = y
+                arg_y = y.copy()
             else:
                 raise ValueError(f'data type {type(y)} not supported')
 
@@ -910,7 +888,7 @@ class Domain(metaclass=ABCMeta):
             elif isinstance(z, list):
                 arg_z = np.array(z)
             elif isinstance(z, np.ndarray):
-                arg_z = z
+                arg_z = z.copy()
             else:
                 raise ValueError(f'data type {type(z)} not supported')
 
@@ -1002,6 +980,11 @@ class Domain(metaclass=ABCMeta):
                         *np.meshgrid(Xs[0][:, 0, 0], Xs[1][0, :, 0], Xs[2][0, 0, :], indexing='ij'), **a_kwargs)
                 else:
                     a_out = a_in(*Xs, **a_kwargs)
+                    
+                # case of Field.__call__
+                if isinstance(a_out, list):
+                    a_out = np.array(a_out)
+                    
                 if a_out.ndim == 3:
                     a_out = a_out[None, :, :, :]
 

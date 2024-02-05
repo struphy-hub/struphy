@@ -347,20 +347,20 @@ def test_pullback():
 
         print('component:', p_str)
 
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             fun_form = fun
         else:
             fun_form = [fun, fun, fun]
 
         # point-wise pullback:
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert isinstance(domain.pull(
                 fun_form, .5, .5, .5, kind=p_str, squeeze_out=True), float)
         else:
             assert domain.pull(fun_form, .5, .5, .5, kind=p_str, squeeze_out=True).shape == (3,)
 
         # markers pullback:
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.pull(fun_form, markers, kind=p_str, squeeze_out=True).shape == (
                 markers.shape[0],)
         else:
@@ -369,7 +369,7 @@ def test_pullback():
 
         # eta1-array pullback:
         #print('eta1 array pullback, shape:', domain.pull(fun_form, arr1, .5, .5, p_str).shape)
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.pull(fun_form, arr1, .5, .5,
                                kind=p_str, squeeze_out=True).shape == arr1.shape
         else:
@@ -378,7 +378,7 @@ def test_pullback():
 
         # eta2-array pullback:
         #print('eta2 array pullback, shape:', domain.pull(fun_form, .5, arr2, .5, p_str).shape)
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.pull(fun_form, .5, arr2, .5,
                                kind=p_str, squeeze_out=True).shape == arr2.shape
         else:
@@ -387,7 +387,7 @@ def test_pullback():
 
         # eta3-array pullback:
         #print('eta3 array pullback, shape:', domain.pull(fun_form, .5, .5, arr3, p_str).shape)
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.pull(fun_form, .5, .5, arr3,
                                kind=p_str, squeeze_out=True).shape == arr3.shape
         else:
@@ -395,7 +395,7 @@ def test_pullback():
                                kind=p_str, squeeze_out=True).shape == (3,) + arr3.shape
 
         # eta1-eta2-array pullback:
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.pull(fun_form, arr1, arr2, .5,
                                kind=p_str, squeeze_out=True).shape == arr1.shape + arr2.shape
         else:
@@ -403,7 +403,7 @@ def test_pullback():
                 3,) + arr1.shape + arr2.shape
 
         # eta1-eta3-array pullback:
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.pull(fun_form, arr1, .5, arr3,
                                kind=p_str, squeeze_out=True).shape == arr1.shape + arr3.shape
         else:
@@ -411,7 +411,7 @@ def test_pullback():
                 3,) + arr1.shape + arr3.shape
 
         # eta2-eta3-array pullback:
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.pull(fun_form, .5, arr2, arr3,
                                kind=p_str, squeeze_out=True).shape == arr2.shape + arr3.shape
         else:
@@ -419,7 +419,7 @@ def test_pullback():
                 3,) + arr2.shape + arr3.shape
 
         # eta1-eta2-eta3 array pullback:
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.pull(fun_form, arr1, arr2, arr3,
                                kind=p_str).shape == arr1.shape + arr2.shape + arr3.shape
         else:
@@ -432,7 +432,7 @@ def test_pullback():
         mat23_y, mat23_z = np.meshgrid(arr2, arr3, indexing='ij')
 
         # eta1-eta2 matrix pullback:
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.pull(fun_form, mat12_x, mat12_y, .5,
                                kind=p_str, squeeze_out=True).shape == mat12_x.shape
         else:
@@ -440,7 +440,7 @@ def test_pullback():
                                kind=p_str, squeeze_out=True).shape == (3,) + mat12_x.shape
 
         # eta1-eta3 matrix pullback:
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.pull(fun_form, mat13_x, .5, mat13_z,
                                kind=p_str, squeeze_out=True).shape == mat13_x.shape
         else:
@@ -448,7 +448,7 @@ def test_pullback():
                                kind=p_str, squeeze_out=True).shape == (3,) + mat13_x.shape
 
         # eta2-eta3 matrix pullback:
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.pull(fun_form, .5, mat23_y, mat23_z,
                                kind=p_str, squeeze_out=True).shape == mat23_z.shape
         else:
@@ -458,7 +458,7 @@ def test_pullback():
         # matrix pullbacks for sparse meshgrid
         mat_x, mat_y, mat_z = np.meshgrid(
             arr1, arr2, arr3, indexing='ij', sparse=True)
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.pull(fun_form, mat_x, mat_y, mat_z, kind=p_str).shape == (
                 mat_x.shape[0], mat_y.shape[1], mat_z.shape[2])
         else:
@@ -467,7 +467,7 @@ def test_pullback():
 
         # matrix pullbacks
         mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing='ij')
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.pull(fun_form, mat_x, mat_y, mat_z,
                                kind=p_str).shape == mat_x.shape
         else:
@@ -507,20 +507,20 @@ def test_pushforward():
 
         print('component:', p_str)
 
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             fun_form = fun
         else:
             fun_form = [fun, fun, fun]
 
         # point-wise push:
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert isinstance(domain.push(
                 fun_form, .5, .5, .5, kind=p_str, squeeze_out=True), float)
         else:
             assert domain.push(fun_form, .5, .5, .5, kind=p_str, squeeze_out=True).shape == (3,)
 
         # markers push:
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.push(fun_form, markers, kind=p_str).shape == (
                 markers.shape[0],)
         else:
@@ -529,7 +529,7 @@ def test_pushforward():
 
         # eta1-array push:
         #print('eta1 array push, shape:', domain.push(fun_form, arr1, .5, .5, p_str).shape)
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.push(fun_form, arr1, .5, .5,
                                kind=p_str, squeeze_out=True).shape == arr1.shape
         else:
@@ -538,7 +538,7 @@ def test_pushforward():
 
         # eta2-array push:
         #print('eta2 array push, shape:', domain.push(fun_form, .5, arr2, .5, p_str).shape)
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.push(fun_form, .5, arr2, .5,
                                kind=p_str, squeeze_out=True).shape == arr2.shape
         else:
@@ -547,7 +547,7 @@ def test_pushforward():
 
         # eta3-array push:
         #print('eta3 array push, shape:', domain.push(fun_form, .5, .5, arr3, p_str).shape)
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.push(fun_form, .5, .5, arr3,
                                kind=p_str, squeeze_out=True).shape == arr3.shape
         else:
@@ -555,7 +555,7 @@ def test_pushforward():
                                kind=p_str, squeeze_out=True).shape == (3,) + arr3.shape
 
         # eta1-eta2-array push:
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.push(fun_form, arr1, arr2, .5,
                                kind=p_str, squeeze_out=True).shape == arr1.shape + arr2.shape
         else:
@@ -563,7 +563,7 @@ def test_pushforward():
                 3,) + arr1.shape + arr2.shape
 
         # eta1-eta3-array push:
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.push(fun_form, arr1, .5, arr3,
                                kind=p_str, squeeze_out=True).shape == arr1.shape + arr3.shape
         else:
@@ -571,7 +571,7 @@ def test_pushforward():
                 3,) + arr1.shape + arr3.shape
 
         # eta2-eta3-array push:
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.push(fun_form, .5, arr2, arr3,
                                kind=p_str, squeeze_out=True).shape == arr2.shape + arr3.shape
         else:
@@ -579,7 +579,7 @@ def test_pushforward():
                 3,) + arr2.shape + arr3.shape
 
         # eta1-eta2-eta3 array push:
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.push(fun_form, arr1, arr2, arr3,
                                kind=p_str).shape == arr1.shape + arr2.shape + arr3.shape
         else:
@@ -592,7 +592,7 @@ def test_pushforward():
         mat23_y, mat23_z = np.meshgrid(arr2, arr3, indexing='ij')
 
         # eta1-eta2 matrix push:
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.push(fun_form, mat12_x, mat12_y, .5,
                                kind=p_str, squeeze_out=True).shape == mat12_x.shape
         else:
@@ -600,7 +600,7 @@ def test_pushforward():
                                kind=p_str, squeeze_out=True).shape == (3,) + mat12_x.shape
 
         # eta1-eta3 matrix push:
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.push(fun_form, mat13_x, .5, mat13_z,
                                kind=p_str, squeeze_out=True).shape == mat13_x.shape
         else:
@@ -608,7 +608,7 @@ def test_pushforward():
                                kind=p_str, squeeze_out=True).shape == (3,) + mat13_x.shape
 
         # eta2-eta3 matrix push:
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.push(fun_form, .5, mat23_y, mat23_z,
                                kind=p_str, squeeze_out=True).shape == mat23_z.shape
         else:
@@ -618,7 +618,7 @@ def test_pushforward():
         # matrix pushs for sparse meshgrid
         mat_x, mat_y, mat_z = np.meshgrid(
             arr1, arr2, arr3, indexing='ij', sparse=True)
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.push(fun_form, mat_x, mat_y, mat_z, kind=p_str).shape == (
                 mat_x.shape[0], mat_y.shape[1], mat_z.shape[2])
         else:
@@ -627,7 +627,7 @@ def test_pushforward():
 
         # matrix pushs
         mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing='ij')
-        if p_str == '0_form' or p_str == '3_form':
+        if p_str == '0' or p_str == '3':
             assert domain.push(fun_form, mat_x, mat_y, mat_z,
                                kind=p_str).shape == mat_x.shape
         else:

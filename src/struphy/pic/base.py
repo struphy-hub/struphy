@@ -1,5 +1,8 @@
 from abc import ABCMeta, abstractmethod
 
+import struphy
+import os
+import yaml
 import numpy as np
 import h5py
 import scipy.special as sp
@@ -9,6 +12,7 @@ from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.utilities_kernels import eval_magnetic_energy
 from struphy.kinetic_background import maxwellians
 from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.io.output_handling import DataContainer
 
 
 class Particles(metaclass=ABCMeta):
@@ -247,13 +251,13 @@ class Particles(metaclass=ABCMeta):
         """ Dict holding the column indices referring to specific marker parameters (coordinates).
         """
         out = {}
-        out['pos'] = slice(0, 3) # positions
-        out['vel'] = slice(3, 3 + self.vdim) # velocities
-        out['coords'] = slice(0, 3 + self.vdim) # phasespace_coords
-        out['weights'] = 3 + self.vdim # weights
-        out['s0'] = 4 + self.vdim # sampling_density
-        out['w0'] = 5 + self.vdim # weights0
-        out['ids'] = -1 # marker_inds
+        out['pos'] = slice(0, 3)  # positions
+        out['vel'] = slice(3, 3 + self.vdim)  # velocities
+        out['coords'] = slice(0, 3 + self.vdim)  # phasespace_coords
+        out['weights'] = 3 + self.vdim  # weights
+        out['s0'] = 4 + self.vdim  # sampling_density
+        out['w0'] = 5 + self.vdim  # weights0
+        out['ids'] = -1  # marker_inds
         return out
 
     @property
@@ -346,6 +350,12 @@ class Particles(metaclass=ABCMeta):
         (space and velocity, respectively) of f_init.
         """
         return self._pforms
+
+    @property
+    def spatial(self):
+        """ Drawing particles uniformly on the unit cube('uniform') or on the disc('disc')
+        """
+        return self._spatial
 
     def create_marker_array(self):
         """ Create marker array (self.markers).
@@ -460,7 +470,7 @@ class Particles(metaclass=ABCMeta):
 
         .. math::
 
-            v_\perp = \sqrt{- \ln(1-r)}\sqrt(2)v_\mathrm{th} + u \,.
+            v_\perp = \sqrt{- \ln(1-r)}\sqrt{2}v_\mathrm{th} + u \,.
 
         All needed parameters can be set in the parameter file, in the section ``kinetic/<species>/markers/loading``.
         """
@@ -505,6 +515,27 @@ class Particles(metaclass=ABCMeta):
                     (n_mks_load_loc, self.markers.shape[1]), dtype=float)
                 self._mpi_comm.Recv(recvbuf, source=0, tag=123)
                 self._markers[:n_mks_load_loc, :] = recvbuf
+
+        # load markers from restart .hdf5 file
+        elif self.params['loading']['type'] == 'restart':
+
+            libpath = struphy.__path__[0]
+
+            with open(os.path.join(libpath, 'state.yml')) as f:
+                state = yaml.load(f, Loader=yaml.FullLoader)
+
+            o_path = state['o_path']
+
+            if self.params['loading']['dir_particles_abs'] is None:
+                data_path = os.path.join(
+                    o_path, self.params['loading']['dir_particles'])
+            else:
+                data_path = self.params['loading']['dir_particles_abs']
+
+            data = DataContainer(data_path, comm=self.comm)
+
+            self.markers[:, :] = data.file['restart/' +
+                                           self.params['loading']['key']][-1, :, :]
 
         # load fresh markers
         else:
@@ -559,47 +590,52 @@ class Particles(metaclass=ABCMeta):
 
             # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
             if self.vdim == 3:
-                self.velocities = sp.erfinv(2*self.velocities - 1)*np.sqrt(2)*v_th + u_mean
+                self.velocities = sp.erfinv(
+                    2*self.velocities - 1)*np.sqrt(2)*v_th + u_mean
 
             # Particles5D: (1d Maxwellian, 2d Maxwellian)
             elif self.vdim == 2:
-                self.markers[:n_mks_load_loc, 3] = sp.erfinv(2*self.velocities[:,0] - 1)*np.sqrt(2)*v_th[0] + u_mean[0]
-                self.markers[:n_mks_load_loc, 4] = np.sqrt(-1*np.log(1-self.velocities[:,1]))*np.sqrt(2)*v_th[1] + u_mean[1]
+                self.markers[:n_mks_load_loc, 3] = sp.erfinv(
+                    2*self.velocities[:, 0] - 1)*np.sqrt(2)*v_th[0] + u_mean[0]
+                self.markers[:n_mks_load_loc, 4] = np.sqrt(
+                    -1*np.log(1-self.velocities[:, 1]))*np.sqrt(2)*v_th[1] + u_mean[1]
 
             else:
-                raise NotImplementedError('Inverse transform sampling of given vdim is not implemented!')
+                raise NotImplementedError(
+                    'Inverse transform sampling of given vdim is not implemented!')
 
             # inversion method for drawing uniformly on the disc
-            _spatial = self.params['loading']['spatial']
-            if _spatial == 'disc':
+            self._spatial = self.params['loading']['spatial']
+            if self._spatial == 'disc':
                 self._markers[:n_mks_load_loc, 0] = np.sqrt(
                     self.markers[:n_mks_load_loc, 0])
             else:
-                assert _spatial == 'uniform', f'Spatial drawing must be "uniform" or "disc", is {_spatial}.'
+                assert self._spatial == 'uniform', f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.'
 
-        # set markers ID in last column
-        self.marker_ids = (n_mks_load_cum_sum - self.n_mks_load)[
-            self._mpi_rank] + np.arange(n_mks_load_loc, dtype=float)
+            # set markers ID in last column
+            self.marker_ids = (n_mks_load_cum_sum - self.n_mks_load)[
+                self._mpi_rank] + np.arange(n_mks_load_loc, dtype=float)
 
-        # set specific initial condition for some particles
-        if 'initial' in self.params['loading']:
-            specific_markers = self.params['loading']['initial']
+            # set specific initial condition for some particles
+            if 'initial' in self.params['loading']:
+                specific_markers = self.params['loading']['initial']
 
-            counter = 0
-            for i in range(len(specific_markers)):
-                if i == int(self.markers[counter, -1]):
+                counter = 0
+                for i in range(len(specific_markers)):
+                    if i == int(self.markers[counter, -1]):
 
-                    for j in range(3+self.vdim):
-                        if specific_markers[i][j] is not None:
-                            self._markers[counter, j] = specific_markers[i][j]
+                        for j in range(3+self.vdim):
+                            if specific_markers[i][j] is not None:
+                                self._markers[counter,
+                                              j] = specific_markers[i][j]
 
-                    counter += 1
+                        counter += 1
 
-        # check if all particle positions are inside the unit cube [0, 1]^3
-        n_mks_load_loc = self._n_mks_load[self._mpi_rank]
+            # check if all particle positions are inside the unit cube [0, 1]^3
+            n_mks_load_loc = self._n_mks_load[self._mpi_rank]
 
-        assert np.all(~self._holes[:n_mks_load_loc]) and np.all(
-            self._holes[n_mks_load_loc:])
+            assert np.all(~self._holes[:n_mks_load_loc]) and np.all(
+                self._holes[n_mks_load_loc:])
 
     def mpi_sort_markers(self, do_test=False):
         """ 

@@ -31,14 +31,34 @@ def test_eval_field(Nel, p, spl_kind):
     uv = derham.create_field('velocity', 'H1vec')
 
     # initialize fields with sin/cos
-    comps = {'pressure':  True,
-             'e_field': [True, True, True],
-             'b_field': [True, True, True],
-             'density':  True,
-             'velocity': [True, True, True]}
+    comps = {'pressure':  '0',
+             'e_field': ['1', '1', '1'],
+             'b_field': ['2', '2', '2'],
+             'density':  '3',
+             'velocity': ['v', 'v', 'v']}
 
-    init_params = {'type': 'ModesCos', 'ModesCos': {'coords': 'logical',
-                                                    'comps': comps, 'ls': [0], 'ms': [0], 'ns': [1], 'amps': [5.]}}
+    init_params = {'type': 'ModesCos',
+                   'ModesCos': {'comps': comps,
+                                'ls': {'pressure': [0],
+                                       'e_field': [[0], [0], [0]],
+                                       'b_field': [[0], [0], [0]],
+                                       'density': [0],
+                                       'velocity': [[0], [0], [0]], },
+                                'ms': {'pressure': [0],
+                                       'e_field': [[0], [0], [0]],
+                                       'b_field': [[0], [0], [0]],
+                                       'density': [0],
+                                       'velocity': [[0], [0], [0]], },
+                                'ns': {'pressure': [1],
+                                       'e_field': [[1], [1], [1]],
+                                       'b_field': [[1], [1], [1]],
+                                       'density': [1],
+                                       'velocity': [[1], [1], [1]], },
+                                'amps': {'pressure': [5.],
+                                         'e_field': [[5.], [5.], [5.]],
+                                         'b_field': [[5.], [5.], [5.]],
+                                         'density': [5.],
+                                         'velocity': [[5.], [5.], [5.]], }}}
 
     p0.initialize_coeffs(init_params)
     E1.initialize_coeffs(init_params)
@@ -253,5 +273,4 @@ def test_eval_field(Nel, p, spl_kind):
 
 
 if __name__ == '__main__':
-    #test_eval_kernels([8, 9, 10], [2, 3, 4], [False, False, True], n_markers=1)
-    test_eval_field([8, 9, 10], [2, 3, 4], [False, True, True])
+    test_eval_field([8, 9, 10], [3, 2, 4], [False, False, True])

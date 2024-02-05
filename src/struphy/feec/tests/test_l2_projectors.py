@@ -10,7 +10,7 @@ from struphy.feec.mass import WeightedMassOperators
 from struphy.geometry import domains
 
 
-# @pytest.mark.mpi(min_size=2)
+@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[16, 32, 1]])
 @pytest.mark.parametrize('p', [[2, 1, 1], [3, 2, 1]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True]])

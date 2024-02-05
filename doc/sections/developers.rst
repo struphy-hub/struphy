@@ -303,8 +303,8 @@ Struphy model base class
 
 .. _feec_base:
 
-FEEC base classes
------------------
+FEEC classes
+------------
 
 .. _de_rham:
 
@@ -367,35 +367,15 @@ Basis projection operators
 
 .. _pic_base:
 
-PIC base classes
+Particle classes
 ----------------
 
-Particle base class
-^^^^^^^^^^^^^^^^^^^
+.. inheritance-diagram:: struphy.pic.particles
 
 .. autoclass:: struphy.pic.base.Particles
     :members:
     :undoc-members:
     :show-inheritance:
-
-
-Particle classes for N dimensions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Documented modules:
-
-.. currentmodule:: ''
-
-.. autosummary::
-    :nosignatures:
-    :toctree: STUBDIR
-
-    struphy.pic.particles
-
-.. toctree::
-    :caption: Lists of available particle classes:
-
-    STUBDIR/struphy.pic.particles
 
 .. automodule:: struphy.pic.particles
     :members:

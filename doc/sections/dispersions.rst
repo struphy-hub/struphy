@@ -32,6 +32,8 @@ Base classes
 Available dispersion relations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+.. inheritance-diagram:: struphy.dispersion_relations.analytic
+
 .. automodule:: struphy.dispersion_relations.analytic
     :members:
     :undoc-members:

@@ -1390,10 +1390,10 @@ class CurrentCoupling6DDensity(Propagator):
 
             if params['u_space'] == 'H1vec':
                 self._nh0_at_quad = self.domain.pull(
-                    [self._f0.n], *quad_pts, kind='3_form', squeeze_out=False, coordinates='logical')
+                    [self._f0.n], *quad_pts, kind='3', squeeze_out=False, coordinates='logical')
             else:
                 self._nh0_at_quad = self.domain.push(
-                    [self._f0.n], *quad_pts, kind='3_form', squeeze_out=False)
+                    [self._f0.n], *quad_pts, kind='3', squeeze_out=False)
 
             # memory allocation of magnetic field at quadrature points
             self._b_quad1 = np.zeros_like(self._nh0_at_quad)
@@ -2084,8 +2084,8 @@ class CurrentCoupling5DDensity(Propagator):
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
-                                  ('cg', None)],
+        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
+                                  ('bicgstab', None)],
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,

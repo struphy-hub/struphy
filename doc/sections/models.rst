@@ -34,6 +34,8 @@ Struphy models must be added to one of the following sub-modules:
 Fluid models
 ------------
 
+.. inheritance-diagram:: struphy.models.fluid
+
 .. automodule:: struphy.models.fluid
     :members:
     :undoc-members:
@@ -45,6 +47,8 @@ Fluid models
 
 Kinetic models
 --------------
+
+.. inheritance-diagram:: struphy.models.kinetic
 
 .. automodule:: struphy.models.kinetic
     :members:
@@ -58,6 +62,8 @@ Kinetic models
 Fluid-kinetic hybrid models
 ---------------------------
 
+.. inheritance-diagram:: struphy.models.hybrid
+
 .. automodule:: struphy.models.hybrid
     :members:
     :undoc-members:
@@ -69,6 +75,8 @@ Fluid-kinetic hybrid models
 
 Toy models
 ----------
+
+.. inheritance-diagram:: struphy.models.toy
 
 .. automodule:: struphy.models.toy
     :members:

@@ -220,10 +220,10 @@ def eval_femfields(path, fields, space_ids, celldivide=[1, 1, 1]):
                 # push-forward
                 if space_id == 'H1':
                     point_data_phy[name][t].append(domain.push(
-                        temp_val, *grids_log, kind='0_form'))
+                        temp_val, *grids_log, kind='0'))
                 elif space_id == 'L2':
                     point_data_phy[name][t].append(domain.push(
-                        temp_val, *grids_log, kind='3_form'))
+                        temp_val, *grids_log, kind='3'))
 
             # vector-valued spaces
             else:
@@ -235,13 +235,13 @@ def eval_femfields(path, fields, space_ids, celldivide=[1, 1, 1]):
                     # push-forward
                     if space_id == 'Hcurl':
                         point_data_phy[name][t].append(domain.push(
-                            temp_val, *grids_log, kind='1_form')[j])
+                            temp_val, *grids_log, kind='1')[j])
                     elif space_id == 'Hdiv':
                         point_data_phy[name][t].append(domain.push(
-                            temp_val, *grids_log, kind='2_form')[j])
+                            temp_val, *grids_log, kind='2')[j])
                     elif space_id == 'H1vec':
                         point_data_phy[name][t].append(domain.push(
-                            temp_val, *grids_log, kind='vector')[j])
+                            temp_val, *grids_log, kind='v')[j])
 
     return point_data_log, point_data_phy, grids_log, grids_phy
 

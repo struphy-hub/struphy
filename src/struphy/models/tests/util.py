@@ -32,16 +32,16 @@ def call_model(key, val, map_and_equil, Tend=None):
     # Use ad hoc init conditions for the non-linear models to avoid negative density
     if key in ['VariationalBarotropicFluid', 'VariationalPressurelessFluid']:
         parameters['fluid']['fluid']['init'] = {'type': ['ModesCos', 'ModesSin'], 
-                                                'ModesCos': {'amps': [1.], 'comps': {'rho3': True}},
-                                                'ModesSin': {'ms': [1], 'amps': [.1], 'comps': {'uv': [False, True, False]}}}
+                                                'ModesCos': {'amps': {'rho3': [1.]}, 'comps': {'rho3': '3'}},
+                                                'ModesSin': {'ms': {'uv': [None, [1], None]}, 'amps': {'uv': [None, [.1], None]}, 'comps': {'uv': [None, 'v', None]}}}
     elif key in ['VariationalCompressibleFluid']:
         parameters['fluid']['fluid']['init'] = {'type': ['ModesCos', 'ModesSin'], 
-                                                'ModesCos': {'amps': [1.], 'comps': {'rho3': True, 's3': True}},
-                                                'ModesSin': {'ms': [1], 'amps': [.1], 'comps': {'uv': [False, True, False]}}}
+                                                'ModesCos': {'amps': [1.], 'comps': {'rho3': '3', 's3': '3'}},
+                                                'ModesSin': {'ms': [1], 'amps': [.1], 'comps': {'uv': [None, 'v', None]}}}
     elif key in ['VariationalMHD']:
         parameters['fluid']['mhd']['init'] = {'type': ['ModesCos', 'ModesSin'], 
-                                                'ModesCos': {'amps': [1.], 'comps': {'rho3': True, 's3': True}},
-                                                'ModesSin': {'ms': [1], 'amps': [.1], 'comps': {'uv': [False, True, False]}}}
+                                                'ModesCos': {'amps': [1.], 'comps': {'rho3': '3', 's3': '3'}},
+                                                'ModesSin': {'ms': [1], 'amps': [.1], 'comps': {'uv': [None, 'v', None]}}}
     # set mapping and mhd equilibirum
     parameters['geometry']['type'] = map_and_equil[0]
     parameters['geometry'][map_and_equil[0]] = {}

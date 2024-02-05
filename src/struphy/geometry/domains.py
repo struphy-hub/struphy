@@ -801,7 +801,7 @@ class HollowTorus(Domain):
         self._kind_map = 22
 
         # set default parameters and remove wrong/not needed keys
-        params_default = {'a1': 0.0001, 'a2': 1.,
+        params_default = {'a1': 0.1, 'a2': 1.,
                           'R0': 3., 'sfl': False, 'tor_period': 3}
 
         self._params_map, self._params_numpy = Domain.prepare_params_map(
