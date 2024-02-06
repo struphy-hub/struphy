@@ -587,7 +587,7 @@ class VariationalMHD(StruphyModel):
         self.update_scalar('en_U', en_U)
 
         wb2 = self._mass_ops.M2.dot(self.pointer['b2'])
-        en_mag = wb2.dot(self.pointer['b2'])
+        en_mag = wb2.dot(self.pointer['b2'])/2
         self.update_scalar('en_mag', en_mag)
 
         en_thermo = self.update_thermo_energy()

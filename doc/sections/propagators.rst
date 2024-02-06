@@ -61,6 +61,7 @@ Particle propagators
 ^^^^^^^^^^^^^^^^^^^^
 
 .. inheritance-diagram:: struphy.propagators.propagators_markers
+    :parts: 1
 
 .. automodule:: struphy.propagators.propagators_markers
     :members:
@@ -73,6 +74,7 @@ Field propagators
 ^^^^^^^^^^^^^^^^^
 
 .. inheritance-diagram:: struphy.propagators.propagators_fields
+    :parts: 1
 
 .. automodule:: struphy.propagators.propagators_fields
     :members:
@@ -85,6 +87,7 @@ Particle-field propagators
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. inheritance-diagram:: struphy.propagators.propagators_coupling
+    :parts: 1
 
 .. automodule:: struphy.propagators.propagators_coupling
     :members:

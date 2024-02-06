@@ -21,6 +21,7 @@ Domain-related code stands in the following sub-modules:
 
 
 .. inheritance-diagram:: struphy.geometry.domains
+    :parts: 1
 
 
 Base classes

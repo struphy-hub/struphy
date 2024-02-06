@@ -33,6 +33,7 @@ Available Maxwellians
 ^^^^^^^^^^^^^^^^^^^^^
 
 .. inheritance-diagram:: struphy.kinetic_background.maxwellians
+    :parts: 1
     
 .. automodule:: struphy.kinetic_background.maxwellians
     :members:

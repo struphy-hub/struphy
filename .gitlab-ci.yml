@@ -11,7 +11,7 @@ default:
   before_script:
     - uname -a
     - module purge
-    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc
+    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc graphviz/8
     - module list
     - make -v
     - python3 --version
@@ -54,7 +54,7 @@ default_venv:
     - echo "This is job ${CI_JOB_ID}"
     - module purge
     - module avail
-    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc
+    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc graphviz/8
     - module list
   script:
     - pip install -U virtualenv
@@ -77,7 +77,7 @@ ci_vars:
   cache: []
   before_script:
     - module purge
-    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc
+    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc graphviz/8
     - module list
   script:
     - echo "All environment variables:"

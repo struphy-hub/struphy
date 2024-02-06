@@ -37,6 +37,7 @@ Available MHD equilibria
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. inheritance-diagram:: struphy.fields_background.mhd_equil.equils
+    :parts: 1
 
 .. automodule:: struphy.fields_background.mhd_equil.equils
     :members:

@@ -405,7 +405,7 @@ class Shear_x:
 
     .. math::
     
-        u(\eta_, \eta_2, \eta_3) = A*(-\tanh((\eta_1 - 0.25)/\delta)+\tanh((\eta_1 - 0.75)/\delta) - 1) \,. 
+        u(\eta_1, \eta_2, \eta_3) = A(-\tanh((\eta_1 - 0.25)/\delta)+\tanh((\eta_1 - 0.75)/\delta) - 1) \,. 
 
     Can only be used in logical space.
 
@@ -450,7 +450,7 @@ class Shear_y:
 
     .. math::
 
-        u(\eta_1, \eta_2, \eta_3) = A*(-\tanh((\eta_2 - 0.25)/\delta) + \tanh((\eta_2 - 0.75)/\delta) - 1) \,.
+        u(\eta_1, \eta_2, \eta_3) = A(-\tanh((\eta_2 - 0.25)/\delta) + \tanh((\eta_2 - 0.75)/\delta) - 1) \,.
 
     Can only be used in logical space.
 
@@ -495,7 +495,7 @@ class Shear_z:
 
     .. math::
 
-        u(\eta_1, \eta_2, \eta_3) = A*(-\tanh((\eta_3 - 0.25)/\delta) + \tanh((\eta_3 - 0.75)/\delta) - 1) \,. 
+        u(\eta_1, \eta_2, \eta_3) = A(-\tanh((\eta_3 - 0.25)/\delta) + \tanh((\eta_3 - 0.75)/\delta) - 1) \,. 
 
     Can only be used in logical space.
 
