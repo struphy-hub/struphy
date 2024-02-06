@@ -44,6 +44,7 @@ Analytical initial conditions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. inheritance-diagram:: struphy.initial.perturbations
+    :parts: 1
 
 .. automodule:: struphy.initial.perturbations
     :members:

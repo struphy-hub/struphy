@@ -371,6 +371,7 @@ Particle classes
 ----------------
 
 .. inheritance-diagram:: struphy.pic.particles
+    :parts: 1
 
 .. autoclass:: struphy.pic.base.Particles
     :members:

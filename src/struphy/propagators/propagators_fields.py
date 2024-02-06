@@ -2569,12 +2569,10 @@ class VariationalMomentumAdvection(Propagator):
             mn12 = mn.copy(out=self._tmp_mn12)
             mn12 += mn1
             mn12 *= 0.5
-            mn12.update_ghost_regions()
 
             un12 = un.copy(out=self._tmp_un12)
             un12 += un1
             un12 *= 0.5
-            un12.update_ghost_regions()
 
             # gradients of un12 components
             grad_1_u = self.gp1.dot(un12, out=self.gp1u)
@@ -2593,7 +2591,6 @@ class VariationalMomentumAdvection(Propagator):
             # Compute the advection term
             advection = self.mbrackuv.dot(mn12, out=self._tmp_advection)
             advection *= dt
-            advection.update_ghost_regions()
 
             # Difference with the previous approximation :
             # diff = m^{n+1,r}-m^{n+1,r+1} = m^{n+1,r}-m^{n}+advection
@@ -2641,19 +2638,16 @@ class VariationalMomentumAdvection(Propagator):
         self.Pcoord2 = CoordinateProjector(1, Xh, V0h)
         self.Pcoord3 = CoordinateProjector(2, Xh, V0h)
 
-        # Lambda for the initializations
-        def f_init(x, y, z): return np.ones((x.shape[0],y.shape[0],z.shape[0]))
-
         # Initialize the BasisProjectionOperators
         self.PiuT = BasisProjectionOperator(
-            P0, V1h, [[f_init, f_init, f_init]], transposed=True, use_cache=True)
+            P0, V1h, [[None, None, None]], transposed=True, use_cache=True)
 
         self.PiguT_1 = BasisProjectionOperator(
-            P0,  Xh, [[f_init, f_init, f_init]], transposed=True, use_cache=True)
+            P0,  Xh, [[None, None, None]], transposed=True, use_cache=True)
         self.PiguT_2 = BasisProjectionOperator(
-            P0,  Xh, [[f_init, f_init, f_init]], transposed=True, use_cache=True)
+            P0,  Xh, [[None, None, None]], transposed=True, use_cache=True)
         self.PiguT_3 = BasisProjectionOperator(
-            P0,  Xh, [[f_init, f_init, f_init]], transposed=True, use_cache=True)
+            P0,  Xh, [[None, None, None]], transposed=True, use_cache=True)
 
         # Store the interpolation grid for later use in _update_all_weights
         interpolation_grid = [pts.flatten()
@@ -2790,6 +2784,8 @@ class VariationalDensityEvolve(Propagator):
 
         # Projector
         self._initialize_projectors_and_mass()
+        self.rhof1.vector = rho
+        self._update_weighted_MM()
 
         # gradient of the component of the vector field
         self.div = self.derham.div
@@ -2846,7 +2842,6 @@ class VariationalDensityEvolve(Propagator):
             un12 = un.copy(out=self._tmp_un12)
             un12 += un1
             un12 *= 0.5
-            un12.update_ghost_regions()
 
             # Update the BasisProjectionOperators
             self.rhof.vector = rhon12
@@ -2862,12 +2857,10 @@ class VariationalDensityEvolve(Propagator):
             advection = self.divPirhoT.dot(
                 self._linear_form_dl_drho, out=self._tmp_advection)
             advection *= dt
-            advection.update_ghost_regions()
 
             rho_advection = self.divPirho.dot(
                 un12, out=self._tmp_rho_advection)
             rho_advection *= dt
-            rho_advection.update_ghost_regions()
 
             # Update : m^{n+1,r+1} = m^n-advection
             mn1 = mn.copy(out=self._tmp_mn1)
@@ -2918,13 +2911,11 @@ class VariationalDensityEvolve(Propagator):
         Xh = self.derham.Vh_fem['v']
         V3h = self.derham.Vh_fem['3']
 
-        def f_init(x, y, z): return np.zeros((x.shape[0],y.shape[0],z.shape[0]))
-
         # Initialize the BasisProjectionOperators
         self.Pirho = BasisProjectionOperator(
-            P2, Xh, [[f_init, None, None],
-                     [None, f_init, None],
-                     [None, None, f_init]],
+            P2, Xh, [[None, None, None],
+                     [None, None, None],
+                     [None, None, None]],
             transposed=False, use_cache=True)
 
         self.PirhoT = self.Pirho.T
@@ -3234,7 +3225,6 @@ class VariationalEntropyEvolve(Propagator):
             un12 = un.copy(out=self._tmp_un12)
             un12 += un1
             un12 *= 0.5
-            un12.update_ghost_regions()
 
             # Update the BasisProjectionOperators
             self.sf.vector = sn12
@@ -3250,12 +3240,10 @@ class VariationalEntropyEvolve(Propagator):
             advection = self.divPisT.dot(
                 self._linear_form_dl_ds, out=self._tmp_advection)
             advection *= dt
-            advection.update_ghost_regions()
 
             s_advection = self.divPis.dot(
                 un12, out=self._tmp_s_advection)
             s_advection *= dt
-            s_advection.update_ghost_regions()
 
             # Update : m^{n+1,r+1} = m^n-advection
             mn1 = mn.copy(out=self._tmp_mn1)
@@ -3302,15 +3290,12 @@ class VariationalEntropyEvolve(Propagator):
         P2 = self.derham.P['2']
 
         Xh = self.derham.Vh_fem['v']
-        V3h = self.derham.Vh_fem['3']
-
-        def f_init(x, y, z): return np.zeros((x.shape[0],y.shape[0],z.shape[0]))
 
         # Initialize the BasisProjectionOperators
         self.Pis = BasisProjectionOperator(
-            P2, Xh, [[f_init, None, None],
-                     [None, f_init, None],
-                     [None, None, f_init]],
+            P2, Xh, [[None, None, None],
+                     [None, None, None],
+                     [None, None, None]],
             transposed=False, use_cache=True)
 
         self.PisT = self.Pis.T
@@ -3508,7 +3493,6 @@ class VariationalMagFieldEvolve(Propagator):
         self._tmp_bn_weak_diff = b.space.zeros()
         self._tmp_mn = u.space.zeros()
         self._tmp_mn1 = u.space.zeros()
-        self._tmp_mn12 = u.space.zeros()
         self._tmp_advection = u.space.zeros()
         self._tmp_b_advection = b.space.zeros()
         self._linear_form_dl_db = b.space.zeros()
@@ -3524,7 +3508,6 @@ class VariationalMagFieldEvolve(Propagator):
         un = self.feec_vars[1]
         un1 = un.copy(out=self._tmp_un1)
         un2 = un1.copy(out=self._tmp_un2)
-        self.uf.vector = un
 
         mn = self._Mrho.dot(un, out=self._tmp_mn)
         mn1 = mn.copy(out=self._tmp_mn1)
@@ -3544,7 +3527,6 @@ class VariationalMagFieldEvolve(Propagator):
             un12 = un.copy(out=self._tmp_un12)
             un12 += un1
             un12 *= 0.5
-            un12.update_ghost_regions()
 
             # Update the BasisProjectionOperators
             self.bf.vector = bn12
@@ -3556,12 +3538,10 @@ class VariationalMagFieldEvolve(Propagator):
             advection = self.curlPibT.dot(
                 self._linear_form_dl_db, out=self._tmp_advection)
             advection *= dt
-            advection.update_ghost_regions()
 
             b_advection = self.curlPib.dot(
                 un12, out=self._tmp_b_advection)
             b_advection *= dt
-            b_advection.update_ghost_regions()
 
             # Update : m^{n+1,r+1} = m^n-advection
             mn1 = mn.copy(out=self._tmp_mn1)
@@ -3599,22 +3579,18 @@ class VariationalMagFieldEvolve(Propagator):
         return dct
 
     def _initialize_projectors_and_mass(self):
-        """Initialization of all the `BasisProjectionOperator` and `CoordinateProjector` needed to compute the bracket term"""
-
-        from struphy.feec.projectors import L2Projector
+        """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
         
         # Get the projector and the spaces
         P1 = self.derham.P['1']
 
         Xh = self.derham.Vh_fem['v']
 
-        def f_init(x, y, z): return np.zeros((x.shape[0],y.shape[0],z.shape[0]))
-
         # Initialize the BasisProjectionOperators
         self.Pib = BasisProjectionOperator(
-            P1, Xh, [[None, f_init, f_init],
-                     [f_init, None, f_init],
-                     [f_init, f_init, None]],
+            P1, Xh, [[None, None, None],
+                     [None, None, None],
+                     [None, None, None]],
             transposed=False, use_cache=True)
 
         self.PibT = self.Pib.T
@@ -3686,8 +3662,8 @@ class VariationalMagFieldEvolve(Propagator):
                                   [-bf2_values[1], bf2_values[0], None]])
 
     def _update_linear_form_u2(self,):
-        """Update the linearform representing integration in V3 against kynetic energy"""
-        M2 = self.mass_ops.M2
+        """Update the linearform representing integration in V2 derivative of the lagrangian"""
+        M2 = -self.mass_ops.M2
         wb = M2.dot(self._tmp_bn12, out = self._linear_form_dl_db)
 
     def _get_error(self, un_diff, bn_diff):

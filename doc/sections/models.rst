@@ -35,6 +35,7 @@ Fluid models
 ------------
 
 .. inheritance-diagram:: struphy.models.fluid
+    :parts: 1
 
 .. automodule:: struphy.models.fluid
     :members:
@@ -49,6 +50,7 @@ Kinetic models
 --------------
 
 .. inheritance-diagram:: struphy.models.kinetic
+    :parts: 1
 
 .. automodule:: struphy.models.kinetic
     :members:
@@ -63,6 +65,7 @@ Fluid-kinetic hybrid models
 ---------------------------
 
 .. inheritance-diagram:: struphy.models.hybrid
+    :parts: 1
 
 .. automodule:: struphy.models.hybrid
     :members:
@@ -77,6 +80,7 @@ Toy models
 ----------
 
 .. inheritance-diagram:: struphy.models.toy
+    :parts: 1
 
 .. automodule:: struphy.models.toy
     :members:
