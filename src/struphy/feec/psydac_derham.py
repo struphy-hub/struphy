@@ -1955,6 +1955,15 @@ class TransformedPformComponent:
             else:
                 out = self._domain.pull(
                     self._fun, eta1, eta2, eta3, kind=self._out_form)[self._comp]
+                
+        elif self._fun_form == 'physical_at_eta':
+
+            if self._is_scalar:
+                out = self._domain.pull(
+                    self._fun, eta1, eta2, eta3, kind=self._out_form, coordinates='logical')
+            else:
+                out = self._domain.pull(
+                    self._fun, eta1, eta2, eta3, kind=self._out_form, coordinates='logical')[self._comp]
 
         else:
 
