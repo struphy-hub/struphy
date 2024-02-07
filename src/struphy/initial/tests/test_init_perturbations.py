@@ -8,7 +8,7 @@ import inspect
 @pytest.mark.parametrize('mapping', [['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 5., 'l3': 0., 'r3': 6.}],
                                      ['Colella', {'Lx': 4., 'Ly': 5., 'alpha': .07, 'Lz': 6.}],
                                      ['HollowCylinder', {'a1': 0.1}],
-                                     ['HollowTorus', {'tor_period': 2}]])
+                                     ['HollowTorus', {'tor_period': 1}]])
 #@pytest.mark.parametrize('combine_comps', [('f0', 'f1'), ('f0', 'f3'), ('f1', 'f2'), ('fvec', 'f3'), ('f1', 'fvec', 'f0')])
 def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False):
     '''Test the initialization Field.initialize_coeffs with all "Modes" classes in perturbations.py.'''
@@ -35,8 +35,8 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     for space, form in derham.space_to_form.items():
         fields[form] = derham.create_field(form, space)
 
-    form_scalar = ['0', '3']
-    form_vector = ['1', '2', 'v', 'norm']
+    form_scalar = ['0', '3', 'physical_at_eta']
+    form_vector = ['1', '2', 'v', 'norm', 'physical_at_eta']
     
     # evaluation points
     e1 = np.linspace(0., 1., 30)
@@ -83,7 +83,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                 fun = val(**kwargs, pfuns=pfuns)
             else:
                 fun = val(**kwargs, ls=ls)
-                if form_scalar[-1] == 'physical':
+                if isinstance(domain, domains.Cuboid) or isinstance(domain, domains.Colella):
                     fun_xyz = val(**kwargs, ls=ls, Lx=Lx, Ly=Ly, Lz=Lz)
 
             # single component is initialized
@@ -117,9 +117,6 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                             if fun_form == 'physical':
                                 continue
                             params[key]['pfuns'] = {name: pfuns}      
-                        else:
-                            if isinstance(domain, domains.HollowTorus) or isinstance(domain, domains.HollowCylinder):
-                                continue
                          
                         #print(f'{params = }')  
                         field.initialize_coeffs(params, domain=domain)  
@@ -131,6 +128,8 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                         
                         if fun_form == 'physical':
                             fun_vals_xyz = fun_xyz(x, y, z)
+                        elif fun_form == 'physical_at_eta':
+                            fun_vals_xyz = fun(eee1, eee2, eee3)
                         else:
                             fun_vals_xyz = domain.push(fun, eee1, eee2, eee3, kind=fun_form)
                             
@@ -141,7 +140,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                         
                         if do_plot:
                             plt.figure(key + '_' + name + '-form_e1e2 ' + mapping[0])
-                            plt.subplot(2, 3, n + 1)
+                            plt.subplot(2, 4, n + 1)
                             if isinstance(domain, domains.HollowTorus):
                                 plt.contourf(r[:, :, 0], z[:, :, 0], field_vals_xyz[:, :, 0])
                                 plt.xlabel('R')
@@ -151,11 +150,11 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                                 plt.xlabel('x')
                                 plt.ylabel('y')
                             plt.colorbar()
-                            plt.title(f'init was {fun_form}-form, (m,n)=({kwargs["ms"][0]},{kwargs["ns"][0]})')  
+                            plt.title(f'init was {fun_form}, (m,n)=({kwargs["ms"][0]},{kwargs["ns"][0]})')  
                             ax = plt.gca()
                             ax.set_aspect('equal', adjustable='box')
                             
-                            plt.subplot(2, 3, 3 + n + 1)
+                            plt.subplot(2, 4, 4 + n + 1)
                             if isinstance(domain, domains.HollowTorus):
                                 plt.contourf(r[:, :, 0], z[:, :, 0], fun_vals_xyz[:, :, 0])
                                 plt.xlabel('R')
@@ -170,7 +169,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                             ax.set_aspect('equal', adjustable='box')
                             
                             plt.figure(key + '_' + name + '-form_e1e3 ' + mapping[0])
-                            plt.subplot(2, 3, n + 1)
+                            plt.subplot(2, 4, n + 1)
                             if isinstance(domain, domains.HollowTorus):
                                 plt.contourf(x[:, 0, :], y[:, 0, :], field_vals_xyz[:, 0, :])
                                 plt.xlabel('x')
@@ -180,11 +179,11 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                                 plt.xlabel('x')
                                 plt.ylabel('z')
                             plt.colorbar()
-                            plt.title(f'init was {fun_form}-form, (m,n)=({kwargs["ms"][0]},{kwargs["ns"][0]})')  
+                            plt.title(f'init was {fun_form}, (m,n)=({kwargs["ms"][0]},{kwargs["ns"][0]})')  
                             ax = plt.gca()
                             ax.set_aspect('equal', adjustable='box')
                             
-                            plt.subplot(2, 3, 3 + n + 1)
+                            plt.subplot(2, 4, 4 + n + 1)
                             if isinstance(domain, domains.HollowTorus):
                                 plt.contourf(x[:, 0, :], y[:, 0, :], fun_vals_xyz[:, 0, :])
                                 plt.xlabel('x')
@@ -206,23 +205,23 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                                 key: {'comps': {name: [fun_form]*3},}}
                         
                         if 'Modes' in key:
-                            params[key]['ls'] = {name: [ls]*3}
                             params[key]['ms'] = {name: [kwargs['ms']]*3}
                             params[key]['ns'] = {name: [kwargs['ns']]*3}
                             params[key]['amps'] = {name: [kwargs['amps']]*3}
-                            if fun_form == 'physical':
-                                params[key]['Lx'] = Lx
-                                params[key]['Ly'] = Ly
-                                params[key]['Lz'] = Lz
                         else:
                             raise ValueError(f'Perturbation {key} not implemented, only "Modes" are testes.')
                             
                         if 'Torus' in key:
-                            params[key].pop('ls')
+                            # params[key].pop('ls')
                             if fun_form == 'physical':
                                 continue
                             params[key]['pfuns'] = {name: [pfuns]*3}      
                         else:
+                            params[key]['ls'] = {name: [ls]*3}
+                            if fun_form == 'physical':
+                                params[key]['Lx'] = Lx
+                                params[key]['Ly'] = Ly
+                                params[key]['Lz'] = Lz
                             if isinstance(domain, domains.HollowTorus):
                                 continue
                          
@@ -240,6 +239,10 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                             fun1_xyz = fun_xyz(x, y, z)
                             fun2_xyz = fun_xyz(x, y, z)
                             fun3_xyz = fun_xyz(x, y, z)
+                        elif fun_form == 'physical_at_eta':
+                            fun1_xyz = fun(eee1, eee2, eee3)
+                            fun2_xyz = fun(eee1, eee2, eee3)
+                            fun3_xyz = fun(eee1, eee2, eee3)
                         elif fun_form == 'norm':
                             tmp1, tmp2, tmp3 = domain.transform([fun, fun, fun], eee1, eee2, eee3, kind=fun_form + '_to_v')
                             fun1_xyz, fun2_xyz, fun3_xyz = domain.push([tmp1, tmp2, tmp3], eee1, eee2, eee3, kind='v')
@@ -257,9 +260,10 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                         assert error < 0.02
                         
                         if do_plot:
+                            rn = len(form_vector)
                             for c, (fi, f) in enumerate(zip(f_xyz, fun_xyz_vec)):
                                 plt.figure(key + '_' + name + '-form_e1e2 ' + mapping[0])
-                                plt.subplot(3, 4, 4*c + n + 1)
+                                plt.subplot(3, rn, rn*c + n + 1)
                                 if isinstance(domain, domains.HollowTorus):
                                     plt.contourf(r[:, :, 0], z[:, :, 0], fi[:, :, 0])
                                     plt.xlabel('R')
@@ -269,12 +273,12 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                                     plt.xlabel('x')
                                     plt.ylabel('y')
                                 plt.colorbar()
-                                plt.title(f'component {c + 1}, init was {fun_form}-form, (m,n)=({kwargs["ms"][0]},{kwargs["ns"][0]})')  
+                                plt.title(f'component {c + 1}, init was {fun_form}, (m,n)=({kwargs["ms"][0]},{kwargs["ns"][0]})')  
                                 ax = plt.gca()
                                 ax.set_aspect('equal', adjustable='box')
                                 
                                 plt.figure(key + '_' + name + '-form_e1e3 ' + mapping[0])
-                                plt.subplot(3, 4, 4*c + n + 1)
+                                plt.subplot(3, rn, rn*c + n + 1)
                                 if isinstance(domain, domains.HollowTorus):
                                     plt.contourf(x[:, 0, :], y[:, 0, :], fi[:, 0, :])
                                     plt.xlabel('x')
@@ -284,7 +288,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                                     plt.xlabel('x')
                                     plt.ylabel('z')
                                 plt.colorbar()
-                                plt.title(f'component {c + 1}, init was {fun_form}-form, (m,n)=({kwargs["ms"][0]},{kwargs["ns"][0]})')  
+                                plt.title(f'component {c + 1}, init was {fun_form}, (m,n)=({kwargs["ms"][0]},{kwargs["ns"][0]})')  
                                 ax = plt.gca()
                                 ax.set_aspect('equal', adjustable='box')
                                 
@@ -294,10 +298,10 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                         
     
 if __name__ == '__main__':
-    #mapping = ['Colella', {'Lx': 4., 'Ly': 5., 'alpha': .07, 'Lz': 6.}]
-    mapping = ['HollowTorus', {'tor_period': 2}]
-    #mapping = ['HollowCylinder', {'a1': 0.1}]
+    # mapping = ['Colella', {'Lx': 4., 'Ly': 5., 'alpha': .07, 'Lz': 6.}]
+    # mapping = ['HollowCylinder', {'a1': 0.1}]
+    mapping = ['HollowTorus', {'tor_period': 1}]
     test_init_modes([16, 14, 14], [2, 3, 4], [False, True, True], 
                     mapping, 
-                    combine_comps=None, 
+                    combine_comps=None,     
                     do_plot=True)

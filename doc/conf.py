@@ -118,7 +118,7 @@ html_logo = 'dog-cartoon-struphy.jpg'
 
 # inheritance diagrams
 inheritance_graph_attrs = dict(rankdir="LR", ratio='auto',
-                               fontsize="12")
+                               fontsize="12", resolution=300.0)
 
 inheritance_node_attrs = dict(shape='ellipse', fontsize="12", height=0.65,
                               color='maroon4', style='filled')
