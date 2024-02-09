@@ -9,7 +9,8 @@ def struphy_run(model,
                 save_step=1,
                 restart=False,
                 mpi=1,
-                debug=False):
+                debug=False,
+                cprofile=False,):
     """
     Run a Struphy model: prepare arguments, output folder and execute main().
 
@@ -49,7 +50,10 @@ def struphy_run(model,
         Number of MPI processes for runs with "mpirun".
 
     debug : bool
-        Wether to run in Cobra debug mode.
+        Wether to run in Cobra debug mode, see https://docs.mpcdf.mpg.de/doc/computing/cobra-user-guide.html#interactive-debug-runs'.
+
+    cprofile : bool
+        Wether to run with Cprofile (slower).
     """
 
     import subprocess
@@ -59,7 +63,7 @@ def struphy_run(model,
     import yaml
 
     libpath = struphy.__path__[0]
-    
+
     with open(os.path.join(libpath, 'state.yml')) as f:
         state = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -100,12 +104,31 @@ def struphy_run(model,
     if restart:
         input_abs = os.path.join(output_abs, 'parameters.yml')
 
+    # command parts
+    cmd_python = ['python3']
+    cmd_main = ['main.py',
+                model,
+                '-i',
+                input_abs,
+                '-o',
+                output_abs,
+                '--runtime',
+                str(runtime),
+                '-s',
+                str(save_step)]
+    cmd_cprofile = ['-m',
+                    'cProfile',
+                    '-o',
+                    os.path.join(output_abs, 'profile_tmp'),
+                    '-s',
+                    'time']
+
     # run in normal or debug mode
     if batch_abs is None:
 
         if debug:
             print('\nLaunching main() in Cobra debug mode ...')
-            command = ['srun',  # use mpi
+            command = ['srun',
                        '-n',
                        str(mpi),
                        '-p',  # interactive commands
@@ -113,53 +136,22 @@ def struphy_run(model,
                        '--time',
                        '119',
                        '--mem',
-                       '2000',
-                       'python3',  # use python3
-                       '-m',
-                       'cProfile',  # start the profiler
-                       '-o',
-                       # location of profiling data
-                       os.path.join(output_abs, 'profile_tmp'),
-                       '-s',
-                       'time',  # sort profile data according to runtime
-                       'main.py',  # run main.main()
-                       model,  # from here on, command line arguments for main()
-                       '-i',
-                       input_abs,
-                       '-o',
-                       output_abs,
-                       '--runtime',
-                       str(runtime),
-                       '-s',
-                       str(save_step)]
+                       '2000'] + cmd_python + cprofile*cmd_cprofile + cmd_main
 
         else:
             print('\nLaunching main() in normal mode ...')
-            command = ['mpirun',  # always use mpi
+            command = ['mpirun',
                        '-n',
-                       str(mpi),
-                       'python3',  # use python3
-                       '-m',
-                       'cProfile',  # start the profiler
-                       '-o',
-                       # location of profiling data
-                       os.path.join(output_abs, 'profile_tmp'),
-                       '-s',
-                       'time',  # sort profile data according to runtime
-                       'main.py',  # run main.main()
-                       model,  # from here on, command line arguments for main()
-                       '-i',
-                       input_abs,
-                       '-o',
-                       output_abs,
-                       '--runtime',
-                       str(runtime),
-                       '-s',
-                       str(save_step)]
+                       str(mpi)] + cmd_python + cprofile*cmd_cprofile + cmd_main
 
         # add restart flag
         if restart:
             command += ['-r']
+            
+        if cprofile:
+            print('Cprofile turned on.')
+        else:
+            print('Cprofile turned off.')
 
         # run command as subprocess
         subprocess.run(command, check=True, cwd=libpath)
@@ -212,21 +204,16 @@ def struphy_run(model,
                 f.write(line)
             f.write('# Run command added by Struphy')
 
-            command_string = '\nsrun python3 -m cProfile -o ' + \
-                os.path.join(output_abs, 'profile_tmp') + ' -s time '
-            command_string += libpath + '/main.py '
-            command_string += model + ' '
-            command_string += '-i ' + input_abs + ' '
-            command_string += '-o ' + output_abs + ' '
-            command_string += '--runtime ' + str(runtime) + ' '
-            command_string += '-s ' + str(save_step) + ' '
+            cmd_string = '\nsrun python3 ' + cprofile * \
+                ' '.join(cmd_cprofile) + ' ' + libpath + \
+                '/' + ' '.join(cmd_main)
 
             if restart:
-                command_string += '-r '
+                cmd_string += ' -r'
 
-            command_string += '> ' + os.path.join(output_abs, 'struphy.out')
+            cmd_string += ' > ' + os.path.join(output_abs, 'struphy.out')
 
-            f.write(command_string)
+            f.write(cmd_string)
 
         # submit batch script in output folder
         print('\nLaunching main() in batch mode ...')
