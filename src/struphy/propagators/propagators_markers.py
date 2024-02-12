@@ -833,7 +833,7 @@ class PushGuidingCenterBstar(Propagator):
         return dct
 
 
-class StepVinEfield(Propagator):
+class PushVinEfield(Propagator):
     r'''Push the velocities according to
 
     .. math::

@@ -375,9 +375,9 @@ class LinearVlasovMaxwell(StruphyModel):
         if self._rank == 0:
             print("Added Step PushEta\n")
 
-        # Only add StepVinEfield if e-field is non-zero, otherwise it is more expensive
+        # Only add PushVinEfield if e-field is non-zero, otherwise it is more expensive
         if np.all(self._e_background[0]._data < 1e-14) and np.all(self._e_background[1]._data < 1e-14) and np.all(self._e_background[2]._data < 1e-14):
-            self.add_propagator(self.prop_markers.StepVinEfield(
+            self.add_propagator(self.prop_markers.PushVinEfield(
                 self.pointer['electrons'],
                 e_field=self._e_background,
                 kappa=self.kappa))
@@ -730,7 +730,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
         if self._rank == 0:
             print("Added Step PushEta\n")
 
-        self.add_propagator(self.prop_markers.StepVinEfield(
+        self.add_propagator(self.prop_markers.PushVinEfield(
             self.pointer['electrons'],
             e_field=self._e_background + self.pointer['e_field'],
             kappa=self.kappa))

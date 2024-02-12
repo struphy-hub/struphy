@@ -122,3 +122,5 @@ inheritance_graph_attrs = dict(rankdir="LR", ratio='auto',
 
 inheritance_node_attrs = dict(shape='ellipse', fontsize="12", height=0.65,
                               color='maroon4', style='filled')
+
+nbsphinx_allow_errors = True

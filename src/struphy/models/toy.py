@@ -187,6 +187,29 @@ class Vlasov(StruphyModel):
 
         self.update_scalar('en_f', self._tmp[0])
 
+class VlasovPoissonSimple(Vlasov):
+     r'''Vlasov equation in static background magnetic field.
+
+    :ref:`normalization`:
+
+    .. math::
+
+        \hat \omega = \hat \Omega_\textnormal{c} := \frac{Ze \hat B}{A m_\textnormal{H}}\,,\qquad \frac{\hat \omega}{\hat k} = \hat v\,,
+
+    Implemented equations:
+
+    .. math::
+
+        \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \left(\mathbf{v}\times\mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0\,,
+
+    Parameters
+    ----------
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
+
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
+    '''
 
 class DriftKinetic(StruphyModel):
     r'''Drift-kinetic equation in static background magnetic field (guiding-center motion). 
