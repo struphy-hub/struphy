@@ -2610,6 +2610,9 @@ class VariationalMomentumAdvection(Propagator):
             # Inverse the mass matrix to get the velocity
             un1 = self._Mrhoinv.dot(mn1, out=self._tmp_un1)
 
+        if it == self._params['maxiter']-1:
+            raise(ValueError, 'maximum iteration in VariationalMomentumAdvection')
+
         self.feec_vars_update(un1)
 
     @classmethod
@@ -2862,6 +2865,11 @@ class VariationalDensityEvolve(Propagator):
                 un12, out=self._tmp_rho_advection)
             rho_advection *= dt
 
+            # Get diff before update
+            rhon_diff = rhon1.copy(out=self._tmp_rhon_diff)
+            rhon_diff -= rhon
+            rhon_diff += rho_advection
+
             # Update : m^{n+1,r+1} = m^n-advection
             mn1 = mn.copy(out=self._tmp_mn1)
             mn1 -= advection
@@ -2881,10 +2889,10 @@ class VariationalDensityEvolve(Propagator):
             un_diff -= un2
             un2 = un1.copy(out=self._tmp_un2)
 
-            rhon_diff = rhon1.copy(out=self._tmp_rhon_diff)
-            rhon_diff -= rhon
-            rhon_diff += rho_advection
             err = self._get_error(un_diff, rhon_diff)
+
+        if it == self._params['maxiter']-1:
+            raise(ValueError('maximum iteration in VariationalDensityEvolve'))
 
         self.feec_vars_update(rhon1, un1)
 
@@ -3245,6 +3253,11 @@ class VariationalEntropyEvolve(Propagator):
                 un12, out=self._tmp_s_advection)
             s_advection *= dt
 
+            # Get diff before update
+            sn_diff = sn1.copy(out=self._tmp_sn_diff)
+            sn_diff -= sn
+            sn_diff += s_advection
+
             # Update : m^{n+1,r+1} = m^n-advection
             mn1 = mn.copy(out=self._tmp_mn1)
             mn1 -= advection
@@ -3262,9 +3275,6 @@ class VariationalEntropyEvolve(Propagator):
             un_diff -= un2
             un2 = un1.copy(out=self._tmp_un2)
 
-            sn_diff = sn1.copy(out=self._tmp_sn_diff)
-            sn_diff -= sn
-            sn_diff += s_advection
             err = self._get_error(un_diff, sn_diff)
 
         self.feec_vars_update(sn1, un1)
@@ -3543,6 +3553,11 @@ class VariationalMagFieldEvolve(Propagator):
                 un12, out=self._tmp_b_advection)
             b_advection *= dt
 
+            # Get diff before update
+            bn_diff = bn1.copy(out=self._tmp_bn_diff)
+            bn_diff -= bn
+            bn_diff += b_advection
+
             # Update : m^{n+1,r+1} = m^n-advection
             mn1 = mn.copy(out=self._tmp_mn1)
             mn1 -= advection
@@ -3560,9 +3575,6 @@ class VariationalMagFieldEvolve(Propagator):
             un_diff -= un2
             un2 = un1.copy(out=self._tmp_un2)
 
-            bn_diff = bn1.copy(out=self._tmp_bn_diff)
-            bn_diff -= bn
-            bn_diff += b_advection
             err = self._get_error(un_diff, bn_diff)
 
         self.feec_vars_update(bn1, un1)
