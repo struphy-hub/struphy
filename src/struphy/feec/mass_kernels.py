@@ -231,6 +231,8 @@ def kernel_3d_mat(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int
     The results are written into data (attention: data is NOT set to zero first, but the results are added to data).
     """
 
+    import numpy as np
+
     ne1 = spans1.size
     ne2 = spans2.size
     ne3 = spans3.size
@@ -239,13 +241,39 @@ def kernel_3d_mat(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int
     nq2 = shape(w2)[1]
     nq3 = shape(w3)[1]
 
+    tmp_bi1 = np.zeros(nq1)
+    tmp_bi2 = np.zeros(nq2)
+    tmp_bi3 = np.zeros(nq3)
+
+    tmp_bj1 = np.zeros(nq1)
+    tmp_bj2 = np.zeros(nq2)
+    tmp_bj3 = np.zeros(nq3)
+
+    tmp_w1 = np.zeros(nq1)
+    tmp_w2 = np.zeros(nq2)
+    tmp_w3 = np.zeros(nq3)
+
+    tmp_mat_fun = np.zeros((nq1,nq2,nq3))
+
     for iel1 in range(ne1):
         for iel2 in range(ne2):
             for iel3 in range(ne3):
 
+                tmp_mat_fun[:, :, :] = mat_fun[iel1 * nq1 : (iel1+1) * nq1,
+                                               iel2 * nq2 : (iel2+1) * nq2,
+                                               iel3 * nq3 : (iel3+1) * nq3]
+
+                tmp_w1[:] = w1[iel1,:]
+                tmp_w2[:] = w2[iel2,:]
+                tmp_w3[:] = w3[iel3,:]
+
                 for il1 in range(pi1 + 1):
                     for il2 in range(pi2 + 1):
                         for il3 in range(pi3 + 1):
+
+                            tmp_bi1[:] = bi1[iel1, il1, 0, :]
+                            tmp_bi2[:] = bi2[iel2, il2, 0, :]
+                            tmp_bi3[:] = bi3[iel3, il3, 0, :]
 
                             # global spline indices
                             i_global1 = spans1[iel1] - pi1 + il1
@@ -261,21 +289,22 @@ def kernel_3d_mat(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int
                                 for jl2 in range(pj2 + 1):
                                     for jl3 in range(pj3 + 1):
 
+                                        tmp_bj1[:] = bj1[iel1, jl1, 0, :]
+                                        tmp_bj2[:] = bj2[iel2, jl2, 0, :]
+                                        tmp_bj3[:] = bj3[iel3, jl3, 0, :]
+
                                         value = 0.
 
                                         for q1 in range(nq1):
                                             for q2 in range(nq2):
                                                 for q3 in range(nq3):
 
-                                                    wvol = w1[iel1, q1] * w2[iel2, q2] * w3[iel3, q3] * \
-                                                        mat_fun[iel1 * nq1 + q1,
-                                                                iel2 * nq2 + q2,
-                                                                iel3 * nq3 + q3]
-                                                    bi = bi1[iel1, il1, 0, q1] \
-                                                        * bi2[iel2, il2, 0, q2] * bi3[iel3, il3, 0, q3]
-                                                    bj = bj1[iel1, jl1, 0, q1] \
-                                                        * bj2[iel2, jl2, 0, q2] * bj3[iel3, jl3, 0, q3]
-
+                                                    wvol = tmp_w1[q1] * tmp_w2[q2] * tmp_w3[q3] * \
+                                                        tmp_mat_fun[q1, q2, q3]
+                                                    
+                                                    bi = tmp_bi1[q1] * tmp_bi2[q2] * tmp_bi3[q3]
+                                                    bj = tmp_bj1[q1] * tmp_bj2[q2] * tmp_bj3[q3]
+                                                    
                                                     value += wvol * bi * bj
 
                                         data[pads1 + i_local1, pads2 + i_local2, pads3 + i_local3,

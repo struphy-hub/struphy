@@ -24,7 +24,7 @@ RUN dnf install -y python3-pip \
     && dnf install -y sqlite
 
 # create new working dir
-WORKDIR /your_working_dir/
+WORKDIR /fedora_37/
 
 # allow mpirun as root
 ENV OMPI_ALLOW_RUN_AS_ROOT=1
