@@ -838,7 +838,7 @@ class PushVinEfield(Propagator):
 
     .. math::
 
-        \frac{\text{d} \mathbf{v}_p}{\text{d} t} & = \kappa \, DL^{-T} \mathbf{E}
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \kappa \, DL^{-T} \mathbf{E}
 
     which is solved analytically.
 
