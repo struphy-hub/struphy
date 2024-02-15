@@ -945,6 +945,43 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             print('None.')
 
     @classmethod
+    def write_parameters_to_file(cls, parameters=None, file=None, save=True, prompt=True):
+        import struphy
+        import yaml
+        import os
+
+        libpath = struphy.__path__[0]
+
+        # write to current input path
+        with open(os.path.join(libpath, 'state.yml')) as f:
+            state = yaml.load(f, Loader=yaml.FullLoader)
+
+        i_path = state['i_path']
+
+        if file is None:
+            file = os.path.join(i_path, 'params_' + cls.__name__ + '.yml')
+        else:
+            assert '.yml' in file or '.yaml' in file, 'File must have a a .yml (.yaml) extension.'
+            file = os.path.join(i_path, file)
+
+        if save:
+            if not prompt:
+                yn = 'Y'
+            else:
+                yn = input(f'Writing to {file}, are you sure (Y/n)? ')
+
+            if yn in ('', 'Y', 'y', 'yes', 'Yes'):
+                with open(file, 'w') as outfile:
+                    yaml.dump(parameters, outfile, Dumper=MyDumper,
+                              default_flow_style=None, sort_keys=False, indent=4, line_break='\n')
+                print(
+                    f'Default parameter file for {cls.__name__} has been created; you can now launch with "struphy run {cls.__name__}".')
+            else:
+                pass
+
+        
+    
+    @classmethod
     def generate_default_parameter_file(cls, file=None, save=True, prompt=True):
         '''Generate a parameter file with default options for each species,
         and save it to the current input path.
@@ -1095,32 +1132,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                                                          'Maxwellian' + dim + 'Uniform': {'n': 0.8}}
             parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
 
-        # write to current input path
-        with open(os.path.join(libpath, 'state.yml')) as f:
-            state = yaml.load(f, Loader=yaml.FullLoader)
-
-        i_path = state['i_path']
-
-        if file is None:
-            file = os.path.join(i_path, 'params_' + cls.__name__ + '.yml')
-        else:
-            assert '.yml' in file or '.yaml' in file, 'File must have a a .yml (.yaml) extension.'
-            file = os.path.join(i_path, file)
-
-        if save:
-            if not prompt:
-                yn = 'Y'
-            else:
-                yn = input(f'Writing to {file}, are you sure (Y/n)? ')
-
-            if yn in ('', 'Y', 'y', 'yes', 'Yes'):
-                with open(file, 'w') as outfile:
-                    yaml.dump(parameters, outfile, Dumper=MyDumper,
-                              default_flow_style=None, sort_keys=False, indent=4, line_break='\n')
-                print(
-                    f'Default parameter file for {cls.__name__} has been created; you can now launch with "struphy run {cls.__name__}".')
-            else:
-                pass
+        cls.write_parameters_to_file(parameters=parameters, file=file, save=save, prompt=prompt)
 
         return parameters
 
