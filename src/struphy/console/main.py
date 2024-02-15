@@ -681,7 +681,7 @@ def recursive_get_files(path, contains=('.yml', '.yaml'), out=[], prefix=[]):
     n_folders = 0
     # count folders in path
     for name in all_names:
-        if '.' not in name:
+        if os.path.isdir(os.path.join(path, name)):
             n_folders += 1
     # add specified files to out or descend
     for name in all_names:
@@ -690,7 +690,7 @@ def recursive_get_files(path, contains=('.yml', '.yaml'), out=[], prefix=[]):
                 out += [name]
             else:
                 out += [os.path.join(prefix[-1], name)]
-        elif '.' not in name:
+        elif os.path.isdir(os.path.join(path, name)):
             if len(prefix) == 0:
                 prefix = [name]
             else:
