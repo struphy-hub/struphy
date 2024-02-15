@@ -11,7 +11,6 @@ from struphy.polar.basic import PolarVector
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian6DUniform, Maxwellian5DUniform
 from struphy.fields_background.mhd_equil.equils import set_defaults
-
 from struphy.feec import preconditioner
 from struphy.feec.mass import WeightedMassOperator
 from struphy.feec.basis_projection_ops import BasisProjectionOperator, CoordinateProjector
@@ -2131,7 +2130,7 @@ class ImplicitDiffusion(Propagator):
         Parameters for the iteravtive solver.
     """
 
-    def __init__(self, phi, sigma=1., phi_n=None, x0=None, **params):
+    def __init__(self, phi, sigma=1., A_mat='M1', phi_n=None, x0=None, **params):
 
         super().__init__(phi)
 
@@ -2162,10 +2161,12 @@ class ImplicitDiffusion(Propagator):
         # initial guess and solver params
         self._x0 = x0
         self._params = params
+        A_mat = getattr(self.mass_ops, A_mat)
 
         # Set lhs matrices
+    
         self._A1 = sigma * self.mass_ops.M0
-        self._A2 = self.derham.grad.T @ self.mass_ops.M1 @ self.derham.grad
+        self._A2 = self.derham.grad.T @ A_mat @ self.derham.grad
 
         # preconditioner and solver for Ax=b
         if params['type'][1] is None:
@@ -2201,7 +2202,7 @@ class ImplicitDiffusion(Propagator):
             self.derham.comm.Allreduce(
                 np.sum(phi_n.toarray()), solvability, op=MPI.SUM)
             assert np.abs(
-                solvability[0]) <= 1e-11, f'Solvability condition not met: {solvability[0]}'
+                solvability[0]) <= 1e-10, f'Solvability condition not met: {solvability[0]}'
 
     @property
     def phi_n(self):

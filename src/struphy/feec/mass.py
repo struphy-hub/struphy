@@ -75,6 +75,10 @@ class WeightedMassOperators:
         '''Jacobian determinant callable.'''
         return abs(self.domain.jacobian_det(e1, e2, e3))
 
+    def DFinv(self, e1, e2, e3):
+        '''Inverse Jacobian callable.'''
+        return self.domain.jacobian_inv(e1, e2, e3, change_out_order=True, squeeze_out=False)
+
     #######################################################################
     # Mass matrices related to L2-scalar products in all 3d derham spaces #
     #######################################################################
@@ -529,6 +533,37 @@ class WeightedMassOperators:
                 fun, 'Hcurl', 'Hcurl', name='M1Bninv')
 
         return self._M1Bninv
+
+    @property
+    def M1perp(self):
+        r"""
+        Mass matrix 
+
+        .. math::
+
+           \mathbb M^1_{\perp, (\mu,ijk), (\nu,mno)} = \int \Lambda^1_{\mu,ijk} DF^{-1}_{\mu,\alpha}(\delta_{\alpha,\beta} - \delta_{\alpha,3}) DF^{-\top}_{\beta,\nu}\Lambda^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
+
+        where :math:`\delta_{\mu,\nu}` denotes the Kronecker delta. In vector-valued form:
+
+        .. math::
+
+            \mathbb M^1_{\perp, (ijk), (mno)} = \int \vec \Lambda^1_{ijk} DF^{-1} \begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 0 \end{pmatrix} DF^{-\top}\vec \Lambda^1_{mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
+
+        """
+
+        if not hasattr(self, '_M1perp'):
+            self.D = [[1, 0, 0], [0, 1, 0], [0, 0, 0]]
+            fun = []
+            for m in range(3):
+                fun += [[]]
+                for n in range(3):
+                    fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.DFinv(e1, e2, e3)[:, :, :, m, n] * self.D[m][n] * self.DFinv(e1, e2, e3)[:, :, :, n, m]*self.sqrt_g(
+                        e1, e2, e3)]
+
+            self._M1perp = self.assemble_weighted_mass(
+                fun, 'Hcurl', 'Hcurl', name='M1perp')
+
+        return self._M1perp
 
     #######################################
     # Wrapper around WeightedMassOperator #
