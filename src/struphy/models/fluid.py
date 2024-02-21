@@ -1,33 +1,29 @@
-'Pure fluid models.'
-
 from struphy.models.base import StruphyModel
 
 
 class LinearMHD(StruphyModel):
     r'''Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
 
-    :ref:`normalization`:
+    Find :math:`(\tilde n, \tilde{\mathbf{U}}, \tilde p, \tilde{\mathbf{B}}) \in L^2 \times H(\textrm{div}) \times L^2 \times H(\textrm{div})` such that
 
     .. math::
-
-        \frac{\hat B}{\sqrt{A_\textnormal{b} m_\textnormal{H} \hat n \mu_0}} =: \hat v_\textnormal{A} = \frac{\hat \omega}{\hat k} = \hat U \,, \qquad \hat p = \frac{\hat B^2}{\mu_0}\,.
-
-    Implemented equations:
-
-    .. math::
-
         &\frac{\partial \tilde n}{\partial t}+\nabla\cdot(n_0 \tilde{\mathbf{U}})=0\,, 
 
-        n_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p
-        =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf{J}_0\times \tilde{\mathbf{B}}
-        \,, \qquad
-        \mathbf{J}_0 = \nabla\times\mathbf{B}_0\,,
+        \int n_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \tilde{\mathbf{V}}\,\textrm d \mathbf x  + \int \tilde p\, \nabla \cdot \tilde{\mathbf{V}} \,\textrm d \mathbf x
+        =\int \tilde{\mathbf{B}}\cdot \nabla \times (\mathbf{B}_0 \times \tilde{\mathbf{V}})\,\textrm d \mathbf x + \int (\nabla\times\mathbf{B}_0)\times \tilde{\mathbf{B}} \cdot \tilde{\mathbf{V}}\,\textrm d \mathbf x
+        \qquad \forall \ \tilde{\mathbf{V}} \in H(\textrm{div})\,,
 
         &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
         + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,,
 
         &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
         = 0\,.
+        
+    :ref:`normalization`:
+
+    .. math::
+
+        \hat U = \hat v_\textnormal{A, bulk} \,, \qquad \hat p = \frac{\hat B^2}{\mu_0}\,.
 
     Parameters
     ----------
@@ -596,7 +592,10 @@ class VariationalMHD(StruphyModel):
         self.update_scalar('en_tot', en_tot)
 
     def update_thermo_energy(self):
-        # Reuse tmp used in VariationalEntropyEvolve to compute the thermodynamical energy.
+        '''Reuse tmp used in VariationalEntropyEvolve to compute the thermodynamical energy.
+        
+        :meta private:
+        '''
         en_prop = self._propagators[2]
         en_prop.sf.vector = self.pointer['mhd_s3']
         en_prop.rhof.vector = self.pointer['mhd_rho3']

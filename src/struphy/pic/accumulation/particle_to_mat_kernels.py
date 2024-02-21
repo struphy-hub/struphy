@@ -15,92 +15,16 @@ def _docstring():
 
     Naming conventions:
 
-    1) mat_ adds only to a matrix of the respective space, m_v_ adds to a matrix and a vector.
+    1) "mat_" adds only to a matrix of the respective space, "m_v_" adds to a matrix and a vector, 
+    and vec_ adds only to a vector (to be used with "AccumulatorVector").
 
-    2) The functions with _b compute the pn+1 non-vanishing basis functions Lambda^p_ijk(eta) at the point eta.
+    2) The functions containing "_b" compute the pn+1 non-vanishing basis functions Lambda^p_ijk(eta) at the point eta.
     In case Lambda^p_ijk(eta) has already been computed for the filling, it can be passed (functions without _b).
 
-    3) vn with n=0,1,2,3 denotes the discrete space from the 3d Derham sequence the matrix/vector belongs to. v0vec and v3vec denote discrete spaces of vector-valued functions where every component lives in v0 resp. v3.
+    3) vn with n=0,1,2,3 denotes the discrete space from the 3d Derham sequence the matrix/vector belongs to. 
+    v0vec and v3vec denote discrete spaces of vector-valued functions where every component lives in v0 resp. v3.
 
     4) diag/asym/symm/full refer to the property of the block matrix (for v1 or v2) and define which independent components are computed.
-
-    __all__ = [ 'mat_fill_b_v1_diag',
-                'm_v_fill_b_v1_diag',
-                'mat_fill_b_v2_diag',
-                'm_v_fill_b_v2_diag',
-                'mat_fill_b_v1_asym',
-                'm_v_fill_b_v1_asym',
-                'mat_fill_b_v2_asym',
-                'm_v_fill_b_v2_asym',
-                'mat_fill_b_v1_symm',
-                'm_v_fill_b_v1_symm',
-                'mat_fill_b_v2_symm',
-                'm_v_fill_b_v2_symm',
-                'mat_fill_b_v1_full',
-                'm_v_fill_b_v1_full',
-                'mat_fill_b_v2_full',
-                'm_v_fill_b_v2_full',
-                'mat_fill_v1_diag',
-                'm_v_fill_v1_diag',
-                'mat_fill_v2_diag',
-                'm_v_fill_v2_diag',
-                'mat_fill_v1_asym',
-                'm_v_fill_v1_asym',
-                'mat_fill_v2_asym',
-                'm_v_fill_v2_asym',
-                'mat_fill_v1_symm',
-                'm_v_fill_v1_symm',
-                'mat_fill_v2_symm',
-                'm_v_fill_v2_symm',
-                'mat_fill_v1_full',
-                'm_v_fill_v1_full',
-                'mat_fill_v2_full',
-                'm_v_fill_v2_full',
-                'mat_fill_b_v0',
-                'm_v_fill_b_v0',
-                'mat_fill_b_v3',
-                'm_v_fill_b_v3',
-                'mat_fill_v0',
-                'm_v_fill_v0',
-                'mat_fill_v3',
-                'm_v_fill_v3',
-                'mat_fill_b_v0vec_diag',
-                'm_v_fill_b_v0vec_diag',
-                'mat_fill_b_v3vec_diag',
-                'm_v_fill_b_v3vec_diag',
-                'mat_fill_b_v0vec_asym',
-                'm_v_fill_b_v0vec_asym',
-                'mat_fill_b_v3vec_asym',
-                'm_v_fill_b_v3vec_asym',
-                'mat_fill_b_v0vec_symm',
-                'm_v_fill_b_v0vec_symm',
-                'mat_fill_b_v3vec_symm',
-                'm_v_fill_b_v3vec_symm',
-                'mat_fill_b_v0vec_full',
-                'm_v_fill_b_v0vec_full',
-                'mat_fill_b_v3vec_full',
-                'm_v_fill_b_v3vec_full',
-                'mat_fill_v0vec_diag',
-                'm_v_fill_v0vec_diag',
-                'mat_fill_v3vec_diag',
-                'm_v_fill_v3vec_diag',
-                'mat_fill_v0vec_asym',
-                'm_v_fill_v0vec_asym',
-                'mat_fill_v3vec_asym',
-                'm_v_fill_v3vec_asym',
-                'mat_fill_v0vec_symm',
-                'm_v_fill_v0vec_symm',
-                'mat_fill_v3vec_symm',
-                'm_v_fill_v3vec_symm',
-                'mat_fill_v0vec_full',
-                'm_v_fill_v0vec_full',
-                'mat_fill_v3vec_full',
-                'm_v_fill_v3vec_full',
-                'm_v_fill_v1_pressure_full',
-                'm_v_fill_v1_pressure',
-                'vec_fill_v1'
-                'scalar_fill_v0'
-                ]
     """
 
     print('This is just the docstring function.')
@@ -6008,9 +5932,11 @@ def hybrid_density(Nel: 'int[:]', pn: 'int[:]', cell_left: 'int[:]', cell_number
     filler_kernels.hy_density(Nel, pn, cell_left, cell_number, span1, span2, span3, starts, ie1, ie2, ie3, temp1, temp4, quad, quad_pts_x,
                               quad_pts_y, quad_pts_z, compact, eta1, eta2, eta3, mat, weight, p_shape, p_size, grids_shapex, grids_shapey, grids_shapez)
 
-
+#####################################
+### Kernels for AccumulatorVector ###
+#####################################
 @pure
-def vec_fill_v0(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'float[:]', bn2: 'float[:]', bn3: 'float[:]', starts: 'int[:]', vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
+def vec_fill_v0(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'float[:]', bn2: 'float[:]', bn3: 'float[:]', starts: 'int[:]', vec: 'float[:,:,:]', fill: float):
     """TODO
     """
 
@@ -6024,19 +5950,7 @@ def vec_fill_v0(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'float[:]
                             bn1, bn2, bn3,
                             span1, span2, span3,
                             starts,
-                            vec1, fill1)
-
-    filler_kernels.fill_vec(pn1, pn2, pn3,
-                            bn1, bn2, bn3,
-                            span1, span2, span3,
-                            starts,
-                            vec2, fill2)
-
-    filler_kernels.fill_vec(pn1, pn2, pn3,
-                            bn1, bn2, bn3,
-                            span1, span2, span3,
-                            starts,
-                            vec3, fill3)
+                            vec, fill)
 
 
 @pure
@@ -6105,10 +6019,28 @@ def vec_fill_v2(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'float[:]
                             span1, span2, span3,
                             starts,
                             vec3, fill3)
-
-
+    
+  
 @pure
-def scalar_fill_v0(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'float[:]', bn2: 'float[:]', bn3: 'float[:]', starts: 'int[:]', vec: 'float[:,:,:]', fill: float):
+def vec_fill_v3(pn: 'int[:]', span1: int, span2: int, span3: int, bd1: 'float[:]', bd2: 'float[:]', bd3: 'float[:]', starts: 'int[:]', vec: 'float[:,:,:]', fill: float):
+    """TODO
+    """
+
+    # degrees of the basis functions : B-splines (pn) and D-splines (pd)
+    pd1 = pn[0] - 1
+    pd2 = pn[1] - 1
+    pd3 = pn[2] - 1
+
+    # fill vector entries
+    filler_kernels.fill_vec(pd1, pd2, pd3,
+                            bd1, bd2, bd3,
+                            span1, span2, span3,
+                            starts,
+                            vec, fill)
+
+    
+@pure
+def vec_fill_v0vec(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'float[:]', bn2: 'float[:]', bn3: 'float[:]', starts: 'int[:]', vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
     """TODO
     """
 
@@ -6116,38 +6048,6 @@ def scalar_fill_v0(pn: 'int[:]', span1: int, span2: int, span3: int, bn1: 'float
     pn1 = pn[0]
     pn2 = pn[1]
     pn3 = pn[2]
-
-    filler_kernels.fill_vec(pn1, pn2, pn3, bn1, bn2, bn3, span1,
-                            span2, span3, starts, vec, fill)
-
-
-@pure
-@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def vec_fill_b_v0(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', starts: 'int[:]', eta1: float, eta2: float, eta3: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
-    """TODO
-    """
-
-    from numpy import empty
-
-    # degrees of the basis functions : B-splines (pn) and D-splines (pd)
-    pn1 = pn[0]
-    pn2 = pn[1]
-    pn3 = pn[2]
-
-    # non-vanishing B-splines at particle position
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    # spans (i.e. index for non-vanishing B-spline basis functions)
-    span1 = bsplines_kernels.find_span(tn1, pn1, eta1)
-    span2 = bsplines_kernels.find_span(tn2, pn2, eta2)
-    span3 = bsplines_kernels.find_span(tn3, pn3, eta3)
-
-    # compute bn, bd, i.e. values for non-vanishing B-/D-splines at position eta
-    bsplines_kernels.b_splines_slim(tn1, pn1, eta1, span1, bn1)
-    bsplines_kernels.b_splines_slim(tn2, pn2, eta2, span2, bn2)
-    bsplines_kernels.b_splines_slim(tn3, pn3, eta3, span3, bn3)
 
     # fill vector entries
     filler_kernels.fill_vec(pn1, pn2, pn3,
@@ -6167,6 +6067,43 @@ def vec_fill_b_v0(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]
                             span1, span2, span3,
                             starts,
                             vec3, fill3)
+
+
+@pure
+@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+def vec_fill_b_v0(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', starts: 'int[:]', eta1: float, eta2: float, eta3: float, vec: 'float[:,:,:]', fill: float):
+    """TODO
+    """
+
+    from numpy import empty
+
+    # degrees of the basis functions : B-splines (pn) and D-splines (pd)
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pn3 = pn[2]
+
+    # non-vanishing B-splines at particle position
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    # non-vanishing D-splines at particle position
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    # spans (i.e. index for non-vanishing B-spline basis functions)
+    span1 = bsplines_kernels.find_span(tn1, pn1, eta1)
+    span2 = bsplines_kernels.find_span(tn2, pn2, eta2)
+    span3 = bsplines_kernels.find_span(tn3, pn3, eta3)
+
+    # compute bn, bd, i.e. values for non-vanishing B-/D-splines at position eta
+    bsplines_kernels.b_d_splines_slim(tn1, pn1, eta1, span1, bn1, bd1)
+    bsplines_kernels.b_d_splines_slim(tn2, pn2, eta2, span2, bn2, bd2)
+    bsplines_kernels.b_d_splines_slim(tn3, pn3, eta3, span3, bn3, bd3)
+
+    filler_kernels.fill_vec(pn1, pn2, pn3, bn1, bn2, bn3, span1,
+                            span2, span3, starts, vec, fill)
 
 
 @pure
@@ -6285,7 +6222,7 @@ def vec_fill_b_v2(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]
 
 @pure
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def scalar_fill_b_v0(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', starts: 'int[:]', eta1: float, eta2: float, eta3: float, vec: 'float[:,:,:]', fill: float):
+def vec_fill_b_v3(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', starts: 'int[:]', eta1: float, eta2: float, eta3: float, vec: 'float[:,:,:]', fill: float):
     """TODO
     """
 
@@ -6295,6 +6232,10 @@ def scalar_fill_b_v0(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float
     pn1 = pn[0]
     pn2 = pn[1]
     pn3 = pn[2]
+    
+    pd1 = pn1 - 1
+    pd2 = pn2 - 1
+    pd3 = pn3 - 1
 
     # non-vanishing B-splines at particle position
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -6316,5 +6257,54 @@ def scalar_fill_b_v0(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float
     bsplines_kernels.b_d_splines_slim(tn2, pn2, eta2, span2, bn2, bd2)
     bsplines_kernels.b_d_splines_slim(tn3, pn3, eta3, span3, bn3, bd3)
 
-    filler_kernels.fill_vec(pn1, pn2, pn3, bn1, bn2, bn3, span1,
+    filler_kernels.fill_vec(pd1, pd2, pd3, bd1, bd2, bd3, span1,
                             span2, span3, starts, vec, fill)
+
+
+@pure
+@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+def vec_fill_b_v0vec(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', starts: 'int[:]', eta1: float, eta2: float, eta3: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
+    """TODO
+    """
+
+    from numpy import empty
+
+    # degrees of the basis functions : B-splines (pn) and D-splines (pd)
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pn3 = pn[2]
+
+    # non-vanishing B-splines at particle position
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    # spans (i.e. index for non-vanishing B-spline basis functions)
+    span1 = bsplines_kernels.find_span(tn1, pn1, eta1)
+    span2 = bsplines_kernels.find_span(tn2, pn2, eta2)
+    span3 = bsplines_kernels.find_span(tn3, pn3, eta3)
+
+    # compute bn, bd, i.e. values for non-vanishing B-/D-splines at position eta
+    bsplines_kernels.b_splines_slim(tn1, pn1, eta1, span1, bn1)
+    bsplines_kernels.b_splines_slim(tn2, pn2, eta2, span2, bn2)
+    bsplines_kernels.b_splines_slim(tn3, pn3, eta3, span3, bn3)
+
+    # fill vector entries
+    filler_kernels.fill_vec(pn1, pn2, pn3,
+                            bn1, bn2, bn3,
+                            span1, span2, span3,
+                            starts,
+                            vec1, fill1)
+
+    filler_kernels.fill_vec(pn1, pn2, pn3,
+                            bn1, bn2, bn3,
+                            span1, span2, span3,
+                            starts,
+                            vec2, fill2)
+
+    filler_kernels.fill_vec(pn1, pn2, pn3,
+                            bn1, bn2, bn3,
+                            span1, span2, span3,
+                            starts,
+                            vec3, fill3)
+

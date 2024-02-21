@@ -3,21 +3,7 @@
 Dispersion relations
 --------------------
 
-This page lists the currently available 1D dispersion relations in Struphy:
-
-- `analytic <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.dispersion_relations.analytic.html>`_
-
-
-Documented modules:
-
-.. currentmodule:: ''
-
-.. autosummary::
-    :nosignatures:
-    :toctree: STUBDIR
-
-    struphy.dispersion_relations.base
-    struphy.dispersion_relations.analytic
+Dispersion relations are a valuable tool for code verification.
 
 
 Base classes

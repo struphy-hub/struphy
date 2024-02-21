@@ -20,12 +20,15 @@ default:
     - pip list
 
   tags:
-    - cloud
+    - distributedcache
 
   cache:
     key: 'python-env'
     paths:
       - env_$CI_PIPELINE_ID/
+
+  artifacts:
+    expire_in: 1 day
 
 stages:
   - startup

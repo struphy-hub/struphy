@@ -84,14 +84,6 @@ by changing ``kinetic/electrons/markers/ppc`` from 10 to 20, and then running::
 
     struphy run VlasovMaxwell -i test.yml -o sim_20 --mpi 2
 
-After post-processing::
-
-    struphy pproc -d sim_20
-
-we can compare the two runs with 10 and 20 particles per cell, respectively, in terms of runtime::
-
-    struphy profile another_sim sim_20
-
 Finally, each Struphy model has some specific options to it, which in the case of ``VlasovMaxwell`` can be inspected via::
 
     struphy params VlasovMaxwell --options

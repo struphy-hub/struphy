@@ -1,5 +1,3 @@
-'Simple toy models for testing.'
-
 import numpy as np
 from struphy.models.base import StruphyModel
 
@@ -812,7 +810,10 @@ class VariationalCompressibleFluid(StruphyModel):
         self.update_scalar('en_tot', en_tot)
 
     def update_thermo_energy(self):
-        # Reuse tmp used in VariationalEntropyEvolve to compute the thermodynamical energy.
+        '''Reuse tmp used in VariationalEntropyEvolve to compute the thermodynamical energy.
+        
+        :meta private:
+        '''
         en_prop = self._propagators[2]
         en_prop.sf.vector = self.pointer['fluid_s3']
         en_prop.rhof.vector = self.pointer['fluid_rho3']
@@ -899,6 +900,7 @@ class Poisson(StruphyModel):
     # make dt=1 in parameter file
     @classmethod
     def generate_default_parameter_file(cls, file=None, save=True, prompt=True):
+        ''':meta private:'''
 
         params = super(Poisson, cls).generate_default_parameter_file(
             file=file, save=False, prompt=False)

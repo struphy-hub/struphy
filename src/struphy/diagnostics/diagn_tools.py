@@ -1,5 +1,3 @@
-""" A collection of tools used for diagnostics """
-
 #!/usr/bin/env python3
 import matplotlib.pyplot as plt
 import numpy as np
