@@ -29,7 +29,7 @@ which can be solved on a variety of `mapped domains <https://struphy.pages.mpcdf
    sections/quickstart
    sections/tutorials
    sections/models
-   sections/discretization
+   sections/numerics
    sections/userguide
    sections/developers
    sections/inventory

@@ -5,7 +5,7 @@ Scaling tests
 
 Scaling test: MPCDF_cobra
 ^^^^^^^^^^^^^^^^^^^^^^^^^
-    .. image:: ../pics/performance_tests/mpcdf_cobra/mpcdf_cobra_overview.png
+    .. image:: ../../pics/performance_tests/mpcdf_cobra/mpcdf_cobra_overview.png
         :width: 1100
         :align: center
 
@@ -21,37 +21,37 @@ Used parameters and batch files are available at `struphy-simulations <https://g
 
 - **Cuboid (Noise)**
 
-    .. image:: ../pics/performance_tests/mpcdf_cobra/maxwell/cuboid.png
+    .. image:: ../../pics/performance_tests/mpcdf_cobra/maxwell/cuboid.png
         :width: 700
         :align: center
 
 - **Cuboid (ModesSin)**
 
-    .. image:: ../pics/performance_tests/mpcdf_cobra/maxwell/cuboid_sin.png
+    .. image:: ../../pics/performance_tests/mpcdf_cobra/maxwell/cuboid_sin.png
         :width: 700
         :align: center
 
 - **Colella (Noise)**
 
-    .. image:: ../pics/performance_tests/mpcdf_cobra/maxwell/colella.png
+    .. image:: ../../pics/performance_tests/mpcdf_cobra/maxwell/colella.png
         :width: 700
         :align: center
 
 - **Colella (ModesSin)**
 
-    .. image:: ../pics/performance_tests/mpcdf_cobra/maxwell/colella_sin.png
+    .. image:: ../../pics/performance_tests/mpcdf_cobra/maxwell/colella_sin.png
         :width: 700
         :align: center
 
 - **HollowTorus (Noise)**
 
-    .. image:: ../pics/performance_tests/mpcdf_cobra/maxwell/hollowtorus.png
+    .. image:: ../../pics/performance_tests/mpcdf_cobra/maxwell/hollowtorus.png
         :width: 700
         :align: center
 
 - **HollowTorus (ModesSin)**
 
-    .. image:: ../pics/performance_tests/mpcdf_cobra/maxwell/hollowtorus_sin.png
+    .. image:: ../../pics/performance_tests/mpcdf_cobra/maxwell/hollowtorus_sin.png
         :width: 700
         :align: center
 
@@ -67,48 +67,48 @@ Used parameters and batch files are available at `struphy-simulations <https://g
 
 - **Cuboid, HomogenSlab (Noise)**
 
-    .. image:: ../pics/performance_tests/mpcdf_cobra/linearmhd/cuboid.png
+    .. image:: ../../pics/performance_tests/mpcdf_cobra/linearmhd/cuboid.png
         :width: 700
         :align: center
 
 - **Cuboid, HomogenSlab (ModesSin)**
 
-    .. image:: ../pics/performance_tests/mpcdf_cobra/linearmhd/cuboid_sin.png
+    .. image:: ../../pics/performance_tests/mpcdf_cobra/linearmhd/cuboid_sin.png
         :width: 700
         :align: center
 
 - **Colella, HomogenSlab (Noise)**
 
-    .. image:: ../pics/performance_tests/mpcdf_cobra/linearmhd/colella.png
+    .. image:: ../../pics/performance_tests/mpcdf_cobra/linearmhd/colella.png
         :width: 700
         :align: center
 
 - **Colella, HomogenSlab (ModesSin)**
 
-    .. image:: ../pics/performance_tests/mpcdf_cobra/linearmhd/colella_sin.png
+    .. image:: ../../pics/performance_tests/mpcdf_cobra/linearmhd/colella_sin.png
         :width: 700
         :align: center
 
 - **HollowTorus, AdhocTorus (Noise)**
 
-    .. image:: ../pics/performance_tests/mpcdf_cobra/linearmhd/hollowtorus.png
+    .. image:: ../../pics/performance_tests/mpcdf_cobra/linearmhd/hollowtorus.png
         :width: 700
         :align: center
 
 - **HollowTorus, AdhocTorus (ModesSin)**
 
-    .. image:: ../pics/performance_tests/mpcdf_cobra/linearmhd/hollowtorus_sin.png
+    .. image:: ../../pics/performance_tests/mpcdf_cobra/linearmhd/hollowtorus_sin.png
         :width: 700
         :align: center
 
 - **Tokamak, EQDSKequilibrium (Noise)**
 
-    .. image:: ../pics/performance_tests/mpcdf_cobra/linearmhd/tokamak.png
+    .. image:: ../../pics/performance_tests/mpcdf_cobra/linearmhd/tokamak.png
         :width: 700
         :align: center
 
 - **Tokamak, EQDSKequilibrium (ModesSin)**
 
-    .. image:: ../pics/performance_tests/mpcdf_cobra/linearmhd/tokamak_sin.png
+    .. image:: ../../pics/performance_tests/mpcdf_cobra/linearmhd/tokamak_sin.png
         :width: 700
         :align: center

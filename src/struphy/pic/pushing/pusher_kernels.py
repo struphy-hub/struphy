@@ -77,19 +77,23 @@ def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                        e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
-                       kappa: 'float'):
+                       const: 'float'):
     r'''Updates
 
     .. math::
 
-        \frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = \kappa DF^{-\top} \hat{\mathbf E}^1(\eta^n_p)
+        \frac{\mathbf v^{n+1}_k - \mathbf v^n_k}{\Delta t} = C * DF^{-\top}(\boldsymbol \eta^n_k) \hat{\mathbf E}^1_h(\boldsymbol \eta^n_k)
 
-    for each marker :math:`p` in markers array, where :math:`\hat{\mathbf E}^1 in H(\textnormal{curl})`.
+    for each marker :math:`k` in markers array, where :math:`\hat{\mathbf E}^1_h \in V_h^1 \subset H(\textnormal{curl})`,
+    and :math:`C \in \mathbb R` some constant.
 
     Parameters
     ----------
-        e1_1, e1_2, e1_3: array[float]
+        e1_1, e1_2, e1_3 : ndarray[float]
             3d array of FE coeffs of E-field as 1-form.
+            
+        const : float
+            A constant (usuallly related to the charge-to-mass ratio).
     '''
 
     # allocate metric coeffs
@@ -159,7 +163,7 @@ def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
         linalg_kernels.matrix_vector(dfinvt, e_form, e_cart)
 
         # update velocities
-        markers[ip, 3:6] += dt * kappa * e_cart
+        markers[ip, 3:6] += dt * const * e_cart
 
     #$ omp end parallel
 
