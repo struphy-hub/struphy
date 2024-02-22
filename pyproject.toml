@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "2.1.1"
+version = "2.2.0"
 readme = "README.md"
 requires-python = ">=3.7, <3.12"
 license = {file = "LICENSE"}
@@ -42,7 +42,7 @@ dependencies = [
     'argcomplete',
     'ipyparallel',
     'pytest-monitor',
-    'pyccel>=1.10.0',
+    'pyccel>=1.11.1',
     'gvec-to-python',
 ]
 
