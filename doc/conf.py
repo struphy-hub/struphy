@@ -40,6 +40,9 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
     "nbsphinx",
+    "sphinx.ext.inheritance_diagram",
+    "sphinx.ext.graphviz",
+    'myst_parser',
 ]
 
 napoleon_use_admonition_for_examples = True
@@ -71,7 +74,7 @@ html_theme_options = {
     "show_nav_level": 3,
     "show_toc_level": 2,
     "navigation_depth": 4,
-    "header_links_before_dropdown": 8,
+    "header_links_before_dropdown": 10,
     "primary_sidebar_end": ["sidebar-ethical-ads"],
     "external_links": [
         {"name": "Struphy repo", "url": "https://gitlab.mpcdf.mpg.de/struphy/struphy"},
@@ -114,4 +117,28 @@ html_logo = 'dog-cartoon-struphy.jpg'
 #     'style_external_links': True,
 # }
 
+# inheritance diagrams
+inheritance_graph_attrs = dict(rankdir="LR", ratio='auto', size='"4.0, 20.0"',
+                               fontsize="8", resolution=300.0)
 
+inheritance_node_attrs = dict(shape='ellipse', fontsize="8", height=0.25,
+                              color='maroon4', style='filled')
+
+# markdown parsing
+myst_enable_extensions = [
+    "amsmath",
+    "attrs_inline",
+    "colon_fence",
+    "deflist",
+    "dollarmath",
+    "fieldlist",
+    "html_admonition",
+    "html_image",
+    "replacements",
+    "smartquotes",
+    "strikethrough",
+    "substitution",
+    "tasklist",
+]
+
+myst_dmath_allow_labels=True

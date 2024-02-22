@@ -3,11 +3,15 @@
 Inventory
 =========
 
-.. include:: propagators.rst
-.. include:: accumulators.rst
-.. include:: domains.rst
-.. include:: mhd_equils.rst
-.. include:: kinetic_backgrounds.rst
-.. include:: inits.rst
-.. include:: diagnostics.rst
-.. include:: dispersions.rst
+.. toctree::
+    :maxdepth: 1
+    :caption: Contents:
+
+    subsections/propagators
+    subsections/accumulators
+    subsections/domains
+    subsections/mhd_equils
+    subsections/kinetic_backgrounds
+    subsections/inits
+    subsections/diagnostics
+    subsections/dispersions

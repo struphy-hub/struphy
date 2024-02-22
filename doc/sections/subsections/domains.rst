@@ -3,21 +3,14 @@
 3D mapped domains
 -----------------
 
-This page lists the currently available geometries in Struphy:
+Struphy models are implemented in curvilinear coordinates and can be run
+on a variaty of mapped domains. 
+Besides analytical mappings, there are also discrete spline mappings available (IGA approach).
+The following inheritance diagram shows the existing mapped domains:
 
-- `available mapped domains <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.geometry.domains.html>`_
 
-Domain-related code stands in the following sub-modules:
-
-.. currentmodule:: ''
-
-.. autosummary::
-    :nosignatures:
-    :toctree: STUBDIR
-
-    struphy.geometry.base
-    struphy.geometry.domains
-    struphy.geometry.utilities
+.. inheritance-diagram:: struphy.geometry.domains
+    :parts: 1
 
 
 Base classes

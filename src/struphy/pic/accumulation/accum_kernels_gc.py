@@ -618,7 +618,7 @@ def cc_lin_mhd_5d_mu(markers: 'float[:,:]', n_markers_tot: 'int',
         filling = weight * mu * coupling_const
 
         # call the appropriate matvec filler
-        particle_to_mat_kernels.scalar_fill_v0(pn, span1, span2, span3, bn1,
+        particle_to_mat_kernels.vec_fill_v0(pn, span1, span2, span3, bn1,
                            bn2, bn3, starts, vec, filling)
 
     vec /= n_markers_tot
@@ -765,7 +765,7 @@ def cc_lin_mhd_5d_curlMxB(markers: 'float[:,:]', n_markers_tot: 'int',
 
             filling_v[:] = weight * mu * tmp_v1 * scale_vec
 
-            particle_to_mat_kernels.vec_fill_v0(pn, span1, span2, span3,
+            particle_to_mat_kernels.vec_fill_v0vec(pn, span1, span2, span3,
                             bn1, bn2, bn3,
                             starts,
                             vec1, vec2, vec3,

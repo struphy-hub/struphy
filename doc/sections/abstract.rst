@@ -1,6 +1,6 @@
 .. _overview:
 
-tl;dr
+Tl;dr
 =====
 
 **Struphy provides easy access to partial differential equations (PDEs) in plasma physics.

@@ -32,9 +32,12 @@ class MassMatrixPreconditioner(LinearOperator):
 
     apply_bc : bool
         Whether to include boundary operators.
+
+    dim_reduce : int
+        Along which axis to take the approximate value of the weight
     """
 
-    def __init__(self, mass_operator, apply_bc=True):
+    def __init__(self, mass_operator, apply_bc=True, dim_reduce=0):
 
         assert isinstance(mass_operator, WeightedMassOperator)
         assert mass_operator.domain == mass_operator.codomain, 'Only square mass matrices can be inverted!'
@@ -60,9 +63,10 @@ class MassMatrixPreconditioner(LinearOperator):
         n_dims = self._femspace.ldim
 
         assert n_dims == 3  # other dims not yet implemented
+        assert dim_reduce<n_dims
 
         # get boundary conditions list from BoundaryOperator in ComposedLinearOperator M0 of mass operator
-        if apply_bc and isinstance(mass_operator.M0, ComposedLinearOperator):
+        if apply_bc and isinstance(mass_operator.M0, ComposedLinearOperator):            
             if isinstance(mass_operator.M0.multiplicants[-1], BoundaryOperator):
                 bc = mass_operator.M0.multiplicants[-1].bc
             else:
@@ -83,10 +87,29 @@ class MassMatrixPreconditioner(LinearOperator):
             for d in range(n_dims):
 
                 # weight function only along in first direction
-                if d == 0:
+                if d == dim_reduce:
                     #pts = [0.5] * (n_dims - 1)
-                    fun = [[lambda e1: mass_operator.weights[c][c](
-                        e1, np.array([.5]), np.array([.5])).squeeze()]]
+                    loc_weights = mass_operator.weights[c][c]
+                    if callable(loc_weights):
+                        def fun(e):
+                            # make input in meshgrid format to be able to use it with general functions
+                            s = e.shape[0]
+                            newshape = tuple([1 if i!=d else s for i in range(n_dims)])
+                            f = e.reshape(newshape)
+                            return loc_weights(*[np.array(np.full_like(f, .5)) if i!=d else np.array(f) for i in range(n_dims)]).squeeze()
+                    elif isinstance(loc_weights, np.ndarray):
+                        s = loc_weights.shape
+                        if d == 0:
+                            fun = loc_weights[:,s[1]//2,s[2]//2]
+                        elif d==1:
+                            fun = loc_weights[s[0]//2,:,s[2]//2]
+                        elif d==2:
+                            fun = loc_weights[s[0]//2,s[1]//2,:]
+                    elif loc_weights is None:
+                        fun = lambda e: np.ones(e.size, dtype=float)
+                    else : 
+                        raise TypeError("weights needs to be callable, np.ndarray or None but is{}".format(type(loc_weights)))
+                    fun = [[fun]]
                 else:
                     fun = [[lambda e: np.ones(e.size, dtype=float)]]
 
@@ -571,10 +594,14 @@ def is_circulant(mat):
 
     assert isinstance(mat, np.ndarray)
     assert len(mat.shape) == 2
-
-    for i in range(mat.shape[0] - 1):
-        circulant = np.allclose(mat[i, :], np.roll(mat[i + 1, :], -1))
-        if not circulant:
-            return circulant
+    assert mat.shape[0] == mat.shape[1]
+    
+    if mat.shape[0] > 1:
+        for i in range(mat.shape[0] - 1):
+            circulant = np.allclose(mat[i, :], np.roll(mat[i + 1, :], -1))
+            if not circulant:
+                return circulant
+    else:
+        circulant = True
 
     return circulant

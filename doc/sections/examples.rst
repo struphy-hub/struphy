@@ -1,6 +1,12 @@
 .. _gallery:
 
-Gallery
-=======
+Struphy examples
+================
 
-Coming soon !
+Check out some result produced by Struphy simulations.
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   subsections/performance_tests

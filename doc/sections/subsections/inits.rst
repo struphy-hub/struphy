@@ -3,20 +3,7 @@
 Field/fluid initial conditions
 ------------------------------
 
-This page lists the currently available field/fluid backgrounds/initial conditions in Struphy:
-
-- `perturbations <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.initial.perturbations.html>`_
-
-
-Documented modules:
-
-.. currentmodule:: ''
-
-.. autosummary::
-    :nosignatures:
-    :toctree: STUBDIR
-
-    struphy.initial.perturbations
+The field initial conditions are perturbations that can be added for instance on top of :ref:`mhd_equil`.
     
 
 Noise

@@ -370,26 +370,26 @@ def test_projectors(Nel, p, spl_kind):
 
     # pull-back to logical domain
     def fun0(e1, e2, e3): return domain.pull(
-        fun_scalar, e1, e2, e3, kind='0_form')
+        fun_scalar, e1, e2, e3, kind='0')
 
-    fun1 = [lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind='1_form')[0],
+    fun1 = [lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind='1')[0],
             lambda e1, e2, e3: domain.pull(
-                fun_vector, e1, e2, e3, kind='1_form')[1],
-            lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind='1_form')[2]]
+                fun_vector, e1, e2, e3, kind='1')[1],
+            lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind='1')[2]]
 
-    fun2 = [lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind='2_form')[0],
+    fun2 = [lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind='2')[0],
             lambda e1, e2, e3: domain.pull(
-                fun_vector, e1, e2, e3, kind='2_form')[1],
-            lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind='2_form')[2]]
+                fun_vector, e1, e2, e3, kind='2')[1],
+            lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind='2')[2]]
 
     def fun3(e1, e2, e3): return domain.pull(
-        fun_scalar, e1, e2, e3, kind='3_form')
+        fun_scalar, e1, e2, e3, kind='3')
 
     # ============ project on V0 =========================
     if rank == 0:
-        r0_pol = derham.P['0'](fun0, tol=1e-10, verbose=True)
+        r0_pol = derham.P['0'](fun0)
     else:
-        r0_pol = derham.P['0'](fun0, tol=1e-10, verbose=False)
+        r0_pol = derham.P['0'](fun0)
 
     r0_pol_leg = space.projectors.pi_0(fun0)
 
@@ -403,9 +403,9 @@ def test_projectors(Nel, p, spl_kind):
 
     # ============ project on V1 =========================
     if rank == 0:
-        r1_pol = derham.P['1'](fun1, tol=1e-10, verbose=True)
+        r1_pol = derham.P['1'](fun1)
     else:
-        r1_pol = derham.P['1'](fun1, tol=1e-10, verbose=False)
+        r1_pol = derham.P['1'](fun1)
 
     r1_pol_leg = space.projectors.pi_1(fun1, with_subs=False)
 
@@ -419,9 +419,9 @@ def test_projectors(Nel, p, spl_kind):
 
     # ============ project on V2 =========================
     if rank == 0:
-        r2_pol = derham.P['2'](fun2, tol=1e-10, verbose=True)
+        r2_pol = derham.P['2'](fun2)
     else:
-        r2_pol = derham.P['2'](fun2, tol=1e-10, verbose=False)
+        r2_pol = derham.P['2'](fun2)
 
     r2_pol_leg = space.projectors.pi_2(fun2, with_subs=False)
 
@@ -435,9 +435,9 @@ def test_projectors(Nel, p, spl_kind):
 
     # ============ project on V3 =========================
     if rank == 0:
-        r3_pol = derham.P['3'](fun3, tol=1e-10, verbose=True)
+        r3_pol = derham.P['3'](fun3)
     else:
-        r3_pol = derham.P['3'](fun3, tol=1e-10, verbose=False)
+        r3_pol = derham.P['3'](fun3)
 
     r3_pol_leg = space.projectors.pi_3(fun3, with_subs=False)
 

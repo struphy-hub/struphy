@@ -547,9 +547,9 @@ class Maxwellian6DITPA(Maxwellian):
 
         res_list = []
 
-        res_list += [self.params['vth1'] - 0*eta1]
-        res_list += [self.params['vth2'] - 0*eta1]
-        res_list += [self.params['vth3'] - 0*eta1]
+        res_list += [self.params['vth'] - 0*eta1]
+        res_list += [self.params['vth'] - 0*eta1]
+        res_list += [self.params['vth'] - 0*eta1]
 
         return np.array(res_list)
 

@@ -492,7 +492,7 @@ class StruphyModel(metaclass=ABCMeta):
                 for variable, subval in val.items():
                     if 'params' not in variable:
                         subval['obj'].initialize_coeffs(
-                            val['params']['init'], domain=self.domain)
+                            val['params']['init'], domain=self.domain, species=species)
 
                 if self.comm.Get_rank() == 0:
                     init_type = val['params']['init']['type']
@@ -535,14 +535,16 @@ class StruphyModel(metaclass=ABCMeta):
                 val['obj'].draw_markers()
                 val['obj'].mpi_sort_markers(do_test=True)
 
-                typ = val['params']['markers']['type']
-                assert typ in ['full_f', 'delta_f', 'control_variate'], \
-                    f'Type {typ} for distribution function is not known!'
+                if not val['params']['markers']['loading']['type'] == 'restart':
 
-                val['obj'].initialize_weights(val['params']['init'])
+                    typ = val['params']['markers']['type']
+                    assert typ in ['full_f', 'delta_f', 'control_variate'], \
+                        f'Type {typ} for distribution function is not known!'
 
-                if val['space'] == 'Particles5D':
-                    val['obj'].save_magnetic_moment()
+                    val['obj'].initialize_weights(val['params']['init'])
+
+                    if val['space'] == 'Particles5D':
+                        val['obj'].save_magnetic_moment()
 
     def initialize_from_restart(self, data):
         """
@@ -943,6 +945,43 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             print('None.')
 
     @classmethod
+    def write_parameters_to_file(cls, parameters=None, file=None, save=True, prompt=True):
+        import struphy
+        import yaml
+        import os
+
+        libpath = struphy.__path__[0]
+
+        # write to current input path
+        with open(os.path.join(libpath, 'state.yml')) as f:
+            state = yaml.load(f, Loader=yaml.FullLoader)
+
+        i_path = state['i_path']
+
+        if file is None:
+            file = os.path.join(i_path, 'params_' + cls.__name__ + '.yml')
+        else:
+            assert '.yml' in file or '.yaml' in file, 'File must have a a .yml (.yaml) extension.'
+            file = os.path.join(i_path, file)
+
+        if save:
+            if not prompt:
+                yn = 'Y'
+            else:
+                yn = input(f'Writing to {file}, are you sure (Y/n)? ')
+
+            if yn in ('', 'Y', 'y', 'yes', 'Yes'):
+                with open(file, 'w') as outfile:
+                    yaml.dump(parameters, outfile, Dumper=MyDumper,
+                              default_flow_style=None, sort_keys=False, indent=4, line_break='\n')
+                print(
+                    f'Default parameter file for {cls.__name__} has been created; you can now launch with "struphy run {cls.__name__}".')
+            else:
+                pass
+
+        
+    
+    @classmethod
     def generate_default_parameter_file(cls, file=None, save=True, prompt=True):
         '''Generate a parameter file with default options for each species,
         and save it to the current input path.
@@ -975,22 +1014,27 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         with open(os.path.join(libpath, 'io/inp/parameters.yml')) as tmp:
             parameters = yaml.load(tmp, Loader=yaml.FullLoader)
 
+        # extract default init params
+        init_kind = list(parameters['fluid']['mhd']['init'])[-1]
+
+        init_params = {}
+        init_params_scalar = {}
+
+        for keys, vals in parameters['fluid']['mhd']['init'][init_kind].items():
+            init_params[keys] = vals['u2']
+            init_params_scalar[keys] = vals['p3']
+
         # get rid of species names in initial conditions (add back later)
-        parameters['em_fields']['init']['TorusModesCos'].pop('comps')
-        parameters['em_fields']['init']['TorusModesCos']['comps'] = {}
-        parameters['fluid']['mhd']['init']['TorusModesCos'].pop('comps')
-        parameters['fluid']['mhd']['init']['TorusModesCos']['comps'] = {}
         parameters['kinetic']['ions'].pop('init')
         parameters['kinetic']['ions'].pop('background')
         parameters['kinetic']['ions']['markers']['loading'].pop('moments')
 
-        # standard test dictionaries
-        em_field_params = parameters.pop('em_fields')
-        fluid_params = parameters['fluid'].pop('mhd')
-        kinetic_params = parameters['kinetic'].pop('ions')
+        for keys in init_params_scalar.keys():
 
-        parameters.pop('fluid')
-        parameters.pop('kinetic')
+            parameters['em_fields']['init'][init_kind].pop(keys)
+            parameters['em_fields']['init'][init_kind][keys] = {}
+            parameters['fluid']['mhd']['init'][init_kind].pop(keys)
+            parameters['fluid']['mhd']['init'][init_kind][keys] = {}
 
         # standard moments of Maxwellians
         moms = {'6D': [0., 0., 0., 1., 1., 1.],
@@ -1001,16 +1045,20 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         # set the correct names in the parameter file
         if len(cls.species()['em_fields']) > 0:
-            parameters['em_fields'] = em_field_params
+
             for name, space in cls.species()['em_fields'].items():
                 # default initial condition for scalar-valued field
                 if space in {'H1', 'L2'}:
-                    parameters['em_fields']['init']['TorusModesCos']['comps'][name] = True
+                    for keys, vals in init_params_scalar.items():
+                        parameters['em_fields']['init'][init_kind][keys][name] = vals
 
                 # default initial condition for vector-valued field
                 elif space in {'Hcurl', 'Hdiv', 'H1vec'}:
-                    parameters['em_fields']['init']['TorusModesCos']['comps'][name] = [
-                        False, True, False]
+                    for keys, vals in init_params.items():
+                        parameters['em_fields']['init'][init_kind][keys][name] = vals
+
+        else:
+            parameters.pop('em_fields')
 
         # find out the default em_fields options of the model
         if 'options' in cls.options()['em_fields']:
@@ -1021,36 +1069,43 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             parameters['em_fields']['options'] = d_default
 
         # fluid
+        fluid_params = parameters['fluid'].pop('mhd')
+
         if len(cls.species()['fluid']) > 0:
-            parameters['fluid'] = {}
 
-        for name, dct in cls.species()['fluid'].items():
+            for name, dct in cls.species()['fluid'].items():
 
-            parameters['fluid'][name] = fluid_params
+                parameters['fluid'][name] = fluid_params
 
-            # find out the default fluid options of the model
-            if name in cls.options()['fluid']:
+                # find out the default fluid options of the model
+                if name in cls.options()['fluid']:
 
-                d_opts['fluid'][name] = []
+                    d_opts['fluid'][name] = []
 
-                # create the default options parameters
-                d_default = descend_options_dict(cls.options()['fluid'][name]['options'],
-                                                 d_opts['fluid'][name])
+                    # create the default options parameters
+                    d_default = descend_options_dict(cls.options()['fluid'][name]['options'],
+                                                     d_opts['fluid'][name])
 
-                parameters['fluid'][name]['options'] = d_default
+                    parameters['fluid'][name]['options'] = d_default
 
-            # set the correct names parameter file
-            for sub_name, space in dct.items():
-                # default initial condition for scalar-valued field
-                if space in {'H1', 'L2'}:
-                    parameters['fluid'][name]['init']['TorusModesCos']['comps'][sub_name] = True
+                # set the correct names parameter file
+                for sub_name, space in dct.items():
+                    # default initial condition for scalar-valued field
+                    if space in {'H1', 'L2'}:
+                        for keys, vals in init_params_scalar.items():
+                            parameters['fluid'][name]['init'][init_kind][keys][sub_name] = vals
 
-                # default initial condition for scalar-valued field
-                elif space in {'Hcurl', 'Hdiv', 'H1vec'}:
-                    parameters['fluid'][name]['init']['TorusModesCos']['comps'][sub_name] = [
-                        False, True, False]
+                    # default initial condition for scalar-valued field
+                    elif space in {'Hcurl', 'Hdiv', 'H1vec'}:
+                        for keys, vals in init_params.items():
+                            parameters['fluid'][name]['init'][init_kind][keys][sub_name] = vals
+
+        else:
+            parameters.pop('fluid')
 
         # kinetic
+        kinetic_params = parameters['kinetic'].pop('ions')
+
         if len(cls.species()['kinetic']) > 0:
             parameters['kinetic'] = {}
 
@@ -1077,32 +1132,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                                                          'Maxwellian' + dim + 'Uniform': {'n': 0.8}}
             parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
 
-        # write to current input path
-        with open(os.path.join(libpath, 'state.yml')) as f:
-            state = yaml.load(f, Loader=yaml.FullLoader)
-
-        i_path = state['i_path']
-
-        if file is None:
-            file = os.path.join(i_path, 'params_' + cls.__name__ + '.yml')
-        else:
-            assert '.yml' in file or '.yaml' in file, 'File must have a a .yml (.yaml) extension.'
-            file = os.path.join(i_path, file)
-
-        if save:
-            if not prompt:
-                yn = 'Y'
-            else:
-                yn = input(f'Writing to {file}, are you sure (Y/n)? ')
-
-            if yn in ('', 'Y', 'y', 'yes', 'Yes'):
-                with open(file, 'w') as outfile:
-                    yaml.dump(parameters, outfile, Dumper=MyDumper,
-                              default_flow_style=None, sort_keys=False, indent=4, line_break='\n')
-                print(
-                    f'Default parameter file for {cls.__name__} has been created; you can now launch with "struphy run {cls.__name__}".')
-            else:
-                pass
+        cls.write_parameters_to_file(parameters=parameters, file=file, save=save, prompt=prompt)
 
         return parameters
 

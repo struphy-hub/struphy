@@ -16,50 +16,50 @@ class MHDequilibrium(metaclass=ABCMeta):
     For logical equilibria, the methods b2, j2, p0 and n0 are overidden by the child class.   
     """    
 
-    def absB0(self, *etas, squeeze_out=True):
+    def absB0(self, *etas, squeeze_out=False):
         """ 0-form absolute value of equilibrium magnetic field on logical cube [0, 1]^3.
         """
         b, xyz = self.b_cart(*etas, squeeze_out=squeeze_out)
         return np.sqrt(b[0]**2 + b[1]**2 + b[2]**2)
     
-    def b1(self, *etas, squeeze_out=True):
+    def b1(self, *etas, squeeze_out=False):
         """ 1-form components of equilibrium magnetic field on logical cube [0, 1]^3.
         """
         return self.domain.transform(self.b2(*etas, squeeze_out=False), *etas, kind='2_to_1', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
-    def b2(self, *etas, squeeze_out=True):
+    def b2(self, *etas, squeeze_out=False):
         """ 2-form components of equilibrium magnetic field on logical cube [0, 1]^3.
         """
         xyz = self.domain(*etas, squeeze_out=False)
-        return self.domain.pull(self.b_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='2_form', squeeze_out=squeeze_out)
+        return self.domain.pull(self.b_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='2', squeeze_out=squeeze_out)
 
-    def bv(self, *etas, squeeze_out=True):
+    def bv(self, *etas, squeeze_out=False):
         """ Contra-variant components of equilibrium magnetic field on logical cube [0, 1]^3.
         """
         return self.domain.transform(self.b2(*etas, squeeze_out=False), *etas, kind='2_to_v', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
-    def b_cart(self, *etas, squeeze_out=True):
+    def b_cart(self, *etas, squeeze_out=False):
         """ Cartesian components of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
-        b_out = self.domain.push(self.b2(*etas, squeeze_out=False), *etas, kind='2_form', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        b_out = self.domain.push(self.b2(*etas, squeeze_out=False), *etas, kind='2', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
         return b_out, self.domain(*etas, squeeze_out=squeeze_out)
 
-    def unit_b1(self, *etas, squeeze_out=True):
+    def unit_b1(self, *etas, squeeze_out=False):
         """ Unit vector components of equilibrium magnetic field (1-form) on logical cube [0, 1]^3.
         """
-        return self.domain.pull(self.unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='1_form', squeeze_out=squeeze_out)
+        return self.domain.pull(self.unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='1', squeeze_out=squeeze_out)
 
-    def unit_b2(self, *etas, squeeze_out=True):
+    def unit_b2(self, *etas, squeeze_out=False):
         """ Unit vector components of equilibrium magnetic field (2-form) on logical cube [0, 1]^3.
         """
-        return self.domain.pull(self.unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='2_form', squeeze_out=squeeze_out)
+        return self.domain.pull(self.unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='2', squeeze_out=squeeze_out)
     
-    def unit_bv(self, *etas, squeeze_out=True):
+    def unit_bv(self, *etas, squeeze_out=False):
         """ Unit vector components of  equilibrium magnetic field (contra-variant) on logical cube [0, 1]^3.
         """
-        return self.domain.pull(self.unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='vector', squeeze_out=squeeze_out)
+        return self.domain.pull(self.unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='v', squeeze_out=squeeze_out)
     
-    def unit_b_cart(self, *etas, squeeze_out=True):
+    def unit_b_cart(self, *etas, squeeze_out=False):
         """ Unit vector Cartesian components of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
         b, xyz = self.b_cart(*etas, squeeze_out=squeeze_out)
@@ -67,22 +67,22 @@ class MHDequilibrium(metaclass=ABCMeta):
         out = np.array([b[0]/absB, b[1]/absB, b[2]/absB], dtype=float)
         return out, xyz
 
-    def curl_unit_b1(self, *etas, squeeze_out=True):
+    def curl_unit_b1(self, *etas, squeeze_out=False):
         """ 1-form components of curl of unit equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
-        return self.domain.pull(self.curl_unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='1_form', squeeze_out=squeeze_out)
+        return self.domain.pull(self.curl_unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='1', squeeze_out=squeeze_out)
 
-    def curl_unit_b2(self, *etas, squeeze_out=True):
+    def curl_unit_b2(self, *etas, squeeze_out=False):
         """ 2-form components of curl of unit equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
-        return self.domain.pull(self.curl_unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='2_form', squeeze_out=squeeze_out)
+        return self.domain.pull(self.curl_unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='2', squeeze_out=squeeze_out)
     
-    def curl_unit_bv(self, *etas, squeeze_out=True):
+    def curl_unit_bv(self, *etas, squeeze_out=False):
         """ Contra-variant components of curl of unit equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
-        return self.domain.pull(self.curl_unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='vector', squeeze_out=squeeze_out)
+        return self.domain.pull(self.curl_unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='v', squeeze_out=squeeze_out)
 
-    def curl_unit_b_cart(self, *etas, squeeze_out=True):
+    def curl_unit_b_cart(self, *etas, squeeze_out=False):
         """ Cartesian components of curl of unit equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
         b, xyz = self.b_cart(*etas, squeeze_out=squeeze_out)
@@ -94,7 +94,7 @@ class MHDequilibrium(metaclass=ABCMeta):
                         j[2]/absB + (b[0]*gradB[1] - b[1]*gradB[0])/absB**2], dtype=float)
         return out, xyz
 
-    def a1(self, *etas, squeeze_out=True):
+    def a1(self, *etas, squeeze_out=False):
         """ 1-form components of equilibrium vector potential on logical cube [0, 1]^3.
         """
         avail_list = ['HomogenSlab']
@@ -102,16 +102,16 @@ class MHDequilibrium(metaclass=ABCMeta):
         
         return self.domain.transform(self.a2(*etas, squeeze_out=False), *etas, kind='2_to_1', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
-    def a2(self, *etas, squeeze_out=True):
+    def a2(self, *etas, squeeze_out=False):
         """ 2-form components of equilibrium vector potential on logical cube [0, 1]^3.
         """
         avail_list = ['HomogenSlab']
         assert self.__class__.__name__ in avail_list, f'Vector potential currently available only for {avail_list}, but mhd_equil is "{self.__class__.__name__}".'
         
         xyz = self.domain(*etas, squeeze_out=False)
-        return self.domain.pull(self.a_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='2_form', squeeze_out=squeeze_out)
+        return self.domain.pull(self.a_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='2', squeeze_out=squeeze_out)
     
-    def av(self, *etas, squeeze_out=True):
+    def av(self, *etas, squeeze_out=False):
         """ Contra-variant components of equilibrium vector potneital on logical cube [0, 1]^3.
         """
         avail_list = ['HomogenSlab']
@@ -119,68 +119,68 @@ class MHDequilibrium(metaclass=ABCMeta):
         
         return self.domain.transform(self.a2(*etas, squeeze_out=False), *etas, kind='2_to_v', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
     
-    def j1(self, *etas, squeeze_out=True):
+    def j1(self, *etas, squeeze_out=False):
         """ 1-form components of equilibrium current on logical cube [0, 1]^3.
         """
         return self.domain.transform(self.j2(*etas, squeeze_out=False), *etas, kind='2_to_1', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
-    def j2(self, *etas, squeeze_out=True):
+    def j2(self, *etas, squeeze_out=False):
         """ 2-form components of equilibrium current on logical cube [0, 1]^3.
         """
         xyz = self.domain(*etas, squeeze_out=False)
-        return self.domain.pull(self.j_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='2_form', squeeze_out=squeeze_out)
+        return self.domain.pull(self.j_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='2', squeeze_out=squeeze_out)
 
-    def jv(self, *etas, squeeze_out=True):
+    def jv(self, *etas, squeeze_out=False):
         """ Contra-variant components of equilibrium current on logical cube [0, 1]^3.
         """
         return self.domain.transform(self.j2(*etas, squeeze_out=False), *etas, kind='2_to_v', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
-    def j_cart(self, *etas, squeeze_out=True):
+    def j_cart(self, *etas, squeeze_out=False):
         """ Cartesian components of equilibrium current evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
-        j_out = self.domain.push(self.j2(*etas, squeeze_out=False), *etas, kind='2_form', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
-        return j_out, self.domain(*etas)
+        j_out = self.domain.push(self.j2(*etas, squeeze_out=False), *etas, kind='2', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return j_out, self.domain(*etas, squeeze_out=squeeze_out)
 
-    def gradB1(self, *etas, squeeze_out=True):
+    def gradB1(self, *etas, squeeze_out=False):
         """ 1-form components of gradient of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
         xyz = self.domain(*etas, squeeze_out=False)
-        return self.domain.pull(self.gradB_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='1_form', squeeze_out=squeeze_out)
+        return self.domain.pull(self.gradB_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='1', squeeze_out=squeeze_out)
 
-    def gradB2(self, *etas, squeeze_out=True):
+    def gradB2(self, *etas, squeeze_out=False):
         """ 2-form components of gradient of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
         return self.domain.transform(self.gradB1(*etas, squeeze_out=False), *etas, kind='1_to_2', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
-    def gradBv(self, *etas, squeeze_out=True):
+    def gradBv(self, *etas, squeeze_out=False):
         """ Contra-variant components of gradient of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
         return self.domain.transform(self.gradB1(*etas, squeeze_out=False), *etas, kind='1_to_v', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
-    def gradB_cart(self, *etas, squeeze_out=True):
+    def gradB_cart(self, *etas, squeeze_out=False):
         """ Cartesian components of gradient of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
-        gradB_out = self.domain.push(self.gradB1(*etas, squeeze_out=False), *etas, kind='1_form', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        gradB_out = self.domain.push(self.gradB1(*etas, squeeze_out=False), *etas, kind='1', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
         return gradB_out, self.domain(*etas)
 
-    def p0(self, *etas, squeeze_out=True):
+    def p0(self, *etas, squeeze_out=False):
         """ 0-form equilibrium pressure on logical cube [0, 1]^3.
         """
         xyz = self.domain(*etas, squeeze_out=False)
-        return self.domain.pull(self.p_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='0_form', squeeze_out=squeeze_out)
+        return self.domain.pull(self.p_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='0', squeeze_out=squeeze_out)
 
-    def p3(self, *etas, squeeze_out=True):
+    def p3(self, *etas, squeeze_out=False):
         """ 3-form equilibrium pressure on logical cube [0, 1]^3.
         """
         return self.domain.transform(self.p0(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
-    def n0(self, *etas, squeeze_out=True):
+    def n0(self, *etas, squeeze_out=False):
         """ 0-form equilibrium number density on logical cube [0, 1]^3.
         """
         xyz = self.domain(*etas, squeeze_out=False)
-        return self.domain.pull(self.n_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='0_form', squeeze_out=squeeze_out)
+        return self.domain.pull(self.n_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='0', squeeze_out=squeeze_out)
 
-    def n3(self, *etas, squeeze_out=True):
+    def n3(self, *etas, squeeze_out=False):
         """ 3-form equilibrium number density on logical cube [0, 1]^3.
         """
         return self.domain.transform(self.n0(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
@@ -189,112 +189,112 @@ class MHDequilibrium(metaclass=ABCMeta):
     # Single components
     ###################
 
-    def b1_1(self, *etas, squeeze_out=True):
+    def b1_1(self, *etas, squeeze_out=False):
         return self.b1(*etas, squeeze_out=squeeze_out)[0]
 
-    def b1_2(self, *etas, squeeze_out=True):
+    def b1_2(self, *etas, squeeze_out=False):
         return self.b1(*etas, squeeze_out=squeeze_out)[1]
 
-    def b1_3(self, *etas, squeeze_out=True):
+    def b1_3(self, *etas, squeeze_out=False):
         return self.b1(*etas, squeeze_out=squeeze_out)[2]
     
-    def a1_1(self, *etas, squeeze_out=True):
+    def a1_1(self, *etas, squeeze_out=False):
         return self.a1(*etas, squeeze_out=squeeze_out)[0]
 
-    def a1_2(self, *etas, squeeze_out=True):
+    def a1_2(self, *etas, squeeze_out=False):
         return self.a1(*etas, squeeze_out=squeeze_out)[1]
 
-    def a1_3(self, *etas, squeeze_out=True):
+    def a1_3(self, *etas, squeeze_out=False):
         return self.a1(*etas, squeeze_out=squeeze_out)[2]
 
-    def b2_1(self, *etas, squeeze_out=True):
+    def b2_1(self, *etas, squeeze_out=False):
         return self.b2(*etas, squeeze_out=squeeze_out)[0]
 
-    def b2_2(self, *etas, squeeze_out=True):
+    def b2_2(self, *etas, squeeze_out=False):
         return self.b2(*etas, squeeze_out=squeeze_out)[1]
 
-    def b2_3(self, *etas, squeeze_out=True):
+    def b2_3(self, *etas, squeeze_out=False):
         return self.b2(*etas, squeeze_out=squeeze_out)[2]
     
-    def a2_1(self, *etas, squeeze_out=True):
+    def a2_1(self, *etas, squeeze_out=False):
         return self.a2(*etas, squeeze_out=squeeze_out)[0]
 
-    def a2_2(self, *etas, squeeze_out=True):
+    def a2_2(self, *etas, squeeze_out=False):
         return self.a2(*etas, squeeze_out=squeeze_out)[1]
 
-    def a2_3(self, *etas, squeeze_out=True):
+    def a2_3(self, *etas, squeeze_out=False):
         return self.a2(*etas, squeeze_out=squeeze_out)[2]
     
-    def av_1(self, *etas, squeeze_out=True):
+    def av_1(self, *etas, squeeze_out=False):
         return self.av(*etas, squeeze_out=squeeze_out)[0]
 
-    def av_2(self, *etas, squeeze_out=True):
+    def av_2(self, *etas, squeeze_out=False):
         return self.av(*etas, squeeze_out=squeeze_out)[1]
 
-    def av_3(self, *etas, squeeze_out=True):
+    def av_3(self, *etas, squeeze_out=False):
         return self.av(*etas, squeeze_out=squeeze_out)[2]
 
-    def unit_b1_1(self, *etas, squeeze_out=True):
+    def unit_b1_1(self, *etas, squeeze_out=False):
         return self.unit_b1(*etas, squeeze_out=squeeze_out)[0]
 
-    def unit_b1_2(self, *etas, squeeze_out=True):
+    def unit_b1_2(self, *etas, squeeze_out=False):
         return self.unit_b1(*etas, squeeze_out=squeeze_out)[1]
 
-    def unit_b1_3(self, *etas, squeeze_out=True):
+    def unit_b1_3(self, *etas, squeeze_out=False):
         return self.unit_b1(*etas, squeeze_out=squeeze_out)[2]
 
-    def unit_b2_1(self, *etas, squeeze_out=True):
+    def unit_b2_1(self, *etas, squeeze_out=False):
         return self.unit_b2(*etas, squeeze_out=squeeze_out)[0]
 
-    def unit_b2_2(self, *etas, squeeze_out=True):
+    def unit_b2_2(self, *etas, squeeze_out=False):
         return self.unit_b2(*etas, squeeze_out=squeeze_out)[1]
 
-    def unit_b2_3(self, *etas, squeeze_out=True):
+    def unit_b2_3(self, *etas, squeeze_out=False):
         return self.unit_b2(*etas, squeeze_out=squeeze_out)[2]
 
-    def b_cart_1(self, *etas, squeeze_out=True):
+    def b_cart_1(self, *etas, squeeze_out=False):
         return self.b_cart(*etas, squeeze_out=squeeze_out)[0][0]
 
-    def b_cart_2(self, *etas, squeeze_out=True):
+    def b_cart_2(self, *etas, squeeze_out=False):
         return self.b_cart(*etas, squeeze_out=squeeze_out)[0][1]
 
-    def b_cart_3(self, *etas, squeeze_out=True):
+    def b_cart_3(self, *etas, squeeze_out=False):
         return self.b_cart(*etas, squeeze_out=squeeze_out)[0][2]
 
-    def j1_1(self, *etas, squeeze_out=True):
+    def j1_1(self, *etas, squeeze_out=False):
         return self.j1(*etas, squeeze_out=squeeze_out)[0]
 
-    def j1_2(self, *etas, squeeze_out=True):
+    def j1_2(self, *etas, squeeze_out=False):
         return self.j1(*etas, squeeze_out=squeeze_out)[1]
     
-    def j1_3(self, *etas, squeeze_out=True):
+    def j1_3(self, *etas, squeeze_out=False):
         return self.j1(*etas, squeeze_out=squeeze_out)[2]
 
-    def j2_1(self, *etas, squeeze_out=True):
+    def j2_1(self, *etas, squeeze_out=False):
         return self.j2(*etas, squeeze_out=squeeze_out)[0]
 
-    def j2_2(self, *etas, squeeze_out=True):
+    def j2_2(self, *etas, squeeze_out=False):
         return self.j2(*etas, squeeze_out=squeeze_out)[1]
     
-    def j2_3(self, *etas, squeeze_out=True):
+    def j2_3(self, *etas, squeeze_out=False):
         return self.j2(*etas, squeeze_out=squeeze_out)[2]
 
-    def gradB1_1(self, *etas, squeeze_out=True):
+    def gradB1_1(self, *etas, squeeze_out=False):
         return self.gradB1(*etas, squeeze_out=squeeze_out)[0]
 
-    def gradB1_2(self, *etas, squeeze_out=True):
+    def gradB1_2(self, *etas, squeeze_out=False):
         return self.gradB1(*etas, squeeze_out=squeeze_out)[1]
 
-    def gradB1_3(self, *etas, squeeze_out=True):
+    def gradB1_3(self, *etas, squeeze_out=False):
         return self.gradB1(*etas, squeeze_out=squeeze_out)[2]
 
-    def curl_unit_b2_1(self, *etas, squeeze_out=True):
+    def curl_unit_b2_1(self, *etas, squeeze_out=False):
         return self.curl_unit_b2(*etas, squeeze_out=squeeze_out)[0]
 
-    def curl_unit_b2_2(self, *etas, squeeze_out=True):
+    def curl_unit_b2_2(self, *etas, squeeze_out=False):
         return self.curl_unit_b2(*etas, squeeze_out=squeeze_out)[1]
 
-    def curl_unit_b2_3(self, *etas, squeeze_out=True):
+    def curl_unit_b2_3(self, *etas, squeeze_out=False):
         return self.curl_unit_b2(*etas, squeeze_out=squeeze_out)[2]
 
     ##########
@@ -538,31 +538,31 @@ class LogicalMHDequilibrium(MHDequilibrium):
         pass
     
     @abstractmethod
-    def b2(self, *etas, squeeze_out=True):
+    def b2(self, *etas, squeeze_out=False):
         """2-form magnetic field on logical cube [0, 1]^3. Must return the components as a tuple.
         """
         pass
     
     @abstractmethod
-    def j2(self, *etas, squeeze_out=True):
+    def j2(self, *etas, squeeze_out=False):
         """2-form current density (=curl B) on logical cube [0, 1]^3. Must return the components as a tuple.
         """
         pass
 
     @abstractmethod
-    def p0(self, *etas, squeeze_out=True):
+    def p0(self, *etas, squeeze_out=False):
         """0-form equilibrium pressure on logical cube [0, 1]^3. Must return the components as a tuple.
         """
         pass
 
     @abstractmethod
-    def n0(self, *etas, squeeze_out=True):
+    def n0(self, *etas, squeeze_out=False):
         """0-form equilibrium density on logical cube [0, 1]^3.
         """
         pass
 
     @abstractmethod
-    def gradB1(self, *etas, squeeze_out=True):
+    def gradB1(self, *etas, squeeze_out=False):
         """1-form gradient of equilibrium magnetic field on logical cube [0, 1]^3. Must return the components as a tuple.
         """
         pass

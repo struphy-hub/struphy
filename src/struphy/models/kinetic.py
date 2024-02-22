@@ -1,6 +1,3 @@
-'The bulk plasma is kinetic.'
-
-
 import numpy as np
 from struphy.models.base import StruphyModel
 
@@ -166,9 +163,10 @@ class VlasovMaxwell(StruphyModel):
         self._tmp = np.empty(1, dtype=float)
 
     def initialize_from_params(self):
+        ''':meta private:'''
 
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-        from struphy.feec.projectors import L2_Projector
+        from struphy.feec.projectors import L2Projector
         from psydac.linalg.stencil import StencilVector
 
         # Initialize fields and particles
@@ -184,7 +182,7 @@ class VlasovMaxwell(StruphyModel):
 
         # add contribution from background in control variate method
         if self._marker_type == 'control_variate':
-            _proj = L2_Projector(self._mass_ops.M0, space='H1', derham=self.derham)
+            _proj = L2Projector(self._mass_ops.M0, space='H1', derham=self.derham)
             _phi_bckgr = _proj(self.pointer['electrons'].f_backgr.n)
             # TODO: what to do with this?
 
@@ -439,7 +437,7 @@ class LinearVlasovMaxwell(StruphyModel):
         self._tmp = np.empty(1, dtype=float)
 
     def initialize_from_params(self):
-
+        ''':meta private:'''
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
         from struphy.pic.base import Particles
         from psydac.linalg.stencil import StencilVector
@@ -800,7 +798,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
         self._tmp = np.empty(1, dtype=float)
 
     def initialize_from_params(self):
-
+        ''':meta private:'''
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
         from struphy.pic.particles import Particles
         from psydac.linalg.stencil import StencilVector

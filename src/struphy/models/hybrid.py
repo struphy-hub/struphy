@@ -1,6 +1,3 @@
-'The bulk plasma is fluid, but there is also at least one kinetic species.'
-
-
 import numpy as np
 from struphy.models.base import StruphyModel
 
@@ -1067,7 +1064,7 @@ class ColdPlasmaVlasov(StruphyModel):
         self._tmp = np.empty(1, dtype=float)
 
     def initialize_from_params(self):
-
+        ''':meta private:'''
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
         from psydac.linalg.stencil import StencilVector
 

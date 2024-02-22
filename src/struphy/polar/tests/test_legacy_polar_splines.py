@@ -46,8 +46,8 @@ def test_polar_splines_2D(plot=False):
     el_b_1 = np.linspace(0., 1., Nel[0] + 1)
     el_b_2 = np.linspace(0., 1., Nel[1] + 1)
 
-    grid_x = domain(el_b_1, el_b_2, 0.)[0]
-    grid_y = domain(el_b_1, el_b_2, 0.)[1]
+    grid_x = domain(el_b_1, el_b_2, 0., squeeze_out=True)[0]
+    grid_y = domain(el_b_1, el_b_2, 0., squeeze_out=True)[1]
 
     for i in range(el_b_1.size):
         plt.plot(grid_x[i, :], grid_y[i, :], 'k', linewidth=0.5)
@@ -89,8 +89,8 @@ def test_polar_splines_2D(plot=False):
 
     # plot three new polar splines in V0
     etaplot = [np.linspace(0., 1., 200), np.linspace(0., 1., 200)]
-    xplot = [domain(etaplot[0], etaplot[1], 0.)[0],
-             domain(etaplot[0], etaplot[1], 0.)[1]]
+    xplot = [domain(etaplot[0], etaplot[1], 0., squeeze_out=True)[0],
+             domain(etaplot[0], etaplot[1], 0., squeeze_out=True)[1]]
 
     fig = plt.figure()
     fig.set_figheight(6)

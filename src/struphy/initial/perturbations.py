@@ -16,20 +16,31 @@ class ModesSin:
 
     Note
     ----
-    In the parameter .yml, use the following in the section ``fluid/<species>``::
+    In the parameter .yml, use the following template in the section ``fluid/<species>``::
 
         init :
             type : ModesSin
             ModesSin :
-                coords : 'physical' # in which coordinates (logical or physical)
                 comps :
-                    n3 : False                # components to be initialized 
-                    u2 : [True, False, True]  # components to be initialized 
-                    p3 : False                # components to be initialized 
-                ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
-                ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
-                ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
-                amps : [0.001] # amplitudes of each mode
+                    n3 : null                    # choices: null, 'physical', '0', '3'
+                    u2 : ['physical', 'v', '2']  # choices: null, 'physical', '1', '2', 'v', 'norm'
+                    p3 : H1                      # choices: null, 'physical', '0', '3'
+                ls :
+                    n3: null            # Integer mode numbers in x or eta_1
+                    u2: [[0], [0], [0]] # Integer mode numbers in x or eta_1
+                    p3: [0]             # Integer mode numbers in x or eta_1
+                ms : 
+                    n3: null            # Integer mode numbers in y or eta_2
+                    u2: [[0], [0], [0]] # Integer mode numbers in y or eta_2
+                    p3: [0]             # Integer mode numbers in y or eta_2
+                ns :
+                    n3: null            # Integer mode numbers in z or eta_3
+                    u2: [[1], [1], [1]] # Integer mode numbers in z or eta_3
+                    p3: [1]             # Integer mode numbers in z or eta_3
+                amps :
+                    n3: null                        # amplitudes of each mode
+                    u2: [[0.001], [0.001], [0.001]] # amplitudes of each mode
+                    p3: [0.01]                      # amplitudes of each mode
                 Lx : 7.853981633974483 # domain length in x
                 Ly : 1.                # domain length in y
                 Lz : 1.                # domain length in z
@@ -89,20 +100,31 @@ class ModesCos:
 
     Note
     ----
-    In the parameter .yml, use the following in the section ``fluid/<species>``::
+    In the parameter .yml, use the following template in the section ``fluid/<species>``::
 
         init :
             type : ModesCos 
             ModesCos :
-                coords : 'physical' # in which coordinates (logical or physical)
                 comps :
-                    n3 : False                # components to be initialized 
-                    u2 : [True, False, True]  # components to be initialized 
-                    p3 : False                # components to be initialized 
-                ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
-                ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
-                ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
-                amps : [0.001] # amplitudes of each mode
+                    n3 : null                     # choices: null, 'physical', '0', '3'
+                    u2 : ['physical', 'v', '2']   # choices: null, 'physical', '1', '2', 'v', 'norm'
+                    p3 : H1                       # choices: null, 'physical', '0', '3'
+                ls :
+                    n3: null            # Integer mode numbers in x or eta_1
+                    u2: [[0], [0], [0]] # Integer mode numbers in x or eta_1
+                    p3: [0]             # Integer mode numbers in x or eta_1
+                ms : 
+                    n3: null            # Integer mode numbers in y or eta_2
+                    u2: [[0], [0], [0]] # Integer mode numbers in y or eta_2
+                    p3: [0]             # Integer mode numbers in y or eta_2
+                ns :
+                    n3: null            # Integer mode numbers in z or eta_3
+                    u2: [[1], [1], [1]] # Integer mode numbers in z or eta_3
+                    p3: [1]             # Integer mode numbers in z or eta_3
+                amps :
+                    n3: null                        # amplitudes of each mode
+                    u2: [[0.001], [0.001], [0.001]] # amplitudes of each mode
+                    p3: [0.01]                      # amplitudes of each mode
                 Lx : 7.853981633974483 # domain length in x
                 Ly : 1.                # domain length in y
                 Lz : 1.                # domain length in z
@@ -156,32 +178,55 @@ class TorusModesSin:
 
     .. math::
 
-        u(\eta_1, \eta_2, \eta_3) = \sum_{i=0}^N \chi_i(\eta_1) \sin(m_i\,2\pi \eta_2 + n_i\,2\pi \eta_3) \,,
+        u(\eta_1, \eta_2, \eta_3) = \sum_{i=0}^N \chi_i(\eta_1) A_i \sin(m_i\,2\pi \eta_2 + n_i\,2\pi \eta_3) \,,
 
     where :math:`\chi_i(\eta_1)` is one of
 
     .. math::
 
-        \chi_i(\eta_1) = A_i\sin(\pi\eta_1)\,,\qquad\quad A_i\cos(\pi\eta_1)\,,\qquad\quad \chi_i(\eta_1) = A_i\exp^{-(\eta_1 - r_0)^2/\sigma} \,.
+        \chi_i(\eta_1) = \left\{ 
+        \begin{aligned}
+        &\sin(\pi\eta_1)\,,
+        \\[2mm]
+        &\exp^{-(\eta_1 - r_0)^2/\sigma} \,, 
+        \\[2mm]
+        & -2(\eta_1 - r_0)/\sigma)\exp^{-(\eta_1 - r_0)^2/\sigma} \,.
+        \end{aligned}
+        \right.
 
     Can only be defined in logical coordinates.
 
     Note
     ----
-    In the parameter .yml, use the following in the section ``fluid/<species>``::
+    In the parameter .yml, use the following template in the section ``fluid/<species>``::
 
         init :
             type : TorusModesSin
             TorusModesSin :
                 comps :
-                    n3 : False                # components to be initialized (for scalar fields: no list)
-                    uv : [False, True, False] # components to be initialized (for scalar fields: no list)
-                    p3 : False                # components to be initialized (for scalar fields: no list)
-                ms : [3] # poloidal mode numbers
-                ns : [1] # toroidal mode numbers
-                amps : [0.001] # amplitudes of each mode
-                pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'cos' or 'exp')
-                pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin" and "cos"
+                    n3 : null                     # choices: null, 'physical', '0', '3'
+                    u2 : ['physical', 'v', '2']   # choices: null, 'physical', '1', '2', 'v', 'norm'
+                    p3 : H1                       # choices: null, 'physical', '0', '3'
+                ms : 
+                    n3: null            # poloidal mode numbers
+                    u2: [[0], [0], [0]] # poloidal mode numbers
+                    p3: [0]             # poloidal mode numbers
+                ns :
+                    n3: null            # toroidal mode numbers
+                    u2: [[1], [1], [1]] # toroidal mode numbers
+                    p3: [1]             # toroidal mode numbers
+                amps :
+                    n3: null                        # amplitudes of each mode
+                    u2: [[0.001], [0.001], [0.001]] # amplitudes of each mode
+                    p3: [0.01]                      # amplitudes of each mode
+                pfuns :
+                    n3: null                        # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
+                    u2: [['sin'], ['sin'], ['exp']] # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
+                    p3: [0.01]                      # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
+                pfun_params :
+                    n3: null                      # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"
+                    u2: [null, null, [[0.5, 1.]]] # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"
+                    p3: [0.01]                    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"        
     '''
 
     def __init__(self, ms=[0], ns=[0], amps=[1e-4], pfuns=['sin'], pfun_params=None):
@@ -221,13 +266,14 @@ class TorusModesSin:
         for pfun, params in zip(pfuns, pfun_params):
             if pfun == 'sin':
                 self._pfuns += [lambda eta1: np.sin(np.pi*eta1)]
-            elif pfun == 'cos':
-                self._pfuns += [lambda eta1: np.cos(np.pi*eta1)]
             elif pfun == 'exp':
                 self._pfuns += [lambda eta1:
                                 np.exp(-(eta1 - params[0])**2/params[1])]
+            elif pfun == 'd_exp':
+                self._pfuns += [lambda eta1:
+                                -2*(eta1 - params[0])/params[1]*np.exp(-(eta1 - params[0])**2/params[1])]
             else:
-                raise ValueError('Profile function must be "sin" or "exp".')
+                raise ValueError(f'Profile function {pfun} is not defined..')
 
     def __call__(self, eta1, eta2, eta3):
 
@@ -244,32 +290,55 @@ class TorusModesCos:
 
     .. math::
 
-        u(\eta_1, \eta_2, \eta_3) = \sum_{i=0}^N \chi_i(\eta_1) \cos(m_i\,2\pi \eta_2 + n_i\,2\pi \eta_3) \,,
+        u(\eta_1, \eta_2, \eta_3) = \sum_{i=0}^N \chi_i(\eta_1) A_i \cos(m_i\,2\pi \eta_2 + n_i\,2\pi \eta_3) \,,
 
     where :math:`\chi_i(\eta_1)` is one of
 
     .. math::
 
-        \chi_i(\eta_1) = A_i\sin(\pi\eta_1)\,,\qquad\quad A_i\cos(\pi\eta_1)\,,\qquad\quad \chi_i(\eta_1) = A_i\exp^{-(\eta_1 - r_0)^2/\sigma} \,.
+        \chi_i(\eta_1) = \left\{ 
+        \begin{aligned}
+        &\sin(\pi\eta_1)\,,
+        \\[2mm]
+        &\exp^{-(\eta_1 - r_0)^2/\sigma} \,, 
+        \\[2mm]
+        & -2(\eta_1 - r_0)/\sigma)\exp^{-(\eta_1 - r_0)^2/\sigma} \,.
+        \end{aligned}
+        \right.
 
     Can only be defined in logical coordinates.
 
     Note
     ----
-    In the parameter .yml, use the following in the section ``fluid/<species>``::
+    In the parameter .yml, use the following template in the section ``fluid/<species>``::
 
         init :
             type : TorusModesCos
             TorusModesCos :
                 comps :
-                    n3 : False                # components to be initialized (for scalar fields: no list)
-                    uv : [False, True, False] # components to be initialized (for scalar fields: no list)
-                    p3 : False                # components to be initialized (for scalar fields: no list)
-                ms : [3] # poloidal mode numbers
-                ns : [1] # toroidal mode numbers
-                amps : [0.001] # amplitudes of each mode
-                pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'cos' or 'exp')
-                pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin" and "cos"
+                    n3 : null                     # choices: null, 'physical', '0', '3'
+                    u2 : ['physical', 'v', '2']   # choices: null, 'physical', '1', '2', 'v', 'norm'
+                    p3 : H1                       # choices: null, 'physical', '0', '3'
+                ms : 
+                    n3: null            # poloidal mode numbers
+                    u2: [[0], [0], [0]] # poloidal mode numbers
+                    p3: [0]             # poloidal mode numbers
+                ns :
+                    n3: null            # toroidal mode numbers
+                    u2: [[1], [1], [1]] # toroidal mode numbers
+                    p3: [1]             # toroidal mode numbers
+                amps :
+                    n3: null                        # amplitudes of each mode
+                    u2: [[0.001], [0.001], [0.001]] # amplitudes of each mode
+                    p3: [0.01]                      # amplitudes of each mode
+                pfuns :
+                    n3: null                        # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
+                    u2: [['sin'], ['sin'], ['exp']] # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
+                    p3: [0.01]                      # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
+                pfun_params :
+                    n3: null                      # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"
+                    u2: [null, null, [[0.5, 1.]]] # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"
+                    p3: [0.01]                    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"        
     '''
 
     def __init__(self, ms=[0], ns=[0], amps=[1e-4], pfuns=['cos'], pfun_params=None):
@@ -314,8 +383,12 @@ class TorusModesCos:
             elif pfun == 'exp':
                 self._pfuns += [lambda eta1:
                                 np.exp(-(eta1 - params[0])**2/params[1])]
+            elif pfun == 'd_exp':
+                self._pfuns += [lambda eta1:
+                                -2*(eta1 - params[0])/params[1]*np.exp(-(eta1 - params[0])**2/params[1])]
             else:
-                raise ValueError('Profile function must be "sin" or "cos" or "exp".')
+                raise ValueError(
+                    'Profile function must be "sin" or "cos" or "exp".')
 
     def __call__(self, eta1, eta2, eta3):
 
@@ -323,5 +396,140 @@ class TorusModesCos:
         for mi, ni, pfun, amp in zip(self._ms, self._ns, self._pfuns, self._amps):
             val += amp * pfun(eta1) * np.cos(mi*2.*np.pi *
                                              eta2 + ni*2.*np.pi*eta3)
+
+        return val
+   
+    
+class Shear_x:
+    r'''Double shear layer in eta1 (-1 in outer regions, 1 in inner regions).
+
+    .. math::
+    
+        u(\eta_1, \eta_2, \eta_3) = A(-\tanh((\eta_1 - 0.25)/\delta)+\tanh((\eta_1 - 0.75)/\delta) - 1) \,. 
+
+    Can only be used in logical space.
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``fluid/<species>``::
+
+        init :
+            type : Shear_x
+            Shear_x :
+                comps :
+                    rho3 : null                   # choices: null, 'physical', '0', '3'
+                    uv : ['physical', 'v', '2']   # choices: null, 'physical', '1', '2', 'v', 'norm'
+                    s3 : H1                       # choices: null, 'physical', '0', '3'
+                amp : 0.001 # amplitudes of each mode
+                delta : 0.03333 # characteristic size of the shear layer
+    '''
+
+    def __init__(self, amp = 1e-4, delta = 1/15):
+        '''
+        Parameters
+        ----------
+            amps : float
+                Amplitude of the velocity on each side.
+
+            delta : float
+                Characteristic size of the shear layer
+        '''
+
+        self._amp = amp
+        self._delta = delta
+
+    def __call__(self, e1, e2, e3):
+
+        val = self._amp*(-np.tanh((e1 - 0.75)/self._delta) + np.tanh((e1 - 0.25)/self._delta) - 1)
+
+        return val
+
+
+class Shear_y:
+    r'''Double shear layer in eta2 (-1 in outer regions, 1 in inner regions).
+
+    .. math::
+
+        u(\eta_1, \eta_2, \eta_3) = A(-\tanh((\eta_2 - 0.25)/\delta) + \tanh((\eta_2 - 0.75)/\delta) - 1) \,.
+
+    Can only be used in logical space.
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``fluid/<species>``::
+
+        init :
+            type : Shear_y
+            Shear_y :
+                comps :
+                    rho3 : null                   # choices: null, 'physical', '0', '3'
+                    uv : ['physical', 'v', '2']   # choices: null, 'physical', '1', '2', 'v', 'norm'
+                    s3 : H1                       # choices: null, 'physical', '0', '3'
+                amp : 0.001 # amplitudes of each mode
+                delta : 0.03333 # characteristic size of the shear layer
+    '''
+
+    def __init__(self, amp = 1e-4, delta = 1/15):
+        '''
+        Parameters
+        ----------
+            amps : float
+                Amplitude of the velocity on each side.
+
+            delta : float
+                Characteristic size of the shear layer
+        '''
+
+        self._amp = amp
+        self._delta = delta
+
+    def __call__(self, e1, e2, e3):
+
+        val = self._amp*(-np.tanh((e2 - 0.75)/self._delta) + np.tanh((e2 - 0.25)/self._delta) - 1)
+
+        return val
+    
+
+class Shear_z:
+    r'''Double shear layer in eta3 (-1 in outer regions, 1 in inner regions).
+
+    .. math::
+
+        u(\eta_1, \eta_2, \eta_3) = A(-\tanh((\eta_3 - 0.25)/\delta) + \tanh((\eta_3 - 0.75)/\delta) - 1) \,. 
+
+    Can only be used in logical space.
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``fluid/<species>``::
+
+        init :
+            type : Shear_y
+            Shear_y :
+                comps :
+                    rho3 : null                   # choices: null, 'physical', '0', '3'
+                    uv : ['physical', 'v', '2']   # choices: null, 'physical', '1', '2', 'v', 'norm'
+                    s3 : H1                       # choices: null, 'physical', '0', '3'
+                amp : 0.001 # amplitudes of each mode
+                delta : 0.03333 # characteristic size of the shear layer
+    '''
+
+    def __init__(self, amp = 1e-4, delta = 1/15):
+        '''
+        Parameters
+        ----------
+            amps : float
+                Amplitude of the velocity on each side.
+
+            delta : float
+                Characteristic size of the shear layer
+        '''
+
+        self._amp = amp
+        self._delta = delta
+
+    def __call__(self, e1, e2, e3):
+
+        val = self._amp*(-np.tanh((e3 - 0.75)/self._delta) + np.tanh((e3- 0.25)/self._delta) - 1)
 
         return val

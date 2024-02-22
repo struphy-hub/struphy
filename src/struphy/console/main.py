@@ -3,6 +3,7 @@
 from argparse import HelpFormatter, _SubParsersAction, RawTextHelpFormatter
 import argcomplete
 import importlib.metadata
+import os
 
 __version__ = importlib.metadata.version("struphy")
 
@@ -12,7 +13,6 @@ def struphy():
     Struphy main executable. Performs argument parsing and sub-command call.
     '''
 
-    import os
     import inspect
     import argparse
     import yaml
@@ -78,11 +78,7 @@ def struphy():
     path_message += f'current batch scripts:     {b_path}'
 
     # check parameter file in current input path:
-    all_files = os.listdir(i_path)
-    params_files = []
-    for name in all_files:
-        if '.yml' in name or '.yaml' in name:
-            params_files += [name]
+    params_files = recursive_get_files(i_path)
 
     # check output folders in current output path:
     all_folders = os.listdir(o_path)
@@ -92,13 +88,9 @@ def struphy():
             out_folders += [name]
 
     # check batch scripts in current batch path:
-    all_files = os.listdir(b_path)
-    batch_files = []
-    for name in all_files:
-        if '.sh' in name:
-            batch_files += [name]
+    batch_files = recursive_get_files(b_path, contains=('.sh'), out=[], prefix=[])
 
-    # collect available models
+    # collect available model, contains=('.yml', '.yaml')s
     list_fluid = []
     fluid_string = ''
     for name, obj in inspect.getmembers(fluid):
@@ -313,6 +305,10 @@ def struphy():
 
     parser_run.add_argument('--debug',
                             help='launch a Cobra debug run, see https://docs.mpcdf.mpg.de/doc/computing/cobra-user-guide.html#interactive-debug-runs',
+                            action='store_true',)
+    
+    parser_run.add_argument('--cprofile',
+                            help='run with Cprofile',
                             action='store_true',)
 
     # 3. "units" sub-command
@@ -678,3 +674,32 @@ class CustomFormatter(NoSubparsersMetavarFormatter, RawTextHelpFormatter):
     Removes redundant COMMANDS printing in help message of argument parser and enables line breaks.
     """
     pass
+
+
+def recursive_get_files(path, contains=('.yml', '.yaml'), out=[], prefix=[]):
+    all_names = os.listdir(path)
+    n_folders = 0
+    # count folders in path
+    for name in all_names:
+        if os.path.isdir(os.path.join(path, name)):
+            n_folders += 1
+    # add specified files to out or descend
+    for name in all_names:
+        if any([cont in name for cont in contains]):
+            if len(prefix) == 0:
+                out += [name]
+            else:
+                out += [os.path.join(prefix[-1], name)]
+        elif os.path.isdir(os.path.join(path, name)):
+            if len(prefix) == 0:
+                prefix = [name]
+            else:
+                prefix += [os.path.join(prefix[-1], name)]
+            recursive_get_files(os.path.join(path, name), 
+                                contains=contains, 
+                                out=out, 
+                                prefix=prefix)
+    if n_folders == 0 and len(prefix) != 0:
+        prefix.pop()
+
+    return out

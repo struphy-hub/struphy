@@ -110,7 +110,15 @@ class Particles6D(Particles):
                                  vth2=self._params['loading']['moments'][4],
                                  vth3=self._params['loading']['moments'][5])
 
-        return s3(eta1, eta2, eta3, *v)
+        if self.spatial == 'uniform':
+            return s3(eta1, eta2, eta3, *v)
+
+        elif self.spatial == 'disc':
+            return s3(eta1, eta2, eta3, *v)*2*eta1
+
+        else:
+            raise NotImplementedError(
+                f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.')
 
     def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
         """ 
@@ -201,13 +209,13 @@ class Particles5D(Particles):
         """Dimension of the velocity space.
         """
         return 2
-    
+
     @property
     def mhd_equil(self):
         """Class of MHD equilibrium
         """
         return self._mhd_equil
-    
+
     @property
     def epsilon(self):
         """Epsilon unit, 1 / (cyclotron freq * time_unit)
@@ -277,7 +285,15 @@ class Particles5D(Particles):
                                  vth_parallel=self.params['loading']['moments'][2],
                                  vth_perp=self.params['loading']['moments'][3])
 
-        return s5(eta1, eta2, eta3, *v)
+        if self.spatial == 'uniform':
+            return s5(eta1, eta2, eta3, *v)
+
+        elif self.spatial == 'disc':
+            return s5(eta1, eta2, eta3, *v)*2*eta1
+
+        else:
+            raise NotImplementedError(
+                f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.')
 
     def s3(self, eta1, eta2, eta3, *v):
         """

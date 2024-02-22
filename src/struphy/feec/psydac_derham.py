@@ -5,21 +5,25 @@ from sympde.topology import Derham as Derham_psy
 
 from psydac.api.discretization import discretize
 from psydac.fem.vector import VectorFemSpace
+from psydac.fem.tensor import TensorFemSpace
 from psydac.feec.global_projectors import Projector_H1vec
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 from psydac.linalg.basic import IdentityOperator
 
 from struphy.feec.linear_operators import BoundaryOperator
-from struphy.feec.geom_projectors import PolarCommutingProjector
+from struphy.feec.projectors import CommutingProjector
+from struphy.feec.basis_projection_ops import get_pts_and_wts
 from struphy.polar.basic import PolarDerhamSpace
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
 from struphy.polar.basic import PolarVector
 from struphy.initial import perturbations
 from struphy.initial import eigenfunctions
+from struphy.initial import utilities
 from struphy.geometry.base import Domain
 from struphy.bsplines import evaluation_kernels_3d as eval_3d
+from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
 import numpy as np
@@ -28,11 +32,11 @@ from mpi4py import MPI
 
 class Derham:
     """
-    API for the discrete Derham sequence on the logical unit cube (3d).
+    The discrete Derham sequence on the logical unit cube (3d).
 
     Check out `Tutorial 09 <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_09_discrete_derham.html>`_ for a hands-on introduction.
 
-    The tensor-product discrete deRham complex is loaded from `Psydac <https://github.com/pyccel/psydac>`_ 
+    The tensor-product discrete deRham complex is loaded using the `Psydac API <https://github.com/pyccel/psydac>`_ 
     and then augmented with polar sub-spaces (indicated by a bar) and boundary operators.
 
     .. image:: ../pics/polar_derham.png
@@ -100,7 +104,8 @@ class Derham:
         if dirichlet_bc is not None:
             assert len(dirichlet_bc) == 3
             # make sure that boundary conditions are compatible with spline space
-            assert np.all([bc == [False, False] for i, bc in enumerate(dirichlet_bc) if spl_kind[i]])
+            assert np.all([bc == [False, False]
+                          for i, bc in enumerate(dirichlet_bc) if spl_kind[i]])
 
         self._dirichlet_bc = dirichlet_bc
 
@@ -147,7 +152,7 @@ class Derham:
 
         self._grad, self._curl, self._div = _derham.derivatives_as_matrices
 
-        _projectors = _derham.projectors(nquads=self._nq_pr)
+        _projectors = _derham.projectors(nquads=self.nq_pr)
 
         # expose name-to-form dict
         self._space_to_form = {'H1': '0',
@@ -156,51 +161,131 @@ class Derham:
                                'L2': '3',
                                'H1vec': 'v'}
 
-        # Psydac vector space and FEM spline spaces
-        _Vnames = {'0': 'H1',
-                   '1': 'Hcurl',
-                   '2': 'Hdiv',
-                   '3': 'L2',
-                   'v': 'H1vec'}
-
+        # Attributes for vector spaces, FE spline spaces and projectors
         self._Vh = {}
         self._Vh_fem = {}
         self._P = {}
 
-        for i, key in enumerate(_Vnames.keys()):
-
-            if key == 'v':
-                self._Vh_fem[key] = VectorFemSpace(
-                    _derham.V0, _derham.V0, _derham.V0)
-                self._P[key] = Projector_H1vec(self._Vh_fem[key])
-            else:
-                self._Vh_fem[key] = getattr(_derham, 'V' + str(i))
-                self._P[key] = _projectors[i]
-
-            self._Vh[key] = self._Vh_fem[key].vector_space
-
-        # total number of basis functions and spline types of 1d spaces in each direction ('B' or 'M', resp. 0 or 1)
+        # info for 1d spline spaces grids
         self._nbasis = {}
         self._spline_types = {}
         self._spline_types_pyccel = {}
+        self._proj_grid_pts = {}
+        self._proj_grid_wts = {}
+        self._proj_grid_subs = {}
+        self._quad_grid_pts = {}
+        self._quad_grid_wts = {}
+        self._quad_grid_spans = {}
+        self._quad_grid_bases = {}
 
-        for i, key in enumerate(_Vnames.keys()):
-            fem_space = self._Vh_fem[key]
+        for i, sp_form in enumerate(self.space_to_form.values()):
 
-            if key in {'0', '3'}:
-                self._nbasis[key] = [
-                    space.nbasis for space in fem_space.spaces]
-                self._spline_types[key] = [
-                    space.basis for space in fem_space.spaces]
-                self._spline_types_pyccel[key] = np.array(
-                    [int(space.basis == 'M') for space in fem_space.spaces])
+            # FEM space and projector
+            if sp_form == 'v':
+                self._Vh_fem[sp_form] = VectorFemSpace(
+                    _derham.V0, _derham.V0, _derham.V0)
+                self._P[sp_form] = Projector_H1vec(self.Vh_fem[sp_form])
             else:
-                self._nbasis[key] = [[space.nbasis for space in comp.spaces]
-                                     for comp in fem_space.spaces]
-                self._spline_types[key] = [
-                    [space.basis for space in comp.spaces] for comp in fem_space.spaces]
-                self._spline_types_pyccel[key] = [np.array(
-                    [int(space.basis == 'M') for space in comp.spaces]) for comp in fem_space.spaces]
+                self._Vh_fem[sp_form] = getattr(_derham, 'V' + str(i))
+                self._P[sp_form] = _projectors[i]
+
+            # Vector space
+            self._Vh[sp_form] = self.Vh_fem[sp_form].vector_space
+
+            # grid attributes
+            self._nbasis[sp_form] = []
+            self._spline_types[sp_form] = []
+            self._spline_types_pyccel[sp_form] = []
+            self._proj_grid_pts[sp_form] = []
+            self._proj_grid_wts[sp_form] = []
+            self._proj_grid_subs[sp_form] = []
+            self._quad_grid_pts[sp_form] = []
+            self._quad_grid_wts[sp_form] = []
+            self._quad_grid_spans[sp_form] = []
+            self._quad_grid_bases[sp_form] = []
+
+            fem_space = self.Vh_fem[sp_form]
+            if isinstance(fem_space, VectorFemSpace):
+
+                for comp_space in fem_space.spaces:
+
+                    self._nbasis[sp_form] += [[]]
+                    self._spline_types[sp_form] += [[]]
+                    self._spline_types_pyccel[sp_form] += [[]]
+                    self._proj_grid_pts[sp_form] += [[]]
+                    self._proj_grid_wts[sp_form] += [[]]
+                    self._proj_grid_subs[sp_form] += [[]]
+                    self._quad_grid_pts[sp_form] += [[]]
+                    self._quad_grid_wts[sp_form] += [[]]
+                    self._quad_grid_spans[sp_form] += [[]]
+                    self._quad_grid_bases[sp_form] += [[]]
+
+                    for d, (space, s, e, quad_grid, nquad) in enumerate(zip(comp_space.spaces,
+                                                                            comp_space.vector_space.starts,
+                                                                            comp_space.vector_space.ends,
+                                                                            comp_space._quad_grids,
+                                                                            comp_space.nquads)):
+
+                        self._nbasis[sp_form][-1] += [space.nbasis]
+                        self._spline_types[sp_form][-1] += [space.basis]
+                        self._spline_types_pyccel[sp_form][-1] += [
+                            int(space.basis == 'M')]
+
+                        pts, wts, subs = get_pts_and_wts(
+                            space, s, e, n_quad=self.nq_pr[d], polar_shift=d == 0 and self.polar_ck == 1)
+                        self._proj_grid_pts[sp_form][-1] += [pts]
+                        self._proj_grid_wts[sp_form][-1] += [wts]
+                        self._proj_grid_subs[sp_form][-1] += [subs]
+
+                        self._quad_grid_pts[sp_form][-1] += [quad_grid[nquad].points]
+                        self._quad_grid_wts[sp_form][-1] += [quad_grid[nquad].weights]
+                        self._quad_grid_spans[sp_form][-1] += [
+                            quad_grid[nquad].spans]
+                        self._quad_grid_bases[sp_form][-1] += [
+                            quad_grid[nquad].basis]
+
+                    self._spline_types_pyccel[sp_form][-1] = np.array(
+                        self._spline_types_pyccel[sp_form][-1])
+
+            else:
+
+                for d, (space, s, e, quad_grid, nquad) in enumerate(zip(fem_space.spaces,
+                                                                        fem_space.vector_space.starts,
+                                                                        fem_space.vector_space.ends,
+                                                                        fem_space._quad_grids,
+                                                                        fem_space.nquads)):
+
+                    self._nbasis[sp_form] += [space.nbasis]
+                    self._spline_types[sp_form] += [space.basis]
+                    self._spline_types_pyccel[sp_form] += [
+                        int(space.basis == 'M')]
+
+                    pts, wts, subs = get_pts_and_wts(
+                        space, s, e, n_quad=self.nq_pr[d], polar_shift=d == 0 and self.polar_ck == 1)
+                    self._proj_grid_pts[sp_form] += [pts]
+                    self._proj_grid_wts[sp_form] += [wts]
+                    self._proj_grid_subs[sp_form] += [subs]
+
+                    self._quad_grid_pts[sp_form] += [quad_grid[nquad].points]
+                    self._quad_grid_wts[sp_form] += [quad_grid[nquad].weights]
+                    self._quad_grid_spans[sp_form] += [quad_grid[nquad].spans]
+                    self._quad_grid_bases[sp_form] += [quad_grid[nquad].basis]
+
+                self._spline_types_pyccel[sp_form] = np.array(
+                    self._spline_types_pyccel[sp_form])
+
+            # print('#'*30)
+            # print(f'{sp_form = }')
+            # print(f'{self._nbasis[sp_form] = }')
+            # print(f'{self._spline_types[sp_form] = }')
+            # print(f'{self._spline_types_pyccel[sp_form] = }')
+            # print(f'{self._proj_grid_pts[sp_form] = }')
+            # print(f'{self._proj_grid_wts[sp_form] = }')
+            # print(f'{self._proj_grid_subs[sp_form] = }')
+            # print(f'{self._quad_grid_pts[sp_form] = }')
+            # print(f'{self._quad_grid_wts[sp_form] = }')
+            # print(f'{self._quad_grid_spans[sp_form] = }')
+            # print(f'{self._quad_grid_bases[sp_form] = }')
 
         # break points
         self._breaks = [space.breaks for space in _derham.spaces[0].spaces]
@@ -237,43 +322,44 @@ class Derham:
         self._extraction_ops = {}
         self._dofs_extraction_ops = {}
 
-        for i, key in enumerate(_Vnames.keys()):
+        for i, (sp_id, sp_form) in enumerate(self.space_to_form.items()):
 
-            vec_space = self._Vh[key]
+            vec_space = self._Vh[sp_form]
 
             # ------ Extraction operators ------
             # tensor product case
             if self.polar_ck == -1:
 
-                pol_space = self._Vh[key]
+                pol_space = self._Vh[sp_form]
 
-                self._extraction_ops[key] = IdentityOperator(pol_space)
-                self._dofs_extraction_ops[key] = IdentityOperator(pol_space)
+                self._extraction_ops[sp_form] = IdentityOperator(pol_space)
+                self._dofs_extraction_ops[sp_form] = IdentityOperator(
+                    pol_space)
 
             # C^1 polar spline case
             else:
 
-                pol_space = PolarDerhamSpace(self, _Vnames[key])
+                pol_space = PolarDerhamSpace(self, sp_id)
 
-                self._extraction_ops[key] = PolarExtractionOperator(
-                    vec_space, pol_space, ck_blocks.e_ten_to_pol[key])
+                self._extraction_ops[sp_form] = PolarExtractionOperator(
+                    vec_space, pol_space, ck_blocks.e_ten_to_pol[sp_form])
 
-                self._dofs_extraction_ops[key] = PolarExtractionOperator(
-                    vec_space, pol_space, ck_blocks.p_ten_to_pol[key], ck_blocks.p_ten_to_ten[key])
+                self._dofs_extraction_ops[sp_form] = PolarExtractionOperator(
+                    vec_space, pol_space, ck_blocks.p_ten_to_pol[sp_form], ck_blocks.p_ten_to_ten[sp_form])
 
-            self._Vh_pol[key] = pol_space
-            
+            self._Vh_pol[sp_form] = pol_space
+
             # ------ Hom. Dirichlet boundary operators ------
             if self.dirichlet_bc is None:
-                self._boundary_ops[key] = IdentityOperator(pol_space)
+                self._boundary_ops[sp_form] = IdentityOperator(pol_space)
             else:
-                self._boundary_ops[key] = BoundaryOperator(
-                    pol_space, _Vnames[key], self.dirichlet_bc)
+                self._boundary_ops[sp_form] = BoundaryOperator(
+                    pol_space, sp_id, self.dirichlet_bc)
 
             # ------ Assemble projectors ------
             if with_projectors:
-                self._P[key] = PolarCommutingProjector(
-                    self._P[key], self._dofs_extraction_ops[key], self._extraction_ops[key], self._boundary_ops[key])
+                self._P[sp_form] = CommutingProjector(
+                    self._P[sp_form], self._dofs_extraction_ops[sp_form], self._extraction_ops[sp_form], self._boundary_ops[sp_form])
 
         # set discrete derivatives with polar linear operators
         if self.polar_ck == 1:
@@ -320,7 +406,7 @@ class Derham:
 
     @property
     def nquads(self):
-        """ List of number of Gauss-Legendre quadrature points in each direction (default = p, = p + 1 points per cell).
+        """ List of number of Gauss-Legendre quadrature points in each direction (default = p, leads to exact integration of degree 2p-1 polynomials).
         """
         return self._nquads
 
@@ -465,6 +551,42 @@ class Derham:
         return self._spline_types_pyccel
 
     @property
+    def proj_grid_pts(self):
+        '''Dictionary of quadrature points for histopolation (or Greville points for interpolation) in format (ii, iq) = (interval, quadrature point).'''
+        return self._proj_grid_pts
+
+    @property
+    def proj_grid_wts(self):
+        '''Dictionary of quadrature weights for histopolation (or 1's for interpolation) in format (ii, iq) = (interval, quadrature point).'''
+        return self._proj_grid_wts
+
+    @property
+    def proj_grid_subs(self):
+        '''Dictionary of histopolation subintervals (or 0's for interpolation) as 1d arrays.
+        A value of 1 indicates that the corresponding cell is the second subinterval of a split Greville cell (for histopolation with even degree).'''
+        return self._proj_grid_subs
+
+    @property
+    def quad_grid_pts(self):
+        '''Dictionary of quadrature points for integration over grid cells in format (ni, nq) = (cell, quadrature point).'''
+        return self._quad_grid_pts
+
+    @property
+    def quad_grid_wts(self):
+        '''Dictionary of quadrature weights for integration over grid cells in format (ni, nq) = (cell, quadrature point).'''
+        return self._quad_grid_wts
+
+    @property
+    def quad_grid_spans(self):
+        '''Dictionary of knot span indices of grid cells.'''
+        return self._quad_grid_spans
+
+    @property
+    def quad_grid_bases(self):
+        '''Dictionary of basis functions evaluated at quadrature grids in format (ni, bl, 0, nq) = (cell, basis function, derivative=0, quadrature point).'''
+        return self._quad_grid_bases
+
+    @property
     def extraction_ops(self):
         """ Dictionary holding basis extraction operators, either IdentityOperator or PolarExtractionOperator.
         """
@@ -535,7 +657,49 @@ class Derham:
     # --------------------------
 
     def create_field(self, name, space_id):
+        '''Creat a callable spline field.
+
+        Parameters
+        ----------
+        name : str
+            Field's key to be used for instance when saving to hdf5 file.
+
+        space_id : str
+            Space identifier for the field ("H1", "Hcurl", "Hdiv", "L2" or "H1vec").
+        '''
         return self.Field(name, space_id, self)
+
+    def prepare_eval_tp_fixed(self, grids_1d):
+        '''Obtain knot span indices and spline basis functions evaluated at tensor product grid.
+
+        Parameters
+        ----------
+        grids_1d : 3-list of 1d arrays
+            Points of the tensor product grid.
+
+        space : FemSpace
+            The Vh_fem space from which we want to evaluate the splines.
+
+        Returns
+        -------
+        spans : 3-tuple of 2d int arrays
+            Knot span indices in each direction in format (n, nq).
+
+        bases : 3-tuple of 3d float arrays
+            Values of p + 1 non-zero eta basis functions at quadrature points in format (n, nq, basis).
+        '''
+
+        # spline degree and knot vectors must come from N-spline spaces (V0 space)
+        spans, bns, bds = [], [], []
+
+        for etas, space_1d, end in zip(grids_1d, self.Vh_fem['0'].spaces, self.Vh['0'].ends):
+            span, bn, bd = self._get_span_and_basis_for_eval_mpi(
+                etas, space_1d, end)
+            spans += [span]
+            bns += [bn]
+            bds += [bd]
+
+        return tuple(spans), tuple(bns), tuple(bds)
 
     # --------------------------
     #      private methods:
@@ -758,9 +922,67 @@ class Derham:
 
         return neigh_id
 
+    def _get_span_and_basis_for_eval_mpi(self, etas, Nspace, end):
+        '''Compute 
+
+        the knot span index, 
+        pn + 1 values of N-splines,
+        pn values of D-splines,
+
+        at each point in etas.
+
+        Parameters
+        ----------
+        etas : np.array
+            1d array of evaluation points (ascending).
+
+        Nspace : SplineSpace
+            Psydac object, must be a 1d N-spline space.
+
+        end : int
+            End coeff index on current process for N-spline space.
+
+        Returns
+        -------
+        spans : np.array
+            1d array of knot span indices.
+
+        bn : np.array
+            2d array of pn + 1 values of N-splines indexed by (eta, spline value). 
+
+        bd : np.array
+            2d array of pn values of D-splines indexed by (eta, spline value). 
+        '''
+
+        from struphy.bsplines import bsplines_kernels
+
+        # Extract knot vectors, degree and kind of basis
+        Tn = Nspace.knots
+        pn = Nspace.degree
+
+        spans = np.zeros(etas.size, dtype=int)
+        bns = np.zeros((etas.size, pn + 1), dtype=float)
+        bds = np.zeros((etas.size, pn), dtype=float)
+        bn = np.zeros(pn + 1, dtype=float)
+        bd = np.zeros(pn, dtype=float)
+
+        for n in range(etas.size):
+            # avoid 1. --> 0. for clamped interpolation
+            eta = etas[n] % (1. + 1e-14)
+            span = bsplines_kernels.find_span(Tn, pn, eta)
+            bsplines_kernels.b_d_splines_slim(Tn, pn, eta, span, bn, bd)
+            # correct span for mpi spline eval
+            if span > end + pn + 1:
+                span -= Nspace.nbasis
+            spans[n] = span
+            bns[n] = bn
+            bds[n] = bd
+
+        return spans, bns, bds
     # --------------------------
     # Inner classes
     # --------------------------
+
     class Field:
         """
         Initializes a callable field variable (i.e. its FE coefficients) in memory and creates a method for assigning initial conditions.
@@ -922,6 +1144,8 @@ class Derham:
                             self._vector.tp[n][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = \
                                 value[n][1][s1:e1 + 1, s2:e2 + 1, s3:e3 + 1]
 
+            self._vector.update_ghost_regions()
+
         @property
         def starts(self):
             """ Global indices of the first FE coefficient on the process, in each direction.
@@ -956,6 +1180,9 @@ class Derham:
             """
             return self._vector_stencil
 
+        ###############
+        ### Methods ###
+        ###############
         def extract_coeffs(self, update_ghost_regions=True):
             """
             Maps polar coeffs to polar tensor product rings in case of PolarVector (written in-place to self.vector_stencil) and updates ghost regions.
@@ -970,7 +1197,7 @@ class Derham:
             if update_ghost_regions:
                 self._vector_stencil.update_ghost_regions()
 
-        def initialize_coeffs(self, init_params, domain=None):
+        def initialize_coeffs(self, init_params, domain=None, species=None):
             """
             Sets the initial conditions for self.vector.
 
@@ -980,7 +1207,10 @@ class Derham:
                 Parameters of initial condition, see from :ref:`params_yml`.
 
             domain : struphy.geometry.domains (optional)
-                Domain object for metric coefficients. Needed if init_params[init_params['type']]['coords'] == 'physical'.
+                Domain object for metric coefficients.
+
+            species : string
+                Species of the filed (e.g. MHD) which will be initialized.
             """
 
             init_types = []
@@ -988,27 +1218,35 @@ class Derham:
 
             # identifying initial conditions of self.vector
             if init_params['type'] is None:
-                pass
-
+                # apply boundary operator (in-place)
+                self.derham.boundary_ops[self.space_key].dot(
+                    self._vector.copy(), out=self._vector)
+                # update ghost regions
+                self._vector.update_ghost_regions()
+                return
             elif type(init_params['type']) == str:
+                init_params['type'] = [init_params['type']]
+            else:
+                assert isinstance(init_params['type'], list), f'The type of initial condition must be null or str or list.'
+            
+            # extract the components to be initialized       
+            for _type in init_params['type']:
 
-                if self.name in init_params[init_params['type']]['comps']:
+                if self.name not in init_params[_type]['comps']:
+                    pass
 
-                    init_types += [init_params['type']]
-                    fun_params += [init_params[init_types[0]].copy()]
+                else:
 
-            elif type(init_params['type']) == list:
+                    if self.space_id in {'H1', 'L2'}:
+                        comps_list = [init_params[_type]
+                                        ['comps'][self.name]]
 
-                for n, _type in enumerate(init_params['type']):
+                    else:
+                        comps_list = init_params[_type]['comps'][self.name]
 
-                    if self.name in init_params[_type]['comps']:
-
+                    if any(_comp for _comp in comps_list):
                         init_types += [_type]
                         fun_params += [init_params[_type].copy()]
-
-            else:
-                raise NotImplemented(
-                    f'The type of initial condition must be null or str or list.')
 
             ntypes = len(init_types)
 
@@ -1063,13 +1301,8 @@ class Derham:
 
                         self.vector = eig_vec
 
-                # Fourier modes
-                elif any(_type in ['ModesSin', 'ModesCos', 'TorusModesSin', 'TorusModesCos'] for _type in init_types):
-
-                    if 'H1vec' in self.space_id:
-                        form_str = 'vector'
-                    else:
-                        form_str = self.space_key + '_form'
+                # Fourier modes or shear layer
+                elif any(_type in ['ModesSin', 'ModesCos', 'TorusModesSin', 'TorusModesCos', 'Shear_x', 'Shear_y', 'Shear_z'] for _type in init_types):
 
                     if self.space_id in {'H1', 'L2'}:
 
@@ -1077,21 +1310,29 @@ class Derham:
                             AssertionError(
                                 f'Only one init type can be applied to the variables in space {self.space_id}.')
 
-                        coord_tmp = 'logical'
-                        fun_tmp = [None]
+                        fun_params_comp = {}
 
-                        # coordinates: logical (default) or physical
-                        if 'coords' in fun_params[0]:
-                            coord_tmp = fun_params[0]['coords']
-                            fun_params[0].pop('coords')
+                        # which transform is to be used: physical, '0' or '3'
+                        fun_form = fun_params[0]['comps'][self.name]
+
+                        for keys, vals in fun_params[0].items():
+
+                            if keys == 'comps':
+                                continue
+
+                            elif isinstance(vals, dict):
+                                fun_params_comp[keys] = fun_params[0][keys][self.name]
+
+                            else:
+                                fun_params_comp[keys] = fun_params[0][keys]
 
                         # get callable(s) for specified init type
                         fun_class = getattr(perturbations, init_types[0])
-                        fun_params[0].pop('comps')
-                        fun_tmp[0] = fun_class(**fun_params[0])
+                        fun_tmp = [fun_class(**fun_params_comp)]
 
                         # pullback callable
-                        fun = PulledPform(coord_tmp, fun_tmp, domain, form_str)
+                        fun = TransformedPformComponent(
+                            fun_tmp, fun_form, self.space_key, domain=domain)
 
                     elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
 
@@ -1099,39 +1340,60 @@ class Derham:
                             AssertionError(
                                 f'Maximum 3 init types can be applied to the variables in space {self.space_id}.')
 
-                        coord_tmp = 'logical'
-                        coords_tmp = ['logical', 'logical', 'logical']
+                        fun_params_comp = [{}, {}, {}]
                         fun_tmp = [None, None, None]
+                        fun_form = ['v']*3
 
                         for n, _type in enumerate(init_types):
 
                             fun_class = getattr(perturbations, _type)
 
-                            comps = fun_params[n]['comps'][self.name]
-                            fun_params[n].pop('comps')
+                            for axis, comp in enumerate(fun_params[n]['comps'][self.name]):
 
-                            if 'coords' in fun_params[n]:
-                                coord_tmp = fun_params[n]['coords']
-                                fun_params[n].pop('coords')
+                                if comp is not None:
 
-                            for axis, comp in enumerate(comps):
+                                    # which transform is to be used: physical, '1', '2' or 'v'
+                                    fun_form[axis] = comp
 
-                                if comp:
-                                    fun_tmp[axis] = fun_class(**fun_params[n])
-                                    coords_tmp[axis] = coord_tmp
+                                    for keys, vals in fun_params[n].items():
+
+                                        if keys == 'comps':
+                                            continue
+
+                                        elif isinstance(vals, dict):
+                                            fun_params_comp[axis][keys] = fun_params[n][keys][self.name][axis]
+
+                                        else:
+                                            fun_params_comp[axis][keys] = fun_params[n][keys]
+
+                                    fun_tmp[axis] = fun_class(
+                                        **fun_params_comp[axis])
 
                         # pullback callable
                         fun = []
-
-                        fun += [PulledPform(coords_tmp[0], fun_tmp, domain,
-                                            form_str + '_1')]
-                        fun += [PulledPform(coords_tmp[1], fun_tmp, domain,
-                                            form_str + '_2')]
-                        fun += [PulledPform(coords_tmp[2], fun_tmp, domain,
-                                            form_str + '_3')]
+                        for n, fform in enumerate(fun_form):
+                            fun += [TransformedPformComponent(
+                                fun_tmp, fform, self.space_key, comp=n, domain=domain)]
 
                     # peform projection
                     self.vector = self.derham.P[self.space_key](fun)
+
+                elif any(_type == 'InitFromOutput' for _type in init_types):
+
+                    assert ntypes == 1, \
+                        AssertionError(
+                            "The init type 'InitFromOutput' cannot be applied with other init types")
+
+                    # select class
+                    o_data = getattr(utilities, init_types[0])(
+                        self.derham, self.name, species, **fun_params[0])
+
+                    if isinstance(self.vector, StencilVector):
+                        self.vector._data[:] = o_data.vector
+
+                    else:
+                        for n in range(3):
+                            self.vector[n]._data[:] = o_data.vector[n]
 
                 else:
                     raise NotImplemented(
@@ -1162,9 +1424,78 @@ class Derham:
 
             self._vector.update_ghost_regions()
 
+        def eval_tp_fixed_loc(self, spans, bases, out=None):
+            '''Spline evaluation on pre-defined grid.
+
+            Input spans must be on local process, start <= span <= end.
+
+            Parameters
+            ----------
+            spans : 3-tuple of 1d int arrays
+                Knot span indices in each direction (start <= span <= end).
+
+            bases : 3-tuple of 2d float arrays
+                Values of non-zero eta basis functions at evaluation points indexed by (eta, basis function).
+
+            Returns
+            -------
+            out : array[float]
+                3d array of spline values S_ijk corresponding to the sizes of spans.
+            '''
+
+            if isinstance(self.vector, StencilVector):
+
+                assert [span.size for span in spans] == [base.shape[0]
+                                                         for base in bases]
+
+                if out is None:
+                    out = np.empty([span.size for span in spans], dtype=float)
+                else:
+                    assert out.shape == tuple([span.size for span in spans])
+
+                eval_spline_mpi_tensor_product_fixed(*spans,
+                                                     *bases,
+                                                     self.vector._data,
+                                                     self.derham.spline_types_pyccel[self.space_key],
+                                                     np.array(self.derham.p),
+                                                     np.array(self.starts),
+                                                     out)
+
+            else:
+                out_is_none = False
+                if out is None:
+                    out = []
+                    out_is_none = True
+
+                for i in range(3):
+
+                    assert [span.size for span in spans] == [base.shape[0]
+                                                             for base in bases[i]]
+
+                    if out_is_none:
+                        out += np.empty([span.size for span in spans],
+                                        dtype=float)
+                    else:
+                        assert out[i].shape == tuple(
+                            [span.size for span in spans])
+
+                    eval_spline_mpi_tensor_product_fixed(*spans,
+                                                         *bases[i],
+                                                         self.vector[i]._data,
+                                                         self.derham.spline_types_pyccel[self.space_key][i],
+                                                         np.array(
+                                                             self.derham.p),
+                                                         np.array(
+                                                             self.starts[i]),
+                                                         out[i])
+
+            return out
+
         def __call__(self, eta1, eta2, eta3, out=None, tmp=None, squeeze_output=False, local=False):
             """
-            Evaluates the spline function on the global domain, unless local is given to True (in which case the spline function is evaluated only on the local domain).
+            Evaluates the spline function on the global domain, unless local=True,
+            in which case the spline function is evaluated only on the local domain,
+            and the rest is set to zero.
 
             Parameters
             ----------
@@ -1232,10 +1563,10 @@ class Derham:
             if tmp is None:
                 tmp = np.zeros((E1.shape[0], E2.shape[1],
                                 E3.shape[2]), dtype=float)
-            else :
+            else:
                 assert isinstance(tmp, np.ndarray)
                 assert tmp.shape == (E1.shape[0], E2.shape[1],
-                                E3.shape[2])
+                                     E3.shape[2])
                 assert tmp.dtype.type is np.float64
                 tmp[:] = 0.
 
@@ -1264,9 +1595,9 @@ class Derham:
                             MPI.IN_PLACE, tmp, op=MPI.SUM)
 
                 # all processes have all values
-                if out is None : 
+                if out is None:
                     out = tmp
-                else :
+                else:
                     out *= 0.
                     out += tmp
 
@@ -1298,7 +1629,7 @@ class Derham:
                     # all processes have all values
                     if out_is_None:
                         out += [tmp.copy()]
-                    else :
+                    else:
                         out[n] *= 0.
                         out[n] += tmp
 
@@ -1312,6 +1643,9 @@ class Derham:
 
             return out
 
+        #######################
+        ### Private methods ###
+        #######################
         def _add_noise(self, fun_params, n=None):
             """ Add noise to a vector component where init_comps==True, otherwise leave at zero.
 
@@ -1541,33 +1875,36 @@ class Derham:
                     return _amps
 
 
-class PulledPform:
+class TransformedPformComponent:
     """
-    Construct callable (component of) p-form on logical domain (unit cube).
-
-    Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see :ref:`struphy.geometry.base.prepare_arg`).
+    Construct callable component of p-form on logical domain (unit cube).
 
     Parameters
     ----------
-    coords : str
-        From which coordinate representation to pull, either 'logical' or 'physical'.
-
     fun : list
-        Callable function components. Has to be length 3 for 1- and 2-forms, length 1 otherwise.
+        Callable function components. Has to be length three for 1-, 2-forms and vector fields, length one otherwise.
+
+    fun_form : str
+        The representation of the input fun: either a p-form, then '0' or '3' for scalar and 'v', '1' or '2' for vector-valued,
+        'physical' when defined on the physical (mapped) domain, and 'norm' when given in the normalized
+        contra-variant basis (:math:`\delta_i / |\delta_i|`).
+
+    out_form : str
+        The p-form representation of the output: '0', '1', '2' '3' or 'v'.
+
+    comp : int
+        Which component of the transformed p-form is returned, 0, 1, or 2 (only needed for vector-valued fun).
 
     domain: struphy.geometry.domains
-        All things mapping.
-
-    form : str
-        Which form to pull: '0_form', '3_form' or 'xxx_1', 'xxx_2', 'xxx_3', where xxx is either '1_form', '2_form' or 'vector'.
+        All things mapping. If None, the input fun is just evaluated and not transformed at __call__.
 
     Returns
     -------
-    f : array[float]
-        Array holding the values.
+    out : array[float]
+        The values of the component comp of fun transformed from fun_form to out_form.
     """
 
-    def __init__(self, coords, fun, domain, form):
+    def __init__(self, fun: list, fun_form: str, out_form: str, comp=0, domain=None):
 
         assert len(fun) == 1 or len(fun) == 3
 
@@ -1580,33 +1917,63 @@ class PulledPform:
                 assert callable(f)
                 self._fun += [f]
 
-        self._coords = coords
+        self._fun_form = fun_form
+        self._out_form = out_form
+        self._comp = comp
         self._domain = domain
-        self._form = form
+
+        self._is_scalar = len(fun) == 1
 
         # define which component of the field is evaluated (=0 for scalar fields)
-        if len(self._fun) == 1:
-            self._comp = 0
+        if self._is_scalar:
+            self._fun = self._fun[0]
+            assert callable(self._fun)
         else:
-            self._comp = int(self._form[-1]) - 1
-
-        assert isinstance(self._fun, list)
+            assert len(self._fun) == 3
+            assert all([callable(f) for f in self._fun])
 
     def __call__(self, eta1, eta2, eta3):
-        """ Evaluate the component of the p-form specified in self._form.
+        """
+        Evaluate the component of the transformed p-form specified in self._comp.
+
+        Depending on the dimension of eta1 either point-wise, tensor-product, 
+        slice plane or general (see :ref:`struphy.geometry.base.prepare_arg`).
         """
 
-        if self._coords == 'logical':
-            f = self._fun[self._comp](eta1, eta2, eta3)
-        elif self._coords == 'physical':
-            if self._form[0] == '0' or self._form[0] == '3':
-                f = self._domain.pull(
-                    self._fun, eta1, eta2, eta3, kind=self._form)
-            else:
-                f = self._domain.pull(
-                    self._fun, eta1, eta2, eta3, kind=self._form[:-2])[self._comp]
-        else:
-            raise ValueError(
-                'Coordinates to be used for p-form pullback not properly specified.')
+        if self._fun_form == self._out_form or self._domain is None:
 
-        return f
+            if self._is_scalar:
+                out = self._fun(eta1, eta2, eta3)
+            else:
+                out = self._fun[self._comp](eta1, eta2, eta3)
+
+        elif self._fun_form == 'physical':
+
+            if self._is_scalar:
+                out = self._domain.pull(
+                    self._fun, eta1, eta2, eta3, kind=self._out_form)
+            else:
+                out = self._domain.pull(
+                    self._fun, eta1, eta2, eta3, kind=self._out_form)[self._comp]
+                
+        elif self._fun_form == 'physical_at_eta':
+
+            if self._is_scalar:
+                out = self._domain.pull(
+                    self._fun, eta1, eta2, eta3, kind=self._out_form, coordinates='logical')
+            else:
+                out = self._domain.pull(
+                    self._fun, eta1, eta2, eta3, kind=self._out_form, coordinates='logical')[self._comp]
+
+        else:
+
+            dict_tran = self._fun_form + '_to_' + self._out_form
+
+            if self._is_scalar:
+                out = self._domain.transform(
+                    self._fun, eta1, eta2, eta3, kind=dict_tran)
+            else:
+                out = self._domain.transform(
+                    self._fun, eta1, eta2, eta3, kind=dict_tran)[self._comp]
+
+        return out
