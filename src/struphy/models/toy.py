@@ -582,8 +582,7 @@ class VariationalPressurelessFluid(StruphyModel):
         # initialize base class
         super().__init__(params, comm)
         # Initialize mass matrix
-        self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'])
+        self.WMM = WeightedMassOperator(self.derham.Vh_fem['v'], self.derham.Vh_fem['v'], matrix_free=True)        
         # Initialize propagators/integrators used in splitting substeps
         self.add_propagator(self.prop_fields.VariationalDensityEvolve(
             self.pointer['fluid_rho3'], self.pointer['fluid_uv'], model='pressureless', mass_ops=self.WMM))
@@ -597,7 +596,7 @@ class VariationalPressurelessFluid(StruphyModel):
         self._tmp_u1 = self.derham.Vh['v'].zeros()
 
     def update_scalar_quantities(self):
-        WMM = self.WMM.matrix
+        WMM = self.WMM
         m1 = WMM.dot(self.pointer['fluid_uv'], out=self._tmp_u1)
 
         en_U = self.pointer['fluid_uv'] .dot(m1)/2
@@ -669,7 +668,7 @@ class VariationalBarotropicFluid(StruphyModel):
         super().__init__(params, comm)
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'])
+            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'], matrix_free=True)
         # Initialize propagators/integrators used in splitting substeps
         self.add_propagator(self.prop_fields.VariationalDensityEvolve(
             self.pointer['fluid_rho3'], self.pointer['fluid_uv'], model='barotropic', mass_ops=self.WMM))
@@ -686,7 +685,7 @@ class VariationalBarotropicFluid(StruphyModel):
         self._tmp_rho1 = self.derham.Vh['3'].zeros()
 
     def update_scalar_quantities(self):
-        WMM = self.WMM.matrix
+        WMM = self.WMM
         m1 = WMM.dot(self.pointer['fluid_uv'], out=self._tmp_m1)
 
         en_U = self.pointer['fluid_uv'] .dot(m1)/2
@@ -772,7 +771,7 @@ class VariationalCompressibleFluid(StruphyModel):
         super().__init__(params, comm)
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'])
+            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'], matrix_free=True)
 
         # Initialize propagators/integrators used in splitting substeps
         gamma = params['fluid']['fluid']['options']['solvers']['gamma']
@@ -798,7 +797,7 @@ class VariationalCompressibleFluid(StruphyModel):
 
     def update_scalar_quantities(self):
 
-        WMM = self.WMM.matrix
+        WMM = self.WMM
         m1 = WMM.dot(self.pointer['fluid_uv'], out=self._tmp_m1)
 
         en_U = self.pointer['fluid_uv'] .dot(m1)/2

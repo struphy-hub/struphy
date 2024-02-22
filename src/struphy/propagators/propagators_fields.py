@@ -2675,7 +2675,7 @@ class VariationalMomentumAdvection(Propagator):
                              for i in range(3)]
 
         # weighted mass matrix to go from m to u
-        self._Mrho = self.WMM.matrix
+        self._Mrho = self.WMM
 
         # Inverse weighted mass matrix
         if self._params['type_linear_solver'][1] is None:
@@ -2955,7 +2955,7 @@ class VariationalDensityEvolve(Propagator):
         self._rhof_2_values = np.zeros(grid_shape, dtype=float)
 
         # weighted mass matrix to go from m to u
-        self._Mrho = self.WMM.matrix
+        self._Mrho = self.WMM
 
         # Inverse weighted mass matrix
         if self._params['type_linear_solver'][1] is None:
@@ -3337,7 +3337,7 @@ class VariationalEntropyEvolve(Propagator):
         self._sf_2_values = np.zeros(grid_shape, dtype=float)
 
         # weighted mass matrix to go from m to u
-        self._Mrho = self.WMM.matrix
+        self._Mrho = self.WMM
 
         # Inverse weighted mass matrix
         if self._params['type_linear_solver'][1] is None:
@@ -3642,7 +3642,7 @@ class VariationalMagFieldEvolve(Propagator):
                                        [self.hist_grid_2_bd[0], self.hist_grid_2_bd[1], self.hist_grid_2_bn[2]]]
 
         # weighted mass matrix to go from m to u
-        self._Mrho = self.WMM.matrix
+        self._Mrho = self.WMM
 
         # Inverse weighted mass matrix
         if self._params['type_linear_solver'][1] is None:
