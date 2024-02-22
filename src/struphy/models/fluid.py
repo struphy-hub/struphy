@@ -545,7 +545,7 @@ class VariationalMHD(StruphyModel):
         # initialize base class
         super().__init__(params, comm)
         # Initialize mass matrix
-        self.WMM = WeightedMassOperator(self.derham.Vh_fem['v'], self.derham.Vh_fem['v']) 
+        self.WMM = WeightedMassOperator(self.derham.Vh_fem['v'], self.derham.Vh_fem['v'], matrix_free=True) 
 
         # Initialize propagators/integrators used in splitting substeps
         gamma = params['fluid']['mhd']['options']['solvers']['gamma']
@@ -576,7 +576,7 @@ class VariationalMHD(StruphyModel):
 
     def update_scalar_quantities(self):
 
-        WMM = self.WMM.matrix
+        WMM = self.WMM
         m1 = WMM.dot(self.pointer['mhd_uv'], out=self._tmp_m1)
 
         en_U = self.pointer['mhd_uv'] .dot(m1)/2
