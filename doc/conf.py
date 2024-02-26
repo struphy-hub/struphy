@@ -74,7 +74,7 @@ html_theme_options = {
     "show_nav_level": 3,
     "show_toc_level": 2,
     "navigation_depth": 4,
-    "header_links_before_dropdown": 10,
+    "header_links_before_dropdown": 7,
     "primary_sidebar_end": ["sidebar-ethical-ads"],
     "external_links": [
         {"name": "Struphy repo", "url": "https://gitlab.mpcdf.mpg.de/struphy/struphy"},

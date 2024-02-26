@@ -28,6 +28,11 @@ Weighted mass operators
     :undoc-members:
     :show-inheritance:
 
+.. autoclass:: struphy.feec.mass.StencilMatrixFreeMassOperator
+    :members:
+    :undoc-members:
+    :show-inheritance:    
+
 
 .. _projectors:
 

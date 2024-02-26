@@ -201,10 +201,7 @@ Ubuntu_latest:
     - struphy compile --status
     - make -v
     - struphy compile
-    - struphy test unit
-    - struphy test propagators
     - struphy test models --fast
-    - struphy test tutorials
 
 # default tests
 c_unit_tests:
@@ -537,6 +534,8 @@ AlmaLinux_tests:
 pages:
   stage: pages
   rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
     - if: $CI_COMMIT_MESSAGE =~ /run-pages-job/ 
     - if: $CI_COMMIT_REF_NAME == "master"
   script:

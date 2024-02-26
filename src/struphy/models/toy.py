@@ -569,10 +569,12 @@ class VariationalPressurelessFluid(StruphyModel):
         from struphy.propagators.propagators_fields import VariationalMomentumAdvection, VariationalDensityEvolve
         dct = {}
 
-        cls.add_option(species=['fluid', 'fluid'], key=['solvers'],
+        cls.add_option(species=['fluid', 'fluid'], key=['solver_momentum'],
                        option=VariationalMomentumAdvection.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'fluid'], key=['solvers'],
+        cls.add_option(species=['fluid', 'fluid'], key=['solver_density'],
                        option=VariationalDensityEvolve.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'fluid'], key=['physics'],
+                       option=VariationalDensityEvolve.options()['physics'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -581,13 +583,27 @@ class VariationalPressurelessFluid(StruphyModel):
 
         # initialize base class
         super().__init__(params, comm)
+
         # Initialize mass matrix
-        self.WMM = WeightedMassOperator(self.derham.Vh_fem['v'], self.derham.Vh_fem['v'], matrix_free=True)        
+        self.WMM = WeightedMassOperator(
+            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'], matrix_free=True)
+
         # Initialize propagators/integrators used in splitting substeps
+        solver_momentum = params['fluid']['fluid']['options']['solver_momentum']
+        solver_density = params['fluid']['fluid']['options']['solver_density']
+        
+        gamma = params['fluid']['fluid']['options']['physics']['gamma']
+
         self.add_propagator(self.prop_fields.VariationalDensityEvolve(
-            self.pointer['fluid_rho3'], self.pointer['fluid_uv'], model='pressureless', mass_ops=self.WMM))
+            self.pointer['fluid_rho3'], self.pointer['fluid_uv'], 
+            model='pressureless', 
+            gamma=gamma,
+            mass_ops=self.WMM, 
+            **solver_density))
         self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
-            self.pointer['fluid_uv'], mass_ops=self.WMM))
+            self.pointer['fluid_uv'], 
+            mass_ops=self.WMM, 
+            **solver_momentum))
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U')
@@ -654,10 +670,12 @@ class VariationalBarotropicFluid(StruphyModel):
         from struphy.propagators.propagators_fields import VariationalMomentumAdvection, VariationalDensityEvolve
         dct = {}
 
-        cls.add_option(species=['fluid', 'fluid'], key=['solvers'],
+        cls.add_option(species=['fluid', 'fluid'], key=['solver_momentum'],
                        option=VariationalMomentumAdvection.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'fluid'], key=['solvers'],
+        cls.add_option(species=['fluid', 'fluid'], key=['solver_density'],
                        option=VariationalDensityEvolve.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'fluid'], key=['physics'],
+                       option=VariationalDensityEvolve.options()['physics'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -666,14 +684,27 @@ class VariationalBarotropicFluid(StruphyModel):
 
         # initialize base class
         super().__init__(params, comm)
+
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
             self.derham.Vh_fem['v'], self.derham.Vh_fem['v'], matrix_free=True)
+
         # Initialize propagators/integrators used in splitting substeps
+        solver_momentum = params['fluid']['fluid']['options']['solver_momentum']
+        solver_density = params['fluid']['fluid']['options']['solver_density']
+        
+        gamma = params['fluid']['fluid']['options']['physics']['gamma']
+
         self.add_propagator(self.prop_fields.VariationalDensityEvolve(
-            self.pointer['fluid_rho3'], self.pointer['fluid_uv'], model='barotropic', mass_ops=self.WMM))
+            self.pointer['fluid_rho3'], self.pointer['fluid_uv'], 
+            model='barotropic', 
+            gamma=gamma,
+            mass_ops=self.WMM, 
+            **solver_density))
         self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
-            self.pointer['fluid_uv'], mass_ops=self.WMM))
+            self.pointer['fluid_uv'], 
+            mass_ops=self.WMM, 
+            **solver_momentum))
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U')
@@ -754,12 +785,14 @@ class VariationalCompressibleFluid(StruphyModel):
         from struphy.propagators.propagators_fields import VariationalMomentumAdvection, VariationalDensityEvolve, VariationalEntropyEvolve
         dct = {}
 
-        cls.add_option(species=['fluid', 'fluid'], key=['solvers'],
+        cls.add_option(species=['fluid', 'fluid'], key=['solver_momentum'],
                        option=VariationalMomentumAdvection.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'fluid'], key=['solvers'],
+        cls.add_option(species=['fluid', 'fluid'], key=['solver_density'],
                        option=VariationalDensityEvolve.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'fluid'], key=['solvers'],
+        cls.add_option(species=['fluid', 'fluid'], key=['solver_entropy'],
                        option=VariationalEntropyEvolve.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'fluid'], key=['physics'],
+                       option=VariationalDensityEvolve.options()['physics'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -774,14 +807,30 @@ class VariationalCompressibleFluid(StruphyModel):
             self.derham.Vh_fem['v'], self.derham.Vh_fem['v'], matrix_free=True)
 
         # Initialize propagators/integrators used in splitting substeps
-        gamma = params['fluid']['fluid']['options']['solvers']['gamma']
+        solver_momentum = params['fluid']['fluid']['options']['solver_momentum']
+        solver_density = params['fluid']['fluid']['options']['solver_density']
+        solver_entropy = params['fluid']['fluid']['options']['solver_entropy']
+        
+        gamma = params['fluid']['fluid']['options']['physics']['gamma']
 
         self.add_propagator(self.prop_fields.VariationalDensityEvolve(
-            self.pointer['fluid_rho3'], self.pointer['fluid_uv'], model='full', s=self.pointer['fluid_s3'], gamma=gamma, mass_ops=self.WMM))
+            self.pointer['fluid_rho3'], self.pointer['fluid_uv'], 
+            model='full', 
+            s=self.pointer['fluid_s3'], 
+            gamma=gamma, 
+            mass_ops=self.WMM, 
+            **solver_density))
         self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
-            self.pointer['fluid_uv'], mass_ops=self.WMM))
+            self.pointer['fluid_uv'], 
+            mass_ops=self.WMM, 
+            **solver_momentum))
         self.add_propagator(self.prop_fields.VariationalEntropyEvolve(
-            self.pointer['fluid_s3'], self.pointer['fluid_uv'], model='full', rho=self.pointer['fluid_rho3'], gamma=gamma, mass_ops=self.WMM))
+            self.pointer['fluid_s3'], self.pointer['fluid_uv'], 
+            model='full', 
+            rho=self.pointer['fluid_rho3'], 
+            gamma=gamma, 
+            mass_ops=self.WMM, 
+            **solver_entropy))
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U')
@@ -810,7 +859,7 @@ class VariationalCompressibleFluid(StruphyModel):
 
     def update_thermo_energy(self):
         '''Reuse tmp used in VariationalEntropyEvolve to compute the thermodynamical energy.
-        
+
         :meta private:
         '''
         en_prop = self._propagators[2]

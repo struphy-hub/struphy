@@ -2497,8 +2497,10 @@ class VariationalMomentumAdvection(Propagator):
         super().__init__(u)
 
         # parameters
-        params_default = {'tol': 1e-8,
-                          'maxiter': 100,
+        params_default = {'linear_tol': 1e-20,
+                          'non_linear_tol': 1e-8,
+                          'linear_maxiter': 3000,
+                          'non_linear_maxiter': 100,
                           'type_linear_solver': ('pcg', 'MassMatrixPreconditioner'),
                           'info': False,
                           'verbose': False,
@@ -2559,9 +2561,9 @@ class VariationalMomentumAdvection(Propagator):
         mn = self._Mrho.dot(un, out=self._tmp_mn)
         mn1 = mn.copy(out=self._tmp_mn1)
         un1 = un.copy(out=self._tmp_un1)
-        tol = self._params['tol']
+        tol = self._params['non_linear_tol']
         err = tol+1
-        for it in range(self._params['maxiter']):
+        for it in range(self._params['non_linear_maxiter']):
 
             # Picard iteration
             if err < tol**2:
@@ -2611,16 +2613,18 @@ class VariationalMomentumAdvection(Propagator):
             # Inverse the mass matrix to get the velocity
             un1 = self._Mrhoinv.dot(mn1, out=self._tmp_un1)
 
-        if it == self._params['maxiter']-1:
-            raise(ValueError, 'maximum iteration in VariationalMomentumAdvection')
+        if it == self._params['non_linear_maxiter']-1:
+            print(f'!!!WARNING: Maximum iteration in VariationalMomentumAdvection reached - not converged \n {err = } \n {tol**2 = }')
 
         self.feec_vars_update(un1)
 
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'tol': 1e-8,
-                         'maxiter': 3000,
+        dct['solver'] = {'linear_tol': 1e-20,
+                         'non_linear_tol': 1e-8,
+                         'linear_maxiter': 3000,
+                         'non_linear_maxiter': 100,
                          'type_linear_solver': [('pcg', 'MassMatrixPreconditioner'),
                                                 ('cg', None)],
                          'info': False,
@@ -2688,8 +2692,8 @@ class VariationalMomentumAdvection(Propagator):
         self._Mrhoinv = inverse(self._Mrho,
                                 self._params['type_linear_solver'][0],
                                 pc=pc,
-                                tol=1e-30,
-                                maxiter=self._params['maxiter'],
+                                tol=self._params['linear_tol'],
+                                maxiter=self._params['linear_maxiter'],
                                 verbose=self._params['verbose'])
 
     def _update_all_weights(self,):
@@ -2758,8 +2762,10 @@ class VariationalDensityEvolve(Propagator):
         super().__init__(rho, u)
 
         # parameters
-        params_default = {'tol': 1e-8,
-                          'maxiter': 100,
+        params_default = {'linear_tol': 1e-20,
+                          'non_linear_tol': 1e-8,
+                          'linear_maxiter': 3000,
+                          'non_linear_maxiter': 100,
                           'type_linear_solver': ('pcg', 'MassMatrixPreconditioner'),
                           'info': False,
                           'verbose': False,
@@ -2831,9 +2837,9 @@ class VariationalDensityEvolve(Propagator):
         un1 = un.copy(out=self._tmp_un1)
         un2 = un1.copy(out=self._tmp_un2)
         mn1 = mn.copy(out=self._tmp_mn1)
-        tol = self._params['tol']
+        tol = self._params['non_linear_tol']
         err = tol+1
-        for it in range(self._params['maxiter']):
+        for it in range(self._params['non_linear_maxiter']):
 
             # Picard iteration
             if err < tol**2:
@@ -2892,21 +2898,23 @@ class VariationalDensityEvolve(Propagator):
 
             err = self._get_error(un_diff, rhon_diff)
 
-        if it == self._params['maxiter']-1:
-            raise(ValueError('maximum iteration in VariationalDensityEvolve'))
+        if it == self._params['non_linear_maxiter']-1:
+            print(f'!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err = } \n {tol**2 = }')
 
         self.feec_vars_update(rhon1, un1)
 
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'tol': 1e-8,
-                         'maxiter': 3000,
+        dct['solver'] = {'linear_tol': 1e-20,
+                         'non_linear_tol': 1e-8,
+                         'linear_maxiter': 3000,
+                         'non_linear_maxiter': 100,
                          'type_linear_solver': [('pcg', 'MassMatrixPreconditioner'),
                                                 ('cg', None)],
                          'info': False,
-                         'verbose': False,
-                         'gamma': 5/3}
+                         'verbose': False}
+        dct['physics'] = {'gamma': 5/3}
         return dct
 
     def _initialize_projectors_and_mass(self):
@@ -2968,8 +2976,8 @@ class VariationalDensityEvolve(Propagator):
         self._Mrhoinv = inverse(self._Mrho,
                                 self._params['type_linear_solver'][0],
                                 pc=pc,
-                                tol=1e-30,
-                                maxiter=self._params['maxiter'],
+                                tol=self._params['linear_tol'],
+                                maxiter=self._params['linear_maxiter'],
                                 verbose=self._params['verbose'])
 
         integration_grid_X = [grid_1d.flatten() for grid_1d in self.derham.quad_grid_pts['0']]
@@ -3145,8 +3153,10 @@ class VariationalEntropyEvolve(Propagator):
         super().__init__(s, u)
 
         # parameters
-        params_default = {'tol': 1e-8,
-                          'maxiter': 100,
+        params_default = {'linear_tol': 1e-20,
+                          'non_linear_tol': 1e-8,
+                          'linear_maxiter': 3000,
+                          'non_linear_maxiter': 100,
                           'type_linear_solver': ('pcg', 'MassMatrixPreconditioner'),
                           'info': False,
                           'verbose': False,
@@ -3219,9 +3229,9 @@ class VariationalEntropyEvolve(Propagator):
         mn = self._Mrho.dot(un, out=self._tmp_mn)
         mn1 = mn.copy(out=self._tmp_mn1)
 
-        tol = self._params['tol']
+        tol = self._params['non_linear_tol']
         err = tol+1
-        for it in range(self._params['maxiter']):
+        for it in range(self._params['non_linear_maxiter']):
 
             # Picard iteration
             if err < tol**2:
@@ -3278,18 +3288,24 @@ class VariationalEntropyEvolve(Propagator):
 
             err = self._get_error(un_diff, sn_diff)
 
+            if it == self._params['non_linear_maxiter']-1:
+                print(f'!!!Warning: Maximum iteration in VariationalEntropyEvolve reached - not converged:\n {err = } \n {tol**2 = }')
+
+
         self.feec_vars_update(sn1, un1)
 
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'tol': 1e-8,
-                         'maxiter': 3000,
+        dct['solver'] = {'linear_tol': 1e-20,
+                         'non_linear_tol': 1e-8,
+                         'linear_maxiter': 3000,
+                         'non_linear_maxiter': 100,
                          'type_linear_solver': [('pcg', 'MassMatrixPreconditioner'),
                                                 ('cg', None)],
                          'info': False,
-                         'verbose': False,
-                         'gamma': 5/3}
+                         'verbose': False}
+        dct['physics'] = {'gamma': 5/3}
         return dct
 
     def _initialize_projectors_and_mass(self):
@@ -3350,8 +3366,8 @@ class VariationalEntropyEvolve(Propagator):
         self._Mrhoinv = inverse(self._Mrho,
                                 self._params['type_linear_solver'][0],
                                 pc=pc,
-                                tol=1e-30,
-                                maxiter=self._params['maxiter'],
+                                tol=self._params['linear_tol'],
+                                maxiter=self._params['linear_maxiter'],
                                 verbose=self._params['verbose'])
 
         # prepare for integration of linear form
@@ -3461,8 +3477,10 @@ class VariationalMagFieldEvolve(Propagator):
         super().__init__(b, u)
 
         # parameters
-        params_default = {'tol': 1e-8,
-                          'maxiter': 100,
+        params_default = {'linear_tol': 1e-20,
+                          'non_linear_tol': 1e-8,
+                          'linear_maxiter': 3000,
+                          'non_linear_maxiter': 100,
                           'type_linear_solver': ('pcg', 'MassMatrixPreconditioner'),
                           'info': False,
                           'verbose': False,
@@ -3523,9 +3541,9 @@ class VariationalMagFieldEvolve(Propagator):
         mn = self._Mrho.dot(un, out=self._tmp_mn)
         mn1 = mn.copy(out=self._tmp_mn1)
 
-        tol = self._params['tol']
+        tol = self._params['non_linear_tol']
         err = tol+1
-        for it in range(self._params['maxiter']):
+        for it in range(self._params['non_linear_maxiter']):
 
             # Picard iteration
             if err < tol**2:
@@ -3578,13 +3596,19 @@ class VariationalMagFieldEvolve(Propagator):
 
             err = self._get_error(un_diff, bn_diff)
 
+            if it == self._params['non_linear_maxiter']-1:
+                print(f'!!!Warning: Maximum iteration in VariationalMagFieldEvolve reached - not converged:\n {err = } \n {tol**2 = }')
+
+
         self.feec_vars_update(bn1, un1)
 
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'tol': 1e-8,
-                         'maxiter': 3000,
+        dct['solver'] = {'linear_tol': 1e-20,
+                         'non_linear_tol': 1e-8,
+                         'linear_maxiter': 3000,
+                         'non_linear_maxiter': 100,
                          'type_linear_solver': [('pcg', 'MassMatrixPreconditioner'),
                                                 ('cg', None)],
                          'info': False,
@@ -3655,8 +3679,8 @@ class VariationalMagFieldEvolve(Propagator):
         self._Mrhoinv = inverse(self._Mrho,
                                 self._params['type_linear_solver'][0],
                                 pc=pc,
-                                tol=1e-30,
-                                maxiter=self._params['maxiter'],
+                                tol=self._params['linear_tol'],
+                                maxiter=self._params['linear_maxiter'],
                                 verbose=self._params['verbose'])
 
     def _update_all_weights(self,):
