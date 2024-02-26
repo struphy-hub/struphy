@@ -1,7 +1,7 @@
 import numpy as np
 from mpi4py import MPI
 
-from psydac.linalg.stencil import StencilVector, StencilMatrix
+from psydac.linalg.stencil import StencilVector, StencilMatrix#, StencilDiagonalMatrix
 from psydac.linalg.block import BlockVector, BlockLinearOperator
 from psydac.linalg.basic import Vector, IdentityOperator
 
@@ -30,6 +30,9 @@ class WeightedMassOperators:
     **weights : dict
         Objects to access callables that can serve as weight functions.
 
+    matrix_free : bool
+        If set to true will not compute the matrix associated with the operator but directly compute the product when called
+
     Notes
     -----
     Possible choices for key-value pairs in ****weights** are, at the moment:
@@ -37,11 +40,12 @@ class WeightedMassOperators:
     - eq_mhd: :class:`struphy.fields_background.mhd_equil.base.MHDequilibrium`
     """
 
-    def __init__(self, derham, domain, **weights):
+    def __init__(self, derham, domain, matrix_free=False, **weights):
 
         self._derham = derham
         self._domain = domain
         self._weights = weights
+        self._matrix_free = matrix_free
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
@@ -623,7 +627,8 @@ class WeightedMassOperators:
                                    V_boundary_op=self.derham.boundary_ops[V_id],
                                    W_boundary_op=self.derham.boundary_ops[W_id],
                                    weights_info=fun,
-                                   transposed=False)
+                                   transposed=False,
+                                   matrix_free= self._matrix_free)
 
         out.assemble(name=name)
 
@@ -719,7 +724,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 self._W_extraction_op.codomain)
 
         self._transposed = transposed
-        self._matrixless = matrix_free
+        self._matrix_free = matrix_free
 
         self._dtype = V.vector_space.dtype
 
@@ -793,7 +798,7 @@ class WeightedMassOperator(LinOpWithTransp):
             assert len(
                 V_name) > 2, 'only block matrices with domain/codomain spaces Hcurl, Hdiv and H1vec are allowed!'
             
-            if self._matrixless:
+            if self._matrix_free:
                 if weights_info == 'symm':
                     blocks = [[StencilMatrixFreeMassOperator(Vs, Ws)
                             for Vs in V.spaces] for Ws in W.spaces]
@@ -853,7 +858,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
                     # set zero default weights if weights is None
                     if weights_info is None:
-                        if self._matrixless:
+                        if self._matrix_free:
                             blocks[-1] += [StencilMatrixFreeMassOperator(vspace, wspace)]
                         else:
                             blocks[-1] += [StencilMatrix(
@@ -882,8 +887,8 @@ class WeightedMassOperator(LinOpWithTransp):
                                 [pt.size for pt in pts])
 
                             if np.any(np.abs(mat_w) > 1e-14):
-                                if self._matrixless:
-                                    blocks[-1] += [StencilMatrixFreeMassOperator(vspace, wspace)]
+                                if self._matrix_free:
+                                    blocks[-1] += [StencilMatrixFreeMassOperator(vspace, wspace, weights=weights_info[a][b])]
                                 else:
                                     blocks[-1] += [StencilMatrix(
                                         vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)]
@@ -895,7 +900,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
             if len(blocks) == len(blocks[0]) == 1:
                 if blocks[0][0] is None:
-                    if self._matrixless:
+                    if self._matrix_free:
                     
                         self._mat = StencilMatrixFreeMassOperator(vspace, wspace)
                     else:
@@ -948,7 +953,7 @@ class WeightedMassOperator(LinOpWithTransp):
         self._codomain = self._M.codomain
 
         # load assembly kernel
-        if not self._matrixless:
+        if not self._matrix_free:
             self._assembly_kernel = getattr(
                 mass_kernels, 'kernel_' + str(self._V.ldim) + 'd_mat')
 
@@ -1071,7 +1076,7 @@ class WeightedMassOperator(LinOpWithTransp):
             M = WeightedMassOperator(self._V, self._W,
                                      self._V_extraction_op, self._W_extraction_op,
                                      self._V_boundary_op, self._W_boundary_op,
-                                     weights, not self._transposed, self._matrixless)
+                                     weights, not self._transposed, self._matrix_free)
 
             M.assemble(verbose=False)
 
@@ -1080,7 +1085,7 @@ class WeightedMassOperator(LinOpWithTransp):
             M = WeightedMassOperator(self._V, self._W,
                                      self._V_extraction_op, self._W_extraction_op,
                                      self._V_boundary_op, self._W_boundary_op,
-                                     self._symmetry, not self._transposed, self._matrixless)
+                                     self._symmetry, not self._transposed, self._matrix_free)
 
             M.assemble(weights=weights, verbose=False)
 
@@ -1112,18 +1117,19 @@ class WeightedMassOperator(LinOpWithTransp):
         """
 
 
-        if self._matrixless :
-            if self._is_scalar :
-                self._mat.weights = weights[0][0]
-            else:
-                for a, weights_row in enumerate(weights):
-                    for b, weight in enumerate(weights_row):
-                        if weight is not None:
-                            assert callable(weight) or isinstance(
-                                weight, np.ndarray)
-                        self._mat[a,b].weights = weight
-                               
-            self._weights = weights
+        if self._matrix_free:
+            if weights is not None:
+                if self._is_scalar :
+                    self._mat.weights = weights[0][0]
+                else:
+                    for a, weights_row in enumerate(weights):
+                        for b, weight in enumerate(weights_row):
+                            if weight is not None:
+                                assert callable(weight) or isinstance(
+                                    weight, np.ndarray)
+                            self._mat[a,b].weights = weight
+                                
+                self._weights = weights
 
         else : 
 
@@ -1405,7 +1411,13 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
         self._weights = weights
         self._dtype = V.vector_space.dtype
         self._dot_kernel = getattr(
-            mass_kernels, 'kernel_' + str(self._V.ldim) + 'd_matrixless')
+            mass_kernels, 'kernel_' + str(self._V.ldim) + 'd_matrixfree')
+        
+        self._diag_kernel = getattr(
+            mass_kernels, 'kernel_' + str(self._V.ldim) + 'd_diag')
+        
+        shape = tuple(e - s + 1 for s, e in zip(V.vector_space.starts, V.vector_space.ends))
+        self._diag_tmp = np.array((shape))
         
         # knot span indices of elements of local domain
         self._codomain_spans = [
@@ -1448,7 +1460,7 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
     
     @property
     def codomain(self):
-        return self._domain
+        return self._codomain
     
     @property
     def dtype(self):
@@ -1473,7 +1485,7 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
     def weights(self, new):
         self._weights = new
     
-    def dot(self, v, out):
+    def dot(self, v, out=None):
         """
         Dot product of the operator with a vector. Direct computation (not using a StencilMatrix).
 
@@ -1509,15 +1521,77 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
             mat_w = self._weights(*PTS).copy()
         elif isinstance(self._weights, np.ndarray):
             mat_w = self._weights
+        
+        if self._weights is not None:
 
-        assert mat_w.shape == tuple([pt.size for pt in self._pts])
+            assert mat_w.shape == tuple([pt.size for pt in self._pts])
 
-        # call kernel (if mat_w is not zero) by calling the appropriate kernel (1d, 2d or 3d)
-        if np.any(np.abs(mat_w) > 1e-14):
-            self._dot_kernel(*self._codomain_spans, *self._domain_spans, *self._W.degree, *self._V.degree, 
-                            *self._codomain_starts, *self._domain_starts, *self._codomain_pads, *self._domain_pads, *self._wts, 
-                            *self._codomain_basis, *self._domain_basis, mat_w, 
-                            out._data, v._data)
-                
-        out.exchange_assembly_data()
+            # call kernel (if mat_w is not zero) by calling the appropriate kernel (1d, 2d or 3d)
+            if np.any(np.abs(mat_w) > 1e-14):
+                self._dot_kernel(*self._codomain_spans, *self._domain_spans, *self._W.degree, *self._V.degree, 
+                                *self._codomain_starts, *self._domain_starts, *self._codomain_pads, *self._domain_pads, *self._wts, 
+                                *self._codomain_basis, *self._domain_basis, mat_w, 
+                                out._data, v._data)
+                    
+            out.exchange_assembly_data()
         return out
+    
+    # def diagonal(self, *, inverse = False, out = None):
+    #     """
+    #     Get the coefficients on the main diagonal as a StencilDiagonalMatrix object.
+
+    #     Parameters
+    #     ----------
+    #     inverse : bool
+    #         If True, get the inverse of the diagonal. (Default: False).
+
+    #     out : StencilDiagonalMatrix
+    #         If provided, write the diagonal entries into this matrix. (Default: None).
+
+    #     Returns
+    #     -------
+    #     StencilDiagonalMatrix
+    #         The matrix which contains the main diagonal of self (or its inverse).
+
+    #     """
+    #     # Check `inverse` argument
+    #     assert isinstance(inverse, bool)
+
+    #     # Only if domain == codomain
+    #     assert self.domain == self.codomain
+
+    #     # Determine domain and codomain of the StencilDiagonalMatrix
+    #     V, W = self.domain, self.codomain
+
+    #     # Check `out` argument
+    #     if out is not None:
+    #         assert isinstance(out, StencilDiagonalMatrix)
+    #         assert out.domain is V
+    #         assert out.codomain is W
+
+    #     # evaluate weight at quadrature points
+    #     if callable(self._weights):
+    #         PTS = np.meshgrid(*self._pts, indexing='ij')
+    #         mat_w = self._weights(*PTS).copy()
+    #     elif isinstance(self._weights, np.ndarray):
+    #         mat_w = self._weights
+
+    #     diag = self._diag_tmp
+    #     diag[:] = 0.
+    #     self._diag_kernel(*self._codomain_spans, *self._W.degree, *self._codomain_starts,
+    #                                         *self._codomain_pads, *self._wts, *self._codomain_basis, mat_w, diag)
+
+    #     data = out._data if out else None
+    #     # Calculate entries of StencilDiagonalMatrix
+    #     if inverse:
+    #         data = np.divide(1, diag, out=data)
+    #     elif out:
+    #         np.copyto(data, diag)
+    #     else:
+    #         data = diag.copy()
+
+    #     # If needed create a new StencilDiagonalMatrix object
+    #     if out is None:
+    #         out = StencilDiagonalMatrix(V, W, data)
+
+    #     return out

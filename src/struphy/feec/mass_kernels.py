@@ -416,7 +416,7 @@ def kernel_3d_eval(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: in
                                             * bi1[iel1, il1, 0, q1] * bi2[iel2, il2, 0, q2] * bi3[iel3, il3, 0, q3]
 
 
-def kernel_3d_matrixless(spansi1: 'int[:]', spansi2: 'int[:]', spansi3: 'int[:]', spansj1: 'int[:]', spansj2: 'int[:]', spansj3: 'int[:]', pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3: int, startsi1: int, startsi2: int, startsi3: int, startsj1: int, startsj2: int, startsj3: int, padsi1: int, padsi2: int, padsi3: int, padsj1: int, padsj2: int, padsj3: int, w1: 'float[:,:]', w2: 'float[:,:]', w3: 'float[:,:]', bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', bi3: 'float[:,:,:,:]', bj1: 'float[:,:,:,:]', bj2: 'float[:,:,:,:]', bj3: 'float[:,:,:,:]', mat_fun: 'float[:,:,:]', data_out: 'float[:,:,:]', data_in: 'float[:,:,:]'):
+def kernel_3d_matrixfree(spansi1: 'int[:]', spansi2: 'int[:]', spansi3: 'int[:]', spansj1: 'int[:]', spansj2: 'int[:]', spansj3: 'int[:]', pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3: int, startsi1: int, startsi2: int, startsi3: int, startsj1: int, startsj2: int, startsj3: int, padsi1: int, padsi2: int, padsi3: int, padsj1: int, padsj2: int, padsj3: int, w1: 'float[:,:]', w2: 'float[:,:]', w3: 'float[:,:]', bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', bi3: 'float[:,:,:,:]', bj1: 'float[:,:,:,:]', bj2: 'float[:,:,:,:]', bj3: 'float[:,:,:,:]', mat_fun: 'float[:,:,:]', data_out: 'float[:,:,:]', data_in: 'float[:,:,:]'):
     """
     Performs the integration of Lambda_ijk * mat_fun(eta1, eta2, eta3) * f(eta1, eta2, eta3) for the basis functions (ijk) available on the calling process,
     where f is the spline function represented by the coefficients in data_in. 
@@ -519,3 +519,82 @@ def kernel_3d_matrixless(spansi1: 'int[:]', spansi2: 'int[:]', spansi3: 'int[:]'
 
                                         data_out[i_local1, i_local2,
                                                  i_local3] += value
+                                        
+
+def kernel_3d_diag(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int, pi2: int, pi3: int, starts1: int, starts2: int, starts3: int, pads1: int, pads2: int, pads3: int, w1: 'float[:,:]', w2: 'float[:,:]', w3: 'float[:,:]', bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', bi3: 'float[:,:,:,:]', mat_fun: 'float[:,:,:]', data: 'float[:,:,:]'):
+    """
+    Computes the diagonal of a mass matrix, assuming that the domain and the codomain are the same.
+
+    The results are written into data (attention: data is NOT set to zero first, but the results are added to data).
+    """
+
+    import numpy as np
+
+    ne1 = spans1.size
+    ne2 = spans2.size
+    ne3 = spans3.size
+
+    nq1 = shape(w1)[1]
+    nq2 = shape(w2)[1]
+    nq3 = shape(w3)[1]
+
+    tmp_bi1 = np.zeros(nq1)
+    tmp_bi2 = np.zeros(nq2)
+    tmp_bi3 = np.zeros(nq3)
+
+    tmp_w1 = np.zeros(nq1)
+    tmp_w2 = np.zeros(nq2)
+    tmp_w3 = np.zeros(nq3)
+
+    tmp_mat_fun = np.zeros((nq1, nq2, nq3))
+
+    for iel1 in range(ne1):
+        for iel2 in range(ne2):
+            for iel3 in range(ne3):
+
+                tmp_mat_fun[:, :, :] = mat_fun[iel1 * nq1: (iel1+1) * nq1,
+                                               iel2 * nq2: (iel2+1) * nq2,
+                                               iel3 * nq3: (iel3+1) * nq3]
+
+                tmp_w1[:] = w1[iel1, :]
+                tmp_w2[:] = w2[iel2, :]
+                tmp_w3[:] = w3[iel3, :]
+
+                for il1 in range(pi1 + 1):
+                    for il2 in range(pi2 + 1):
+                        for il3 in range(pi3 + 1):
+
+                            tmp_bi1[:] = bi1[iel1, il1, 0, :]
+                            tmp_bi2[:] = bi2[iel2, il2, 0, :]
+                            tmp_bi3[:] = bi3[iel3, il3, 0, :]
+
+                            # global spline indices
+                            i_global1 = spans1[iel1] - pi1 + il1
+                            i_global2 = spans2[iel2] - pi2 + il2
+                            i_global3 = spans3[iel3] - pi3 + il3
+
+                            # local spline indices (- starts --> can be negative, will therefore be written to ghost regions)
+                            i_local1 = i_global1 - starts1
+                            i_local2 = i_global2 - starts2
+                            i_local3 = i_global3 - starts3
+
+                            value = 0.
+
+                            for q1 in range(nq1):
+                                for q2 in range(nq2):
+                                    for q3 in range(nq3):
+
+                                        wvol = tmp_w1[q1] * tmp_w2[q2] * tmp_w3[q3] * \
+                                            tmp_mat_fun[q1, q2, q3]
+
+                                        bi = tmp_bi1[q1] * \
+                                            tmp_bi2[q2] * \
+                                            tmp_bi3[q3]
+                                        
+                                        
+                                        value += wvol * bi * bi
+
+                            # No padding on StencilDiagonalMatrix
+                            data[i_local1, i_local2, i_local3] += value
+
+
