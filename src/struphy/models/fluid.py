@@ -18,7 +18,7 @@ class LinearMHD(StruphyModel):
 
         &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
         = 0\,.
-        
+
     :ref:`normalization`:
 
     .. math::
@@ -474,11 +474,11 @@ class VariationalMHD(StruphyModel):
     Implemented equations:
 
     .. math::
-        
+
         \int_{\Omega} \partial_t (\rho \mathbf u) \cdot \mathbf v \, \textnormal d^3 \mathbf x 
         - \int_{\Omega} \mathbf \rho u \cdot [\mathbf u, \mathbf v] \, \textnormal d^3 \mathbf x 
         + \int_{\Omega} \big( \frac{| \mathbf u |^2}{2} - \frac{\partial \rho e}{\partial \rho} \big) \nabla \cdot (\rho \mathbf v) \, \textnormal d^3 \mathbf x &
-        
+
         - \int_{\Omega} \big( \frac{\partial \rho e}{\partial s} \big) \nabla \cdot (s \mathbf v) \, \textnormal d^3 \mathbf x 
         - \int_{\Omega} \mathbf B \cdot \nabla \times (\mathbf B \mathbf v) \, \textnormal d^3 \mathbf x& = 0 ~ , 
 
@@ -487,7 +487,7 @@ class VariationalMHD(StruphyModel):
         \partial_t s + \nabla \cdot ( s \mathbf u ) & = 0 ~ , 
 
         \partial_t \mathbf B + \nabla \times ( \mathbf B \times \mathbf u ) & = 0 ~ , 
-        
+
     where
 
     .. math::
@@ -510,7 +510,7 @@ class VariationalMHD(StruphyModel):
     def species(cls):
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
         dct['em_fields']['b2'] = 'Hdiv'
-        dct['fluid']['mhd'] = {'rho3' : 'L2', 's3' : 'L2', 'uv': 'H1vec'}
+        dct['fluid']['mhd'] = {'rho3': 'L2', 's3': 'L2', 'uv': 'H1vec'}
         return dct
 
     @classmethod
@@ -527,12 +527,16 @@ class VariationalMHD(StruphyModel):
         from struphy.propagators.propagators_fields import VariationalMomentumAdvection, VariationalDensityEvolve, VariationalEntropyEvolve, VariationalMagFieldEvolve
         dct = {}
 
-        cls.add_option(species=['fluid', 'mhd'], key=['solvers'],
+        cls.add_option(species=['fluid', 'mhd'], key=['solver_momentum'],
                        option=VariationalMomentumAdvection.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'mhd'], key=['solvers'],
+        cls.add_option(species=['fluid', 'mhd'], key=['solver_density'],
                        option=VariationalDensityEvolve.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'mhd'], key=['solvers'],
+        cls.add_option(species=['fluid', 'mhd'], key=['solver_entropy'],
                        option=VariationalEntropyEvolve.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'mhd'], key=['solver_magnetic'],
+                       option=VariationalMagFieldEvolve.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'mhd'], key=['physics'],
+                       option=VariationalDensityEvolve.options()['physics'], dct=dct)
 
         return dct
 
@@ -545,20 +549,38 @@ class VariationalMHD(StruphyModel):
         # initialize base class
         super().__init__(params, comm)
         # Initialize mass matrix
-        self.WMM = WeightedMassOperator(self.derham.Vh_fem['v'], self.derham.Vh_fem['v'], matrix_free=True) 
+        self.WMM = WeightedMassOperator(
+            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'], matrix_free=True)
 
         # Initialize propagators/integrators used in splitting substeps
-        gamma = params['fluid']['mhd']['options']['solvers']['gamma']
+        solver_momentum = params['fluid']['mhd']['options']['solver_momentum']
+        solver_density = params['fluid']['mhd']['options']['solver_density']
+        solver_entropy = params['fluid']['mhd']['options']['solver_entropy']
+        solver_magnetic = params['fluid']['mhd']['options']['solver_magnetic']
+
+        gamma = params['fluid']['mhd']['options']['physics']['gamma']
 
         self.add_propagator(self.prop_fields.VariationalDensityEvolve(
-            self.pointer['mhd_rho3'], self.pointer['mhd_uv'], model='full', s = self.pointer['mhd_s3'], gamma = gamma, mass_ops = self.WMM))
+            self.pointer['mhd_rho3'], self.pointer['mhd_uv'],
+            model='full',
+            s=self.pointer['mhd_s3'],
+            gamma=gamma,
+            mass_ops=self.WMM,
+            **solver_density))
         self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
-         self.pointer['mhd_uv'], mass_ops = self.WMM))
+            self.pointer['mhd_uv'],
+            mass_ops=self.WMM,
+            **solver_momentum))
         self.add_propagator(self.prop_fields.VariationalEntropyEvolve(
-            self.pointer['mhd_s3'], self.pointer['mhd_uv'], model='full', rho = self.pointer['mhd_rho3'], gamma = gamma, mass_ops = self.WMM))
+            self.pointer['mhd_s3'], self.pointer['mhd_uv'],
+            model='full',
+            rho=self.pointer['mhd_rho3'],
+            gamma=gamma,
+            mass_ops=self.WMM,
+            **solver_entropy))
         self.add_propagator(self.prop_fields.VariationalMagFieldEvolve(
-            self.pointer['b2'], self.pointer['mhd_uv'], mass_ops = self.WMM))
-        
+            self.pointer['b2'], self.pointer['mhd_uv'],
+            mass_ops=self.WMM))
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U')
@@ -570,7 +592,7 @@ class VariationalMHD(StruphyModel):
         self._tmp_m1 = self.derham.Vh['v'].zeros()
         self._tmp_wb2 = self.derham.Vh['2'].zeros()
         projV3 = L2Projector('L2', self._mass_ops)
-        f = lambda e1, e2, e3 : 1
+        def f(e1, e2, e3): return 1
         f = np.vectorize(f)
         self._integrator = projV3(f)
 
@@ -593,18 +615,19 @@ class VariationalMHD(StruphyModel):
 
     def update_thermo_energy(self):
         '''Reuse tmp used in VariationalEntropyEvolve to compute the thermodynamical energy.
-        
+
         :meta private:
         '''
         en_prop = self._propagators[2]
         en_prop.sf.vector = self.pointer['mhd_s3']
         en_prop.rhof.vector = self.pointer['mhd_rho3']
-        sf_values = en_prop.sf.eval_tp_fixed_loc(en_prop.integration_grid_V3_spans, en_prop.integration_grid_V3_bd, out=en_prop._sf_values_V3)
-        rhof_values = en_prop.rhof.eval_tp_fixed_loc(en_prop.integration_grid_V3_spans, en_prop.integration_grid_V3_bd, out=en_prop._rhof_values_V3)
+        sf_values = en_prop.sf.eval_tp_fixed_loc(
+            en_prop.integration_grid_V3_spans, en_prop.integration_grid_V3_bd, out=en_prop._sf_values_V3)
+        rhof_values = en_prop.rhof.eval_tp_fixed_loc(
+            en_prop.integration_grid_V3_spans, en_prop.integration_grid_V3_bd, out=en_prop._rhof_values_V3)
         e = en_prop._ener
-        ener_values = en_prop._proj_ener_metric_term*e(rhof_values,sf_values)
+        ener_values = en_prop._proj_ener_metric_term*e(rhof_values, sf_values)
         en_prop._get_L2dofs_V3(ener_values, dofs=en_prop._linear_form_dl_ds)
         en_thermo = self._integrator.dot(en_prop._linear_form_dl_ds)
         self.update_scalar('en_thermo', en_thermo)
         return en_thermo
-

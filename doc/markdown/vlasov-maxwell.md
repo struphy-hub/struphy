@@ -2,7 +2,7 @@
 ## Example: Vlasov-Maxwell-Poisson discretization
 
 The Vlasov-Maxwell equations for electrons in a static ion background provide a good example 
-for PDE discretization in Struphy (see [VlasovMaxwell](https://struphy.pages.mpcdf.de/struphy/sections/models.html#struphy.models.kinetic.VlasovMaxwell) for the full implementation). The model we are going to discretize reads as follows:
+for PDE discretization in Struphy (see [VlasovMaxwell](https://struphy.pages.mpcdf.de/struphy/sections/subsections/kinetic.html#struphy.models.kinetic.VlasovMaxwell) for the full implementation). The model we are going to discretize reads as follows:
 
 $$
 \begin{align}
@@ -155,7 +155,7 @@ $$ (eq:spaces)
 (pullback)=
 ### Pull-back to the logical domain
 
-All PDE models in Struphy are discretized on the unit cube $(0,1)^3$, called the "logical domain". The mapping to the actual problem domain, a torus for instance, called "physical" or Cartesian domain and denoted by $\Omega$, is described in the [Domain base class](https://struphy.pages.mpcdf.de/struphy/sections/inventory.html#struphy.geometry.base.Domain). Briefly, logical coordinates are curvi-linear and denoted by $\boldsymbol \eta \in (0, 1)^3$, whereas physical Cartesian coordinates are denoted by $\mathbf x \in \Omega$. The mapping $F: (0, 1)^3 \to \Omega, \boldsymbol \eta \mapsto \mathbf x$ is one-to-one and differentiable, with Jacobian matrix $DF: (0, 1)^3 \to \mathbb R^{3\times 3}$, metric tensor $G = DF^\top DF$ and determinant $\sqrt g = |\textrm{det} DF|$. In Struphy, only right-handed mappings with $\textrm{det} DF > 0$ are allowed.
+All PDE models in Struphy are discretized on the unit cube $(0,1)^3$, called the "logical domain". The mapping to the actual problem domain, a torus for instance, called "physical" or Cartesian domain and denoted by $\Omega$, is described in the [Domain base class](https://struphy.pages.mpcdf.de/struphy/sections/subsections/domains.html#struphy.geometry.base.Domain). Briefly, logical coordinates are curvi-linear and denoted by $\boldsymbol \eta \in (0, 1)^3$, whereas physical Cartesian coordinates are denoted by $\mathbf x \in \Omega$. The mapping $F: (0, 1)^3 \to \Omega, \boldsymbol \eta \mapsto \mathbf x$ is one-to-one and differentiable, with Jacobian matrix $DF: (0, 1)^3 \to \mathbb R^{3\times 3}$, metric tensor $G = DF^\top DF$ and determinant $\sqrt g = |\textrm{det} DF|$. In Struphy, only right-handed mappings with $\textrm{det} DF > 0$ are allowed.
 
 Usually, any text book model equations are described in Cartesian (physical) coordinates $\mathbf x$, and this is also true for our model {eq}`eq:spaces`. Hence, as a next step we have to transform our model to logical, curvi-linear coordinates $\boldsymbol \eta$. This process is also called the "pull-back" to the logical domain. There are different possible "representations" of a pulled-back variable on the logical domain:
 
@@ -183,7 +183,7 @@ The connection of differential $p$-forms to the {ref}`Struphy de Rham spaces <ge
 * Elements of $H$(div) are proxy functions of $2$-forms
 * Elements of $L^2$ are proxy functions of $3$-forms.
 
-A proxy function is the representation of a differential form in a particular basis defined by a map $F$. This means nothing else than the above pullbacks have to be applied for the respective spaces. Note that there is no space for vector fields in the de Rham diagram, however [vector fields are implemented in Struphy](https://struphy.pages.mpcdf.de/struphy/sections/developers.html#struphy.feec.psydac_derham.Derham.create_field) as elements of $(H^1)^3$ with the correct vector field pullback.  
+A proxy function is the representation of a differential form in a particular basis defined by a map $F$. This means nothing else than the above pullbacks have to be applied for the respective spaces. Note that there is no space for vector fields in the de Rham diagram, however [vector fields are implemented in Struphy](https://struphy.pages.mpcdf.de/struphy/sections/subsections/feec_classes.html#struphy.feec.psydac_derham.Derham.create_field) as elements of $(H^1)^3$ with the correct vector field pullback.  
 
 The grad-, curl- and div-operators transform as follows:
 
@@ -286,7 +286,7 @@ $$
 \end{align}
 $$
 
-There appear a couple of mass matrices that are already [predefined in Struphy](https://struphy.pages.mpcdf.de/struphy/sections/developers.html#struphy.feec.mass.WeightedMassOperators.M1), for any mapping:
+There appear a couple of mass matrices that are already [predefined in Struphy](https://struphy.pages.mpcdf.de/struphy/sections/subsections/feec_classes.html#struphy.feec.mass.WeightedMassOperators.M1), for any mapping:
 
 $$
 \begin{aligned}
@@ -331,14 +331,14 @@ $$
 \end{align}
 $$
 
-Since the number of particles in PIC simulations is usually very large (on the order of millions or even billions), an efficient solution loop over $p$ (sometimes also $k$ is used as the particel index) is absolutely mandatory here. Therefore, specific [pusher kernels](https://struphy.pages.mpcdf.de/struphy/sections/inventory.html#module-struphy.pic.pushing.pusher_kernels) must be written for each particle pushing step, which are then accelerated (compiled) with Pyccel, see our [Tl:dr](https://struphy.pages.mpcdf.de/struphy/sections/abstract.html), to enable C- or Fortran execution speed. In Struphy models, the pusher kernels are integrated via the [Pusher class](https://struphy.pages.mpcdf.de/struphy/sections/inventory.html#module-struphy.pic.pushing.pusher) that provides some syntactic sugar for calling the kernels. When writing a pusher kernel, please refer to [a_docstring](https://struphy.pages.mpcdf.de/struphy/sections/inventory.html#struphy.pic.pushing.pusher_kernels.a_documentation) for the correct passing of arguments to the kernel.
+Since the number of particles in PIC simulations is usually very large (on the order of millions or even billions), an efficient solution loop over $p$ (sometimes also $k$ is used as the particel index) is absolutely mandatory here. Therefore, specific [pusher kernels](https://struphy.pages.mpcdf.de/struphy/sections/subsections/propagators.html#module-struphy.pic.pushing.pusher_kernels) must be written for each particle pushing step, which are then accelerated (compiled) with Pyccel, see our [Tl:dr](https://struphy.pages.mpcdf.de/struphy/sections/abstract.html), to enable C- or Fortran execution speed. In Struphy models, the pusher kernels are integrated via the [Pusher class](https://struphy.pages.mpcdf.de/struphy/sections/subsections/propagators.html#module-struphy.pic.pushing.pusher) that provides some syntactic sugar for calling the kernels. When writing a pusher kernel, please refer to [a_documentation](https://struphy.pages.mpcdf.de/struphy/sections/subsections/propagators.html#struphy.pic.pushing.pusher_kernels.a_documentation) for the correct passing of arguments to the kernel.
 
 In a **pusher kernel** there are usually one of two tasks to perform, sometimes even both:
 
 1. evaluation of metric coeffcients at the particle position $\boldsymbol \eta_p$,
 2. evaluation of FEEC spline fields at the particle position $\boldsymbol \eta_p$.
 
-Let us take the kernel [push_v_with_efield](https://struphy.pages.mpcdf.de/struphy/sections/inventory.html#struphy.pic.pushing.pusher_kernels.push_v_with_efield) as an example (see [source code](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/pushing/pusher_kernels.py#L72)), which is needed in our model example. By the way, this brings us to a next good pratice in Struphy:
+Let us take the kernel [push_v_with_efield](https://struphy.pages.mpcdf.de/struphy/sections/subsections/propagators.html#struphy.pic.pushing.pusher_kernels.push_v_with_efield) as an example (see [source code](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/pushing/pusher_kernels.py#L72)), which is needed in our model example. By the way, this brings us to a next good pratice in Struphy:
 
 **Before implementing a kernel, check the documentation if this kernel or a similar one already exists. You might be able to take existing kernels as templates for your own.**
 
@@ -363,7 +363,7 @@ $$
  \boldsymbol \rho_\textrm{i0} := \frac{\alpha^2}{\varepsilon}\int \hat \rho_\textrm{i0}\,\mathbf \Lambda^0 \sqrt g\,\textrm d \boldsymbol \eta = \left(\frac{\alpha^2}{\varepsilon} \rho_\textrm{i0}\,, \, \boldsymbol\Lambda^0\right)_{L^2} \qquad \in \mathbb R^{N_0}\,,
 $$
 
-coming from the static ion charge density $\rho_\textrm{i0}$. This term can be viewed as the right-hand side of an [L2Projection](https://struphy.pages.mpcdf.de/struphy/sections/developers.html#struphy.feec.projectors.L2Projector) into $V_h^0$ and computed with the method [L2Projector.get_dofs](https://struphy.pages.mpcdf.de/struphy/sections/developers.html#struphy.feec.projectors.L2Projector.get_dofs). 
+coming from the static ion charge density $\rho_\textrm{i0}$. This term can be viewed as the right-hand side of an [L2Projection](https://struphy.pages.mpcdf.de/struphy/sections/subsections/feec_classes.html#struphy.feec.projectors.L2Projector) into $V_h^0$ and computed with the method [L2Projector.get_dofs](https://struphy.pages.mpcdf.de/struphy/sections/subsections/feec_classes.html#struphy.feec.projectors.L2Projector.get_dofs). 
 
 Finally, let us consider the **particle-to-grid coupling terms**. In the Poisson equation we have the coupling term
 
@@ -387,23 +387,23 @@ $$
  \mathbf S = - \frac{\alpha^2}{\varepsilon}\mathbb L^0\mathbf w\,.
 $$
 
-Here again, because of the large number of particles in a PIC simulation, the sum over $p$ must be very efficient and accelerated with Pyccel, see our [Tl:dr](https://struphy.pages.mpcdf.de/struphy/sections/abstract.html), to enable C- or Fortran execution speed. The integration of these [accumulation kernels](https://struphy.pages.mpcdf.de/struphy/sections/inventory.html#module-struphy.pic.accumulation.accum_kernels) in Struphy is done through the [Accumulator class](https://struphy.pages.mpcdf.de/struphy/sections/inventory.html#struphy.pic.accumulation.particles_to_grid.Accumulator) or [AccumulatorVector class](https://struphy.pages.mpcdf.de/struphy/sections/inventory.html#struphy.pic.accumulation.particles_to_grid.AccumulatorVector), which provides some syntactic sugar for calling the kernels.
-The above expression can be assembled with [AccumulatorVector](https://struphy.pages.mpcdf.de/struphy/sections/inventory.html#struphy.pic.accumulation.particles_to_grid.AccumulatorVector), where in the kernel the weight is 
+Here again, because of the large number of particles in a PIC simulation, the sum over $p$ must be very efficient and accelerated with Pyccel, see our [Tl:dr](https://struphy.pages.mpcdf.de/struphy/sections/abstract.html), to enable C- or Fortran execution speed. The integration of these [accumulation kernels](https://struphy.pages.mpcdf.de/struphy/sections/subsections/accumulators.html#module-struphy.pic.accumulation.accum_kernels) in Struphy is done through the [Accumulator base classes](https://struphy.pages.mpcdf.de/struphy/sections/subsections/accumulators.html#module-struphy.pic.accumulation.particles_to_grid), which provide some syntactic sugar for calling the kernels.
+The above expression can be assembled with [AccumulatorVector](https://struphy.pages.mpcdf.de/struphy/sections/subsections/accumulators.html#struphy.pic.accumulation.particles_to_grid.AccumulatorVector), where in the kernel the weight is 
 
 $$
 B_p = -\frac{\alpha^2}{\varepsilon} \frac 1 N w_p\,.
 $$
 
-When writing an accumulation kernel, it is mandatory to follow the instructions in [a_documentation](https://struphy.pages.mpcdf.de/struphy/sections/inventory.html#struphy.pic.accumulation.accum_kernels.a_documentation).
-As an example, we can look at the kernel [poisson](https://struphy.pages.mpcdf.de/struphy/sections/inventory.html#struphy.pic.accumulation.accum_kernels.poisson) (see [source code](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/accumulation/accum_kernels.py#L86)), which is needed in the present example and implements the above weights $B_p$. Inside of the particle loop, an accumulation kernel consists of three steps:
+When writing an accumulation kernel, it is mandatory to follow the instructions in [a_documentation](https://struphy.pages.mpcdf.de/struphy/sections/subsections/accumulators.html#struphy.pic.accumulation.accum_kernels.a_documentation).
+As an example, we can look at the kernel [poisson](https://struphy.pages.mpcdf.de/struphy/sections/subsections/accumulators.html#struphy.pic.accumulation.accum_kernels.poisson) (see [source code](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/accumulation/accum_kernels.py#L86)), which is needed in the present example and implements the above weights $B_p$. Inside of the particle loop, an accumulation kernel consists of three steps:
 
 1. Extract the marker position $\boldsymbol \eta_p$ and other relevant marker quantities.
-2. Compute the "filling function", denoted $A^{\mu,\nu}_p$ or $B^\mu_p$ in the [Accumulator docstring](https://struphy.pages.mpcdf.de/struphy/sections/inventory.html#struphy.pic.accumulation.particles_to_grid.Accumulator).
+2. Compute the "filling function", denoted $A^{\mu,\nu}_p$ or $B^\mu_p$ in the [Accumulator docstring](https://struphy.pages.mpcdf.de/struphy/sections/subsections/accumulators.html#struphy.pic.accumulation.particles_to_grid.Accumulator).
 3. Accumulate the contributions of the particle into the array by calling the correct kernel from the module:
 
         import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels
 
-which is imported at the top of [accum_kernels.py](https://struphy.pages.mpcdf.de/struphy/sections/inventory.html#module-struphy.pic.accumulation.accum_kernels) and [accum_kernels_gc.py](https://struphy.pages.mpcdf.de/struphy/sections/inventory.html#module-struphy.pic.accumulation.accum_kernels_gc), respectively. The coupling term in Ampère's law can be treated in analogous fashion:
+which is imported at the top of [accum_kernels.py](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/accumulation/accum_kernels.py?ref_type=heads) and [accum_kernels_gc.py](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/accumulation/accum_kernels_gc.py?ref_type=heads), respectively. The coupling term in Ampère's law can be treated in analogous fashion:
 
 $$
 \begin{aligned}
@@ -614,15 +614,15 @@ $$
 Once the propagators have been defined and added to a {ref}`struphy_model` via the method {meth}`add_propagator() <struphy.models.base.StruphyModel.add_propagator>`, Struphy performs the compositions automatically; the user can choose the splitting algorithm in the {ref}`parameter file <time>`. 
 
 
-For our example model [VlasovMaxwell](https://struphy.pages.mpcdf.de/struphy/sections/models.html#struphy.models.kinetic.VlasovMaxwell), the four substeps defined by {eq}`eq:Js` are imlemented in the following propagators:
+For our example model [VlasovMaxwell](https://struphy.pages.mpcdf.de/struphy/sections/subsections/kinetic.html#struphy.models.kinetic.VlasovMaxwell), the four substeps defined by {eq}`eq:Js` are imlemented in the following propagators:
 
-1. $\Phi^1_{t}$ in [PushEta](https://struphy.pages.mpcdf.de/struphy/sections/inventory.html#struphy.propagators.propagators_markers.PushEta),
+1. $\Phi^1_{t}$ in [PushEta](https://struphy.pages.mpcdf.de/struphy/sections/subsections/propagators.html#struphy.propagators.propagators_markers.PushEta),
 
-1. $\Phi^2_{t}$ in [PushVxB](https://struphy.pages.mpcdf.de/struphy/sections/inventory.html#struphy.propagators.propagators_markers.PushVxB),
+1. $\Phi^2_{t}$ in [PushVxB](https://struphy.pages.mpcdf.de/struphy/sections/subsections/propagators.html#struphy.propagators.propagators_markers.PushVxB),
 
-1. $\Phi^3_{t}$ in [VlasovMaxwell](https://struphy.pages.mpcdf.de/struphy/sections/inventory.html#struphy.propagators.propagators_coupling.VlasovMaxwell),
+1. $\Phi^3_{t}$ in [VlasovMaxwell](https://struphy.pages.mpcdf.de/struphy/sections/subsections/propagators.html#struphy.propagators.propagators_coupling.VlasovMaxwell),
 
-1. $\Phi^4_{t}$ in [Maxwell](https://struphy.pages.mpcdf.de/struphy/sections/inventory.html#struphy.propagators.propagators_fields.Maxwell).
+1. $\Phi^4_{t}$ in [Maxwell](https://struphy.pages.mpcdf.de/struphy/sections/subsections/propagators.html#struphy.propagators.propagators_fields.Maxwell).
 
 Let us revisit the third step $\Phi^3_{t}$, which is the most complicated because it is a particle-field coupling step, where marker velocities and FE coefficients are updated simultaneously. Explicitly, the ODE of this step reads
 
