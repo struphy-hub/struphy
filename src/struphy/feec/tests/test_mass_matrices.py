@@ -114,6 +114,11 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
     mass_mats_free = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd, matrix_free = True)
 
+    # test calling the diagonal method
+    aaa = mass_mats.M0.matrix.diagonal()
+    bbb = mass_mats.M1.matrix.diagonal()
+    print(f'{aaa = }, {bbb[0, 0] = }, {bbb[0, 1] = }')
+
     # compare to old STRUPHY
     bc_old = [[None, None], [None, None], [None, None]]
     for i in range(3):
@@ -1079,8 +1084,8 @@ if __name__ == '__main__':
 
     # test_mass_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)
 
-    test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [[True, True], [False, False], [False, False]], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
+    # test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [[True, True], [False, False], [False, False]], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
     # test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [['d', 'd'], [None, None], [None, None]], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .05, 'Lz' : 10.}], False)
     # test_mass_preconditioner([6, 9, 4], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['HollowCylinder', {'a1' : .1, 'a2' : 1., 'Lz' : 18.84955592153876}], False)
 
-    test_mass_preconditioner_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[False, True], [False, False], [True, False]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)
+    # test_mass_preconditioner_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[False, True], [False, False], [True, False]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)
