@@ -591,18 +591,18 @@ class VariationalPressurelessFluid(StruphyModel):
         # Initialize propagators/integrators used in splitting substeps
         solver_momentum = params['fluid']['fluid']['options']['solver_momentum']
         solver_density = params['fluid']['fluid']['options']['solver_density']
-        
+
         gamma = params['fluid']['fluid']['options']['physics']['gamma']
 
         self.add_propagator(self.prop_fields.VariationalDensityEvolve(
-            self.pointer['fluid_rho3'], self.pointer['fluid_uv'], 
-            model='pressureless', 
+            self.pointer['fluid_rho3'], self.pointer['fluid_uv'],
+            model='pressureless',
             gamma=gamma,
-            mass_ops=self.WMM, 
+            mass_ops=self.WMM,
             **solver_density))
         self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
-            self.pointer['fluid_uv'], 
-            mass_ops=self.WMM, 
+            self.pointer['fluid_uv'],
+            mass_ops=self.WMM,
             **solver_momentum))
 
         # Scalar variables to be saved during simulation
@@ -692,18 +692,18 @@ class VariationalBarotropicFluid(StruphyModel):
         # Initialize propagators/integrators used in splitting substeps
         solver_momentum = params['fluid']['fluid']['options']['solver_momentum']
         solver_density = params['fluid']['fluid']['options']['solver_density']
-        
+
         gamma = params['fluid']['fluid']['options']['physics']['gamma']
 
         self.add_propagator(self.prop_fields.VariationalDensityEvolve(
-            self.pointer['fluid_rho3'], self.pointer['fluid_uv'], 
-            model='barotropic', 
+            self.pointer['fluid_rho3'], self.pointer['fluid_uv'],
+            model='barotropic',
             gamma=gamma,
-            mass_ops=self.WMM, 
+            mass_ops=self.WMM,
             **solver_density))
         self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
-            self.pointer['fluid_uv'], 
-            mass_ops=self.WMM, 
+            self.pointer['fluid_uv'],
+            mass_ops=self.WMM,
             **solver_momentum))
 
         # Scalar variables to be saved during simulation
@@ -810,26 +810,26 @@ class VariationalCompressibleFluid(StruphyModel):
         solver_momentum = params['fluid']['fluid']['options']['solver_momentum']
         solver_density = params['fluid']['fluid']['options']['solver_density']
         solver_entropy = params['fluid']['fluid']['options']['solver_entropy']
-        
+
         gamma = params['fluid']['fluid']['options']['physics']['gamma']
 
         self.add_propagator(self.prop_fields.VariationalDensityEvolve(
-            self.pointer['fluid_rho3'], self.pointer['fluid_uv'], 
-            model='full', 
-            s=self.pointer['fluid_s3'], 
-            gamma=gamma, 
-            mass_ops=self.WMM, 
+            self.pointer['fluid_rho3'], self.pointer['fluid_uv'],
+            model='full',
+            s=self.pointer['fluid_s3'],
+            gamma=gamma,
+            mass_ops=self.WMM,
             **solver_density))
         self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
-            self.pointer['fluid_uv'], 
-            mass_ops=self.WMM, 
+            self.pointer['fluid_uv'],
+            mass_ops=self.WMM,
             **solver_momentum))
         self.add_propagator(self.prop_fields.VariationalEntropyEvolve(
-            self.pointer['fluid_s3'], self.pointer['fluid_uv'], 
-            model='full', 
-            rho=self.pointer['fluid_rho3'], 
-            gamma=gamma, 
-            mass_ops=self.WMM, 
+            self.pointer['fluid_s3'], self.pointer['fluid_uv'],
+            model='full',
+            rho=self.pointer['fluid_rho3'],
+            gamma=gamma,
+            mass_ops=self.WMM,
             **solver_entropy))
 
         # Scalar variables to be saved during simulation
@@ -878,9 +878,18 @@ class VariationalCompressibleFluid(StruphyModel):
 
 
 class Poisson(StruphyModel):
-    r'''Poisson's equations .
+    r'''Weak discretization of Poisson's equation with diffusion matrix, stabilization 
+    and time-depedent right-hand side.
 
-    .. math::   - \Delta \Phi = \rho 
+    Find :math:`\phi \in H^1` such that
+
+    .. math::
+
+        \int_\Omega \psi\, n_0(\mathbf x) \phi\,\textrm d \mathbf x + \int_\Omega \nabla \psi^\top D_0(\mathbf x) \nabla \phi \,\textrm d \mathbf x = \int_\Omega \psi\, \rho(t, \mathbf x)\,\textrm d \mathbf x\qquad \forall \ \psi \in H^1\,,
+
+    where :math:`n_0, \rho(t):\Omega \to \mathbb R` are real-valued functions, :math:`\rho(t)` parametrized with time :math:`t`,
+    and :math:`D_0:\Omega \to \mathbb R^{3\times 3}` is a positive diffusion matrix. 
+    Boundary terms from integration by parts are assumed to vanish.
 
     Parameters
     ----------
@@ -888,7 +897,6 @@ class Poisson(StruphyModel):
         Simulation parameters, see from :ref:`params_Poisson.yml`.
 
     comm : mpi4py.MPI.Intracomm
-
     '''
 
     @classmethod
@@ -896,6 +904,7 @@ class Poisson(StruphyModel):
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
         dct['em_fields']['phi'] = 'H1'
+        dct['em_fields']['source'] = 'H1'
         return dct
 
     @classmethod
@@ -909,10 +918,16 @@ class Poisson(StruphyModel):
     @classmethod
     def options(cls):
         # import propagator options
-        from struphy.propagators.propagators_fields import ImplicitDiffusion
+        from struphy.propagators.propagators_fields import ImplicitDiffusion, TimeDependentSource
 
         dct = {}
-        cls.add_option(species=['em_fields'], key=['solvers', 'poisson'],
+        cls.add_option(species=['em_fields'], key=['source', 'omega'],
+                       option=TimeDependentSource.options()['omega'], dct=dct)
+        cls.add_option(species=['em_fields'], key=['source', 'hfun'],
+                       option=TimeDependentSource.options()['hfun'], dct=dct)
+        cls.add_option(species=['em_fields'], key=['poisson', 'model'],
+                       option=ImplicitDiffusion.options()['model'], dct=dct)
+        cls.add_option(species=['em_fields'], key=['poisson', 'solver'],
                        option=ImplicitDiffusion.options()['solver'], dct=dct)
         return dct
 
@@ -920,24 +935,27 @@ class Poisson(StruphyModel):
 
         super().__init__(params, comm)
 
-        phi_n = self.derham.Vh['0'].zeros()
-        x0 = self.derham.Vh['0'].zeros()
-
         # extract necessary parameters
-        solver_params = params['em_fields']['options']['solvers']['poisson']
+        model_params = params['em_fields']['options']['poisson']['model']
+        solver_params = params['em_fields']['options']['poisson']['solver']
+        omega = params['em_fields']['options']['source']['omega']
+        hfun = params['em_fields']['options']['source']['hfun']
 
         # Initialize propagator
+        self.add_propagator(self.prop_fields.TimeDependentSource(
+            self.pointer['source'], 
+            omega=omega, 
+            hfun=hfun))
         self.add_propagator(self.prop_fields.ImplicitDiffusion(
             self.pointer['phi'],
-            A_mat='M1',
-            sigma=0.,
-            phi_n=phi_n,
-            x0=x0,
+            A_mat=model_params['A_mat'],
+            sigma=model_params['sigma'],
+            phi_n=self.pointer['source'],
             **solver_params))
 
         # assert dt=1 for implicit diffusion to solve Poisson.
-        assert params['time'][
-            'dt'] == 1., f"Time step must be 1.0 in the Poisson model, but is {params['time']['dt']}"
+        # assert params['time'][
+        #     'dt'] == 1., f"Time step must be 1.0 in the Poisson model, but is {params['time']['dt']}"
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_E')
@@ -945,16 +963,16 @@ class Poisson(StruphyModel):
     def update_scalar_quantities(self):
         pass
 
-    # make dt=1 in parameter file
-    @classmethod
-    def generate_default_parameter_file(cls, file=None, save=True, prompt=True):
-        ''':meta private:'''
+    # # make dt=1 in parameter file
+    # @classmethod
+    # def generate_default_parameter_file(cls, file=None, save=True, prompt=True):
+    #     ''':meta private:'''
 
-        params = super(Poisson, cls).generate_default_parameter_file(
-            file=file, save=False, prompt=False)
-        params['time']['dt'] = 1.0
+    #     params = super(Poisson, cls).generate_default_parameter_file(
+    #         file=file, save=False, prompt=False)
+    #     params['time']['dt'] = 1.0
 
-        Poisson.write_parameters_to_file(
-            parameters=params, file=file, save=save, prompt=prompt)
+    #     Poisson.write_parameters_to_file(
+    #         parameters=params, file=file, save=save, prompt=prompt)
 
-        return params
+    #     return params

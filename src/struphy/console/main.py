@@ -436,20 +436,19 @@ def struphy():
                                         formatter_class=lambda prog: argparse.RawTextHelpFormatter(
                                             prog, max_help_position=30),
                                         help='run Struphy tests',
-                                        description='Run available unit tests or test Struphy models, propagators or tutorials.')
+                                        description='Run available unit tests or test Struphy models or tutorials.')
 
     parser_test.add_argument('group',
                              type=str,
                              choices=list_models +
-                             ['models'] + ['unit'] + ['propagators'] +
+                             ['models'] + ['unit'] +
                              ['tutorials'] + ['timings'],
                              metavar='GROUP',
                              help='can be either:\na) a model name (tests on 1 MPI process in "Cuboid", "HollowTorus" and "Tokamak" geometries) \
                                 \nb) "models" for quick testing of all models \
                                 \nc) "unit" for performing unit tests \
-                                \nd) "propagators" for testing all propagators \
-                                \ne) "tutorials" for notebook tutorials, see `https://struphy.pages.mpcdf.de/struphy/sections/tutorials.html`_ \
-                                \nf) "timings" for creating .html and .json files of test metrics (include --verbose to print metrics to screen)',)
+                                \nd) "tutorials" for notebook tutorials, see `https://struphy.pages.mpcdf.de/struphy/sections/tutorials.html`_ \
+                                \ne) "timings" for creating .html and .json files of test metrics (include --verbose to print metrics to screen)',)
 
     parser_test.add_argument('--mpi',
                              type=int,

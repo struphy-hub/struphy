@@ -632,7 +632,7 @@ class L2Projector:
 
         # apply boundary operator
         if apply_bc:
-            dofs = self.mass_ops.derham.boundary_ops[self.space_id].dot(dofs)
+            dofs = self.mass_ops.derham.boundary_ops[self.space_key].dot(dofs)
 
         return dofs
 
