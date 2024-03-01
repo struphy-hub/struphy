@@ -1,7 +1,7 @@
 import numpy as np
 from mpi4py import MPI
 
-from psydac.linalg.stencil import StencilVector, StencilMatrix#, StencilDiagonalMatrix
+from psydac.linalg.stencil import StencilVector, StencilMatrix, StencilDiagonalMatrix
 from psydac.linalg.block import BlockVector, BlockLinearOperator
 from psydac.linalg.basic import Vector, IdentityOperator
 
@@ -1417,7 +1417,7 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
             mass_kernels, 'kernel_' + str(self._V.ldim) + 'd_diag')
         
         shape = tuple(e - s + 1 for s, e in zip(V.vector_space.starts, V.vector_space.ends))
-        self._diag_tmp = np.array((shape))
+        self._diag_tmp = np.zeros((shape))
         
         # knot span indices of elements of local domain
         self._codomain_spans = [
@@ -1536,62 +1536,70 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
             out.exchange_assembly_data()
         return out
     
-    # def diagonal(self, *, inverse = False, out = None):
-    #     """
-    #     Get the coefficients on the main diagonal as a StencilDiagonalMatrix object.
+    def diagonal(self, inverse = False, sqrt = False, out = None):
+        """
+        Get the coefficients on the main diagonal as a StencilDiagonalMatrix object.
 
-    #     Parameters
-    #     ----------
-    #     inverse : bool
-    #         If True, get the inverse of the diagonal. (Default: False).
+        Parameters
+        ----------
+        inverse : bool
+            If True, get the inverse of the diagonal. (Default: False).
 
-    #     out : StencilDiagonalMatrix
-    #         If provided, write the diagonal entries into this matrix. (Default: None).
+        sqrt : bool
+            If True, get the square root of the diagonal. (Default: False).
+            Can be combined with inverse to get the inverse square root
 
-    #     Returns
-    #     -------
-    #     StencilDiagonalMatrix
-    #         The matrix which contains the main diagonal of self (or its inverse).
+        out : StencilDiagonalMatrix
+            If provided, write the diagonal entries into this matrix. (Default: None).
 
-    #     """
-    #     # Check `inverse` argument
-    #     assert isinstance(inverse, bool)
+        Returns
+        -------
+        StencilDiagonalMatrix
+            The matrix which contains the main diagonal of self (or its inverse).
 
-    #     # Only if domain == codomain
-    #     assert self.domain == self.codomain
+        """
+        # Check `inverse` argument
+        assert isinstance(inverse, bool)
 
-    #     # Determine domain and codomain of the StencilDiagonalMatrix
-    #     V, W = self.domain, self.codomain
+        # Only if domain == codomain
+        assert self.domain == self.codomain
 
-    #     # Check `out` argument
-    #     if out is not None:
-    #         assert isinstance(out, StencilDiagonalMatrix)
-    #         assert out.domain is V
-    #         assert out.codomain is W
+        # Determine domain and codomain of the StencilDiagonalMatrix
+        V, W = self.domain, self.codomain
 
-    #     # evaluate weight at quadrature points
-    #     if callable(self._weights):
-    #         PTS = np.meshgrid(*self._pts, indexing='ij')
-    #         mat_w = self._weights(*PTS).copy()
-    #     elif isinstance(self._weights, np.ndarray):
-    #         mat_w = self._weights
+        # Check `out` argument
+        if out is not None:
+            assert isinstance(out, StencilDiagonalMatrix)
+            assert out.domain is V
+            assert out.codomain is W
 
-    #     diag = self._diag_tmp
-    #     diag[:] = 0.
-    #     self._diag_kernel(*self._codomain_spans, *self._W.degree, *self._codomain_starts,
-    #                                         *self._codomain_pads, *self._wts, *self._codomain_basis, mat_w, diag)
+        # evaluate weight at quadrature points
+        if callable(self._weights):
+            PTS = np.meshgrid(*self._pts, indexing='ij')
+            mat_w = self._weights(*PTS).copy()
+        elif isinstance(self._weights, np.ndarray):
+            mat_w = self._weights
 
-    #     data = out._data if out else None
-    #     # Calculate entries of StencilDiagonalMatrix
-    #     if inverse:
-    #         data = np.divide(1, diag, out=data)
-    #     elif out:
-    #         np.copyto(data, diag)
-    #     else:
-    #         data = diag.copy()
+        diag = self._diag_tmp
+        diag[:] = 0.
+        self._diag_kernel(*self._codomain_spans, *self._W.degree, *self._codomain_starts,
+                                            *self._codomain_pads, *self._wts, *self._codomain_basis, mat_w, diag)
 
-    #     # If needed create a new StencilDiagonalMatrix object
-    #     if out is None:
-    #         out = StencilDiagonalMatrix(V, W, data)
+        data = out._data if out else None
 
-    #     return out
+        # Calculate entries of StencilDiagonalMatrix
+        if sqrt:
+            diag = np.sqrt(diag)
+
+        if inverse:
+            data = np.divide(1, diag, out=data)
+        elif out:
+            np.copyto(data, diag)
+        else:
+            data = diag.copy()
+
+        # If needed create a new StencilDiagonalMatrix object
+        if out is None:
+            out = StencilDiagonalMatrix(V, W, data)
+
+        return out
