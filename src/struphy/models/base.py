@@ -311,6 +311,25 @@ class StruphyModel(metaclass=ABCMeta):
     def scalar_quantities(self):
         '''A dictionary of scalar quantities to be saved during the simulation.'''
         return self._scalar_quantities
+    
+    @property
+    def time_state(self):
+        '''A pointer to the time variable of the dynamics ('t').'''
+        return self._time_state
+    
+    def add_time_state(self, time_state):
+        '''Add a pointer to the time variable of the dynamics ('t')
+        to the model and to all propagators of the model.
+
+        Parameters
+        ----------
+        time_state : ndarray
+            Of size 1, holds the current physical time 't'.
+        '''
+        assert time_state.size == 1
+        self._time_state = time_state
+        for prop in self.propagators:
+            prop.add_time_state(time_state)
 
     def add_propagator(self, prop_instance):
         '''Add a propagator to a Struphy model.

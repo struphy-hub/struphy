@@ -92,10 +92,11 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
         total_steps = str(
             int(round((time_params['Tend'] - time_state['value'][0])/time_params['dt'])))
 
-    # compute initial scalars and kinetic data
+    # compute initial scalars and kinetic data, pass time state to all propagators
     model.update_scalar_quantities()
     model.update_markers_to_be_saved()
     model.update_distr_function()
+    model.add_time_state(time_state['value'])
 
     # add all variables to be saved to data object
     save_keys_all, save_keys_end = model.initialize_data_output(data, size)

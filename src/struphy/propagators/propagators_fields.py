@@ -2094,28 +2094,39 @@ class CurrentCoupling5DDensity(Propagator):
 
 class ImplicitDiffusion(Propagator):
     r"""
-    Weak, implicit discretization of the diffusion (or heat) equation (can be used as a Poisson solver too),
+    Weak, implicit discretization of the diffusion (or heat) equation (can be used as a Poisson solver too).
+    
+    Find :math:`\phi \in H^1` such that
 
     .. math::
 
-        \frac{\partial \phi}{\partial t} - \Delta \phi = 0\,,
+        \int_\Omega \psi\, n_0(\mathbf x)\frac{\partial \phi}{\partial t}\,\textrm d \mathbf x + \int_\Omega \nabla \psi^\top D_0(\mathbf x) \nabla \phi \,\textrm d \mathbf x = \int_\Omega \psi\, \rho(\mathbf x)\,\textrm d \mathbf x \qquad \forall \ \psi \in H^1\,,
 
-    which is discretized as
+    where :math:`n_0, \rho:\Omega \to \mathbb R` are real-valued functions and 
+    :math:`D_0:\Omega \to \mathbb R^{3\times 3}`
+    is a positive diffusion matrix. 
+    Boundary terms from integration by parts are assumed to vanish.
+    The equation is discretized as
 
     .. math::
 
-        (\sigma \mathbb M_0 + \Delta t\,\mathbb G^\top \mathbb M_1 \mathbb G)\, \phi^{n+1} = \int_{(0,1)^3} \Lambda^0 \phi^n\, \textnormal d\eta\,,
+        \left( \frac{\sigma_1}{\Delta t} \mathbb M^0_{n_0} + \mathbb G^\top \mathbb M^1_{D_0} \mathbb G \right)\, \boldsymbol\phi^{n+1} = \frac{\sigma_2}{\Delta t} ( \Lambda^0, n_0 \phi^n )_{L^2} + \frac{\sigma_3}{\Delta t}(\Lambda^0, \rho  )_{L^2}\,,
 
-    where :math:`\Lambda^0 \in H^1` are the FEEC basis functions and :math:`\sigma \in \mathbb R` is a parameter.
-    The solution is :math:`\phi^{n+1}\,\in H^1` and the right-hand side is :math:`\phi^n\,\in H^1`.
-    For the choice :math:`\sigma=0` and :math:`\Delta t = 1` this is a Poisson solver,
-    where :math:`\phi^n` corresponds to the charge density.
-    Boundary terms are assumed to vanish.
+    where :math:`M^0_{n_0}` and :math:`M^1_{D_0}` are :class:`WeightedMassOperators <struphy.feec.mass.WeightedMassOperators>`
+    and :math:`\sigma_1, \sigma_2, \sigma_3 \in \mathbb R` are artificial parameters that can be tuned to
+    change the model (see Notes).
+    
+    Notes
+    -----
+    
+    * :math:`\sigma_1=\sigma_2=0` and :math:`\sigma_3 = \Delta t` (default): **Poisson solver** with a given charge density :math:`\rho`. 
+    * :math:`\sigma_2=0` and :math:`\sigma_1 = \sigma_3 = \Delta t` : Poisson with **adiabatic electrons**.
+    * :math:`\sigma_1=\sigma_2=1` and :math:`\sigma_3 = 0`: **Implicit heat equation**. 
 
     Parameters
     ----------
     phi : psydac.linalg.stencil.StencilVector
-        FE coefficients of a discrete 0-form, the solution.
+        FE coefficients of the solution as a discrete 0-form.
 
     sigma : float
         Stabilization parameter: :math:`\sigma=1` for the heat equation and :math:`\sigma=0` for the Poisson equation.
@@ -2130,11 +2141,16 @@ class ImplicitDiffusion(Propagator):
         Parameters for the iteravtive solver.
     """
 
-    def __init__(self, phi, sigma=1., A_mat='M1', phi_n=None, x0=None, **params):
+    def __init__(self, phi: StencilVector, sigma=0., A_mat='M1', phi_n=None, x0=None, **params):
+
+        assert phi.space == self.derham.Vh['0']
 
         super().__init__(phi)
+        
+        # model parameters
+        self._sigma = sigma
 
-        # parameters
+        # solver parameters
         params_default = {'type': ('pcg', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
@@ -2143,20 +2159,17 @@ class ImplicitDiffusion(Propagator):
 
         params = set_defaults(params, params_default)
 
-        # allocate memory for solution and rhs
-        self._phi_n = StencilVector(self.derham.Vh['0'])
-
         # check the rhs
         if phi_n is not None:
-
-            assert type(phi_n) == type(self._phi_n)
-            self._phi_n[:] = phi_n[:]
-            self._phi_n.update_ghost_regions()
-
-            # check solvability condition
-            if np.abs(sigma) < 1e-14:
-                sigma = 1e-14
-                self.check_rhs(phi_n)
+            assert phi_n.space == phi.space
+            self._phi_n = phi_n       
+        else:
+            self._phi_n = phi.space.zeros()
+            
+        # check solvability condition
+        if np.abs(sigma) < 1e-14:
+            sigma = 1e-14
+            self.check_rhs(self._phi_n)
 
         # initial guess and solver params
         self._x0 = x0
@@ -2164,7 +2177,6 @@ class ImplicitDiffusion(Propagator):
         A_mat = getattr(self.mass_ops, A_mat)
 
         # Set lhs matrices
-    
         self._A1 = sigma * self.mass_ops.M0
         self._A2 = self.derham.grad.T @ A_mat @ self.derham.grad
 
@@ -2175,7 +2187,7 @@ class ImplicitDiffusion(Propagator):
             pc_class = getattr(preconditioner, params['type'][1])
             pc = pc_class(self.mass_ops.M0)
 
-        # solver for Ax=b with A=const.
+        # solver just with A_2, but will be set during call with dt
         self.solver = inverse(self._A2,
                               params['type'][0],
                               pc=pc,
@@ -2183,7 +2195,8 @@ class ImplicitDiffusion(Propagator):
                               tol=self._params['tol'],
                               maxiter=self._params['maxiter'],
                               verbose=self._params['verbose'])
-
+        
+        # allocate memory for solution
         self._tmp = phi.space.zeros()
 
     def check_rhs(self, phi_n):
@@ -2239,7 +2252,7 @@ class ImplicitDiffusion(Propagator):
 
     def __call__(self, dt):
 
-        self.solver.linop = self._A1 + dt * self._A2
+        self.solver.linop = self._A1/dt + self._A2
         out = self.solver.solve(self._phi_n, out=self._tmp)
         info = self.solver._info
 
@@ -2251,6 +2264,8 @@ class ImplicitDiffusion(Propagator):
     @classmethod
     def options(cls):
         dct = {}
+        dct['model'] = {'sigma': 0., 
+                        'A_mat': ['M1', 'M1perp']}
         dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
                                   ('cg', None)],
                          'tol': 1.e-8,
@@ -3711,3 +3726,63 @@ class VariationalMagFieldEvolve(Propagator):
         err_b = weak_bn_diff.dot(bn_diff)
         err_u = weak_un_diff.dot(un_diff)
         return max(err_b, err_u)
+    
+    
+class TimeDependentSource(Propagator):
+    r'''Propagates a source term :math:`S(t) \in V_h^n` of the form
+    
+    .. math::
+    
+        S(t) = \sum_{ijk} c_{ijk} \Lambda^n_{ijk} * h(\omega t)\,,
+        
+    where :math:`h(\omega t)` is one of the functions in Notes.
+    
+    Notes
+    -----
+    
+    * :math:`h(\omega t) = \cos(\omega t)` (default)
+    * :math:`h(\omega t) = \sin(\omega t)` 
+
+    Parameters
+    ----------
+    c : psydac.linalg.stencil.StencilVector or psydac.linalg.block.BlockVector
+        FE coefficients at t=0.
+
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
+    '''
+
+    def __init__(self, c, omega=1., hfun='cos'):
+
+        super().__init__(c)
+
+        if hfun == 'cos':
+            def hfun(t):
+                return np.cos(omega*t) 
+        elif hfun == 'sin':
+            def hfun(t):
+                return np.sin(omega*t) 
+        else:
+            raise NotImplementedError(f'{hfun = } not implemented.')
+            
+        self._hfun = hfun
+
+    def __call__(self, dt):
+
+        print(f'{self.time_state[0] = }')
+        if self.time_state[0] == 0.:
+            self._c0 = self.feec_vars[0].copy()
+            print('Initial source coeffs set.')
+
+        # new coeffs
+        cn1 = self._c0 * self._hfun(self.time_state[0])
+
+        # write new coeffs into self.feec_vars
+        max_dc = self.feec_vars_update(cn1)
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['omega'] = 1.
+        dct['hfun'] = ['cos', 'sin']
+        return dct

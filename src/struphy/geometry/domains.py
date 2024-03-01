@@ -10,7 +10,7 @@ class Tokamak(PoloidalSplineTorus):
     """
     Mappings for Tokamak MHD equilibria constructed via :ref:`field-line tracing <field_tracing>` of a poloidal flux function :math:`\psi`.
 
-    .. image:: ../pics/mappings/tokamak.png
+    .. image:: ../../pics/mappings/tokamak.png
 
     Parameters
     ----------
@@ -136,7 +136,7 @@ class GVECunit(Spline):
     The mapping ``f_unit`` from `gvec_to_python <https://gitlab.mpcdf.mpg.de/gvec-group/gvec_to_python>`_, 
     computed by the GVEC MHD equilibrium code.
 
-    .. image:: ../pics/mappings/gvec.png
+    .. image:: ../../pics/mappings/gvec.png
 
     Parameters
     ----------
@@ -199,7 +199,7 @@ class IGAPolarCylinder(PoloidalSplineStraight):
         \,\,y= &\sum_{ij} c^y_{ij} N_i(\eta_1) N_j(\eta_2)\approx a\,\eta_1\sin(2\pi\eta_2)\,\,\\
         \,\,z= &L_z\eta_3\,\,\end{bmatrix}
 
-    .. image:: ../pics/mappings/iga_cylinder.png
+    .. image:: ../../pics/mappings/iga_cylinder.png
 
     Parameters
     ----------
@@ -278,7 +278,7 @@ class IGAPolarTorus(PoloidalSplineTorus):
 
     The angular parametrization :math:`\theta(\eta_1, \eta_2)` can either be equal angle or straight field line (see parameters below).
 
-    .. image:: ../pics/mappings/iga_torus.png
+    .. image:: ../../pics/mappings/iga_torus.png
 
     Parameters
     ----------
@@ -376,7 +376,7 @@ class Cuboid(Domain):
         \,\,y= &l_2 + (r_2 - l_2)\,\eta_2\,\,\\
         \,\,z= &l_3 + (r_3 - l_3)\,\eta_3\,\,\end{bmatrix}
 
-    .. image:: ../pics/mappings/cuboid.png
+    .. image:: ../../pics/mappings/cuboid.png
 
     Parameters
     ----------
@@ -457,7 +457,7 @@ class Orthogonal(Domain):
         \,\,y= &L_y\,\left[\,\eta_2 + \alpha\sin(2\pi\,\eta_2)\right]\,\,\\
         \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
 
-    .. image:: ../pics/mappings/orthogonal.png
+    .. image:: ../../pics/mappings/orthogonal.png
 
     Parameters
     ----------
@@ -531,7 +531,7 @@ class Colella(Domain):
         \,\,y= &L_y\,\left[\,\eta_2 + \alpha\sin(2\pi\,\eta_2)\sin(2\pi\,\eta_1)\,\right]\,\,\\
         \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
 
-    .. image:: ../pics/mappings/colella.png
+    .. image:: ../../pics/mappings/colella.png
 
     Parameters
     ----------
@@ -605,7 +605,7 @@ class HollowCylinder(Domain):
         \,\,y= &\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\sin(2\pi\,\eta_2)\,\,\\
         \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
 
-    .. image:: ../pics/mappings/hollow_cylinder.png
+    .. image:: ../../pics/mappings/hollow_cylinder.png
 
     Parameters
     ----------
@@ -680,7 +680,7 @@ class PoweredEllipticCylinder(Domain):
         \,\,y= &r_y\,\eta_1^s\sin(2\pi\,\eta_2)\,\,\\
         \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
 
-    .. image:: ../pics/mappings/pow_elliptic_cyl.png
+    .. image:: ../../pics/mappings/pow_elliptic_cyl.png
 
     Parameters
     ----------
@@ -767,7 +767,7 @@ class HollowTorus(Domain):
 
         &\epsilon(\eta_1) = \frac{a_1 + (a_2-a_1)\,\eta_1}{R_0}\,.
 
-    .. image:: ../pics/mappings/hollow_torus.png
+    .. image:: ../../pics/mappings/hollow_torus.png
 
     Parameters
     ----------
@@ -849,7 +849,7 @@ class ShafranovShiftCylinder(Domain):
         \,\,y= &r_y\,\eta_1\sin(2\pi\,\eta_2)\,\,\\
         \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
 
-    .. image:: ../pics/mappings/shafranov_shift.png
+    .. image:: ../../pics/mappings/shafranov_shift.png
 
     Parameters
     ----------
@@ -923,7 +923,7 @@ class ShafranovSqrtCylinder(Domain):
         \,\,y= &r_y\,\eta_1\sin(2\pi\,\eta_2)\,\,\\
         \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
 
-    .. image:: ../pics/mappings/shafranov_sqrt.png
+    .. image:: ../../pics/mappings/shafranov_sqrt.png
 
     Parameters
     ----------
@@ -996,7 +996,7 @@ class ShafranovDshapedCylinder(Domain):
         \,\,y= &R_0\left[    (1 - \eta_1^2)\Delta_y + \eta_1\epsilon\kappa\sin(2\pi\,\eta_2)\right]\,\,\\
         \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
 
-    .. image:: ../pics/mappings/shafranov_dshaped.png
+    .. image:: ../../pics/mappings/shafranov_dshaped.png
 
     Parameters
     ----------

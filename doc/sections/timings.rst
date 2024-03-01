@@ -64,56 +64,6 @@ Language Fortran
    :file: ../../src/struphy/_pymon/pymon_unit_metrics_fortran.html
 
 
-.. _timings_props:
-
-Propagators
------------
-
-Language C
-^^^^^^^^^^
-
-**Contexts** (one for each MPI rank):
-
-.. raw:: html
-   :file: ../../src/struphy/_pymon/pymon_propagators_contexts_c.html
-
-|
-
-**Sessions** (one for each MPI rank):
-
-.. raw:: html
-   :file: ../../src/struphy/_pymon/pymon_propagators_sessions_c.html
-
-|
-
-**Metrics** (one for each MPI rank):
-
-.. raw:: html
-   :file: ../../src/struphy/_pymon/pymon_propagators_metrics_c.html
-
-Language Fortran
-^^^^^^^^^^^^^^^^
-
-**Contexts** (one for each MPI rank):
-
-.. raw:: html
-   :file: ../../src/struphy/_pymon/pymon_propagators_contexts_fortran.html
-
-|
-
-**Sessions** (one for each MPI rank):
-
-.. raw:: html
-   :file: ../../src/struphy/_pymon/pymon_propagators_sessions_fortran.html
-
-|
-
-**Metrics** (one for each MPI rank):
-
-.. raw:: html
-   :file: ../../src/struphy/_pymon/pymon_propagators_metrics_fortran.html
-
-
 .. _timings_models:
 
 Models
