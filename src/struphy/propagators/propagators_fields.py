@@ -2516,7 +2516,7 @@ class VariationalMomentumAdvection(Propagator):
                           'non_linear_tol': 1e-8,
                           'linear_maxiter': 3000,
                           'non_linear_maxiter': 100,
-                          'type_linear_solver': ('pcg', 'MassMatrixPreconditioner'),
+                          'type_linear_solver': ('pcg', 'MassMatrixDiagonalPreconditioner'),
                           'info': False,
                           'verbose': False,
                           'mass_ops' : None}
@@ -2576,6 +2576,9 @@ class VariationalMomentumAdvection(Propagator):
         mn = self._Mrho.dot(un, out=self._tmp_mn)
         mn1 = mn.copy(out=self._tmp_mn1)
         un1 = un.copy(out=self._tmp_un1)
+
+        self.pc.update_mass_operator(self._Mrho)
+
         tol = self._params['non_linear_tol']
         err = tol+1
         for it in range(self._params['non_linear_maxiter']):
@@ -2640,7 +2643,7 @@ class VariationalMomentumAdvection(Propagator):
                          'non_linear_tol': 1e-8,
                          'linear_maxiter': 3000,
                          'non_linear_maxiter': 100,
-                         'type_linear_solver': [('pcg', 'MassMatrixPreconditioner'),
+                         'type_linear_solver': [('pcg', 'MassMatrixDiagonalPreconditioner'),
                                                 ('cg', None)],
                          'info': False,
                          'verbose': False}
@@ -2698,15 +2701,15 @@ class VariationalMomentumAdvection(Propagator):
 
         # Inverse weighted mass matrix
         if self._params['type_linear_solver'][1] is None:
-            pc = None
+            self.pc = None
         else:
             pc_class = getattr(
                 preconditioner, self._params['type_linear_solver'][1])
-            pc = pc_class(self.mass_ops.Mv)
+            self.pc = pc_class(self.mass_ops.Mv)
 
         self._Mrhoinv = inverse(self._Mrho,
                                 self._params['type_linear_solver'][0],
-                                pc=pc,
+                                pc=self.pc,
                                 tol=self._params['linear_tol'],
                                 maxiter=self._params['linear_maxiter'],
                                 verbose=self._params['verbose'])
@@ -2781,7 +2784,7 @@ class VariationalDensityEvolve(Propagator):
                           'non_linear_tol': 1e-8,
                           'linear_maxiter': 3000,
                           'non_linear_maxiter': 100,
-                          'type_linear_solver': ('pcg', 'MassMatrixPreconditioner'),
+                          'type_linear_solver': ('pcg', 'MassMatrixDiagonalPreconditioner'),
                           'info': False,
                           'verbose': False,
                           'model': None,
@@ -2903,6 +2906,7 @@ class VariationalDensityEvolve(Propagator):
             # Inverse the mass matrix to get the velocity
             self.rhof1.vector = rhon1
             self._update_weighted_MM()
+            self.pc.update_mass_operator(self._Mrho)
             self._Mrhoinv._options['x0'] = un1
             un1 = self._Mrhoinv.dot(mn1, out=self._tmp_un1)
 
@@ -2925,7 +2929,7 @@ class VariationalDensityEvolve(Propagator):
                          'non_linear_tol': 1e-8,
                          'linear_maxiter': 3000,
                          'non_linear_maxiter': 100,
-                         'type_linear_solver': [('pcg', 'MassMatrixPreconditioner'),
+                         'type_linear_solver': [('pcg', 'MassMatrixDiagonalPreconditioner'),
                                                 ('cg', None)],
                          'info': False,
                          'verbose': False}
@@ -2982,15 +2986,15 @@ class VariationalDensityEvolve(Propagator):
 
         # Inverse weighted mass matrix
         if self._params['type_linear_solver'][1] is None:
-            pc = None
+            self.pc = None
         else:
             pc_class = getattr(
                 preconditioner, self._params['type_linear_solver'][1])
-            pc = pc_class(self.mass_ops.Mv)
+            self.pc = pc_class(self.mass_ops.Mv)
 
         self._Mrhoinv = inverse(self._Mrho,
                                 self._params['type_linear_solver'][0],
-                                pc=pc,
+                                pc=self.pc,
                                 tol=self._params['linear_tol'],
                                 maxiter=self._params['linear_maxiter'],
                                 verbose=self._params['verbose'])
@@ -3172,7 +3176,7 @@ class VariationalEntropyEvolve(Propagator):
                           'non_linear_tol': 1e-8,
                           'linear_maxiter': 3000,
                           'non_linear_maxiter': 100,
-                          'type_linear_solver': ('pcg', 'MassMatrixPreconditioner'),
+                          'type_linear_solver': ('pcg', 'MassMatrixDiagonalPreconditioner'),
                           'info': False,
                           'verbose': False,
                           'model': None,
@@ -3240,9 +3244,11 @@ class VariationalEntropyEvolve(Propagator):
         un1 = un.copy(out=self._tmp_un1)
         un2 = un1.copy(out=self._tmp_un2)
         self.uf.vector = un
-
+        
         mn = self._Mrho.dot(un, out=self._tmp_mn)
         mn1 = mn.copy(out=self._tmp_mn1)
+
+        self.pc.update_mass_operator(self._Mrho)
 
         tol = self._params['non_linear_tol']
         err = tol+1
@@ -3316,7 +3322,7 @@ class VariationalEntropyEvolve(Propagator):
                          'non_linear_tol': 1e-8,
                          'linear_maxiter': 3000,
                          'non_linear_maxiter': 100,
-                         'type_linear_solver': [('pcg', 'MassMatrixPreconditioner'),
+                         'type_linear_solver': [('pcg', 'MassMatrixDiagonalPreconditioner'),
                                                 ('cg', None)],
                          'info': False,
                          'verbose': False}
@@ -3372,15 +3378,15 @@ class VariationalEntropyEvolve(Propagator):
 
         # Inverse weighted mass matrix
         if self._params['type_linear_solver'][1] is None:
-            pc = None
+            self.pc = None
         else:
             pc_class = getattr(
                 preconditioner, self._params['type_linear_solver'][1])
-            pc = pc_class(self.mass_ops.Mv)
+            self.pc = pc_class(self.mass_ops.Mv)
 
         self._Mrhoinv = inverse(self._Mrho,
                                 self._params['type_linear_solver'][0],
-                                pc=pc,
+                                pc=self.pc,
                                 tol=self._params['linear_tol'],
                                 maxiter=self._params['linear_maxiter'],
                                 verbose=self._params['verbose'])
@@ -3496,7 +3502,7 @@ class VariationalMagFieldEvolve(Propagator):
                           'non_linear_tol': 1e-8,
                           'linear_maxiter': 3000,
                           'non_linear_maxiter': 100,
-                          'type_linear_solver': ('pcg', 'MassMatrixPreconditioner'),
+                          'type_linear_solver': ('pcg', 'MassMatrixDiagonalPreconditioner'),
                           'info': False,
                           'verbose': False,
                           'mass_ops' : None}
@@ -3555,6 +3561,8 @@ class VariationalMagFieldEvolve(Propagator):
 
         mn = self._Mrho.dot(un, out=self._tmp_mn)
         mn1 = mn.copy(out=self._tmp_mn1)
+
+        self.pc.update_mass_operator(self._Mrho)
 
         tol = self._params['non_linear_tol']
         err = tol+1
@@ -3624,7 +3632,7 @@ class VariationalMagFieldEvolve(Propagator):
                          'non_linear_tol': 1e-8,
                          'linear_maxiter': 3000,
                          'non_linear_maxiter': 100,
-                         'type_linear_solver': [('pcg', 'MassMatrixPreconditioner'),
+                         'type_linear_solver': [('pcg', 'MassMatrixDiagonalPreconditioner'),
                                                 ('cg', None)],
                          'info': False,
                          'verbose': False,}
@@ -3685,15 +3693,15 @@ class VariationalMagFieldEvolve(Propagator):
 
         # Inverse weighted mass matrix
         if self._params['type_linear_solver'][1] is None:
-            pc = None
+            self.pc = None
         else:
             pc_class = getattr(
                 preconditioner, self._params['type_linear_solver'][1])
-            pc = pc_class(self.mass_ops.Mv)
+            self.pc = pc_class(self.mass_ops.Mv)
 
         self._Mrhoinv = inverse(self._Mrho,
                                 self._params['type_linear_solver'][0],
-                                pc=pc,
+                                pc=self.pc,
                                 tol=self._params['linear_tol'],
                                 maxiter=self._params['linear_maxiter'],
                                 verbose=self._params['verbose'])

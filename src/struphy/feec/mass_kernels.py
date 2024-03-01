@@ -538,6 +538,8 @@ def kernel_3d_diag(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: in
     nq2 = shape(w2)[1]
     nq3 = shape(w3)[1]
 
+    nb1, nb2, nb3 = data.shape
+
     tmp_bi1 = np.zeros(nq1)
     tmp_bi2 = np.zeros(nq2)
     tmp_bi3 = np.zeros(nq3)
@@ -577,6 +579,16 @@ def kernel_3d_diag(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: in
                             i_local1 = i_global1 - starts1
                             i_local2 = i_global2 - starts2
                             i_local3 = i_global3 - starts3
+                            
+                            # Periodic case : last basis function are the first ones (no ghost regions on DiagonalStencilMatrix)
+                            if i_local1>=nb1:
+                                i_local1 -= nb1
+                                
+                            if i_local2>=nb2:
+                                i_local2 -= nb2
+
+                            if i_local3>=nb3:
+                                i_local3 -= nb3
 
                             value = 0.
 
