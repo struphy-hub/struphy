@@ -182,7 +182,8 @@ class VlasovMaxwell(StruphyModel):
 
         # add contribution from background in control variate method
         if self._marker_type == 'control_variate':
-            _proj = L2Projector(self._mass_ops.M0, space='H1', derham=self.derham)
+            _proj = L2Projector(self._mass_ops.M0,
+                                space='H1', derham=self.derham)
             _phi_bckgr = _proj(self.pointer['electrons'].f_backgr.n)
             # TODO: what to do with this?
 
@@ -190,8 +191,8 @@ class VlasovMaxwell(StruphyModel):
         _phi = StencilVector(self.derham.Vh['0'])
         poisson_solver = self.prop_fields.ImplicitDiffusion(
             _phi,
-            sigma=1e-11,
-            phi_n=self._alpha**2 / self._epsilon * charge_accum.vectors[0],
+            sigma_1=1e-11,
+            rho=self._alpha**2 / self._epsilon * charge_accum.vectors[0],
             x0=self._alpha**2 / self._epsilon * charge_accum.vectors[0],
             **self._poisson_params)
 
@@ -307,9 +308,9 @@ class LinearVlasovMaxwell(StruphyModel):
         cls.add_option(['em_fields'], ['solvers', 'poisson'],
                        ImplicitDiffusion.options()['solver'], dct)
         cls.add_option(['kinetic', 'electrons'], ['algos', 'push_eta'],
-                        PushEta.options()['algo'], dct)
+                       PushEta.options()['algo'], dct)
         cls.add_option(['kinetic', 'electrons'], ['algos', 'push_vxb'],
-                        PushVxB.options()['algo'], dct)
+                       PushVxB.options()['algo'], dct)
         cls.add_option(['kinetic', 'electrons'], ['solver'],
                        EfieldWeightsImplicit.options()['solver'], dct)
         return dct
@@ -369,7 +370,7 @@ class LinearVlasovMaxwell(StruphyModel):
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['electrons'],
             algo=algo_eta,
-            bc_type=self._electron_params['markers']['bc']['type']))  
+            bc_type=self._electron_params['markers']['bc']['type']))
         if self._rank == 0:
             print("Added Step PushEta\n")
 
@@ -393,7 +394,7 @@ class LinearVlasovMaxwell(StruphyModel):
                 algo=algo_vxb,
                 scale_fac=1.,
                 b_eq=self._b_background,
-                b_tilde=None))  
+                b_tilde=None))
             if self._rank == 0:
                 print("Added Step VxB\n")
 
@@ -462,7 +463,7 @@ class LinearVlasovMaxwell(StruphyModel):
         # self.pointer['electrons'].show_distribution_function(components, edges, self.domain)
 
         # overwrite binning function to always bin marker data for f_1, not h
-        def new_binning(self, components, bin_edges, pforms=['0','0']):
+        def new_binning(self, components, bin_edges, pforms=['0', '0']):
             """
             Overwrite the binning method of the parent class to correctly bin data from f_1
             and not from f_1/sqrt(f_0).
@@ -517,8 +518,8 @@ class LinearVlasovMaxwell(StruphyModel):
         _phi = StencilVector(self.derham.Vh['0'])
         poisson_solver = self.prop_fields.ImplicitDiffusion(
             _phi,
-            sigma=0.,
-            phi_n=charge_accum.vectors[0],
+            sigma_1=0.,
+            rho=charge_accum.vectors[0],
             x0=charge_accum.vectors[0],
             **self._poisson_params)
 
@@ -724,7 +725,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['electrons'],
             algo=algo_eta,
-            bc_type=self._electron_params['markers']['bc']['type']))  
+            bc_type=self._electron_params['markers']['bc']['type']))
         if self._rank == 0:
             print("Added Step PushEta\n")
 
@@ -740,7 +741,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
             algo=algo_vxb,
             scale_fac=1.,
             b_eq=self._b_background + self.pointer['b_field'],
-            b_tilde=None))  
+            b_tilde=None))
         if self._rank == 0:
             print("\nAdded Step VxB\n")
 
@@ -821,7 +822,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
         self.pointer['electrons']._f0 = self._f0
 
         # overwrite binning function to always bin marker data for f_1, not h
-        def new_binning(self, components, bin_edges, pforms=['0','0']):
+        def new_binning(self, components, bin_edges, pforms=['0', '0']):
             """
             Overwrite the binning method of the parent class to correctly bin data from f_1
             and not from f_0 - (f_0 - f_1) ln(f_0).
@@ -890,8 +891,8 @@ class DeltaFVlasovMaxwell(StruphyModel):
         _phi = StencilVector(self.derham.Vh['0'])
         poisson_solver = self.prop_fields.ImplicitDiffusion(
             _phi,
-            sigma=1e-11,
-            phi_n=charge_accum.vectors[0],
+            sigma_1=1e-11,
+            rho=charge_accum.vectors[0],
             x0=charge_accum.vectors[0],
             **self._poisson_params)
 
@@ -1083,3 +1084,99 @@ class VlasovMasslessElectrons(StruphyModel):
         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_B'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_f'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_thermal'][0]
+
+
+class ElectrostaticGyrokAdiabatic(StruphyModel):
+    r'''Drift-kinetic equation in static background magnetic field (guiding-center motion). 
+
+    :ref:`normalization`:
+
+    .. math::
+
+
+    Implemented equations:
+
+    .. math::
+
+
+
+    where :math:
+
+    .. math::
+
+
+    .. math::
+
+
+    Parameters
+    ----------
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
+
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
+    '''
+
+    @classmethod
+    def species(cls):
+        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
+
+        dct['em_fields']['phi'] = 'H1'
+        dct['kinetic']['ions'] = 'Particles5D'
+        return dct
+
+    @classmethod
+    def bulk_species(cls):
+        return 'ions'
+
+    @classmethod
+    def velocity_scale(cls):
+        return 'alfvén'
+
+    @classmethod
+    def options(cls):
+        # import propagator options
+        from struphy.propagators.propagators_fields import ImplicitDiffusion
+        from struphy.propagators.propagators_markers import PushGuidingCenterbxEstar, PushGuidingCenterBstar
+
+        dct = {}
+        cls.add_option(species=['kinetic', 'ions'], key='push_bxEstar',
+                       option=PushGuidingCenterbxEstar.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'ions'], key='push_Bstar',
+                       option=PushGuidingCenterBstar.options()['algo'], dct=dct)
+        cls.add_option(['em_fields'], ['solvers', 'poisson'],
+                       ImplicitDiffusion.options()['solver'], dct)
+        return dct
+
+    def __init__(self, params, comm):
+
+        super().__init__(params, comm)
+
+        from mpi4py.MPI import SUM, IN_PLACE
+        from struphy.feec.projectors import L2Projector
+        from struphy.fields_background.mhd_equil.base import MHDequilibrium
+
+        # prelim
+        ions_params = self.kinetic['ions']['params']
+        solver_params = params['em_fields']['options']['solvers']['poisson']
+
+        dt = params['time']['dt']
+
+        rho = self.derham.Vh['0'].zeros()
+
+        # Initialize propagators/integrators used in splitting substeps
+        self.add_propagator(self.prop_fields.ImplicitDiffusion(
+            self.pointer['phi'],
+            sigma_1=dt,
+            sigma_2=0.,
+            sigma_3=dt,
+            A1_mat='M0ad',
+            A2_mat='M1gyro',
+            rho=rho,
+            **solver_params
+            ))
+        
+        self.add_scalar('en_fv')
+
+    def update_scalar_quantities(self):
+        self.update_scalar('en_fv', 1.)

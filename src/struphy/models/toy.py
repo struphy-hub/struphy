@@ -948,9 +948,10 @@ class Poisson(StruphyModel):
             hfun=hfun))
         self.add_propagator(self.prop_fields.ImplicitDiffusion(
             self.pointer['phi'],
-            A_mat=model_params['A_mat'],
-            sigma=model_params['sigma'],
-            phi_n=self.pointer['source'],
+            sigma_1=model_params['sigma_1'],
+            A1_mat=model_params['A1_mat'],
+            A2_mat=model_params['A2_mat'],
+            rho=self.pointer['source'],
             **solver_params))
 
         # assert dt=1 for implicit diffusion to solve Poisson.

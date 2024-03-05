@@ -144,9 +144,11 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
             # create Poisson solver
             _phi = derham.create_field('phi', 'H1')
             poisson_solver = ImplicitDiffusion(_phi.vector,
-                                               sigma=1e-12,
-                                               A_mat='M1perp',
-                                               phi_n=rho_vec,
+                                               sigma_1=1e-12,
+                                               sigma_2=0.,
+                                               sigma_3=1.,
+                                               A2_mat='M1perp',
+                                               rho=rho_vec,
                                                **solver_params)
 
             # Solve Poisson (call propagator with dt=1.)
@@ -327,16 +329,20 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
     # Create Poisson solvers
     _phi1 = derham.create_field('test1', 'H1')
     poisson_solver1 = ImplicitDiffusion(_phi1.vector,
-                                        sigma=1e-8,
-                                        A_mat='M1perp',
-                                        phi_n=rho_vec1,
+                                        sigma_1=1e-8,
+                                        sigma_2=0.,
+                                        sigma_3=1.,
+                                        A2_mat='M1perp',
+                                        rho=rho_vec1,
                                         **solver_params)
 
     _phi2 = derham.create_field('test2', 'H1')
     poisson_solver2 = ImplicitDiffusion(_phi2.vector,
-                                        sigma=1e-8,
-                                        A_mat='M1perp',
-                                        phi_n=rho_vec2,
+                                        sigma_1=1e-8,
+                                        sigma_2=0.,
+                                        sigma_3=1.,
+                                        A2_mat='M1perp',
+                                        rho=rho_vec2,
                                         **solver_params)
 
     # Solve Poisson equation (call propagator with dt=1.)
@@ -458,9 +464,11 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     _phi = derham.create_field('test2', 'H1')
     _phi_2p5d = derham.create_field('sol_2p5d', 'H1')
     poisson_solver_3d = ImplicitDiffusion(_phi.vector,
-                                          sigma=1e-8,
-                                          A_mat='M1perp',
-                                          phi_n=rho_vec,
+                                          sigma_1=1e-8,
+                                          sigma_2=0.,
+                                          sigma_3=1.,
+                                          A2_mat='M1perp',
+                                          rho=rho_vec,
                                           **solver_params)
     
     s = _phi.starts
@@ -481,9 +489,11 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     _phi_small = derham.create_field('test_small', 'H1')
     rhs = derham.create_field('rhs', 'H1')
     poisson_solver_2p5d = ImplicitDiffusion(_phi_small.vector,
-                                            sigma=1e-8,
-                                            A_mat='M1perp',
-                                            phi_n=rhs.vector,
+                                            sigma_1=1e-8,
+                                            sigma_2=0.,
+                                            sigma_3=1.,
+                                            A2_mat='M1perp',
+                                            rho=rhs.vector,
                                             **solver_params)
 
     # Solve Poisson equation (call propagator with dt=1.)
@@ -557,11 +567,11 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
 
 if __name__ == '__main__':
 
-    # direction = 0
-    # bc_type = 'periodic'
-    # mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}]
-    # #mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 3.}]
-    # test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=True)
+    direction = 0
+    bc_type = 'periodic'
+    mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}]
+    #mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 3.}]
+    test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=True)
 
     # Nel = [64, 64, 1]
     # p = [2, 2, 1]
@@ -570,8 +580,8 @@ if __name__ == '__main__':
     # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
     # test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=True)
 
-    Nel = [64, 64, 16]
-    p = [2, 2, 1]
-    mapping = ['Cuboid', {'l1': 0., 'r1': 1.,
-                          'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}]
-    test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=True)
+    # Nel = [64, 64, 16]
+    # p = [2, 2, 1]
+    # mapping = ['Cuboid', {'l1': 0., 'r1': 1.,
+    #                       'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}]
+    # test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=True)

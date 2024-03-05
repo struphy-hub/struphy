@@ -2119,36 +2119,43 @@ class ImplicitDiffusion(Propagator):
     Notes
     -----
     
-    * :math:`\sigma_1=\sigma_2=0` and :math:`\sigma_3 = \Delta t` (default): **Poisson solver** with a given charge density :math:`\rho`. 
+    * :math:`\sigma_1=\sigma_2=0` and :math:`\sigma_3 = 1`: **Poisson solver** with a given charge density :math:`\rho/\Delta t`. 
     * :math:`\sigma_2=0` and :math:`\sigma_1 = \sigma_3 = \Delta t` : Poisson with **adiabatic electrons**.
     * :math:`\sigma_1=\sigma_2=1` and :math:`\sigma_3 = 0`: **Implicit heat equation**. 
 
     Parameters
     ----------
-    phi : psydac.linalg.stencil.StencilVector
+    phi : StencilVector
         FE coefficients of the solution as a discrete 0-form.
 
     sigma : float
         Stabilization parameter: :math:`\sigma=1` for the heat equation and :math:`\sigma=0` for the Poisson equation.
 
-    phi_n : psydac.linalg.stencil.StencilVector
-        FE coefficients of a 0-form (optional, can be set with a setter later).
+    rho : StencilVector
+        Right-hand side FE coefficients of a 0-form (optional, can be set with a setter later).
 
-    x0 : psydac.linalg.stencil.StencilVector
+    x0 : StencilVector
         Initial guess for the iterative solver (optional, can be set with a setter later).
 
     **params : dict
         Parameters for the iteravtive solver.
     """
 
-    def __init__(self, phi: StencilVector, sigma=0., A_mat='M1', phi_n=None, x0=None, **params):
+    def __init__(self, phi: StencilVector, 
+                 sigma_1=0., sigma_2=1., sigma_3=0., 
+                 A1_mat='M0', A2_mat='M1', 
+                 rho=None, 
+                 x0=None, 
+                 **params):
 
         assert phi.space == self.derham.Vh['0']
 
         super().__init__(phi)
         
         # model parameters
-        self._sigma = sigma
+        self._sigma_1 = sigma_1
+        self._sigma_2 = sigma_2
+        self._sigma_3 = sigma_3
 
         # solver parameters
         params_default = {'type': ('pcg', 'MassMatrixPreconditioner'),
@@ -2160,32 +2167,32 @@ class ImplicitDiffusion(Propagator):
         params = set_defaults(params, params_default)
 
         # check the rhs
-        if phi_n is not None:
-            assert phi_n.space == phi.space
-            self._phi_n = phi_n       
+        if rho is not None:
+            assert rho.space == phi.space
+            self._rho = rho       
         else:
-            self._phi_n = phi.space.zeros()
+            self._rho = phi.space.zeros()
             
         # check solvability condition
-        if np.abs(sigma) < 1e-14:
-            sigma = 1e-14
-            self.check_rhs(self._phi_n)
+        if np.abs(self._sigma_1) < 1e-14:
+            self._sigma_1 = 1e-14
+            self.check_rhs(self._rho)
 
         # initial guess and solver params
         self._x0 = x0
         self._params = params
-        A_mat = getattr(self.mass_ops, A_mat)
-
-        # Set lhs matrices
-        self._A1 = sigma * self.mass_ops.M0
-        self._A2 = self.derham.grad.T @ A_mat @ self.derham.grad
+        A1_mat = getattr(self.mass_ops, A1_mat)
+        A2_mat = getattr(self.mass_ops, A2_mat)
+        # Set lhs matrices (without dt)
+        self._A1 = A1_mat
+        self._A2 = self.derham.grad.T @ A2_mat @ self.derham.grad
 
         # preconditioner and solver for Ax=b
         if params['type'][1] is None:
             pc = None
         else:
             pc_class = getattr(preconditioner, params['type'][1])
-            pc = pc_class(self.mass_ops.M0)
+            pc = pc_class(A1_mat)
 
         # solver just with A_2, but will be set during call with dt
         self.solver = inverse(self._A2,
@@ -2198,38 +2205,40 @@ class ImplicitDiffusion(Propagator):
         
         # allocate memory for solution
         self._tmp = phi.space.zeros()
+        self._rhs = phi.space.zeros()
+        self._rhs2 = phi.space.zeros()
 
-    def check_rhs(self, phi_n):
+    def check_rhs(self, rho):
         '''Checks space of rhs and, for periodic boundary conditions and sigma=0,
-        checks whether the integral over phi_n is zero.
+        checks whether the integral over rho is zero.
 
         Parameters
         ----------
-        phi_n : psydac.linalg.stencil.StencilVector
+        rho : StencilVector
             FE coefficients of a 0-form.'''
 
-        assert type(phi_n) == type(self._phi_n)
+        assert type(rho) == type(self._rho)
 
-        if np.all(phi_n.space.periods):
+        if np.all(rho.space.periods):
             solvability = np.zeros(1)
             self.derham.comm.Allreduce(
-                np.sum(phi_n.toarray()), solvability, op=MPI.SUM)
+                np.sum(rho.toarray()), solvability, op=MPI.SUM)
             assert np.abs(
                 solvability[0]) <= 1e-10, f'Solvability condition not met: {solvability[0]}'
 
     @property
-    def phi_n(self):
+    def rho(self):
         """
         psydac.linalg.stencil.StencilVector or struphy.polar.basic.PolarVector.
         """
-        return self._phi_n
+        return self._rho
 
-    @phi_n.setter
-    def phi_n(self, value):
+    @rho.setter
+    def rho(self, value):
         """ In-place setter for StencilVector/PolarVector.
         """
         self.check_rhs(value)
-        self._phi_n[:] = value[:]
+        self._rho[:] = value[:]
 
     @property
     def x0(self):
@@ -2242,7 +2251,7 @@ class ImplicitDiffusion(Propagator):
     def x0(self, value):
         """ In-place setter for StencilVector/PolarVector. First guess of the iterative solver.
         """
-        assert type(value) == type(self._phi_n)
+        assert type(value) == type(self._rho)
         assert value.space.symbolic_space == 'H1', f'Right-hand side must be in H1, but is in {value.space.symbolic_space}.'
 
         if self._x0 is None:
@@ -2251,9 +2260,23 @@ class ImplicitDiffusion(Propagator):
             self._x0[:] = value[:]
 
     def __call__(self, dt):
+        
+        # current variables
+        phin = self.feec_vars[0]
+        
+        # compute rhs
+        rhs = self._A1.dot(phin, out=self._rhs) 
+        rhs *= self._sigma_2 / dt 
+        
+        self._rhs2 = self._sigma_3 / dt * self._rho 
+        
+        rhs += self._rhs2
 
-        self.solver.linop = self._A1/dt + self._A2
-        out = self.solver.solve(self._phi_n, out=self._tmp)
+        # compute lhs
+        self.solver.linop = self._sigma_1/dt * self._A1 + self._A2
+        
+        # solve
+        out = self.solver.solve(rhs, out=self._tmp)
         info = self.solver._info
 
         if self._params['info']:
@@ -2264,8 +2287,11 @@ class ImplicitDiffusion(Propagator):
     @classmethod
     def options(cls):
         dct = {}
-        dct['model'] = {'sigma': 0., 
-                        'A_mat': ['M1', 'M1perp']}
+        dct['model'] = {'sigma_1': 0., 
+                        'sigma_2': 0.,
+                        'sigma_3': 1.,
+                        'A1_mat': ['M0', 'M0ad'],
+                        'A2_mat': ['M1', 'M1perp']}
         dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
                                   ('cg', None)],
                          'tol': 1.e-8,
