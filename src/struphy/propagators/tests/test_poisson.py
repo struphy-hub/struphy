@@ -164,8 +164,10 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
             # create Poisson solver
             _phi = derham.create_field('phi', 'H1')
             poisson_solver = ImplicitDiffusion(_phi.vector,
-                                               sigma=1e-12,
-                                               phi_n=rho_vec,
+                                               sigma_1=1e-12,
+                                               sigma_2=0.,
+                                               sigma_3=1.,
+                                               rho=rho_vec,
                                                **solver_params)
             
             # Solve Poisson (call propagator with dt=1.)
@@ -343,14 +345,18 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
     # Create Poisson solvers
     _phi1 = derham.create_field('test1', 'H1')
     poisson_solver1 = ImplicitDiffusion(_phi1.vector,
-                                        sigma=1e-8,
-                                        phi_n=rho_vec1,
+                                        sigma_1=1e-8,
+                                        sigma_2=0.,
+                                        sigma_3=1.,
+                                        rho=rho_vec1,
                                         **solver_params)
 
     _phi2 = derham.create_field('test2', 'H1')
     poisson_solver2 = ImplicitDiffusion(_phi2.vector,
-                                        sigma=1e-8,
-                                        phi_n=rho_vec2,
+                                        sigma_1=1e-8,
+                                        sigma_2=0.,
+                                        sigma_3=1.,
+                                        rho=rho_vec2,
                                         **solver_params)
 
     # Solve Poisson equation (call propagator with dt=1.)

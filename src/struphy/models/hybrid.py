@@ -1085,8 +1085,8 @@ class ColdPlasmaVlasov(StruphyModel):
         _phi = StencilVector(self.derham.Vh['0'])
         poisson_solver = self.prop_fields.ImplicitDiffusion(
             _phi,
-            sigma=0,
-            phi_n=self._nu * self._alpha**2 /
+            sigma_1=0,
+            rho=self._nu * self._alpha**2 /
             self._epsilon_cold * charge_accum.vectors[0],
             x0=self._nu * self._alpha**2 /
             self._epsilon_cold * charge_accum.vectors[0],
