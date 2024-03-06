@@ -110,7 +110,7 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^1_{(\mu,ijk), (\nu,mno)} = \int \Lambda^1_{\mu,ijk}\, G^{-1}_{\mu,\nu}\, \Lambda^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^1_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \vec{\Lambda}^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
         """
 
         if not hasattr(self, '_M1'):
@@ -133,7 +133,7 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^2_{(\mu,ijk), (\nu,mno)} = \int \Lambda^2_{\mu,ijk}\, G_{\mu,\nu}\, \Lambda^2_{\nu, mno} \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^2_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk}\, G\, \vec{\Lambda}^2_{\nu, mno} \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
         """
 
         if not hasattr(self, '_M2'):
@@ -172,7 +172,7 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^2_{(\mu,ijk), (\nu,mno)} = \int \Lambda^2_{\mu,ijk}\, G_{\mu,\nu}\, \Lambda^2_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^v_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^v_{\mu,ijk}\, G\, \vec{\Lambda}^v_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
         """
 
         if not hasattr(self, '_Mv'):
@@ -198,7 +198,7 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^{1,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \Lambda^1_{\mu,ijk}\, G^{-1}_{\mu,\nu}\, \Lambda^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{1,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \vec{\Lambda}^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
 
         where :math:`n^0_{\textnormal{eq}}(\boldsymbol \eta)` is an MHD equilibrium density (0-form).
         """
@@ -224,7 +224,7 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^{2,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \Lambda^2_{\mu,ijk}\, G_{\mu,\nu}\, \Lambda^2_{\nu, mno} \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{2,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \vec{\Lambda}^2_{\mu,ijk}\, G\, \vec{\Lambda}^2_{\nu, mno} \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
 
         where :math:`n^0_{\textnormal{eq}}(\boldsymbol \eta)` is an MHD equilibrium density (0-form).
         """
@@ -250,7 +250,7 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^{v,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \Lambda^v_{\mu,ijk}\, G_{\mu,\nu}\, \Lambda^v_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{v,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \vec{\Lambda}^v_{\mu,ijk}\, G\, \vec{\Lambda}^v_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
 
         where :math:`n^0_{\textnormal{eq}}(\boldsymbol \eta)` is an MHD equilibrium density (0-form).
         """
@@ -276,7 +276,7 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^{1,\frac{1}{n}}_{(\mu,ijk), (\nu,mno)} = \int \frac{1}{n^0_{\textnormal{eq}}(\boldsymbol \eta)} \Lambda^1_{\mu,ijk}\, G^{-1}_{\mu,\nu}\, \Lambda^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{1,\frac{1}{n}}_{(\mu,ijk), (\nu,mno)} = \int \frac{1}{n^0_{\textnormal{eq}}(\boldsymbol \eta)} \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \vec{\Lambda}^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
 
         where :math:`n^0_{\textnormal{eq}}(\boldsymbol \eta)` is an MHD equilibrium density (0-form).
         """
@@ -302,7 +302,7 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^{1,J}_{(\mu,ijk), (\nu,mno)} = \int \Lambda^1_{\mu,ijk}\, G^{-1}_{\mu,\alpha}\, \mathcal R^J_{\alpha, \nu}\, \Lambda^2_{\nu, mno} \,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{1,J}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \mathcal R^J\, \vec{\Lambda}^2_{\nu, mno} \,  \textnormal d \boldsymbol\eta. 
 
         with the rotation matrix
 
@@ -337,7 +337,7 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^{2,J}_{(\mu,ijk), (\nu,mno)} = \int \Lambda^2_{\mu,ijk}\, \mathcal R^J_{\alpha, \nu}\, \Lambda^2_{\nu, mno} \, \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{2,J}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk}\, \mathcal R^J\, \vec{\Lambda}^2_{\nu, mno} \, \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
 
         with the rotation matrix
 
@@ -372,7 +372,7 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^{v,J}_{(\mu,ijk), (\nu,mno)} = \int \Lambda^v_{\mu,ijk}\, \mathcal R^J_{\alpha, \nu}\, \Lambda^2_{\nu, mno} \,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{v,J}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^v_{\mu,ijk}\, \mathcal R^J\, \vec{\Lambda}^v_{\nu, mno} \,  \textnormal d \boldsymbol\eta. 
 
         with the rotation matrix
 
@@ -407,7 +407,7 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^{2,B}_{(\mu,ijk), (\nu,mno)} = \int \Lambda^2_{\mu,ijk}\, \mathcal R^J_{\alpha, \nu}\, \Lambda^2_{\nu, mno} \, \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{2,B}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk}\, \mathcal R^J\, \vec{\Lambda}^2_{\nu, mno} \, \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
 
         with the rotation matrix
 
@@ -459,7 +459,7 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^{2,BN}_{(\mu,ijk), (\nu,mno)} = \int \Lambda^2_{\mu,ijk}\, \mathcal R^J_{\alpha, \nu}\, \Lambda^2_{\nu, mno} \, \frac{1}{n^0_{\textnormal{eq}}(\boldsymbol \eta)}\, \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{2,BN}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk}\, \mathcal R^J\, \vec{\Lambda}^2_{\nu, mno} \, \frac{1}{n^0_{\textnormal{eq}}(\boldsymbol \eta)}\, \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
 
         with the rotation matrix
 
@@ -511,7 +511,7 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^{1,B\frac{1}{n}}_{(\mu,ijk), (\nu,mno)} = \int \frac{1}{n^0_{\textnormal{eq}}(\boldsymbol \eta)}\, \Lambda^1_{\mu,ijk}\, G^{-1}_{\mu,\alpha}\, \mathcal R^J_{\alpha, \gamma}\, G^{-1}_{\gamma,\nu}\, \Lambda^1_{\nu, mno} \, \sqrt g\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{1,B\frac{1}{n}}_{(\mu,ijk), (\nu,mno)} = \int \frac{1}{n^0_{\textnormal{eq}}(\boldsymbol \eta)}\, \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \mathcal R^J_{\alpha, \gamma}\, G^{-1}_{\gamma,\nu}\, \vec{\Lambda}^1_{\nu, mno} \, \sqrt g\,  \textnormal d \boldsymbol\eta. 
 
         with the rotation matrix
 
@@ -546,13 +546,7 @@ class WeightedMassOperators:
 
         .. math::
 
-           \mathbb M^1_{\perp, (\mu,ijk), (\nu,mno)} = \int \Lambda^1_{\mu,ijk} DF^{-1}_{\mu,\alpha}(\delta_{\alpha,\beta} - \delta_{\alpha,3}) DF^{-\top}_{\beta,\nu}\Lambda^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
-
-        where :math:`\delta_{\mu,\nu}` denotes the Kronecker delta. In vector-valued form:
-
-        .. math::
-
-            \mathbb M^1_{\perp, (ijk), (mno)} = \int \vec \Lambda^1_{ijk} DF^{-1} \begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 0 \end{pmatrix} DF^{-\top}\vec \Lambda^1_{mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
+            \mathbb M^{1, \perp}_{(\mu, ijk), (\nu, mno)} = \int \vec{\Lambda}^1_{\mu, ijk}\, DF^{-1} \begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 0 \end{pmatrix} DF^{-\top} \vec{\Lambda}^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
 
         """
 

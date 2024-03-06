@@ -373,7 +373,7 @@ def collocation_matrix(knots, degree, xgrid, periodic, normalize=False):
 # ==============================================================================
 def histopolation_matrix(knots, degree, xgrid, periodic):
     """
-    Computes the histopolation matrix $H_ij = int_x_i^x_{i+1} D_j(x) dx$ of the M_splines.
+    Computes the histopolation matrix $H_ij = int_{x_i}^x_{i+1} D_j(x) dx$ of the M_splines.
 
     Parameters
     ----------

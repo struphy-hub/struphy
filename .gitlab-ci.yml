@@ -1,5 +1,5 @@
 # Keyword reference for the .gitlab-ci.yml file: 
-# https://gitlab.mpcdf.mpg.de/help/ci/yaml/index.md
+# https://gitlab.mpcdf.mpg.de/help/ci/yaml/index.md 
 
 # Struphy test strategy:
 # 
@@ -111,8 +111,6 @@ default_build:
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
-    - if: $CI_COMMIT_REF_NAME == "devel"
-      when: never
     - if: $CI_PIPELINE_SOURCE == "push"
   script:  
     - pip install -U build
@@ -134,8 +132,6 @@ default_install:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_COMMIT_REF_NAME == "devel"
       when: never
     - if: $CI_PIPELINE_SOURCE == "push"
   script:
@@ -504,8 +500,8 @@ pages:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: never
+    - if: $CI_COMMIT_REF_PROTECTED == "true"
     - if: $CI_COMMIT_MESSAGE =~ /run-pages-job/ 
-    - if: $CI_COMMIT_REF_NAME == "master"
   script:
     - struphy -h
     - struphy compile --status

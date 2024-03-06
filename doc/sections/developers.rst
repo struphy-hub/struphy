@@ -24,11 +24,7 @@ necessary for HPC applications.
     subsections/git_workflow
     subsections/adding_model
     subsections/coding_conventions
-    subsections/model_base_class
-    subsections/pic_classes
-    subsections/feec_classes
     subsections/data_structures
-    subsections/utilities
     subsections/change_doc
 
 

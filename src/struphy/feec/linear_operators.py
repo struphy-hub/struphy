@@ -509,3 +509,4 @@ class BoundaryOperator(LinOpWithTransp):
         Returns the transposed operator.
         """
         return BoundaryOperator(self._domain, self._space_id, self.bc)
+    

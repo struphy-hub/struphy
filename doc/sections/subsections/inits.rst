@@ -34,3 +34,16 @@ Analytical initial conditions
     :members:
     :show-inheritance:
     
+MHD eigenfunctions
+^^^^^^^^^^^^^^^^^^
+
+.. automodule:: struphy.initial.eigenfunctions
+    :members:
+    :show-inheritance:
+
+Utilities
+^^^^^^^^^
+
+.. automodule:: struphy.initial.utilities
+    :members:
+    :show-inheritance:

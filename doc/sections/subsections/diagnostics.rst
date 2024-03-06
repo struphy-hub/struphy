@@ -10,3 +10,7 @@ Struphy aims to provide a wide range of diagnostic tools that have general appli
 .. automodule:: struphy.diagnostics.diagn_tools
     :members:
     :undoc-members:
+
+.. automodule:: struphy.diagnostics.continuous_spectra
+    :members:
+    :undoc-members:
