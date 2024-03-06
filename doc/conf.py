@@ -20,7 +20,7 @@ with open('../src/struphy/console/main.py') as f:
 # -- Project information -----------------------------------------------------
 
 project = 'struphy'
-copyright = '2019-2023 (c) Struphy dev team | Max Planck Institute for Plasma Physics'
+copyright = '2019-2024 (c) Struphy dev team | Max Planck Institute for Plasma Physics'
 author = 'Struphy dev team | Max Planck Institute for Plasma Physics'
 version = __version__
 

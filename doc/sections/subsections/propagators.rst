@@ -7,7 +7,6 @@ Propagators are the main building blocks of :ref:`models`, as they define the
 time splitting scheme of every algorithm.
 Check out :ref:`disc_example` for how propagators are used in Struphy.
 
-
 .. _prop_base:
 
 Propagator base class
@@ -58,40 +57,3 @@ Particle-field propagators
     :exclude-members: variables
     :show-inheritance:
 
-
-.. _pushers:
-
-Pusher class
-^^^^^^^^^^^^
-
-.. automodule:: struphy.pic.pushing.pusher
-    :members:
-    :undoc-members:
-    :exclude-members: variables
-    :show-inheritance:
-
-
-Pusher kernels
-^^^^^^^^^^^^^^
-
-.. automodule:: struphy.pic.pushing.pusher_kernels
-    :members:
-    :undoc-members:
-    :exclude-members: variables
-    :show-inheritance:
-
-
-Pusher kernels guiding center
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. automodule:: struphy.pic.pushing.pusher_kernels_gc
-    :members:
-    :undoc-members:
-    :exclude-members: variables
-    :show-inheritance:
-
-.. automodule:: struphy.pic.pushing.eval_kernels_gc
-    :members:
-    :undoc-members:
-    :exclude-members: variables
-    :show-inheritance:

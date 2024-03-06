@@ -14,6 +14,8 @@ from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.feec import preconditioner
 from struphy.feec.mass import WeightedMassOperator
 from struphy.feec.basis_projection_ops import BasisProjectionOperator, CoordinateProjector
+from struphy.feec.variational_utilities import BracketOperator
+
 
 from psydac.linalg.solvers import inverse
 from psydac.linalg.basic import IdentityOperator
@@ -2512,14 +2514,21 @@ class VariationalMomentumAdvection(Propagator):
 
     .. math::
 
-        \int_{\Omega} \partial_t ( \rho \mathbf u ) \cdot \mathbf v \, \textnormal d^3 \mathbf x - \int_{\Omega}( \rho \mathbf u ) \cdot [\mathbf u, \mathbf v] \, \textnormal d^3 \mathbf x = 0 ~ ,
+        \int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \,\textrm d \boldsymbol \eta - 
+        \int_{\hat{\Omega}}( \hat{\rho}^3 \hat{\mathbf{u}}) \cdot G [\hat{\mathbf{u}}, \hat{\mathbf{v}}] \, \textrm d \boldsymbol \eta = 0 ~ ,
 
     which is discretized as
 
     .. math::
 
-        \mathbb M_v[\rho^n] \frac{\mathbf u^{n+1}- \mathbf u^n}{\Delta t} - (\sum_i (\hat{\Pi}^{1->0}[\mathbf u^{n+1/2}] \mathbb G P_i - \hat{\Pi}^{X->0}[\nabla\mathbf u^{n+1/2}_i])^\top P_i) \mathbb M_v[\rho^n] \mathbf u^{n+1/2} = 0 ~ .
-
+        \mathbb M^v[\hat{\rho}_h^n] \frac{\mathbf u^{n+1}- \mathbf u^n}{\Delta t} - (\sum_{\mu} (\hat{\Pi}^{0}[\hat{\mathbf u}_h^{n+1/2} \cdot \vec{\boldsymbol \Lambda}^1] \mathbb G P_{\mu} - \hat{\Pi}^0[\hat{\mathbf A}^1_{\mu,h} \cdot \vec{\boldsymbol \Lambda}^v])^\top P_i) \mathbb M^v[\hat{\rho}_h^n] \mathbf u^{n} = 0 ~ .
+     
+    where :math:`P_\mu` stand for the :class:`~struphy.feec.basis_projection_ops.CoordinateProjector` and the weights
+    in the the two :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator` and the :class:`~struphy.feec.mass.WeightedMassOperator` are given by
+    
+    .. math::
+    
+        \hat{\mathbf{u}}_h^{n+1/2} = (\mathbf{u}^{n+1/2})^\top \vec{\boldsymbol \Lambda}^v \in (V_h^0)^3 \,, \qquad \hat{\mathbf A}^1_{\mu,h} = \nabla P_\mu((\mathbf u^{n+1/2})^\top \vec{\boldsymbol \Lambda}^v)] \in V_h^1\,, \qquad \hat{\rho}_h^{n} = (\rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3.
     Parameters
     ----------
     rho : psydac.linalg.stencil.Vector
@@ -2529,7 +2538,7 @@ class VariationalMomentumAdvection(Propagator):
         FE coefficients of a discrete vector field,velocity of the solution.
 
     **params : dict
-        Parameters for the iterative solver.
+        Parameters for the iterative solvers.
 
     '''
 
@@ -2555,45 +2564,19 @@ class VariationalMomentumAdvection(Propagator):
 
         self.WMM = params['mass_ops']
 
-        # Femfields for the projectors
-        self.uf = self.derham.create_field("uf", "H1vec")
-        self.gu1f = self.derham.create_field("gu1f", "Hcurl")  # grad(u[0])
-        self.gu2f = self.derham.create_field("gu2f", "Hcurl")  # grad(u[1])
-        self.gu3f = self.derham.create_field("gu3f", "Hcurl")  # grad(u[2])
-
-        self._initialize_projectors_and_mass()
-
-        # gradient of the component of the vector field
-        grad = self.derham.grad
-        self.gp1 = grad @ self.Pcoord1
-        self.gp2 = grad @ self.Pcoord2
-        self.gp3 = grad @ self.Pcoord3
-
-        # v-> int(Pi(grad v_i . u)m_i)
-        m1ugv1 = self.gp1.T @ self.PiuT @ self.Pcoord1
-        m2ugv2 = self.gp2.T @ self.PiuT @ self.Pcoord2
-        m3ugv3 = self.gp3.T @ self.PiuT @ self.Pcoord3
-
-        # v-> int(Pi(grad u_i . v)m_i)
-        m1vgu1 = self.PiguT_1 @ self.Pcoord1
-        m2vgu2 = self.PiguT_2 @ self.Pcoord2
-        m3vgu3 = self.PiguT_3 @ self.Pcoord3
-
-        # v-> int(Pi([u,v]) . m)
-        self.mbrackuv = (m1vgu1 + m2vgu2 + m3vgu3 - m1ugv1 - m2ugv2 - m3ugv3)
+        self._initialize_mass()
 
         # bunch of temporaries to avoid allocating in the loop
         self._tmp_un1 = u.space.zeros()
         self._tmp_un12 = u.space.zeros()
         self._tmp_diff = u.space.zeros()
+        self._tmp_update = u.space.zeros()
         self._tmp_weak_diff = u.space.zeros()
         self._tmp_mn = u.space.zeros()
         self._tmp_mn1 = u.space.zeros()
-        self._tmp_mn12 = u.space.zeros()
         self._tmp_advection = u.space.zeros()
-        self.gp1u = self.gp1.dot(u)
-        self.gp2u = self.gp2.dot(u)
-        self.gp3u = self.gp3.dot(u)
+
+        self.brack = BracketOperator(self.derham, self._tmp_mn)
 
     def __call__(self, dt):
 
@@ -2602,41 +2585,24 @@ class VariationalMomentumAdvection(Propagator):
         mn = self._Mrho.dot(un, out=self._tmp_mn)
         mn1 = mn.copy(out=self._tmp_mn1)
         un1 = un.copy(out=self._tmp_un1)
-
-        self.pc.update_mass_operator(self._Mrho)
-
         tol = self._params['non_linear_tol']
         err = tol+1
-        for it in range(self._params['non_linear_maxiter']):
+        # Jacobian matrix for Newton solve
+        self.derivative = self.WMM + dt/2*self.brack
+        inv_derivative = inverse(self.derivative,
+                                'bicgstab',
+                                tol=self._params['linear_tol'],
+                                maxiter=self._params['linear_maxiter'],
+                                verbose=self._params['verbose'])
 
-            # Picard iteration
-            if err < tol**2:
-                break
-            # half time step approximation
-            mn12 = mn.copy(out=self._tmp_mn12)
-            mn12 += mn1
-            mn12 *= 0.5
+        for it in range(self._params['non_linear_maxiter']):
 
             un12 = un.copy(out=self._tmp_un12)
             un12 += un1
             un12 *= 0.5
 
-            # gradients of un12 components
-            grad_1_u = self.gp1.dot(un12, out=self.gp1u)
-            grad_2_u = self.gp2.dot(un12, out=self.gp2u)
-            grad_3_u = self.gp3.dot(un12, out=self.gp3u)
-
-            # To avoid tmp we need to update the fields we created.
-            self.gu1f.vector = grad_1_u
-            self.gu2f.vector = grad_2_u
-            self.gu3f.vector = grad_3_u
-            self.uf.vector = un12
-
-            # Update the BasisProjectionOperators
-            self._update_all_weights()
-
             # Compute the advection term
-            advection = self.mbrackuv.dot(mn12, out=self._tmp_advection)
+            advection = self.brack.dot(un12, out= self._tmp_advection)
             advection *= dt
 
             # Difference with the previous approximation :
@@ -2645,17 +2611,17 @@ class VariationalMomentumAdvection(Propagator):
             diff -= mn
             diff += advection
 
-            # Compute the norm of the difference
-            weak_diff = self._Mrhoinv.dot(
-                self._tmp_diff, out=self._tmp_weak_diff)
-            err = self._tmp_diff.dot(weak_diff)
+            # Newton step
+            update = inv_derivative.dot(diff, out = self._tmp_update)
+            un1 -=update
+            mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
-            # Update : m^{n+1,r+1} = m^n-advection
-            mn1 = mn.copy(out=self._tmp_mn1)
-            mn1 -= advection
+            w_diff = self._Mrho.dot(
+                 update, out=self._tmp_weak_diff)
+            err = update.dot(w_diff)
 
-            # Inverse the mass matrix to get the velocity
-            un1 = self._Mrhoinv.dot(mn1, out=self._tmp_un1)
+            if err < tol**2:
+                break
 
         if it == self._params['non_linear_maxiter']-1:
             print(f'!!!WARNING: Maximum iteration in VariationalMomentumAdvection reached - not converged \n {err = } \n {tol**2 = }')
@@ -2665,7 +2631,7 @@ class VariationalMomentumAdvection(Propagator):
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'linear_tol': 1e-20,
+        dct['solver'] = {'linear_tol': 1e-12,
                          'non_linear_tol': 1e-8,
                          'linear_maxiter': 3000,
                          'non_linear_maxiter': 100,
@@ -2675,53 +2641,8 @@ class VariationalMomentumAdvection(Propagator):
                          'verbose': False}
         return dct
 
-    def _initialize_projectors_and_mass(self):
-        """Initialization of all the `BasisProjectionOperator` and `CoordinateProjector` needed to compute the bracket term"""
-
-        # Get the projector and the spaces
-        P0 = self.derham.P['0']
-
-        Xh = self.derham.Vh_fem['v']
-        V0h = self.derham.Vh_fem['0']
-        V1h = self.derham.Vh_fem['1']
-
-        # Initialize the CoordinateProjectors
-        self.Pcoord1 = CoordinateProjector(0, Xh, V0h)
-        self.Pcoord2 = CoordinateProjector(1, Xh, V0h)
-        self.Pcoord3 = CoordinateProjector(2, Xh, V0h)
-
-        # Initialize the BasisProjectionOperators
-        self.PiuT = BasisProjectionOperator(
-            P0, V1h, [[None, None, None]], transposed=True, use_cache=True)
-
-        self.PiguT_1 = BasisProjectionOperator(
-            P0,  Xh, [[None, None, None]], transposed=True, use_cache=True)
-        self.PiguT_2 = BasisProjectionOperator(
-            P0,  Xh, [[None, None, None]], transposed=True, use_cache=True)
-        self.PiguT_3 = BasisProjectionOperator(
-            P0,  Xh, [[None, None, None]], transposed=True, use_cache=True)
-
-        # Store the interpolation grid for later use in _update_all_weights
-        interpolation_grid = [pts.flatten()
-                                    for pts in self.derham.proj_grid_pts['0']]
-
-        self.interpolation_grid_spans, self.interpolation_grid_bn, self.interpolation_grid_bd = self.derham.prepare_eval_tp_fixed(interpolation_grid)
-
-        self.interpolation_grid_gradient = [[self.interpolation_grid_bd[0], self.interpolation_grid_bn[1], self.interpolation_grid_bn[2]],
-                                            [self.interpolation_grid_bn[0], self.interpolation_grid_bd[1], self.interpolation_grid_bn[2]],
-                                            [self.interpolation_grid_bn[0], self.interpolation_grid_bn[1], self.interpolation_grid_bd[2]]]
-
-        # Create tmps for later use in evaluating on the grid
-        grid_shape = tuple([len(loc_grid)
-                           for loc_grid in interpolation_grid])
-        self._uf_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._guf1_values = [np.zeros(grid_shape, dtype=float)
-                             for i in range(3)]
-        self._guf2_values = [np.zeros(grid_shape, dtype=float)
-                             for i in range(3)]
-        self._guf3_values = [np.zeros(grid_shape, dtype=float)
-                             for i in range(3)]
-
+    def _initialize_mass(self):
+        """Initialization of the mass matrix solver"""
         # weighted mass matrix to go from m to u
         self._Mrho = self.WMM
 
@@ -2740,53 +2661,41 @@ class VariationalMomentumAdvection(Propagator):
                                 maxiter=self._params['linear_maxiter'],
                                 verbose=self._params['verbose'])
 
-    def _update_all_weights(self,):
-        """Update the weights of all the `BasisProjectionOperators` appearing in the bracket term"""
-
-        uf_values = self.uf.eval_tp_fixed_loc(
-            self.interpolation_grid_spans, [self.interpolation_grid_bn]*3, out=self._uf_values)
-
-        guf1_values = self.gu1f.eval_tp_fixed_loc(self.interpolation_grid_spans,
-                                                  self.interpolation_grid_gradient, out=self._guf1_values)
-        
-        guf2_values = self.gu2f.eval_tp_fixed_loc(self.interpolation_grid_spans,
-                                                  self.interpolation_grid_gradient, out=self._guf2_values)
-        
-        guf3_values = self.gu3f.eval_tp_fixed_loc(self.interpolation_grid_spans,
-                                                  self.interpolation_grid_gradient, out=self._guf3_values)
-        
-        self.PiuT.update_weights([[uf_values[0], uf_values[1], uf_values[2]]])
-        
-        self.PiguT_1.update_weights(
-            [[guf1_values[0], guf1_values[1], guf1_values[2]]])
-        self.PiguT_2.update_weights(
-            [[guf2_values[0], guf2_values[1], guf2_values[2]]])
-        self.PiguT_3.update_weights(
-            [[guf3_values[0], guf3_values[1], guf3_values[2]]])
-
 
 class VariationalDensityEvolve(Propagator):
     r'''Crank-Nicolson step for the evolution of the density terms in fluids models,
 
     .. math::
 
-        \int_{\Omega} \partial_t \rho \mathbf u \cdot \mathbf v \, \textnormal d^3 \mathbf x 
-        + \int_{\Omega} \big( \frac{| \mathbf u |^2}{2} - \frac{\partial \rho e}{\partial \rho} \big) \nabla \cdot (\rho \mathbf v) \, \textnormal d^3 \mathbf x = 0 ~ ,
+        \begin{align}
+        &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta  
+        + \int_{\hat{\Omega}} \big( \frac{| DF \hat{\mathbf{u}} |^2}{2} - \frac{\partial \hat{\rho}^3 \hat{e}}{\partial \hat{\rho}^3} \big) \nabla \cdot (\hat{\rho}^3 \hat{\mathbf{v}}) \, \textrm d \boldsymbol \eta = 0 ~ ,
+        \\[2mm]
+        &\partial_t \hat{\rho}^3 + \nabla \cdot ( \hat{\rho}^3 \hat{\mathbf{u}} ) = 0 ~ ,
+        \end{align}
 
-        \partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 ~ ,
-
-    where $e$ depends on the chosen model.
-
-    It is discretized as
+    where :math:`\hat{e}` depends on the chosen model. It is discretized as
 
     .. math::
 
-        \frac{\mathbb M_v[\rho^{n+1}] \mathbf u^{n+1}- \mathbb M_v[\rho^{n}] \mathbf u^n}{\Delta t} + 
-        (\mathbb D \hat{\Pi}^{X->2}[\rho^{n+1/2}])^\top l^3\big( \frac{u^{n+1} \cdot u^{n}}{2} - \frac{\rho^{n+1}e(\rho^{n+1})-\rho^{n}e(\rho^{n})}{\rho^{n+1}-\rho^n} \big) = 0 ~ ,
+        \begin{align}
+        &\frac{\mathbb M^v[\hat{\rho}_h^{n+1}] \mathbf u^{n+1}- \mathbb M^v[\hat{\rho}_h^n] \mathbf u^n}{\Delta t} 
+        + (\mathbb D \hat{\Pi}^{2}[\hat{\rho}_h^{n+1/2} \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3\Big( \big(\frac{DF \hat{\mathbf{u}}_h^{n+1} \cdot DF \hat{\mathbf{u}}_h^{n}}{2} 
+        - \frac{\hat{\rho}_h^{n+1}\hat{e}(\hat{\rho}_h^{n+1})-\hat{\rho}_h^{n}\hat{e}(\hat{\rho}_h^{n})}{\hat{\rho}_h^{n+1}-\hat{\rho}_h^n} \big)\Big) = 0 ~ ,
+        \\[2mm]
+        &\frac{\boldsymbol \rho^{n+1}- \boldsymbol \rho^n}{\Delta t} + \mathbb D \hat{\Pi}^{2}[\hat{\rho}_h^{n+1/2} \vec{\boldsymbol \Lambda}^v] \mathbf u^{n+1/2} = 0 ~ ,
+        \end{align}
 
-        \frac{\mathbf \rho^{n+1}- \mathbf \rho^n}{\Delta t} + \mathbb D \hat{\Pi}^{X->2}[\rho^{n+1/2}] \mathbf u^{n+1/2} = 0 ~ ,
+    where :math:`\hat{l}^3(f)` denotes the vector representing the linear form :math:`v_h \mapsto \int_{\hat{\Omega}} f(\boldsymbol \eta) v_h(\boldsymbol \eta) d \boldsymbol \eta`, that is the vector with components
+    
+    .. math::
+        \hat{l}^3(f)_{ijk}=\int_{\hat{\Omega}} f \Lambda^3_{ijk} \textrm d \boldsymbol \eta
 
-    where :math:`l^3(f)` denotes the vector representing the linear form :math:`v \mapsto \int_{\Omega} f(\mathbf x) v(\mathbf x) d \mathbf x` .
+    and the weights in the the :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator` and the :class:`~struphy.feec.mass.WeightedMassOperator` are given by
+    
+    .. math::
+    
+        \hat{\mathbf{u}}_h^{k} = (\mathbf{u}^{k})^\top \vec{\boldsymbol \Lambda}^v \in (V_h^0)^3 \, \text{for k in} \{n, n+1/2, n+1\}, \qquad \hat{\rho}_h^{k} = (\rho^{k})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \, \text{for k in} \{n, n+1/2, n+1\} .
 
     Parameters
     ----------
@@ -3077,7 +2986,6 @@ class VariationalDensityEvolve(Propagator):
             metric = np.power(self.domain.jacobian_det(*integration_grid_V3),2-gam)
             self._proj_rho2_metric_term = deepcopy(metric)
 
-
     def _update_all_weights(self,):
         """Update the weights of the `BasisProjectionOperator` appearing in the equations"""
 
@@ -3162,23 +3070,34 @@ class VariationalEntropyEvolve(Propagator):
 
     .. math::
 
-        \int_{\Omega} \partial_t \rho \mathbf u \cdot \mathbf v \, \textnormal d^3 \mathbf x 
-        - \int_{\Omega} \big(\frac{\partial \rho e}{\partial s} \big) \nabla \cdot (s \mathbf v) \, \textnormal d^3 \mathbf x = 0 ~ ,
+        \begin{align}
+        &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta  
+        - \int_{\hat{\Omega}} \big(\frac{\partial \hat{\rho}^3 \hat{e}}{\partial \hat{s}} \big) \nabla \cdot (\hat{s} \hat{\mathbf{v}}) \, \textrm d \boldsymbol \eta = 0 ~ ,
+        \\[2mm]
+        &\partial_t \hat{s} + \nabla \cdot ( \hat{s} \hat{\mathbf{u}} ) = 0 ~ ,
+        \end{align}
 
-        \partial_t s + \nabla \cdot (s \mathbf u ) = 0 ~ ,
-
-    where $e$ depends on the chosen model.
-
-    It is discretized as
+    where :math:`\hat{e}` depends on the chosen model. It is discretized as
 
     .. math::
 
-        \frac{\mathbb M_v[\rho^{n}] \mathbf u^{n+1}- \mathbb M_v[\rho^{n}] \mathbf u^n}{\Delta t} -
-        (\mathbb D \hat{\Pi}^{X->2}[s^{n+1/2}])^\top l^3\big(\frac{\rho^{n}e(s^{n+1})-\rho^{n}e(s^{n})}{s^{n+1}-s^n} \big) = 0 ~ ,
+        \begin{align}
+        &\mathbb M^v[\hat{\rho}_h^{n}] \frac{ \mathbf u^{n+1}-\mathbf u^n}{\Delta t} - 
+        (\mathbb D \hat{\Pi}^{2}[\hat{s}_h^{n+1/2} \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3\Big( \big(\frac{\hat{\rho}_h^{n}\hat{e}(\hat{\rho}_h^{n},\hat{s}_h^{n+1})-\hat{\rho}_h^{n}\hat{e}(\hat{\rho}_h^{n},\hat{s}_h^{n})}{\hat{s}_h^{n+1}-\hat{s}_h^n} \big)\Big) = 0 ~ ,
+        \\[2mm]
+        &\frac{\mathbf s^{n+1}- \mathbf s^n}{\Delta t} + \mathbb D \hat{\Pi}^{2}[\hat{s}_h^{n+1/2} \vec{\boldsymbol \Lambda}^v] \mathbf u^{n+1/2} = 0 ~ ,
+        \end{align}
 
-        \frac{s^{n+1}- s^n}{\Delta t} + \mathbb D \hat{\Pi}^{X->2}[s^{n+1/2}] \mathbf u^{n+1/2} = 0 ~ ,
+    where :math:`\hat{l}^3(f)` denotes the vector representing the linear form :math:`v_h \mapsto \int_{\hat{\Omega}} f(\boldsymbol \eta) v_h(\boldsymbol \eta) d \boldsymbol \eta`, that is the vector with components
+    
+    .. math::
+        \hat{l}^3(f)_{ijk}=\int_{\hat{\Omega}} f \Lambda^3_{ijk} \textrm d \boldsymbol \eta
 
-    where :math:`l^3(f)` denotes the vector representing the linear form :math:`v \mapsto \int_{\Omega} f(\mathbf x) v(\mathbf x) d \mathbf x` .
+    and the weights in the the :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator` and the :class:`~struphy.feec.mass.WeightedMassOperator` are given by
+    
+    .. math::
+    
+        \hat{\mathbf{u}}_h^{k} = (\mathbf{u}^{k})^\top \vec{\boldsymbol \Lambda}^v \in (V_h^0)^3 \, \text{for k in} \{n, n+1/2, n+1\}, \qquad \hat{s}_h^{k} = (s^{k})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \, \text{for k in} \{n, n+1/2, n+1\} \qquad \hat{\rho}_h^{n} = (\rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \.
 
     Parameters
     ----------
@@ -3492,19 +3411,30 @@ class VariationalMagFieldEvolve(Propagator):
 
     .. math::
 
-        \int_{\Omega} \partial_t \rho \mathbf u \cdot \mathbf v \, \textnormal d^3 \mathbf x 
-        - \int_{\Omega} \mathbf B \cdot \nabla \times (\mathbf B \times \mathbf v) \, \textnormal d^3 \mathbf x = 0 ~ ,
-
-        \partial_t \mathbf B + \nabla \times (\mathbf B \times \mathbf u) = 0 ~ ,
+        \begin{align}
+        &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta  
+        - \int_{\hat{\Omega}} \hat{\mathbf{B}}^2 \cdot G \,\nabla \times (\hat{\mathbf{B}}^2 \times \hat{\mathbf{v}}) \,\frac{1}{\sqrt g}\, \textrm d \boldsymbol \eta = 0 ~ ,
+        \\[2mm]
+        &\partial_t \hat{\mathbf{B}}^2 + \nabla \times (\hat{\mathbf{B}}^2 \times \hat{\mathbf{u}}) = 0 ~ .
+        \end{align}
 
     It is discretized as
 
     .. math::
 
-        \mathbb M_v[\rho^{n}]\frac{\mathbf u^{n+1}- \mathbf u^n}{\Delta t} -
-        (\mathbb C \hat{\Pi}^{X->1}[\mathbf B^{n+1/2}])^\top \mathbb M_2 B^{n+\frac{1}{2}} \big) = 0 ~ ,
+        \begin{align}
+        &\mathbb M^v[\hat{\rho}_h^{n}] \frac{ \mathbf u^{n+1}-\mathbf u^n}{\Delta t}
+        - (\mathbb C \hat{\Pi}^{1}[\hat{\mathbf{B}}_h^{n+1/2} \cdot \vec{\boldsymbol \Lambda}^v])^\top \mathbb M^2 B^{n+\frac{1}{2}} \big) = 0 ~ ,
+        \\[2mm]
+        &\frac{\mathbf b^{n+1}- \mathbf b^n}{\Delta t} + \mathbb C \hat{\Pi}^{1}[\hat{\mathbf{B}}_h^{n+1/2} \cdot \vec{\boldsymbol \Lambda}^v]] \mathbf u^{n+1/2} = 0 ~ ,
+        \end{align}
 
-        \frac{\mathbf B^{n+1}- \mathbf B^n}{\Delta t} + \mathbb C \hat{\Pi}^{X->1}[\mathbf B^{n+1/2}] \mathbf u^{n+1/2} = 0 ~ ,
+    and the weights in the the :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator` and the :class:`~struphy.feec.mass.WeightedMassOperator` are given by
+    
+    .. math::
+    
+        \hat{\mathbf{B}}_h^{n+1/2} = (\mathbf{b}^{n+1/2})^\top \vec{\boldsymbol \Lambda}^2 \in V_h^2 \, \qquad \hat{\rho}_h^{n} = (\boldsymbol \rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,.
+
 
     Parameters
     ----------

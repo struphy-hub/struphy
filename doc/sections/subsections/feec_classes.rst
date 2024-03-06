@@ -1,6 +1,6 @@
 .. _feec_base:
 
-FEEC classes
+FEEC modules
 ------------
 
 .. _de_rham:
@@ -8,7 +8,7 @@ FEEC classes
 Derham sequence (3D) 
 ^^^^^^^^^^^^^^^^^^^^
 
-.. autoclass:: struphy.feec.psydac_derham.Derham
+.. automodule:: struphy.feec.psydac_derham
     :members:
     :undoc-members:
     :show-inheritance:
@@ -18,49 +18,59 @@ Derham sequence (3D)
 Weighted mass operators
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-.. autoclass:: struphy.feec.mass.WeightedMassOperators
+.. automodule:: struphy.feec.mass
     :members:
     :undoc-members:
-    :show-inheritance:
-
-.. autoclass:: struphy.feec.mass.WeightedMassOperator
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-.. autoclass:: struphy.feec.mass.StencilMatrixFreeMassOperator
-    :members:
-    :undoc-members:
-    :show-inheritance:    
-
+    :show-inheritance:   
 
 .. _projectors:
 
 Projections into Derham
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-.. autoclass:: struphy.feec.projectors.CommutingProjector
+.. automodule:: struphy.feec.projectors
     :members:
     :undoc-members:
     :show-inheritance:
-
-.. autoclass:: struphy.feec.projectors.L2Projector
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 
 .. _basis_ops:
 
 Basis projection operators
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. autoclass:: struphy.feec.basis_projection_ops.BasisProjectionOperators
+.. automodule:: struphy.feec.basis_projection_ops
     :members:
     :undoc-members:
     :show-inheritance:
 
-.. autoclass:: struphy.feec.basis_projection_ops.BasisProjectionOperator
+Preconditioners
+^^^^^^^^^^^^^^^
+
+.. automodule:: struphy.feec.preconditioner
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Linear operators
+^^^^^^^^^^^^^^^^
+
+.. automodule:: struphy.feec.linear_operators
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Utilities
+^^^^^^^^^
+
+.. automodule:: struphy.feec.utilities
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Variational utilities
+^^^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: struphy.feec.variational_utilities
     :members:
     :undoc-members:
     :show-inheritance:
