@@ -10,10 +10,9 @@ from struphy.propagators.base import Propagator
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
 from struphy.pic.pushing.pusher import Pusher
-import struphy.pic.utilities_kernels as utilities
 from struphy.polar.basic import PolarVector
 from struphy.kinetic_background.base import Maxwellian
-from struphy.kinetic_background.maxwellians import Maxwellian6DUniform, Maxwellian5DUniform
+from struphy.kinetic_background.maxwellians import Maxwellian6D, Maxwellian5DUniform
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
 from struphy.feec import preconditioner
@@ -74,13 +73,15 @@ class VlasovMaxwell(Propagator):
         super().__init__(e, particles)
 
         # parameters
-        params_default = {'c1': 1.,
-                          'c2': 1.,
-                          'type': ('pcg', 'MassMatrixPreconditioner'),
-                          'tol': 1e-8,
-                          'maxiter': 3000,
-                          'info': False,
-                          'verbose': False, }
+        params_default = {
+            'c1': 1.,
+            'c2': 1.,
+            'type': ('pcg', 'MassMatrixPreconditioner'),
+            'tol': 1e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False,
+        }
 
         params = set_defaults(params, params_default)
 
@@ -249,37 +250,40 @@ class EfieldWeightsImplicit(Propagator):
 
     def __init__(self, e, particles, **params):
 
-        from struphy.kinetic_background.maxwellians import Maxwellian6DUniform
-
+        from struphy.kinetic_background.maxwellians import Maxwellian6D
         super().__init__(e, particles)
 
         # parameters
-        params_default = {'alpha': 1.,
-                          'kappa': 1.,
-                          'f0': Maxwellian6DUniform(),
-                          'model': 'linear_vlasov_maxwell',
-                          'type': ('pcg', 'MassMatrixPreconditioner'),
-                          'tol': 1e-8,
-                          'maxiter': 3000,
-                          'info': False,
-                          'verbose': False}
+        params_default = {
+            'alpha': 1.,
+            'kappa': 1.,
+            'f0': Maxwellian6D(),
+            'model': 'linear_vlasov_maxwell',
+            'type': ('pcg', 'MassMatrixPreconditioner'),
+            'tol': 1e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False
+        }
 
         params = set_defaults(params, params_default)
 
-        assert isinstance(params['f0'], Maxwellian6DUniform)
+        assert isinstance(params['f0'], Maxwellian6D)
         assert params['model'] in (
             'linear_vlasov_maxwell', 'delta_f_vlasov_maxwell')
 
         self._alpha = params['alpha']
         self._kappa = params['kappa']
         self._f0 = params['f0']
-        self._f0_params = np.array([self._f0.params['n'],
-                                    self._f0.params['u1'],
-                                    self._f0.params['u2'],
-                                    self._f0.params['u3'],
-                                    self._f0.params['vth1'],
-                                    self._f0.params['vth2'],
-                                    self._f0.params['vth3']])
+        self._f0_params = np.array(
+            [self._f0.bckgr_params['n'],
+             self._f0.bckgr_params['u1'],
+             self._f0.bckgr_params['u2'],
+             self._f0.bckgr_params['u3'],
+             self._f0.bckgr_params['vth1'],
+             self._f0.bckgr_params['vth2'],
+             self._f0.bckgr_params['vth3']]
+        )
         self._model = params['model']
 
         self._info = params['info']
@@ -440,37 +444,41 @@ class EfieldWeightsDiscreteGradient(Propagator):
 
     def __init__(self, e, particles, **params):
 
-        from struphy.kinetic_background.maxwellians import Maxwellian6DUniform
+        from struphy.kinetic_background.maxwellians import Maxwellian6D
 
         super().__init__(e, particles)
 
         # parameters
-        params_default = {'alpha': 1e2,
-                          'kappa': 1.,
-                          'f0': Maxwellian6DUniform(),
-                          'type': 'pcg',
-                          'pc': 'MassMatrixPreconditioner',
-                          'tol': 1e-8,
-                          'maxiter': 3000,
-                          'info': False,
-                          'verbose': False}
+        params_default = {
+            'alpha': 1e2,
+            'kappa': 1.,
+            'f0': Maxwellian6D(),
+            'type': 'pcg',
+            'pc': 'MassMatrixPreconditioner',
+            'tol': 1e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False
+        }
 
         params = set_defaults(params, params_default)
 
         self._params = params
 
-        assert isinstance(params['f0'], Maxwellian6DUniform)
+        assert isinstance(params['f0'], Maxwellian6D)
 
         self._alpha = params['alpha']
         self._kappa = params['kappa']
         self._f0 = params['f0']
-        self._f0_params = np.array([self._f0.params['n'],
-                                    self._f0.params['u1'],
-                                    self._f0.params['u2'],
-                                    self._f0.params['u3'],
-                                    self._f0.params['vth1'],
-                                    self._f0.params['vth2'],
-                                    self._f0.params['vth3']])
+        self._f0_params = np.array(
+            [self._f0.bckgr_params['n'],
+             self._f0.bckgr_params['u1'],
+             self._f0.bckgr_params['u2'],
+             self._f0.bckgr_params['u3'],
+             self._f0.bckgr_params['vth1'],
+             self._f0.bckgr_params['vth2'],
+             self._f0.bckgr_params['vth3']]
+        )
 
         self._info = params['info']
 
@@ -493,8 +501,8 @@ class EfieldWeightsDiscreteGradient(Propagator):
             pc = pc_class(self.mass_ops.M1)
 
         # solver
-        self.solver = inverse(self.mass_ops.M1, 
-                              params['type'][0], 
+        self.solver = inverse(self.mass_ops.M1,
+                              params['type'][0],
                               pc=pc,
                               x0=self.feec_vars[0],
                               tol=self._params['tol'],
@@ -507,7 +515,7 @@ class EfieldWeightsDiscreteGradient(Propagator):
     def __call__(self, dt):
         # current e-field
         en = self.feec_vars[0]
-        
+
         # evaluate f0 and accumulate
         f0_values = self._f0(self.particles[0].markers[:, 0],
                              self.particles[0].markers[:, 1],
@@ -584,14 +592,14 @@ class EfieldWeightsAnalytic(Propagator):
 
     def __init__(self, e, particles, **params):
 
-        from struphy.kinetic_background.maxwellians import Maxwellian6DUniform
+        from struphy.kinetic_background.maxwellians import Maxwellian6D
 
         super().__init__(e, particles)
 
         # parameters
         params_default = {'alpha': 1e2,
                           'kappa': 1.,
-                          'f0': Maxwellian6DUniform(),
+                          'f0': Maxwellian6D(),
                           'type': ('pcg', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
@@ -602,18 +610,20 @@ class EfieldWeightsAnalytic(Propagator):
 
         self._params = params
 
-        assert isinstance(params['f0'], Maxwellian6DUniform)
+        assert isinstance(params['f0'], Maxwellian6D)
 
         self._alpha = params['alpha']
         self._kappa = params['kappa']
         self._f0 = params['f0']
-        self._f0_params = np.array([self._f0.params['n'],
-                                    self._f0.params['u1'],
-                                    self._f0.params['u2'],
-                                    self._f0.params['u3'],
-                                    self._f0.params['vth1'],
-                                    self._f0.params['vth2'],
-                                    self._f0.params['vth3']])
+        self._f0_params = np.array(
+            [self._f0.bckgr_params['n'],
+             self._f0.bckgr_params['u1'],
+             self._f0.bckgr_params['u2'],
+             self._f0.bckgr_params['u3'],
+             self._f0.bckgr_params['vth1'],
+             self._f0.bckgr_params['vth2'],
+             self._f0.bckgr_params['vth3']]
+        )
 
         self._info = params['info']
 
@@ -636,13 +646,15 @@ class EfieldWeightsAnalytic(Propagator):
             self._pc = pc_class(self.mass_ops.M1)
 
         # solver
-        self.solver = inverse(self.mass_ops.M1, 
-                              params['type'][0], 
-                              pc=self._pc,
-                              x0=self.feec_vars[0],
-                              tol=self._params['tol'],
-                              maxiter=self._params['maxiter'],
-                              verbose=self._params['verbose'])
+        self.solver = inverse(
+            self.mass_ops.M1,
+            params['type'][0],
+            pc=self._pc,
+            x0=self.feec_vars[0],
+            tol=self._params['tol'],
+            maxiter=self._params['maxiter'],
+            verbose=self._params['verbose']
+        )
 
         self._pusher = Pusher(self.derham, self.domain,
                               'push_weights_with_efield_delta_f_vm')
@@ -753,7 +765,7 @@ class PressureCoupling6D(Propagator):
         # parameters
         params_default = {'u_space': 'Hdiv',
                           'use_perp_model': True,
-                          'f0': Maxwellian6DUniform(),
+                          'f0': Maxwellian6D(),
                           'type': ('pcg', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
@@ -1377,10 +1389,10 @@ class CurrentCoupling5DCurlb(Propagator):
         _BC = -1/4 * self._ACC.operators[0]
 
         # call SchurSolver class
-        self._schur_solver = SchurSolver(_A, _BC, 
+        self._schur_solver = SchurSolver(_A, _BC,
                                          params['type'][0],
                                          pc=pc,
-                                         tol=params['tol'], 
+                                         tol=params['tol'],
                                          maxiter=params['maxiter'],
                                          verbose=params['verbose'])
 

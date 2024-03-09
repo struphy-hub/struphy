@@ -88,7 +88,8 @@ def struphy():
             out_folders += [name]
 
     # check batch scripts in current batch path:
-    batch_files = recursive_get_files(b_path, contains=('.sh'), out=[], prefix=[])
+    batch_files = recursive_get_files(
+        b_path, contains=('.sh'), out=[], prefix=[])
 
     # collect available model, contains=('.yml', '.yaml')s
     list_fluid = []
@@ -225,11 +226,11 @@ def struphy():
     parser_compile.add_argument('-v', '--verbose',
                                 help='call pyccel with --verbose compiler option',
                                 action='store_true')
-    
+
     parser_compile.add_argument('--dependencies',
                                 help='print Struphy kernels to be compiled (.py) and their dependencies (.so) on screen',
                                 action='store_true')
-    
+
     parser_compile.add_argument('-y', '--yes',
                                 help='say yes to prompt when changing the language',
                                 action='store_true')
@@ -306,7 +307,7 @@ def struphy():
     parser_run.add_argument('--debug',
                             help='launch a Cobra debug run, see https://docs.mpcdf.mpg.de/doc/computing/cobra-user-guide.html#interactive-debug-runs',
                             action='store_true',)
-    
+
     parser_run.add_argument('--cprofile',
                             help='run with Cprofile',
                             action='store_true',)
@@ -463,7 +464,7 @@ def struphy():
     parser_test.add_argument('-v', '--verbose',
                              help='print timings to screen',
                              action='store_true')
-    
+
     parser_test.add_argument('--monitor',
                              help='use pytest-monitor in tests',
                              action='store_true')
@@ -472,7 +473,7 @@ def struphy():
                              type=int,
                              help='specific tutorial simulation to run (int, optional)',
                              default=None)
-    
+
     parser_test.add_argument('-T', '--Tend',
                              type=float,
                              help='if GROUP=a), simulation end time in units of the model (default=0.015 with dt=0.005), data is only saved at TEND if set',
@@ -694,9 +695,9 @@ def recursive_get_files(path, contains=('.yml', '.yaml'), out=[], prefix=[]):
                 prefix = [name]
             else:
                 prefix += [os.path.join(prefix[-1], name)]
-            recursive_get_files(os.path.join(path, name), 
-                                contains=contains, 
-                                out=out, 
+            recursive_get_files(os.path.join(path, name),
+                                contains=contains,
+                                out=out,
                                 prefix=prefix)
     if n_folders == 0 and len(prefix) != 0:
         prefix.pop()

@@ -12,8 +12,7 @@ def power_spectrum_2d(values, name, code, grids,
                grids_mapped=None, component=0, slice_at=[None, 0, 0],
                do_plot=False, disp_name=None, disp_params={},
                save_plot=False, save_name=None, file_format='png'):
-    """
-    Perform fft in space-time, (t, x) -> (omega, k), where x can be a logical or physical coordinate.
+    """ Perform fft in space-time, (t, x) -> (omega, k), where x can be a logical or physical coordinate.
     Returns values if plot=False.
 
     Parameters
@@ -176,8 +175,7 @@ def power_spectrum_2d(values, name, code, grids,
 
 
 def plot_scalars(time, scalar_quantities, scalars_plot=[], do_log=False, save_plot=False, savedir=None, file_format='png'):
-    """
-    Plot the scalar quantities and the relative error in the total energy for a simulation.
+    """ Plot the scalar quantities and the relative error in the total energy for a simulation.
 
     Parameters
     ----------
@@ -251,8 +249,7 @@ def plot_scalars(time, scalar_quantities, scalars_plot=[], do_log=False, save_pl
 
 
 def plot_distr_fun(path, time_idx, grid_slices, save_plot=False, savepath=None, file_format='png'):
-    """
-    Plot the binned distribution function at given slices of the phase space.
+    """ Plot the binned distribution function at given slices of the phase space.
 
     Parameters
     ----------

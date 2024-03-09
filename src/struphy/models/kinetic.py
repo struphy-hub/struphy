@@ -329,19 +329,19 @@ class LinearVlasovMaxwell(StruphyModel):
         self._electron_params = params['kinetic']['electrons']
 
         # kinetic background
-        assert self._electron_params['background']['type'] == 'Maxwellian6DUniform', \
+        assert self._electron_params['background']['type'] == 'Maxwellian6D', \
             AssertionError(
                 "The background distribution function must be a uniform Maxwellian!")
 
-        self._maxwellian_params = self._electron_params['background']['Maxwellian6DUniform']
+        self._maxwellian_params = self._electron_params['background']['Maxwellian6D']
         self.pointer['electrons']._f_backgr = getattr(
-            kin_ana, 'Maxwellian6DUniform')(**self._maxwellian_params)
+            kin_ana, 'Maxwellian6D')(**self._maxwellian_params)
         self._f0 = self.pointer['electrons'].f_backgr
 
-        assert self._f0.params['u1'] == 0., "No shifts in velocity space possible!"
-        assert self._f0.params['u2'] == 0., "No shifts in velocity space possible!"
-        assert self._f0.params['u3'] == 0., "No shifts in velocity space possible!"
-        assert self._f0.params['vth1'] == self._f0.params['vth2'] == self._f0.params['vth3'], \
+        assert self._f0.bckgr_params['u1'] == 0., "No shifts in velocity space possible!"
+        assert self._f0.bckgr_params['u2'] == 0., "No shifts in velocity space possible!"
+        assert self._f0.bckgr_params['u3'] == 0., "No shifts in velocity space possible!"
+        assert self._f0.bckgr_params['vth1'] == self._f0.bckgr_params['vth2'] == self._f0.bckgr_params['vth3'], \
             "Background Maxwellian must be isotropic in velocity space!"
 
         # Get coupling strength
@@ -568,9 +568,9 @@ class LinearVlasovMaxwell(StruphyModel):
         # alpha^2 / (2N) * (v_th_1 * v_th_2 * v_th_3)^(2/3) * sum_p s_0 * w_p^2
         self._tmp[0] = \
             self.alpha**2 / (2 * self.pointer['electrons'].n_mks) * \
-            (self._f0.params['vth1'] *
-             self._f0.params['vth2'] *
-             self._f0.params['vth3'])**(2/3) * \
+            (self._f0.bckgr_params['vth1'] *
+             self._f0.bckgr_params['vth2'] *
+             self._f0.bckgr_params['vth3'])**(2/3) * \
             np.dot(self.pointer['electrons'].markers_wo_holes[:, 6]**2,  # w_p^2
                    self.pointer['electrons'].markers_wo_holes[:, 7])  # s_{0,p}
 
@@ -683,19 +683,20 @@ class DeltaFVlasovMaxwell(StruphyModel):
         self._electron_params = params['kinetic']['electrons']
 
         # kinetic background
-        assert self._electron_params['background']['type'] == 'Maxwellian6DUniform', \
+        assert self._electron_params['background']['type'] == 'Maxwellian6D', \
             AssertionError(
                 "The background distribution function must be a uniform Maxwellian!")
 
         self.pointer['electrons']._f_backgr = getattr(
-            kin_ana, 'Maxwellian6DUniform')(**self._electron_params['background']['Maxwellian6DUniform'])
+            kin_ana, 'Maxwellian6D')(**self._electron_params['background']['Maxwellian6D']
+                                     )
         self._f0 = self.pointer['electrons'].f_backgr
-        self._maxwellian_params = self._f0.params
+        self._maxwellian_params = self._electron_params['background']['Maxwellian6D']
 
-        assert self._f0.params['u1'] == 0., "No shifts in velocity space possible!"
-        assert self._f0.params['u2'] == 0., "No shifts in velocity space possible!"
-        assert self._f0.params['u3'] == 0., "No shifts in velocity space possible!"
-        assert self._f0.params['vth1'] == self._f0.params['vth2'] == self._f0.params['vth3'], \
+        assert self._f0.bckgr_params['u1'] == 0., "No shifts in velocity space possible!"
+        assert self._f0.bckgr_params['u2'] == 0., "No shifts in velocity space possible!"
+        assert self._f0.bckgr_params['u3'] == 0., "No shifts in velocity space possible!"
+        assert self._f0.bckgr_params['vth1'] == self._f0.bckgr_params['vth2'] == self._f0.bckgr_params['vth3'], \
             "Background Maxwellian must be isotropic in velocity space!"
 
         # Get coupling strength
@@ -811,12 +812,14 @@ class DeltaFVlasovMaxwell(StruphyModel):
             *self.pointer['electrons'].markers_wo_holes[:, :6].T)
 
         # evaluate f0
-        f0_values = self._f0(self.pointer['electrons'].markers[:, 0],
-                             self.pointer['electrons'].markers[:, 1],
-                             self.pointer['electrons'].markers[:, 2],
-                             self.pointer['electrons'].markers[:, 3],
-                             self.pointer['electrons'].markers[:, 4],
-                             self.pointer['electrons'].markers[:, 5])[~self.pointer['electrons'].holes]
+        f0_values = self._f0(
+            self.pointer['electrons'].markers[:, 0],
+            self.pointer['electrons'].markers[:, 1],
+            self.pointer['electrons'].markers[:, 2],
+            self.pointer['electrons'].markers[:, 3],
+            self.pointer['electrons'].markers[:, 4],
+            self.pointer['electrons'].markers[:, 5]
+        )[~self.pointer['electrons'].holes]
         ln_f0_values = np.log(f0_values)
 
         self.pointer['electrons']._f0 = self._f0
@@ -866,12 +869,14 @@ class DeltaFVlasovMaxwell(StruphyModel):
                                           6] /= (-1) * ln_f0_values
 
         # evaluate f0
-        f0_values = self._f0(self.pointer['electrons'].markers[:, 0],
-                             self.pointer['electrons'].markers[:, 1],
-                             self.pointer['electrons'].markers[:, 2],
-                             self.pointer['electrons'].markers[:, 3],
-                             self.pointer['electrons'].markers[:, 4],
-                             self.pointer['electrons'].markers[:, 5])
+        f0_values = self._f0(
+            self.pointer['electrons'].markers[:, 0],
+            self.pointer['electrons'].markers[:, 1],
+            self.pointer['electrons'].markers[:, 2],
+            self.pointer['electrons'].markers[:, 3],
+            self.pointer['electrons'].markers[:, 4],
+            self.pointer['electrons'].markers[:, 5]
+        )
 
         # Accumulate charge density
         charge_accum = AccumulatorVector(
@@ -914,9 +919,9 @@ class DeltaFVlasovMaxwell(StruphyModel):
         # alpha^2 * v_th_1^2 * v_th_2^2 * v_th_3^2 * sum_p w_p
         self._tmp[0] = \
             self.alpha**2 * \
-            (self._f0.params['vth1'] *
-             self._f0.params['vth2'] *
-             self._f0.params['vth3'])**(2/3) * \
+            (self._f0.bckgr_params['vth1'] *
+             self._f0.bckgr_params['vth2'] *
+             self._f0.bckgr_params['vth3'])**(2/3) * \
             np.sum(self.pointer['electrons'].markers_wo_holes[:, 6]) / \
             self.pointer['electrons'].n_mks
 

@@ -10,7 +10,6 @@ from struphy.propagators.base import Propagator
 from struphy.pic.pushing.pusher import Pusher
 from struphy.pic.pushing.pusher import ButcherTableau
 from struphy.fields_background.mhd_equil.equils import set_defaults
-from struphy.kinetic_background.maxwellians import Maxwellian6DUniform
 
 
 class PushEta(Propagator):

@@ -71,6 +71,12 @@ def main():
     with open(path + '/parameters.yml') as file:
         params = yaml.load(file, Loader=yaml.FullLoader)
 
+    # Get model name
+    with open(path + '/meta.txt', 'r') as file:
+        for line in file.readlines():
+            if line[0:10] == 'model_name':
+                model_name = line.split(':')[1].strip()
+
     if 'plot_scalars' in actions:
         plot_scalars(saved_time,
                      saved_scalars,
@@ -81,13 +87,38 @@ def main():
 
     if 'plot_distr' in actions:
         for species in params['kinetic'].keys():
+            # Get model class
+            from struphy.models import fluid, kinetic, hybrid, toy
+            objs = [fluid, kinetic, hybrid, toy]
+            for obj in objs:
+                try:
+                    model_class = getattr(obj, model_name)
+                except AttributeError:
+                    pass
+
+            # get particles class name
+            species_dict = model_class.species()
+            particles_class_name = species_dict['kinetic'][species]
+
+            # Get default background of particles class
+            from struphy.pic import particles
+            default_bckgr_type = getattr(particles, particles_class_name).default_bckgr_params()['type']
+
+            # Get default background parameters
+            from struphy.kinetic_background import maxwellians
+            default_bckgr_params = getattr(maxwellians, default_bckgr_type).default_bckgr_params()
+
             # Set velocity point of evaluation to v_shift of background params if not given by input
             if params['kinetic'][species]['markers']['type'] == 'full_f':
                 for k in range(1, 4):
                     if grid_slices['v' + str(k)] is None:
-                        bckgr_type = params['kinetic'][species]['init']['type']
-                        bckgr_param = params['kinetic'][species]['init'][bckgr_type]['u' + str(
-                            k)]
+                        key = 'u' + str(k)
+                        bckgr_type = params['kinetic'][species]['background']['type']
+
+                        if key not in params['kinetic'][species]['background'][bckgr_type].keys():
+                            bckgr_param = default_bckgr_params[key]
+                        else:
+                            bckgr_param = params['kinetic'][species]['background'][bckgr_type][key]
                         if isinstance(bckgr_param, dict):
                             grid_slices['v' + str(k)] = \
                                 bckgr_param['u0' + str(k)]
@@ -109,10 +140,14 @@ def main():
             # Get index of where to plot in time
             time_idx = np.argmin(np.abs(time - saved_time))
 
-            plot_distr_fun(path=os.path.join(path, 'post_processing', 'kinetic_data', species),
-                           time_idx=time_idx,
-                           grid_slices=grid_slices,
-                           save_plot=True, savepath=path)
+            plot_distr_fun(
+                path=os.path.join(
+                    path, 'post_processing', 'kinetic_data', species
+                ),
+                time_idx=time_idx,
+                grid_slices=grid_slices,
+                save_plot=True, savepath=path,
+            )
 
     file.close()
 

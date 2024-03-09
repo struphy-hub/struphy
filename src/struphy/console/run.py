@@ -143,6 +143,7 @@ def struphy_run(model,
             command = ['mpirun',
                        '-n',
                        str(mpi)] + cmd_python + cprofile*cmd_cprofile + cmd_main
+            print(f"\nRunning the following command:\n{' '.join(command)}")
 
         # add restart flag
         if restart:
