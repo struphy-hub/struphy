@@ -872,6 +872,8 @@ class PushVinEfield(Propagator):
         if method == 'analytical':
             self._pusher = Pusher(self.derham, self.domain,
                                   'push_v_with_efield')
+            
+        # The E-field has to be computed from the current FE coefficients of the potantial by applying the gradient matrix.
         elif method == 'discrete_gradient':
             raise NotImplementedError('Not yet implemented.')
             # self._pusher = Pusher(self.derham, self.domain,
