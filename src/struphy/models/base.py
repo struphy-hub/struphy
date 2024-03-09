@@ -311,12 +311,12 @@ class StruphyModel(metaclass=ABCMeta):
     def scalar_quantities(self):
         '''A dictionary of scalar quantities to be saved during the simulation.'''
         return self._scalar_quantities
-    
+
     @property
     def time_state(self):
         '''A pointer to the time variable of the dynamics ('t').'''
         return self._time_state
-    
+
     def add_time_state(self, time_state):
         '''Add a pointer to the time variable of the dynamics ('t')
         to the model and to all propagators of the model.
@@ -431,8 +431,8 @@ class StruphyModel(metaclass=ABCMeta):
                 # if diffential forms is not specified, bin the initialized forms
                 if 'pforms' not in val['params']['save_data']['f']:
 
-                    if 'pforms' in val['params']['init']:
-                        pforms = val['params']['init']['pforms']
+                    if 'pforms' in val['params']['background']:
+                        pforms = val['params']['background']['pforms']
 
                     else:
                         pforms = ['0', '0']
@@ -544,11 +544,11 @@ class StruphyModel(metaclass=ABCMeta):
             for species, val in self.kinetic.items():
 
                 if self.comm.Get_rank() == 0:
-                    _type = val['params']['init']['type']
+                    _type = val['params']['background']['type']
                     print(f'Kinetic species "{species}" was initialized with:')
                     print('type:'.ljust(25), _type)
                     if _type is not None:
-                        for key, par in val['params']['init'][_type].items():
+                        for key, par in val['params']['background'][_type].items():
                             print((key + ':').ljust(25), par)
 
                 val['obj'].draw_markers()
@@ -560,7 +560,10 @@ class StruphyModel(metaclass=ABCMeta):
                     assert typ in ['full_f', 'delta_f', 'control_variate'], \
                         f'Type {typ} for distribution function is not known!'
 
-                    val['obj'].initialize_weights(val['params']['init'])
+                    pert_params = val['params']['perturbation'] if 'perturbation' in val['params'] else {
+                        'type': None}
+
+                    val['obj'].initialize_weights(pert_params)
 
                     if val['space'] == 'Particles5D':
                         val['obj'].save_magnetic_moment()
@@ -998,8 +1001,6 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             else:
                 pass
 
-        
-    
     @classmethod
     def generate_default_parameter_file(cls, file=None, save=True, prompt=True):
         '''Generate a parameter file with default options for each species,
@@ -1008,7 +1009,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         The default name is params_<model_name>.yml.
 
         Parameters
-        -------
+        ----------
         file : str
             Alternative filename to params_<model_name>.yml.
 
@@ -1044,7 +1045,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             init_params_scalar[keys] = vals['p3']
 
         # get rid of species names in initial conditions (add back later)
-        parameters['kinetic']['ions'].pop('init')
+        # TODO: remove later, now safe for popping
+        parameters['kinetic']['ions'].pop('init', None)
         parameters['kinetic']['ions'].pop('background')
         parameters['kinetic']['ions']['markers']['loading'].pop('moments')
 
@@ -1145,13 +1147,19 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
             # set the correct names in the parameter file
             dim = space[-2:]
-            parameters['kinetic'][name]['init'] = {'type': 'Maxwellian' + dim + 'Uniform',
-                                                   'Maxwellian' + dim + 'Uniform': {'n': 0.05}}
-            parameters['kinetic'][name]['background'] = {'type': 'Maxwellian' + dim + 'Uniform',
-                                                         'Maxwellian' + dim + 'Uniform': {'n': 0.8}}
-            parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
+            if dim == '5D':
+                parameters['kinetic'][name]['init'] = {'type': 'Maxwellian' + dim + 'Uniform',
+                                                       'Maxwellian' + dim + 'Uniform': {'n': 0.05}}
+                parameters['kinetic'][name]['background'] = {'type': 'Maxwellian' + dim + 'Uniform',
+                                                             'Maxwellian' + dim + 'Uniform': {'n': 0.8}}
+                parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
+            else:
+                parameters['kinetic'][name]['background'] = {'type': 'Maxwellian' + dim,
+                                                             'Maxwellian' + dim: {'n': 0.05}}
+                parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
 
-        cls.write_parameters_to_file(parameters=parameters, file=file, save=save, prompt=prompt)
+        cls.write_parameters_to_file(
+            parameters=parameters, file=file, save=save, prompt=prompt)
 
         return parameters
 
@@ -1268,22 +1276,27 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     assert 'background' in self.params['kinetic'][species], \
                         f'If a control variate or delta-f method is used, a maxwellians background must be given!'
 
+                assert 'background' in self.params['kinetic'][species].keys(), \
+                    "A background must be given in order to initialize the Particles class!"
+
                 if 'background' in self.params['kinetic'][species]:
-                    f0_params = val['params']['background']
+                    bckgr_params = val['params']['background']
                 else:
-                    f0_params = None
+                    bckgr_params = None
 
                 kinetic_class = getattr(particles, val['space'])
 
-                val['obj'] = kinetic_class(species,
-                                           **val['params']['phys_params'],
-                                           **val['params']['markers'],
-                                           derham=self.derham,
-                                           domain=self.domain,
-                                           mhd_equil=self.mhd_equil,
-                                           epsilon=self.equation_params[species]['epsilon_unit'],
-                                           units_basic=self.units,
-                                           f0_params=f0_params)
+                val['obj'] = kinetic_class(
+                    species,
+                    **val['params']['phys_params'],
+                    **val['params']['markers'],
+                    derham=self.derham,
+                    domain=self.domain,
+                    mhd_equil=self.mhd_equil,
+                    epsilon=self.equation_params[species]['epsilon_unit'],
+                    units_basic=self.units,
+                    background=bckgr_params,
+                )
 
                 self._pointer[species] = val['obj']
 
@@ -1458,7 +1471,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         if len(self.kinetic) > 0:
 
             eta1mg, eta2mg, eta3mg = np.meshgrid(
-                eta1, eta2, eta3, indexing='ij')
+                eta1, eta2, eta3, indexing='ij'
+            )
 
             for species, val in self.kinetic.items():
                 pparams[species] = {}
@@ -1482,9 +1496,13 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 pparams[species]['density'] = np.mean(tmp.n(
                     eta1mg, eta2mg, eta3mg) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
                 # thermal speeds (m/s)
-                vth = tmp.vth(eta1mg, eta2mg, eta3mg) * \
-                    np.abs(det_tmp) * units['x']**3 / \
-                    plasma_volume * units['v']
+                vth = []
+                vths = tmp.vth(eta1mg, eta2mg, eta3mg)
+                for k in range(len(vths)):
+                    vth += [
+                        vths[k] * np.abs(det_tmp) *
+                        units['x']**3 / plasma_volume * units['v']
+                    ]
                 thermal_speed = 0.
                 for dir in range(val['obj'].vdim):
                     pparams[species]['vth' + str(dir + 1)] = np.mean(vth[dir])

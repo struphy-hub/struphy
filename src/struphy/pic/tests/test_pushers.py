@@ -1,8 +1,5 @@
 import pytest
 
-# ==================================================================================
-
-
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize('p',   [[2, 3, 1], [1, 2, 3]])
@@ -13,7 +10,6 @@ import pytest
 def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
 
     from mpi4py import MPI
-
     import numpy as np
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
@@ -35,11 +31,6 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     # discrete Derham sequence (psydac and legacy struphy)
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
-    starts0 = np.array(derham.Vh['0'].starts)
-    starts1 = np.array(derham.Vh['1'].starts)
-    starts2 = np.array(derham.Vh['2'].starts)
-    starts3 = np.array(derham.Vh['3'].starts)
-
     if rank == 0:
         print('Domain decomposition : \n', derham.domain_array)
 
@@ -52,7 +43,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     seed = int(np.random.rand()*1000)
     loader_params = {'type': 'pseudo_random',
                      'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.], 'spatial': 'uniform'}
-    bc_params = {'type' : ['periodic', 'periodic', 'periodic']}
+    bc_params = {'type': ['periodic', 'periodic', 'periodic']}
     marker_params = {'ppc': 2, 'eps': .25, 'loading': loader_params,
                      'bc': bc_params}
 
@@ -103,7 +94,6 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     assert np.allclose(particles.markers, markers_str.T)
 
 
-# ==================================================================================
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize('p',   [[2, 3, 1], [1, 2, 3]])
@@ -114,7 +104,6 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
 def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
 
     from mpi4py import MPI
-
     import numpy as np
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
@@ -148,7 +137,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     seed = int(np.random.rand()*1000)
     loader_params = {'type': 'pseudo_random',
                      'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.], 'spatial': 'uniform'}
-    bc_params = {'type' : ['periodic', 'periodic', 'periodic']}
+    bc_params = {'type': ['periodic', 'periodic', 'periodic']}
     marker_params = {'ppc': 2, 'eps': .25, 'loading': loader_params,
                      'bc': bc_params}
 
@@ -206,7 +195,6 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     assert np.allclose(particles.markers, markers_str.T)
 
 
-# ==================================================================================
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize('p',   [[2, 3, 1], [1, 2, 3]])
@@ -217,7 +205,6 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
 def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
 
     from mpi4py import MPI
-
     import numpy as np
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
@@ -251,7 +238,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     seed = int(np.random.rand()*1000)
     loader_params = {'type': 'pseudo_random',
                      'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.], 'spatial': 'uniform'}
-    bc_params = {'type' : ['periodic', 'periodic', 'periodic']}
+    bc_params = {'type': ['periodic', 'periodic', 'periodic']}
     marker_params = {'ppc': 2, 'eps': .25, 'loading': loader_params,
                      'bc': bc_params}
 
@@ -309,7 +296,6 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     assert np.allclose(particles.markers, markers_str.T)
 
 
-# ==================================================================================
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize('p',   [[2, 3, 1], [1, 2, 3]])
@@ -320,7 +306,6 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
 def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
 
     from mpi4py import MPI
-
     import numpy as np
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
@@ -354,7 +339,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     seed = int(np.random.rand()*1000)
     loader_params = {'type': 'pseudo_random',
                      'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.], 'spatial': 'uniform'}
-    bc_params = {'type' : ['periodic', 'periodic', 'periodic']}
+    bc_params = {'type': ['periodic', 'periodic', 'periodic']}
     marker_params = {'ppc': 2, 'eps': .25, 'loading': loader_params,
                      'bc': bc_params}
 
@@ -412,7 +397,6 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     assert np.allclose(particles.markers, markers_str.T)
 
 
-# ==================================================================================
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize('p',   [[2, 3, 1], [1, 2, 3]])
@@ -423,7 +407,6 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
 def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
 
     from mpi4py import MPI
-
     import numpy as np
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
@@ -457,7 +440,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     seed = int(np.random.rand()*1000)
     loader_params = {'type': 'pseudo_random',
                      'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.], 'spatial': 'uniform'}
-    bc_params = {'type' : ['periodic', 'periodic', 'periodic']}
+    bc_params = {'type': ['periodic', 'periodic', 'periodic']}
     marker_params = {'ppc': 2, 'eps': .25, 'loading': loader_params,
                      'bc': bc_params}
 
@@ -517,7 +500,6 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     assert np.allclose(particles.markers, markers_str.T)
 
 
-# ==================================================================================
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize('p',   [[2, 3, 1], [1, 2, 3]])
@@ -528,7 +510,6 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
 def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 
     from mpi4py import MPI
-
     import numpy as np
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
@@ -563,7 +544,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     seed = int(np.random.rand()*1000)
     loader_params = {'type': 'pseudo_random',
                      'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.], 'spatial': 'uniform'}
-    bc_params = {'type' : ['periodic', 'periodic', 'periodic']}
+    bc_params = {'type': ['periodic', 'periodic', 'periodic']}
     marker_params = {'ppc': 2, 'eps': .25, 'loading': loader_params,
                      'bc': bc_params}
 
@@ -597,7 +578,8 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     c = [0., 1/2, 1/2, 1.]
     butcher = ButcherTableau(a, b, c)
 
-    pusher_psy = Pusher_psy(derham, domain, 'push_eta_stage', n_stages=butcher.n_stages)
+    pusher_psy = Pusher_psy(
+        derham, domain, 'push_eta_stage', n_stages=butcher.n_stages)
 
     # compare if markers are the same BEFORE push
     assert np.allclose(particles.markers, markers_str.T)
@@ -613,7 +595,6 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     assert np.allclose(particles.markers, markers_str.T)
 
 
-# ==================================================================================
 # @pytest.mark.mpi(min_size=2)
 # @pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
 # @pytest.mark.parametrize('p',   [[2, 3, 1], [1, 2, 3]])
@@ -701,7 +682,6 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 #     assert np.allclose(particles.markers, markers_str.T)
 
 
-# ==================================================================================
 # @pytest.mark.mpi(min_size=2)
 # @pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
 # @pytest.mark.parametrize('p',   [[2, 3, 1], [1, 2, 3]])

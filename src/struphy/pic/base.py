@@ -9,15 +9,13 @@ import scipy.special as sp
 
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
-from struphy.pic.utilities_kernels import eval_magnetic_energy
 from struphy.kinetic_background import maxwellians
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.io.output_handling import DataContainer
 
 
 class Particles(metaclass=ABCMeta):
-    """
-    Base class for a particle based kinetic species.
+    """ Base class for a particle based kinetic species.
 
     Loading and compute initial particles and save the values at the corresponding column of markers array:
 
@@ -38,15 +36,25 @@ class Particles(metaclass=ABCMeta):
 
     def __init__(self, name: str, **params):
 
-        params_default = {'type': 'full_f',
-                          'ppc': None,
-                          'Np': 4,
-                          'eps': .25,
-                          'bc': {'type': ['periodic', 'periodic', 'periodic']},
-                          'loading': {'type': 'pseudo:random', 'seed': 1234, 'dir_particles': None, 'moments': [0., 0., 0., 1., 1., 1.]},
-                          'derham': None,
-                          'domain': None,
-                          'f0_params': None}
+        assert 'background' in params.keys(), \
+            "A background must be given in order to initialize the Particles class!"
+        assert 'type' in params['background'].keys(), \
+            "A background must be given in order to initialize the Particles class!"
+
+        assert params['background']['type'] in dir(maxwellians), \
+            f"Unknown key {params['background']['type']}, was expecting 'Maxwellian6D' or 'Maxwellian5D'"
+
+        params_default = {
+            'type': 'full_f',
+            'ppc': None,
+            'Np': 4,
+            'eps': .25,
+            'bc': {'type': ['periodic', 'periodic', 'periodic']},
+            'loading': {'type': 'pseudo:random', 'seed': 1234, 'dir_particles': None, 'moments': [0., 0., 0., 1., 1., 1.]},
+            'derham': None,
+            'domain': None,
+            'background': {'type': 'Maxwellian6D'}
+        }
 
         self._params = set_defaults(params, params_default)
 
@@ -54,7 +62,15 @@ class Particles(metaclass=ABCMeta):
         self._derham = params['derham']
         self._domain = params['domain']
         self._domain_decomp = params['derham'].domain_array
-        f0_params = params['f0_params']
+
+        if 'pforms' in params['background'].keys():
+            assert len(params['background']['pforms']) == 2, \
+                'Only two form degrees can be given!'
+            self._pforms = params['background']['pforms']
+        else:
+            self._pforms = [None, None]
+
+        bckgr_params = params['background']
 
         assert params['derham'].comm is not None
         self._mpi_comm = params['derham'].comm
@@ -64,24 +80,32 @@ class Particles(metaclass=ABCMeta):
         # create marker array
         self.create_marker_array()
 
-        # Assume full-f if type is not in parameters
-        if params['type'] not in 'full_f':
+        # Check if control variate
+        self._control_variate = (params['type'] == 'control_variate')
 
-            self._control_variate = True
+        # set background function for delta-f and control-variate
+        if params['type'] in ['control_variate', 'delta_f']:
+            fun_name = bckgr_params['type']
 
-            assert f0_params is not None, \
-                'When control variate is used, background parameters must be given!'
-            fun_name = f0_params['type']
-
-            if fun_name in f0_params:
+            if fun_name in bckgr_params:
                 self._f_backgr = getattr(maxwellians, fun_name)(
-                    **f0_params[fun_name])
+                    **bckgr_params[fun_name]
+                )
             else:
                 self._f_backgr = getattr(maxwellians, fun_name)()
-        else:
 
-            self._control_variate = False
+        # for full-f do not set a background
+        else:
             self._f_backgr = None
+
+    @classmethod
+    @abstractmethod
+    def default_bckgr_params(cls):
+        """ Dictionary holding the minimal information of the default background.
+        
+        Must contain at least a keyword 'type' with corresponding value a valid choice of background.
+        """
+        pass
 
     @abstractmethod
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
@@ -682,7 +706,7 @@ class Particles(metaclass=ABCMeta):
 
         self.comm.Barrier()
 
-    def initialize_weights(self, fun_params, bckgr_params=None):
+    def initialize_weights(self, pert_params):
         r"""
         Computes the initial weights
 
@@ -697,11 +721,11 @@ class Particles(metaclass=ABCMeta):
 
         Parameters
         ----------
-        fun_params : dict
-            Dictionary of the form {type : class_name, pforms : differential forms, class_name : params_dict} defining the initial condition.
+        bckgr_params : dict
+            Dictionary of the form {type : class_name, class_name : params_dict} defining the background for the initial condition.
 
-        bckgr_params : dict (optional)
-            Dictionary of the form {type : class_name, class_name : params_dict} defining the background.
+        pert_params : dict
+            Dictionary of the form {type : class_name, pforms : differential forms, class_name : params_dict} defining the perturbation to the background for the initial condition.
         """
 
         assert self.domain is not None, 'A domain is needed to initialize weights.'
@@ -710,24 +734,34 @@ class Particles(metaclass=ABCMeta):
         self.sampling_density = self.s0(*self.phasespace_coords.T)
 
         # load distribution function (with given parameters or default parameters)
-        fun_name = fun_params['type']
+        pert_fun = pert_params['type']
+        bckgr_fun = self.params['background']['type']
+        bckgr_fun_params = self.params['background']
 
-        if fun_name in fun_params:
-            self._f_init = getattr(maxwellians, fun_name)(
-                **fun_params[fun_name])
-        else:
-            self._f_init = getattr(maxwellians, fun_name)()
+        # For delta-f set markers only as perturbation
+        if self.params['type'] == 'delta_f':
+
+            # Take out background by setting its density to zero
+            if bckgr_fun in bckgr_fun_params.keys():
+                bckgr_fun_params[bckgr_fun]['n'] = 0.
+            else:
+                bckgr_fun_params[bckgr_fun] = {'n': 0.}
+
+        # Construct parameters that will be passed
+        params_pass = {
+            'background': bckgr_fun_params,
+        }
+        if pert_fun in pert_params:
+            params_pass['perturbation'] = pert_params
+
+        # Get the initialization function and pass the correct arguments
+        self._f_init = getattr(maxwellians, bckgr_fun)(
+            **params_pass
+        )
 
         f_init = self.f_init(*self.phasespace_coords.T)
 
-        # if diffential forms of f_init is not specified, consider it as 0-form
-        if 'pforms' in fun_params:
-            assert len(fun_params['pforms']) == 2
-            self._pforms = fun_params['pforms']
-        else:
-            self._pforms = (None, None)
-
-        # if f_init is vol-form, tramsform to 0-form
+        # if f_init is vol-form, transform to 0-form
         if self.pforms[0] == 'vol':
             f_init /= self.domain.jacobian_det(self.markers_wo_holes)
 
@@ -764,9 +798,9 @@ class Particles(metaclass=ABCMeta):
         self.weights = self.weights0 - f_backgr/self.sampling_density
 
     def binning(self, components, bin_edges, pforms=['0', '0']):
-        r"""
-        Computes the distribution function via marker binning in logical space using numpy's histogramdd,
-        following the algorithm outlined in the `Struphy documentation <https://struphy.pages.mpcdf.de/struphy/sections/discretization.html#particle-binning>`_.
+        r""" Computes the distribution function via marker binning in logical space.
+        For this, numpy's histogramdd is used, following the algorithm outlined in the `Struphy documentation
+        <https://struphy.pages.mpcdf.de/struphy/sections/discretization.html#particle-binning>`_.
         If pforms=['vol','vol'], approximations of the volume density :math:`f^n(t)` are computed (of :math:`f^0(t)` by default). 
 
         Parameters
@@ -811,7 +845,7 @@ class Particles(metaclass=ABCMeta):
                                  bins=bin_edges,
                                  weights=_weights)[0]
 
-        return f_slice/(self._n_mks*bin_vol)
+        return f_slice / (self.n_mks * bin_vol)
 
     def show_distribution_function(self, components, bin_edges, pforms=['0', '0']):
         """
@@ -840,8 +874,10 @@ class Particles(metaclass=ABCMeta):
 
         bin_centers = [bi[:-1] + (bi[1] - bi[0])/2 for bi in bin_edges]
 
-        labels = {0: '$\eta_1$', 1: '$\eta_2$',
-                  2: '$\eta_3$', 3: '$v_1$', 4: '$v_2$', 5: '$v_3$'}
+        labels = {
+            0: r'$\eta_1$', 1: r'$\eta_2$', 2: r'$\eta_3$',
+            3: '$v_1$', 4: '$v_2$', 5: '$v_3$'
+        }
         indices = np.nonzero(components)[0]
 
         if n_dim == 1:

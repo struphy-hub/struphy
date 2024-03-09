@@ -69,22 +69,10 @@ kinetic :
                            [.501, 0.001, 0.001,  1.935 , -1.72], # couner-passing particle
                            [.501, 0.001, 0.001, -0.6665, -1.72], # co-trapped particle
                            [.501, 0.001, 0.001,  0.4515, -1.72]] # counter-trapped particle
-                           
-
-        init :
+        background :
             type : Maxwellian5DUniform
             Maxwellian5DUniform:
                 n : 0.05
-        background :
-            type : Maxwellian6DUniform
-            Maxwellian6DUniform :
-                n  : 1.
-                u1 : 0.
-                u2 : 0.
-                u3 : 0.
-                vth1 : 1.
-                vth2 : 1.
-                vth3 : 1.
         save_data :
             n_markers : 4 # number of markers to be save during simulation
         options:

@@ -11,7 +11,7 @@ import pytest
     ['Cuboid', {
         'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 4.}],
 ])
-def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000, verbose=False):
+def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000):
     '''DRAFT: test the accumulation of the rhs (H1-space) in Poisson's equation .
 
     Tests:
@@ -54,7 +54,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000, verbose=False):
                       'domain': domain,
                       'derham': derham
                       }
-    init_params = {'type': 'Maxwellian6DUniform', 'Maxwellian6DUniform': {}}
+    init_params = {'type': 'Maxwellian6D'}
 
     particles = Particles6D('test_particles', **params_markers)
     particles.draw_markers()

@@ -175,7 +175,8 @@ See :ref:`avail_inits` for possible ``type`` of initial condition ``init``.
 kinetic
 ^^^^^^^
 
-See :ref:`kinetic_backgrounds` for possible ``type`` of initial condition ``init`` and ``background``.
+Initial conditions are given by a ``background`` (see :ref:`kinetic_backgrounds` for available choices) and a possible
+``perturbation`` added on top of that (see :ref:`avail_inits` for available choices).
 
 ::
 
@@ -196,39 +197,25 @@ See :ref:`kinetic_backgrounds` for possible ``type`` of initial condition ``init
                 moments       : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
                 spatial       : uniform # uniform or disc
                 dir_particles : 'path_to_particles' # directory of particles if loaded externally
-        init :
-            type : Maxwellian6DPerturbed
-            Maxwellian6DPerturbed :
-                n :
-                    n0 : 0.05
-                    perturbation :
-                        l : [0]
-                        m : [0]
-                        n : [0]
-                        amps_sin : [0.]
-                        amps_cos : [0.]
-                u1 :
-                    u10 : 0.
-                u2 :
-                    u20 : 2.5
-                u3 :
-                    u30 : 0.
-                vth1 :
-                    vth10 : 1.
-                vth2 :
-                    vth20 : 1.
-                vth3 :
-                    vth30 : 1.
         background :
-            type : Maxwellian6DUniform
-            Maxwellian6DUniform :
-                n  : 1.
+            type : Maxwellian6D
+            Maxwellian6D :
+                n  : 0.5
                 u1 : 0.
-                u2 : 0.
+                u2 : 2.5
                 u3 : 0.
                 vth1 : 1.
                 vth2 : 1.
                 vth3 : 1.
+        perturbation:
+            type: ModesCos
+            ModesCos:
+                comps:
+                    n: '0'
+                ls:
+                    n: [3]
+                amps:
+                    n: [0.001]
         save_data :
             n_markers : 3 # number of markers to be saved during simulation
             f :
