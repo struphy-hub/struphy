@@ -634,11 +634,14 @@ class StruphyModel(metaclass=ABCMeta):
             data.add_data({key_scalar: val})
 
         # store grid_info only for runs with 512 ranks or smaller
-        if size <= 512:
-            data.file['scalar'].attrs['grid_info'] = self.derham.domain_array
+        if self._scalar_quantities:
+            if size <= 512:
+                data.file['scalar'].attrs['grid_info'] = self.derham.domain_array
+            else:
+                data.file['scalar'].attrs['grid_info'] = self.derham.domain_array[0]
         else:
-            data.file['scalar'].attrs['grid_info'] = self.derham.domain_array[0]
-
+            pass
+        
         # save electromagentic fields/potentials data in group 'feec/'
         for key, val in self.em_fields.items():
             if 'params' not in key:

@@ -959,7 +959,7 @@ class Poisson(StruphyModel):
         #     'dt'] == 1., f"Time step must be 1.0 in the Poisson model, but is {params['time']['dt']}"
 
         # Scalar variables to be saved during simulation
-        self.add_scalar('en_E')
+        #self.add_scalar('en_E')
 
     def update_scalar_quantities(self):
         pass
