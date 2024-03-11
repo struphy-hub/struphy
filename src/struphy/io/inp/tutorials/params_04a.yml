@@ -11,6 +11,7 @@ grid :
 units : # units not stated here can be viewed via "struphy units -h"
     x : 1. # length scale unit in m
     B : 1. # magnetic field unit in T
+    n : 1.
 
 time :
     dt         : 0.05 # time step

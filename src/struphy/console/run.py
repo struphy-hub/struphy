@@ -143,18 +143,18 @@ def struphy_run(model,
             command = ['mpirun',
                        '-n',
                        str(mpi)] + cmd_python + cprofile*cmd_cprofile + cmd_main
-            print(f"\nRunning the following command:\n{' '.join(command)}")
 
         # add restart flag
         if restart:
             command += ['-r']
             
         if cprofile:
-            print('Cprofile turned on.')
+            print('\nCprofile turned on.')
         else:
-            print('Cprofile turned off.')
+            print('\nCprofile turned off.')
 
         # run command as subprocess
+        print(f"\nRunning the following command:\n{' '.join(command)}")
         subprocess.run(command, check=True, cwd=libpath)
 
     # run in batch mode

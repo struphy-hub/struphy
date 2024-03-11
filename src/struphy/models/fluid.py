@@ -253,7 +253,7 @@ class LinearExtendedMHD(StruphyModel):
             self._ones[:] = 1.
 
         # compute coupling parameters
-        kappa = 1. / self.equation_params['mhd']['epsilon_unit']
+        kappa = 1. / self.equation_params['mhd']['epsilon']
 
         if abs(kappa - 1) < 1e-6:
             kappa = 1.
@@ -410,8 +410,8 @@ class ColdPlasma(StruphyModel):
         super().__init__(params, comm)
 
         # model parameters
-        self._alpha = self.equation_params['electrons']['alpha_unit']
-        self._epsilon = self.equation_params['electrons']['epsilon_unit']
+        self._alpha = self.equation_params['electrons']['alpha']
+        self._epsilon = self.equation_params['electrons']['epsilon']
 
         # solver parameters
         params_maxwell = params['em_fields']['options']['solver']['maxwell']

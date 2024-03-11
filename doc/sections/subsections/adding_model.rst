@@ -146,7 +146,7 @@ get assigned the current :ref:`de Rham sequence <de_rham>`, :ref:`domain <avail_
 :ref:`mass operators <weighted_mass>` and :ref:`basis projection operators <basis_ops>`.
 Any instance of a class then inherits this information.
 
-Consider for example of the model :class:`VlasovMaxwell <struphy.models.kinetic.VlasovMaxwell>`,
+Consider for example of the model :class:`~struphy.models.kinetic.VlasovMaxwellOneSpecies`,
 where four different propagators are used for time stepping::
 
     self.add_propagator(self.prop_fields.Maxwell(
@@ -192,7 +192,7 @@ The order in which you add propagators matters. They are called consecutively in
 This allows to define scalar quantities that should be saved during the simulation.
 We use the method :meth:`add_scalar() <struphy.models.base.StruphyModel.add_scalar>` 
 of the :class:`StruphyModel <struphy.models.base.StruphyModel>` base class.
-Cosider the the example of the model :class:`VlasovMaxwell <struphy.models.kinetic.VlasovMaxwell>`::
+Consider the the example of the model :class:`~struphy.models.kinetic.VlasovMaxwellOneSpecies`::
 
     self.add_scalar('en_e')
     self.add_scalar('en_b')

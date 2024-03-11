@@ -135,21 +135,21 @@ which we assume also satisfies the transport equation,
     \partial_t s^0 + G \cdot \nabla_q s^0 = 0\qquad s^0(t=0) = s^0_{\textnormal{in}}\,,
 
 but with potentially different initial condition :math:`s^0_{\textnormal{in}}`. 
-We moreover assume that the corresponding :math:`n`-form or volume density :math:`s^n = s^0 |J_F|` is
+We moreover assume that the corresponding :math:`n`-form or volume density :math:`s^\textrm{vol} = s^0 |J_F|` is
 a probability distribution function (PDF), i.e.
 
 .. math::
 
-    \int_{\mathbb R^n} s^n(t,q)\,\textnormal d q = 1 \qquad \forall t\,, \qquad \quad s^n >0\,.
+    \int_{\mathbb R^n} s^\textrm{vol}(t,q)\,\textnormal d q = 1 \qquad \forall t\,, \qquad \quad s^\textrm{vol} >0\,.
 
 The integral :math:numref:`int:1` can now be interpreted as the expectation value of the random
-variable :math:`A^0\,f^0/s^0` distributed according to the PDF :math:`s^n`:
+variable :math:`A^0\,f^0/s^0` distributed according to the PDF :math:`s^\textrm{vol}`:
 
 .. math::
 
-    I = \int_{\mathbb R^n} \frac{f^0 (t,q)}{s^0 (t,q)}\, A^0(t,q) s^n(t,q)\,\textnormal d q = \mathbb E \left( \frac{f^0 }{s^0 }\, A^0 \right)_{s^n}\,.
+    I = \int_{\mathbb R^n} \frac{f^0 (t,q)}{s^0 (t,q)}\, A^0(t,q) s^\textrm{vol}(t,q)\,\textnormal d q = \mathbb E \left( \frac{f^0 }{s^0 }\, A^0 \right)_{s^\textrm{vol}}\,.
 
-In order to approximate the expectation value, we draw :math:`N\gg 1` markers :math:`(q_{k0})_k` according to the PDF :math:`s^n_{\textnormal{in}}`
+In order to approximate the expectation value, we draw :math:`N\gg 1` markers :math:`(q_{k0})_k` according to the PDF :math:`s^\textrm{vol}_{\textnormal{in}}`
 and evolve them along the characteristics :math:numref:`chars`. When denoting the ODE solutions by :math:`(q_{k}(t))_k`, 
 the unbiased estimator for the expectation value reads
 
@@ -185,9 +185,9 @@ PIC algorithm
 
 The PIC algorithm can be summarized in the following steps:
 
-1. Draw :math:`N\gg 1` markers :math:`(q_{k0})_k` according to :math:`s^n_{\textnormal{in}}`. The initial marker distribution is implemented in :meth:`struphy.pic.base.Particles.draw_markers`. In Struphy, it is always a Gaussian in velocity space (see docstring).
+1. Draw :math:`N\gg 1` markers :math:`(q_{k0})_k` according to :math:`s^\textrm{vol}_{\textnormal{in}}`. The initial marker distribution is implemented in :meth:`struphy.pic.base.Particles.draw_markers`. In Struphy, it is always a Gaussian in velocity space (see docstring).
 
-2. Compute the weights :math:`(w_{k0})_k` according to equation :math:numref:`weights`. The initial condition of the kinetic equation :math:numref:`kin:f0` enters only here. Note that :math:`s^0_{\textnormal{in}} = s^n_{\textnormal{in}} / |J_F|`.
+2. Compute the weights :math:`(w_{k0})_k` according to equation :math:numref:`weights`. The initial condition of the kinetic equation :math:numref:`kin:f0` enters only here. Note that :math:`s^0_{\textnormal{in}} = s^\textrm{vol}_{\textnormal{in}} / |J_F|`.
 
 3. Solve the characteristic equations :math:numref:`chars` with initial condition :math:`q_{k0}` for each marker.
 
@@ -242,13 +242,13 @@ there are two different integrals to approximate:
     \begin{align}
     R^0_{ij}(t) &= \frac{1}{|\Omega_{ij}|}\int_{(0, 1)^3} \int_{\mathbb R^3} \textnormal{id}_{ij}(x_1, v_1)\, f^0(t, \eta, v)\,\textnormal d\eta\, \textnormal d v \\
 
-    &= \frac{1}{|\Omega_{ij}|} \int_{(0, 1)^3} \int_{\mathbb R^3} \textnormal{id}_{ij}(x_1, v_1)\, \frac{f^0}{s^0 |\textnormal{det} J_F|}\,s^n\,\textnormal d\eta\, \textnormal d v \\
+    &= \frac{1}{|\Omega_{ij}|} \int_{(0, 1)^3} \int_{\mathbb R^3} \textnormal{id}_{ij}(x_1, v_1)\, \frac{f^0}{s^0 |\textnormal{det} J_F|}\,s^\textrm{vol}\,\textnormal d\eta\, \textnormal d v \\
     
     &\approx \frac{1}{N|\Omega_{ij}|} \sum_{k \in \Omega_{ij}} w_{k} \frac{1}{|\textnormal{det} J_F|(\eta_k(t), v_k(t))}\,, \\[2mm] 
     
     R^\textrm{vol}_{ij}(t) &= \frac{1}{|\Omega_{ij}|}\int_{(0, 1)^3} \int_{\mathbb R^3} \textnormal{id}_{ij}(x_1, v_1)\, f^\textrm{vol}(t, \eta, v)\,\textnormal d\eta\, \textnormal d v \\
 
-    &= \frac{1}{|\Omega_{ij}|} \int_{(0, 1)^3} \int_{\mathbb R^3} \textnormal{id}_{ij}(x_1, v_1)\, \frac{f^0}{s^0}\,s^n\,\textnormal d\eta\, \textnormal d v \\
+    &= \frac{1}{|\Omega_{ij}|} \int_{(0, 1)^3} \int_{\mathbb R^3} \textnormal{id}_{ij}(x_1, v_1)\, \frac{f^0}{s^0}\,s^\textrm{vol}\,\textnormal d\eta\, \textnormal d v \\
     
     &\approx \frac{1}{N|\Omega_{ij}|} \sum_{k \in \Omega_{ij}} w_{k} \,.
     \end{align}
@@ -284,7 +284,7 @@ In that case we can decompose :math:numref:`int:1` as
 
     &= \int_{\mathbb R^n} (f^0 - \mathcal M^0) \, A^0 |J_F|\,\textnormal d q + I_{\mathcal M}\,, \\[1mm]
 
-    &= \int_{\mathbb R^n} \frac{(f^0 - \mathcal M^0)}{s^0} \, A^0 s^n\,\textnormal d q + I_{\mathcal M}\,, \\[1mm]
+    &= \int_{\mathbb R^n} \frac{(f^0 - \mathcal M^0)}{s^0} \, A^0 s^\textrm{vol}\,\textnormal d q + I_{\mathcal M}\,, \\[1mm]
 
     &\approx \frac{1}{N} \sum_{k=1}^N w_{k}(t)\, A^0 (t, q_k(t)) + I_{\mathcal M}\,,
     \end{align}

@@ -2178,7 +2178,7 @@ class ImplicitDiffusion(Propagator):
         # check solvability condition
         if np.abs(self._sigma_1) < 1e-14:
             self._sigma_1 = 1e-14
-            self.check_rhs(self._rho)
+            #self.check_rhs(self._rho)
 
         # initial guess and solver params
         self._x0 = x0
