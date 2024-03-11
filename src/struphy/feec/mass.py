@@ -1197,7 +1197,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
             if rank == 0 and verbose:
                 print(
-                    f'Assembling matrix of WeightedMassOperator "{name}" with V={self._domain_symbolic_name}, W={self._codomain_symbolic_name}.')
+                    f'\nAssembling matrix of WeightedMassOperator "{name}" with V={self._domain_symbolic_name}, W={self._codomain_symbolic_name}.')
 
             # collect domain/codomain TensorFemSpaces for each component in tuple
             if self._transposed:

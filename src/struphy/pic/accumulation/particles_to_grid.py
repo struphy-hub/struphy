@@ -19,20 +19,20 @@ class Accumulator:
 
         M^{\mu,\nu}_{ijk,mno} &= \sum_p \Lambda^\mu_{ijk}(\eta_p) * A^{\mu,\nu}_p * (\Lambda^\nu_{mno})^\top(\eta_p)  \qquad  (\mu,\nu = 1,2,3)
 
-        S^\mu_{ijk} &= \sum_p \Lambda^\mu_{ijk}(\eta_p) * B^\mu_p
+        V^\mu_{ijk} &= \sum_p \Lambda^\mu_{ijk}(\eta_p) * B^\mu_p
 
     where :math:`p` runs over the particles, :math:`\Lambda^\mu_{ijk}(\eta_p)` denotes the :math:`ijk`-th basis function
-    of the :math:`\mu`-th component of a Derham space (V0, V1, V2, V3) evaluated at the particle position :math:`\eta_p`.
+    of the :math:`\mu`-th component of a Derham space (V0, V1, V2, V3, V0vec) evaluated at the particle position :math:`\eta_p`.
 
     :math:`A^{\mu,\nu}_p` and :math:`B^\mu_p` are particle-dependent "filling functions",
-    to be defined in the module **struphy.pic.accumulation.accum_kernels**.
+    to be defined in the module :mod:`~struphy.pic.accumulation.accum_kernels`.
 
     Parameters
     ----------
-    derham : struphy.feec.psydac_derham.Derham
+    derham : Derham
         Discrete Derham complex.
 
-    domain : struphy.geometry.domains
+    domain : Domain
         Mapping info for evaluating metric coefficients.
 
     space_id : str
@@ -308,19 +308,19 @@ class AccumulatorVector:
 
     .. math::
 
-        S^\mu_{ijk} = \sum_p \Lambda^\mu_{ijk}(\eta_p) * B^\mu_p
+        V^\mu_{ijk} = \sum_p \Lambda^\mu_{ijk}(\eta_p) * B^\mu_p
 
     where :math:`p` runs over the particles, :math:`\Lambda^\mu_{ijk}(\eta_p)` denotes the :math:`ijk`-th basis function
-    of the :math:`\mu`-th component of a Derham space (V0, V1, V2, V3) evaluated at the particle position :math:`\eta_p`.
+    of the :math:`\mu`-th component of a Derham space (V0, V1, V2, V3, V0vec) evaluated at the particle position :math:`\eta_p`.
 
-    :math:`B^\mu_p` is a particle-dependent "filling function", to be defined in the module **struphy.pic.accumulation.accum_kernels**.
+    :math:`B^\mu_p` is a particle-dependent "filling function", to be defined in the module :mod:`~struphy.pic.accumulation.accum_kernels`.
 
     Parameters
     ----------
-    derham : struphy.feec.psydac_derham.Derham
+    derham : Derham
         Discrete Derham complex.
 
-    domain : struphy.geometry.domains
+    domain : Domain
         Mapping info for evaluating metric coefficients.
 
     space_id : str
@@ -440,12 +440,13 @@ class AccumulatorVector:
 
     def accumulate(self, particles, *args_add, **args_control):
         """
-        Performs the accumulation into the vector by calling the chosen accumulation kernel and additional analytical contributions (control variate, optional).
+        Performs the accumulation into the vector by calling the chosen accumulation kernel 
+        and additional analytical contributions (control variate, optional).
 
         Parameters
         ----------
-        particles : struphy.pic.particles.Particles
-            Particles object holding the markers information in format particles.markers.shape == (n_markers, :).
+        particles : Particles
+            Particles object holding the markers information.
 
         *args_add
             Additional arguments to be passed to the accumulator kernel, besides the mandatory arguments
@@ -454,7 +455,9 @@ class AccumulatorVector:
             Entries must be pyccel-conform types.
 
         **args_control
-            Keyword arguments for an analytical control variate correction in the accumulation step. Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction. Values are a 1d (vector) or 2d (matrix) list with callables or np.ndarrays used for the correction.
+            Keyword arguments for an analytical control variate correction in the accumulation step. 
+            Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction. 
+            Values are a 1d (vector) or 2d (matrix) list with callables or np.ndarrays used for the correction.
         """
 
         # flags for break
@@ -483,3 +486,40 @@ class AccumulatorVector:
             for vec in self._vectors:
                 vec.exchange_assembly_data()
                 vec.update_ghost_regions()
+
+    def show_accumulated_spline_field(self, mass_ops, eta_direction=0):
+        r'''1D plot of the spline field corresponding to the accumulated vector.
+        The latter can be viewed as the rhs of an L2-projection:
+        
+        .. math::
+        
+            \mathbb M \mathbf a = \sum_p \boldsymbol \Lambda(\boldsymbol \eta_p) * B_p\,.
+            
+        The FE coefficients :math:`\mathbf a` determine a FE :class:`~struphy.feec.psydac_derham.Derham.Field`.
+        '''
+        from struphy.feec.projectors import L2Projector
+        from matplotlib import pyplot as plt
+        
+        # L2 projection
+        proj = L2Projector(self.space_id, mass_ops)
+        a = proj.solve(self.vectors[0])
+        
+        # create field and assign coeffs
+        field = self.derham.create_field('accum_field', self.space_id)
+        field.vector = a
+        
+        # plot field
+        eta = np.linspace(0, 1, 100)
+        if eta_direction == 0:
+            args = (eta, .5, .5)
+        elif eta_direction == 1:
+            args = (.5, eta, .5)
+        else:
+            args = (.5, .5, eta)
+            
+        plt.plot(eta, field(*args, squeeze_output=True))
+        plt.title(f'Spline field accumulated with the kernel "{self.kernel_name}"')
+        plt.xlabel(f'$\eta_{eta_direction + 1}$')
+        plt.ylabel('field amplitude')
+        plt.show()
+        

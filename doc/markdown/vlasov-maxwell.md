@@ -1,8 +1,8 @@
 (disc_example)=
 ## Example: Vlasov-Maxwell-Poisson discretization
 
-The Vlasov-Maxwell equations for electrons in a static ion background provide a good example 
-for PDE discretization in Struphy (see [VlasovMaxwell](https://struphy.pages.mpcdf.de/struphy/sections/subsections/kinetic.html#struphy.models.kinetic.VlasovMaxwell) for the full implementation). The model we are going to discretize reads as follows:
+The Vlasov-Maxwell equations for one species in a static background provide a good example 
+for PDE discretization in Struphy (see {class}`~struphy.models.kinetic.VlasovMaxwellOneSpecies`) for the full implementation). The model we are going to discretize reads as follows:
 
 $$
 \begin{align}
@@ -614,15 +614,15 @@ $$
 Once the propagators have been defined and added to a {ref}`struphy_model` via the method {meth}`add_propagator() <struphy.models.base.StruphyModel.add_propagator>`, Struphy performs the compositions automatically; the user can choose the splitting algorithm in the {ref}`parameter file <time>`. 
 
 
-For our example model [VlasovMaxwell](https://struphy.pages.mpcdf.de/struphy/sections/subsections/kinetic.html#struphy.models.kinetic.VlasovMaxwell), the four substeps defined by {eq}`eq:Js` are imlemented in the following propagators:
+For our example model {class}`~struphy.models.kinetic.VlasovMaxwellOneSpecies`, the four substeps defined by {eq}`eq:Js` are imlemented in the following propagators:
 
-1. $\Phi^1_{t}$ in [PushEta](https://struphy.pages.mpcdf.de/struphy/sections/subsections/propagators.html#struphy.propagators.propagators_markers.PushEta),
+1. $\Phi^1_{t}$ in {class}`~struphy.propagators.propagators_markers.PushEta`,
 
-1. $\Phi^2_{t}$ in [PushVxB](https://struphy.pages.mpcdf.de/struphy/sections/subsections/propagators.html#struphy.propagators.propagators_markers.PushVxB),
+2. $\Phi^2_{t}$ in {class}`~struphy.propagators.propagators_markers.PushVxB`,
 
-1. $\Phi^3_{t}$ in [VlasovMaxwell](https://struphy.pages.mpcdf.de/struphy/sections/subsections/propagators.html#struphy.propagators.propagators_coupling.VlasovMaxwell),
+3. $\Phi^3_{t}$ in {class}`~struphy.propagators.propagators_coupling.VlasovMaxwell`,
 
-1. $\Phi^4_{t}$ in [Maxwell](https://struphy.pages.mpcdf.de/struphy/sections/subsections/propagators.html#struphy.propagators.propagators_fields.Maxwell).
+4. $\Phi^4_{t}$ in {class}`~struphy.propagators.propagators_fields.Maxwell`.
 
 Let us revisit the third step $\Phi^3_{t}$, which is the most complicated because it is a particle-field coupling step, where marker velocities and FE coefficients are updated simultaneously. Explicitly, the ODE of this step reads
 

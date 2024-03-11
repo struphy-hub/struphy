@@ -15,7 +15,6 @@ Propagator base class
 .. automodule:: struphy.propagators.base
     :members:
     :undoc-members:
-    :exclude-members: variables
     :show-inheritance:
 
 
@@ -28,7 +27,7 @@ Particle propagators
 .. automodule:: struphy.propagators.propagators_markers
     :members:
     :undoc-members:
-    :exclude-members: variables
+    :exclude-members: variables, options
     :show-inheritance:
 
 
@@ -41,7 +40,7 @@ Field propagators
 .. automodule:: struphy.propagators.propagators_fields
     :members:
     :undoc-members:
-    :exclude-members: variables
+    :exclude-members: variables, options
     :show-inheritance:
 
 
@@ -54,6 +53,6 @@ Particle-field propagators
 .. automodule:: struphy.propagators.propagators_coupling
     :members:
     :undoc-members:
-    :exclude-members: variables
+    :exclude-members: variables, options
     :show-inheritance:
 

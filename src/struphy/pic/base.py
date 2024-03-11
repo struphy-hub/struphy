@@ -15,22 +15,17 @@ from struphy.io.output_handling import DataContainer
 
 
 class Particles(metaclass=ABCMeta):
-    """ Base class for a particle based kinetic species.
+    """
+    Base class for particle species.
 
-    Loading and compute initial particles and save the values at the corresponding column of markers array:
-
-    ===== ============== ======================= ======= ====== ====== ========== === ===
-    index  | 0 | 1 | 2 | | 3 | ... | 3+(vdim-1)|  3+vdim 4+vdim 5+vdim >=6+vdim   ... -1
-    ===== ============== ======================= ======= ====== ====== ========== === ===
-    value position (eta)    velocities           weight   s0     w0      other    ... ID
-    ===== ============== ======================= ======= ====== ====== ========== === ===
+    The marker information is stored in a 2D numpy array, see `Tutorial on PIC data structures <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_08_data_structures.html#PIC-data-structures>`_.
 
     Parameters
     ----------
     name : str
         Name of particle species.
 
-    **params : dict
+    params : dict
         Marker parameters.
     """
 
@@ -102,33 +97,34 @@ class Particles(metaclass=ABCMeta):
     @abstractmethod
     def default_bckgr_params(cls):
         """ Dictionary holding the minimal information of the default background.
-        
+
         Must contain at least a keyword 'type' with corresponding value a valid choice of background.
         """
         pass
 
     @abstractmethod
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        """ Jacobian determinant of the velocity coordinate transformation.
+        """ Jacobian determinant of the velocity coordinate transformation 
+        (e.g. :math:`B^*_\parallel` in gyrokinetics).
         """
         pass
 
     @abstractmethod
     def svol(self, eta1, eta2, eta3, *v):
-        """ Sampling density function as volume form.
+        r""" Marker sampling distribution function :math:`s^\textrm{vol}` as a volume form, see :ref:`monte_carlo`.
         """
         pass
 
     @abstractmethod
     def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
-        """ Sampling density function as 0 form.
+        r""" Marker sampling distribution function :math:`s^0` as 0-form, see :ref:`monte_carlo`.
         """
         pass
 
     @property
     @abstractmethod
     def n_cols(self):
-        """Number of the columns at each markers.
+        """Number of columns in the :attr:`~struphy.pic.base.Particles.markers` array.
         """
         pass
 
@@ -141,7 +137,7 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def kinds(self):
-        """ Name of the class
+        """ Name of the class.
         """
         return self.__class__.__name__
 
@@ -171,7 +167,7 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def control_variate(self):
-        '''Boolean for whether to use the `<https://struphy.pages.mpcdf.de/struphy/sections/discretization.html#control-variate-method>`_.'''
+        '''Boolean for whether to use the :ref:`control_var` during time stepping.'''
         return self._control_variate
 
     @property
@@ -218,13 +214,17 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def markers(self):
-        """ Numpy array holding the marker information, including holes. The i-th row holds the i-th marker info.
+        """ 2D numpy array holding the marker information, including holes. 
+        The i-th row holds the i-th marker info.
 
         ===== ============== ======================= ======= ====== ====== ========== === ===
         index  | 0 | 1 | 2 | | 3 | ... | 3+(vdim-1)|  3+vdim 4+vdim 5+vdim >=6+vdim   ... -1
         ===== ============== ======================= ======= ====== ====== ========== === ===
         value position (eta)    velocities           weight   s0     w0      other    ... ID
         ===== ============== ======================= ======= ====== ====== ========== === ===
+
+        The column indices referring to different attributes can be obtained from
+        :attr:`~struphy.pic.base.Particles.index`.
         """
         return self._markers
 
@@ -382,7 +382,7 @@ class Particles(metaclass=ABCMeta):
         return self._spatial
 
     def create_marker_array(self):
-        """ Create marker array (self.markers).
+        """ Create marker array :attr:`~struphy.pic.base.Particles.markers`.
         """
 
         # number of cells on current process
@@ -432,12 +432,12 @@ class Particles(metaclass=ABCMeta):
 
     def draw_markers(self):
         r""" 
-        Drawing markers according to the volume density :math:`s^n_{\textnormal{in}}`.
-        In Struphy, the initial marker distribution :math:`s^n_{\textnormal{in}}` is always of the form
+        Drawing markers according to the volume density :math:`s^\textrm{vol}_{\textnormal{in}}`.
+        In Struphy, the initial marker distribution :math:`s^\textrm{vol}_{\textnormal{in}}` is always of the form
 
         .. math::
 
-            s^n_{\textnormal{in}}(\eta,v) = n^3(\eta)\, \mathcal M(v)\,,
+            s^\textrm{vol}_{\textnormal{in}}(\eta,v) = n^3(\eta)\, \mathcal M(v)\,,
 
         with :math:`\mathcal M(v)` a multi-variate Gaussian:
 
@@ -496,7 +496,7 @@ class Particles(metaclass=ABCMeta):
 
             v_\perp = \sqrt{- \ln(1-r)}\sqrt{2}v_\mathrm{th} + u \,.
 
-        All needed parameters can be set in the parameter file, in the section ``kinetic/<species>/markers/loading``.
+        All needed parameters can be set in the parameter file, see :ref:`params_yml`.
         """
 
         # number of markers on the local process at loading stage
@@ -663,7 +663,7 @@ class Particles(metaclass=ABCMeta):
 
     def mpi_sort_markers(self, do_test=False):
         """ 
-        Sorts markers according to domain decomposition.
+        Sorts markers according to MPI domain decomposition.
 
         Parameters
         ----------
@@ -715,9 +715,9 @@ class Particles(metaclass=ABCMeta):
             w_{k0} := \frac{f^0(t, q_k(t)) }{s^0(t, q_k(t)) } = \frac{f^0(0, q_k(0)) }{s^0(0, q_k(0)) } = \frac{f^0_{\textnormal{in}}(q_{k0}) }{s^0_{\textnormal{in}}(q_{k0}) }
 
         from the initial distribution function :math:`f^0_{\textnormal{in}}` specified in the parmeter file
-        and from the initial volume density :math:`s^n_{\textnormal{in}}` specified in :meth:`struphy.pic.particles.Particles.draw_markers`.
+        and from the initial volume density :math:`s^n_{\textnormal{vol}}` specified in :meth:`~struphy.pic.base.Particles.draw_markers`.
         Moreover, it sets the corresponding columns for "w0", "s0" and "weights" in the markers array.
-        For the control variate method, the background is subtracted.
+        If :attr:`~struphy.pic.base.Particles.control_variate` is True, the background :attr:`~struphy.pic.base.Particles.f_backgr` is subtracted.
 
         Parameters
         ----------
@@ -779,10 +779,9 @@ class Particles(metaclass=ABCMeta):
 
     def update_weights(self):
         """
-        Applies the control variate method.
-
-        Updates the time-dependent marker weights according to the algorithm in the 
-        `Struphy documentation <https://struphy.pages.mpcdf.de/struphy/sections/discretization.html#control-variate-method>`_.
+        Applies the control variate method, i.e. updates the time-dependent marker weights 
+        according to the algorithm in :ref:`control_var`.
+        The background :attr:`~struphy.pic.base.Particles.f_backgr` is used for this.
         """
 
         f_backgr = self.f_backgr(*self.phasespace_coords.T)

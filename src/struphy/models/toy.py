@@ -288,7 +288,7 @@ class DriftKinetic(StruphyModel):
         # Initialize propagators/integrators used in splitting substeps
         self.add_propagator(self.prop_markers.PushGuidingCenterbxEstar(
             self.pointer['ions'],
-            epsilon=self.equation_params['ions']['epsilon_unit'],
+            epsilon=self.equation_params['ions']['epsilon'],
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
@@ -298,7 +298,7 @@ class DriftKinetic(StruphyModel):
             **ions_params['options']['push_bxEstar']))
         self.add_propagator(self.prop_markers.PushGuidingCenterBstar(
             self.pointer['ions'],
-            epsilon=self.equation_params['ions']['epsilon_unit'],
+            epsilon=self.equation_params['ions']['epsilon'],
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,

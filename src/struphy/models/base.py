@@ -23,7 +23,9 @@ class StruphyModel(metaclass=ABCMeta):
     in one of the modules ``fluid.py``, ``kinetic.py``, ``hybrid.py`` or ``toy.py``.  
     """
 
-    def __init__(self, params, comm):
+    def __init__(self, params, comm=None):
+
+        # TODO: comm=None does not work yet.
 
         from struphy.io.setup import setup_domain_mhd, setup_electric_background, setup_derham
 
@@ -98,9 +100,6 @@ class StruphyModel(metaclass=ABCMeta):
         # options of current run
         if comm.Get_rank() == 0:
             self._show_chosen_options()
-
-        if comm.Get_rank() == 0:
-            print('\nOPERATOR ASSEMBLY:')
 
         # expose propagator modules
         self._prop = Propagator
@@ -794,119 +793,101 @@ class StruphyModel(metaclass=ABCMeta):
         """
 
         from struphy.io.setup import derive_units
-
-        # physics constants
-        e = 1.602176634e-19  # elementary charge (C)
-        mH = 1.67262192369e-27  # proton mass (kg)
-        eps0 = 8.8541878128e-12  # vacuum permittivity (F/m)
-
-        x_unit = params['units']['x']
-        B_unit = params['units']['B']
-
+        
         if comm is None:
             rank = 0
         else:
             rank = comm.Get_rank()
 
+        # look for bulk species in fluid OR kinetic parameter dictionaries
+        Z_bulk = None
+        A_bulk = None
+        if 'fluid' in params:
+            if cls.bulk_species() in params['fluid']:
+                Z_bulk = params['fluid'][cls.bulk_species()
+                                            ]['phys_params']['Z']
+                A_bulk = params['fluid'][cls.bulk_species()
+                                            ]['phys_params']['A']
+        if 'kinetic' in params:
+            if cls.bulk_species() in params['kinetic']:
+                Z_bulk = params['kinetic'][cls.bulk_species()
+                                            ]['phys_params']['Z']
+                A_bulk = params['kinetic'][cls.bulk_species()
+                                            ]['phys_params']['A']
+
+        # compute model units
+        units = derive_units(
+            Z_bulk, A_bulk, params['units']['x'], params['units']['B'], params['units']['n'], cls.velocity_scale())
+
+        # print to screen
         if verbose and rank == 0:
+            
             print('\nUNITS:')
             print(f'Unit of length:'.ljust(25),
-                  '{:4.3e}'.format(x_unit) + ' m')
-
-        # special case for model Maxwell (no plasma species)
-        if cls.bulk_species() is None:
-            if verbose and rank == 0:
-                print(f'Unit of time:'.ljust(25),
-                      '{:4.3e}'.format(x_unit / 299792458) + ' s')
-                print(f'Unit of velocity:'.ljust(25),
-                      '{:4.3e}'.format(299792458) + ' m/s')
-                print(f'Unit of magnetic field:'.ljust(
-                    25), '{:4.3e}'.format(B_unit) + ' T')
-                print(f'Unit of electric field:'.ljust(25),
-                      '{:4.3e}'.format(299792458*B_unit) + ' V/m')
-
-            units = {}
-            units['t'] = x_unit / 299792458
-            units['x'] = x_unit
-            units['B'] = B_unit
-
-            equation_params = {}
-        else:
-
-            # look for bulk species in fluid OR kinetic parameter dictionaries
-            if 'fluid' in params:
-                if cls.bulk_species() in params['fluid']:
-                    Z_bulk = params['fluid'][cls.bulk_species()
-                                             ]['phys_params']['Z']
-                    A_bulk = params['fluid'][cls.bulk_species()
-                                             ]['phys_params']['A']
-            if 'kinetic' in params:
-                if cls.bulk_species() in params['kinetic']:
-                    Z_bulk = params['kinetic'][cls.bulk_species()
-                                               ]['phys_params']['Z']
-                    A_bulk = params['kinetic'][cls.bulk_species()
-                                               ]['phys_params']['A']
-
-            # compute units
-            units = derive_units(
-                Z_bulk, A_bulk, params['units']['x'], params['units']['B'], params['units']['n'], cls.velocity_scale())
-
-            if verbose and rank == 0:
-                print(f'Unit of time:'.ljust(25),
-                      '{:4.3e}'.format(units['t']) + ' s')
-                print(f'Unit of velocity:'.ljust(25),
-                      '{:4.3e}'.format(units['v']) + ' m/s')
-                print(f'Unit of magnetic field:'.ljust(25),
-                      '{:4.3e}'.format(units['B']) + ' T')
+                '{:4.3e}'.format(units['x']) + ' m')
+            print(f'Unit of time:'.ljust(25),
+                    '{:4.3e}'.format(units['t']) + ' s')
+            print(f'Unit of velocity:'.ljust(25),
+                    '{:4.3e}'.format(units['v']) + ' m/s')
+            print(f'Unit of magnetic field:'.ljust(25),
+                    '{:4.3e}'.format(units['B']) + ' T')
+            
+            if A_bulk is not None:
                 print(f'Unit of particle density:'.ljust(25),
-                      '{:4.3e}'.format(units['n']) + ' m⁻³')
+                        '{:4.3e}'.format(units['n']) + ' m⁻³')
                 print(f'Unit of mass density:'.ljust(25),
-                      '{:4.3e}'.format(units['rho']) + ' kg/m³')
+                        '{:4.3e}'.format(units['rho']) + ' kg/m³')
                 print(f'Unit of pressure:'.ljust(25),
-                      '{:4.3e}'.format(units['p'] * 1e-5) + ' bar')
+                        '{:4.3e}'.format(units['p'] * 1e-5) + ' bar')
 
-            # compute equation parameters arising from Struphy normalization
-            equation_params = {}
-            if 'fluid' in params:
-                for species in params['fluid']:
+        # compute equation parameters for each species
+        e = 1.602176634e-19  # elementary charge (C)
+        mH = 1.67262192369e-27  # proton mass (kg)
+        eps0 = 8.8541878128e-12  # vacuum permittivity (F/m)
+        
+        equation_params = {}
+        if 'fluid' in params:
+            for species in params['fluid']:
 
-                    Z = params['fluid'][species]['phys_params']['Z']
-                    A = params['fluid'][species]['phys_params']['A']
+                Z = params['fluid'][species]['phys_params']['Z']
+                A = params['fluid'][species]['phys_params']['A']
 
-                    # compute equation parameters
-                    om_p = np.sqrt(units['n'] * (Z*e)**2 / (eps0 * A*mH))
-                    om_c = Z*e * units['B'] / (A*mH)
-                    equation_params[species] = {}
-                    equation_params[species]['alpha_unit'] = om_p / om_c
-                    equation_params[species]['epsilon_unit'] = 1. / \
-                        (om_c * units['t'])
+                # compute equation parameters
+                om_p = np.sqrt(units['n'] * (Z*e)**2 / (eps0 * A*mH))
+                om_c = Z*e * units['B'] / (A*mH)
+                equation_params[species] = {}
+                equation_params[species]['alpha'] = om_p / om_c
+                equation_params[species]['epsilon'] = 1. / \
+                    (om_c * units['t'])
+                equation_params[species]['kappa'] = (om_p * units['t'])
 
-                    if verbose and rank == 0:
-                        print('\nEQUATION PARAMETERS:')
-                        print('- ' + species + ':')
-                        for key, val in equation_params[species].items():
-                            print((key + ':').ljust(25), '{:4.3e}'.format(val))
+                if verbose and rank == 0:
+                    print('\nNORMALIZATION PARAMETERS:')
+                    print('- ' + species + ':')
+                    for key, val in equation_params[species].items():
+                        print((key + ':').ljust(25), '{:4.3e}'.format(val))
 
-            if 'kinetic' in params:
-                for species in params['kinetic']:
+        if 'kinetic' in params:
+            for species in params['kinetic']:
 
-                    Z = params['kinetic'][species]['phys_params']['Z']
-                    A = params['kinetic'][species]['phys_params']['A']
+                Z = params['kinetic'][species]['phys_params']['Z']
+                A = params['kinetic'][species]['phys_params']['A']
 
-                    # compute equation parameters
-                    om_p = np.sqrt(units['n'] * (Z*e)**2 / (eps0 * A*mH))
-                    om_c = Z*e * units['B'] / (A*mH)
-                    equation_params[species] = {}
-                    equation_params[species]['alpha_unit'] = om_p / om_c
-                    equation_params[species]['epsilon_unit'] = 1. / \
-                        (om_c * units['t'])
+                # compute equation parameters
+                om_p = np.sqrt(units['n'] * (Z*e)**2 / (eps0 * A*mH))
+                om_c = Z*e * units['B'] / (A*mH)
+                equation_params[species] = {}
+                equation_params[species]['alpha'] = om_p / om_c
+                equation_params[species]['epsilon'] = 1. / \
+                    (om_c * units['t'])
+                equation_params[species]['kappa'] = (om_p * units['t'])
 
-                    if verbose and rank == 0:
-                        if 'fluid' not in params:
-                            print('\nEQUATION PARAMETERS:')
-                        print('- ' + species + ':')
-                        for key, val in equation_params[species].items():
-                            print((key + ':').ljust(25), '{:4.3e}'.format(val))
+                if verbose and rank == 0:
+                    if 'fluid' not in params:
+                        print('\nNORMALIZATION PARAMETERS:')
+                    print('- ' + species + ':')
+                    for key, val in equation_params[species].items():
+                        print((key + ':').ljust(25), '{:4.3e}'.format(val))
 
         return units, equation_params
 
@@ -1296,7 +1277,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     derham=self.derham,
                     domain=self.domain,
                     mhd_equil=self.mhd_equil,
-                    epsilon=self.equation_params[species]['epsilon_unit'],
+                    epsilon=self.equation_params[species]['epsilon'],
                     units_basic=self.units,
                     background=bckgr_params,
                 )
