@@ -59,6 +59,10 @@ class SchurSolver:
 
         # initialize solver with dummy matrix A
         self._solver_name = solver_name
+
+        if solver_params['pc'] is None:
+            solver_params.pop('pc')
+
         self._solver = inverse(A, solver_name, **solver_params)
 
         # right-hand side vector (avoids temporary memory allocation!)
