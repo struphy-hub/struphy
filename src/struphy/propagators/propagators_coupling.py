@@ -12,7 +12,7 @@ from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorV
 from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.kinetic_background.base import Maxwellian
-from struphy.kinetic_background.maxwellians import Maxwellian6D, Maxwellian5DUniform
+from struphy.kinetic_background.maxwellians import Maxwellian6D, Maxwellian5D
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
 from struphy.feec import preconditioner
@@ -1325,7 +1325,7 @@ class CurrentCoupling5DCurlb(Propagator):
                           'b_eq': None,
                           'unit_b1': None,
                           'curl_unit_b2': None,
-                          'f0': Maxwellian5DUniform(),
+                          'f0': Maxwellian5D(),
                           'type': ('pcg', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
@@ -1568,7 +1568,7 @@ class CurrentCoupling5DGradBxB(Propagator):
                           'abs_b': None,
                           'gradB1': None,
                           'curl_unit_b2': None,
-                          'f0': Maxwellian5DUniform(),
+                          'f0': Maxwellian5D(),
                           'type': ('pcg', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
