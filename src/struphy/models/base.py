@@ -1132,10 +1132,10 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             # set the correct names in the parameter file
             dim = space[-2:]
             if dim == '5D':
-                parameters['kinetic'][name]['init'] = {'type': 'Maxwellian' + dim + 'Uniform',
-                                                       'Maxwellian' + dim + 'Uniform': {'n': 0.05}}
-                parameters['kinetic'][name]['background'] = {'type': 'Maxwellian' + dim + 'Uniform',
-                                                             'Maxwellian' + dim + 'Uniform': {'n': 0.8}}
+                parameters['kinetic'][name]['init'] = {'type': 'Maxwellian' + dim,
+                                                       'Maxwellian' + dim: {'n': 0.05}}
+                parameters['kinetic'][name]['background'] = {'type': 'Maxwellian' + dim,
+                                                             'Maxwellian' + dim: {'n': 0.8}}
                 parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
             else:
                 parameters['kinetic'][name]['background'] = {'type': 'Maxwellian' + dim,

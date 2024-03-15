@@ -181,7 +181,7 @@ class Particles5D(Particles):
 
     @classmethod
     def default_bckgr_params():
-        return {'type': 'Maxwellian5DUniform'}
+        return {'type': 'Maxwellian5D'}
 
     def __init__(self, name, **params):
 
@@ -300,13 +300,20 @@ class Particles5D(Particles):
         -------
         """
         # load sampling density svol = s5 (normalized to 1 in logical space!)
-        Maxwellian5DUniform = getattr(maxwellians, 'Maxwellian5DUniform')
+        Maxwellian5DUniform = getattr(maxwellians, 'Maxwellian5D')
 
-        s5 = Maxwellian5DUniform(n=1.,
-                                 u_parallel=self.params['loading']['moments'][0],
-                                 u_perp=self.params['loading']['moments'][1],
-                                 vth_parallel=self.params['loading']['moments'][2],
-                                 vth_perp=self.params['loading']['moments'][3])
+        s5 = Maxwellian5DUniform(
+            background={
+                'type' : 'Maxwellian5D',
+                'Maxwellian5D' : {
+                    'n': 1.,
+                    'u_para' : self.params['loading']['moments'][0],
+                    'u_perp' : self.params['loading']['moments'][1],
+                    'vth_para' : self.params['loading']['moments'][2],
+                    'vth_perp' : self.params['loading']['moments'][3]
+                }
+            }
+        )
 
         if self.spatial == 'uniform':
             return s5(eta1, eta2, eta3, *v)
