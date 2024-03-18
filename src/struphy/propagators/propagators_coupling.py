@@ -1750,8 +1750,3 @@ class CurrentCoupling5DGradBxB(Propagator):
                          'verbose': False}
         dct['algo'] = ['rk4', 'forward_euler', 'heun2', 'rk2', 'heun3']
         return dct
-
-class Poisson(Propagator):
-    #  This will call ImplicitDiffusion, with the appropriate right hand side obtained 
-    # from an Accumulator for the particle deposition to the "grid" (FE coefficients)
-    
