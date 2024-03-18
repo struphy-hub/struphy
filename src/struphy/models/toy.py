@@ -586,7 +586,7 @@ class VariationalPressurelessFluid(StruphyModel):
 
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'], matrix_free=True)
+            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'])
 
         # Initialize propagators/integrators used in splitting substeps
         solver_momentum = params['fluid']['fluid']['options']['solver_momentum']
@@ -687,7 +687,7 @@ class VariationalBarotropicFluid(StruphyModel):
 
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'], matrix_free=True)
+            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'])
 
         # Initialize propagators/integrators used in splitting substeps
         solver_momentum = params['fluid']['fluid']['options']['solver_momentum']
@@ -804,7 +804,7 @@ class VariationalCompressibleFluid(StruphyModel):
         super().__init__(params, comm)
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'], matrix_free=True)
+            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'])
 
         # Initialize propagators/integrators used in splitting substeps
         solver_momentum = params['fluid']['fluid']['options']['solver_momentum']

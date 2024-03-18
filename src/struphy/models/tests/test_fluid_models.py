@@ -46,6 +46,6 @@ def test_fluid(map_and_equil, fast, model=None, Tend=None):
         
 if __name__ == '__main__':
     
-    test_fluid(True, ('Cuboid', 'HomogenSlab'), model=None)
-    test_fluid(True, ('HollowTorus', 'AdhocTorus'), model=None)
-    test_fluid(True, ('Tokamak', 'EQDSKequilibrium'), model=None)
+    test_fluid(('Cuboid', 'HomogenSlab'), False, model='VariationalMHD')
+    test_fluid(('HollowTorus', 'AdhocTorus'), False, model='VariationalMHD')
+    test_fluid(('Tokamak', 'EQDSKequilibrium'), False, model='VariationalMHD')

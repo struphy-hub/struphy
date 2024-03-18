@@ -550,7 +550,7 @@ class VariationalMHD(StruphyModel):
         super().__init__(params, comm)
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'], matrix_free=True)
+            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'])
 
         # Initialize propagators/integrators used in splitting substeps
         solver_momentum = params['fluid']['mhd']['options']['solver_momentum']
@@ -580,7 +580,8 @@ class VariationalMHD(StruphyModel):
             **solver_entropy))
         self.add_propagator(self.prop_fields.VariationalMagFieldEvolve(
             self.pointer['b2'], self.pointer['mhd_uv'],
-            mass_ops=self.WMM))
+            mass_ops=self.WMM,
+            **solver_magnetic))
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U')
