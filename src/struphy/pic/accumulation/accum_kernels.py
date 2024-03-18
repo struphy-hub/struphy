@@ -10,7 +10,6 @@ import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
 import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels
-import struphy.pic.accumulation.filler_kernels as filler_kernels
 
 
 def a_documentation():
@@ -82,41 +81,21 @@ def a_documentation():
     print('This is just the docstring function.')
 
 
-@stack_array('bn1', 'bn2', 'bn3')
-def poisson(markers: 'float[:,:]', n_markers_tot: 'int',
+def charge_density_0form(markers: 'float[:,:]', n_markers_tot: 'int',
             pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
             starts: 'int[:]',
             kind_map: 'int', params_map: 'float[:]',
             p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
             ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
             cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-            vec: 'float[:,:,:]',
-            alpha: 'float',  # model specific argument
-            epsilon: 'float'):  # model specific argument
+            vec: 'float[:,:,:]'):  
     r"""
-    Kernel for :class:`struphy.pic.accumulation.particles_to_grid.AccumulatorVector` with the filling 
+    Kernel for :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` into V0 with the filling 
 
     .. math::
 
-        B_p^\mu = \frac{\alpha^2}{\epsilon} w_p \,.
-
-    Parameters
-    ----------
-    alpha : float
-        Omega_c / Omega_p.
-
-    epsilon : float
-        omega / Omega_c.
-
-    Note
-    ----
-    The above parameter list contains only the model specific input arguments (`*args_add`).
+        B_p^\mu = \frac{w_p}{N} \,.
     """
-
-    # non-vanishing B-splines at particle position
-    bn1 = empty(int(pn[0]) + 1, dtype=float)
-    bn2 = empty(int(pn[1]) + 1, dtype=float)
-    bn3 = empty(int(pn[2]) + 1, dtype=float)
 
     #$ omp parallel private (ip, eta1, eta2, eta3, f0, filling)
     #$ omp for reduction ( + :vec)
@@ -131,22 +110,10 @@ def poisson(markers: 'float[:,:]', n_markers_tot: 'int',
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        # filling = alpha^2 / epsilon * w_p
-        filling = alpha**2 / epsilon * markers[ip, 6] / n_markers_tot
+        # filling = w_p/N
+        filling = markers[ip, 6] / n_markers_tot
 
-        # spans (i.e. index for non-vanishing B-spline basis functions)
-        span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
-        span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
-        span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
-
-        # compute bn, bd, i.e. values for non-vanishing B-/splines at position eta
-        bsplines_kernels.b_splines_slim(tn1, int(pn[0]), eta1, span1, bn1)
-        bsplines_kernels.b_splines_slim(tn2, int(pn[1]), eta2, span2, bn2)
-        bsplines_kernels.b_splines_slim(tn3, int(pn[2]), eta3, span3, bn3)
-
-        # call the appropriate matvec filler
-        filler_kernels.fill_vec(int(pn[0]), int(pn[1]), int(pn[2]), bn1, bn2, bn3, span1, span2, span3,
-                                starts, vec, filling)
+        particle_to_mat_kernels.vec_fill_b_v0(pn, tn1, tn2, tn3, starts, eta1, eta2, eta3, vec, filling)
 
     #$ omp end parallel
 
@@ -421,11 +388,6 @@ def linear_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    # non-vanishing B-splines at particle position
-    bn1 = empty(int(pn[0]) + 1, dtype=float)
-    bn2 = empty(int(pn[1]) + 1, dtype=float)
-    bn3 = empty(int(pn[2]) + 1, dtype=float)
-
     #$ omp parallel private (ip, eta1, eta2, eta3, f0, filling)
     #$ omp for reduction ( + :vec)
     for ip in range(n_markers):
@@ -444,19 +406,7 @@ def linear_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
         # filling = alpha^2 * kappa * w_p * sqrt{f_0} / N
         filling = alpha**2 * kappa * markers[ip, 6] * sqrt(f0) / n_markers_tot
 
-        # spans (i.e. index for non-vanishing B-spline basis functions)
-        span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
-        span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
-        span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
-
-        # compute bn, bd, i.e. values for non-vanishing B-/splines at position eta
-        bsplines_kernels.b_splines_slim(tn1, int(pn[0]), eta1, span1, bn1)
-        bsplines_kernels.b_splines_slim(tn2, int(pn[1]), eta2, span2, bn2)
-        bsplines_kernels.b_splines_slim(tn3, int(pn[2]), eta3, span3, bn3)
-
-        # call the appropriate matvec filler
-        filler_kernels.fill_vec(int(pn[0]), int(pn[1]), int(pn[2]), bn1, bn2, bn3, span1, span2, span3,
-                                starts, vec, filling)
+        particle_to_mat_kernels.vec_fill_b_v0(pn, tn1, tn2, tn3, starts, eta1, eta2, eta3, vec, filling)
 
     #$ omp end parallel
 
@@ -607,11 +557,6 @@ def vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
         The above parameter list contains only the model specific input arguments.
     """
 
-    # non-vanishing B-splines at particle position
-    bn1 = empty(int(pn[0]) + 1, dtype=float)
-    bn2 = empty(int(pn[1]) + 1, dtype=float)
-    bn3 = empty(int(pn[2]) + 1, dtype=float)
-
     #$ omp parallel private (ip, eta1, eta2, eta3, f0, filling)
     #$ omp for reduction ( + :vec)
     for ip in range(shape(markers)[0]):
@@ -627,20 +572,8 @@ def vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
 
         # filling = w_p
         filling = markers[ip, 6] / n_markers_tot
-
-        # spans (i.e. index for non-vanishing B-spline basis functions)
-        span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
-        span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
-        span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
-
-        # compute bn, bd, i.e. values for non-vanishing B-/splines at position eta
-        bsplines_kernels.b_splines_slim(tn1, int(pn[0]), eta1, span1, bn1)
-        bsplines_kernels.b_splines_slim(tn2, int(pn[1]), eta2, span2, bn2)
-        bsplines_kernels.b_splines_slim(tn3, int(pn[2]), eta3, span3, bn3)
-
-        # call the appropriate matvec filler
-        filler_kernels.fill_vec(int(pn[0]), int(pn[1]), int(pn[2]), bn1, bn2, bn3, span1, span2, span3,
-                                starts, vec, filling)
+        
+        particle_to_mat_kernels.vec_fill_b_v0(pn, tn1, tn2, tn3, starts, eta1, eta2, eta3, vec, filling)
 
     #$ omp end parallel
 
@@ -680,16 +613,16 @@ def vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
     """
 
     # allocate for metric coeffs
-    dfm = empty((3, 3), dtype=float)
-    df_inv = empty((3, 3), dtype=float)
-    df_inv_t = empty((3, 3), dtype=float)
-    g_inv = empty((3, 3), dtype=float)
+    dfm = zeros((3, 3), dtype=float)
+    df_inv = zeros((3, 3), dtype=float)
+    df_inv_t = zeros((3, 3), dtype=float)
+    g_inv = zeros((3, 3), dtype=float)
 
     # allocate for filling
-    v = empty(3, dtype=float)
-    df_inv_times_v = empty(3, dtype=float)
-    filling_m = empty((3, 3), dtype=float)
-    filling_v = empty(3, dtype=float)
+    v = zeros(3, dtype=float)
+    df_inv_times_v = zeros(3, dtype=float)
+    filling_m = zeros((3, 3), dtype=float)
+    filling_v = zeros(3, dtype=float)
 
     #$ omp parallel private (ip, eta1, eta2, eta3, f0, dfm, df_inv, v, df_inv_times_v, filling_m, filling_v)
     #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
@@ -805,7 +738,7 @@ def delta_f_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
             f0)) * f0_params[4]**2 * f0_params[5]**2 * f0_params[6]**2
 
         # call the appropriate matvec filler
-        particle_to_mat_kernels.scalar_fill_b_v0(pn, tn1, tn2, tn3,
+        particle_to_mat_kernels.vec_fill_b_v0(pn, tn1, tn2, tn3,
                                                  starts, eta1, eta2, eta3,
                                                  vec, filling)
 

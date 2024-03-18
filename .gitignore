@@ -18,10 +18,14 @@ share/python-wheels/
 *.egg
 MANIFEST
 doc/_build/
+*STUBDIR*
+.VSCodeCounter/
+.pymon
 
 # pyccel
 __gpyccel__/
 __psydac__/
+__epyccel__/
 
 # Compiled Object files
 *.slo

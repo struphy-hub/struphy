@@ -26,36 +26,44 @@ class Particles6D(Particles):
         Parameters for markers.
     """
 
+    @classmethod
+    def default_bckgr_params(cls):
+        return {'type': 'Maxwellian6D'}
+
     def __init__(self, name, **params):
 
         # base class params
         base_params = {}
 
-        list_base_params = ['type', 'ppc', 'Np', 'eps',
-                            'bc', 'loading', 'derham', 'domain',
-                            'f0_params']
+        list_base_params = [
+            'type', 'ppc', 'Np', 'eps',
+            'bc', 'loading', 'derham', 'domain',
+            'background'
+        ]
 
         for key, val in params.items():
             if key in list_base_params:
                 base_params[key] = val
 
+        if 'background' not in base_params.keys():
+            base_params['background'] = self.default_bckgr_params()
+
         super().__init__(name, **base_params)
 
     @property
     def n_cols(self):
-        """Number of the columns at each markers.
+        """ Number of the columns at each markers.
         """
         return 16
 
     @property
     def vdim(self):
-        """Dimension of the velocity space.
+        """ Dimension of the velocity space.
         """
         return 3
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        """
-        Jacobian determinant of the velocity coordinate transformation.
+        """ Jacobian determinant of the velocity coordinate transformation.
 
         Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords.T)
 
@@ -82,8 +90,7 @@ class Particles6D(Particles):
         return 1. + 0*eta1
 
     def svol(self, eta1, eta2, eta3, *v):
-        """ 
-        Sampling density function as volume form.
+        """ Sampling density function as volume form.
 
         Parameters
         ----------
@@ -100,15 +107,22 @@ class Particles6D(Particles):
         -------
         """
         # load sampling density svol = s6 = s3 (normalized to 1 in logical space!)
-        Maxwellian6DUniform = getattr(maxwellians, 'Maxwellian6DUniform')
+        Maxwellian6DUniform = getattr(maxwellians, 'Maxwellian6D')
 
-        s3 = Maxwellian6DUniform(n=1.,
-                                 u1=self._params['loading']['moments'][0],
-                                 u2=self._params['loading']['moments'][1],
-                                 u3=self._params['loading']['moments'][2],
-                                 vth1=self._params['loading']['moments'][3],
-                                 vth2=self._params['loading']['moments'][4],
-                                 vth3=self._params['loading']['moments'][5])
+        s3 = Maxwellian6DUniform(
+            background={
+                'type': 'Maxwellian6D',
+                'Maxwellian6D': {
+                    'n': 1.,
+                    'u1': self._params['loading']['moments'][0],
+                    'u2': self._params['loading']['moments'][1],
+                    'u3': self._params['loading']['moments'][2],
+                    'vth1': self._params['loading']['moments'][3],
+                    'vth2': self._params['loading']['moments'][4],
+                    'vth3': self._params['loading']['moments'][5]
+                }
+            }
+        )
 
         if self.spatial == 'uniform':
             return s3(eta1, eta2, eta3, *v)
@@ -121,8 +135,7 @@ class Particles6D(Particles):
                 f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.')
 
     def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
-        """ 
-        Sampling density function as 0 form.
+        """ Sampling density function as 0 form.
 
         Parameters
         ----------
@@ -166,17 +179,27 @@ class Particles5D(Particles):
         Parameters for markers.
     """
 
+    @classmethod
+    def default_bckgr_params():
+        return {'type': 'Maxwellian5D'}
+
     def __init__(self, name, **params):
 
         # base class params
         base_params = {}
 
-        list_base_params = ['type', 'ppc', 'Np', 'eps',
-                            'bc', 'loading', 'derham', 'domain']
+        list_base_params = [
+            'type', 'ppc', 'Np', 'eps',
+            'bc', 'loading', 'derham', 'domain',
+            'background'
+        ]
 
         for key, val in params.items():
             if key in list_base_params:
                 base_params[key] = val
+
+        if 'background' not in base_params.keys():
+            base_params['background'] = self.default_bckgr_params()
 
         super().__init__(name, **base_params)
 
@@ -277,13 +300,20 @@ class Particles5D(Particles):
         -------
         """
         # load sampling density svol = s5 (normalized to 1 in logical space!)
-        Maxwellian5DUniform = getattr(maxwellians, 'Maxwellian5DUniform')
+        Maxwellian5DUniform = getattr(maxwellians, 'Maxwellian5D')
 
-        s5 = Maxwellian5DUniform(n=1.,
-                                 u_parallel=self.params['loading']['moments'][0],
-                                 u_perp=self.params['loading']['moments'][1],
-                                 vth_parallel=self.params['loading']['moments'][2],
-                                 vth_perp=self.params['loading']['moments'][3])
+        s5 = Maxwellian5DUniform(
+            background={
+                'type' : 'Maxwellian5D',
+                'Maxwellian5D' : {
+                    'n': 1.,
+                    'u_para' : self.params['loading']['moments'][0],
+                    'u_perp' : self.params['loading']['moments'][1],
+                    'vth_para' : self.params['loading']['moments'][2],
+                    'vth_perp' : self.params['loading']['moments'][3]
+                }
+            }
+        )
 
         if self.spatial == 'uniform':
             return s5(eta1, eta2, eta3, *v)

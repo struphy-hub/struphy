@@ -24,18 +24,18 @@ Get a list of available Struphy models::
 
     struphy run -h
 
-Let us run the model `VlasovMaxwell <https://struphy.pages.mpcdf.de/struphy/sections/models.html#struphy.models.kinetic.VlasovMaxwell>`_::
+Let us run the model :class:`~struphy.models.kinetic.VlasovMaxwellOneSpecies`::
 
-    struphy run VlasovMaxwell
+    struphy run VlasovMaxwellOneSpecies
 
-After hitting ``enter`` on prompt, the parameter file ``params_VlasovMaxwell.yml`` is created
+After hitting ``enter`` on prompt, the parameter file ``params_VlasovMaxwellOneSpecies.yml`` is created
 in the current input path (cwd). Let us rename it for convenience::
 
-    mv params_VlasovMaxwell.yml test.yml
+    mv params_VlasovMaxwellOneSpecies.yml test.yml
 
 We can now run a simulation with these parameters and save the data to ``my_first_sim/``::
 
-    struphy run VlasovMaxwell -i test.yml -o my_first_sim
+    struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim
 
 The produced data is in the expected folder in the current output path (cwd)::
 
@@ -64,11 +64,11 @@ Our first simulation ran for just three time steps. Let us change the end-time o
 and setting ``time/Tend`` to ``0.1``. Save, quit and run again, but this time on 2 MPI processes, 
 and saving to a different folder::
 
-    struphy run VlasovMaxwell -i test.yml -o another_sim --mpi 2
+    struphy run VlasovMaxwellOneSpecies -i test.yml -o another_sim --mpi 2
 
 This time we ran for 20 time steps. The physical time unit of the run can be known via::
 
-    struphy units VlasovMaxwell -i test.yml
+    struphy units VlasovMaxwellOneSpecies -i test.yml
 
 Please refer to :ref:`Tutorial 1 - Run Struphy main file in a notebook <tutorials>` 
 for more information on the units used in Struphy.
@@ -82,19 +82,11 @@ Let us now double the number of markers used in the simulation::
 
 by changing ``kinetic/electrons/markers/ppc`` from 10 to 20, and then running::
 
-    struphy run VlasovMaxwell -i test.yml -o sim_20 --mpi 2
+    struphy run VlasovMaxwellOneSpecies -i test.yml -o sim_20 --mpi 2
 
-After post-processing::
+Finally, each Struphy model has some specific options to it, which in the case of ``VlasovMaxwellOneSpecies`` can be inspected via::
 
-    struphy pproc -d sim_20
-
-we can compare the two runs with 10 and 20 particles per cell, respectively, in terms of runtime::
-
-    struphy profile another_sim sim_20
-
-Finally, each Struphy model has some specific options to it, which in the case of ``VlasovMaxwell`` can be inspected via::
-
-    struphy params VlasovMaxwell --options
+    struphy params VlasovMaxwellOneSpecies --options
 
 These options can be set in the parameter file. They usually refer to different types of solvers or solution methods.
 

@@ -6,8 +6,8 @@ import numpy as np
 
 
 class Maxwellian(metaclass=ABCMeta):
-    r"""
-    Base class for a Maxwellian distribution function defined on :math:`[0, 1]^3 \times \mathbb R^n, n \geq 1,` 
+    r""" Base class for a Maxwellian distribution function. 
+    It is defined on :math:`[0, 1]^3 \times \mathbb R^n, n \geq 1,` 
     with logical position coordinates :math:`\boldsymbol{\eta} \in [0, 1]^3`:
 
     .. math::
@@ -23,14 +23,14 @@ class Maxwellian(metaclass=ABCMeta):
     @property
     @abstractmethod
     def vdim(self):
-        """Dimension of the velocity space (vdim = n).
+        """ Dimension of the velocity space (vdim = n).
         """
         pass
 
     @property
     @abstractmethod
     def is_polar(self):
-        """List of booleans. True if the velocity coordinates are polar coordinates.
+        """ List of booleans. True if the velocity coordinates are polar coordinates.
         """
         pass
 
@@ -82,7 +82,7 @@ class Maxwellian(metaclass=ABCMeta):
         pass
 
     def gaussian(self, v, u=0., vth=1., is_polar=False):
-        """n-D normal distribution, to which array-valued mean- and thermal velocities can be passed.
+        """1-dim. normal distribution, to which array-valued mean- and thermal velocities can be passed.
 
         Parameters
         ----------
@@ -96,7 +96,7 @@ class Maxwellian(metaclass=ABCMeta):
             Thermal velocity evaluated at position array, same shape as u.
 
         is_polar : boolean
-            True if the velocity coordinates are polar coordinates.
+            True if the velocity coordinate is the radial of polar coordinates.
 
         Returns
         -------
@@ -111,10 +111,13 @@ class Maxwellian(metaclass=ABCMeta):
         else:
             return 1./vth**2 * v * np.exp(-(v - u)**2/(2.*vth**2))
 
-
     def __call__(self, *args):
-        """
-        Evaluates the Maxwellian distribution function M(etas, v1, ..., vn).
+        """ Evaluates the Maxwellian distribution function M(etas, v1, ..., vn).
+
+        There are two use-cases for this function in the code:
+            1.) Evaluating for particles (inputs are all of length N_p)
+            2.) Evaluating the function on a meshgrid
+        Hence all arguments must always have the same shape.
 
         Parameters
         ----------
@@ -127,11 +130,22 @@ class Maxwellian(metaclass=ABCMeta):
             The evaluated Maxwellian.
         """
 
+        # Check that all args have the same shape
+        shape0 = np.shape(args[0])
+        for arg in args:
+            if not np.shape(arg) == shape0:
+                for k, arg in enumerate(args):
+                    print(f"Shape of argument {k=}: {np.shape(arg)}")
+                raise ValueError("All arguments must have the same shape!")
+
+        # Get result evaluated at eta's
         res = self.n(*args[:-self.vdim])
         us = self.u(*args[:-self.vdim])
         vths = self.vth(*args[:-self.vdim])
 
+        # Multiply result with gaussian in v's
         for i, v in enumerate(args[-self.vdim:]):
-            res *= self.gaussian(v, u=us[i], vth=vths[i], is_polar=self.is_polar[i])
+            res *= self.gaussian(v, u=us[i], vth=vths[i],
+                                 is_polar=self.is_polar[i])
 
         return res

@@ -9,12 +9,13 @@ from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.pic.accumulation.particles_to_grid import Accumulator
 from struphy.polar.basic import PolarVector
 from struphy.kinetic_background.base import Maxwellian
-from struphy.kinetic_background.maxwellians import Maxwellian6DUniform, Maxwellian5DUniform
+from struphy.kinetic_background.maxwellians import Maxwellian6D, Maxwellian5D
 from struphy.fields_background.mhd_equil.equils import set_defaults
-
 from struphy.feec import preconditioner
 from struphy.feec.mass import WeightedMassOperator
 from struphy.feec.basis_projection_ops import BasisProjectionOperator, CoordinateProjector
+from struphy.feec.variational_utilities import BracketOperator
+
 
 from psydac.linalg.solvers import inverse
 from psydac.linalg.basic import IdentityOperator
@@ -1348,7 +1349,7 @@ class CurrentCoupling6DDensity(Propagator):
                           'u_space': 'Hdiv',
                           'b_eq': None,
                           'b_tilde': None,
-                          'f0': Maxwellian6DUniform(),
+                          'f0': Maxwellian6D(),
                           'type': ('pbicgstab', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
@@ -1590,7 +1591,7 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
         params_default = {'particles': Particles5D,
                           'u_space': 'Hdiv',
                           'b_eq': None,
-                          'f0': Maxwellian5DUniform(),
+                          'f0': Maxwellian5D(),
                           'type': ('pcg', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
@@ -1778,7 +1779,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                           'u_space': 'Hdiv',
                           'unit_b1': None,
                           'curl_unit_b2': None,
-                          'f0': Maxwellian5DUniform(),
+                          'f0': Maxwellian5D(),
                           'type': ('pbicgstab', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
@@ -1949,7 +1950,7 @@ class CurrentCoupling5DDensity(Propagator):
                           'abs_b': None,
                           'gradB1': None,
                           'curl_unit_b2': None,
-                          'f0': Maxwellian5DUniform(),
+                          'f0': Maxwellian5D(),
                           'type': 'pbicgstab',
                           'pc': 'MassMatrixPreconditioner',
                           'tol': 1e-8,
@@ -2095,47 +2096,70 @@ class CurrentCoupling5DDensity(Propagator):
 
 class ImplicitDiffusion(Propagator):
     r"""
-    Weak, implicit discretization of the diffusion (or heat) equation (can be used as a Poisson solver too),
+    Weak, implicit discretization of the diffusion (or heat) equation (can be used as a Poisson solver too).
+    
+    Find :math:`\phi \in H^1` such that
 
     .. math::
 
-        \frac{\partial \phi}{\partial t} - \Delta \phi = 0\,,
+        \int_\Omega \psi\, n_0(\mathbf x)\frac{\partial \phi}{\partial t}\,\textrm d \mathbf x + \int_\Omega \nabla \psi^\top D_0(\mathbf x) \nabla \phi \,\textrm d \mathbf x = \int_\Omega \psi\, \rho(\mathbf x)\,\textrm d \mathbf x \qquad \forall \ \psi \in H^1\,,
 
-    which is discretized as
+    where :math:`n_0, \rho:\Omega \to \mathbb R` are real-valued functions and 
+    :math:`D_0:\Omega \to \mathbb R^{3\times 3}`
+    is a positive diffusion matrix. 
+    Boundary terms from integration by parts are assumed to vanish.
+    The equation is discretized as
 
     .. math::
 
-        (\sigma \mathbb M_0 + \Delta t\,\mathbb G^\top \mathbb M_1 \mathbb G)\, \phi^{n+1} = \int_{(0,1)^3} \Lambda^0 \phi^n\, \textnormal d\eta\,,
+        \left( \frac{\sigma_1}{\Delta t} \mathbb M^0_{n_0} + \mathbb G^\top \mathbb M^1_{D_0} \mathbb G \right)\, \boldsymbol\phi^{n+1} = \frac{\sigma_2}{\Delta t} ( \Lambda^0, n_0 \phi^n )_{L^2} + \frac{\sigma_3}{\Delta t}(\Lambda^0, \rho  )_{L^2}\,,
 
-    where :math:`\Lambda^0 \in H^1` are the FEEC basis functions and :math:`\sigma \in \mathbb R` is a parameter.
-    The solution is :math:`\phi^{n+1}\,\in H^1` and the right-hand side is :math:`\phi^n\,\in H^1`.
-    For the choice :math:`\sigma=0` and :math:`\Delta t = 1` this is a Poisson solver,
-    where :math:`\phi^n` corresponds to the charge density.
-    Boundary terms are assumed to vanish.
+    where :math:`M^0_{n_0}` and :math:`M^1_{D_0}` are :class:`WeightedMassOperators <struphy.feec.mass.WeightedMassOperators>`
+    and :math:`\sigma_1, \sigma_2, \sigma_3 \in \mathbb R` are artificial parameters that can be tuned to
+    change the model (see Notes).
+    
+    Notes
+    -----
+    
+    * :math:`\sigma_1=\sigma_2=0` and :math:`\sigma_3 = 1`: **Poisson solver** with a given charge density :math:`\rho/\Delta t`. 
+    * :math:`\sigma_2=0` and :math:`\sigma_1 = \sigma_3 = \Delta t` : Poisson with **adiabatic electrons**.
+    * :math:`\sigma_1=\sigma_2=1` and :math:`\sigma_3 = 0`: **Implicit heat equation**. 
 
     Parameters
     ----------
-    phi : psydac.linalg.stencil.StencilVector
-        FE coefficients of a discrete 0-form, the solution.
+    phi : StencilVector
+        FE coefficients of the solution as a discrete 0-form.
 
     sigma : float
         Stabilization parameter: :math:`\sigma=1` for the heat equation and :math:`\sigma=0` for the Poisson equation.
 
-    phi_n : psydac.linalg.stencil.StencilVector
-        FE coefficients of a 0-form (optional, can be set with a setter later).
+    rho : StencilVector
+        Right-hand side FE coefficients of a 0-form (optional, can be set with a setter later).
 
-    x0 : psydac.linalg.stencil.StencilVector
+    x0 : StencilVector
         Initial guess for the iterative solver (optional, can be set with a setter later).
 
     **params : dict
         Parameters for the iteravtive solver.
     """
 
-    def __init__(self, phi, sigma=1., phi_n=None, x0=None, **params):
+    def __init__(self, phi: StencilVector, 
+                 sigma_1=0., sigma_2=1., sigma_3=0., 
+                 A1_mat='M0', A2_mat='M1', 
+                 rho=None, 
+                 x0=None, 
+                 **params):
+
+        assert phi.space == self.derham.Vh['0']
 
         super().__init__(phi)
+        
+        # model parameters
+        self._sigma_1 = sigma_1
+        self._sigma_2 = sigma_2
+        self._sigma_3 = sigma_3
 
-        # parameters
+        # solver parameters
         params_default = {'type': ('pcg', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
@@ -2144,37 +2168,35 @@ class ImplicitDiffusion(Propagator):
 
         params = set_defaults(params, params_default)
 
-        # allocate memory for solution and rhs
-        self._phi_n = StencilVector(self.derham.Vh['0'])
-
         # check the rhs
-        if phi_n is not None:
-
-            assert type(phi_n) == type(self._phi_n)
-            self._phi_n[:] = phi_n[:]
-            self._phi_n.update_ghost_regions()
-
-            # check solvability condition
-            if np.abs(sigma) < 1e-14:
-                sigma = 1e-14
-                self.check_rhs(phi_n)
+        if rho is not None:
+            assert rho.space == phi.space
+            self._rho = rho       
+        else:
+            self._rho = phi.space.zeros()
+            
+        # check solvability condition
+        if np.abs(self._sigma_1) < 1e-14:
+            self._sigma_1 = 1e-14
+            #self.check_rhs(self._rho)
 
         # initial guess and solver params
         self._x0 = x0
         self._params = params
-
-        # Set lhs matrices
-        self._A1 = sigma * self.mass_ops.M0
-        self._A2 = self.derham.grad.T @ self.mass_ops.M1 @ self.derham.grad
+        A1_mat = getattr(self.mass_ops, A1_mat)
+        A2_mat = getattr(self.mass_ops, A2_mat)
+        # Set lhs matrices (without dt)
+        self._A1 = A1_mat
+        self._A2 = self.derham.grad.T @ A2_mat @ self.derham.grad
 
         # preconditioner and solver for Ax=b
         if params['type'][1] is None:
             pc = None
         else:
             pc_class = getattr(preconditioner, params['type'][1])
-            pc = pc_class(self.mass_ops.M0)
+            pc = pc_class(A1_mat)
 
-        # solver for Ax=b with A=const.
+        # solver just with A_2, but will be set during call with dt
         self.solver = inverse(self._A2,
                               params['type'][0],
                               pc=pc,
@@ -2182,40 +2204,43 @@ class ImplicitDiffusion(Propagator):
                               tol=self._params['tol'],
                               maxiter=self._params['maxiter'],
                               verbose=self._params['verbose'])
-
+        
+        # allocate memory for solution
         self._tmp = phi.space.zeros()
+        self._rhs = phi.space.zeros()
+        self._rhs2 = phi.space.zeros()
 
-    def check_rhs(self, phi_n):
+    def check_rhs(self, rho):
         '''Checks space of rhs and, for periodic boundary conditions and sigma=0,
-        checks whether the integral over phi_n is zero.
+        checks whether the integral over rho is zero.
 
         Parameters
         ----------
-        phi_n : psydac.linalg.stencil.StencilVector
+        rho : StencilVector
             FE coefficients of a 0-form.'''
 
-        assert type(phi_n) == type(self._phi_n)
+        assert type(rho) == type(self._rho)
 
-        if np.all(phi_n.space.periods):
+        if np.all(rho.space.periods):
             solvability = np.zeros(1)
             self.derham.comm.Allreduce(
-                np.sum(phi_n.toarray()), solvability, op=MPI.SUM)
+                np.sum(rho.toarray()), solvability, op=MPI.SUM)
             assert np.abs(
-                solvability[0]) <= 1e-11, f'Solvability condition not met: {solvability[0]}'
+                solvability[0]) <= 1e-10, f'Solvability condition not met: {solvability[0]}'
 
     @property
-    def phi_n(self):
+    def rho(self):
         """
         psydac.linalg.stencil.StencilVector or struphy.polar.basic.PolarVector.
         """
-        return self._phi_n
+        return self._rho
 
-    @phi_n.setter
-    def phi_n(self, value):
+    @rho.setter
+    def rho(self, value):
         """ In-place setter for StencilVector/PolarVector.
         """
         self.check_rhs(value)
-        self._phi_n[:] = value[:]
+        self._rho[:] = value[:]
 
     @property
     def x0(self):
@@ -2228,7 +2253,7 @@ class ImplicitDiffusion(Propagator):
     def x0(self, value):
         """ In-place setter for StencilVector/PolarVector. First guess of the iterative solver.
         """
-        assert type(value) == type(self._phi_n)
+        assert type(value) == type(self._rho)
         assert value.space.symbolic_space == 'H1', f'Right-hand side must be in H1, but is in {value.space.symbolic_space}.'
 
         if self._x0 is None:
@@ -2237,9 +2262,23 @@ class ImplicitDiffusion(Propagator):
             self._x0[:] = value[:]
 
     def __call__(self, dt):
+        
+        # current variables
+        phin = self.feec_vars[0]
+        
+        # compute rhs
+        rhs = self._A1.dot(phin, out=self._rhs) 
+        rhs *= self._sigma_2 / dt 
+        
+        self._rhs2 = self._sigma_3 / dt * self._rho 
+        
+        rhs += self._rhs2
 
-        self.solver.linop = self._A1 + dt * self._A2
-        out = self.solver.solve(self._phi_n, out=self._tmp)
+        # compute lhs
+        self.solver.linop = self._sigma_1/dt * self._A1 + self._A2
+        
+        # solve
+        out = self.solver.solve(rhs, out=self._tmp)
         info = self.solver._info
 
         if self._params['info']:
@@ -2250,6 +2289,11 @@ class ImplicitDiffusion(Propagator):
     @classmethod
     def options(cls):
         dct = {}
+        dct['model'] = {'sigma_1': 0., 
+                        'sigma_2': 0.,
+                        'sigma_3': 1.,
+                        'A1_mat': ['M0', 'M0ad'],
+                        'A2_mat': ['M1', 'M1perp']}
         dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
                                   ('cg', None)],
                          'tol': 1.e-8,
@@ -2470,14 +2514,21 @@ class VariationalMomentumAdvection(Propagator):
 
     .. math::
 
-        \int_{\Omega} \partial_t ( \rho \mathbf u ) \cdot \mathbf v \, \textnormal d^3 \mathbf x - \int_{\Omega}( \rho \mathbf u ) \cdot [\mathbf u, \mathbf v] \, \textnormal d^3 \mathbf x = 0 ~ ,
+        \int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \,\textrm d \boldsymbol \eta - 
+        \int_{\hat{\Omega}}( \hat{\rho}^3 \hat{\mathbf{u}}) \cdot G [\hat{\mathbf{u}}, \hat{\mathbf{v}}] \, \textrm d \boldsymbol \eta = 0 ~ ,
 
     which is discretized as
 
     .. math::
 
-        \mathbb M_v[\rho^n] \frac{\mathbf u^{n+1}- \mathbf u^n}{\Delta t} - (\sum_i (\hat{\Pi}^{1->0}[\mathbf u^{n+1/2}] \mathbb G P_i - \hat{\Pi}^{X->0}[\nabla\mathbf u^{n+1/2}_i])^\top P_i) \mathbb M_v[\rho^n] \mathbf u^{n+1/2} = 0 ~ .
-
+        \mathbb M^v[\hat{\rho}_h^n] \frac{\mathbf u^{n+1}- \mathbf u^n}{\Delta t} - (\sum_{\mu} (\hat{\Pi}^{0}[\hat{\mathbf u}_h^{n+1/2} \cdot \vec{\boldsymbol \Lambda}^1] \mathbb G P_{\mu} - \hat{\Pi}^0[\hat{\mathbf A}^1_{\mu,h} \cdot \vec{\boldsymbol \Lambda}^v])^\top P_i) \mathbb M^v[\hat{\rho}_h^n] \mathbf u^{n} = 0 ~ .
+     
+    where :math:`P_\mu` stand for the :class:`~struphy.feec.basis_projection_ops.CoordinateProjector` and the weights
+    in the the two :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator` and the :class:`~struphy.feec.mass.WeightedMassOperator` are given by
+    
+    .. math::
+    
+        \hat{\mathbf{u}}_h^{n+1/2} = (\mathbf{u}^{n+1/2})^\top \vec{\boldsymbol \Lambda}^v \in (V_h^0)^3 \,, \qquad \hat{\mathbf A}^1_{\mu,h} = \nabla P_\mu((\mathbf u^{n+1/2})^\top \vec{\boldsymbol \Lambda}^v)] \in V_h^1\,, \qquad \hat{\rho}_h^{n} = (\rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3.
     Parameters
     ----------
     rho : psydac.linalg.stencil.Vector
@@ -2487,7 +2538,7 @@ class VariationalMomentumAdvection(Propagator):
         FE coefficients of a discrete vector field,velocity of the solution.
 
     **params : dict
-        Parameters for the iterative solver.
+        Parameters for the iterative solvers.
 
     '''
 
@@ -2496,9 +2547,11 @@ class VariationalMomentumAdvection(Propagator):
         super().__init__(u)
 
         # parameters
-        params_default = {'tol': 1e-8,
-                          'maxiter': 100,
-                          'type_linear_solver': ('pcg', 'MassMatrixPreconditioner'),
+        params_default = {'linear_tol': 1e-20,
+                          'non_linear_tol': 1e-8,
+                          'linear_maxiter': 3000,
+                          'non_linear_maxiter': 100,
+                          'type_linear_solver': ('pcg', 'MassMatrixDiagonalPreconditioner'),
                           'info': False,
                           'verbose': False,
                           'mass_ops' : None}
@@ -2511,45 +2564,19 @@ class VariationalMomentumAdvection(Propagator):
 
         self.WMM = params['mass_ops']
 
-        # Femfields for the projectors
-        self.uf = self.derham.create_field("uf", "H1vec")
-        self.gu1f = self.derham.create_field("gu1f", "Hcurl")  # grad(u[0])
-        self.gu2f = self.derham.create_field("gu2f", "Hcurl")  # grad(u[1])
-        self.gu3f = self.derham.create_field("gu3f", "Hcurl")  # grad(u[2])
-
-        self._initialize_projectors_and_mass()
-
-        # gradient of the component of the vector field
-        grad = self.derham.grad
-        self.gp1 = grad @ self.Pcoord1
-        self.gp2 = grad @ self.Pcoord2
-        self.gp3 = grad @ self.Pcoord3
-
-        # v-> int(Pi(grad v_i . u)m_i)
-        m1ugv1 = self.gp1.T @ self.PiuT @ self.Pcoord1
-        m2ugv2 = self.gp2.T @ self.PiuT @ self.Pcoord2
-        m3ugv3 = self.gp3.T @ self.PiuT @ self.Pcoord3
-
-        # v-> int(Pi(grad u_i . v)m_i)
-        m1vgu1 = self.PiguT_1 @ self.Pcoord1
-        m2vgu2 = self.PiguT_2 @ self.Pcoord2
-        m3vgu3 = self.PiguT_3 @ self.Pcoord3
-
-        # v-> int(Pi([u,v]) . m)
-        self.mbrackuv = (m1vgu1 + m2vgu2 + m3vgu3 - m1ugv1 - m2ugv2 - m3ugv3)
+        self._initialize_mass()
 
         # bunch of temporaries to avoid allocating in the loop
         self._tmp_un1 = u.space.zeros()
         self._tmp_un12 = u.space.zeros()
         self._tmp_diff = u.space.zeros()
+        self._tmp_update = u.space.zeros()
         self._tmp_weak_diff = u.space.zeros()
         self._tmp_mn = u.space.zeros()
         self._tmp_mn1 = u.space.zeros()
-        self._tmp_mn12 = u.space.zeros()
         self._tmp_advection = u.space.zeros()
-        self.gp1u = self.gp1.dot(u)
-        self.gp2u = self.gp2.dot(u)
-        self.gp3u = self.gp3.dot(u)
+
+        self.brack = BracketOperator(self.derham, self._tmp_mn)
 
     def __call__(self, dt):
 
@@ -2558,38 +2585,24 @@ class VariationalMomentumAdvection(Propagator):
         mn = self._Mrho.dot(un, out=self._tmp_mn)
         mn1 = mn.copy(out=self._tmp_mn1)
         un1 = un.copy(out=self._tmp_un1)
-        tol = self._params['tol']
+        tol = self._params['non_linear_tol']
         err = tol+1
-        for it in range(self._params['maxiter']):
+        # Jacobian matrix for Newton solve
+        self.derivative = self.WMM + dt/2*self.brack
+        inv_derivative = inverse(self.derivative,
+                                'bicgstab',
+                                tol=self._params['linear_tol'],
+                                maxiter=self._params['linear_maxiter'],
+                                verbose=self._params['verbose'])
 
-            # Picard iteration
-            if err < tol**2:
-                break
-            # half time step approximation
-            mn12 = mn.copy(out=self._tmp_mn12)
-            mn12 += mn1
-            mn12 *= 0.5
+        for it in range(self._params['non_linear_maxiter']):
 
             un12 = un.copy(out=self._tmp_un12)
             un12 += un1
             un12 *= 0.5
 
-            # gradients of un12 components
-            grad_1_u = self.gp1.dot(un12, out=self.gp1u)
-            grad_2_u = self.gp2.dot(un12, out=self.gp2u)
-            grad_3_u = self.gp3.dot(un12, out=self.gp3u)
-
-            # To avoid tmp we need to update the fields we created.
-            self.gu1f.vector = grad_1_u
-            self.gu2f.vector = grad_2_u
-            self.gu3f.vector = grad_3_u
-            self.uf.vector = un12
-
-            # Update the BasisProjectionOperators
-            self._update_all_weights()
-
             # Compute the advection term
-            advection = self.mbrackuv.dot(mn12, out=self._tmp_advection)
+            advection = self.brack.dot(un12, out= self._tmp_advection)
             advection *= dt
 
             # Difference with the previous approximation :
@@ -2598,122 +2611,55 @@ class VariationalMomentumAdvection(Propagator):
             diff -= mn
             diff += advection
 
-            # Compute the norm of the difference
-            weak_diff = self._Mrhoinv.dot(
-                self._tmp_diff, out=self._tmp_weak_diff)
-            err = self._tmp_diff.dot(weak_diff)
+            # Newton step
+            update = inv_derivative.dot(diff, out = self._tmp_update)
+            un1 -=update
+            mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
-            # Update : m^{n+1,r+1} = m^n-advection
-            mn1 = mn.copy(out=self._tmp_mn1)
-            mn1 -= advection
+            w_diff = self._Mrho.dot(
+                 update, out=self._tmp_weak_diff)
+            err = update.dot(w_diff)
 
-            # Inverse the mass matrix to get the velocity
-            un1 = self._Mrhoinv.dot(mn1, out=self._tmp_un1)
+            if err < tol**2:
+                break
 
-        if it == self._params['maxiter']-1:
-            raise(ValueError, 'maximum iteration in VariationalMomentumAdvection')
+        if it == self._params['non_linear_maxiter']-1:
+            print(f'!!!WARNING: Maximum iteration in VariationalMomentumAdvection reached - not converged \n {err = } \n {tol**2 = }')
 
         self.feec_vars_update(un1)
 
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'tol': 1e-8,
-                         'maxiter': 3000,
-                         'type_linear_solver': [('pcg', 'MassMatrixPreconditioner'),
+        dct['solver'] = {'linear_tol': 1e-12,
+                         'non_linear_tol': 1e-8,
+                         'linear_maxiter': 3000,
+                         'non_linear_maxiter': 100,
+                         'type_linear_solver': [('pcg', 'MassMatrixDiagonalPreconditioner'),
                                                 ('cg', None)],
                          'info': False,
                          'verbose': False}
         return dct
 
-    def _initialize_projectors_and_mass(self):
-        """Initialization of all the `BasisProjectionOperator` and `CoordinateProjector` needed to compute the bracket term"""
-
-        # Get the projector and the spaces
-        P0 = self.derham.P['0']
-
-        Xh = self.derham.Vh_fem['v']
-        V0h = self.derham.Vh_fem['0']
-        V1h = self.derham.Vh_fem['1']
-
-        # Initialize the CoordinateProjectors
-        self.Pcoord1 = CoordinateProjector(0, Xh, V0h)
-        self.Pcoord2 = CoordinateProjector(1, Xh, V0h)
-        self.Pcoord3 = CoordinateProjector(2, Xh, V0h)
-
-        # Initialize the BasisProjectionOperators
-        self.PiuT = BasisProjectionOperator(
-            P0, V1h, [[None, None, None]], transposed=True, use_cache=True)
-
-        self.PiguT_1 = BasisProjectionOperator(
-            P0,  Xh, [[None, None, None]], transposed=True, use_cache=True)
-        self.PiguT_2 = BasisProjectionOperator(
-            P0,  Xh, [[None, None, None]], transposed=True, use_cache=True)
-        self.PiguT_3 = BasisProjectionOperator(
-            P0,  Xh, [[None, None, None]], transposed=True, use_cache=True)
-
-        # Store the interpolation grid for later use in _update_all_weights
-        interpolation_grid = [pts.flatten()
-                                    for pts in self.derham.proj_grid_pts['0']]
-
-        self.interpolation_grid_spans, self.interpolation_grid_bn, self.interpolation_grid_bd = self.derham.prepare_eval_tp_fixed(interpolation_grid)
-
-        self.interpolation_grid_gradient = [[self.interpolation_grid_bd[0], self.interpolation_grid_bn[1], self.interpolation_grid_bn[2]],
-                                            [self.interpolation_grid_bn[0], self.interpolation_grid_bd[1], self.interpolation_grid_bn[2]],
-                                            [self.interpolation_grid_bn[0], self.interpolation_grid_bn[1], self.interpolation_grid_bd[2]]]
-
-        # Create tmps for later use in evaluating on the grid
-        grid_shape = tuple([len(loc_grid)
-                           for loc_grid in interpolation_grid])
-        self._uf_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._guf1_values = [np.zeros(grid_shape, dtype=float)
-                             for i in range(3)]
-        self._guf2_values = [np.zeros(grid_shape, dtype=float)
-                             for i in range(3)]
-        self._guf3_values = [np.zeros(grid_shape, dtype=float)
-                             for i in range(3)]
-
+    def _initialize_mass(self):
+        """Initialization of the mass matrix solver"""
         # weighted mass matrix to go from m to u
-        self._Mrho = self.WMM.matrix
+        self._Mrho = self.WMM
 
         # Inverse weighted mass matrix
         if self._params['type_linear_solver'][1] is None:
-            pc = None
+            self.pc = None
         else:
             pc_class = getattr(
                 preconditioner, self._params['type_linear_solver'][1])
-            pc = pc_class(self.mass_ops.Mv)
+            self.pc = pc_class(self.mass_ops.Mv)
 
         self._Mrhoinv = inverse(self._Mrho,
                                 self._params['type_linear_solver'][0],
-                                pc=pc,
-                                tol=1e-30,
-                                maxiter=self._params['maxiter'],
+                                pc=self.pc,
+                                tol=self._params['linear_tol'],
+                                maxiter=self._params['linear_maxiter'],
                                 verbose=self._params['verbose'])
-
-    def _update_all_weights(self,):
-        """Update the weights of all the `BasisProjectionOperators` appearing in the bracket term"""
-
-        uf_values = self.uf.eval_tp_fixed_loc(
-            self.interpolation_grid_spans, [self.interpolation_grid_bn]*3, out=self._uf_values)
-
-        guf1_values = self.gu1f.eval_tp_fixed_loc(self.interpolation_grid_spans,
-                                                  self.interpolation_grid_gradient, out=self._guf1_values)
-        
-        guf2_values = self.gu2f.eval_tp_fixed_loc(self.interpolation_grid_spans,
-                                                  self.interpolation_grid_gradient, out=self._guf2_values)
-        
-        guf3_values = self.gu3f.eval_tp_fixed_loc(self.interpolation_grid_spans,
-                                                  self.interpolation_grid_gradient, out=self._guf3_values)
-        
-        self.PiuT.update_weights([[uf_values[0], uf_values[1], uf_values[2]]])
-        
-        self.PiguT_1.update_weights(
-            [[guf1_values[0], guf1_values[1], guf1_values[2]]])
-        self.PiguT_2.update_weights(
-            [[guf2_values[0], guf2_values[1], guf2_values[2]]])
-        self.PiguT_3.update_weights(
-            [[guf3_values[0], guf3_values[1], guf3_values[2]]])
 
 
 class VariationalDensityEvolve(Propagator):
@@ -2721,23 +2667,35 @@ class VariationalDensityEvolve(Propagator):
 
     .. math::
 
-        \int_{\Omega} \partial_t \rho \mathbf u \cdot \mathbf v \, \textnormal d^3 \mathbf x 
-        + \int_{\Omega} \big( \frac{| \mathbf u |^2}{2} - \frac{\partial \rho e}{\partial \rho} \big) \nabla \cdot (\rho \mathbf v) \, \textnormal d^3 \mathbf x = 0 ~ ,
+        \begin{align}
+        &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta  
+        + \int_{\hat{\Omega}} \big( \frac{| DF \hat{\mathbf{u}} |^2}{2} - \frac{\partial \hat{\rho}^3 \hat{e}}{\partial \hat{\rho}^3} \big) \nabla \cdot (\hat{\rho}^3 \hat{\mathbf{v}}) \, \textrm d \boldsymbol \eta = 0 ~ ,
+        \\[2mm]
+        &\partial_t \hat{\rho}^3 + \nabla \cdot ( \hat{\rho}^3 \hat{\mathbf{u}} ) = 0 ~ ,
+        \end{align}
 
-        \partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 ~ ,
-
-    where $e$ depends on the chosen model.
-
-    It is discretized as
+    where :math:`\hat{e}` depends on the chosen model. It is discretized as
 
     .. math::
 
-        \frac{\mathbb M_v[\rho^{n+1}] \mathbf u^{n+1}- \mathbb M_v[\rho^{n}] \mathbf u^n}{\Delta t} + 
-        (\mathbb D \hat{\Pi}^{X->2}[\rho^{n+1/2}])^\top l^3\big( \frac{u^{n+1} \cdot u^{n}}{2} - \frac{\rho^{n+1}e(\rho^{n+1})-\rho^{n}e(\rho^{n})}{\rho^{n+1}-\rho^n} \big) = 0 ~ ,
+        \begin{align}
+        &\frac{\mathbb M^v[\hat{\rho}_h^{n+1}] \mathbf u^{n+1}- \mathbb M^v[\hat{\rho}_h^n] \mathbf u^n}{\Delta t} 
+        + (\mathbb D \hat{\Pi}^{2}[\hat{\rho}_h^{n+1/2} \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3\Big( \big(\frac{DF \hat{\mathbf{u}}_h^{n+1} \cdot DF \hat{\mathbf{u}}_h^{n}}{2} 
+        - \frac{\hat{\rho}_h^{n+1}\hat{e}(\hat{\rho}_h^{n+1})-\hat{\rho}_h^{n}\hat{e}(\hat{\rho}_h^{n})}{\hat{\rho}_h^{n+1}-\hat{\rho}_h^n} \big)\Big) = 0 ~ ,
+        \\[2mm]
+        &\frac{\boldsymbol \rho^{n+1}- \boldsymbol \rho^n}{\Delta t} + \mathbb D \hat{\Pi}^{2}[\hat{\rho}_h^{n+1/2} \vec{\boldsymbol \Lambda}^v] \mathbf u^{n+1/2} = 0 ~ ,
+        \end{align}
 
-        \frac{\mathbf \rho^{n+1}- \mathbf \rho^n}{\Delta t} + \mathbb D \hat{\Pi}^{X->2}[\rho^{n+1/2}] \mathbf u^{n+1/2} = 0 ~ ,
+    where :math:`\hat{l}^3(f)` denotes the vector representing the linear form :math:`v_h \mapsto \int_{\hat{\Omega}} f(\boldsymbol \eta) v_h(\boldsymbol \eta) d \boldsymbol \eta`, that is the vector with components
+    
+    .. math::
+        \hat{l}^3(f)_{ijk}=\int_{\hat{\Omega}} f \Lambda^3_{ijk} \textrm d \boldsymbol \eta
 
-    where :math:`l^3(f)` denotes the vector representing the linear form :math:`v \mapsto \int_{\Omega} f(\mathbf x) v(\mathbf x) d \mathbf x` .
+    and the weights in the the :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator` and the :class:`~struphy.feec.mass.WeightedMassOperator` are given by
+    
+    .. math::
+    
+        \hat{\mathbf{u}}_h^{k} = (\mathbf{u}^{k})^\top \vec{\boldsymbol \Lambda}^v \in (V_h^0)^3 \, \text{for k in} \{n, n+1/2, n+1\}, \qquad \hat{\rho}_h^{k} = (\rho^{k})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \, \text{for k in} \{n, n+1/2, n+1\} .
 
     Parameters
     ----------
@@ -2757,9 +2715,11 @@ class VariationalDensityEvolve(Propagator):
         super().__init__(rho, u)
 
         # parameters
-        params_default = {'tol': 1e-8,
-                          'maxiter': 100,
-                          'type_linear_solver': ('pcg', 'MassMatrixPreconditioner'),
+        params_default = {'linear_tol': 1e-20,
+                          'non_linear_tol': 1e-8,
+                          'linear_maxiter': 3000,
+                          'non_linear_maxiter': 100,
+                          'type_linear_solver': ('pcg', 'MassMatrixDiagonalPreconditioner'),
                           'info': False,
                           'verbose': False,
                           'model': None,
@@ -2830,9 +2790,9 @@ class VariationalDensityEvolve(Propagator):
         un1 = un.copy(out=self._tmp_un1)
         un2 = un1.copy(out=self._tmp_un2)
         mn1 = mn.copy(out=self._tmp_mn1)
-        tol = self._params['tol']
+        tol = self._params['non_linear_tol']
         err = tol+1
-        for it in range(self._params['maxiter']):
+        for it in range(self._params['non_linear_maxiter']):
 
             # Picard iteration
             if err < tol**2:
@@ -2881,6 +2841,7 @@ class VariationalDensityEvolve(Propagator):
             # Inverse the mass matrix to get the velocity
             self.rhof1.vector = rhon1
             self._update_weighted_MM()
+            self.pc.update_mass_operator(self._Mrho)
             self._Mrhoinv._options['x0'] = un1
             un1 = self._Mrhoinv.dot(mn1, out=self._tmp_un1)
 
@@ -2891,21 +2852,23 @@ class VariationalDensityEvolve(Propagator):
 
             err = self._get_error(un_diff, rhon_diff)
 
-        if it == self._params['maxiter']-1:
-            raise(ValueError('maximum iteration in VariationalDensityEvolve'))
+        if it == self._params['non_linear_maxiter']-1:
+            print(f'!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err = } \n {tol**2 = }')
 
         self.feec_vars_update(rhon1, un1)
 
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'tol': 1e-8,
-                         'maxiter': 3000,
-                         'type_linear_solver': [('pcg', 'MassMatrixPreconditioner'),
+        dct['solver'] = {'linear_tol': 1e-20,
+                         'non_linear_tol': 1e-8,
+                         'linear_maxiter': 3000,
+                         'non_linear_maxiter': 100,
+                         'type_linear_solver': [('pcg', 'MassMatrixDiagonalPreconditioner'),
                                                 ('cg', None)],
                          'info': False,
-                         'verbose': False,
-                         'gamma': 5/3}
+                         'verbose': False}
+        dct['physics'] = {'gamma': 5/3}
         return dct
 
     def _initialize_projectors_and_mass(self):
@@ -2954,21 +2917,21 @@ class VariationalDensityEvolve(Propagator):
         self._rhof_2_values = np.zeros(grid_shape, dtype=float)
 
         # weighted mass matrix to go from m to u
-        self._Mrho = self.WMM.matrix
+        self._Mrho = self.WMM
 
         # Inverse weighted mass matrix
         if self._params['type_linear_solver'][1] is None:
-            pc = None
+            self.pc = None
         else:
             pc_class = getattr(
                 preconditioner, self._params['type_linear_solver'][1])
-            pc = pc_class(self.mass_ops.Mv)
+            self.pc = pc_class(self.mass_ops.Mv)
 
         self._Mrhoinv = inverse(self._Mrho,
                                 self._params['type_linear_solver'][0],
-                                pc=pc,
-                                tol=1e-30,
-                                maxiter=self._params['maxiter'],
+                                pc=self.pc,
+                                tol=self._params['linear_tol'],
+                                maxiter=self._params['linear_maxiter'],
                                 verbose=self._params['verbose'])
 
         integration_grid_X = [grid_1d.flatten() for grid_1d in self.derham.quad_grid_pts['0']]
@@ -3022,7 +2985,6 @@ class VariationalDensityEvolve(Propagator):
 
             metric = np.power(self.domain.jacobian_det(*integration_grid_V3),2-gam)
             self._proj_rho2_metric_term = deepcopy(metric)
-
 
     def _update_all_weights(self,):
         """Update the weights of the `BasisProjectionOperator` appearing in the equations"""
@@ -3108,23 +3070,34 @@ class VariationalEntropyEvolve(Propagator):
 
     .. math::
 
-        \int_{\Omega} \partial_t \rho \mathbf u \cdot \mathbf v \, \textnormal d^3 \mathbf x 
-        - \int_{\Omega} \big(\frac{\partial \rho e}{\partial s} \big) \nabla \cdot (s \mathbf v) \, \textnormal d^3 \mathbf x = 0 ~ ,
+        \begin{align}
+        &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta  
+        - \int_{\hat{\Omega}} \big(\frac{\partial \hat{\rho}^3 \hat{e}}{\partial \hat{s}} \big) \nabla \cdot (\hat{s} \hat{\mathbf{v}}) \, \textrm d \boldsymbol \eta = 0 ~ ,
+        \\[2mm]
+        &\partial_t \hat{s} + \nabla \cdot ( \hat{s} \hat{\mathbf{u}} ) = 0 ~ ,
+        \end{align}
 
-        \partial_t s + \nabla \cdot (s \mathbf u ) = 0 ~ ,
-
-    where $e$ depends on the chosen model.
-
-    It is discretized as
+    where :math:`\hat{e}` depends on the chosen model. It is discretized as
 
     .. math::
 
-        \frac{\mathbb M_v[\rho^{n}] \mathbf u^{n+1}- \mathbb M_v[\rho^{n}] \mathbf u^n}{\Delta t} -
-        (\mathbb D \hat{\Pi}^{X->2}[s^{n+1/2}])^\top l^3\big(\frac{\rho^{n}e(s^{n+1})-\rho^{n}e(s^{n})}{s^{n+1}-s^n} \big) = 0 ~ ,
+        \begin{align}
+        &\mathbb M^v[\hat{\rho}_h^{n}] \frac{ \mathbf u^{n+1}-\mathbf u^n}{\Delta t} - 
+        (\mathbb D \hat{\Pi}^{2}[\hat{s}_h^{n+1/2} \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3\Big( \big(\frac{\hat{\rho}_h^{n}\hat{e}(\hat{\rho}_h^{n},\hat{s}_h^{n+1})-\hat{\rho}_h^{n}\hat{e}(\hat{\rho}_h^{n},\hat{s}_h^{n})}{\hat{s}_h^{n+1}-\hat{s}_h^n} \big)\Big) = 0 ~ ,
+        \\[2mm]
+        &\frac{\mathbf s^{n+1}- \mathbf s^n}{\Delta t} + \mathbb D \hat{\Pi}^{2}[\hat{s}_h^{n+1/2} \vec{\boldsymbol \Lambda}^v] \mathbf u^{n+1/2} = 0 ~ ,
+        \end{align}
 
-        \frac{s^{n+1}- s^n}{\Delta t} + \mathbb D \hat{\Pi}^{X->2}[s^{n+1/2}] \mathbf u^{n+1/2} = 0 ~ ,
+    where :math:`\hat{l}^3(f)` denotes the vector representing the linear form :math:`v_h \mapsto \int_{\hat{\Omega}} f(\boldsymbol \eta) v_h(\boldsymbol \eta) d \boldsymbol \eta`, that is the vector with components
+    
+    .. math::
+        \hat{l}^3(f)_{ijk}=\int_{\hat{\Omega}} f \Lambda^3_{ijk} \textrm d \boldsymbol \eta
 
-    where :math:`l^3(f)` denotes the vector representing the linear form :math:`v \mapsto \int_{\Omega} f(\mathbf x) v(\mathbf x) d \mathbf x` .
+    and the weights in the the :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator` and the :class:`~struphy.feec.mass.WeightedMassOperator` are given by
+    
+    .. math::
+    
+        \hat{\mathbf{u}}_h^{k} = (\mathbf{u}^{k})^\top \vec{\boldsymbol \Lambda}^v \in (V_h^0)^3 \, \text{for k in} \{n, n+1/2, n+1\}, \qquad \hat{s}_h^{k} = (s^{k})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \, \text{for k in} \{n, n+1/2, n+1\} \qquad \hat{\rho}_h^{n} = (\rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \.
 
     Parameters
     ----------
@@ -3144,9 +3117,11 @@ class VariationalEntropyEvolve(Propagator):
         super().__init__(s, u)
 
         # parameters
-        params_default = {'tol': 1e-8,
-                          'maxiter': 100,
-                          'type_linear_solver': ('pcg', 'MassMatrixPreconditioner'),
+        params_default = {'linear_tol': 1e-20,
+                          'non_linear_tol': 1e-8,
+                          'linear_maxiter': 3000,
+                          'non_linear_maxiter': 100,
+                          'type_linear_solver': ('pcg', 'MassMatrixDiagonalPreconditioner'),
                           'info': False,
                           'verbose': False,
                           'model': None,
@@ -3214,13 +3189,15 @@ class VariationalEntropyEvolve(Propagator):
         un1 = un.copy(out=self._tmp_un1)
         un2 = un1.copy(out=self._tmp_un2)
         self.uf.vector = un
-
+        
         mn = self._Mrho.dot(un, out=self._tmp_mn)
         mn1 = mn.copy(out=self._tmp_mn1)
 
-        tol = self._params['tol']
+        self.pc.update_mass_operator(self._Mrho)
+
+        tol = self._params['non_linear_tol']
         err = tol+1
-        for it in range(self._params['maxiter']):
+        for it in range(self._params['non_linear_maxiter']):
 
             # Picard iteration
             if err < tol**2:
@@ -3277,18 +3254,24 @@ class VariationalEntropyEvolve(Propagator):
 
             err = self._get_error(un_diff, sn_diff)
 
+            if it == self._params['non_linear_maxiter']-1:
+                print(f'!!!Warning: Maximum iteration in VariationalEntropyEvolve reached - not converged:\n {err = } \n {tol**2 = }')
+
+
         self.feec_vars_update(sn1, un1)
 
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'tol': 1e-8,
-                         'maxiter': 3000,
-                         'type_linear_solver': [('pcg', 'MassMatrixPreconditioner'),
+        dct['solver'] = {'linear_tol': 1e-20,
+                         'non_linear_tol': 1e-8,
+                         'linear_maxiter': 3000,
+                         'non_linear_maxiter': 100,
+                         'type_linear_solver': [('pcg', 'MassMatrixDiagonalPreconditioner'),
                                                 ('cg', None)],
                          'info': False,
-                         'verbose': False,
-                         'gamma': 5/3}
+                         'verbose': False}
+        dct['physics'] = {'gamma': 5/3}
         return dct
 
     def _initialize_projectors_and_mass(self):
@@ -3336,21 +3319,21 @@ class VariationalEntropyEvolve(Propagator):
         self._sf_2_values = np.zeros(grid_shape, dtype=float)
 
         # weighted mass matrix to go from m to u
-        self._Mrho = self.WMM.matrix
+        self._Mrho = self.WMM
 
         # Inverse weighted mass matrix
         if self._params['type_linear_solver'][1] is None:
-            pc = None
+            self.pc = None
         else:
             pc_class = getattr(
                 preconditioner, self._params['type_linear_solver'][1])
-            pc = pc_class(self.mass_ops.Mv)
+            self.pc = pc_class(self.mass_ops.Mv)
 
         self._Mrhoinv = inverse(self._Mrho,
                                 self._params['type_linear_solver'][0],
-                                pc=pc,
-                                tol=1e-30,
-                                maxiter=self._params['maxiter'],
+                                pc=self.pc,
+                                tol=self._params['linear_tol'],
+                                maxiter=self._params['linear_maxiter'],
                                 verbose=self._params['verbose'])
 
         # prepare for integration of linear form
@@ -3428,19 +3411,30 @@ class VariationalMagFieldEvolve(Propagator):
 
     .. math::
 
-        \int_{\Omega} \partial_t \rho \mathbf u \cdot \mathbf v \, \textnormal d^3 \mathbf x 
-        - \int_{\Omega} \mathbf B \cdot \nabla \times (\mathbf B \times \mathbf v) \, \textnormal d^3 \mathbf x = 0 ~ ,
-
-        \partial_t \mathbf B + \nabla \times (\mathbf B \times \mathbf u) = 0 ~ ,
+        \begin{align}
+        &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta  
+        - \int_{\hat{\Omega}} \hat{\mathbf{B}}^2 \cdot G \,\nabla \times (\hat{\mathbf{B}}^2 \times \hat{\mathbf{v}}) \,\frac{1}{\sqrt g}\, \textrm d \boldsymbol \eta = 0 ~ ,
+        \\[2mm]
+        &\partial_t \hat{\mathbf{B}}^2 + \nabla \times (\hat{\mathbf{B}}^2 \times \hat{\mathbf{u}}) = 0 ~ .
+        \end{align}
 
     It is discretized as
 
     .. math::
 
-        \mathbb M_v[\rho^{n}]\frac{\mathbf u^{n+1}- \mathbf u^n}{\Delta t} -
-        (\mathbb C \hat{\Pi}^{X->1}[\mathbf B^{n+1/2}])^\top \mathbb M_2 B^{n+\frac{1}{2}} \big) = 0 ~ ,
+        \begin{align}
+        &\mathbb M^v[\hat{\rho}_h^{n}] \frac{ \mathbf u^{n+1}-\mathbf u^n}{\Delta t}
+        - (\mathbb C \hat{\Pi}^{1}[\hat{\mathbf{B}}_h^{n+1/2} \cdot \vec{\boldsymbol \Lambda}^v])^\top \mathbb M^2 B^{n+\frac{1}{2}} \big) = 0 ~ ,
+        \\[2mm]
+        &\frac{\mathbf b^{n+1}- \mathbf b^n}{\Delta t} + \mathbb C \hat{\Pi}^{1}[\hat{\mathbf{B}}_h^{n+1/2} \cdot \vec{\boldsymbol \Lambda}^v]] \mathbf u^{n+1/2} = 0 ~ ,
+        \end{align}
 
-        \frac{\mathbf B^{n+1}- \mathbf B^n}{\Delta t} + \mathbb C \hat{\Pi}^{X->1}[\mathbf B^{n+1/2}] \mathbf u^{n+1/2} = 0 ~ ,
+    and the weights in the the :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator` and the :class:`~struphy.feec.mass.WeightedMassOperator` are given by
+    
+    .. math::
+    
+        \hat{\mathbf{B}}_h^{n+1/2} = (\mathbf{b}^{n+1/2})^\top \vec{\boldsymbol \Lambda}^2 \in V_h^2 \, \qquad \hat{\rho}_h^{n} = (\boldsymbol \rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,.
+
 
     Parameters
     ----------
@@ -3460,9 +3454,11 @@ class VariationalMagFieldEvolve(Propagator):
         super().__init__(b, u)
 
         # parameters
-        params_default = {'tol': 1e-8,
-                          'maxiter': 100,
-                          'type_linear_solver': ('pcg', 'MassMatrixPreconditioner'),
+        params_default = {'linear_tol': 1e-20,
+                          'non_linear_tol': 1e-8,
+                          'linear_maxiter': 3000,
+                          'non_linear_maxiter': 100,
+                          'type_linear_solver': ('pcg', 'MassMatrixDiagonalPreconditioner'),
                           'info': False,
                           'verbose': False,
                           'mass_ops' : None}
@@ -3522,9 +3518,11 @@ class VariationalMagFieldEvolve(Propagator):
         mn = self._Mrho.dot(un, out=self._tmp_mn)
         mn1 = mn.copy(out=self._tmp_mn1)
 
-        tol = self._params['tol']
+        self.pc.update_mass_operator(self._Mrho)
+
+        tol = self._params['non_linear_tol']
         err = tol+1
-        for it in range(self._params['maxiter']):
+        for it in range(self._params['non_linear_maxiter']):
 
             # Picard iteration
             if err < tol**2:
@@ -3577,14 +3575,20 @@ class VariationalMagFieldEvolve(Propagator):
 
             err = self._get_error(un_diff, bn_diff)
 
+            if it == self._params['non_linear_maxiter']-1:
+                print(f'!!!Warning: Maximum iteration in VariationalMagFieldEvolve reached - not converged:\n {err = } \n {tol**2 = }')
+
+
         self.feec_vars_update(bn1, un1)
 
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'tol': 1e-8,
-                         'maxiter': 3000,
-                         'type_linear_solver': [('pcg', 'MassMatrixPreconditioner'),
+        dct['solver'] = {'linear_tol': 1e-20,
+                         'non_linear_tol': 1e-8,
+                         'linear_maxiter': 3000,
+                         'non_linear_maxiter': 100,
+                         'type_linear_solver': [('pcg', 'MassMatrixDiagonalPreconditioner'),
                                                 ('cg', None)],
                          'info': False,
                          'verbose': False,}
@@ -3641,21 +3645,21 @@ class VariationalMagFieldEvolve(Propagator):
                                        [self.hist_grid_2_bd[0], self.hist_grid_2_bd[1], self.hist_grid_2_bn[2]]]
 
         # weighted mass matrix to go from m to u
-        self._Mrho = self.WMM.matrix
+        self._Mrho = self.WMM
 
         # Inverse weighted mass matrix
         if self._params['type_linear_solver'][1] is None:
-            pc = None
+            self.pc = None
         else:
             pc_class = getattr(
                 preconditioner, self._params['type_linear_solver'][1])
-            pc = pc_class(self.mass_ops.Mv)
+            self.pc = pc_class(self.mass_ops.Mv)
 
         self._Mrhoinv = inverse(self._Mrho,
                                 self._params['type_linear_solver'][0],
-                                pc=pc,
-                                tol=1e-30,
-                                maxiter=self._params['maxiter'],
+                                pc=self.pc,
+                                tol=self._params['linear_tol'],
+                                maxiter=self._params['linear_maxiter'],
                                 verbose=self._params['verbose'])
 
     def _update_all_weights(self,):
@@ -3686,3 +3690,63 @@ class VariationalMagFieldEvolve(Propagator):
         err_b = weak_bn_diff.dot(bn_diff)
         err_u = weak_un_diff.dot(un_diff)
         return max(err_b, err_u)
+    
+    
+class TimeDependentSource(Propagator):
+    r'''Propagates a source term :math:`S(t) \in V_h^n` of the form
+    
+    .. math::
+    
+        S(t) = \sum_{ijk} c_{ijk} \Lambda^n_{ijk} * h(\omega t)\,,
+        
+    where :math:`h(\omega t)` is one of the functions in Notes.
+    
+    Notes
+    -----
+    
+    * :math:`h(\omega t) = \cos(\omega t)` (default)
+    * :math:`h(\omega t) = \sin(\omega t)` 
+
+    Parameters
+    ----------
+    c : psydac.linalg.stencil.StencilVector or psydac.linalg.block.BlockVector
+        FE coefficients at t=0.
+
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
+    '''
+
+    def __init__(self, c, omega=1., hfun='cos'):
+
+        super().__init__(c)
+
+        if hfun == 'cos':
+            def hfun(t):
+                return np.cos(omega*t) 
+        elif hfun == 'sin':
+            def hfun(t):
+                return np.sin(omega*t) 
+        else:
+            raise NotImplementedError(f'{hfun = } not implemented.')
+            
+        self._hfun = hfun
+
+    def __call__(self, dt):
+
+        print(f'{self.time_state[0] = }')
+        if self.time_state[0] == 0.:
+            self._c0 = self.feec_vars[0].copy()
+            print('Initial source coeffs set.')
+
+        # new coeffs
+        cn1 = self._c0 * self._hfun(self.time_state[0])
+
+        # write new coeffs into self.feec_vars
+        max_dc = self.feec_vars_update(cn1)
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['omega'] = 1.
+        dct['hfun'] = ['cos', 'sin']
+        return dct

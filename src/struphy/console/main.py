@@ -40,7 +40,7 @@ def struphy():
 
     # version message
     version_message = f'Struphy {__version__}\n'
-    version_message += 'Copyright 2019-2023 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n'
+    version_message += 'Copyright 2019-2024 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n'
     version_message += 'MIT license\n'
 
     # state dictionary
@@ -88,7 +88,8 @@ def struphy():
             out_folders += [name]
 
     # check batch scripts in current batch path:
-    batch_files = recursive_get_files(b_path, contains=('.sh'), out=[], prefix=[])
+    batch_files = recursive_get_files(
+        b_path, contains=('.sh'), out=[], prefix=[])
 
     # collect available model, contains=('.yml', '.yaml')s
     list_fluid = []
@@ -225,11 +226,11 @@ def struphy():
     parser_compile.add_argument('-v', '--verbose',
                                 help='call pyccel with --verbose compiler option',
                                 action='store_true')
-    
+
     parser_compile.add_argument('--dependencies',
                                 help='print Struphy kernels to be compiled (.py) and their dependencies (.so) on screen',
                                 action='store_true')
-    
+
     parser_compile.add_argument('-y', '--yes',
                                 help='say yes to prompt when changing the language',
                                 action='store_true')
@@ -306,7 +307,7 @@ def struphy():
     parser_run.add_argument('--debug',
                             help='launch a Cobra debug run, see https://docs.mpcdf.mpg.de/doc/computing/cobra-user-guide.html#interactive-debug-runs',
                             action='store_true',)
-    
+
     parser_run.add_argument('--cprofile',
                             help='run with Cprofile',
                             action='store_true',)
@@ -436,20 +437,19 @@ def struphy():
                                         formatter_class=lambda prog: argparse.RawTextHelpFormatter(
                                             prog, max_help_position=30),
                                         help='run Struphy tests',
-                                        description='Run available unit tests or test Struphy models, propagators or tutorials.')
+                                        description='Run available unit tests or test Struphy models or tutorials.')
 
     parser_test.add_argument('group',
                              type=str,
                              choices=list_models +
-                             ['models'] + ['unit'] + ['propagators'] +
+                             ['models'] + ['unit'] +
                              ['tutorials'] + ['timings'],
                              metavar='GROUP',
                              help='can be either:\na) a model name (tests on 1 MPI process in "Cuboid", "HollowTorus" and "Tokamak" geometries) \
                                 \nb) "models" for quick testing of all models \
                                 \nc) "unit" for performing unit tests \
-                                \nd) "propagators" for testing all propagators \
-                                \ne) "tutorials" for notebook tutorials, see `https://struphy.pages.mpcdf.de/struphy/sections/tutorials.html`_ \
-                                \nf) "timings" for creating .html and .json files of test metrics (include --verbose to print metrics to screen)',)
+                                \nd) "tutorials" for notebook tutorials, see `https://struphy.pages.mpcdf.de/struphy/sections/tutorials.html`_ \
+                                \ne) "timings" for creating .html and .json files of test metrics (include --verbose to print metrics to screen)',)
 
     parser_test.add_argument('--mpi',
                              type=int,
@@ -464,7 +464,7 @@ def struphy():
     parser_test.add_argument('-v', '--verbose',
                              help='print timings to screen',
                              action='store_true')
-    
+
     parser_test.add_argument('--monitor',
                              help='use pytest-monitor in tests',
                              action='store_true')
@@ -473,7 +473,7 @@ def struphy():
                              type=int,
                              help='specific tutorial simulation to run (int, optional)',
                              default=None)
-    
+
     parser_test.add_argument('-T', '--Tend',
                              type=float,
                              help='if GROUP=a), simulation end time in units of the model (default=0.015 with dt=0.005), data is only saved at TEND if set',
@@ -681,7 +681,7 @@ def recursive_get_files(path, contains=('.yml', '.yaml'), out=[], prefix=[]):
     n_folders = 0
     # count folders in path
     for name in all_names:
-        if '.' not in name:
+        if os.path.isdir(os.path.join(path, name)):
             n_folders += 1
     # add specified files to out or descend
     for name in all_names:
@@ -690,14 +690,14 @@ def recursive_get_files(path, contains=('.yml', '.yaml'), out=[], prefix=[]):
                 out += [name]
             else:
                 out += [os.path.join(prefix[-1], name)]
-        elif '.' not in name:
+        elif os.path.isdir(os.path.join(path, name)):
             if len(prefix) == 0:
                 prefix = [name]
             else:
                 prefix += [os.path.join(prefix[-1], name)]
-            recursive_get_files(os.path.join(path, name), 
-                                contains=contains, 
-                                out=out, 
+            recursive_get_files(os.path.join(path, name),
+                                contains=contains,
+                                out=out,
                                 prefix=prefix)
     if n_folders == 0 and len(prefix) != 0:
         prefix.pop()

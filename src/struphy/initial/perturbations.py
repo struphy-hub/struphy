@@ -50,20 +50,20 @@ class ModesSin:
         '''
         Parameters
         ----------
-            ls : list
-                Mode numbers in x-direction (kx = l*2*pi/Lx).
+        ls : list
+            Mode numbers in x-direction (kx = l*2*pi/Lx).
 
-            ms : list
-                Mode numbers in y-direction (ky = m*2*pi/Ly).
+        ms : list
+            Mode numbers in y-direction (ky = m*2*pi/Ly).
 
-            ns : list
-                Mode numbers in z-direction (kz = n*2*pi/Lz).
+        ns : list
+            Mode numbers in z-direction (kz = n*2*pi/Lz).
 
-            amps : list
-                Amplitude of each mode.
+        amps : list
+            Amplitude of each mode.
 
-            Lx, Ly, Lz : float
-                Domain lengths.
+        Lx, Ly, Lz : float
+            Domain lengths.
         '''
 
         assert len(ls) == len(ms)
@@ -134,20 +134,20 @@ class ModesCos:
         '''
         Parameters
         ----------
-            ls : list
-                Mode numbers in x-direction (kx = l*2*pi/Lx).
+        ls : list
+            Mode numbers in x-direction (kx = l*2*pi/Lx).
 
-            ms : list
-                Mode numbers in y-direction (ky = m*2*pi/Ly).
+        ms : list
+            Mode numbers in y-direction (ky = m*2*pi/Ly).
 
-            ns : list
-                Mode numbers in z-direction (kz = n*2*pi/Lz).
+        ns : list
+            Mode numbers in z-direction (kz = n*2*pi/Lz).
 
-            amps : list
-                Amplitude of each mode.
+        amps : list
+            Amplitude of each mode.
 
-            Lx, Ly, Lz : float
-                Domain lengths.
+        Lx, Ly, Lz : float
+            Domain lengths.
         '''
 
         assert len(ls) == len(ms)
@@ -167,8 +167,9 @@ class ModesCos:
         val = 0.
 
         for amp, l, m, n in zip(self._amps, self._ls, self._ms, self._ns):
-            val += amp*np.cos(l*2.*np.pi/self._Lx*x + m*2. *
-                              np.pi/self._Ly*y + n*2.*np.pi/self._Lz*z)
+            val += amp * np.cos(l * 2.*np.pi / self._Lx * x
+                                + m * 2.*np.pi / self._Ly * y
+                                + n * 2.*np.pi / self._Lz * z)
 
         return val
 
@@ -233,20 +234,20 @@ class TorusModesSin:
         r'''
         Parameters
         ----------
-            ms : list[int]
-                Poloidal mode numbers.
+        ms : list[int]
+            Poloidal mode numbers.
 
-            ns : list[int]
-                Toroidal mode numbers.
+        ns : list[int]
+            Toroidal mode numbers.
 
-            pfuns : list[str]
-                "sin" or "cos" or "exp" to define the profile functions.
+        pfuns : list[str]
+            "sin" or "cos" or "exp" to define the profile functions.
 
-            amps : list[float]
-                Amplitudes of each mode (m_i, n_i).
+        amps : list[float]
+            Amplitudes of each mode (m_i, n_i).
 
-            pfun_params : list
-                Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and None for "sin" and "cos".
+        pfun_params : list
+            Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and None for "sin" and "cos".
         '''
 
         assert len(ms) == len(ns)
@@ -345,20 +346,20 @@ class TorusModesCos:
         r'''
         Parameters
         ----------
-            ms : list[int]
-                Poloidal mode numbers.
+        ms : list[int]
+            Poloidal mode numbers.
 
-            ns : list[int]
-                Toroidal mode numbers.
+        ns : list[int]
+            Toroidal mode numbers.
 
-            pfuns : list[str]
-                "sin" or "cos" or "exp" to define the profile functions.
+        pfuns : list[str]
+            "sin" or "cos" or "exp" to define the profile functions.
 
-            amps : list[float]
-                Amplitudes of each mode (m_i, n_i).
+        amps : list[float]
+            Amplitudes of each mode (m_i, n_i).
 
-            pfun_params : list
-                Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and None for "sin" and "cos".
+        pfun_params : list
+            Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and None for "sin" and "cos".
         '''
 
         assert len(ms) == len(ns)
@@ -398,13 +399,13 @@ class TorusModesCos:
                                              eta2 + ni*2.*np.pi*eta3)
 
         return val
-   
-    
+
+
 class Shear_x:
     r'''Double shear layer in eta1 (-1 in outer regions, 1 in inner regions).
 
     .. math::
-    
+
         u(\eta_1, \eta_2, \eta_3) = A(-\tanh((\eta_1 - 0.25)/\delta)+\tanh((\eta_1 - 0.75)/\delta) - 1) \,. 
 
     Can only be used in logical space.
@@ -424,15 +425,15 @@ class Shear_x:
                 delta : 0.03333 # characteristic size of the shear layer
     '''
 
-    def __init__(self, amp = 1e-4, delta = 1/15):
+    def __init__(self, amp=1e-4, delta=1/15):
         '''
         Parameters
         ----------
-            amps : float
-                Amplitude of the velocity on each side.
+        amps : float
+            Amplitude of the velocity on each side.
 
-            delta : float
-                Characteristic size of the shear layer
+        delta : float
+            Characteristic size of the shear layer
         '''
 
         self._amp = amp
@@ -440,7 +441,8 @@ class Shear_x:
 
     def __call__(self, e1, e2, e3):
 
-        val = self._amp*(-np.tanh((e1 - 0.75)/self._delta) + np.tanh((e1 - 0.25)/self._delta) - 1)
+        val = self._amp*(-np.tanh((e1 - 0.75)/self._delta) +
+                         np.tanh((e1 - 0.25)/self._delta) - 1)
 
         return val
 
@@ -469,15 +471,15 @@ class Shear_y:
                 delta : 0.03333 # characteristic size of the shear layer
     '''
 
-    def __init__(self, amp = 1e-4, delta = 1/15):
+    def __init__(self, amp=1e-4, delta=1/15):
         '''
         Parameters
         ----------
-            amps : float
-                Amplitude of the velocity on each side.
+        amps : float
+            Amplitude of the velocity on each side.
 
-            delta : float
-                Characteristic size of the shear layer
+        delta : float
+            Characteristic size of the shear layer
         '''
 
         self._amp = amp
@@ -485,10 +487,11 @@ class Shear_y:
 
     def __call__(self, e1, e2, e3):
 
-        val = self._amp*(-np.tanh((e2 - 0.75)/self._delta) + np.tanh((e2 - 0.25)/self._delta) - 1)
+        val = self._amp*(-np.tanh((e2 - 0.75)/self._delta) +
+                         np.tanh((e2 - 0.25)/self._delta) - 1)
 
         return val
-    
+
 
 class Shear_z:
     r'''Double shear layer in eta3 (-1 in outer regions, 1 in inner regions).
@@ -514,15 +517,15 @@ class Shear_z:
                 delta : 0.03333 # characteristic size of the shear layer
     '''
 
-    def __init__(self, amp = 1e-4, delta = 1/15):
+    def __init__(self, amp=1e-4, delta=1/15):
         '''
         Parameters
         ----------
-            amps : float
-                Amplitude of the velocity on each side.
+        amps : float
+            Amplitude of the velocity on each side.
 
-            delta : float
-                Characteristic size of the shear layer
+        delta : float
+            Characteristic size of the shear layer
         '''
 
         self._amp = amp
@@ -530,6 +533,57 @@ class Shear_z:
 
     def __call__(self, e1, e2, e3):
 
-        val = self._amp*(-np.tanh((e3 - 0.75)/self._delta) + np.tanh((e3- 0.25)/self._delta) - 1)
+        val = self._amp*(-np.tanh((e3 - 0.75)/self._delta) +
+                         np.tanh((e3 - 0.25)/self._delta) - 1)
+
+        return val
+
+
+class ITPA_density:
+    r'''ITPA radial density profile in `A. Könies et al. 2018  <https://iopscience.iop.org/article/10.1088/1741-4326/aae4e6>`_
+
+    .. math::
+
+        n(\eta_1) = n_0*c_3\exp\left[-\frac{c_2}{c_1}\tanh\left(\frac{\eta_1 - c_0}{c_2}\right)\right]\,.
+
+    Note
+    ----
+    In the parameter .yml, use the following template in the section ``kinetic/<species>``::
+
+        perturbation :
+            type : ITPA_density
+            ITPA_density :
+                comps :
+                    n : '0'
+                n0 :
+                    n : 0.00720655
+                c :
+                    n : [0.491230, 0.298228, 0.198739, 0.521298]
+    '''
+
+    def __init__(self, n0=0.00720655, c=[0.491230, 0.298228, 0.198739, 0.521298]):
+        '''
+        Parameters
+        ----------
+        n0 : float
+            ITPA profile density
+
+        c : list
+            4 ITPA profile coefficients
+        '''
+
+        assert len(c) == 4
+
+        self._n0 = n0
+        self._c = c
+
+    def __call__(self, eta1, eta2, eta3):
+
+        val = 0.
+
+        if self._c[2] == 0.:
+            val = self._c[3] - 0*eta1
+        else:
+            val = self._n0*self._c[3]*np.exp(-self._c[2]/self._c[1]*np.tanh((eta1 - self._c[0])/self._c[2]))
 
         return val

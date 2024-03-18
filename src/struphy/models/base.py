@@ -23,7 +23,9 @@ class StruphyModel(metaclass=ABCMeta):
     in one of the modules ``fluid.py``, ``kinetic.py``, ``hybrid.py`` or ``toy.py``.  
     """
 
-    def __init__(self, params, comm):
+    def __init__(self, params, comm=None):
+
+        # TODO: comm=None does not work yet.
 
         from struphy.io.setup import setup_domain_mhd, setup_electric_background, setup_derham
 
@@ -98,9 +100,6 @@ class StruphyModel(metaclass=ABCMeta):
         # options of current run
         if comm.Get_rank() == 0:
             self._show_chosen_options()
-
-        if comm.Get_rank() == 0:
-            print('\nOPERATOR ASSEMBLY:')
 
         # expose propagator modules
         self._prop = Propagator
@@ -312,6 +311,25 @@ class StruphyModel(metaclass=ABCMeta):
         '''A dictionary of scalar quantities to be saved during the simulation.'''
         return self._scalar_quantities
 
+    @property
+    def time_state(self):
+        '''A pointer to the time variable of the dynamics ('t').'''
+        return self._time_state
+
+    def add_time_state(self, time_state):
+        '''Add a pointer to the time variable of the dynamics ('t')
+        to the model and to all propagators of the model.
+
+        Parameters
+        ----------
+        time_state : ndarray
+            Of size 1, holds the current physical time 't'.
+        '''
+        assert time_state.size == 1
+        self._time_state = time_state
+        for prop in self.propagators:
+            prop.add_time_state(time_state)
+
     def add_propagator(self, prop_instance):
         '''Add a propagator to a Struphy model.
 
@@ -412,8 +430,8 @@ class StruphyModel(metaclass=ABCMeta):
                 # if diffential forms is not specified, bin the initialized forms
                 if 'pforms' not in val['params']['save_data']['f']:
 
-                    if 'pforms' in val['params']['init']:
-                        pforms = val['params']['init']['pforms']
+                    if 'pforms' in val['params']['background']:
+                        pforms = val['params']['background']['pforms']
 
                     else:
                         pforms = ['0', '0']
@@ -525,11 +543,11 @@ class StruphyModel(metaclass=ABCMeta):
             for species, val in self.kinetic.items():
 
                 if self.comm.Get_rank() == 0:
-                    _type = val['params']['init']['type']
+                    _type = val['params']['background']['type']
                     print(f'Kinetic species "{species}" was initialized with:')
                     print('type:'.ljust(25), _type)
                     if _type is not None:
-                        for key, par in val['params']['init'][_type].items():
+                        for key, par in val['params']['background'][_type].items():
                             print((key + ':').ljust(25), par)
 
                 val['obj'].draw_markers()
@@ -541,7 +559,10 @@ class StruphyModel(metaclass=ABCMeta):
                     assert typ in ['full_f', 'delta_f', 'control_variate'], \
                         f'Type {typ} for distribution function is not known!'
 
-                    val['obj'].initialize_weights(val['params']['init'])
+                    pert_params = val['params']['perturbation'] if 'perturbation' in val['params'] else {
+                        'type': None}
+
+                    val['obj'].initialize_weights(pert_params)
 
                     if val['space'] == 'Particles5D':
                         val['obj'].save_magnetic_moment()
@@ -612,11 +633,14 @@ class StruphyModel(metaclass=ABCMeta):
             data.add_data({key_scalar: val})
 
         # store grid_info only for runs with 512 ranks or smaller
-        if size <= 512:
-            data.file['scalar'].attrs['grid_info'] = self.derham.domain_array
+        if self._scalar_quantities:
+            if size <= 512:
+                data.file['scalar'].attrs['grid_info'] = self.derham.domain_array
+            else:
+                data.file['scalar'].attrs['grid_info'] = self.derham.domain_array[0]
         else:
-            data.file['scalar'].attrs['grid_info'] = self.derham.domain_array[0]
-
+            pass
+        
         # save electromagentic fields/potentials data in group 'feec/'
         for key, val in self.em_fields.items():
             if 'params' not in key:
@@ -769,119 +793,101 @@ class StruphyModel(metaclass=ABCMeta):
         """
 
         from struphy.io.setup import derive_units
-
-        # physics constants
-        e = 1.602176634e-19  # elementary charge (C)
-        mH = 1.67262192369e-27  # proton mass (kg)
-        eps0 = 8.8541878128e-12  # vacuum permittivity (F/m)
-
-        x_unit = params['units']['x']
-        B_unit = params['units']['B']
-
+        
         if comm is None:
             rank = 0
         else:
             rank = comm.Get_rank()
 
+        # look for bulk species in fluid OR kinetic parameter dictionaries
+        Z_bulk = None
+        A_bulk = None
+        if 'fluid' in params:
+            if cls.bulk_species() in params['fluid']:
+                Z_bulk = params['fluid'][cls.bulk_species()
+                                            ]['phys_params']['Z']
+                A_bulk = params['fluid'][cls.bulk_species()
+                                            ]['phys_params']['A']
+        if 'kinetic' in params:
+            if cls.bulk_species() in params['kinetic']:
+                Z_bulk = params['kinetic'][cls.bulk_species()
+                                            ]['phys_params']['Z']
+                A_bulk = params['kinetic'][cls.bulk_species()
+                                            ]['phys_params']['A']
+
+        # compute model units
+        units = derive_units(
+            Z_bulk, A_bulk, params['units']['x'], params['units']['B'], params['units']['n'], cls.velocity_scale())
+
+        # print to screen
         if verbose and rank == 0:
+            
             print('\nUNITS:')
             print(f'Unit of length:'.ljust(25),
-                  '{:4.3e}'.format(x_unit) + ' m')
-
-        # special case for model Maxwell (no plasma species)
-        if cls.bulk_species() is None:
-            if verbose and rank == 0:
-                print(f'Unit of time:'.ljust(25),
-                      '{:4.3e}'.format(x_unit / 299792458) + ' s')
-                print(f'Unit of velocity:'.ljust(25),
-                      '{:4.3e}'.format(299792458) + ' m/s')
-                print(f'Unit of magnetic field:'.ljust(
-                    25), '{:4.3e}'.format(B_unit) + ' T')
-                print(f'Unit of electric field:'.ljust(25),
-                      '{:4.3e}'.format(299792458*B_unit) + ' V/m')
-
-            units = {}
-            units['t'] = x_unit / 299792458
-            units['x'] = x_unit
-            units['B'] = B_unit
-
-            equation_params = {}
-        else:
-
-            # look for bulk species in fluid OR kinetic parameter dictionaries
-            if 'fluid' in params:
-                if cls.bulk_species() in params['fluid']:
-                    Z_bulk = params['fluid'][cls.bulk_species()
-                                             ]['phys_params']['Z']
-                    A_bulk = params['fluid'][cls.bulk_species()
-                                             ]['phys_params']['A']
-            if 'kinetic' in params:
-                if cls.bulk_species() in params['kinetic']:
-                    Z_bulk = params['kinetic'][cls.bulk_species()
-                                               ]['phys_params']['Z']
-                    A_bulk = params['kinetic'][cls.bulk_species()
-                                               ]['phys_params']['A']
-
-            # compute units
-            units = derive_units(
-                Z_bulk, A_bulk, params['units']['x'], params['units']['B'], params['units']['n'], cls.velocity_scale())
-
-            if verbose and rank == 0:
-                print(f'Unit of time:'.ljust(25),
-                      '{:4.3e}'.format(units['t']) + ' s')
-                print(f'Unit of velocity:'.ljust(25),
-                      '{:4.3e}'.format(units['v']) + ' m/s')
-                print(f'Unit of magnetic field:'.ljust(25),
-                      '{:4.3e}'.format(units['B']) + ' T')
+                '{:4.3e}'.format(units['x']) + ' m')
+            print(f'Unit of time:'.ljust(25),
+                    '{:4.3e}'.format(units['t']) + ' s')
+            print(f'Unit of velocity:'.ljust(25),
+                    '{:4.3e}'.format(units['v']) + ' m/s')
+            print(f'Unit of magnetic field:'.ljust(25),
+                    '{:4.3e}'.format(units['B']) + ' T')
+            
+            if A_bulk is not None:
                 print(f'Unit of particle density:'.ljust(25),
-                      '{:4.3e}'.format(units['n']) + ' m⁻³')
+                        '{:4.3e}'.format(units['n']) + ' m⁻³')
                 print(f'Unit of mass density:'.ljust(25),
-                      '{:4.3e}'.format(units['rho']) + ' kg/m³')
+                        '{:4.3e}'.format(units['rho']) + ' kg/m³')
                 print(f'Unit of pressure:'.ljust(25),
-                      '{:4.3e}'.format(units['p'] * 1e-5) + ' bar')
+                        '{:4.3e}'.format(units['p'] * 1e-5) + ' bar')
 
-            # compute equation parameters arising from Struphy normalization
-            equation_params = {}
-            if 'fluid' in params:
-                for species in params['fluid']:
+        # compute equation parameters for each species
+        e = 1.602176634e-19  # elementary charge (C)
+        mH = 1.67262192369e-27  # proton mass (kg)
+        eps0 = 8.8541878128e-12  # vacuum permittivity (F/m)
+        
+        equation_params = {}
+        if 'fluid' in params:
+            for species in params['fluid']:
 
-                    Z = params['fluid'][species]['phys_params']['Z']
-                    A = params['fluid'][species]['phys_params']['A']
+                Z = params['fluid'][species]['phys_params']['Z']
+                A = params['fluid'][species]['phys_params']['A']
 
-                    # compute equation parameters
-                    om_p = np.sqrt(units['n'] * (Z*e)**2 / (eps0 * A*mH))
-                    om_c = Z*e * units['B'] / (A*mH)
-                    equation_params[species] = {}
-                    equation_params[species]['alpha_unit'] = om_p / om_c
-                    equation_params[species]['epsilon_unit'] = 1. / \
-                        (om_c * units['t'])
+                # compute equation parameters
+                om_p = np.sqrt(units['n'] * (Z*e)**2 / (eps0 * A*mH))
+                om_c = Z*e * units['B'] / (A*mH)
+                equation_params[species] = {}
+                equation_params[species]['alpha'] = om_p / om_c
+                equation_params[species]['epsilon'] = 1. / \
+                    (om_c * units['t'])
+                equation_params[species]['kappa'] = (om_p * units['t'])
 
-                    if verbose and rank == 0:
-                        print('\nEQUATION PARAMETERS:')
-                        print('- ' + species + ':')
-                        for key, val in equation_params[species].items():
-                            print((key + ':').ljust(25), '{:4.3e}'.format(val))
+                if verbose and rank == 0:
+                    print('\nNORMALIZATION PARAMETERS:')
+                    print('- ' + species + ':')
+                    for key, val in equation_params[species].items():
+                        print((key + ':').ljust(25), '{:4.3e}'.format(val))
 
-            if 'kinetic' in params:
-                for species in params['kinetic']:
+        if 'kinetic' in params:
+            for species in params['kinetic']:
 
-                    Z = params['kinetic'][species]['phys_params']['Z']
-                    A = params['kinetic'][species]['phys_params']['A']
+                Z = params['kinetic'][species]['phys_params']['Z']
+                A = params['kinetic'][species]['phys_params']['A']
 
-                    # compute equation parameters
-                    om_p = np.sqrt(units['n'] * (Z*e)**2 / (eps0 * A*mH))
-                    om_c = Z*e * units['B'] / (A*mH)
-                    equation_params[species] = {}
-                    equation_params[species]['alpha_unit'] = om_p / om_c
-                    equation_params[species]['epsilon_unit'] = 1. / \
-                        (om_c * units['t'])
+                # compute equation parameters
+                om_p = np.sqrt(units['n'] * (Z*e)**2 / (eps0 * A*mH))
+                om_c = Z*e * units['B'] / (A*mH)
+                equation_params[species] = {}
+                equation_params[species]['alpha'] = om_p / om_c
+                equation_params[species]['epsilon'] = 1. / \
+                    (om_c * units['t'])
+                equation_params[species]['kappa'] = (om_p * units['t'])
 
-                    if verbose and rank == 0:
-                        if 'fluid' not in params:
-                            print('\nEQUATION PARAMETERS:')
-                        print('- ' + species + ':')
-                        for key, val in equation_params[species].items():
-                            print((key + ':').ljust(25), '{:4.3e}'.format(val))
+                if verbose and rank == 0:
+                    if 'fluid' not in params:
+                        print('\nNORMALIZATION PARAMETERS:')
+                    print('- ' + species + ':')
+                    for key, val in equation_params[species].items():
+                        print((key + ':').ljust(25), '{:4.3e}'.format(val))
 
         return units, equation_params
 
@@ -945,6 +951,41 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             print('None.')
 
     @classmethod
+    def write_parameters_to_file(cls, parameters=None, file=None, save=True, prompt=True):
+        import struphy
+        import yaml
+        import os
+
+        libpath = struphy.__path__[0]
+
+        # write to current input path
+        with open(os.path.join(libpath, 'state.yml')) as f:
+            state = yaml.load(f, Loader=yaml.FullLoader)
+
+        i_path = state['i_path']
+
+        if file is None:
+            file = os.path.join(i_path, 'params_' + cls.__name__ + '.yml')
+        else:
+            assert '.yml' in file or '.yaml' in file, 'File must have a a .yml (.yaml) extension.'
+            file = os.path.join(i_path, file)
+
+        if save:
+            if not prompt:
+                yn = 'Y'
+            else:
+                yn = input(f'Writing to {file}, are you sure (Y/n)? ')
+
+            if yn in ('', 'Y', 'y', 'yes', 'Yes'):
+                with open(file, 'w') as outfile:
+                    yaml.dump(parameters, outfile, Dumper=MyDumper,
+                              default_flow_style=None, sort_keys=False, indent=4, line_break='\n')
+                print(
+                    f'Default parameter file for {cls.__name__} has been created; you can now launch with "struphy run {cls.__name__}".')
+            else:
+                pass
+
+    @classmethod
     def generate_default_parameter_file(cls, file=None, save=True, prompt=True):
         '''Generate a parameter file with default options for each species,
         and save it to the current input path.
@@ -952,7 +993,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         The default name is params_<model_name>.yml.
 
         Parameters
-        -------
+        ----------
         file : str
             Alternative filename to params_<model_name>.yml.
 
@@ -988,7 +1029,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             init_params_scalar[keys] = vals['p3']
 
         # get rid of species names in initial conditions (add back later)
-        parameters['kinetic']['ions'].pop('init')
+        # TODO: remove later, now safe for popping
+        parameters['kinetic']['ions'].pop('init', None)
         parameters['kinetic']['ions'].pop('background')
         parameters['kinetic']['ions']['markers']['loading'].pop('moments')
 
@@ -1089,38 +1131,19 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
             # set the correct names in the parameter file
             dim = space[-2:]
-            parameters['kinetic'][name]['init'] = {'type': 'Maxwellian' + dim + 'Uniform',
-                                                   'Maxwellian' + dim + 'Uniform': {'n': 0.05}}
-            parameters['kinetic'][name]['background'] = {'type': 'Maxwellian' + dim + 'Uniform',
-                                                         'Maxwellian' + dim + 'Uniform': {'n': 0.8}}
-            parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
-
-        # write to current input path
-        with open(os.path.join(libpath, 'state.yml')) as f:
-            state = yaml.load(f, Loader=yaml.FullLoader)
-
-        i_path = state['i_path']
-
-        if file is None:
-            file = os.path.join(i_path, 'params_' + cls.__name__ + '.yml')
-        else:
-            assert '.yml' in file or '.yaml' in file, 'File must have a a .yml (.yaml) extension.'
-            file = os.path.join(i_path, file)
-
-        if save:
-            if not prompt:
-                yn = 'Y'
+            if dim == '5D':
+                parameters['kinetic'][name]['init'] = {'type': 'Maxwellian' + dim,
+                                                       'Maxwellian' + dim: {'n': 0.05}}
+                parameters['kinetic'][name]['background'] = {'type': 'Maxwellian' + dim,
+                                                             'Maxwellian' + dim: {'n': 0.8}}
+                parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
             else:
-                yn = input(f'Writing to {file}, are you sure (Y/n)? ')
+                parameters['kinetic'][name]['background'] = {'type': 'Maxwellian' + dim,
+                                                             'Maxwellian' + dim: {'n': 0.05}}
+                parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
 
-            if yn in ('', 'Y', 'y', 'yes', 'Yes'):
-                with open(file, 'w') as outfile:
-                    yaml.dump(parameters, outfile, Dumper=MyDumper,
-                              default_flow_style=None, sort_keys=False, indent=4, line_break='\n')
-                print(
-                    f'Default parameter file for {cls.__name__} has been created; you can now launch with "struphy run {cls.__name__}".')
-            else:
-                pass
+        cls.write_parameters_to_file(
+            parameters=parameters, file=file, save=save, prompt=prompt)
 
         return parameters
 
@@ -1237,22 +1260,27 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     assert 'background' in self.params['kinetic'][species], \
                         f'If a control variate or delta-f method is used, a maxwellians background must be given!'
 
+                assert 'background' in self.params['kinetic'][species].keys(), \
+                    "A background must be given in order to initialize the Particles class!"
+
                 if 'background' in self.params['kinetic'][species]:
-                    f0_params = val['params']['background']
+                    bckgr_params = val['params']['background']
                 else:
-                    f0_params = None
+                    bckgr_params = None
 
                 kinetic_class = getattr(particles, val['space'])
 
-                val['obj'] = kinetic_class(species,
-                                           **val['params']['phys_params'],
-                                           **val['params']['markers'],
-                                           derham=self.derham,
-                                           domain=self.domain,
-                                           mhd_equil=self.mhd_equil,
-                                           epsilon=self.equation_params[species]['epsilon_unit'],
-                                           units_basic=self.units,
-                                           f0_params=f0_params)
+                val['obj'] = kinetic_class(
+                    species,
+                    **val['params']['phys_params'],
+                    **val['params']['markers'],
+                    derham=self.derham,
+                    domain=self.domain,
+                    mhd_equil=self.mhd_equil,
+                    epsilon=self.equation_params[species]['epsilon'],
+                    units_basic=self.units,
+                    background=bckgr_params,
+                )
 
                 self._pointer[species] = val['obj']
 
@@ -1427,7 +1455,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         if len(self.kinetic) > 0:
 
             eta1mg, eta2mg, eta3mg = np.meshgrid(
-                eta1, eta2, eta3, indexing='ij')
+                eta1, eta2, eta3, indexing='ij'
+            )
 
             for species, val in self.kinetic.items():
                 pparams[species] = {}
@@ -1451,9 +1480,13 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 pparams[species]['density'] = np.mean(tmp.n(
                     eta1mg, eta2mg, eta3mg) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
                 # thermal speeds (m/s)
-                vth = tmp.vth(eta1mg, eta2mg, eta3mg) * \
-                    np.abs(det_tmp) * units['x']**3 / \
-                    plasma_volume * units['v']
+                vth = []
+                vths = tmp.vth(eta1mg, eta2mg, eta3mg)
+                for k in range(len(vths)):
+                    vth += [
+                        vths[k] * np.abs(det_tmp) *
+                        units['x']**3 / plasma_volume * units['v']
+                    ]
                 thermal_speed = 0.
                 for dir in range(val['obj'].vdim):
                     pparams[species]['vth' + str(dir + 1)] = np.mean(vth[dir])

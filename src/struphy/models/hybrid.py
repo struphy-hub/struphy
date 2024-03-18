@@ -1,6 +1,3 @@
-'The bulk plasma is fluid, but there is also at least one kinetic species.'
-
-
 import numpy as np
 from struphy.models.base import StruphyModel
 
@@ -120,7 +117,7 @@ class LinearMHDVlasovCC(StruphyModel):
         # compute coupling parameters
         Ab = params['fluid']['mhd']['phys_params']['A']
         Ah = params['kinetic']['energetic_ions']['phys_params']['A']
-        kappa = 1. / self.equation_params['energetic_ions']['epsilon_unit']
+        kappa = 1. / self.equation_params['energetic_ions']['epsilon']
 
         if abs(kappa - 1) < 1e-6:
             kappa = 1.
@@ -375,7 +372,7 @@ class LinearMHDVlasovPC(StruphyModel):
         # compute coupling parameters
         Ab = params['fluid']['mhd']['phys_params']['A']
         Ah = params['kinetic']['energetic_ions']['phys_params']['A']
-        kappa = 1. / self.equation_params['energetic_ions']['epsilon_unit']
+        kappa = 1. / self.equation_params['energetic_ions']['epsilon']
 
         if abs(kappa - 1) < 1e-6:
             kappa = 1.
@@ -631,7 +628,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # compute coupling parameters
         Ab = params['fluid']['mhd']['phys_params']['A']
         Ah = params['kinetic']['energetic_ions']['phys_params']['A']
-        epsilon = self.equation_params['energetic_ions']['epsilon_unit']
+        epsilon = self.equation_params['energetic_ions']['epsilon']
 
         self._coupling_params = {}
         self._coupling_params['Ab'] = Ab
@@ -964,7 +961,7 @@ class ColdPlasmaVlasov(StruphyModel):
         # import propagator options
         from struphy.propagators.propagators_fields import Maxwell, OhmCold, JxBCold, ImplicitDiffusion
         from struphy.propagators.propagators_markers import PushEta, PushVxB
-        from struphy.propagators.propagators_coupling import VlasovMaxwell
+        from struphy.propagators.propagators_coupling import VlasovAmpere
 
         dct = {}
         cls.add_option(species=['em_fields'], key=['solvers', 'maxwell'],
@@ -980,7 +977,7 @@ class ColdPlasmaVlasov(StruphyModel):
         cls.add_option(species=['kinetic', 'hotelectrons'], key=['algos', 'push_vxb'],
                        option=PushVxB.options()['algo'], dct=dct)
         cls.add_option(species=['kinetic', 'hotelectrons'], key=['solver'],
-                       option=VlasovMaxwell.options()['solver'], dct=dct)
+                       option=VlasovAmpere.options()['solver'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -997,9 +994,9 @@ class ColdPlasmaVlasov(StruphyModel):
 
         # model parameters
         self._alpha = np.abs(
-            self.equation_params['coldelectrons']['alpha_unit'])
-        self._epsilon_cold = self.equation_params['coldelectrons']['epsilon_unit']
-        self._epsilon_hot = self.equation_params['hotelectrons']['epsilon_unit']
+            self.equation_params['coldelectrons']['alpha'])
+        self._epsilon_cold = self.equation_params['coldelectrons']['epsilon']
+        self._epsilon_hot = self.equation_params['hotelectrons']['epsilon']
 
         self._nu = electron_params['phys_params']['Z'] / \
             params['fluid']['coldelectrons']['phys_params']['Z']
@@ -1043,7 +1040,7 @@ class ColdPlasmaVlasov(StruphyModel):
             scale_fac=1/self._epsilon_cold,
             b_eq=self._b_background,
             b_tilde=self.pointer['b2']))
-        self.add_propagator(self.prop_coupling.VlasovMaxwell(
+        self.add_propagator(self.prop_coupling.VlasovAmpere(
             self.pointer['e1'],
             self.pointer['hotelectrons'],
             c1=self._nu * self._alpha**2/self._epsilon_cold,
@@ -1067,7 +1064,7 @@ class ColdPlasmaVlasov(StruphyModel):
         self._tmp = np.empty(1, dtype=float)
 
     def initialize_from_params(self):
-
+        ''':meta private:'''
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
         from psydac.linalg.stencil import StencilVector
 
@@ -1088,8 +1085,8 @@ class ColdPlasmaVlasov(StruphyModel):
         _phi = StencilVector(self.derham.Vh['0'])
         poisson_solver = self.prop_fields.ImplicitDiffusion(
             _phi,
-            sigma=0,
-            phi_n=self._nu * self._alpha**2 /
+            sigma_1=0,
+            rho=self._nu * self._alpha**2 /
             self._epsilon_cold * charge_accum.vectors[0],
             x0=self._nu * self._alpha**2 /
             self._epsilon_cold * charge_accum.vectors[0],

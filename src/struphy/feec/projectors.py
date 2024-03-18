@@ -524,12 +524,18 @@ class L2Projector:
         return out
 
     def get_dofs(self, fun, dofs=None, apply_bc=False, clear=True):
-        """
-        Assembles (in 3d) vec_ijk = integral[ fun * geom_weight * Lambda_ijk ] into the Stencil-/BlockVector "dofs",
-        where Lambda_ijk are the basis functions of the spline space (p-forms) and fun is a callable p-form proxy function.
+        r"""
+        Assembles (in 3d) the Stencil-/BlockVector
+        
+        .. math::
+        
+            V_{ijk} = \int f * w_\textrm{geom} * \Lambda^\alpha_{ijk}\,\textrm d \boldsymbol \eta = \left( f\,, \Lambda^\alpha_{ijk}\right)_{L^2}\,, 
+            
+        where :math:`\Lambda^\alpha_{ijk}` are the basis functions of :math:`V_h^\alpha`,
+        :math:`f` is an :math:`\alpha`-form proxy function and :math:`w_\textrm{geom}` stand for metric coefficients.
 
-        Note that any geometric terms (e.g. Jacobians) in the L2 scalar product are automatically assembled into geom_weight,
-        depending on the space of p-forms.
+        Note that any geometric terms (e.g. Jacobians) in the L2 scalar product are automatically assembled 
+        into :math:`w_\textrm{geom}`, depending on the space of :math:`\alpha`-forms.
 
         The integration is performed with Gauss-Legendre quadrature over the whole logical domain.
 
@@ -626,7 +632,7 @@ class L2Projector:
 
         # apply boundary operator
         if apply_bc:
-            dofs = self.mass_ops.derham.boundary_ops[self.space_id].dot(dofs)
+            dofs = self.mass_ops.derham.boundary_ops[self.space_key].dot(dofs)
 
         return dofs
 

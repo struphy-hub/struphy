@@ -1823,7 +1823,10 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         out = self.p_psi(self.psi(R, Z))
 
         # rescale to Struphy units
-        out /= 1.25663706212e-6 * self.units['p']
+        if 'p' in self.units:
+            out /= 1.25663706212e-6 * self.units['p']
+        else:
+            print(f'+++Warning+++: pressure unit not defined, {self.units = }.')
 
         return out
 
