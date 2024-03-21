@@ -230,7 +230,7 @@ class TorusModesSin:
                     p3: [0.01]                    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"        
     '''
 
-    def __init__(self, ms=[0], ns=[0], amps=[1e-4], pfuns=['sin'], pfun_params=None):
+    def __init__(self, ms=[1], ns=[0], amps=[1e-4], pfuns=['sin'], pfun_params=None):
         r'''
         Parameters
         ----------
@@ -342,7 +342,7 @@ class TorusModesCos:
                     p3: [0.01]                    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"        
     '''
 
-    def __init__(self, ms=[0], ns=[0], amps=[1e-4], pfuns=['cos'], pfun_params=None):
+    def __init__(self, ms=[1], ns=[0], amps=[1e-4], pfuns=['sin'], pfun_params=None):
         r'''
         Parameters
         ----------
@@ -584,6 +584,8 @@ class ITPA_density:
         if self._c[2] == 0.:
             val = self._c[3] - 0*eta1
         else:
-            val = self._n0*self._c[3]*np.exp(-self._c[2]/self._c[1]*np.tanh((eta1 - self._c[0])/self._c[2]))
+            val = self._n0 * \
+                self._c[3]*np.exp(-self._c[2]/self._c[1] *
+                                  np.tanh((eta1 - self._c[0])/self._c[2]))
 
         return val

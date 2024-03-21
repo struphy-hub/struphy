@@ -275,13 +275,13 @@ class EfieldWeightsImplicit(Propagator):
         self._kappa = params['kappa']
         self._f0 = params['f0']
         self._f0_params = np.array(
-            [self._f0.bckgr_params['n'],
-             self._f0.bckgr_params['u1'],
-             self._f0.bckgr_params['u2'],
-             self._f0.bckgr_params['u3'],
-             self._f0.bckgr_params['vth1'],
-             self._f0.bckgr_params['vth2'],
-             self._f0.bckgr_params['vth3']]
+            [self._f0.maxw_params['n'],
+             self._f0.maxw_params['u1'],
+             self._f0.maxw_params['u2'],
+             self._f0.maxw_params['u3'],
+             self._f0.maxw_params['vth1'],
+             self._f0.maxw_params['vth2'],
+             self._f0.maxw_params['vth3']]
         )
         self._model = params['model']
 
@@ -470,13 +470,13 @@ class EfieldWeightsDiscreteGradient(Propagator):
         self._kappa = params['kappa']
         self._f0 = params['f0']
         self._f0_params = np.array(
-            [self._f0.bckgr_params['n'],
-             self._f0.bckgr_params['u1'],
-             self._f0.bckgr_params['u2'],
-             self._f0.bckgr_params['u3'],
-             self._f0.bckgr_params['vth1'],
-             self._f0.bckgr_params['vth2'],
-             self._f0.bckgr_params['vth3']]
+            [self._f0.maxw_params['n'],
+             self._f0.maxw_params['u1'],
+             self._f0.maxw_params['u2'],
+             self._f0.maxw_params['u3'],
+             self._f0.maxw_params['vth1'],
+             self._f0.maxw_params['vth2'],
+             self._f0.maxw_params['vth3']]
         )
 
         self._info = params['info']
@@ -615,13 +615,13 @@ class EfieldWeightsAnalytic(Propagator):
         self._kappa = params['kappa']
         self._f0 = params['f0']
         self._f0_params = np.array(
-            [self._f0.bckgr_params['n'],
-             self._f0.bckgr_params['u1'],
-             self._f0.bckgr_params['u2'],
-             self._f0.bckgr_params['u3'],
-             self._f0.bckgr_params['vth1'],
-             self._f0.bckgr_params['vth2'],
-             self._f0.bckgr_params['vth3']]
+            [self._f0.maxw_params['n'],
+             self._f0.maxw_params['u1'],
+             self._f0.maxw_params['u2'],
+             self._f0.maxw_params['u3'],
+             self._f0.maxw_params['vth1'],
+             self._f0.maxw_params['vth2'],
+             self._f0.maxw_params['vth3']]
         )
 
         self._info = params['info']

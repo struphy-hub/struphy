@@ -18,80 +18,103 @@ class Particles(metaclass=ABCMeta):
     """
     Base class for particle species.
 
-    The marker information is stored in a 2D numpy array, see `Tutorial on PIC data structures <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_08_data_structures.html#PIC-data-structures>`_.
+    The marker information is stored in a 2D numpy array, 
+    see `Tutorial on PIC data structures <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_08_data_structures.html#PIC-data-structures>`_.
 
     Parameters
     ----------
     name : str
         Name of particle species.
 
-    params : dict
-        Marker parameters.
+    derham : Derham
+        Struphy Derham object. 
+
+    domain : Domain
+        Struphy domain object.
+
+    mhd_equil : MHDequilibrium
+        Struphy MHD equilibrium object
+
+    bckgr_params : dict
+        Kinetic background parameters.
+
+    pert_params : dict
+        Kinetic perturbation parameters.
+
+    marker_params : dict
+        Marker parameters for loading.
     """
 
-    def __init__(self, name: str, **params):
+    def __init__(self,
+                 name,
+                 derham=None,
+                 domain=None,
+                 mhd_equil=None,
+                 bckgr_params=None,
+                 pert_params=None,
+                 **marker_params):
 
-        assert 'background' in params.keys(), \
-            "A background must be given in order to initialize the Particles class!"
-        assert 'type' in params['background'].keys(), \
-            "A background must be given in order to initialize the Particles class!"
+        if bckgr_params is None:
+            bckgr_params = {'type': 'Maxwellian6D'}
 
-        assert params['background']['type'] in dir(maxwellians), \
-            f"Unknown key {params['background']['type']}, was expecting 'Maxwellian6D' or 'Maxwellian5D'"
+        self._bckgr_params = bckgr_params
+        self._pert_params = pert_params
 
-        params_default = {
+        marker_params_default = {
             'type': 'full_f',
             'ppc': None,
             'Np': 4,
             'eps': .25,
             'bc': {'type': ['periodic', 'periodic', 'periodic']},
-            'loading': {'type': 'pseudo:random', 'seed': 1234, 'dir_particles': None, 'moments': [0., 0., 0., 1., 1., 1.]},
-            'derham': None,
-            'domain': None,
-            'background': {'type': 'Maxwellian6D'}
+            'loading': {'type': 'pseudo:random',
+                        'seed': 1234,
+                        'dir_particles': None,
+                        'moments': [0., 0., 0., 1., 1., 1.]},
         }
 
-        self._params = set_defaults(params, params_default)
+        self._marker_params = set_defaults(
+            marker_params, marker_params_default)
 
         self._name = name
-        self._derham = params['derham']
-        self._domain = params['domain']
-        self._domain_decomp = params['derham'].domain_array
+        self._derham = derham
+        self._domain = domain
+        self._mhd_equil = mhd_equil
 
-        if 'pforms' in params['background'].keys():
-            assert len(params['background']['pforms']) == 2, \
+        self._domain_decomp = derham.domain_array
+
+        if 'pforms' in bckgr_params:
+            assert len(bckgr_params['pforms']) == 2, \
                 'Only two form degrees can be given!'
-            self._pforms = params['background']['pforms']
+            self._pforms = bckgr_params['pforms']
         else:
             self._pforms = [None, None]
 
-        bckgr_params = params['background']
-
-        assert params['derham'].comm is not None
-        self._mpi_comm = params['derham'].comm
-        self._mpi_size = params['derham'].comm.Get_size()
-        self._mpi_rank = params['derham'].comm.Get_rank()
+        if derham is not None:
+            self._mpi_comm = derham.comm
+            self._mpi_size = derham.comm.Get_size()
+            self._mpi_rank = derham.comm.Get_rank()
+        else:
+            raise NotImplementedError('We need an MPI comm for the moment.')
 
         # create marker array
         self.create_marker_array()
 
         # Check if control variate
-        self._control_variate = (params['type'] == 'control_variate')
+        self._control_variate = (
+            self.marker_params['type'] == 'control_variate')
 
-        # set background function for delta-f and control-variate
-        if params['type'] in ['control_variate', 'delta_f']:
-            fun_name = bckgr_params['type']
+        # set background function
+        bckgr_fun = bckgr_params['type']
 
-            if fun_name in bckgr_params:
-                self._f_backgr = getattr(maxwellians, fun_name)(
-                    **bckgr_params[fun_name]
-                )
-            else:
-                self._f_backgr = getattr(maxwellians, fun_name)()
-
-        # for full-f do not set a background
+        if bckgr_fun in bckgr_params:
+            self._f_backgr = getattr(maxwellians, bckgr_fun)(
+                maxw_params=bckgr_params[bckgr_fun],
+                mhd_equil=mhd_equil
+            )
         else:
-            self._f_backgr = None
+            self._f_backgr = getattr(maxwellians, bckgr_fun)()
+            print(
+                f'\n{bckgr_fun} is not in bckgr_params; default background parameters are used.')
 
     @classmethod
     @abstractmethod
@@ -148,10 +171,22 @@ class Particles(metaclass=ABCMeta):
         return self._name
 
     @property
-    def params(self):
+    def bckgr_params(self):
+        """ Kinetic background parameters.
+        """
+        return self._bckgr_params
+
+    @property
+    def pert_params(self):
+        """ Kinetic perturbation parameters.
+        """
+        return self._pert_params
+
+    @property
+    def marker_params(self):
         """ Parameters for markers.
         """
-        return self._params
+        return self._marker_params
 
     @property
     def f_init(self):
@@ -248,15 +283,21 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def derham(self):
-        """ struphy.feec.psydac_derham.Derham
+        """ :class:`~struphy.feec.psydac_derham.Derham`
         """
         return self._derham
 
     @property
     def domain(self):
-        """ struphy.geometry.domains
+        """ From :mod:`struphy.geometry.domains`.
         """
         return self._domain
+
+    @property
+    def mhd_equil(self):
+        """ From :mod:`struphy.fields_background.mhd_equil.equils`.
+        """
+        return self._mhd_equil
 
     @property
     def lost_markers(self):
@@ -394,12 +435,12 @@ class Particles(metaclass=ABCMeta):
             np.prod(self._domain_decomp[:, 2::3], axis=1, dtype=int))
 
         # number of markers to load on each process (depending on relative domain size)
-        if self.params['ppc'] is not None:
-            assert isinstance(self.params['ppc'], int)
-            ppc = self.params['ppc']
+        if self.marker_params['ppc'] is not None:
+            assert isinstance(self.marker_params['ppc'], int)
+            ppc = self.marker_params['ppc']
             Np = ppc*n_cells
         else:
-            Np = self.params['Np']
+            Np = self.marker_params['Np']
             assert isinstance(Np, int)
             ppc = Np/n_cells
 
@@ -423,7 +464,7 @@ class Particles(metaclass=ABCMeta):
 
         # create markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with eps send/receive buffer
         markers_size = round(n_mks_load_loc *
-                             (1 + 1/np.sqrt(n_mks_load_loc) + self.params['eps']))
+                             (1 + 1/np.sqrt(n_mks_load_loc) + self.marker_params['eps']))
         self._markers = np.zeros((markers_size, self.n_cols), dtype=float)
 
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
@@ -515,15 +556,16 @@ class Particles(metaclass=ABCMeta):
 
         if self.mpi_rank == 0:
             print('\nMARKERS:')
-            for key, val in self.params.items():
+            for key, val in self.marker_params.items():
                 if 'loading' not in key and 'derham' not in key and 'domain' not in key:
                     print((key + ' :').ljust(25), val)
 
         # load markers from external .hdf5 file
-        if self.params['loading']['type'] == 'external':
+        if self.marker_params['loading']['type'] == 'external':
 
             if self.mpi_rank == 0:
-                file = h5py.File(self.params['loading']['dir_markers'], 'r')
+                file = h5py.File(
+                    self.marker_params['loading']['dir_markers'], 'r')
                 print('Loading markers from file: '.ljust(25), file)
 
                 self._markers[:n_mks_load_cum_sum[0], :
@@ -541,7 +583,7 @@ class Particles(metaclass=ABCMeta):
                 self._markers[:n_mks_load_loc, :] = recvbuf
 
         # load markers from restart .hdf5 file
-        elif self.params['loading']['type'] == 'restart':
+        elif self.marker_params['loading']['type'] == 'restart':
 
             libpath = struphy.__path__[0]
 
@@ -550,29 +592,29 @@ class Particles(metaclass=ABCMeta):
 
             o_path = state['o_path']
 
-            if self.params['loading']['dir_particles_abs'] is None:
+            if self.marker_params['loading']['dir_particles_abs'] is None:
                 data_path = os.path.join(
-                    o_path, self.params['loading']['dir_particles'])
+                    o_path, self.marker_params['loading']['dir_particles'])
             else:
-                data_path = self.params['loading']['dir_particles_abs']
+                data_path = self.marker_params['loading']['dir_particles_abs']
 
             data = DataContainer(data_path, comm=self.comm)
 
             self.markers[:, :] = data.file['restart/' +
-                                           self.params['loading']['key']][-1, :, :]
+                                           self.marker_params['loading']['key']][-1, :, :]
 
         # load fresh markers
         else:
 
             if self.mpi_rank == 0:
                 print('\nLoading fresh markers:')
-                for key, val in self.params['loading'].items():
+                for key, val in self.marker_params['loading'].items():
                     print((key + ' :').ljust(25), val)
 
             # 1. standard random number generator (pseudo-random)
-            if self.params['loading']['type'] == 'pseudo_random':
+            if self.marker_params['loading']['type'] == 'pseudo_random':
 
-                _seed = self.params['loading']['seed']
+                _seed = self.marker_params['loading']['seed']
                 if _seed is not None:
                     np.random.seed(_seed)
 
@@ -586,13 +628,13 @@ class Particles(metaclass=ABCMeta):
                 del temp
 
             # 2. plain sobol numbers with skip of first 1000 numbers
-            elif self.params['loading']['type'] == 'sobol_standard':
+            elif self.marker_params['loading']['type'] == 'sobol_standard':
 
                 self.phasespace_coords = sobol_seq.i4_sobol_generate(
                     3 + self.vdim, n_mks_load_loc, 1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank])
 
             # 3. symmetric sobol numbers in all 6 dimensions with skip of first 1000 numbers
-            elif self.params['loading']['type'] == 'sobol_antithetic':
+            elif self.marker_params['loading']['type'] == 'sobol_antithetic':
 
                 assert self.vdim == 3, NotImplementedError(
                     '"sobol_antithetic" requires vdim=3 at the moment.')
@@ -609,8 +651,10 @@ class Particles(metaclass=ABCMeta):
                     'Specified particle loading method does not exist!')
 
             # inverse transform sampling in velocity space
-            u_mean = np.array(self.params['loading']['moments'][:self.vdim])
-            v_th = np.array(self.params['loading']['moments'][self.vdim:])
+            u_mean = np.array(
+                self.marker_params['loading']['moments'][:self.vdim])
+            v_th = np.array(
+                self.marker_params['loading']['moments'][self.vdim:])
 
             # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
             if self.vdim == 3:
@@ -629,7 +673,7 @@ class Particles(metaclass=ABCMeta):
                     'Inverse transform sampling of given vdim is not implemented!')
 
             # inversion method for drawing uniformly on the disc
-            self._spatial = self.params['loading']['spatial']
+            self._spatial = self.marker_params['loading']['spatial']
             if self._spatial == 'disc':
                 self._markers[:n_mks_load_loc, 0] = np.sqrt(
                     self.markers[:n_mks_load_loc, 0])
@@ -641,8 +685,8 @@ class Particles(metaclass=ABCMeta):
                 self._mpi_rank] + np.arange(n_mks_load_loc, dtype=float)
 
             # set specific initial condition for some particles
-            if 'initial' in self.params['loading']:
-                specific_markers = self.params['loading']['initial']
+            if 'initial' in self.marker_params['loading']:
+                specific_markers = self.marker_params['loading']['initial']
 
                 counter = 0
                 for i in range(len(specific_markers)):
@@ -706,7 +750,7 @@ class Particles(metaclass=ABCMeta):
 
         self.comm.Barrier()
 
-    def initialize_weights(self, pert_params):
+    def initialize_weights(self):
         r"""
         Computes the initial weights
 
@@ -718,14 +762,6 @@ class Particles(metaclass=ABCMeta):
         and from the initial volume density :math:`s^n_{\textnormal{vol}}` specified in :meth:`~struphy.pic.base.Particles.draw_markers`.
         Moreover, it sets the corresponding columns for "w0", "s0" and "weights" in the markers array.
         If :attr:`~struphy.pic.base.Particles.control_variate` is True, the background :attr:`~struphy.pic.base.Particles.f_backgr` is subtracted.
-
-        Parameters
-        ----------
-        bckgr_params : dict
-            Dictionary of the form {type : class_name, class_name : params_dict} defining the background for the initial condition.
-
-        pert_params : dict
-            Dictionary of the form {type : class_name, pforms : differential forms, class_name : params_dict} defining the perturbation to the background for the initial condition.
         """
 
         assert self.domain is not None, 'A domain is needed to initialize weights.'
@@ -734,29 +770,23 @@ class Particles(metaclass=ABCMeta):
         self.sampling_density = self.s0(*self.phasespace_coords.T)
 
         # load distribution function (with given parameters or default parameters)
-        pert_fun = pert_params['type']
-        bckgr_fun = self.params['background']['type']
-        bckgr_fun_params = self.params['background']
+        bckgr_fun = self.bckgr_params['type']
+        bp_copy = self._bckgr_params.copy()
 
         # For delta-f set markers only as perturbation
-        if self.params['type'] == 'delta_f':
-
+        if self.marker_params['type'] == 'delta_f':
             # Take out background by setting its density to zero
-            if bckgr_fun in bckgr_fun_params.keys():
-                bckgr_fun_params[bckgr_fun]['n'] = 0.
+            if bckgr_fun in bp_copy:
+                bp_copy[bckgr_fun]['n'] = 0.
             else:
-                bckgr_fun_params[bckgr_fun] = {'n': 0.}
-
-        # Construct parameters that will be passed
-        params_pass = {
-            'background': bckgr_fun_params,
-        }
-        if pert_fun in pert_params:
-            params_pass['perturbation'] = pert_params
+                bp_copy[bckgr_fun] = {'n': 0.}
 
         # Get the initialization function and pass the correct arguments
+        print(f'{bp_copy = }')
         self._f_init = getattr(maxwellians, bckgr_fun)(
-            **params_pass
+            maxw_params=bp_copy[bckgr_fun],
+            pert_params=self.pert_params,
+            mhd_equil=self.mhd_equil
         )
 
         f_init = self.f_init(*self.phasespace_coords.T)
@@ -899,7 +929,7 @@ class Particles(metaclass=ABCMeta):
         ----------
         """
 
-        for axis, bc in enumerate(self.params['bc']['type']):
+        for axis, bc in enumerate(self.marker_params['bc']['type']):
 
             # sorting out particles outside of the logical unit cube
             is_outside_cube = np.logical_or(self.markers[:, axis] > 1.,
@@ -914,11 +944,11 @@ class Particles(metaclass=ABCMeta):
             # apply boundary conditions
             if bc == 'remove':
 
-                if self.params['bc']['remove']['boundary_transfer']:
+                if self.marker_params['bc']['remove']['boundary_transfer']:
                     # boundary transfer
                     outside_inds = self.boundary_transfer(is_outside_cube)
 
-                if self.params['bc']['remove']['save']:
+                if self.marker_params['bc']['remove']['save']:
                     # save the positions and velocities just before the pushing step
                     if self.vdim == 3:
                         self.lost_markers[self.n_lost_markers:self.n_lost_markers +

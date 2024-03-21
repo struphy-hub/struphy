@@ -54,12 +54,11 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000):
                       'domain': domain,
                       'derham': derham
                       }
-    init_params = {'type': 'Maxwellian6D'}
 
-    particles = Particles6D('test_particles', **params_markers)
+    particles = Particles6D('test_particles', **params_markers, bckgr_params=None)
     particles.draw_markers()
     particles.mpi_sort_markers()
-    particles.initialize_weights(init_params)
+    particles.initialize_weights()
 
     _vdim = particles.vdim
     _w0 = particles.weights
@@ -88,4 +87,4 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000):
 
 if __name__ == '__main__':
     test_accum_poisson([8, 5, 6], [2, 2, 3], [True]*3, ['Cuboid', {
-        'l1': 0., 'r1': 1., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 1.}], Np=1000, verbose=False)
+        'l1': 0., 'r1': 1., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 1.}], Np=1000)

@@ -559,10 +559,7 @@ class StruphyModel(metaclass=ABCMeta):
                     assert typ in ['full_f', 'delta_f', 'control_variate'], \
                         f'Type {typ} for distribution function is not known!'
 
-                    pert_params = val['params']['perturbation'] if 'perturbation' in val['params'] else {
-                        'type': None}
-
-                    val['obj'].initialize_weights(pert_params)
+                    val['obj'].initialize_weights()
 
                     if val['space'] == 'Particles5D':
                         val['obj'].save_magnetic_moment()
@@ -1256,30 +1253,28 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
             for species, val in self.kinetic.items():
 
-                if self.params['kinetic'][species]['markers']['type'] in ['control_variate', 'delta_f']:
-                    assert 'background' in self.params['kinetic'][species], \
-                        f'If a control variate or delta-f method is used, a maxwellians background must be given!'
-
-                assert 'background' in self.params['kinetic'][species].keys(), \
-                    "A background must be given in order to initialize the Particles class!"
-
-                if 'background' in self.params['kinetic'][species]:
+                # background parameters
+                if 'background' in val['params']:
                     bckgr_params = val['params']['background']
                 else:
                     bckgr_params = None
+                    
+                # perturbation parameters
+                if 'perturbation' in val['params']:
+                    pert_params = val['params']['perturbation']
+                else:
+                    pert_params = None
 
                 kinetic_class = getattr(particles, val['space'])
 
                 val['obj'] = kinetic_class(
                     species,
-                    **val['params']['phys_params'],
                     **val['params']['markers'],
                     derham=self.derham,
                     domain=self.domain,
                     mhd_equil=self.mhd_equil,
-                    epsilon=self.equation_params[species]['epsilon'],
-                    units_basic=self.units,
-                    background=bckgr_params,
+                    bckgr_params=bckgr_params,
+                    pert_params=pert_params
                 )
 
                 self._pointer[species] = val['obj']
@@ -1468,13 +1463,9 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 pparams[species]['charge'] = val['params']['phys_params']['Z'] * e
 
                 # create temp kinetic object for (default) parameter extraction
-                if 'background' in val['params']:
-                    tmp_str = 'background'
-                else:
-                    tmp_str = 'init'
-                tmp_type = val['params'][tmp_str]['type']
-                tmp_params = val['params'][tmp_str][tmp_type]
-                tmp = getattr(maxwellians, tmp_type)(**tmp_params)
+                tmp_type = val['params']['background']['type']
+                tmp_params = val['params']['background'][tmp_type]
+                tmp = getattr(maxwellians, tmp_type)(maxw_params=tmp_params)
 
                 # density (m⁻³)
                 pparams[species]['density'] = np.mean(tmp.n(
