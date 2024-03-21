@@ -3,7 +3,7 @@ from pyccel.decorators import pure, stack_array
 from numpy import zeros
 from numpy import sin, cos, tan, pi, sqrt, arctan2, arcsin, arctan
 
-import struphy.bsplines.bsplines_kernels as bsplines_kernels 
+import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.bsplines.evaluation_kernels_2d as evaluation_kernels_2d
 import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 
@@ -12,6 +12,9 @@ import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 # Base class
 #==============================================================================
 
+#from abc import ABC
+#
+#
 #class Mapping(ABC):
 #
 #    @abstractmethod
@@ -29,17 +32,26 @@ import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 #    @stack_array('df_mat')
 #    def eval_det_df(self, eta1: float, eta2: float, eta3: float) -> float :
 #
+#        # Allocate temp array on stack
 #        df_mat = empty((3, 3), dtype=float)
-#        df(eta1, eta2, eta3, kind_map, params, t1, t2,
+#
+#        # Call method provided by subclass
+#        self.eval_df(eta1, eta2, eta3, kind_map, params, t1, t2,
 #           t3, p, ind1, ind2, ind3, cx, cy, cz, df_mat)
 #
+#        # Call kernel from another module
 #        return linalg_kernels.det(df_mat)
 #
 #    @stack_array('df_mat')
 #    def eval_df_inv(self, eta1: float, eta2: float, eta3: float, dfinv_out: 'float[:,:]'):
 #
+#        # Allocate temp array on stack
 #        df_mat = empty((3, 3), dtype=float)
+#
+#        # Call method provided by subclass
 #        self.eval_df(eta1, eta2, eta3, df_mat)
+#
+#        # Call kernel from another module
 #        linalg_kernels.matrix_inv(df_mat, dfinv_out)
 
 #==============================================================================
