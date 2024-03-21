@@ -438,7 +438,7 @@ $$
 \begin{align}
     \dot{\boldsymbol \eta} &= \bar{DF}^{-1} \mathbf v\,,
     \\[2mm]
-    \dot{\mathbf v} &= -\frac{1}{\varepsilon}\left( \bar{DF}^{-\top} (\mathbb L^1)^\top \mathbf e   + \bar{\mathbb B}_\times\mathbf{v} \right)\,,
+    \dot{\mathbf v} &= -\frac{1}{\varepsilon}\left( \bar{DF}^{-\top} (\mathbb L^1)^\top \mathbf e   + \bar{\mathbf B}^2_\times\mathbf{v} \right)\,,
     \\[2mm]
     - \mathbb M^1 &\dot{\mathbf e}  + \mathbb C^\top \mathbb M^2 \mathbf b = - \frac{\alpha^2}{\varepsilon} \mathbb L^1 \bar{DF}^{-1} \bar{\mathbf w}\, \mathbf v \,,
     \\[3mm]
@@ -453,7 +453,7 @@ $$ (eq:semidisc)
 where we introduced the short-hand notation for the operator
 
 $$
- \bar{\mathbb B}_\times (\cdot) = \textrm{diag} \left( (\cdot)_p\times \frac{DF}{\sqrt g} (\boldsymbol \eta_p)\hat{\mathbf{B}}^2_h (\boldsymbol \eta_p) \right) \in \mathbb R^{(N\times 3) \times (N \times 3)}\,.
+ \bar{\mathbf B}^2_\times (\cdot) = \textrm{diag} \left( (\cdot)_p\times \frac{DF}{\sqrt g} (\boldsymbol \eta_p)\hat{\mathbf{B}}^2_h (\boldsymbol \eta_p) \right) \in \mathbb R^{(N\times 3) \times (N \times 3)}\,.
 $$
 
 (time_disc)=
@@ -517,7 +517,7 @@ $$
  \begin{pmatrix}
   0 & \frac{1}{\alpha^2} \bar{DF}^{-1}\bar{\mathbf w}^{-1} & 0 & 0
  \\
-  - \frac{1}{\alpha^2} \bar{\mathbf w}^{-\top} \bar{DF}^{-\top}& -\frac{1} {\epsilon \alpha^2} \bar{\mathbb B}_\times \bar{\mathbf w}^{-1} & -\frac{1}{\varepsilon} \bar{DF}^{-\top} (\mathbb L^1)^\top (\mathbb M^1)^{-1} & 0
+  - \frac{1}{\alpha^2} \bar{\mathbf w}^{-\top} \bar{DF}^{-\top}& -\frac{1} {\epsilon \alpha^2} \bar{\mathbf B}^2_\times \bar{\mathbf w}^{-1} & -\frac{1}{\varepsilon} \bar{DF}^{-\top} (\mathbb L^1)^\top (\mathbb M^1)^{-1} & 0
  \\
   0 & \frac{1}{\varepsilon} (\mathbb M^1)^{-1} \mathbb L^1 \bar{DF}^{-1}  & 0 & (\mathbb M^1)^{-1} \mathbb C^\top 
  \\
@@ -564,7 +564,7 @@ $$
  \mathbb J_2 &= \begin{pmatrix}
   0 & 0 & 0 & 0
  \\
-  0 & -\frac{1} {\epsilon \alpha^2} \bar{\mathbb B}_\times \bar{\mathbf w}^{-1} & 0 & 0
+  0 & -\frac{1} {\epsilon \alpha^2} \bar{\mathbf B}^2_\times \bar{\mathbf w}^{-1} & 0 & 0
  \\
   0 & 0 & 0 & 0
  \\

@@ -499,12 +499,21 @@ def eval_magnetic_moment_5d(markers: 'float[:,:]',
         markers[ip, 4] = 1/2 * v_perp**2 / abs(B0)
 
 
-@stack_array('bn1', 'bn2', 'bn3')
+@stack_array('dfm', 'norm_b1', 'b', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def eval_magnetic_energy(markers: 'float[:,:]',
-                         pn: 'int[:]',
-                         tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                          starts: 'int[:]',
-                         PB: 'float[:,:,:]'):
+                         kind_map: 'int', params_map: 'float[:]',
+                         p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                         ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                         cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                         abs_B0: 'float[:,:,:]',
+                         norm_b11: 'float[:,:,:]',
+                         norm_b12: 'float[:,:,:]',
+                         norm_b13: 'float[:,:,:]',
+                         b1: 'float[:,:,:]',
+                         b2: 'float[:,:,:]',
+                         b3: 'float[:,:,:]'):
     """
     Evaluate magnetic field energy of each particles
 
@@ -525,14 +534,23 @@ def eval_magnetic_energy(markers: 'float[:,:]',
         b0 : array[float]
             3d array of FE coeffs of the absolute value of static magnetic field (0-form).
     """
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
+    norm_b1 = empty(3, dtype=float)
+    b = empty(3, dtype=float)
+
+    bn1 = empty(int(pn[0]) + 1, dtype=float)
+    bn2 = empty(int(pn[1]) + 1, dtype=float)
+    bn3 = empty(int(pn[2]) + 1, dtype=float)
+
+    bd1 = empty(int(pn[0]), dtype=float)
+    bd2 = empty(int(pn[1]), dtype=float)
+    bd3 = empty(int(pn[2]), dtype=float)
+
+    dfm = empty((3, 3), dtype=float)
 
     # get number of markers
     n_markers = shape(markers)[0]
 
+    #$ omp parallel private(ip, eta1, eta2, eta3, mu, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, b_para, abs_B, norm_b1, dfm, det_df)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
@@ -542,22 +560,53 @@ def eval_magnetic_energy(markers: 'float[:,:]',
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
+        mu = markers[ip, 4]
+
         # spline evaluation
         span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
         span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
         span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
 
-        bsplines_kernels.b_splines_slim(tn1, pn[0], eta1, span1, bn1)
-        bsplines_kernels.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
-        bsplines_kernels.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
+        bsplines_kernels.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
 
-        B0 = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, PB, starts)
+        # evaluate Jacobian, result in dfm
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
-        # if B0 < 0:
-        #     print('minus', B0)
+        det_df = linalg_kernels.det(dfm)
 
-        markers[ip, 8] = B0*markers[ip, 4]
+        # abs_B0; 0form
+        abs_B = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_B0, starts)
+
+        # b; 2form
+        b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
+        b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
+        b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b3, starts)
+
+        # norm_b1; 1form
+        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            int(pn[0]) - 1, int(pn[1]), int(pn[2]), bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
+        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            int(pn[0]), int(pn[1]) - 1, int(pn[2]), bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
+        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
+
+        b_para = linalg_kernels.scalar_dot(norm_b1, b)
+        b_para /= det_df
+
+        markers[ip, 8] = mu*(abs_B + b_para)
+
+    #$ omp end parallel
 
 
 @stack_array('grad_PB', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'tmp')

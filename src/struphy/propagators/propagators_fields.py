@@ -1533,7 +1533,7 @@ class CurrentCoupling6DDensity(Propagator):
 
 
 class ShearAlfvénCurrentCoupling5D(Propagator):
-    r'''Crank-Nicolson step for the shear Alfvén part in `LinearMHDDriftkineticCC <https://struphy.pages.mpcdf.de/struphy/sections/models.html#struphy.models.hybrid.LinearMHDDriftkineticCC>`_ model,
+    r'''Crank-Nicolson scheme for the shear Alfvén step in :class:`~struphy.models.hybrid.LinearMHDDriftkineticCC`,
 
     Equation:
 
@@ -1541,7 +1541,7 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
 
         \left\{ 
             \begin{aligned} 
-                n_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} = \nabla \times \left(\mathbf B + \frac{A_h}{A_b} \iint f_{\textnormal{h}} \mu \mathbf b_0 \textnormal{d} v_\parallel \textnormal{d} \mu \right) \times \mathbf B_0 \,,
+                \int n_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \tilde{\mathbf V} \, \textnormal{d} \mathbf{x} = \int \left(\tilde{\mathbf B} - \frac{A_\textnormal{h}}{A_b} \iint f^\text{vol} \mu \mathbf{b}_0\textnormal{d} \mu \textnormal{d} v_\parallel \right) \cdot \nabla \times (\mathbf B_0 \times \tilde{\mathbf V}) \, \textnormal{d} \mathbf{x} \quad \forall \ \tilde{\mathbf V} \,,
                 \\
                 &\frac{\partial \tilde{\mathbf B}}{\partial t} = - \nabla \times (\mathbf B_0 \times \tilde{\mathbf U}) \,.
             \end{aligned}
@@ -1552,29 +1552,29 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
     .. math::
 
         \begin{bmatrix} 
-            \mathbf u^{n+1} - \mathbf u^n \\ \mathbf b^{n+1} - \mathbf b^n \,,
+            \mathbf u^{n+1} - \mathbf u^n \\ \mathbf b^{n+1} - \mathbf b^n
         \end{bmatrix} 
         = \frac{\Delta t}{2} \,.
         \begin{bmatrix} 
-            0 & (\mathbb M^\rho_\alpha)^{-1} \mathcal {T^\alpha}^\top \mathbb C^\top \\ - \mathbb C \mathcal {T^\alpha} (\mathbb M^\rho_\alpha)^{-1} & 0 
+            0 & (\mathbb M^{\alpha,n})^{-1} \mathcal {T^\alpha}^\top \mathbb C^\top \\ - \mathbb C \mathcal {T^\alpha} (\mathbb M^{\alpha,n})^{-1} & 0 
         \end{bmatrix} 
         \begin{bmatrix}
-            {\mathbb M^\rho_\alpha}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_2(\mathbf b^{n+1} + \mathbf b^n) + \mathcal{P}_b^{\top} \sum_k^{N_p} \omega_k \mu_k \Lambda^0(\boldsymbol \eta_k) 
+            {\mathbb M^{\alpha,n}}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_2(\mathbf b^{n+1} + \mathbf b^n) + \sum_k^{N_p} \omega_k \mu_k \hat{\mathbf b}¹_0 (\boldsymbol \eta_k) \cdot \left(\frac{1}{\sqrt{g(\boldsymbol \eta_k)}} \vec \Lambda² (\boldsymbol \eta_k) \right)
         \end{bmatrix} \,,
 
     where 
-    :math:`\mathcal{T}^\alpha` and :math:`\mathcal{P}_b` are :ref:`basis_ops` and
-    :math:`\mathbb M^\rho_\alpha` is a :ref:`weighted_mass` being weighted with :math:`\rho_0`, the MHD equilibirum density. 
+    :math:`\mathcal{T}^\alpha` is a :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperators` and
+    :math:`\mathbb M^{\alpha,n}` is a :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`\rho_\text{eq}`, the MHD equilibirum density. 
     :math:`\alpha \in \{1, 2, v\}` denotes the :math:`\alpha`-form space where the operators correspond to.
-    Moreover, :math:`\sum_k^{N_p} \omega_k \mu_k \Lambda^0(\boldsymbol \eta_k)` is accumulated by the kernel `cc_lin_mhd_5d_mu <https://struphy.pages.mpcdf.de/struphy/sections/accumulators.html#struphy.pic.accumulation.accum_kernels_gc.cc_lin_mhd_5d_mu>`_ .
-    The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
+    Moreover, :math:`\sum_k^{N_p} \omega_k \mu_k \hat{\mathbf b}¹_0 (\boldsymbol \eta_k) \cdot \left(\frac{1}{\sqrt{g(\boldsymbol \eta_k)}} \vec \Lambda² (\boldsymbol \eta_k)\right)` is accumulated by the kernel :class:`~struphy.pic.accumulation.accum_kernels_gc.cc_lin_mhd_5d_M`.
+    The solution of the above system is based on the :class:`struphy.linear_algebra.schur_solver.SchurSolver`.
 
     Parameters
     ---------- 
-    u : psydac.linalg.block.BlockVector
+    u : BlockVector
         FE coefficients of MHD velocity.
 
-    b : psydac.linalg.block.BlockVector
+    b : BlockVector
         FE coefficients of magnetic field as 2-form.
 
     **params : dict
@@ -1590,7 +1590,7 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
         # parameters
         params_default = {'particles': Particles5D,
                           'u_space': 'Hdiv',
-                          'b_eq': None,
+                          'unit_b1': None,
                           'f0': Maxwellian5D(),
                           'type': ('pcg', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
@@ -1602,27 +1602,23 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
 
         params = set_defaults(params, params_default)
 
-        assert isinstance(params['particles'], Particles5D)
         self._particles = params['particles']
-
-        assert params['u_space'] in {'Hcurl', 'Hdiv', 'H1vec'}
-
         self._f0 = params['f0']
-        assert isinstance(params['b_eq'], (BlockVector, PolarVector))
-        self._b_eq = params['b_eq']
-
         self._type = params['type'][0]
         self._tol = params['tol']
         self._maxiter = params['maxiter']
         self._info = params['info']
         self._verbose = params['verbose']
         self._rank = self.derham.comm.Get_rank()
+        self._scale_vec = params['Ah'] / params['Ab']
 
-        self._coupling_const = params['Ah'] / params['Ab']
+        self._unit_b1 = params['unit_b1']
 
-        self._PB = getattr(self.basis_ops, 'PB')
+        self._E1T = self.derham.extraction_ops['1'].transpose()
+        self._unit_b1 = self._E1T.dot(self._unit_b1)
+
         self._ACC = Accumulator(self.derham, self.domain,
-                                'H1', 'cc_lin_mhd_5d_mu', add_vector=True)
+                                'Hdiv', 'cc_lin_mhd_5d_M', add_vector=True, symmetry='symm')
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         id_M = 'M' + self.derham.space_to_form[params['u_space']] + 'n'
@@ -1633,7 +1629,7 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
 
         self._B = -1/2 * _T.T @ self.derham.curl.T @ self.mass_ops.M2
         self._C = 1/2 * self.derham.curl @ _T
-        self._B2 = -1/2. * _T.T @ self.derham.curl.T @ self._PB.T
+        self._B2 = -1/2 * _T.T @ self.derham.curl.T
 
         # Preconditioner
         if params['type'][1] is None:
@@ -1666,8 +1662,10 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
         un = self.feec_vars[0]
         bn = self.feec_vars[1]
 
-        # accumulate scalar
-        self._ACC.accumulate(self._particles, self._coupling_const)
+        # accumulate vector
+        self._ACC.accumulate(self._particles, 
+                             self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                             self._scale_vec, 0.1)
 
         # solve for new u coeffs (no tmps created here)
         byn = self._B.dot(bn, out=self._byn)
@@ -1707,7 +1705,7 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
 
 
 class MagnetosonicCurrentCoupling5D(Propagator):
-    r'''Crank-Nicolson step for Magnetosonic part in `LinearMHDDriftkineticCC <https://struphy.pages.mpcdf.de/struphy/sections/models.html#struphy.models.hybrid.LinearMHDDriftkineticCC>`_ model,
+    r'''Crank-Nicolson scheme for Magnetosonic step in :class:`~struphy.models.hybrid.LinearMHDDriftkineticCC`,
 
     Equation:
 
@@ -1717,9 +1715,9 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             \begin{aligned}
                 &\frac{\partial \tilde n}{\partial t} = - \nabla \cdot (n_0 \tilde{\mathbf U}) \,,
                 \\
-                n_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} = \nabla \times \left(\mathbf B_0 + \frac{A_\textnormal{h}}{A_b}\iint f_{\textnormal{h}} \mu \mathbf b_0 \textnormal{d} v_\parallel \textnormal{d} \mu \right) \times \tilde{\mathbf B} - \nabla \tilde p \,,
+                \int n_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \tilde{\mathbf V} \, \textnormal{d} \mathbf{x} = \int (\nabla \times \mathbf B_0) \times \tilde{\mathbf B} \cdot \tilde{\mathbf V} \, \textnormal{d} \mathbf x + \frac{A_\textnormal{h}}{A_b}\iint f^\text{vol} \mu \mathbf b_0 \cdot \nabla \times (\tilde{\mathbf B} \times \tilde{\mathbf V}) \, \textnormal{d} \mathbf x \textnormal{d} v_\parallel \textnormal{d} \mu + \int \tilde p \nabla \cdot \tilde{\mathbf V} \, \textnormal{d} \mathbf x \qquad \forall \ \tilde{\mathbf V}\,,
                 \\
-                &\frac{\partial \tilde p}{\partial t} = - \nabla \cdot (p_0 \tilde{\mathbf U}) \,.
+                &\frac{\partial \tilde p}{\partial t} = - \nabla \cdot (p_0 \tilde{\mathbf U}) - (\gamma - 1) p_0 \nabla \cdot \tilde{\mathbf U} \,.
             \end{aligned} 
         \right.
 
@@ -1727,7 +1725,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
 
     .. math::
 
-        \boldsymbol{\rho}^{n+1} - \boldsymbol{\rho}^n = - \frac{\Delta t}{2} \mathbb D \mathcal Q^\alpha (\mathbf u^{n+1} + \mathbf u^n) \,,
+        \boldsymbol{n}^{n+1} - \boldsymbol{n}^n = - \frac{\Delta t}{2} \mathbb D \mathcal Q^\alpha (\mathbf u^{n+1} + \mathbf u^n) \,,
 
     .. math::
 
@@ -1736,31 +1734,37 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         \end{bmatrix} 
         = \frac{\Delta t}{2} 
         \begin{bmatrix} 
-            0 & (\mathbb M^\rho_\alpha)^{-1} {\mathcal U^\alpha}^\top \mathbb D^\top \mathbb M_3 \\ - \mathbb D \mathcal S^\alpha - (\gamma - 1) \mathcal K^\alpha \mathbb D \mathcal U^\alpha & 0 
+            0 & (\mathbb M^{\alpha,n})^{-1} {\mathcal U^\alpha}^\top \mathbb D^\top \mathbb M_3 \\ - \mathbb D \mathcal S^\alpha - (\gamma - 1) \mathcal K^\alpha \mathbb D \mathcal U^\alpha & 0 
         \end{bmatrix} 
         \begin{bmatrix} 
             (\mathbf u^{n+1} + \mathbf u^n) \\ (\mathbf p^{n+1} + \mathbf p^n) 
         \end{bmatrix} + 
         \begin{bmatrix} 
-            \Delta t (\mathbb M^\rho_\alpha)^{-1}\left[\mathbb M^J_\alpha \mathbf b^n + \sum_k^{N_p} \omega_k \mu_k \left\{(\hat \nabla \times \hat{\mathbf b}_0^1) \times \hat{\mathbf B}^2\right\}(\boldsymbol \eta_k)\right] \\ 0 
+            \Delta t (\mathbb M^{\alpha,n})^{-1}\left[\mathbb M^{\alpha,J} \mathbf b^n + \frac{A_\textnormal{h}}{A_b}{\mathcal{T}^B}^\top \mathbb{C}^\top \sum_k^{N_p} \omega_k \mu_k \hat{\mathbf b}¹_0 (\boldsymbol \eta_k) \cdot \left(\frac{1}{\sqrt{g(\boldsymbol \eta_k)}} \vec \Lambda² (\boldsymbol \eta_k) \right)\right] \\ 0 
         \end{bmatrix} \,,
 
     where 
-    :math:`\mathcal U^\alpha`, :math:`\mathcal S^\alpha`, :math:`\mathcal K^\alpha` and :math:`\mathcal Q^\alpha` are :ref:`basis_ops` and
-    :math:`\mathbb M^\rho_\alpha` and :math:`\mathbb M^J_\alpha` are :ref:`weighted_mass` being weighted with :math:`\rho_0` and :math:`\mathbf J_0 = \nabla \times \mathbf B_0`, the MHD equilibrium density and current density. 
+    :math:`\mathcal U^\alpha`, :math:`\mathcal S^\alpha`, :math:`\mathcal K^\alpha` and :math:`\mathcal Q^\alpha` are :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperators` and
+    :math:`\mathbb M^{\alpha,n}` and :math:`\mathbb M^{\alpha,J}` are :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`n_0` the MHD equilibrium density. 
     :math:`\alpha \in \{1, 2, v\}` denotes the :math:`\alpha`-form space where the operators correspond to.
-    Moreover, :math:`\sum_k^{N_p} \omega_k \mu_k \left\{(\hat \nabla \times \hat{\mathbf b}_0^1) \times \hat{\mathbf B}^2\right\}(\boldsymbol \eta_k)` is accumulated by by the kernel `cc_lin_mhd_5d_curlMxB <https://struphy.pages.mpcdf.de/struphy/sections/accumulators.html#struphy.pic.accumulation.accum_kernels_gc.cc_lin_mhd_5d_curlMxB>`_.
-    The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
+    Moreover, :math:`\sum_k^{N_p} \omega_k \mu_k \hat{\mathbf b}¹_0 (\boldsymbol \eta_k) \cdot \left(\frac{1}{\sqrt{g(\boldsymbol \eta_k)}} \vec \Lambda² (\boldsymbol \eta_k)\right)` is accumulated by the kernel :class:`~struphy.pic.accumulation.accum_kernels_gc.cc_lin_mhd_5d_M` and
+    the time-varying projection operator :math:`\mathcal{T}^B` is defined as
+
+    .. math::
+
+        \mathcal{T}^B_{(\mu,ijk),(\nu,mno)} := \hat \Pi¹_{(\mu,ijk)} \left[ \epsilon_{\mu \alpha \nu} \frac{\tilde{B}^2_\alpha}{\sqrt{g}} \Lambda²_{\nu,mno} \right] \,.
+
+    The solution of the above system is based on the :class:`struphy.linear_algebra.schur_solver.SchurSolver`.
 
     Parameters
     ---------- 
-    n : psydac.linalg.stencil.StencilVector
+    n : StencilVector
         FE coefficients of a discrete 3-form.
 
-    u : psydac.linalg.block.BlockVector
+    u : BlockVector
         FE coefficients of MHD velocity.
 
-    p : psydac.linalg.stencil.StencilVector
+    p : StencilVector
         FE coefficients of a discrete 3-form.
 
     **params : dict
@@ -1778,7 +1782,6 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                           'particles': Particles5D,
                           'u_space': 'Hdiv',
                           'unit_b1': None,
-                          'curl_unit_b2': None,
                           'f0': Maxwellian5D(),
                           'type': ('pbicgstab', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
@@ -1794,35 +1797,36 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._particles = params['particles']
 
         assert params['u_space'] in {'Hcurl', 'Hdiv', 'H1vec'}
-        if params['u_space'] == 'H1vec':
+        self._u_id=  self.derham.space_to_form[params['u_space']]
+        if self._u_id == 'v':
             self._space_key_int = 0
         else:
-            self._space_key_int = int(
-                self.derham.space_to_form[params['u_space']])
+            self._space_key_int = int(self._u_id)
 
         self._f0 = params['f0']
         self._b = params['b']
-        self._unit_b1 = params['unit_b1']
-        self._curl_norm_b = params['curl_unit_b2']
-        self._curl_norm_b.update_ghost_regions()
         self._bc = self.derham.dirichlet_bc
         self._info = params['info']
         self._rank = self.derham.comm.Get_rank()
+        self._scale_vec = params['Ah'] / params['Ab']
 
-        self._coupling_const = params['Ah'] / params['Ab']
+        self._unit_b1 = params['unit_b1']
+
+        self._E1T = self.derham.extraction_ops['1'].transpose()
+        self._unit_b1 = self._E1T.dot(self._unit_b1)
 
         self._ACC = Accumulator(self.derham, self.domain,
-                                params['u_space'], 'cc_lin_mhd_5d_curlMxB', add_vector=True)
+                                'Hdiv', 'cc_lin_mhd_5d_M', add_vector=True, symmetry='symm')
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        id_Mn = 'M' + self.derham.space_to_form[params['u_space']] + 'n'
-        id_MJ = 'M' + self.derham.space_to_form[params['u_space']] + 'J'
+        id_Mn = 'M' + self._u_id + 'n'
+        id_MJ = 'M' + self._u_id + 'J'
 
-        if params['u_space'] == 'Hcurl':
+        if self._u_id == '1':
             id_S, id_U, id_K, id_Q = 'S1', 'U1', 'K3', 'Q1'
-        elif params['u_space'] == 'Hdiv':
+        elif self._u_id == '2':
             id_S, id_U, id_K, id_Q = 'S2', None, 'K3', 'Q2'
-        elif params['u_space'] == 'H1vec':
+        elif self._u_id == 'v':
             id_S, id_U, id_K, id_Q = 'Sv', 'Uv', 'K3', 'Qv'
 
         self._E2T = self.derham.extraction_ops['2'].transpose()
@@ -1830,6 +1834,9 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         _A = getattr(self.mass_ops, id_Mn)
         _S = getattr(self.basis_ops, id_S)
         _K = getattr(self.basis_ops, id_K)
+
+        # initialize projection operator TB
+        self._initialize_projection_operator_TB()
 
         if id_U is None:
             _U, _UT = IdentityOperator(u.space), IdentityOperator(u.space)
@@ -1843,6 +1850,8 @@ class MagnetosonicCurrentCoupling5D(Propagator):
 
         self._MJ = getattr(self.mass_ops, id_MJ)
         self._DQ = self.derham.div @ getattr(self.basis_ops, id_Q)
+
+        self._TC = self._TB.T @ self.derham.curl.T
 
         # preconditioner
         if params['type'][1] is None:
@@ -1866,9 +1875,9 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._u_tmp2 = u.space.zeros()
         self._p_tmp1 = p.space.zeros()
         self._n_tmp1 = n.space.zeros()
-        self._b_tmp = self._E2T.codomain.zeros()
         self._byn1 = self._B.codomain.zeros()
         self._byn2 = self._B.codomain.zeros()
+        self._tmp_acc = self._TC.codomain.zeros()
 
     def __call__(self, dt):
 
@@ -1877,18 +1886,21 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         un = self.feec_vars[1]
         pn = self.feec_vars[2]
 
-        Eb = self._E2T.dot(self._b, out=self._b_tmp)
+        # accumulate vector
+        self._ACC.accumulate(self._particles, 
+                             self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                             self._scale_vec, 0.1)
 
-        # accumulate
-        self._ACC.accumulate(self._particles,
-                             Eb[0]._data, Eb[1]._data, Eb[2]._data,
-                             self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                             self._space_key_int, self._coupling_const)
+
+        # update time-dependent operator
+        self._b.update_ghost_regions()
+        self._update_weights_TB()
 
         # solve for new u coeffs (no tmps created here)
         byn1 = self._B.dot(pn, out=self._byn1)
         byn2 = self._MJ.dot(self._b, out=self._byn2)
-        byn2 -= self._ACC.vectors[0]
+        b2acc = self._TC.dot(self._ACC.vectors[0], out=self._tmp_acc)
+        byn2 += b2acc
         byn2 *= 1/2
         byn1 -= byn2
 
@@ -1930,10 +1942,97 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                          'verbose': False}
         return dct
 
+    def _initialize_projection_operator_TB(self):
+        """Initialize BasisProjectionOperator TB with the time-varying weight.
+
+        .. math::
+
+            \mathcal{T}^B_{(\mu,ijk),(\nu,mno)} := \hat \Pi¹_{(\mu,ijk)} \left[ \epsilon_{\mu \alpha \nu} \frac{\tilde{B}²_\alpha}{\sqrt{g}} \Lambda²_{\nu,mno} \right] \,.
+
+        """
+
+        # Call the projector and the space
+        P1 = self.derham.P['1']
+        Vh = self.derham.Vh_fem[self._u_id]
+
+        # Femfield for the field evaluation
+        self._bf = self.derham.create_field("bf", "Hdiv")
+
+        # define temp callable
+        def tmp(x,y,z): return 0*x
+
+        # Initialize BasisProjectionOperator
+        self._TB = BasisProjectionOperator(P1, Vh, [[tmp, tmp, tmp]])
+
+    def _update_weights_TB(self):
+        """Updats time-dependent weights of the BasisProjectionOperator TB
+        """
+
+        # Update Femfield
+        self._bf.vector = self._b
+        self._bf.vector.update_ghost_regions()
+
+        # define callable weights
+        def bf1(x,y,z): return self._bf(x,y,z,local=True)[0]
+        def bf2(x,y,z): return self._bf(x,y,z,local=True)[1]
+        def bf3(x,y,z): return self._bf(x,y,z,local=True)[2]
+
+        from struphy.feec.utilities import RotationMatrix
+
+        rot_B = RotationMatrix(bf1, bf2, bf3)
+
+        fun = []
+
+        if self._u_id == 'v':
+            for m in range(3):
+                fun += [[]]
+                for n in range(3):
+                    fun[-1] += [lambda e1, e2, e3, m=m, n=n:
+                                rot_B(e1, e2, e3)[:, :, :, m, n]]
+
+        elif self._u_id == '1':
+            for m in range(3):
+                fun += [[]]
+                for n in range(3):
+                    fun[-1] += [lambda e1, e2, e3, m=m, n=n:
+                                (rot_B(e1, e2, e3) @ self.domain.metric_inv(e1, e2, e3, change_out_order=True, squeeze_out=False))[:, :, :, m, n]]
+
+        else:
+            for m in range(3):
+                fun += [[]]
+                for n in range(3):
+                    fun[-1] += [lambda e1, e2, e3, m=m, n=n:
+                                rot_B(e1, e2, e3)[:, :, :, m, n] / abs(self.domain.jacobian_det(e1, e2, e3, squeeze_out=False))]
+
+        # Initialize BasisProjectionOperator
+        self._TB.update_weights(fun)
+
 
 class CurrentCoupling5DDensity(Propagator):
-    """Draft
-    """
+    r'''Crank-Nicolson scheme for the CC-Density step in :class:`~struphy.models.hybrid.LinearMHDDriftkineticCC`,
+
+    Equation:
+
+    .. math::
+
+        \int n_0 \frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \tilde{\mathbf V} \, \textnormal{d} \mathbf{x} = \frac{A_\textnormal{h}}{A_b} \frac{1}{\epsilon} \iiint f^\text{vol} \left(1 - \frac{B_\parallel}{B^*_\parallel}\right) \tilde{\mathbf U} \times \mathbf B_f \cdot \tilde{\mathbf V} \, \textnormal{d} \mathbf{x} \textnormal{d} v_\parallel \textnormal{d} \mu \quad \forall \ \tilde{\mathbf V} \,,
+
+    FE coefficients update:
+
+    .. math::
+
+        \mathbf u^{n+1} - \mathbf u^n = -\frac{A_\textnormal{h}}{A_b} \frac{1}{\epsilon} \mathbb{L}²{\mathbb{B}}^\times_f \mathbb{N}(1/g) \mathbb{W} \mathbb{N}\left(1- \frac{\hat B^0_\parallel}{\hat B^{*0} _\parallel}\right) (\mathbb{L}²)^\top \frac{\Delta t}{2} \cdot (\mathbf u^{n+1} + \mathbf u^n) \,.
+
+    For the detail explanation of the notations, see `2022_DriftKineticCurrentCoupling <https://gitlab.mpcdf.mpg.de/struphy/struphy-projects/-/blob/main/running-projects/2022_DriftKineticCurrentCoupling.md?ref_type=heads>`_.
+
+    Parameters
+    ---------- 
+    u : BlockVector
+        FE coefficients of MHD velocity.
+
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
+    '''
 
     def __init__(self, u, **params):
 
@@ -1947,8 +2046,6 @@ class CurrentCoupling5DDensity(Propagator):
                           'b_eq': None,
                           'b_tilde': None,
                           'unit_b1': None,
-                          'abs_b': None,
-                          'gradB1': None,
                           'curl_unit_b2': None,
                           'f0': Maxwellian5D(),
                           'type': 'pbicgstab',
@@ -1977,8 +2074,6 @@ class CurrentCoupling5DDensity(Propagator):
         self._b_eq = params['b_eq']
         self._b_tilde = params['b_tilde']
         self._unit_b1 = params['unit_b1']
-        self._abs_b = params['abs_b']
-        self._grad_abs_b = params['gradB1']
         self._curl_norm_b = params['curl_unit_b2']
         self._epsilon = params['epsilon']
         self._f0 = params['f0']
@@ -1990,7 +2085,7 @@ class CurrentCoupling5DDensity(Propagator):
         self._verbose = params['verbose']
         self._rank = self.derham.comm.Get_rank()
 
-        self._coupling_const = params['Ah'] / params['Ab']
+        self._scale_mat = params['Ah'] / params['Ab']
         self._accumulator = Accumulator(
             self.derham, self.domain, params['u_space'], 'cc_lin_mhd_5d_D', add_vector=False, symmetry='asym')
 
@@ -2024,8 +2119,6 @@ class CurrentCoupling5DDensity(Propagator):
         # temporary vectors to avoid memory allocation
         self._b_full1 = self._b_eq.space.zeros()
         self._b_full2 = self._E2T.codomain.zeros()
-        self._tmp1 = self._abs_b.space.zeros()
-        self._tmp2 = self._E0T.codomain.zeros()
         self._rhs_v = u.space.zeros()
         self._u_new = u.space.zeros()
 
@@ -2034,9 +2127,6 @@ class CurrentCoupling5DDensity(Propagator):
         return [self._u]
 
     def __call__(self, dt):
-        """TODO
-        """
-
         # pointer to old coefficients
         un = self.feec_vars[0]
 
@@ -2046,21 +2136,14 @@ class CurrentCoupling5DDensity(Propagator):
         if self._b_tilde is not None:
             b_full += self._b_tilde
 
-        PBb = self._PB.dot(self._b_tilde, out=self._tmp1)
-        PBb += self._abs_b
-
         Eb_full = self._E2T.dot(b_full, out=self._b_full2)
         Eb_full.update_ghost_regions()
 
-        EPBb = self._E0T.dot(PBb, out=self._tmp2)
-        EPBb.update_ghost_regions()
-
         self._accumulator.accumulate(self._particles, self._epsilon,
-                                     EPBb._data,
                                      Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
                                      self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                                      self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                     self._space_key_int, self._coupling_const)
+                                     self._space_key_int, self._scale_mat, 0.1)
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
         lhs = self._M - dt/2 * self._accumulator.operators[0]
