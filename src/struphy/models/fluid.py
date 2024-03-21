@@ -9,7 +9,7 @@ class LinearMHD(StruphyModel):
     .. math::
         &\frac{\partial \tilde n}{\partial t}+\nabla\cdot(n_0 \tilde{\mathbf{U}})=0\,, 
 
-        \int n_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \tilde{\mathbf{V}}\,\textrm d \mathbf x  + \int \tilde p\, \nabla \cdot \tilde{\mathbf{V}} \,\textrm d \mathbf x
+        \int n_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \tilde{\mathbf{V}}\,\textrm d \mathbf x  - \int \tilde p\, \nabla \cdot \tilde{\mathbf{V}} \,\textrm d \mathbf x
         =\int \tilde{\mathbf{B}}\cdot \nabla \times (\mathbf{B}_0 \times \tilde{\mathbf{V}})\,\textrm d \mathbf x + \int (\nabla\times\mathbf{B}_0)\times \tilde{\mathbf{B}} \cdot \tilde{\mathbf{V}}\,\textrm d \mathbf x
         \qquad \forall \ \tilde{\mathbf{V}} \in H(\textrm{div})\,,
 

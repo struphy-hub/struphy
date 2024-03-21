@@ -387,17 +387,28 @@ class Particles5D(Particles):
                                 np.array(self.derham.Vh['0'].starts),
                                 absB._data)
 
-    def save_magnetic_energy(self, PB):
+    def save_magnetic_energy(self, abs_B0, unit_b1, b):
         r"""
         Calculate magnetic field energy at each particles' position and asign it into markers[:,8].
         """
-        T1, T2, T3 = self.derham.Vh_fem['0'].knots
+
+        # fixed FEM arguments for the accumulator kernel
+        self._args_fem = (np.array(self.derham.p),
+                          self.derham.Vh_fem['0'].knots[0],
+                          self.derham.Vh_fem['0'].knots[1],
+                          self.derham.Vh_fem['0'].knots[2],
+                          np.array(self.derham.Vh['0'].starts))
 
         E0T = self.derham.extraction_ops['0'].transpose()
+        E1T = self.derham.extraction_ops['1'].transpose()
+        E2T = self.derham.extraction_ops['2'].transpose()
 
-        PB = E0T.dot(PB)
+        abs_B0 = E0T.dot(abs_B0)
+        unit_b1 = E1T.dot(unit_b1)
+        b = E2T.dot(b)
 
         eval_magnetic_energy(self.markers,
-                             np.array(self.derham.p), T1, T2, T3,
-                             np.array(self.derham.Vh['0'].starts),
-                             PB._data)
+                             *self._args_fem, *self._domain.args_map,
+                             abs_B0._data,
+                             unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
+                             b[0]._data, b[1]._data, b[2]._data)
