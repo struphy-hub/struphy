@@ -77,15 +77,14 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
         'bc': bc_params,
         'domain': domain
     }
-    bckgr_params = {'type': 'Maxwellian6D'}
+    bckgr_params = None
 
     particles = Particles6D('energetic_ions', **marker_params,
                             bckgr_params=bckgr_params, derham=derham)
     particles.draw_markers()
 
     # test weights
-    pert_params = {'type': None}
-    particles.initialize_weights(pert_params)
+    particles.initialize_weights()
 
     v1_bins = np.linspace(-5., 5., 200, endpoint=True)
     dv = v1_bins[1] - v1_bins[0]
@@ -121,12 +120,7 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
         'bc': bc_params,
         'domain': domain
     }
-    bckgr_params = {'type': 'Maxwellian6D'}
-
-    particles = Particles6D('energetic_ions', **marker_params,
-                            bckgr_params=bckgr_params, derham=derham)
-    particles.draw_markers()
-
+    bckgr_params = None
     # test weights
     amp_n = 0.1
     l_n = 2
@@ -138,7 +132,13 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
             'amps': {'n': [amp_n]},
         }
     }
-    particles.initialize_weights(pert_params)
+
+    particles = Particles6D('energetic_ions', **marker_params,
+                            bckgr_params=bckgr_params,
+                            pert_params=pert_params,
+                            derham=derham)
+    particles.draw_markers()
+    particles.initialize_weights()
 
     e1_bins = np.linspace(0., 1., 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
@@ -238,12 +238,7 @@ def test_binning_6D_delta_f(Nel, p, spl_kind, mapping, show_plot=False):
         'bc': bc_params,
         'domain': domain
     }
-    bckgr_params = {'type': 'Maxwellian6D'}
-
-    particles = Particles6D('energetic_ions', **marker_params,
-                            bckgr_params=bckgr_params, derham=derham)
-    particles.draw_markers()
-
+    bckgr_params = None
     # test weights
     amp_n = 0.1
     l_n = 2
@@ -255,7 +250,13 @@ def test_binning_6D_delta_f(Nel, p, spl_kind, mapping, show_plot=False):
             'amps': {'n': [amp_n]},
         }
     }
-    particles.initialize_weights(pert_params)
+
+    particles = Particles6D('energetic_ions', **marker_params,
+                            bckgr_params=bckgr_params, 
+                            pert_params=pert_params,
+                            derham=derham)
+    particles.draw_markers()
+    particles.initialize_weights()
 
     e1_bins = np.linspace(0., 1., 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
@@ -356,15 +357,14 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
         'bc': bc_params,
         'domain': domain
     }
-    bckgr_params = {'type': 'Maxwellian6D'}
+    bckgr_params = None
 
     particles = Particles6D('energetic_ions', **marker_params,
                             bckgr_params=bckgr_params, derham=derham)
     particles.draw_markers()
 
     # test weights
-    pert_params = {'type': None}
-    particles.initialize_weights(pert_params)
+    particles.initialize_weights()
 
     v1_bins = np.linspace(-5., 5., 200, endpoint=True)
     dv = v1_bins[1] - v1_bins[0]
@@ -405,12 +405,7 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
         'bc': bc_params,
         'domain': domain
     }
-    bckgr_params = {'type': 'Maxwellian6D'}
-
-    particles = Particles6D('energetic_ions', **marker_params,
-                            bckgr_params=bckgr_params, derham=derham)
-    particles.draw_markers()
-
+    bckgr_params = None
     # test weights
     amp_n = 0.1
     l_n = 2
@@ -422,7 +417,13 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
             'amps': {'n': [amp_n]},
         }
     }
-    particles.initialize_weights(pert_params)
+
+    particles = Particles6D('energetic_ions', **marker_params,
+                            bckgr_params=bckgr_params,
+                            pert_params=pert_params,
+                            derham=derham)
+    particles.draw_markers()
+    particles.initialize_weights()
 
     e1_bins = np.linspace(0., 1., 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
@@ -527,12 +528,7 @@ def test_binning_6D_delta_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
         'bc': bc_params,
         'domain': domain
     }
-    bckgr_params = {'type': 'Maxwellian6D'}
-
-    particles = Particles6D('energetic_ions', **marker_params,
-                            bckgr_params=bckgr_params, derham=derham)
-    particles.draw_markers()
-
+    bckgr_params = None
     # test weights
     amp_n = 0.1
     l_n = 2
@@ -544,7 +540,13 @@ def test_binning_6D_delta_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
             'amps': {'n': [amp_n]},
         }
     }
-    particles.initialize_weights(pert_params)
+
+    particles = Particles6D('energetic_ions', **marker_params,
+                            bckgr_params=bckgr_params,
+                            pert_params=pert_params,
+                            derham=derham)
+    particles.draw_markers()
+    particles.initialize_weights()
 
     e1_bins = np.linspace(0., 1., 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]

@@ -141,39 +141,13 @@ class VlasovAmpereOneSpecies(StruphyModel):
         else:
             self._kappa = self.equation_params['species1']['kappa']
 
-        # get background; set density to n0
+        # set background density factor
         Z0 = spec_params['options']['Z0']
         Z = spec_params['phys_params']['Z']
         assert Z0 * \
             Z < 0, f'Neutralizing background has wrong polarity {Z0 = } to {Z = }.'
 
-        # TODO: this is just a temporary fix until MR !478 is ready
-        if 'control_variate' not in spec_params['markers']['type']:
-            self.pointer['species1']._control_variate = True
-
-            f0_params = spec_params['background']
-            f0_name = f0_params['type']
-
-            from struphy.kinetic_background import maxwellians
-            self.pointer['species1']._f_backgr = getattr(maxwellians, f0_name)(
-                **f0_params[f0_name])
-
-        def n0(eta1, eta2, eta3):
-            '''0-form equilibrium number density, callable at marker positions.
-            A single 2D array must be passed to mhd_equil quantities to trigger marker evaluation (and avoid meshgrid).'''
-            assert eta1.ndim == eta2.ndim == eta3.ndim == 1
-            assert eta1.size == eta2.size == eta3.size
-            etas = np.concatenate(
-                (eta1[:, None], eta2[:, None], eta3[:, None]), axis=1)
-
-            fac = - Z0/Z
-
-            return fac * self.mhd_equil.n0(etas)[0]
-
-        f_backgr = self.pointer['species1'].f_backgr
-        f_backgr.n = n0
-        print(
-            f'\n!!! Background density set to n0 from MHD equilibrium {self.mhd_equil.__class__.__name__}.')
+        self.pointer['species1'].f_backgr.moment_factors['n'] = - Z0/Z
 
         # check mean velocity
         # TODO: assert f_backgr.params[] == 0.
@@ -434,52 +408,14 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             self._alpha = self.equation_params['species1']['alpha']
             self._epsilon = self.equation_params['species1']['epsilon']
 
-        # get background; set mean velocity to curl(B0) and density to n0
+        # set background density and mean velocity factors
         Z0 = spec_params['options']['Z0']
         Z = spec_params['phys_params']['Z']
+        assert Z0 * \
+            Z < 0, f'Neutralizing background has wrong polarity {Z0 = } to {Z = }.'
 
-        # TODO: this is just a temporary fix until MR !478 is ready
-        if 'control_variate' not in spec_params['markers']['type']:
-            self.pointer['species1']._control_variate = True
-
-            f0_params = spec_params['background']
-            f0_name = f0_params['type']
-
-            from struphy.kinetic_background import maxwellians
-            self.pointer['species1']._f_backgr = getattr(maxwellians, f0_name)(
-                **f0_params[f0_name])
-
-        def n0(eta1, eta2, eta3):
-            '''0-form equilibrium number density, callable at marker positions.
-            A single 2D array must be passed to mhd_equil quantities to trigger marker evaluation (and avoid meshgrid).'''
-            assert eta1.ndim == eta2.ndim == eta3.ndim == 1
-            assert eta1.size == eta2.size == eta3.size
-            etas = np.concatenate(
-                (eta1[:, None], eta2[:, None], eta3[:, None]), axis=1)
-
-            fac = - Z0/Z
-
-            return fac * self.mhd_equil.n0(etas)[0]
-
-        def j_cart(eta1, eta2, eta3):
-            '''Cartesian components of equilibirum current (=curl B0) at marker positions.
-            A single 2D array must be passed to mhd_equil quantities to trigger marker evaluation (and avoid meshgrid).'''
-            assert eta1.ndim == eta2.ndim == eta3.ndim == 1
-            assert eta1.size == eta2.size == eta3.size
-            etas = np.concatenate(
-                (eta1[:, None], eta2[:, None], eta3[:, None]), axis=1)
-
-            fac = self._epsilon/self._alpha**2
-
-            return fac * self.mhd_equil.j_cart(etas)[0]
-
-        f_backgr = self.pointer['species1'].f_backgr
-        f_backgr.n = n0
-        f_backgr.u = j_cart
-        print(
-            f'\n!!! Background density set to n0 from MHD equilibrium {self.mhd_equil.__class__.__name__}.')
-        print(
-            f'!!! Background mean velocity set to curl(B0) from MHD equilibrium {self.mhd_equil.__class__.__name__}.')
+        self.pointer['species1'].f_backgr.moment_factors['n'] = - Z0/Z
+        self.pointer['species1'].f_backgr.moment_factors['u'] = [self._epsilon/self._alpha**2]*3
 
         # Initialize background magnetic field from MHD equilibrium
         b_backgr = self.derham.P['2']([self.mhd_equil.b2_1,
@@ -711,13 +647,13 @@ class LinearVlasovMaxwell(StruphyModel):
 
         self._maxwellian_params = self._electron_params['background']['Maxwellian6D']
         self.pointer['electrons']._f_backgr = getattr(
-            kin_ana, 'Maxwellian6D')(**self._maxwellian_params)
+            kin_ana, 'Maxwellian6D')(maxw_params=self._maxwellian_params)
         self._f0 = self.pointer['electrons'].f_backgr
 
-        assert self._f0.bckgr_params['u1'] == 0., "No shifts in velocity space possible!"
-        assert self._f0.bckgr_params['u2'] == 0., "No shifts in velocity space possible!"
-        assert self._f0.bckgr_params['u3'] == 0., "No shifts in velocity space possible!"
-        assert self._f0.bckgr_params['vth1'] == self._f0.bckgr_params['vth2'] == self._f0.bckgr_params['vth3'], \
+        assert self._f0.maxw_params['u1'] == 0., "No shifts in velocity space possible!"
+        assert self._f0.maxw_params['u2'] == 0., "No shifts in velocity space possible!"
+        assert self._f0.maxw_params['u3'] == 0., "No shifts in velocity space possible!"
+        assert self._f0.maxw_params['vth1'] == self._f0.maxw_params['vth2'] == self._f0.maxw_params['vth3'], \
             "Background Maxwellian must be isotropic in velocity space!"
 
         # Get coupling strength
@@ -944,9 +880,9 @@ class LinearVlasovMaxwell(StruphyModel):
         # alpha^2 / (2N) * (v_th_1 * v_th_2 * v_th_3)^(2/3) * sum_p s_0 * w_p^2
         self._tmp[0] = \
             self.alpha**2 / (2 * self.pointer['electrons'].n_mks) * \
-            (self._f0.bckgr_params['vth1'] *
-             self._f0.bckgr_params['vth2'] *
-             self._f0.bckgr_params['vth3'])**(2/3) * \
+            (self._f0.maxw_params['vth1'] *
+             self._f0.maxw_params['vth2'] *
+             self._f0.maxw_params['vth3'])**(2/3) * \
             np.dot(self.pointer['electrons'].markers_wo_holes[:, 6]**2,  # w_p^2
                    self.pointer['electrons'].markers_wo_holes[:, 7])  # s_{0,p}
 
@@ -1064,15 +1000,15 @@ class DeltaFVlasovMaxwell(StruphyModel):
                 "The background distribution function must be a uniform Maxwellian!")
 
         self.pointer['electrons']._f_backgr = getattr(
-            kin_ana, 'Maxwellian6D')(**self._electron_params['background']['Maxwellian6D']
+            kin_ana, 'Maxwellian6D')(maxw_params=self._electron_params['background']['Maxwellian6D']
                                      )
         self._f0 = self.pointer['electrons'].f_backgr
         self._maxwellian_params = self._electron_params['background']['Maxwellian6D']
 
-        assert self._f0.bckgr_params['u1'] == 0., "No shifts in velocity space possible!"
-        assert self._f0.bckgr_params['u2'] == 0., "No shifts in velocity space possible!"
-        assert self._f0.bckgr_params['u3'] == 0., "No shifts in velocity space possible!"
-        assert self._f0.bckgr_params['vth1'] == self._f0.bckgr_params['vth2'] == self._f0.bckgr_params['vth3'], \
+        assert self._f0.maxw_params['u1'] == 0., "No shifts in velocity space possible!"
+        assert self._f0.maxw_params['u2'] == 0., "No shifts in velocity space possible!"
+        assert self._f0.maxw_params['u3'] == 0., "No shifts in velocity space possible!"
+        assert self._f0.maxw_params['vth1'] == self._f0.maxw_params['vth2'] == self._f0.maxw_params['vth3'], \
             "Background Maxwellian must be isotropic in velocity space!"
 
         # Get coupling strength
@@ -1295,9 +1231,9 @@ class DeltaFVlasovMaxwell(StruphyModel):
         # alpha^2 * v_th_1^2 * v_th_2^2 * v_th_3^2 * sum_p w_p
         self._tmp[0] = \
             self.alpha**2 * \
-            (self._f0.bckgr_params['vth1'] *
-             self._f0.bckgr_params['vth2'] *
-             self._f0.bckgr_params['vth3'])**(2/3) * \
+            (self._f0.maxw_params['vth1'] *
+             self._f0.maxw_params['vth2'] *
+             self._f0.maxw_params['vth3'])**(2/3) * \
             np.sum(self.pointer['electrons'].markers_wo_holes[:, 6]) / \
             self.pointer['electrons'].n_mks
 

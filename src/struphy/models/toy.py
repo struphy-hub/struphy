@@ -186,8 +186,8 @@ class Vlasov(StruphyModel):
         self.update_scalar('en_f', self._tmp[0])
 
 
-class DriftKinetic(StruphyModel):
-    r'''Drift-kinetic equation in static background magnetic field (guiding-center motion). 
+class GuidingCenter(StruphyModel):
+    r'''Guiding center equation in static background magnetic field. 
 
     :ref:`normalization`:
 

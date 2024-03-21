@@ -59,7 +59,7 @@ def test_tutorial_05():
     if rank == 0:
         pproc_struphy.main(os.path.join(o_path, 'tutorial_05a'))
     
-    main('DriftKinetic', 
+    main('GuidingCenter', 
          os.path.join(i_path, 'tutorials', 'params_05b.yml'), 
          os.path.join(o_path, 'tutorial_05b'))
 

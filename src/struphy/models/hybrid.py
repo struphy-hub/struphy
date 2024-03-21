@@ -133,7 +133,7 @@ class LinearMHDVlasovCC(StruphyModel):
             control = True
             f0_name = params['kinetic']['energetic_ions']['background']['type']
             f0 = getattr(kin_ana, f0_name)(
-                **params['kinetic']['energetic_ions']['background'][f0_name])
+                maxw_params=params['kinetic']['energetic_ions']['background'][f0_name])
         else:
             control = False
             f0 = None
@@ -388,7 +388,7 @@ class LinearMHDVlasovPC(StruphyModel):
             control = True
             f0_name = params['kinetic']['energetic_ions']['background']['type']
             f0 = getattr(kin_ana, f0_name)(
-                **params['kinetic']['energetic_ions']['background'][f0_name])
+                maxw_params=params['kinetic']['energetic_ions']['background'][f0_name])
         else:
             control = False
             f0 = None
@@ -643,7 +643,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             control = True
             f0_name = params['kinetic']['energetic_ions']['background']['type']
             f0 = getattr(kin_ana, f0_name)(
-                **params['kinetic']['energetic_ions']['background'][f0_name])
+                maxw_params=params['kinetic']['energetic_ions']['background'][f0_name])
         else:
             control = False
             f0 = None
