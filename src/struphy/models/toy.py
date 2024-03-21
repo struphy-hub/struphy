@@ -869,12 +869,18 @@ class VariationalCompressibleFluid(StruphyModel):
             en_prop.integration_grid_V3_spans, en_prop.integration_grid_V3_bd, out=en_prop._sf_values_V3)
         rhof_values = en_prop.rhof.eval_tp_fixed_loc(
             en_prop.integration_grid_V3_spans, en_prop.integration_grid_V3_bd, out=en_prop._rhof_values_V3)
-        e = en_prop._ener
-        ener_values = en_prop._proj_ener_metric_term*e(rhof_values, sf_values)
+        e = self.__ener
+        ener_values = en_prop._proj_rho2_metric_term*e(rhof_values, sf_values)
         en_prop._get_L2dofs_V3(ener_values, dofs=en_prop._linear_form_dl_ds)
         en_thermo = self._integrator.dot(en_prop._linear_form_dl_ds)
         self.update_scalar('en_thermo', en_thermo)
         return en_thermo
+    
+    def __ener(self, rho, s):
+        """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
+        E(rho, s) = rho^gamma*exp(s/rho)"""
+        gam = self._params['fluid']['fluid']['options']['physics']['gamma']
+        return np.power(rho, gam)*np.exp(s/rho)
 
 
 class Poisson(StruphyModel):
