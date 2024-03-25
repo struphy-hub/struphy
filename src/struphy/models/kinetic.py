@@ -278,7 +278,8 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
 
 class VlasovPoissonSimple(StruphyModel):
-    r'''Vlasov equation in static background magnetic field.
+    r'''Vlasov-Poisson equations (in fixed magnetic field) for electrons in a static ion background:
+.
 
     :ref:`normalization`:
 
@@ -290,7 +291,13 @@ class VlasovPoissonSimple(StruphyModel):
 
     .. math::
 
-        \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \left(\mathbf{v}\times\mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0\,,
+        \frac{\partial f}{\partial t} + v \cdot \nabla f - \frac{e}{m} \left( -\nabla \phi + v \times B_0 \right) \cdot \nabla_v f = 0,
+        
+        -\varepsilon_0 \nabla \cdot \nabla \phi = \rho_{i0} - e \int f d^3 v.
+        
+    This model uses the weak Poisson equation:
+    
+        \nabla_x \phi(\mathbf{x}) = DF^T \nabla_\eta \phi(\boldsymbol{\eta}),
 
     Parameters
     ----------
@@ -306,7 +313,6 @@ class VlasovPoissonSimple(StruphyModel):
 
         dct['em_fields']['phi'] = 'H1'
         dct['kinetic']['species1'] = 'Particles6D'
-        dct['kinetic']['electrons'] = 'Particles6D'
         return dct
 
     @classmethod
@@ -329,12 +335,6 @@ class VlasovPoissonSimple(StruphyModel):
                        option=ImplicitDiffusion.options()['solver'], dct=dct)
         cls.add_option(species=['kinetic', 'species1'], key=['algos', 'push_eta'],
                        option=PushEta.options()['algo'], dct=dct)
-        # cls.add_option(species=['kinetic', 'species1'], key='method',
-        #                option=PushVinEfield.options()['analytical'], dct=dct)
-        cls.add_option(species=['em_fields'], key=['poisson', 'model'],
-                       option=ImplicitDiffusion.options()['model'], dct=dct)
-        cls.add_option(species=['em_fields'], key=['poisson', 'solver'],
-                       option=ImplicitDiffusion.options()['solver'], dct=dct)
         cls.add_option(species=['kinetic', 'species1'], key='verification',
                        option={'set_kappa': False, 'value': 1.}, dct=dct)
         cls.add_option(species=['kinetic', 'species1'], key='Z0',
@@ -370,34 +370,7 @@ class VlasovPoissonSimple(StruphyModel):
         Z = spec_params['phys_params']['Z']
         assert Z0 * \
             Z < 0, f'Neutralizing background has wrong polarity {Z0 = } to {Z = }.'
-
-        # TODO: this is just a temporary fix until MR !478 is ready
-        if 'control_variate' not in spec_params['markers']['type']:
-            self.pointer['species1']._control_variate = True
-
-            f0_params = spec_params['background']
-            f0_name = f0_params['type']
-
-            from struphy.kinetic_background import maxwellians
-            self.pointer['species1']._f_backgr = getattr(maxwellians, f0_name)(
-                **f0_params[f0_name])
-
-        def n0(eta1, eta2, eta3):
-            '''0-form equilibrium number density, callable at marker positions.
-            A single 2D array must be passed to mhd_equil quantities to trigger marker evaluation (and avoid meshgrid).'''
-            assert eta1.ndim == eta2.ndim == eta3.ndim == 1
-            assert eta1.size == eta2.size == eta3.size
-            etas = np.concatenate(
-                (eta1[:, None], eta2[:, None], eta3[:, None]), axis=1)
-
-            fac = - Z0/Z
-
-            return fac * self.mhd_equil.n0(etas)[0]
-
-        f_backgr = self.pointer['species1'].f_backgr
-        f_backgr.n = n0
-        print(
-            f'\n!!! Background density set to n0 from MHD equilibrium {self.mhd_equil.__class__.__name__}.')
+            
          # Create pointers to background electric potential and field
         self._phi_background = self.derham.P['0'](self.electric_equil.phi0)
         self._e_background = self.derham.grad.dot(self._phi_background)
@@ -415,7 +388,7 @@ class VlasovPoissonSimple(StruphyModel):
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
         
         charge_accum = AccumulatorVector(
-        self.derham, self.domain, "H1", "charge_density_0form")
+            self.derham, self.domain, "H1", "charge_density_0form")
         charge_accum.accumulate(self.pointer['species1'])
 
         self.add_propagator(self.prop_markers.PushEta(
@@ -425,14 +398,16 @@ class VlasovPoissonSimple(StruphyModel):
         
         self.add_propagator(self.prop_fields.ImplicitDiffusion(
             self.pointer['phi'],
-            sigma_1=0,
-            A1_mat=model_params['A1_mat'],
-            A2_mat=model_params['A2_mat'],
+            sigma_1=0., 
+            sigma_2=1., 
+            sigma_3=0., 
+            A1_mat='M0',
+            A2_mat='M1',
             rho=self._kappa**2 * charge_accum.vectors[0],
             **self._poisson_params))
         
         self.add_propagator(self.prop_markers.PushVinEfield(
-            self.pointer['electrons'],
+            self.pointer['species1'],
             e_field=self._e_background,
             kappa=self._kappa))
 
