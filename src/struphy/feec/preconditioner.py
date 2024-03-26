@@ -48,6 +48,7 @@ class MassMatrixPreconditioner(LinearOperator):
         self._space = mass_operator.domain
         self._dtype = mass_operator.dtype
         self._codomain = mass_operator.codomain
+        self._domain = mass_operator.domain
         self._apply_bc = apply_bc
         
         # 3d Kronecker stencil matrices and solvers
@@ -259,6 +260,11 @@ class MassMatrixPreconditioner(LinearOperator):
     def codomain(self):
         """ The codomain of the linear operator - an element of Vectorspace """
         return self._codomain
+    
+    @property
+    def domain(self):
+        """ The domain of the linear operator - an element of Vectorspace """
+        return self._domain
 
     @property
     def dtype(self):
@@ -322,7 +328,7 @@ class MassMatrixPreconditioner(LinearOperator):
                 
         else:
             if out is None:
-                out = self._tmp_vector
+                out = self._tmp_vector.copy()
             self.solver.solve(rhs, out=out)
 
         return out
@@ -382,6 +388,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         self._space = mass_operator.domain
         self._dtype = mass_operator.dtype
         self._codomain = mass_operator.codomain
+        self._domain = mass_operator.domain
         self._apply_bc = apply_bc
 
         # 3d Kronecker stencil matrices and solvers
@@ -576,6 +583,11 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
     def codomain(self):
         """ The codomain of the linear operator - an element of Vectorspace """
         return self._codomain
+    
+    @property
+    def domain(self):
+        """ The domain of the linear operator - an element of Vectorspace """
+        return self._domain
 
     @property
     def dtype(self):
@@ -684,7 +696,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
         else:
             if out is None:
-                out = self._tmp_vector
+                out = self._tmp_vector.copy()
             self._solve_no_bc(rhs, out=out)
 
         return out
