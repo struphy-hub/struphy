@@ -2677,9 +2677,10 @@ class VariationalMomentumAdvection(Propagator):
         un1 = un.copy(out=self._tmp_un1)
         tol = self._params['non_linear_tol']
         err = tol+1
+        self.pc.update_mass_operator(self._Mrho)
         # Jacobian matrix for Newton solve
         self.derivative = self.WMM + dt/2*self.brack
-        inv_derivative = inverse(self.derivative,
+        inv_derivative = inverse(self.pc@self.derivative,
                                  'gmres',
                                  tol=self._params['linear_tol'],
                                  maxiter=self._params['linear_maxiter'],
@@ -2710,7 +2711,7 @@ class VariationalMomentumAdvection(Propagator):
 
             # Newton step
 
-            update = inv_derivative.dot(diff, out=self._tmp_update)
+            update = inv_derivative.dot(self.pc.dot(diff), out=self._tmp_update)
             un1 -= update
             mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
@@ -2800,7 +2801,8 @@ class VariationalMomentumAdvection(Propagator):
                                 pc=self.pc,
                                 tol=self._params['linear_tol'],
                                 maxiter=self._params['linear_maxiter'],
-                                verbose=self._params['verbose'])
+                                verbose=self._params['verbose'],
+                                recycle = True)
         
     def _get_error_newton(self, mn_diff):
         inv_Mv = inverse(self.mass_ops.Mv, 'cg', tol=1e-16, maxiter = 1000)
@@ -2953,7 +2955,8 @@ class VariationalDensityEvolve(Propagator):
                                  tol=self._params['linear_tol'],
                                  maxiter=self._params['linear_maxiter'],
                                  verbose=self._params['verbose'],
-                                 recycle = True)
+                                 recycle = True,)
+                                 #verbose = True)
 
         for it in range(self._params['non_linear_maxiter']):
 
@@ -2995,8 +2998,9 @@ class VariationalDensityEvolve(Propagator):
             self._get_jacobian(dt)
 
             # Newton step
-            self._tmp_f[0] = mn_diff
-            self._tmp_f[1] = self.mass_ops.M3.dot(rhon_diff)
+            self.pc.update_mass_operator(self._Mrho)
+            f0 = self.pc.dot(mn_diff, out = self._tmp_f[0])
+            self._tmp_f[1] = rhon_diff
 
             incr = inv_derivative.dot(self._tmp_f, out = self._tmp_incr)
 
@@ -3077,7 +3081,6 @@ class VariationalDensityEvolve(Propagator):
             self.rhof1.vector = rhon1
             self._update_weighted_MM()
             self.pc.update_mass_operator(self._Mrho)
-            self._Mrhoinv._options['x0'] = un1
             un1 = self._Mrhoinv.dot(mn1, out=self._tmp_un1)
 
             # get the error
@@ -3171,7 +3174,8 @@ class VariationalDensityEvolve(Propagator):
                                 pc=self.pc,
                                 tol=self._params['linear_tol'],
                                 maxiter=self._params['linear_maxiter'],
-                                verbose=self._params['verbose'])
+                                verbose=self._params['verbose'],
+                                recycle = True)
 
         integration_grid_X = [grid_1d.flatten()
                               for grid_1d in self.derham.quad_grid_pts['0']]
@@ -3426,10 +3430,10 @@ class VariationalDensityEvolve(Propagator):
         self._M_un1.assemble(
             [[self._Guf1_values[0]],[self._Guf1_values[1]],[self._Guf1_values[2]]], verbose=False)
         
-        self._Jacobian[0,0] = self._Mrho + dt * self.divPirhoT@self._M_un/2.
-        self._Jacobian[0,1] = self._M_un1 + dt * self.divPirhoT@self._M_drho
-        self._Jacobian[1,0] = dt * self.mass_ops.M3 @ self.divPirho/2.
-        self._Jacobian[1,1] = self.mass_ops.M3
+        self._Jacobian[0,0] = self.pc @ self._Mrho + dt * self.pc @ self.divPirhoT@self._M_un/2.
+        self._Jacobian[0,1] = self.pc @ self._M_un1 + dt * self.pc @ self.divPirhoT@self._M_drho
+        self._Jacobian[1,0] = dt * self.divPirho/2.
+        self._Jacobian[1,1] = self._I3
 
     def _get_error_newton(self, mn_diff, rhon_diff):
         inv_Mv = inverse(self.mass_ops.Mv, 'cg', tol=1e-16, maxiter = 1000)
@@ -3580,6 +3584,7 @@ class VariationalEntropyEvolve(Propagator):
         self.sf1.vector = sn1
 
         self._update_all_weights()
+        self.pc.update_mass_operator(self._Mrho)
 
         un = self.feec_vars[1]
         self.uf.vector = un
@@ -3636,8 +3641,8 @@ class VariationalEntropyEvolve(Propagator):
             self._get_jacobian(dt)
 
             # Newton step
-            self._tmp_f[0] = mn_diff
-            self._tmp_f[1] = self.mass_ops.M3.dot(sn_diff)
+            f0 = self.pc.dot(mn_diff, out = self._tmp_f[0])
+            self._tmp_f[1] = sn_diff
 
             incr = inv_derivative.dot(self._tmp_f, out = self._tmp_incr)
 
@@ -3719,7 +3724,6 @@ class VariationalEntropyEvolve(Propagator):
             sn1 -= s_advection
 
             # Inverse the mass matrix to get the velocity
-            self._Mrhoinv._options['x0'] = un1
             un1 = self._Mrhoinv.dot(mn1, out=self._tmp_un1)
 
             # get the error
@@ -3813,7 +3817,8 @@ class VariationalEntropyEvolve(Propagator):
                                 pc=self.pc,
                                 tol=self._params['linear_tol'],
                                 maxiter=self._params['linear_maxiter'],
-                                verbose=self._params['verbose'])
+                                verbose=self._params['verbose'],
+                                recycle = True)
         
         # For Newton solve
         self._M_ds = WeightedMassOperator(
@@ -3938,10 +3943,10 @@ class VariationalEntropyEvolve(Propagator):
                                                                 + (1-eta)*d2e(rhof_values, sf1_values))
             self._M_ds.assemble([[self._Jd2rho_values]], verbose=False)
         
-        self._Jacobian[0,0] = self._Mrho
-        self._Jacobian[0,1] = dt * self.divPisT@self._M_ds
-        self._Jacobian[1,0] = dt * self.mass_ops.M3 @ self.divPis/2
-        self._Jacobian[1,1] = self.mass_ops.M3
+        self._Jacobian[0,0] = self.pc@self._Mrho
+        self._Jacobian[0,1] = dt * self.pc@self.divPisT@self._M_ds
+        self._Jacobian[1,0] = dt * self.divPis/2
+        self._Jacobian[1,1] = self._I3
 
 
     def _get_error_newton(self, mn_diff, sn_diff):
@@ -4078,6 +4083,7 @@ class VariationalMagFieldEvolve(Propagator):
         bn1 = bn.copy(out=self._tmp_bn1)
         self.bf.vector = bn
         self._update_all_weights()
+        self.pc.update_mass_operator(self._Mrho)
 
         un = self.feec_vars[1]
         self.uf.vector = un
@@ -4138,8 +4144,8 @@ class VariationalMagFieldEvolve(Propagator):
             self._get_jacobian(dt)
 
             # Newton step
-            self._tmp_f[0] = mn_diff
-            self._tmp_f[1] = self.mass_ops.M2.dot(bn_diff)
+            f0 = self.pc.dot(mn_diff, out = self._tmp_f[0])
+            self._tmp_f[1] = bn_diff
 
             incr = inv_derivative.dot(self._tmp_f, out = self._tmp_incr)
 
@@ -4214,7 +4220,6 @@ class VariationalMagFieldEvolve(Propagator):
             bn1 -= b_advection
 
             # Inverse the mass matrix to get the velocity
-            self._Mrhoinv._options['x0'] = un1
             un1 = self._Mrhoinv.dot(mn1, out=self._tmp_un1)
 
             # get the error
@@ -4319,7 +4324,8 @@ class VariationalMagFieldEvolve(Propagator):
                                 pc=self.pc,
                                 tol=self._params['linear_tol'],
                                 maxiter=self._params['linear_maxiter'],
-                                verbose=self._params['verbose'])
+                                verbose=self._params['verbose'],
+                                recycle = True)
         
         # For Newton solve
         self._M_db = WeightedMassOperator(
@@ -4380,10 +4386,10 @@ class VariationalMagFieldEvolve(Propagator):
 
         self._M_db = -self.mass_ops.M2/2.
         
-        self._Jacobian[0,0] = self._Mrho
-        self._Jacobian[0,1] = dt * self.curlPibT@self._M_db
-        self._Jacobian[1,0] = dt * self.mass_ops.M2 @ self.curlPib/2
-        self._Jacobian[1,1] = self.mass_ops.M2
+        self._Jacobian[0,0] = self.pc @ self._Mrho
+        self._Jacobian[0,1] = dt * self.pc @ self.curlPibT@self._M_db
+        self._Jacobian[1,0] = dt * self.curlPib/2
+        self._Jacobian[1,1] = self._I2
 
 
 class TimeDependentSource(Propagator):
