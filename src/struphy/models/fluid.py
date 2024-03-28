@@ -624,9 +624,9 @@ class VariationalMHD(StruphyModel):
         en_prop.sf.vector = self.pointer['mhd_s3']
         en_prop.rhof.vector = self.pointer['mhd_rho3']
         sf_values = en_prop.sf.eval_tp_fixed_loc(
-            en_prop.integration_grid_V3_spans, en_prop.integration_grid_V3_bd, out=en_prop._sf_values_V3)
+            en_prop.integration_grid_spans, en_prop.integration_grid_bd, out=en_prop._sf_values)
         rhof_values = en_prop.rhof.eval_tp_fixed_loc(
-            en_prop.integration_grid_V3_spans, en_prop.integration_grid_V3_bd, out=en_prop._rhof_values_V3)
+            en_prop.integration_grid_spans, en_prop.integration_grid_bd, out=en_prop._rhof_values)
         e = self.__ener
         ener_values = en_prop._proj_rho2_metric_term*e(rhof_values, sf_values)
         en_prop._get_L2dofs_V3(ener_values, dofs=en_prop._linear_form_dl_ds)
