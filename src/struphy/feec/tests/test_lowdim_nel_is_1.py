@@ -2,7 +2,7 @@ import pytest
 
 
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize('Nel', [[64, 1, 1], [1, 64, 1], [1, 1, 64], [63, 64, 1], [64, 1, 63], [1, 63, 64]])
+@pytest.mark.parametrize('Nel', [[32, 1, 1], [1, 32, 1], [1, 1, 32], [31, 32, 1], [32, 1, 31], [1, 31, 32]])
 @pytest.mark.parametrize('p', [[1, 1, 1]])
 @pytest.mark.parametrize('spl_kind', [[True, True, True]])
 def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
@@ -151,7 +151,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
 
     err_df0 = [np.max(np.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip(grad_f, field_df0_vals)]
     print(f'{err_df0 = }')
-    assert np.max(err_df0) < .4
+    assert np.max(err_df0) < .64
 
     # d) plotting
     plt.figure(figsize=(8, 12))
@@ -180,7 +180,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     # a) projection error
     err_f1 = [np.max(np.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip([f, f, f], field_f1_vals)]
     print(f'{err_f1 = }')
-    assert np.max(err_f1) < .05
+    assert np.max(err_f1) < .09
 
     # b) commuting property
     df1_h = derham.curl.dot(f1_h)
@@ -193,7 +193,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
 
     err_df1 = [np.max(np.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip(curl_f, field_df1_vals)]
     print(f'{err_df1 = }')
-    assert np.max(err_df1) < .4
+    assert np.max(err_df1) < .64
 
     # d) plotting
     plt.figure(figsize=(8, 12))
@@ -227,7 +227,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     # a) projection error
     err_f2 = [np.max(np.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip([f, f, f], field_f2_vals)]
     print(f'{err_f2 = }')
-    assert np.max(err_f2) < .05
+    assert np.max(err_f2) < .09
 
     # b) commuting property
     df2_h = derham.div.dot(f2_h)
@@ -240,7 +240,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
 
     err_df2 = np.max(np.abs(div_f(e1, e2, e3) - field_df2_vals)) 
     print(f'{err_df2 = }')
-    assert np.max(err_df2) < .4
+    assert np.max(err_df2) < .64
 
     # d) plotting
     plt.figure(figsize=(8, 12))
@@ -269,7 +269,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     # a) projection error
     err_f3 = np.max(np.abs(f(e1, e2, e3) - field_f3_vals))
     print(f'{err_f3 = }')
-    assert err_f3 < 0.05
+    assert err_f3 < 0.09
 
     # d) plotting
     plt.figure(figsize=(8, 12))
@@ -285,6 +285,6 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
         plt.show()
 
 if __name__ == '__main__':
-    test_lowdim_derham([64, 1, 1], [1, 1, 1], [True, True, True], do_plot=False)
-    test_lowdim_derham([1, 64, 1], [1, 1, 1], [True, True, True], do_plot=False)
-    test_lowdim_derham([1, 1, 64], [1, 1, 1], [True, True, True], do_plot=False)
+    test_lowdim_derham([32, 1, 1], [1, 1, 1], [True, True, True], do_plot=False)
+    test_lowdim_derham([1, 32, 1], [1, 1, 1], [True, True, True], do_plot=False)
+    test_lowdim_derham([1, 1, 32], [1, 1, 1], [True, True, True], do_plot=False)

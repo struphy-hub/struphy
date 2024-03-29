@@ -16,7 +16,7 @@ def test_gvec_equil():
     comm = MPI.COMM_WORLD
 
     # struphy discrete equilibirum
-    mhd_equil = GVECequilibrium()
+    mhd_equil = GVECequilibrium(rmin=0.)
 
     # gvec continuous equilibirum
     import struphy 

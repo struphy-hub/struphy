@@ -90,7 +90,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                     fun_xyz = val(**kwargs, ls=ls, Lx=Lx, Ly=Ly, Lz=Lz)
 
             # single component is initialized
-            for name, field in fields.items():
+            for space, name in derham.space_to_form.items():
 
                 if do_plot:
                     plt.figure(key + '_' + name + '-form_e1e2 ' +
@@ -124,7 +124,8 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                                 continue
                             params[key]['pfuns'] = {name: pfuns}
 
-                        field.initialize_coeffs(params, domain=domain)
+                        field = derham.create_field(name, space, pert_params=params)
+                        field.initialize_coeffs(domain=domain)
 
                         field_vals_xyz = domain.push(
                             field, e1, e2, e3, kind=name)
@@ -245,7 +246,8 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                             if isinstance(domain, domains.HollowTorus):
                                 continue
 
-                        field.initialize_coeffs(params, domain=domain)
+                        field = derham.create_field(name, space, pert_params=params)
+                        field.initialize_coeffs(domain=domain)
 
                         f1_xyz, f2_xyz, f3_xyz = domain.push(
                             field, e1, e2, e3, kind=name)

@@ -225,6 +225,15 @@ class MHDequilibrium(metaclass=ABCMeta):
     def a2_3(self, *etas, squeeze_out=False):
         return self.a2(*etas, squeeze_out=squeeze_out)[2]
     
+    def bv_1(self, *etas, squeeze_out=False):
+        return self.bv(*etas, squeeze_out=squeeze_out)[0]
+
+    def bv_2(self, *etas, squeeze_out=False):
+        return self.bv(*etas, squeeze_out=squeeze_out)[1]
+
+    def bv_3(self, *etas, squeeze_out=False):
+        return self.bv(*etas, squeeze_out=squeeze_out)[2]
+    
     def av_1(self, *etas, squeeze_out=False):
         return self.av(*etas, squeeze_out=squeeze_out)[0]
 
