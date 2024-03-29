@@ -304,7 +304,7 @@ def test_maxwellian_6d_perturbed(Nel, show_plot=False):
     ), f"{res=},\n {ana_res}"
 
 
-@pytest.mark.parametrize('Nel', [[8, 12, 12]])
+@pytest.mark.parametrize('Nel', [[8, 11, 12]])
 def test_maxwellian_6d_mhd(Nel, show_plot=False):
     '''Tests the Maxwellian6D class for mhd equilibrium moments.'''
 
@@ -412,17 +412,22 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
 
                 # density plots
                 n_cart = mhd_equil.domain.push(maxwellian.n, *e_meshgrids)
+
+                levels = np.linspace(np.min(n_cart) - 1e-10, np.max(n_cart), 20)
+
                 plt.subplot(2, 5, 1)
                 if 'Slab' in key or 'Pinch' in key:
-                    plt.contourf(x[:, 0, :], z[:, 0, :], n_cart[:, 0, :])
-                    plt.contourf(x[:, Nel[1]//2 - 1, :], z[:, Nel[1] //
-                                 2 - 1, :], n_cart[:, Nel[1]//2 - 1, :])
+                    plt.contourf(x[:, 0, :], z[:, 0, :],
+                                 n_cart[:, 0, :], levels=levels)
+                    plt.contourf(x[:, Nel[1]//2, :], z[:, Nel[1] //
+                                 2 - 1, :], n_cart[:, Nel[1]//2, :], levels=levels)
                     plt.xlabel('x')
                     plt.ylabel('z')
                 else:
-                    plt.contourf(x[:, 0, :], y[:, 0, :], n_cart[:, 0, :])
-                    plt.contourf(x[:, Nel[1]//2 - 1, :], y[:, Nel[1] //
-                                 2 - 1, :], n_cart[:, Nel[1]//2 - 1, :])
+                    plt.contourf(x[:, 0, :], y[:, 0, :],
+                                 n_cart[:, 0, :], levels=levels)
+                    plt.contourf(x[:, Nel[1]//2, :], y[:, Nel[1] //
+                                 2 - 1, :], n_cart[:, Nel[1]//2, :], levels=levels)
                     plt.xlabel('x')
                     plt.ylabel('y')
                 plt.axis('equal')
@@ -430,11 +435,13 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
                 plt.title('Maxwellian density $n$, top view (e1-e3)')
                 plt.subplot(2, 5, 5 + 1)
                 if 'Slab' in key or 'Pinch' in key:
-                    plt.contourf(x[:, :, 0], y[:, :, 0], n_cart[:, :, 0])
+                    plt.contourf(x[:, :, 0], y[:, :, 0],
+                                 n_cart[:, :, 0], levels=levels)
                     plt.xlabel('x')
                     plt.ylabel('y')
                 else:
-                    plt.contourf(x[:, :, 0], z[:, :, 0], n_cart[:, :, 0])
+                    plt.contourf(x[:, :, 0], z[:, :, 0],
+                                 n_cart[:, :, 0], levels=levels)
                     plt.xlabel('x')
                     plt.ylabel('z')
                 plt.axis('equal')
@@ -444,17 +451,22 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
                 # velocity plots
                 us = maxwellian.u(*e_meshgrids)
                 for i, u in enumerate(us):
+                    
+                    levels = np.linspace(np.min(u) - 1e-10, np.max(u), 20)
+                    
                     plt.subplot(2, 5, 2 + i)
                     if 'Slab' in key or 'Pinch' in key:
-                        plt.contourf(x[:, 0, :], z[:, 0, :], u[:, 0, :])
+                        plt.contourf(x[:, 0, :], z[:, 0, :],
+                                     u[:, 0, :], levels=levels)
                         plt.contourf(
-                            x[:, Nel[1]//2 - 1, :], z[:, Nel[1]//2 - 1, :], u[:, Nel[1]//2 - 1, :])
+                            x[:, Nel[1]//2, :], z[:, Nel[1]//2, :], u[:, Nel[1]//2, :], levels=levels)
                         plt.xlabel('x')
                         plt.ylabel('z')
                     else:
-                        plt.contourf(x[:, 0, :], y[:, 0, :], u[:, 0, :])
+                        plt.contourf(x[:, 0, :], y[:, 0, :],
+                                     u[:, 0, :], levels=levels)
                         plt.contourf(
-                            x[:, Nel[1]//2 - 1, :], y[:, Nel[1]//2 - 1, :], u[:, Nel[1]//2 - 1, :])
+                            x[:, Nel[1]//2, :], y[:, Nel[1]//2, :], u[:, Nel[1]//2, :], levels=levels)
                         plt.xlabel('x')
                         plt.ylabel('y')
                     plt.axis('equal')
@@ -463,11 +475,13 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
                         f'Maxwellian velocity $u_{i + 1}$, top view (e1-e3)')
                     plt.subplot(2, 5, 5 + 2 + i)
                     if 'Slab' in key or 'Pinch' in key:
-                        plt.contourf(x[:, :, 0], y[:, :, 0], u[:, :, 0])
+                        plt.contourf(x[:, :, 0], y[:, :, 0],
+                                     u[:, :, 0], levels=levels)
                         plt.xlabel('x')
                         plt.ylabel('y')
                     else:
-                        plt.contourf(x[:, :, 0], z[:, :, 0], u[:, :, 0])
+                        plt.contourf(x[:, :, 0], z[:, :, 0],
+                                     u[:, :, 0], levels=levels)
                         plt.xlabel('x')
                         plt.ylabel('z')
                     plt.axis('equal')
@@ -478,17 +492,22 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
                 # thermal velocity plots
                 vth = maxwellian.vth(*e_meshgrids)[0]
                 vth_cart = mhd_equil.domain.push(vth, *e_meshgrids)
+                
+                levels = np.linspace(np.min(vth_cart) - 1e-10, np.max(vth_cart), 20)
+                
                 plt.subplot(2, 5, 5)
                 if 'Slab' in key or 'Pinch' in key:
-                    plt.contourf(x[:, 0, :], z[:, 0, :], vth_cart[:, 0, :])
-                    plt.contourf(x[:, Nel[1]//2 - 1, :], z[:, Nel[1] //
-                                 2 - 1, :], vth_cart[:, Nel[1]//2 - 1, :])
+                    plt.contourf(x[:, 0, :], z[:, 0, :],
+                                 vth_cart[:, 0, :], levels=levels)
+                    plt.contourf(x[:, Nel[1]//2, :], z[:, Nel[1] //
+                                 2 - 1, :], vth_cart[:, Nel[1]//2, :], levels=levels)
                     plt.xlabel('x')
                     plt.ylabel('z')
                 else:
-                    plt.contourf(x[:, 0, :], y[:, 0, :], vth_cart[:, 0, :])
-                    plt.contourf(x[:, Nel[1]//2 - 1, :], y[:, Nel[1] //
-                                 2 - 1, :], vth_cart[:, Nel[1]//2 - 1, :])
+                    plt.contourf(x[:, 0, :], y[:, 0, :],
+                                 vth_cart[:, 0, :], levels=levels)
+                    plt.contourf(x[:, Nel[1]//2, :], y[:, Nel[1] //
+                                 2 - 1, :], vth_cart[:, Nel[1]//2, :], levels=levels)
                     plt.xlabel('x')
                     plt.ylabel('y')
                 plt.axis('equal')
@@ -496,196 +515,208 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
                 plt.title(f'Maxwellian thermal velocity $v_t$, top view (e1-e3)')
                 plt.subplot(2, 5, 10)
                 if 'Slab' in key or 'Pinch' in key:
-                    plt.contourf(x[:, :, 0], y[:, :, 0], vth_cart[:, :, 0])
+                    plt.contourf(x[:, :, 0], y[:, :, 0],
+                                 vth_cart[:, :, 0], levels=levels)
                     plt.xlabel('x')
                     plt.ylabel('y')
                 else:
-                    plt.contourf(x[:, :, 0], z[:, :, 0], vth_cart[:, :, 0])
+                    plt.contourf(x[:, :, 0], z[:, :, 0],
+                                 vth_cart[:, :, 0], levels=levels)
                     plt.xlabel('x')
                     plt.ylabel('z')
                 plt.axis('equal')
                 plt.colorbar()
-                plt.title(f'Maxwellian density $v_t$, poloidal view (e1-e2)')
+                plt.title(f'Maxwellian thermal velocity $v_t$, poloidal view (e1-e2)')
 
                 plt.show()
 
             # test perturbations
-            maxw_params_zero = {'n': 0.,
-                                'vth1': 0.,
-                                'vth2': 0.,
-                                'vth3': 0.}
+            if 'EQDSKequilibrium' in key:
+                maxw_params_zero = {'n': 0.,
+                                    'vth1': 0.,
+                                    'vth2': 0.,
+                                    'vth3': 0.}
 
-            for key_2, val_2 in inspect.getmembers(perturbations):
-                if inspect.isclass(val_2):
-                    print(f'{key_2 = }')
-                    pert = val_2()
-                    print(f'{pert = }')
-                    pert_params = {'type': key_2,
-                                   key_2: {
-                                       'comps': {'n': '0',
-                                                 'u1': '0',
-                                                 'u2': '0',
-                                                 'u3': '0',
-                                                 'vth1': '0',
-                                                 'vth2': '0',
-                                                 'vth3': '0'},
-                                   }}
+                for key_2, val_2 in inspect.getmembers(perturbations):
+                    if inspect.isclass(val_2):
+                        print(f'{key_2 = }')
+                        pert = val_2()
+                        print(f'{pert = }')
+                        pert_params = {'type': key_2,
+                                    key_2: {
+                                        'comps': {'n': '0',
+                                                    'u1': '0',
+                                                    'u2': '0',
+                                                    'u3': '0',
+                                                    'vth1': '0',
+                                                    'vth2': '0',
+                                                    'vth3': '0'},
+                                    }}
 
-                    # background + perturbation
-                    maxwellian_perturbed = Maxwellian6D(
-                        maxw_params=maxw_params_mhd,
-                        pert_params=pert_params,
-                        mhd_equil=mhd_equil)
+                        # background + perturbation
+                        maxwellian_perturbed = Maxwellian6D(
+                            maxw_params=maxw_params_mhd,
+                            pert_params=pert_params,
+                            mhd_equil=mhd_equil)
 
-                    # test meshgrid evaluation
-                    assert maxwellian_perturbed(
-                        *meshgrids).shape == meshgrids[0].shape
+                        # test meshgrid evaluation
+                        assert maxwellian_perturbed(
+                            *meshgrids).shape == meshgrids[0].shape
 
-                    # test flat evaluation
-                    assert maxwellian_perturbed(
-                        *args_fl).shape == args_fl[0].shape
+                        # test flat evaluation
+                        assert maxwellian_perturbed(
+                            *args_fl).shape == args_fl[0].shape
 
-                    # pure perturbation
-                    maxwellian_zero_bckgr = Maxwellian6D(
-                        maxw_params=maxw_params_zero,
-                        pert_params=pert_params,
-                        mhd_equil=mhd_equil)
+                        # pure perturbation
+                        maxwellian_zero_bckgr = Maxwellian6D(
+                            maxw_params=maxw_params_zero,
+                            pert_params=pert_params,
+                            mhd_equil=mhd_equil)
 
-                    assert np.allclose(maxwellian_zero_bckgr.n(
-                        *e_meshgrids), pert(*e_meshgrids))
-                    assert np.allclose(maxwellian_zero_bckgr.u(
-                        *e_meshgrids)[0], pert(*e_meshgrids))
-                    assert np.allclose(maxwellian_zero_bckgr.u(
-                        *e_meshgrids)[1], pert(*e_meshgrids))
-                    assert np.allclose(maxwellian_zero_bckgr.u(
-                        *e_meshgrids)[2], pert(*e_meshgrids))
-                    assert np.allclose(maxwellian_zero_bckgr.vth(
-                        *e_meshgrids)[0], pert(*e_meshgrids))
-                    assert np.allclose(maxwellian_zero_bckgr.vth(
-                        *e_meshgrids)[1], pert(*e_meshgrids))
-                    assert np.allclose(maxwellian_zero_bckgr.vth(
-                        *e_meshgrids)[2], pert(*e_meshgrids))
+                        assert np.allclose(maxwellian_zero_bckgr.n(
+                            *e_meshgrids), pert(*e_meshgrids))
+                        assert np.allclose(maxwellian_zero_bckgr.u(
+                            *e_meshgrids)[0], pert(*e_meshgrids))
+                        assert np.allclose(maxwellian_zero_bckgr.u(
+                            *e_meshgrids)[1], pert(*e_meshgrids))
+                        assert np.allclose(maxwellian_zero_bckgr.u(
+                            *e_meshgrids)[2], pert(*e_meshgrids))
+                        assert np.allclose(maxwellian_zero_bckgr.vth(
+                            *e_meshgrids)[0], pert(*e_meshgrids))
+                        assert np.allclose(maxwellian_zero_bckgr.vth(
+                            *e_meshgrids)[1], pert(*e_meshgrids))
+                        assert np.allclose(maxwellian_zero_bckgr.vth(
+                            *e_meshgrids)[2], pert(*e_meshgrids))
 
-                    # plotting perturbations
-                    if show_plot and 'EQDSKequilibrium' in key:  # and 'Torus' in key_2:
-                        plt.figure(f'perturbation = {key_2}', figsize=(24, 16))
-                        x, y, z = mhd_equil.domain(*e_meshgrids)
+                        # plotting perturbations
+                        if show_plot:  # and 'Torus' in key_2:
+                            plt.figure(f'perturbation = {key_2}', figsize=(24, 16))
+                            x, y, z = mhd_equil.domain(*e_meshgrids)
 
-                        # density plots
-                        n_cart = mhd_equil.domain.push(
-                            maxwellian_zero_bckgr.n, *e_meshgrids)
-                        plt.subplot(2, 5, 1)
-                        if 'Slab' in key or 'Pinch' in key:
-                            plt.contourf(x[:, 0, :], z[:, 0, :],
-                                         n_cart[:, 0, :])
-                            plt.contourf(
-                                x[:, Nel[1]//2 - 1, :], z[:, Nel[1]//2 - 1, :], n_cart[:, Nel[1]//2 - 1, :])
-                            plt.xlabel('x')
-                            plt.ylabel('z')
-                        else:
-                            plt.contourf(x[:, 0, :], y[:, 0, :],
-                                         n_cart[:, 0, :])
-                            plt.contourf(
-                                x[:, Nel[1]//2 - 1, :], y[:, Nel[1]//2 - 1, :], n_cart[:, Nel[1]//2 - 1, :])
-                            plt.xlabel('x')
-                            plt.ylabel('y')
-                        plt.axis('equal')
-                        plt.colorbar()
-                        plt.title(
-                            'Maxwellian perturbed density $n$, top view (e1-e3)')
-                        plt.subplot(2, 5, 5 + 1)
-                        if 'Slab' in key or 'Pinch' in key:
-                            plt.contourf(x[:, :, 0], y[:, :, 0],
-                                         n_cart[:, :, 0])
-                            plt.xlabel('x')
-                            plt.ylabel('y')
-                        else:
-                            plt.contourf(x[:, :, 0], z[:, :, 0],
-                                         n_cart[:, :, 0])
-                            plt.xlabel('x')
-                            plt.ylabel('z')
-                        plt.axis('equal')
-                        plt.colorbar()
-                        plt.title(
-                            'Maxwellian perturbed density $n$, poloidal view (e1-e2)')
-
-                        # velocity plots
-                        us = maxwellian_zero_bckgr.u(*e_meshgrids)
-                        for i, u in enumerate(us):
-                            plt.subplot(2, 5, 2 + i)
+                            # density plots
+                            n_cart = mhd_equil.domain.push(
+                                maxwellian_zero_bckgr.n, *e_meshgrids)
+                            
+                            levels = np.linspace(np.min(n_cart) - 1e-10, np.max(n_cart), 20)
+                            
+                            plt.subplot(2, 5, 1)
                             if 'Slab' in key or 'Pinch' in key:
+                                plt.contourf(x[:, 0, :], z[:, 0, :],
+                                            n_cart[:, 0, :], levels=levels)
                                 plt.contourf(
-                                    x[:, 0, :], z[:, 0, :], u[:, 0, :])
-                                plt.contourf(
-                                    x[:, Nel[1]//2 - 1, :], z[:, Nel[1]//2 - 1, :], u[:, Nel[1]//2 - 1, :])
+                                    x[:, Nel[1]//2, :], z[:, Nel[1]//2, :], n_cart[:, Nel[1]//2, :], levels=levels)
                                 plt.xlabel('x')
                                 plt.ylabel('z')
                             else:
+                                plt.contourf(x[:, 0, :], y[:, 0, :],
+                                            n_cart[:, 0, :], levels=levels)
                                 plt.contourf(
-                                    x[:, 0, :], y[:, 0, :], u[:, 0, :])
-                                plt.contourf(
-                                    x[:, Nel[1]//2 - 1, :], y[:, Nel[1]//2 - 1, :], u[:, Nel[1]//2 - 1, :])
+                                    x[:, Nel[1]//2, :], y[:, Nel[1]//2, :], n_cart[:, Nel[1]//2, :], levels=levels)
                                 plt.xlabel('x')
                                 plt.ylabel('y')
                             plt.axis('equal')
                             plt.colorbar()
                             plt.title(
-                                f'Maxwellian perturbed velocity $u_{i + 1}$, top view (e1-e3)')
-                            plt.subplot(2, 5, 5 + 2 + i)
+                                'Maxwellian perturbed density $n$, top view (e1-e3)')
+                            plt.subplot(2, 5, 5 + 1)
                             if 'Slab' in key or 'Pinch' in key:
-                                plt.contourf(
-                                    x[:, :, 0], y[:, :, 0], u[:, :, 0])
+                                plt.contourf(x[:, :, 0], y[:, :, 0],
+                                            n_cart[:, :, 0], levels=levels)
                                 plt.xlabel('x')
                                 plt.ylabel('y')
                             else:
-                                plt.contourf(
-                                    x[:, :, 0], z[:, :, 0], u[:, :, 0])
+                                plt.contourf(x[:, :, 0], z[:, :, 0],
+                                            n_cart[:, :, 0], levels=levels)
                                 plt.xlabel('x')
                                 plt.ylabel('z')
                             plt.axis('equal')
                             plt.colorbar()
                             plt.title(
-                                f'Maxwellian perturbed velocity $u_{i + 1}$, poloidal view (e1-e2)')
+                                'Maxwellian perturbed density $n$, poloidal view (e1-e2)')
 
-                        # thermal velocity plots
-                        vth = maxwellian_zero_bckgr.vth(*e_meshgrids)[0]
-                        vth_cart = mhd_equil.domain.push(vth, *e_meshgrids)
-                        plt.subplot(2, 5, 5)
-                        if 'Slab' in key or 'Pinch' in key:
-                            plt.contourf(x[:, 0, :], z[:, 0, :],
-                                         vth_cart[:, 0, :])
-                            plt.contourf(
-                                x[:, Nel[1]//2 - 1, :], z[:, Nel[1]//2 - 1, :], vth_cart[:, Nel[1]//2 - 1, :])
-                            plt.xlabel('x')
-                            plt.ylabel('z')
-                        else:
-                            plt.contourf(x[:, 0, :], y[:, 0, :],
-                                         vth_cart[:, 0, :])
-                            plt.contourf(
-                                x[:, Nel[1]//2 - 1, :], y[:, Nel[1]//2 - 1, :], vth_cart[:, Nel[1]//2 - 1, :])
-                            plt.xlabel('x')
-                            plt.ylabel('y')
-                        plt.axis('equal')
-                        plt.colorbar()
-                        plt.title(
-                            f'Maxwellian perturbed thermal velocity $v_t$, top view (e1-e3)')
-                        plt.subplot(2, 5, 10)
-                        if 'Slab' in key or 'Pinch' in key:
-                            plt.contourf(x[:, :, 0], y[:, :, 0],
-                                         vth_cart[:, :, 0])
-                            plt.xlabel('x')
-                            plt.ylabel('y')
-                        else:
-                            plt.contourf(x[:, :, 0], z[:, :, 0],
-                                         vth_cart[:, :, 0])
-                            plt.xlabel('x')
-                            plt.ylabel('z')
-                        plt.axis('equal')
-                        plt.colorbar()
-                        plt.title(
-                            f'Maxwellian perturbed density $v_t$, poloidal view (e1-e2)')
+                            # velocity plots
+                            us = maxwellian_zero_bckgr.u(*e_meshgrids)
+                            for i, u in enumerate(us):
+                                
+                                levels = np.linspace(np.min(u) - 1e-10, np.max(u), 20)
+                                
+                                plt.subplot(2, 5, 2 + i)
+                                if 'Slab' in key or 'Pinch' in key:
+                                    plt.contourf(
+                                        x[:, 0, :], z[:, 0, :], u[:, 0, :], levels=levels)
+                                    plt.contourf(
+                                        x[:, Nel[1]//2, :], z[:, Nel[1]//2, :], u[:, Nel[1]//2, :], levels=levels)
+                                    plt.xlabel('x')
+                                    plt.ylabel('z')
+                                else:
+                                    plt.contourf(
+                                        x[:, 0, :], y[:, 0, :], u[:, 0, :], levels=levels)
+                                    plt.contourf(
+                                        x[:, Nel[1]//2, :], y[:, Nel[1]//2, :], u[:, Nel[1]//2, :], levels=levels)
+                                    plt.xlabel('x')
+                                    plt.ylabel('y')
+                                plt.axis('equal')
+                                plt.colorbar()
+                                plt.title(
+                                    f'Maxwellian perturbed velocity $u_{i + 1}$, top view (e1-e3)')
+                                plt.subplot(2, 5, 5 + 2 + i)
+                                if 'Slab' in key or 'Pinch' in key:
+                                    plt.contourf(
+                                        x[:, :, 0], y[:, :, 0], u[:, :, 0], levels=levels)
+                                    plt.xlabel('x')
+                                    plt.ylabel('y')
+                                else:
+                                    plt.contourf(
+                                        x[:, :, 0], z[:, :, 0], u[:, :, 0], levels=levels)
+                                    plt.xlabel('x')
+                                    plt.ylabel('z')
+                                plt.axis('equal')
+                                plt.colorbar()
+                                plt.title(
+                                    f'Maxwellian perturbed velocity $u_{i + 1}$, poloidal view (e1-e2)')
 
-                        plt.show()
+                            # thermal velocity plots
+                            vth = maxwellian_zero_bckgr.vth(*e_meshgrids)[0]
+                            vth_cart = mhd_equil.domain.push(vth, *e_meshgrids)
+                            
+                            levels = np.linspace(np.min(vth_cart) - 1e-10, np.max(vth_cart), 20)
+                            
+                            plt.subplot(2, 5, 5)
+                            if 'Slab' in key or 'Pinch' in key:
+                                plt.contourf(x[:, 0, :], z[:, 0, :],
+                                            vth_cart[:, 0, :], levels=levels)
+                                plt.contourf(
+                                    x[:, Nel[1]//2, :], z[:, Nel[1]//2, :], vth_cart[:, Nel[1]//2, :], levels=levels)
+                                plt.xlabel('x')
+                                plt.ylabel('z')
+                            else:
+                                plt.contourf(x[:, 0, :], y[:, 0, :],
+                                            vth_cart[:, 0, :], levels=levels)
+                                plt.contourf(
+                                    x[:, Nel[1]//2, :], y[:, Nel[1]//2, :], vth_cart[:, Nel[1]//2, :], levels=levels)
+                                plt.xlabel('x')
+                                plt.ylabel('y')
+                            plt.axis('equal')
+                            plt.colorbar()
+                            plt.title(
+                                f'Maxwellian perturbed thermal velocity $v_t$, top view (e1-e3)')
+                            plt.subplot(2, 5, 10)
+                            if 'Slab' in key or 'Pinch' in key:
+                                plt.contourf(x[:, :, 0], y[:, :, 0],
+                                            vth_cart[:, :, 0], levels=levels)
+                                plt.xlabel('x')
+                                plt.ylabel('y')
+                            else:
+                                plt.contourf(x[:, :, 0], z[:, :, 0],
+                                            vth_cart[:, :, 0], levels=levels)
+                                plt.xlabel('x')
+                                plt.ylabel('z')
+                            plt.axis('equal')
+                            plt.colorbar()
+                            plt.title(
+                                f'Maxwellian perturbed thermal velocity $v_t$, poloidal view (e1-e2)')
+
+                            plt.show()
 
 
 @pytest.mark.parametrize('Nel', [[64, 1, 1]])
@@ -1210,17 +1241,22 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
 
                 # density plots
                 n_cart = mhd_equil.domain.push(maxwellian.n, *e_meshgrids)
+                
+                levels = np.linspace(np.min(n_cart) - 1e-10, np.max(n_cart), 20)
+                
                 plt.subplot(2, 4, 1)
                 if 'Slab' in key or 'Pinch' in key:
-                    plt.contourf(x[:, 0, :], z[:, 0, :], n_cart[:, 0, :])
-                    plt.contourf(x[:, Nel[1]//2 - 1, :], z[:, Nel[1] //
-                                 2 - 1, :], n_cart[:, Nel[1]//2 - 1, :])
+                    plt.contourf(x[:, 0, :], z[:, 0, :],
+                                 n_cart[:, 0, :], levels=levels)
+                    plt.contourf(x[:, Nel[1]//2, :], z[:, Nel[1] //
+                                 2 - 1, :], n_cart[:, Nel[1]//2, :], levels=levels)
                     plt.xlabel('x')
                     plt.ylabel('z')
                 else:
-                    plt.contourf(x[:, 0, :], y[:, 0, :], n_cart[:, 0, :])
-                    plt.contourf(x[:, Nel[1]//2 - 1, :], y[:, Nel[1] //
-                                 2 - 1, :], n_cart[:, Nel[1]//2 - 1, :])
+                    plt.contourf(x[:, 0, :], y[:, 0, :],
+                                 n_cart[:, 0, :], levels=levels)
+                    plt.contourf(x[:, Nel[1]//2, :], y[:, Nel[1] //
+                                 2 - 1, :], n_cart[:, Nel[1]//2, :], levels=levels)
                     plt.xlabel('x')
                     plt.ylabel('y')
                 plt.axis('equal')
@@ -1228,11 +1264,13 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
                 plt.title('Maxwellian density $n$, top view (e1-e3)')
                 plt.subplot(2, 4, 4 + 1)
                 if 'Slab' in key or 'Pinch' in key:
-                    plt.contourf(x[:, :, 0], y[:, :, 0], n_cart[:, :, 0])
+                    plt.contourf(x[:, :, 0], y[:, :, 0],
+                                 n_cart[:, :, 0], levels=levels)
                     plt.xlabel('x')
                     plt.ylabel('y')
                 else:
-                    plt.contourf(x[:, :, 0], z[:, :, 0], n_cart[:, :, 0])
+                    plt.contourf(x[:, :, 0], z[:, :, 0],
+                                 n_cart[:, :, 0], levels=levels)
                     plt.xlabel('x')
                     plt.ylabel('z')
                 plt.axis('equal')
@@ -1242,17 +1280,22 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
                 # velocity plots
                 us = maxwellian.u(*e_meshgrids)
                 for i, u in enumerate(us[:1]):
+                    
+                    levels = np.linspace(np.min(u) - 1e-10, np.max(u), 20)
+                    
                     plt.subplot(2, 4, 2 + i)
                     if 'Slab' in key or 'Pinch' in key:
-                        plt.contourf(x[:, 0, :], z[:, 0, :], u[:, 0, :])
+                        plt.contourf(x[:, 0, :], z[:, 0, :],
+                                     u[:, 0, :], levels=levels)
                         plt.contourf(
-                            x[:, Nel[1]//2 - 1, :], z[:, Nel[1]//2 - 1, :], u[:, Nel[1]//2 - 1, :])
+                            x[:, Nel[1]//2, :], z[:, Nel[1]//2, :], u[:, Nel[1]//2, :], levels=levels)
                         plt.xlabel('x')
                         plt.ylabel('z')
                     else:
-                        plt.contourf(x[:, 0, :], y[:, 0, :], u[:, 0, :])
+                        plt.contourf(x[:, 0, :], y[:, 0, :],
+                                     u[:, 0, :], levels=levels)
                         plt.contourf(
-                            x[:, Nel[1]//2 - 1, :], y[:, Nel[1]//2 - 1, :], u[:, Nel[1]//2 - 1, :])
+                            x[:, Nel[1]//2, :], y[:, Nel[1]//2, :], u[:, Nel[1]//2, :], levels=levels)
                         plt.xlabel('x')
                         plt.ylabel('y')
                     plt.axis('equal')
@@ -1261,11 +1304,13 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
                         f'Maxwellian velocity $u_{i + 1}$, top view (e1-e3)')
                     plt.subplot(2, 4, 4 + 2 + i)
                     if 'Slab' in key or 'Pinch' in key:
-                        plt.contourf(x[:, :, 0], y[:, :, 0], u[:, :, 0])
+                        plt.contourf(x[:, :, 0], y[:, :, 0],
+                                     u[:, :, 0], levels=levels)
                         plt.xlabel('x')
                         plt.ylabel('y')
                     else:
-                        plt.contourf(x[:, :, 0], z[:, :, 0], u[:, :, 0])
+                        plt.contourf(x[:, :, 0], z[:, :, 0],
+                                     u[:, :, 0], levels=levels)
                         plt.xlabel('x')
                         plt.ylabel('z')
                     plt.axis('equal')
@@ -1276,17 +1321,22 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
                 # thermal velocity plots
                 vth = maxwellian.vth(*e_meshgrids)[0]
                 vth_cart = mhd_equil.domain.push(vth, *e_meshgrids)
+                
+                levels = np.linspace(np.min(vth_cart) - 1e-10, np.max(vth_cart), 20)
+                
                 plt.subplot(2, 4, 4)
                 if 'Slab' in key or 'Pinch' in key:
-                    plt.contourf(x[:, 0, :], z[:, 0, :], vth_cart[:, 0, :])
-                    plt.contourf(x[:, Nel[1]//2 - 1, :], z[:, Nel[1] //
-                                 2 - 1, :], vth_cart[:, Nel[1]//2 - 1, :])
+                    plt.contourf(x[:, 0, :], z[:, 0, :],
+                                 vth_cart[:, 0, :], levels=levels)
+                    plt.contourf(x[:, Nel[1]//2, :], z[:, Nel[1] //
+                                 2 - 1, :], vth_cart[:, Nel[1]//2, :], levels=levels)
                     plt.xlabel('x')
                     plt.ylabel('z')
                 else:
-                    plt.contourf(x[:, 0, :], y[:, 0, :], vth_cart[:, 0, :])
-                    plt.contourf(x[:, Nel[1]//2 - 1, :], y[:, Nel[1] //
-                                 2 - 1, :], vth_cart[:, Nel[1]//2 - 1, :])
+                    plt.contourf(x[:, 0, :], y[:, 0, :],
+                                 vth_cart[:, 0, :], levels=levels)
+                    plt.contourf(x[:, Nel[1]//2, :], y[:, Nel[1] //
+                                 2 - 1, :], vth_cart[:, Nel[1]//2, :], levels=levels)
                     plt.xlabel('x')
                     plt.ylabel('y')
                 plt.axis('equal')
@@ -1294,11 +1344,13 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
                 plt.title(f'Maxwellian thermal velocity $v_t$, top view (e1-e3)')
                 plt.subplot(2, 4, 8)
                 if 'Slab' in key or 'Pinch' in key:
-                    plt.contourf(x[:, :, 0], y[:, :, 0], vth_cart[:, :, 0])
+                    plt.contourf(x[:, :, 0], y[:, :, 0],
+                                 vth_cart[:, :, 0], levels=levels)
                     plt.xlabel('x')
                     plt.ylabel('y')
                 else:
-                    plt.contourf(x[:, :, 0], z[:, :, 0], vth_cart[:, :, 0])
+                    plt.contourf(x[:, :, 0], z[:, :, 0],
+                                 vth_cart[:, :, 0], levels=levels)
                     plt.xlabel('x')
                     plt.ylabel('z')
                 plt.axis('equal')
@@ -1308,181 +1360,191 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
                 plt.show()
 
             # test perturbations
-            maxw_params_zero = {'n': 0.,
-                                'vth_para': 0.,
-                                'vth_perp': 0.}
+            if 'EQDSKequilibrium' in key:
+                maxw_params_zero = {'n': 0.,
+                                    'vth_para': 0.,
+                                    'vth_perp': 0.}
 
-            for key_2, val_2 in inspect.getmembers(perturbations):
-                if inspect.isclass(val_2):
-                    print(f'{key_2 = }')
-                    pert = val_2()
-                    print(f'{pert = }')
-                    pert_params = {'type': key_2,
-                                   key_2: {
-                                       'comps': {'n': '0',
-                                                 'u_para': '0',
-                                                 'u_perp': '0',
-                                                 'vth_para': '0',
-                                                 'vth_perp': '0'},
-                                   }}
+                for key_2, val_2 in inspect.getmembers(perturbations):
+                    if inspect.isclass(val_2):
+                        print(f'{key_2 = }')
+                        pert = val_2()
+                        print(f'{pert = }')
+                        pert_params = {'type': key_2,
+                                    key_2: {
+                                        'comps': {'n': '0',
+                                                    'u_para': '0',
+                                                    'u_perp': '0',
+                                                    'vth_para': '0',
+                                                    'vth_perp': '0'},
+                                    }}
 
-                    # background + perturbation
-                    maxwellian_perturbed = Maxwellian5D(
-                        maxw_params=maxw_params_mhd,
-                        pert_params=pert_params,
-                        mhd_equil=mhd_equil)
+                        # background + perturbation
+                        maxwellian_perturbed = Maxwellian5D(
+                            maxw_params=maxw_params_mhd,
+                            pert_params=pert_params,
+                            mhd_equil=mhd_equil)
 
-                    # test meshgrid evaluation
-                    assert maxwellian_perturbed(
-                        *meshgrids).shape == meshgrids[0].shape
+                        # test meshgrid evaluation
+                        assert maxwellian_perturbed(
+                            *meshgrids).shape == meshgrids[0].shape
 
-                    # test flat evaluation
-                    assert maxwellian_perturbed(
-                        *args_fl).shape == args_fl[0].shape
+                        # test flat evaluation
+                        assert maxwellian_perturbed(
+                            *args_fl).shape == args_fl[0].shape
 
-                    # pure perturbation
-                    maxwellian_zero_bckgr = Maxwellian5D(
-                        maxw_params=maxw_params_zero,
-                        pert_params=pert_params,
-                        mhd_equil=mhd_equil)
+                        # pure perturbation
+                        maxwellian_zero_bckgr = Maxwellian5D(
+                            maxw_params=maxw_params_zero,
+                            pert_params=pert_params,
+                            mhd_equil=mhd_equil)
 
-                    assert np.allclose(maxwellian_zero_bckgr.n(
-                        *e_meshgrids), pert(*e_meshgrids))
-                    assert np.allclose(maxwellian_zero_bckgr.u(
-                        *e_meshgrids)[0], pert(*e_meshgrids))
-                    assert np.allclose(maxwellian_zero_bckgr.u(
-                        *e_meshgrids)[1], pert(*e_meshgrids))
-                    assert np.allclose(maxwellian_zero_bckgr.vth(
-                        *e_meshgrids)[0], pert(*e_meshgrids))
-                    assert np.allclose(maxwellian_zero_bckgr.vth(
-                        *e_meshgrids)[1], pert(*e_meshgrids))
+                        assert np.allclose(maxwellian_zero_bckgr.n(
+                            *e_meshgrids), pert(*e_meshgrids))
+                        assert np.allclose(maxwellian_zero_bckgr.u(
+                            *e_meshgrids)[0], pert(*e_meshgrids))
+                        assert np.allclose(maxwellian_zero_bckgr.u(
+                            *e_meshgrids)[1], pert(*e_meshgrids))
+                        assert np.allclose(maxwellian_zero_bckgr.vth(
+                            *e_meshgrids)[0], pert(*e_meshgrids))
+                        assert np.allclose(maxwellian_zero_bckgr.vth(
+                            *e_meshgrids)[1], pert(*e_meshgrids))
 
-                    # plotting perturbations
-                    if show_plot and 'EQDSKequilibrium' in key:  # and 'Torus' in key_2:
-                        plt.figure(f'perturbation = {key_2}', figsize=(24, 16))
-                        x, y, z = mhd_equil.domain(*e_meshgrids)
+                        # plotting perturbations
+                        if show_plot and 'EQDSKequilibrium' in key:  # and 'Torus' in key_2:
+                            plt.figure(f'perturbation = {key_2}', figsize=(24, 16))
+                            x, y, z = mhd_equil.domain(*e_meshgrids)
 
-                        # density plots
-                        n_cart = mhd_equil.domain.push(
-                            maxwellian_zero_bckgr.n, *e_meshgrids)
-                        plt.subplot(2, 4, 1)
-                        if 'Slab' in key or 'Pinch' in key:
-                            plt.contourf(x[:, 0, :], z[:, 0, :],
-                                         n_cart[:, 0, :])
-                            plt.contourf(
-                                x[:, Nel[1]//2 - 1, :], z[:, Nel[1]//2 - 1, :], n_cart[:, Nel[1]//2 - 1, :])
-                            plt.xlabel('x')
-                            plt.ylabel('z')
-                        else:
-                            plt.contourf(x[:, 0, :], y[:, 0, :],
-                                         n_cart[:, 0, :])
-                            plt.contourf(
-                                x[:, Nel[1]//2 - 1, :], y[:, Nel[1]//2 - 1, :], n_cart[:, Nel[1]//2 - 1, :])
-                            plt.xlabel('x')
-                            plt.ylabel('y')
-                        plt.axis('equal')
-                        plt.colorbar()
-                        plt.title(
-                            'Maxwellian perturbed density $n$, top view (e1-e3)')
-                        plt.subplot(2, 4, 4 + 1)
-                        if 'Slab' in key or 'Pinch' in key:
-                            plt.contourf(x[:, :, 0], y[:, :, 0],
-                                         n_cart[:, :, 0])
-                            plt.xlabel('x')
-                            plt.ylabel('y')
-                        else:
-                            plt.contourf(x[:, :, 0], z[:, :, 0],
-                                         n_cart[:, :, 0])
-                            plt.xlabel('x')
-                            plt.ylabel('z')
-                        plt.axis('equal')
-                        plt.colorbar()
-                        plt.title(
-                            'Maxwellian perturbed density $n$, poloidal view (e1-e2)')
-
-                        # velocity plots
-                        us = maxwellian_zero_bckgr.u(*e_meshgrids)
-                        for i, u in enumerate(us):
-                            plt.subplot(2, 4, 2 + i)
+                            # density plots
+                            n_cart = mhd_equil.domain.push(
+                                maxwellian_zero_bckgr.n, *e_meshgrids)
+                            
+                            levels = np.linspace(np.min(n_cart) - 1e-10, np.max(n_cart), 20)
+                            
+                            plt.subplot(2, 4, 1)
                             if 'Slab' in key or 'Pinch' in key:
+                                plt.contourf(x[:, 0, :], z[:, 0, :],
+                                            n_cart[:, 0, :], levels=levels)
                                 plt.contourf(
-                                    x[:, 0, :], z[:, 0, :], u[:, 0, :])
-                                plt.contourf(
-                                    x[:, Nel[1]//2 - 1, :], z[:, Nel[1]//2 - 1, :], u[:, Nel[1]//2 - 1, :])
+                                    x[:, Nel[1]//2, :], z[:, Nel[1]//2, :], n_cart[:, Nel[1]//2, :], levels=levels)
                                 plt.xlabel('x')
                                 plt.ylabel('z')
                             else:
+                                plt.contourf(x[:, 0, :], y[:, 0, :],
+                                            n_cart[:, 0, :], levels=levels)
                                 plt.contourf(
-                                    x[:, 0, :], y[:, 0, :], u[:, 0, :])
-                                plt.contourf(
-                                    x[:, Nel[1]//2 - 1, :], y[:, Nel[1]//2 - 1, :], u[:, Nel[1]//2 - 1, :])
+                                    x[:, Nel[1]//2, :], y[:, Nel[1]//2, :], n_cart[:, Nel[1]//2, :], levels=levels)
                                 plt.xlabel('x')
                                 plt.ylabel('y')
                             plt.axis('equal')
                             plt.colorbar()
                             plt.title(
-                                f'Maxwellian perturbed velocity $u_{i + 1}$, top view (e1-e3)')
-                            plt.subplot(2, 4, 4 + 2 + i)
+                                'Maxwellian perturbed density $n$, top view (e1-e3)')
+                            plt.subplot(2, 4, 4 + 1)
                             if 'Slab' in key or 'Pinch' in key:
-                                plt.contourf(
-                                    x[:, :, 0], y[:, :, 0], u[:, :, 0])
+                                plt.contourf(x[:, :, 0], y[:, :, 0],
+                                            n_cart[:, :, 0], levels=levels)
                                 plt.xlabel('x')
                                 plt.ylabel('y')
                             else:
-                                plt.contourf(
-                                    x[:, :, 0], z[:, :, 0], u[:, :, 0])
+                                plt.contourf(x[:, :, 0], z[:, :, 0],
+                                            n_cart[:, :, 0], levels=levels)
                                 plt.xlabel('x')
                                 plt.ylabel('z')
                             plt.axis('equal')
                             plt.colorbar()
                             plt.title(
-                                f'Maxwellian perturbed velocity $u_{i + 1}$, poloidal view (e1-e2)')
+                                'Maxwellian perturbed density $n$, poloidal view (e1-e2)')
 
-                        # thermal velocity plots
-                        vth = maxwellian_zero_bckgr.vth(*e_meshgrids)[0]
-                        vth_cart = mhd_equil.domain.push(vth, *e_meshgrids)
-                        plt.subplot(2, 4, 4)
-                        if 'Slab' in key or 'Pinch' in key:
-                            plt.contourf(x[:, 0, :], z[:, 0, :],
-                                         vth_cart[:, 0, :])
-                            plt.contourf(
-                                x[:, Nel[1]//2 - 1, :], z[:, Nel[1]//2 - 1, :], vth_cart[:, Nel[1]//2 - 1, :])
-                            plt.xlabel('x')
-                            plt.ylabel('z')
-                        else:
-                            plt.contourf(x[:, 0, :], y[:, 0, :],
-                                         vth_cart[:, 0, :])
-                            plt.contourf(
-                                x[:, Nel[1]//2 - 1, :], y[:, Nel[1]//2 - 1, :], vth_cart[:, Nel[1]//2 - 1, :])
-                            plt.xlabel('x')
-                            plt.ylabel('y')
-                        plt.axis('equal')
-                        plt.colorbar()
-                        plt.title(
-                            f'Maxwellian perturbed thermal velocity $v_t$, top view (e1-e3)')
-                        plt.subplot(2, 4, 8)
-                        if 'Slab' in key or 'Pinch' in key:
-                            plt.contourf(x[:, :, 0], y[:, :, 0],
-                                         vth_cart[:, :, 0])
-                            plt.xlabel('x')
-                            plt.ylabel('y')
-                        else:
-                            plt.contourf(x[:, :, 0], z[:, :, 0],
-                                         vth_cart[:, :, 0])
-                            plt.xlabel('x')
-                            plt.ylabel('z')
-                        plt.axis('equal')
-                        plt.colorbar()
-                        plt.title(
-                            f'Maxwellian perturbed density $v_t$, poloidal view (e1-e2)')
+                            # velocity plots
+                            us = maxwellian_zero_bckgr.u(*e_meshgrids)
+                            for i, u in enumerate(us):
+                                
+                                levels = np.linspace(np.min(u) - 1e-10, np.max(u), 20)
+                                
+                                plt.subplot(2, 4, 2 + i)
+                                if 'Slab' in key or 'Pinch' in key:
+                                    plt.contourf(
+                                        x[:, 0, :], z[:, 0, :], u[:, 0, :], levels=levels)
+                                    plt.contourf(
+                                        x[:, Nel[1]//2, :], z[:, Nel[1]//2, :], u[:, Nel[1]//2, :], levels=levels)
+                                    plt.xlabel('x')
+                                    plt.ylabel('z')
+                                else:
+                                    plt.contourf(
+                                        x[:, 0, :], y[:, 0, :], u[:, 0, :], levels=levels)
+                                    plt.contourf(
+                                        x[:, Nel[1]//2, :], y[:, Nel[1]//2, :], u[:, Nel[1]//2, :], levels=levels)
+                                    plt.xlabel('x')
+                                    plt.ylabel('y')
+                                plt.axis('equal')
+                                plt.colorbar()
+                                plt.title(
+                                    f'Maxwellian perturbed velocity $u_{i + 1}$, top view (e1-e3)')
+                                plt.subplot(2, 4, 4 + 2 + i)
+                                if 'Slab' in key or 'Pinch' in key:
+                                    plt.contourf(
+                                        x[:, :, 0], y[:, :, 0], u[:, :, 0], levels=levels)
+                                    plt.xlabel('x')
+                                    plt.ylabel('y')
+                                else:
+                                    plt.contourf(
+                                        x[:, :, 0], z[:, :, 0], u[:, :, 0], levels=levels)
+                                    plt.xlabel('x')
+                                    plt.ylabel('z')
+                                plt.axis('equal')
+                                plt.colorbar()
+                                plt.title(
+                                    f'Maxwellian perturbed velocity $u_{i + 1}$, poloidal view (e1-e2)')
 
-                        plt.show()
+                            # thermal velocity plots
+                            vth = maxwellian_zero_bckgr.vth(*e_meshgrids)[0]
+                            vth_cart = mhd_equil.domain.push(vth, *e_meshgrids)
+                            
+                            levels = np.linspace(np.min(vth_cart) - 1e-10, np.max(vth_cart), 20)
+                            
+                            plt.subplot(2, 4, 4)
+                            if 'Slab' in key or 'Pinch' in key:
+                                plt.contourf(x[:, 0, :], z[:, 0, :],
+                                            vth_cart[:, 0, :], levels=levels)
+                                plt.contourf(
+                                    x[:, Nel[1]//2, :], z[:, Nel[1]//2, :], vth_cart[:, Nel[1]//2, :], levels=levels)
+                                plt.xlabel('x')
+                                plt.ylabel('z')
+                            else:
+                                plt.contourf(x[:, 0, :], y[:, 0, :],
+                                            vth_cart[:, 0, :], levels=levels)
+                                plt.contourf(
+                                    x[:, Nel[1]//2, :], y[:, Nel[1]//2, :], vth_cart[:, Nel[1]//2, :], levels=levels)
+                                plt.xlabel('x')
+                                plt.ylabel('y')
+                            plt.axis('equal')
+                            plt.colorbar()
+                            plt.title(
+                                f'Maxwellian perturbed thermal velocity $v_t$, top view (e1-e3)')
+                            plt.subplot(2, 4, 8)
+                            if 'Slab' in key or 'Pinch' in key:
+                                plt.contourf(x[:, :, 0], y[:, :, 0],
+                                            vth_cart[:, :, 0], levels=levels)
+                                plt.xlabel('x')
+                                plt.ylabel('y')
+                            else:
+                                plt.contourf(x[:, :, 0], z[:, :, 0],
+                                            vth_cart[:, :, 0], levels=levels)
+                                plt.xlabel('x')
+                                plt.ylabel('z')
+                            plt.axis('equal')
+                            plt.colorbar()
+                            plt.title(
+                                f'Maxwellian perturbed density $v_t$, poloidal view (e1-e2)')
+
+                            plt.show()
 
 
 if __name__ == '__main__':
     # test_maxwellian_6d_uniform(Nel=[64, 1, 1], show_plot=False)
     # test_maxwellian_6d_perturbed(Nel=[64, 1, 1], show_plot=False)
-    # test_maxwellian_6d_mhd(Nel=[8, 12, 12], show_plot=False)
+    # test_maxwellian_6d_mhd(Nel=[8, 11, 12], show_plot=True)
     # test_maxwellian_5d_uniform(Nel=[64, 1, 1], show_plot=True)
     # test_maxwellian_5d_perturbed(Nel=[64, 1, 1], show_plot=True)
-    test_maxwellian_5d_mhd(Nel=[8, 12, 12], show_plot=True)
+    test_maxwellian_5d_mhd(Nel=[8, 11, 12], show_plot=True)

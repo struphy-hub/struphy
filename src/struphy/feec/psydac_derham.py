@@ -5,7 +5,6 @@ from sympde.topology import Derham as Derham_psy
 
 from psydac.api.discretization import discretize
 from psydac.fem.vector import VectorFemSpace
-from psydac.fem.tensor import TensorFemSpace
 from psydac.feec.global_projectors import Projector_H1vec
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
@@ -24,7 +23,7 @@ from struphy.initial import utilities
 from struphy.geometry.base import Domain
 from struphy.bsplines import evaluation_kernels_3d as eval_3d
 from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
-from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.fields_background.mhd_equil.base import MHDequilibrium
 
 import numpy as np
 from mpi4py import MPI
@@ -656,7 +655,7 @@ class Derham:
     #      methods:
     # --------------------------
 
-    def create_field(self, name, space_id):
+    def create_field(self, name, space_id, bckgr_params=None, pert_params=None):
         '''Creat a callable spline field.
 
         Parameters
@@ -666,8 +665,14 @@ class Derham:
 
         space_id : str
             Space identifier for the field ("H1", "Hcurl", "Hdiv", "L2" or "H1vec").
+
+        bckgr_params : dict
+            Field's background parameters.
+
+        pert_params : dict
+            Field's perturbation parameters for initial condition.
         '''
-        return self.Field(name, space_id, self)
+        return self.Field(name, space_id, self, bckgr_params=bckgr_params, pert_params=pert_params)
 
     def prepare_eval_tp_fixed(self, grids_1d):
         '''Obtain knot span indices and spline basis functions evaluated at tensor product grid.
@@ -997,13 +1002,21 @@ class Derham:
 
         derham : struphy.feec.psydac_derham.Derham
             Discrete Derham complex.
+
+        bckgr_params : dict
+            Field's background parameters.
+
+        pert_params : dict
+            Field's perturbation parameters for initial condition.
         """
 
-        def __init__(self, name, space_id, derham):
+        def __init__(self, name, space_id, derham, bckgr_params=None, pert_params=None):
 
             self._name = name
             self._space_id = space_id
             self._derham = derham
+            self._bckgr_params = bckgr_params
+            self._pert_params = pert_params
 
             # initialize field in memory (FEM space, vector and tensor product (stencil) vector)
             self._space_key = derham.space_to_form[space_id]
@@ -1180,6 +1193,18 @@ class Derham:
             """
             return self._vector_stencil
 
+        @property
+        def bckgr_params(self):
+            """ Field's background parameters.
+            """
+            return self._bckgr_params
+
+        @property
+        def pert_params(self):
+            """ Field's perturbation parameters for initial condition.
+            """
+            return self._pert_params
+
         ###############
         ### Methods ###
         ###############
@@ -1197,207 +1222,259 @@ class Derham:
             if update_ghost_regions:
                 self._vector_stencil.update_ghost_regions()
 
-        def initialize_coeffs(self, init_params, domain=None, species=None):
+        def initialize_coeffs(self, domain=None, mhd_equil=None, species=None):
             """
             Sets the initial conditions for self.vector.
 
             Parameters
             ----------
-            init_params : dict
-                Parameters of initial condition, see from :ref:`params_yml`.
+            domain : struphy.geometry.domains 
+                Domain object for metric coefficients, only needed for transform of analytical perturbations.
 
-            domain : struphy.geometry.domains (optional)
-                Domain object for metric coefficients.
+            mhd_equil: MHDequilibrium
+                MHD equilibrium object, one of :mod:`struphy.fields_background.mhd_equil.equils`.
 
             species : string
-                Species of the filed (e.g. MHD) which will be initialized.
+                Species name (e.g. "mhd") the field belongs to.
             """
 
-            init_types = []
-            fun_params = []
-
-            # identifying initial conditions of self.vector
-            if init_params['type'] is None:
+            # case of zero initial condition
+            if self.bckgr_params is None and self.pert_params is None:
                 # apply boundary operator (in-place)
                 self.derham.boundary_ops[self.space_key].dot(
                     self._vector.copy(), out=self._vector)
-                # update ghost regions
+
                 self._vector.update_ghost_regions()
                 return
-            elif type(init_params['type']) == str:
-                init_params['type'] = [init_params['type']]
-            else:
-                assert isinstance(init_params['type'], list), f'The type of initial condition must be null or str or list.'
-            
-            # extract the components to be initialized       
-            for _type in init_params['type']:
 
-                if self.name not in init_params[_type]['comps']:
-                    pass
+            # check if backgrounds are to be initialized
+            bckgr_types = []
+            bckgr_type_params = []
 
+            if self.bckgr_params is not None:
+                if type(self.bckgr_params['type']) == str:
+                    self.bckgr_params['type'] = [self.bckgr_params['type']]
                 else:
+                    assert isinstance(
+                        self.bckgr_params['type'], list), f'The type of initial condition must be null or str or list.'
+
+                # extract the components that have a background
+                for _type in self.bckgr_params['type']:
+
+                    if self.name not in self.bckgr_params[_type]['comps']:
+                        pass
+                    else:
+                        if self.space_id in {'H1', 'L2'}:
+                            tmp_list = [self.bckgr_params[_type]
+                                        ['comps'][self.name]]
+                        else:
+                            tmp_list = self.bckgr_params[_type]['comps'][self.name]
+
+                        if any(_comp for _comp in tmp_list):
+                            bckgr_types += [_type]
+                            bckgr_type_params += [self.bckgr_params[_type].copy()]
+
+            # add backgrounds to coefficient vector
+            for _type, _params in zip(bckgr_types, bckgr_type_params):
+
+                # constant value (update halos below)
+                if 'LogicalConst' in _type:
+
+                    _val = _params['comps'][self.name]
 
                     if self.space_id in {'H1', 'L2'}:
-                        comps_list = [init_params[_type]
-                                        ['comps'][self.name]]
-
+                        assert isinstance(_val, float) or isinstance(_val, int)
+                        def f_tmp(e1, e2, e3):
+                            return _val + 0.*e1
+                        fun = f_tmp
                     else:
-                        comps_list = init_params[_type]['comps'][self.name]
+                        assert isinstance(_val, list)
+                        assert len(_val) == 3
+                        fun = []
+                        for i, _v in enumerate(_val):
+                            assert isinstance(_v, float) or isinstance(
+                                _v, int) or _v is None
+                            
+                        if _val[0] is not None:
+                            fun += [lambda e1, e2, e3: _val[0] + 0.*e1]
+                        else:
+                            fun += [lambda e1, e2, e3: 0.*e1]
+                            
+                        if _val[1] is not None:
+                            fun += [lambda e1, e2, e3: _val[1] + 0.*e1]
+                        else:
+                            fun += [lambda e1, e2, e3: 0.*e1]
+                            
+                        if _val[2] is not None:
+                            fun += [lambda e1, e2, e3: _val[2] + 0.*e1]
+                        else:
+                            fun += [lambda e1, e2, e3: 0.*e1]
 
-                    if any(_comp for _comp in comps_list):
-                        init_types += [_type]
-                        fun_params += [init_params[_type].copy()]
+                # geometric projection of mhd background
+                if 'MHD' in _type:
 
-            ntypes = len(init_types)
+                    assert mhd_equil is not None
+                    mhd_var = _params['comps'][self.name]
+                    assert mhd_var in dir(
+                        MHDequilibrium), f'{mhd_var = } is not an attribute of MHDequilibrium.'
 
-            if ntypes != 0:
+                    if self.space_id in {'H1', 'L2'}:
+                        fun = getattr(mhd_equil, mhd_var)
+                    else:
+                        assert (mhd_var + '_1') in dir(
+                            MHDequilibrium), f'{(mhd_var + "_1") = } is not an attribute of MHDequilibrium.'
+                        fun = [getattr(mhd_equil, mhd_var + '_1'),
+                               getattr(mhd_equil, mhd_var + '_2'),
+                               getattr(mhd_equil, mhd_var + '_3')]
+
+                # peform projection
+                self.vector += self.derham.P[self.space_key](fun)
+
+            # check if perturbations are to be initialized
+            pert_types = []
+            pert_type_params = []
+
+            if self.pert_params is not None:
+                if type(self.pert_params['type']) == str:
+                    self.pert_params['type'] = [self.pert_params['type']]
+                else:
+                    assert isinstance(
+                        self.pert_params['type'], list), f'The type of initial condition must be null or str or list.'
+
+                # extract the components to be perturbed
+                for _type in self.pert_params['type']:
+
+                    if self.name not in self.pert_params[_type]['comps']:
+                        pass
+                    else:
+                        if self.space_id in {'H1', 'L2'}:
+                            pert_comps_list = [self.pert_params[_type]
+                                               ['comps'][self.name]]
+                        else:
+                            pert_comps_list = self.pert_params[_type]['comps'][self.name]
+
+                        if any(_comp for _comp in pert_comps_list):
+                            pert_types += [_type]
+                            pert_type_params += [self.pert_params[_type].copy()]
+
+            # add perturbations to coefficient vector
+            for _type, _params in zip(pert_types, pert_type_params):
 
                 # white noise in logical space for different components
-                if any(_type == 'noise' for _type in init_types):
-
-                    assert ntypes == 1, \
-                        AssertionError(
-                            "The init type 'noise' cannot be applied with other init types")
-
-                    params_default = {'comps': {'b2': [True, False, False]},
-                                      'variation_in': 'e3',
-                                      'amp': 0.0001,
-                                      'seed': 1234
-                                      }
-
-                    self._params = set_defaults(fun_params[0], params_default)
+                if 'noise' in _type:
 
                     # component(s) to perturb
-                    if isinstance(fun_params[0]['comps'][self.name], bool):
-                        comps = [fun_params[0]['comps'][self.name]]
+                    if isinstance(_params['comps'][self.name], bool):
+                        comps = [_params['comps'][self.name]]
                     else:
-                        comps = fun_params[0]['comps'][self.name]
+                        comps = _params['comps'][self.name]
 
                     # set white noise FE coefficients
+                    _params.pop('comps')
+                    
                     if self.space_id in {'H1', 'L2'}:
                         if comps[0]:
-                            self._add_noise(fun_params[0])
+                            self._add_noise(**_params)
 
                     elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
                         for n, comp in enumerate(comps):
                             if comp:
-                                self._add_noise(fun_params[0], n=n)
+                                self._add_noise(**_params, n=n)
 
-                # loading of eigenfunction
-                elif any(_type[-6:] == 'EigFun' for _type in init_types):
+                # initialize from analytical function via geometric projection
+                if _type in dir(perturbations):
 
-                    assert ntypes == 1, \
-                        AssertionError(
-                            "The init type 'EigFun' cannot be applied with other init types")
+                    if self.space_id in {'H1', 'L2'}:
+
+                        pert_type_params_comp = {}
+
+                        # which transform is to be used: physical, '0' or '3'
+                        fun_basis = _params['comps'][self.name]
+
+                        for keys, vals in _params.items():
+
+                            if keys == 'comps':
+                                continue
+
+                            elif isinstance(vals, dict):
+                                pert_type_params_comp[keys] = vals[self.name]
+
+                            else:
+                                pert_type_params_comp[keys] = vals
+
+                        # get callable(s) for specified init type
+                        fun_class = getattr(perturbations, _type)
+                        fun_tmp = [fun_class(**pert_type_params_comp)]
+
+                        # pullback callable
+                        fun = TransformedPformComponent(
+                            fun_tmp, fun_basis, self.space_key, domain=domain)
+
+                    elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
+
+                        pert_type_params_comp = [{}, {}, {}]
+                        fun_tmp = [None, None, None]
+                        fun_basis = ['v']*3
+
+                        fun_class = getattr(perturbations, _type)
+
+                        for axis, comp in enumerate(_params['comps'][self.name]):
+
+                            if comp is not None:
+
+                                # which transform is to be used: physical, '1', '2' or 'v'
+                                fun_basis[axis] = comp
+
+                                for keys, vals in _params.items():
+
+                                    if keys == 'comps':
+                                        continue
+
+                                    elif isinstance(vals, dict):
+                                        pert_type_params_comp[axis][keys] = vals[self.name][axis]
+
+                                    else:
+                                        pert_type_params_comp[axis][keys] = vals
+
+                                fun_tmp[axis] = fun_class(
+                                    **pert_type_params_comp[axis])
+
+                        # pullback callable
+                        fun = []
+                        for n, fform in enumerate(fun_basis):
+                            fun += [TransformedPformComponent(
+                                fun_tmp, fform, self.space_key, comp=n, domain=domain)]
+
+                    # peform projection
+                    self.vector += self.derham.P[self.space_key](fun)
+
+                # loading of MHD eigenfunction (legacy code, might not be up to date)
+                if 'EigFun' in _type:
 
                     # select class
-                    funs = getattr(eigenfunctions, init_types[0])(
-                        self.derham, **fun_params[0])
+                    funs = getattr(eigenfunctions, pert_types[0])(
+                        self.derham, **_params)
 
                     # select eigenvector and set coefficients
                     if hasattr(funs, self.name):
 
                         eig_vec = getattr(funs, self.name)
 
-                        self.vector = eig_vec
+                        self.vector += eig_vec
 
-                # Fourier modes or shear layer
-                elif any(_type in ['ModesSin', 'ModesCos', 'TorusModesSin', 'TorusModesCos', 'Shear_x', 'Shear_y', 'Shear_z'] for _type in init_types):
-
-                    if self.space_id in {'H1', 'L2'}:
-
-                        assert ntypes == 1, \
-                            AssertionError(
-                                f'Only one init type can be applied to the variables in space {self.space_id}.')
-
-                        fun_params_comp = {}
-
-                        # which transform is to be used: physical, '0' or '3'
-                        fun_form = fun_params[0]['comps'][self.name]
-
-                        for keys, vals in fun_params[0].items():
-
-                            if keys == 'comps':
-                                continue
-
-                            elif isinstance(vals, dict):
-                                fun_params_comp[keys] = fun_params[0][keys][self.name]
-
-                            else:
-                                fun_params_comp[keys] = fun_params[0][keys]
-
-                        # get callable(s) for specified init type
-                        fun_class = getattr(perturbations, init_types[0])
-                        fun_tmp = [fun_class(**fun_params_comp)]
-
-                        # pullback callable
-                        fun = TransformedPformComponent(
-                            fun_tmp, fun_form, self.space_key, domain=domain)
-
-                    elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
-
-                        assert ntypes < 4, \
-                            AssertionError(
-                                f'Maximum 3 init types can be applied to the variables in space {self.space_id}.')
-
-                        fun_params_comp = [{}, {}, {}]
-                        fun_tmp = [None, None, None]
-                        fun_form = ['v']*3
-
-                        for n, _type in enumerate(init_types):
-
-                            fun_class = getattr(perturbations, _type)
-
-                            for axis, comp in enumerate(fun_params[n]['comps'][self.name]):
-
-                                if comp is not None:
-
-                                    # which transform is to be used: physical, '1', '2' or 'v'
-                                    fun_form[axis] = comp
-
-                                    for keys, vals in fun_params[n].items():
-
-                                        if keys == 'comps':
-                                            continue
-
-                                        elif isinstance(vals, dict):
-                                            fun_params_comp[axis][keys] = fun_params[n][keys][self.name][axis]
-
-                                        else:
-                                            fun_params_comp[axis][keys] = fun_params[n][keys]
-
-                                    fun_tmp[axis] = fun_class(
-                                        **fun_params_comp[axis])
-
-                        # pullback callable
-                        fun = []
-                        for n, fform in enumerate(fun_form):
-                            fun += [TransformedPformComponent(
-                                fun_tmp, fform, self.space_key, comp=n, domain=domain)]
-
-                    # peform projection
-                    self.vector = self.derham.P[self.space_key](fun)
-
-                elif any(_type == 'InitFromOutput' for _type in init_types):
-
-                    assert ntypes == 1, \
-                        AssertionError(
-                            "The init type 'InitFromOutput' cannot be applied with other init types")
+                # initialize from existing output file
+                if 'InitFromOutput' in _type:
 
                     # select class
-                    o_data = getattr(utilities, init_types[0])(
-                        self.derham, self.name, species, **fun_params[0])
+                    o_data = getattr(utilities, pert_types[0])(
+                        self.derham, self.name, species, **_params)
 
                     if isinstance(self.vector, StencilVector):
-                        self.vector._data[:] = o_data.vector
+                        self.vector._data[:] += o_data.vector
 
                     else:
                         for n in range(3):
-                            self.vector[n]._data[:] = o_data.vector[n]
-
-                else:
-                    raise NotImplemented(
-                        f'Initial condition {init_types} not available.')
+                            self.vector[n]._data[:] += o_data.vector[n]
 
             # apply boundary operator (in-place)
             self.derham.boundary_ops[self.space_key].dot(
@@ -1646,21 +1723,23 @@ class Derham:
         #######################
         ### Private methods ###
         #######################
-        def _add_noise(self, fun_params, n=None):
+        def _add_noise(self, direction='e3', amp=0.0001, seed=None, n=None):
             """ Add noise to a vector component where init_comps==True, otherwise leave at zero.
 
             Parameters
             ----------
-            fun_params : dict
-                From parameter file under init/noise.
+            direction: str
+                The direction(s) of variation of the noise: 'e1', 'e2', 'e3', 'e1e2', etc.
+
+            amp: float
+                Noise amplitude.
+
+            seed: int
+                Seed for the random number generator.
 
             n : int
                 Vector component (0, 1 or 2) to be initialized.
             """
-
-            _direction = fun_params['variation_in']
-            _ampsize = fun_params['amp']
-            _seed = fun_params['seed']
 
             # index slices from global start to end in all directions
             sli = []
@@ -1683,55 +1762,55 @@ class Derham:
                 _shape = (self._gl_e[n][0] + 1 - self._gl_s[n][0], self._gl_e[n]
                           [1] + 1 - self._gl_s[n][1], self._gl_e[n][2] + 1 - self._gl_s[n][2])
 
-            if _direction == 'e1':
+            if direction == 'e1':
                 _amps = self._tmp_noise_for_mpi(
-                    _shape[0], direction=_direction, amp_size=_ampsize, seed=_seed)
+                    _shape[0], direction=direction, amp=amp, seed=seed)
                 for j in range(_shape[1]):
                     for k in range(_shape[2]):
-                        vec[sli[0], gl_s[1] + j, gl_s[2] + k] = _amps
+                        vec[sli[0], gl_s[1] + j, gl_s[2] + k] += _amps
                 del _amps
 
-            elif _direction == 'e2':
+            elif direction == 'e2':
                 _amps = self._tmp_noise_for_mpi(
-                    _shape[1], direction=_direction, amp_size=_ampsize, seed=_seed)
+                    _shape[1], direction=direction, amp=amp, seed=seed)
                 for j in range(_shape[0]):
                     for k in range(_shape[2]):
-                        vec[gl_s[0] + j, sli[1], gl_s[2] + k] = _amps
+                        vec[gl_s[0] + j, sli[1], gl_s[2] + k] += _amps
 
-            elif _direction == 'e3':
+            elif direction == 'e3':
                 _amps = self._tmp_noise_for_mpi(
-                    _shape[2], direction=_direction, amp_size=_ampsize, seed=_seed)
+                    _shape[2], direction=direction, amp=amp, seed=seed)
                 for j in range(_shape[0]):
                     for k in range(_shape[1]):
-                        vec[gl_s[0] + j, gl_s[1] + k, sli[2]] = _amps
+                        vec[gl_s[0] + j, gl_s[1] + k, sli[2]] += _amps
 
-            elif _direction == 'e1e2':
+            elif direction == 'e1e2':
                 _amps = self._tmp_noise_for_mpi(
-                    _shape[0], _shape[1], direction=_direction, amp_size=_ampsize, seed=_seed)
+                    _shape[0], _shape[1], direction=direction, amp=amp, seed=seed)
                 for j in range(_shape[2]):
-                    vec[sli[0], sli[1], gl_s[2] + j] = _amps
+                    vec[sli[0], sli[1], gl_s[2] + j] += _amps
 
-            elif _direction == 'e1e3':
+            elif direction == 'e1e3':
                 _amps = self._tmp_noise_for_mpi(
-                    _shape[0], _shape[2], direction=_direction, amp_size=_ampsize, seed=_seed)
+                    _shape[0], _shape[2], direction=direction, amp=amp, seed=seed)
                 for j in range(_shape[1]):
-                    vec[sli[0], gl_s[1] + j, sli[2]] = _amps
+                    vec[sli[0], gl_s[1] + j, sli[2]] += _amps
 
-            elif _direction == 'e2e3':
+            elif direction == 'e2e3':
                 _amps = self._tmp_noise_for_mpi(
-                    _shape[1], _shape[2], direction=_direction, amp_size=_ampsize, seed=_seed)
+                    _shape[1], _shape[2], direction=direction, amp=amp, seed=seed)
                 for j in range(_shape[0]):
-                    vec[gl_s[0] + j, sli[1], sli[2]] = _amps
+                    vec[gl_s[0] + j, sli[1], sli[2]] += _amps
 
-            elif _direction == 'e1e2e3':
+            elif direction == 'e1e2e3':
                 _amps = self._tmp_noise_for_mpi(
-                    _shape[0], _shape[1], _shape[2], direction=_direction, amp_size=_ampsize, seed=_seed)
-                vec[sli[0], sli[1], sli[2]] = _amps
+                    _shape[0], _shape[1], _shape[2], direction=direction, amp=amp, seed=seed)
+                vec[sli[0], sli[1], sli[2]] += _amps
 
             else:
                 raise ValueError('Invalid direction for noise.')
 
-        def _tmp_noise_for_mpi(self, *shapes, direction='e3', amp_size=0.0001, seed=None):
+        def _tmp_noise_for_mpi(self, *shapes, direction='e3', amp=0.0001, seed=None):
             '''Initialize same FEEC noise regardless of number of MPI processes.
 
             Parameters
@@ -1742,7 +1821,7 @@ class Derham:
             direction : str
                 Noise direction ('e1', 'e2' or 'e3'). Multi-dim. not yet correct.
 
-            amp_size : float
+            amp : float
                 Noise amplitude
 
             seed : int
@@ -1836,38 +1915,38 @@ class Derham:
                         _amps[:] = tmp_arrays[inds[1]][inds[2]]
                     elif direction == 'e1e2e3':
                         _amps[:] = (np.random.rand(
-                            *shapes) - .5) * 2. * amp_size
+                            *shapes) - .5) * 2. * amp
 
                 else:
 
                     if direction == 'e1':
                         tmp_arrays[inds[0]] = (np.random.rand(
-                            *shapes) - .5) * 2. * amp_size
+                            *shapes) - .5) * 2. * amp
                         already_drawn[inds[0], :, :] = True
                         _amps[:] = tmp_arrays[inds[0]]
                     elif direction == 'e2':
                         tmp_arrays[inds[1]] = (np.random.rand(
-                            *shapes) - .5) * 2. * amp_size
+                            *shapes) - .5) * 2. * amp
                         already_drawn[:, inds[1], :] = True
                         _amps[:] = tmp_arrays[inds[1]]
                     elif direction == 'e3':
                         tmp_arrays[inds[2]] = (np.random.rand(
-                            *shapes) - .5) * 2. * amp_size
+                            *shapes) - .5) * 2. * amp
                         already_drawn[:, :, inds[2]] = True
                         _amps[:] = tmp_arrays[inds[2]]
                     elif direction == 'e1e2':
                         tmp_arrays[inds[0]][inds[1]] = (
-                            np.random.rand(*shapes) - .5) * 2. * amp_size
+                            np.random.rand(*shapes) - .5) * 2. * amp
                         already_drawn[inds[0], inds[1], :] = True
                         _amps[:] = tmp_arrays[inds[0]][inds[1]]
                     elif direction == 'e1e3':
                         tmp_arrays[inds[0]][inds[2]] = (
-                            np.random.rand(*shapes) - .5) * 2. * amp_size
+                            np.random.rand(*shapes) - .5) * 2. * amp
                         already_drawn[inds[0], :, inds[2]] = True
                         _amps[:] = tmp_arrays[inds[0]][inds[2]]
                     elif direction == 'e2e3':
                         tmp_arrays[inds[1]][inds[2]] = (
-                            np.random.rand(*shapes) - .5) * 2. * amp_size
+                            np.random.rand(*shapes) - .5) * 2. * amp
                         already_drawn[:, inds[1], inds[2]] = True
                         _amps[:] = tmp_arrays[inds[1]][inds[2]]
 
@@ -1884,8 +1963,8 @@ class TransformedPformComponent:
     fun : list
         Callable function components. Has to be length three for 1-, 2-forms and vector fields, length one otherwise.
 
-    fun_form : str
-        The representation of the input fun: either a p-form, then '0' or '3' for scalar and 'v', '1' or '2' for vector-valued,
+    fun_basis : str
+        In which basis fun is represented: either a p-form, then '0' or '3' for scalar and 'v', '1' or '2' for vector-valued,
         'physical' when defined on the physical (mapped) domain, and 'norm' when given in the normalized
         contra-variant basis (:math:`\delta_i / |\delta_i|`).
 
@@ -1901,10 +1980,10 @@ class TransformedPformComponent:
     Returns
     -------
     out : array[float]
-        The values of the component comp of fun transformed from fun_form to out_form.
+        The values of the component comp of fun transformed from fun_basis to out_form.
     """
 
-    def __init__(self, fun: list, fun_form: str, out_form: str, comp=0, domain=None):
+    def __init__(self, fun: list, fun_basis: str, out_form: str, comp=0, domain=None):
 
         assert len(fun) == 1 or len(fun) == 3
 
@@ -1917,7 +1996,7 @@ class TransformedPformComponent:
                 assert callable(f)
                 self._fun += [f]
 
-        self._fun_form = fun_form
+        self._fun_basis = fun_basis
         self._out_form = out_form
         self._comp = comp
         self._domain = domain
@@ -1940,14 +2019,14 @@ class TransformedPformComponent:
         slice plane or general (see :ref:`struphy.geometry.base.prepare_arg`).
         """
 
-        if self._fun_form == self._out_form or self._domain is None:
+        if self._fun_basis == self._out_form or self._domain is None:
 
             if self._is_scalar:
                 out = self._fun(eta1, eta2, eta3)
             else:
                 out = self._fun[self._comp](eta1, eta2, eta3)
 
-        elif self._fun_form == 'physical':
+        elif self._fun_basis == 'physical':
 
             if self._is_scalar:
                 out = self._domain.pull(
@@ -1955,8 +2034,8 @@ class TransformedPformComponent:
             else:
                 out = self._domain.pull(
                     self._fun, eta1, eta2, eta3, kind=self._out_form)[self._comp]
-                
-        elif self._fun_form == 'physical_at_eta':
+
+        elif self._fun_basis == 'physical_at_eta':
 
             if self._is_scalar:
                 out = self._domain.pull(
@@ -1967,7 +2046,7 @@ class TransformedPformComponent:
 
         else:
 
-            dict_tran = self._fun_form + '_to_' + self._out_form
+            dict_tran = self._fun_basis + '_to_' + self._out_form
 
             if self._is_scalar:
                 out = self._domain.transform(

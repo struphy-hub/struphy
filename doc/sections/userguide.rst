@@ -21,6 +21,8 @@ The installed version is obtained by::
 
     subsections/solving_pdes
     subsections/parameters
+    subsections/initial_conditions
+    subsections/boundary_conditions
     subsections/profiling
     subsections/post_processing
     subsections/paraview

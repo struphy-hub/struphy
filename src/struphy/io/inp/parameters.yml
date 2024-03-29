@@ -2,16 +2,16 @@
 
 # 1. Strings can either be set as e.g. 'Cuboid' or Cuboid, i.e. with or without quotes - both works
 # 2. The parameter null will be transformed to Python's None type
-# 3. Available geometries: https://struphy.pages.mpcdf.de/struphy/sections/domains.html
-# 4. Available MHD equilibria: https://struphy.pages.mpcdf.de/struphy/sections/mhd_equils.html
-# 5. Available kinetic backgrounds/initial conditions: https://struphy.pages.mpcdf.de/struphy/sections/kinetic_backgrounds.html
-# 6. Available FEEC initial conditions: https://struphy.pages.mpcdf.de/struphy/sections/inits.html
+# 3. Available geometries: https://struphy.pages.mpcdf.de/struphy/sections/subsections/domains.html
+# 4. Available MHD equilibria: https://struphy.pages.mpcdf.de/struphy/sections/subsections/mhd_equils.html
+# 5. Available kinetic backgrounds: https://struphy.pages.mpcdf.de/struphy/sections/subsections/kinetic_backgrounds.html
+# 6. Available perturbation functions: https://struphy.pages.mpcdf.de/struphy/sections/subsections/inits.html
 
 grid :
     Nel          : [12, 14, 1] # number of grid cells, >=p
     p            : [2, 3, 1]  # spline degree
     spl_kind     : [False, True, True] # spline type: True=periodic, False=clamped
-    dirichlet_bc :  null #[[False, False], [False, False], [False, False]]  hom. Dirichlet boundary conditions for N-splines (spl_kind must be False)
+    dirichlet_bc : null #[[False, False], [False, False], [False, False]]  hom. Dirichlet boundary conditions for N-splines (spl_kind must be False)
     dims_mask    : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
     nq_el        : [2, 2, 1] # quadrature points per grid cell
     nq_pr        : [2, 2, 1] # quadrature points per histopolation cell (for commuting projectors)
@@ -23,8 +23,8 @@ time :
     split_algo : LieTrotter # LieTrotter | Strang
 
 units : # units not stated here can be viewed via "struphy units -h"
-    x : 1. # length scale unit in m
-    B : 1. # magnetic field unit in T
+    x : 1. # length scale unit in Meter (m)
+    B : 1. # magnetic field unit in Tesla
     n : 1. # number density unit in 10^20 m^(-3)
 
 geometry :
@@ -35,77 +35,51 @@ mhd_equilibrium :
     type : HomogenSlab 
     HomogenSlab : {}
 
-electric_equilibrium :
-    type : HomogenSlab # (possible choices seen below)
-    HomogenSlab :
-        phi0  : 1. # constant electric potential
-
 em_fields :
-    init :
+    background: 
+        type : LogicalConst
+        LogicalConst :
+            comps :
+                potential_name : 1.3 # scalar-valued variable
+                field_name : [.3, .15, null] # vector-valued variable
+    perturbation :
         type : TorusModesCos
         TorusModesCos :
-            comps :
-                e1 : [null, 'v', null] # space of components to be initialized (for scalar fields: no list)
-                b2 : [null, 'v', null]    # space of components to be initialized (for scalar fields: no list)
-            ms :
-                e1 : [null, [3], null]  # poloidal mode numbers
-                b2 : [null, [3], null] # poloidal mode numbers
-            ns :
-                e1 : [null, [1], null] # toroidal mode numbers
-                b2 : [null, [1], null] # toroidal mode numbers
-            amps :
-                e1 : [null, [0.001], null] # amplitudes of each mode
-                b2 : [null, [0.001], null] # amplitudes of each mode
-            pfuns :
-                e1 : [null, ['sin'], null] # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
-                b2 : [null, ['sin'], null] # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
-            pfun_params :
-                e1 : [null, null, null] # Provides [r_0, sigma] parameters for each "exp" or "d_exp" profile fucntion, and null for "sin" and "cos"
-                b2 : [null, null, null] # Provides [r_0, sigma] parameters for each "exp" or "d_exp" profile fucntion, and null for "sin" and "cos"
+            comps : # components to be initialized
+                potential_name : '0' # perturbation function given as 0-form 
+                field_name : [null, 'v', null] # second component given as vector field, others zero
+            ms : # poloidal mode numbers
+                potential_name : [1] # one poloidal mode
+                field_name : [null, [1, 3], null] # two poloidal modes for the second component 
 
 fluid :
-    mhd :
+    species_name :
         phys_params:
             A : 1 # mass number in units of proton mass
             Z : 1 # signed charge number in units of elementary charge
-        mhd_u_space : H1vec # Hdiv | H1vec
-        init :
+        background: 
+            type : LogicalConst
+            LogicalConst :
+                comps :
+                    var_name : [null, 1.5, null] # vector-valued variable
+                    another_var_name : 2.3 # scalar-valued variable
+        perturbation :
             type : TorusModesCos
             TorusModesCos :
                 comps :
-                    n3 : null                     # space of components to be initialized (for scalar fields: no list)
-                    u2 : [null, 'v', null] # space of components to be initialized (for scalar fields: no list)
-                    p3 : '0'                     # space of components to be initialized (for scalar fields: no list)
-                ms :
-                    n3 : null              # poloidal mode numbers
-                    u2 : [null, [3], null] # poloidal mode numbers
-                    p3 : [3]              # poloidal mode numbers
-                ns :
-                    n3 : null              # toroidal mode numbers
-                    u2 : [null, [1], null] # toroidal mode numbers
-                    p3 : [1]              # toroidal mode numbers
-                amps :
-                    n3 : null                   # amplitude of each mode
-                    u2 : [null, [0.001], null] # amplitude of each mode
-                    p3 : [0.001]                   # amplitude of each mode
-                pfuns :
-                    n3 : null                  # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
-                    u2 : [null, ['sin'], null] # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
-                    p3 : ['sin']                  # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')        
-                pfun_params :
-                    n3 : null               # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"
-                    u2 : [null, null, null] # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"
-                    p3 : null               # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"        
+                    var_name : '0' # perturbation function given as 0-form 
+                ms : # poloidal mode numbers
+                    var_name : [1, 3] # two poloidal modes
 
 kinetic :
-    ions :
+    species_name :
         phys_params :
             A : 1  # mass number in units of proton mass
             Z : 1 # signed charge number in units of elementary charge
         markers :
             type    : full_f # full_f, control_variate, or delta_f
-            ppc     : 10  # number of markers per 3d grid cell
-            Np      : 3 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
+            ppc     : null  # number of markers per 3d grid cell
+            Np      : 1000 # alternative if ppc = null, total number of markers
             eps     : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
             bc : 
                 type    : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
@@ -115,14 +89,21 @@ kinetic :
                 moments       : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
                 spatial       : uniform # uniform or disc
                 dir_particles : 'path_to_particles' # directory of particles if loaded externally
-        background :
+        save_data :
+            n_markers : 3 # number of markers to be saved during simulation
+            f :
+                slices : [v1, e1_v1] # in which directions to bin (e.g. [e1_e2, v1_v2_v3])
+                n_bins : [[32], [32, 32]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
+                ranges : [[[-3., 3.]], [[0., 1.], [-5., 5.]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
+        background : # background is mandatory for kinetic species
             type : Maxwellian6D
             Maxwellian6D :
                 n  : 0.05
                 u2 : 2.5
-        save_data :
-            n_markers : 3 # number of markers to be saved during simulation
-            f :
-                slices : [v1] # in which directions to bin (e.g. [e1_e2, v1_v2_v3])
-                n_bins : [[32]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
-                ranges : [[[-3., 3.]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
+        perturbation :
+            type : TorusModesCos
+            TorusModesCos :
+                comps :
+                    n : '0' # perturbation function given as 0-form 
+                ms : # poloidal mode numbers
+                    n : [1, 3] # two poloidal modes for the density

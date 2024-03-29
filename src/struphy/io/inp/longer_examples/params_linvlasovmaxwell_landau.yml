@@ -48,11 +48,6 @@ mhd_equilibrium :
         beta : 0. # plasma beta = 2*p*mu_0/B^2
         n0   : 1. # number density
 
-electric_equilibrium :
-    type : HomogenSlab # (possible choices seen below)
-    HomogenSlab :
-        phi0  : 1. # constant electric potential
-
 em_fields :
     init :
         type : null # initial conditions (possible types seen below)

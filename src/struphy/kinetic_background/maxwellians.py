@@ -161,6 +161,7 @@ class Maxwellian6D(Maxwellian):
             for key, item in self.pert_params[self._pert_type].items():
                 # Skip the comps entry
                 if key == 'comps':
+                    assert item['n'] == '0', 'Moment perturbations must be passed as 0-forms to Maxwellians.'
                     continue
                 n_pert_params[key] = item['n']
 
@@ -237,6 +238,7 @@ class Maxwellian6D(Maxwellian):
                     for key, item in self.pert_params[self._pert_type].items():
                         # Skip the comps entry
                         if key == 'comps':
+                            assert item[comp] == '0', 'Moment perturbations must be passed as 0-forms to Maxwellians.'
                             continue
                         u_pert_params[key] = item[comp]
 
@@ -314,6 +316,7 @@ class Maxwellian6D(Maxwellian):
                     for key, item in self.pert_params[self._pert_type].items():
                         # Skip the comps entry
                         if key == 'comps':
+                            assert item[comp] == '0', 'Moment perturbations must be passed as 0-forms to Maxwellians.'
                             continue
                         vth_pert_params[key] = item[comp]
 
@@ -473,21 +476,23 @@ class Maxwellian5D(Maxwellian):
             assert np.all(res > 0.), 'Number density must be positive!'
 
         # Add perturbation if parameters are given and if density is to be perturbed
-        if self.pert_params is not None and 'n' in self.pert_params[self._pert_type]['comps']:
-            n_pert_params = {}
-            for key, item in self.pert_params[self._pert_type].items():
-                # Skip the comps entry
-                if key == 'comps':
-                    continue
-                n_pert_params[key] = item['n']
+        if self.pert_params is not None:
+            if 'n' in self.pert_params[self._pert_type]['comps']:
+                n_pert_params = {}
+                for key, item in self.pert_params[self._pert_type].items():
+                    # Skip the comps entry
+                    if key == 'comps':
+                        assert item['n'] == '0', 'Moment perturbations must be passed as 0-forms to Maxwellians.'
+                        continue
+                    n_pert_params[key] = item['n']
 
-            perturbation = getattr(perturbations, self._pert_type)(
-                **n_pert_params)
+                perturbation = getattr(perturbations, self._pert_type)(
+                    **n_pert_params)
 
-            if eta1.ndim == 1:
-                res += perturbation(eta1, eta2, eta3)
-            else:
-                res += perturbation(*etas)
+                if eta1.ndim == 1:
+                    res += perturbation(eta1, eta2, eta3)
+                else:
+                    res += perturbation(*etas)
 
         return res * self.moment_factors['n']
 
@@ -553,6 +558,7 @@ class Maxwellian5D(Maxwellian):
                     for key, item in self.pert_params[self._pert_type].items():
                         # Skip the comps entry
                         if key == 'comps':
+                            assert item[comp] == '0', 'Moment perturbations must be passed as 0-forms to Maxwellians.'
                             continue
                         u_pert_params[key] = item[comp]
 
@@ -625,6 +631,7 @@ class Maxwellian5D(Maxwellian):
                     for key, item in self.pert_params[self._pert_type].items():
                         # Skip the comps entry
                         if key == 'comps':
+                            assert item[comp] == '0', 'Moment perturbations must be passed as 0-forms to Maxwellians.'
                             continue
                         vth_pert_params[key] = item[comp]
 

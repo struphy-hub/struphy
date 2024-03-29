@@ -666,8 +666,8 @@ class LinearVlasovMaxwell(StruphyModel):
                                                  self.mhd_equil.b2_2,
                                                  self.mhd_equil.b2_3])
 
-        # Create pointers to background electric potential and field
-        self._phi_background = self.derham.P['0'](self.electric_equil.phi0)
+        # TODO: must be set from model options
+        self._phi_background = self.derham.Vh['0'].zeros()
         self._e_background = self.derham.grad.dot(self._phi_background)
         # ====================================================================================
 
@@ -1021,8 +1021,8 @@ class DeltaFVlasovMaxwell(StruphyModel):
                                                  self.mhd_equil.b2_2,
                                                  self.mhd_equil.b2_3])
 
-        # Create pointers to background electric potential and field
-        self._phi_background = self.derham.P['0'](self.electric_equil.phi0)
+        # TODO: must be set from model options
+        self._phi_background = self.derham.Vh['0'].zeros()
         self._e_background = self.derham.grad.dot(self._phi_background)
         # ====================================================================================
 

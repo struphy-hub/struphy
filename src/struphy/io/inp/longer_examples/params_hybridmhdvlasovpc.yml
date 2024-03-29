@@ -46,7 +46,6 @@ fluid :
         phys_params:
             A : 1 # mass number in units of proton mass
             Z : 1 # signed charge number in units of elementary charge
-        mhd_u_space : H1vec # Hdiv | H1vec
         init :
             type : null # type of initialization
             ModesCos :

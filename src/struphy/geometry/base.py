@@ -676,7 +676,8 @@ class Domain(metaclass=ABCMeta):
         Returns
         -------
         out : ndarray | float
-            The metric coefficient evaluated at the given logical coordinates.
+            4D or 2D (for flat eval) array holding the metric coefficient (first index),
+            evaluated at the given logical coordinates (last three indices).
         """
 
         # set default values

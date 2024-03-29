@@ -1903,7 +1903,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
                           'json_file': None,
                           'use_pest': False,
                           'use_nfp': True,
-                          'rmin': 0.0,
+                          'rmin': 0.01,
                           'Nel': (16, 16, 16),
                           'p': (3, 3, 3), }
 
@@ -2052,7 +2052,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
             eta3 = etas[2]
             flat_eval = False
 
-        # TODO: which density to set? Is proportioanl to pressure for the moment
+        # TODO: which density to set? Is proportional to pressure for the moment
         return 0.2 * self.p0(*etas)
 
     def gradB1(self, *etas, squeeze_out=False):

@@ -161,39 +161,6 @@ def setup_domain_mhd(params, units=None):
     return domain, mhd
 
 
-def setup_electric_background(params, domain):
-    """
-    Creates an electric background field for a given parameter file.
-
-    Parameters
-    ----------
-    params : dict
-        The full simulation parameter dictionary.
-
-    domain : struphy.geometry.base.Domain
-        The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
-
-    Returns
-    -------
-    electric_background : struphy.fields_background.electric_equil.base.EquilibriumElectric
-        The electric background object.
-    """
-
-    from struphy.fields_background.electric_equil import analytical
-
-    if 'electric_equilibrium' in params:
-
-        electric_type = params['electric_equilibrium']['type']
-        electric_class = getattr(analytical, electric_type)
-        electric_background = electric_class(
-            params['electric_equilibrium'][electric_type], domain)
-
-    else:
-        electric_background = None
-
-    return electric_background
-
-
 def setup_derham(params_grid, comm, domain=None, mpi_dims_mask=None):
     """
     Creates the 3d derham sequence for given grid parameters.
