@@ -58,6 +58,8 @@ Some hints for editing a parameter file:
 Space grid parameters
 ^^^^^^^^^^^^^^^^^^^^^
 
+See :ref:`boundary_conditions` for how to set boundary conditions.
+
 ::
 
     grid :

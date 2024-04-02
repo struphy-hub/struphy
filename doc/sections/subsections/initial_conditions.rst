@@ -3,7 +3,10 @@
 Initial conditions
 ------------------
 
-Initial conditions in Struphy are always the sum of ``background`` + ``perturbation``, regardless
+Initial conditions in Struphy must be set via the ``.yml`` parameter file,
+see :ref:`params_yml` under "Species parameters".
+
+Initial conditions are always the sum of ``background`` + ``perturbation``, regardless
 whether the species is ``kinetic``, ``fluid``, or ``em_fields``.
 
 For ``kinetic`` species, the ``background`` is mandatory!
