@@ -78,14 +78,14 @@ def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
                        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                        e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
                        const: 'float'):
-    r'''Updates
+    r'''Updates particle velocities as
 
     .. math::
 
-        \frac{\mathbf v^{n+1}_k - \mathbf v^n_k}{\Delta t} = C * DF^{-\top}(\boldsymbol \eta^n_k) \hat{\mathbf E}^1_h(\boldsymbol \eta^n_k)
+        \frac{\mathbf v^{n+1} - \mathbf v^n}{\Delta t} = c * \bar{DF}^{-\top}  (\mathbb L^1)^\top \mathbf e
 
-    for each marker :math:`k` in markers array, where :math:`\hat{\mathbf E}^1_h \in V_h^1 \subset H(\textnormal{curl})`,
-    and :math:`C \in \mathbb R` some constant.
+    where :math:`\mathbf e \in \mathbb R^{N_1}` are given FE coefficients of the 1-form spline field
+    and :math:`c \in \mathbb R` is some constant.
 
     Parameters
     ----------

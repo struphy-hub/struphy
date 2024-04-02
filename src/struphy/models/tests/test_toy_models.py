@@ -13,7 +13,7 @@ def test_toy(map_and_equil, fast, model=None, Tend=None):
 
     If model is not None, tests the specified model.
 
-    The argument "fast" is a pytest option that can be specified at te command line (see conftest.py).'''
+    The argument "fast" is a pytest option that can be specified at the command line (see conftest.py).'''
 
     from struphy.models import toy
 
@@ -34,6 +34,6 @@ def test_toy(map_and_equil, fast, model=None, Tend=None):
         
 if __name__ == '__main__':
     
-    test_toy(('Cuboid', 'HomogenSlab'), True, model=None)
-    test_toy(('HollowTorus', 'AdhocTorus'), True, model=None)
-    test_toy(('Tokamak', 'EQDSKequilibrium'), True, model=None)
+    test_toy(('Cuboid', 'HomogenSlab'), True, model='VariationalCompressibleFluid')
+    test_toy(('HollowTorus', 'AdhocTorus'), True, model='VariationalCompressibleFluid')
+    test_toy(('Tokamak', 'EQDSKequilibrium'), True, model='VariationalCompressibleFluid')

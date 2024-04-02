@@ -11,7 +11,7 @@ import pytest
     ['Cuboid', {
         'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 4.}],
 ])
-def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000, verbose=False):
+def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000):
     '''DRAFT: test the accumulation of the rhs (H1-space) in Poisson's equation .
 
     Tests:
@@ -54,12 +54,11 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000, verbose=False):
                       'domain': domain,
                       'derham': derham
                       }
-    init_params = {'type': 'Maxwellian6DUniform', 'Maxwellian6DUniform': {}}
 
-    particles = Particles6D('test_particles', **params_markers)
+    particles = Particles6D('test_particles', **params_markers, bckgr_params=None)
     particles.draw_markers()
     particles.mpi_sort_markers()
-    particles.initialize_weights(init_params)
+    particles.initialize_weights()
 
     _vdim = particles.vdim
     _w0 = particles.weights
@@ -73,8 +72,8 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000, verbose=False):
     assert np.isclose(np.max(_w0), _sqrtg)
 
     # instance of the accumulator
-    acc = AccumulatorVector(derham, domain, 'H1', 'poisson')
-    acc.accumulate(particles, 1., 1.)
+    acc = AccumulatorVector(derham, domain, 'H1', 'charge_density_0form')
+    acc.accumulate(particles)
 
     # sum all MC integrals
     _sum = np.empty(1, dtype=float)
@@ -88,4 +87,4 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000, verbose=False):
 
 if __name__ == '__main__':
     test_accum_poisson([8, 5, 6], [2, 2, 3], [True]*3, ['Cuboid', {
-        'l1': 0., 'r1': 1., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 1.}], Np=1000, verbose=False)
+        'l1': 0., 'r1': 1., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 1.}], Np=1000)

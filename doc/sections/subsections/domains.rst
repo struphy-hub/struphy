@@ -1,7 +1,7 @@
 .. _avail_mappings:
 
-3D mapped domains
------------------
+Geometry
+--------
 
 Struphy models are implemented in curvilinear coordinates and can be run
 on a variaty of mapped domains. 

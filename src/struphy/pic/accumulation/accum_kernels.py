@@ -81,34 +81,20 @@ def a_documentation():
     print('This is just the docstring function.')
 
 
-def poisson(markers: 'float[:,:]', n_markers_tot: 'int',
+def charge_density_0form(markers: 'float[:,:]', n_markers_tot: 'int',
             pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
             starts: 'int[:]',
             kind_map: 'int', params_map: 'float[:]',
             p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
             ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
             cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-            vec: 'float[:,:,:]',
-            alpha: 'float',  # model specific argument
-            epsilon: 'float'):  # model specific argument
+            vec: 'float[:,:,:]'):  
     r"""
-    Kernel for :class:`struphy.pic.accumulation.particles_to_grid.AccumulatorVector` with the filling 
+    Kernel for :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` into V0 with the filling 
 
     .. math::
 
-        B_p^\mu = \frac{\alpha^2}{\epsilon} w_p \,.
-
-    Parameters
-    ----------
-    alpha : float
-        Omega_c / Omega_p.
-
-    epsilon : float
-        omega / Omega_c.
-
-    Note
-    ----
-    The above parameter list contains only the model specific input arguments (`*args_add`).
+        B_p^\mu = \frac{w_p}{N} \,.
     """
 
     #$ omp parallel private (ip, eta1, eta2, eta3, f0, filling)
@@ -124,8 +110,8 @@ def poisson(markers: 'float[:,:]', n_markers_tot: 'int',
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        # filling = alpha^2 / epsilon * w_p
-        filling = alpha**2 / epsilon * markers[ip, 6] / n_markers_tot
+        # filling = w_p/N
+        filling = markers[ip, 6] / n_markers_tot
 
         particle_to_mat_kernels.vec_fill_b_v0(pn, tn1, tn2, tn3, starts, eta1, eta2, eta3, vec, filling)
 
@@ -627,16 +613,16 @@ def vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
     """
 
     # allocate for metric coeffs
-    dfm = empty((3, 3), dtype=float)
-    df_inv = empty((3, 3), dtype=float)
-    df_inv_t = empty((3, 3), dtype=float)
-    g_inv = empty((3, 3), dtype=float)
+    dfm = zeros((3, 3), dtype=float)
+    df_inv = zeros((3, 3), dtype=float)
+    df_inv_t = zeros((3, 3), dtype=float)
+    g_inv = zeros((3, 3), dtype=float)
 
     # allocate for filling
-    v = empty(3, dtype=float)
-    df_inv_times_v = empty(3, dtype=float)
-    filling_m = empty((3, 3), dtype=float)
-    filling_v = empty(3, dtype=float)
+    v = zeros(3, dtype=float)
+    df_inv_times_v = zeros(3, dtype=float)
+    filling_m = zeros((3, 3), dtype=float)
+    filling_v = zeros(3, dtype=float)
 
     #$ omp parallel private (ip, eta1, eta2, eta3, f0, dfm, df_inv, v, df_inv_times_v, filling_m, filling_v)
     #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)

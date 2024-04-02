@@ -9,7 +9,6 @@ import scipy.special as sp
 
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
-from struphy.pic.utilities_kernels import eval_magnetic_energy
 from struphy.kinetic_background import maxwellians
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.io.output_handling import DataContainer
@@ -17,94 +16,138 @@ from struphy.io.output_handling import DataContainer
 
 class Particles(metaclass=ABCMeta):
     """
-    Base class for a particle based kinetic species.
+    Base class for particle species.
 
-    Loading and compute initial particles and save the values at the corresponding column of markers array:
-
-    ===== ============== ======================= ======= ====== ====== ========== === ===
-    index  | 0 | 1 | 2 | | 3 | ... | 3+(vdim-1)|  3+vdim 4+vdim 5+vdim >=6+vdim   ... -1
-    ===== ============== ======================= ======= ====== ====== ========== === ===
-    value position (eta)    velocities           weight   s0     w0      other    ... ID
-    ===== ============== ======================= ======= ====== ====== ========== === ===
+    The marker information is stored in a 2D numpy array, 
+    see `Tutorial on PIC data structures <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_08_data_structures.html#PIC-data-structures>`_.
 
     Parameters
     ----------
     name : str
         Name of particle species.
 
-    **params : dict
-        Marker parameters.
+    derham : Derham
+        Struphy Derham object. 
+
+    domain : Domain
+        Struphy domain object.
+
+    mhd_equil : MHDequilibrium
+        Struphy MHD equilibrium object
+
+    bckgr_params : dict
+        Kinetic background parameters.
+
+    pert_params : dict
+        Kinetic perturbation parameters.
+
+    marker_params : dict
+        Marker parameters for loading.
     """
 
-    def __init__(self, name: str, **params):
+    def __init__(self,
+                 name,
+                 derham=None,
+                 domain=None,
+                 mhd_equil=None,
+                 bckgr_params=None,
+                 pert_params=None,
+                 **marker_params):
 
-        params_default = {'type': 'full_f',
-                          'ppc': None,
-                          'Np': 4,
-                          'eps': .25,
-                          'bc': {'type': ['periodic', 'periodic', 'periodic']},
-                          'loading': {'type': 'pseudo:random', 'seed': 1234, 'dir_particles': None, 'moments': [0., 0., 0., 1., 1., 1.]},
-                          'derham': None,
-                          'domain': None,
-                          'f0_params': None}
+        if bckgr_params is None:
+            bckgr_params = {'type': 'Maxwellian6D'}
 
-        self._params = set_defaults(params, params_default)
+        self._bckgr_params = bckgr_params
+        self._pert_params = pert_params
+
+        marker_params_default = {
+            'type': 'full_f',
+            'ppc': None,
+            'Np': 4,
+            'eps': .25,
+            'bc': {'type': ['periodic', 'periodic', 'periodic']},
+            'loading': {'type': 'pseudo:random',
+                        'seed': 1234,
+                        'dir_particles': None,
+                        'moments': [0., 0., 0., 1., 1., 1.]},
+        }
+
+        self._marker_params = set_defaults(
+            marker_params, marker_params_default)
 
         self._name = name
-        self._derham = params['derham']
-        self._domain = params['domain']
-        self._domain_decomp = params['derham'].domain_array
-        f0_params = params['f0_params']
+        self._derham = derham
+        self._domain = domain
+        self._mhd_equil = mhd_equil
 
-        assert params['derham'].comm is not None
-        self._mpi_comm = params['derham'].comm
-        self._mpi_size = params['derham'].comm.Get_size()
-        self._mpi_rank = params['derham'].comm.Get_rank()
+        self._domain_decomp = derham.domain_array
+
+        if 'pforms' in bckgr_params:
+            assert len(bckgr_params['pforms']) == 2, \
+                'Only two form degrees can be given!'
+            self._pforms = bckgr_params['pforms']
+        else:
+            self._pforms = [None, None]
+
+        if derham is not None:
+            self._mpi_comm = derham.comm
+            self._mpi_size = derham.comm.Get_size()
+            self._mpi_rank = derham.comm.Get_rank()
+        else:
+            raise NotImplementedError('We need an MPI comm for the moment.')
 
         # create marker array
         self.create_marker_array()
 
-        # Assume full-f if type is not in parameters
-        if params['type'] not in 'full_f':
+        # Check if control variate
+        self._control_variate = (
+            self.marker_params['type'] == 'control_variate')
 
-            self._control_variate = True
+        # set background function
+        bckgr_fun = bckgr_params['type']
 
-            assert f0_params is not None, \
-                'When control variate is used, background parameters must be given!'
-            fun_name = f0_params['type']
-
-            if fun_name in f0_params:
-                self._f_backgr = getattr(maxwellians, fun_name)(
-                    **f0_params[fun_name])
-            else:
-                self._f_backgr = getattr(maxwellians, fun_name)()
+        if bckgr_fun in bckgr_params:
+            self._f_backgr = getattr(maxwellians, bckgr_fun)(
+                maxw_params=bckgr_params[bckgr_fun],
+                mhd_equil=mhd_equil
+            )
         else:
+            self._f_backgr = getattr(maxwellians, bckgr_fun)()
+            print(
+                f'\n{bckgr_fun} is not in bckgr_params; default background parameters are used.')
 
-            self._control_variate = False
-            self._f_backgr = None
+    @classmethod
+    @abstractmethod
+    def default_bckgr_params(cls):
+        """ Dictionary holding the minimal information of the default background.
+
+        Must contain at least a keyword 'type' with corresponding value a valid choice of background.
+        """
+        pass
 
     @abstractmethod
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        """ Jacobian determinant of the velocity coordinate transformation.
+        """ Jacobian determinant of the velocity coordinate transformation 
+        (e.g. :math:`B^*_\parallel` in gyrokinetics).
         """
         pass
 
     @abstractmethod
     def svol(self, eta1, eta2, eta3, *v):
-        """ Sampling density function as volume form.
+        r""" Marker sampling distribution function :math:`s^\textrm{vol}` as a volume form, see :ref:`monte_carlo`.
         """
         pass
 
     @abstractmethod
     def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
-        """ Sampling density function as 0 form.
+        r""" Marker sampling distribution function :math:`s^0` as 0-form, see :ref:`monte_carlo`.
         """
         pass
 
     @property
     @abstractmethod
     def n_cols(self):
-        """Number of the columns at each markers.
+        """Number of columns in the :attr:`~struphy.pic.base.Particles.markers` array.
         """
         pass
 
@@ -117,7 +160,7 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def kinds(self):
-        """ Name of the class
+        """ Name of the class.
         """
         return self.__class__.__name__
 
@@ -128,10 +171,22 @@ class Particles(metaclass=ABCMeta):
         return self._name
 
     @property
-    def params(self):
+    def bckgr_params(self):
+        """ Kinetic background parameters.
+        """
+        return self._bckgr_params
+
+    @property
+    def pert_params(self):
+        """ Kinetic perturbation parameters.
+        """
+        return self._pert_params
+
+    @property
+    def marker_params(self):
         """ Parameters for markers.
         """
-        return self._params
+        return self._marker_params
 
     @property
     def f_init(self):
@@ -147,7 +202,7 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def control_variate(self):
-        '''Boolean for whether to use the `<https://struphy.pages.mpcdf.de/struphy/sections/discretization.html#control-variate-method>`_.'''
+        '''Boolean for whether to use the :ref:`control_var` during time stepping.'''
         return self._control_variate
 
     @property
@@ -194,13 +249,17 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def markers(self):
-        """ Numpy array holding the marker information, including holes. The i-th row holds the i-th marker info.
+        """ 2D numpy array holding the marker information, including holes. 
+        The i-th row holds the i-th marker info.
 
         ===== ============== ======================= ======= ====== ====== ========== === ===
         index  | 0 | 1 | 2 | | 3 | ... | 3+(vdim-1)|  3+vdim 4+vdim 5+vdim >=6+vdim   ... -1
         ===== ============== ======================= ======= ====== ====== ========== === ===
         value position (eta)    velocities           weight   s0     w0      other    ... ID
         ===== ============== ======================= ======= ====== ====== ========== === ===
+
+        The column indices referring to different attributes can be obtained from
+        :attr:`~struphy.pic.base.Particles.index`.
         """
         return self._markers
 
@@ -224,15 +283,21 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def derham(self):
-        """ struphy.feec.psydac_derham.Derham
+        """ :class:`~struphy.feec.psydac_derham.Derham`
         """
         return self._derham
 
     @property
     def domain(self):
-        """ struphy.geometry.domains
+        """ From :mod:`struphy.geometry.domains`.
         """
         return self._domain
+
+    @property
+    def mhd_equil(self):
+        """ From :mod:`struphy.fields_background.mhd_equil.equils`.
+        """
+        return self._mhd_equil
 
     @property
     def lost_markers(self):
@@ -358,7 +423,7 @@ class Particles(metaclass=ABCMeta):
         return self._spatial
 
     def create_marker_array(self):
-        """ Create marker array (self.markers).
+        """ Create marker array :attr:`~struphy.pic.base.Particles.markers`.
         """
 
         # number of cells on current process
@@ -370,12 +435,12 @@ class Particles(metaclass=ABCMeta):
             np.prod(self._domain_decomp[:, 2::3], axis=1, dtype=int))
 
         # number of markers to load on each process (depending on relative domain size)
-        if self.params['ppc'] is not None:
-            assert isinstance(self.params['ppc'], int)
-            ppc = self.params['ppc']
+        if self.marker_params['ppc'] is not None:
+            assert isinstance(self.marker_params['ppc'], int)
+            ppc = self.marker_params['ppc']
             Np = ppc*n_cells
         else:
-            Np = self.params['Np']
+            Np = self.marker_params['Np']
             assert isinstance(Np, int)
             ppc = Np/n_cells
 
@@ -399,7 +464,7 @@ class Particles(metaclass=ABCMeta):
 
         # create markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with eps send/receive buffer
         markers_size = round(n_mks_load_loc *
-                             (1 + 1/np.sqrt(n_mks_load_loc) + self.params['eps']))
+                             (1 + 1/np.sqrt(n_mks_load_loc) + self.marker_params['eps']))
         self._markers = np.zeros((markers_size, self.n_cols), dtype=float)
 
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
@@ -408,12 +473,12 @@ class Particles(metaclass=ABCMeta):
 
     def draw_markers(self):
         r""" 
-        Drawing markers according to the volume density :math:`s^n_{\textnormal{in}}`.
-        In Struphy, the initial marker distribution :math:`s^n_{\textnormal{in}}` is always of the form
+        Drawing markers according to the volume density :math:`s^\textrm{vol}_{\textnormal{in}}`.
+        In Struphy, the initial marker distribution :math:`s^\textrm{vol}_{\textnormal{in}}` is always of the form
 
         .. math::
 
-            s^n_{\textnormal{in}}(\eta,v) = n^3(\eta)\, \mathcal M(v)\,,
+            s^\textrm{vol}_{\textnormal{in}}(\eta,v) = n^3(\eta)\, \mathcal M(v)\,,
 
         with :math:`\mathcal M(v)` a multi-variate Gaussian:
 
@@ -472,7 +537,7 @@ class Particles(metaclass=ABCMeta):
 
             v_\perp = \sqrt{- \ln(1-r)}\sqrt{2}v_\mathrm{th} + u \,.
 
-        All needed parameters can be set in the parameter file, in the section ``kinetic/<species>/markers/loading``.
+        All needed parameters can be set in the parameter file, see :ref:`params_yml`.
         """
 
         # number of markers on the local process at loading stage
@@ -491,15 +556,16 @@ class Particles(metaclass=ABCMeta):
 
         if self.mpi_rank == 0:
             print('\nMARKERS:')
-            for key, val in self.params.items():
+            for key, val in self.marker_params.items():
                 if 'loading' not in key and 'derham' not in key and 'domain' not in key:
                     print((key + ' :').ljust(25), val)
 
         # load markers from external .hdf5 file
-        if self.params['loading']['type'] == 'external':
+        if self.marker_params['loading']['type'] == 'external':
 
             if self.mpi_rank == 0:
-                file = h5py.File(self.params['loading']['dir_markers'], 'r')
+                file = h5py.File(
+                    self.marker_params['loading']['dir_markers'], 'r')
                 print('Loading markers from file: '.ljust(25), file)
 
                 self._markers[:n_mks_load_cum_sum[0], :
@@ -517,7 +583,7 @@ class Particles(metaclass=ABCMeta):
                 self._markers[:n_mks_load_loc, :] = recvbuf
 
         # load markers from restart .hdf5 file
-        elif self.params['loading']['type'] == 'restart':
+        elif self.marker_params['loading']['type'] == 'restart':
 
             libpath = struphy.__path__[0]
 
@@ -526,29 +592,29 @@ class Particles(metaclass=ABCMeta):
 
             o_path = state['o_path']
 
-            if self.params['loading']['dir_particles_abs'] is None:
+            if self.marker_params['loading']['dir_particles_abs'] is None:
                 data_path = os.path.join(
-                    o_path, self.params['loading']['dir_particles'])
+                    o_path, self.marker_params['loading']['dir_particles'])
             else:
-                data_path = self.params['loading']['dir_particles_abs']
+                data_path = self.marker_params['loading']['dir_particles_abs']
 
             data = DataContainer(data_path, comm=self.comm)
 
             self.markers[:, :] = data.file['restart/' +
-                                           self.params['loading']['key']][-1, :, :]
+                                           self.marker_params['loading']['key']][-1, :, :]
 
         # load fresh markers
         else:
 
             if self.mpi_rank == 0:
                 print('\nLoading fresh markers:')
-                for key, val in self.params['loading'].items():
+                for key, val in self.marker_params['loading'].items():
                     print((key + ' :').ljust(25), val)
 
             # 1. standard random number generator (pseudo-random)
-            if self.params['loading']['type'] == 'pseudo_random':
+            if self.marker_params['loading']['type'] == 'pseudo_random':
 
-                _seed = self.params['loading']['seed']
+                _seed = self.marker_params['loading']['seed']
                 if _seed is not None:
                     np.random.seed(_seed)
 
@@ -562,13 +628,13 @@ class Particles(metaclass=ABCMeta):
                 del temp
 
             # 2. plain sobol numbers with skip of first 1000 numbers
-            elif self.params['loading']['type'] == 'sobol_standard':
+            elif self.marker_params['loading']['type'] == 'sobol_standard':
 
                 self.phasespace_coords = sobol_seq.i4_sobol_generate(
                     3 + self.vdim, n_mks_load_loc, 1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank])
 
             # 3. symmetric sobol numbers in all 6 dimensions with skip of first 1000 numbers
-            elif self.params['loading']['type'] == 'sobol_antithetic':
+            elif self.marker_params['loading']['type'] == 'sobol_antithetic':
 
                 assert self.vdim == 3, NotImplementedError(
                     '"sobol_antithetic" requires vdim=3 at the moment.')
@@ -585,8 +651,10 @@ class Particles(metaclass=ABCMeta):
                     'Specified particle loading method does not exist!')
 
             # inverse transform sampling in velocity space
-            u_mean = np.array(self.params['loading']['moments'][:self.vdim])
-            v_th = np.array(self.params['loading']['moments'][self.vdim:])
+            u_mean = np.array(
+                self.marker_params['loading']['moments'][:self.vdim])
+            v_th = np.array(
+                self.marker_params['loading']['moments'][self.vdim:])
 
             # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
             if self.vdim == 3:
@@ -605,7 +673,7 @@ class Particles(metaclass=ABCMeta):
                     'Inverse transform sampling of given vdim is not implemented!')
 
             # inversion method for drawing uniformly on the disc
-            self._spatial = self.params['loading']['spatial']
+            self._spatial = self.marker_params['loading']['spatial']
             if self._spatial == 'disc':
                 self._markers[:n_mks_load_loc, 0] = np.sqrt(
                     self.markers[:n_mks_load_loc, 0])
@@ -617,8 +685,8 @@ class Particles(metaclass=ABCMeta):
                 self._mpi_rank] + np.arange(n_mks_load_loc, dtype=float)
 
             # set specific initial condition for some particles
-            if 'initial' in self.params['loading']:
-                specific_markers = self.params['loading']['initial']
+            if 'initial' in self.marker_params['loading']:
+                specific_markers = self.marker_params['loading']['initial']
 
                 counter = 0
                 for i in range(len(specific_markers)):
@@ -639,7 +707,7 @@ class Particles(metaclass=ABCMeta):
 
     def mpi_sort_markers(self, do_test=False):
         """ 
-        Sorts markers according to domain decomposition.
+        Sorts markers according to MPI domain decomposition.
 
         Parameters
         ----------
@@ -682,7 +750,7 @@ class Particles(metaclass=ABCMeta):
 
         self.comm.Barrier()
 
-    def initialize_weights(self, fun_params, bckgr_params=None):
+    def initialize_weights(self):
         r"""
         Computes the initial weights
 
@@ -691,17 +759,9 @@ class Particles(metaclass=ABCMeta):
             w_{k0} := \frac{f^0(t, q_k(t)) }{s^0(t, q_k(t)) } = \frac{f^0(0, q_k(0)) }{s^0(0, q_k(0)) } = \frac{f^0_{\textnormal{in}}(q_{k0}) }{s^0_{\textnormal{in}}(q_{k0}) }
 
         from the initial distribution function :math:`f^0_{\textnormal{in}}` specified in the parmeter file
-        and from the initial volume density :math:`s^n_{\textnormal{in}}` specified in :meth:`struphy.pic.particles.Particles.draw_markers`.
+        and from the initial volume density :math:`s^n_{\textnormal{vol}}` specified in :meth:`~struphy.pic.base.Particles.draw_markers`.
         Moreover, it sets the corresponding columns for "w0", "s0" and "weights" in the markers array.
-        For the control variate method, the background is subtracted.
-
-        Parameters
-        ----------
-        fun_params : dict
-            Dictionary of the form {type : class_name, pforms : differential forms, class_name : params_dict} defining the initial condition.
-
-        bckgr_params : dict (optional)
-            Dictionary of the form {type : class_name, class_name : params_dict} defining the background.
+        If :attr:`~struphy.pic.base.Particles.control_variate` is True, the background :attr:`~struphy.pic.base.Particles.f_backgr` is subtracted.
         """
 
         assert self.domain is not None, 'A domain is needed to initialize weights.'
@@ -710,24 +770,28 @@ class Particles(metaclass=ABCMeta):
         self.sampling_density = self.s0(*self.phasespace_coords.T)
 
         # load distribution function (with given parameters or default parameters)
-        fun_name = fun_params['type']
+        bckgr_fun = self.bckgr_params['type']
+        bp_copy = self._bckgr_params.copy()
 
-        if fun_name in fun_params:
-            self._f_init = getattr(maxwellians, fun_name)(
-                **fun_params[fun_name])
-        else:
-            self._f_init = getattr(maxwellians, fun_name)()
+        # For delta-f set markers only as perturbation
+        if self.marker_params['type'] == 'delta_f':
+            # Take out background by setting its density to zero
+            if bckgr_fun in bp_copy:
+                bp_copy[bckgr_fun]['n'] = 0.
+            else:
+                bp_copy[bckgr_fun] = {'n': 0.}
+
+        # Get the initialization function and pass the correct arguments
+        print(f'{bp_copy = }')
+        self._f_init = getattr(maxwellians, bckgr_fun)(
+            maxw_params=bp_copy[bckgr_fun],
+            pert_params=self.pert_params,
+            mhd_equil=self.mhd_equil
+        )
 
         f_init = self.f_init(*self.phasespace_coords.T)
 
-        # if diffential forms of f_init is not specified, consider it as 0-form
-        if 'pforms' in fun_params:
-            assert len(fun_params['pforms']) == 2
-            self._pforms = fun_params['pforms']
-        else:
-            self._pforms = (None, None)
-
-        # if f_init is vol-form, tramsform to 0-form
+        # if f_init is vol-form, transform to 0-form
         if self.pforms[0] == 'vol':
             f_init /= self.domain.jacobian_det(self.markers_wo_holes)
 
@@ -745,10 +809,9 @@ class Particles(metaclass=ABCMeta):
 
     def update_weights(self):
         """
-        Applies the control variate method.
-
-        Updates the time-dependent marker weights according to the algorithm in the 
-        `Struphy documentation <https://struphy.pages.mpcdf.de/struphy/sections/discretization.html#control-variate-method>`_.
+        Applies the control variate method, i.e. updates the time-dependent marker weights 
+        according to the algorithm in :ref:`control_var`.
+        The background :attr:`~struphy.pic.base.Particles.f_backgr` is used for this.
         """
 
         f_backgr = self.f_backgr(*self.phasespace_coords.T)
@@ -764,9 +827,9 @@ class Particles(metaclass=ABCMeta):
         self.weights = self.weights0 - f_backgr/self.sampling_density
 
     def binning(self, components, bin_edges, pforms=['0', '0']):
-        r"""
-        Computes the distribution function via marker binning in logical space using numpy's histogramdd,
-        following the algorithm outlined in the `Struphy documentation <https://struphy.pages.mpcdf.de/struphy/sections/discretization.html#particle-binning>`_.
+        r""" Computes the distribution function via marker binning in logical space.
+        For this, numpy's histogramdd is used, following the algorithm outlined in the `Struphy documentation
+        <https://struphy.pages.mpcdf.de/struphy/sections/discretization.html#particle-binning>`_.
         If pforms=['vol','vol'], approximations of the volume density :math:`f^n(t)` are computed (of :math:`f^0(t)` by default). 
 
         Parameters
@@ -811,7 +874,7 @@ class Particles(metaclass=ABCMeta):
                                  bins=bin_edges,
                                  weights=_weights)[0]
 
-        return f_slice/(self._n_mks*bin_vol)
+        return f_slice / (self.n_mks * bin_vol)
 
     def show_distribution_function(self, components, bin_edges, pforms=['0', '0']):
         """
@@ -840,8 +903,10 @@ class Particles(metaclass=ABCMeta):
 
         bin_centers = [bi[:-1] + (bi[1] - bi[0])/2 for bi in bin_edges]
 
-        labels = {0: '$\eta_1$', 1: '$\eta_2$',
-                  2: '$\eta_3$', 3: '$v_1$', 4: '$v_2$', 5: '$v_3$'}
+        labels = {
+            0: r'$\eta_1$', 1: r'$\eta_2$', 2: r'$\eta_3$',
+            3: '$v_1$', 4: '$v_2$', 5: '$v_3$'
+        }
         indices = np.nonzero(components)[0]
 
         if n_dim == 1:
@@ -864,7 +929,7 @@ class Particles(metaclass=ABCMeta):
         ----------
         """
 
-        for axis, bc in enumerate(self.params['bc']['type']):
+        for axis, bc in enumerate(self.marker_params['bc']['type']):
 
             # sorting out particles outside of the logical unit cube
             is_outside_cube = np.logical_or(self.markers[:, axis] > 1.,
@@ -879,11 +944,11 @@ class Particles(metaclass=ABCMeta):
             # apply boundary conditions
             if bc == 'remove':
 
-                if self.params['bc']['remove']['boundary_transfer']:
+                if self.marker_params['bc']['remove']['boundary_transfer']:
                     # boundary transfer
                     outside_inds = self.boundary_transfer(is_outside_cube)
 
-                if self.params['bc']['remove']['save']:
+                if self.marker_params['bc']['remove']['save']:
                     # save the positions and velocities just before the pushing step
                     if self.vdim == 3:
                         self.lost_markers[self.n_lost_markers:self.n_lost_markers +

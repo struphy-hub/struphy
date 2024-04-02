@@ -117,6 +117,22 @@ class Propagator(metaclass=ABCMeta):
     @basis_ops.setter
     def basis_ops(self, basis_ops):
         self._basis_ops = basis_ops
+        
+    @property
+    def time_state(self):
+        '''A pointer to the time variable of the dynamics ('t').'''
+        return self._time_state
+    
+    def add_time_state(self, time_state):
+        '''Add a pointer to the time variable of the dynamics ('t').
+
+        Parameters
+        ----------
+        time_state : ndarray
+            Of size 1, holds the current physical time 't'.
+        '''
+        assert time_state.size == 1
+        self._time_state = time_state
 
     def feec_vars_update(self, *variables_new):
         """ Writes new entries into the FEEC variables in ``Propagator.feec_vars``.

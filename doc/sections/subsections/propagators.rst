@@ -7,7 +7,6 @@ Propagators are the main building blocks of :ref:`models`, as they define the
 time splitting scheme of every algorithm.
 Check out :ref:`disc_example` for how propagators are used in Struphy.
 
-
 .. _prop_base:
 
 Propagator base class
@@ -16,7 +15,6 @@ Propagator base class
 .. automodule:: struphy.propagators.base
     :members:
     :undoc-members:
-    :exclude-members: variables
     :show-inheritance:
 
 
@@ -29,7 +27,7 @@ Particle propagators
 .. automodule:: struphy.propagators.propagators_markers
     :members:
     :undoc-members:
-    :exclude-members: variables
+    :exclude-members: variables, options
     :show-inheritance:
 
 
@@ -42,7 +40,7 @@ Field propagators
 .. automodule:: struphy.propagators.propagators_fields
     :members:
     :undoc-members:
-    :exclude-members: variables
+    :exclude-members: variables, options
     :show-inheritance:
 
 
@@ -55,43 +53,6 @@ Particle-field propagators
 .. automodule:: struphy.propagators.propagators_coupling
     :members:
     :undoc-members:
-    :exclude-members: variables
+    :exclude-members: variables, options
     :show-inheritance:
 
-
-.. _pushers:
-
-Pusher class
-^^^^^^^^^^^^
-
-.. automodule:: struphy.pic.pushing.pusher
-    :members:
-    :undoc-members:
-    :exclude-members: variables
-    :show-inheritance:
-
-
-Pusher kernels
-^^^^^^^^^^^^^^
-
-.. automodule:: struphy.pic.pushing.pusher_kernels
-    :members:
-    :undoc-members:
-    :exclude-members: variables
-    :show-inheritance:
-
-
-Pusher kernels guiding center
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. automodule:: struphy.pic.pushing.pusher_kernels_gc
-    :members:
-    :undoc-members:
-    :exclude-members: variables
-    :show-inheritance:
-
-.. automodule:: struphy.pic.pushing.eval_kernels_gc
-    :members:
-    :undoc-members:
-    :exclude-members: variables
-    :show-inheritance:

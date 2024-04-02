@@ -1,29 +1,29 @@
 import numpy as np
 
 
-def derive_units(Z_bulk=1, A_bulk=1., x=1., B=1., n=1., velocity_scale='alfvén'):
-    """ Computes Struphy units used in Struphy model implementations.
+def derive_units(Z_bulk=None, A_bulk=None, x=1., B=1., n=1., velocity_scale='alfvén'):
+    """ Computes units used in Struphy model :ref:`normalization`.
 
     Input units from parameter file:
 
-        * Length (m)
-        * Magnetic field (T)
-        * number density (10^20 1/m^3)
+    * Length (m)
+    * Magnetic field (T)
+    * number density (10^20 1/m^3)
 
-    Velocity unit must be defined in each model as one of "light", "alfvén" or "cyclotron":
+    Velocity unit is defined here:
 
-        * Velocity (m/s)
+    * Velocity (m/s)
 
     Derived units using mass and charge number of bulk species:
 
-        * Time (s)
-        * Mass density (kg/m^3)
-        * Pressure (Pa)
+    * Time (s)
+    * Mass density (kg/m^3)
+    * Pressure (Pa)
 
     Parameters
     ---------
     Z_bulk : int
-        Charge number of bulkd species.
+        Charge number of bulk species.
 
     A_bulk : int
         Mass number of bulk species.
@@ -65,16 +65,28 @@ def derive_units(Z_bulk=1, A_bulk=1., x=1., B=1., n=1., velocity_scale='alfvén'
     units['B'] = B
     # number density (1/m^3)
     units['n'] = n * 1e20
+    
     # velocity (m/s)
-    if velocity_scale == 'light':
-        units['v'] = 1*c
+    if velocity_scale is None:
+        units['v'] = 1.
+        
+    elif velocity_scale == 'light':
+        units['v'] = 1.*c
+        
     elif velocity_scale == 'alfvén':
+        assert A_bulk is not None, 'Need bulk species to choose velocity scale "alfvén".'
         units['v'] = units['B'] / np.sqrt(units['n'] * A_bulk * mH * mu0)
+        
     elif velocity_scale == 'cyclotron':
+        assert A_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
         units['v'] = Z_bulk * e * units['B'] / \
             (A_bulk * mH) / (2*np.pi) * units['x']
+            
     # time (s)
     units['t'] = units['x'] / units['v']
+    if A_bulk is None:
+        return units
+    
     # pressure (Pa)
     units['p'] = A_bulk * mH * units['n'] * units['x']**3 / \
         (units['x'] * units['t']**2)  # this is equal to B^2/(mu0*n) if velocity_scale='alfvén'
@@ -147,39 +159,6 @@ def setup_domain_mhd(params, units=None):
         mhd = None
 
     return domain, mhd
-
-
-def setup_electric_background(params, domain):
-    """
-    Creates an electric background field for a given parameter file.
-
-    Parameters
-    ----------
-    params : dict
-        The full simulation parameter dictionary.
-
-    domain : struphy.geometry.base.Domain
-        The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
-
-    Returns
-    -------
-    electric_background : struphy.fields_background.electric_equil.base.EquilibriumElectric
-        The electric background object.
-    """
-
-    from struphy.fields_background.electric_equil import analytical
-
-    if 'electric_equilibrium' in params:
-
-        electric_type = params['electric_equilibrium']['type']
-        electric_class = getattr(analytical, electric_type)
-        electric_background = electric_class(
-            params['electric_equilibrium'][electric_type], domain)
-
-    else:
-        electric_background = None
-
-    return electric_background
 
 
 def setup_derham(params_grid, comm, domain=None, mpi_dims_mask=None):

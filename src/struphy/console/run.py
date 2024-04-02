@@ -149,11 +149,12 @@ def struphy_run(model,
             command += ['-r']
             
         if cprofile:
-            print('Cprofile turned on.')
+            print('\nCprofile turned on.')
         else:
-            print('Cprofile turned off.')
+            print('\nCprofile turned off.')
 
         # run command as subprocess
+        print(f"\nRunning the following command:\n{' '.join(command)}")
         subprocess.run(command, check=True, cwd=libpath)
 
     # run in batch mode

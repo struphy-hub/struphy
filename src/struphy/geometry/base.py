@@ -225,7 +225,7 @@ class Domain(metaclass=ABCMeta):
     def __call__(self, *etas, change_out_order=False, squeeze_out=False, remove_outside=True, identity_map=False):
         r"""
         Evaluates the mapping :math:`F : (0, 1)^3 \to \mathbb R^3,\, \boldsymbol \eta \mapsto \mathbf x`. 
-        
+
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
         The type of evaluation depends on the shape of the input ``etas``.
 
@@ -494,7 +494,7 @@ class Domain(metaclass=ABCMeta):
         out : ndarray | float
             Pushforward of p-form to Cartesian vector/scalar field evaluated at given logical coordinates.
         """
-
+        
         return self._pull_push_transform('push', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside, a_kwargs=a_kwargs)
 
     # ================================
@@ -585,7 +585,7 @@ class Domain(metaclass=ABCMeta):
 
             n_inside = evaluation_kernels.kernel_evaluate_pic(
                 markers, which, *self.args_map, out, remove_outside)
-            
+
             # move the (3, 3)-part to front
             out = np.transpose(out, axes=(1, 2, 0))
 
@@ -676,7 +676,8 @@ class Domain(metaclass=ABCMeta):
         Returns
         -------
         out : ndarray | float
-            The metric coefficient evaluated at the given logical coordinates.
+            4D or 2D (for flat eval) array holding the metric coefficient (first index),
+            evaluated at the given logical coordinates (last three indices).
         """
 
         # set default values
@@ -918,10 +919,9 @@ class Domain(metaclass=ABCMeta):
                 E1, E2, E3 = arg_x, arg_y, arg_z
 
                 # `arg_x` `arg_y` `arg_z` are all sparse meshgrids.
-                if max(arg_x.shape) == arg_x.size or max(arg_y.shape) == arg_y.size or max(arg_z.shape) == arg_z.size:
-                    assert max(arg_x.shape) == arg_x.size
-                    assert max(arg_y.shape) == arg_y.size
-                    assert max(arg_z.shape) == arg_z.size
+                if (arg_x.shape[1] == 1 and arg_x.shape[2] == 1 and 
+                    arg_y.shape[0] == 1 and arg_y.shape[2] == 1 and 
+                    arg_z.shape[0] == 1 and arg_z.shape[1] == 1):
                     is_sparse_meshgrid = True
                 # one of `arg_x` `arg_y` `arg_z` is a dense meshgrid.(i.e., all are dense meshgrid) Process each point as default.
 
@@ -980,11 +980,11 @@ class Domain(metaclass=ABCMeta):
                         *np.meshgrid(Xs[0][:, 0, 0], Xs[1][0, :, 0], Xs[2][0, 0, :], indexing='ij'), **a_kwargs)
                 else:
                     a_out = a_in(*Xs, **a_kwargs)
-                    
+
                 # case of Field.__call__
                 if isinstance(a_out, list):
                     a_out = np.array(a_out)
-                    
+
                 if a_out.ndim == 3:
                     a_out = a_out[None, :, :, :]
 
@@ -1074,7 +1074,8 @@ class Domain(metaclass=ABCMeta):
         else:
             assert a_out.ndim == 4
             assert a_out.shape[0] == 1 or a_out.shape[0] == 3
-            a_out = np.ascontiguousarray(np.transpose(a_out, axes=(1, 2, 3, 0)))
+            a_out = np.ascontiguousarray(
+                np.transpose(a_out, axes=(1, 2, 3, 0)))
 
         return a_out
 

@@ -41,7 +41,7 @@ class BasisProjectionOperators:
         if np.any([p == 1 and Nel > 1 for p, Nel in zip(derham.p, derham.Nel)]):
             if derham.comm.Get_rank() == 0:
                 print(
-                    f'\nWARNING: Class "BasisProjectionOperators" called with p={derham.p} (interpolation of piece-wise constants should be avoided).\n')
+                    f'\nWARNING: Class "BasisProjectionOperators" called with p={derham.p} (interpolation of piece-wise constants should be avoided).')
 
         self._derham = derham
         self._domain = domain
@@ -1285,35 +1285,39 @@ def get_span_and_basis(pts, space):
 
 class CoordinateProjector(LinearOperator):
     r"""
-    Class of projectors on one component of a ProductFemSpace. Represent the projection on the i-th component :
+    Class of projectors on one component of a ProductFemSpace. 
+    Represent the projection on the :math:`\mu`-th component :
 
     .. math::
-        P_i : X = V_1 \times V_2 \times ... \times V_n \longrightarrow V_i \\
-        \mathbf{x} = (x_1,...,x_n) \mapsto x_i
-
+    
+        \begin{align}
+        P_\mu : \ & V_1 \times \ldots \times V_\mu \times \ldots \times V_n \longrightarrow V_\mu \,,
+        \\[2mm]    
+        &\vec{x} = (x_1,\ldots,x_\mu,\ldots ,x_n) \mapsto x_\mu \,.
+        \end{align}
 
     Parameters
     ----------
-    i : int
-        The component on which to project
+    mu : int
+        The component on which to project.
 
     V : psydac.fem.basic.(Product)FemSpace
         Finite element spline space (domain, input space).
 
-    Vi : psydac.fem.basic.FemSpace
-        Finite element spline space (codomain, out space), must be V i-th space
+    Vmu : psydac.fem.basic.FemSpace
+        Finite element spline space (codomain, out space), must be :math:`\mu`-th space of V.
     """
 
-    def __init__(self, i, V, Vi):
+    def __init__(self, mu, V, Vmu):
         assert isinstance(V, FemSpace)
-        assert isinstance(i, int)
-        assert V.spaces[i] == Vi
+        assert isinstance(mu, int)
+        assert V.spaces[mu] == Vmu
 
         self.full_space = V
-        self.sub_space = Vi
-        self.dir = i
+        self.sub_space = Vmu
+        self.dir = mu
         self._domain = V.vector_space
-        self._codomain = Vi.vector_space
+        self._codomain = Vmu.vector_space
         self._dtype = V.vector_space.dtype
 
     @property
@@ -1364,34 +1368,39 @@ class CoordinateProjector(LinearOperator):
 
 class CoordinateInclusion(LinearOperator):
     r"""
-    Class of inclusion operator from one component of a ProductFemSpace. Represent the canonical inclusion on the i-th component :
+    Class of inclusion operator from one component of a ProductFemSpace. 
+    Represent the canonical inclusion on the :math:`\mu`-th component :
 
     .. math::
-        I_i : V_i \longrightarrow X = V_1 \times V_2 \times ... \times V_n \\
-        x_i \mapsto \mathbf{x} = (0,...,x_i,...,0)
+
+        \begin{align}
+        I_\mu : \ &V_\mu \longrightarrow V_1 \times \ldots \times V_\mu \times \ldots \times V_n \,,
+        \\[2mm]
+        &x_\mu \mapsto \vec{x} = (0,\ldots,x_\mu,\ldots , 0) \,.
+        \end{align}
 
 
     Parameters
     ----------
-    i : int
-        The component on which to project
+    mu : int
+        The component on which to project.
 
     V : psydac.fem.basic.(Product)FemSpace
         Finite element spline space (codomain, out space).
 
-    Vi : psydac.fem.basic.FemSpace
-        Finite element spline space (domain, in space), must be V i-th space
+    Vmu : psydac.fem.basic.FemSpace
+        Finite element spline space (domain, in space), must be :math:`\mu`-th space of V.
     """
 
-    def __init__(self, i, V, Vi):
+    def __init__(self, mu, V, Vmu):
         assert isinstance(V, FemSpace)
-        assert isinstance(i, int)
-        assert V.spaces[i] == Vi
+        assert isinstance(mu, int)
+        assert V.spaces[mu] == Vmu
 
         self.full_space = V
-        self.sub_space = Vi
-        self.dir = i
-        self._domain = Vi.vector_space
+        self.sub_space = Vmu
+        self.dir = mu
+        self._domain = Vmu.vector_space
         self._codomain = V.vector_space
         self._dtype = V.vector_space.dtype
 
@@ -1430,7 +1439,6 @@ class CoordinateInclusion(LinearOperator):
             assert out.space == self._codomain
             out *= 0.
             out._blocks[self.dir] += v
-
         else:
             blocks = [sspace.zeros() for sspace in self.codomain.spaces]
             blocks[self.dir] = v.copy()

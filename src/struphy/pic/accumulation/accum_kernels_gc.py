@@ -93,27 +93,33 @@ def cc_lin_mhd_5d_D(markers: 'float[:,:]', n_markers_tot: 'int',
                     mat13: 'float[:,:,:,:,:,:]',
                     mat23: 'float[:,:,:,:,:,:]',
                     epsilon: float,           # model specific argument
-                    PB0: 'float[:,:,:]',    # model specific argument
                     b2_1: 'float[:,:,:]',   # model specific argument
                     b2_2: 'float[:,:,:]',   # model specific argument
                     b2_3: 'float[:,:,:]',   # model specific argument
                     norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',               # model specific argument
                     curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',   # model specific argument
-                    basis_u: 'int', scale_mat: 'float'):  # model specific argument
-    r"""Accumulation kernel for the propagator `CurrentCoupling5DDensity, <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_fields.CurrentCoupling5DDensity>`_ .
+                    basis_u: 'int', scale_mat: 'float', boundary_cut: float):  # model specific argument
+    r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_fields.CurrentCoupling5DDensity`.
 
-    Accumulates math:`\alpha` -form matrix with the filling functions
+    Accumulates :math:`\alpha`-form matrix with the filling functions (:math:`\alpha = 2`)
 
     .. math::
 
-        A_p^{\mu, \nu} = w_p * (1-\frac{B_\parallel}{B^*_\parallel}) * [ G^{-1}(\eta_p) * B2_{\times}(\eta_p) * G^{-1}(\eta_p) ]_{\mu, \nu}     
-
-    where :math:`B2_{\times} * a := B2 \times a` for :math:`a \in \mathbb R^3`. 
+        A_p^{\mu, \nu} = w_p \frac{1}{\epsilon} \left( 1-\frac{\hat B_\parallel}{\hat B^*_\parallel} \right)  g^{-1} (\mathbf B^2_\times)_{\mu, \nu} \,.
 
     Parameters
     ----------
+        epsilon : float
+            scaling factor.
+
         b2_1, b2_2, b2_3 : array[float]
             FE coefficients c_ijk of the magnetic field as a 2-form.
+        
+        norm_b11, norm_b12, norm_b12 : array[float]
+            FE coefficients c_ijk of the unit magnetic field as a 1-form.
+
+        curl_norm_b1, curl_norm_b2, curl_norm_b3 : array[float]
+            FE coefficients c_ijk of the curl of the unit magnetic field as a 2-form.
 
     Note
     ----
@@ -150,7 +156,7 @@ def cc_lin_mhd_5d_D(markers: 'float[:,:]', n_markers_tot: 'int',
     # get local number of markers
     n_markers_loc = shape(markers)[0]
 
-    #$ omp parallel firstprivate(b_prod) private(ip, eta1, eta2, eta3, v, weight, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, b_para, curl_norm_b, b_star, norm_b1, b_star_para, density_const, dfm, df_inv, df_inv_t, g_inv, det_df, tmp1, tmp2, filling_m12, filling_m13, filling_m23)
+    #$ omp parallel firstprivate(b_prod) private(ip, boundary_cut, eta1, eta2, eta3, v, weight, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, b_para, curl_norm_b, b_star, norm_b1, b_star_para, density_const, dfm, df_inv, df_inv_t, g_inv, det_df, tmp1, tmp2, filling_m12, filling_m13, filling_m23)
     #$ omp for reduction ( + : mat12, mat13, mat23)
     for ip in range(n_markers_loc):
 
@@ -164,6 +170,9 @@ def cc_lin_mhd_5d_D(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         v = markers[ip, 3]
+
+        if eta1 < boundary_cut or eta1 > 1. - boundary_cut:
+            continue
 
         # b-field evaluation
         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
@@ -180,10 +189,6 @@ def cc_lin_mhd_5d_D(markers: 'float[:,:]', n_markers_tot: 'int',
             int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts)
         b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b2_3, starts)
-
-        # abs_b; 0form
-        b_para = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, PB0, starts)
 
         # norm_b1; 1form
         norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
@@ -223,11 +228,14 @@ def cc_lin_mhd_5d_D(markers: 'float[:,:]', n_markers_tot: 'int',
         b_star[:] = b + epsilon*v*curl_norm_b
         b_star /= det_df
 
-        # calculate abs_b_star_para
+        # calculate b_para and b_star_para
+        b_para = linalg_kernels.scalar_dot(norm_b1, b)
+        b_para /= det_df
+
         b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # calculate scaling constant
-        density_const = 1 - b_para/b_star_para
+        density_const = (1 - b_para/b_star_para)/epsilon
 
         # marker weight
         weight = markers[ip, 5]
@@ -306,7 +314,7 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
                      vec1: 'float[:,:,:]',
                      vec2: 'float[:,:,:]',
                      vec3: 'float[:,:,:]',
-                     epsilon: float,                  # model specific argument
+                     epsilon: float,                # model specific argument
                      b1: 'float[:,:,:]',            # model specific argument
                      b2: 'float[:,:,:]',            # model specific argument
                      b3: 'float[:,:,:]',            # model specific argument
@@ -316,20 +324,21 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
                      curl_norm_b1: 'float[:,:,:]',  # model specific argument
                      curl_norm_b2: 'float[:,:,:]',  # model specific argument
                      curl_norm_b3: 'float[:,:,:]',  # model specific argument
-                     basis_u: 'int',               # model specific argument
-                     scale_mat: 'float',           # model specific argument
-                     scale_vec: 'float'):          # model specific argument
-    r"""Accumulation kernel for the propagator `CurrentCoupling5DCurlb, <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb>`_ .
+                     basis_u: 'int',                # model specific argument
+                     scale_mat: 'float',            # model specific argument
+                     scale_vec: 'float',            # model specific argument
+                     boundary_cut: 'float'):        # model specific argument
+    r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb`.
 
-    Accumulates :math:`\alpha` -form matrix and vector with the filling functions
+    Accumulates :math:`\alpha`-form matrix and vector with the filling functions (:math:`\alpha = 2`)
 
     .. math::
 
-        A_p^{\mu, \nu} &= w_p * [G^{-1}(\eta_p) * B2_{\times}(\eta_p) * B2_{\times}(\eta_p)^\top * G^{-1}(\eta_p) * v^2_{\parallel,p} * \left( 1/B^*_\parallel \right)^2 * |1/\sqrt{g} \hat \nabla \times \hat b^1_0|_p^2]_{\mu, \nu}
+        A_p^{\mu, \nu} &= w_p \left[\left( \frac{v_{\parallel,p}}{g\hat B^*_\parallel}\right)^2  \mathbf B^2_{\times} \left| \hat \nabla \times \hat{\mathbf b}^1_0 \right|^2 (\mathbf B^2_{\times})^\top \right]_{\mu, \nu}\,,
 
-        B_p^\mu &= w_p *[ G^{-1}(\eta_p) * B2_{\times}(\eta_p)* v^2_{\parallel,p} * \left( 1/B^*_\parallel \right)]_\mu
+        B_p^\mu &= w_p \left( \frac{v^2_{\parallel,p}}{g\hat B^*_\parallel} \mathbf B^2_{\times} \right)_\mu \,,
 
-    where :math:`B2_{\times} * a := B2 \times a` for :math:`a \in \mathbb R^3`.
+    where :math:`\mathbf B^2_{\times} \mathbf a := \hat{\mathbf B}^2 \times \mathbf a` for :math:`a \in \mathbb R^3`.
 
     Parameters
     ----------
@@ -383,7 +392,7 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
     # get number of markers
     n_markers_loc = shape(markers)[0]
 
-    #$ omp parallel firstprivate(b_prod) private(ip, eta1, eta2, eta3, v, weight, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, b_star, b_prod_neg, norm_b1, curl_norm_b, abs_b_star_para, dfm, df_inv, df_inv_t, g_inv, det_df, tmp, tmp1, tmp2, tmp_m, tmp_v, filling_m, filling_v)
+    #$ omp parallel firstprivate(b_prod) private(ip, boundary_cut, eta1, eta2, eta3, v, weight, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, b_star, b_prod_neg, norm_b1, curl_norm_b, abs_b_star_para, dfm, df_inv, df_inv_t, g_inv, det_df, tmp, tmp1, tmp2, tmp_m, tmp_v, filling_m, filling_v)
     #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
     for ip in range(n_markers_loc):
 
@@ -399,6 +408,9 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
         # marker weight and velocity
         weight = markers[ip, 5]
         v = markers[ip, 3]
+
+        if eta1 < boundary_cut or eta1 > 1. - boundary_cut:
+            continue
 
         # b-field evaluation
         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
@@ -557,126 +569,50 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
     #$ omp end parallel
 
 
-@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def cc_lin_mhd_5d_mu(markers: 'float[:,:]', n_markers_tot: 'int',
-                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                     starts: 'int[:]',
-                     kind_map: 'int', params_map: 'float[:]',
-                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                     cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                     mat: 'float[:,:,:,:,:,:]',
-                     vec: 'float[:,:,:]',
-                     coupling_const: 'float'):
-    r"""Accumulation kernel for the propagator `ShearAlfvénCurrentCoupling5D, <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_fields.ShearAlfvénCurrentCoupling5D>`_ .
+@stack_array('dfm', 'norm_b1', 'filling_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+def cc_lin_mhd_5d_M(markers: 'float[:,:]', n_markers_tot: 'int',
+                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                    starts: 'int[:]',
+                    kind_map: 'int', params_map: 'float[:]',
+                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                    cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                    mat11: 'float[:,:,:,:,:,:]',
+                    mat12: 'float[:,:,:,:,:,:]',
+                    mat13: 'float[:,:,:,:,:,:]',
+                    mat22: 'float[:,:,:,:,:,:]',
+                    mat23: 'float[:,:,:,:,:,:]',
+                    mat33: 'float[:,:,:,:,:,:]',
+                    vec1: 'float[:,:,:]',
+                    vec2: 'float[:,:,:]',
+                    vec3: 'float[:,:,:]',
+                    norm_b11: 'float[:,:,:]',  # model specific argument
+                    norm_b12: 'float[:,:,:]',  # model specific argument
+                    norm_b13: 'float[:,:,:]',  # model specific argument
+                    scale_vec: 'float',        # model specific argument
+                    boundary_cut: 'float'):    # model specific argument
 
-    Accumulates 0-form scalar with the filling functions:
+    r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_fields.ShearAlfvénCurrentCoupling5D` and :class:`~struphy.propagators.propagators_fields.MagnetosonicCurrentCoupling5D`.
 
-    .. math::
-
-        C_p = \omega_p * \mu_p \,.
-
-    """
-    bn1 = empty(int(pn[0]) + 1, dtype=float)
-    bn2 = empty(int(pn[1]) + 1, dtype=float)
-    bn3 = empty(int(pn[2]) + 1, dtype=float)
-
-    bd1 = empty(int(pn[0]), dtype=float)
-    bd2 = empty(int(pn[1]), dtype=float)
-    bd3 = empty(int(pn[2]), dtype=float)
-
-    # get number of markers
-    n_markers_loc = shape(markers)[0]
-
-    #$ omp parallel private(ip, eta1, eta2, eta3, mu, weight, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, filling)
-    #$ omp for reduction ( + : vec)
-
-    for ip in range(n_markers_loc):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        # marker positions
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-
-        # marker weight and velocity
-        weight = markers[ip, 5]
-        mu = markers[ip, 4]
-
-        # b-field evaluation
-        span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
-        span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
-        span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
-
-        bsplines_kernels.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
-        bsplines_kernels.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
-        bsplines_kernels.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
-
-        filling = weight * mu * coupling_const
-
-        # call the appropriate matvec filler
-        particle_to_mat_kernels.vec_fill_v0(pn, span1, span2, span3, bn1,
-                           bn2, bn3, starts, vec, filling)
-
-    vec /= n_markers_tot
-
-    #$ omp end parallel
-
-
-@stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'filling_v', 'tmp_v1', 'tmp_v2', 'b', 'curl_norm_b', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def cc_lin_mhd_5d_curlMxB(markers: 'float[:,:]', n_markers_tot: 'int',
-                          pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                          starts: 'int[:]',
-                          kind_map: 'int', params_map: 'float[:]',
-                          p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                          ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                          cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                          mat11: 'float[:,:,:,:,:,:]',
-                          mat12: 'float[:,:,:,:,:,:]',
-                          mat13: 'float[:,:,:,:,:,:]',
-                          mat21: 'float[:,:,:,:,:,:]',
-                          mat22: 'float[:,:,:,:,:,:]',
-                          mat23: 'float[:,:,:,:,:,:]',
-                          mat31: 'float[:,:,:,:,:,:]',
-                          mat32: 'float[:,:,:,:,:,:]',
-                          mat33: 'float[:,:,:,:,:,:]',
-                          vec1: 'float[:,:,:]',
-                          vec2: 'float[:,:,:]',
-                          vec3: 'float[:,:,:]',
-                          b1: 'float[:,:,:]',           # model specific argument
-                          b2: 'float[:,:,:]',           # model specific argument
-                          b3: 'float[:,:,:]',           # model specific argument
-                          curl_norm_b1: 'float[:,:,:]', # model specific argument
-                          curl_norm_b2: 'float[:,:,:]', # model specific argument
-                          curl_norm_b3: 'float[:,:,:]', # model specific argument
-                          basis_u: 'int', scale_vec: 'float'):  # model specific argument
-    r"""Accumulation kernel for the propagator `MagnetosonicCurrentCoupling5D, <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_fields.MagnetosonicCurrentCoupling5D>`_ .
-
-    Accumulates :math:`\alpha` -form vector with the filling functions:
+    Accumulates 2-form vector with the filling functions:
 
     .. math::
 
-        B^\mu_p = \omega_p * \mu_p * [(\hat \nabla \times \hat{\mathbf b}^1_0)(\boldsymbol \eta_k) \times \hat{\mathbf B}^2 (\boldsymbol \eta_k)]_\mu \,.
+        B^\mu_p = \omega_p \mu_p\left(\sqrt{g}^{-1} \hat{\mathbf{b}}¹_0\right)_\mu \,.
 
     Parameters
     ----------
-        b2_1, b2_2, b2_3 : array[float]
-            FE coefficients c_ijk of the magnetic field as a 2-form.
 
-        curl_norm_b1, curl_norm_b2, curl_norm_b3 : array[float]
-            FE coefficients c_ijk of the curl of the unit magnetic field as a 1-form.
+        norm_b11, norm_b12, norm_b13 : array[float]
+            FE coefficients c_ijk of the normalized magnetic field as a 1-form.
 
     Note
     ----
         The above parameter list contains only the model specific input arguments.
     """
 
-    # allocate for magnetic field evaluation
-    b = empty(3, dtype=float)
-    curl_norm_b = empty(3, dtype=float)
+    # allocate for a field evaluation
+    norm_b1 = empty(3, dtype=float)
 
     bn1 = empty(int(pn[0]) + 1, dtype=float)
     bn2 = empty(int(pn[1]) + 1, dtype=float)
@@ -688,21 +624,16 @@ def cc_lin_mhd_5d_curlMxB(markers: 'float[:,:]', n_markers_tot: 'int',
 
     # allocate for metric coeffs
     dfm = empty((3, 3), dtype=float)
-    df_inv = empty((3, 3), dtype=float)
-    df_inv_t = empty((3, 3), dtype=float)
-    g_inv = empty((3, 3), dtype=float)
 
     # allocate for filling
     filling_v = empty(3, dtype=float)
 
-    tmp_v1 = empty(3, dtype=float)
-    tmp_v2 = empty(3, dtype=float)
-
     # get number of markers
     n_markers_loc = shape(markers)[0]
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, mu, weight, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, curl_norm_b, dfm, df_inv, df_inv_t, g_inv, det_df, tmp_v1, tmp_v2, filling_v)
+    #$ omp parallel private(ip, boundary_cut, eta1, eta2, eta3, mu, weight, norm_b1, dfm, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, filling_v)
     #$ omp for reduction ( + : vec1, vec2, vec3)
+
     for ip in range(n_markers_loc):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -717,6 +648,9 @@ def cc_lin_mhd_5d_curlMxB(markers: 'float[:,:]', n_markers_tot: 'int',
         # marker weight and velocity
         weight = markers[ip, 5]
         mu = markers[ip, 4]
+
+        if eta1 < boundary_cut or eta1 > 1. - boundary_cut:
+            continue
 
         # b-field evaluation
         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
@@ -737,61 +671,22 @@ def cc_lin_mhd_5d_curlMxB(markers: 'float[:,:]', n_markers_tot: 'int',
 
         det_df = linalg_kernels.det(dfm)
 
-        # needed metric coefficients
-        linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
-        linalg_kernels.transpose(df_inv, df_inv_t)
-        linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
+        # norm_b1; 1form
+        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            int(pn[0]) - 1, int(pn[1]), int(pn[2]), bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
+        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            int(pn[0]), int(pn[1]) - 1, int(pn[2]), bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
+        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
 
-        # b; 2form
-        b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
-        b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
-        b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b3, starts)
+        filling_v[:] = weight * mu / det_df * scale_vec * norm_b1
 
-        # curl_norm_b; 2form
-        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
-        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
-        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
-
-        linalg_kernels.cross(curl_norm_b, b, tmp_v1)
-        tmp_v1 /= det_df
-
-        if basis_u == 0:
-
-            filling_v[:] = weight * mu * tmp_v1 * scale_vec
-
-            particle_to_mat_kernels.vec_fill_v0vec(pn, span1, span2, span3,
-                            bn1, bn2, bn3,
-                            starts,
-                            vec1, vec2, vec3,
-                            filling_v[0], filling_v[1], filling_v[2])
-
-        elif basis_u == 1:
-
-            linalg_kernels.matrix_vector(g_inv, tmp_v1, tmp_v2)
-
-            filling_v[:] = weight * mu * tmp_v2 * scale_vec
-
-            particle_to_mat_kernels.vec_fill_v1(pn, span1, span2, span3,
-                            bn1, bn2, bn3, bd1, bd2, bd3,
-                            starts,
-                            vec1, vec2, vec3,
-                            filling_v[0], filling_v[1], filling_v[2])
-
-        elif basis_u == 2:
-
-            filling_v[:] = weight * mu * tmp_v1 / det_df * scale_vec
-
-            particle_to_mat_kernels.vec_fill_v2(pn, span1, span2, span3,
-                            bn1, bn2, bn3, bd1, bd2, bd3,
-                            starts,
-                            vec1, vec2, vec3,
-                            filling_v[0], filling_v[1], filling_v[2])
+        particle_to_mat_kernels.vec_fill_v2(pn, span1, span2, span3,
+                                            bn1, bn2, bn3,
+                                            bd1, bd2, bd3,
+                                            starts,
+                                            vec1, vec2, vec3,
+                                            filling_v[0], filling_v[1], filling_v[2])
 
     vec1 /= n_markers_tot
     vec2 /= n_markers_tot
@@ -833,16 +728,17 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
                      grad_PB1: 'float[:,:,:]',  # model specific argument
                      grad_PB2: 'float[:,:,:]',  # model specific argument
                      grad_PB3: 'float[:,:,:]',  # model specific argument
-                     basis_u: 'int', scale_mat: 'float', scale_vec: 'float'):  # model specific argument
-    r"""Accumulation kernel for the propagator `CurrentCoupling5DGradBxB, <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DGradBxB>`_ .
+                     basis_u: 'int', scale_mat: 'float', scale_vec: 'float',
+                     boundary_cut: float):  # model specific argument
+    r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DGradB`.
 
     Accumulates math:`\alpha` -form matrix and vector with the filling functions
 
     .. math::
 
-        A_p^{\mu, \nu} &= w_p * [G^{-1}(\eta_p) * B2_{\times}(\eta_p) * B2_{\times}(\eta_p)^\top * G^{-1}(\eta_p) * v^2_{\parallel,p} * \left( 1/B^*_\parallel \right)^2 * |1/\sqrt{g} \hat \nabla \times \hat b^1_0|_p^2]_{\mu, \nu}
+        A_p^{\mu, \nu} &= \omega_p \left[\left(\frac{\mu_p}{g\hat B^{*2}_\parallel}\right) \mathbf B^2_{\times} G^{-1} \mathbf b^2_{0 \times} G^{-1} \nabla B_\parallel¹G^{-\top} (\mathbf b^2_{0 \times})^\top G^{-\top} (\mathbf B^2_{\times})^\top \right]_{\mu, \nu} \,,
 
-        B_p^\mu &= w_p *[ G^{-1}(\eta_p) * B2_{\times}(\eta_p)* v^2_{\parallel,p} * \left( 1/B^*_\parallel \right)]_\mu
+        B_p^\mu &= \omega_p \left[\left(\frac{\mu_p}{\sqrt{g}\hat B^*_\parallel}\right) \mathbf B^2_{\times} G^{-1} \mathbf b^2_{0 \times} G^{-1} \nabla B_\parallel¹\right]_\mu \,,
 
     where :math:`B2_{\times} * a := B2 \times a` for :math:`a \in \mathbb R^3`.
 
@@ -907,7 +803,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
     # get number of markers
     n_markers_loc = shape(markers)[0]
 
-    #$ omp parallel firstprivate(b_prod) private(ip, eta1, eta2, eta3, v, mu, weight, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, b_star, norm_b1, norm_b2, norm_b2_prod, curl_norm_b, grad_PB, grad_PB_mat, abs_b_star_para, dfm, df_inv, df_inv_t, g_inv, det_df, tmp_t, tmp1, tmp2, tmp_m, tmp_v, filling_m, filling_v)
+    #$ omp parallel firstprivate(b_prod) private(ip, boundary_cut, eta1, eta2, eta3, v, mu, weight, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, b_star, norm_b1, norm_b2, norm_b2_prod, curl_norm_b, grad_PB, grad_PB_mat, abs_b_star_para, dfm, df_inv, df_inv_t, g_inv, det_df, tmp_t, tmp1, tmp2, tmp_m, tmp_v, filling_m, filling_v)
     #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
     for ip in range(n_markers_loc):
 
@@ -919,6 +815,9 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
+
+        if eta1 < boundary_cut or eta1 > 1. - boundary_cut:
+            continue
 
         # marker weight and velocity
         weight = markers[ip, 5]
@@ -1120,6 +1019,249 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
     vec3 /= n_markers_tot
 
     #$ omp end parallel
+
+
+# @stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'filling_v', 'tmp_v1', 'tmp_v2', 'b', 'curl_norm_b', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+# def cc_lin_mhd_5d_curlMxB(markers: 'float[:,:]', n_markers_tot: 'int',
+#                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+#                           starts: 'int[:]',
+#                           kind_map: 'int', params_map: 'float[:]',
+#                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+#                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+#                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+#                           mat11: 'float[:,:,:,:,:,:]',
+#                           mat12: 'float[:,:,:,:,:,:]',
+#                           mat13: 'float[:,:,:,:,:,:]',
+#                           mat21: 'float[:,:,:,:,:,:]',
+#                           mat22: 'float[:,:,:,:,:,:]',
+#                           mat23: 'float[:,:,:,:,:,:]',
+#                           mat31: 'float[:,:,:,:,:,:]',
+#                           mat32: 'float[:,:,:,:,:,:]',
+#                           mat33: 'float[:,:,:,:,:,:]',
+#                           vec1: 'float[:,:,:]',
+#                           vec2: 'float[:,:,:]',
+#                           vec3: 'float[:,:,:]',
+#                           b1: 'float[:,:,:]',           # model specific argument
+#                           b2: 'float[:,:,:]',           # model specific argument
+#                           b3: 'float[:,:,:]',           # model specific argument
+#                           curl_norm_b1: 'float[:,:,:]', # model specific argument
+#                           curl_norm_b2: 'float[:,:,:]', # model specific argument
+#                           curl_norm_b3: 'float[:,:,:]', # model specific argument
+#                           basis_u: 'int', scale_vec: 'float'):  # model specific argument
+#     r"""Accumulation kernel for the propagator `MagnetosonicCurrentCoupling5D, <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_fields.MagnetosonicCurrentCoupling5D>`_ .
+
+#     Accumulates :math:`\alpha` -form vector with the filling functions:
+
+#     .. math::
+
+#         B^\mu_p = \omega_p * \mu_p * [(\hat \nabla \times \hat{\mathbf b}^1_0)(\boldsymbol \eta_k) \times \hat{\mathbf B}^2 (\boldsymbol \eta_k)]_\mu \,.
+
+#     Parameters
+#     ----------
+#         b2_1, b2_2, b2_3 : array[float]
+#             FE coefficients c_ijk of the magnetic field as a 2-form.
+
+#         curl_norm_b1, curl_norm_b2, curl_norm_b3 : array[float]
+#             FE coefficients c_ijk of the curl of the unit magnetic field as a 1-form.
+
+#     Note
+#     ----
+#         The above parameter list contains only the model specific input arguments.
+#     """
+
+#     # allocate for magnetic field evaluation
+#     b = empty(3, dtype=float)
+#     curl_norm_b = empty(3, dtype=float)
+
+#     bn1 = empty(int(pn[0]) + 1, dtype=float)
+#     bn2 = empty(int(pn[1]) + 1, dtype=float)
+#     bn3 = empty(int(pn[2]) + 1, dtype=float)
+
+#     bd1 = empty(int(pn[0]), dtype=float)
+#     bd2 = empty(int(pn[1]), dtype=float)
+#     bd3 = empty(int(pn[2]), dtype=float)
+
+#     # allocate for metric coeffs
+#     dfm = empty((3, 3), dtype=float)
+#     df_inv = empty((3, 3), dtype=float)
+#     df_inv_t = empty((3, 3), dtype=float)
+#     g_inv = empty((3, 3), dtype=float)
+
+#     # allocate for filling
+#     filling_v = empty(3, dtype=float)
+
+#     tmp_v1 = empty(3, dtype=float)
+#     tmp_v2 = empty(3, dtype=float)
+
+#     # get number of markers
+#     n_markers_loc = shape(markers)[0]
+
+#     #$ omp parallel private(ip, eta1, eta2, eta3, mu, weight, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, curl_norm_b, dfm, df_inv, df_inv_t, g_inv, det_df, tmp_v1, tmp_v2, filling_v)
+#     #$ omp for reduction ( + : vec1, vec2, vec3)
+#     for ip in range(n_markers_loc):
+
+#         # only do something if particle is a "true" particle (i.e. not a hole)
+#         if markers[ip, 0] == -1.:
+#             continue
+
+#         # marker positions
+#         eta1 = markers[ip, 0]
+#         eta2 = markers[ip, 1]
+#         eta3 = markers[ip, 2]
+
+#         # marker weight and velocity
+#         weight = markers[ip, 5]
+#         mu = markers[ip, 4]
+
+#         # b-field evaluation
+#         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
+#         span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
+#         span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
+
+#         bsplines_kernels.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
+#         bsplines_kernels.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
+#         bsplines_kernels.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
+
+#         # evaluate Jacobian, result in dfm
+#         evaluation_kernels.df(eta1, eta2, eta3,
+#                               kind_map, params_map,
+#                               t1_map, t2_map, t3_map, p_map,
+#                               ind1_map, ind2_map, ind3_map,
+#                               cx, cy, cz,
+#                               dfm)
+
+#         det_df = linalg_kernels.det(dfm)
+
+#         # needed metric coefficients
+#         linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+#         linalg_kernels.transpose(df_inv, df_inv_t)
+#         linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
+
+#         # b; 2form
+#         b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
+#         b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
+#         b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b3, starts)
+
+#         # curl_norm_b; 2form
+#         curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
+#         curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
+#         curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+#             int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
+
+#         linalg_kernels.cross(curl_norm_b, b, tmp_v1)
+#         tmp_v1 /= det_df
+
+#         if basis_u == 0:
+
+#             filling_v[:] = weight * mu * tmp_v1 * scale_vec
+
+#             particle_to_mat_kernels.vec_fill_v0vec(pn, span1, span2, span3,
+#                             bn1, bn2, bn3,
+#                             starts,
+#                             vec1, vec2, vec3,
+#                             filling_v[0], filling_v[1], filling_v[2])
+
+#         elif basis_u == 1:
+
+#             linalg_kernels.matrix_vector(g_inv, tmp_v1, tmp_v2)
+
+#             filling_v[:] = weight * mu * tmp_v2 * scale_vec
+
+#             particle_to_mat_kernels.vec_fill_v1(pn, span1, span2, span3,
+#                             bn1, bn2, bn3, bd1, bd2, bd3,
+#                             starts,
+#                             vec1, vec2, vec3,
+#                             filling_v[0], filling_v[1], filling_v[2])
+
+#         elif basis_u == 2:
+
+#             filling_v[:] = weight * mu * tmp_v1 / det_df * scale_vec
+
+#             particle_to_mat_kernels.vec_fill_v2(pn, span1, span2, span3,
+#                             bn1, bn2, bn3, bd1, bd2, bd3,
+#                             starts,
+#                             vec1, vec2, vec3,
+#                             filling_v[0], filling_v[1], filling_v[2])
+
+#     vec1 /= n_markers_tot
+#     vec2 /= n_markers_tot
+#     vec3 /= n_markers_tot
+
+#     #$ omp end parallel
+
+
+# @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+# def cc_lin_mhd_5d_mu(markers: 'float[:,:]', n_markers_tot: 'int',
+#                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+#                      starts: 'int[:]',
+#                      kind_map: 'int', params_map: 'float[:]',
+#                      p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+#                      ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+#                      cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+#                      mat: 'float[:,:,:,:,:,:]',
+#                      vec: 'float[:,:,:]',
+#                      coupling_const: 'float'):
+#     r"""Accumulation kernel for the propagator `ShearAlfvénCurrentCoupling5D, <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_fields.ShearAlfvénCurrentCoupling5D>`_ .
+
+#     Accumulates 0-form scalar with the filling functions:
+
+#     .. math::
+
+#         C_p = \omega_p * \mu_p \,.
+
+#     """
+#     bn1 = empty(int(pn[0]) + 1, dtype=float)
+#     bn2 = empty(int(pn[1]) + 1, dtype=float)
+#     bn3 = empty(int(pn[2]) + 1, dtype=float)
+
+#     bd1 = empty(int(pn[0]), dtype=float)
+#     bd2 = empty(int(pn[1]), dtype=float)
+#     bd3 = empty(int(pn[2]), dtype=float)
+
+#     # get number of markers
+#     n_markers_loc = shape(markers)[0]
+
+#     #$ omp parallel private(ip, eta1, eta2, eta3, mu, weight, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, filling)
+#     #$ omp for reduction ( + : vec)
+
+#     for ip in range(n_markers_loc):
+
+#         # only do something if particle is a "true" particle (i.e. not a hole)
+#         if markers[ip, 0] == -1.:
+#             continue
+
+#         # marker positions
+#         eta1 = markers[ip, 0]
+#         eta2 = markers[ip, 1]
+#         eta3 = markers[ip, 2]
+
+#         # marker weight and velocity
+#         weight = markers[ip, 5]
+#         mu = markers[ip, 4]
+
+#         # b-field evaluation
+#         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
+#         span2 = bsplines_kernels.find_span(tn2, int(pn[1]), eta2)
+#         span3 = bsplines_kernels.find_span(tn3, int(pn[2]), eta3)
+
+#         bsplines_kernels.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
+#         bsplines_kernels.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
+#         bsplines_kernels.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
+
+#         filling = weight * mu * coupling_const
+
+#         # call the appropriate matvec filler
+#         particle_to_mat_kernels.vec_fill_v0(pn, span1, span2, span3, bn1,
+#                            bn2, bn3, starts, vec, filling)
+
+#     vec /= n_markers_tot
+
+#     #$ omp end parallel
 
 
 # def cc_lin_mhd_5d_J2_dg(markers: 'float[:,:]', n_markers_tot: 'int',

@@ -5,223 +5,91 @@ import numpy as np
 
 from struphy.kinetic_background.base import Maxwellian
 from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.initial import perturbations
+from struphy.fields_background.mhd_equil.base import MHDequilibrium
 
 
-class Maxwellian6DUniform(Maxwellian):
-    r"""
-    6d Maxwellian distribution function defined on :math:`[0, 1]^3 \times \mathbb R^3`, 
-    with logical position and Cartesian velocity coordinates and uniform velocity moments.
-
-    .. math::
-
-        f(\mathbf v) = \frac{n}{(2\pi)^{3/2} \, v_{\mathrm{th},1} \, v_{\mathrm{th},2} \, v_{\mathrm{th},3}} \,
-            \exp\left[- \frac{(v_1 - u_1)^2}{2v_{\mathrm{th},1}^2}
-                      - \frac{(v_2 - u_2)^2}{2v_{\mathrm{th},2}^2}
-                      - \frac{(v_3 - u_3)^2}{2v_{\mathrm{th},3}^2}\right].
+class Maxwellian6D(Maxwellian):
+    r""" A :class:`~struphy.kinetic_background.base.Maxwellian` with velocity dimension :math:`n=3`.
 
     Parameters
     ----------
-    **params
-        Keyword arguments (n= , u1=, etc.) defining the moments of the 6d Maxwellian.
+    maxw_params : dict
+        Parameters for the kinetic background.
 
-    Note
-    ----
-    In the parameter .yml, use the following in the section ``kinetic/<species>``::
+    pert_params : dict
+        Parameters for the kinetic perturbation added to the background.
 
-        init :
-            type : Maxwellian6DUniform
-            Maxwellian6DUniform :
-                n : 1.0
-                u1 : 0.0
-                u2 : 0.0
-                u3 : 0.0
-                vth1 : 1.0
-                vth2 : 1.0
-                vth3 : 1.0
-
-    Can use ``background :`` instead of ``init :``.
+    mhd_equil : MHDequilibrium
+        One of :mod:`~struphy.fields_background.mhd_equil.equils`.
     """
 
-    def __init__(self, **params):
+    @classmethod
+    def default_maxw_params(cls):
+        """ Default parameters dictionary defining constant moments of the Maxwellian.
+        """
+        return {
+            'n': 1.,
+            'u1': 0.,
+            'u2': 0.,
+            'u3': 0.,
+            'vth1': 1.,
+            'vth2': 1.,
+            'vth3': 1.
+        }
 
-        # default parameters
-        params_default = {'n': 1.,
-                          'u1': 0.,
-                          'u2': 0.,
-                          'u3': 0.,
-                          'vth1': 1.,
-                          'vth2': 1.,
-                          'vth3': 1.}
+    def __init__(self, maxw_params=None, pert_params=None, mhd_equil=None):
 
-        self._params = set_defaults(params, params_default)
+        # Set background parameters
+        self._maxw_params = self.default_maxw_params()
+
+        if maxw_params is not None:
+            assert isinstance(maxw_params, dict)
+            self._maxw_params = set_defaults(
+                maxw_params, self.default_maxw_params())
+
+        # check if mhd is needed
+        for key, val in self.maxw_params.items():
+            if val == 'mhd':
+                assert isinstance(
+                    mhd_equil, MHDequilibrium), f'MHD equilibrium must be passed to compute {key}.'
+
+        # Set parameters for perturbation
+        self._pert_params = pert_params
+
+        if self.pert_params is not None:
+            assert isinstance(pert_params, dict)
+            assert 'type' in self.pert_params, '"type" is mandatory in perturbation dictionary.'
+            ptype = self.pert_params['type']
+            assert ptype in self.pert_params, f'{ptype} is mandatory in perturbation dictionary.'
+            self._pert_type = ptype
+
+        # MHD equilibrium
+        self._mhd_equil = mhd_equil
+
+        # factors multiplied onto the defined moments n, u and vth (can be set via setter)
+        self._moment_factors = {'n': 1.,
+                                'u': [1., 1., 1.],
+                                'vth': [1., 1., 1.]}
 
     @property
-    def params(self):
-        """ Parameters dictionary defining the moments of the Maxwellian.
+    def maxw_params(self):
+        """ Parameters dictionary defining constant moments of the Maxwellian.
         """
-        return self._params
+        return self._maxw_params
 
     @property
-    def vdim(self):
-        """Dimension of the velocity space.
+    def pert_params(self):
+        """ Parameters dictionary defining the perturbations of the :meth:`~Maxwellian6D.maxw_params`.
         """
-        return 3
-    
-    @property
-    def is_polar(self):
-        """List of booleans. True if the velocity coordinates are polar coordinates.
-        """
-        return [False, False, False]
-
-    def n(self, eta1, eta2, eta3):
-        """ Number density (0-form). 
-
-        Parameters
-        ----------
-        eta1, eta2, eta3 : numpy.array
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-
-        Returns
-        -------
-        A numpy.array with the density evaluated at evaluation points (same shape as etas).
-        """
-        return self.params['n'] - 0*eta1
-
-    def vth(self, eta1, eta2, eta3):
-        """ Thermal velocities (0-forms).
-
-        Parameters
-        ----------
-        etas : numpy.arrays
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-
-        Returns
-        -------
-        A numpy.array with the thermal velocity evaluated at evaluation points (one dimension more than etas).
-        The additional dimension is in the first index.
-        """
-        res_list = []
-
-        res_list += [self.params['vth1'] - 0*eta1]
-        res_list += [self.params['vth2'] - 0*eta1]
-        res_list += [self.params['vth3'] - 0*eta1]
-
-        return np.array(res_list)
-
-    def u(self, eta1, eta2, eta3):
-        """ Mean velocities (Cartesian components evaluated at x = F(eta)).
-
-        Parameters
-        ----------
-        eta1, eta2, eta3  : numpy.array
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-
-        Returns
-        -------
-        A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
-        The additional dimension is in the first index.
-        """
-        res_list = []
-
-        res_list += [self.params['u1'] - 0*eta1]
-        res_list += [self.params['u2'] - 0*eta1]
-        res_list += [self.params['u3'] - 0*eta1]
-
-        return np.array(res_list)
-
-
-class Maxwellian6DPerturbed(Maxwellian):
-    r"""
-    6d Maxwellian distribution function defined on :math:`[0, 1]^3 \times \mathbb R^3`, 
-    with logical position and Cartesian velocity coordinates, with sin/cos perturbed velocity moments.
-
-    .. math::
-
-        f(\boldsymbol{\eta}, \mathbf v) = \frac{n(\boldsymbol{\eta})}{(2\pi)^{3/2}(v_{\mathrm{th},x}\,v_{\mathrm{th},y}\,v_{\mathrm{th},z})(\boldsymbol{\eta})}\,\exp\left[-\frac{(v_x-u_x(\boldsymbol{\eta}))^2}{2v_{\mathrm{th},x}(\boldsymbol{\eta})^2}-\frac{(v_y-u_y(\boldsymbol{\eta}))^2}{2v_{\mathrm{th},y}(\boldsymbol{\eta})^2}-\frac{(v_z-u_z(\boldsymbol{\eta}))^2}{2v_{\mathrm{th},z}(\boldsymbol{\eta})^2}\right]\,, 
-
-    with perturbations of the form
-
-    .. math::
-
-        n(\boldsymbol{\eta})= n_0 + \sum_i\left\lbrace A_i\sin\left[2\pi(l_i\,\eta_1+m_i\,\eta_2+n_i\,\eta_3)\right] + B_i\cos\left[2\pi(l_i\,\eta_1+m_i\,\eta_2+n_i\,\eta_3)\right] \right\rbrace\,,
-
-    and similarly for the other moments :math:`u_x(\boldsymbol{\eta}),u_y(\boldsymbol{\eta})`, etc.
-
-    Parameters
-    ----------
-    **params
-        Keyword arguments defining the moments of the 6d Maxwellian. For each moment, a dictionary of the form {'n0' : float, 'perturbation' : {'l' : list, 'm' : list, 'n' : list, 'amps_sin' : list, 'amps_cos' : list}} must be passed.
-
-    Note
-    ----
-    In the parameter .yml, use the following in the section ``kinetic/<species>``::
-
-        init :
-            type : Maxwellian6DPerturbed
-            Maxwellian6DPerturbed :
-                n :
-                    n0 : 1.
-                    perturbation :
-                        l : [0]
-                        m : [0]
-                        n : [0]
-                        amps_sin : [0.]
-                        amps_cos : [0.]
-                u1 :
-                    u10 : 0.
-                u2 :
-                    u20 : 0.
-                u3 :
-                    u30 : 0.
-                vth1 :
-                    vth10 : 1.
-                vth2 :
-                    vth20 : 1.
-                vth3 :
-                    vth30 : 1.
-
-    Can use ``background :`` instead of ``init :``.
-    """
-
-    def __init__(self, **params):
-
-        moment_keys = ['n', 'u1', 'u2', 'u3', 'vth1', 'vth2', 'vth3']
-
-        backgr_keys = ['n0', 'u01', 'u02', 'u03', 'vth01', 'vth02', 'vth03']
-
-        # set default background, mode numbers and amplitudes if no perturbation of a moment in given
-        for moment_key, backgr_key in zip(moment_keys, backgr_keys):
-
-            # add moment key if not there
-            if moment_key not in params.keys():
-                params[moment_key] = {}
-
-            if not backgr_key in params[moment_key].keys():
-
-                if len(backgr_key) == 2:
-                    params[moment_key][backgr_key] = 1.
-                elif len(backgr_key) == 3:
-                    params[moment_key][backgr_key] = 0.
-                else:
-                    params[moment_key][backgr_key] = 1.
-
-            if not 'perturbation' in params[moment_key].keys():
-                params[moment_key]['perturbation'] = {}
-
-                params[moment_key]['perturbation']['l'] = [0]
-                params[moment_key]['perturbation']['m'] = [0]
-                params[moment_key]['perturbation']['n'] = [0]
-
-                params[moment_key]['perturbation']['amps_sin'] = [0]
-                params[moment_key]['perturbation']['amps_cos'] = [0]
-
-        self._params = params
+        return self._pert_params
 
     @property
-    def params(self):
-        """Parameters dictionary defining the moments of the Maxwellian.
+    def mhd_equil(self):
+        """ One of :mod:`~struphy.fields_background.mhd_equil.equils` 
+        in case that moments are to be set in that way, None otherwise.
         """
-        return self._params
+        return self._mhd_equil
 
     @property
     def vdim(self):
@@ -235,66 +103,21 @@ class Maxwellian6DPerturbed(Maxwellian):
         """
         return [False, False, False]
 
-    def modes_sin(self, eta1, eta2, eta3, l, m, n, amps):
+    @property
+    def moment_factors(self):
+        """Collection of factors multiplied onto the defined moments n, u, and vth.
         """
-        Superposition of sine modes.
+        return self._moment_factors
 
-        Parameters
-        ----------
-        eta1, eta2, eta3 : array_like
-            Coordinates at which to evaluate.
-
-        l, m, n : array_like
-            List of modes numbers in certain spatial direction. Must be of equal length.
-
-        amps : array_like
-            List of modes amplitudes. Must have same length as lists of mode numbers.
-
-        Returns
-        -------
-        value : ndarray
-            Superposition of sine modes evaluated at given coordinates.
-        """
-
-        value = 0.
-        for i in range(len(amps)):
-            value += amps[i]*np.sin(2*np.pi*l[i]*eta1 +
-                                    2*np.pi*m[i]*eta2 +
-                                    2*np.pi*n[i]*eta3)
-
-        return value
-
-    def modes_cos(self, eta1, eta2, eta3, l, m, n, amps):
-        """
-        Superposition of cosine modes.
-
-        Parameters
-        ----------
-        eta1, eta2, eta3 : array_like
-            Coordinates at which to evaluate.
-
-        l, m, n : array_like
-            List of modes numbers in certain spatial direction. Must be of equal length.
-
-        amps : array_like
-            List of modes amplitudes. Must have same length as lists of mode numbers.
-
-        Returns
-        -------
-        value : ndarray
-            Superposition of cosine modes evaluated at given coordinates.
-        """
-
-        value = 0.
-        for i in range(len(amps)):
-            value += amps[i]*np.cos(2*np.pi*l[i]*eta1 +
-                                    2*np.pi*m[i]*eta2 +
-                                    2*np.pi*n[i]*eta3)
-
-        return value
+    @moment_factors.setter
+    def moment_factors(self, **kwargs):
+        for kw, arg in kwargs:
+            if kw in {'u', 'vth'}:
+                assert len(arg) == 3
+            self._moment_factors[kw] = arg
 
     def n(self, eta1, eta2, eta3):
-        """ Mean velocities (Cartesian components evaluated at x = F(eta)).
+        """ Density as background + perturbation.
 
         Parameters
         ----------
@@ -303,258 +126,57 @@ class Maxwellian6DPerturbed(Maxwellian):
 
         Returns
         -------
-        A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
-        The additional dimension is in the first index.
+        A float (background value) or a numpy.array of the evaluated density.
         """
 
-        ls = self.params['n']['perturbation']['l']
-        ms = self.params['n']['perturbation']['m']
-        ns = self.params['n']['perturbation']['n']
+        # collect arguments
+        assert isinstance(eta1, np.ndarray)
+        assert isinstance(eta2, np.ndarray)
+        assert isinstance(eta3, np.ndarray)
+        assert eta1.shape == eta2.shape == eta3.shape
 
-        amps_sin = self.params['n']['perturbation']['amps_sin']
-        amps_cos = self.params['n']['perturbation']['amps_cos']
-
-        res = self.params['n']['n0']
-        res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
-        res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
-
-        return res
-
-    def u(self, eta1, eta2, eta3):
-        """ Mean velocities (Cartesian components evaluated at x = F(eta)).
-
-        Parameters
-        ----------
-        eta1, eta2, eta3  : numpy.array
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-
-        Returns
-        -------
-        A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
-        The additional dimension is in the first index.
-        """
-
-        res_list = []
-
-        ls = self.params['u1']['perturbation']['l']
-        ms = self.params['u1']['perturbation']['m']
-        ns = self.params['u1']['perturbation']['n']
-
-        amps_sin = self.params['u1']['perturbation']['amps_sin']
-        amps_cos = self.params['u1']['perturbation']['amps_cos']
-
-        res = self.params['u1']['u01']
-        res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
-        res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
-
-        res_list += [res]
-
-        ls = self.params['u2']['perturbation']['l']
-        ms = self.params['u2']['perturbation']['m']
-        ns = self.params['u2']['perturbation']['n']
-
-        amps_sin = self.params['u2']['perturbation']['amps_sin']
-        amps_cos = self.params['u2']['perturbation']['amps_cos']
-
-        res = self.params['u2']['u02']
-        res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
-        res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
-
-        res_list += [res]
-
-        ls = self.params['u3']['perturbation']['l']
-        ms = self.params['u3']['perturbation']['m']
-        ns = self.params['u3']['perturbation']['n']
-
-        amps_sin = self.params['u3']['perturbation']['amps_sin']
-        amps_cos = self.params['u3']['perturbation']['amps_cos']
-
-        res = self.params['u3']['u03']
-        res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
-        res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
-
-        res_list += [res]
-
-        return np.array(res_list)
-
-    def vth(self, eta1, eta2, eta3):
-        """ Thermal velocities (0-forms).
-
-        Parameters
-        ----------
-        etas : numpy.arrays
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-
-        Returns
-        -------
-        A numpy.array with the thermal velocity evaluated at evaluation points (one dimension more than etas).
-        The additional dimension is in the first index.
-        """
-
-        res_list = []
-
-        ls = self.params['vth1']['perturbation']['l']
-        ms = self.params['vth1']['perturbation']['m']
-        ns = self.params['vth1']['perturbation']['n']
-
-        amps_sin = self.params['vth1']['perturbation']['amps_sin']
-        amps_cos = self.params['vth1']['perturbation']['amps_cos']
-
-        res = self.params['vth1']['vth01']
-        res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
-        res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
-
-        res_list += [res]
-
-        ls = self.params['vth2']['perturbation']['l']
-        ms = self.params['vth2']['perturbation']['m']
-        ns = self.params['vth2']['perturbation']['n']
-
-        amps_sin = self.params['vth2']['perturbation']['amps_sin']
-        amps_cos = self.params['vth2']['perturbation']['amps_cos']
-
-        res = self.params['vth2']['vth02']
-        res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
-        res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
-
-        res_list += [res]
-
-        ls = self.params['vth3']['perturbation']['l']
-        ms = self.params['vth3']['perturbation']['m']
-        ns = self.params['vth3']['perturbation']['n']
-
-        amps_sin = self.params['vth3']['perturbation']['amps_sin']
-        amps_cos = self.params['vth3']['perturbation']['amps_cos']
-
-        res = self.params['vth3']['vth03']
-        res += self.modes_sin(eta1, eta2, eta3, ls, ms, ns, amps_sin)
-        res += self.modes_cos(eta1, eta2, eta3, ls, ms, ns, amps_cos)
-
-        res_list += [res]
-
-        return np.array(res_list)
-
-
-class Maxwellian6DITPA(Maxwellian):
-    r"""
-    6d Maxwellian distribution function defined on :math:`[0, 1]^3 \times \mathbb R^3`, 
-    with logical position and Cartesian velocity coordinates, with isotropic, shifted distribution in velocity space and 1d density variation in first direction.
-
-    .. math::
-
-        f(\eta_1, \mathbf v) = \,\frac{n(\eta_1)}{(2\pi)^{3/2}\,v_{\mathrm{th}}^3}\,\exp\left[-\frac{(v_x-u_x)^2+(v_y-u_y)^2+(v_z-u_z)^2}{2v_{\mathrm{th}}^2}\right]\,,
-
-    with the density profile
-
-    .. math::
-
-        n(\eta_1) = c_3\exp\left[-\frac{c_2}{c_1}\tanh\left(\frac{\eta_1 - c_0}{c_2}\right)\right]\,.
-
-    Parameters
-    ----------
-    **params
-        Keyword arguments defining the moments of the 6d Maxwellian. For the density profile a dictionary of the form {'c0' : float, 'c1' : float, 'c2' : float, 'c3' : float} must be passed.
-
-    Note
-    ----
-    In the parameter .yml, use the following in the section ``kinetic/<species>``::
-
-        init :
-            type : Maxwellian6DITPA
-            Maxwellian6DITPA :
-                n : 
-                    c0: 0.5
-                    c1: 0.5
-                    c2: 0.5
-                    c3: 0.5
-                vth : 1.0
-
-    Can use ``background :`` instead of ``init :``.
-    """
-
-    def __init__(self, **params):
-
-        # set default ITPA default parameters if not given
-        if 'n' not in params.keys():
-            params['n'] = {}
-
-            params['n']['c0'] = 0.491230
-            params['n']['c1'] = 0.298228
-            params['n']['c2'] = 0.198739
-            params['n']['c3'] = 0.521298
-
-        if 'vth' not in params.keys():
-            params['vth'] = 1.
-
-        self._params = params
-
-    @property
-    def params(self):
-        """Parameters dictionary defining the moments of the Maxwellian.
-        """
-        return self._params
-
-    @property
-    def vdim(self):
-        """Dimension of the velocity space.
-        """
-        return 3
-
-    @property
-    def is_polar(self):
-        """List of booleans. True if the velocity coordinates are polar coordinates.
-        """
-        return [False, False, False]
-
-    def n(self, eta1, eta2, eta3):
-        """ Number density (0-form). 
-
-        Parameters
-        ----------
-        eta1, eta2, eta3 : numpy.array
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-
-        Returns
-        -------
-        A numpy.array with the density evaluated at evaluation points (same shape as etas).
-        """
-
-        c0 = self.params['n']['c0']
-        c1 = self.params['n']['c1']
-        c2 = self.params['n']['c2']
-        c3 = self.params['n']['c3']
-
-        if c2 == 0.:
-            res = c3 - 0*eta1
+        # flat evaluation for markers
+        if eta1.ndim == 1:
+            etas = [np.concatenate(
+                (eta1[:, None], eta2[:, None], eta3[:, None]), axis=1)]
+        # assuming that input comes from meshgrid.
+        elif eta1.ndim == 6:
+            etas = (eta1[:, :, :, 0, 0, 0],
+                    eta2[:, :, :, 0, 0, 0],
+                    eta3[:, :, :, 0, 0, 0])
         else:
-            res = c3*np.exp(-c2/c1*np.tanh((eta1 - c0)/c2))
+            etas = (eta1, eta2, eta3)
 
-        return res
+        # set background density
+        res = self.maxw_params['n']
 
-    def vth(self, eta1, eta2, eta3):
-        """ Thermal velocities (0-forms).
+        if self.maxw_params['n'] == 'mhd':
+            res = self.mhd_equil.n0(*etas)
 
-        Parameters
-        ----------
-        etas : numpy.arrays
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+            assert np.all(res > 0.), 'Number density must be positive!'
 
-        Returns
-        -------
-        A numpy.array with the thermal velocity evaluated at evaluation points (one dimension more than etas).
-        The additional dimension is in the first index.
-        """
+        # Add perturbation if parameters are given and if density is to be perturbed
+        if self.pert_params is not None and 'n' in self.pert_params[self._pert_type]['comps']:
+            n_pert_params = {}
+            for key, item in self.pert_params[self._pert_type].items():
+                # Skip the comps entry
+                if key == 'comps':
+                    assert item['n'] == '0', 'Moment perturbations must be passed as 0-forms to Maxwellians.'
+                    continue
+                n_pert_params[key] = item['n']
 
-        res_list = []
+            perturbation = getattr(perturbations, self._pert_type)(
+                **n_pert_params)
 
-        res_list += [self.params['vth'] - 0*eta1]
-        res_list += [self.params['vth'] - 0*eta1]
-        res_list += [self.params['vth'] - 0*eta1]
+            if eta1.ndim == 1:
+                res += perturbation(eta1, eta2, eta3)
+            else:
+                res += perturbation(*etas)
 
-        return np.array(res_list)
+        return res * self.moment_factors['n']
 
     def u(self, eta1, eta2, eta3):
-        """ Mean velocities (Cartesian components evaluated at x = F(eta)).
+        """ Mean velocities as background + perturbation.
 
         Parameters
         ----------
@@ -563,93 +185,75 @@ class Maxwellian6DITPA(Maxwellian):
 
         Returns
         -------
-        A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
-        The additional dimension is in the first index.
+        A list[float] (background values) or a list[numpy.array] of the evaluated velocities.
         """
-        res_list = []
 
-        res_list += [0*eta1]
-        res_list += [0*eta1]
-        res_list += [0*eta1]
+        # collect arguments
+        assert isinstance(eta1, np.ndarray)
+        assert isinstance(eta2, np.ndarray)
+        assert isinstance(eta3, np.ndarray)
+        assert eta1.shape == eta2.shape == eta3.shape
 
-        return np.array(res_list)
+        # flat evaluation for markers
+        if eta1.ndim == 1:
+            etas = [np.concatenate(
+                (eta1[:, None], eta2[:, None], eta3[:, None]), axis=1)]
+        # assuming that input comes from meshgrid.
+        elif eta1.ndim == 6:
+            etas = (eta1[:, :, :, 0, 0, 0],
+                    eta2[:, :, :, 0, 0, 0],
+                    eta3[:, :, :, 0, 0, 0])
+        else:
+            etas = (eta1, eta2, eta3)
 
+        # set background velocity
+        res = [
+            self.maxw_params['u1'],
+            self.maxw_params['u2'],
+            self.maxw_params['u3'],
+        ]
 
-class Maxwellian5DUniform(Maxwellian):
-    r"""
-    5d Maxwellian distribution function defined on :math:`[0, 1]^3 \times \mathbb R^2`, 
-    with logical position and Cartesian velocity coordinates, with uniform velocity moments.
+        if (self.maxw_params['u1'] == 'mhd' or
+            self.maxw_params['u2'] == 'mhd' or
+                self.maxw_params['u3'] == 'mhd'):
 
-    .. math::
+            tmp = self.mhd_equil.j_cart(*etas)[0] / self.mhd_equil.n0(*etas)
 
-        f(v_\parallel, v_\perp) = \frac{n}{2\pi\,v_{\mathrm{th},\parallel}\,v_{\mathrm{th},\perp}}\exp\left[-\frac{(v_\parallel-u_\parallel)^2}{2v_{\mathrm{th},\parallel}^2} - \frac{(v_\perp-u_\perp)^2}{2v_{\mathrm{th},\perp}^2}\right]\,.
+        if self.maxw_params['u1'] == 'mhd':
+            res[0] = tmp[0]
 
-    Parameters
-    ----------
-    **params
-        Keyword arguments (n= , u_parallel=, etc.) defining the moments of the 6d Maxwellian.
+        if self.maxw_params['u2'] == 'mhd':
+            res[1] = tmp[1]
 
-    Note
-    ----
-    In the parameter .yml, use the following in the section ``kinetic/<species>``::
+        if self.maxw_params['u3'] == 'mhd':
+            res[2] = tmp[2]
 
-        init :
-            type : Maxwellian5DUniform
-            Maxwellian5DUniform :
-                n : 1.0
-                u_parallel : 0.0
-                u_perp : 0.0
-                vth_parallel : 1.0
-                vth_perp : 1.0
+        # Add perturbation if parameters are given
+        if self.pert_params is not None:
+            comps = ['u1', 'u2', 'u3']
+            for i, comp in enumerate(comps):
+                if comp in self.pert_params[self._pert_type]['comps']:
+                    # Add perturbation if it is in comps list
+                    u_pert_params = {}
+                    for key, item in self.pert_params[self._pert_type].items():
+                        # Skip the comps entry
+                        if key == 'comps':
+                            assert item[comp] == '0', 'Moment perturbations must be passed as 0-forms to Maxwellians.'
+                            continue
+                        u_pert_params[key] = item[comp]
 
-    Can use ``background :`` instead of ``init :``.
-    """
+                    perturbation = getattr(perturbations, self._pert_type)(
+                        **u_pert_params)
 
-    def __init__(self, **params):
+                    if eta1.ndim == 1:
+                        res[i] += perturbation(eta1, eta2, eta3)
+                    else:
+                        res[i] += perturbation(*etas)
 
-        # default parameters
-        params_default = {'n': 1.,
-                          'u_parallel': 0.,
-                          'u_perp': 0.,
-                          'vth_parallel': 1.,
-                          'vth_perp': 1.}
-
-        self._params = set_defaults(params, params_default)
-
-    @property
-    def params(self):
-        """Parameters dictionary defining the moments of the Maxwellian.
-        """
-        return self._params
-
-    @property
-    def vdim(self):
-        """Dimension of the velocity space.
-        """
-        return 2
-    
-    @property
-    def is_polar(self):
-        """List of booleans. True if the velocity coordinates are polar coordinates.
-        """
-        return [False, True]
-
-    def n(self, eta1, eta2, eta3):
-        """ Number density (0-form). 
-
-        Parameters
-        ----------
-        eta1, eta2, eta3 : numpy.array
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-
-        Returns
-        -------
-        A numpy.array with the density evaluated at evaluation points (same shape as etas).
-        """
-        return self.params['n'] - 0*eta1
+        return [re * mom_fac for re, mom_fac in zip(res, self.moment_factors['u'])]
 
     def vth(self, eta1, eta2, eta3):
-        """ Thermal velocities (0-forms).
+        """ Thermal velocities as background + perturbation.
 
         Parameters
         ----------
@@ -658,98 +262,154 @@ class Maxwellian5DUniform(Maxwellian):
 
         Returns
         -------
-        A numpy.array with the thermal velocity evaluated at evaluation points (one dimension more than etas).
-        The additional dimension is in the first index.
+        A list[float] (background value) or a list[numpy.array] of the evaluated thermal velocities.
         """
-        res_list = []
 
-        res_list += [self.params['vth_parallel'] - 0*eta1]
-        res_list += [self.params['vth_perp'] - 0*eta1]
+        # collect arguments
+        assert isinstance(eta1, np.ndarray)
+        assert isinstance(eta2, np.ndarray)
+        assert isinstance(eta3, np.ndarray)
+        assert eta1.shape == eta2.shape == eta3.shape
 
-        return np.array(res_list)
+        # flat evaluation for markers
+        if eta1.ndim == 1:
+            etas = [np.concatenate(
+                (eta1[:, None], eta2[:, None], eta3[:, None]), axis=1)]
+        # assuming that input comes from meshgrid.
+        elif eta1.ndim == 6:
+            etas = (eta1[:, :, :, 0, 0, 0],
+                    eta2[:, :, :, 0, 0, 0],
+                    eta3[:, :, :, 0, 0, 0])
+        else:
+            etas = (eta1, eta2, eta3)
 
-    def u(self, eta1, eta2, eta3):
-        """ Mean velocities (Cartesian components evaluated at x = F(eta)).
+        # set background thermal velocity
+        res = [
+            self.maxw_params['vth1'],
+            self.maxw_params['vth2'],
+            self.maxw_params['vth3'],
+        ]
 
-        Parameters
-        ----------
-        eta1, eta2, eta3  : numpy.array
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+        if (self.maxw_params['vth1'] == 'mhd' or
+            self.maxw_params['vth2'] == 'mhd' or
+                self.maxw_params['vth3'] == 'mhd'):
 
-        Returns
-        -------
-        A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
-        The additional dimension is in the first index.
-        """
-        res_list = []
+            tmp = np.sqrt(self.mhd_equil.p0(*etas) / self.mhd_equil.n0(*etas))
+            assert np.all(tmp > 0.), 'Thermal velocity must be positive!'
 
-        res_list += [self.params['u_parallel'] - 0*eta1]
-        res_list += [self.params['u_perp'] - 0*eta1]
+        if self.maxw_params['vth1'] == 'mhd':
+            res[0] = tmp
 
-        return np.array(res_list)
+        if self.maxw_params['vth2'] == 'mhd':
+            res[1] = tmp
+
+        if self.maxw_params['vth3'] == 'mhd':
+            res[2] = tmp
+
+        # Add perturbation if parameters are given
+        if self.pert_params is not None:
+            comps = ['vth1', 'vth2', 'vth3']
+            for i, comp in enumerate(comps):
+                if comp in self.pert_params[self._pert_type]['comps']:
+                    # Add perturbation if it is in comps list
+                    vth_pert_params = {}
+                    for key, item in self.pert_params[self._pert_type].items():
+                        # Skip the comps entry
+                        if key == 'comps':
+                            assert item[comp] == '0', 'Moment perturbations must be passed as 0-forms to Maxwellians.'
+                            continue
+                        vth_pert_params[key] = item[comp]
+
+                    perturbation = getattr(perturbations, self._pert_type)(
+                        **vth_pert_params)
+
+                    if eta1.ndim == 1:
+                        res[i] += perturbation(eta1, eta2, eta3)
+                    else:
+                        res[i] += perturbation(*etas)
+
+        return [re * mom_fac for re, mom_fac in zip(res, self.moment_factors['vth'])]
 
 
-class Maxwellian5DITPA(Maxwellian):
-    r"""
-    5d Maxwellian distribution function defined on :math:`[0, 1]^3 \times \mathbb R^3`, 
-    with logical position and Cartesian velocity coordinates, with isotropic, shifted distribution in velocity space and 1d density variation in first direction.
-
-    .. math::
-
-        f(\eta_1, v_\parallel) &= \,\frac{n(\eta_1)}{\sqrt{2\pi}\,v_\mathrm{th}}\,\exp\left[-\frac{(v_\parallel-u_\parallel)^2}{2v_{\mathrm{th}}^2}\right]\,,
-        \\
-        f(\eta_1, v_\perp) &= \,\frac{n(\eta_1)}{v^2_\mathrm{th}} v_\perp \,\exp\left[-\frac{(v_\perp-u_\perp)^2}{2v_{\mathrm{th}}^2}\right]\,,
-
-    with the density profile
-
-    .. math::
-
-        n(\eta_1) = c_3\exp\left[-\frac{c_2}{c_1}\tanh\left(\frac{\eta_1 - c_0}{c_2}\right)\right]\,.
+class Maxwellian5D(Maxwellian):
+    r""" A :class:`~struphy.kinetic_background.base.Maxwellian` with velocity dimension :math:`n=2`.
 
     Parameters
     ----------
-    **params
-        Keyword arguments defining the moments of the 6d Maxwellian. For the density profile a dictionary of the form {'c0' : float, 'c1' : float, 'c2' : float, 'c3' : float} must be passed.
+    maxw_params : dict
+        Parameters for the kinetic background.
 
-    Note
-    ----
-    In the parameter .yml, use the following in the section ``kinetic/<species>``::
+    pert_params : dict
+        Parameters for the kinetic perturbation added to the background.
 
-        init :
-            type : Maxwellian5DITPA
-            Maxwellian5DITPA :
-                n : 
-                    n0: 0.00720655
-                    c0: 0.49123
-                    c1: 0.298228
-                    c2: 0.198739
-                    c3: 0.521298
-                vth : 1.0
-
-    Can use ``background :`` instead of ``init :``.
+    mhd_equil : MHDequilibrium
+        One of :mod:`~struphy.fields_background.mhd_equil.equils`.
     """
 
-    def __init__(self, **params):
+    @classmethod
+    def default_maxw_params(cls):
+        """ Default parameters dictionary defining constant moments of the Maxwellian.
+        """
+        return {
+            'n': 1.,
+            'u_para': 0.,
+            'u_perp': 0.,
+            'vth_para': 1.,
+            'vth_perp': 1.,
+        }
 
-        # set default ITPA default parameters if not given
-        if 'n' not in params.keys():
-            params['n'] = {}
-            params['n']['n0'] = 0.00720655
-            params['n']['c0'] = 0.491230
-            params['n']['c1'] = 0.298228
-            params['n']['c2'] = 0.198739
-            params['n']['c3'] = 0.521298
+    def __init__(self, maxw_params=None, pert_params=None, mhd_equil=None):
 
-        if 'vth' not in params.keys():
-            params['vth'] = 1.
+        # Set background parameters
+        self._maxw_params = self.default_maxw_params()
 
-        self._params = params
+        if maxw_params is not None:
+            assert isinstance(maxw_params, dict)
+            self._maxw_params = set_defaults(
+                maxw_params, self.default_maxw_params())
+
+        # check if mhd is needed
+        for key, val in self.maxw_params.items():
+            if val == 'mhd':
+                assert isinstance(
+                    mhd_equil, MHDequilibrium), f'MHD equilibrium must be passed to compute {key}.'
+
+        # Set parameters for perturbation
+        self._pert_params = pert_params
+
+        if self.pert_params is not None:
+            assert isinstance(pert_params, dict)
+            assert 'type' in self.pert_params, '"type" is mandatory in perturbation dictionary.'
+            ptype = self.pert_params['type']
+            assert ptype in self.pert_params, f'{ptype} is mandatory in perturbation dictionary.'
+            self._pert_type = ptype
+
+        # MHD equilibrium
+        self._mhd_equil = mhd_equil
+
+        # factors multiplied onto the defined moments n, u and vth (can be set via setter)
+        self._moment_factors = {'n': 1.,
+                                'u': [1., 1.],
+                                'vth': [1., 1.]}
 
     @property
-    def params(self):
-        """Parameters dictionary defining the moments of the Maxwellian.
+    def maxw_params(self):
+        """ Parameters dictionary defining constant moments of the Maxwellian.
         """
-        return self._params
+        return self._maxw_params
+
+    @property
+    def pert_params(self):
+        """ Parameters dictionary defining the perturbations of the :meth:`~Maxwellian5D.maxw_params`.
+        """
+        return self._pert_params
+
+    @property
+    def mhd_equil(self):
+        """ One of :mod:`~struphy.fields_background.mhd_equil.equils` 
+        in case that moments are to be set in that way, None otherwise.
+        """
+        return self._mhd_equil
 
     @property
     def vdim(self):
@@ -763,55 +423,81 @@ class Maxwellian5DITPA(Maxwellian):
         """
         return [False, True]
 
+    @property
+    def moment_factors(self):
+        """Collection of factors multiplied onto the defined moments n, u, and vth.
+        """
+        return self._moment_factors
+
+    @moment_factors.setter
+    def moment_factors(self, **kwargs):
+        for kw, arg in kwargs:
+            if kw in {'u', 'vth'}:
+                assert len(arg) == 2
+            self._moment_factors[kw] = arg
+
     def n(self, eta1, eta2, eta3):
-        """ Number density (0-form). 
+        """ Density as background + perturbation.
 
         Parameters
         ----------
-        eta1, eta2, eta3 : numpy.array
+        eta1, eta2, eta3 : numpy.arrays
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
 
         Returns
         -------
-        A numpy.array with the density evaluated at evaluation points (same shape as etas).
+        A float (background value) or a numpy.array of the evaluated density.
         """
 
-        n0 = self.params['n']['n0']
-        c0 = self.params['n']['c0']
-        c1 = self.params['n']['c1']
-        c2 = self.params['n']['c2']
-        c3 = self.params['n']['c3']
+        # collect arguments
+        assert isinstance(eta1, np.ndarray)
+        assert isinstance(eta2, np.ndarray)
+        assert isinstance(eta3, np.ndarray)
+        assert eta1.shape == eta2.shape == eta3.shape
 
-        if c2 == 0.:
-            res = n0*c3 - 0*eta1
+        # flat evaluation for markers
+        if eta1.ndim == 1:
+            etas = [np.concatenate(
+                (eta1[:, None], eta2[:, None], eta3[:, None]), axis=1)]
+        # assuming that input comes from meshgrid.
+        elif eta1.ndim == 5:
+            etas = (eta1[:, :, :, 0, 0],
+                    eta2[:, :, :, 0, 0],
+                    eta3[:, :, :, 0, 0])
         else:
-            res = n0*c3*np.exp(-c2/c1*np.tanh((eta1 - c0)/c2))
+            etas = (eta1, eta2, eta3)
 
-        return res
+        # set background density
+        res = self.maxw_params['n']
 
-    def vth(self, eta1, eta2, eta3):
-        """ Thermal velocities (0-forms).
+        if self.maxw_params['n'] == 'mhd':
+            res = self.mhd_equil.n0(*etas)
 
-        Parameters
-        ----------
-        etas : numpy.arrays
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+            assert np.all(res > 0.), 'Number density must be positive!'
 
-        Returns
-        -------
-        A numpy.array with the thermal velocity evaluated at evaluation points (one dimension more than etas).
-        The additional dimension is in the first index.
-        """
+        # Add perturbation if parameters are given and if density is to be perturbed
+        if self.pert_params is not None:
+            if 'n' in self.pert_params[self._pert_type]['comps']:
+                n_pert_params = {}
+                for key, item in self.pert_params[self._pert_type].items():
+                    # Skip the comps entry
+                    if key == 'comps':
+                        assert item['n'] == '0', 'Moment perturbations must be passed as 0-forms to Maxwellians.'
+                        continue
+                    n_pert_params[key] = item['n']
 
-        res_list = []
+                perturbation = getattr(perturbations, self._pert_type)(
+                    **n_pert_params)
 
-        res_list += [self.params['vth'] - 0*eta1]
-        res_list += [self.params['vth'] - 0*eta1]
+                if eta1.ndim == 1:
+                    res += perturbation(eta1, eta2, eta3)
+                else:
+                    res += perturbation(*etas)
 
-        return np.array(res_list)
+        return res * self.moment_factors['n']
 
     def u(self, eta1, eta2, eta3):
-        """ Mean velocities (Cartesian components evaluated at x = F(eta)).
+        """ Mean velocities as background + perturbation.
 
         Parameters
         ----------
@@ -820,12 +506,141 @@ class Maxwellian5DITPA(Maxwellian):
 
         Returns
         -------
-        A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
-        The additional dimension is in the first index.
+        A list[float] (background value) or a list[numpy.array] of the evaluated velocities.
         """
-        res_list = []
 
-        res_list += [0*eta1]
-        res_list += [0*eta1]
+        # collect arguments
+        assert isinstance(eta1, np.ndarray)
+        assert isinstance(eta2, np.ndarray)
+        assert isinstance(eta3, np.ndarray)
+        assert eta1.shape == eta2.shape == eta3.shape
 
-        return np.array(res_list)
+        # flat evaluation for markers
+        if eta1.ndim == 1:
+            etas = [np.concatenate(
+                (eta1[:, None], eta2[:, None], eta3[:, None]), axis=1)]
+        # assuming that input comes from meshgrid.
+        elif eta1.ndim == 5:
+            etas = (eta1[:, :, :, 0, 0],
+                    eta2[:, :, :, 0, 0],
+                    eta3[:, :, :, 0, 0])
+        else:
+            etas = (eta1, eta2, eta3)
+
+        # set background velocity
+        res = [
+            self.maxw_params['u_para'],
+            self.maxw_params['u_perp']
+        ]
+
+        if (self.maxw_params['u_para'] == 'mhd' or
+                self.maxw_params['u_perp'] == 'mhd'):
+
+            tmp_jv = self.mhd_equil.jv(*etas) / self.mhd_equil.n0(*etas)
+            tmp_unit_b1 = self.mhd_equil.unit_b1(*etas)
+            # j_parallel = jv.b1
+            j_para = sum([ji * bi for ji, bi in zip(tmp_jv, tmp_unit_b1)])
+
+        if self.maxw_params['u_para'] == 'mhd':
+            res[0] = j_para
+
+        if self.maxw_params['u_perp'] == 'mhd':
+            raise NotImplementedError(
+                'A shift in v_perp is not yet implemented.')
+
+        # Add perturbation if parameters are given
+        if self.pert_params is not None:
+            comps = ['u_para', 'u_perp']
+            for i, comp in enumerate(comps):
+                if comp in self.pert_params[self._pert_type]['comps']:
+                    # Add perturbation if it is in comps list
+                    u_pert_params = {}
+                    for key, item in self.pert_params[self._pert_type].items():
+                        # Skip the comps entry
+                        if key == 'comps':
+                            assert item[comp] == '0', 'Moment perturbations must be passed as 0-forms to Maxwellians.'
+                            continue
+                        u_pert_params[key] = item[comp]
+
+                    perturbation = getattr(perturbations, self._pert_type)(
+                        **u_pert_params)
+
+                    if eta1.ndim == 1:
+                        res[i] += perturbation(eta1, eta2, eta3)
+                    else:
+                        res[i] += perturbation(*etas)
+
+        return [re * mom_fac for re, mom_fac in zip(res, self.moment_factors['u'])]
+
+    def vth(self, eta1, eta2, eta3):
+        """ Thermal velocities as background + perturbation.
+
+        Parameters
+        ----------
+        etas : numpy.arrays
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+
+        Returns
+        -------
+        A list[float] (background value) or a list[numpy.array] of the evaluated thermal velocities.
+        """
+
+        # collect arguments
+        assert isinstance(eta1, np.ndarray)
+        assert isinstance(eta2, np.ndarray)
+        assert isinstance(eta3, np.ndarray)
+        assert eta1.shape == eta2.shape == eta3.shape
+
+        # flat evaluation for markers
+        if eta1.ndim == 1:
+            etas = [np.concatenate(
+                (eta1[:, None], eta2[:, None], eta3[:, None]), axis=1)]
+        # assuming that input comes from meshgrid.
+        elif eta1.ndim == 5:
+            etas = (eta1[:, :, :, 0, 0],
+                    eta2[:, :, :, 0, 0],
+                    eta3[:, :, :, 0, 0])
+        else:
+            etas = (eta1, eta2, eta3)
+
+        # set background thermal velocity
+        res = [
+            self.maxw_params['vth_para'],
+            self.maxw_params['vth_perp']
+        ]
+
+        if (self.maxw_params['vth_para'] == 'mhd' or
+                self.maxw_params['vth_perp'] == 'mhd'):
+
+            tmp = np.sqrt(self.mhd_equil.p0(*etas) / self.mhd_equil.n0(*etas))
+            assert np.all(tmp > 0.), 'Thermal velocity must be positive!'
+
+        if self.maxw_params['vth_para'] == 'mhd':
+            res[0] = tmp
+
+        if self.maxw_params['vth_perp'] == 'mhd':
+            res[1] = tmp
+
+        # Add perturbation if parameters are given
+        if self.pert_params is not None:
+            comps = ['vth_para', 'vth_perp']
+            for i, comp in enumerate(comps):
+                if comp in self.pert_params[self._pert_type]['comps']:
+                    # Add perturbation if it is in comps list
+                    vth_pert_params = {}
+                    for key, item in self.pert_params[self._pert_type].items():
+                        # Skip the comps entry
+                        if key == 'comps':
+                            assert item[comp] == '0', 'Moment perturbations must be passed as 0-forms to Maxwellians.'
+                            continue
+                        vth_pert_params[key] = item[comp]
+
+                    perturbation = getattr(perturbations, self._pert_type)(
+                        **vth_pert_params)
+
+                    if eta1.ndim == 1:
+                        res[i] += perturbation(eta1, eta2, eta3)
+                    else:
+                        res[i] += perturbation(*etas)
+
+        return [re * mom_fac for re, mom_fac in zip(res, self.moment_factors['vth'])]

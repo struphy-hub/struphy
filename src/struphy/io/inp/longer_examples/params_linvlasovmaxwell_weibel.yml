@@ -50,11 +50,6 @@ mhd_equilibrium :
         beta : 0. # plasma beta = 2*p*mu_0/B^2
         n0   : 1. # number density
 
-electric_equilibrium :
-    type : HomogenSlab # (possible choices seen below)
-    HomogenSlab :
-        phi0  : 1. # constant electric potential
-
 em_fields :
     init :
         type : ModesCos # initial conditions (possible types seen below)
@@ -85,32 +80,9 @@ kinetic :
                 seed    : 1234 # seed for random number generator
                 moments : [0., 0., 0., 0.014, 0.049, 0.014] # sample after f1
                 spatial : uniform # uniform or disc
-        init :
-            type : Maxwellian6DPerturbed
-            Maxwellian6DPerturbed :
-                n :
-                    n0 : 0 # here 0 because we want to initialize f1
-                    perturbation :
-                        l : [1.]
-                        m : [0.]
-                        n : [0.]
-                        amps_sin : [0.]
-                        amps_cos : [-0.0001] # alpha
-                u1 :
-                    u01 : 0.
-                u2 :
-                    u02 : 0.
-                u3 :
-                    u03 : 0.
-                vth1 :
-                    vth01 : 0.014142135623730949
-                vth2 :
-                    vth02 : 0.04898979485566356
-                vth3 :
-                    vth03 : 0.014142135623730949
         background :
-            type : Maxwellian6DUniform
-            Maxwellian6DUniform :
+            type : Maxwellian6D
+            Maxwellian6D :
                 n  : 1.
                 u1 : 0.
                 u2 : 0.
@@ -118,6 +90,15 @@ kinetic :
                 vth1 : 0.014142135623730949
                 vth2 : 0.04898979485566356
                 vth3 : 0.014142135623730949
+        perturbation :
+            type: ModesCos
+            ModesCos:
+                comps:
+                    n: '0'
+                ls:
+                    n: [1]
+                amps:
+                    n: [-0.0001] # alpha
         save_data :
             n_markers : 1 # number of markers to be saved during simulation
             f :

@@ -10,7 +10,6 @@ from struphy.propagators.base import Propagator
 from struphy.pic.pushing.pusher import Pusher
 from struphy.pic.pushing.pusher import ButcherTableau
 from struphy.fields_background.mhd_equil.equils import set_defaults
-from struphy.kinetic_background.maxwellians import Maxwellian6DUniform
 
 
 class PushEta(Propagator):
@@ -437,7 +436,7 @@ class PushEtaPC(Propagator):
 
 
 class PushGuidingCenterbxEstar(Propagator):
-    r"""Particle pushing step for the :math:`\mathbf b_ \times \mathbf E^*` guiding center drift part in `DriftKinetic <https://struphy.pages.mpcdf.de/struphy/sections/models.html#struphy.models.toy.DriftKinetic>`_ model,
+    r"""Particle pushing step for the :math:`\mathbf b_ \times \mathbf E^*` guiding center drift part in :class:`~struphy.models.toy.DriftKinetic`,
 
     Equation:
 
@@ -635,7 +634,7 @@ class PushGuidingCenterbxEstar(Propagator):
 
 
 class PushGuidingCenterBstar(Propagator):
-    r"""Particle pushing step for the :math:`\mathbf B^*` guiding center drift part in `DriftKinetic <https://struphy.pages.mpcdf.de/struphy/sections/models.html#struphy.models.toy.DriftKinetic>`_ model,
+    r"""Particle pushing step for the :math:`\mathbf B^*` guiding center drift part in :class:`~struphy.models.toy.DriftKinetic`,
 
     Equation:
 
@@ -973,7 +972,7 @@ class StepStaticEfield(Propagator):
 
 
 class PushDriftKineticbxGradB(Propagator):
-    r"""Particle pushing step for the :math:`\mathbf b_0 \times \nabla B_\parallel` driftkinetic part in `LinearMHDDriftkineticCC <https://struphy.pages.mpcdf.de/struphy/sections/models.html#struphy.models.hybrid.LinearMHDDriftkineticCC>`_ model,
+    r"""Particle pushing step for the :math:`\mathbf b_0 \times \nabla B_\parallel` driftkinetic part in :class:`~struphy.models.hybrid.LinearMHDDriftkineticCC`,
 
     Equation:
 
@@ -1201,7 +1200,7 @@ class PushDriftKineticbxGradB(Propagator):
 
 
 class PushDriftKineticBstar(Propagator):
-    r"""Particle pushing step for the :math:`\mathbf B^*` driftkinetic part in `LinearMHDDriftkineticCC <https://struphy.pages.mpcdf.de/struphy/sections/models.html#struphy.models.hybrid.LinearMHDDriftkineticCC>`_ model,
+    r"""Particle pushing step for the :math:`\mathbf B^*` driftkinetic part in :class:`~struphy.models.hybrid.LinearMHDDriftkineticCC`,
 
     Equation:
 

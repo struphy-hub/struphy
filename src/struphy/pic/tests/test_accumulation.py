@@ -66,7 +66,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
                       }
 
     particles = Particles6D(
-        'test_particles', **params_markers, derham=derham)
+        'test_particles', **params_markers, derham=derham, bckgr_params=None)
     particles.draw_markers()
 
     # set random weights on each process

@@ -46,7 +46,6 @@ fluid :
         phys_params:
             A : 1 # mass number in units of proton mass
             Z : 1 # signed charge number in units of elementary charge
-        mhd_u_space : H1vec # Hdiv | H1vec
         init :
             type : null # type of initialization
             ModesCos :
@@ -86,9 +85,9 @@ kinetic :
                 seed    : 1234 # seed for random number generator
                 moments : [0., 0., 2.5, 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
                 spatial : uniform # uniform or disc
-        init :
-            type : Maxwellian6DUniform
-            Maxwellian6DUniform :
+        background :
+            type : Maxwellian6D
+            Maxwellian6D :
                 n  : 0.05
                 u3 : 2.5
         save_data :

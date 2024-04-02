@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "2.2.0"
+version = "2.3.0"
 readme = "README.md"
 requires-python = ">=3.7, <3.12"
 license = {file = "LICENSE"}
@@ -20,30 +20,31 @@ classifiers = [
     ]
 dependencies = [
     'PyYAML==6.0.1',
-    'argcomplete==3.2.1',
+    'argcomplete==3.2.3',
     'docutils==0.20.1',
-    'gvec-to-python==1.2.0',
+    'gvec-to-python==1.2.1',
     'h5py==3.10.0',
-    'ipyparallel==8.6.1',
+    'ipyparallel==8.7.0',
+    'lxml_html_clean==0.1.0',
     'm2r2==0.3.3.post2',
-    'matplotlib==3.8.2',
+    'matplotlib==3.8.3',
     'mistune==0.8.4',
     'mpi4py==3.1.5',
     'myst-parser==2.0.0',
     'nbsphinx==0.9.3',
-    'notebook==7.0.6',
+    'notebook==7.1.2',
     'numpy==1.24.4',
-    'pyccel==1.11.1',
-    'pydata-sphinx-theme==0.15.1',
-    'pytest==7.4.4',
+    'pyccel==1.11.2',
+    'pydata-sphinx-theme==0.15.2',
+    'pytest==8.1.1',
     'pytest-monitor==1.6.6',
     'pytest-mpi==0.6',
-    'scipy==1.11.4',
+    'scipy==1.12.0',
     'Sphinx==7.2.6',
     'sphinxcontrib-napoleon==0.7',
-    'tqdm==4.66.1',
+    'tqdm==4.66.2',
     'vtk==9.3.0',
-    'wheel==0.42.0',
+    'wheel==0.43.0',
 ]
 
 [project.urls]
@@ -79,5 +80,5 @@ struphy = "struphy.console.main:struphy"
                     ]
                     
 struphy = ['compile_struphy.mk',
-           'psydac-0.1.9-py3-none-any.whl',
+           'psydac-0.1.12-py3-none-any.whl',
            ]

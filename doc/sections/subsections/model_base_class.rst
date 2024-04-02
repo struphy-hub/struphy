@@ -1,9 +1,9 @@
 .. _struphy_model:
 
-Struphy model base class
-------------------------
+Struphy model base module
+-------------------------
 
-.. autoclass:: struphy.models.base.StruphyModel
+.. automodule:: struphy.models.base
     :members:
     :undoc-members:
     :show-inheritance:

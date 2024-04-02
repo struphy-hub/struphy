@@ -12,7 +12,7 @@ def test_kinetic(map_and_equil, fast, model=None, Tend=None):
 
     If model is not None, tests the specified model.
 
-    The argument "fast" is a pytest option that can be specified at te command line (see conftest.py).'''
+    The argument "fast" is a pytest option that can be specified at the command line (see conftest.py).'''
 
     from struphy.models import kinetic
 
@@ -46,7 +46,7 @@ def test_kinetic(map_and_equil, fast, model=None, Tend=None):
 
 if __name__ == '__main__':
     
-    test_kinetic(True, ('Cuboid', 'HomogenSlab'), model=None)
-    test_kinetic(True, ('HollowTorus', 'AdhocTorus'), model=None)
-    test_kinetic(True, ('Tokamak', 'EQDSKequilibrium'), model=None)
+    test_kinetic(fast=True, map_and_equil=('Cuboid', 'HomogenSlab'), model=None)
+    test_kinetic(fast=True, map_and_equil=('HollowTorus', 'AdhocTorus'), model=None)
+    test_kinetic(fast=True, map_and_equil=('Tokamak', 'EQDSKequilibrium'), model=None)
     

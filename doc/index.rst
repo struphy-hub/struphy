@@ -27,12 +27,12 @@ which can be solved on a variety of `mapped domains <https://struphy.pages.mpcdf
    sections/abstract
    sections/install
    sections/quickstart
-   sections/tutorials
    sections/models
    sections/numerics
+   sections/tutorials
    sections/userguide
    sections/developers
-   sections/inventory
+   sections/modules
    sections/examples
 
 

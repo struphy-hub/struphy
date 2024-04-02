@@ -12,7 +12,7 @@ def test_hybrid(map_and_equil, fast, model=None, Tend=None):
 
     If model is not None, tests the specified model.
 
-    The argument "fast" is a pytest option that can be specified at te command line (see conftest.py).'''
+    The argument "fast" is a pytest option that can be specified at the command line (see conftest.py).'''
 
     from struphy.models import hybrid
 

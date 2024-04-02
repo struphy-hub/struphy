@@ -505,11 +505,11 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
             # Get background function
             if fun_name in bckgr_params.keys():
                 f_bckgr = getattr(maxwellians, fun_name)(
-                    **bckgr_params[fun_name])
+                    maxw_params=bckgr_params[fun_name])
             else:
                 f_bckgr = getattr(maxwellians, fun_name)()
 
-            assert fun_name == 'Maxwellian6DUniform', \
+            assert fun_name == 'Maxwellian6D', \
                 f'Post-processing is not yet implemented for a background distribution function of type {fun_name}'
 
             # load all grids of the variables of f
