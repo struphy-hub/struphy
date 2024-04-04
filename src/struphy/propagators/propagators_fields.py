@@ -2231,6 +2231,7 @@ class ImplicitDiffusion(Propagator):
                  A1_mat='M0', A2_mat='M1',
                  rho=None,
                  x0=None,
+                 e_field=None,
                  **params):
 
         assert phi.space == self.derham.Vh['0']
@@ -2241,7 +2242,7 @@ class ImplicitDiffusion(Propagator):
         self._sigma_1 = sigma_1
         self._sigma_2 = sigma_2
         self._sigma_3 = sigma_3
-
+    
         # solver parameters
         params_default = {'type': ('pcg', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
@@ -2292,6 +2293,7 @@ class ImplicitDiffusion(Propagator):
         self._tmp = phi.space.zeros()
         self._rhs = phi.space.zeros()
         self._rhs2 = phi.space.zeros()
+        self._e_field = e_field
 
     def check_rhs(self, rho):
         '''Checks space of rhs and, for periodic boundary conditions and sigma=0,
@@ -2368,6 +2370,10 @@ class ImplicitDiffusion(Propagator):
             print(info)
 
         self.feec_vars_update(out)
+        
+        if self._e_field is not None:
+            # assert e field is 1 form
+            self.derham.grad.dot(out, out=self._e_field)
 
     @classmethod
     def options(cls):

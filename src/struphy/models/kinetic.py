@@ -317,6 +317,11 @@ class VlasovPoissonSimple(StruphyModel):
         return dct
 
     def __init__(self, params, comm=None):
+        
+        from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+        
+        assert params['time']['split_algo'] == 'LieTrotter', "This model only works for Lie Trotter splitting for the moment."
+        assert params['kinetic']['species1']['markers']['type'] == 'control_variate', "This model only works for control_variate." 
 
         super().__init__(params, comm=comm)
 
@@ -344,24 +349,27 @@ class VlasovPoissonSimple(StruphyModel):
         Z = spec_params['phys_params']['Z']
         assert Z0 * \
             Z < 0, f'Neutralizing background has wrong polarity {Z0 = } to {Z = }.'
-            
-         # Create pointers to background electric potential and field
-        self._phi_background = self.derham.P['0'](self.electric_equil.phi0)
-        self._e_background = self.derham.grad.dot(self._phi_background)
         
         # check mean velocity
-        # TODO: assert f_backgr.params[] == 0.
+        assert self.pointer['species1'].f_backgr.maxw_params['u1'] == 0.
+        assert self.pointer['species1'].f_backgr.maxw_params['u2'] == 0.
+        assert self.pointer['species1'].f_backgr.maxw_params['u3'] == 0.
 
         # propagator parameters
         self._poisson_params = params['em_fields']['options']['solvers']['poisson']
         algo_eta = params['kinetic']['species1']['options']['algos']['push_eta']
         # params_coupling = params['kinetic']['species1']['options']['coupling_solver']
         
-        from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+        # update_weights
+        if self.pointer['species1'].control_variate:
+            self.pointer['species1'].update_weights()
+            print('Updated weights #################')
         
         charge_accum = AccumulatorVector(
             self.derham, self.domain, "H1", "charge_density_0form")
         charge_accum.accumulate(self.pointer['species1'])
+        
+        self._e_field = self.derham.Vh['1'].zeros()
 
         self.add_propagator(self.prop_fields.ImplicitDiffusion(
             self.pointer['phi'],
@@ -370,25 +378,19 @@ class VlasovPoissonSimple(StruphyModel):
             sigma_3=0., 
             A1_mat='M0',
             A2_mat='M1',
-            rho=self._kappa**2 * charge_accum.vectors[0],
-            **self._poisson_params))
+            rho=[(charge_accum, self.pointer['species1'])],
+            e_field = self._e_field))
+        
+        self.add_propagator(self.prop_markers.PushVinEfield(
+            self.pointer['species1'],
+            e_field = self._e_field,
+            kappa=self._kappa))
         
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['species1'],
             algo=algo_eta,
             bc_type=spec_params['markers']['bc']['type']))
-        
-        self.add_propagator(self.prop_markers.PushVinEfield(
-            self.pointer['species1'],
-            e_field=self._e_background,
-            kappa=self._kappa))
-
-        # self.add_propagator(self.prop_coupling.VlasovAmpere(
-        #     self.pointer['e1'],
-        #     self.pointer['species1'],
-        #     c1=self._kappa**2,
-        #     **params_coupling))
-
+    
         # Scalar variables to be saved during the simulation
         self.add_scalar('en_E')
         self.add_scalar('en_f')
@@ -402,61 +404,7 @@ class VlasovPoissonSimple(StruphyModel):
         self._tmp1 = self.derham.Vh['1'].zeros()
         self._tmp = np.empty(1, dtype=float)
 
-    # def initialize_from_params(self):
-    #     '''Solve initial Poisson equation.
-
-    #     :meta private:
-    #     '''
-
-    #     from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-
-    #     # initialize fields and particles
-    #     super().initialize_from_params()
-
-    #     if self._rank == 0:
-    #         print('\nINITIAL POISSON SOLVE:')
-
-    #     # use control variate method
-    #     self.pointer['species1'].update_weights()
-
-    #     # sanity check
-    #     # self.pointer['species1'].show_distribution_function(
-    #     #     [True] + [False]*5, [np.linspace(0, 1, 32)])
-
-    #     # accumulate charge density
-    #     charge_accum = AccumulatorVector(
-    #         self.derham, self.domain, "H1", "charge_density_0form")
-    #     charge_accum.accumulate(self.pointer['species1'])
-
-    #     # another sanity check: compute FE coeffs of density
-    #     # charge_accum.show_accumulated_spline_field(self.mass_ops)
-
-    #     # Instantiate Poisson solver
-    #     _phi = self.derham.Vh['0'].zeros()
-    #     poisson_solver = self.prop_fields.ImplicitDiffusion(
-    #         _phi,
-    #         sigma_1=0.,
-    #         sigma_2=0.,
-    #         sigma_3=1.,
-    #         rho=self._kappa**2 * charge_accum.vectors[0],
-    #         **self._poisson_params)
-
-    #     # Solve with dt=1. and compute electric field
-    #     if self._rank == 0:
-    #         print('\nSolving initial Poisson problem...')
-    #     poisson_solver(1.)
-
-    #     # self.derham.grad.dot(-_phi, out=self.pointer['e1'])
-    #     # if self._rank == 0:
-    #     #     print('Done.')
-
     def update_scalar_quantities(self):
-
-        # e*M1*e/2
-        # self.mass_ops.M1.dot(self.pointer['e1'], out=self._tmp1)
-        # en_E = self.pointer['e1'].dot(self._tmp1) / 2.
-        # self.update_scalar('en_E', en_E)
-        
 
         # kappa^2 / 2 / N * sum_p w_p v_p^2
         self._tmp[0] = self._kappa**2 / (2 * self.pointer['species1'].n_mks) * \
