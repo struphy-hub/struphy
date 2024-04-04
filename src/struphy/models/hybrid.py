@@ -133,7 +133,7 @@ class LinearMHDVlasovCC(StruphyModel):
             control = True
             f0_name = params['kinetic']['energetic_ions']['background']['type']
             f0 = getattr(kin_ana, f0_name)(
-                **params['kinetic']['energetic_ions']['background'][f0_name])
+                maxw_params=params['kinetic']['energetic_ions']['background'][f0_name])
         else:
             control = False
             f0 = None
@@ -388,7 +388,7 @@ class LinearMHDVlasovPC(StruphyModel):
             control = True
             f0_name = params['kinetic']['energetic_ions']['background']['type']
             f0 = getattr(kin_ana, f0_name)(
-                **params['kinetic']['energetic_ions']['background'][f0_name])
+                maxw_params=params['kinetic']['energetic_ions']['background'][f0_name])
         else:
             control = False
             f0 = None
@@ -511,19 +511,22 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
     .. math::
 
-        \frac{\hat B}{\sqrt{A_\textnormal{b} m_\textnormal{H} \hat n \mu_0}} =: \hat v_\textnormal{A} = \frac{\hat \omega}{\hat k} = \hat U = \hat v = \hat u_\textnormal{h} \,, \qquad \hat p = \frac{\hat B^2}{\mu_0} \, \,,\qquad \hat f_\textnormal{h} = \frac{\hat n}{\hat v_\textnormal{A}^3} \,,\qquad \hat n_\textnormal{h} = \hat n\,.
+        \hat U = \hat v_\textnormal{h} =: \hat v_\textnormal{A, bulk} \,, \qquad \hat p = \frac{\hat B^2}{\mu_0} \, \qquad
+        \hat f_\textnormal{h} = \frac{\hat n}{\hat v_\textnormal{A,bulk} \hat \mu \hat B} \,,\qquad \hat \mu = \frac{A_\textnormal{h} m_\textnormal{H} \hat v_\textnormal{A,bulk}^2}{\hat B} \,.
 
-    Implemented equations:
+    Implemented equations: find :math:`(\tilde n, \tilde{\mathbf{U}}, \tilde p, \tilde{\mathbf{B}}, f_\textnormal{h}) \in L^2 \times H(\textrm{div}) \times L^2 \times H(\textrm{div}) \times C^\infty` such that
 
     .. math::
 
         \begin{align}
         \textnormal{MHD} &\left\{
         \begin{aligned}
-        &\frac{\partial \tilde n}{\partial t}+\nabla\cdot(n_0 \tilde{\mathbf{U}})=0\,, 
+        &\frac{\partial \tilde n}{\partial t}+\nabla\cdot(n_{0} \tilde{\mathbf{U}})=0\,, 
         \\
-        n_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p
-        =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf J_0 \times \tilde{\mathbf{B}} \color{blue} + \frac{A_\textnormal{h}}{A_\textnormal{b}} \frac{1}{\epsilon} \,(n_\textnormal{h} \tilde{\mathbf{U}} - \mathbf{J}_\textnormal{gc} - \epsilon \nabla \times \mathbf{M}_\textnormal{gc}) \times (\mathbf{B}_0 + \tilde{\mathbf{B}}) \color{black}\,,
+        \int n_{0} &\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \tilde{\mathbf V}\, \textnormal{d}\mathbf{x} - \int \tilde p\, \nabla \cdot \tilde{\mathbf{V}} \,\textrm d \mathbf x
+         = \int \tilde{\mathbf{B}} \cdot \nabla \times(\mathbf{B}_0 \times \tilde{\mathbf V})\, \textnormal{d}\mathbf{x} + \int (\nabla \times \mathbf B_0) \times \tilde{\mathbf{B}} \cdot \tilde{\mathbf V} \, \textnormal{d}\mathbf{x}
+        \\
+        &\qquad \qquad \color{blue}+ \frac{A_\textnormal{h}}{A_\textnormal{b}} \int \left[ \frac{1}{\epsilon} n_\textnormal{gc} \tilde{\mathbf{U}} \times \mathbf{B} \cdot \tilde{\mathbf V} - \frac{1}{\epsilon} \mathbf{J}_\textnormal{gc} \times \mathbf{B} \cdot \tilde{\mathbf V} -\mathbf{M}_\textnormal{gc} \cdot \nabla \times (\mathbf{B} \times \tilde{\mathbf V}) \right] \textnormal{d} \mathbf{x} \color{black} \,, \quad \forall \ \tilde{\mathbf V} \in H(\text{div})\,,
         \\
         &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
         + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,, 
@@ -539,30 +542,30 @@ class LinearMHDDriftkineticCC(StruphyModel):
         + \frac{1}{\epsilon} \frac{1}{B_\parallel^*} (\mathbf{B}^* \cdot \mathbf{E}^*) \frac{\partial f_\textnormal{h}}{\partial v_\parallel}
         = 0\,,
         \\
-        & n_\textnormal{h} = \int f_\textnormal{h} \,\textnormal dv_\parallel \textnormal d\mu \,,
+        & n_\textnormal{gc} = \int f_\textnormal{h} B_\parallel^* \,\textnormal dv_\parallel \textnormal d\mu \,,
         \\
-        & \mathbf{J}_\textnormal{gc} = q \int \frac{1}{B^*_\parallel} f_\textnormal{h} (v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^*) \,\textnormal dv_\parallel \textnormal d\mu \,,
+        & \mathbf{J}_\textnormal{gc} = \int f_\textnormal{h}(v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^*) \,\textnormal dv_\parallel \textnormal d\mu \,,
         \\
-        & \mathbf{M}_\textnormal{gc} = - \int f_\textnormal{h} \mu \mathbf{b}_0 \,\textnormal dv_\parallel \textnormal d\mu \,,
+        & \mathbf{M}_\textnormal{gc} = - \int f_\textnormal{h} B_\parallel^* \mu \mathbf{b}_0 \,\textnormal dv_\parallel \textnormal d\mu \,,
         \end{aligned}
         \right.
         \end{align}
 
-    where :math:`\mathbf J_0 = \nabla \times \mathbf B_0` and
+    where 
 
     .. math::
 
         \begin{align}
         \mathbf{B}^* &= \mathbf{B} + \epsilon v_\parallel \nabla \times \mathbf{b}_0 \,,\qquad B^*_\parallel = \mathbf{b}_0 \cdot \mathbf{B}^*\,,
-        \\
-        \mathbf{E}^* &= \color{blue} - \tilde{\mathbf{U}} \times \mathbf{B} \color{black} - \epsilon \mu \nabla B_\parallel \,.
+        \\[2mm]
+        \mathbf{E}^* &=  \color{blue}- \tilde{\mathbf{U}} \times \mathbf{B} \color{black} - \epsilon \mu \nabla B_\parallel \,,
         \end{align}
-
-    Moreover,
-
+        
+    and with the normalization parameter 
+    
     .. math::
-
-        \epsilon =  \frac{\hat \omega}{2 \pi \, \hat \Omega_{\textnormal{ch}}}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{ch}} = \frac{Z_\textnormal{h}e \hat B}{A_\textnormal{h} m_\textnormal{H}}\,.    
+    
+        \epsilon = \frac{1}{\hat \Omega_\textnormal{ch} \hat t} \,, \qquad \hat \Omega_\textnormal{ch} = \frac{Z_\textnormal{h} e \hat B}{A_\textnormal{h} m_\textnormal{H}} \,.
 
     Parameters
     ----------
@@ -595,7 +598,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # import propagator options
         from struphy.propagators.propagators_fields import ShearAlfvénCurrentCoupling5D, MagnetosonicCurrentCoupling5D, CurrentCoupling5DDensity
         from struphy.propagators.propagators_markers import PushDriftKineticbxGradB, PushDriftKineticBstar
-        from struphy.propagators.propagators_coupling import CurrentCoupling5DCurlb, CurrentCoupling5DGradBxB
+        from struphy.propagators.propagators_coupling import CurrentCoupling5DCurlb, CurrentCoupling5DGradB
 
         dct = {}
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'shear_alfven'],
@@ -611,9 +614,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
         cls.add_option(species=['kinetic', 'energetic_ions'], key=['solvers', 'cc1'],
                        option=CurrentCoupling5DCurlb.options()['solver'], dct=dct)
         cls.add_option(species=['kinetic', 'energetic_ions'], key=['solvers', 'cc2'],
-                       option=CurrentCoupling5DGradBxB.options()['solver'], dct=dct)
+                       option=CurrentCoupling5DGradB.options()['solver'], dct=dct)
         cls.add_option(species=['kinetic', 'energetic_ions'], key=['algos', 'push_cc2'],
-                       option=CurrentCoupling5DGradBxB.options()['algo'], dct=dct)
+                       option=CurrentCoupling5DGradB.options()['algo'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -640,7 +643,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             control = True
             f0_name = params['kinetic']['energetic_ions']['background']['type']
             f0 = getattr(kin_ana, f0_name)(
-                **params['kinetic']['energetic_ions']['background'][f0_name])
+                maxw_params=params['kinetic']['energetic_ions']['background'][f0_name])
         else:
             control = False
             f0 = None
@@ -650,7 +653,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                                          self.mhd_equil.b2_2,
                                          self.mhd_equil.b2_3])
 
-        self._abs_b = self.derham.P['0'](self.mhd_equil.absB0)
+        self._absB0 = self.derham.P['0'](self.mhd_equil.absB0)
 
         self._unit_b1 = self.derham.P['1']([self.mhd_equil.unit_b1_1,
                                            self.mhd_equil.unit_b1_2,
@@ -698,7 +701,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
-            abs_b=self._abs_b,
+            abs_b=self._absB0,
             gradB1=self._gradB1,
             curl_unit_b2=self._curl_unit_b2,
             **algo_bxgradb))
@@ -709,11 +712,11 @@ class LinearMHDDriftkineticCC(StruphyModel):
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
-            abs_b=self._abs_b,
+            abs_b=self._absB0,
             gradB1=self._gradB1,
             curl_unit_b2=self._curl_unit_b2,
             **algo_bstar))
-        self.add_propagator(self.prop_coupling.CurrentCoupling5DGradBxB(
+        self.add_propagator(self.prop_coupling.CurrentCoupling5DGradB(
             self.pointer['energetic_ions'],
             self.pointer['mhd_u2'],
             epsilon=epsilon,
@@ -721,7 +724,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
-            abs_b=self._abs_b,
             gradB1=self._gradB1,
             curl_unit_b2=self._curl_unit_b2,
             f0=f0,
@@ -749,8 +751,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
             b_eq=self._b_eq,
             b_tilde=self.pointer['b2'],
             unit_b1=self._unit_b1,
-            abs_b=self._abs_b,
-            gradB1=self._gradB1,
             curl_unit_b2=self._curl_unit_b2,
             f0=f0,
             **params_density,
@@ -759,7 +759,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             self.pointer['mhd_u2'],
             self.pointer['b2'],
             particles=self.pointer['energetic_ions'],
-            b_eq=self._b_eq,
+            unit_b1=self._unit_b1,
             f0=f0,
             u_space='Hdiv',
             **params_shear_alfven,
@@ -771,7 +771,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
             b=self.pointer['b2'],
             particles=self.pointer['energetic_ions'],
             unit_b1=self._unit_b1,
-            curl_unit_b2=self._curl_unit_b2,
             f0=f0,
             u_space='Hdiv',
             **params_magnetosonic,
@@ -793,7 +792,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         # temporaries
         self._b_full1 = self._b_eq.space.zeros()
-        self._PBb = self._abs_b.space.zeros()
+        self._PBb = self._absB0.space.zeros()
 
         self._en_fv = np.empty(1, dtype=float)
         self._en_fB = np.empty(1, dtype=float)
@@ -801,26 +800,13 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._en_fB_lost = np.empty(1, dtype=float)
         self._n_lost_particles = np.empty(1, dtype=float)
 
-        if 'Hdiv' == 'Hcurl':
-            self._tmp_u = self.derham.Vh['1'].zeros()
-        elif 'Hdiv' == 'Hdiv':
-            self._tmp_u = self.derham.Vh['2'].zeros()
-        else:
-            self._tmp_u = self.derham.Vh['v'].zeros()
-
+        self._tmp_u = self.derham.Vh['2'].zeros()
         self._tmp_b = self.derham.Vh['2'].zeros()
 
     def update_scalar_quantities(self):
 
-        if 'Hdiv' == 'Hcurl':
-            self._mass_ops.M1n.dot(self.pointer['mhd_u2'], out=self._tmp_u)
-            en_U = self.pointer['mhd_u2'].dot(self._tmp_u)/2
-        elif 'Hdiv' == 'Hdiv':
-            self._mass_ops.M2n.dot(self.pointer['mhd_u2'], out=self._tmp_u)
-            en_U = self.pointer['mhd_u2'].dot(self._tmp_u)/2
-        else:
-            self._mass_ops.Mvn.dot(self.pointer['mhd_u2'], out=self._tmp_u)
-            en_U = self.pointer['mhd_u2'].dot(self._tmp_u)/2
+        self._mass_ops.M2n.dot(self.pointer['mhd_u2'], out=self._tmp_u)
+        en_U = self.pointer['mhd_u2'].dot(self._tmp_u)/2
 
         en_p = self.pointer['mhd_p3'].toarray().sum()/(5/3 - 1)
         self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp_b)
@@ -837,52 +823,47 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         # calculate particle kinetic energy
         self._en_fv[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
-            self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 3]**2) / (2*self.pointer['energetic_ions'].n_mks)
+            self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 3]**2) / (2*self.pointer['energetic_ions'].n_mks)*self._coupling_params['Ah']/self._coupling_params['Ab']
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._en_fv, op=self._mpi_sum)
 
         self.update_scalar('en_fv', self._en_fv[0])
 
         self._en_fv_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
-            self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 3]**2) / (2.*self.pointer['energetic_ions'].n_mks)
+            self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 3]**2) / (2.*self.pointer['energetic_ions'].n_mks)*self._coupling_params['Ah']/self._coupling_params['Ab']
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._en_fv_lost, op=self._mpi_sum)
 
         self.update_scalar('en_fv_lost', self._en_fv_lost[0])
 
-        # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
-        self._b_eq.copy(out=self._b_full1)
-        self._b_full1 += self.pointer['b2']
-        self._b_full1.update_ghost_regions()
+        # calculate particle magnetic energy
+        self.pointer['energetic_ions'].save_magnetic_energy(self._absB0, 
+                                                            self._unit_b1, 
+                                                            self.pointer['b2'])
 
-        # self._scalar_quantities['en_B_tot'][0] = (self._b_full1).dot(
-        #     self._mass_ops.M2.dot(self._b_full1, apply_bc=False))/2.
-
-        # absolute value of parallel magnetic field
-        self._prop.basis_ops.PB.dot(self.pointer['b2'], out=self._PBb)
-        self._PBb += self._abs_b
-
-        self.pointer['energetic_ions'].save_magnetic_energy(self._PBb)
         self._en_fB[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
-            self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 8])/self.pointer['energetic_ions'].n_mks
+            self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 8])/self.pointer['energetic_ions'].n_mks*self._coupling_params['Ah']/self._coupling_params['Ab']
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._en_fB, op=self._mpi_sum)
 
         self.update_scalar('en_fB', self._en_fB[0])
 
         self._en_fB_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
-            self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 8]) / self.pointer['energetic_ions'].n_mks
+            self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 8]) / self.pointer['energetic_ions'].n_mks*self._coupling_params['Ah']/self._coupling_params['Ab']
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._en_fB_lost, op=self._mpi_sum)
 
         self.update_scalar('en_fB_lost', self._en_fB_lost[0])
 
-        self.update_scalar('en_tot', en_U + en_p + en_B +
-                           self._en_fv[0] + self._en_fv_lost[0] + self._en_fB[0] + self._en_fB_lost[0])
+        # self.update_scalar('en_tot', en_U + en_p + en_B +
+        #                    self._en_fv[0] + self._en_fv_lost[0] + self._en_fB[0] + self._en_fB_lost[0])
+    
+        self.update_scalar('en_tot', en_U + en_B + en_p + self._en_fv[0] + self._en_fB[0])
         
         self._n_lost_particles[0] = self.pointer['energetic_ions'].n_lost_markers
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._n_lost_particles, op=self._mpi_sum)
+
         if self.derham.comm.Get_rank() == 0 :
             print('ratio of lost particles: ',self._n_lost_particles[0]/self.pointer['energetic_ions'].n_mks*100,'%')
 

@@ -186,8 +186,8 @@ class Vlasov(StruphyModel):
         self.update_scalar('en_f', self._tmp[0])
 
 
-class DriftKinetic(StruphyModel):
-    r'''Drift-kinetic equation in static background magnetic field (guiding-center motion). 
+class GuidingCenter(StruphyModel):
+    r'''Guiding center equation in static background magnetic field. 
 
     :ref:`normalization`:
 
@@ -326,7 +326,7 @@ class DriftKinetic(StruphyModel):
             self._mpi_in_place, self._en_fv, op=self._mpi_sum)
 
         # particles' magnetic energy
-        self.pointer['ions'].save_magnetic_energy(self._abs_b)
+        self.pointer['ions'].save_magnetic_energy(self._abs_b, self._unit_b1, self._b_eq)
 
         self._en_fB[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
             self.pointer['ions'].markers[~self.pointer['ions'].holes, 8]) / self.pointer['ions'].n_mks
@@ -586,7 +586,7 @@ class VariationalPressurelessFluid(StruphyModel):
 
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'], matrix_free=True)
+            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'])
 
         # Initialize propagators/integrators used in splitting substeps
         solver_momentum = params['fluid']['fluid']['options']['solver_momentum']
@@ -687,7 +687,7 @@ class VariationalBarotropicFluid(StruphyModel):
 
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'], matrix_free=True)
+            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'])
 
         # Initialize propagators/integrators used in splitting substeps
         solver_momentum = params['fluid']['fluid']['options']['solver_momentum']
@@ -804,7 +804,7 @@ class VariationalCompressibleFluid(StruphyModel):
         super().__init__(params, comm)
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'], matrix_free=True)
+            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'])
 
         # Initialize propagators/integrators used in splitting substeps
         solver_momentum = params['fluid']['fluid']['options']['solver_momentum']
@@ -866,15 +866,21 @@ class VariationalCompressibleFluid(StruphyModel):
         en_prop.sf.vector = self.pointer['fluid_s3']
         en_prop.rhof.vector = self.pointer['fluid_rho3']
         sf_values = en_prop.sf.eval_tp_fixed_loc(
-            en_prop.integration_grid_V3_spans, en_prop.integration_grid_V3_bd, out=en_prop._sf_values_V3)
+            en_prop.integration_grid_spans, en_prop.integration_grid_bd, out=en_prop._sf_values)
         rhof_values = en_prop.rhof.eval_tp_fixed_loc(
-            en_prop.integration_grid_V3_spans, en_prop.integration_grid_V3_bd, out=en_prop._rhof_values_V3)
-        e = en_prop._ener
-        ener_values = en_prop._proj_ener_metric_term*e(rhof_values, sf_values)
+            en_prop.integration_grid_spans, en_prop.integration_grid_bd, out=en_prop._rhof_values)
+        e = self.__ener
+        ener_values = en_prop._proj_rho2_metric_term*e(rhof_values, sf_values)
         en_prop._get_L2dofs_V3(ener_values, dofs=en_prop._linear_form_dl_ds)
         en_thermo = self._integrator.dot(en_prop._linear_form_dl_ds)
         self.update_scalar('en_thermo', en_thermo)
         return en_thermo
+    
+    def __ener(self, rho, s):
+        """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
+        E(rho, s) = rho^gamma*exp(s/rho)"""
+        gam = self._params['fluid']['fluid']['options']['physics']['gamma']
+        return np.power(rho, gam)*np.exp(s/rho)
 
 
 class Poisson(StruphyModel):

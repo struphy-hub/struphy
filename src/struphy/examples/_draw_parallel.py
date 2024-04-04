@@ -40,7 +40,7 @@ def main():
 
     # create particles
     particles = Particles6D(
-        'energetic_ions', **marker_params, derham=derham)
+        'energetic_ions', **marker_params, derham=derham, bckgr_params=None)
 
     comm.Barrier()
     print('Number of particles w/wo holes on each process before sorting : ')

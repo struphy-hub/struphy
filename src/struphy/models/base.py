@@ -27,7 +27,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         # TODO: comm=None does not work yet.
 
-        from struphy.io.setup import setup_domain_mhd, setup_electric_background, setup_derham
+        from struphy.io.setup import setup_domain_mhd, setup_derham
 
         from struphy.propagators.base import Propagator
         from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
@@ -55,7 +55,6 @@ class StruphyModel(metaclass=ABCMeta):
         # create domain, MHD equilibrium, background electric field
         self._domain, self._mhd_equil = setup_domain_mhd(
             params, units=self.units)
-        self._electric_equil = setup_electric_background(params, self.domain)
 
         if comm.Get_rank() == 0:
             print('\nDOMAIN:')
@@ -68,11 +67,6 @@ class StruphyModel(metaclass=ABCMeta):
                 print('\nMHD EQUILIBRIUM:')
                 print('type:'.ljust(25), self.mhd_equil.__class__.__name__)
                 for key, val in self.mhd_equil.params.items():
-                    print((key + ':').ljust(25), val)
-            if 'electric_equilibrium' in params:
-                print('\nELECTRIC EQUILIBRIUM:')
-                print('type:', self.electric_equil.__class__.__name__)
-                for key, val in self.electric_equil.params.items():
                     print((key + ':').ljust(25), val)
 
         # create discrete derham sequence
@@ -259,11 +253,6 @@ class StruphyModel(metaclass=ABCMeta):
     def mhd_equil(self):
         '''MHD equilibrium object, see :ref:`mhd_equil`.'''
         return self._mhd_equil
-
-    @property
-    def electric_equil(self):
-        '''Eelctric equilibrium object, see :ref:`electric_equil`.'''
-        return self._electric_equil
 
     @property
     def derham(self):
@@ -463,7 +452,8 @@ class StruphyModel(metaclass=ABCMeta):
 
     def initialize_from_params(self):
         """
-        Set initial conditions for FE coefficients (electromagnetic and fluid) and markers according to parameter file.
+        Set initial conditions for FE coefficients (electromagnetic and fluid) 
+        and markers according to parameter file.
         """
 
         if self.comm.Get_rank() == 0:
@@ -475,32 +465,54 @@ class StruphyModel(metaclass=ABCMeta):
             for key, val in self.em_fields.items():
                 if 'params' not in key:
                     val['obj'].initialize_coeffs(
-                        self.em_fields['params']['init'], domain=self.domain)
+                        domain=self.domain, mhd_equil=self.mhd_equil)
 
                     if self.comm.Get_rank() == 0:
-                        init_type = self.em_fields['params']['init']['type']
                         print(f'EM field "{key}" was initialized with:')
-                        print('type:'.ljust(25), init_type)
 
-                        if init_type is None:
-                            pass
+                        if 'background' in self.em_fields['params']:
+                            bckgr_type = self.em_fields['params']['background']['type']
+                            print('background:'.ljust(25), bckgr_type)
 
-                        elif type(init_type) == str:
-                            init_types = [init_type]
+                            if bckgr_type is None:
+                                pass
+                            elif type(bckgr_type) == str:
+                                bckgr_types = [bckgr_type]
+                            elif type(bckgr_type) == list:
+                                bckgr_types = bckgr_type
+                            else:
+                                raise NotImplemented(
+                                    f'The type of initial background must be null or str or list.')
 
-                        elif type(init_type) == list:
-                            init_types = init_type
-
+                            if bckgr_type is not None:
+                                for _type in bckgr_types:
+                                    print(_type, ':')
+                                    for key, val2 in self.em_fields['params']['background'][_type].items():
+                                        print((key + ':').ljust(25), val2)
                         else:
-                            raise NotImplemented(
-                                f'The type of initial condition must be null or str or list.')
+                            print('No background.')
 
-                        if init_type is not None:
+                        if 'perturbation' in self.em_fields['params']:
+                            pert_type = self.em_fields['params']['perturbation']['type']
+                            print('perturbation:'.ljust(25), pert_type)
 
-                            for _type in init_types:
-                                print(_type, ':')
-                                for key, val2 in self.em_fields['params']['init'][_type].items():
-                                    print((key + ':').ljust(25), val2)
+                            if pert_type is None:
+                                pass
+                            elif type(pert_type) == str:
+                                pert_types = [pert_type]
+                            elif type(pert_type) == list:
+                                pert_types = pert_type
+                            else:
+                                raise NotImplemented(
+                                    f'The type of initial perturbation must be null or str or list.')
+
+                            if pert_type is not None:
+                                for _type in pert_types:
+                                    print(_type, ':')
+                                    for key, val2 in self.em_fields['params']['perturbation'][_type].items():
+                                        print((key + ':').ljust(25), val2)
+                        else:
+                            print('No perturbation.')
 
         # initialize fields
         if len(self.fluid) > 0:
@@ -510,32 +522,54 @@ class StruphyModel(metaclass=ABCMeta):
                 for variable, subval in val.items():
                     if 'params' not in variable:
                         subval['obj'].initialize_coeffs(
-                            val['params']['init'], domain=self.domain, species=species)
+                            domain=self.domain, mhd_equil=self.mhd_equil, species=species)
 
                 if self.comm.Get_rank() == 0:
-                    init_type = val['params']['init']['type']
                     print(f'Fluid species "{species}" was initialized with:')
-                    print('type:'.ljust(25), init_type)
 
-                    if init_type is None:
-                        pass
+                    if 'background' in val['params']:
+                        bckgr_type = val['params']['background']['type']
+                        print('type:'.ljust(25), bckgr_type)
 
-                    elif type(init_type) == str:
-                        init_types = [init_type]
+                        if bckgr_type is None:
+                            pass
+                        elif type(bckgr_type) == str:
+                            bckgr_types = [bckgr_type]
+                        elif type(bckgr_type) == list:
+                            bckgr_types = bckgr_type
+                        else:
+                            raise NotImplemented(
+                                f'The type of initial perturbation must be null or str or list.')
 
-                    elif type(init_type) == list:
-                        init_types = init_type
-
+                        if bckgr_type is not None:
+                            for _type in bckgr_types:
+                                print(_type, ':')
+                                for key, val2 in val['params']['background'][_type].items():
+                                    print((key + ':').ljust(25), val2)
                     else:
-                        raise NotImplemented(
-                            f'The type of initial condition must be null or str or list.')
+                        print('No background.')
 
-                    if init_type is not None:
+                    if 'perturbation' in val['params']:
+                        pert_type = val['params']['perturbation']['type']
+                        print('type:'.ljust(25), pert_type)
 
-                        for _type in init_types:
-                            print(_type, ':')
-                            for key, val2 in val['params']['init'][_type].items():
-                                print((key + ':').ljust(25), val2)
+                        if pert_type is None:
+                            pass
+                        elif type(pert_type) == str:
+                            pert_types = [pert_type]
+                        elif type(pert_type) == list:
+                            pert_types = pert_type
+                        else:
+                            raise NotImplemented(
+                                f'The type of initial perturbation must be null or str or list.')
+
+                        if pert_type is not None:
+                            for _type in pert_types:
+                                print(_type, ':')
+                                for key, val2 in val['params']['perturbation'][_type].items():
+                                    print((key + ':').ljust(25), val2)
+                    else:
+                        print('No perturbation.')
 
         # initialize particles
         if len(self.kinetic) > 0:
@@ -559,10 +593,7 @@ class StruphyModel(metaclass=ABCMeta):
                     assert typ in ['full_f', 'delta_f', 'control_variate'], \
                         f'Type {typ} for distribution function is not known!'
 
-                    pert_params = val['params']['perturbation'] if 'perturbation' in val['params'] else {
-                        'type': None}
-
-                    val['obj'].initialize_weights(pert_params)
+                    val['obj'].initialize_weights()
 
                     if val['space'] == 'Particles5D':
                         val['obj'].save_magnetic_moment()
@@ -640,7 +671,7 @@ class StruphyModel(metaclass=ABCMeta):
                 data.file['scalar'].attrs['grid_info'] = self.derham.domain_array[0]
         else:
             pass
-        
+
         # save electromagentic fields/potentials data in group 'feec/'
         for key, val in self.em_fields.items():
             if 'params' not in key:
@@ -793,7 +824,7 @@ class StruphyModel(metaclass=ABCMeta):
         """
 
         from struphy.io.setup import derive_units
-        
+
         if comm is None:
             rank = 0
         else:
@@ -805,15 +836,15 @@ class StruphyModel(metaclass=ABCMeta):
         if 'fluid' in params:
             if cls.bulk_species() in params['fluid']:
                 Z_bulk = params['fluid'][cls.bulk_species()
-                                            ]['phys_params']['Z']
+                                         ]['phys_params']['Z']
                 A_bulk = params['fluid'][cls.bulk_species()
-                                            ]['phys_params']['A']
+                                         ]['phys_params']['A']
         if 'kinetic' in params:
             if cls.bulk_species() in params['kinetic']:
                 Z_bulk = params['kinetic'][cls.bulk_species()
-                                            ]['phys_params']['Z']
+                                           ]['phys_params']['Z']
                 A_bulk = params['kinetic'][cls.bulk_species()
-                                            ]['phys_params']['A']
+                                           ]['phys_params']['A']
 
         # compute model units
         units = derive_units(
@@ -821,30 +852,30 @@ class StruphyModel(metaclass=ABCMeta):
 
         # print to screen
         if verbose and rank == 0:
-            
+
             print('\nUNITS:')
             print(f'Unit of length:'.ljust(25),
-                '{:4.3e}'.format(units['x']) + ' m')
+                  '{:4.3e}'.format(units['x']) + ' m')
             print(f'Unit of time:'.ljust(25),
-                    '{:4.3e}'.format(units['t']) + ' s')
+                  '{:4.3e}'.format(units['t']) + ' s')
             print(f'Unit of velocity:'.ljust(25),
-                    '{:4.3e}'.format(units['v']) + ' m/s')
+                  '{:4.3e}'.format(units['v']) + ' m/s')
             print(f'Unit of magnetic field:'.ljust(25),
-                    '{:4.3e}'.format(units['B']) + ' T')
-            
+                  '{:4.3e}'.format(units['B']) + ' T')
+
             if A_bulk is not None:
                 print(f'Unit of particle density:'.ljust(25),
-                        '{:4.3e}'.format(units['n']) + ' m⁻³')
+                      '{:4.3e}'.format(units['n']) + ' m⁻³')
                 print(f'Unit of mass density:'.ljust(25),
-                        '{:4.3e}'.format(units['rho']) + ' kg/m³')
+                      '{:4.3e}'.format(units['rho']) + ' kg/m³')
                 print(f'Unit of pressure:'.ljust(25),
-                        '{:4.3e}'.format(units['p'] * 1e-5) + ' bar')
+                      '{:4.3e}'.format(units['p'] * 1e-5) + ' bar')
 
         # compute equation parameters for each species
         e = 1.602176634e-19  # elementary charge (C)
         mH = 1.67262192369e-27  # proton mass (kg)
         eps0 = 8.8541878128e-12  # vacuum permittivity (F/m)
-        
+
         equation_params = {}
         if 'fluid' in params:
             for species in params['fluid']:
@@ -1018,28 +1049,47 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         with open(os.path.join(libpath, 'io/inp/parameters.yml')) as tmp:
             parameters = yaml.load(tmp, Loader=yaml.FullLoader)
 
-        # extract default init params
-        init_kind = list(parameters['fluid']['mhd']['init'])[-1]
+        # extract default fields background params
+        bckgr_type = parameters['em_fields']['background']['type']
 
-        init_params = {}
-        init_params_scalar = {}
+        bckgr_params = {}
+        bckgr_params_scalar = {}
 
-        for keys, vals in parameters['fluid']['mhd']['init'][init_kind].items():
-            init_params[keys] = vals['u2']
-            init_params_scalar[keys] = vals['p3']
+        for keys, vals in parameters['em_fields']['background'][bckgr_type].items():
+            bckgr_params_scalar[keys] = vals['potential_name']
+            bckgr_params[keys] = vals['field_name']
+
+        # extract default fields perturbation params
+        pert_type = parameters['em_fields']['perturbation']['type']
+
+        pert_params = {}
+        pert_params_scalar = {}
+
+        for keys, vals in parameters['em_fields']['perturbation'][pert_type].items():
+            pert_params_scalar[keys] = vals['potential_name']
+            pert_params[keys] = vals['field_name']
 
         # get rid of species names in initial conditions (add back later)
-        # TODO: remove later, now safe for popping
-        parameters['kinetic']['ions'].pop('init', None)
-        parameters['kinetic']['ions'].pop('background')
-        parameters['kinetic']['ions']['markers']['loading'].pop('moments')
+        parameters['kinetic']['species_name'].pop('background')
+        parameters['kinetic']['species_name']['markers']['loading'].pop(
+            'moments')
 
-        for keys in init_params_scalar.keys():
+        for keys in bckgr_params_scalar:
+            parameters['em_fields']['background'][bckgr_type].pop(keys)
+            parameters['em_fields']['background'][bckgr_type][keys] = {}
+            parameters['fluid']['species_name']['background'][bckgr_type].pop(
+                keys)
+            parameters['fluid']['species_name']['background'][bckgr_type][keys] = {}
 
-            parameters['em_fields']['init'][init_kind].pop(keys)
-            parameters['em_fields']['init'][init_kind][keys] = {}
-            parameters['fluid']['mhd']['init'][init_kind].pop(keys)
-            parameters['fluid']['mhd']['init'][init_kind][keys] = {}
+        for keys in pert_params_scalar:
+            parameters['em_fields']['perturbation'][pert_type].pop(keys)
+            parameters['em_fields']['perturbation'][pert_type][keys] = {}
+            parameters['fluid']['species_name']['perturbation'][pert_type].pop(
+                keys)
+            parameters['fluid']['species_name']['perturbation'][pert_type][keys] = {}
+            parameters['kinetic']['species_name']['perturbation'][pert_type].pop(
+                keys)
+            parameters['kinetic']['species_name']['perturbation'][pert_type][keys] = {}
 
         # standard moments of Maxwellians
         moms = {'6D': [0., 0., 0., 1., 1., 1.],
@@ -1054,13 +1104,17 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             for name, space in cls.species()['em_fields'].items():
                 # default initial condition for scalar-valued field
                 if space in {'H1', 'L2'}:
-                    for keys, vals in init_params_scalar.items():
-                        parameters['em_fields']['init'][init_kind][keys][name] = vals
+                    for keys, vals in bckgr_params_scalar.items():
+                        parameters['em_fields']['background'][bckgr_type][keys][name] = vals
+                    for keys, vals in pert_params_scalar.items():
+                        parameters['em_fields']['perturbation'][pert_type][keys][name] = vals
 
                 # default initial condition for vector-valued field
                 elif space in {'Hcurl', 'Hdiv', 'H1vec'}:
-                    for keys, vals in init_params.items():
-                        parameters['em_fields']['init'][init_kind][keys][name] = vals
+                    for keys, vals in bckgr_params.items():
+                        parameters['em_fields']['background'][bckgr_type][keys][name] = vals
+                    for keys, vals in pert_params.items():
+                        parameters['em_fields']['perturbation'][pert_type][keys][name] = vals
 
         else:
             parameters.pop('em_fields')
@@ -1074,7 +1128,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             parameters['em_fields']['options'] = d_default
 
         # fluid
-        fluid_params = parameters['fluid'].pop('mhd')
+        fluid_params = parameters['fluid'].pop('species_name')
 
         if len(cls.species()['fluid']) > 0:
 
@@ -1097,50 +1151,53 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 for sub_name, space in dct.items():
                     # default initial condition for scalar-valued field
                     if space in {'H1', 'L2'}:
-                        for keys, vals in init_params_scalar.items():
-                            parameters['fluid'][name]['init'][init_kind][keys][sub_name] = vals
+                        for keys, vals in bckgr_params_scalar.items():
+                            parameters['fluid'][name]['background'][bckgr_type][keys][sub_name] = vals
+                        for keys, vals in pert_params_scalar.items():
+                            parameters['fluid'][name]['perturbation'][pert_type][keys][sub_name] = vals
 
                     # default initial condition for scalar-valued field
                     elif space in {'Hcurl', 'Hdiv', 'H1vec'}:
-                        for keys, vals in init_params.items():
-                            parameters['fluid'][name]['init'][init_kind][keys][sub_name] = vals
+                        for keys, vals in bckgr_params.items():
+                            parameters['fluid'][name]['background'][bckgr_type][keys][sub_name] = vals
+                        for keys, vals in pert_params.items():
+                            parameters['fluid'][name]['perturbation'][pert_type][keys][sub_name] = vals
 
         else:
             parameters.pop('fluid')
 
         # kinetic
-        kinetic_params = parameters['kinetic'].pop('ions')
+        kinetic_params = parameters['kinetic'].pop('species_name')
 
         if len(cls.species()['kinetic']) > 0:
             parameters['kinetic'] = {}
 
-        for name, space in cls.species()['kinetic'].items():
+            for name, space in cls.species()['kinetic'].items():
 
-            parameters['kinetic'][name] = kinetic_params
+                parameters['kinetic'][name] = kinetic_params
 
-            # find out the default kinetic options of the model
-            if name in cls.options()['kinetic']:
+                # find out the default kinetic options of the model
+                if name in cls.options()['kinetic']:
 
-                d_opts['kinetic'][name] = []
+                    d_opts['kinetic'][name] = []
 
-                # create the default options parameters
-                d_default = descend_options_dict(cls.options()['kinetic'][name]['options'],
-                                                 d_opts['kinetic'][name])
+                    # create the default options parameters
+                    d_default = descend_options_dict(cls.options()['kinetic'][name]['options'],
+                                                     d_opts['kinetic'][name])
 
-                parameters['kinetic'][name]['options'] = d_default
+                    parameters['kinetic'][name]['options'] = d_default
 
-            # set the correct names in the parameter file
-            dim = space[-2:]
-            if dim == '5D':
-                parameters['kinetic'][name]['init'] = {'type': 'Maxwellian' + dim,
-                                                       'Maxwellian' + dim: {'n': 0.05}}
-                parameters['kinetic'][name]['background'] = {'type': 'Maxwellian' + dim,
-                                                             'Maxwellian' + dim: {'n': 0.8}}
-                parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
-            else:
+                # set the correct names in the parameter file
+                dim = space[-2:]
                 parameters['kinetic'][name]['background'] = {'type': 'Maxwellian' + dim,
                                                              'Maxwellian' + dim: {'n': 0.05}}
                 parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
+                
+                for keys, vals in pert_params_scalar.items():
+                    parameters['kinetic'][name]['perturbation'][pert_type][keys]['n'] = vals   
+                    
+        else:
+            parameters.pop('kinetic')
 
         cls.write_parameters_to_file(
             parameters=parameters, file=file, save=save, prompt=prompt)
@@ -1230,10 +1287,25 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         # allocate memory for FE coeffs of electromagnetic fields/potentials
         if 'em_fields' in self.params:
 
+            # background parameters
+            if 'background' in self.params['em_fields']:
+                bckgr_params = self.params['em_fields']['background']
+            else:
+                bckgr_params = None
+
+            # perturbation parameters
+            if 'perturbation' in self.params['em_fields']:
+                pert_params = self.params['em_fields']['perturbation']
+            else:
+                pert_params = None
+
             for key, val in self.em_fields.items():
 
                 if 'params' not in key:
-                    val['obj'] = self.derham.create_field(key, val['space'])
+                    val['obj'] = self.derham.create_field(key,
+                                                          val['space'],
+                                                          bckgr_params=bckgr_params,
+                                                          pert_params=pert_params)
 
                     self._pointer[key] = val['obj'].vector
 
@@ -1242,11 +1314,26 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
             for species, val in self.fluid.items():
 
+                # background parameters
+                if 'background' in val['params']:
+                    bckgr_params = val['params']['background']
+                else:
+                    bckgr_params = None
+
+                # perturbation parameters
+                if 'perturbation' in val['params']:
+                    pert_params = val['params']['perturbation']
+                else:
+                    pert_params = None
+
                 for variable, subval in val.items():
 
                     if 'params' not in variable:
                         subval['obj'] = self.derham.create_field(
-                            variable, subval['space'])
+                            variable,
+                            subval['space'],
+                            bckgr_params=bckgr_params,
+                            pert_params=pert_params)
 
                         self._pointer[species + '_' +
                                       variable] = subval['obj'].vector
@@ -1256,30 +1343,28 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
             for species, val in self.kinetic.items():
 
-                if self.params['kinetic'][species]['markers']['type'] in ['control_variate', 'delta_f']:
-                    assert 'background' in self.params['kinetic'][species], \
-                        f'If a control variate or delta-f method is used, a maxwellians background must be given!'
-
-                assert 'background' in self.params['kinetic'][species].keys(), \
-                    "A background must be given in order to initialize the Particles class!"
-
-                if 'background' in self.params['kinetic'][species]:
+                # background parameters
+                if 'background' in val['params']:
                     bckgr_params = val['params']['background']
                 else:
                     bckgr_params = None
+
+                # perturbation parameters
+                if 'perturbation' in val['params']:
+                    pert_params = val['params']['perturbation']
+                else:
+                    pert_params = None
 
                 kinetic_class = getattr(particles, val['space'])
 
                 val['obj'] = kinetic_class(
                     species,
-                    **val['params']['phys_params'],
                     **val['params']['markers'],
                     derham=self.derham,
                     domain=self.domain,
                     mhd_equil=self.mhd_equil,
-                    epsilon=self.equation_params[species]['epsilon'],
-                    units_basic=self.units,
-                    background=bckgr_params,
+                    bckgr_params=bckgr_params,
+                    pert_params=pert_params
                 )
 
                 self._pointer[species] = val['obj']
@@ -1468,13 +1553,9 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 pparams[species]['charge'] = val['params']['phys_params']['Z'] * e
 
                 # create temp kinetic object for (default) parameter extraction
-                if 'background' in val['params']:
-                    tmp_str = 'background'
-                else:
-                    tmp_str = 'init'
-                tmp_type = val['params'][tmp_str]['type']
-                tmp_params = val['params'][tmp_str][tmp_type]
-                tmp = getattr(maxwellians, tmp_type)(**tmp_params)
+                tmp_type = val['params']['background']['type']
+                tmp_params = val['params']['background'][tmp_type]
+                tmp = getattr(maxwellians, tmp_type)(maxw_params=tmp_params)
 
                 # density (m⁻³)
                 pparams[species]['density'] = np.mean(tmp.n(

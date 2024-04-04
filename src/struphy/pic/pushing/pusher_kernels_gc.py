@@ -1911,7 +1911,8 @@ def push_gc_cc_J1_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                        b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
                        norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                        curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                       u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]'):
+                       u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]',
+                       boundary_cut: float):
     r'''Velocity update step for the `CurrentCoupling5DCurlb <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb>`_
 
     Marker update:
@@ -1949,7 +1950,7 @@ def push_gc_cc_J1_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private(ip, eta, v, det_df, dfm, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, u, e, curl_norm_b, norm_b1, b_star, tmp, abs_b_star_para)
+    #$ omp parallel private(ip, boundary_cut, eta, v, det_df, dfm, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, u, e, curl_norm_b, norm_b1, b_star, tmp, abs_b_star_para)
     #$ omp for
     for ip in range(n_markers):
 
@@ -1959,6 +1960,9 @@ def push_gc_cc_J1_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 
         eta[:] = markers[ip, 0:3]
         v = markers[ip, 3]
+
+        if eta[0] < boundary_cut or eta[0] > 1. - boundary_cut:
+            continue
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(eta[0], eta[1], eta[2],
@@ -2048,7 +2052,7 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                               curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
                               u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]',
                               a: 'float[:]', b: 'float[:]', c: 'float[:]'):
-    r'''Single stage of a s-stage explicit pushing step for the `CurrentCoupling5DGradBxB <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DGradBxB>`_
+    r'''Single stage of a s-stage explicit pushing step for the `CurrentCoupling5DGradB <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DGradB>`_
 
     Marker update:
 
@@ -2227,8 +2231,8 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                              norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
                              curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
                              u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]',
-                             a: 'float[:]', b: 'float[:]', c: 'float[:]'):
-    r'''Single stage of a s-stage explicit pushing step for the `CurrentCoupling5DGradBxB <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DGradBxB>`_
+                             a: 'float[:]', b: 'float[:]', c: 'float[:]', boundary_cut: float):
+    r'''Single stage of a s-stage explicit pushing step for the `CurrentCoupling5DGradB <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DGradB>`_
 
     Marker update:
 
@@ -2281,7 +2285,7 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
     else:
         last = 0.
 
-    #$ omp parallel firstprivate(b_prod, norm_b2_prod) private(ip, eta, v, det_df, dfm, df_inv, df_inv_t, g_inv, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, bb, u, e, curl_norm_b, norm_b1, norm_b2, b_star, temp1, temp2, abs_b_star_para)
+    #$ omp parallel firstprivate(b_prod, norm_b2_prod) private(ip, boundary_cut, eta, v, det_df, dfm, df_inv, df_inv_t, g_inv, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, bb, u, e, curl_norm_b, norm_b1, norm_b2, b_star, temp1, temp2, abs_b_star_para)
     #$ omp for
     for ip in range(n_markers):
 
@@ -2294,6 +2298,9 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 
         eta[:] = markers[ip, 0:3]
         v = markers[ip, 3]
+
+        if eta[0] < boundary_cut or eta[0] > 1. - boundary_cut:
+            continue
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(eta[0], eta[1], eta[2],

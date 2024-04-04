@@ -23,32 +23,21 @@ class Particles6D(Particles):
         Name of the particle species.
 
     **params : dict
-        Parameters for markers.
+        Parameters for markers, see :class:`~struphy.pic.base.Particles`.
     """
 
     @classmethod
     def default_bckgr_params(cls):
-        return {'type': 'Maxwellian6D'}
+        return {'type': 'Maxwellian6D',
+                'Maxwellian6D': {}}
 
     def __init__(self, name, **params):
 
-        # base class params
-        base_params = {}
+        assert 'bckgr_params' in params
+        if params['bckgr_params'] is None:
+            params['bckgr_params'] = self.default_bckgr_params()
 
-        list_base_params = [
-            'type', 'ppc', 'Np', 'eps',
-            'bc', 'loading', 'derham', 'domain',
-            'background'
-        ]
-
-        for key, val in params.items():
-            if key in list_base_params:
-                base_params[key] = val
-
-        if 'background' not in base_params.keys():
-            base_params['background'] = self.default_bckgr_params()
-
-        super().__init__(name, **base_params)
+        super().__init__(name, **params)
 
     @property
     def n_cols(self):
@@ -106,29 +95,24 @@ class Particles6D(Particles):
             The volume-form sampling density.
         -------
         """
-        # load sampling density svol = s6 = s3 (normalized to 1 in logical space!)
-        Maxwellian6DUniform = getattr(maxwellians, 'Maxwellian6D')
+        # load sampling density svol (normalized to 1 in logical space)
+        maxwellian6D = getattr(maxwellians, 'Maxwellian6D')
 
-        s3 = Maxwellian6DUniform(
-            background={
-                'type': 'Maxwellian6D',
-                'Maxwellian6D': {
-                    'n': 1.,
-                    'u1': self._params['loading']['moments'][0],
-                    'u2': self._params['loading']['moments'][1],
-                    'u3': self._params['loading']['moments'][2],
-                    'vth1': self._params['loading']['moments'][3],
-                    'vth2': self._params['loading']['moments'][4],
-                    'vth3': self._params['loading']['moments'][5]
-                }
-            }
-        )
+        maxw_params = {'n': 1.,
+                       'u1': self.marker_params['loading']['moments'][0],
+                       'u2': self.marker_params['loading']['moments'][1],
+                       'u3': self.marker_params['loading']['moments'][2],
+                       'vth1': self.marker_params['loading']['moments'][3],
+                       'vth2': self.marker_params['loading']['moments'][4],
+                       'vth3': self.marker_params['loading']['moments'][5]}
+
+        fun = maxwellian6D(maxw_params=maxw_params)
 
         if self.spatial == 'uniform':
-            return s3(eta1, eta2, eta3, *v)
+            return fun(eta1, eta2, eta3, *v)
 
         elif self.spatial == 'disc':
-            return s3(eta1, eta2, eta3, *v)*2*eta1
+            return fun(eta1, eta2, eta3, *v)*2*eta1
 
         else:
             raise NotImplementedError(
@@ -176,50 +160,21 @@ class Particles5D(Particles):
         Name of the particle species.
 
     **params : dict
-        Parameters for markers.
+        Parameters for markers, see :class:`~struphy.pic.base.Particles`.
     """
 
     @classmethod
     def default_bckgr_params():
-        return {'type': 'Maxwellian5D'}
+        return {'type': 'Maxwellian5D',
+                'Maxwellian5D': {}}
 
     def __init__(self, name, **params):
 
-        # base class params
-        base_params = {}
+        assert 'bckgr_params' in params
+        if params['bckgr_params'] is None:
+            params['bckgr_params'] = self.default_bckgr_params()
 
-        list_base_params = [
-            'type', 'ppc', 'Np', 'eps',
-            'bc', 'loading', 'derham', 'domain',
-            'background'
-        ]
-
-        for key, val in params.items():
-            if key in list_base_params:
-                base_params[key] = val
-
-        if 'background' not in base_params.keys():
-            base_params['background'] = self.default_bckgr_params()
-
-        super().__init__(name, **base_params)
-
-        # child class params
-        child_params = {}
-
-        list_child_params = ['mhd_equil', 'epsilon']
-
-        for key, val in params.items():
-            if key in list_child_params:
-                child_params[key] = val
-
-        params_default = {'mhd_equil': None,
-                          'epsilon': 1.
-                          }
-
-        child_params = set_defaults(child_params, params_default)
-
-        self._mhd_equil = params['mhd_equil']
-        self._epsilon = child_params['epsilon']
+        super().__init__(name, **params)
 
     @property
     def n_cols(self):
@@ -232,18 +187,6 @@ class Particles5D(Particles):
         """Dimension of the velocity space.
         """
         return 2
-
-    @property
-    def mhd_equil(self):
-        """Class of MHD equilibrium
-        """
-        return self._mhd_equil
-
-    @property
-    def epsilon(self):
-        """Epsilon unit, 1 / (cyclotron freq * time_unit)
-        """
-        return self._epsilon
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
         """
@@ -299,27 +242,22 @@ class Particles5D(Particles):
             The volume-form sampling density.
         -------
         """
-        # load sampling density svol = s5 (normalized to 1 in logical space!)
-        Maxwellian5DUniform = getattr(maxwellians, 'Maxwellian5D')
+        # load sampling density svol (normalized to 1 in logical space)
+        maxwellian5D = getattr(maxwellians, 'Maxwellian5D')
 
-        s5 = Maxwellian5DUniform(
-            background={
-                'type' : 'Maxwellian5D',
-                'Maxwellian5D' : {
-                    'n': 1.,
-                    'u_para' : self.params['loading']['moments'][0],
-                    'u_perp' : self.params['loading']['moments'][1],
-                    'vth_para' : self.params['loading']['moments'][2],
-                    'vth_perp' : self.params['loading']['moments'][3]
-                }
-            }
-        )
+        maxw_params = {'n': 1.,
+                       'u_para': self.marker_params['loading']['moments'][0],
+                       'u_perp': self.marker_params['loading']['moments'][1],
+                       'vth_para': self.marker_params['loading']['moments'][2],
+                       'vth_perp': self.marker_params['loading']['moments'][3]}
+
+        fun = maxwellian5D(maxw_params=maxw_params)
 
         if self.spatial == 'uniform':
-            return s5(eta1, eta2, eta3, *v)
+            return fun(eta1, eta2, eta3, *v)
 
         elif self.spatial == 'disc':
-            return s5(eta1, eta2, eta3, *v)*2*eta1
+            return fun(eta1, eta2, eta3, *v)*2*eta1
 
         else:
             raise NotImplementedError(
@@ -387,17 +325,28 @@ class Particles5D(Particles):
                                 np.array(self.derham.Vh['0'].starts),
                                 absB._data)
 
-    def save_magnetic_energy(self, PB):
+    def save_magnetic_energy(self, abs_B0, unit_b1, b):
         r"""
         Calculate magnetic field energy at each particles' position and asign it into markers[:,8].
         """
-        T1, T2, T3 = self.derham.Vh_fem['0'].knots
+
+        # fixed FEM arguments for the accumulator kernel
+        self._args_fem = (np.array(self.derham.p),
+                          self.derham.Vh_fem['0'].knots[0],
+                          self.derham.Vh_fem['0'].knots[1],
+                          self.derham.Vh_fem['0'].knots[2],
+                          np.array(self.derham.Vh['0'].starts))
 
         E0T = self.derham.extraction_ops['0'].transpose()
+        E1T = self.derham.extraction_ops['1'].transpose()
+        E2T = self.derham.extraction_ops['2'].transpose()
 
-        PB = E0T.dot(PB)
+        abs_B0 = E0T.dot(abs_B0)
+        unit_b1 = E1T.dot(unit_b1)
+        b = E2T.dot(b)
 
         eval_magnetic_energy(self.markers,
-                             np.array(self.derham.p), T1, T2, T3,
-                             np.array(self.derham.Vh['0'].starts),
-                             PB._data)
+                             *self._args_fem, *self._domain.args_map,
+                             abs_B0._data,
+                             unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
+                             b[0]._data, b[1]._data, b[2]._data)

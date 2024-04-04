@@ -14,6 +14,7 @@ Python modules
     subsections/domains
     subsections/mhd_equils
     subsections/kinetic_backgrounds
+    subsections/fluid_backgrounds
     subsections/inits
     subsections/io
     subsections/pproc_tools

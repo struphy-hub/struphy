@@ -494,7 +494,8 @@ class ScrewPinch(CartesianMHDequilibrium):
                 pout = B0**2*eps**2*q0/(2*(q1 - q0)) * \
                     (1/self.q_r(r)**2 - 1/q1**2)
 
-        return pout
+        # add offset to avoid zero pressure
+        return pout + 1e-8
 
     def n_r(self, r):
         """ Radial ion number density profile n = n(r).
@@ -708,9 +709,9 @@ class AdhocTorus(AxisymmMHDequilibrium):
                 q_kind  : 0    # which profile (0 : parabolic, 1 : other, see documentation)
                 q0      : 1.05 # safety factor at r=0
                 q1      : 1.80 # safety factor at r=a
-                n1      : 0.   # 1st shape factor for number density profile 
-                n2      : 0.   # 2nd shape factor for number density profile 
-                na      : 1.   # number density at r=a
+                n1      : .5   # 1st shape factor for number density profile 
+                n2      : 1.   # 2nd shape factor for number density profile 
+                na      : .2   # number density at r=a
                 p_kind  : 1    # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
                 p1      : .1   # 1st shape factor for ad hoc pressure profile
                 p2      : .1   # 2nd shape factor for ad hoc pressure profile
@@ -731,9 +732,9 @@ class AdhocTorus(AxisymmMHDequilibrium):
                           'q_kind': 0,
                           'q0': 1.71,
                           'q1': 1.87,
-                          'n1': 0.,
-                          'n2': 0.,
-                          'na': 1.,
+                          'n1': 2.,
+                          'n2': 1.,
+                          'na': .2,
                           'p_kind': 1,
                           'p1': 0.,
                           'p2': 0.,
@@ -1193,9 +1194,9 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
                 q1      : 2.5  # safety factor at r=a
                 q0p     : 0.78 # derivative of safety factor at r=0 (w.r.t. to poloidal flux function)
                 q1p     : 5.00 # derivative of safety factor at r=a (w.r.t. to poloidal flux function)
-                n1      : 0.   # shape factor for number density profile 
-                n2      : 0.   # shape factor for number density profile 
-                na      : 1.   # number density at r=a
+                n1      : .5   # shape factor for number density profile 
+                n2      : 1.   # shape factor for number density profile 
+                na      : .2   # number density at r=a
                 beta    : .1   # plasma beta = p*(2*mu_0)/B^2 for flat safety factor
                 p1      : 0.25 # shape factor of pressure profile
                 psi_k   : 3    # spline degree to be used for interpolation of poloidal flux function
@@ -1216,9 +1217,9 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
                           'q1': 2.5,
                           'q0p': 0.78,
                           'q1p': 5.00,
-                          'n1': 0.,
-                          'n2': 0.,
-                          'na': 1.,
+                          'n1': 2.,
+                          'n2': 1.,
+                          'na': .2,
                           'beta': 4.,
                           'p1': 0.25,
                           'psi_k': 3,
@@ -1558,9 +1559,9 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
                           'psi_resolution': [25., 6.25],
                           'p_for_flux': 3,
                           'flux_resolution': 50.,
-                          'n1': 0.,
-                          'n2': 0.,
-                          'na': 1.,
+                          'n1': 2.,
+                          'n2': 1.,
+                          'na': .2,
                           }
 
         self._params = set_defaults(params, params_default)
@@ -1826,7 +1827,8 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         if 'p' in self.units:
             out /= 1.25663706212e-6 * self.units['p']
         else:
-            print(f'+++Warning+++: pressure unit not defined, {self.units = }.')
+            print(
+                f'+++Warning+++: pressure unit not defined, {self.units = }.')
 
         return out
 
@@ -1892,7 +1894,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
         import struphy
         import os
         from mpi4py import MPI
-        
+
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
 
@@ -1901,7 +1903,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
                           'json_file': None,
                           'use_pest': False,
                           'use_nfp': True,
-                          'rmin': 0.0,
+                          'rmin': 0.01,
                           'Nel': (16, 16, 16),
                           'p': (3, 3, 3), }
 
@@ -1913,7 +1915,8 @@ class GVECequilibrium(LogicalMHDequilibrium):
             assert self._params['json_file'][-5:] == '.json'
 
             if self._params['rel_path']:
-                json_file = os.path.join(struphy.__path__[0], 'fields_background/mhd_equil/gvec', self._params['json_file'])
+                json_file = os.path.join(struphy.__path__[
+                                         0], 'fields_background/mhd_equil/gvec', self._params['json_file'])
             else:
                 json_file = self._params['json_file']
 
@@ -1922,12 +1925,13 @@ class GVECequilibrium(LogicalMHDequilibrium):
             assert self._params['dat_file'][-4:] == '.dat'
 
             if self._params['rel_path']:
-                dat_file = os.path.join(struphy.__path__[0], 'fields_background/mhd_equil/gvec', self._params['dat_file'])
+                dat_file = os.path.join(struphy.__path__[
+                                        0], 'fields_background/mhd_equil/gvec', self._params['dat_file'])
             else:
                 dat_file = params['dat_file']
 
             json_file = dat_file[:-4] + '.json'
-            #TODO: better read/write for MPI
+            # TODO: better read/write for MPI
             if rank == 0:
                 create_GVEC_json(dat_file, json_file)
             comm.Barrier()
@@ -1966,28 +1970,92 @@ class GVECequilibrium(LogicalMHDequilibrium):
         '''Parameters describing the equilibrium.'''
         return self._params
 
-    def b2(self, eta1, eta2, eta3, squeeze_out=True):
+    def b2(self, *etas, squeeze_out=False):
         """2-form magnetic field on logical cube [0, 1]^3.
         """
-        return self.gvec.b2(eta1, eta2, eta3)
+        # flat (marker) evaluation
+        if len(etas) == 1:
+            assert etas[0].ndim == 2
+            eta1 = etas[0][:, 0]
+            eta2 = etas[0][:, 1]
+            eta3 = etas[0][:, 2]
+            flat_eval = True
+        # meshgrid evaluation
+        else:
+            assert len(etas) == 3
+            assert etas[0].shape == etas[1].shape == etas[2].shape
+            eta1 = etas[0]
+            eta2 = etas[1]
+            eta3 = etas[2]
+            flat_eval = False
 
-    def j2(self, eta1, eta2, eta3, squeeze_out=True):
+        return self.gvec.b2(eta1, eta2, eta3, flat_eval=flat_eval)
+
+    def j2(self, *etas, squeeze_out=False):
         """2-form current density (=curl B) on logical cube [0, 1]^3.
         """
-        return self.gvec.j2(eta1, eta2, eta3)
+        # flat (marker) evaluation
+        if len(etas) == 1:
+            assert etas[0].ndim == 2
+            eta1 = etas[0][:, 0]
+            eta2 = etas[0][:, 1]
+            eta3 = etas[0][:, 2]
+            flat_eval = True
+        # meshgrid evaluation
+        else:
+            assert len(etas) == 3
+            assert etas[0].shape == etas[1].shape == etas[2].shape
+            eta1 = etas[0]
+            eta2 = etas[1]
+            eta3 = etas[2]
+            flat_eval = False
 
-    def p0(self, eta1, eta2, eta3, squeeze_out=True):
+        return self.gvec.j2(eta1, eta2, eta3, flat_eval=flat_eval)
+
+    def p0(self, *etas, squeeze_out=False):
         """0-form equilibrium pressure on logical cube [0, 1]^3.
         """
-        return self.gvec.p0(eta1, eta2, eta3)
+        # flat (marker) evaluation
+        if len(etas) == 1:
+            assert etas[0].ndim == 2
+            eta1 = etas[0][:, 0]
+            eta2 = etas[0][:, 1]
+            eta3 = etas[0][:, 2]
+            flat_eval = True
+        # meshgrid evaluation
+        else:
+            assert len(etas) == 3
+            assert etas[0].shape == etas[1].shape == etas[2].shape
+            eta1 = etas[0]
+            eta2 = etas[1]
+            eta3 = etas[2]
+            flat_eval = False
 
-    def n0(self, eta1, eta2, eta3, squeeze_out=True):
+        return self.gvec.p0(eta1, eta2, eta3, flat_eval=flat_eval)
+
+    def n0(self, *etas, squeeze_out=False):
         """0-form equilibrium density on logical cube [0, 1]^3.
         """
-        # TODO: which density to set?
-        return self.gvec.p0(eta1, eta2, eta3) * 0
+        # flat (marker) evaluation
+        if len(etas) == 1:
+            assert etas[0].ndim == 2
+            eta1 = etas[0][:, 0]
+            eta2 = etas[0][:, 1]
+            eta3 = etas[0][:, 2]
+            flat_eval = True
+        # meshgrid evaluation
+        else:
+            assert len(etas) == 3
+            assert etas[0].shape == etas[1].shape == etas[2].shape
+            eta1 = etas[0]
+            eta2 = etas[1]
+            eta3 = etas[2]
+            flat_eval = False
 
-    def gradB1(self, eta1, eta2, eta3, squeeze_out=True):
+        # TODO: which density to set? Is proportional to pressure for the moment
+        return 0.2 * self.p0(*etas)
+
+    def gradB1(self, *etas, squeeze_out=False):
         """1-form gradient of magnetic field on logical cube [0, 1]^3.
         """
         raise NotImplementedError(

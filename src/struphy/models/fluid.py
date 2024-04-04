@@ -1,4 +1,5 @@
 from struphy.models.base import StruphyModel
+import numpy as np
 
 
 class LinearMHD(StruphyModel):
@@ -9,7 +10,7 @@ class LinearMHD(StruphyModel):
     .. math::
         &\frac{\partial \tilde n}{\partial t}+\nabla\cdot(n_0 \tilde{\mathbf{U}})=0\,, 
 
-        \int n_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \tilde{\mathbf{V}}\,\textrm d \mathbf x  + \int \tilde p\, \nabla \cdot \tilde{\mathbf{V}} \,\textrm d \mathbf x
+        \int n_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \tilde{\mathbf{V}}\,\textrm d \mathbf x  - \int \tilde p\, \nabla \cdot \tilde{\mathbf{V}} \,\textrm d \mathbf x
         =\int \tilde{\mathbf{B}}\cdot \nabla \times (\mathbf{B}_0 \times \tilde{\mathbf{V}})\,\textrm d \mathbf x + \int (\nabla\times\mathbf{B}_0)\times \tilde{\mathbf{B}} \cdot \tilde{\mathbf{V}}\,\textrm d \mathbf x
         \qquad \forall \ \tilde{\mathbf{V}} \in H(\textrm{div})\,,
 
@@ -550,7 +551,7 @@ class VariationalMHD(StruphyModel):
         super().__init__(params, comm)
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'], matrix_free=True)
+            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'])
 
         # Initialize propagators/integrators used in splitting substeps
         solver_momentum = params['fluid']['mhd']['options']['solver_momentum']
@@ -580,7 +581,8 @@ class VariationalMHD(StruphyModel):
             **solver_entropy))
         self.add_propagator(self.prop_fields.VariationalMagFieldEvolve(
             self.pointer['b2'], self.pointer['mhd_uv'],
-            mass_ops=self.WMM))
+            mass_ops=self.WMM,
+            **solver_magnetic))
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U')
@@ -622,12 +624,18 @@ class VariationalMHD(StruphyModel):
         en_prop.sf.vector = self.pointer['mhd_s3']
         en_prop.rhof.vector = self.pointer['mhd_rho3']
         sf_values = en_prop.sf.eval_tp_fixed_loc(
-            en_prop.integration_grid_V3_spans, en_prop.integration_grid_V3_bd, out=en_prop._sf_values_V3)
+            en_prop.integration_grid_spans, en_prop.integration_grid_bd, out=en_prop._sf_values)
         rhof_values = en_prop.rhof.eval_tp_fixed_loc(
-            en_prop.integration_grid_V3_spans, en_prop.integration_grid_V3_bd, out=en_prop._rhof_values_V3)
-        e = en_prop._ener
-        ener_values = en_prop._proj_ener_metric_term*e(rhof_values, sf_values)
+            en_prop.integration_grid_spans, en_prop.integration_grid_bd, out=en_prop._rhof_values)
+        e = self.__ener
+        ener_values = en_prop._proj_rho2_metric_term*e(rhof_values, sf_values)
         en_prop._get_L2dofs_V3(ener_values, dofs=en_prop._linear_form_dl_ds)
         en_thermo = self._integrator.dot(en_prop._linear_form_dl_ds)
         self.update_scalar('en_thermo', en_thermo)
         return en_thermo
+    
+    def __ener(self, rho, s):
+        """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
+        E(rho, s) = rho^gamma*exp(s/rho)"""
+        gam = self._params['fluid']['mhd']['options']['physics']['gamma']
+        return np.power(rho, gam)*np.exp(s/rho)

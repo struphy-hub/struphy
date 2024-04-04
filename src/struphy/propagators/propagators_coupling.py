@@ -275,13 +275,13 @@ class EfieldWeightsImplicit(Propagator):
         self._kappa = params['kappa']
         self._f0 = params['f0']
         self._f0_params = np.array(
-            [self._f0.bckgr_params['n'],
-             self._f0.bckgr_params['u1'],
-             self._f0.bckgr_params['u2'],
-             self._f0.bckgr_params['u3'],
-             self._f0.bckgr_params['vth1'],
-             self._f0.bckgr_params['vth2'],
-             self._f0.bckgr_params['vth3']]
+            [self._f0.maxw_params['n'],
+             self._f0.maxw_params['u1'],
+             self._f0.maxw_params['u2'],
+             self._f0.maxw_params['u3'],
+             self._f0.maxw_params['vth1'],
+             self._f0.maxw_params['vth2'],
+             self._f0.maxw_params['vth3']]
         )
         self._model = params['model']
 
@@ -470,13 +470,13 @@ class EfieldWeightsDiscreteGradient(Propagator):
         self._kappa = params['kappa']
         self._f0 = params['f0']
         self._f0_params = np.array(
-            [self._f0.bckgr_params['n'],
-             self._f0.bckgr_params['u1'],
-             self._f0.bckgr_params['u2'],
-             self._f0.bckgr_params['u3'],
-             self._f0.bckgr_params['vth1'],
-             self._f0.bckgr_params['vth2'],
-             self._f0.bckgr_params['vth3']]
+            [self._f0.maxw_params['n'],
+             self._f0.maxw_params['u1'],
+             self._f0.maxw_params['u2'],
+             self._f0.maxw_params['u3'],
+             self._f0.maxw_params['vth1'],
+             self._f0.maxw_params['vth2'],
+             self._f0.maxw_params['vth3']]
         )
 
         self._info = params['info']
@@ -615,13 +615,13 @@ class EfieldWeightsAnalytic(Propagator):
         self._kappa = params['kappa']
         self._f0 = params['f0']
         self._f0_params = np.array(
-            [self._f0.bckgr_params['n'],
-             self._f0.bckgr_params['u1'],
-             self._f0.bckgr_params['u2'],
-             self._f0.bckgr_params['u3'],
-             self._f0.bckgr_params['vth1'],
-             self._f0.bckgr_params['vth2'],
-             self._f0.bckgr_params['vth3']]
+            [self._f0.maxw_params['n'],
+             self._f0.maxw_params['u1'],
+             self._f0.maxw_params['u2'],
+             self._f0.maxw_params['u3'],
+             self._f0.maxw_params['vth1'],
+             self._f0.maxw_params['vth2'],
+             self._f0.maxw_params['vth3']]
         )
 
         self._info = params['info']
@@ -1231,15 +1231,15 @@ class CurrentCoupling6DCurrent(Propagator):
 
 
 class CurrentCoupling5DCurlb(Propagator):
-    r'''Crank-Nicolson step for the current coupling part (:math:`v_\parallel \nabla \times \mathbf b_0`) in `LinearMHDDriftkineticCC <https://struphy.pages.mpcdf.de/struphy/sections/models.html#struphy.models.hybrid.LinearMHDDriftkineticCC>`_ model,
+    r'''Crank-Nicolson scheme for the CC-Curlb step in :class:`~struphy.models.hybrid.LinearMHDDriftkineticCC`,
 
-    Equation:
+    Equation: 
 
     .. math::
 
         \left\{ 
             \begin{aligned} 
-                n_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} = - \frac{A_h}{A_b} \iint f_{\textnormal{h}} \frac{1}{B^*_\parallel} v_\parallel^2 \nabla \times \mathbf b_0 \textnormal{d} v_\parallel \textnormal{d} \mu \times \mathbf B \,,
+                \int n_{0} &\frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \tilde{\mathbf V}\, \textnormal{d} \mathbf x = - \frac{A_\textnormal{h}}{A_b} \iint \frac{f^\text{vol}}{B^*_\parallel} v_\parallel^2 (\nabla \times \mathbf b_0)  \times \mathbf B \cdot \tilde{\mathbf V}\, \textnormal{d} \mathbf x \textnormal{d} v_\parallel \textnormal{d} \mu \quad \forall \ \tilde{\mathbf V} \,,
                 \\
                 &\frac{\partial v_\parallel}{\partial t} = - \frac{1}{B^*_\parallel} v_\parallel (\nabla \times \mathbf b_0) \cdot (\mathbf B \times \tilde{\mathbf U}) \,.
             \end{aligned}
@@ -1252,63 +1252,30 @@ class CurrentCoupling5DCurlb(Propagator):
         \begin{bmatrix} 
             \mathbf u^{n+1} - \mathbf u^n \\ V_\parallel^{n+1} - V_\parallel^n
         \end{bmatrix} 
-        = \frac{\Delta t}{2} \,.
+        = \frac{\Delta t}{2} 
         \begin{bmatrix} 
-            0 & (\mathbb M^\rho_\alpha)^{-1} {\mathbb{P}^2}^\top \mathbb B^{*,-1}_\parallel \mathbb{V}_\parallel \sqrt{\mathbb g}^{-1} \sqrt{\mathbb g}^{-1} \mathbb{B}^\times \mathbb b_0^{\nabla \times}
+            0 & - (\mathbb{M}^{2,n})^{-1} \left\{ \mathbb{L}^2 \frac{1}{\bar{\sqrt{g}}} \right\}\cdot_\text{vector} \left\{\bar{b}^{\nabla \times}_0 (\bar{B}^\times_f)^\top \bar{V}_\parallel \frac{1}{\bar{\sqrt{g}}}\right\} \frac{1}{\bar B^{*0}_\parallel})
             \\  
-            - {\mathbb b_0^{\nabla \times}}^\top \mathbb{B}^\times \sqrt{\mathbb g}^{-1} \sqrt{\mathbb g}^{-1} \mathbb{V}_\parallel \mathbb B^{*,-1}_\parallel \mathbb{P}^2 (\mathbb M^\rho_\alpha)^{-1} & 0 
+            \frac{1}{\bar B^{*0}_\parallel} \left\{\bar{b}^{\nabla \times}_0 (\bar{B}^\times_f)^\top \bar{V}_\parallel \frac{1}{\bar{\sqrt{g}}}\right\}\, \cdot_\text{vector} \left\{\frac{1}{\bar{\sqrt{g}}}(\mathbb{L}²)^\top\right\} (\mathbb{M}^{2,n})^{-1} & 0 
         \end{bmatrix} 
         \begin{bmatrix}
-            \mathbb M^\rho_\alpha (\mathbf u^{n+1} + \mathbf u^n)
+            (\mathbb{M}^{2,n})^{-1} (\mathbf u^{n+1} + \mathbf u^n)
             \\
-            \mathbb W (\bar{V}_\parallel^{n+1} + \bar{V}_\parallel^n)
+            \frac{A_\textnormal{h}}{A_b} W (V_\parallel^{n+1} + V_\parallel^n)
         \end{bmatrix} \,,
 
     where 
-    :math:`\mathbb M^\rho_\alpha` is a :ref:`weighted_mass` being weighted with :math:`\rho_0`, the MHD equilibirum density. 
-    :math:`\alpha \in \{1, 2, v\}` denotes the :math:`\alpha`-form space where the operators correspond to.
-    Moreover, :math:`\mathbb B^\times, \, \mathbb b_0^{\nabla \times}, \, \mathbb P^2` and notations with over-bar are the block matrices which are diagonally stacked collocation vectors.    Note that following matrices are not assembled but only for representing the accumulation and pushing of particles compactly:
+    :math:`\mathbb{M}^{\alpha,n}` is a :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`n_{0}`, the MHD equilibirum density. 
+    Moreover, :math:`\bar{B}^\times_f, \, \bar{b}_0^{\nabla \times}, \, \mathbb L^2` and notations with over-bar are the block matrices which are diagonally stacked collocation vectors.
 
-    .. math::
-
-        \begin{alignat}{2}
-            &\mathbb{V}_\parallel := \mathbb{I}_3 \otimes \text{diag}(V_\parallel) && 
-            \bar{V}_\parallel := (V_\parallel, V_\parallel, V_\parallel) \qquad \qquad V_\parallel := (v_{\parallel,1}, \, \dots, v_{\parallel,N_p})^\top
-            \\
-            &\mathbb W_\parallel := \mathbb{I}_3 \otimes \text{diag}(W) && 
-            W := (\omega_1, \, \dots, \omega_{N_p})^\top 
-            \\
-            &\mathbb B^{*,-1}_\parallel := \mathbb{I}_3 \otimes \mathbb{B}^{*, -1}_\parallel && 
-            \bar B^{*,-1}_\parallel := \text{diag}(B^{*, -1}_{\parallel}(\boldsymbol{\eta}_1, v_{\parallel,1}), \, \dots, B^{*, -1}_{\parallel}(\boldsymbol{\eta}_{N_p}, v_{\parallel,N_p}))
-            \\
-            &\sqrt{\mathbb g}^{-1} := \mathbb{I}_3 \otimes  \bar{\sqrt{g}}^{-1} && 
-            \bar{\sqrt{g}}^{-1} := \text{diag}(\sqrt{g(\boldsymbol{\eta}_{1})}^{-1}, \, \dots, \sqrt{g(\boldsymbol{\eta}_{N_p})}^{-1})
-            \\
-            &\mathbb{P}^n := \text{diag}(\mathbb{P}^n_1, \mathbb{P}^n_2, \mathbb{P}^n_3) && 
-            \mathbb{P}^n_\mu := (\Lambda^n_{\mu,i}(\boldsymbol{\eta}_k))_{0\leq i \leq N^n_\mu, \,  1\leq k \leq N_p, \, n \in \{v,1,2\}, \, \mu \in \{ 1,2,3\}}
-            \\
-            &\mathbb{b}^{\nabla \times}_0 := (\mathbb{b}^{\nabla \times}_{0,1}, \mathbb{b}^{\nabla \times}_{0,2}, \mathbb{b}^{\nabla \times}_{0,3}) &&
-            \mathbb{b}^{\nabla\times}_{0,\mu} := ((\widehat \nabla \times \widehat{\mathbf b}^1_{0})_\mu(\boldsymbol{\eta}_k))_{1 \leq k \leq N_p, \mu \in \{1,2,3\}}
-            \\
-            &\mathbb{B}^\times := 
-            \begin{pmatrix}
-                0 & - \mathbb{B}^2_3 & \mathbb{B}^2_2
-                \\
-                \mathbb{B}^2_3 & 0 & -\mathbb{B}^2_1
-                \\
-                - \mathbb{B}^2_2 & \mathbb{B}^2_1 & 0
-            \end{pmatrix} \qquad && 
-            \mathbb{B}^2_\mu = \mathbf b^\top \mathbb{P}^2_\mu + (\widehat{\mathbf B}^2_{0,\mu}(\boldsymbol{\eta}_k))_{1 \leq k \leq N_p, \mu \in \{1,2,3\}}
-        \end{alignat}
-
-    The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
+    For the detail explanation of the notations, see `2022_DriftKineticCurrentCoupling <https://gitlab.mpcdf.mpg.de/struphy/struphy-projects/-/blob/main/running-projects/2022_DriftKineticCurrentCoupling.md?ref_type=heads>`_.
 
     Parameters
     ---------- 
-    particles : struphy.pic.particles.Particles6D
+    particles : Particles5D
         Particles object.
 
-    u : psydac.linalg.block.BlockVector
+    u : BlockVector
         FE coefficients of MHD velocity.
 
     **params : dict
@@ -1360,6 +1327,7 @@ class CurrentCoupling5DCurlb(Propagator):
         self._scale_push = 1
 
         u_id = self.derham.space_to_form[params['u_space']]
+        self._E0T = self.derham.extraction_ops['0'].transpose()
         self._EuT = self.derham.extraction_ops[u_id].transpose()
         self._E2T = self.derham.extraction_ops['2'].transpose()
         self._E1T = self.derham.extraction_ops['1'].transpose()
@@ -1423,7 +1391,7 @@ class CurrentCoupling5DCurlb(Propagator):
                              Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
                              self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                              self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                             self._space_key_int, self._coupling_mat, self._coupling_vec)
+                             self._space_key_int, self._coupling_mat, self._coupling_vec, 0.1)
 
         # update u coefficients
         un1, info = self._schur_solver(
@@ -1443,7 +1411,7 @@ class CurrentCoupling5DCurlb(Propagator):
                      Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
                      self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                      self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                     _Eu[0]._data, _Eu[1]._data, _Eu[2]._data)
+                     _Eu[0]._data, _Eu[1]._data, _Eu[2]._data, 0.1)
 
         # write new coeffs into Propagator.variables
         max_du, = self.feec_vars_update(un1)
@@ -1467,8 +1435,8 @@ class CurrentCoupling5DCurlb(Propagator):
         return dct
 
 
-class CurrentCoupling5DGradBxB(Propagator):
-    r'''Crank-Nicolson step for the current coupling part (:math:`\mu \nabla B_\parallel \times \mathbf b_0`) in `LinearMHDDriftkineticCC <https://struphy.pages.mpcdf.de/struphy/sections/models.html#struphy.models.hybrid.LinearMHDDriftkineticCC>`_ model,
+class CurrentCoupling5DGradB(Propagator):
+    r'''Crank-Nicolson scheme for the CC-GradB step in :class:`~struphy.models.hybrid.LinearMHDDriftkineticCC`.
 
     Equation:
 
@@ -1476,9 +1444,9 @@ class CurrentCoupling5DGradBxB(Propagator):
 
         \left\{ 
             \begin{aligned} 
-                n_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} = \frac{A_h}{A_b} \iint f_{\textnormal{h}} \frac{1}{B^*_\parallel} \mathbf b_0 \times (\mu \nabla B_\parallel) \textnormal{d} v_\parallel \textnormal{d} \mu \times \mathbf B \,,
+                \int n_{0} &\frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \tilde{\mathbf V}\, \textnormal{d} \mathbf x = - \frac{A_\textnormal{h}}{A_b} \iint \mu \frac{f^\text{vol}}{B^*_\parallel} (\mathbf b_0 \times \nabla B_\parallel) \times \mathbf B \cdot \tilde{\mathbf V} \,\textnormal{d} \mathbf x \textnormal{d} v_\parallel \textnormal{d} \mu \quad \forall \ \tilde{\mathbf V} \,,
                 \\
-                &\frac{\partial \mathbf X}{\partial t} = \frac{1}{B^*_\parallel} \mathbf b_0 \times \tilde{\mathbf U} \times \mathbf B \,.
+                &\frac{\partial \boldsymbol \eta}{\partial t} = \frac{1}{B^*_\parallel} \mathbf b_0 \times (\tilde{\mathbf U} \times \mathbf B) \,.
             \end{aligned}
         \right.
 
@@ -1489,64 +1457,30 @@ class CurrentCoupling5DGradBxB(Propagator):
         \begin{bmatrix} 
             \mathbf u^{n+1} - \mathbf u^n \\ \mathbf H^{n+1} - \mathbf H^n
         \end{bmatrix} 
-        = \frac{\Delta t}{2} \,.
+        = \frac{\Delta t}{2}
         \begin{bmatrix} 
-            0 & (\mathbb M^\rho_\alpha)^{-1} {\mathbb{P}^2}^\top \mathbb B^{*,-1}_\parallel \sqrt{\mathbb g}^{-1}\mathbb{B}^\times \bar G^{-1} \mathbb b_0^\times \bar G^{-1}
+            0 & (\mathbb{M}^{2,n})^{-1} \mathbb{L}² \frac{1}{\bar{\sqrt{g}}} \frac{1}{\bar B^{*0}_\parallel}\bar{B}^\times_f \bar{G}^{-1} \bar{b}^\times_0 \bar{G}^{-1} 
             \\  
-            - \bar G^{-1} \mathbb b_0^\times \bar G^{-1} \mathbb{B}^\times \sqrt{\mathbb g}^{-1} \mathbb B^{*,-1}_\parallel \mathbb{P}^2 (\mathbb M^\rho_\alpha)^{-1} & 0 
+            -\bar{G}^{-1} \bar{b}^\times_0 \bar{G}^{-1}  \bar{B}^\times_f \frac{1}{\bar B^{*0}_\parallel} \frac{1}{\bar{\sqrt{g}}} (\mathbb{L}²)^\top (\mathbb{M}^{2,n})^{-1} & 0 
         \end{bmatrix} 
         \begin{bmatrix}
-            \mathbb M^\rho_\alpha (\mathbf u^{n+1} + \mathbf u^n)
+            \mathbb M^{2,n} (\mathbf u^{n+1} + \mathbf u^n)
             \\
-            \mathbb{W} \bar \mu \mathbb P^2 \mathbb G \mathcal{P}_b (\mathbf b^{n+1} + \mathbf b^n)
+            \frac{A_\textnormal{h}}{A_b} \bar M \bar W \overline{\nabla B}_\parallel 
         \end{bmatrix} \,,
 
     where 
-    :math:`\mathbb M^\rho_\alpha` is a :ref:`weighted_mass` being weighted with :math:`\rho_0`, the MHD equilibirum density. 
+    :math:`\mathbb M^\rho_\alpha` is a :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`\rho_0`, the MHD equilibirum density. 
     :math:`\alpha \in \{1, 2, v\}` denotes the :math:`\alpha`-form space where the operators correspond to.
-    Moreover, :math:`\mathbb B^\times, \, \mathbb b_0^{\times}, \, \mathbb P^2` and notations with over-bar are the block matrices which are diagonally stacked collocation vectors.    Note that following matrices are not assembled but only for representing the accumulation and pushing of particles compactly:
 
-    .. math::
-
-        \begin{alignat}{2}
-            \\
-            &\mathbf H := (\eta_{1,1}, \dots, \eta_{N_p,1}, \eta_{1,2}, \dots, \eta_{N_p,2}, \eta_{1,3}, \dots, \eta_{N_p,3})^\top
-            \\
-            &\bar \mu := \mathbb{I}_3 \otimes \text{diag}((\mu_1, \, \dots, \mu_{N_p})^\top )
-            \\
-            &\mathbb W_\parallel := \mathbb{I}_3 \otimes \text{diag}(W) && 
-            W := (\omega_1, \, \dots, \omega_{N_p})^\top 
-            \\
-            &\mathbb B^{*,-1}_\parallel := \mathbb{I}_3 \otimes \mathbb{B}^{*, -1}_\parallel && 
-            \bar B^{*,-1}_\parallel := \text{diag}(B^{*, -1}_{\parallel}(\boldsymbol{\eta}_1, v_{\parallel,1}), \, \dots, B^{*, -1}_{\parallel}(\boldsymbol{\eta}_{N_p}, v_{\parallel,N_p}))
-            \\
-            &\bar{G}^{-1} := \text{diag}(G^{-1}(\boldsymbol{\eta}_{1}), \dots, G^{-1}(\boldsymbol{\eta}_{N_p}))
-            \\
-            &\sqrt{\mathbb g}^{-1} := \mathbb{I}_3 \otimes  \bar{\sqrt{g}}^{-1} && 
-            \bar{\sqrt{g}}^{-1} := \text{diag}(\sqrt{g(\boldsymbol{\eta}_{1})}^{-1}, \, \dots, \sqrt{g(\boldsymbol{\eta}_{N_p})}^{-1})
-            \\
-            &\mathbb{P}^n := \text{diag}(\mathbb{P}^n_1, \mathbb{P}^n_2, \mathbb{P}^n_3) && 
-            \mathbb{P}^n_\mu := (\Lambda^n_{\mu,i}(\boldsymbol{\eta}_k))_{0\leq i \leq N^n_\mu, \,  1\leq k \leq N_p, \, n \in \{v,1,2\}, \, \mu \in \{ 1,2,3\}}
-            \\
-            &\mathbb{b}_0^\times := 
-            \begin{pmatrix}
-                0 & - \mathbb{b}^2_{0,3} & \mathbb{b}^2_{0,2}
-                \\
-                \mathbb{b}^2_{0,3} & 0 & -\mathbb{b}^2_{0,1}
-                \\
-                - \mathbb{b}^2_{0,2} & \mathbb{b}^2_{0,1} & 0
-            \end{pmatrix} \qquad && 
-            \mathbb{b}^2_{0,\mu} = (\widehat{\mathbf b}^2_{0,\mu}(\boldsymbol{\eta}_k))_{1 \leq k \leq N_p, \mu \in \{1,2,3\}}
-        \end{alignat}
-
-    The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
+    For the detail explanation of the notations, see `2022_DriftKineticCurrentCoupling <https://gitlab.mpcdf.mpg.de/struphy/struphy-projects/-/blob/main/running-projects/2022_DriftKineticCurrentCoupling.md?ref_type=heads>`_.
 
     Parameters
     ---------- 
-    particles : struphy.pic.particles.Particles6D
+    particles : Particles5D
         Particles object.
 
-    u : psydac.linalg.block.BlockVector
+    u : BlockVector
         FE coefficients of MHD velocity.
 
     **params : dict
@@ -1565,7 +1499,6 @@ class CurrentCoupling5DGradBxB(Propagator):
                           'b_eq': None,
                           'unit_b1': None,
                           'unit_b2': None,
-                          'abs_b': None,
                           'gradB1': None,
                           'curl_unit_b2': None,
                           'f0': Maxwellian5D(),
@@ -1595,8 +1528,7 @@ class CurrentCoupling5DGradBxB(Propagator):
         self._b_eq = params['b_eq']
         self._unit_b1 = params['unit_b1']
         self._unit_b2 = params['unit_b2']
-        self._abs_b = params['abs_b']
-        self._grad_abs_b = params['gradB1']
+        self._gradB1 = params['gradB1']
         self._curl_norm_b = params['curl_unit_b2']
         self._info = params['info']
         self._rank = self.derham.comm.Get_rank()
@@ -1674,8 +1606,8 @@ class CurrentCoupling5DGradBxB(Propagator):
         self._u_new = u.space.zeros()
         self._u_avg1 = u.space.zeros()
         self._u_avg2 = self._EuT.codomain.zeros()
-        self._tmp1 = self._abs_b.space.zeros()
-        self._tmp2 = self._grad_abs_b.space.zeros()
+        self._tmp1 = self._E0T.codomain.zeros()
+        self._tmp2 = self._gradB1.space.zeros()
         self._tmp3 = self._E1T.codomain.zeros()
 
     def __call__(self, dt):
@@ -1690,7 +1622,7 @@ class CurrentCoupling5DGradBxB(Propagator):
 
         PBb = self._PB.dot(self._b, out=self._tmp1)
         grad_PBb = self.derham.grad.dot(PBb, out=self._tmp2)
-        grad_PBb += self._grad_abs_b
+        grad_PBb += self._gradB1
 
         Eb_full = self._E2T.dot(b_full, out=self._b_full2)
         Eb_full.update_ghost_regions()
@@ -1705,7 +1637,7 @@ class CurrentCoupling5DGradBxB(Propagator):
                              self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                              self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
                              Egrad_PBb[0]._data, Egrad_PBb[1]._data, Egrad_PBb[2]._data,
-                             self._space_key_int, self._coupling_mat, self._coupling_vec)
+                             self._space_key_int, self._coupling_mat, self._coupling_vec, 0.1)
 
         # solve linear system for updated u coefficients
         un1, info = self._schur_solver(
@@ -1726,16 +1658,16 @@ class CurrentCoupling5DGradBxB(Propagator):
                      self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                      self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
                      Eu[0]._data, Eu[1]._data, Eu[2]._data,
-                     self._butcher.a, self._butcher.b, self._butcher.c,
+                     self._butcher.a, self._butcher.b, self._butcher.c, 0.1,
                      mpi_sort='each')
 
         # write new coeffs into Propagator.variables
         max_du, = self.feec_vars_update(un1)
 
         if self._info and self._rank == 0:
-            print('Status     for CurrentCoupling5DGradBxB:', info['success'])
-            print('Iterations for CurrentCoupling5DGradBxB:', info['niter'])
-            print('Maxdiff up for CurrentCoupling5DGradBxB:', max_du)
+            print('Status     for CurrentCoupling5DGradB:', info['success'])
+            print('Iterations for CurrentCoupling5DGradB:', info['niter'])
+            print('Maxdiff up for CurrentCoupling5DGradB:', max_du)
             print()
 
     @classmethod

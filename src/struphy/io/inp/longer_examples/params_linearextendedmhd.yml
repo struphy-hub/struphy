@@ -54,7 +54,7 @@ fluid :
                     u2 : [True, True, True] # components to be initialized (for scalar fields: no list)
                     pi3 : False              # components to be initialized (for scalar fields: no list)
                     pe3 : False             # components to be initialized (for scalar fields: no list)
-                variation_in : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
+                direction : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
                 amp : 0.1 # noise amplitude
                 seed : 1234    # seed for random number generator
 

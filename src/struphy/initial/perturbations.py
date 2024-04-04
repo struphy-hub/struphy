@@ -10,43 +10,30 @@ class ModesSin:
 
     .. math::
 
-        u(x, y, z) = \sum_{i} A_i \sin \left(l_i \frac{2\pi}{L_x} x + m_i \frac{2\pi}{L_y} y + n_i \frac{2\pi}{L_z} z \right) \,.
+        u(x, y, z) = \sum_{s} A_s \sin \left(l_s \frac{2\pi}{L_x} x + m_s \frac{2\pi}{L_y} y + n_s \frac{2\pi}{L_z} z \right) \,.
 
-    Can be used in logical space with Lx=Ly=Lz=1.0 (default).
+    Can be used in logical space, where :math:`x \to \eta_1,\, y\to \eta_2,\, z \to \eta_3` 
+    and :math:`L_x=L_y=L_z=1.0` (default).
 
     Note
     ----
-    In the parameter .yml, use the following template in the section ``fluid/<species>``::
+    Example of use in a ``.yml`` parameter file::
 
-        init :
+        perturbations :
             type : ModesSin
             ModesSin :
                 comps :
-                    n3 : null                    # choices: null, 'physical', '0', '3'
-                    u2 : ['physical', 'v', '2']  # choices: null, 'physical', '1', '2', 'v', 'norm'
-                    p3 : H1                      # choices: null, 'physical', '0', '3'
-                ls :
-                    n3: null            # Integer mode numbers in x or eta_1
-                    u2: [[0], [0], [0]] # Integer mode numbers in x or eta_1
-                    p3: [0]             # Integer mode numbers in x or eta_1
-                ms : 
-                    n3: null            # Integer mode numbers in y or eta_2
-                    u2: [[0], [0], [0]] # Integer mode numbers in y or eta_2
-                    p3: [0]             # Integer mode numbers in y or eta_2
-                ns :
-                    n3: null            # Integer mode numbers in z or eta_3
-                    u2: [[1], [1], [1]] # Integer mode numbers in z or eta_3
-                    p3: [1]             # Integer mode numbers in z or eta_3
-                amps :
-                    n3: null                        # amplitudes of each mode
-                    u2: [[0.001], [0.001], [0.001]] # amplitudes of each mode
-                    p3: [0.01]                      # amplitudes of each mode
-                Lx : 7.853981633974483 # domain length in x
-                Ly : 1.                # domain length in y
-                Lz : 1.                # domain length in z
+                    scalar_name : '0' # choices: null, 'physical', '0', '3'
+                    vector_name : [null , 'v', '2']  # choices: null, 'physical', '1', '2', 'v', 'norm'
+                ls : 
+                    scalar_name: [1, 3] # two x-modes for scalar variable
+                    vector_name: [null, [0, 1], [4]] # two x-modes for 2nd comp. and one x-mode for third component of vector-valued variable            
+                Lx : 7.853981633974483 
+                Ly : 1.                
+                Lz : 1.               
     '''
 
-    def __init__(self, ls=[0], ms=[0], ns=[0], amps=[1e-4], Lx=1., Ly=1., Lz=1.):
+    def __init__(self, ls=None, ms=None, ns=None, amps=[1e-4], Lx=1., Ly=1., Lz=1.):
         '''
         Parameters
         ----------
@@ -66,9 +53,35 @@ class ModesSin:
             Domain lengths.
         '''
 
-        assert len(ls) == len(ms)
-        assert len(ls) == len(ns)
-        assert len(ls) == len(amps)
+        if ls is not None:
+            n_modes = len(ls)
+        elif ms is not None:
+            n_modes = len(ms)
+            ls = [0]*n_modes
+        elif ns is not None:
+            n_modes = len(ns)
+            ls = [0]*n_modes
+            ms = [0]*n_modes
+        else:
+            n_modes = 1
+            ls = [0]
+            ms = [0]
+            ns = [0]
+            
+        if ms is None:
+            ms = [0]*n_modes
+        else:
+            assert len(ms) == n_modes
+            
+        if ns is None:
+            ns = [0]*n_modes
+        else:
+            assert len(ns) == n_modes
+            
+        if len(amps) == 1:
+            amps = [amps[0]]*n_modes
+        else:
+            assert len(amps) == n_modes
 
         self._ls = ls
         self._ms = ms
@@ -94,43 +107,30 @@ class ModesCos:
 
     .. math::
 
-        u(x, y, z) = \sum_{i} A_i \cos \left(l_i \frac{2\pi}{L_x} x + m_i \frac{2\pi}{L_y} y + n_i \frac{2\pi}{L_z} z \right) \,.
+        u(x, y, z) = \sum_{s} A_s \cos \left(l_s \frac{2\pi}{L_x} x + m_s \frac{2\pi}{L_y} y + n_s \frac{2\pi}{L_z} z \right) \,.
 
-    Can be used in logical space with Lx=Ly=Lz=1.0 (default).
+    Can be used in logical space, where :math:`x \to \eta_1,\, y\to \eta_2,\, z \to \eta_3` 
+    and :math:`L_x=L_y=L_z=1.0` (default).
 
     Note
     ----
-    In the parameter .yml, use the following template in the section ``fluid/<species>``::
+    Example of use in a ``.yml`` parameter file::
 
-        init :
-            type : ModesCos 
+        perturbations :
+            type : ModesCos
             ModesCos :
                 comps :
-                    n3 : null                     # choices: null, 'physical', '0', '3'
-                    u2 : ['physical', 'v', '2']   # choices: null, 'physical', '1', '2', 'v', 'norm'
-                    p3 : H1                       # choices: null, 'physical', '0', '3'
-                ls :
-                    n3: null            # Integer mode numbers in x or eta_1
-                    u2: [[0], [0], [0]] # Integer mode numbers in x or eta_1
-                    p3: [0]             # Integer mode numbers in x or eta_1
-                ms : 
-                    n3: null            # Integer mode numbers in y or eta_2
-                    u2: [[0], [0], [0]] # Integer mode numbers in y or eta_2
-                    p3: [0]             # Integer mode numbers in y or eta_2
-                ns :
-                    n3: null            # Integer mode numbers in z or eta_3
-                    u2: [[1], [1], [1]] # Integer mode numbers in z or eta_3
-                    p3: [1]             # Integer mode numbers in z or eta_3
-                amps :
-                    n3: null                        # amplitudes of each mode
-                    u2: [[0.001], [0.001], [0.001]] # amplitudes of each mode
-                    p3: [0.01]                      # amplitudes of each mode
-                Lx : 7.853981633974483 # domain length in x
-                Ly : 1.                # domain length in y
-                Lz : 1.                # domain length in z
+                    scalar_name : '0' # choices: null, 'physical', '0', '3'
+                    vector_name : [null , 'v', '2']  # choices: null, 'physical', '1', '2', 'v', 'norm'
+                ls : 
+                    scalar_name: [1, 3] # two x-modes for scalar variable
+                    vector_name: [null, [0, 1], [4]] # two x-modes for 2nd comp. and one x-mode for third component of vector-valued variable            
+                Lx : 7.853981633974483 
+                Ly : 1.                
+                Lz : 1. 
     '''
 
-    def __init__(self, ls=[0], ms=[0], ns=[0], amps=[1e-4], Lx=1., Ly=1., Lz=1.):
+    def __init__(self, ls=None, ms=None, ns=None, amps=[1e-4], Lx=1., Ly=1., Lz=1.):
         '''
         Parameters
         ----------
@@ -150,9 +150,35 @@ class ModesCos:
             Domain lengths.
         '''
 
-        assert len(ls) == len(ms)
-        assert len(ls) == len(ns)
-        assert len(ls) == len(amps)
+        if ls is not None:
+            n_modes = len(ls)
+        elif ms is not None:
+            n_modes = len(ms)
+            ls = [0]*n_modes
+        elif ns is not None:
+            n_modes = len(ns)
+            ls = [0]*n_modes
+            ms = [0]*n_modes
+        else:
+            n_modes = 1
+            ls = [0]
+            ms = [0]
+            ns = [0]
+            
+        if ms is None:
+            ms = [0]*n_modes
+        else:
+            assert len(ms) == n_modes
+            
+        if ns is None:
+            ns = [0]*n_modes
+        else:
+            assert len(ns) == n_modes
+            
+        if len(amps) == 1:
+            amps = [amps[0]]*n_modes
+        else:
+            assert len(amps) == n_modes
 
         self._ls = ls
         self._ms = ms
@@ -179,13 +205,13 @@ class TorusModesSin:
 
     .. math::
 
-        u(\eta_1, \eta_2, \eta_3) = \sum_{i=0}^N \chi_i(\eta_1) A_i \sin(m_i\,2\pi \eta_2 + n_i\,2\pi \eta_3) \,,
+        u(\eta_1, \eta_2, \eta_3) = \sum_{s} \chi_s(\eta_1) A_s \sin(m_s\,2\pi \eta_2 + n_s\,2\pi \eta_3) \,,
 
-    where :math:`\chi_i(\eta_1)` is one of
+    where :math:`\chi_s(\eta_1)` is one of
 
     .. math::
 
-        \chi_i(\eta_1) = \left\{ 
+        \chi_s(\eta_1) = \left\{ 
         \begin{aligned}
         &\sin(\pi\eta_1)\,,
         \\[2mm]
@@ -201,7 +227,7 @@ class TorusModesSin:
     ----
     In the parameter .yml, use the following template in the section ``fluid/<species>``::
 
-        init :
+        perturbations :
             type : TorusModesSin
             TorusModesSin :
                 comps :
@@ -230,7 +256,7 @@ class TorusModesSin:
                     p3: [0.01]                    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"        
     '''
 
-    def __init__(self, ms=[0], ns=[0], amps=[1e-4], pfuns=['sin'], pfun_params=None):
+    def __init__(self, ms=None, ns=None, amps=[1e-4], pfuns=['sin'], pfun_params=None):
         r'''
         Parameters
         ----------
@@ -250,14 +276,33 @@ class TorusModesSin:
             Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and None for "sin" and "cos".
         '''
 
-        assert len(ms) == len(ns)
-        assert len(ms) == len(pfuns)
-        assert len(ms) == len(amps)
+        if ms is not None:
+            n_modes = len(ms)
+        elif ns is not None:
+            n_modes = len(ns)
+            ms = [0]*n_modes
+        else:
+            n_modes = 1
+            ms = [1]
+            ns = [0]
+            
+        if ns is None:
+            ns = [0]*n_modes
+        else:
+            assert len(ns) == n_modes
+            
+        if len(amps) == 1:
+            amps = [amps[0]]*n_modes
+        else:
+            assert len(amps) == n_modes
 
+        if len(pfuns) == 1:
+            pfuns = [pfuns[0]]*n_modes
+        else:
+            assert len(pfuns) == n_modes
+            
         if pfun_params is None:
-            pfun_params = [None]*len(ms)
-
-        assert len(ms) == len(pfun_params)
+            pfun_params = [None]*n_modes
 
         self._ms = ms
         self._ns = ns
@@ -291,13 +336,13 @@ class TorusModesCos:
 
     .. math::
 
-        u(\eta_1, \eta_2, \eta_3) = \sum_{i=0}^N \chi_i(\eta_1) A_i \cos(m_i\,2\pi \eta_2 + n_i\,2\pi \eta_3) \,,
+        u(\eta_1, \eta_2, \eta_3) = \sum_{s} \chi_s(\eta_1) A_s \cos(m_s\,2\pi \eta_2 + n_s\,2\pi \eta_3) \,,
 
-    where :math:`\chi_i(\eta_1)` is one of
+    where :math:`\chi_s(\eta_1)` is one of
 
     .. math::
 
-        \chi_i(\eta_1) = \left\{ 
+        \chi_s(\eta_1) = \left\{ 
         \begin{aligned}
         &\sin(\pi\eta_1)\,,
         \\[2mm]
@@ -313,7 +358,7 @@ class TorusModesCos:
     ----
     In the parameter .yml, use the following template in the section ``fluid/<species>``::
 
-        init :
+        perturbations :
             type : TorusModesCos
             TorusModesCos :
                 comps :
@@ -342,7 +387,7 @@ class TorusModesCos:
                     p3: [0.01]                    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"        
     '''
 
-    def __init__(self, ms=[0], ns=[0], amps=[1e-4], pfuns=['cos'], pfun_params=None):
+    def __init__(self, ms=None, ns=None, amps=[1e-4], pfuns=['sin'], pfun_params=None):
         r'''
         Parameters
         ----------
@@ -362,14 +407,33 @@ class TorusModesCos:
             Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and None for "sin" and "cos".
         '''
 
-        assert len(ms) == len(ns)
-        assert len(ms) == len(pfuns)
-        assert len(ms) == len(amps)
+        if ms is not None:
+            n_modes = len(ms)
+        elif ns is not None:
+            n_modes = len(ns)
+            ms = [0]*n_modes
+        else:
+            n_modes = 1
+            ms = [1]
+            ns = [0]
+            
+        if ns is None:
+            ns = [0]*n_modes
+        else:
+            assert len(ns) == n_modes
+            
+        if len(amps) == 1:
+            amps = [amps[0]]*n_modes
+        else:
+            assert len(amps) == n_modes
 
+        if len(pfuns) == 1:
+            pfuns = [pfuns[0]]*n_modes
+        else:
+            assert len(pfuns) == n_modes
+            
         if pfun_params is None:
-            pfun_params = [None]*len(ms)
-
-        assert len(ms) == len(pfun_params)
+            pfun_params = [None]*n_modes
 
         self._ms = ms
         self._ns = ns
@@ -414,7 +478,7 @@ class Shear_x:
     ----
     In the parameter .yml, use the following in the section ``fluid/<species>``::
 
-        init :
+        perturbations :
             type : Shear_x
             Shear_x :
                 comps :
@@ -460,7 +524,7 @@ class Shear_y:
     ----
     In the parameter .yml, use the following in the section ``fluid/<species>``::
 
-        init :
+        perturbations :
             type : Shear_y
             Shear_y :
                 comps :
@@ -506,7 +570,7 @@ class Shear_z:
     ----
     In the parameter .yml, use the following in the section ``fluid/<species>``::
 
-        init :
+        perturbations :
             type : Shear_y
             Shear_y :
                 comps :
@@ -584,6 +648,8 @@ class ITPA_density:
         if self._c[2] == 0.:
             val = self._c[3] - 0*eta1
         else:
-            val = self._n0*self._c[3]*np.exp(-self._c[2]/self._c[1]*np.tanh((eta1 - self._c[0])/self._c[2]))
+            val = self._n0 * \
+                self._c[3]*np.exp(-self._c[2]/self._c[1] *
+                                  np.tanh((eta1 - self._c[0])/self._c[2]))
 
         return val

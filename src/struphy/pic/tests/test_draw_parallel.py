@@ -58,13 +58,12 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
         'bc': bc_params,
         'domain': domain
     }
-    init_params = {'type': 'Maxwellian6D'}
 
-    particles = Particles6D('energetic_ions', **marker_params, derham=derham)
+    particles = Particles6D('energetic_ions', **marker_params, derham=derham, bckgr_params=None)
     particles.draw_markers()
 
     # test weights
-    particles.initialize_weights(init_params)
+    particles.initialize_weights()
     _w0 = particles.weights
     print('Test weights:')
     print(f'rank {rank}:', _w0.shape, np.min(_w0), np.max(_w0))
