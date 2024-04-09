@@ -13,7 +13,7 @@ The package is designed for the efficient solution of partial differential equat
 on :ref:`geomFE` and :ref:`particle_discrete`.
 
 Struphy features a :ref:`growing list of PDE models <models>` 
-which can be solved on a variety of `mapped domains <https://struphy.pages.mpcdf.de/struphy/sections/STUBDIR/struphy.geometry.domains.html>`_.
+which can be solved on a variety of :ref:`mapped domains <avail_mappings>`.
 
 | Struphy can be improved by you (see :ref:`developers`).
 | To become a developer, you need a Max-Planck Gitlab (https://gitlab.mpcdf.mpg.de/) account. 

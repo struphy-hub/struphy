@@ -146,7 +146,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
             poisson_solver = ImplicitDiffusion(_phi.vector,
                                                sigma_1=1e-12,
                                                sigma_2=0.,
-                                               sigma_3=1.,
+                                               sigma_3='dt',
                                                A2_mat='M1perp',
                                                rho=rho_vec,
                                                **solver_params)
