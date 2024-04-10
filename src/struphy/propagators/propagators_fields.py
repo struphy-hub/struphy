@@ -1350,7 +1350,6 @@ class CurrentCoupling6DDensity(Propagator):
                           'u_space': 'Hdiv',
                           'b_eq': None,
                           'b_tilde': None,
-                          'f0': Maxwellian6D(),
                           'type': ('pbicgstab', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
@@ -1380,22 +1379,19 @@ class CurrentCoupling6DDensity(Propagator):
         self._particles = params['particles']
         self._b_eq = params['b_eq']
         self._b_tilde = params['b_tilde']
-        self._f0 = params['f0']
 
-        if self._f0 is not None:
+        if self._particles.control_variate:
 
-            assert isinstance(self._f0, Maxwellian)
+            # control variate method is only valid with Maxwellian distributions
+            assert isinstance(self._particles.f_backgr, Maxwellian)
+            assert params['u_space'] == 'Hdiv'
 
-            # evaluate and save nh0*|det(DF)| (H1vec) or nh0/|det(DF)| (Hdiv) at quadrature points for control variate
+            # evaluate and save nh0/|det(DF)| (push-forward) at quadrature points for control variate
             quad_pts = [quad_grid[nquad].points.flatten()
                         for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
 
-            if params['u_space'] == 'H1vec':
-                self._nh0_at_quad = self.domain.pull(
-                    [self._f0.n], *quad_pts, kind='3', squeeze_out=False, coordinates='logical')
-            else:
-                self._nh0_at_quad = self.domain.push(
-                    [self._f0.n], *quad_pts, kind='3', squeeze_out=False)
+            self._nh0_at_quad = self.domain.push(
+                self._particles.f_backgr.n, *quad_pts, kind='3', squeeze_out=False)
 
             # memory allocation of magnetic field at quadrature points
             self._b_quad1 = np.zeros_like(self._nh0_at_quad)
@@ -1471,7 +1467,7 @@ class CurrentCoupling6DDensity(Propagator):
         self._b_full2.update_ghost_regions()
 
         # perform accumulation (either with or without control variate)
-        if self._f0 is not None:
+        if self._particles.control_variate:
 
             # evaluate magnetic field at quadrature points (in-place)
             WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
@@ -1592,7 +1588,7 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
         params_default = {'particles': Particles5D,
                           'u_space': 'Hdiv',
                           'unit_b1': None,
-                          'f0': Maxwellian5D(),
+                          'absB0': None,
                           'type': ('pcg', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
@@ -1604,7 +1600,6 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
         params = set_defaults(params, params_default)
 
         self._particles = params['particles']
-        self._f0 = params['f0']
         self._type = params['type'][0]
         self._tol = params['tol']
         self._maxiter = params['maxiter']
@@ -1614,12 +1609,38 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
         self._scale_vec = params['Ah'] / params['Ab']
 
         self._unit_b1 = params['unit_b1']
+        self._absB0 = params['absB0']
 
         self._E1T = self.derham.extraction_ops['1'].transpose()
         self._unit_b1 = self._E1T.dot(self._unit_b1)
 
         self._ACC = Accumulator(self.derham, self.domain,
                                 'Hdiv', 'cc_lin_mhd_5d_M', add_vector=True, symmetry='symm')
+
+        if self._particles.control_variate:
+
+            # control variate method is only valid with Maxwellian distributions with "zero perp mean velocity".
+            assert isinstance(self._particles.f_backgr, Maxwellian)
+            
+            self._ACC.init_control_variate(self.mass_ops)
+
+            # evaluate and save f_backgr.n at quadrature points
+            quad_pts = [quad_grid[nquad].points.flatten()
+                        for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
+
+            n0_at_quad = self.domain.push(
+                self._particles.f_backgr.n, *quad_pts, kind='0', squeeze_out=False)
+
+            # evaluate M0 = unit_b1 (1form) / absB0 (0form) * 2 * vth_perp² at quadrature points
+            quad_pts_array = self.domain.prepare_eval_pts(*quad_pts)[:3]
+
+            vth_perp = self.particles.f_backgr.vth(*quad_pts_array)[1]
+
+            absB0_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['0'], self._absB0)
+            
+            unit_b1_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['1'], self._unit_b1)
+
+            self._M0_at_quad = unit_b1_at_quad / absB0_at_quad * vth_perp**2 * n0_at_quad * self._scale_vec
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         id_M = 'M' + self.derham.space_to_form[params['u_space']] + 'n'
@@ -1663,10 +1684,17 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
         un = self.feec_vars[0]
         bn = self.feec_vars[1]
 
-        # accumulate vector
-        self._ACC.accumulate(self._particles,
-                             self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                             self._scale_vec, 0.1)
+        # perform accumulation (either with or without control variate)
+        if self._particles.control_variate:
+
+            self._ACC.accumulate(self._particles, 
+                                 self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                 self._scale_vec, 0.,
+                                 control_vec=[self._M0_at_quad[0], self._M0_at_quad[1], self._M0_at_quad[2]])
+        else:
+            self._ACC.accumulate(self._particles, 
+                                 self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                 self._scale_vec, 0.)
 
         # solve for new u coeffs (no tmps created here)
         byn = self._B.dot(bn, out=self._byn)
@@ -1783,7 +1811,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                           'particles': Particles5D,
                           'u_space': 'Hdiv',
                           'unit_b1': None,
-                          'f0': Maxwellian5D(),
+                          'absB0': None,
                           'type': ('pbicgstab', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
@@ -1804,7 +1832,6 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         else:
             self._space_key_int = int(self._u_id)
 
-        self._f0 = params['f0']
         self._b = params['b']
         self._bc = self.derham.dirichlet_bc
         self._info = params['info']
@@ -1812,12 +1839,38 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._scale_vec = params['Ah'] / params['Ab']
 
         self._unit_b1 = params['unit_b1']
+        self._absB0 = params['absB0']
 
         self._E1T = self.derham.extraction_ops['1'].transpose()
         self._unit_b1 = self._E1T.dot(self._unit_b1)
 
         self._ACC = Accumulator(self.derham, self.domain,
                                 'Hdiv', 'cc_lin_mhd_5d_M', add_vector=True, symmetry='symm')
+
+        if self._particles.control_variate:
+
+            # control variate method is only valid with Maxwellian distributions with "zero perp mean velocity".
+            assert isinstance(self._particles.f_backgr, Maxwellian)
+            
+            self._ACC.init_control_variate(self.mass_ops)
+
+            # evaluate and save f_backgr.n at quadrature points
+            quad_pts = [quad_grid[nquad].points.flatten()
+                        for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
+
+            n0_at_quad = self.domain.push(
+                self._particles.f_backgr.n, *quad_pts, kind='0', squeeze_out=False)
+
+            # evaluate M0 = unit_b1 (1form) / absB0 (0form) * 2 * vth_perp² at quadrature points
+            quad_pts_array = self.domain.prepare_eval_pts(*quad_pts)[:3]
+
+            vth_perp = self.particles.f_backgr.vth(*quad_pts_array)[1]
+
+            absB0_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['0'], self._absB0)
+            
+            unit_b1_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['1'], self._unit_b1)
+
+            self._M0_at_quad = unit_b1_at_quad / absB0_at_quad * vth_perp**2 * n0_at_quad * self._scale_vec
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         id_Mn = 'M' + self._u_id + 'n'
@@ -1887,10 +1940,17 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         un = self.feec_vars[1]
         pn = self.feec_vars[2]
 
-        # accumulate vector
-        self._ACC.accumulate(self._particles,
-                             self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                             self._scale_vec, 0.1)
+        # perform accumulation (either with or without control variate)
+        if self._particles.control_variate:
+
+            self._ACC.accumulate(self._particles, 
+                                 self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                 self._scale_vec, 0.,
+                                 control_vec=[self._M0_at_quad[0], self._M0_at_quad[1], self._M0_at_quad[2]])
+        else:
+            self._ACC.accumulate(self._particles, 
+                                 self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                 self._scale_vec, 0.)
 
         # update time-dependent operator
         self._b.update_ghost_regions()
@@ -2047,7 +2107,6 @@ class CurrentCoupling5DDensity(Propagator):
                           'b_tilde': None,
                           'unit_b1': None,
                           'curl_unit_b2': None,
-                          'f0': Maxwellian5D(),
                           'type': 'pbicgstab',
                           'pc': 'MassMatrixPreconditioner',
                           'tol': 1e-8,
@@ -2076,7 +2135,6 @@ class CurrentCoupling5DDensity(Propagator):
         self._unit_b1 = params['unit_b1']
         self._curl_norm_b = params['curl_unit_b2']
         self._epsilon = params['epsilon']
-        self._f0 = params['f0']
 
         self._type = params['type'][0]
         self._tol = params['tol']
@@ -2085,9 +2143,62 @@ class CurrentCoupling5DDensity(Propagator):
         self._verbose = params['verbose']
         self._rank = self.derham.comm.Get_rank()
 
-        self._scale_mat = params['Ah'] / params['Ab']
+        self._scale_mat = params['Ah'] / params['Ab'] / self._epsilon
         self._accumulator = Accumulator(
             self.derham, self.domain, params['u_space'], 'cc_lin_mhd_5d_D', add_vector=False, symmetry='asym')
+
+        if self._particles.control_variate:
+
+            # control variate method is only valid with Maxwellian distributions
+            assert isinstance(self._particles.f_backgr, Maxwellian)
+            assert params['u_space'] == 'Hdiv'
+
+            # evaluate and save f_backgr.n / |det(DF)| at quadrature points
+            quad_pts = [quad_grid[nquad].points.flatten()
+                        for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
+
+            self._n0_at_quad = self.domain.push(
+                self._particles.f_backgr.n, *quad_pts, kind='3', squeeze_out=False)
+
+            # prepare field evaluation
+            quad_pts_array = self.domain.prepare_eval_pts(*quad_pts)[:3]
+
+            u0_parallel = self._particles.f_backgr.u(*quad_pts_array)[0]
+
+            det_df_at_quad = self.domain.jacobian_det(*quad_pts, squeeze_out=False)
+
+            # evaluate unit_b1 / |det(DF)| at quadrature points
+            self._unit_b1_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['1'], self._unit_b1)
+            self._unit_b1_at_quad /= det_df_at_quad
+
+            # evaluate unit_b1 (1form) dot epsilon * f_backgr.u * curl_norm_b (2form) / |det(DF)| at quadrature points
+            curl_norm_b_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._curl_norm_b)
+
+            self._unit_b1_dot_curl_norm_b_at_quad = np.sum(p * q for p, q in zip(self._unit_b1_at_quad, curl_norm_b_at_quad))
+
+            self._unit_b1_dot_curl_norm_b_at_quad /= det_df_at_quad
+            self._unit_b1_dot_curl_norm_b_at_quad *= self._epsilon
+            self._unit_b1_dot_curl_norm_b_at_quad *= u0_parallel
+
+            # memory allocation for magnetic field at quadrature points
+            self._b_quad1 = np.zeros_like(self._n0_at_quad)
+            self._b_quad2 = np.zeros_like(self._n0_at_quad)
+            self._b_quad3 = np.zeros_like(self._n0_at_quad)
+
+            # memory allocation for parallel magnetic field at quadrature points
+            self._B_para = np.zeros_like(self._n0_at_quad)
+
+            # memory allocation for control_const at quadrature points
+            self._control_const = np.zeros_like(self._n0_at_quad)
+
+            # memory allocation for self._b_quad x self._nh0_at_quad * self._coupling_const
+            self._mat12 = np.zeros_like(self._n0_at_quad)
+            self._mat13 = np.zeros_like(self._n0_at_quad)
+            self._mat23 = np.zeros_like(self._n0_at_quad)
+
+            self._mat21 = np.zeros_like(self._n0_at_quad)
+            self._mat31 = np.zeros_like(self._n0_at_quad)
+            self._mat32 = np.zeros_like(self._n0_at_quad)
 
         u_id = self.derham.space_to_form[params['u_space']]
         self._M = getattr(self.mass_ops, 'M' + u_id + 'n')
@@ -2139,11 +2250,45 @@ class CurrentCoupling5DDensity(Propagator):
         Eb_full = self._E2T.dot(b_full, out=self._b_full2)
         Eb_full.update_ghost_regions()
 
-        self._accumulator.accumulate(self._particles, self._epsilon,
-                                     Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
-                                     self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                     self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                     self._space_key_int, self._scale_mat, 0.1)
+        # perform accumulation (either with or without control variate)
+        if self._particles.control_variate:
+
+            # evaluate magnetic field at quadrature points (in-place)
+            WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
+                                           out=[self._b_quad1, self._b_quad2, self._b_quad3])
+            
+            # evaluate B_parallel
+            self._B_para = np.sum(p * q for p, q in zip(self._unit_b1_at_quad, [self._b_quad1, self._b_quad2, self._b_quad3]))
+
+            # evaluate coupling_const 1 - B_parallel / B^star_parallel
+            self._control_const = 1 - (self._B_para / (self._B_para + self._unit_b1_dot_curl_norm_b_at_quad))
+
+            # assemble (B x)
+            self._mat12[:, :, :] = self._scale_mat * \
+                self._b_quad3 * self._n0_at_quad * self._control_const
+            self._mat13[:, :, :] = -self._scale_mat * \
+                self._b_quad2 * self._n0_at_quad * self._control_const
+            self._mat23[:, :, :] = self._scale_mat * \
+                self._b_quad1 * self._n0_at_quad * self._control_const
+
+            self._mat21[:, :, :] = -self._mat12
+            self._mat31[:, :, :] = -self._mat13
+            self._mat32[:, :, :] = -self._mat23
+
+            self._accumulator.accumulate(self._particles, self._epsilon,
+                                         Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
+                                         self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                         self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                                         self._space_key_int, self._scale_mat, 0.1,
+                                         control_mat=[[None, self._mat12, self._mat13],
+                                                      [self._mat21, None, self._mat23],
+                                                      [self._mat31, self._mat32, None]])
+        else:
+            self._accumulator.accumulate(self._particles, self._epsilon,
+                                         Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
+                                         self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                         self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                                         self._space_key_int, self._scale_mat, 0.1)
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
         lhs = self._M - dt/2 * self._accumulator.operators[0]

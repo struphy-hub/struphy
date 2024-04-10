@@ -235,7 +235,7 @@ def cc_lin_mhd_5d_D(markers: 'float[:,:]', n_markers_tot: 'int',
         b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # calculate scaling constant
-        density_const = (1 - b_para/b_star_para)/epsilon
+        density_const = (1 - b_para/b_star_para)
 
         # marker weight
         weight = markers[ip, 5]
@@ -695,7 +695,7 @@ def cc_lin_mhd_5d_M(markers: 'float[:,:]', n_markers_tot: 'int',
     #$ omp end parallel
 
 
-@stack_array('dfm', 'df_inv_t', 'df_inv', 'g_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp2', 'tmp_t', 'tmp_m', 'tmp_v', 'b', 'b_prod', 'norm_b2_prod', 'b_star', 'curl_norm_b', 'norm_b1', 'norm_b2', 'grad_PB', 'grad_PB_mat', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+@stack_array('dfm', 'df_inv_t', 'df_inv', 'g_inv', 'filling_v', 'tmp1', 'tmp2', 'tmp_v', 'b', 'b_prod', 'norm_b2_prod', 'b_star', 'curl_norm_b', 'norm_b1', 'norm_b2', 'grad_PB', 'bn01', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                      starts: 'int[:]',
@@ -732,11 +732,9 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
                      boundary_cut: float):  # model specific argument
     r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DGradB`.
 
-    Accumulates math:`\alpha` -form matrix and vector with the filling functions
+    Accumulates math:`\alpha` -form vector with the filling functions
 
     .. math::
-
-        A_p^{\mu, \nu} &= \omega_p \left[\left(\frac{\mu_p}{g\hat B^{*2}_\parallel}\right) \mathbf B^2_{\times} G^{-1} \mathbf b^2_{0 \times} G^{-1} \nabla B_\parallel¹G^{-\top} (\mathbf b^2_{0 \times})^\top G^{-\top} (\mathbf B^2_{\times})^\top \right]_{\mu, \nu} \,,
 
         B_p^\mu &= \omega_p \left[\left(\frac{\mu_p}{\sqrt{g}\hat B^*_\parallel}\right) \mathbf B^2_{\times} G^{-1} \mathbf b^2_{0 \times} G^{-1} \nabla B_\parallel¹\right]_\mu \,,
 
@@ -773,7 +771,6 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
     norm_b1 = empty(3, dtype=float)
     norm_b2 = empty(3, dtype=float)
     grad_PB = empty(3, dtype=float)
-    grad_PB_mat = zeros((3, 3), dtype=float)
 
     bn1 = empty(int(pn[0]) + 1, dtype=float)
     bn2 = empty(int(pn[1]) + 1, dtype=float)
@@ -790,20 +787,17 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
     g_inv = empty((3, 3), dtype=float)
 
     # allocate for filling
-    filling_m = empty((3, 3), dtype=float)
     filling_v = empty(3, dtype=float)
 
     tmp1 = empty((3, 3), dtype=float)
     tmp2 = empty((3, 3), dtype=float)
-    tmp_t = empty((3, 3), dtype=float)
-    tmp_m = empty((3, 3), dtype=float)
 
     tmp_v = empty(3, dtype=float)
 
     # get number of markers
     n_markers_loc = shape(markers)[0]
 
-    #$ omp parallel firstprivate(b_prod) private(ip, boundary_cut, eta1, eta2, eta3, v, mu, weight, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, b_star, norm_b1, norm_b2, norm_b2_prod, curl_norm_b, grad_PB, grad_PB_mat, abs_b_star_para, dfm, df_inv, df_inv_t, g_inv, det_df, tmp_t, tmp1, tmp2, tmp_m, tmp_v, filling_m, filling_v)
+    #$ omp parallel firstprivate(b_prod) private(ip, boundary_cut, eta1, eta2, eta3, v, mu, weight, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, b_star, norm_b1, norm_b2, norm_b2_prod, curl_norm_b, grad_PB, abs_b_star_para, dfm, df_inv, df_inv_t, g_inv, det_df, tmp1, tmp2, tmp_v, filling_v)
     #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
     for ip in range(n_markers_loc):
 
@@ -888,10 +882,6 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
         grad_PB[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts)
 
-        grad_PB_mat[0, 0] = grad_PB[0]
-        grad_PB_mat[1, 1] = grad_PB[1]
-        grad_PB_mat[2, 2] = grad_PB[2]
-
         # b_star; 2form transformed into H1vec
         b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
 
@@ -919,29 +909,16 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
             linalg_kernels.matrix_matrix(tmp1, norm_b2_prod, tmp2)
             linalg_kernels.matrix_matrix(tmp2, g_inv, tmp1)
 
-            linalg_kernels.transpose(tmp1, tmp_t)
-
             linalg_kernels.matrix_vector(tmp1, grad_PB, tmp_v)
 
-            linalg_kernels.matrix_matrix(tmp1, grad_PB_mat, tmp2)
-            linalg_kernels.matrix_matrix(tmp2, tmp_t, tmp_m)
-
-            filling_m[:, :] = weight * tmp_m * \
-                mu / abs_b_star_para**2 * scale_mat
             filling_v[:] = weight * tmp_v * mu / abs_b_star_para * scale_vec
 
             # call the appropriate matvec filler
-            particle_to_mat_kernels.m_v_fill_v0vec_symm(pn, span1, span2, span3,
-                                    bn1, bn2, bn3,
-                                    starts,
-                                    mat11, mat12, mat13,
-                                    mat22, mat23,
-                                    mat33,
-                                    filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
-                                    filling_m[1, 1], filling_m[1, 2],
-                                    filling_m[2, 2],
-                                    vec1, vec2, vec3,
-                                    filling_v[0], filling_v[1], filling_v[2])
+            particle_to_mat_kernels.vec_fill_v0vec(pn, span1, span2, span3,
+                                                   bn1, bn2, bn3,
+                                                   starts,
+                                                   vec1, vec2, vec3,
+                                                   filling_v[0], filling_v[1], filling_v[2])
 
         elif basis_u == 1:
 
@@ -950,30 +927,17 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
             linalg_kernels.matrix_matrix(tmp2, norm_b2_prod, tmp1)
             linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
 
-            linalg_kernels.transpose(tmp2, tmp_t)
-
             linalg_kernels.matrix_vector(tmp2, grad_PB, tmp_v)
 
-            linalg_kernels.matrix_matrix(tmp2, grad_PB_mat, tmp1)
-            linalg_kernels.matrix_matrix(tmp1, tmp_t, tmp_m)
-
-            filling_m[:, :] = weight * tmp_m * \
-                mu / abs_b_star_para**2 * scale_mat
             filling_v[:] = weight * tmp_v * mu / abs_b_star_para * scale_vec
 
             # call the appropriate matvec filler
-            particle_to_mat_kernels.m_v_fill_v1_symm(pn, span1, span2, span3,
-                                 bn1, bn2, bn3,
-                                 bd1, bd2, bd3,
-                                 starts,
-                                 mat11, mat12, mat13,
-                                 mat22, mat23,
-                                 mat33,
-                                 filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
-                                 filling_m[1, 1], filling_m[1, 2],
-                                 filling_m[2, 2],
-                                 vec1, vec2, vec3,
-                                 filling_v[0], filling_v[1], filling_v[2])
+            particle_to_mat_kernels.vec_fill_v1(pn, span1, span2, span3,
+                                                bn1, bn2, bn3,
+                                                bd1, bd2, bd3,
+                                                starts,
+                                                vec1, vec2, vec3,
+                                                filling_v[0], filling_v[1], filling_v[2])
 
         elif basis_u == 2:
 
@@ -981,38 +945,18 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
             linalg_kernels.matrix_matrix(tmp1, norm_b2_prod, tmp2)
             linalg_kernels.matrix_matrix(tmp2, g_inv, tmp1)
 
-            linalg_kernels.transpose(tmp1, tmp_t)
-
             linalg_kernels.matrix_vector(tmp1, grad_PB, tmp_v)
 
-            linalg_kernels.matrix_matrix(tmp1, grad_PB_mat, tmp2)
-            linalg_kernels.matrix_matrix(tmp2, tmp_t, tmp_m)
-
-            filling_m[:, :] = weight * tmp_m * mu / \
-                abs_b_star_para**2 / det_df**2 * scale_mat
             filling_v[:] = weight * tmp_v * mu / \
                 abs_b_star_para / det_df * scale_vec
 
             # call the appropriate matvec filler
-            particle_to_mat_kernels.m_v_fill_v2_symm(pn, span1, span2, span3,
-                                 bn1, bn2, bn3,
-                                 bd1, bd2, bd3,
-                                 starts,
-                                 mat11, mat12, mat13,
-                                 mat22, mat23,
-                                 mat33,
-                                 filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
-                                 filling_m[1, 1], filling_m[1, 2],
-                                 filling_m[2, 2],
-                                 vec1, vec2, vec3,
-                                 filling_v[0], filling_v[1], filling_v[2])
-
-    mat11 /= n_markers_tot
-    mat12 /= n_markers_tot
-    mat13 /= n_markers_tot
-    mat22 /= n_markers_tot
-    mat23 /= n_markers_tot
-    mat33 /= n_markers_tot
+            particle_to_mat_kernels.vec_fill_v2(pn, span1, span2, span3,
+                                                bn1, bn2, bn3,
+                                                bd1, bd2, bd3,
+                                                starts,
+                                                vec1, vec2, vec3,
+                                                filling_v[0], filling_v[1], filling_v[2])
 
     vec1 /= n_markers_tot
     vec2 /= n_markers_tot
