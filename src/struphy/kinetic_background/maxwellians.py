@@ -148,12 +148,26 @@ class Maxwellian6D(Maxwellian):
             etas = (eta1, eta2, eta3)
 
         # set background density
-        res = self.maxw_params['n']
-
         if self.maxw_params['n'] == 'mhd':
             res = self.mhd_equil.n0(*etas)
 
             assert np.all(res > 0.), 'Number density must be positive!'
+
+        elif isinstance(self.maxw_params['n'], dict):
+            type = self.maxw_params['n']['type']
+            params = self.maxw_params['n'][type]
+            itpa_density = getattr(perturbations, type)(**params)
+
+            if eta1.ndim == 1:
+                res = itpa_density(eta1, eta2, eta3)
+            else:
+                res = itpa_density(*etas)
+
+        else:
+            if eta1.ndim == 1:
+                res = self.maxw_params['n'] + 0.*eta1
+            else:
+                res = self.maxw_params['n'] + 0.*etas[0]
 
         # Add perturbation if parameters are given and if density is to be perturbed
         if self.pert_params is not None and 'n' in self.pert_params[self._pert_type]['comps']:
@@ -207,26 +221,40 @@ class Maxwellian6D(Maxwellian):
             etas = (eta1, eta2, eta3)
 
         # set background velocity
-        res = [
-            self.maxw_params['u1'],
-            self.maxw_params['u2'],
-            self.maxw_params['u3'],
-        ]
-
         if (self.maxw_params['u1'] == 'mhd' or
             self.maxw_params['u2'] == 'mhd' or
                 self.maxw_params['u3'] == 'mhd'):
 
             tmp = self.mhd_equil.j_cart(*etas)[0] / self.mhd_equil.n0(*etas)
 
+        res = [None, None, None]
+
         if self.maxw_params['u1'] == 'mhd':
             res[0] = tmp[0]
+
+        else:
+            if eta1.ndim == 1:
+                res[0] = self.maxw_params['u1']+ 0.*eta1
+            else:
+                res[0] = self.maxw_params['u1']+ 0.*etas[0]
 
         if self.maxw_params['u2'] == 'mhd':
             res[1] = tmp[1]
 
+        else:
+            if eta1.ndim == 1:
+                res[1] = self.maxw_params['u2']+ 0.*eta1
+            else:
+                res[1] = self.maxw_params['u2']+ 0.*etas[0]
+
         if self.maxw_params['u3'] == 'mhd':
             res[2] = tmp[2]
+
+        else:
+            if eta1.ndim == 1:
+                res[2] = self.maxw_params['u3']+ 0.*eta1
+            else:
+                res[2] = self.maxw_params['u3']+ 0.*etas[0]
 
         # Add perturbation if parameters are given
         if self.pert_params is not None:
@@ -284,12 +312,6 @@ class Maxwellian6D(Maxwellian):
             etas = (eta1, eta2, eta3)
 
         # set background thermal velocity
-        res = [
-            self.maxw_params['vth1'],
-            self.maxw_params['vth2'],
-            self.maxw_params['vth3'],
-        ]
-
         if (self.maxw_params['vth1'] == 'mhd' or
             self.maxw_params['vth2'] == 'mhd' or
                 self.maxw_params['vth3'] == 'mhd'):
@@ -297,14 +319,34 @@ class Maxwellian6D(Maxwellian):
             tmp = np.sqrt(self.mhd_equil.p0(*etas) / self.mhd_equil.n0(*etas))
             assert np.all(tmp > 0.), 'Thermal velocity must be positive!'
 
+        res = [None, None, None]
+
         if self.maxw_params['vth1'] == 'mhd':
             res[0] = tmp
+
+        else:
+            if eta1.ndim == 1:
+                res[0] = self.maxw_params['vth1']+ 0.*eta1
+            else:
+                res[0] = self.maxw_params['vth1']+ 0.*etas[0]
 
         if self.maxw_params['vth2'] == 'mhd':
             res[1] = tmp
 
+        else:
+            if eta1.ndim == 1:
+                res[1] = self.maxw_params['vth2']+ 0.*eta1
+            else:
+                res[1] = self.maxw_params['vth2']+ 0.*etas[0]
+
         if self.maxw_params['vth3'] == 'mhd':
             res[2] = tmp
+
+        else:
+            if eta1.ndim == 1:
+                res[2] = self.maxw_params['vth3']+ 0.*eta1
+            else:
+                res[2] = self.maxw_params['vth3']+ 0.*etas[0]
 
         # Add perturbation if parameters are given
         if self.pert_params is not None:
@@ -468,13 +510,28 @@ class Maxwellian5D(Maxwellian):
             etas = (eta1, eta2, eta3)
 
         # set background density
-        res = self.maxw_params['n']
-
         if self.maxw_params['n'] == 'mhd':
             res = self.mhd_equil.n0(*etas)
 
             assert np.all(res > 0.), 'Number density must be positive!'
 
+        elif isinstance(self.maxw_params['n'], dict):
+            type = self.maxw_params['n']['type']
+            params = self.maxw_params['n'][type]
+            itpa_density = getattr(perturbations, type)(**params)
+
+            if eta1.ndim == 1:
+                res = itpa_density(eta1, eta2, eta3)
+            else:
+                res = itpa_density(*etas)
+
+        else:
+            if eta1.ndim == 1:
+                res = self.maxw_params['n'] + 0.*eta1
+
+            else:
+                res = self.maxw_params['n'] + 0.*etas[0]
+            
         # Add perturbation if parameters are given and if density is to be perturbed
         if self.pert_params is not None:
             if 'n' in self.pert_params[self._pert_type]['comps']:
@@ -528,11 +585,6 @@ class Maxwellian5D(Maxwellian):
             etas = (eta1, eta2, eta3)
 
         # set background velocity
-        res = [
-            self.maxw_params['u_para'],
-            self.maxw_params['u_perp']
-        ]
-
         if (self.maxw_params['u_para'] == 'mhd' or
                 self.maxw_params['u_perp'] == 'mhd'):
 
@@ -541,12 +593,28 @@ class Maxwellian5D(Maxwellian):
             # j_parallel = jv.b1
             j_para = sum([ji * bi for ji, bi in zip(tmp_jv, tmp_unit_b1)])
 
+        res = [None, None]
+
         if self.maxw_params['u_para'] == 'mhd':
             res[0] = j_para
+
+        else:
+            if eta1.ndim == 1:
+                res[0] = self.maxw_params['u_para']+ 0.*eta1
+
+            else:
+                res[0] = self.maxw_params['u_para']+ 0.*etas[0]
 
         if self.maxw_params['u_perp'] == 'mhd':
             raise NotImplementedError(
                 'A shift in v_perp is not yet implemented.')
+
+        else:
+            if eta1.ndim == 1:
+                res[1] = self.maxw_params['u_perp']+ 0.*eta1
+
+            else:
+                res[1] = self.maxw_params['u_perp']+ 0.*etas[0]
 
         # Add perturbation if parameters are given
         if self.pert_params is not None:
@@ -604,22 +672,33 @@ class Maxwellian5D(Maxwellian):
             etas = (eta1, eta2, eta3)
 
         # set background thermal velocity
-        res = [
-            self.maxw_params['vth_para'],
-            self.maxw_params['vth_perp']
-        ]
-
         if (self.maxw_params['vth_para'] == 'mhd' or
                 self.maxw_params['vth_perp'] == 'mhd'):
 
             tmp = np.sqrt(self.mhd_equil.p0(*etas) / self.mhd_equil.n0(*etas))
             assert np.all(tmp > 0.), 'Thermal velocity must be positive!'
 
+        res = [None, None]
+
         if self.maxw_params['vth_para'] == 'mhd':
             res[0] = tmp
 
+        else:
+            if eta1.ndim == 1:
+                res[0] = self.maxw_params['vth_para']+ 0.*eta1
+
+            else:
+                res[0] = self.maxw_params['vth_para']+ 0.*etas[0]
+
         if self.maxw_params['vth_perp'] == 'mhd':
             res[1] = tmp
+
+        else:
+            if eta1.ndim == 1:
+                res[1] = self.maxw_params['vth_perp']+ 0.*eta1
+
+            else:
+                res[1] = self.maxw_params['vth_perp']+ 0.*etas[0]
 
         # Add perturbation if parameters are given
         if self.pert_params is not None:

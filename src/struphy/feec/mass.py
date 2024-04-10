@@ -1309,7 +1309,11 @@ class WeightedMassOperator(LinOpWithTransp):
                                               *codomain_pads, *wts, *codomain_basis, *domain_basis, mat_w, mat._data)
 
                     else:
-                        self._mat[a, b] = None
+                        if clear:
+                            self._mat[a, b] = None
+
+                        else:
+                            continue
 
             # exchange assembly data (accumulate ghost regions)
             self._mat.exchange_assembly_data()
@@ -1375,7 +1379,7 @@ class WeightedMassOperator(LinOpWithTransp):
             else:
                 for space in W.spaces:
                     out += (np.zeros([q_grid[nquad].points.size for q_grid,
-                            nquad in zip(space._quad_grids, space.nquad)], dtype=float),)
+                            nquad in zip(space._quad_grids, space.nquads)], dtype=float),)
 
         else:
             if isinstance(W, TensorFemSpace):

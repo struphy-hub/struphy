@@ -127,16 +127,9 @@ class LinearMHDVlasovCC(StruphyModel):
         self._coupling_params['Ah'] = Ah
         self._coupling_params['kappa'] = kappa
 
-        # background distribution function used as control variate
-        if params['kinetic']['energetic_ions']['markers']['type'] == 'control_variate':
-            assert 'background' in params['kinetic']['energetic_ions'], 'no background distribution function for control variate specified'
-            control = True
-            f0_name = params['kinetic']['energetic_ions']['background']['type']
-            f0 = getattr(kin_ana, f0_name)(
-                maxw_params=params['kinetic']['energetic_ions']['background'][f0_name])
-        else:
-            control = False
-            f0 = None
+        # add control variate to mass_ops object
+        if self.pointer['energetic_ions'].control_variate:
+            self.mass_ops.weights['f0'] = self.pointer['energetic_ions'].f_backgr
 
         # project background magnetic field (2-form) and background pressure (3-form)
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
@@ -150,10 +143,6 @@ class LinearMHDVlasovCC(StruphyModel):
         else:
             self._ones[:] = 1.
 
-        # add control variate to mass_ops object
-        if control:
-            self.mass_ops.weights['f0'] = f0
-
         # Initialize propagators/integrators used in splitting substeps
         self.add_propagator(self.prop_fields.CurrentCoupling6DDensity(
             self.pointer['mhd_u2'],
@@ -161,7 +150,6 @@ class LinearMHDVlasovCC(StruphyModel):
             u_space='Hdiv',
             b_eq=self._b_eq,
             b_tilde=self.pointer['b2'],
-            f0=f0,
             **params_density,
             **self._coupling_params))
         self.add_propagator(self.prop_fields.ShearAlfvén(
@@ -382,16 +370,9 @@ class LinearMHDVlasovPC(StruphyModel):
         self._coupling_params['Ah'] = Ah
         self._coupling_params['kappa'] = kappa
 
-        # background distribution function used as control variate
-        if params['kinetic']['energetic_ions']['markers']['type'] == 'control_variate':
-            assert 'background' in params['kinetic']['energetic_ions'], 'no background distribution function for control variate specified'
-            control = True
-            f0_name = params['kinetic']['energetic_ions']['background']['type']
-            f0 = getattr(kin_ana, f0_name)(
-                maxw_params=params['kinetic']['energetic_ions']['background'][f0_name])
-        else:
-            control = False
-            f0 = None
+        # add control variate to mass_ops object
+        if self.pointer['energetic_ions'].control_variate:
+            self.mass_ops.weights['f0'] = self.pointer['energetic_ions'].f_backgr
 
         # Project magnetic field
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
@@ -404,10 +385,6 @@ class LinearMHDVlasovPC(StruphyModel):
             self._ones.tp[:] = 1.
         else:
             self._ones[:] = 1.
-
-        # add control variate to mass_ops object
-        if control:
-            self.mass_ops.weights['f0'] = f0
 
         # Initialize propagators/integrators used in splitting substeps
         self.add_propagator(self.prop_fields.ShearAlfvén(
@@ -637,16 +614,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._coupling_params['Ab'] = Ab
         self._coupling_params['Ah'] = Ah
 
-        # background distribution function used as control variate
-        if params['kinetic']['energetic_ions']['markers']['type'] == 'control_variate':
-            assert 'background' in params['kinetic']['energetic_ions'], 'no background distribution function for control variate specified'
-            control = True
-            f0_name = params['kinetic']['energetic_ions']['background']['type']
-            f0 = getattr(kin_ana, f0_name)(
-                maxw_params=params['kinetic']['energetic_ions']['background'][f0_name])
-        else:
-            control = False
-            f0 = None
+        # add control variate to mass_ops object
+        if self.pointer['energetic_ions'].control_variate:
+            self.mass_ops.weights['f0'] = self.pointer['energetic_ions'].f_backgr
 
         # Project magnetic field
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
@@ -678,10 +648,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
             self._ones.tp[:] = 1.
         else:
             self._ones[:] = 1.
-
-        # add control variate to mass_ops object
-        if control:
-            self.mass_ops.weights['f0'] = f0
 
         # propagator parameters
         params_shear_alfven = params['fluid']['mhd']['options']['solvers']['shear_alfven']
@@ -724,9 +690,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
             unit_b2=self._unit_b2,
+            absB0=self._absB0,
             gradB1=self._gradB1,
             curl_unit_b2=self._curl_unit_b2,
-            f0=f0,
             u_space='Hdiv',
             **params_cc2,
             **self._coupling_params,
@@ -739,7 +705,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
             b_eq=self._b_eq,
             unit_b1=self._unit_b1,
             curl_unit_b2=self._curl_unit_b2,
-            f0=f0,
             u_space='Hdiv',
             **params_cc1,
             **self._coupling_params))
@@ -752,7 +717,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
             b_tilde=self.pointer['b2'],
             unit_b1=self._unit_b1,
             curl_unit_b2=self._curl_unit_b2,
-            f0=f0,
             **params_density,
             **self._coupling_params))
         self.add_propagator(self.prop_fields.ShearAlfvénCurrentCoupling5D(
@@ -760,7 +724,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             self.pointer['b2'],
             particles=self.pointer['energetic_ions'],
             unit_b1=self._unit_b1,
-            f0=f0,
+            absB0=self._absB0,
             u_space='Hdiv',
             **params_shear_alfven,
             **self._coupling_params))
@@ -771,7 +735,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             b=self.pointer['b2'],
             particles=self.pointer['energetic_ions'],
             unit_b1=self._unit_b1,
-            f0=f0,
+            absB0=self._absB0,
             u_space='Hdiv',
             **params_magnetosonic,
             **self._coupling_params))

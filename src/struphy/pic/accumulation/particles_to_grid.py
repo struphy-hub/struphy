@@ -247,9 +247,6 @@ class Accumulator:
         self.kernel(particles.markers, particles.n_mks,
                     *self._args_fem, *self._domain.args_map,
                     *self._args_data, *args_add)
-        # add analytical contribution (control variate) to matrix
-        if 'control_mat' in args_control:
-            self._operators[0].assemble(weights=args_control['control_mat'])
 
         # add analytical contribution (control variate) to vector
         if 'control_vec' in args_control and len(self._vectors) > 0:
