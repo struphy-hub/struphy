@@ -23,6 +23,8 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
         When to save data output: every time step (save_step=1), every second time step (save_step=2), etc (default=1).
     """
 
+    from struphy.models.base import StruphyModel
+    from struphy.feec.psydac_derham import Derham
     from struphy.models import fluid, kinetic, hybrid, toy
     from struphy.io.setup import pre_processing
     from struphy.io.output_handling import DataContainer
@@ -58,6 +60,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
             pass
 
     model = model_class(params, comm)
+    assert isinstance(model, StruphyModel)
 
     # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
     data = DataContainer(path_out, comm=comm)
@@ -154,14 +157,18 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
             # extract FEM coefficients
             for key, val in model.em_fields.items():
                 if 'params' not in key:
+                    field = val['obj']
+                    assert isinstance(field, Derham.Field)
                     # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
-                    val['obj'].extract_coeffs(update_ghost_regions=False)
+                    field.extract_coeffs(update_ghost_regions=False)
 
             for _, val in model.fluid.items():
                 for variable, subval in val.items():
                     if 'params' not in variable:
+                        field = subval['obj']
+                        assert isinstance(field, Derham.Field)
                         # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
-                        subval['obj'].extract_coeffs(
+                        field.extract_coeffs(
                             update_ghost_regions=False)
 
             # save data (everything but restart data)

@@ -2213,7 +2213,7 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         # markers[ip, :3] -= e/abs_b_star_para*dt
 
         markers[ip, 13:16] -= dt*b[stage]*e
-        markers[ip, 0:3] = markers[ip, 9:12] + \
+        markers[ip, 0:3] = markers[ip, 9:12] - \
             dt*a[stage]*e + last*markers[ip, 13:16]
 
 
@@ -2399,7 +2399,7 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
         # markers[ip, :3] -= e/abs_b_star_para*dt
 
         markers[ip, 13:16] -= dt*b[stage]*e
-        markers[ip, 0:3] = markers[ip, 9:12] + \
+        markers[ip, 0:3] = markers[ip, 9:12] - \
             dt*a[stage]*e + last*markers[ip, 13:16]
 
     #$ omp end parallel

@@ -1183,6 +1183,10 @@ class PushDriftKineticbxGradB(Propagator):
         self._pusher(self.particles[0], dt,
                      *self._pusher_inputs, mpi_sort=self._mpi_sort, verbose=self._verbose)
 
+        # update_weights
+        if self.particles[0].control_variate:
+            self.particles[0].update_weights()
+
     @classmethod
     def options(cls):
         dct = {}
@@ -1408,6 +1412,10 @@ class PushDriftKineticBstar(Propagator):
 
         self._pusher(self.particles[0], dt,
                      *self._pusher_inputs, mpi_sort=self._mpi_sort, verbose=self._verbose)
+
+        # update_weights
+        if self.particles[0].control_variate:
+            self.particles[0].update_weights()
 
     @classmethod
     def options(cls):
