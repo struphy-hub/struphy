@@ -358,12 +358,11 @@ class VlasovPoissonSimple(StruphyModel):
         # propagator parameters
         self._poisson_params = params['em_fields']['options']['solvers']['poisson']
         algo_eta = params['kinetic']['species1']['options']['algos']['push_eta']
-        # params_coupling = params['kinetic']['species1']['options']['coupling_solver']
         
         # update_weights
-        if self.pointer['species1'].control_variate:
-            self.pointer['species1'].update_weights()
-            print('Updated weights #################')
+        # if self.pointer['species1'].control_variate:
+        #     self.pointer['species1'].update_weights()
+        #     print('Updated weights #################')
         
         charge_accum = AccumulatorVector(
             self.derham, self.domain, "H1", "charge_density_0form")
