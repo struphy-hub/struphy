@@ -599,6 +599,9 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         assert mass_operator.domain == mass_operator.codomain, 'Only square mass matrices can be inverted!'
         assert mass_operator.domain == self.domain, 'Update needs to have the same domain and codomain'
 
+        if self._is_composed :
+            assert isinstance(mass_operator, ComposedLinearOperator)
+
         self._mass_operator = mass_operator
 
         if self._apply_bc:

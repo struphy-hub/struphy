@@ -185,6 +185,20 @@ class MHDequilibrium(metaclass=ABCMeta):
         """
         return self.domain.transform(self.n0(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
+    def s0(self, *etas, squeeze_out=False):
+        """ 0-form equilibrium entropy density on logical cube [0, 1]^3.
+            Hard coded assumption : gamma = 5/3 (monoatomic perfect gaz)
+        """
+        p = self.p0(*etas, squeeze_out)
+        n = self.n0(*etas, squeeze_out)
+        return n * np.log(p/(2/3*np.power(n, 5/3)))
+    
+    def s3(self, *etas, squeeze_out=False):
+        """ 3-form equilibrium entropy density on logical cube [0, 1]^3.
+            Hard coded assumption : gamma = 5/3 (monoatomic perfect gaz)
+        """
+        return self.domain.transform(self.s0(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+
     ###################
     # Single components
     ###################
