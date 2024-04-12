@@ -551,7 +551,12 @@ class VariationalMHD(StruphyModel):
         super().__init__(params, comm)
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'])
+            self.derham.Vh_fem['v'], 
+            self.derham.Vh_fem['v'],)
+            # V_extraction_op=self.derham.extraction_ops['v'],
+            # W_extraction_op=self.derham.extraction_ops['v'],
+            # V_boundary_op=self.derham.boundary_ops['v'],
+            # W_boundary_op=self.derham.boundary_ops['v'])
 
         # Initialize propagators/integrators used in splitting substeps
         solver_momentum = params['fluid']['mhd']['options']['solver_momentum']

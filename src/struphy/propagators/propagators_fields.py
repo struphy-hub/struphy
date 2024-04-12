@@ -2896,7 +2896,7 @@ class VariationalMomentumAdvection(Propagator):
             # Get error and stop if small enough
             err = self._get_error_newton(diff)
 
-            if err < tol**2:
+            if err < tol**2 or np.isnan(err):
                 break
 
             # Newton step
@@ -2905,7 +2905,7 @@ class VariationalMomentumAdvection(Propagator):
             un1 -= update
             mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
-        if it == self._params['non_linear_maxiter']-1:
+        if it == self._params['non_linear_maxiter']-1 or np.isnan(err):
             print(
                 f'!!!WARNING: Maximum iteration in VariationalMomentumAdvection reached - not converged \n {err = } \n {tol**2 = }')
 
@@ -2920,12 +2920,14 @@ class VariationalMomentumAdvection(Propagator):
         un1 = un.copy(out=self._tmp_un1)
         tol = self._params['non_linear_tol']
         err = tol+1
+        self.pc.update_mass_operator(self._Mrho)
         # Jacobian matrix for Newton solve
+
 
         for it in range(self._params['non_linear_maxiter']):
 
             # Picard iteration
-            if err < tol**2:
+            if err < tol**2 or np.isnan(err):
                 break
             # half time step approximation
             un12 = un.copy(out=self._tmp_un12)
@@ -2954,7 +2956,7 @@ class VariationalMomentumAdvection(Propagator):
             # Inverse the mass matrix to get the velocity
             un1 = self._Mrhoinv.dot(mn1, out=self._tmp_un1)
 
-        if it == self._params['non_linear_maxiter']-1:
+        if it == self._params['non_linear_maxiter']-1 or np.isnan(err):
             print(
                 f'!!!WARNING: Maximum iteration in VariationalMomentumAdvection reached - not converged \n {err = } \n {tol**2 = }')
 
@@ -2985,7 +2987,7 @@ class VariationalMomentumAdvection(Propagator):
         else:
             pc_class = getattr(
                 preconditioner, self._params['type_linear_solver'][1])
-            self.pc = pc_class(self.mass_ops.Mv)
+            self.pc = pc_class(self._Mrho)
 
         self._Mrhoinv = inverse(self._Mrho,
                                 self._params['type_linear_solver'][0],
@@ -2994,11 +2996,19 @@ class VariationalMomentumAdvection(Propagator):
                                 maxiter=self._params['linear_maxiter'],
                                 verbose=self._params['verbose'],
                                 recycle=True)
+        
+        # Inverse mass matrix needed to compute the error
+        self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(self.mass_ops.Mv)
+        self._inv_Mv = inverse(self.mass_ops.Mv,
+                                'pcg',
+                                pc=self.pc_Mv,
+                                tol=1e-16,
+                                maxiter=1000,
+                                verbose=False)
 
     def _get_error_newton(self, mn_diff):
-        inv_Mv = inverse(self.mass_ops.Mv, 'cg', tol=1e-16, maxiter=1000)
-        weak_un_diff = inv_Mv.dot(
-            mn_diff, out=self._tmp_weak_diff)
+        weak_un_diff = self._inv_Mv.dot(
+            self.derham.boundary_ops['v'].dot(mn_diff), out=self._tmp_weak_diff)
         err_u = weak_un_diff.dot(mn_diff)
         return err_u
 
@@ -3175,7 +3185,7 @@ class VariationalDensityEvolve(Propagator):
             # Get error
             err = self._get_error_newton(mn_diff, rhon_diff)
 
-            if err < tol**2:
+            if err < tol**2 or np.isnan(err):
                 break
 
             # Derivative for Newton
@@ -3196,7 +3206,8 @@ class VariationalDensityEvolve(Propagator):
             self._update_weighted_MM()
             mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
-        if it == self._params['non_linear_maxiter']-1:
+
+        if it == self._params['non_linear_maxiter']-1 or np.isnan(err):
             print(
                 f'!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err = } \n {tol**2 = }')
 
@@ -3225,7 +3236,7 @@ class VariationalDensityEvolve(Propagator):
         for it in range(self._params['non_linear_maxiter']):
 
             # Picard iteration
-            if err < tol**2:
+            if err < tol**2 or np.isnan(err):
                 break
             # half time step approximation
             un12 = un.copy(out=self._tmp_un12)
@@ -3273,7 +3284,7 @@ class VariationalDensityEvolve(Propagator):
 
             err = self._get_error_picard(un_diff, rhon_diff)
 
-        if it == self._params['non_linear_maxiter']-1:
+        if it == self._params['non_linear_maxiter']-1 or np.isnan(err):
             print(
                 f'!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err = } \n {tol**2 = }')
 
@@ -3357,7 +3368,7 @@ class VariationalDensityEvolve(Propagator):
         else:
             pc_class = getattr(
                 preconditioner, self._params['type_linear_solver'][1])
-            self.pc = pc_class(self.mass_ops.Mv)
+            self.pc = pc_class(self._Mrho)
 
         self._Mrhoinv = inverse(self._Mrho,
                                 self._params['type_linear_solver'][0],
@@ -3366,6 +3377,15 @@ class VariationalDensityEvolve(Propagator):
                                 maxiter=self._params['linear_maxiter'],
                                 verbose=self._params['verbose'],
                                 recycle=True)
+        
+        # Inverse mass matrix needed to compute the error
+        self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(self.mass_ops.Mv)
+        self._inv_Mv = inverse(self.mass_ops.Mv,
+                                'pcg',
+                                pc=self.pc_Mv,
+                                tol=1e-16,
+                                maxiter=1000,
+                                verbose=False)
 
         integration_grid = [grid_1d.flatten()
                             for grid_1d in self.derham.quad_grid_pts['0']]
@@ -3766,9 +3786,8 @@ class VariationalDensityEvolve(Propagator):
 
     def _get_error_newton(self, mn_diff, rhon_diff):
         """Error for the newton method : max(|f(0)|,|f(1)|) where f is the function we're trying to nullify"""
-        inv_Mv = inverse(self.mass_ops.Mv, 'cg', tol=1e-16, maxiter=1000)
-        weak_un_diff = inv_Mv.dot(
-            mn_diff, out=self._tmp_un_weak_diff)
+        weak_un_diff = self._inv_Mv.dot(
+            self.derham.boundary_ops['v'].dot(mn_diff), out=self._tmp_un_weak_diff)
         weak_rhon_diff = self.mass_ops.M3.dot(
             rhon_diff, out=self._tmp_rhon_weak_diff)
         err_rho = weak_rhon_diff.dot(rhon_diff)
@@ -3958,7 +3977,7 @@ class VariationalEntropyEvolve(Propagator):
             # Get error
             err = self._get_error_newton(mn_diff, sn_diff)
 
-            if err < tol**2:
+            if err < tol**2 or np.isnan(err):
                 break
 
             # Derivative for Newton
@@ -3977,7 +3996,8 @@ class VariationalEntropyEvolve(Propagator):
             self.sf1.vector = sn1
             mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
-        if it == self._params['non_linear_maxiter']-1:
+
+        if it == self._params['non_linear_maxiter']-1 or np.isnan(err):
             print(
                 f'!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err = } \n {tol**2 = }')
 
@@ -4011,7 +4031,7 @@ class VariationalEntropyEvolve(Propagator):
         for it in range(self._params['non_linear_maxiter']):
 
             # Picard iteration
-            if err < tol**2:
+            if err < tol**2 or np.isnan(err):
                 break
             # half time step approximation
             un12 = un.copy(out=self._tmp_un12)
@@ -4056,7 +4076,7 @@ class VariationalEntropyEvolve(Propagator):
 
             err = self._get_error_picard(un_diff, sn_diff)
 
-            if it == self._params['non_linear_maxiter']-1:
+            if it == self._params['non_linear_maxiter']-1 or np.isnan(err):
                 print(
                     f'!!!Warning: Maximum iteration in VariationalEntropyEvolve reached - not converged:\n {err = } \n {tol**2 = }')
 
@@ -4139,7 +4159,7 @@ class VariationalEntropyEvolve(Propagator):
         else:
             pc_class = getattr(
                 preconditioner, self._params['type_linear_solver'][1])
-            self.pc = pc_class(self.mass_ops.Mv)
+            self.pc = pc_class(self._Mrho)
 
         self._Mrhoinv = inverse(self._Mrho,
                                 self._params['type_linear_solver'][0],
@@ -4148,6 +4168,15 @@ class VariationalEntropyEvolve(Propagator):
                                 maxiter=self._params['linear_maxiter'],
                                 verbose=self._params['verbose'],
                                 recycle=True)
+        
+        # Inverse mass matrix needed to compute the error
+        self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(self.mass_ops.Mv)
+        self._inv_Mv = inverse(self.mass_ops.Mv,
+                                'pcg',
+                                pc=self.pc_Mv,
+                                tol=1e-16,
+                                maxiter=1000,
+                                verbose=False)
 
         # For Newton solve
         self._M_ds = WeightedMassOperator(
@@ -4405,9 +4434,8 @@ class VariationalEntropyEvolve(Propagator):
         self._dt2_divPis._scalar = dt/2
 
     def _get_error_newton(self, mn_diff, sn_diff):
-        inv_Mv = inverse(self.mass_ops.Mv, 'cg', tol=1e-16, maxiter=1000)
-        weak_un_diff = inv_Mv.dot(
-            mn_diff, out=self._tmp_un_weak_diff)
+        weak_un_diff = self._inv_Mv.dot(
+            self.derham.boundary_ops['v'].dot(mn_diff), out=self._tmp_un_weak_diff)
         weak_sn_diff = self.mass_ops.M3.dot(
             sn_diff, out=self._tmp_sn_weak_diff)
         err_rho = weak_sn_diff.dot(sn_diff)
@@ -4584,7 +4612,7 @@ class VariationalMagFieldEvolve(Propagator):
             # Get error
             err = self._get_error_newton(mn_diff, bn_diff)
 
-            if err < tol**2:
+            if err < tol**2 or np.isnan(err):
                 break
 
             # Derivative for Newton
@@ -4602,7 +4630,7 @@ class VariationalMagFieldEvolve(Propagator):
             # Multiply by the mass matrix to get the momentum
             mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
-        if it == self._params['non_linear_maxiter']-1:
+        if it == self._params['non_linear_maxiter']-1 or np.isnan(err):
             print(
                 f'!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err = } \n {tol**2 = }')
 
@@ -4631,7 +4659,7 @@ class VariationalMagFieldEvolve(Propagator):
         for it in range(self._params['non_linear_maxiter']):
 
             # Picard iteration
-            if err < tol**2:
+            if err < tol**2 or np.isnan(err):
                 break
             # half time step approximation
             bn12 = bn.copy(out=self._tmp_bn12)
@@ -4676,7 +4704,7 @@ class VariationalMagFieldEvolve(Propagator):
 
             err = self._get_error_picard(un_diff, bn_diff)
 
-            if it == self._params['non_linear_maxiter']-1:
+            if it == self._params['non_linear_maxiter']-1 or np.isnan(err):
                 print(
                     f'!!!Warning: Maximum iteration in VariationalMagFieldEvolve reached - not converged:\n {err = } \n {tol**2 = }')
 
@@ -4771,7 +4799,7 @@ class VariationalMagFieldEvolve(Propagator):
         else:
             pc_class = getattr(
                 preconditioner, self._params['type_linear_solver'][1])
-            self.pc = pc_class(self.mass_ops.Mv)
+            self.pc = pc_class(self._Mrho)
 
         self._Mrhoinv = inverse(self._Mrho,
                                 self._params['type_linear_solver'][0],
@@ -4780,6 +4808,15 @@ class VariationalMagFieldEvolve(Propagator):
                                 maxiter=self._params['linear_maxiter'],
                                 verbose=self._params['verbose'],
                                 recycle=True)
+        
+        # Inverse mass matrix needed to compute the error
+        self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(self.mass_ops.Mv)
+        self._inv_Mv = inverse(self.mass_ops.Mv,
+                                'pcg',
+                                pc=self.pc_Mv,
+                                tol=1e-16,
+                                maxiter=1000,
+                                verbose=False)
 
         Jacs = BlockVectorSpace(self.derham.Vh['v'], self.derham.Vh['2'])
 
@@ -4824,9 +4861,8 @@ class VariationalMagFieldEvolve(Propagator):
         wb *= -1
 
     def _get_error_newton(self, mn_diff, bn_diff):
-        inv_Mv = inverse(self.mass_ops.Mv, 'cg', tol=1e-16, maxiter=1000)
-        weak_un_diff = inv_Mv.dot(
-            mn_diff, out=self._tmp_un_weak_diff)
+        weak_un_diff = self._inv_Mv.dot(
+            self.derham.boundary_ops['v'].dot(mn_diff), out=self._tmp_un_weak_diff)
         weak_bn_diff = self.mass_ops.M2.dot(
             bn_diff, out=self._tmp_bn_weak_diff)
         err_b = weak_bn_diff.dot(bn_diff)
