@@ -2,13 +2,13 @@ import numpy as np
 
 
 def derive_units(Z_bulk=None, A_bulk=None, x=1., B=1., n=1., velocity_scale='alfvén'):
-    """ Computes units used in Struphy model :ref:`normalization`.
+    """ Computes units used in Struphy model's :ref:`normalization`.
 
     Input units from parameter file:
 
     * Length (m)
     * Magnetic field (T)
-    * number density (10^20 1/m^3)
+    * Number density (10^20 1/m^3)
 
     Velocity unit is defined here:
 
@@ -17,8 +17,9 @@ def derive_units(Z_bulk=None, A_bulk=None, x=1., B=1., n=1., velocity_scale='alf
     Derived units using mass and charge number of bulk species:
 
     * Time (s)
-    * Mass density (kg/m^3)
     * Pressure (Pa)
+    * Mass density (kg/m^3)
+    * Current density (A/m^2)
 
     Parameters
     ---------
@@ -43,21 +44,25 @@ def derive_units(Z_bulk=None, A_bulk=None, x=1., B=1., n=1., velocity_scale='alf
     Returns
     -------
     units : dict
-        Basic units for time, length, mass and magnetic field.
-
-    units : dict
-        Derived units for velocity, pressure, mass density and particle density.
+        The Struphy units defined above and some Physics constants.
     """
 
-    # physics constants
-    e = 1.602176634e-19  # elementary charge (C)
-    mH = 1.67262192369e-27  # proton mass (kg)
-    mu0 = 1.25663706212e-6  # magnetic constant (N/A^2)
-    eps0 = 8.8541878128e-12  # vacuum permittivity (F/m)
-    kB = 1.380649e-23  # Boltzmann constant (J/K)
-    c = 299792458  # speed of light (m/s)
-
     units = {}
+
+    # physics constants
+    units['elementary charge'] = 1.602176634e-19  # elementary charge (C)
+    units['proton mass'] = 1.67262192369e-27  # proton mass (kg)
+    units['mu0'] = 1.25663706212e-6  # magnetic constant (N/A^2)
+    units['eps0'] = 8.8541878128e-12  # vacuum permittivity (F/m)
+    units['kB'] = 1.380649e-23  # Boltzmann constant (J/K)
+    units['speed of light'] = 299792458  # speed of light (m/s)
+
+    e = units['elementary charge']
+    mH = units['proton mass']
+    mu0 = units['mu0']
+    eps0 = units['eps0']
+    kB = units['kB']
+    c = units['speed of light']
 
     # length (m)
     units['x'] = x
@@ -65,33 +70,37 @@ def derive_units(Z_bulk=None, A_bulk=None, x=1., B=1., n=1., velocity_scale='alf
     units['B'] = B
     # number density (1/m^3)
     units['n'] = n * 1e20
-    
+
     # velocity (m/s)
     if velocity_scale is None:
         units['v'] = 1.
-        
+
     elif velocity_scale == 'light':
         units['v'] = 1.*c
-        
+
     elif velocity_scale == 'alfvén':
         assert A_bulk is not None, 'Need bulk species to choose velocity scale "alfvén".'
         units['v'] = units['B'] / np.sqrt(units['n'] * A_bulk * mH * mu0)
-        
+
     elif velocity_scale == 'cyclotron':
+        assert Z_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
         assert A_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
         units['v'] = Z_bulk * e * units['B'] / \
             (A_bulk * mH) / (2*np.pi) * units['x']
-            
+
     # time (s)
     units['t'] = units['x'] / units['v']
     if A_bulk is None:
         return units
-    
-    # pressure (Pa)
-    units['p'] = A_bulk * mH * units['n'] * units['x']**3 / \
-        (units['x'] * units['t']**2)  # this is equal to B^2/(mu0*n) if velocity_scale='alfvén'
+
+    # pressure (Pa), equal to B^2/mu0 if velocity_scale='alfvén'
+    units['p'] = A_bulk * mH * units['n'] * units['v']**2
+
     # mass density (kg/m^3)
     units['rho'] = A_bulk * mH * units['n']
+    
+    # current density (A/m^2)
+    units['j'] = e * units['n'] * units['v']
 
     return units
 
@@ -203,9 +212,9 @@ def setup_derham(params_grid, comm, domain=None, mpi_dims_mask=None):
     # C^k smoothness at eta_1=0 for polar domains
     polar_ck = params_grid['polar_ck']
 
-    derham = Derham(Nel, 
-                    p, 
-                    spl_kind, 
+    derham = Derham(Nel,
+                    p,
+                    spl_kind,
                     dirichlet_bc,
                     nquads=nq_el,
                     nq_pr=nq_pr,
@@ -400,21 +409,21 @@ def descend_options_dict(d, out, d_default=None, d_opts=None, keys=None, depth=0
     out : list or dict
         The ouptut, must be passed as empty list. During recursion, if
         list: Holds one parameter dict for each option. If dict: the default parameters. 
-        
+
     d_default : dict
         The default parameter dict of the model. 
         If passed as None, the default parameter dict will be returned.
-        
+
     d_opts : dict
         A copy of "d" created at first call (when d_opts is None).
 
     keys : list
         The keys to the options in the options dict. The last entry is the lowest-level key.
         This list is filled automatically during recursion.
-        
+
     depth : int
         The length of d from the previous recursion. 
-        
+
     pop_again : bool
         Whether to pop one more time from keys; this is automatically set to True when depth is reached during recursion.'''
 
@@ -452,12 +461,12 @@ def descend_options_dict(d, out, d_default=None, d_opts=None, keys=None, depth=0
             else:
                 out_sublist = []
                 for param in val:
-                    
+
                     # exclude solvers without preconditioner
                     if isinstance(param, tuple):
                         if param[1] is None:
                             continue
-                    
+
                     d_copy = copy.deepcopy(d_default)
                     if len(keys) == 0:
                         d_copy[key] = param
@@ -481,8 +490,8 @@ def descend_options_dict(d, out, d_default=None, d_opts=None, keys=None, depth=0
 
         else:
             pass
-        
-    if len(keys) > 0:    
+
+    if len(keys) > 0:
         keys.pop()
         if pop_again:
             keys.pop()

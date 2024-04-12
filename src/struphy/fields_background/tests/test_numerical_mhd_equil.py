@@ -132,11 +132,11 @@ class NumEqTest(LogicalMHDequilibrium):
         """
         return self._domain
 
-    def b2(self, *etas, squeeze_out=True):
-        return self._equil.b2(*etas, squeeze_out=squeeze_out)
+    def b1(self, *etas, squeeze_out=True):
+        return self._equil.b1(*etas, squeeze_out=squeeze_out)
 
-    def j2(self, *etas, squeeze_out=True):
-        return self._equil.j2(*etas, squeeze_out=squeeze_out)
+    def j1(self, *etas, squeeze_out=True):
+        return self._equil.j1(*etas, squeeze_out=squeeze_out)
 
     def p0(self, *etas, squeeze_out=True):
         return self._equil.p0(*etas, squeeze_out=squeeze_out)

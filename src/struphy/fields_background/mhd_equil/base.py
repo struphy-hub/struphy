@@ -13,7 +13,7 @@ class MHDequilibrium(metaclass=ABCMeta):
     The callables B, J, p and n have to be provided through the child classes `CartesianMHDequilibrium`, `LogicalMHDequilibrium`
     or `AxisymmMHDequilibrium`.
     The base class provides transformations of callables to different representations or coordinates.
-    For logical equilibria, the methods b2, j2, p0 and n0 are overidden by the child class.   
+    For logical equilibria, the methods b1, j1, p0 and n0 are overidden by the child class.   
     """    
 
     def absB0(self, *etas, squeeze_out=False):
@@ -25,13 +25,13 @@ class MHDequilibrium(metaclass=ABCMeta):
     def b1(self, *etas, squeeze_out=False):
         """ 1-form components of equilibrium magnetic field on logical cube [0, 1]^3.
         """
-        return self.domain.transform(self.b2(*etas, squeeze_out=False), *etas, kind='2_to_1', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        xyz = self.domain(*etas, squeeze_out=False)
+        return self.domain.pull(self.b_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='1', squeeze_out=squeeze_out)
 
     def b2(self, *etas, squeeze_out=False):
         """ 2-form components of equilibrium magnetic field on logical cube [0, 1]^3.
         """
-        xyz = self.domain(*etas, squeeze_out=False)
-        return self.domain.pull(self.b_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='2', squeeze_out=squeeze_out)
+        return self.domain.transform(self.b1(*etas, squeeze_out=False), *etas, kind='1_to_2', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
     def bv(self, *etas, squeeze_out=False):
         """ Contra-variant components of equilibrium magnetic field on logical cube [0, 1]^3.
@@ -41,7 +41,7 @@ class MHDequilibrium(metaclass=ABCMeta):
     def b_cart(self, *etas, squeeze_out=False):
         """ Cartesian components of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
-        b_out = self.domain.push(self.b2(*etas, squeeze_out=False), *etas, kind='2', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        b_out = self.domain.push(self.b1(*etas, squeeze_out=False), *etas, kind='1', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
         return b_out, self.domain(*etas, squeeze_out=squeeze_out)
 
     def unit_b1(self, *etas, squeeze_out=False):
@@ -122,13 +122,13 @@ class MHDequilibrium(metaclass=ABCMeta):
     def j1(self, *etas, squeeze_out=False):
         """ 1-form components of equilibrium current on logical cube [0, 1]^3.
         """
-        return self.domain.transform(self.j2(*etas, squeeze_out=False), *etas, kind='2_to_1', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        xyz = self.domain(*etas, squeeze_out=False)
+        return self.domain.pull(self.j_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='1', squeeze_out=squeeze_out)
 
     def j2(self, *etas, squeeze_out=False):
         """ 2-form components of equilibrium current on logical cube [0, 1]^3.
         """
-        xyz = self.domain(*etas, squeeze_out=False)
-        return self.domain.pull(self.j_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='2', squeeze_out=squeeze_out)
+        return self.domain.transform(self.j1(*etas, squeeze_out=False), *etas, kind='1_to_2', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
     def jv(self, *etas, squeeze_out=False):
         """ Contra-variant components of equilibrium current on logical cube [0, 1]^3.
@@ -324,7 +324,7 @@ class MHDequilibrium(metaclass=ABCMeta):
     # Plotting
     ##########
 
-    def show(self, n1=16, n2=32, n3=21, n_planes=5):
+    def show(self, n1=16, n2=33, n3=21, n_planes=5):
         '''Generate vtk files of equilibirum and do some 2d plots with matplotlib.
         
         Parameters
@@ -337,27 +337,38 @@ class MHDequilibrium(metaclass=ABCMeta):
 
         import struphy 
 
+        torus_mappings = ('Tokamak', 'GVECunit', 'DESCunit', 'IGAPolarTorus', 'HollowTorus')
+
         e1 = np.linspace(0.0001, 1, n1)
         e2 = np.linspace(0, 1, n2)
         e3 = np.linspace(0, 1, n3)
 
-        if n_planes > 1:
-            jump = (n3 - 1)/(n_planes - 1)
+        if self.domain.__class__.__name__ in ('GVECunit', 'DESCunit'):
+            if n_planes > 1:
+                jump = (n3 - 1)/(n_planes - 1)
+            else:
+                jump = 0
         else:
+            n_planes = 1
             jump = 0
 
         x, y, z = self.domain(e1, e2, e3)
+        print('Evaluation of mapping done.')
         det_df  = self.domain.jacobian_det(e1, e2, e3)
         p = self.p0(e1, e2, e3)
+        print('Computation of pressure done.')
         absB = self.absB0(e1, e2, e3)
+        print('Computation of abs(B) done.')
         j_cart, xyz = self.j_cart(e1, e2, e3)
+        print('Computation of current density done.')
         absJ = np.sqrt(j_cart[0]**2 + j_cart[1]**2 + j_cart[2]**2)
 
         _path = struphy.__path__[0] + '/fields_background/mhd_equil/gvec/output/'
         gridToVTK(_path + 'vtk/gvec_equil', x, y, z, pointData = {'det_df': det_df, 'pressure': p, 'absB': absB})
+        print('Generation of vtk files done.')
 
         # show params
-        print('Equilibrium parameters:')
+        print('\nEquilibrium parameters:')
         for key, val in self.params.items():
             print(key, ': ', val)
 
@@ -373,17 +384,30 @@ class MHDequilibrium(metaclass=ABCMeta):
             yp = y[:, :, int(n*jump)].squeeze()
             zp = z[:, :, int(n*jump)].squeeze()
 
-            rp = np.sqrt(xp**2 + yp**2)
+            if self.domain.__class__.__name__ in torus_mappings:
+                pc1 = np.sqrt(xp**2 + yp**2)
+                pc2 = zp
+                l1 = 'R'
+                l2 = 'Z'
+            else:
+                pc1 = xp
+                pc2 = yp
+                l1 = 'x'
+                l2 = 'y'
             
             ax = fig.add_subplot(int(np.ceil(n_planes/2)), 2, n + 1)
-            for i in range(rp.shape[0]):
-                for j in range(rp.shape[1] - 1):
-                    if i < rp.shape[0] - 1:
-                        ax.plot([rp[i, j], rp[i + 1, j]], [zp[i, j], zp[i + 1, j]], 'b', linewidth=.6)
-                    if j < rp.shape[1] - 1:
-                        ax.plot([rp[i, j], rp[i, j + 1]], [zp[i, j], zp[i, j + 1]], 'b', linewidth=.6)
-            ax.set_xlabel('r')
-            ax.set_ylabel('z')
+            for i in range(pc1.shape[0]):
+                for j in range(pc1.shape[1] - 1):
+                    if i < pc1.shape[0] - 1:
+                        ax.plot([pc1[i, j], pc1[i + 1, j]], [pc2[i, j], pc2[i + 1, j]], 'b', linewidth=.6)
+                    if j < pc1.shape[1] - 1:
+                        ax.plot([pc1[i, j], pc1[i, j + 1]], [pc2[i, j], pc2[i, j + 1]], 'b', linewidth=.6)
+                    
+            ax.scatter(pc1[0, 0], pc2[0, 0], 20, 'red', zorder=10)    
+            #ax.scatter(pc1[0, 32], pc2[0, 32], 20, 'red', zorder=10)
+                        
+            ax.set_xlabel(l1)
+            ax.set_ylabel(l2)
             ax.axis('equal')
             ax.set_title('Poloidal plane at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
 
@@ -401,18 +425,29 @@ class MHDequilibrium(metaclass=ABCMeta):
             xp = xt[:, m, :].squeeze()
             yp = yt[:, m, :].squeeze()
             zp = zt[:, m, :].squeeze()
+            
+            if self.domain.__class__.__name__ in torus_mappings:
+                tc1 = xp
+                tc2 = yp
+                l1 = 'x'
+                l2 = 'y'
+            else:
+                tc1 = xp
+                tc2 = zp
+                l1 = 'x'
+                l2 = 'z'
 
-            for i in range(xp.shape[0]):
-                for j in range(xp.shape[1] - 1):
-                    if i < xp.shape[0] - 1:
-                        ax.plot([xp[i, j], xp[i + 1, j]], [yp[i, j], yp[i + 1, j]], 'b', linewidth=.6)
-                    if j < xp.shape[1] - 1:
+            for i in range(tc1.shape[0]):
+                for j in range(tc1.shape[1] - 1):
+                    if i < tc1.shape[0] - 1:
+                        ax.plot([tc1[i, j], tc1[i + 1, j]], [tc2[i, j], tc2[i + 1, j]], 'b', linewidth=.6)
+                    if j < tc1.shape[1] - 1:
                         if i == 0:
-                            ax.plot([xp[i, j], xp[i, j + 1]], [yp[i, j], yp[i, j + 1]], 'r', linewidth=1)
+                            ax.plot([tc1[i, j], tc1[i, j + 1]], [tc2[i, j], tc2[i, j + 1]], 'r', linewidth=1)
                         else:
-                            ax.plot([xp[i, j], xp[i, j + 1]], [yp[i, j], yp[i, j + 1]], 'b', linewidth=.6)
-            ax.set_xlabel('x')
-            ax.set_ylabel('y')
+                            ax.plot([tc1[i, j], tc1[i, j + 1]], [tc2[i, j], tc2[i, j + 1]], 'b', linewidth=.6)
+            ax.set_xlabel(l1)
+            ax.set_ylabel(l2)
             ax.axis('equal')
             ax.set_title('Device top view')
 
@@ -424,14 +459,23 @@ class MHDequilibrium(metaclass=ABCMeta):
             yp = y[:, :, int(n*jump)].squeeze()
             zp = z[:, :, int(n*jump)].squeeze()
 
-            rp = np.sqrt(xp**2 + yp**2)
+            if self.domain.__class__.__name__ in torus_mappings:
+                pc1 = np.sqrt(xp**2 + yp**2)
+                pc2 = zp
+                l1 = 'R'
+                l2 = 'Z'
+            else:
+                pc1 = xp
+                pc2 = yp
+                l1 = 'x'
+                l2 = 'y'
 
             detp = det_df[:, :, int(n*jump)].squeeze()
 
             ax = fig.add_subplot(int(np.ceil(n_planes/2)), 2, n + 1)
-            map = ax.contourf(rp, zp, detp, 30)
-            ax.set_xlabel('r')
-            ax.set_ylabel('z')
+            map = ax.contourf(pc1, pc2, detp, 30)
+            ax.set_xlabel(l1)
+            ax.set_ylabel(l2)
             ax.axis('equal')
             ax.set_title('Jacobian determinant at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
             fig.colorbar(map, ax=ax, location='right')
@@ -444,14 +488,23 @@ class MHDequilibrium(metaclass=ABCMeta):
             yp = y[:, :, int(n*jump)].squeeze()
             zp = z[:, :, int(n*jump)].squeeze()
 
-            rp = np.sqrt(xp**2 + yp**2)
+            if self.domain.__class__.__name__ in torus_mappings:
+                pc1 = np.sqrt(xp**2 + yp**2)
+                pc2 = zp
+                l1 = 'R'
+                l2 = 'Z'
+            else:
+                pc1 = xp
+                pc2 = yp
+                l1 = 'x'
+                l2 = 'y'
 
             pp = p[:, :, int(n*jump)].squeeze()
 
             ax = fig.add_subplot(int(np.ceil(n_planes/2)), 2, n + 1)
-            map = ax.contourf(rp, zp, pp, 30)
-            ax.set_xlabel('r')
-            ax.set_ylabel('z')
+            map = ax.contourf(pc1, pc2, pp, 30)
+            ax.set_xlabel(l1)
+            ax.set_ylabel(l2)
             ax.axis('equal')
             ax.set_title('Pressure at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
             fig.colorbar(map, ax=ax, location='right')
@@ -464,14 +517,23 @@ class MHDequilibrium(metaclass=ABCMeta):
             yp = y[:, :, int(n*jump)].squeeze()
             zp = z[:, :, int(n*jump)].squeeze()
 
-            rp = np.sqrt(xp**2 + yp**2)
+            if self.domain.__class__.__name__ in torus_mappings:
+                pc1 = np.sqrt(xp**2 + yp**2)
+                pc2 = zp
+                l1 = 'R'
+                l2 = 'Z'
+            else:
+                pc1 = xp
+                pc2 = yp
+                l1 = 'x'
+                l2 = 'y'
 
             ab = absB[:, :, int(n*jump)].squeeze()
 
             ax = fig.add_subplot(int(np.ceil(n_planes/2)), 2, n + 1)
-            map = ax.contourf(rp, zp, ab, 30)
-            ax.set_xlabel('r')
-            ax.set_ylabel('z')
+            map = ax.contourf(pc1, pc2, ab, 30)
+            ax.set_xlabel(l1)
+            ax.set_ylabel(l2)
             ax.axis('equal')
             ax.set_title('Magnetic field strength at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
             fig.colorbar(map, ax=ax, location='right')
@@ -484,14 +546,23 @@ class MHDequilibrium(metaclass=ABCMeta):
             yp = y[:, :, int(n*jump)].squeeze()
             zp = z[:, :, int(n*jump)].squeeze()
 
-            rp = np.sqrt(xp**2 + yp**2)
+            if self.domain.__class__.__name__ in torus_mappings:
+                pc1 = np.sqrt(xp**2 + yp**2)
+                pc2 = zp
+                l1 = 'R'
+                l2 = 'Z'
+            else:
+                pc1 = xp
+                pc2 = yp
+                l1 = 'x'
+                l2 = 'y'
 
             ab = absJ[:, :, int(n*jump)].squeeze()
 
             ax = fig.add_subplot(int(np.ceil(n_planes/2)), 2, n + 1)
-            map = ax.contourf(rp, zp, ab, 30)
-            ax.set_xlabel('r')
-            ax.set_ylabel('z')
+            map = ax.contourf(pc1, pc2, ab, 30)
+            ax.set_xlabel(l1)
+            ax.set_ylabel(l2)
             ax.axis('equal')
             ax.set_title('Current density (abs) at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
             fig.colorbar(map, ax=ax, location='right')
@@ -550,7 +621,7 @@ class CartesianMHDequilibrium(MHDequilibrium):
 class LogicalMHDequilibrium(MHDequilibrium):
     """
     Base class for MHD equilibria where B, J, p and n are specified on the logical cube [0, 1]^3. 
-    B and J as 2-forms, p and n as a 0-forms.      
+    Must prescribe B, J and grad(|B|) as 1-forms (covariant), p and n as a 0-forms.      
     """
 
     @property
@@ -561,20 +632,23 @@ class LogicalMHDequilibrium(MHDequilibrium):
         pass
     
     @abstractmethod
-    def b2(self, *etas, squeeze_out=False):
-        """2-form magnetic field on logical cube [0, 1]^3. Must return the components as a tuple.
+    def b1(self, *etas, squeeze_out=False):
+        """2-form magnetic field on logical cube [0, 1]^3. 
+        Must return the components as a tuple.
         """
         pass
     
     @abstractmethod
-    def j2(self, *etas, squeeze_out=False):
-        """2-form current density (=curl B) on logical cube [0, 1]^3. Must return the components as a tuple.
+    def j1(self, *etas, squeeze_out=False):
+        """2-form current density (=curl B) on logical cube [0, 1]^3. 
+        Must return the components as a tuple.
         """
         pass
 
     @abstractmethod
     def p0(self, *etas, squeeze_out=False):
-        """0-form equilibrium pressure on logical cube [0, 1]^3. Must return the components as a tuple.
+        """0-form equilibrium pressure on logical cube [0, 1]^3. 
+        Must return the components as a tuple.
         """
         pass
 
@@ -586,7 +660,8 @@ class LogicalMHDequilibrium(MHDequilibrium):
 
     @abstractmethod
     def gradB1(self, *etas, squeeze_out=False):
-        """1-form gradient of equilibrium magnetic field on logical cube [0, 1]^3. Must return the components as a tuple.
+        """1-form gradient of equilibrium magnetic field strength on logical cube [0, 1]^3. 
+        Must return the components as a tuple.
         """
         pass
 
