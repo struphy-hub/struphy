@@ -1157,6 +1157,7 @@ class Domain(metaclass=ABCMeta):
         import matplotlib.pyplot as plt
 
         is_not_cube = self.kind_map < 10 or self.kind_map > 19
+        torus_mappings = ('Tokamak', 'GVECunit', 'DESCunit', 'IGAPolarTorus', 'HollowTorus')
 
         # plot domain without MPI decomposition and high resolution
         if grid_info is None:
@@ -1171,7 +1172,7 @@ class Domain(metaclass=ABCMeta):
                 XYZ = self(e1, e2, 0., squeeze_out=True)
 
             X = XYZ[0]
-            if self.__class__.__name__ == 'GVECunit' or 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'Tokamak':
+            if self.__class__.__name__ in torus_mappings:
                 Y = XYZ[2]
             else:
                 Y = XYZ[1]
@@ -1218,7 +1219,7 @@ class Domain(metaclass=ABCMeta):
 
             X_0 = theta_0[0]
             X_pi = theta_pi[0]
-            if self.__class__.__name__ == 'GVECunit' or 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'Tokamak':
+            if self.__class__.__name__ in torus_mappings:
                 Z_0 = theta_0[1]
                 Z_pi = theta_pi[1]
             else:
@@ -1250,7 +1251,7 @@ class Domain(metaclass=ABCMeta):
             ax2.plot(X_0[0, :], Z_0[0, :], 'tab:red', alpha=1., zorder=10)
             ax2.plot(X_pi[0, :], Z_pi[0, :], 'tab:red', alpha=1., zorder=10)
 
-            if self.__class__.__name__ == 'GVECunit' or 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'Tokamak':
+            if self.__class__.__name__ in torus_mappings:
                 ylab = 'y'
             else:
                 ylab = 'z'
@@ -1285,7 +1286,7 @@ class Domain(metaclass=ABCMeta):
                 X = self(e1, e2, 0., squeeze_out=True)
 
                 # plot xz-plane for torus mappings, xy-plane else
-                if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit' or self.__class__.__name__ == 'Tokamak':
+                if self.__class__.__name__ in torus_mappings:
                     co1, co2 = 0, 2
                 else:
                     co1, co2 = 0, 1
@@ -1334,7 +1335,7 @@ class Domain(metaclass=ABCMeta):
                     X = self(e1, e2, 0., squeeze_out=True)
 
                     # plot xz-plane for torus mappings, xy-plane else
-                    if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit' or self.__class__.__name__ == 'Tokamak':
+                    if self.__class__.__name__ in torus_mappings:
                         co1, co2 = 0, 2
                     else:
                         co1, co2 = 0, 1
@@ -1357,7 +1358,7 @@ class Domain(metaclass=ABCMeta):
 
         # plot control points in case of IGA mappings
         if not logical and self.kind_map < 10 and show_control_pts:
-            if self.__class__.__name__ == 'GVECunit':
+            if self.__class__.__name__ == 'GVECunit' or self.__class__.__name__ == 'DESCunit':
                 Yc = self.cz[:, :, 0].flatten()
             else:
                 Yc = self.cy[:, :, 0].flatten()
@@ -1368,7 +1369,7 @@ class Domain(metaclass=ABCMeta):
 
             assert not (logical and marker_coords != 'logical')
 
-            if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit' or self.__class__.__name__ == 'Tokamak':
+            if self.__class__.__name__ in torus_mappings:
                 co1, co2 = 0, 2
             else:
                 co1, co2 = 0, 1
@@ -1410,7 +1411,7 @@ class Domain(metaclass=ABCMeta):
         if isinstance(grid_info, np.ndarray):
             plt.legend()
 
-        if 'Torus' in self.__class__.__name__ or self.__class__.__name__ == 'GVECunit' or self.__class__.__name__ == 'Tokamak':
+        if self.__class__.__name__ in torus_mappings:
             ylab = 'z'
         else:
             ylab = 'y'

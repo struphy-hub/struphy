@@ -2,6 +2,7 @@
 
 
 import numpy as np
+import warnings
 
 from struphy.fields_background.mhd_equil.base import CartesianMHDequilibrium, LogicalMHDequilibrium, AxisymmMHDequilibrium
 
@@ -668,9 +669,9 @@ class AdhocTorus(AxisymmMHDequilibrium):
     a : float
         Minor radius of torus (default: 1.).
     R0 : float
-        Major radius of torus (default: 10.).
+        Major radius of torus (default: 3.).
     B0 : float
-        On-axis (r=0) toroidal magnetic field (default: 3.).
+        On-axis (r=0) toroidal magnetic field (default: 2.).
     q_kind : int 
         Which safety factor profile, see docstring (0 or 1, default: 0).
     q0 : float
@@ -705,7 +706,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
             AdhocTorus :
                 a       : 1.   # minor radius
                 R0      : 3.   # major radius
-                B0      : 1.   # on-axis toroidal magnetic field
+                B0      : 2.   # on-axis toroidal magnetic field
                 q_kind  : 0    # which profile (0 : parabolic, 1 : other, see documentation)
                 q0      : 1.05 # safety factor at r=0
                 q1      : 1.80 # safety factor at r=a
@@ -736,8 +737,8 @@ class AdhocTorus(AxisymmMHDequilibrium):
                           'n2': 1.,
                           'na': .2,
                           'p_kind': 1,
-                          'p1': 0.,
-                          'p2': 0.,
+                          'p1': .1,
+                          'p2': .1,
                           'beta': 0.179,
                           'psi_k': 3,
                           'psi_nel': 50}
@@ -1546,9 +1547,9 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
             units = {}
             units['x'] = 1.
             units['B'] = 1.
-            units['p'] = 1 / 1.25663706212e-6
-            print(
-                '+++WARNING+++: "units" was passed as None, no rescaling performed in EQDSK output.')
+            units['mu0'] = 1.25663706212e-6  # magnetic constant (N/A^2)
+            warnings.warn(
+                f'{units = }, no rescaling performed in EQDSK output.')
 
         self._units = units
 
@@ -1779,7 +1780,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
     # ===============================================================
 
     def psi(self, R, Z, dR=0, dZ=0):
-        """ Poloidal flux function psi = psi(R, Z) in units T*m^2.
+        """ Poloidal flux function psi = psi(R, Z) in units Tesla*m^2.
         """
 
         is_float = all(isinstance(v, (int, float)) for v in [R, Z])
@@ -1797,7 +1798,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         return out
 
     def g_tor(self, R, Z, dR=0, dZ=0):
-        """ Toroidal field function g = g(R, Z).
+        """ Toroidal field function g = g(R, Z) in units Tesla*m.
         """
 
         if dR == 0 and dZ == 0:
@@ -1824,11 +1825,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         out = self.p_psi(self.psi(R, Z))
 
         # rescale to Struphy units
-        if 'p' in self.units:
-            out /= 1.25663706212e-6 * self.units['p']
-        else:
-            print(
-                f'+++Warning+++: pressure unit not defined, {self.units = }.')
+        out /= self.units['B']**2 / self.units['mu0']
 
         return out
 
@@ -1850,6 +1847,8 @@ class GVECequilibrium(LogicalMHDequilibrium):
 
     Parameters
     ----------
+    units : dict
+        All Struphy units. If None, no rescaling of EQDSK output is performed.
     rel_path : bool
         Whether dat_file (json_file) are relative to "<struphy_path>/fields_background/mhd_equil/gvec/", or are absolute paths (default: True).
     dat_file : str
@@ -1861,7 +1860,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
     use_nfp : bool
         Whether the field periods of the stellarator should be used in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake) (default: True).
     rmin : float
-        Between [0, 1), radius (in logical space) of the domian hole around the magnetic axis (default: rmin=0.0).
+        Between [0, 1), radius (in logical space) of the domian hole around the magnetic axis (default: rmin=0.01).
     Nel : tuple[int]
         Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).   
     p : tuple[int]
@@ -1884,7 +1883,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
                 p : [3, 3, 3] # spline degree in each direction used for interpolation of the mapping.
     """
 
-    def __init__(self, show=False, **params):
+    def __init__(self, units=None, **params):
 
         from struphy.geometry.domains import GVECunit
 
@@ -1897,6 +1896,21 @@ class GVECequilibrium(LogicalMHDequilibrium):
 
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
+
+        # no rescaling if units are not provided
+        if units is None:
+            units = {}
+            units['x'] = 1.
+            units['B'] = 1.
+            units['j'] = 1.
+            units['p'] = 1.
+            warnings.warn(
+                f'{units = }, no rescaling performed in GVEC output.')
+        else:
+            warnings.warn('Units not imlemented for GVEC interface.')
+            # TODO: implement units, ask Florian
+
+        self._units = units
 
         params_default = {'rel_path': True,
                           'dat_file': 'ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat',
@@ -1952,6 +1966,10 @@ class GVECequilibrium(LogicalMHDequilibrium):
 
         # struphy domain object
         self._domain = GVECunit(self)
+        
+        # create cache
+        self._cache = {'b1': {'grids': [], 'outs': []},
+                       'j1': {'grids': [], 'outs': []}}
 
     @property
     def domain(self):
@@ -1966,13 +1984,50 @@ class GVECequilibrium(LogicalMHDequilibrium):
         return self._gvec
 
     @property
+    def units(self):
+        """ All Struphy units.
+        """
+        return self._units
+
+    @property
     def params(self):
         '''Parameters describing the equilibrium.'''
         return self._params
 
-    def b2(self, *etas, squeeze_out=False):
-        """2-form magnetic field on logical cube [0, 1]^3.
+    def b1(self, *etas, squeeze_out=False):
+        """1-form (covariant) magnetic field on logical cube [0, 1]^3 in Tesla * meter.
         """
+        # check if already cached
+        cached = False
+        if len(self._cache['b1']['grids']) > 0:
+            for i, grid in enumerate(self._cache['b1']['grids']):
+                if len(grid) == len(etas):
+                    li = []
+                    for gi, ei in zip(grid, etas):
+                        if gi.shape == ei.shape:
+                            li += [np.allclose(gi, ei)]
+                        else:
+                            li += [False]
+                    if all(li):
+                        cached = True
+                        break
+
+            if cached:
+                out = self._cache['b1']['outs'][i]
+                #print(f'Used cached b1 at {i = }.')
+            else:
+                out = self._eval_b1(*etas, squeeze_out=squeeze_out)
+                self._cache['b1']['grids'] += [etas]
+                self._cache['b1']['outs'] += [out]
+        else:
+            # print('No b1 grids yet.')
+            out = self._eval_b1(*etas, squeeze_out=squeeze_out)
+            self._cache['b1']['grids'] += [etas]
+            self._cache['b1']['outs'] += [out]
+            
+        return out
+        
+    def _eval_b1(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
             assert etas[0].ndim == 2
@@ -1983,17 +2038,52 @@ class GVECequilibrium(LogicalMHDequilibrium):
         # meshgrid evaluation
         else:
             assert len(etas) == 3
-            assert etas[0].shape == etas[1].shape == etas[2].shape
             eta1 = etas[0]
             eta2 = etas[1]
             eta3 = etas[2]
             flat_eval = False
 
-        return self.gvec.b2(eta1, eta2, eta3, flat_eval=flat_eval)
+        rmin = self._params['rmin']
+        out = self.gvec.b1(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)
+        for o in out:
+            o /= self.units['B'] * self.units['x']
+        
+        return out
 
-    def j2(self, *etas, squeeze_out=False):
-        """2-form current density (=curl B) on logical cube [0, 1]^3.
+    def j1(self, *etas, squeeze_out=False):
+        """1-form (covariant) current density (=curl B) on logical cube [0, 1]^3 in Ampere / meter.
         """
+        # check if already cached
+        cached = False
+        if len(self._cache['j1']['grids']) > 0:
+            for i, grid in enumerate(self._cache['j1']['grids']):
+                if len(grid) == len(etas):
+                    li = []
+                    for gi, ei in zip(grid, etas):
+                        if gi.shape == ei.shape:
+                            li += [np.allclose(gi, ei)]
+                        else:
+                            li += [False]
+                    if all(li):
+                        cached = True
+                        break
+
+            if cached:
+                out = self._cache['j1']['outs'][i]
+                #print(f'Used cached j1 at {i = }.')
+            else:
+                out = self._eval_j1(*etas, squeeze_out=squeeze_out)
+                self._cache['j1']['grids'] += [etas]
+                self._cache['j1']['outs'] += [out]
+        else:
+            # print('No j1 grids yet.')
+            out = self._eval_j1(*etas, squeeze_out=squeeze_out)
+            self._cache['j1']['grids'] += [etas]
+            self._cache['j1']['outs'] += [out]
+
+        return out
+        
+    def _eval_j1(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
             assert etas[0].ndim == 2
@@ -2004,13 +2094,17 @@ class GVECequilibrium(LogicalMHDequilibrium):
         # meshgrid evaluation
         else:
             assert len(etas) == 3
-            assert etas[0].shape == etas[1].shape == etas[2].shape
             eta1 = etas[0]
             eta2 = etas[1]
             eta3 = etas[2]
             flat_eval = False
 
-        return self.gvec.j2(eta1, eta2, eta3, flat_eval=flat_eval)
+        rmin = self._params['rmin']
+        out = self.gvec.j1(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)
+        for o in out:
+            o /= self.units['j'] * self.units['x']
+        
+        return out
 
     def p0(self, *etas, squeeze_out=False):
         """0-form equilibrium pressure on logical cube [0, 1]^3.
@@ -2025,13 +2119,13 @@ class GVECequilibrium(LogicalMHDequilibrium):
         # meshgrid evaluation
         else:
             assert len(etas) == 3
-            assert etas[0].shape == etas[1].shape == etas[2].shape
             eta1 = etas[0]
             eta2 = etas[1]
             eta3 = etas[2]
             flat_eval = False
 
-        return self.gvec.p0(eta1, eta2, eta3, flat_eval=flat_eval)
+        rmin = self._params['rmin']
+        return self.gvec.p0(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)
 
     def n0(self, *etas, squeeze_out=False):
         """0-form equilibrium density on logical cube [0, 1]^3.
@@ -2046,20 +2140,447 @@ class GVECequilibrium(LogicalMHDequilibrium):
         # meshgrid evaluation
         else:
             assert len(etas) == 3
-            assert etas[0].shape == etas[1].shape == etas[2].shape
+            eta1 = etas[0]
+            eta2 = etas[1]
+            eta3 = etas[2]
+            flat_eval = False
+
+        rmin = self._params['rmin']
+        # TODO: which density to set? Is proportional to pressure for the moment
+        return 0.2 * self.p0(*etas)
+
+    def gradB1(self, *etas, squeeze_out=False):
+        """1-form gradient of magnetic field strength on logical cube [0, 1]^3.
+        """
+        raise NotImplementedError(
+            '1-form gradient of magnetic field of GVECequilibrium is not implemented')
+
+
+class DESCequilibrium(LogicalMHDequilibrium):
+    """
+    Numerical equilibrium via an interface to the `DESC code <https://desc-docs.readthedocs.io/en/latest/index.html>`_.
+
+    Parameters
+    ----------
+    units : dict
+        All Struphy units. If None, no rescaling of EQDSK output is performed.
+    eq_name : str
+        Name of existing DESC equilibrium object (.h5 or binary).
+    rel_path : bool
+        Whether to add "<struphy_path>/fields_background/mhd_equil/desc/" before eq_name (default: False).
+    use_pest : bool
+        Whether to use straigh-field line coordinates (PEST) (default: False).
+    use_nfp : bool
+        Whether the field periods of the stellarator should be used in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake) (default: True).
+    rmin : float
+        Between [0, 1), radius (in logical space) of the domian hole around the magnetic axis (default: rmin=0.01).
+    Nel : tuple[int]
+        Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).   
+    p : tuple[int]
+        Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+
+        mhd_equilibrium :
+            type : DESCequilibrium
+            DESCequilibrium : 
+                eq_name : None # name of DESC equilibrium; if None, the example "DSHAPE" is chosen
+                rel_path : True # whether to add "<struphy_path>/fields_background/mhd_equil/desc/" before eq_name.
+                use_pest : False # whether to use straight-field line coordinates (PEST)
+                use_nfp : True # whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
+                rmin : 0.0 # radius of domain hole around magnetic axis.
+                Nel : [32, 32, 32] # number of cells in each direction used for interpolation of the mapping.
+                p : [3, 3, 3] # spline degree in each direction used for interpolation of the mapping.
+    """
+
+    def __init__(self, units=None, **params):
+
+        from struphy.geometry.domains import DESCunit
+
+        import desc
+
+        import struphy
+        import os
+        from mpi4py import MPI
+
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+
+        # no rescaling if units are not provided
+        if units is None:
+            units = {}
+            units['x'] = 1.
+            units['B'] = 1.
+            units['j'] = 1.
+            units['p'] = 1.
+            warnings.warn(
+                f'{units = }, no rescaling performed in DESC output.')
+
+        self._units = units
+
+        params_default = {'eq_name': None,
+                          'rel_path': False,
+                          'use_pest': False,
+                          'use_nfp': True,
+                          'rmin': 0.01,
+                          'Nel': (18, 19, 20),
+                          'p': (3, 3, 3), }
+
+        self._params = set_defaults(params, params_default)
+
+        if self._params['rel_path']:
+            eq_name = os.path.join(struphy.__path__[
+                0], 'fields_background/mhd_equil/desc', self._params['eq_name'])
+        else:
+            eq_name = self._params['eq_name']
+
+        # desc object
+        if eq_name is None:
+            self._eq = desc.examples.get("W7-X")
+        else:
+            self._eq = desc.io.load(eq_name)
+
+        self._rmin = params['rmin']
+        self._use_nfp = params['use_nfp']
+
+        # straight field line coords
+        if self._params['use_pest']:
+            raise ValueError(
+                'PEST coordinates not yet implemented in desc interface.')
+            mapping = 'unit_pest'
+        else:
+            mapping = 'unit'
+
+        # struphy domain object
+        self._domain = DESCunit(self)
+
+        # create cache
+        self._cache = {'b1': {'grids': [], 'outs': []},
+                       'j1': {'grids': [], 'outs': []}}
+
+    @property
+    def domain(self):
+        """ Domain object that characterizes the mapping from the logical to the physical domain.
+        """
+        return self._domain
+
+    @property
+    def eq(self):
+        """ DESC object.
+        """
+        return self._eq
+
+    @property
+    def rmin(self):
+        """ Radius of domain hole around magnetic axis.
+        """
+        return self._rmin
+
+    @property
+    def use_nfp(self):
+        """ True (=default) if to use the field periods of the stellarator in the mapping, 
+        i.e. phi = 2*pi*eta3 / nfp (piece of cake).
+        """
+        return self._use_nfp
+
+    @property
+    def units(self):
+        """ All Struphy units.
+        """
+        return self._units
+
+    @property
+    def params(self):
+        '''Parameters describing the equilibrium.'''
+        return self._params
+
+    def b1(self, *etas, squeeze_out=False):
+        """1-form (covariant) magnetic field on logical cube [0, 1]^3 in Tesla * meter.
+        """
+        # check if already cached
+        cached = False
+        if len(self._cache['b1']['grids']) > 0:
+            for i, grid in enumerate(self._cache['b1']['grids']):
+                if len(grid) == len(etas):
+                    li = []
+                    for gi, ei in zip(grid, etas):
+                        if gi.shape == ei.shape:
+                            li += [np.allclose(gi, ei)]
+                        else:
+                            li += [False]
+                    if all(li):
+                        cached = True
+                        break
+
+            if cached:
+                out = self._cache['b1']['outs'][i]
+                #print(f'Used cached b1 at {i = }.')
+            else:
+                out = self._eval_b1(*etas, squeeze_out=squeeze_out)
+                self._cache['b1']['grids'] += [etas]
+                self._cache['b1']['outs'] += [out]
+        else:
+            # print('No b1 grids yet.')
+            out = self._eval_b1(*etas, squeeze_out=squeeze_out)
+            self._cache['b1']['grids'] += [etas]
+            self._cache['b1']['outs'] += [out]
+
+        return out
+
+    def _eval_b1(self, *etas, squeeze_out=False):
+        # flat (marker) evaluation
+        if len(etas) == 1:
+            assert etas[0].ndim == 2
+            eta1 = etas[0][:, 0]
+            eta2 = etas[0][:, 1]
+            eta3 = etas[0][:, 2]
+            flat_eval = True
+        # meshgrid evaluation
+        else:
+            assert len(etas) == 3
+            eta1 = etas[0]
+            eta2 = etas[1]
+            eta3 = etas[2]
+            flat_eval = False
+
+        out = []
+        for var in ["B_rho", "B_theta", "B_zeta"]:
+            tmp1 = self.desc_eval(var, eta1, eta2, eta3, flat_eval=flat_eval)
+            # copy to set writebale
+            tmp = tmp1.copy()
+            tmp.flags['WRITEABLE'] = True
+            # adjust for Struphy units
+            tmp /= self.units['B'] * self.units['x']
+            out += [tmp]
+
+        return out
+
+    def j1(self, *etas, squeeze_out=False):
+        """1-form (covariant) current density (=curl B) on logical cube [0, 1]^3 in Ampere / meter.
+        """
+        # check if already cached
+        cached = False
+        if len(self._cache['j1']['grids']) > 0:
+            for i, grid in enumerate(self._cache['j1']['grids']):
+                if len(grid) == len(etas):
+                    li = []
+                    for gi, ei in zip(grid, etas):
+                        if gi.shape == ei.shape:
+                            li += [np.allclose(gi, ei)]
+                        else:
+                            li += [False]
+                    if all(li):
+                        cached = True
+                        break
+
+            if cached:
+                out = self._cache['j1']['outs'][i]
+                #print(f'Used cached j1 at {i = }.')
+            else:
+                out = self._eval_j1(*etas, squeeze_out=squeeze_out)
+                self._cache['j1']['grids'] += [etas]
+                self._cache['j1']['outs'] += [out]
+        else:
+            # print('No j1 grids yet.')
+            out = self._eval_j1(*etas, squeeze_out=squeeze_out)
+            self._cache['j1']['grids'] += [etas]
+            self._cache['j1']['outs'] += [out]
+
+        return out
+    
+    def _eval_j1(self, *etas, squeeze_out=False):
+        # flat (marker) evaluation
+        if len(etas) == 1:
+            assert etas[0].ndim == 2
+            eta1 = etas[0][:, 0]
+            eta2 = etas[0][:, 1]
+            eta3 = etas[0][:, 2]
+            flat_eval = True
+        # meshgrid evaluation
+        else:
+            assert len(etas) == 3
+            eta1 = etas[0]
+            eta2 = etas[1]
+            eta3 = etas[2]
+            flat_eval = False
+
+        out = []
+        for var in ["J_rho", "J_theta", "J_zeta"]:
+            tmp1 = self.desc_eval(var, eta1, eta2, eta3, flat_eval=flat_eval)
+            # copy to set writebale
+            tmp = tmp1.copy()
+            tmp.flags['WRITEABLE'] = True
+            # adjust for Struphy units
+            tmp /= self.units['j'] * self.units['x']
+            out += [tmp]
+            
+        return out
+
+    def p0(self, *etas, squeeze_out=False):
+        """0-form equilibrium pressure on logical cube [0, 1]^3 in Pascal.
+        """
+        # flat (marker) evaluation
+        if len(etas) == 1:
+            assert etas[0].ndim == 2
+            eta1 = etas[0][:, 0]
+            eta2 = etas[0][:, 1]
+            eta3 = etas[0][:, 2]
+            flat_eval = True
+        # meshgrid evaluation
+        else:
+            assert len(etas) == 3
+            eta1 = etas[0]
+            eta2 = etas[1]
+            eta3 = etas[2]
+            flat_eval = False
+
+        out1 = self.desc_eval('p', eta1, eta2, eta3, flat_eval=flat_eval)
+
+        # copy to set writebale
+        out = out1.copy()
+        out.flags['WRITEABLE'] = True
+
+        # eliminate negative values
+        out[out < 0.] = 1e-14
+
+        out /= self.units['p']
+
+        return out
+
+    def n0(self, *etas, squeeze_out=False):
+        """0-form equilibrium density on logical cube [0, 1]^3.
+        """
+        # flat (marker) evaluation
+        if len(etas) == 1:
+            assert etas[0].ndim == 2
+            eta1 = etas[0][:, 0]
+            eta2 = etas[0][:, 1]
+            eta3 = etas[0][:, 2]
+            flat_eval = True
+        # meshgrid evaluation
+        else:
+            assert len(etas) == 3
             eta1 = etas[0]
             eta2 = etas[1]
             eta3 = etas[2]
             flat_eval = False
 
         # TODO: which density to set? Is proportional to pressure for the moment
-        return 0.2 * self.p0(*etas)
+        return 0.2 * self.p0(*etas, squeeze_out=squeeze_out)
 
     def gradB1(self, *etas, squeeze_out=False):
         """1-form gradient of magnetic field on logical cube [0, 1]^3.
         """
         raise NotImplementedError(
             '1-form gradient of magnetic field of GVECequilibrium is not implemented')
+
+    def desc_eval(self, var, e1, e2, e3, flat_eval=False, verbose=False):
+        '''Transform the input grids to conform to desc's .compute method
+        and evaluate var.
+
+        Parameters
+        ----------
+        var : str
+            Desc equilibrium quantitiy to evaluate, 
+            from `https://desc-docs.readthedocs.io/en/latest/variables.html#list-of-variables`_.
+
+        e1, e2, e3 : np.ndarray
+            Input grids, either 1d or 3d.
+
+        flat_eval : bool
+            Whether to do flat (marker) evaluation.
+
+        verbose : bool
+            Print grid check to screen.'''
+
+        from desc.grid import LinearGrid, Grid
+        import warnings
+
+        warnings.filterwarnings("ignore")
+
+        nfp = self.eq.NFP
+        if not self.use_nfp:
+            nfp = 1
+
+        # transform input grids
+        if e1.ndim == 3:
+            assert e1.shape == e2.shape == e3.shape
+            rho = self.rmin + e1[:, 0, 0]*(1. - self.rmin)
+            theta = 2*np.pi*e2[0, :, 0]
+            zeta = 2*np.pi*e3[0, 0, :] / nfp
+        else:
+            assert e1.ndim == e2.ndim == e3.ndim == 1
+            rho = self.rmin + e1*(1. - self.rmin)
+            theta = 2*np.pi*e2
+            zeta = 2*np.pi*e3 / nfp
+
+        # eval type
+        if flat_eval:
+            assert rho.size == theta.size == zeta.size
+            r = rho
+            t = theta
+            z = zeta
+        else:
+            r, t, z = np.meshgrid(rho, theta, zeta, indexing='ij')
+            r = r.flatten()
+            t = t.flatten()
+            z = z.flatten()
+
+        nodes = np.stack((r, t, z)).T
+        grid_3d = Grid(nodes, jitable=False)
+
+        # compute output corresponding to the generated desc grid
+        node_values = self.eq.compute(
+            var, grid=grid_3d, override_grid=False)
+
+        if flat_eval:
+            out = node_values[var]
+
+            rho1 = grid_3d.nodes[:, 0]
+            theta1 = grid_3d.nodes[:, 1]
+            zeta1 = grid_3d.nodes[:, 2]
+        else:
+            out = (node_values[var].reshape(
+                (rho.size, theta.size, zeta.size), order="C"))
+
+            rho1 = (grid_3d.nodes[:, 0].reshape(
+                (rho.size, theta.size, zeta.size), order="C"))[:, 0, 0]
+            theta1 = (grid_3d.nodes[:, 1].reshape(
+                (rho.size, theta.size, zeta.size), order="C"))[0, :, 0]
+            zeta1 = (grid_3d.nodes[:, 2].reshape(
+                (rho.size, theta.size, zeta.size), order="C"))[0, 0, :]
+            
+        # make sure the desc grid is correct
+        assert np.all(rho == rho1)
+        assert np.all(theta == theta1)
+        assert np.all(zeta == zeta1)
+
+        if verbose:
+            # import sys
+            print(f'\n{nfp = }')
+            print(f'{self.eq.axis = }')
+            print(f'{rho.size = }')
+            print(f'{theta.size = }')
+            print(f'{zeta.size = }')
+            print(f'{grid_3d.num_rho = }')
+            print(f'{grid_3d.num_theta = }')
+            print(f'{grid_3d.num_zeta = }')
+            # print(f'\n{grid_3d.nodes[:, 0] = }')
+            # print(f'\n{grid_3d.nodes[:, 1] = }')
+            # print(f'\n{grid_3d.nodes[:, 2] = }')
+            print(f'\n{rho = }')
+            print(f'{rho1[:, 0, 0] = }')
+            print(f'\n{theta = }')
+            print(f'{theta1[0, :, 0] = }')
+            print(f'\n{zeta = }')
+            print(f'{zeta1[0, 0, :] = }')
+
+        # make c-contiguous
+        out = np.ascontiguousarray(out)
+
+        return out
 
 
 def set_defaults(params_in, params_default):

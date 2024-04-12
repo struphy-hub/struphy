@@ -1547,4 +1547,4 @@ if __name__ == '__main__':
     # test_maxwellian_6d_mhd(Nel=[8, 11, 12], show_plot=True)
     # test_maxwellian_5d_uniform(Nel=[64, 1, 1], show_plot=True)
     # test_maxwellian_5d_perturbed(Nel=[64, 1, 1], show_plot=True)
-    test_maxwellian_5d_mhd(Nel=[8, 11, 12], show_plot=True)
+    test_maxwellian_5d_mhd(Nel=[8, 12, 12], show_plot=False)

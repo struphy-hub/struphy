@@ -870,6 +870,8 @@ class StruphyModel(metaclass=ABCMeta):
                       '{:4.3e}'.format(units['rho']) + ' kg/m³')
                 print(f'Unit of pressure:'.ljust(25),
                       '{:4.3e}'.format(units['p'] * 1e-5) + ' bar')
+                print(f'Unit of current density:'.ljust(25),
+                  '{:4.3e}'.format(units['j']) + ' A/m²')
 
         # compute equation parameters for each species
         e = 1.602176634e-19  # elementary charge (C)
