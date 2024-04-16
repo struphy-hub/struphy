@@ -3144,12 +3144,6 @@ class VariationalDensityEvolve(Propagator):
         tol = self._params['non_linear_tol']
         err = tol+1
 
-        inv_derivative = inverse(self._Jacobian,
-                                 'gmres',
-                                 tol=self._params['linear_tol'],
-                                 maxiter=self._params['linear_maxiter'],
-                                 verbose=self._params['verbose'],
-                                 recycle=True,)
         # verbose = True)
 
         for it in range(self._params['non_linear_maxiter']):
@@ -3193,10 +3187,10 @@ class VariationalDensityEvolve(Propagator):
 
             # Newton step
             self.pc.update_mass_operator(self._Mrho)
-            f0 = self.pc.dot(mn_diff, out=self._tmp_f[0])
+            self._tmp_f[0] = mn_diff
             self._tmp_f[1] = rhon_diff
 
-            incr = inv_derivative.dot(self._tmp_f, out=self._tmp_incr)
+            incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
 
             un1 -= incr[0]
             rhon1 -= incr[1]
@@ -3441,16 +3435,33 @@ class VariationalDensityEvolve(Propagator):
         self._I3 = IdentityOperator(self.derham.Vh['3'])
 
         # local version to avoid creating new version of LinearOperator every time
-        self._dt_pc_divPirhoT = 2 * (self.pc @ self.divPirhoT)
-        self._dt2_pc_divPirhoT = 2 * (self.pc @ self.divPirhoT)
+        self._dt_pc_divPirhoT = 2 * (self.divPirhoT)
+        self._dt2_pc_divPirhoT = 2 * (self.divPirhoT)
         self._dt2_divPirho = 2 * self.divPirho
 
-        self._Jacobian[0, 0] = self.pc @ self._Mrho + \
+        self._Jacobian[0, 0] = self._Mrho + \
             self._dt2_pc_divPirhoT@self._M_un
-        self._Jacobian[0, 1] = self.pc @ self._M_un1 + \
+        self._Jacobian[0, 1] = self._M_un1 + \
             self._dt_pc_divPirhoT@self._M_drho
         self._Jacobian[1, 0] = self._dt2_divPirho
         self._Jacobian[1, 1] = self._I3
+
+        from struphy.linear_algebra.schur_solver import SchurSolverFull
+
+        self._inv_Jacobian = SchurSolverFull(self._Jacobian, 'pbicgstab',
+                                            pc = self.pc,
+                                            tol=self._params['linear_tol'],
+                                            maxiter=self._params['linear_maxiter'],
+                                            verbose=self._params['verbose'],
+                                            recycle=True)
+        
+
+        # self._inv_Jacobian = inverse(self._Jacobian,
+        #                          'gmres',
+        #                          tol=self._params['linear_tol'],
+        #                          maxiter=self._params['linear_maxiter'],
+        #                          verbose=self._params['verbose'],
+        #                          recycle=True)
 
         # L2-projector for V3
         self._get_L2dofs_V3 = L2Projector('L2', self.mass_ops).get_dofs
@@ -3937,13 +3948,6 @@ class VariationalEntropyEvolve(Propagator):
         tol = self._params['non_linear_tol']
         err = tol+1
 
-        inv_derivative = inverse(self._Jacobian,
-                                 'gmres',
-                                 tol=self._params['linear_tol'],
-                                 maxiter=self._params['linear_maxiter'],
-                                 verbose=self._params['verbose'],
-                                 recycle=True)
-
         for it in range(self._params['non_linear_maxiter']):
 
             # Newton iteration
@@ -3984,10 +3988,10 @@ class VariationalEntropyEvolve(Propagator):
             self._get_jacobian(dt)
 
             # Newton step
-            f0 = self.pc.dot(mn_diff, out=self._tmp_f[0])
+            self._tmp_f[0] = mn_diff
             self._tmp_f[1] = sn_diff
 
-            incr = inv_derivative.dot(self._tmp_f, out=self._tmp_incr)
+            incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
 
             un1 -= incr[0]
             sn1 -= incr[1]
@@ -4192,13 +4196,29 @@ class VariationalEntropyEvolve(Propagator):
         self._I3 = IdentityOperator(self.derham.Vh['3'])
 
         # local version to avoid creating new version of LinearOperator every time
-        self._dt_pc_divPisT = 2 * (self.pc @ self.divPisT)
+        self._dt_pc_divPisT = 2 * (self.divPisT)
         self._dt2_divPis = 2 * self.divPis
 
-        self._Jacobian[0, 0] = self.pc@self._Mrho
+        self._Jacobian[0, 0] = self._Mrho
         self._Jacobian[0, 1] = self._dt_pc_divPisT@self._M_ds
         self._Jacobian[1, 0] = self._dt2_divPis
         self._Jacobian[1, 1] = self._I3
+
+        from struphy.linear_algebra.schur_solver import SchurSolverFull
+
+        self._inv_Jacobian = SchurSolverFull(self._Jacobian, 'pcg',
+                                            pc = self.pc,
+                                            tol=self._params['linear_tol'],
+                                            maxiter=self._params['linear_maxiter'],
+                                            verbose=self._params['verbose'],
+                                            recycle=True)
+        
+        # self._inv_Jacobian = inverse(self._Jacobian,
+        #                          'gmres',
+        #                          tol=self._params['linear_tol'],
+        #                          maxiter=self._params['linear_maxiter'],
+        #                          verbose=self._params['verbose'],
+        #                          recycle=True)
 
         # prepare for integration of linear form
         # L2-projector for V3
@@ -4568,13 +4588,6 @@ class VariationalMagFieldEvolve(Propagator):
         tol = self._params['non_linear_tol']
         err = tol+1
 
-        inv_derivative = inverse(self._Jacobian,
-                                 'gmres',
-                                 tol=self._params['linear_tol'],
-                                 maxiter=self._params['linear_maxiter'],
-                                 verbose=self._params['verbose'],
-                                 recycle=True)
-
         for it in range(self._params['non_linear_maxiter']):
 
             # Newton iteration
@@ -4619,10 +4632,10 @@ class VariationalMagFieldEvolve(Propagator):
             self._get_jacobian(dt)
 
             # Newton step
-            f0 = self.pc.dot(mn_diff, out=self._tmp_f[0])
+            self._tmp_f[0] = mn_diff
             self._tmp_f[1] = bn_diff
 
-            incr = inv_derivative.dot(self._tmp_f, out=self._tmp_incr)
+            incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
 
             un1 -= incr[0]
             bn1 -= incr[1]
@@ -4829,13 +4842,30 @@ class VariationalMagFieldEvolve(Propagator):
 
         # local version to avoid creating new version of LinearOperator every time
         self._mdt2_pc_curlPibT_M = 2 * \
-            (self.pc @ self.curlPibT@self.mass_ops.M2)
+            (self.curlPibT@self.mass_ops.M2)
         self._dt2_curlPib = 2 * self.curlPib
 
-        self._Jacobian[0, 0] = self.pc @ self._Mrho
+        self._Jacobian[0, 0] = self._Mrho
         self._Jacobian[0, 1] = self._mdt2_pc_curlPibT_M
         self._Jacobian[1, 0] = self._dt2_curlPib
         self._Jacobian[1, 1] = self._I2
+
+        from struphy.linear_algebra.schur_solver import SchurSolverFull
+
+        self._inv_Jacobian = SchurSolverFull(self._Jacobian, 'pcg',
+                                            pc = self.pc,
+                                            tol=self._params['linear_tol'],
+                                            maxiter=self._params['linear_maxiter'],
+                                            verbose=self._params['verbose'],
+                                            recycle=True)
+        
+
+        # self._inv_Jacobian = inverse(self._Jacobian,
+        #                          'gmres',
+        #                          tol=self._params['linear_tol'],
+        #                          maxiter=self._params['linear_maxiter'],
+        #                          verbose=self._params['verbose'],
+        #                          recycle=True)
 
     def _update_all_weights(self,):
         """Update the weights of the `BasisProjectionOperator` appearing in the equations"""

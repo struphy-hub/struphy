@@ -21,7 +21,7 @@ class WeightedMassOperators:
 
     Parameters
     ----------
-    derham : struphy.feec.psydac_derham.Derham
+    derham : Derham
         Discrete de Rham sequence on the logical unit cube.
 
     domain : :ref:`avail_mappings`
@@ -35,9 +35,9 @@ class WeightedMassOperators:
 
     Notes
     -----
-    Possible choices for key-value pairs in ****weights** are, at the moment:
+    Possible choices for key-value pairs in **weights** are, at the moment:
 
-    - eq_mhd: :class:`struphy.fields_background.mhd_equil.base.MHDequilibrium`
+    - ``eq_mhd``: :class:`~struphy.fields_background.mhd_equil.base.MHDequilibrium`
     """
 
     def __init__(self, derham, domain, matrix_free=False, **weights):
@@ -679,16 +679,25 @@ class WeightedMassOperator(LinOpWithTransp):
     r"""
     Class for assembling weighted mass matrices in 3d.
 
-    Weighted mass matrices :math:`\mathbb M^{\beta\alpha}: \mathbb R^{N_\alpha} \to \mathbb R^{N_\beta}` are of the general form
+    Weighted mass matrices :math:`\mathbb M^{\beta\alpha}: \mathbb R^{N_\alpha} \to \mathbb R^{N_\beta}` 
+    are of the general form
 
     .. math::
 
         \mathbb M^{\beta \alpha}_{(\mu,ijk),(\nu,mno)} = \int_{[0, 1]^3} \Lambda^\beta_{\mu,ijk} \, A_{\mu,\nu} \, \Lambda^\alpha_{\nu,mno} \, \textnormal d^3 \boldsymbol\eta\,,
 
-    where the weight fuction :math:`A` is a tensor of rank 0, 1 or 2, depending on domain and co-domain of the operator, and :math:`\Lambda^\alpha_{\nu, mno}` is the B-spline basis function with tensor-product index :math:`mno` of the
-    :math:`\nu`-th component in the space :math:`V^\alpha_h`. These matrices are sparse and stored in StencilMatrix format.
+    where the weight fuction :math:`A` is a tensor of rank 0, 1 or 2, 
+    depending on domain and co-domain of the operator, 
+    and :math:`\Lambda^\alpha_{\nu, mno}` is the B-spline basis function 
+    with tensor-product index :math:`mno` of the
+    :math:`\nu`-th component in the space :math:`V^\alpha_h`. 
+    These matrices are sparse and stored in StencilMatrix format.
 
-    Finally, :math:`\mathbb M^{\beta\alpha}` can be multiplied by extraction and boundary operators,  :math:`B * E * M^{\beta\alpha} * E^T * B^T`.
+    Finally, :math:`\mathbb M^{\beta\alpha}` can be multiplied by 
+    :class:`~struphy.polar.linear_operators.PolarExtractionOperator` 
+    and :class:`~struphy.feec.linear_operators.BoundaryOperator`, 
+    :math:`\mathbb B\, \mathbb E\, \mathbb M^{\beta\alpha} \mathbb E^T \mathbb B^T`, 
+    to account for :ref:`polar_splines` and/or :ref:`feec_bcs`, respectively.
 
     Parameters
     ----------
@@ -698,26 +707,25 @@ class WeightedMassOperator(LinOpWithTransp):
     W : TensorFemSpace | VectorFemSpace
         Tensor product spline space from psydac.fem.tensor (codomain, output space).
 
-    V_extraction_op : PolarExtractionOperator | IdentityOperator
+    V_extraction_op : PolarExtractionOperator, optional
         Extraction operator to polar sub-space of V.
 
-    W_extraction_op : PolarExtractionOperator | IdentityOperator
+    W_extraction_op : PolarExtractionOperator, optional
         Extraction operator to polar sub-space of W.
 
-    V_boundary_op : BoundaryOperator | IdentityOperator
+    V_boundary_op : BoundaryOperator, optional
         Boundary operator that sets essential boundary conditions.
 
-    W_boundary_op : BoundaryOperator | IdentityOperator
+    W_boundary_op : BoundaryOperator, optional
         Boundary operator that sets essential boundary conditions.
 
     weights_info : NoneType | str | list
-        Information about the weights/block structure of the operator. Three cases are possible:
-            * None : All blocks are allocated, disregarding zero-blocks or any symmetry.
-            * str  : for square block matrices (V=W), a symmetry can be set in order to accelerate the assembly process.
-                     Possible strings are "symm" (symmetric), "asym" (anti-symmetric) and "diag" (diagonal)
-            * list : a 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces.
-                     The entries can then be either callables of np.ndarrays representing the weights at the quadrature points.
-                     If a entry is zero or None, the corresponding block is set to None to accelerate the dot product.
+        Information about the weights/block structure of the operator. 
+        Three cases are possible:
+        
+        1. ``None`` : all blocks are allocated, disregarding zero-blocks or any symmetry.
+        2. ``str``  : for square block matrices (V=W), a symmetry can be set in order to accelerate the assembly process. Possible strings are ``symm`` (symmetric), ``asym`` (anti-symmetric) and ``diag`` (diagonal).
+        3. ``list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. The entries can be either a) callables or b) np.ndarrays representing the weights at the quadrature points. If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
 
     transposed : bool
         Whether to assemble the transposed operator.
@@ -726,7 +734,14 @@ class WeightedMassOperator(LinOpWithTransp):
         If set to true will not compute the matrix associated with the operator but directly compute the product when called
     """
 
-    def __init__(self, V, W, V_extraction_op=None, W_extraction_op=None, V_boundary_op=None, W_boundary_op=None, weights_info=None, transposed=False, matrix_free=False):
+    def __init__(self, V, W, 
+                 V_extraction_op=None, 
+                 W_extraction_op=None, 
+                 V_boundary_op=None, 
+                 W_boundary_op=None, 
+                 weights_info=None, 
+                 transposed=False, 
+                 matrix_free=False):
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
@@ -1133,22 +1148,26 @@ class WeightedMassOperator(LinOpWithTransp):
         return M
 
     def assemble(self, weights=None, clear=True, verbose=True, name=None):
-        """
-        Assembles a weighted mass matrix (StencilMatrix/BlockLinearOperator) corresponding to given domain/codomain spline spaces.
+        r"""
+        Assembles the weighted mass matrix, i.e. computes the integrals
+        
+        .. math::
 
-        General form (in 3d) is mat_(ijk,mno) = integral[ Lambda_ijk * weight * Lambda_mno ],
-        where Lambda_ijk are the basis functions of the spline space and weight is some weight function.
+            \mathbb M^{\beta \alpha}_{(\mu,ijk),(\nu,mno)} = \int_{[0, 1]^3} \Lambda^\beta_{\mu,ijk} \, A_{\mu,\nu} \, \Lambda^\alpha_{\nu,mno} \, \textnormal d^3 \boldsymbol\eta\,.
 
-        The integration is performed with Gauss-Legendre quadrature over the whole logical domain.
+        The integration is performed with Gauss-Legendre quadrature over the logical domain.
 
         Parameters
         ----------
         weights : list | NoneType
-            Weight function(s) (callables or np.ndarrays) in a 2d list of shape corresponding to number of components of domain/codomain. 
-            If weights=None, the weight is taken from the given weights in the instanziation of the object, else it will be overriden.
+            Weight function(s) (callables or np.ndarrays) in a 2d list of shape corresponding to 
+            number of components of domain/codomain. 
+            If ``weights=None``, the weight is taken from the given weights in the 
+            instanziation of the object, else it will be overriden.
 
         clear : bool
-            Whether to first set all data to zero before assembly. If False, the new contributions are added to existing ones.
+            Whether to first set all data to zero before assembly. If False, 
+            the new contributions are added to existing ones.
 
         verbose : bool
             Whether to do some printing.
