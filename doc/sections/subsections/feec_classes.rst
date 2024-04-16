@@ -13,6 +13,16 @@ Derham sequence (3D)
     :undoc-members:
     :show-inheritance:
 
+.. autoclass:: psydac.fem.tensor.TensorFemSpace
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: psydac.fem.vector.VectorFemSpace
+    :members:
+    :undoc-members:
+    :show-inheritance:    
+
 .. _weighted_mass:
 
 Weighted mass operators
@@ -53,6 +63,16 @@ Preconditioners
 
 Linear operators
 ^^^^^^^^^^^^^^^^
+
+.. autoclass:: psydac.linalg.basic.LinearOperator
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: psydac.linalg.block.BlockLinearOperator
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 .. automodule:: struphy.feec.linear_operators
     :members:
