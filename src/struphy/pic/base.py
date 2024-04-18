@@ -945,26 +945,10 @@ class Particles(metaclass=ABCMeta):
             if bc == 'remove':
 
                 if self.marker_params['bc']['remove']['boundary_transfer']:
-                    # boundary transfer
                     outside_inds = self.boundary_transfer(is_outside_cube)
 
-                if self.marker_params['bc']['remove']['save']:
-                    # save the positions and velocities just before the pushing step
-                    if self.vdim == 3:
-                        self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                          len(outside_inds), 0:3] = self.markers[outside_inds, 9:12]
-                        self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                          len(outside_inds), 3:9] = self.markers[outside_inds, 3:9]
-                        self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                          len(outside_inds), -1] = self.markers[outside_inds, -1]
-
-                    elif self.vdim == 2:
-                        self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                          len(outside_inds), 0:4] = self.markers[outside_inds, 9:13]
-                        self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                          len(outside_inds), 4:9] = self.markers[outside_inds, 4:9]
-                        self.lost_markers[self.n_lost_markers:self.n_lost_markers +
-                                          len(outside_inds), -1] = self.markers[outside_inds, -1]
+                if self.marker_params['bc']['remove']['particle_refilling']:
+                    outside_inds = self.particle_refilling(is_outside_cube)
 
                 self._markers[outside_inds, :-1] = -1.
 
@@ -982,9 +966,9 @@ class Particles(metaclass=ABCMeta):
 
     def boundary_transfer(self, is_outside_cube):
         """
-        Still draft. ONLY valid for the poloidal geometry (eta1: clamped r-direction, eta2: periodic theta-direction). 
+        Still draft. ONLY valid for the poloidal geometry with AdhocTorus equilibrium (eta1: clamped r-direction, eta2: periodic theta-direction). 
 
-        When particles reach to the inner boundary circle, transfer them to the opposite side of the circle.
+        When particles reach the inner boundary circle, transfer them to the opposite poloidal angle of the same magnetic flux surface.
 
         Parameters
         ----------
@@ -999,9 +983,53 @@ class Particles(metaclass=ABCMeta):
         transfer_inds = np.nonzero(smaller_than_rmin)[0]
 
         self._markers[transfer_inds, 0] = 1e-8
+
+        # phi_boundary_transfer = phi_loss - 2*q(r_loss)*theta_loss
+        r_loss = self._markers[transfer_inds, 0] * (1. - self._domain.params_map['a1']) + self._domain.params_map['a1']
+
+        self._markers[transfer_inds, 2] -= 2*self._mhd_equil.q_r(r_loss)*self._markers[transfer_inds, 1]
+
+        # theta_boudary_transfer = - theta_loss
         self._markers[transfer_inds, 1] = 1. - self.markers[transfer_inds, 1]
+
+        # mark the particle as done for multiple step pushers
         self._markers[transfer_inds, 9] = -1.
-        self._markers[transfer_inds, 10] = 0
+
+        is_outside_cube[transfer_inds] = False
+        outside_inds = np.nonzero(is_outside_cube)[0]
+
+        return outside_inds
+    
+    def particle_refilling(self, is_outside_cube):
+        """
+        Still draft. ONLY valid for the poloidal geometry with AdhocTorus equilibrium (eta1: clamped r-direction, eta2: periodic theta-direction). 
+
+        When particles reach the outter boundary of the poloidal plane, refills them to the opposite poloidal angle of the same magnetic flux surface.
+
+        Parameters
+        ----------
+        """
+        # sorting out particles which are outside of the poloidal plane
+        smaller_than_rmin = self.markers[:, 0] > 1.
+
+        # exclude holes
+        smaller_than_rmin[self.holes] = False
+
+        # indices or particles that are outside of the poloidal plane
+        transfer_inds = np.nonzero(smaller_than_rmin)[0]
+
+        self._markers[transfer_inds, 0] = 1. - 1e-8
+
+        # phi_boundary_transfer = phi_loss - 2*q(r_loss)*theta_loss
+        r_loss = self._markers[transfer_inds, 0] * (1. - self._domain.params_map['a1']) + self._domain.params_map['a1']
+
+        self._markers[transfer_inds, 2] -= 2*self._mhd_equil.q_r(r_loss)*self._markers[transfer_inds, 1]
+
+        # theta_boudary_transfer = - theta_loss
+        self._markers[transfer_inds, 1] = 1. - self.markers[transfer_inds, 1]
+
+        # mark the particle as done for multiple step pushers
+        self._markers[transfer_inds, 9] = -1.
 
         is_outside_cube[transfer_inds] = False
         outside_inds = np.nonzero(is_outside_cube)[0]

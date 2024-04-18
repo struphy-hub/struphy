@@ -58,8 +58,9 @@ kinetic :
             bc : 
                 type    : [remove, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
                 remove  :
-                    save              : True
-                    boundary_transfer : True            
+                    save              : False
+                    boundary_transfer : False
+                    particle_refilling : False            
             loading :
                 type    : pseudo_random # particle loading mechanism 
                 seed    : 1608 # seed for random number generator
