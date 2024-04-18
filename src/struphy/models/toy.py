@@ -317,6 +317,7 @@ class GuidingCenter(StruphyModel):
         self._mpi_in_place = IN_PLACE
         self._en_fv = np.empty(1, dtype=float)
         self._en_fB = np.empty(1, dtype=float)
+        self._n_lost_particles = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
         # particles' kinetic energy
@@ -336,6 +337,10 @@ class GuidingCenter(StruphyModel):
         self.update_scalar('en_fv', self._en_fv[0])
         self.update_scalar('en_fB', self._en_fB[0])
         self.update_scalar('en_tot', self._en_fv[0] + self._en_fB[0])
+
+        self._n_lost_particles[0] = self.pointer['ions'].n_lost_markers
+        self.derham.comm.Allreduce(
+            self._mpi_in_place, self._n_lost_particles, op=self._mpi_sum)
 
 
 class ShearAlfven(StruphyModel):
