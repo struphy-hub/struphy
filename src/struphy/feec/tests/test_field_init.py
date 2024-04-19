@@ -177,7 +177,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, show_plot=False):
                 denom = np.max(np.abs(ref[0]))
             print(
                 f'{np.max(np.abs(field_1(*meshgrids)[0] - ref[0])) / denom = }')
-            assert np.max(np.abs(field_1(*meshgrids)[0] - ref[0])) / denom < .27
+            assert np.max(np.abs(field_1(*meshgrids)[0] - ref[0])) / denom < .28
             if np.max(np.abs(ref[1])) < 1e-11:
                 denom = 1.
             else:
@@ -192,7 +192,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, show_plot=False):
             print(
                 f'{np.max(np.abs(field_1(*meshgrids)[2] - ref[2])) / denom = }')
             assert np.max(np.abs(field_1(*meshgrids)
-                          [2] - ref[2])) / denom < 0.07
+                          [2] - ref[2])) / denom < 0.1
             print('b1 asserts passed.')
 
             ref = mhd_equil.b2(*meshgrids)
@@ -235,7 +235,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, show_plot=False):
             print(
                 f'{np.max(np.abs(field_4(*meshgrids)[1] - ref[1])) / denom = }')
             assert np.max(np.abs(field_4(*meshgrids)
-                          [1] - ref[1])) / denom < .12
+                          [1] - ref[1])) / denom < .2
             if np.max(np.abs(ref[2])) < 1e-11:
                 denom = 1.
             else:

@@ -1968,8 +1968,8 @@ class GVECequilibrium(LogicalMHDequilibrium):
         self._domain = GVECunit(self)
         
         # create cache
-        self._cache = {'b1': {'grids': [], 'outs': []},
-                       'j1': {'grids': [], 'outs': []}}
+        self._cache = {'bv': {'grids': [], 'outs': []},
+                       'jv': {'grids': [], 'outs': []}}
 
     @property
     def domain(self):
@@ -1994,13 +1994,13 @@ class GVECequilibrium(LogicalMHDequilibrium):
         '''Parameters describing the equilibrium.'''
         return self._params
 
-    def b1(self, *etas, squeeze_out=False):
-        """1-form (covariant) magnetic field on logical cube [0, 1]^3 in Tesla * meter.
+    def bv(self, *etas, squeeze_out=False):
+        """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3 in Tesla / meter.
         """
         # check if already cached
         cached = False
-        if len(self._cache['b1']['grids']) > 0:
-            for i, grid in enumerate(self._cache['b1']['grids']):
+        if len(self._cache['bv']['grids']) > 0:
+            for i, grid in enumerate(self._cache['bv']['grids']):
                 if len(grid) == len(etas):
                     li = []
                     for gi, ei in zip(grid, etas):
@@ -2013,21 +2013,21 @@ class GVECequilibrium(LogicalMHDequilibrium):
                         break
 
             if cached:
-                out = self._cache['b1']['outs'][i]
-                #print(f'Used cached b1 at {i = }.')
+                out = self._cache['bv']['outs'][i]
+                #print(f'Used cached bv at {i = }.')
             else:
-                out = self._eval_b1(*etas, squeeze_out=squeeze_out)
-                self._cache['b1']['grids'] += [etas]
-                self._cache['b1']['outs'] += [out]
+                out = self._eval_bv(*etas, squeeze_out=squeeze_out)
+                self._cache['bv']['grids'] += [etas]
+                self._cache['bv']['outs'] += [out]
         else:
-            # print('No b1 grids yet.')
-            out = self._eval_b1(*etas, squeeze_out=squeeze_out)
-            self._cache['b1']['grids'] += [etas]
-            self._cache['b1']['outs'] += [out]
+            # print('No bv grids yet.')
+            out = self._eval_bv(*etas, squeeze_out=squeeze_out)
+            self._cache['bv']['grids'] += [etas]
+            self._cache['bv']['outs'] += [out]
             
         return out
         
-    def _eval_b1(self, *etas, squeeze_out=False):
+    def _eval_bv(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
             assert etas[0].ndim == 2
@@ -2044,19 +2044,19 @@ class GVECequilibrium(LogicalMHDequilibrium):
             flat_eval = False
 
         rmin = self._params['rmin']
-        out = self.gvec.b1(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)
+        out = self.gvec.bv(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)
         for o in out:
-            o /= self.units['B'] * self.units['x']
+            o /= self.units['B'] / self.units['x']
         
         return out
 
-    def j1(self, *etas, squeeze_out=False):
-        """1-form (covariant) current density (=curl B) on logical cube [0, 1]^3 in Ampere / meter.
+    def jv(self, *etas, squeeze_out=False):
+        """Contra-variant (vector field) current density (=curl B) on logical cube [0, 1]^3 in Ampere / meter^3.
         """
         # check if already cached
         cached = False
-        if len(self._cache['j1']['grids']) > 0:
-            for i, grid in enumerate(self._cache['j1']['grids']):
+        if len(self._cache['jv']['grids']) > 0:
+            for i, grid in enumerate(self._cache['jv']['grids']):
                 if len(grid) == len(etas):
                     li = []
                     for gi, ei in zip(grid, etas):
@@ -2069,21 +2069,21 @@ class GVECequilibrium(LogicalMHDequilibrium):
                         break
 
             if cached:
-                out = self._cache['j1']['outs'][i]
-                #print(f'Used cached j1 at {i = }.')
+                out = self._cache['jv']['outs'][i]
+                #print(f'Used cached jv at {i = }.')
             else:
-                out = self._eval_j1(*etas, squeeze_out=squeeze_out)
-                self._cache['j1']['grids'] += [etas]
-                self._cache['j1']['outs'] += [out]
+                out = self._eval_jv(*etas, squeeze_out=squeeze_out)
+                self._cache['jv']['grids'] += [etas]
+                self._cache['jv']['outs'] += [out]
         else:
-            # print('No j1 grids yet.')
-            out = self._eval_j1(*etas, squeeze_out=squeeze_out)
-            self._cache['j1']['grids'] += [etas]
-            self._cache['j1']['outs'] += [out]
+            # print('No jv grids yet.')
+            out = self._eval_jv(*etas, squeeze_out=squeeze_out)
+            self._cache['jv']['grids'] += [etas]
+            self._cache['jv']['outs'] += [out]
 
         return out
         
-    def _eval_j1(self, *etas, squeeze_out=False):
+    def _eval_jv(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
             assert etas[0].ndim == 2
@@ -2100,9 +2100,9 @@ class GVECequilibrium(LogicalMHDequilibrium):
             flat_eval = False
 
         rmin = self._params['rmin']
-        out = self.gvec.j1(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)
+        out = self.gvec.jv(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)
         for o in out:
-            o /= self.units['j'] * self.units['x']
+            o /= self.units['j'] / self.units['x']
         
         return out
 
@@ -2257,8 +2257,8 @@ class DESCequilibrium(LogicalMHDequilibrium):
         self._domain = DESCunit(self)
 
         # create cache
-        self._cache = {'b1': {'grids': [], 'outs': []},
-                       'j1': {'grids': [], 'outs': []}}
+        self._cache = {'bv': {'grids': [], 'outs': []},
+                       'jv': {'grids': [], 'outs': []}}
 
     @property
     def domain(self):
@@ -2296,13 +2296,13 @@ class DESCequilibrium(LogicalMHDequilibrium):
         '''Parameters describing the equilibrium.'''
         return self._params
 
-    def b1(self, *etas, squeeze_out=False):
-        """1-form (covariant) magnetic field on logical cube [0, 1]^3 in Tesla * meter.
+    def bv(self, *etas, squeeze_out=False):
+        """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3 in Tesla / meter.
         """
         # check if already cached
         cached = False
-        if len(self._cache['b1']['grids']) > 0:
-            for i, grid in enumerate(self._cache['b1']['grids']):
+        if len(self._cache['bv']['grids']) > 0:
+            for i, grid in enumerate(self._cache['bv']['grids']):
                 if len(grid) == len(etas):
                     li = []
                     for gi, ei in zip(grid, etas):
@@ -2315,21 +2315,21 @@ class DESCequilibrium(LogicalMHDequilibrium):
                         break
 
             if cached:
-                out = self._cache['b1']['outs'][i]
-                #print(f'Used cached b1 at {i = }.')
+                out = self._cache['bv']['outs'][i]
+                #print(f'Used cached bv at {i = }.')
             else:
-                out = self._eval_b1(*etas, squeeze_out=squeeze_out)
-                self._cache['b1']['grids'] += [etas]
-                self._cache['b1']['outs'] += [out]
+                out = self._eval_bv(*etas, squeeze_out=squeeze_out)
+                self._cache['bv']['grids'] += [etas]
+                self._cache['bv']['outs'] += [out]
         else:
-            # print('No b1 grids yet.')
-            out = self._eval_b1(*etas, squeeze_out=squeeze_out)
-            self._cache['b1']['grids'] += [etas]
-            self._cache['b1']['outs'] += [out]
+            # print('No bv grids yet.')
+            out = self._eval_bv(*etas, squeeze_out=squeeze_out)
+            self._cache['bv']['grids'] += [etas]
+            self._cache['bv']['outs'] += [out]
 
         return out
 
-    def _eval_b1(self, *etas, squeeze_out=False):
+    def _eval_bv(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
             assert etas[0].ndim == 2
@@ -2346,24 +2346,25 @@ class DESCequilibrium(LogicalMHDequilibrium):
             flat_eval = False
 
         out = []
-        for var in ["B_rho", "B_theta", "B_zeta"]:
+        for var in ["B^rho", "B^theta", "B^zeta"]:
             tmp1 = self.desc_eval(var, eta1, eta2, eta3, flat_eval=flat_eval)
             # copy to set writebale
             tmp = tmp1.copy()
             tmp.flags['WRITEABLE'] = True
             # adjust for Struphy units
-            tmp /= self.units['B'] * self.units['x']
+            tmp /= self.units['B'] / self.units['x']
             out += [tmp]
 
         return out
 
-    def j1(self, *etas, squeeze_out=False):
-        """1-form (covariant) current density (=curl B) on logical cube [0, 1]^3 in Ampere / meter.
+    def jv(self, *etas, squeeze_out=False):
+        """Contra-variant (vector field) current density (=curl B) 
+        on logical cube [0, 1]^3 in Ampere / meter^3.
         """
         # check if already cached
         cached = False
-        if len(self._cache['j1']['grids']) > 0:
-            for i, grid in enumerate(self._cache['j1']['grids']):
+        if len(self._cache['jv']['grids']) > 0:
+            for i, grid in enumerate(self._cache['jv']['grids']):
                 if len(grid) == len(etas):
                     li = []
                     for gi, ei in zip(grid, etas):
@@ -2376,21 +2377,21 @@ class DESCequilibrium(LogicalMHDequilibrium):
                         break
 
             if cached:
-                out = self._cache['j1']['outs'][i]
-                #print(f'Used cached j1 at {i = }.')
+                out = self._cache['jv']['outs'][i]
+                #print(f'Used cached jv at {i = }.')
             else:
-                out = self._eval_j1(*etas, squeeze_out=squeeze_out)
-                self._cache['j1']['grids'] += [etas]
-                self._cache['j1']['outs'] += [out]
+                out = self._eval_jv(*etas, squeeze_out=squeeze_out)
+                self._cache['jv']['grids'] += [etas]
+                self._cache['jv']['outs'] += [out]
         else:
-            # print('No j1 grids yet.')
-            out = self._eval_j1(*etas, squeeze_out=squeeze_out)
-            self._cache['j1']['grids'] += [etas]
-            self._cache['j1']['outs'] += [out]
+            # print('No jv grids yet.')
+            out = self._eval_jv(*etas, squeeze_out=squeeze_out)
+            self._cache['jv']['grids'] += [etas]
+            self._cache['jv']['outs'] += [out]
 
         return out
     
-    def _eval_j1(self, *etas, squeeze_out=False):
+    def _eval_jv(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
             assert etas[0].ndim == 2
@@ -2407,13 +2408,13 @@ class DESCequilibrium(LogicalMHDequilibrium):
             flat_eval = False
 
         out = []
-        for var in ["J_rho", "J_theta", "J_zeta"]:
+        for var in ["J^rho", "J^theta", "J^zeta"]:
             tmp1 = self.desc_eval(var, eta1, eta2, eta3, flat_eval=flat_eval)
             # copy to set writebale
             tmp = tmp1.copy()
             tmp.flags['WRITEABLE'] = True
             # adjust for Struphy units
-            tmp /= self.units['j'] * self.units['x']
+            tmp /= self.units['j'] / self.units['x']
             out += [tmp]
             
         return out
@@ -2495,7 +2496,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
         verbose : bool
             Print grid check to screen.'''
 
-        from desc.grid import LinearGrid, Grid
+        from desc.grid import Grid
         import warnings
 
         warnings.filterwarnings("ignore")
