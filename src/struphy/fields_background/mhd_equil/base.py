@@ -13,7 +13,7 @@ class MHDequilibrium(metaclass=ABCMeta):
     The callables B, J, p and n have to be provided through the child classes `CartesianMHDequilibrium`, `LogicalMHDequilibrium`
     or `AxisymmMHDequilibrium`.
     The base class provides transformations of callables to different representations or coordinates.
-    For logical equilibria, the methods b1, j1, p0 and n0 are overidden by the child class.   
+    For logical equilibria, the methods bv, jv, p0 and n0 are overidden by the child class.   
     """    
 
     def absB0(self, *etas, squeeze_out=False):
@@ -25,18 +25,18 @@ class MHDequilibrium(metaclass=ABCMeta):
     def b1(self, *etas, squeeze_out=False):
         """ 1-form components of equilibrium magnetic field on logical cube [0, 1]^3.
         """
-        xyz = self.domain(*etas, squeeze_out=False)
-        return self.domain.pull(self.b_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='1', squeeze_out=squeeze_out)
+        return self.domain.transform(self.bv(*etas, squeeze_out=False), *etas, kind='v_to_1', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
     def b2(self, *etas, squeeze_out=False):
         """ 2-form components of equilibrium magnetic field on logical cube [0, 1]^3.
         """
-        return self.domain.transform(self.b1(*etas, squeeze_out=False), *etas, kind='1_to_2', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(self.bv(*etas, squeeze_out=False), *etas, kind='v_to_2', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
     def bv(self, *etas, squeeze_out=False):
         """ Contra-variant components of equilibrium magnetic field on logical cube [0, 1]^3.
         """
-        return self.domain.transform(self.b2(*etas, squeeze_out=False), *etas, kind='2_to_v', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        xyz = self.domain(*etas, squeeze_out=False)
+        return self.domain.pull(self.b_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='v', squeeze_out=squeeze_out)
 
     def b_cart(self, *etas, squeeze_out=False):
         """ Cartesian components of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
@@ -122,18 +122,18 @@ class MHDequilibrium(metaclass=ABCMeta):
     def j1(self, *etas, squeeze_out=False):
         """ 1-form components of equilibrium current on logical cube [0, 1]^3.
         """
-        xyz = self.domain(*etas, squeeze_out=False)
-        return self.domain.pull(self.j_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='1', squeeze_out=squeeze_out)
+        return self.domain.transform(self.jv(*etas, squeeze_out=False), *etas, kind='v_to_1', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
     def j2(self, *etas, squeeze_out=False):
         """ 2-form components of equilibrium current on logical cube [0, 1]^3.
         """
-        return self.domain.transform(self.j1(*etas, squeeze_out=False), *etas, kind='1_to_2', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(self.jv(*etas, squeeze_out=False), *etas, kind='v_to_2', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
     def jv(self, *etas, squeeze_out=False):
         """ Contra-variant components of equilibrium current on logical cube [0, 1]^3.
         """
-        return self.domain.transform(self.j2(*etas, squeeze_out=False), *etas, kind='2_to_v', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        xyz = self.domain(*etas, squeeze_out=False)
+        return self.domain.pull(self.j_xyz(xyz[0], xyz[1], xyz[2]), *etas, kind='v', squeeze_out=squeeze_out)
 
     def j_cart(self, *etas, squeeze_out=False):
         """ Cartesian components of equilibrium current evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
@@ -632,15 +632,15 @@ class LogicalMHDequilibrium(MHDequilibrium):
         pass
     
     @abstractmethod
-    def b1(self, *etas, squeeze_out=False):
-        """2-form magnetic field on logical cube [0, 1]^3. 
+    def bv(self, *etas, squeeze_out=False):
+        """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3. 
         Must return the components as a tuple.
         """
         pass
     
     @abstractmethod
-    def j1(self, *etas, squeeze_out=False):
-        """2-form current density (=curl B) on logical cube [0, 1]^3. 
+    def jv(self, *etas, squeeze_out=False):
+        """Contra-variant (vector field) current density (=curl B) on logical cube [0, 1]^3. 
         Must return the components as a tuple.
         """
         pass

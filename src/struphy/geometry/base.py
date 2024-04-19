@@ -1200,13 +1200,6 @@ class Domain(metaclass=ABCMeta):
             ax.text(.01, .99, tstr, ha='left',
                     va='top', transform=ax.transAxes)
 
-            # Jacobian determinant
-            # ax3 = fig.add_subplot(2, 2, 3)
-            # mp = ax3.contourf(X, Y, self.jacobian_det(e1, e2, 0.), levels=50)
-            # ax3.axis('equal')
-            # ax3.set_title('det(DF)')
-            # plt.colorbar(mappable=mp, format="%3.1f")
-
             # top view
             e3 = np.linspace(0., 1., 65)
 
@@ -1259,6 +1252,32 @@ class Domain(metaclass=ABCMeta):
             ax2.set_ylabel(ylab)
             ax2.set_title('top view')
             ax2.axis('equal')
+            
+            # coordinates
+            # e3 = [0., .25, .5, .75]
+            # x, y, z = self(e1, e2, e3)
+            # R = np.sqrt(x**2 + y**2)
+            
+            # fig = plt.figure(figsize=(13, 13))
+            # for n in range(4):
+            #     plt.subplot(2, 2, n + 1)
+            #     plt.contourf(R[:, :, n], z[:, :, n], x[:, :, n])
+            #     plt.title(f'x at {e3[n] = }')
+            #     plt.colorbar()
+                
+            # fig = plt.figure(figsize=(13, 13))
+            # for n in range(4):
+            #     plt.subplot(2, 2, n + 1)
+            #     plt.contourf(R[:, :, n], z[:, :, n], y[:, :, n])
+            #     plt.title(f'y at {e3[n] = }')
+            #     plt.colorbar()
+                
+            # fig = plt.figure(figsize=(13, 13))
+            # for n in range(4):
+            #     plt.subplot(2, 2, n + 1)
+            #     plt.contourf(R[:, :, n], z[:, :, n], z[:, :, n])
+            #     plt.title(f'z at {e3[n] = }')
+            #     plt.colorbar()
 
         # plot domain according to given grid [nel1, nel2, (nel3)]
         elif isinstance(grid_info, list):
