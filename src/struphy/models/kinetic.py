@@ -313,12 +313,19 @@ class VlasovPoissonSimple(StruphyModel):
                        option={'set_kappa': True, 'value': 1.}, dct=dct)
         cls.add_option(species=['kinetic', 'species1'], key='Z0',
                        option=-1., dct=dct)
-
+        cls.add_option(['time'], key='split_algo',
+                       option='LieTrotter', dct=dct)
+        cls.add_option(species=['kinetic', 'species1'], key='type',
+                        option='control_variate', dct=dct)
+        # cls.add_option(['kinetic', 'electrons'], ['algos', 'push_vxb'],
+        #                PushVxB.options()['algo'], dct)
         return dct
 
     def __init__(self, params, comm=None):
         
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+        
+        params['kinetic']['species1']['markers']['type'] = 'control_variate'
         
         assert params['time']['split_algo'] == 'LieTrotter', "This model only works for Lie Trotter splitting for the moment."
         assert params['kinetic']['species1']['markers']['type'] == 'control_variate', "This model only works for control_variate." 
@@ -358,11 +365,6 @@ class VlasovPoissonSimple(StruphyModel):
         # propagator parameters
         self._poisson_params = params['em_fields']['options']['solvers']['poisson']
         algo_eta = params['kinetic']['species1']['options']['algos']['push_eta']
-        
-        # update_weights
-        # if self.pointer['species1'].control_variate:
-        #     self.pointer['species1'].update_weights()
-        #     print('Updated weights #################')
         
         charge_accum = AccumulatorVector(
             self.derham, self.domain, "H1", "charge_density_0form")
@@ -415,9 +417,6 @@ class VlasovPoissonSimple(StruphyModel):
             self.comm.Allreduce(
                 self._mpi_in_place, self._tmp, op=self._mpi_sum)
         self.update_scalar('en_f', self._tmp[0])
-
-        # # en_tot = en_w + en_e
-        # self.update_scalar('en_tot', en_E + self._tmp[0])  
 
 class VlasovMaxwellOneSpecies(StruphyModel):
     r'''Vlasov-Maxwell equations for one species.
