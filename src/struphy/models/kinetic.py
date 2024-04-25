@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
 from struphy.models.base import StruphyModel
 
 
@@ -315,20 +316,19 @@ class VlasovPoissonSimple(StruphyModel):
                        option=-1., dct=dct)
         cls.add_option(['time'], key='split_algo',
                        option='LieTrotter', dct=dct)
-        cls.add_option(species=['kinetic', 'species1'], key='type',
-                        option='control_variate', dct=dct)
-        # cls.add_option(['kinetic', 'electrons'], ['algos', 'push_vxb'],
-        #                PushVxB.options()['algo'], dct)
         return dct
 
     def __init__(self, params, comm=None):
         
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
         
-        params['kinetic']['species1']['markers']['type'] = 'control_variate'
+        marker_type = params['kinetic']['species1']['markers']['type']
+        
+        if "control_variate" not in marker_type:
+            params['kinetic']['species1']['markers']['type'] = 'control_variate'
+            warnings.warn("Marker type has been set to control_variate (mandatory for this model)")
         
         assert params['time']['split_algo'] == 'LieTrotter', "This model only works for Lie Trotter splitting for the moment."
-        assert params['kinetic']['species1']['markers']['type'] == 'control_variate', "This model only works for control_variate." 
 
         super().__init__(params, comm=comm)
 

@@ -2370,6 +2370,9 @@ class ImplicitDiffusion(Propagator):
 
     x0 : StencilVector
         Initial guess for the iterative solver (optional, can be set with a setter later).
+        
+    e_field : BlockVector 
+        If e_field not None, E = -grad(phi) is written in place.
 
     **params : dict
         Parameters for the iterative solver (see ``__init__`` for details).
@@ -2560,8 +2563,9 @@ class ImplicitDiffusion(Propagator):
         
         if self._e_field is not None:
             # assert e field is 1 form
-            self.derham.grad.dot(out, out=self._e_field)
-
+            e_field = self.derham.grad.dot(out, out=self._e_field)
+            e_field *= -1.
+            
     @classmethod
     def options(cls):
         dct = {}
