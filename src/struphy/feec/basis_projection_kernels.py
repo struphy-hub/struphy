@@ -238,7 +238,7 @@ def assemble_dofs_for_weighted_basisfuns_2d(
     for i in range(sub1.shape[0]):
         _sum += sub1[i]
     dim1_out = span1.shape[0] - _sum
-    
+
     _sum = 0.
     for i in range(sub2.shape[0]):
         _sum += sub2[i]
@@ -453,12 +453,12 @@ def assemble_dofs_for_weighted_basisfuns_3d(
     for i in range(sub1.shape[0]):
         _sum += sub1[i]
     dim1_out = span1.shape[0] - _sum
-    
+
     _sum = 0.
     for i in range(sub2.shape[0]):
         _sum += sub2[i]
     dim2_out = span2.shape[0] - _sum
-    
+
     _sum = 0.
     for i in range(sub3.shape[0]):
         _sum += sub3[i]
@@ -555,3 +555,1170 @@ def assemble_dofs_for_weighted_basisfuns_3d(
                                         # Row index: padding + local index.
                                         mat[po1 + i, po2 + j, po3 + k,
                                             col1, col2, col3] += value
+
+
+def get_dofs_local_1_form_e1_component(
+    f1: 'float[:,:,:]',
+    p1: int, wts: 'float[:]', f_eval_aux: 'float[:,:,:]'
+):
+    '''Kernel for evaluating the degrees of freedom for the first component of 1-forms. This function is for local commuting projetors.
+
+    Parameters
+    ----------
+        f1 : 3d float array
+            Evaluation for the first component of the 1-form function over all the interpolation points in e2 and e3, as well as all the Gauss-Legendre quadrature point in e1.
+
+        p1 : int
+            Degree of the B-splines in the e1 direction.
+
+        wts: 1d float list
+            Gauss-Legandre quadrature weights for the intergrals in the e1 direction.
+        f_eval_aux : 3d float array
+            Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
+    '''
+
+    from numpy import shape
+
+    for i in range(shape(f_eval_aux)[0]):
+        for j in range(shape(f_eval_aux)[1]):
+            for k in range(shape(f_eval_aux)[2]):
+                # Te following loop must be tantamount to:
+                # f_eval_aux[i,j,k] = sum(numpy.multiply(f1[i*p1:(i+1)*p1,j,k],wts))
+                in_start_1 = i*p1
+                for ii in range(p1):
+                    f_eval_aux[i, j, k] += f1[in_start_1+ii, j, k]*wts[ii]
+
+
+def get_dofs_local_1_form_e2_component(
+    f2: 'float[:,:,:]',
+    p2: int, wts: 'float[:]', f_eval_aux: 'float[:,:,:]'
+):
+    '''Kernel for evaluating the degrees of freedom for the second component of 1-forms.  This function is for local commuting projetors.
+
+    Parameters
+    ----------
+        f2 : 3d float array
+            Evaluation for the second component of the 1-form function over all the interpolation points in e1 and e3, as well as all the Gauss-Legendre quadrature point in e2.
+
+        p2 : int
+            Degree of the B-splines in the e2 direction.
+
+        wts: 1d float array
+            Gauss-Legandre quadrature weights for the intergrals in the e2 direction.
+        f_eval_aux : 3d float array
+            Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
+    '''
+
+    from numpy import shape
+
+    for i in range(shape(f_eval_aux)[0]):
+        for j in range(shape(f_eval_aux)[1]):
+            for k in range(shape(f_eval_aux)[2]):
+                # Te following loop must be tantamount to:
+                # f_eval_aux[i,j,k] = np.sum(np.multiply(f2[i,j*self._p[1]:(j+1)*self._p[1],k],self._wts[1][1][0]))
+                in_start_2 = j*p2
+                for ii in range(p2):
+                    f_eval_aux[i, j, k] += f2[i, in_start_2+ii, k]*wts[ii]
+
+
+def get_dofs_local_1_form_e3_component(
+    f3: 'float[:,:,:]',
+    p3: int, wts: 'float[:]', f_eval_aux: 'float[:,:,:]'
+):
+    '''Kernel for evaluating the degrees of freedom for the third component of 1-forms.  This function is for local commuting projetors.
+
+    Parameters
+    ----------
+        f3 : 3d float array
+            Evaluation for the third component of the 1-form function over all the interpolation points in e1 and e2, as well as all the Gauss-Legendre quadrature point in e3.
+
+        p3 : int
+            Degree of the B-splines in the e3 direction.
+
+        wts: 1d float array
+            Gauss-Legandre quadrature weights for the intergrals in the e3 direction.
+        f_eval_aux : 3d float array
+            Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
+    '''
+
+    from numpy import shape
+
+    for i in range(shape(f_eval_aux)[0]):
+        for j in range(shape(f_eval_aux)[1]):
+            for k in range(shape(f_eval_aux)[2]):
+                # Te following loop must be tantamount to:
+                # f_eval_aux[i,j,k] = np.sum(np.multiply(f3[i,j,k*self._p[2]:(k+1)*self._p[2]],self._wts[2][2][0]))
+                in_start_3 = k*p3
+                for ii in range(p3):
+                    f_eval_aux[i, j, k] += f3[i, j, in_start_3+ii]*wts[ii]
+
+
+def get_dofs_local_2_form_e1_component(
+    f1: 'float[:,:,:]',
+    p2: int, p3: int, GLweightsx: 'float[:,:]', f_eval_aux: 'float[:,:,:]'
+):
+    '''Kernel for evaluating the degrees of freedom for the first component of 2-forms.  This function is for local commuting projetors.
+
+    Parameters
+    ----------
+        f1 : 3d float array
+            Evaluation for the first component of the 2-form function over all the interpolation points in e1, as well as all the Gauss-Legendre quadrature point in e2 and e3.
+
+        p2 : int
+            Degree of the B-splines in the e2 direction.
+
+        p3 : int
+            Degree of the B-splines in the e3 direction.
+
+        GLweightsx : 2d float array
+            Tensor product of the Gauss-Legandre quadrature weights for the intergrals in the e2 and e3 direction.
+        f_eval_aux : 3d float array
+            Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
+    '''
+
+    from numpy import shape
+
+    for i in range(shape(f_eval_aux)[0]):
+        for j in range(shape(f_eval_aux)[1]):
+            for k in range(shape(f_eval_aux)[2]):
+                # The following loop must be tantamount to:
+                # f_eval_aux[i,j,k] = np.sum(np.multiply(f1[i,j*p2:(j+1)*p2,k*p3:(k+1)*p3],GLweightsx))
+                in_start_2 = j*p2
+                in_start_3 = k*p3
+                for jj in range(p2):
+                    for kk in range(p3):
+                        f_eval_aux[i, j, k] += f1[i, in_start_2 +
+                                                  jj, in_start_3+kk] * GLweightsx[jj, kk]
+
+
+def get_dofs_local_2_form_e2_component(
+    f2: 'float[:,:,:]',
+    p1: int, p3: int, GLweightsy: 'float[:,:]', f_eval_aux: 'float[:,:,:]'
+):
+    '''Kernel for evaluating the degrees of freedom for the second component of 2-forms.  This function is for local commuting projetors.
+
+    Parameters
+    ----------
+        f2 : 3d float array
+            Evaluation for the second component of the 2-form function over all the interpolation points in e2, as well as all the Gauss-Legendre quadrature point in e1 and e3.
+
+        p1 : int
+            Degree of the B-splines in the e1 direction.
+
+        p3 : int
+            Degree of the B-splines in the e3 direction.
+
+        GLweightsy : 2d float array
+            Tensor product of the Gauss-Legandre quadrature weights for the intergrals in the e1 and e3 direction.
+        f_eval_aux : 3d float array
+            Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
+    '''
+
+    from numpy import shape
+
+    for i in range(shape(f_eval_aux)[0]):
+        for j in range(shape(f_eval_aux)[1]):
+            for k in range(shape(f_eval_aux)[2]):
+                # The following loop must be tantamount to:
+                # f_eval_aux[i,j,k] = np.sum(np.multiply(f2[i*self._p[0]:(i+1)*self._p[0],j,k*self._p[2]:(k+1)*self._p[2]],self._GLweightsy))
+                in_start_1 = i*p1
+                in_start_3 = k*p3
+                for ii in range(p1):
+                    for kk in range(p3):
+                        f_eval_aux[i, j, k] += f2[in_start_1+ii,
+                                                  j, in_start_3+kk] * GLweightsy[ii, kk]
+
+
+def get_dofs_local_2_form_e3_component(
+    f3: 'float[:,:,:]',
+    p1: int, p2: int, GLweightsz: 'float[:,:]', f_eval_aux: 'float[:,:,:]'
+):
+    '''Kernel for evaluating the degrees of freedom for the third component of 2-forms.  This function is for local commuting projetors.
+
+    Parameters
+    ----------
+        f3 : 3d float array
+            Evaluation for the third component of the 2-form function over all the interpolation points in e3, as well as all the Gauss-Legendre quadrature point in e1 and e2.
+
+        p1 : int
+            Degree of the B-splines in the e1 direction.
+
+        p2 : int
+            Degree of the B-splines in the e2 direction.
+
+        GLweightsz : 2d float array
+            Tensor product of the Gauss-Legandre quadrature weights for the intergrals in the e1 and e2 direction.
+        f_eval_aux : 3d float array
+            Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
+    '''
+
+    from numpy import shape
+
+    for i in range(shape(f_eval_aux)[0]):
+        for j in range(shape(f_eval_aux)[1]):
+            for k in range(shape(f_eval_aux)[2]):
+                # The following loop must be tantamount to:
+                # f_eval_aux[i,j,k] = np.sum(np.multiply(f3[i*self._p[0]:(i+1)*self._p[0],j*self._p[1]:(j+1)*self._p[1],k],self._GLweightsz))
+                in_start_1 = i*p1
+                in_start_2 = j*p2
+                for ii in range(p1):
+                    for jj in range(p2):
+                        f_eval_aux[i, j, k] += f3[in_start_1+ii,
+                                                  in_start_2+jj, k] * GLweightsz[ii, jj]
+
+
+def get_dofs_local_3_form(
+    faux: 'float[:,:,:]',
+    p1: int, p2: int, p3: int, GLweights: 'float[:,:,:]', f_eval: 'float[:,:,:]'
+):
+    '''Kernel for evaluating the degrees of freedom for 3-forms.  This function is for local commuting projetors.
+
+    Parameters
+    ----------
+        faux : 3d float array
+            Evaluation for the 3-form function over all the Gauss-Legendre quadrature point in e1, e2 and e3.
+
+        p1 : int
+            Degree of the B-splines in the e1 direction.
+
+        p2 : int
+            Degree of the B-splines in the e2 direction.
+
+        p3 : int
+            Degree of the B-splines in the e3 direction.
+
+        GLweights : 3d float array
+            Tensor product of the Gauss-Legandre quadrature weights for the intergrals in the e1, e2 and e3 direction.
+        f_eval : 3d float array
+            Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
+    '''
+
+    from numpy import shape
+
+    for i in range(shape(f_eval)[0]):
+        for j in range(shape(f_eval)[1]):
+            for k in range(shape(f_eval)[2]):
+                # The following loop must be tantamount to:
+                # f_eval[i,j,k] = np.sum(np.multiply(faux[i*self._p[0]:(i+1)*self._p[0],j*self._p[1]:(j+1)*self._p[1],k*self._p[2]:(k+1)*self._p[2]],self._GLweights))
+                in_start_1 = i*p1
+                in_start_2 = j*p2
+                in_start_3 = k*p3
+                for ii in range(p1):
+                    for jj in range(p2):
+                        for kk in range(p3):
+                            f_eval[i, j, k] += faux[in_start_1+ii, in_start_2 +
+                                                    jj, in_start_3+kk] * GLweights[ii, jj, kk]
+
+
+# We need a functions that tell us which of the quasi-interpolation points to take for a any given i
+def select_quasi_points(i: int, p: int, Nbasis: int, periodic: bool):
+    '''Determines the start and end indices of the quasi-interpolation points that must be taken to get the ith FEEC coefficient for local commuting projectors. 
+
+    Parameters
+    ----------
+    i : int
+        Index of the FEEC coefficient that must be computed.
+
+    p : int
+        B-spline degree.
+
+    Nbasis: int
+        Number of B-spline.
+
+    periodic: bool
+        Whether we have periodic boundary conditions.
+
+    Returns
+    -------
+    offset : int
+        Start index of the quasi-interpolation points that must be consider to obtain the ith FEEC coefficient.
+
+    2*p-1+offset : int
+        End index of the quasi-interpolation points that must be consider to obtain the ith FEEC coefficient.
+    '''
+    if periodic:
+        return 2*i, int(2*p)-1+2*i
+    else:
+        # We need the number of elements n, to compute it we substract the B-spline degree from the number of B-splines.
+        n = Nbasis-p
+        if i >= 0 and i < p-1:
+            offset = 0
+        elif i >= p-1 and i <= n:
+            offset = int(2*(i-p+1))
+        elif i > n and i <= n+p-1:
+            offset = int(2*(n-p+1))
+        # else:
+            # raise Exception("index i must be between 0 and n+p-1")
+
+        return offset, int(2*p)-1+offset
+
+
+def solve_local_0_form(
+    starts: 'int[:]', ends: 'int[:]', pds: 'int[:]', npts: 'int[:]', periodic: 'bool[:]',
+    p1: int, p2: int, p3: int, wij0: 'float[:,:]', wij1: 'float[:,:]', wij2: 'float[:,:]', rhs: 'float[:,:,:]', out: 'float[:,:,:]'
+):
+    '''Kernel for obtaining the FEEC coefficients of zero forms with local projectors.
+
+    Parameters
+    ----------
+        starts: 1d int array
+            Array with the StencilVector start indices for each MPI rank.
+
+        ends: 1d int array
+            Array with the StencilVector end indices for each MPI rank.
+
+        pds: 1d int array
+            Array with the StencilVector pads for each MPI rank.
+
+        npts: 1d int array
+            Array with the number of elements the coefficient vector has in each dimension.
+
+        periodic: 1d bool array
+            Array that tell us if the splines are periodic or clamped in each dimension.
+
+        p1 : int
+            Degree of the B-splines in the e1 direction.
+
+        p2 : int
+            Degree of the B-splines in the e2 direction.
+
+        p3 : int
+            Degree of the B-splines in the e3 direction.
+
+        wij0: 2d float array
+            Array with the inverse values of the local collocation matrix for the first direction.
+
+        wij1: 2d float array
+            Array with the inverse values of the local collocation matrix for the second direction.
+
+        wij2: 2d float array
+            Array with the inverse values of the local collocation matrix for the third direction.
+
+        rhs : 3d float array
+            Array with the evaluated degrees of freedom.
+        out : 3d float array
+            Array of FEEC coefficients for the 0-form function.
+    '''
+    from numpy import shape
+    # We iterate over all the entries that belong to the current rank
+    counteri0 = 0
+    for i0 in range(starts[0], ends[0]+1):
+        counteri1 = 0
+        for i1 in range(starts[1], ends[1]+1):
+            counteri2 = 0
+            for i2 in range(starts[2], ends[2]+1):
+                L123 = 0.0
+                startj1, endj1 = select_quasi_points(
+                    i0, p1, npts[0], periodic[0])
+                startj2, endj2 = select_quasi_points(
+                    i1, p2, npts[1], periodic[1])
+                startj3, endj3 = select_quasi_points(
+                    i2, p3, npts[2], periodic[2])
+                for j1 in range(2*p1-1):
+                    # position 1 to evaluate rhs. The module is only necessary for periodic boundary conditions. But it does not hurt the clamped boundary conditions so we just leave it as is to avoid an extra if.
+                    if (startj1+j1 < shape(rhs)[0]):
+                        pos1 = startj1+j1
+                    else:
+                        pos1 = int(startj1+j1 - 2*npts[0])
+                    auxL2 = 0.0
+                    for j2 in range(2*p2-1):
+                        # position 2 to evaluate rhs
+                        if (startj2+j2 < shape(rhs)[1]):
+                            pos2 = startj2+j2
+                        else:
+                            pos2 = int(startj2+j2 - 2*npts[1])
+                        auxL3 = 0.0
+                        for j3 in range(2*p3-1):
+                            # position 3 to evaluate rhs
+                            if (startj3+j3 < shape(rhs)[2]):
+                                pos3 = startj3+j3
+                            else:
+                                pos3 = int(startj3+j3 - 2*npts[2])
+                            auxL3 += wij2[i2][j3]*rhs[pos1, pos2, pos3]
+                        auxL2 += wij1[i1][j2]*auxL3
+                    L123 += wij0[i0][j1]*auxL2
+                out[pds[0]+counteri0, pds[1]+counteri1, pds[2]+counteri2] = L123
+                counteri2 += 1
+            counteri1 += 1
+        counteri0 += 1
+
+
+def solve_local_1_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int[:,:]', npts: 'int[:,:]', periodic: 'bool[:,:]',
+                       p1: int, p2: int, p3: int, wij0: 'float[:,:]', wij1: 'float[:,:]', wij2: 'float[:,:]',  whij0: 'float[:,:]', whij1: 'float[:,:]', whij2: 'float[:,:]', rhs0: 'float[:,:,:]', rhs1: 'float[:,:,:]', rhs2: 'float[:,:,:]', out0: 'float[:,:,:]', out1: 'float[:,:,:]', out2: 'float[:,:,:]'):
+    '''Kernel for obtaining the FEEC coefficients of one forms with local projectors.
+
+    Parameters
+    ----------
+        nsp: int
+            Number of spaces.
+
+        starts: 2d int array
+            Array with the BlockVector start indices for each MPI rank.
+
+        ends: 2d int array
+            Array with the BlockVector end indices for each MPI rank.
+
+        pds: 2d int array
+            Array with the BlockVector pads for each MPI rank.
+
+        npts: 2d int array
+            Array with the number of elements the coefficient vector has in each dimension.
+
+        periodic: 2d bool array
+            Array that tell us if the splines are periodic or clamped in each dimension.
+
+        p1 : int
+            Degree of the B-splines in the e1 direction.
+
+        p2 : int
+            Degree of the B-splines in the e2 direction.
+
+        p3 : int
+            Degree of the B-splines in the e3 direction.
+
+        wij0: 2d float array
+            Array with the inverse values of the local collocation matrix for the first direction.
+
+        wij1: 2d float array
+            Array with the inverse values of the local collocation matrix for the second direction.
+
+        wij2: 2d float array
+            Array with the inverse values of the local collocation matrix for the third direction.
+
+        whij0: 2d float array
+            Array with the histopolation geometric weights for the first direction.
+
+        whij1: 2d float array
+            Array with the histopolation geometric weights for the second direction.
+
+        whij2: 2d float array
+            Array with the histopolation geometric weights for the third direction.
+
+        rhs0 : 3d float array
+            Array with the evaluated degrees of freedom for the first StencilVector.
+
+        rhs1 : 3d float array
+            Array with the evaluated degrees of freedom for the second StencilVector.
+
+        rhs2 : 3d float array
+            Array with the evaluated degrees of freedom for the third StencilVector.    
+
+        out0 : 3d float array
+            Array of FEEC coefficients for the first component of the 1-form function.
+
+        out1 : 3d float array
+            Array of FEEC coefficients for the second component of the 1-form function.
+
+        out2 : 3d float array
+            Array of FEEC coefficients for the third component of the 1-form function.
+    '''
+    from numpy import shape
+
+    # We iterate over the stencil vectors inside the BlockVector
+    for h in range(nsp):
+        # We need to know the number of iterrations to be done by the j1, j2 and j3 loops. Since they change depending on whether we have interpolation or histopolation they will be different for each h.
+        if (h == 0):
+            lenj1 = 2*p1
+            lenj2 = 2*p2-1
+            lenj3 = 2*p3-1
+            # We iterate over all the entries that belong to the current rank
+            counteri0 = 0
+            for i0 in range(starts[h][0], ends[h][0]+1):
+                counteri1 = 0
+                for i1 in range(starts[h][1], ends[h][1]+1):
+                    counteri2 = 0
+                    for i2 in range(starts[h][2], ends[h][2]+1):
+                        L123 = 0.0
+                        # For the third input I need the number of B-splines
+                        startj1, endj1 = select_quasi_points(
+                            i0, p1, npts[1][0], periodic[0][0])
+                        startj2, endj2 = select_quasi_points(
+                            i1, p2, npts[0][1], periodic[0][1])
+                        startj3, endj3 = select_quasi_points(
+                            i2, p3, npts[0][2], periodic[0][2])
+
+                        for j1 in range(lenj1):
+                            # position 1 to evaluate rhs
+                            if (startj1+j1 < shape(rhs0)[0]):
+                                pos1 = startj1+j1
+                            else:
+                                pos1 = int(startj1+j1 - 2*npts[1][0])
+                            if (whij0[i0][j1] != 0.0):
+                                auxL2 = 0.0
+                                for j2 in range(lenj2):
+                                    # position 2 to evaluate rhs
+                                    if (startj2+j2 < shape(rhs0)[1]):
+                                        pos2 = startj2+j2
+                                    else:
+                                        pos2 = int(startj2+j2 - 2*npts[0][1])
+                                    auxL3 = 0.0
+                                    for j3 in range(lenj3):
+                                        # position 3 to evaluate rhs
+                                        if (startj3+j3 < shape(rhs0)[2]):
+                                            pos3 = startj3+j3
+                                        else:
+                                            pos3 = int(
+                                                startj3+j3 - 2*npts[0][2])
+                                        auxL3 += wij2[i2][j3] * \
+                                            rhs0[pos1, pos2, pos3]
+                                    auxL2 += wij1[i1][j2]*auxL3
+                                L123 += whij0[i0][j1]*auxL2
+                        out0[pds[h][0]+counteri0, pds[h][1] +
+                             counteri1, pds[h][2]+counteri2] = L123
+                        counteri2 += 1
+                    counteri1 += 1
+                counteri0 += 1
+
+        elif (h == 1):
+            lenj1 = 2*p1-1
+            lenj2 = 2*p2
+            lenj3 = 2*p3-1
+            # We iterate over all the entries that belong to the current rank
+            counteri0 = 0
+            for i0 in range(starts[h][0], ends[h][0]+1):
+                counteri1 = 0
+                for i1 in range(starts[h][1], ends[h][1]+1):
+                    counteri2 = 0
+                    for i2 in range(starts[h][2], ends[h][2]+1):
+                        L123 = 0.0
+                        # For the third input I need the number of B-splines
+                        startj1, endj1 = select_quasi_points(
+                            i0, p1, npts[1][0], periodic[0][0])
+                        startj2, endj2 = select_quasi_points(
+                            i1, p2, npts[0][1], periodic[0][1])
+                        startj3, endj3 = select_quasi_points(
+                            i2, p3, npts[0][2], periodic[0][2])
+                        for j1 in range(lenj1):
+                            # position 1 to evaluate rhs
+                            if (startj1+j1 < shape(rhs1)[0]):
+                                pos1 = startj1+j1
+                            else:
+                                pos1 = int(startj1+j1 - 2 * npts[1][0])
+                            auxL2 = 0.0
+                            for j2 in range(lenj2):
+                                # position 2 to evaluate rhs
+                                if (startj2+j2 < shape(rhs1)[1]):
+                                    pos2 = startj2+j2
+                                else:
+                                    pos2 = int(startj2+j2 - 2*npts[0][1])
+                                if (whij1[i1][j2] != 0.0):
+                                    auxL3 = 0.0
+                                    for j3 in range(lenj3):
+                                        # position 3 to evaluate rhs
+                                        if (startj3+j3 < shape(rhs1)[2]):
+                                            pos3 = startj3+j3
+                                        else:
+                                            pos3 = int(
+                                                startj3+j3 - 2*npts[0][2])
+                                        auxL3 += wij2[i2][j3] * \
+                                            rhs1[pos1, pos2, pos3]
+                                    auxL2 += whij1[i1][j2]*auxL3
+                            L123 += wij0[i0][j1]*auxL2
+                        out1[pds[h][0]+counteri0, pds[h][1] +
+                             counteri1, pds[h][2]+counteri2] = L123
+                        counteri2 += 1
+                    counteri1 += 1
+                counteri0 += 1
+
+        elif (h == 2):
+            lenj1 = 2*p1-1
+            lenj2 = 2*p2-1
+            lenj3 = 2*p3
+
+            # We iterate over all the entries that belong to the current rank
+            counteri0 = 0
+            for i0 in range(starts[h][0], ends[h][0]+1):
+                counteri1 = 0
+                for i1 in range(starts[h][1], ends[h][1]+1):
+                    counteri2 = 0
+                    for i2 in range(starts[h][2], ends[h][2]+1):
+                        L123 = 0.0
+                        # For the third input I need the number of B-splines
+                        startj1, endj1 = select_quasi_points(
+                            i0, p1, npts[1][0], periodic[0][0])
+                        startj2, endj2 = select_quasi_points(
+                            i1, p2, npts[0][1], periodic[0][1])
+                        startj3, endj3 = select_quasi_points(
+                            i2, p3, npts[0][2], periodic[0][2])
+                        for j1 in range(lenj1):
+                            # position 1 to evaluate rhs
+                            if (startj1+j1 < shape(rhs2)[0]):
+                                pos1 = startj1+j1
+                            else:
+                                pos1 = int(startj1+j1 - 2*npts[1][0])
+                            auxL2 = 0.0
+                            for j2 in range(lenj2):
+                                # position 2 to evaluate rhs
+                                if (startj2+j2 < shape(rhs2)[1]):
+                                    pos2 = startj2+j2
+                                else:
+                                    pos2 = int(startj2+j2 - 2*npts[0][1])
+                                auxL3 = 0.0
+                                for j3 in range(lenj3):
+                                    # position 3 to evaluate rhs
+                                    if (startj3+j3 < shape(rhs2)[2]):
+                                        pos3 = startj3+j3
+                                    else:
+                                        pos3 = int(startj3+j3 - 2*npts[0][2])
+                                    if (whij2[i2][j3] != 0.0):
+                                        auxL3 += whij2[i2][j3] * \
+                                            rhs2[pos1, pos2, pos3]
+                                auxL2 += wij1[i1][j2]*auxL3
+                            L123 += wij0[i0][j1]*auxL2
+                        out2[pds[h][0]+counteri0, pds[h][1] +
+                             counteri1, pds[h][2]+counteri2] = L123
+                        counteri2 += 1
+                    counteri1 += 1
+                counteri0 += 1
+
+
+def solve_local_2_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int[:,:]', npts: 'int[:,:]', periodic: 'bool[:,:]',
+                       p1: int, p2: int, p3: int, wij0: 'float[:,:]', wij1: 'float[:,:]', wij2: 'float[:,:]',  whij0: 'float[:,:]', whij1: 'float[:,:]', whij2: 'float[:,:]', rhs0: 'float[:,:,:]', rhs1: 'float[:,:,:]', rhs2: 'float[:,:,:]', out0: 'float[:,:,:]', out1: 'float[:,:,:]', out2: 'float[:,:,:]'):
+    '''Kernel for obtaining the FEEC coefficients of 2-forms with local projectors.
+
+    Parameters
+    ----------
+        nsp: int
+            Number of spaces.
+
+        starts: 2d int array
+            Array with the BlockVector start indices for each MPI rank.
+
+        ends: 2d int array
+            Array with the BlockVector end indices for each MPI rank.
+
+        pds: 2d int array
+            Array with the BlockVector pads for each MPI rank.
+
+        npts: 2d int array
+            Array with the number of elements the coefficient vector has in each dimension.
+
+        periodic: 2d bool array
+            Array that tell us if the splines are periodic or clamped in each dimension.
+
+        p1 : int
+            Degree of the B-splines in the e1 direction.
+
+        p2 : int
+            Degree of the B-splines in the e2 direction.
+
+        p3 : int
+            Degree of the B-splines in the e3 direction.
+
+        wij0: 2d float array
+            Array with the inverse values of the local collocation matrix for the first direction.
+
+        wij1: 2d float array
+            Array with the inverse values of the local collocation matrix for the second direction.
+
+        wij2: 2d float array
+            Array with the inverse values of the local collocation matrix for the third direction.
+
+        whij0: 2d float array
+            Array with the histopolation geometric weights for the first direction.
+
+        whij1: 2d float array
+            Array with the histopolation geometric weights for the second direction.
+
+        whij2: 2d float array
+            Array with the histopolation geometric weights for the third direction.
+
+        rhs0 : 3d float array
+            Array with the evaluated degrees of freedom for the first StencilVector.
+
+        rhs1 : 3d float array
+            Array with the evaluated degrees of freedom for the second StencilVector.
+
+        rhs2 : 3d float array
+            Array with the evaluated degrees of freedom for the third StencilVector.    
+
+        out0 : 3d float array
+            Array of FEEC coefficients for the first component of the 2-form function.
+
+        out1 : 3d float array
+            Array of FEEC coefficients for the second component of the 2-form function.
+
+        out2 : 3d float array
+            Array of FEEC coefficients for the third component of the 2-form function.
+    '''
+    from numpy import shape
+
+    # We iterate over the stencil vectors inside the BlockVector
+    for h in range(nsp):
+        # We need to know the number of iterrations to be done by the j1, j2 and j3 loops. Since they change depending on whether we have interpolation or histopolation they will be different for each h.
+        if (h == 0):
+            lenj1 = 2*p1-1
+            lenj2 = 2*p2
+            lenj3 = 2*p3
+            # We iterate over all the entries that belong to the current rank
+            counteri0 = 0
+            for i0 in range(starts[h][0], ends[h][0]+1):
+                counteri1 = 0
+                for i1 in range(starts[h][1], ends[h][1]+1):
+                    counteri2 = 0
+                    for i2 in range(starts[h][2], ends[h][2]+1):
+                        L123 = 0.0
+                        # For the third input I need the number of B-splines
+                        startj1, endj1 = select_quasi_points(
+                            i0, p1, npts[0][0], periodic[0][0])
+                        startj2, endj2 = select_quasi_points(
+                            i1, p2, npts[1][1], periodic[0][1])
+                        startj3, endj3 = select_quasi_points(
+                            i2, p3, npts[2][2], periodic[0][2])
+
+                        for j1 in range(lenj1):
+                            # position 1 to evaluate rhs
+                            if (startj1+j1 < shape(rhs0)[0]):
+                                pos1 = startj1+j1
+                            else:
+                                pos1 = int(startj1+j1 - 2*npts[0][0])
+                            auxL2 = 0.0
+                            for j2 in range(lenj2):
+                                # position 2 to evaluate rhs
+                                if (startj2+j2 < shape(rhs0)[1]):
+                                    pos2 = startj2+j2
+                                else:
+                                    pos2 = int(startj2+j2 - 2*npts[1][1])
+                                if (whij1[i1][j2] != 0.0):
+                                    auxL3 = 0.0
+                                    for j3 in range(lenj3):
+                                        # position 3 to evaluate rhs
+                                        if (startj3+j3 < shape(rhs0)[2]):
+                                            pos3 = startj3+j3
+                                        else:
+                                            pos3 = int(
+                                                startj3+j3 - 2*npts[2][2])
+                                        if (whij2[i2][j3] != 0.0):
+                                            auxL3 += whij2[i2][j3] * \
+                                                rhs0[pos1, pos2, pos3]
+                                    auxL2 += whij1[i1][j2]*auxL3
+                            L123 += wij0[i0][j1]*auxL2
+                        out0[pds[h][0]+counteri0, pds[h][1] +
+                             counteri1, pds[h][2]+counteri2] = L123
+                        counteri2 += 1
+                    counteri1 += 1
+                counteri0 += 1
+
+        elif (h == 1):
+            lenj1 = 2*p1
+            lenj2 = 2*p2-1
+            lenj3 = 2*p3
+            # We iterate over all the entries that belong to the current rank
+            counteri0 = 0
+            for i0 in range(starts[h][0], ends[h][0]+1):
+                counteri1 = 0
+                for i1 in range(starts[h][1], ends[h][1]+1):
+                    counteri2 = 0
+                    for i2 in range(starts[h][2], ends[h][2]+1):
+                        L123 = 0.0
+                        # For the third input I need the number of B-splines
+                        startj1, endj1 = select_quasi_points(
+                            i0, p1, npts[0][0], periodic[0][0])
+                        startj2, endj2 = select_quasi_points(
+                            i1, p2, npts[1][1], periodic[0][1])
+                        startj3, endj3 = select_quasi_points(
+                            i2, p3, npts[2][2], periodic[0][2])
+                        for j1 in range(lenj1):
+                            # position 1 to evaluate rhs
+                            if (startj1+j1 < shape(rhs1)[0]):
+                                pos1 = startj1+j1
+                            else:
+                                pos1 = int(startj1+j1 - 2*npts[0][0])
+                            if (whij0[i0][j1] != 0.0):
+                                auxL2 = 0.0
+                                for j2 in range(lenj2):
+                                    # position 2 to evaluate rhs
+                                    if (startj2+j2 < shape(rhs1)[1]):
+                                        pos2 = startj2+j2
+                                    else:
+                                        pos2 = int(startj2+j2 - 2*npts[1][1])
+                                    auxL3 = 0.0
+                                    for j3 in range(lenj3):
+                                        # position 3 to evaluate rhs
+                                        if (startj3+j3 < shape(rhs1)[2]):
+                                            pos3 = startj3+j3
+                                        else:
+                                            pos3 = int(
+                                                startj3+j3 - 2*npts[2][2])
+                                        if (whij2[i2][j3] != 0.0):
+                                            auxL3 += whij2[i2][j3] * \
+                                                rhs1[pos1, pos2, pos3]
+                                    auxL2 += wij1[i1][j2]*auxL3
+                                L123 += whij0[i0][j1]*auxL2
+                        out1[pds[h][0]+counteri0, pds[h][1] +
+                             counteri1, pds[h][2]+counteri2] = L123
+                        counteri2 += 1
+                    counteri1 += 1
+                counteri0 += 1
+
+        elif (h == 2):
+            lenj1 = 2*p1
+            lenj2 = 2*p2
+            lenj3 = 2*p3-1
+
+            # We iterate over all the entries that belong to the current rank
+            counteri0 = 0
+            for i0 in range(starts[h][0], ends[h][0]+1):
+                counteri1 = 0
+                for i1 in range(starts[h][1], ends[h][1]+1):
+                    counteri2 = 0
+                    for i2 in range(starts[h][2], ends[h][2]+1):
+                        L123 = 0.0
+                        # For the third input I need the number of B-splines
+                        startj1, endj1 = select_quasi_points(
+                            i0, p1, npts[0][0], periodic[0][0])
+                        startj2, endj2 = select_quasi_points(
+                            i1, p2, npts[1][1], periodic[0][1])
+                        startj3, endj3 = select_quasi_points(
+                            i2, p3, npts[2][2], periodic[0][2])
+                        for j1 in range(lenj1):
+                            # position 1 to evaluate rhs
+                            if (startj1+j1 < shape(rhs2)[0]):
+                                pos1 = startj1+j1
+                            else:
+                                pos1 = int(startj1+j1 - 2*npts[0][0])
+                            if (whij0[i0][j1] != 0.0):
+                                auxL2 = 0.0
+                                for j2 in range(lenj2):
+                                    # position 2 to evaluate rhs
+                                    if (startj2+j2 < shape(rhs2)[1]):
+                                        pos2 = startj2+j2
+                                    else:
+                                        pos2 = int(startj2+j2 - 2*npts[1][1])
+                                    if (whij1[i1][j2] != 0.0):
+                                        auxL3 = 0.0
+                                        for j3 in range(lenj3):
+                                            # position 3 to evaluate rhs
+                                            if (startj3+j3 < shape(rhs2)[2]):
+                                                pos3 = startj3+j3
+                                            else:
+                                                pos3 = int(
+                                                    startj3+j3 - 2*npts[2][2])
+                                            auxL3 += wij2[i2][j3] * \
+                                                rhs2[pos1, pos2, pos3]
+                                        auxL2 += whij1[i1][j2]*auxL3
+                                L123 += whij0[i0][j1]*auxL2
+                        out2[pds[h][0]+counteri0, pds[h][1] +
+                             counteri1, pds[h][2]+counteri2] = L123
+                        counteri2 += 1
+                    counteri1 += 1
+                counteri0 += 1
+
+
+def solve_local_3_form(
+    starts: 'int[:]', ends: 'int[:]', pds: 'int[:]', npts: 'int[:]', periodic: 'bool[:]',
+    p1: int, p2: int, p3: int, whij0: 'float[:,:]', whij1: 'float[:,:]', whij2: 'float[:,:]', rhs: 'float[:,:,:]', out: 'float[:,:,:]'
+):
+    '''Kernel for obtaining the FEEC coefficients of three forms with local projectors.
+
+    Parameters
+    ----------
+        starts: 1d int array
+            Array with the StencilVector start indices for each MPI rank.
+
+        ends: 1d int array
+            Array with the StencilVector end indices for each MPI rank.
+
+        pds: 1d int array
+            Array with the StencilVector pads for each MPI rank.
+
+        npts: 1d int array
+            Array with the number of elements the coefficient vector has in each dimension.
+
+        periodic: 1d bool array
+            Array that tell us if the splines are periodic or clamped in each dimension.
+
+        p1 : int
+            Degree of the B-splines in the e1 direction.
+
+        p2 : int
+            Degree of the B-splines in the e2 direction.
+
+        p3 : int
+            Degree of the B-splines in the e3 direction.
+
+        whij0: 3d float array
+            Array with the weights by which the degrees of freedom must be multiplies to obtain the FE coefficients for the e1 direction.
+
+        whij1: 3d float array
+            Array with the weights by which the degrees of freedom must be multiplies to obtain the FE coefficients for the e2 direction.
+
+        whij2: 3d float array
+            Array with the weights by which the degrees of freedom must be multiplies to obtain the FE coefficients for the e3 direction.
+
+        rhs : 3d float array
+            Array with the evaluated degrees of freedom.
+
+        out : 3d float array
+            Array of FEEC coefficients for the 3-form function.
+    '''
+    from numpy import shape
+    #We get the number of B-Splines
+    if(periodic[0]):
+        NB0 = npts[0]
+    else:
+        NB0 = npts[0]+1
+    if(periodic[1]):
+        NB1 = npts[1]
+    else:
+        NB1 = npts[1]+1
+    if(periodic[2]):
+        NB2 = npts[2]
+    else:
+        NB2 = npts[2]+1
+    
+    # We iterate over all the entries that belong to the current rank
+    counteri0 = 0
+    for i0 in range(starts[0], ends[0]+1):
+        counteri1 = 0
+        for i1 in range(starts[1], ends[1]+1):
+            counteri2 = 0
+            for i2 in range(starts[2], ends[2]+1):
+                L123 = 0.0
+                startj1, endj1 = select_quasi_points(
+                    i0, p1, npts[0]+1, periodic[0])
+                startj2, endj2 = select_quasi_points(
+                    i1, p2, npts[1]+1, periodic[1])
+                startj3, endj3 = select_quasi_points(
+                    i2, p3, npts[2]+1, periodic[2])
+                for j1 in range(2*p1):
+                    # position 1 to evaluate rhs
+                    if (startj1+j1 < shape(rhs)[0]):
+                        pos1 = startj1+j1
+                    else:
+                        pos1 = int(startj1+j1 - 2*NB0)
+                    if (whij0[i0][j1] != 0.0):
+                        auxL2 = 0.0
+                        for j2 in range(2*p2):
+                            # position 2 to evaluate rhs
+                            if (startj2+j2 < shape(rhs)[1]):
+                                pos2 = startj2+j2
+                            else:
+                                pos2 = int(startj2+j2 - 2*NB1)
+                            if (whij1[i1][j2] != 0.0):
+                                auxL3 = 0.0
+                                for j3 in range(2*p3):
+                                    # position 3 to evaluate rhs
+                                    if (startj3+j3 < shape(rhs)[2]):
+                                        pos3 = startj3+j3
+                                    else:
+                                        pos3 = int(startj3+j3 - 2*NB2)
+                                    if (whij2[i2][j3] != 0.0):
+                                        auxL3 += whij2[i2][j3] * \
+                                            rhs[pos1, pos2, pos3]
+                                auxL2 += whij1[i1][j2]*auxL3
+                        L123 += whij0[i0][j1]*auxL2
+                out[pds[0]+counteri0, pds[1]+counteri1, pds[2]+counteri2] = L123
+                counteri2 += 1
+            counteri1 += 1
+        counteri0 += 1
+
+
+def solve_local_0V_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int[:,:]', npts: 'int[:,:]', periodic: 'bool[:,:]',
+                        p1: int, p2: int, p3: int, wij0: 'float[:,:]', wij1: 'float[:,:]', wij2: 'float[:,:]',  rhs0: 'float[:,:,:]', rhs1: 'float[:,:,:]', rhs2: 'float[:,:,:]', out0: 'float[:,:,:]', out1: 'float[:,:,:]', out2: 'float[:,:,:]'):
+    '''Kernel for obtaining the FEEC coefficients of vector 0-forms with local projectors.
+
+    Parameters
+    ----------
+        nsp: int
+            Number of spaces.
+
+        starts: 2d int array
+            Array with the BlockVector start indices for each MPI rank.
+
+        ends: 2d int array
+            Array with the BlockVector end indices for each MPI rank.
+
+        pds: 2d int array
+            Array with the BlockVector pads for each MPI rank.
+
+        npts: 2d int array
+            Array with the number of elements the coefficient vector has in each dimension.
+
+        periodic: 2d bool array
+            Array that tell us if the splines are periodic or clamped in each dimension.
+
+        p1 : int
+            Degree of the B-splines in the e1 direction.
+
+        p2 : int
+            Degree of the B-splines in the e2 direction.
+
+        p3 : int
+            Degree of the B-splines in the e3 direction.
+
+        wij0: 2d float array
+            Array with the inverse values of the local collocation matrix for the first direction.
+
+        wij1: 2d float array
+            Array with the inverse values of the local collocation matrix for the second direction.
+
+        wij2: 2d float array
+            Array with the inverse values of the local collocation matrix for the third direction.
+
+        rhs0 : 3d float array
+            Array with the evaluated degrees of freedom for the first StencilVector.
+
+        rhs1 : 3d float array
+            Array with the evaluated degrees of freedom for the second StencilVector.
+
+        rhs2 : 3d float array
+            Array with the evaluated degrees of freedom for the third StencilVector.    
+
+        out0 : 3d float array
+            Array of FEEC coefficients for the first component of the 0-form vector function.
+
+        out1 : 3d float array
+            Array of FEEC coefficients for the second component of the 0-form vector function.
+
+        out2 : 3d float array
+            Array of FEEC coefficients for the third component of the 0-form vector function.
+    '''
+    from numpy import shape
+
+    lenj1 = 2*p1-1
+    lenj2 = 2*p2-1
+    lenj3 = 2*p3-1
+    # We iterate over the stencil vectors inside the BlockVector
+    for h in range(nsp):
+        # We need to know the number of iterrations to be done by the j1, j2 and j3 loops. Since they change depending on whether we have interpolation or histopolation they will be different for each h.
+        if (h == 0):
+            # We iterate over all the entries that belong to the current rank
+            counteri0 = 0
+            for i0 in range(starts[h][0], ends[h][0]+1):
+                counteri1 = 0
+                for i1 in range(starts[h][1], ends[h][1]+1):
+                    counteri2 = 0
+                    for i2 in range(starts[h][2], ends[h][2]+1):
+                        L123 = 0.0
+                        # For the third input I need the number of B-splines
+                        startj1, endj1 = select_quasi_points(
+                            i0, p1, npts[0][0], periodic[0][0])
+                        startj2, endj2 = select_quasi_points(
+                            i1, p2, npts[0][1], periodic[0][1])
+                        startj3, endj3 = select_quasi_points(
+                            i2, p3, npts[0][2], periodic[0][2])
+
+                        for j1 in range(lenj1):
+                            # position 1 to evaluate rhs
+                            if (startj1+j1 < shape(rhs0)[0]):
+                                pos1 = startj1+j1
+                            else:
+                                pos1 = int(startj1+j1 - 2*npts[0][0])
+                            auxL2 = 0.0
+                            for j2 in range(lenj2):
+                                # position 2 to evaluate rhs
+                                if (startj2+j2 < shape(rhs0)[1]):
+                                    pos2 = startj2+j2
+                                else:
+                                    pos2 = int(startj2+j2 - 2*npts[0][1])
+                                auxL3 = 0.0
+                                for j3 in range(lenj3):
+                                    # position 3 to evaluate rhs
+                                    if (startj3+j3 < shape(rhs0)[2]):
+                                        pos3 = startj3+j3
+                                    else:
+                                        pos3 = int(startj3+j3 - 2*npts[0][2])
+                                    auxL3 += wij2[i2][j3] * \
+                                        rhs0[pos1, pos2, pos3]
+                                auxL2 += wij1[i1][j2]*auxL3
+                            L123 += wij0[i0][j1]*auxL2
+                        out0[pds[h][0]+counteri0, pds[h][1] +
+                             counteri1, pds[h][2]+counteri2] = L123
+                        counteri2 += 1
+                    counteri1 += 1
+                counteri0 += 1
+
+        elif (h == 1):
+            # We iterate over all the entries that belong to the current rank
+            counteri0 = 0
+            for i0 in range(starts[h][0], ends[h][0]+1):
+                counteri1 = 0
+                for i1 in range(starts[h][1], ends[h][1]+1):
+                    counteri2 = 0
+                    for i2 in range(starts[h][2], ends[h][2]+1):
+                        L123 = 0.0
+                        # For the third input I need the number of B-splines
+                        startj1, endj1 = select_quasi_points(
+                            i0, p1, npts[0][0], periodic[0][0])
+                        startj2, endj2 = select_quasi_points(
+                            i1, p2, npts[0][1], periodic[0][1])
+                        startj3, endj3 = select_quasi_points(
+                            i2, p3, npts[0][2], periodic[0][2])
+
+                        for j1 in range(lenj1):
+                            # position 1 to evaluate rhs
+                            if (startj1+j1 < shape(rhs1)[0]):
+                                pos1 = startj1+j1
+                            else:
+                                pos1 = int(startj1+j1 - 2*npts[0][0])
+                            auxL2 = 0.0
+                            for j2 in range(lenj2):
+                                # position 2 to evaluate rhs
+                                if (startj2+j2 < shape(rhs1)[1]):
+                                    pos2 = startj2+j2
+                                else:
+                                    pos2 = int(startj2+j2 - 2*npts[0][1])
+                                auxL3 = 0.0
+                                for j3 in range(lenj3):
+                                    # position 3 to evaluate rhs
+                                    if (startj3+j3 < shape(rhs1)[2]):
+                                        pos3 = startj3+j3
+                                    else:
+                                        pos3 = int(startj3+j3 - 2*npts[0][2])
+                                    auxL3 += wij2[i2][j3] * \
+                                        rhs1[pos1, pos2, pos3]
+                                auxL2 += wij1[i1][j2]*auxL3
+                            L123 += wij0[i0][j1]*auxL2
+                        out1[pds[h][0]+counteri0, pds[h][1] +
+                             counteri1, pds[h][2]+counteri2] = L123
+                        counteri2 += 1
+                    counteri1 += 1
+                counteri0 += 1
+
+        elif (h == 2):
+            # We iterate over all the entries that belong to the current rank
+            counteri0 = 0
+            for i0 in range(starts[h][0], ends[h][0]+1):
+                counteri1 = 0
+                for i1 in range(starts[h][1], ends[h][1]+1):
+                    counteri2 = 0
+                    for i2 in range(starts[h][2], ends[h][2]+1):
+                        L123 = 0.0
+                        # For the third input I need the number of B-splines
+                        startj1, endj1 = select_quasi_points(
+                            i0, p1, npts[0][0], periodic[0][0])
+                        startj2, endj2 = select_quasi_points(
+                            i1, p2, npts[0][1], periodic[0][1])
+                        startj3, endj3 = select_quasi_points(
+                            i2, p3, npts[0][2], periodic[0][2])
+
+                        for j1 in range(lenj1):
+                            # position 1 to evaluate rhs
+                            if (startj1+j1 < shape(rhs2)[0]):
+                                pos1 = startj1+j1
+                            else:
+                                pos1 = int(startj1+j1 - 2*npts[0][0])
+                            auxL2 = 0.0
+                            for j2 in range(lenj2):
+                                # position 2 to evaluate rhs
+                                if (startj2+j2 < shape(rhs2)[1]):
+                                    pos2 = startj2+j2
+                                else:
+                                    pos2 = int(startj2+j2 - 2*npts[0][1])
+                                auxL3 = 0.0
+                                for j3 in range(lenj3):
+                                    # position 3 to evaluate rhs
+                                    if (startj3+j3 < shape(rhs2)[2]):
+                                        pos3 = startj3+j3
+                                    else:
+                                        pos3 = int(startj3+j3 - 2*npts[0][2])
+                                    auxL3 += wij2[i2][j3] * \
+                                        rhs2[pos1, pos2, pos3]
+                                auxL2 += wij1[i1][j2]*auxL3
+                            L123 += wij0[i0][j1]*auxL2
+                        out2[pds[h][0]+counteri0, pds[h][1] +
+                             counteri1, pds[h][2]+counteri2] = L123
+                        counteri2 += 1
+                    counteri1 += 1
+                counteri0 += 1
