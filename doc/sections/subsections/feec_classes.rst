@@ -43,6 +43,11 @@ Projections into Derham
     :undoc-members:
     :show-inheritance:
 
+.. autoclass:: psydac.feec.global_projectors.GlobalProjector
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 .. _basis_ops:
 
 Basis projection operators

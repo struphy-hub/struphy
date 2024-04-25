@@ -8,6 +8,8 @@ from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
+from struphy.feec.psydac_derham import get_pts_and_wts
+from struphy.feec.psydac_derham import get_span_and_basis
 from struphy.feec.projectors import CommutingProjector
 from struphy.feec.linear_operators import LinOpWithTransp, BoundaryOperator
 from struphy.feec import basis_projection_kernels
@@ -1143,144 +1145,21 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
         spans += [s_i]
         bases += [b_i]
 
-    return tuple(pts), tuple(wts), tuple(spans), tuple(bases), tuple(subs)
-
-
-def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
-    '''Obtain local projection point sets and weights in one grid direction.
+    #print("#################################################")
+    #print("#################################################")
+    #print("W1d[0]:")
+    #print(W1d[0])
+    #print("W1d[1]:")
+    #print(W1d[1])
+    #print("W1d[2]:")
+    #print(W1d[2])
+    #print("pts :")
+    #print(pts)
+    #print("#################################################")
+    #print("#################################################")
     
-    Parameters
-    ----------
-    space_1d : SplineSpace
-        Psydac object for uni-variate spline space.
-        
-    start : int
-        Start index on current process.
-        
-    end : int
-        End index on current process.
-        
-    n_quad : int
-        Number of quadrature points for Gauss-Legendre histopolation.
-        If None, is set to p + 1 where p is the space_1d degree (products of basis functions are integrated exactly).
-        
-    polar_shift : bool
-        Whether to shift the first interpolation point away from 0.0 by 1e-5 (needed only in eta_1 and for polar domains).
-        
-    Returns
-    -------
-    pts : 2D float array
-        Quadrature points (or Greville points for interpolation) in format (ii, iq) = (interval, quadrature point).
-
-    wts : 2D float array
-        Quadrature weights (or 1's for interpolation) in format (ii, iq) = (interval, quadrature point).
-        
-    subs : 1D int array
-        One entry for each interval ii; usually has value 0. 
-        A value of 1 indicates that the cell ii is the second subinterval of a split Greville cell (for histopolation with even degree).'''
-        
-    import psydac.core.bsplines as bsp
-        
-    greville_loc = space_1d.greville[start: end + 1].copy()
-    histopol_loc = space_1d.histopolation_grid[start: end + 2].copy()
-
-    # make sure that greville points used for interpolation are in [0, 1]
-    assert np.all(np.logical_and(greville_loc >= 0., greville_loc <= 1.))
-
-    # interpolation
-    if space_1d.basis == 'B':
-        x_grid = greville_loc
-        pts = greville_loc[:, None]
-        wts = np.ones(pts.shape, dtype=float)
-
-        # sub-interval index is always 0 for interpolation.
-        subs = np.zeros(pts.shape[0], dtype=int)
-
-        # !! shift away first interpolation point in eta_1 direction for polar domains !!
-        if pts[0] == 0. and polar_shift:
-            pts[0] += 0.00001
-
-    # histopolation
-    elif space_1d.basis == 'M':
-
-        if space_1d.degree % 2 == 0:
-            union_breaks = space_1d.breaks
-        else:
-            union_breaks = space_1d.breaks[:-1]
-
-        # Make union of Greville and break points
-        tmp = set(np.round_(space_1d.histopolation_grid, decimals=14)).union(
-            np.round_(union_breaks, decimals=14))
-
-        tmp = list(tmp)
-        tmp.sort()
-        tmp_a = np.array(tmp)
-
-        x_grid = tmp_a[np.logical_and(tmp_a >= np.min(
-            histopol_loc) - 1e-14, tmp_a <= np.max(histopol_loc) + 1e-14)]
-
-        # determine subinterval index (= 0 or 1):
-        subs = np.zeros(x_grid[:-1].size, dtype=int)
-        for n, x_h in enumerate(x_grid[:-1]):
-            add = 1
-            for x_g in histopol_loc:
-                if abs(x_h - x_g) < 1e-14:
-                    add = 0
-            subs[n] += add
-
-        # Gauss - Legendre quadrature points and weights
-        if n_quad is None:
-            # products of basis functions are integrated exactly
-            n_quad = space_1d.degree + 1
-
-        pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
-
-        x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
-
-        pts = x % 1.
-        
-    return pts, wts, subs
-
-
-def get_span_and_basis(pts, space):
-    '''Compute the knot span index and the values of p + 1 basis function at each point in pts.
-
-    Parameters
-    ----------
-    pts : np.array
-        2d array of points (ii, iq) = (interval, quadrature point).
-
-    space : SplineSpace
-        Psydac object, the 1d spline space to be projected.
-
-    Returns
-    -------
-    span : np.array
-        2d array indexed by (n, nq), where n is the interval and nq is the quadrature point in the interval.
-
-    basis : np.array
-        3d array of values of basis functions indexed by (n, nq, basis function). 
-    '''
-
-    import psydac.core.bsplines as bsp
-
-    # Extract knot vectors, degree and kind of basis
-    T = space.knots
-    p = space.degree
-
-    span = np.zeros(pts.shape, dtype=int)
-    basis = np.zeros((*pts.shape, p + 1), dtype=float)
-
-    for n in range(pts.shape[0]):
-        for nq in range(pts.shape[1]):
-            # avoid 1. --> 0. for clamped interpolation
-            x = pts[n, nq] % (1. + 1e-14)
-            span_tmp = bsp.find_span(T, p, x)
-            basis[n, nq, :] = bsp.basis_funs_all_ders(
-                T, p, x, span_tmp, 0, normalization=space.basis)
-            span[n, nq] = span_tmp  # % space.nbasis
-
-    return span, basis
+    
+    return tuple(pts), tuple(wts), tuple(spans), tuple(bases), tuple(subs)
 
 
 class CoordinateProjector(LinearOperator):
