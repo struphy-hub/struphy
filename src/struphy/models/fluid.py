@@ -546,17 +546,18 @@ class VariationalMHD(StruphyModel):
         from struphy.feec.projectors import L2Projector
         from struphy.feec.mass import WeightedMassOperator
         import numpy as np
+        from struphy.polar.basic import PolarVector
 
         # initialize base class
         super().__init__(params, comm)
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
             self.derham.Vh_fem['v'], 
-            self.derham.Vh_fem['v'],)
-            # V_extraction_op=self.derham.extraction_ops['v'],
-            # W_extraction_op=self.derham.extraction_ops['v'],
-            # V_boundary_op=self.derham.boundary_ops['v'],
-            # W_boundary_op=self.derham.boundary_ops['v'])
+            self.derham.Vh_fem['v'],
+            V_extraction_op=self.derham.extraction_ops['v'],
+            W_extraction_op=self.derham.extraction_ops['v'],
+            V_boundary_op=self.derham.boundary_ops['v'],
+            W_boundary_op=self.derham.boundary_ops['v'])
 
         # Initialize propagators/integrators used in splitting substeps
         solver_momentum = params['fluid']['mhd']['options']['solver_momentum']
@@ -566,6 +567,10 @@ class VariationalMHD(StruphyModel):
 
         gamma = params['fluid']['mhd']['options']['physics']['gamma']
 
+        self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
+            self.pointer['mhd_uv'],
+            mass_ops=self.WMM,
+            **solver_momentum))
         self.add_propagator(self.prop_fields.VariationalDensityEvolve(
             self.pointer['mhd_rho3'], self.pointer['mhd_uv'],
             model='full',
@@ -573,10 +578,6 @@ class VariationalMHD(StruphyModel):
             gamma=gamma,
             mass_ops=self.WMM,
             **solver_density))
-        self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
-            self.pointer['mhd_uv'],
-            mass_ops=self.WMM,
-            **solver_momentum))
         self.add_propagator(self.prop_fields.VariationalEntropyEvolve(
             self.pointer['mhd_s3'], self.pointer['mhd_uv'],
             model='full',
@@ -594,16 +595,31 @@ class VariationalMHD(StruphyModel):
         self.add_scalar('en_thermo')
         self.add_scalar('en_mag')
         self.add_scalar('en_tot')
+        self.add_scalar('dens_tot')
+        self.add_scalar('entr_tot')
 
         # temporary vectors for scalar quantities
-        self._tmp_m1 = self.derham.Vh['v'].zeros()
-        self._tmp_wb2 = self.derham.Vh['2'].zeros()
+        self._tmp_m1 = self.derham.Vh_pol['v'].zeros()
+        self._tmp_wb2 = self.derham.Vh_pol['2'].zeros()
+        tmp_dof = self.derham.Vh_pol['3'].zeros()
         projV3 = L2Projector('L2', self._mass_ops)
         def f(e1, e2, e3): return 1
         f = np.vectorize(f)
-        self._integrator = projV3(f)
+        self._integrator = projV3(f, dofs=tmp_dof)
+
+        self._ones = self.derham.Vh_pol['3'].zeros()
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.
+        else:
+            self._ones[:] = 1.
 
     def update_scalar_quantities(self):
+
+        # Update mass matrix
+        rhon = self.pointer['mhd_rho3']
+        self._propagators[1].rhof1.vector = rhon
+
+        self._propagators[1]._update_weighted_MM()
 
         WMM = self.WMM
         m1 = WMM.dot(self.pointer['mhd_uv'], out=self._tmp_m1)
@@ -620,12 +636,17 @@ class VariationalMHD(StruphyModel):
         en_tot = en_U + en_thermo + en_mag
         self.update_scalar('en_tot', en_tot)
 
+        dens_tot = self._ones.dot(self.pointer['mhd_rho3'])
+        self.update_scalar('dens_tot', dens_tot)
+        entr_tot = self._ones.dot(self.pointer['mhd_s3'])
+        self.update_scalar('entr_tot', entr_tot)
+
     def update_thermo_energy(self):
         '''Reuse tmp used in VariationalEntropyEvolve to compute the thermodynamical energy.
 
         :meta private:
         '''
-        en_prop = self._propagators[2]
+        en_prop = self._propagators[1]
         en_prop.sf.vector = self.pointer['mhd_s3']
         en_prop.rhof.vector = self.pointer['mhd_rho3']
         sf_values = en_prop.sf.eval_tp_fixed_loc(
@@ -634,8 +655,8 @@ class VariationalMHD(StruphyModel):
             en_prop.integration_grid_spans, en_prop.integration_grid_bd, out=en_prop._rhof_values)
         e = self.__ener
         ener_values = en_prop._proj_rho2_metric_term*e(rhof_values, sf_values)
-        en_prop._get_L2dofs_V3(ener_values, dofs=en_prop._linear_form_dl_ds)
-        en_thermo = self._integrator.dot(en_prop._linear_form_dl_ds)
+        en_prop._get_L2dofs_V3(ener_values, dofs=en_prop._linear_form_dl_drho)
+        en_thermo = self._integrator.dot(en_prop._linear_form_dl_drho)
         self.update_scalar('en_thermo', en_thermo)
         return en_thermo
     

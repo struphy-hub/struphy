@@ -14,6 +14,7 @@ from struphy.feec.projectors import CommutingProjector
 from struphy.feec.linear_operators import LinOpWithTransp, BoundaryOperator
 from struphy.feec import basis_projection_kernels
 from struphy.feec.utilities import RotationMatrix
+from struphy.polar.basic import PolarDerhamSpace
 
 
 class BasisProjectionOperators:
@@ -746,7 +747,13 @@ class BasisProjectionOperator(LinOpWithTransp):
         Extraction operator to polar sub-space of V.
 
     V_boundary_op : BoundaryOperator | IdentityOperator
-        Boundary operator that sets essential boundary conditions.
+        Boundary operator that sets essential boundary conditions on V.
+
+    P_extraction_op : PolarExtractionOperator | IdentityOperator
+        Extraction operator to polar sub-space of the domain of P.
+
+    P_boundary_op : BoundaryOperator | IdentityOperator
+        Boundary operator that sets essential boundary conditions on the domain of P.
 
     transposed : bool
         Whether to assemble the transposed operator.
@@ -758,7 +765,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         Whether to store some information computed in _assemble_mat for reuse. Set it to true if planned to update the weights later.
     """
 
-    def __init__(self, P, V, weights, V_extraction_op=None, V_boundary_op=None, transposed=False, polar_shift=False, use_cache=False):
+    def __init__(self, P, V, weights, V_extraction_op=None, V_boundary_op=None, P_extraction_op=None, P_boundary_op=None, transposed=False, polar_shift=False, use_cache=False):
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
@@ -770,7 +777,10 @@ class BasisProjectionOperator(LinOpWithTransp):
         self._V = V
 
         # set extraction operators
-        self._P_extraction_op = P.dofs_extraction_op
+        if P_extraction_op is not None:
+            self._P_extraction_op = P_extraction_op
+        else:
+            self._P_extraction_op = P.dofs_extraction_op
 
         if V_extraction_op is not None:
             self._V_extraction_op = V_extraction_op
@@ -778,12 +788,16 @@ class BasisProjectionOperator(LinOpWithTransp):
             self._V_extraction_op = IdentityOperator(V.vector_space)
 
         # set boundary operators
-        self._P_boundary_op = P.boundary_op
+        if P_boundary_op is not None:
+            self._P_boundary_op = P_boundary_op
+        else:
+            self._P_boundary_op = P.boundary_op
 
         if V_boundary_op is not None:
             self._V_boundary_op = V_boundary_op
         else:
-            self._V_boundary_op = IdentityOperator(V.vector_space)
+            self._V_boundary_op = IdentityOperator(
+                self._V_extraction_op.domain)
 
         self._weights = weights
         self._transposed = transposed
@@ -818,7 +832,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         if not isinstance(V, TensorFemSpace):
             self._is_scalar = False
             self._mpi_comm = V.vector_space.spaces[0].cart.comm
-        else :
+        else:
             self._mpi_comm = V.vector_space.cart.comm
 
         if not isinstance(P.space, TensorFemSpace):
@@ -949,7 +963,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         Returns the transposed operator.
         """
         return BasisProjectionOperator(self._P, self._V, self._weights,
-                                       self._V_extraction_op, self._V_boundary_op,
+                                       self._V_extraction_op, self._V_boundary_op, self._P_extraction_op, self._P_boundary_op,
                                        not self.transposed, self._polar_shift, self._use_cache)
 
     def update_weights(self, weights):
@@ -1048,13 +1062,16 @@ class BasisProjectionOperator(LinOpWithTransp):
                 elif isinstance(loc_weight, np.ndarray):
                     mat_w = loc_weight
                 elif loc_weight is not None:
-                    raise TypeError("weights must be np.ndarray, callable or None")
+                    raise TypeError(
+                        "weights must be np.ndarray, callable or None")
 
                 # Call the kernel if weight function is not zero or in the scalar case
                 # to avoid calling _block of a StencilMatrix in the else
 
-                not_weight_zero = np.array(int(loc_weight is not None and np.any(np.abs(mat_w) > 1e-14)))
-                self._mpi_comm.Allreduce(MPI.IN_PLACE, not_weight_zero, op=MPI.LOR)
+                not_weight_zero = np.array(
+                    int(loc_weight is not None and np.any(np.abs(mat_w) > 1e-14)))
+                self._mpi_comm.Allreduce(
+                    MPI.IN_PLACE, not_weight_zero, op=MPI.LOR)
                 if not_weight_zero or self._is_scalar:
 
                     # get cell of block matrix (don't instantiate if all zeros)
@@ -1077,12 +1094,12 @@ class BasisProjectionOperator(LinOpWithTransp):
 
                     dofs_mat.set_backend(
                         backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
-                    
-                    dofs_mat.update_ghost_regions()                 
+
+                    dofs_mat.update_ghost_regions()
 
                 else:
                     self._dof_mat[i, j] = None
-   
+
         return self._dof_mat
 
 
@@ -1119,13 +1136,13 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
 
     bases : 3-tuple of 3d float arrays
         Values of p + 1 non-zero eta basis functions at quadrature points in format (n, nq, basis).
-        
+
     subs : 3-tuple of 1f int arrays
         Sub-interval indices (either 0 or 1). This index is 1 if an element has to be split for exact integration (even spline degree).
     '''
 
     pts, wts, subs, spans, bases = [], [], [], [], []
-    
+
     if n_quad is None:
         n_quad = [None]*3
 
@@ -1133,7 +1150,8 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
     for d, (space_in, space_out, s, e) in enumerate(zip(V1d, W1d, starts_out, ends_out)):
 
         # point sets and weights for inter-/histopolation
-        pts_i, wts_i, subs_i = get_pts_and_wts(space_out, s, e, n_quad=n_quad[d], polar_shift= d == 0 and polar_shift)
+        pts_i, wts_i, subs_i = get_pts_and_wts(
+            space_out, s, e, n_quad=n_quad[d], polar_shift=d == 0 and polar_shift)
 
         pts += [pts_i]
         wts += [wts_i]
@@ -1168,7 +1186,7 @@ class CoordinateProjector(LinearOperator):
     Represent the projection on the :math:`\mu`-th component :
 
     .. math::
-    
+
         \begin{align}
         P_\mu : \ & V_1 \times \ldots \times V_\mu \times \ldots \times V_n \longrightarrow V_\mu \,,
         \\[2mm]    
@@ -1188,16 +1206,16 @@ class CoordinateProjector(LinearOperator):
     """
 
     def __init__(self, mu, V, Vmu):
-        assert isinstance(V, FemSpace)
         assert isinstance(mu, int)
-        assert V.spaces[mu] == Vmu
+        if isinstance(V, PolarDerhamSpace):
+            assert V.parent_space.spaces[mu] == Vmu.parent_space
+        else:
+            assert V.spaces[mu] == Vmu
 
-        self.full_space = V
-        self.sub_space = Vmu
         self.dir = mu
-        self._domain = V.vector_space
-        self._codomain = Vmu.vector_space
-        self._dtype = V.vector_space.dtype
+        self._domain = V
+        self._codomain = Vmu
+        self._dtype = Vmu.dtype
 
     @property
     def domain(self):
@@ -1226,23 +1244,34 @@ class CoordinateProjector(LinearOperator):
         raise NotImplementedError()
 
     def transpose(self, conjugate=False):
-        return CoordinateInclusion(self.dir, self.full_space, self.sub_space)
+        return CoordinateInclusion(self.dir, self._domain, self._codomain)
 
     def dot(self, v, out=None):
         assert (v.space == self._domain)
-        if out is not None:
-            assert out.space == self._codomain
-            out *= 0.
-            out += v.blocks[self.dir]
+        if isinstance(self.domain, PolarDerhamSpace):
+            if out is not None:
+                assert out.space == self._codomain
+                out *= 0.
+            else:
+                out = self.codomain.zeros()
+            out._tp += v.tp.blocks[self.dir]
         else:
-            out = v.blocks[self.dir].copy()
+            if out is not None:
+                assert out.space == self._codomain
+                out *= 0.
+                out += v.blocks[self.dir]
+            else:
+                out = v.blocks[self.dir].copy()
         out.update_ghost_regions()
         return out
 
     def idot(self, v, out):
         assert (v.space == self._domain)
         assert (out.space == self._codomain)
-        out += v.blocks[self.dir]
+        if isinstance(self.domain, PolarDerhamSpace):
+            out += v.tp.blocks[self.dir]
+        else:
+            out += v.blocks[self.dir]
 
 
 class CoordinateInclusion(LinearOperator):
@@ -1272,16 +1301,16 @@ class CoordinateInclusion(LinearOperator):
     """
 
     def __init__(self, mu, V, Vmu):
-        assert isinstance(V, FemSpace)
         assert isinstance(mu, int)
-        assert V.spaces[mu] == Vmu
+        if isinstance(V, PolarDerhamSpace):
+            assert V.parent_space.spaces[mu] == Vmu.parent_space
+        else:
+            assert V.spaces[mu] == Vmu
 
-        self.full_space = V
-        self.sub_space = Vmu
         self.dir = mu
-        self._domain = Vmu.vector_space
-        self._codomain = V.vector_space
-        self._dtype = V.vector_space.dtype
+        self._domain = Vmu
+        self._codomain = V
+        self._dtype = V.dtype
 
     @property
     def domain(self):
@@ -1310,18 +1339,28 @@ class CoordinateInclusion(LinearOperator):
         raise NotImplementedError()
 
     def transpose(self, conjugate=False):
-        return CoordinateProjector(self.dir, self.full_space, self.sub_space)
+        return CoordinateProjector(self.dir, self._codomain, self._domain)
 
     def dot(self, v, out=None):
         assert (v.space == self._domain)
-        if out is not None:
-            assert out.space == self._codomain
-            out *= 0.
-            out._blocks[self.dir] += v
+
+        if isinstance(self.domain, PolarDerhamSpace):
+            if out is not None:
+                assert out.space == self._codomain
+                out *= 0.
+            else:
+                out = self._codomain.zeros()
+            out._tp._blocks[self.dir] += v.tp
+
         else:
-            blocks = [sspace.zeros() for sspace in self.codomain.spaces]
-            blocks[self.dir] = v.copy()
-            out = BlockVector(self._codomain, blocks)
+            if out is not None:
+                assert out.space == self._codomain
+                out *= 0.
+                out._blocks[self.dir] += v
+            else:
+                blocks = [sspace.zeros() for sspace in self.codomain.spaces]
+                blocks[self.dir] = v.copy()
+                out = BlockVector(self._codomain, blocks)
 
         out.update_ghost_regions()
         return out

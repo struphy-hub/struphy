@@ -213,7 +213,7 @@ class TorusModesSin:
 
         \chi_s(\eta_1) = \left\{ 
         \begin{aligned}
-        &\sin(\pi\eta_1)\,,
+        &\sin(l_s\pi\eta_1)\,,
         \\[2mm]
         &\exp^{-(\eta_1 - r_0)^2/\sigma} \,, 
         \\[2mm]
@@ -251,9 +251,9 @@ class TorusModesSin:
                     u2: [['sin'], ['sin'], ['exp']] # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
                     p3: [0.01]                      # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
                 pfun_params :
-                    n3: null                      # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"
-                    u2: [null, null, [[0.5, 1.]]] # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"
-                    p3: [0.01]                    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"        
+                    n3: null                      # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos"
+                    u2: [2, null, [[0.5, 1.]]]    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos"
+                    p3: [0.01]                    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos"  
     '''
 
     def __init__(self, ms=None, ns=None, amps=[1e-4], pfuns=['sin'], pfun_params=None):
@@ -273,7 +273,7 @@ class TorusModesSin:
             Amplitudes of each mode (m_i, n_i).
 
         pfun_params : list
-            Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and None for "sin" and "cos".
+            Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and l_s for "sin" and "cos".
         '''
 
         if ms is not None:
@@ -311,7 +311,11 @@ class TorusModesSin:
         self._pfuns = []
         for pfun, params in zip(pfuns, pfun_params):
             if pfun == 'sin':
-                self._pfuns += [lambda eta1: np.sin(np.pi*eta1)]
+                if params is None :
+                    ls = 1
+                else :
+                    ls = params
+                self._pfuns += [lambda eta1: np.sin(ls*np.pi*eta1)]
             elif pfun == 'exp':
                 self._pfuns += [lambda eta1:
                                 np.exp(-(eta1 - params[0])**2/params[1])]
@@ -382,9 +386,9 @@ class TorusModesCos:
                     u2: [['sin'], ['sin'], ['exp']] # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
                     p3: [0.01]                      # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
                 pfun_params :
-                    n3: null                      # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"
-                    u2: [null, null, [[0.5, 1.]]] # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"
-                    p3: [0.01]                    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and null for "sin" and "cos"        
+                    n3: null                      # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos".
+                    u2: [2, null, [[0.5, 1.]]]    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos".
+                    p3: [0.01]                    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos".     
     '''
 
     def __init__(self, ms=None, ns=None, amps=[1e-4], pfuns=['sin'], pfun_params=None):
@@ -404,7 +408,7 @@ class TorusModesCos:
             Amplitudes of each mode (m_i, n_i).
 
         pfun_params : list
-            Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and None for "sin" and "cos".
+            Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and l_s for "sin" and "cos".
         '''
 
         if ms is not None:
@@ -442,7 +446,11 @@ class TorusModesCos:
         self._pfuns = []
         for pfun, params in zip(pfuns, pfun_params):
             if pfun == 'sin':
-                self._pfuns += [lambda eta1: np.sin(np.pi*eta1)]
+                if params is None :
+                    ls = 1
+                else :
+                    ls = params
+                self._pfuns += [lambda eta1: np.sin(ls*np.pi*eta1)]
             elif pfun == 'cos':
                 self._pfuns += [lambda eta1: np.cos(np.pi*eta1)]
             elif pfun == 'exp':

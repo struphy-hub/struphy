@@ -13,6 +13,7 @@ from struphy.feec.preconditioner import ProjectorPreconditioner
 from struphy.feec import mass_kernels
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.feec.basis_projection_kernels import get_dofs_local_1_form_e1_component, get_dofs_local_1_form_e2_component, get_dofs_local_1_form_e3_component, solve_local_0_form, solve_local_1_form, get_dofs_local_2_form_e1_component, get_dofs_local_2_form_e2_component, get_dofs_local_2_form_e3_component, solve_local_2_form, solve_local_3_form, solve_local_0V_form, get_dofs_local_3_form
+from struphy.polar.basic import PolarVector
 
 import numpy as np
 import time
@@ -1194,7 +1195,7 @@ class L2Projector:
         if dofs is None:
             dofs = self.space.vector_space.zeros()
         else:
-            assert isinstance(dofs, (StencilVector, BlockVector))
+            assert isinstance(dofs, (StencilVector, BlockVector, PolarVector))
             assert dofs.space == self.Mmat.codomain
 
         # compute matrix data for kernel, i.e. fun * geom_weight
@@ -1215,6 +1216,8 @@ class L2Projector:
         if clear:
             if isinstance(dofs, StencilVector):
                 dofs._data[:] = 0.
+            elif isinstance(dofs, PolarVector):
+                dofs.tp._data[:] = 0.
             else:
                 for block in dofs.blocks:
                     block._data[:] = 0.
@@ -1232,6 +1235,9 @@ class L2Projector:
             if isinstance(dofs, StencilVector):
                 mass_kernels.kernel_3d_vec(*spans, *fem_space.degree, *starts, *pads,
                                            *wts, *basis, mat_w, dofs._data)
+            elif isinstance(dofs, PolarVector):
+                mass_kernels.kernel_3d_vec(*spans, *fem_space.degree, *starts, *pads,
+                                           *wts, *basis, mat_w, dofs.tp._data)
             else:
                 mass_kernels.kernel_3d_vec(*spans, *fem_space.degree, *starts, *pads,
                                            *wts, *basis, mat_w, dofs[a]._data)

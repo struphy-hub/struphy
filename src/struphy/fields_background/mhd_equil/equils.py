@@ -654,7 +654,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
         p^\prime(r) &= -\frac{B_0^2}{R_0^2}\frac{r\left[2q(r)-rq^\prime(r)\right]}{q(r)^3} \quad &&\textnormal{if} \quad p_\textnormal{kind}=0\,,
 
-        p(r) &= \beta \frac{B_{0}^2}{2} \left( 1 - p_1 \frac{r^2}{a^2} - p_2 \frac{r^4}{a^4} \right) \quad &&\textnormal{if} \quad p_\textnormal{kind}=1\,,
+        p(r) &= \beta \frac{B_{0}^2}{2} \left( p_0 - p_1 \frac{r^2}{a^2} - p_2 \frac{r^4}{a^4} \right) \quad &&\textnormal{if} \quad p_\textnormal{kind}=1\,,
 
     is either the exact solution of the MHD equilibrium condition in the cylindrical limit (:math:`p_\textnormal{kind}=0`) or an monotonically decreasing adhoc profile for some given on-axis plasma beta (:math:`p_\textnormal{kind}=1`). Finally, the number density profile is chosen as
 
@@ -686,6 +686,8 @@ class AdhocTorus(AxisymmMHDequilibrium):
         Ion number density at r=a (default: 1.).
     p_kind : int 
         Kind of pressure profile, see docstring (0 or 1, default: 1).
+    p0 : float
+        constant factor for ad hoc pressure profile (default: 1.).
     p1 : float
         1st shape factor for ad hoc pressure profile (default: 0.).
     p2 : float
@@ -714,6 +716,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
                 n2      : 1.   # 2nd shape factor for number density profile 
                 na      : .2   # number density at r=a
                 p_kind  : 1    # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
+                p0      : 1.   # constant factor for ad hoc pressure profile
                 p1      : .1   # 1st shape factor for ad hoc pressure profile
                 p2      : .1   # 2nd shape factor for ad hoc pressure profile
                 beta    : .01  # plasma beta = p*(2*mu_0)/B^2 for flat safety factor 
@@ -737,6 +740,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
                           'n2': 1.,
                           'na': .2,
                           'p_kind': 1,
+                          'p0': 1.,
                           'p1': .1,
                           'p2': .1,
                           'beta': 0.179,
@@ -981,7 +985,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
         else:
 
             pout = self.params['B0']**2 * self.params['beta'] / 2. * (
-                1 - self.params['p1']*r**2/self.params['a']**2 - self.params['p2']*r**4/self.params['a']**4)
+                self.params['p0'] - self.params['p1']*r**2/self.params['a']**2 - self.params['p2']*r**4/self.params['a']**4)
 
         return pout
 
