@@ -459,75 +459,6 @@ class ShearAlfven(StruphyModel):
 
         self.update_scalar('en_B_tot', en_Btot)
 
-
-class VariationalBurgers(StruphyModel):
-    r'''Burgers's equation discretized with a variational method.
-
-    Implemented equations:
-
-    .. math::
-
-        \int_{\Omega} \partial_t \mathbf u \cdot \mathbf v \, \textnormal d^3 \mathbf x - \frac{1}{3} \int_{\Omega} \mathbf u \cdot [\mathbf u, \mathbf v] \, \textnormal d^3 \mathbf x = 0 ~ ,
-
-    where :
-
-    .. math::
-        [\mathbf u,\mathbf v] = \mathbf u \cdot \nabla \mathbf v - \mathbf v \cdot \nabla \mathbf u ~ .
-
-    Parameters
-    ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
-
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
-    '''
-    @classmethod
-    def species(cls):
-        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
-        dct['fluid']['fluid'] = {'uv': 'H1vec'}
-        return dct
-
-    @classmethod
-    def bulk_species(cls):
-        return 'fluid'
-
-    @classmethod
-    def velocity_scale(cls):
-        return 'alfvén'
-
-    @classmethod
-    def options(cls):
-        # import propagator options
-        from struphy.propagators.propagators_fields import VariationalVelocityAdvection
-        dct = {}
-
-        cls.add_option(species=['fluid', 'fluid'], key=['solvers'],
-                       option=VariationalVelocityAdvection.options()['solver'], dct=dct)
-        return dct
-
-    def __init__(self, params, comm):
-
-        # initialize base class
-        super().__init__(params, comm)
-
-        # Initialize propagators/integrators used in splitting substeps
-        self.add_propagator(self.prop_fields.VariationalVelocityAdvection(
-            self.pointer['fluid_uv']))
-
-        # Scalar variables to be saved during simulation
-        self.add_scalar('en_U')
-
-        # temporary vectors for scalar quantities
-        self._tmp_u1 = self.derham.Vh['v'].zeros()
-
-    def update_scalar_quantities(self):
-        mu1 = self._mass_ops.Mv.dot(self.pointer['fluid_uv'], out=self._tmp_u1)
-
-        en_U = self.pointer['fluid_uv'] .dot(mu1)/2
-        self.update_scalar('en_U', en_U)
-
-
 class VariationalPressurelessFluid(StruphyModel):
     r'''Pressure-less fluid equations discretized with a variational method.
 
@@ -591,7 +522,12 @@ class VariationalPressurelessFluid(StruphyModel):
 
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'])
+            self.derham.Vh_fem['v'], 
+            self.derham.Vh_fem['v'],
+            V_extraction_op=self.derham.extraction_ops['v'],
+            W_extraction_op=self.derham.extraction_ops['v'],
+            V_boundary_op=self.derham.boundary_ops['v'],
+            W_boundary_op=self.derham.boundary_ops['v'])
 
         # Initialize propagators/integrators used in splitting substeps
         solver_momentum = params['fluid']['fluid']['options']['solver_momentum']
@@ -692,7 +628,12 @@ class VariationalBarotropicFluid(StruphyModel):
 
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'])
+            self.derham.Vh_fem['v'], 
+            self.derham.Vh_fem['v'],
+            V_extraction_op=self.derham.extraction_ops['v'],
+            W_extraction_op=self.derham.extraction_ops['v'],
+            V_boundary_op=self.derham.boundary_ops['v'],
+            W_boundary_op=self.derham.boundary_ops['v'])
 
         # Initialize propagators/integrators used in splitting substeps
         solver_momentum = params['fluid']['fluid']['options']['solver_momentum']
@@ -809,7 +750,12 @@ class VariationalCompressibleFluid(StruphyModel):
         super().__init__(params, comm)
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], self.derham.Vh_fem['v'])
+            self.derham.Vh_fem['v'], 
+            self.derham.Vh_fem['v'],
+            V_extraction_op=self.derham.extraction_ops['v'],
+            W_extraction_op=self.derham.extraction_ops['v'],
+            V_boundary_op=self.derham.boundary_ops['v'],
+            W_boundary_op=self.derham.boundary_ops['v'])
 
         # Initialize propagators/integrators used in splitting substeps
         solver_momentum = params['fluid']['fluid']['options']['solver_momentum']
