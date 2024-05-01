@@ -190,10 +190,16 @@ Ubuntu_latest:
   needs: ['default_build']
   before_script:
     - apt update -y && apt clean 
+    - export DEBIAN_FRONTEND=noninteractive
+    - apt install -y software-properties-common
+    - add-apt-repository -y ppa:deadsnakes/ppa
+    - apt update -y
+    - apt install -y python3.11
+    - apt install -y python3.11-dev
     - apt install -y python3-pip 
-    - apt install -y python3.10-venv 
+    - apt install -y python3.11-venv 
     - apt install -y gfortran gcc 
-    - DEBIAN_FRONTEND=noninteractive TZ="Europe/Berlin" apt-get install -y liblapack-dev libopenmpi-dev 
+    - apt install -y liblapack-dev libopenmpi-dev 
     - apt install -y libblas-dev openmpi-bin 
     - apt install -y libomp-dev libomp5 
     - apt install -y git
@@ -202,7 +208,9 @@ Ubuntu_latest:
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
-    - pip list
+    - python3.11 -m pip list
+    - python3.11 -m venv env
+    - source env/bin/activate
     - pip install dist/struphy*.whl
     - struphy compile --status
     - make -v
