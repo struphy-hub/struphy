@@ -33,6 +33,7 @@ class StruphyModel(metaclass=ABCMeta):
         from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
         from struphy.feec.basis_projection_ops import BasisProjectionOperators
         from struphy.feec.mass import WeightedMassOperators
+        from struphy.fields_background.braginskii_equil import equils as braginskii_equils
 
         assert 'em_fields' in self.species()
         assert 'fluid' in self.species()
@@ -52,9 +53,15 @@ class StruphyModel(metaclass=ABCMeta):
         self._units, self._equation_params = self.model_units(
             self.params, verbose=True, comm=self._comm)
 
-        # create domain, MHD equilibrium, background electric field
+        # create domain, MHD equilibrium
         self._domain, self._mhd_equil = setup_domain_mhd(
             params, units=self.units)
+        
+        # Braginskii equilibrium
+        if 'braginskii_equilibrium' in params:
+            br_eq_type = params['braginskii_equilibrium']['type']
+            br_eq_class = getattr(braginskii_equils, br_eq_type)
+            self._braginskii_equil = br_eq_class(**params['braginskii_equilibrium'][br_eq_type])
 
         if comm.Get_rank() == 0:
             print('\nDOMAIN:')
@@ -67,6 +74,12 @@ class StruphyModel(metaclass=ABCMeta):
                 print('\nMHD EQUILIBRIUM:')
                 print('type:'.ljust(25), self.mhd_equil.__class__.__name__)
                 for key, val in self.mhd_equil.params.items():
+                    print((key + ':').ljust(25), val)
+                    
+            if 'braginskii_equilibrium' in params:
+                print('\nBRAGINSKII EQUILIBRIUM:')
+                print('type:'.ljust(25), self.braginskii_equil.__class__.__name__)
+                for key, val in self.braginskii_equil.params.items():
                     print((key + ':').ljust(25), val)
 
         # create discrete derham sequence
@@ -253,6 +266,11 @@ class StruphyModel(metaclass=ABCMeta):
     def mhd_equil(self):
         '''MHD equilibrium object, see :ref:`mhd_equil`.'''
         return self._mhd_equil
+    
+    @property
+    def braginskii_equil(self):
+        '''Braginskii equilibrium object, see :ref:`braginskii_equil`.'''
+        return self._braginskii_equil
 
     @property
     def derham(self):

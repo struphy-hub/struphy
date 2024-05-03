@@ -2,101 +2,34 @@
 
 
 import numpy as np
+from numpy.polynomial import Polynomial
 from scipy.optimize import fsolve
 
-from struphy.dispersion_relations.base import DispersionRelations1D, ContinuousSpectra1D, Zplasma
+from struphy.dispersion_relations.base import DispersionRelations1D, ContinuousSpectra1D
+from struphy.dispersion_relations.utilities import Zplasma
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
 
 class Maxwell1D(DispersionRelations1D):
     r"""
-    Dispersion relation for Maxwell's equation in vacuum in Struphy units (see ``Maxwell`` in :ref:`models`):
+    Dispersion relation for Maxwell's equation in vacuum:
 
     .. math::
 
-        \omega^2 = k^2 \,.
-    """
-
-    def __init__(self):
-        super().__init__('light wave')
-
-    def __call__(self, k):
-        """
-        The evaluation of all branches of the 1d dispersion relation.
-
-        Parameters
-        ----------
-        k : array_like
-            Evaluation wave numbers.
-
-        Returns
-        -------
-        omegas : dict
-            A dictionary with key=branch_name and value=omega(k) (complex numpy.ndarray).
-        """
-
-        # One complex array for each branch
-        tmps = []
-        for n in range(self.nbranches):
-            tmps += [np.zeros_like(k, dtype=complex)]
-
-        ########### Model specific part ##############################
-        # first branch
-        tmps[0][:] = k
-        ##############################################################
-
-        # fill output dictionary
-        omegas = {}
-        for name, tmp in zip(self.branches, tmps):
-            omegas[name] = tmp
-
-        return omegas
-
-
-class Mhd1D(DispersionRelations1D):
-    r"""
-    Dispersion relation for linear MHD equations for homogeneous background :math:`(n_0,p_0,\mathbf B_0)` and wave propagation along z-axis in Struphy units (see ``LinearMHD`` in :ref:`models`):
-
-    .. math::
-
-        \textnormal{shear Alfvén}:\quad &\omega^2 = c_\textnormal{A}^2 k^2\frac{B_{0z}^2}{|\mathbf B_0|^2}\,,
-
-        \textnormal{fast (+) and slow (-) magnetosonic}:\quad &\omega^2 =\frac{1}{2}(c_\textnormal{S}^2+c_\textnormal{A}^2)k^2(1\pm\sqrt{1-\delta}\,)\,,\quad\delta=\frac{4B_{0z}^2c_\textnormal{S}^2c_\textnormal{A}^2}{(c_\textnormal{S}^2+c_\textnormal{A}^2)^2|\mathbf B_0|^2}\,,
-
-    where :math:`c_\textnormal{A}^2=|\mathbf B_0|^2/n_0` is the Alfvén velocity and :math:`c_\textnormal{S}^2=\gamma\,p_0/n_0` is the speed of sound.
+        \omega = c k \,.
 
     Parameters
     ----------
-    **params
-        Keyword arguments that characterize the dispersion relation.
-            * B0x : float  
-                x-component of magnetic field (default: 0.).
-            * B0y : float  
-                y-component of magnetic field (default: 0.).
-            * B0z : float  
-                z-component of magnetic field (default: 1.).
-            * p0 : float
-                Plasma pressure (default: 0.5).
-            * n0 : float 
-                Ion number density (default: 1.).
-            * gamma : float 
-                Adiabatic index (default: 5/3).
+    c : float
+        Speed of light. Remark that :math:`c=1.0` in Struphy units, see :class:`~struphy.models.toy.Maxwell`.
     """
 
-    def __init__(self, **params):
+    def __init__(self,
+                 c=1.):
 
-        # set default parameters
-        params_default = {'B0x': 0.,
-                          'B0y': 0.,
-                          'B0z': 1.,
-                          'p0': 0.5,
-                          'n0': 1.0,
-                          'gamma': 5/3}
-
-        params_all = set_defaults(params, params_default)
-
-        super().__init__('shear Alfvén', 'slow magnetosonic',
-                         'fast magnetosonic', **params_all)
+        super().__init__('light wave',
+                         velocity_scale='light',
+                         c=c)
 
     def __call__(self, k):
         """
@@ -113,59 +46,149 @@ class Mhd1D(DispersionRelations1D):
             A dictionary with key=branch_name and value=omega(k) (complex numpy.ndarray).
         """
 
-        # One complex array for each branch
-        tmps = []
-        for n in range(self.nbranches):
-            tmps += [np.zeros_like(k, dtype=complex)]
+        self._branches['light wave'] = self.params['c']*k
 
-        ########### Model specific part ##############################
+        return self.branches
+
+
+class MHDhomogenSlab(DispersionRelations1D):
+    r"""
+    Dispersion relation for linear MHD equations in homogeneous background :math:`(n_0,p_0,\mathbf B_0)` 
+    and wave propagation along :math:`z`-axis in Struphy units (see :class:`~struphy.models.fluid.LinearMHD`):
+
+    .. math::
+
+        \textnormal{shear Alfvén}:\quad &\omega = v_\textnormal{A} k\frac{B_{0z}}{|\mathbf B_0|}\,,
+
+        \textnormal{fast (+) and slow (-) magnetosonic}:\quad &\omega = k\sqrt{\frac{1}{2}(c_\textnormal{S}^2+v_\textnormal{A}^2)(1\pm\sqrt{1-\delta})}\,,\quad\delta=\frac{4B_{0z}^2c_\textnormal{S}^2v_\textnormal{A}^2}{(c_\textnormal{S}^2+v_\textnormal{A}^2)^2|\mathbf B_0|^2}\,,
+
+    where :math:`v_\textnormal{A}^2=|\mathbf B_0|^2/n_0` is the Alfvén velocity 
+    and :math:`c_\textnormal{S}^2=\gamma\,p_0/n_0` is the speed of sound.
+
+    Parameters
+    ----------
+    B0x : float  
+        x-component of magnetic field (default: 0.).
+    B0y : float  
+        y-component of magnetic field (default: 1.).
+    B0z : float  
+        z-component of magnetic field (default: 1.).
+    p0 : float
+        Plasma pressure (default: 0.1).
+    n0 : float 
+        Ion number density (default: 1.).
+    gamma : float 
+        Adiabatic index (default: 5/3).
+    """
+
+    def __init__(self,
+                 B0x=0.,
+                 B0y=1.,
+                 B0z=1.,
+                 p0=0.1,
+                 n0=1.0,
+                 gamma=5/3):
+
+        super().__init__('shear Alfvén',
+                         'slow magnetosonic',
+                         'fast magnetosonic',
+                         velocity_scale='alfvén',
+                         B0x=B0x,
+                         B0y=B0y,
+                         B0z=B0z,
+                         p0=p0,
+                         n0=n0,
+                         gamma=gamma)
+
+    def __call__(self, k):
+        """
+        The evaluation of all branches of the 1d dispersion relation.
+
+        Parameters
+        ----------
+        k : array_like
+            Evaluation wave numbers.
+
+        Returns
+        -------
+        omegas : dict
+            A dictionary with key=branch_name and value=omega(k) (complex numpy.ndarray).
+        """
+
+        Bsquare = self.params['B0x']**2 + \
+            self.params['B0y']**2 + self.params['B0z']**2
 
         # Alfvén velocity and speed of sound
-        cA = np.sqrt((self.params['B0x']**2 +
-                      self.params['B0y']**2 +
-                      self.params['B0z']**2)/self.params['n0'])
+        vA = np.sqrt(Bsquare/self.params['n0'])
 
         cS = np.sqrt(self.params['gamma']*self.params['p0']/self.params['n0'])
 
         # shear Alfvén branch
-        tmps[0][:] = cA * k * self.params['B0z'] / \
-            np.sqrt(self.params['B0x']**2 +
-                    self.params['B0y']**2 + self.params['B0z']**2)
+        self._branches['shear Alfvén'] = vA * k * \
+            self.params['B0z'] / np.sqrt(Bsquare)
 
         # slow/fast magnetosonic branch
-        delta = (4*self.params['B0z']**2*cS**2*cA**2) / \
-            ((cS**2 + cA**2)**2 *
-                (self.params['B0x']**2 + self.params['B0y']**2 + self.params['B0z']**2))
+        delta = (4*self.params['B0z']**2*cS**2*vA**2) / \
+            ((cS**2 + vA**2)**2 * Bsquare)
 
-        tmps[1][:] = np.sqrt(1/2*k**2*(cS**2 + cA**2)*(1 - np.sqrt(1 - delta)))
-        tmps[2][:] = np.sqrt(1/2*k**2*(cS**2 + cA**2)*(1 + np.sqrt(1 - delta)))
+        self._branches['slow magnetosonic'] = np.sqrt(
+            1/2*k**2*(cS**2 + vA**2)*(1 - np.sqrt(1 - delta)))
+        self._branches['fast magnetosonic'] = np.sqrt(
+            1/2*k**2*(cS**2 + vA**2)*(1 + np.sqrt(1 - delta)))
 
-        ##############################################################
-
-        # fill output dictionary
-        omegas = {}
-        for name, tmp in zip(self.branches, tmps):
-            omegas[name] = tmp
-
-        return omegas
+        return self.branches
 
 
-class ExtendedMhd1D(DispersionRelations1D):
+class ExtendedMHDhomogenSlab(DispersionRelations1D):
     r"""
-    Dispersion relation for linear Extended MHD equations for homogeneous background :math:`(n_0,p_0,\mathbf B_0)` and wave propagation along z-axis in Struphy units (see ``LinearMHD`` in :ref:`models`):
+    Dispersion relation for linear extended MHD equations in homogeneous background :math:`(n_0,p_0,\mathbf B_0)` 
+    and wave propagation along :math:`z`-axis in Struphy units (see :class:`~struphy.models.fluid.LinearExtendedMHD`).
+    The linear mode analysis is performed on the following system:
 
     .. math::
 
-        \textnormal{shear Alfvén}:\quad &\omega^2 = c_\textnormal{A}^2 k^2\frac{B_{0z}^2}{|\mathbf B_0|^2}\,,
+        \begin{align}
+        -i \omega m n_0 \tilde{\mathbf U} + i \mathbf k \tilde p &= i\frac{B_0}{\mu_0}(\mathbf k \times \tilde{\mathbf B}) \times \mathbf e_z\,,
+        \\
+        -i\omega \tilde{\mathbf B} - B_0 i  \mathbf k \times ( \tilde{\mathbf U} \times \mathbf e_z ) \color{red} + i \mathbf k \times \left[\frac{B_0}{q n_0\mu_0} (i\mathbf k \times \tilde{\mathbf B}  ) \times \mathbf e_z \right] \color{default} &= 0\,,
+        \\[3mm]
+        -i\omega \tilde p + i \gamma p_0 \mathbf k \cdot \tilde{\mathbf U} &= 0\,.
+        \end{align}
 
-        \textnormal{fast (+) and slow (-) magnetosonic}:\quad &\omega^2 =\frac{1}{2}(c_\textnormal{S}^2+c_\textnormal{A}^2)k^2(1\pm\sqrt{1-\delta}\,)\,,\quad\delta=\frac{4B_{0z}^2c_\textnormal{S}^2c_\textnormal{A}^2}{(c_\textnormal{S}^2+c_\textnormal{A}^2)^2|\mathbf B_0|^2}\,,
+    Computed are the four roots of
 
-    where :math:`c_\textnormal{A}^2=|\mathbf B_0|^2/n_0` is the Alfvén velocity and :math:`c_\textnormal{S}^2=\gamma\,p_0/n_0` is the speed of sound.
+    .. math::
+
+        (x - \omega_0^2) \Big\{ x^3 - x^2\Big[(c_s^2 + v_A^2)k^2 + v_A^2 k_z^2 + \omega_0^2\Big] + x\Big[c_s^2 k^2 (2 v_A^2 k_z^2 + \omega_0^2) + v_A^4 k_z^2 k^2 \Big] - c_s^2 v_A^4 k_z^4 k^2\Big\} = 0
+
+    where :math:`x = \omega^2`, :math:`v_\textnormal{A}^2=|\mathbf B_0|^2/n_0` denotes the Alfvén velocity, 
+    :math:`c_s^2=\gamma\,p_0/n_0` is the speed of sound, and :math:`\omega_0 = v_A^2 k_z k/\Omega_i`
+    stands for the first root where 
+    :math:`\Omega_i = |\mathbf B_0|/\epsilon` is the cyclotron frequency 
+    with :math:`\epsilon = 1/(\hat \Omega_i \hat t)`.
     """
 
-    def __init__(self, **params):
-        super().__init__('fast magnetosonic', 'slow magnetosonic',
-                         'compression Alfvén', 'shear Alfvén', **params)
+    def __init__(self,
+                 B0x=0.,
+                 B0y=0.,
+                 B0z=1.,
+                 p0=0.1,
+                 n0=1.0,
+                 gamma=5/3,
+                 eps=0.1):
+
+        super().__init__('shear Alfvén',
+                         'slow magnetosonic',
+                         'fast magnetosonic',
+                         'compressional Alfvén',
+                         velocity_scale='alfvén',
+                         B0x=B0x,
+                         B0y=B0y,
+                         B0z=B0z,
+                         p0=p0,
+                         n0=n0,
+                         gamma=gamma,
+                         eps=eps)
 
     def __call__(self, k):
         """
@@ -179,97 +202,138 @@ class ExtendedMhd1D(DispersionRelations1D):
         Returns
         -------
         omegas : dict
-            A dictionary with key=branch_name and value=omega(k) (complex ndarray).
+            A dictionary with key=branch_name and value=omega(k) (complex numpy.ndarray).
         """
 
-        # One complex array for each branch
-        tmps = []
-        for n in range(self.nbranches):
-            tmps += [np.zeros_like(k, dtype=complex)]
+        Bsquare = self.params['B0x']**2 + \
+            self.params['B0y']**2 + self.params['B0z']**2
 
-        ########### Model specific part ##############################
+        cos_theta = self.params['B0z'] / np.sqrt(Bsquare)
 
-        # Quantities related with backgorund magnetic field
-        B0x = self.params['B0x']
-        B0y = self.params['B0y']
-        B0z = self.params['B0z']
-        B0n = np.sqrt(B0x**2.0 + B0y**2.0 + B0z**2.0)
+        # Alfvén velocity, speed of sound and cyclotron frequency
+        vA = np.sqrt(Bsquare/self.params['n0'])
 
-        # Cos(theta)
-        cos = B0z/B0n
+        cS = np.sqrt(self.params['gamma']*self.params['p0']/self.params['n0'])
 
-        # Background number density
-        n0 = self.params['n0']
+        Omega_i = np.sqrt(Bsquare) / self.params['eps']
 
-        # Background pressures
-        pi0 = self.params['p0']
-        pe0 = self.params['p0']
-        gamma = self.params['gamma']
+        # auxiliary functions
+        def omega_0(k):
+            return vA**2 * k**2 * cos_theta
 
-        # Basic units of magnetic field and time
-        Bu = self.params['Bu']
-        tu = self.params['tu']
+        def b(k):
+            return -(cS**2 + vA**2) * k**2 - vA**2 * k**2 * cos_theta**2 - omega_0(k)**2
 
-        # compute coupling parameter kappa
-        ee = 1.602176634e-19  # elementary charge (C)
-        mH = 1.67262192369e-27  # proton mass (kg)
-        Ab = self.params['A']
-        Zb = self.params['Z']
+        def c(k):
+            return cS**2 * k**2 * (2. * vA**2 * k**2 * cos_theta**2 + omega_0(k)**2) + vA**4 * k**4 * cos_theta**2
 
-        omega_ch = (Zb*ee*Bu)/(Ab*mH)
-        kappa = omega_ch*tu
+        def d(k):
+            return -cS**2 * vA**4 * k**6 * cos_theta**4
 
-        if abs(kappa - 1) < 1e-6:
-            kappa = 1.
+        def discriminant(k):
+            return 18.*b(k)*c(k)*d(k) - 4.*b(k)**3 * d(k) + b(k)**2 * c(k)**2 - 4.*c(k)**3 - 27.*d(k)**2
 
-        # Alfvén velocity
-        cA = B0n/np.sqrt(n0)
+        # solve
+        out = np.zeros((k.size, 4), dtype=complex)
+        for i, ki in enumerate(k):
+            p0 = Polynomial([-omega_0(ki)**2, 1.])
+            p1 = Polynomial([d(ki), c(ki), b(ki), 1.])
+            poly = p0*p1
+            out[i] = poly.roots()
 
-        # We will need some auxiliary arrays to compute the las three waves
-        bs = np.zeros_like(k, dtype=complex)
-        bs[:] = - k**2.0 * (cA**2.0)*(cos**2.0*(1.0 + k**2.0 *
-                                                kappa**2.0/n0) + 1.0 + (gamma/B0n**2.0)*(pi0+pe0))
+        self._branches['slow magnetosonic'] = out[:, 0]
+        self._branches['shear Alfvén'] = out[:, 1]
+        self._branches['fast magnetosonic'] = out[:, 2]
+        self._branches['compressional Alfvén'] = out[:, 3]
 
-        cs = np.zeros_like(k, dtype=complex)
-        cs[:] = k**4.0 * cos**2.0 * cA**4.0 * \
-            (1.0 + (pi0+pe0)*(gamma/B0n**2.0)*(2.0 + k**2.0 * kappa**2.0 / n0))
+        return self.branches
 
-        ds = np.zeros_like(k, dtype=complex)
-        ds[:] = -k**6.0 * (B0n**4.0 / n0**3.0) * gamma * (pi0 + pe0) * cos**4.0
 
-        D0s = np.zeros_like(k, dtype=complex)
-        D0s[:] = bs**2.0 - 3.0*cs
+class FluidSlabITG(DispersionRelations1D):
+    r"""
+    Dispersion relation for ion fluid equations with adiabatic electrons
+    in homogeneous background :math:`(n_0,p_0,\mathbf B_0)`, with a constant density and a
+    temperature gradient in :math:`x`-direction. The Braginskii closure for drift cancellations
+    is taken into account (strong magentic field).
+    The dispersion relation is
 
-        D1s = np.zeros_like(k, dtype=complex)
-        D1s[:] = 2.0 * bs**3.0 - 9.0*bs*cs + 27.0*ds
+    .. math::
 
-        Ccs = np.zeros_like(k, dtype=complex)
-        Ccs[:] = ((D1s + (D1s**2.0 - 4.0*D0s**3.0)**(1.0/2.0))/2.0)**(1.0/3.0)
+        \omega^3 - (Z + \gamma)v_i^2 k_z^2 \omega + Z \frac{v_i^4}{v^*} k_z^2 k_y = 0\,,
 
-        # Finally we need a special complex number
-        SHI = (-1.0 + (-3.0)**(1.0/2.0))*0.5
+    where :math:`v_i^2=k_B T_0/m` denotes the ion thermal velocity and  
 
-        # fast magnetosonic branch
-        tmps[0][:] = (B0n*kappa*cos/n0)*k**2.0
+    .. math::
 
-        # slow magnetosonic
-        tmps[1][:] = ((-1.0/3.0)*(bs + Ccs + D0s/Ccs))**(1.0/2.0)
+        v^* = \frac{\Omega_i}{\partial_x T_0/T_0}\,,\qquad \Omega_i = \frac{Ze B_0}{m}\,.
 
-        # compression Alfvén branch
-        tmps[2][:] = ((-1.0/3.0)*(bs + SHI*Ccs + D0s/(SHI*Ccs)))**(1.0/2.0)
+    The dispersion relation is calculated as a function of :math:`k_y` for fixed :math:`k_z`.    
+    Instabilites occur when
 
-        # shear Alfvén branch
-        tmps[3][:] = ((-1.0/3.0)*(bs + SHI*SHI*Ccs +
-                      D0s/(SHI*SHI*Ccs)))**(1.0/2.0)
+    .. math::
 
-        ##############################################################
+        \frac{k_y}{k_z} > \frac{2}{3^{3/2}}\frac{\sqrt{Z + \gamma}^3}{Z^2} \frac{v^*}{v_i} \,, \qquad \frac{v^*}{v_i} = \frac{\partial_x T_0/T_0}{\rho_i}\,.
+    """
 
-        # fill output dictionary
-        omegas = {}
-        for name, tmp in zip(self.branches, tmps):
-            omegas[name] = tmp
+    def __init__(self,
+                 vstar=10.,
+                 vi=1.,
+                 Z=1.,
+                 kz=1.,
+                 gamma=5/3):
 
-        return omegas
+        super().__init__('wave 1',
+                         'wave 2',
+                         'wave 3',
+                         velocity_scale='thermal',
+                         vstar=vstar,
+                         vi=vi,
+                         Z=Z,
+                         kz=kz,
+                         gamma=gamma)
+
+    def __call__(self, k):
+        """
+        The evaluation of all branches of the 1d dispersion relation.
+
+        Parameters
+        ----------
+        k : array_like
+            Evaluation wave numbers.
+
+        Returns
+        -------
+        omegas : dict
+            A dictionary with key=branch_name and value=omega(k) (complex numpy.ndarray).
+        """
+
+        # helper
+        p = - (self.params['Z'] + self.params['gamma']) * self.params['vi']**2 * self.params['kz']**2
+
+        # stability threshold
+        ky_crit = 2./3.**(3/2) * (self.params['Z'] + self.params['gamma'])**(3/2) / \
+            self.params['Z'] * self.params['vstar'] / self.params['vi']
+        print(f'{ky_crit =}')
+        self._k_crit['analytic threshold'] = ky_crit
+
+        # auxiliary functions
+        def q(k):
+            return self.params['Z'] * self.params['vi']**4 / self.params['vstar'] * self.params['kz']**2 * k
+
+        def discriminant(k):
+            return - 4.*p**3 - 27.*q(k)**2
+
+        # solve
+        out = np.zeros((k.size, 3), dtype=complex)
+        for i, ki in enumerate(k):
+            poly = Polynomial([q(ki), p, 0., 1.])
+            out[i] = poly.roots()
+
+        self._branches['wave 1'] = out[:, 0]
+        self._branches['wave 2'] = out[:, 1]
+        self._branches['wave 3'] = out[:, 2]
+
+        return self.branches
 
 
 class ColdPlasma1D(DispersionRelations1D):
@@ -625,7 +689,7 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
 
     .. math::
 
-        \omega^2 = c_\textnormal{A}^2 k^2\frac{B_{0z}^2}{|\mathbf B_0|^2} + \omega k \nu_h &\left[ \frac{\omega_c}{\omega} \left\{ \left( 1 - \frac{\hat{v}^2_\perp}{\hat{v}^2_\parallel}\right) \hat{v}_\parallel \left( \pm Y_3 \mp \frac{\omega - \omega_c}{\hat{v}_\parallel k_\parallel} Y_2 \right) + u_0 \frac{\hat{v}^2_\perp}{\hat{v}^2_\parallel} \left( \pm Y_2 \mp \frac{\omega - \omega_c}{\hat{v}_\parallel k_\parallel} Y_2 \right) \right\} \right.
+        \omega^2 = v_\textnormal{A}^2 k^2\frac{B_{0z}^2}{|\mathbf B_0|^2} + \omega k \nu_h &\left[ \frac{\omega_c}{\omega} \left\{ \left( 1 - \frac{\hat{v}^2_\perp}{\hat{v}^2_\parallel}\right) \hat{v}_\parallel \left( \pm Y_3 \mp \frac{\omega - \omega_c}{\hat{v}_\parallel k_\parallel} Y_2 \right) + u_0 \frac{\hat{v}^2_\perp}{\hat{v}^2_\parallel} \left( \pm Y_2 \mp \frac{\omega - \omega_c}{\hat{v}_\parallel k_\parallel} Y_2 \right) \right\} \right.
 
         &- \left. \frac{\hat{v}^2_\perp}{\hat{v}^2_\parallel} \left( Y_3 - \frac{\omega \mp \omega_c}{\hat{v}_\parallel k_\parallel} Y_2 - \frac{u_0}{\hat{v}_\parallel} Y_2 + \frac{\omega \mp \omega_c}{\hat{v}^2_\parallel k_\parallel} u_0 Y_1 \right)\right]\,,
 
@@ -633,9 +697,9 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
 
     .. math::
 
-        \omega^2 =c_\textnormal{A}^2 k^2 - 2 \omega k_\parallel \nu_h \hat{v}_\parallel X_4 \,
+        \omega^2 =v_\textnormal{A}^2 k^2 - 2 \omega k_\parallel \nu_h \hat{v}_\parallel X_4 \,
 
-    where :math:`c_\textnormal{A}^2=|\mathbf B_0|^2/n_0` is the Alfvén velocity and :math:`c_\textnormal{S}^2=\gamma\,p_0/n_0` is the speed of sound.
+    where :math:`v_\textnormal{A}^2=|\mathbf B_0|^2/n_0` is the Alfvén velocity and :math:`c_\textnormal{S}^2=\gamma\,p_0/n_0` is the speed of sound.
 
     Variaous integrals are defined as follows
 
@@ -691,10 +755,10 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
         # solve omega
         for i, ki in enumerate(k):
 
-            # choose initial guess wRL = cA*k, wS = cS*k for first iteration and result from last k otherwise
+            # choose initial guess wRL = vA*k, wS = cS*k for first iteration and result from last k otherwise
             if i == 0:
-                wR = [1*ki, 0.]  # TODO: use cA
-                wL = [1*ki, 0.]  # TODO: use cA
+                wR = [1*ki, 0.]  # TODO: use vA
+                wL = [1*ki, 0.]  # TODO: use vA
                 wS = [1*ki, 0.]  # TODO: use cS
             else:
                 wR = [np.real(tmps[0][i - 1]), np.imag(tmps[0][i - 1])]
@@ -759,9 +823,9 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
         vperp = 1.  # TODO
         vth = 1.
 
-        cA = np.sqrt((self.params['B0x']**2 + self.params['B0y'] ** 2 +
+        vA = np.sqrt((self.params['B0x']**2 + self.params['B0y'] ** 2 +
                       self.params['B0z']**2)/self.params['n0'])
-        # cS = np.sqrt(self.params['beta']*cA)
+        # cS = np.sqrt(self.params['beta']*vA)
         cS = 1.
 
         a0 = u0/vpara  # TODO
@@ -777,13 +841,13 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
         # R-wave
         if pol == 1:
 
-            c1 = w**2 - cA**2*k**2 - w*nu*k*(wc/w*u0*(+y2 - (w - wc)/k/vpara*y1) - (
+            c1 = w**2 - vA**2*k**2 - w*nu*k*(wc/w*u0*(+y2 - (w - wc)/k/vpara*y1) - (
                 vperp**2/vpara)*(y3 - (w - wc)/k/vpara*y2 - u0/vpara*y2 + (w - wc)/k/vpara**2*u0*y1))
 
         # L-wave:
         else:
 
-            c1 = w**2 - cA**2*k**2 - w*nu*k*(wc/w*u0*(-y2 + (w + wc)/k/vpara*y1) - (
+            c1 = w**2 - vA**2*k**2 - w*nu*k*(wc/w*u0*(-y2 + (w + wc)/k/vpara*y1) - (
                 vperp**2/vpara)*(y3 - (w + wc)/k/vpara*y2 - u0/vpara*y2 + (w + wc)/k/vpara**2*u0*y1))
 
         return np.real(c1), np.imag(c1)
@@ -819,9 +883,9 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
         vperp = 1.  # TODO
         vth = 1.
 
-        cA = np.sqrt((self.params['B0x']**2 + self.params['B0y']
+        vA = np.sqrt((self.params['B0x']**2 + self.params['B0y']
                      ** 2 + self.params['B0z']**2)/self.params['n0'])
-        # cS = np.sqrt(self.params['beta']*cA)
+        # cS = np.sqrt(self.params['beta']*vA)
         cS = 1.
 
         a0 = u0/vpara  # TODO

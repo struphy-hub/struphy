@@ -35,6 +35,10 @@ mhd_equilibrium :
     type : HomogenSlab 
     HomogenSlab : {}
 
+braginskii_equilibrium :
+    type : HomogenSlabITG 
+    HomogenSlabITG : {}
+
 em_fields :
     background: 
         type : LogicalConst
