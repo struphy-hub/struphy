@@ -43,13 +43,13 @@ class VlasovAmpere(Propagator):
     based on the :class:`~struphy.linear_algebra.schur_solver.SchurSolver` with
 
     .. math::
-    
+
         A = \mathbb M^1\,,\qquad B = \frac{c_1}{2} \mathbb L^1 \bar{DF^{-1}} \bar{\mathbf w}\,,\qquad C = - \frac{c_2}{2} \bar{DF^{-\top}} \left(\mathbb L^1\right)^\top \,.
 
     The accumulation matrix and vector assembled in :class:`~struphy.pic.accumulation.particles_to_grid.Accumulator` are
 
     .. math::
-    
+
         M = BC  \,,\qquad V = B \mathbf v \,.
 
     Parameters
@@ -179,6 +179,190 @@ class VlasovAmpere(Propagator):
             max_diff = np.max(np.abs(self._old_v_sq[~self.particles[0].holes]
                                      - self._new_v_sq[~self.particles[0].holes]))
             print('Maxdiff |v| for VlasovMaxwell:', max_diff)
+            print()
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False}
+        return dct
+
+
+class EfieldWeights(Propagator):
+    r"""Solves the following substep
+    
+    .. math::
+
+        \frac{\text{d}}{\text{d} t} w_p = \frac{f_{0,p}}{s_{0, p}} \frac{\kappa}{v_{\text{th}}^2} \left[ DF^{-T} (\mathbb{\Lambda}^1)^T \mathbf{e} \right] \cdot \mathbf{v}_p \\
+        \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} = - \frac{\alpha^2 \kappa}{N} \sum_p w_p \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right)
+    
+    using the Crank-Nicolson method
+
+    .. math::
+
+        \begin{bmatrix}
+            \mathbb{M}_1 \left( \mathbf{e}^{n+1} - \mathbf{e}^n \right) \\
+            \mathbf{W}^{n+1} - \mathbf{W}^n
+        \end{bmatrix}
+        =
+        \frac{\Delta t}{2}
+        \begin{bmatrix}
+            0 & - \mathbb{E} \\
+            \mathbb{W} & 0
+        \end{bmatrix}
+        \begin{bmatrix}
+            \mathbf{e}^{n+1} + \mathbf{e}^n \\
+            \mathbf{V}^{n+1} + \mathbf{V}^n
+        \end{bmatrix}
+
+    where
+
+    .. math::
+
+        \mathbb{E} = \frac{\alpha^2 \kappa}{N} \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right) \\
+        \mathbb{W} = \frac{f_{0,p}}{s_{0,p}} \frac{\kappa}{v_\text{th}^2} \left( DF^{-1} \mathbf{v}_p \right) \cdot \left(\mathbb{\Lambda}^1\right)^T \\
+
+    based on the :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
+
+    The accumulation matrix and vector assembled in :class:`~struphy.pic.accumulation.particles_to_grid.Accumulator` are
+
+    .. math::
+
+        BC = \mathbb{E} \mathbb{W} \, , \qquad Byn = \mathbb{E} \mathbf{W} \,.
+
+    """
+
+    def __init__(self, e, particles, **params):
+
+        from struphy.kinetic_background.maxwellians import Maxwellian6D
+        super().__init__(e, particles)
+
+        # parameters
+        params_default = {
+            'alpha': 1.,
+            'kappa': 1.,
+            'f0': Maxwellian6D(),
+            'type': ('pcg', 'MassMatrixPreconditioner'),
+            'tol': 1e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False
+        }
+
+        params = set_defaults(params, params_default)
+
+        assert isinstance(params['f0'], Maxwellian6D)
+
+        self._alpha = params['alpha']
+        self._kappa = params['kappa']
+        self._f0 = params['f0']
+        assert self._f0.maxw_params['vth1'] == self._f0.maxw_params['vth2'] == self._f0.maxw_params['vth3']
+        self._vth = self._f0.maxw_params['vth1']
+
+        self._info = params['info']
+
+        # Initialize Accumulator object
+        self._accum = Accumulator(self.derham, self.domain, 'Hcurl', 'linear_vlasov_ampere',
+                                  add_vector=True, symmetry='symm')
+
+        # Create buffers to store temporarily _e and its sum with old e
+        self._e_tmp = e.space.zeros()
+        self._e_sum = e.space.zeros()
+
+        # store old weights to compute difference
+        self._old_weights = np.empty(particles.markers.shape[0], dtype=float)
+
+        # ================================
+        # ========= Schur Solver =========
+        # ================================
+
+        # Preconditioner
+        if params['type'][1] == None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, params['type'][1])
+            pc = pc_class(self.mass_ops.M1)
+
+        # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
+        _A = self.mass_ops.M1
+        _BC = self._alpha**2 * self._kappa**2 * \
+            self._accum.operators[0].matrix / (4 * self._vth**2)
+
+        # Instantiate Schur solver
+        self._schur_solver = SchurSolver(
+            _A, _BC,
+            params['type'][0],
+            pc=pc,
+            tol=params['tol'],
+            maxiter=params['maxiter'],
+            verbose=params['verbose']
+        )
+
+        # Instantiate particle pusher
+        self._pusher = Pusher(
+            self.derham, self.domain,
+            'push_weights_with_efield_lin_va'
+        )
+
+    def __call__(self, dt):
+
+        # evaluate f0 and accumulate
+        f0_values = self._f0(
+            self.particles[0].markers[:, 0],
+            self.particles[0].markers[:, 1],
+            self.particles[0].markers[:, 2],
+            self.particles[0].markers[:, 3],
+            self.particles[0].markers[:, 4],
+            self.particles[0].markers[:, 5],
+        )
+
+        self._accum.accumulate(self.particles[0], f0_values)
+
+        # Update Schur solver
+        self._schur_solver.BC = self._accum.operators[0].matrix
+        self._schur_solver.BC *= (-1) * self._alpha**2 * self._kappa**2 / (4 * self._vth**2)
+
+        # new e-field (no tmps created here)
+        self._e_tmp, info = self._schur_solver(
+            xn=self.feec_vars[0],
+            Byn=self._alpha**2 * self._kappa * self._accum.vectors[0] / 2.,
+            dt=dt,
+            out=self._e_tmp
+        )
+
+        # Store old weights
+        self._old_weights[~self.particles[0].holes] = self.particles[0].markers_wo_holes[:, 6]
+
+        # Compute (e^{n+1} + e^n) (no tmps created here)
+        self._e_sum *= 0.
+        self._e_sum += self.feec_vars[0]
+        self._e_sum += self._e_tmp
+
+        # Update weights
+        self._pusher(
+            self.particles[0], dt,
+            self._e_sum.blocks[0]._data,
+            self._e_sum.blocks[1]._data,
+            self._e_sum.blocks[2]._data,
+            f0_values, self._kappa, self._vth
+        )
+
+        # write new coeffs into self.variables
+        max_de, = self.feec_vars_update(self._e_tmp)
+
+        # Print out max differences for weights and e-field
+        if self._info:
+            print('Status          for StepEfieldWeights:', info['success'])
+            print('Iterations      for StepEfieldWeights:', info['niter'])
+            print('Maxdiff    e1   for StepEfieldWeights:', max_de)
+            max_diff = np.max(np.abs(self._old_weights[~self.particles[0].holes]
+                                     - self.particles[0].markers[~self.particles[0].holes, 6]))
+            print('Maxdiff weights for StepEfieldWeights:', max_diff)
             print()
 
     @classmethod
@@ -1368,24 +1552,31 @@ class CurrentCoupling5DCurlb(Propagator):
             # evaluate unit_b1 (1form) dot epsilon * u0_parallel * curl_norm_b (2form) / |det(DF)| at quadrature points
             quad_pts_array = self.domain.prepare_eval_pts(*quad_pts)[:3]
 
-            u0_parallel_at_quad = self.particles[0].f_backgr.u(*quad_pts_array)[0]
+            u0_parallel_at_quad = self.particles[0].f_backgr.u(
+                *quad_pts_array)[0]
 
-            self._det_df_at_quad = self.domain.jacobian_det(*quad_pts, squeeze_out=False)
+            self._det_df_at_quad = self.domain.jacobian_det(
+                *quad_pts, squeeze_out=False)
 
-            self._unit_b1_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['1'], self._unit_b1)
+            self._unit_b1_at_quad = WeightedMassOperator.eval_quad(
+                self.derham.Vh_fem['1'], self._unit_b1)
 
-            self._curl_norm_b_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._curl_norm_b)
+            self._curl_norm_b_at_quad = WeightedMassOperator.eval_quad(
+                self.derham.Vh_fem['2'], self._curl_norm_b)
 
-            self._unit_b1_dot_curl_norm_b_at_quad = np.sum(p * q for p, q in zip(self._unit_b1_at_quad, self._curl_norm_b_at_quad))
+            self._unit_b1_dot_curl_norm_b_at_quad = np.sum(
+                p * q for p, q in zip(self._unit_b1_at_quad, self._curl_norm_b_at_quad))
 
             self._unit_b1_dot_curl_norm_b_at_quad /= self._det_df_at_quad
             self._unit_b1_dot_curl_norm_b_at_quad *= self._epsilon
             self._unit_b1_dot_curl_norm_b_at_quad *= u0_parallel_at_quad
 
             # calculate constant (f_backgr.u_para² + f_backgr.vth_para²) * f_backgr.n for control MAT and VEC
-            vth0_parallel_at_quad = self.particles[0].f_backgr.vth(*quad_pts_array)[0]
+            vth0_parallel_at_quad = self.particles[0].f_backgr.vth(
+                *quad_pts_array)[0]
 
-            self._control_const = (u0_parallel_at_quad**2 + vth0_parallel_at_quad**2) * self._n0_at_quad
+            self._control_const = (
+                u0_parallel_at_quad**2 + vth0_parallel_at_quad**2) * self._n0_at_quad
 
             # memory allocation of magnetic field at quadrature points
             self._b_at_quad = (np.zeros_like(self._n0_at_quad),
@@ -1452,51 +1643,61 @@ class CurrentCoupling5DCurlb(Propagator):
             # evaluate magnetic field at quadrature points (in-place)
             WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
                                            out=[self._b_at_quad[0], self._b_at_quad[1], self._b_at_quad[2]])
-            
+
             # evaluate B_parallel
-            self._B_para_at_quad = np.sum(p * q for p, q in zip(self._unit_b1_at_quad, self._b_at_quad))
+            self._B_para_at_quad = np.sum(
+                p * q for p, q in zip(self._unit_b1_at_quad, self._b_at_quad))
             self._B_para_at_quad += self._unit_b1_dot_curl_norm_b_at_quad
 
             # assemble (B x)(curl norm_b)(curl norm_b)(B x) / B_star_para² / det_df³ * (f_backgr.u_para² + f_backgr.vth_para²) * f_backgr.n
-            self._mat11[:,:,:] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] - \
-                                  self._b_at_quad[2]*self._curl_norm_b_at_quad[1])**2 * \
-                                  self._control_const * self._coupling_mat / self._det_df_at_quad**3 / self._B_para_at_quad**2
-            self._mat12[:,:,:] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] - \
-                                  self._b_at_quad[2]*self._curl_norm_b_at_quad[1]) * \
-                                 (self._b_at_quad[2]*self._curl_norm_b_at_quad[0] - \
-                                  self._b_at_quad[0]*self._curl_norm_b_at_quad[2]) * \
-                                  self._control_const * self._coupling_mat / self._det_df_at_quad**3 / self._B_para_at_quad**2
-            self._mat13[:,:,:] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] - \
-                                  self._b_at_quad[2]*self._curl_norm_b_at_quad[1]) * \
-                                 (self._b_at_quad[0]*self._curl_norm_b_at_quad[1] - \
-                                  self._b_at_quad[1]*self._curl_norm_b_at_quad[0]) * \
-                                  self._control_const * self._coupling_mat / self._det_df_at_quad**3 / self._B_para_at_quad**2
-            self._mat22[:,:,:] = (self._b_at_quad[2]*self._curl_norm_b_at_quad[0] - \
-                                  self._b_at_quad[0]*self._curl_norm_b_at_quad[2])**2 * \
-                                  self._control_const * self._coupling_mat / self._det_df_at_quad**3 / self._B_para_at_quad**2
-            self._mat23[:,:,:] = (self._b_at_quad[2]*self._curl_norm_b_at_quad[0] - \
-                                  self._b_at_quad[0]*self._curl_norm_b_at_quad[2]) * \
-                                 (self._b_at_quad[0]*self._curl_norm_b_at_quad[1] - \
-                                  self._b_at_quad[1]*self._curl_norm_b_at_quad[0]) * \
-                                  self._control_const * self._coupling_mat / self._det_df_at_quad**3 / self._B_para_at_quad**2
-            self._mat33[:,:,:] = (self._b_at_quad[0]*self._curl_norm_b_at_quad[1] - \
-                                  self._b_at_quad[1]*self._curl_norm_b_at_quad[0])**2 * \
-                                  self._control_const * self._coupling_mat / self._det_df_at_quad**3 / self._B_para_at_quad**2
+            self._mat11[:, :, :] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] -
+                                    self._b_at_quad[2]*self._curl_norm_b_at_quad[1])**2 * \
+                self._control_const * self._coupling_mat / \
+                self._det_df_at_quad**3 / self._B_para_at_quad**2
+            self._mat12[:, :, :] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] -
+                                    self._b_at_quad[2]*self._curl_norm_b_at_quad[1]) * \
+                (self._b_at_quad[2]*self._curl_norm_b_at_quad[0] -
+                 self._b_at_quad[0]*self._curl_norm_b_at_quad[2]) * \
+                self._control_const * self._coupling_mat / \
+                self._det_df_at_quad**3 / self._B_para_at_quad**2
+            self._mat13[:, :, :] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] -
+                                    self._b_at_quad[2]*self._curl_norm_b_at_quad[1]) * \
+                (self._b_at_quad[0]*self._curl_norm_b_at_quad[1] -
+                 self._b_at_quad[1]*self._curl_norm_b_at_quad[0]) * \
+                self._control_const * self._coupling_mat / \
+                self._det_df_at_quad**3 / self._B_para_at_quad**2
+            self._mat22[:, :, :] = (self._b_at_quad[2]*self._curl_norm_b_at_quad[0] -
+                                    self._b_at_quad[0]*self._curl_norm_b_at_quad[2])**2 * \
+                self._control_const * self._coupling_mat / \
+                self._det_df_at_quad**3 / self._B_para_at_quad**2
+            self._mat23[:, :, :] = (self._b_at_quad[2]*self._curl_norm_b_at_quad[0] -
+                                    self._b_at_quad[0]*self._curl_norm_b_at_quad[2]) * \
+                (self._b_at_quad[0]*self._curl_norm_b_at_quad[1] -
+                 self._b_at_quad[1]*self._curl_norm_b_at_quad[0]) * \
+                self._control_const * self._coupling_mat / \
+                self._det_df_at_quad**3 / self._B_para_at_quad**2
+            self._mat33[:, :, :] = (self._b_at_quad[0]*self._curl_norm_b_at_quad[1] -
+                                    self._b_at_quad[1]*self._curl_norm_b_at_quad[0])**2 * \
+                self._control_const * self._coupling_mat / \
+                self._det_df_at_quad**3 / self._B_para_at_quad**2
 
             self._mat21[:, :, :] = -self._mat12
             self._mat31[:, :, :] = -self._mat13
             self._mat32[:, :, :] = -self._mat23
 
             # assemble (B x)(curl norm_b) / B_star_para / det_df * (f_backgr.u_para² + f_backgr.vth_para²) * f_backgr.n
-            self._vec1[:, :, :] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] - \
+            self._vec1[:, :, :] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] -
                                    self._b_at_quad[2]*self._curl_norm_b_at_quad[1]) * \
-                                   self._control_const * self._coupling_vec / self._det_df_at_quad / self._B_para_at_quad
-            self._vec2[:, :, :] = (self._b_at_quad[2]*self._curl_norm_b_at_quad[0] - \
+                self._control_const * self._coupling_vec / \
+                self._det_df_at_quad / self._B_para_at_quad
+            self._vec2[:, :, :] = (self._b_at_quad[2]*self._curl_norm_b_at_quad[0] -
                                    self._b_at_quad[0]*self._curl_norm_b_at_quad[2]) * \
-                                   self._control_const * self._coupling_vec / self._det_df_at_quad / self._B_para_at_quad
-            self._vec3[:, :, :] = (self._b_at_quad[0]*self._curl_norm_b_at_quad[1] - \
+                self._control_const * self._coupling_vec / \
+                self._det_df_at_quad / self._B_para_at_quad
+            self._vec3[:, :, :] = (self._b_at_quad[0]*self._curl_norm_b_at_quad[1] -
                                    self._b_at_quad[1]*self._curl_norm_b_at_quad[0]) * \
-                                   self._control_const * self._coupling_vec / self._det_df_at_quad / self._B_para_at_quad
+                self._control_const * self._coupling_vec / \
+                self._det_df_at_quad / self._B_para_at_quad
 
             self._ACC.accumulate(self.particles[0], self._epsilon,
                                  Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
@@ -1713,19 +1914,25 @@ class CurrentCoupling5DGradB(Propagator):
             # evaluate unit_b1 (1form) dot epsilon * u0_parallel * curl_norm_b/|det(DF)| at quadrature points
             quad_pts_array = self.domain.prepare_eval_pts(*quad_pts)[:3]
 
-            u0_parallel_at_quad = self.particles[0].f_backgr.u(*quad_pts_array)[0]
+            u0_parallel_at_quad = self.particles[0].f_backgr.u(
+                *quad_pts_array)[0]
 
             vth_perp = self.particles[0].f_backgr.vth(*quad_pts_array)[1]
 
-            absB0_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['0'], self._absB0)
+            absB0_at_quad = WeightedMassOperator.eval_quad(
+                self.derham.Vh_fem['0'], self._absB0)
 
-            self._det_df_at_quad = self.domain.jacobian_det(*quad_pts, squeeze_out=False)
+            self._det_df_at_quad = self.domain.jacobian_det(
+                *quad_pts, squeeze_out=False)
 
-            self._unit_b1_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['1'], self._unit_b1)
+            self._unit_b1_at_quad = WeightedMassOperator.eval_quad(
+                self.derham.Vh_fem['1'], self._unit_b1)
 
-            curl_norm_b_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._curl_norm_b)
+            curl_norm_b_at_quad = WeightedMassOperator.eval_quad(
+                self.derham.Vh_fem['2'], self._curl_norm_b)
 
-            self._unit_b1_dot_curl_norm_b_at_quad = np.sum(p * q for p, q in zip(self._unit_b1_at_quad, curl_norm_b_at_quad))
+            self._unit_b1_dot_curl_norm_b_at_quad = np.sum(
+                p * q for p, q in zip(self._unit_b1_at_quad, curl_norm_b_at_quad))
 
             self._unit_b1_dot_curl_norm_b_at_quad /= self._det_df_at_quad
             self._unit_b1_dot_curl_norm_b_at_quad *= self._epsilon
@@ -1735,25 +1942,29 @@ class CurrentCoupling5DGradB(Propagator):
             self._control_const = vth_perp**2 / absB0_at_quad * self._n0_at_quad
 
             # assemble the matrix (G_inv)(unit_b1 x)(G_inv)
-            G_inv_at_quad = self.domain.metric_inv(*quad_pts, squeeze_out=False)
+            G_inv_at_quad = self.domain.metric_inv(
+                *quad_pts, squeeze_out=False)
 
             self._G_inv_bx_G_inv_at_quad = [[np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad)],
-                                            [np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad)],
+                                            [np.zeros_like(self._n0_at_quad), np.zeros_like(
+                                                self._n0_at_quad), np.zeros_like(self._n0_at_quad)],
                                             [np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad)]]
 
             for j in range(3):
-                temp = (-self._unit_b1_at_quad[2]*G_inv_at_quad[1,j] + self._unit_b1_at_quad[1]*G_inv_at_quad[2,j],
-                         self._unit_b1_at_quad[2]*G_inv_at_quad[0,j] - self._unit_b1_at_quad[0]*G_inv_at_quad[2,j],
-                        -self._unit_b1_at_quad[1]*G_inv_at_quad[0,j] + self._unit_b1_at_quad[0]*G_inv_at_quad[1,j])
-                
+                temp = (-self._unit_b1_at_quad[2]*G_inv_at_quad[1, j] + self._unit_b1_at_quad[1]*G_inv_at_quad[2, j],
+                        self._unit_b1_at_quad[2]*G_inv_at_quad[0, j] -
+                        self._unit_b1_at_quad[0]*G_inv_at_quad[2, j],
+                        -self._unit_b1_at_quad[1]*G_inv_at_quad[0, j] + self._unit_b1_at_quad[0]*G_inv_at_quad[1, j])
+
                 for i in range(3):
-                    self._G_inv_bx_G_inv_at_quad[i][j] = np.sum(p * q for p, q in zip(G_inv_at_quad[i], temp[:]))
+                    self._G_inv_bx_G_inv_at_quad[i][j] = np.sum(
+                        p * q for p, q in zip(G_inv_at_quad[i], temp[:]))
 
             # memory allocation of magnetic field at quadrature points
             self._b_at_quad = [np.zeros_like(self._n0_at_quad),
                                np.zeros_like(self._n0_at_quad),
                                np.zeros_like(self._n0_at_quad)]
-            
+
             # memory allocation of parallel magnetic field at quadrature points
             self._B_para_at_quad = np.zeros_like(self._n0_at_quad)
 
@@ -1763,7 +1974,8 @@ class CurrentCoupling5DGradB(Propagator):
                                       np.zeros_like(self._n0_at_quad))
             # memory allocation for temporary matrix
             self._temp = [[np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad)],
-                          [np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad)],
+                          [np.zeros_like(self._n0_at_quad), np.zeros_like(
+                              self._n0_at_quad), np.zeros_like(self._n0_at_quad)],
                           [np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad)]]
 
             # memory allocation for control VEC
@@ -1837,31 +2049,32 @@ class CurrentCoupling5DGradB(Propagator):
             # evaluate magnetic field at quadrature points (in-place)
             WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
                                            out=[self._b_at_quad[0], self._b_at_quad[1], self._b_at_quad[2]])
-            
+
             # evaluate B_parallel
-            self._B_para_at_quad = np.sum(p * q for p, q in zip(self._unit_b1_at_quad, self._b_at_quad))
+            self._B_para_at_quad = np.sum(
+                p * q for p, q in zip(self._unit_b1_at_quad, self._b_at_quad))
             self._B_para_at_quad += self._unit_b1_dot_curl_norm_b_at_quad
 
             # evaluate grad B_parallel
             WeightedMassOperator.eval_quad(self.derham.Vh_fem['1'], self._tmp3,
                                            out=[self._grad_PBb_at_quad[0], self._grad_PBb_at_quad[1], self._grad_PBb_at_quad[2]])
 
-            # assemble temp = (B x)(G_inv)(unit_b1 x)(G_inv) 
+            # assemble temp = (B x)(G_inv)(unit_b1 x)(G_inv)
             for i in range(3):
                 self._temp[0][i] = -self._b_at_quad[2]*self._G_inv_bx_G_inv_at_quad[1][i] + \
-                                   self._b_at_quad[1]*self._G_inv_bx_G_inv_at_quad[2][i]
+                    self._b_at_quad[1]*self._G_inv_bx_G_inv_at_quad[2][i]
                 self._temp[1][i] = +self._b_at_quad[2]*self._G_inv_bx_G_inv_at_quad[0][i] - \
-                                   self._b_at_quad[0]*self._G_inv_bx_G_inv_at_quad[2][i]
+                    self._b_at_quad[0]*self._G_inv_bx_G_inv_at_quad[2][i]
                 self._temp[2][i] = -self._b_at_quad[1]*self._G_inv_bx_G_inv_at_quad[0][i] + \
-                                   self._b_at_quad[0]*self._G_inv_bx_G_inv_at_quad[1][i]
+                    self._b_at_quad[0]*self._G_inv_bx_G_inv_at_quad[1][i]
 
             # assemble (temp)(grad B_parallel) / B_star_para * 2 * f_backgr.vth_perp² / B0 * f_backgr.n
             self._vec1[:, :, :] = np.sum(p * q for p, q in zip(self._temp[0][:], self._grad_PBb_at_quad)) * \
-                                  self._control_const * self._coupling_vec / self._B_para_at_quad
+                self._control_const * self._coupling_vec / self._B_para_at_quad
             self._vec2[:, :, :] = np.sum(p * q for p, q in zip(self._temp[1][:], self._grad_PBb_at_quad)) * \
-                                  self._control_const * self._coupling_vec / self._B_para_at_quad
+                self._control_const * self._coupling_vec / self._B_para_at_quad
             self._vec3[:, :, :] = np.sum(p * q for p, q in zip(self._temp[2][:], self._grad_PBb_at_quad)) * \
-                                  self._control_const * self._coupling_vec / self._B_para_at_quad
+                self._control_const * self._coupling_vec / self._B_para_at_quad
 
         # save old u
         _u_new = un.copy(out=self._u_new)
@@ -1869,7 +2082,7 @@ class CurrentCoupling5DGradB(Propagator):
 
         # save old marker positions
         self.particles[0].markers[~self.particles[0].holes,
-                          9:12] = self.particles[0].markers[~self.particles[0].holes, 0:3]
+                                  9:12] = self.particles[0].markers[~self.particles[0].holes, 0:3]
 
         for stage in range(self._butcher.n_stages):
 
@@ -1897,7 +2110,7 @@ class CurrentCoupling5DGradB(Propagator):
             Eu.update_ghost_regions()
 
             self._pusher.kernel(self.particles[0].markers, dt, stage,
-                                *self._pusher.args_fem, 
+                                *self._pusher.args_fem,
                                 *self.domain.args_map,
                                 self._epsilon,
                                 Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
@@ -1906,16 +2119,16 @@ class CurrentCoupling5DGradB(Propagator):
                                 self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
                                 Eu[0]._data, Eu[1]._data, Eu[2]._data,
                                 self._butcher.a, self._butcher.b, self._butcher.c, 0.)
-            
+
             self.particles[0].mpi_sort_markers()
-            
+
             # solve linear system for updated u coefficients
-            _ku =  self._solver.dot(self._ACC.vectors[0], out=self._u_temp2)
+            _ku = self._solver.dot(self._ACC.vectors[0], out=self._u_temp2)
 
             # calculate u^{n+1}_k
             _u_temp = un.copy(out=self._u_temp1)
             _u_temp += _ku * dt * self._butcher.a[stage]
-            
+
             # calculate u^{n+1}
             _u_new += _ku * dt * self._butcher.b[stage]
 

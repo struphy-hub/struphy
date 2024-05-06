@@ -6,6 +6,7 @@ import yaml
 import numpy as np
 import h5py
 import scipy.special as sp
+import copy
 
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
@@ -778,7 +779,7 @@ class Particles(metaclass=ABCMeta):
 
         # load distribution function (with given parameters or default parameters)
         bckgr_fun = self.bckgr_params['type']
-        bp_copy = self._bckgr_params.copy()
+        bp_copy = copy.deepcopy(self.bckgr_params)
 
         # For delta-f set markers only as perturbation
         if self.marker_params['type'] == 'delta_f':
@@ -789,7 +790,6 @@ class Particles(metaclass=ABCMeta):
                 bp_copy[bckgr_fun] = {'n': 0.}
 
         # Get the initialization function and pass the correct arguments
-        print(f'{bp_copy = }')
         self._f_init = getattr(maxwellians, bckgr_fun)(
             maxw_params=bp_copy[bckgr_fun],
             pert_params=self.pert_params,

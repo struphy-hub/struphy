@@ -111,6 +111,7 @@ def main():
             # Set velocity point of evaluation to v_shift of background params if not given by input
             if params['kinetic'][species]['markers']['type'] == 'full_f':
                 for k in range(1, 4):
+
                     if grid_slices['v' + str(k)] is None:
                         key = 'u' + str(k)
                         bckgr_type = params['kinetic'][species]['background']['type']
@@ -119,6 +120,7 @@ def main():
                             bckgr_param = default_bckgr_params[key]
                         else:
                             bckgr_param = params['kinetic'][species]['background'][bckgr_type][key]
+
                         if isinstance(bckgr_param, dict):
                             grid_slices['v' + str(k)] = \
                                 bckgr_param['u0' + str(k)]
@@ -127,10 +129,16 @@ def main():
             elif params['kinetic'][species]['markers']['type'] == 'delta_f' \
                     or params['kinetic'][species]['markers']['type'] == 'control_variate':
                 for k in range(1, 4):
+
                     if grid_slices['v' + str(k)] is None:
+                        key = 'u' + str(k)
                         bckgr_type = params['kinetic'][species]['background']['type']
-                        bckgr_param = params['kinetic'][species]['background'][bckgr_type]['u' + str(
-                            k)]
+
+                        if key not in params['kinetic'][species]['background'][bckgr_type].keys():
+                            bckgr_param = default_bckgr_params[key]
+                        else:
+                            bckgr_param = params['kinetic'][species]['background'][bckgr_type][key]
+
                         if isinstance(bckgr_param, dict):
                             grid_slices['v' + str(k)] = \
                                 bckgr_param['u0' + str(k)]

@@ -1391,7 +1391,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
                 # for storing markers
                 n_markers = val['params']['save_data']['n_markers']
-                assert n_markers <= val['obj'].n_mks
+                assert n_markers <= val['obj'].n_mks, \
+                    f"The number of markers for which data should be stored (={n_markers}) murst be <= than the total number of markers (={val['obj'].n_mks})"
                 if n_markers > 0:
                     val['kinetic_data'] = {}
                     val['kinetic_data']['markers'] = np.zeros(
