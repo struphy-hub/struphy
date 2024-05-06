@@ -496,7 +496,7 @@ def eval_magnetic_moment_5d(markers: 'float[:,:]',
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, absB, starts)
 
         # magnetic moment
-        markers[ip, 4] = 1/2 * v_perp**2 / abs(B0)
+        markers[ip, 9] = 1/2 * v_perp**2 / abs(B0)
 
 
 @stack_array('dfm', 'norm_b1', 'b', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
@@ -560,7 +560,7 @@ def eval_magnetic_energy(markers: 'float[:,:]',
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        mu = markers[ip, 4]
+        mu = markers[ip, 9]
 
         # spline evaluation
         span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
@@ -648,7 +648,7 @@ def accum_gradI_const(markers: 'float[:,:]', n_markers_tot: 'int',
 
         # marker weight and velocity
         weight = markers[ip, 5]
-        mu = markers[ip, 4]
+        mu = markers[ip, 9]
 
         # b-field evaluation
         span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
@@ -703,7 +703,7 @@ def accum_en_fB(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # marker weight and velocity
-        mu = markers[ip, 4]
+        mu = markers[ip, 9]
         weight = markers[ip, 5]
 
         # b-field evaluation

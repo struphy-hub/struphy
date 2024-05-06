@@ -51,6 +51,12 @@ class Particles6D(Particles):
         """
         return 3
 
+    @property
+    def bufferindex(self):
+        """Starting buffer marker index number
+        """
+        return 9
+
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
         """ Jacobian determinant of the velocity coordinate transformation.
 
@@ -148,11 +154,11 @@ class Particles5D(Particles):
 
     The numpy marker array is as follows:
 
-    ===== ============== ========== ============= ======= ====== ====== ==========
-    index  | 0 | 1 | 2 |  3            4            5       6       7    >=8
-    ===== ============== ========== ============= ======= ====== ====== ==========
-    value position (eta) v_parallel magn. moment  weight   s0     w0    additional
-    ===== ============== ========== ============= ======= ====== ====== ==========        
+    ===== ============== ========== ====== ======= ====== ====== ====== ============ ================ ===========
+    index  | 0 | 1 | 2 |     3        4       5      6      7      8          9             10            >=11
+    ===== ============== ========== ====== ======= ====== ====== ====== ============ ================= ==========
+    value position (eta) v_parallel v_perp  weight   s0     w0   E_perp magn. moment toro. can. moment additional
+    ===== ============== ========== ====== ======= ====== ====== ====== ============ ================= ==========   
 
     Parameters
     ----------
@@ -180,13 +186,19 @@ class Particles5D(Particles):
     def n_cols(self):
         """Number of the columns at each markers.
         """
-        return 23
+        return 25
 
     @property
     def vdim(self):
         """Dimension of the velocity space.
         """
         return 2
+
+    @property
+    def bufferindex(self):
+        """Starting buffer marker index number
+        """
+        return 11
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
         """
@@ -310,7 +322,7 @@ class Particles5D(Particles):
 
     def save_magnetic_moment(self):
         r"""
-        Calculate magnetic moment of each particles :math:`\mu = \frac{m v_\perp^2}{2B}` and asign it into markers[:,4].
+        Calculate magnetic moment of each particles :math:`\mu = \frac{m v_\perp^2}{2B}` and asign it into markers[:,9].
         """
         T1, T2, T3 = self.derham.Vh_fem['0'].knots
 
