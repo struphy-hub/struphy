@@ -159,6 +159,13 @@ class Particles(metaclass=ABCMeta):
         pass
 
     @property
+    @abstractmethod
+    def bufferindex(self):
+        """Starting buffer marker index number
+        """
+        pass
+
+    @property
     def kinds(self):
         """ Name of the class.
         """
@@ -985,21 +992,24 @@ class Particles(metaclass=ABCMeta):
         self._markers[transfer_inds, 0] = 1e-8
 
         # phi_boundary_transfer = phi_loss - 2*q(r_loss)*theta_loss
-        r_loss = self._markers[transfer_inds, 0] * (1. - self._domain.params_map['a1']) + self._domain.params_map['a1']
+        r_loss = self._markers[transfer_inds, 0] * \
+            (1. - self._domain.params_map['a1']
+             ) + self._domain.params_map['a1']
 
-        self._markers[transfer_inds, 2] -= 2*self._mhd_equil.q_r(r_loss)*self._markers[transfer_inds, 1]
+        self._markers[transfer_inds, 2] -= 2 * \
+            self._mhd_equil.q_r(r_loss)*self._markers[transfer_inds, 1]
 
         # theta_boudary_transfer = - theta_loss
         self._markers[transfer_inds, 1] = 1. - self.markers[transfer_inds, 1]
 
         # mark the particle as done for multiple step pushers
-        self._markers[transfer_inds, 9] = -1.
+        self._markers[transfer_inds, 11] = -1.
 
         is_outside_cube[transfer_inds] = False
         outside_inds = np.nonzero(is_outside_cube)[0]
 
         return outside_inds
-    
+
     def particle_refilling(self, is_outside_cube):
         """
         Still draft. ONLY valid for the poloidal geometry with AdhocTorus equilibrium (eta1: clamped r-direction, eta2: periodic theta-direction). 
@@ -1021,15 +1031,18 @@ class Particles(metaclass=ABCMeta):
         self._markers[transfer_inds, 0] = 1. - 1e-8
 
         # phi_boundary_transfer = phi_loss - 2*q(r_loss)*theta_loss
-        r_loss = self._markers[transfer_inds, 0] * (1. - self._domain.params_map['a1']) + self._domain.params_map['a1']
+        r_loss = self._markers[transfer_inds, 0] * \
+            (1. - self._domain.params_map['a1']
+             ) + self._domain.params_map['a1']
 
-        self._markers[transfer_inds, 2] -= 2*self._mhd_equil.q_r(r_loss)*self._markers[transfer_inds, 1]
+        self._markers[transfer_inds, 2] -= 2 * \
+            self._mhd_equil.q_r(r_loss)*self._markers[transfer_inds, 1]
 
         # theta_boudary_transfer = - theta_loss
         self._markers[transfer_inds, 1] = 1. - self.markers[transfer_inds, 1]
 
         # mark the particle as done for multiple step pushers
-        self._markers[transfer_inds, 9] = -1.
+        self._markers[transfer_inds, 11] = -1.
 
         is_outside_cube[transfer_inds] = False
         outside_inds = np.nonzero(is_outside_cube)[0]

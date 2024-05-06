@@ -148,12 +148,12 @@ def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage:
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 9] == -1.:
+        if markers[ip, 11] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
         v = markers[ip, 3]
-        mu = markers[ip, 4]
+        mu = markers[ip, 9]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(e[0], e[1], e[2],
@@ -237,11 +237,11 @@ def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage:
         k[:] = epsilon*mu/abs_b_star_para*temp1
 
         # accumulation for last stage
-        markers[ip, 13:16] += dt*b[stage]*k
+        markers[ip, 15:18] += dt*b[stage]*k
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, 9:12] + \
-            dt*a[stage]*k + last*markers[ip, 13:16]
+        markers[ip, 0:3] = markers[ip, 11:14] + \
+            dt*a[stage]*k + last*markers[ip, 15:18]
 
     #$ omp end parallel
 
@@ -319,16 +319,16 @@ def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: i
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 9] == -1.:
+        if markers[ip, 11] == -1.:
             continue
 
         if stage == 0.:
             # save initial parallel velocity
-            markers[ip, 12] = markers[ip, 3]
+            markers[ip, 14] = markers[ip, 3]
 
         e[:] = markers[ip, 0:3]
         v = markers[ip, 3]
-        mu = markers[ip, 4]
+        mu = markers[ip, 9]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(e[0], e[1], e[2],
@@ -398,14 +398,14 @@ def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]', dt: float, stage: i
         k_v = -1*mu/abs_b_star_para*temp
 
         # accumulation for last stage
-        markers[ip, 13:16] += dt*b[stage]*k
-        markers[ip, 16] += dt*b[stage]*k_v
+        markers[ip, 15:18] += dt*b[stage]*k
+        markers[ip, 18] += dt*b[stage]*k_v
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, 9:12] + \
-            dt*a[stage]*k + last*markers[ip, 13:16]
-        markers[ip, 3] = markers[ip, 12] + dt * \
-            a[stage]*k_v + last*markers[ip, 16]
+        markers[ip, 0:3] = markers[ip, 11:14] + \
+            dt*a[stage]*k + last*markers[ip, 15:18]
+        markers[ip, 3] = markers[ip, 14] + dt * \
+            a[stage]*k_v + last*markers[ip, 18]
 
     #$ omp end parallel
 
@@ -488,16 +488,16 @@ def push_gc_all_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 9] == -1.:
+        if markers[ip, 11] == -1.:
             continue
 
         if stage == 0.:
             # save initial parallel velocity
-            markers[ip, 12] = markers[ip, 3]
+            markers[ip, 14] = markers[ip, 3]
 
         e[:] = markers[ip, 0:3]
         v = markers[ip, 3]
-        mu = markers[ip, 4]
+        mu = markers[ip, 9]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(e[0], e[1], e[2],
@@ -588,14 +588,14 @@ def push_gc_all_explicit_multistage(markers: 'float[:,:]', dt: float, stage: int
         k_v = -1*mu/abs_b_star_para*temp
 
         # accumulation for last stage
-        markers[ip, 13:16] += dt*b[stage]*k
-        markers[ip, 16] += dt*b[stage]*k_v
+        markers[ip, 15:18] += dt*b[stage]*k
+        markers[ip, 18] += dt*b[stage]*k_v
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, 9:12] + \
-            dt*a[stage]*k + last*markers[ip, 13:16]
-        markers[ip, 3] = markers[ip, 12] + dt * \
-            a[stage]*k_v + last*markers[ip, 16]
+        markers[ip, 0:3] = markers[ip, 11:14] + \
+            dt*a[stage]*k + last*markers[ip, 15:18]
+        markers[ip, 3] = markers[ip, 14] + dt * \
+            a[stage]*k_v + last*markers[ip, 18]
 
 
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'grad_I', 'S', 'temp', 'tmp2')
@@ -661,17 +661,17 @@ def push_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: i
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 9] == -1.:
+        if markers[ip, 11] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
 
-        e_diff[:] = e[:] - markers[ip, 9:12]
-        mu = markers[ip, 4]
+        e_diff[:] = e[:] - markers[ip, 11:14]
+        mu = markers[ip, 9]
 
         if abs(e_diff[0]/e[0]) < tol and abs(e_diff[1]/e[1]) < tol and abs(e_diff[2]/e[2]) < tol:
-            markers[ip, 9] = -1.
-            markers[ip, 10] = stage
+            markers[ip, 11] = -1.
+            markers[ip, 12] = stage
 
             continue
 
@@ -697,26 +697,26 @@ def push_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: i
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
 
         # assemble S
-        S[0, 1] = markers[ip, 13]
-        S[0, 2] = markers[ip, 14]
-        S[1, 0] = -markers[ip, 13]
-        S[1, 2] = markers[ip, 15]
-        S[2, 0] = -markers[ip, 14]
-        S[2, 1] = -markers[ip, 15]
+        S[0, 1] = markers[ip, 15]
+        S[0, 2] = markers[ip, 16]
+        S[1, 0] = -markers[ip, 15]
+        S[1, 2] = markers[ip, 17]
+        S[2, 0] = -markers[ip, 16]
+        S[2, 1] = -markers[ip, 17]
 
         # calculate grad_I
-        tmp2[:] = markers[ip, 16:19]
+        tmp2[:] = markers[ip, 18:21]
         temp_scalar = linalg_kernels.scalar_dot(e_diff, tmp2)
         temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + e_diff[2]**2
 
-        grad_I[:] = markers[ip, 16:19] + e_diff[:] * \
-            (abs_b0*mu - markers[ip, 19] - temp_scalar)/temp_scalar2
+        grad_I[:] = markers[ip, 18:21] + e_diff[:] * \
+            (abs_b0*mu - markers[ip, 21] - temp_scalar)/temp_scalar2
 
         linalg_kernels.matrix_vector(S, grad_I, temp)
 
-        markers[ip, 0:3] = markers[ip, 9:12] + dt*temp[:]
+        markers[ip, 0:3] = markers[ip, 11:14] + dt*temp[:]
 
-        markers[ip, 16:19] = markers[ip, 0:3]
+        markers[ip, 18:21] = markers[ip, 0:3]
 
         e_diff[:] = markers[ip, 0:3] - e[:]
 
@@ -731,12 +731,12 @@ def push_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: i
                     (e_diff[2]/e[2])**2)
 
         if diff < tol:
-            markers[ip, 9] = -1.
-            markers[ip, 10] = stage
+            markers[ip, 11] = -1.
+            markers[ip, 12] = stage
 
             continue
 
-        markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 9:12])/2.
+        markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 11:14])/2.
 
 
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'grad_I', 'tmp')
@@ -801,11 +801,11 @@ def push_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: int
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 9] == -1.:
+        if markers[ip, 11] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
-        e_diff[:] = e[:] - markers[ip, 9:12]
+        e_diff[:] = e[:] - markers[ip, 11:14]
 
         # TODO: replace with better idea
         for axis in range(3):
@@ -815,9 +815,9 @@ def push_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: int
                 e_diff[axis] += 1.
 
         v = markers[ip, 3]
-        v_old = markers[ip, 12]
-        v_mid = (markers[ip, 3] + markers[ip, 12])/2.
-        mu = markers[ip, 4]
+        v_old = markers[ip, 14]
+        v_mid = (markers[ip, 3] + markers[ip, 14])/2.
+        mu = markers[ip, 9]
 
         # spline evaluation
         span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
@@ -834,7 +834,7 @@ def push_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: int
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
 
         # calculate grad_I
-        tmp[:] = markers[ip, 17:20]
+        tmp[:] = markers[ip, 19:22]
         temp_scalar = linalg_kernels.scalar_dot(e_diff, tmp)
         temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + \
             e_diff[2]**2 + (v - v_old)**2
@@ -844,18 +844,18 @@ def push_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: int
             grad_Iv = v_mid
 
         else:
-            grad_I[:] = markers[ip, 17:20] + e_diff * \
-                (abs_b0*mu - markers[ip, 16] - temp_scalar)/temp_scalar2
+            grad_I[:] = markers[ip, 19:22] + e_diff * \
+                (abs_b0*mu - markers[ip, 18] - temp_scalar)/temp_scalar2
             grad_Iv = v_mid + (v - v_old)*(abs_b0*mu -
-                                           markers[ip, 16] - temp_scalar)/temp_scalar2
+                                           markers[ip, 18] - temp_scalar)/temp_scalar2
 
-        tmp[:] = markers[ip, 13:16]
+        tmp[:] = markers[ip, 15:18]
         temp_scalar3 = linalg_kernels.scalar_dot(tmp, grad_I)
 
-        markers[ip, 0:3] = markers[ip, 9:12] + dt*markers[ip, 13:16]*grad_Iv
-        markers[ip, 3] = markers[ip, 12] - dt*temp_scalar3
+        markers[ip, 0:3] = markers[ip, 11:14] + dt*markers[ip, 15:18]*grad_Iv
+        markers[ip, 3] = markers[ip, 14] - dt*temp_scalar3
 
-        markers[ip, 17:21] = markers[ip, 0:4]
+        markers[ip, 19:23] = markers[ip, 0:4]
 
         e_diff[:] = e[:] - markers[ip, 0:3]
 
@@ -870,11 +870,11 @@ def push_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float, stage: int
                     2 + (e_diff[2]/e[2])**2 + (v - markers[ip, 3])**2)
 
         if diff < tol:
-            markers[ip, 9] = -1.
-            markers[ip, 10] = stage
+            markers[ip, 11] = -1.
+            markers[ip, 12] = stage
             continue
 
-        markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 9:13])/2.
+        markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 11:15])/2.
 
 
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'grad_I', 'S', 'temp', 'tmp2')
@@ -940,16 +940,16 @@ def push_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, s
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 9] == -1.:
+        if markers[ip, 11] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
-        e_diff[:] = e[:] - markers[ip, 9:12]
-        mu = markers[ip, 4]
+        e_diff[:] = e[:] - markers[ip, 11:14]
+        mu = markers[ip, 9]
 
         if abs(e_diff[0]/e[0]) < tol and abs(e_diff[1]/e[1]) < tol and abs(e_diff[2]/e[2]) < tol:
-            markers[ip, 9] = -1.
-            markers[ip, 10] = stage
+            markers[ip, 11] = -1.
+            markers[ip, 12] = stage
 
             continue
 
@@ -975,26 +975,26 @@ def push_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, s
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
 
         # assemble S
-        S[0, 1] = markers[ip, 13]
-        S[0, 2] = markers[ip, 14]
-        S[1, 0] = -markers[ip, 13]
-        S[1, 2] = markers[ip, 15]
-        S[2, 0] = -markers[ip, 14]
-        S[2, 1] = -markers[ip, 15]
+        S[0, 1] = markers[ip, 15]
+        S[0, 2] = markers[ip, 16]
+        S[1, 0] = -markers[ip, 15]
+        S[1, 2] = markers[ip, 17]
+        S[2, 0] = -markers[ip, 16]
+        S[2, 1] = -markers[ip, 17]
 
         # calculate grad_I
-        tmp2[:] = markers[ip, 16:19]
+        tmp2[:] = markers[ip, 18:21]
         temp_scalar = linalg_kernels.scalar_dot(e_diff, tmp2)
         temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + e_diff[2]**2
 
-        grad_I[:] = markers[ip, 16:19] + e_diff[:] * \
-            (abs_b0*mu - markers[ip, 19] - temp_scalar)/temp_scalar2
+        grad_I[:] = markers[ip, 18:21] + e_diff[:] * \
+            (abs_b0*mu - markers[ip, 21] - temp_scalar)/temp_scalar2
 
         linalg_kernels.matrix_vector(S, grad_I, temp)
 
-        markers[ip, 0:3] = markers[ip, 9:12] + dt*temp[:]
+        markers[ip, 0:3] = markers[ip, 11:14] + dt*temp[:]
 
-        markers[ip, 16:19] = markers[ip, 0:3]
+        markers[ip, 18:21] = markers[ip, 0:3]
 
         e_diff[:] = markers[ip, 0:3] - e[:]
 
@@ -1009,12 +1009,12 @@ def push_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, s
                     ** 2 + (e_diff[2]/e[2])**2)
 
         if diff < tol:
-            markers[ip, 9] = -1.
-            markers[ip, 10] = stage
+            markers[ip, 11] = -1.
+            markers[ip, 12] = stage
 
             continue
 
-        markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 9:12])/2.
+        markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 11:14])/2.
 
 
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'grad_I', 'tmp')
@@ -1079,11 +1079,11 @@ def push_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, sta
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 9] == -1.:
+        if markers[ip, 11] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
-        e_diff[:] = e[:] - markers[ip, 9:12]
+        e_diff[:] = e[:] - markers[ip, 11:14]
 
         # TODO: replace with better idea
         for axis in range(3):
@@ -1093,9 +1093,9 @@ def push_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, sta
                 e_diff[axis] += 1.
 
         v = markers[ip, 3]
-        v_old = markers[ip, 12]
-        v_mid = (markers[ip, 3] + markers[ip, 12])/2.
-        mu = markers[ip, 4]
+        v_old = markers[ip, 14]
+        v_mid = (markers[ip, 3] + markers[ip, 14])/2.
+        mu = markers[ip, 9]
 
         # spline evaluation
         span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
@@ -1112,7 +1112,7 @@ def push_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, sta
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
 
         # calculate grad_I
-        tmp[:] = markers[ip, 17:20]
+        tmp[:] = markers[ip, 19:22]
         temp_scalar = linalg_kernels.scalar_dot(e_diff, tmp)
         temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + \
             e_diff[2]**2 + (v - v_old)**2
@@ -1122,18 +1122,18 @@ def push_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, sta
             grad_Iv = v_mid
 
         else:
-            grad_I[:] = markers[ip, 17:20] + e_diff * \
-                (abs_b0*mu - markers[ip, 16] - temp_scalar)/temp_scalar2
+            grad_I[:] = markers[ip, 19:22] + e_diff * \
+                (abs_b0*mu - markers[ip, 18] - temp_scalar)/temp_scalar2
             grad_Iv = v_mid + (v - v_old)*(abs_b0*mu -
-                                           markers[ip, 16] - temp_scalar)/temp_scalar2
+                                           markers[ip, 18] - temp_scalar)/temp_scalar2
 
-        tmp[:] = markers[ip, 13:16]
+        tmp[:] = markers[ip, 15:18]
         temp_scalar3 = linalg_kernels.scalar_dot(tmp, grad_I)
 
-        markers[ip, 0:3] = markers[ip, 9:12] + dt*markers[ip, 13:16]*grad_Iv
-        markers[ip, 3] = markers[ip, 12] - dt*temp_scalar3
+        markers[ip, 0:3] = markers[ip, 11:14] + dt*markers[ip, 15:18]*grad_Iv
+        markers[ip, 3] = markers[ip, 14] - dt*temp_scalar3
 
-        markers[ip, 17:21] = markers[ip, 0:4]
+        markers[ip, 19:23] = markers[ip, 0:4]
 
         e_diff[:] = e[:] - markers[ip, 0:3]
 
@@ -1148,11 +1148,11 @@ def push_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float, sta
                     2 + (e_diff[2]/e[2])**2 + (v - markers[ip, 3])**2)
 
         if diff < tol:
-            markers[ip, 9] = -1.
-            markers[ip, 10] = stage
+            markers[ip, 11] = -1.
+            markers[ip, 12] = stage
             continue
 
-        markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 9:13])/2.
+        markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 11:15])/2.
 
 
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_diff', 'e_old', 'F', 'S', 'temp', 'identity', 'grad_abs_b', 'grad_I', 'Jacobian_grad_I', 'Jacobian', 'Jacobian_inv')
@@ -1253,18 +1253,18 @@ def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 9] == -1.:
+        if markers[ip, 11] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
-        e_old[:] = markers[ip, 9:12]
-        mu = markers[ip, 4]
+        e_old[:] = markers[ip, 11:14]
+        mu = markers[ip, 9]
 
         e_diff[:] = e[:] - e_old[:]
 
         if abs(e_diff[0]/e[0]) < tol and abs(e_diff[1]/e[1]) < tol and abs(e_diff[2]/e[2]) < tol:
-            markers[ip, 9] = -1.
-            markers[ip, 10] = stage
+            markers[ip, 11] = -1.
+            markers[ip, 12] = stage
 
             continue
 
@@ -1275,12 +1275,12 @@ def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
                 e_diff[axis] += 1.
 
         # assemble S
-        S[0, 1] = markers[ip, 13]
-        S[0, 2] = markers[ip, 14]
-        S[1, 0] = -markers[ip, 13]
-        S[1, 2] = markers[ip, 15]
-        S[2, 0] = -markers[ip, 14]
-        S[2, 1] = -markers[ip, 15]
+        S[0, 1] = markers[ip, 15]
+        S[0, 2] = markers[ip, 16]
+        S[1, 0] = -markers[ip, 15]
+        S[1, 2] = markers[ip, 17]
+        S[2, 0] = -markers[ip, 16]
+        S[2, 1] = -markers[ip, 17]
 
         # identity matrix
         identity[0, 0] = 1.
@@ -1310,9 +1310,9 @@ def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts)
 
         # assemble gradI
-        grad_I[0] = mu*(markers[ip, 20] - markers[ip, 19])/(e_diff[0])
-        grad_I[1] = mu*(markers[ip, 16] - markers[ip, 20])/(e_diff[1])
-        grad_I[2] = mu*(abs_b0 - markers[ip, 16])/(e_diff[2])
+        grad_I[0] = mu*(markers[ip, 22] - markers[ip, 21])/(e_diff[0])
+        grad_I[1] = mu*(markers[ip, 18] - markers[ip, 22])/(e_diff[1])
+        grad_I[2] = mu*(abs_b0 - markers[ip, 18])/(e_diff[2])
 
         # calculate F = eta - eta_old + dt*S*grad_I
         linalg_kernels.matrix_vector(S, grad_I, F)
@@ -1320,21 +1320,21 @@ def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
         F += e_diff[:]
 
         # assemble Jacobian_grad_I
-        Jacobian_grad_I[0, 0] = mu*(markers[ip, 21]*(e_diff[0]) -
-                                    markers[ip, 20] + markers[ip, 19])/(e_diff[0])**2
+        Jacobian_grad_I[0, 0] = mu*(markers[ip, 23]*(e_diff[0]) -
+                                    markers[ip, 22] + markers[ip, 21])/(e_diff[0])**2
         Jacobian_grad_I[1, 0] = mu * \
-            (markers[ip, 17] - markers[ip, 21])/(e_diff[1])
+            (markers[ip, 19] - markers[ip, 23])/(e_diff[1])
         Jacobian_grad_I[2, 0] = mu * \
-            (grad_abs_b[0] - markers[ip, 17])/(e_diff[2])
+            (grad_abs_b[0] - markers[ip, 19])/(e_diff[2])
         Jacobian_grad_I[0, 1] = 0.
-        Jacobian_grad_I[1, 1] = mu*(markers[ip, 18]*(e_diff[1]) -
-                                    markers[ip, 16] + markers[ip, 20])/(e_diff[1])**2
+        Jacobian_grad_I[1, 1] = mu*(markers[ip, 20]*(e_diff[1]) -
+                                    markers[ip, 18] + markers[ip, 22])/(e_diff[1])**2
         Jacobian_grad_I[2, 1] = mu * \
-            (grad_abs_b[1] - markers[ip, 18])/(e_diff[2])
+            (grad_abs_b[1] - markers[ip, 20])/(e_diff[2])
         Jacobian_grad_I[0, 2] = 0.
         Jacobian_grad_I[1, 2] = 0.
         Jacobian_grad_I[2, 2] = mu*(grad_abs_b[2]*(e_diff[2]) -
-                                    abs_b0 + markers[ip, 16])/(e_diff[2])**2
+                                    abs_b0 + markers[ip, 18])/(e_diff[2])**2
 
         # assemble Jacobian and its inverse
         linalg_kernels.matrix_matrix(S, Jacobian_grad_I, Jacobian)
@@ -1345,23 +1345,23 @@ def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
 
         # calculate eta_new
         linalg_kernels.matrix_vector(Jacobian_inv, F, temp)
-        markers[ip, 16:19] = e[:] - temp
+        markers[ip, 18:21] = e[:] - temp
 
         diff = sqrt((temp[0]/e[0])**2 + (temp[1]/e[1])**2 + (temp[2]/e[2])**2)
 
         if diff < tol:
-            markers[ip, 9] = -1.
-            markers[ip, 10] = stage
-            markers[ip, 0:3] = markers[ip, 16:19]
+            markers[ip, 11] = -1.
+            markers[ip, 12] = stage
+            markers[ip, 0:3] = markers[ip, 18:21]
 
             continue
 
         if stage == maxiter-1:
-            markers[ip, 0:3] = markers[ip, 16:19]
+            markers[ip, 0:3] = markers[ip, 18:21]
 
             continue
 
-        markers[ip, 0] = markers[ip, 16]
+        markers[ip, 0] = markers[ip, 18]
         markers[ip, 1] = e_old[1]
         markers[ip, 2] = e_old[2]
 
@@ -1470,15 +1470,15 @@ def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 9] == -1.:
+        if markers[ip, 11] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
-        e_old[:] = markers[ip, 9:12]
+        e_old[:] = markers[ip, 11:14]
         v = markers[ip, 3]
-        v_old = markers[ip, 12]
+        v_old = markers[ip, 14]
         v_mid = (v + v_old)/2.
-        mu = markers[ip, 4]
+        mu = markers[ip, 9]
 
         e_diff[:] = e[:] - e_old[:]
 
@@ -1489,8 +1489,8 @@ def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
                 e_diff[axis] += 1.
 
         # assemble S
-        S[0:3, 3] = markers[ip, 13:16]
-        S[3, 0:3] = -markers[ip, 13:16]
+        S[0:3, 3] = markers[ip, 15:18]
+        S[3, 0:3] = -markers[ip, 15:18]
 
         # identity matrix
         identity[0, 0] = 1.
@@ -1524,32 +1524,32 @@ def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
         if e_diff[0] == 0.:
             grad_I[0] == 0.
         else:
-            grad_I[0] = mu*(markers[ip, 20] - markers[ip, 19])/(e_diff[0])
+            grad_I[0] = mu*(markers[ip, 22] - markers[ip, 21])/(e_diff[0])
             Jacobian_grad_I[0, 0] = mu * \
-                (markers[ip, 21]*(e_diff[0]) -
-                 markers[ip, 20] + markers[ip, 19])/(e_diff[0])**2
+                (markers[ip, 23]*(e_diff[0]) -
+                 markers[ip, 22] + markers[ip, 21])/(e_diff[0])**2
 
         if e_diff[1] == 0.:
             grad_I[1] == 0.
         else:
-            grad_I[1] = mu*(markers[ip, 16] - markers[ip, 20])/(e_diff[1])
+            grad_I[1] = mu*(markers[ip, 18] - markers[ip, 22])/(e_diff[1])
             Jacobian_grad_I[1, 0] = mu * \
-                (markers[ip, 17] - markers[ip, 21])/(e_diff[1])
+                (markers[ip, 19] - markers[ip, 23])/(e_diff[1])
             Jacobian_grad_I[1, 1] = mu * \
-                (markers[ip, 18]*(e_diff[1]) -
-                 markers[ip, 16] + markers[ip, 20])/(e_diff[1])**2
+                (markers[ip, 20]*(e_diff[1]) -
+                 markers[ip, 18] + markers[ip, 22])/(e_diff[1])**2
 
         if e_diff[2] == 0.:
             grad_I[2] == 0.
         else:
-            grad_I[2] = mu*(abs_b0 - markers[ip, 16])/(e_diff[2])
+            grad_I[2] = mu*(abs_b0 - markers[ip, 18])/(e_diff[2])
             Jacobian_grad_I[2, 0] = mu * \
-                (grad_abs_b[0] - markers[ip, 17])/(e_diff[2])
+                (grad_abs_b[0] - markers[ip, 19])/(e_diff[2])
             Jacobian_grad_I[2, 1] = mu * \
-                (grad_abs_b[1] - markers[ip, 18])/(e_diff[2])
+                (grad_abs_b[1] - markers[ip, 20])/(e_diff[2])
             Jacobian_grad_I[2, 2] = mu * \
                 (grad_abs_b[2]*(e_diff[2]) - abs_b0 +
-                 markers[ip, 16])/(e_diff[2])**2
+                 markers[ip, 18])/(e_diff[2])**2
 
         grad_I[3] = v_mid
         Jacobian_grad_I[3, 3] = 0.5
@@ -1610,25 +1610,25 @@ def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
 
         # calculate eta_new
         linalg_kernels.matrix_vector4(Jacobian_inv, F, temp)
-        markers[ip, 16:19] = e[:] - temp[0:3]
+        markers[ip, 18:21] = e[:] - temp[0:3]
         markers[ip, 3] = v - temp[3]
 
         diff = sqrt((temp[0]/e[0])**2 + (temp[1]/e[1])**2 +
                     (temp[2]/e[2])**2 + (temp[3])**2)
 
         if diff < tol:
-            markers[ip, 9] = -1.
-            markers[ip, 10] = stage
-            markers[ip, 0:3] = markers[ip, 16:19]
+            markers[ip, 11] = -1.
+            markers[ip, 12] = stage
+            markers[ip, 0:3] = markers[ip, 18:21]
 
             continue
 
         if stage == maxiter-1:
-            markers[ip, 0:3] = markers[ip, 16:19]
+            markers[ip, 0:3] = markers[ip, 18:21]
 
             continue
 
-        markers[ip, 0] = markers[ip, 16]
+        markers[ip, 0] = markers[ip, 18]
         markers[ip, 1] = e_old[1]
         markers[ip, 2] = e_old[2]
 
@@ -2111,7 +2111,7 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 9] == -1.:
+        if markers[ip, 11] == -1.:
             continue
 
         eta[:] = markers[ip, 0:3]
@@ -2212,9 +2212,9 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]', dt: float, stage: int,
 
         # markers[ip, :3] -= e/abs_b_star_para*dt
 
-        markers[ip, 13:16] -= dt*b[stage]*e
-        markers[ip, 0:3] = markers[ip, 9:12] - \
-            dt*a[stage]*e + last*markers[ip, 13:16]
+        markers[ip, 15:18] -= dt*b[stage]*e
+        markers[ip, 0:3] = markers[ip, 11:14] - \
+            dt*a[stage]*e + last*markers[ip, 15:18]
 
 
 @stack_array('eta', 'dfm', 'df_inv', 'df_inv_t', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'u', 'bb', 'b_star', 'norm_b1', 'norm_b2', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b2_prod')
@@ -2293,7 +2293,7 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 9] == -1.:
+        if markers[ip, 11] == -1.:
             continue
 
         eta[:] = markers[ip, 0:3]
@@ -2398,9 +2398,9 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 
         # markers[ip, :3] -= e/abs_b_star_para*dt
 
-        markers[ip, 13:16] -= dt*b[stage]*e
-        markers[ip, 0:3] = markers[ip, 9:12] - \
-            dt*a[stage]*e + last*markers[ip, 13:16]
+        markers[ip, 15:18] -= dt*b[stage]*e
+        markers[ip, 0:3] = markers[ip, 11:14] - \
+            dt*a[stage]*e + last*markers[ip, 15:18]
 
     #$ omp end parallel
 

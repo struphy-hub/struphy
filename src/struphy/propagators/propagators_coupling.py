@@ -1921,8 +1921,12 @@ class CurrentCoupling5DGradB(Propagator):
 
             if self._info and self._rank == 0:
                 print('Stage:', stage)
-                print('Status     for CurrentCoupling5DCurlb:', self._solver._info['success'])
+                print('Status     for CurrentCoupling5DGradB:', self._solver._info['success'])
                 print('Iterations for CurrentCoupling5DGradB:', self._solver._info['niter'])
+
+            # clear the buffer
+            if stage == self._butcher.n_stages - 1:
+                self.particles[0].markers[~self.particles[0].holes,  11:-1] = 0.
 
         # write new coeffs into Propagator.variables
         max_du, = self.feec_vars_update(_u_new)

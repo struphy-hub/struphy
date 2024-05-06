@@ -647,7 +647,7 @@ def cc_lin_mhd_5d_M(markers: 'float[:,:]', n_markers_tot: 'int',
 
         # marker weight and velocity
         weight = markers[ip, 5]
-        mu = markers[ip, 4]
+        mu = markers[ip, 9]
 
         if eta1 < boundary_cut or eta1 > 1. - boundary_cut:
             continue
@@ -816,7 +816,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
         # marker weight and velocity
         weight = markers[ip, 5]
         v = markers[ip, 3]
-        mu = markers[ip, 4]
+        mu = markers[ip, 9]
 
         # b-field evaluation
         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
@@ -1055,7 +1055,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
 #         # marker weight and velocity
 #         weight = markers[ip, 5]
-#         mu = markers[ip, 4]
+#         mu = markers[ip, 9]
 
 #         # b-field evaluation
 #         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
@@ -1186,7 +1186,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
 #         # marker weight and velocity
 #         weight = markers[ip, 5]
-#         mu = markers[ip, 4]
+#         mu = markers[ip, 9]
 
 #         # b-field evaluation
 #         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
@@ -1299,7 +1299,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 #         # marker weight and velocity
 #         weight = markers[ip, 5]
 #         v = markers[ip, 3]
-#         mu = markers[ip, 4]
+#         mu = markers[ip, 9]
 
 #         # b-field evaluation
 #         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
@@ -1544,7 +1544,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 #         # marker weight and velocity
 #         weight = markers[ip, 5]
 #         v = markers[ip, 3]
-#         mu = markers[ip, 4]
+#         mu = markers[ip, 9]
 
 #         # b-field evaluation
 #         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
@@ -1769,7 +1769,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
 #         # marker weight and velocity
 #         weight = markers[ip, 5]
-#         mu = markers[ip, 4]
+#         mu = markers[ip, 9]
 
 #         # b-field evaluation
 #         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
@@ -1943,7 +1943,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 #         # marker weight and velocity
 #         weight = markers[ip, 5]
 #         v = markers[ip, 3]
-#         mu = markers[ip, 4]
+#         mu = markers[ip, 9]
 
 #         # b-field evaluation
 #         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
