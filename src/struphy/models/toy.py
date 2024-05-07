@@ -327,7 +327,7 @@ class GuidingCenter(StruphyModel):
             self._mpi_in_place, self._en_fv, op=self._mpi_sum)
 
         # particles' magnetic energy
-        self.pointer['ions'].save_magnetic_energy(self._abs_b, self._unit_b1, self._b_eq)
+        self.pointer['ions'].save_magnetic_energy(self._abs_b, self._unit_b1, self._b_eq.space.zeros())
 
         self._en_fB[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
             self.pointer['ions'].markers[~self.pointer['ions'].holes, 8]) / self.pointer['ions'].n_mks

@@ -9,12 +9,19 @@
 
 FROM ubuntu:latest
 
+ARG DEBIAN_FRONTEND=noninteractive
+
 # install linux packages
 RUN apt update -y && apt clean \
+    && apt install -y software-properties-common \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt update -y \
+    && apt install -y python3.11 \
+    && apt install -y python3.11-dev \
     && apt install -y python3-pip \
-    && apt install -y python3.10-venv \
+    && apt install -y python3.11-venv \
     && apt install -y gfortran gcc \
-    && DEBIAN_FRONTEND=noninteractive TZ="Europe/Berlin" apt-get install -y liblapack-dev libopenmpi-dev \
+    && apt install -y liblapack-dev libopenmpi-dev \
     && apt install -y libblas-dev openmpi-bin \
     && apt install -y libomp-dev libomp5 \
     && apt install -y git \

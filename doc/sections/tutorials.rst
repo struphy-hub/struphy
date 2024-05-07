@@ -29,3 +29,4 @@ All data generated in this way is stored in the Struphy installation path (obtai
    ../tutorials/tutorial_07_mhd_equilibria
    ../tutorials/tutorial_08_data_structures
    ../tutorials/tutorial_09_discrete_derham
+   ../tutorials/tutorial_11_disp_rels

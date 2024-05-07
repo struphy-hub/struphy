@@ -13,6 +13,7 @@ Python modules
     subsections/feec_classes
     subsections/domains
     subsections/mhd_equils
+    subsections/braginskii_equils
     subsections/kinetic_backgrounds
     subsections/fluid_backgrounds
     subsections/inits

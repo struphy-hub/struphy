@@ -32,7 +32,7 @@ Sample environment on **Debian-Ubuntu-Mint**::
 
     sudo apt update
     sudo apt install -y python3-pip
-    sudo apt install -y python3.10-venv
+    sudo apt install -y python3.11-venv
     sudo apt install -y gcc
     sudo apt install -y gfortran
     sudo apt install -y libblas-dev liblapack-dev

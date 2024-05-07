@@ -2,52 +2,67 @@
 
 
 from abc import ABCMeta, abstractmethod
-
+from matplotlib import pyplot as plt
 import numpy as np
-
-from scipy.special import erfi
 
 
 class DispersionRelations1D(metaclass=ABCMeta):
     """
-    The base class for analytic 1d dispersion relations.
+    The base class for analytic 1d dispersion relations of the form 
+    :math:`\omega_i(k) \in \mathbb C`, where :math:`i=1,\ldots,n` 
+    denote the differnt branches of the spectrum.
 
     Parameters
     ----------
-    *branch_names
+    branch_names : str
         Branche names (str) of the spectrum.
-
-    **params
-        Physical parameters necessary to compute the dispersion relation.
+        
+    velocity_scale : str
+        Determines the unit of :math:`\omega`.
+        Must be one of ``alfvén``, ``cyclotron`` or ``light``.
 
     Notes
     -----
-    Analytic Struphy dispersion relations are subclasses of ``DispersionRelations1D`` and should be added to ``struphy/models/dispersion_relations/analytic.py``. 
+    Analytic dispersion relations should be added to
+    :mod:`~struphy.dispersion_relations.analytic`. 
     """
 
-    def __init__(self, *branch_names, **params):
+    def __init__(self, *branch_names, velocity_scale='alfvén', **params):
 
-        self._branches = branch_names
-        self._nbranches = len(branch_names)
+        self._branches = {}
+        for name in branch_names:   
+            self._branches[name] = None
+            
+        self._velocity_scale = velocity_scale
         self._params = params
+        
+        # critical k-values
+        self._k_crit = {}
 
     @property
     def branches(self):
-        """ List of branch names in the spectrum.
+        """ Dictionary of branch names holding the numpy arrays of :math:`\omega_i(k) \in \mathbb C`.
         """
         return self._branches
-
-    @property
-    def nbranches(self):
-        """ Integer : number of branches.
-        """
-        return self._nbranches
 
     @property
     def params(self):
         """ Dictionary of parameters necessary to compute the dispersion relation.
         """
         return self._params
+    
+    @property
+    def velocity_scale(self):
+        """ Determines the unit of :math:`\omega`.
+        Must be one of ``alfvén``, ``cyclotron`` or ``light``.
+        """
+        return self._velocity_scale
+    
+    @property
+    def k_crit(self):
+        """ Dictionary of critical k-values (plotted as vertical lines with self.plot()).
+        """
+        return self._k_crit
 
     @abstractmethod
     def __call__(self, k):
@@ -65,6 +80,44 @@ class DispersionRelations1D(metaclass=ABCMeta):
             A dictionary with key=branch_name and value=omega(k) (complex ndarray).
         """
 
+    def plot(self, k):
+        
+        self(k)
+        
+        if self.velocity_scale == 'alfvén':
+            unit_om = '$v_A / \hat x$'
+        elif self.velocity_scale == 'light':
+            unit_om = '$c / \hat x$'
+        elif self.velocity_scale == 'cyclotron':
+            unit_om = '$\Omega_c$'
+        elif self.velocity_scale == 'thermal':
+            unit_om = '$v_{th} / \hat x$'
+            
+        plt.figure(figsize=(5, 8))
+        plt.subplot(2, 1, 1)
+        #plt.title('Real part')
+        plt.xlabel('k [$1 / \hat x$]')
+        plt.ylabel(f'Re($\omega$) [{unit_om}]')
+        plt.subplot(2, 1, 2)
+        #plt.title('Imaginary part')
+        plt.xlabel('k [$1 / \hat x$]')
+        plt.ylabel(f'Im($\omega$) [{unit_om}]')
+        for name, omega in self.branches.items():
+            plt.subplot(2, 1, 1)
+            plt.plot(k, np.real(omega), label=name)
+            plt.subplot(2, 1, 2)
+            plt.plot(k, np.imag(omega), label=name)    
+            
+        plt.subplot(2, 1, 1)
+        for lab, kc in self.k_crit.items():
+            if kc > np.min(k) and kc < np.max(k):
+                plt.axvline(kc, color='k', linestyle='--', linewidth=.5, label=lab)
+        plt.legend()
+        plt.subplot(2, 1, 2)
+        for lab, kc in self.k_crit.items():
+            if kc > np.min(k) and kc < np.max(k):
+                plt.axvline(kc, color='k', linestyle='--', linewidth=.5, label=lab)
+        
 
 class ContinuousSpectra1D(metaclass=ABCMeta):
     """
@@ -121,33 +174,3 @@ class ContinuousSpectra1D(metaclass=ABCMeta):
         specs : dict
             A dictionary with key=branch_name and value=omega(x) (ndarray).
         """
-
-
-# somer helper function used in different dispersion relations:
-# -------------------------------------------------------------
-def Zplasma(xi, der=0):
-    """ 
-    The plasma dispersion function and its first derivative.
-
-    Parameters
-    ----------
-    xi : array_like
-        Evaluation points.
-
-    der : int, optional
-        Whether to evaluate the plasma dispersion function (der = 0) or its first derivative (der = 1).
-
-    Returns
-    -------
-    z : array_like
-        Complex values of the plasma dispersion function (or its derivative).
-    """
-
-    assert der == 0 or der == 1, 'Parameter "der" must be either 0 or 1'
-
-    if der == 0:
-        z = np.sqrt(np.pi)*np.exp(-xi**2)*(1j - erfi(xi))
-    else:
-        z = -2*(1 + xi*Zplasma(xi, 0))
-
-    return z
