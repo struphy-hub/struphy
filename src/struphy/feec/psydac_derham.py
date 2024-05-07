@@ -264,7 +264,7 @@ class Derham:
                             self._proj_loc_grid_wts[sp_form][-1] += [wtsloc]
 
                         pts, wts, subs = get_pts_and_wts(
-                            space, s, e, polar_shift=d == 0 and self.polar_ck == 1)
+                            space, s, e, n_quad = self.nq_pr[d], polar_shift=d == 0 and self.polar_ck == 1)
                         self._proj_grid_subs[sp_form][-1] += [subs]
 
                         self._proj_grid_pts[sp_form][-1] += [pts]
@@ -299,7 +299,7 @@ class Derham:
                         self._proj_loc_grid_wts[sp_form] += [wtsloc]
 
                     pts, wts, subs = get_pts_and_wts(
-                        space, s, e, polar_shift=d == 0 and self.polar_ck == 1)
+                        space, s, e, n_quad=self.nq_pr[d], polar_shift=d == 0 and self.polar_ck == 1)
                     self._proj_grid_subs[sp_form] += [subs]
                     self._proj_grid_pts[sp_form] += [pts]
                     self._proj_grid_wts[sp_form] += [wts]

@@ -2626,6 +2626,13 @@ class VariationalMomentumAdvection(Propagator):
 
         self._params = params
 
+        if self.derham.comm is not None:
+            rank = self.derham.comm.Get_rank()
+        else:
+            rank = 0
+
+        self._info = self._params['info'] and (rank == 0)
+
         self.WMM = params['mass_ops']
 
         self._initialize_mass()
@@ -2669,8 +2676,9 @@ class VariationalMomentumAdvection(Propagator):
         self.pc.update_mass_operator(self._Mrho)
         # Jacobian matrix for Newton solve
         self._dt2_brack._scalar = dt/2
-        print()
-        print("Newton iteration in VariationalMomentumAdvection")
+        if self._info:
+            print()
+            print("Newton iteration in VariationalMomentumAdvection")
 
         for it in range(self._params['non_linear_maxiter']):
 
@@ -2691,14 +2699,16 @@ class VariationalMomentumAdvection(Propagator):
             # Get error and stop if small enough
             err = self._get_error_newton(diff)
 
-            print("iteration : ", it, " error : ", err)
+            if self._info:
+                print("iteration : ", it, " error : ", err)
             if err < tol**2 or np.isnan(err):
                 break
 
             # Newton step
             pc_diff = self.pc.dot(diff, out=self._tmp__pc_diff)
             update = self.inv_derivative.dot(pc_diff, out=self._tmp_update)
-            print("information on the linear solver : ", self.inv_derivative._info)
+            if self._info:
+                print("information on the linear solver : ", self.inv_derivative._info)
             un1 -= update
             mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
@@ -2828,10 +2838,14 @@ class VariationalDensityEvolve(Propagator):
 
         \begin{align}
         &\frac{\mathbb M^v[\hat{\rho}_h^{n+1}] \mathbf u^{n+1}- \mathbb M^v[\hat{\rho}_h^n] \mathbf u^n}{\Delta t} 
-        + (\mathbb D \hat{\Pi}^{2}[\hat{\rho}_h^{n+1/2} \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3\Big( \big(\frac{DF \hat{\mathbf{u}}_h^{n+1} \cdot DF \hat{\mathbf{u}}_h^{n}}{2} 
+        + (\mathbb D \hat{\Pi}^{2}[\hat{\tilde{\rho}_h^{n+1}} \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3\Big( \big(\frac{DF \hat{\mathbf{u}}_h^{n+1} \cdot DF \hat{\mathbf{u}}_h^{n}}{2} 
         - \frac{\hat{\rho}_h^{n+1}\hat{e}(\hat{\rho}_h^{n+1})-\hat{\rho}_h^{n}\hat{e}(\hat{\rho}_h^{n})}{\hat{\rho}_h^{n+1}-\hat{\rho}_h^n} \big)\Big) = 0 ~ ,
         \\[2mm]
-        &\frac{\boldsymbol \rho^{n+1}- \boldsymbol \rho^n}{\Delta t} + \mathbb D \hat{\Pi}^{2}[\hat{\rho}_h^{n+1/2} \vec{\boldsymbol \Lambda}^v] \mathbf u^{n+1/2} = 0 ~ ,
+        &\frac{\boldsymbol \rho^{n+1}- \boldsymbol \rho^n}{\Delta t} + \mathbb D \hat{\Pi}^{2}[\hat{\tilde{\rho}_h^{n+1}} \vec{\boldsymbol \Lambda}^v] \mathbf u^{n+1/2} = 0 ~ ,
+        \\[2mm]
+        &\frac{\tilde{\boldsymbol \rho}^{n+1}- \boldsymbol\rho^n}{\Delta t} + \mathbb D \hat{\Pi}^{2}[\hat{\tilde{\rho}_h^{n+1}} \vec{\boldsymbol \Lambda}^v] \mathbf u^{n} = 0 ~ \text{if parameter 'implicit_transport'},
+        \\[2mm]
+        &\tilde{\boldsymbol \rho}^{n+1} = \boldsymbol\rho^n ~ \text{else},
         \end{align}
 
     where :math:`\hat{l}^3(f)` denotes the vector representing the linear form :math:`v_h \mapsto \int_{\hat{\Omega}} f(\boldsymbol \eta) v_h(\boldsymbol \eta) d \boldsymbol \eta`, that is the vector with components
@@ -2874,7 +2888,8 @@ class VariationalDensityEvolve(Propagator):
                           'model': None,
                           'gamma': 5/3,
                           's': None,
-                          'mass_ops': None}
+                          'mass_ops': None,
+                          'implicit_transport': False}
 
         assert 'model' in params, 'model must be provided for VariationalDensityEvolve'
         assert params['model'] in ['pressureless', 'barotropic', 'full']
@@ -2884,6 +2899,13 @@ class VariationalDensityEvolve(Propagator):
         params = set_defaults(params, params_default)
 
         self._params = params
+
+        if self.derham.comm is not None:
+            rank = self.derham.comm.Get_rank()
+        else:
+            rank = 0
+
+        self._info = self._params['info'] and (rank == 0)
 
         self.WMM = params['mass_ops']
 
@@ -2923,32 +2945,62 @@ class VariationalDensityEvolve(Propagator):
 
     def __call_newton(self, dt):
         """Solve the non linear system for updating the variables using Newton iteration method"""
-        # Compute implicit approximation of rho^{n+1}
+
+        if self._info:
+            print()
+            print("Newton iteration in VariationalDensityEvolve")
+        
+        # Initial variables
         rhon = self.feec_vars[0]
         un = self.feec_vars[1]
+        self.rhof.vector = rhon
+        self.rhof1.vector = rhon
+        self._update_weighted_MM()
+        mn = self._Mrho.dot(un, out=self._tmp_mn)
+
+        # Compute implicit approximation of rho^{n+1}
         self.uf.vector = un
-        self._update_Piu()
-        self._dt_divPiu._scalar = dt
-        rhon1 = self._inv_transop.dot(rhon, out = self._tmp_rhon1)
+        if self._params['implicit_transport']:
+            self._update_Piu()
+            
+            if self._info:
+                print("Compute the implicit approximation")
+            # Check it's usefull to invert the transport operator to avoid calling on Id and causing bugs
+            # Explicit call
+            self._dt_divPiu._scalar = -dt
+            rhon1 = self._transop.dot(rhon, out = self._tmp_rhon1)
+            # Get diff
+            rhon_diff = rhon1.copy(out=self._tmp_rhon_diff)
+            rhon_diff -= rhon
+            weak_rhon_diff = self.mass_ops.M3.dot(
+                rhon_diff, out=self._tmp_rhon_weak_diff)
+            err_rho = weak_rhon_diff.dot(rhon_diff)
+
+            if err_rho>self._params['linear_tol']: 
+                #Implicit call if needed
+                self._dt_divPiu._scalar = dt
+                rhon1 = self._inv_transop.dot(rhon, out = self._tmp_rhon1)
+            if self._info:
+                print("Linear solver info : ", self._inv_transop._info)
         
+        else:
+            # No implicit 
+            rhon1 = rhon.copy(out = self._tmp_rhon1)
+
         # Initialize variable for Newton iteration
         if self._params['model'] == 'full':
             s = self._params['s']
             self.sf.vector = s
         
-        rhon1 = rhon.copy(out=self._tmp_rhon1)
-        self.rhof.vector = rhon
         self.rhof1.vector = rhon1
         self._update_Pirho()
-        self._update_weighted_MM()
         
-        mn = self._Mrho.dot(un, out=self._tmp_mn)
+        rhon1 = rhon.copy(out = self._tmp_rhon1)
+        self.rhof1.vector = rhon1
         un1 = un.copy(out=self._tmp_un1)
         mn1 = mn.copy(out=self._tmp_mn1)
         tol = self._params['non_linear_tol']
         err = tol+1
-        print()
-        print("Newton iteration in VariationalDensityEvolve")
 
         for it in range(self._params['non_linear_maxiter']):
 
@@ -2983,7 +3035,8 @@ class VariationalDensityEvolve(Propagator):
             # Get error
             err = self._get_error_newton(mn_diff, rhon_diff)
 
-            print("iteration : ", it, " error : ", err)
+            if self._info:
+                print("iteration : ", it, " error : ", err)
 
             if err < tol**2 or np.isnan(err):
                 break
@@ -2997,7 +3050,8 @@ class VariationalDensityEvolve(Propagator):
             self._tmp_f[1] = rhon_diff
 
             incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
-            print("information on the linear solver : ", self._inv_Jacobian._solver._info)
+            if self._info:
+                print("information on the linear solver : ", self._inv_Jacobian._solver._info)
             un1 -= incr[0]
             rhon1 -= incr[1]
 
@@ -3101,7 +3155,8 @@ class VariationalDensityEvolve(Propagator):
                                                 ('cg', None)],
                          'non_linear_solver': ['Newton', 'Picard'],
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'implicit_transport': False}
         dct['physics'] = {'gamma': 5/3}
         return dct
 
@@ -3127,9 +3182,7 @@ class VariationalDensityEvolve(Propagator):
             P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']))
 
         self.Piu  = BasisProjectionOperator(
-            P2, V3h, [[None],
-                      [None],
-                      [None]],
+            P2, V3h, [[None], [None], [None]],
             transposed=False, use_cache=True,
             P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']))
 
@@ -3232,8 +3285,8 @@ class VariationalDensityEvolve(Propagator):
         self._transop = self._I3 + self._dt_divPiu
         self._inv_transop = inverse(self._transop,
                                     'gmres',
-                                    tol=1e-16,
-                                    maxiter=1000,
+                                    tol=self._params['linear_tol'],
+                                    maxiter=self._params['linear_maxiter'],
                                     verbose=False,
                                     recycle=True)
 
@@ -3460,10 +3513,7 @@ class VariationalDensityEvolve(Propagator):
         uf2_values = self.uf.eval_tp_fixed_loc(
             self.hist_grid_2_spans, [self.hist_grid_2_bn]*3, out=self._uf_2_values)
 
-        self.Piu.update_weights([[uf0_values[0]],
-                                   [uf1_values[1]],
-                                   [uf2_values[2]]])
-
+        self.Piu.update_weights([[uf0_values[0]], [uf1_values[1]], [uf2_values[2]]])
 
     def _update_weighted_MM(self,):
         """update the weighted mass matrix operator"""
@@ -3479,7 +3529,7 @@ class VariationalDensityEvolve(Propagator):
                            [self._full_term_mass[1, 0], self._full_term_mass[1,
                                                                              1], self._full_term_mass[1, 2]],
                            [self._full_term_mass[2, 0], self._full_term_mass[2, 1], self._full_term_mass[2, 2]]],
-                          verbose=False)
+                          verbose=True)
 
     def _update_linear_form_u2(self,):
         """Update the linearform representing integration in V3 against kynetic energy"""
@@ -3696,10 +3746,14 @@ class VariationalEntropyEvolve(Propagator):
 
         \begin{align}
         &\mathbb M^v[\hat{\rho}_h^{n}] \frac{ \mathbf u^{n+1}-\mathbf u^n}{\Delta t} - 
-        (\mathbb D \hat{\Pi}^{2}[\hat{s}_h^{n} \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3\Big( \big(\frac{\hat{\rho}_h^{n}\hat{e}(\hat{\rho}_h^{n},\hat{s}_h^{n+1})-\hat{\rho}_h^{n}\hat{e}(\hat{\rho}_h^{n},\hat{s}_h^{n})}{\hat{s}_h^{n+1}-\hat{s}_h^n} \big)\Big) = 0 ~ ,
+        (\mathbb D \hat{\Pi}^{2}[\hat{\tilde{s}_h^{n+1}} \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3\Big( \big(\frac{\hat{\rho}_h^{n}\hat{e}(\hat{\rho}_h^{n},\hat{s}_h^{n+1})-\hat{\rho}_h^{n}\hat{e}(\hat{\rho}_h^{n},\hat{s}_h^{n})}{\hat{s}_h^{n+1}-\hat{s}_h^n} \big)\Big) = 0 ~ ,
         \\[2mm]
-        &\frac{\mathbf s^{n+1}- \mathbf s^n}{\Delta t} + \mathbb D \hat{\Pi}^{2}[\hat{s}_h^{n} \vec{\boldsymbol \Lambda}^v] \mathbf u^{n+1/2} = 0 ~ ,
-        \end{align}
+        &\frac{\mathbf s^{n+1}- \mathbf s^n}{\Delta t} + \mathbb D \hat{\Pi}^{2}[\hat{\tilde{s}_h^{n+1}} \vec{\boldsymbol \Lambda}^v] \mathbf u^{n+1/2} = 0 ~ ,
+        \\[2mm]
+        &\frac{\tilde{\boldsymbol s}^{n+1}- \boldsymbol s^n}{\Delta t} + \mathbb D \hat{\Pi}^{2}[\hat{\tilde{s}_h^{n+1}} \vec{\boldsymbol \Lambda}^v] \mathbf u^{n} = 0 ~ \text{if parameter 'implicit_transport'},
+        \\[2mm]
+        &\tilde{\boldsymbol s}^{n+1} = \boldsymbol s^n ~ \text{else},
+        \end{align}        
 
     where :math:`\hat{l}^3(f)` denotes the vector representing the linear form :math:`v_h \mapsto \int_{\hat{\Omega}} f(\boldsymbol \eta) v_h(\boldsymbol \eta) d \boldsymbol \eta`, that is the vector with components
 
@@ -3741,7 +3795,8 @@ class VariationalEntropyEvolve(Propagator):
                           'model': None,
                           'rho': None,
                           'gamma': 5/3,
-                          'mass_ops': None}
+                          'mass_ops': None,
+                          'implicit_transport': False}
 
         assert 'model' in params, 'model must be provided for VariationalDensityEvolve'
         assert params['model'] in ['full']
@@ -3751,6 +3806,13 @@ class VariationalEntropyEvolve(Propagator):
         params = set_defaults(params, params_default)
 
         self._params = params
+
+        if self.derham.comm is not None:
+            rank = self.derham.comm.Get_rank()
+        else:
+            rank = 0
+
+        self._info = self._params['info'] and (rank == 0)
 
         self.WMM = params['mass_ops']
 
@@ -3790,31 +3852,54 @@ class VariationalEntropyEvolve(Propagator):
 
     def __call_newton(self, dt):
         """Solve the non linear system for updating the variables using Newton iteration method"""
+        if self._info:
+            print()
+            print("Newton iteration in VariationalEntropyEvolve")
         # Compute implicit approximation of s^{n+1}
         sn = self.feec_vars[0]
         un = self.feec_vars[1]
         self.uf.vector = un
-        self._update_Piu()
-        self._dt_divPiu._scalar = dt
-        sn1 = self._inv_transop.dot(sn, out = self._tmp_sn1)
+        if self._params['implicit_transport']:
+            self._update_Piu()
+            if self._info:
+                print("Compute the implicit approximation")
+            # Check it's usefull to invert the transport operator to avoid calling on Id and causing bugs
+            # Explicit call
+            self._dt_divPiu._scalar = -dt
+            sn1 = self._transop.dot(sn, out = self._tmp_sn1)
+            # Get diff
+            sn_diff = sn1.copy(out=self._tmp_sn_diff)
+            sn_diff -= sn
+            weak_sn_diff = self.mass_ops.M3.dot(
+                sn_diff, out=self._tmp_sn_weak_diff)
+            err_s = weak_sn_diff.dot(sn_diff)
 
+            if err_s>self._params['linear_tol']: 
+                #Implicit call if needed
+                self._dt_divPiu._scalar = dt
+                sn1 = self._inv_transop.dot(sn, out = self._tmp_sn1)
+            if self._info:
+                print("Linear solver info : ", self._inv_transop._info)
+
+        else :
+            #No implicit
+            sn1 = sn.copy(out = self._tmp_sn1)
         # Initialize variable for Newton iteration
         rho = self._params['rho']
         self.rhof.vector = rho
 
         self.sf.vector = sn
         self.sf1.vector = sn1
-
         self._update_Pis()
         self.pc.update_mass_operator(self._Mrho)
 
         mn = self._Mrho.dot(un, out=self._tmp_mn)
+        sn1 = sn.copy(out = self._tmp_sn1)
+        self.sf1.vector = sn1
         un1 = un.copy(out=self._tmp_un1)
         mn1 = mn.copy(out=self._tmp_mn1)
         tol = self._params['non_linear_tol']
         err = tol+1
-        print()
-        print("Newton iteration in VariationalEntropyEvolve")
 
         for it in range(self._params['non_linear_maxiter']):
 
@@ -3849,7 +3934,8 @@ class VariationalEntropyEvolve(Propagator):
             # Get error
             err = self._get_error_newton(mn_diff, sn_diff)
 
-            print("iteration : ", it, " error : ", err)
+            if self._info:
+                print("iteration : ", it, " error : ", err)
 
             if err < tol**2 or np.isnan(err):
                 break
@@ -3862,7 +3948,8 @@ class VariationalEntropyEvolve(Propagator):
             self._tmp_f[1] = sn_diff
 
             incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
-            print("information on the linear solver : ", self._inv_Jacobian._solver._info)
+            if self._info:
+                print("information on the linear solver : ", self._inv_Jacobian._solver._info)
             un1 -= incr[0]
             sn1 -= incr[1]
 
@@ -3873,7 +3960,7 @@ class VariationalEntropyEvolve(Propagator):
 
         if it == self._params['non_linear_maxiter']-1 or np.isnan(err):
             print(
-                f'!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err = } \n {tol**2 = }')
+                f'!!!Warning: Maximum iteration in VariationalEntropyEvolve reached - not converged:\n {err = } \n {tol**2 = }')
 
         self.feec_vars_update(sn1, un1)
 
@@ -3967,7 +4054,8 @@ class VariationalEntropyEvolve(Propagator):
                                                 ('cg', None)],
                          'non_linear_solver': ['Newton', 'Picard'],
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'implicit_transport': False}
         dct['physics'] = {'gamma': 5/3}
         return dct
 
@@ -3993,9 +4081,7 @@ class VariationalEntropyEvolve(Propagator):
             P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']))
         
         self.Piu  = BasisProjectionOperator(
-            P2, V3h, [[None],
-                      [None],
-                      [None]],
+            P2, V3h, [[None], [None], [None]],
             transposed=False, use_cache=True,
             P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']))
 
@@ -4075,8 +4161,8 @@ class VariationalEntropyEvolve(Propagator):
         self._transop = self._I3 + self._dt_divPiu
         self._inv_transop = inverse(self._transop,
                                     'gmres',
-                                    tol=1e-16,
-                                    maxiter=1000,
+                                    tol=self._params['linear_tol'],
+                                    maxiter=self._params['linear_maxiter'],
                                     verbose=False,
                                     recycle=True)
 
@@ -4216,7 +4302,7 @@ class VariationalEntropyEvolve(Propagator):
         return out
 
     def _update_Pis(self,):
-        """Update the weights of the `BasisProjectionOperator` appearing in the equations"""
+        """Update the weights of the `BasisProjectionOperator`"""
 
         sf0_values = self.sf1.eval_tp_fixed_loc(
             self.hist_grid_0_spans, self.hist_grid_0_bd, out=self._sf_0_values)
@@ -4234,7 +4320,7 @@ class VariationalEntropyEvolve(Propagator):
                                   [None, None, sf2_values]])
         
     def _update_Piu(self,):
-        """Update the weights of the `BasisProjectionOperator` appearing in the equations"""
+        """Update the weights of the `BasisProjectionOperator`"""
 
         uf0_values = self.uf.eval_tp_fixed_loc(
             self.hist_grid_0_spans, [self.hist_grid_0_bn]*3, out=self._uf_0_values)
@@ -4242,10 +4328,17 @@ class VariationalEntropyEvolve(Propagator):
             self.hist_grid_1_spans, [self.hist_grid_1_bn]*3, out=self._uf_1_values)
         uf2_values = self.uf.eval_tp_fixed_loc(
             self.hist_grid_2_spans, [self.hist_grid_2_bn]*3, out=self._uf_2_values)
+        
+        # print()
+        # print()
+        # print("ufvalues")
+        # print(np.max(uf0_values))
+        # print(np.max(uf1_values))
+        # print(np.max(uf2_values))
+        # print()
+        # print()
 
-        self.Piu.update_weights([[uf0_values[0]],
-                                   [uf1_values[1]],
-                                   [uf2_values[2]]])
+        self.Piu.update_weights([[uf0_values[0]], [uf1_values[1]], [uf2_values[2]]])
 
     def _update_linear_form_u2(self,):
         """Update the linearform representing integration in V3 against kynetic energy"""
@@ -4406,9 +4499,13 @@ class VariationalMagFieldEvolve(Propagator):
 
         \begin{align}
         &\mathbb M^v[\hat{\rho}_h^{n}] \frac{ \mathbf u^{n+1}-\mathbf u^n}{\Delta t}
-        - (\mathbb C \hat{\Pi}^{1}[\hat{\mathbf{B}}_h^{n} \cdot \vec{\boldsymbol \Lambda}^v])^\top \mathbb M^2 B^{n+\frac{1}{2}} \big) = 0 ~ ,
+        - (\mathbb C \hat{\Pi}^{1}[\hat{\tilde{B}_h^{n+1}} \cdot \vec{\boldsymbol \Lambda}^v])^\top \mathbb M^2 B^{n+\frac{1}{2}} \big) = 0 ~ ,
         \\[2mm]
-        &\frac{\mathbf b^{n+1}- \mathbf b^n}{\Delta t} + \mathbb C \hat{\Pi}^{1}[\hat{\mathbf{B}}_h^{n} \cdot \vec{\boldsymbol \Lambda}^v]] \mathbf u^{n+1/2} = 0 ~ ,
+        &\frac{\mathbf b^{n+1}- \mathbf b^n}{\Delta t} + \mathbb C \hat{\Pi}^{1}[\hat{\tilde{B}_h^{n+1}} \cdot \vec{\boldsymbol \Lambda}^v]] \mathbf u^{n+1/2} = 0 ~ ,
+        \\[2mm]
+        &\frac{\tilde{\boldsymbol b}^{n+1}-\boldsymbol b^n}{\Delta t} + \mathbb C \hat{\Pi}^{1}[\hat{\tilde{B}_h^{n+1}} \cdot \vec{\boldsymbol \Lambda}^v] \mathbf u^{n} = 0 ~ \text{if parameter 'implicit_transport'},
+        \\[2mm]
+        &\tilde{\boldsymbol b}^{n+1} = \boldsymbol b^n ~ \text{else},
         \end{align}
 
     and the weights in the the :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator` and the :class:`~struphy.feec.mass.WeightedMassOperator` are given by
@@ -4444,13 +4541,21 @@ class VariationalMagFieldEvolve(Propagator):
                           'non_linear_solver': 'Newton',
                           'info': False,
                           'verbose': False,
-                          'mass_ops': None}
+                          'mass_ops': None,
+                          'implicit_transport': False}
 
         assert 'mass_ops' in params
 
         params = set_defaults(params, params_default)
 
         self._params = params
+
+        if self.derham.comm is not None:
+            rank = self.derham.comm.Get_rank()
+        else:
+            rank = 0
+
+        self._info = self._params['info'] and (rank == 0)
 
         self.WMM = params['mass_ops']
 
@@ -4488,23 +4593,50 @@ class VariationalMagFieldEvolve(Propagator):
 
     def __call_newton(self, dt):
         """Solve the non linear system for updating the variables using Newton iteration method"""
-        # Initialize variable for Newton iteration
-
+        if self._info:
+            print()
+            print("Newton iteration in VariationalMagFieldEvolve")
+        # Compute implicit approximation of s^{n+1}
         bn = self.feec_vars[0]
-        bn1 = bn.copy(out=self._tmp_bn1)
-        self.bf.vector = bn
-        self._update_all_weights()
-        self.pc.update_mass_operator(self._Mrho)
-
         un = self.feec_vars[1]
         self.uf.vector = un
+        if self._params['implicit_transport']:
+            self._update_Piu()
+            if self._info:
+                print("Compute the implicit approximation")
+            # Check it's usefull to invert the transport operator to avoid calling on Id and causing bugs
+            # Explicit call
+            self._dt_curlPiu._scalar = -dt
+            bn1 = self._transop.dot(bn, out = self._tmp_bn1)
+            # Get diff
+            bn_diff = bn1.copy(out=self._tmp_bn_diff)
+            bn_diff -= bn
+            weak_bn_diff = self.mass_ops.M2.dot(
+                bn_diff, out=self._tmp_bn_weak_diff)
+            err_b = weak_bn_diff.dot(bn_diff)
+
+            if err_b>self._params['linear_tol']: 
+                #Implicit call if needed
+                self._dt_curlPiu._scalar = dt
+                bn1 = self._inv_transop.dot(bn, out = self._tmp_bn1)
+            if self._info:
+                print("Linear solver info : ", self._inv_transop._info)
+        else :
+            # No implicit
+            bn1 = bn.copy(out=self._tmp_bn1)
+        # Initialize variable for Newton iteration
+
+        self.bf.vector = bn1
+        self._update_Pib()
+        self.pc.update_mass_operator(self._Mrho)
+
         mn = self._Mrho.dot(un, out=self._tmp_mn)
+        bn1 = bn.copy(out=self._tmp_bn1)
+        self.bf.vector = bn1
         un1 = un.copy(out=self._tmp_un1)
         mn1 = mn.copy(out=self._tmp_mn1)
         tol = self._params['non_linear_tol']
         err = tol+1
-        print()
-        print("Newton iteration in VariationalMagFieldEvolve")
 
         for it in range(self._params['non_linear_maxiter']):
 
@@ -4543,7 +4675,8 @@ class VariationalMagFieldEvolve(Propagator):
             # Get error
             err = self._get_error_newton(mn_diff, bn_diff)
 
-            print("iteration : ", it, " error : ", err)
+            if self._info:
+                print("iteration : ", it, " error : ", err)
 
             if err < tol**2 or np.isnan(err):
                 break
@@ -4556,7 +4689,8 @@ class VariationalMagFieldEvolve(Propagator):
             self._tmp_f[1] = bn_diff
 
             incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
-            print("information on the linear solver : ", self._inv_Jacobian._solver._info)
+            if self._info:
+                print("information on the linear solver : ", self._inv_Jacobian._solver._info)
             un1 -= incr[0]
             bn1 -= incr[1]
 
@@ -4565,7 +4699,7 @@ class VariationalMagFieldEvolve(Propagator):
 
         if it == self._params['non_linear_maxiter']-1 or np.isnan(err):
             print(
-                f'!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err = } \n {tol**2 = }')
+                f'!!!Warning: Maximum iteration in VariationalMagFieldEvolve reached - not converged:\n {err = } \n {tol**2 = }')
 
         self.feec_vars_update(bn1, un1)
 
@@ -4576,7 +4710,7 @@ class VariationalMagFieldEvolve(Propagator):
         bn = self.feec_vars[0]
         bn1 = bn.copy(out=self._tmp_bn1)
         self.bf.vector = bn
-        self._update_all_weights()
+        self._update_Pib()
 
         un = self.feec_vars[1]
         un1 = un.copy(out=self._tmp_un1)
@@ -4654,7 +4788,8 @@ class VariationalMagFieldEvolve(Propagator):
                                                 ('cg', None)],
                          'non_linear_solver': ['Newton', 'Picard'],
                          'info': False,
-                         'verbose': False, }
+                         'verbose': False, 
+                         'implicit_transport': False}
         return dct
 
     def _initialize_projectors_and_mass(self):
@@ -4664,6 +4799,7 @@ class VariationalMagFieldEvolve(Propagator):
         P1 = self.derham.P['1']
 
         Xh = self.derham.Vh_fem['v']
+        V2h = self.derham.Vh_fem['2']
 
         # Initialize the BasisProjectionOperators
         self.Pib = BasisProjectionOperator(
@@ -4674,6 +4810,13 @@ class VariationalMagFieldEvolve(Propagator):
             V_extraction_op=self.derham.extraction_ops['v'],
             V_boundary_op=self.derham.boundary_ops['v'],
             P_boundary_op=IdentityOperator(self.derham.Vh_pol['1']))
+        
+        self.Piu  = BasisProjectionOperator(
+            P1, V2h, [[None, None, None],
+                      [None, None, None],
+                      [None, None, None]],
+            transposed=False, use_cache=True,
+            P_boundary_op=IdentityOperator(self.derham.Vh_pol['1']))
 
         self.PibT = self.Pib.T
 
@@ -4683,6 +4826,8 @@ class VariationalMagFieldEvolve(Propagator):
         # Initialize the transport operator and transposed
         self.curlPib = self.curl @ self.Pib
         self.curlPibT = self.PibT @ self.curl.T
+
+        self.curlPiu = self.curl @ self.Piu
 
         hist_grid = self.derham.proj_grid_pts['1']
 
@@ -4704,6 +4849,8 @@ class VariationalMagFieldEvolve(Propagator):
                            for loc_grid in hist_grid_0])
         self._bf0_values = [np.zeros(grid_shape, dtype=float)
                             for i in range(3)]
+        self._uf0_values = [np.zeros(grid_shape, dtype=float)
+                            for i in range(3)]
         self.hist_grid_0_b = [[self.hist_grid_0_bn[0], self.hist_grid_0_bd[1], self.hist_grid_0_bd[2]],
                               [self.hist_grid_0_bd[0], self.hist_grid_0_bn[1],
                                   self.hist_grid_0_bd[2]],
@@ -4711,6 +4858,8 @@ class VariationalMagFieldEvolve(Propagator):
         grid_shape = tuple([len(loc_grid)
                            for loc_grid in hist_grid_1])
         self._bf1_values = [np.zeros(grid_shape, dtype=float)
+                            for i in range(3)]
+        self._uf1_values = [np.zeros(grid_shape, dtype=float)
                             for i in range(3)]
         self.hist_grid_1_b = [[self.hist_grid_1_bn[0], self.hist_grid_1_bd[1], self.hist_grid_1_bd[2]],
                               [self.hist_grid_1_bd[0], self.hist_grid_1_bn[1],
@@ -4720,6 +4869,8 @@ class VariationalMagFieldEvolve(Propagator):
         grid_shape = tuple([len(loc_grid)
                            for loc_grid in hist_grid_2])
         self._bf2_values = [np.zeros(grid_shape, dtype=float)
+                            for i in range(3)]
+        self._uf2_values = [np.zeros(grid_shape, dtype=float)
                             for i in range(3)]
         self.hist_grid_2_b = [[self.hist_grid_2_bn[0], self.hist_grid_2_bd[1], self.hist_grid_2_bd[2]],
                               [self.hist_grid_2_bd[0], self.hist_grid_2_bn[1],
@@ -4753,6 +4904,17 @@ class VariationalMagFieldEvolve(Propagator):
                                 tol=1e-16,
                                 maxiter=1000,
                                 verbose=False)
+        
+        self._I2 = IdentityOperator(self.derham.Vh_pol['2'])
+        self._dt_curlPiu = 2* self.curlPiu
+
+        self._transop = self._I2 + self._dt_curlPiu
+        self._inv_transop = inverse(self._transop,
+                                    'gmres',
+                                    tol=self._params['linear_tol'],
+                                    maxiter=self._params['linear_maxiter'],
+                                    verbose=False,
+                                    recycle=True)
 
         Jacs = BlockVectorSpace(self.derham.Vh_pol['v'], self.derham.Vh_pol['2'])
 
@@ -4760,8 +4922,6 @@ class VariationalMagFieldEvolve(Propagator):
         self._tmp_incr = Jacs.zeros()
 
         self._Jacobian = BlockLinearOperator(Jacs, Jacs)
-
-        self._I2 = IdentityOperator(self.derham.Vh_pol['2'])
 
         # local version to avoid creating new version of LinearOperator every time
         self._mdt2_pc_curlPibT_M = 2 * \
@@ -4790,8 +4950,8 @@ class VariationalMagFieldEvolve(Propagator):
         #                          verbose=self._params['verbose'],
         #                          recycle=True)
 
-    def _update_all_weights(self,):
-        """Update the weights of the `BasisProjectionOperator` appearing in the equations"""
+    def _update_Pib(self,):
+        """Update the weights of the `BasisProjectionOperator`"""
 
         bf0_values = self.bf.eval_tp_fixed_loc(
             self.hist_grid_0_spans, self.hist_grid_0_b, out=self._bf0_values)
@@ -4807,6 +4967,19 @@ class VariationalMagFieldEvolve(Propagator):
         self.PibT.update_weights([[None, -bf0_values[2], bf0_values[1]],
                                   [bf1_values[2], None, -bf1_values[0]],
                                   [-bf2_values[1], bf2_values[0], None]])
+    def _update_Piu(self,):
+        """Update the weights of the `BasisProjectionOperator`"""
+
+        uf0_values = self.uf.eval_tp_fixed_loc(
+            self.hist_grid_0_spans, [self.hist_grid_0_bn]*3, out=self._uf0_values)
+        uf1_values = self.uf.eval_tp_fixed_loc(
+            self.hist_grid_1_spans, [self.hist_grid_1_bn]*3, out=self._uf1_values)
+        uf2_values = self.uf.eval_tp_fixed_loc(
+            self.hist_grid_2_spans, [self.hist_grid_2_bn]*3, out=self._uf2_values)
+
+        self.Piu.update_weights([[None, uf0_values[2], -uf0_values[1]],
+                                 [-uf1_values[2], None, uf1_values[0]],
+                                 [uf2_values[1], -uf2_values[0], None]])
 
     def _update_linear_form_u2(self,):
         """Update the linearform representing integration in V2 derivative of the lagrangian"""
