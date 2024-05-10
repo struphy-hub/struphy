@@ -106,7 +106,7 @@ def main():
 
             # Get default background parameters
             from struphy.kinetic_background import maxwellians
-            default_bckgr_params = getattr(maxwellians, default_bckgr_type).default_bckgr_params()
+            default_bckgr_params = getattr(maxwellians, default_bckgr_type).default_maxw_params()
 
             # Set velocity point of evaluation to v_shift of background params if not given by input
             if params['kinetic'][species]['markers']['type'] == 'full_f':
