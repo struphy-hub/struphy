@@ -105,17 +105,37 @@ class Particles(metaclass=ABCMeta):
             self.marker_params['type'] == 'control_variate')
 
         # set background function
-        bckgr_fun = bckgr_params['type']
+        bckgr_type = bckgr_params['type']
 
-        if bckgr_fun in bckgr_params:
-            self._f_backgr = getattr(maxwellians, bckgr_fun)(
-                maxw_params=bckgr_params[bckgr_fun],
-                mhd_equil=mhd_equil
-            )
-        else:
-            self._f_backgr = getattr(maxwellians, bckgr_fun)()
-            print(
-                f'\n{bckgr_fun} is not in bckgr_params; default background parameters are used.')
+        if not isinstance(bckgr_type, list):
+            bckgr_type = [bckgr_type]
+
+        self._f_backgr = None
+        for fi in bckgr_type:
+            if fi[-2] == '_':
+                fi_type = fi[:-2]
+            else:
+                fi_type = fi
+            if fi in bckgr_params:
+                maxw_params = bckgr_params[fi]
+                pass_mhd_equil = mhd_equil
+            else:
+                maxw_params = None
+                pass_mhd_equil = None
+
+                print(
+                    f'\n{fi} is not in bckgr_params; default background parameters are used.')
+
+            if self._f_backgr is None:
+                self._f_backgr = getattr(maxwellians, fi_type)(
+                    maxw_params=maxw_params,
+                    mhd_equil=pass_mhd_equil
+                )
+            else:
+                self._f_backgr = self._f_backgr + getattr(maxwellians, fi_type)(
+                    maxw_params=maxw_params,
+                    mhd_equil=pass_mhd_equil
+                )
 
     @classmethod
     @abstractmethod
@@ -778,23 +798,43 @@ class Particles(metaclass=ABCMeta):
         self.sampling_density = self.s0(*self.phasespace_coords.T)
 
         # load distribution function (with given parameters or default parameters)
-        bckgr_fun = self.bckgr_params['type']
+        bckgr_type = self.bckgr_params['type']
         bp_copy = copy.deepcopy(self.bckgr_params)
+        pp_copy = copy.deepcopy(self.pert_params)
+
+        if not isinstance(bckgr_type, list):
+            bckgr_type = [bckgr_type]
 
         # For delta-f set markers only as perturbation
         if self.marker_params['type'] == 'delta_f':
-            # Take out background by setting its density to zero
-            if bckgr_fun in bp_copy:
-                bp_copy[bckgr_fun]['n'] = 0.
-            else:
-                bp_copy[bckgr_fun] = {'n': 0.}
+            for fi in bckgr_type:
+                # Take out background by setting its density to zero
+                if fi in bp_copy:
+                    bp_copy[fi]['n'] = 0.
+                else:
+                    bp_copy[fi] = {'n': 0.}
 
         # Get the initialization function and pass the correct arguments
-        self._f_init = getattr(maxwellians, bckgr_fun)(
-            maxw_params=bp_copy[bckgr_fun],
-            pert_params=self.pert_params,
-            mhd_equil=self.mhd_equil
-        )
+        self._f_init = None
+        for fi in bckgr_type:
+            if fi[-2] == '_':
+                fi_type = fi[:-2]
+            else:
+                fi_type = fi
+
+            if self._f_init is None:
+                self._f_init = getattr(maxwellians, fi_type)(
+                    maxw_params=bp_copy[fi],
+                    pert_params=pp_copy,
+                    mhd_equil=self.mhd_equil
+                )
+            else:
+                self._f_init = self._f_init + getattr(maxwellians, fi_type)(
+                    maxw_params=bp_copy[fi],
+                    pert_params=pp_copy,
+                    mhd_equil=self.mhd_equil
+                )
+        # TODO: allow for different perturbations for different backgrounds
 
         f_init = self.f_init(*self.phasespace_coords.T)
 
@@ -835,8 +875,7 @@ class Particles(metaclass=ABCMeta):
 
     def binning(self, components, bin_edges, pforms=['0', '0']):
         r""" Computes the distribution function via marker binning in logical space.
-        For this, numpy's histogramdd is used, following the algorithm outlined in the `Struphy documentation
-        <https://struphy.pages.mpcdf.de/struphy/sections/discretization.html#particle-binning>`_.
+        For this, numpy's histogramdd is used, following the algorithm outlined in :ref:`binning`.
         If pforms=['vol','vol'], approximations of the volume density :math:`f^n(t)` are computed (of :math:`f^0(t)` by default). 
 
         Parameters

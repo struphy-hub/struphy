@@ -40,15 +40,22 @@ A typical example of a ``fluid`` or ``em_fields`` initialization looks as as fol
 * Available perturbations can be found in :ref:`avail_inits`
 
 Multiple ``background`` and ``perturbation`` types can be given by passing a list to ``type``.
+If the same ``background`` type appears multiple times in the list, ``_1``, ``_2`` etc. 
+must be appended to the type to differentiate the corresponding dictionaries holding the parameters.
+This feature does not yet work for ``perturbation``, thus multiple perturbations of the same
+type are not yet supported.
 The contributions are summed up to give the initial value of the field. 
 For example::
 
     background: 
-        type : [LogicalConst, MHD]
-        LogicalConst :
+        type : [LogicalConst_1, LogicalConst_2, MHD]
+        LogicalConst_1 :
             comps :
                 potential_name : 1.3 
                 field_name : [.3, .15, null] 
+        LogicalConst_2 :
+            comps :
+                other_name : 0.2 
         MHD :
             comps :
                 potential_name : n0
@@ -74,10 +81,13 @@ Kinetic initialization
 A typical example of a ``kinetic`` initialization looks as as follows::
 
     background : # background is mandatory for kinetic species
-        type : Maxwellian6D
-        Maxwellian6D :
-            n  : 0.05
-            u2 : 2.5
+        type : [Maxwellian6D_1, Maxwellian6D_2]
+        Maxwellian6D_1 :
+            n  : 0.5
+            u1 : 3.0
+        Maxwellian6D_2 :
+            n  : 0.5
+            u1 : -3.0
     perturbation :
         type : TorusModesCos
         TorusModesCos :

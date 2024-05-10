@@ -599,8 +599,11 @@ class StruphyModel(metaclass=ABCMeta):
                     print(f'Kinetic species "{species}" was initialized with:')
                     print('type:'.ljust(25), _type)
                     if _type is not None:
-                        for key, par in val['params']['background'][_type].items():
-                            print((key + ':').ljust(25), par)
+                        if not isinstance(_type, list):
+                            _type = [_type]
+                        for _t in _type:
+                            for key, par in val['params']['background'][_t].items():
+                                print((key + ':').ljust(25), par)
 
                 val['obj'].draw_markers()
                 val['obj'].mpi_sort_markers(do_test=True)
@@ -1575,15 +1578,46 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
                 # create temp kinetic object for (default) parameter extraction
                 tmp_type = val['params']['background']['type']
-                tmp_params = val['params']['background'][tmp_type]
-                tmp = getattr(maxwellians, tmp_type)(maxw_params=tmp_params)
+                tmp_params = val['params']['background']
+                
+                if not isinstance(tmp_type, list):
+                    tmp_type = [tmp_type]
+
+                tmp = None
+                for fi in tmp_type:
+                    if fi[-2] == '_':
+                        fi_type = fi[:-2]
+                    else:
+                        fi_type = fi
+                    if fi in tmp_params:
+                        maxw_params = tmp_params[fi]
+                        pass_mhd_equil = self.mhd_equil
+                    else:
+                        maxw_params = None
+                        pass_mhd_equil = None
+
+                        print(
+                            f'\n{fi} is not in tmp_params; default background parameters are used.')
+
+                    if tmp is None:
+                        tmp = getattr(maxwellians, fi_type)(
+                            maxw_params=maxw_params,
+                            mhd_equil=pass_mhd_equil
+                        )
+                    else:
+                        tmp = tmp + getattr(maxwellians, fi_type)(
+                            maxw_params=maxw_params,
+                            mhd_equil=pass_mhd_equil
+                        )
 
                 # density (m⁻³)
-                pparams[species]['density'] = np.mean(tmp.n(
-                    eta1mg, eta2mg, eta3mg) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
+                # pparams[species]['density'] = np.mean(tmp.n(
+                #     eta1mg, eta2mg, eta3mg) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
+                pparams[species]['density'] = -99.
                 # thermal speeds (m/s)
                 vth = []
-                vths = tmp.vth(eta1mg, eta2mg, eta3mg)
+                # vths = tmp.vth(eta1mg, eta2mg, eta3mg)
+                vths = [-99.]
                 for k in range(len(vths)):
                     vth += [
                         vths[k] * np.abs(det_tmp) *
@@ -1591,18 +1625,22 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     ]
                 thermal_speed = 0.
                 for dir in range(val['obj'].vdim):
-                    pparams[species]['vth' + str(dir + 1)] = np.mean(vth[dir])
+                    # pparams[species]['vth' + str(dir + 1)] = np.mean(vth[dir])
+                    pparams[species]['vth' + str(dir + 1)] = -99.
                     thermal_speed += pparams[species]['vth' + str(dir + 1)]
                 # TODO: here it is assumed that background density parameter is called "n",
                 # and that background thermal speeds are called "vthn"; make this a convention?
-                pparams[species]['v_th'] = thermal_speed / \
-                    val['obj'].vdim
+                # pparams[species]['v_th'] = thermal_speed / \
+                #     val['obj'].vdim
+                pparams[species]['v_th'] = -99.
                 # thermal energy (keV)
-                pparams[species]['kBT'] = pparams[species]['mass'] * \
-                    pparams[species]['v_th']**2 / e * 1e-3
+                # pparams[species]['kBT'] = pparams[species]['mass'] * \
+                #     pparams[species]['v_th']**2 / e * 1e-3
+                pparams[species]['kBT'] = -99.
                 # pressure (bar)
-                pparams[species]['pressure'] = pparams[species]['kBT'] * \
-                    e * 1e3 * pparams[species]['density'] * 1e-5
+                # pparams[species]['pressure'] = pparams[species]['kBT'] * \
+                #     e * 1e3 * pparams[species]['density'] * 1e-5
+                pparams[species]['pressure'] = -99.
 
         for species in pparams:
             # alfvén speed (m/s)

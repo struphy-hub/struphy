@@ -148,7 +148,8 @@ class VlasovAmpereOneSpecies(StruphyModel):
         assert Z0 * \
             Z < 0, f'Neutralizing background has wrong polarity {Z0 = } to {Z = }.'
 
-        self.pointer['species1'].f_backgr.moment_factors['n'] = - Z0/Z
+        # multiply background to get quasi neutrality
+        self.pointer['species1']._f_backgr = - Z0/Z * self.pointer['species1'].f_backgr
 
         # check mean velocity
         # TODO: assert f_backgr.params[] == 0.
