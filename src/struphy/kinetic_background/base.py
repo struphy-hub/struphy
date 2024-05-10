@@ -5,19 +5,19 @@ from abc import ABCMeta, abstractmethod
 import numpy as np
 
 
-class Maxwellian(metaclass=ABCMeta):
-    r""" Base class for a Maxwellian distribution function. 
-    It is defined on :math:`[0, 1]^3 \times \mathbb R^n, n \geq 1,` 
-    with logical position coordinates :math:`\boldsymbol{\eta} \in [0, 1]^3`:
+class KineticBackground(metaclass=ABCMeta):
+    r"""Base class for kinetic background distributions
+    defined on :math:`[0, 1]^3 \times \mathbb R^n, n \geq 1,` 
+    with logical position coordinates :math:`\boldsymbol{\eta} \in [0, 1]^3`.
+
+    Explicit expressions for the following number density :math:`n` 
+    and mean velocity :math:`\mathbf u` must be implemented:
 
     .. math::
 
-        f(\boldsymbol{\eta}, v_1,\ldots,v_n) = n(\boldsymbol{\eta}) \prod_{i=1}^n \frac{1}{\sqrt{2\pi}\,v_{\mathrm{th},i}(\boldsymbol{\eta})}
-        \exp\left[-\frac{(v_i-u_i(\boldsymbol{\eta}))^2}{2\,v_{\mathrm{th},i}(\boldsymbol{\eta})^2}\right],
+        n &= \int f \,\mathrn d \mathbf v
 
-    defined by its velocity moments: the density :math:`n(\boldsymbol{\eta})`,
-    the mean-velocities :math:`u_i(\boldsymbol{\eta})`,
-    and the thermal velocities :math:`v_{\mathrm{th},i}(\boldsymbol{\eta})`.
+        \mathbf u &= \frac 1n \int \mathbf v f \,\mathrn d \mathbf v\,.
     """
 
     @property
@@ -60,10 +60,234 @@ class Maxwellian(metaclass=ABCMeta):
 
         Returns
         -------
-        A numpy.array with the mean velocity evaluated at evaluation points (one dimension more than etas).
-        The additional dimension is in the first index.
+        A list[float] (background values) or a list[numpy.array] of the evaluated velocities.
         """
         pass
+
+    @abstractmethod
+    def __call__(self, *args):
+        """ Evaluates the background distribution function f0(etas, v1, ..., vn).
+
+        There are two use-cases for this function in the code:
+
+        1. Evaluating for particles ("flat evaluation", inputs are all 1D of length N_p)
+        2. Evaluating the function on a meshgrid (in phase space).
+
+        Hence all arguments must always have 
+
+        1. the same shape
+        2. either ndim = 1 or ndim = 3 + vdim.
+
+        Parameters
+        ----------
+        *args : array_like
+            Position-velocity arguments in the order eta1, eta2, eta3, v1, ..., vn.
+
+        Returns
+        -------
+        f0 : np.ndarray
+            The evaluated background.
+        """
+        pass
+
+    def __add__(self, other_f0):
+        return SumKineticBackground(self, other_f0)
+
+    def __mul__(self, a):
+        return ScalarMultiplyKineticBackground(self, a)
+
+    def __rmul__(self, a):
+        return ScalarMultiplyKineticBackground(self, a)
+
+    def __div__(self, a):
+        assert isinstance(a, float) or isinstance(a, int) \
+            or isinstance(a, np.int64)
+        assert a != 0, "Cannot divide by zero!"
+        return ScalarMultiplyKineticBackground(self, 1/a)
+
+    def __rdiv__(self, a):
+        assert isinstance(a, float) or isinstance(a, int) \
+            or isinstance(a, np.int64)
+        assert a != 0, "Cannot divide by zero!"
+        return ScalarMultiplyKineticBackground(self, 1/a)
+
+    def __sub__(self, other_f0):
+        return SumKineticBackground(self, ScalarMultiplyKineticBackground(other_f0, -1.))
+
+
+class SumKineticBackground(KineticBackground):
+
+    def __init__(self, f1, f2):
+
+        assert isinstance(f1, KineticBackground)
+        assert isinstance(f2, KineticBackground)
+        assert f1.vdim == f2.vdim
+        assert f1.is_polar == f2.is_polar
+
+        self._f1 = f1
+        self._f2 = f2
+
+    @property
+    def vdim(self):
+        """ Dimension of the velocity space (vdim = n).
+        """
+        return self._f1.vdim
+
+    @property
+    def is_polar(self):
+        """ List of booleans. True if the velocity coordinates are polar coordinates.
+        """
+        return self._f1.is_polar
+
+    def n(self, *etas):
+        """ Number density (0-form). 
+
+        Parameters
+        ----------
+        etas : numpy.arrays
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+
+        Returns
+        -------
+        A numpy.array with the density evaluated at evaluation points (same shape as etas).
+        """
+        return self._f1.n(*etas) + self._f2.n(*etas)
+
+    def u(self, *etas):
+        """ Mean velocities (Cartesian components evaluated at x = F(eta)).
+
+        Parameters
+        ----------
+        etas : numpy.arrays
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+
+        Returns
+        -------
+        A list[float] (background values) or a list[numpy.array] of the evaluated velocities.
+        """
+
+        n1 = self._f1.n(*etas)
+        n2 = self._f2.n(*etas)
+
+        return [(n1*u1 + n2*u2)/(n1 + n2) for u1, u2 in zip(self._f1.u(*etas), self._f2.u(*etas))]
+
+    def __call__(self, *args):
+        """ Evaluates the background distribution function f0(etas, v1, ..., vn).
+
+        There are two use-cases for this function in the code:
+
+        1. Evaluating for particles ("flat evaluation", inputs are all 1D of length N_p)
+        2. Evaluating the function on a meshgrid (in phase space).
+
+        Hence all arguments must always have 
+
+        1. the same shape
+        2. either ndim = 1 or ndim = 3 + vdim.
+
+        Parameters
+        ----------
+        *args : array_like
+            Position-velocity arguments in the order eta1, eta2, eta3, v1, ..., vn.
+
+        Returns
+        -------
+        f0 : np.ndarray
+            The evaluated background.
+        """
+        return self._f1(*args) + self._f2(*args)
+
+
+class ScalarMultiplyKineticBackground(KineticBackground):
+
+    def __init__(self, f0, a):
+
+        assert isinstance(f0, KineticBackground)
+        assert isinstance(a, float) or isinstance(a, int) \
+            or isinstance(a, np.int64)
+
+        self._f = f0
+        self._a = a
+
+    @property
+    def vdim(self):
+        """ Dimension of the velocity space (vdim = n).
+        """
+        return self._f.vdim
+
+    @property
+    def is_polar(self):
+        """ List of booleans. True if the velocity coordinates are polar coordinates.
+        """
+        return self._f.is_polar
+
+    def n(self, *etas):
+        """ Number density (0-form). 
+
+        Parameters
+        ----------
+        etas : numpy.arrays
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+
+        Returns
+        -------
+        A numpy.array with the density evaluated at evaluation points (same shape as etas).
+        """
+        return self._a * self._f.n(*etas)
+
+    def u(self, *etas):
+        """ Mean velocities (Cartesian components evaluated at x = F(eta)).
+
+        Parameters
+        ----------
+        etas : numpy.arrays
+            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+
+        Returns
+        -------
+        A list[float] (background values) or a list[numpy.array] of the evaluated velocities.
+        """
+        return self._f.u(*etas)
+
+    def __call__(self, *args):
+        """ Evaluates the background distribution function f0(etas, v1, ..., vn).
+
+        There are two use-cases for this function in the code:
+
+        1. Evaluating for particles ("flat evaluation", inputs are all 1D of length N_p)
+        2. Evaluating the function on a meshgrid (in phase space).
+
+        Hence all arguments must always have 
+
+        1. the same shape
+        2. either ndim = 1 or ndim = 3 + vdim.
+
+        Parameters
+        ----------
+        *args : array_like
+            Position-velocity arguments in the order eta1, eta2, eta3, v1, ..., vn.
+
+        Returns
+        -------
+        f0 : np.ndarray
+            The evaluated background.
+        """
+        return self._a * self._f(*args)
+
+
+class Maxwellian(KineticBackground):
+    r""" Base class for a Maxwellian distribution function. 
+    It is defined on :math:`[0, 1]^3 \times \mathbb R^n, n \geq 1,` 
+    with logical position coordinates :math:`\boldsymbol{\eta} \in [0, 1]^3`:
+
+    .. math::
+
+        f(\boldsymbol{\eta}, v_1,\ldots,v_n) = n(\boldsymbol{\eta}) \prod_{i=1}^n \frac{1}{\sqrt{2\pi}\,v_{\mathrm{th},i}(\boldsymbol{\eta})}
+        \exp\left[-\frac{(v_i-u_i(\boldsymbol{\eta}))^2}{2\,v_{\mathrm{th},i}(\boldsymbol{\eta})^2}\right],
+
+    defined by its velocity moments: the density :math:`n(\boldsymbol{\eta})`,
+    the mean-velocities :math:`u_i(\boldsymbol{\eta})`,
+    and the thermal velocities :math:`v_{\mathrm{th},i}(\boldsymbol{\eta})`.
+    """
 
     @abstractmethod
     def vth(self, *etas):
@@ -76,8 +300,7 @@ class Maxwellian(metaclass=ABCMeta):
 
         Returns
         -------
-        A numpy.array with the thermal velocity evaluated at evaluation points (one dimension more than etas).
-        The additional dimension is in the first index.
+        A list[float] (background values) or a list[numpy.array] of the evaluated thermal velocities.
         """
         pass
 

@@ -357,24 +357,26 @@ def post_process_markers(path_in, path_out, species, step=1):
 
     # temporary marker array
     temp = np.zeros((n_markers, n_cols), order='C')
-    
+
     print('Evaluation of marker orbits for ' + str(species))
 
     # loop over time grid
     for n in tqdm(range(nt)):
 
         # create text file for this time step and this species
-        file_npy = os.path.join(path_orbits, species + '_{0:0{1}d}.npy'.format(n, log_nt)) 
-        file_txt = os.path.join(path_orbits, species + '_{0:0{1}d}.txt'.format(n, log_nt)) 
-            
+        file_npy = os.path.join(path_orbits, species +
+                                '_{0:0{1}d}.npy'.format(n, log_nt))
+        file_txt = os.path.join(path_orbits, species +
+                                '_{0:0{1}d}.txt'.format(n, log_nt))
+
         for file in files:
             markers = file['kinetic/' + species + '/markers']
             ids = markers[n*step, :, -1]
-            ids = ids[ids > -.5] # exclude holes
+            ids = ids[ids > -.5]  # exclude holes
             ids = ids.astype('int')
             temp[ids] = markers[n*step, :ids.size, :]
-        
-        # test if all markers have been collected in temp    
+
+        # test if all markers have been collected in temp
         ids = temp[:, -1]
         ids = ids.astype('int')
 
@@ -392,20 +394,20 @@ def post_process_markers(path_in, path_out, species, step=1):
             temp[ind_lost_particles, -1] = ids_lost_particles
 
             ids = np.unique(np.append(ids, ids_lost_particles))
-            
+
         assert np.all(ids == np.arange(n_markers))
-        
+
         # compute physical positions (x, y, z)
         temp[:, :3] = domain(np.array(temp[:, :3]), change_out_order=True)
-        
+
         # move ids to first column and save
         temp = np.roll(temp, 1, axis=1)
-        
+
         np.save(file_npy, temp[:, :7])
         np.savetxt(file_txt, temp[:, :4], fmt='%12.6f', delimiter=', ')
 
         # clear buffer
-        temp[:,:] = 0
+        temp[:, :] = 0
 
     # close hdf5 files
     for file in files:
@@ -499,18 +501,45 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
             np.save(os.path.join(path_slice, 'f_binned.npy'), data)
 
         else:
-            fun_name = params['kinetic'][species]['background']['type']
+            bckgr_type = params['kinetic'][species]['background']['type']
             bckgr_params = params['kinetic'][species]['background']
 
             # Get background function
-            if fun_name in bckgr_params.keys():
-                f_bckgr = getattr(maxwellians, fun_name)(
-                    maxw_params=bckgr_params[fun_name])
-            else:
-                f_bckgr = getattr(maxwellians, fun_name)()
+            if not isinstance(bckgr_type, list):
+                bckgr_type = [bckgr_type]
 
-            assert fun_name == 'Maxwellian6D', \
-                f'Post-processing is not yet implemented for a background distribution function of type {fun_name}'
+            f_bckgr = None
+            for fi in bckgr_type:
+
+                if fi[-2] == '_':
+                    fi_type = fi[:-2]
+                else:
+                    fi_type = fi
+
+                assert fi_type == 'Maxwellian6D', \
+                    f'Post-processing is not yet implemented for a background distribution function of type {bckgr_type}'
+
+                if fi in bckgr_params:
+                    maxw_params = bckgr_params[fi]
+                    pass_mhd_equil = None
+                    # TODO: load mhd_equil for background
+                else:
+                    maxw_params = None
+                    pass_mhd_equil = None
+
+                    print(
+                        f'\n{fi} is not in bckgr_params; default background parameters are used.')
+
+                if f_bckgr is None:
+                    f_bckgr = getattr(maxwellians, fi_type)(
+                        maxw_params=maxw_params,
+                        mhd_equil=pass_mhd_equil
+                    )
+                else:
+                    f_bckgr = f_bckgr + getattr(maxwellians, fi_type)(
+                        maxw_params=maxw_params,
+                        mhd_equil=pass_mhd_equil
+                    )
 
             # load all grids of the variables of f
             grid_tot = []
@@ -525,7 +554,7 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
                     if os.path.exists(filename) and current_slice in slice_names:
                         grid_tot += [np.load(filename)]
 
-                    # otherwise evaluate at zero 
+                    # otherwise evaluate at zero
                     else:
                         if coord == 'e':
                             grid_tot += [np.zeros(1)]
@@ -546,7 +575,8 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
             # save distribution function
             np.save(os.path.join(path_slice, 'delta_f_binned.npy'), data_delta_f)
             # add extra axis for data_bckgr since data_delta_f has axis for time series
-            np.save(os.path.join(path_slice, 'f_binned.npy'), data_delta_f + data_bckgr[tuple([None])])
+            np.save(os.path.join(path_slice, 'f_binned.npy'),
+                    data_delta_f + data_bckgr[tuple([None])])
 
     # close hdf5 files
     for file in files:
