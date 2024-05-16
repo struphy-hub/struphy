@@ -854,13 +854,31 @@ def select_quasi_points(i: int, p: int, Nbasis: int, periodic: bool):
 
 
 def solve_local_0_form(
-    starts: 'int[:]', ends: 'int[:]', pds: 'int[:]', npts: 'int[:]', periodic: 'bool[:]',
+    original_size1: int, original_size2: int, original_size3: int, index_translation1: 'int[:]', index_translation2: 'int[:]', index_translation3: 'int[:]', starts: 'int[:]', ends: 'int[:]', pds: 'int[:]', npts: 'int[:]', periodic: 'bool[:]',
     p1: int, p2: int, p3: int, wij0: 'float[:,:]', wij1: 'float[:,:]', wij2: 'float[:,:]', rhs: 'float[:,:,:]', out: 'float[:,:,:]'
 ):
     '''Kernel for obtaining the FEEC coefficients of zero forms with local projectors.
 
     Parameters
     ----------
+        original_size1: int
+            Number of total quasi-interpolation points (or quasi-histopolation intervals) in the e1 direction
+
+        original_size2: int
+            Number of total quasi-interpolation points (or quasi-histopolation intervals) in the e2 direction
+
+        original_size3: int
+            Number of total quasi-interpolation points (or quasi-histopolation intervals) in the e3 direction
+
+        index_translation1: 1d int array
+            Array which translates for the e1 direction from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translation1[index_global]
+
+        index_translation2: 1d int array
+            Array which translates for the e2 direction from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translation2[index_global]
+
+        index_translation3: 1d int array
+            Array which translates for the e3 direction from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translation3[index_global]
+
         starts: 1d int array
             Array with the StencilVector start indices for each MPI rank.
 
@@ -899,7 +917,6 @@ def solve_local_0_form(
         out : 3d float array
             Array of FEEC coefficients for the 0-form function.
     '''
-    from numpy import shape
     # We iterate over all the entries that belong to the current rank
     counteri0 = 0
     for i0 in range(starts[0], ends[0]+1):
@@ -916,24 +933,26 @@ def solve_local_0_form(
                     i2, p3, npts[2], periodic[2])
                 for j1 in range(2*p1-1):
                     # position 1 to evaluate rhs. The module is only necessary for periodic boundary conditions. But it does not hurt the clamped boundary conditions so we just leave it as is to avoid an extra if.
-                    if (startj1+j1 < shape(rhs)[0]):
-                        pos1 = startj1+j1
+                    if (startj1+j1 < original_size1):
+                        pos1 = index_translation1[startj1+j1]
                     else:
-                        pos1 = int(startj1+j1 - 2*npts[0])
+                        pos1 = index_translation1[int(startj1+j1 - 2*npts[0])]
                     auxL2 = 0.0
                     for j2 in range(2*p2-1):
                         # position 2 to evaluate rhs
-                        if (startj2+j2 < shape(rhs)[1]):
-                            pos2 = startj2+j2
+                        if (startj2+j2 < original_size2):
+                            pos2 = index_translation2[startj2+j2]
                         else:
-                            pos2 = int(startj2+j2 - 2*npts[1])
+                            pos2 = index_translation2[int(
+                                startj2+j2 - 2*npts[1])]
                         auxL3 = 0.0
                         for j3 in range(2*p3-1):
                             # position 3 to evaluate rhs
-                            if (startj3+j3 < shape(rhs)[2]):
-                                pos3 = startj3+j3
+                            if (startj3+j3 < original_size3):
+                                pos3 = index_translation3[startj3+j3]
                             else:
-                                pos3 = int(startj3+j3 - 2*npts[2])
+                                pos3 = index_translation3[int(
+                                    startj3+j3 - 2*npts[2])]
                             auxL3 += wij2[i2][j3]*rhs[pos1, pos2, pos3]
                         auxL2 += wij1[i1][j2]*auxL3
                     L123 += wij0[i0][j1]*auxL2
@@ -943,12 +962,48 @@ def solve_local_0_form(
         counteri0 += 1
 
 
-def solve_local_1_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int[:,:]', npts: 'int[:,:]', periodic: 'bool[:,:]',
+def solve_local_1_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]', original_pts_sizez: 'int[:]', index_translationx0: 'int[:]', index_translationx1: 'int[:]', index_translationx2: 'int[:]', index_translationy0: 'int[:]', index_translationy1: 'int[:]', index_translationy2: 'int[:]', index_translationz0: 'int[:]', index_translationz1: 'int[:]', index_translationz2: 'int[:]', nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int[:,:]', npts: 'int[:,:]', periodic: 'bool[:,:]',
                        p1: int, p2: int, p3: int, wij0: 'float[:,:]', wij1: 'float[:,:]', wij2: 'float[:,:]',  whij0: 'float[:,:]', whij1: 'float[:,:]', whij2: 'float[:,:]', rhs0: 'float[:,:,:]', rhs1: 'float[:,:,:]', rhs2: 'float[:,:,:]', out0: 'float[:,:,:]', out1: 'float[:,:,:]', out2: 'float[:,:,:]'):
     '''Kernel for obtaining the FEEC coefficients of one forms with local projectors.
 
     Parameters
     ----------
+        original_pts_sizex: 1d int array
+            Number of total quasi-interpolation points (or quasi-histopolation intervals) in the e1,e2 and e3 direction for the x-component of the BlockVector
+
+        original_pts_sizey: 1d int array
+            Number of total quasi-interpolation points (or quasi-histopolation intervals) in the e1,e2 and e3 direction for the y-component of the BlockVector
+
+        original_pts_sizez: 1d int array
+            Number of total quasi-interpolation points (or quasi-histopolation intervals) in the e1,e2 and e3 direction for the z-component of the BlockVector
+
+        index_translationx0: 1d int array
+            For the x component of the BlockVector this array translates for the e1 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationx0[index_global]
+
+        index_translationx1: 1d int array
+            For the x component of the BlockVector this array translates for the e2 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationx1[index_global]
+
+        index_translationx2: 1d int array
+            For the x component of the BlockVector this array translates for the e3 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationx2[index_global]
+
+        index_translationy0: 1d int array
+            For the y component of the BlockVector this array translates for the e1 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationy0[index_global]
+
+        index_translationy1: 1d int array
+            For the y component of the BlockVector this array translates for the e2 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationy1[index_global]
+
+        index_translationy2: 1d int array
+            For the y component of the BlockVector this array translates for the e3 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationy2[index_global]
+
+        index_translationz0: 1d int array
+            For the z component of the BlockVector this array translates for the e1 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationz0[index_global]
+
+        index_translationz1: 1d int array
+            For the z component of the BlockVector this array translates for the e2 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationz1[index_global]
+
+        index_translationz2: 1d int array
+            For the z component of the BlockVector this array translates for the e3 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationz2[index_global]
+
         nsp: int
             Number of spaces.
 
@@ -1012,8 +1067,6 @@ def solve_local_1_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int
         out2 : 3d float array
             Array of FEEC coefficients for the third component of the 1-form function.
     '''
-    from numpy import shape
-
     # We iterate over the stencil vectors inside the BlockVector
     for h in range(nsp):
         # We need to know the number of iterrations to be done by the j1, j2 and j3 loops. Since they change depending on whether we have interpolation or histopolation they will be different for each h.
@@ -1021,6 +1074,14 @@ def solve_local_1_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int
             lenj1 = 2*p1
             lenj2 = 2*p2-1
             lenj3 = 2*p3-1
+
+            # We compute the amout by which we must shift the indices to loop around the quasi-points.
+            # We do it only for histopolation for it is the only case in which we might have two different values dependign on the situation.
+            if (p1 == 1 and npts[1][0] != 1):
+                shift1 = - 2*npts[1][0] + 1
+            else:
+                shift1 = - 2*npts[1][0]
+
             # We iterate over all the entries that belong to the current rank
             counteri0 = 0
             for i0 in range(starts[h][0], ends[h][0]+1):
@@ -1039,26 +1100,28 @@ def solve_local_1_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int
 
                         for j1 in range(lenj1):
                             # position 1 to evaluate rhs
-                            if (startj1+j1 < shape(rhs0)[0]):
-                                pos1 = startj1+j1
+                            if (startj1+j1 < original_pts_sizex[0]):
+                                pos1 = index_translationx0[startj1+j1]
                             else:
-                                pos1 = int(startj1+j1 - 2*npts[1][0])
+                                pos1 = index_translationx0[int(
+                                    startj1+j1 + shift1)]
                             if (whij0[i0][j1] != 0.0):
                                 auxL2 = 0.0
                                 for j2 in range(lenj2):
                                     # position 2 to evaluate rhs
-                                    if (startj2+j2 < shape(rhs0)[1]):
-                                        pos2 = startj2+j2
+                                    if (startj2+j2 < original_pts_sizex[1]):
+                                        pos2 = index_translationx1[startj2+j2]
                                     else:
-                                        pos2 = int(startj2+j2 - 2*npts[0][1])
+                                        pos2 = index_translationx1[int(
+                                            startj2+j2 - 2*npts[0][1])]
                                     auxL3 = 0.0
                                     for j3 in range(lenj3):
                                         # position 3 to evaluate rhs
-                                        if (startj3+j3 < shape(rhs0)[2]):
-                                            pos3 = startj3+j3
+                                        if (startj3+j3 < original_pts_sizex[2]):
+                                            pos3 = index_translationx2[startj3+j3]
                                         else:
-                                            pos3 = int(
-                                                startj3+j3 - 2*npts[0][2])
+                                            pos3 = index_translationx2[int(
+                                                startj3+j3 - 2*npts[0][2])]
                                         auxL3 += wij2[i2][j3] * \
                                             rhs0[pos1, pos2, pos3]
                                     auxL2 += wij1[i1][j2]*auxL3
@@ -1073,6 +1136,14 @@ def solve_local_1_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int
             lenj1 = 2*p1-1
             lenj2 = 2*p2
             lenj3 = 2*p3-1
+
+            # We compute the amout by which we must shift the indices to loop around the quasi-points.
+            # We do it only for histopolation for it is the only case in which we might have two different values dependign on the situation.
+            if (p2 == 1 and npts[0][1] != 1):
+                shift2 = - 2*npts[0][1] + 1
+            else:
+                shift2 = - 2*npts[0][1]
+
             # We iterate over all the entries that belong to the current rank
             counteri0 = 0
             for i0 in range(starts[h][0], ends[h][0]+1):
@@ -1090,26 +1161,28 @@ def solve_local_1_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int
                             i2, p3, npts[0][2], periodic[0][2])
                         for j1 in range(lenj1):
                             # position 1 to evaluate rhs
-                            if (startj1+j1 < shape(rhs1)[0]):
-                                pos1 = startj1+j1
+                            if (startj1+j1 < original_pts_sizey[0]):
+                                pos1 = index_translationy0[startj1+j1]
                             else:
-                                pos1 = int(startj1+j1 - 2 * npts[1][0])
+                                pos1 = index_translationy0[int(
+                                    startj1+j1 - 2 * npts[1][0])]
                             auxL2 = 0.0
                             for j2 in range(lenj2):
                                 # position 2 to evaluate rhs
-                                if (startj2+j2 < shape(rhs1)[1]):
-                                    pos2 = startj2+j2
+                                if (startj2+j2 < original_pts_sizey[1]):
+                                    pos2 = index_translationy1[startj2+j2]
                                 else:
-                                    pos2 = int(startj2+j2 - 2*npts[0][1])
+                                    pos2 = index_translationy1[int(
+                                        startj2+j2 + shift2)]
                                 if (whij1[i1][j2] != 0.0):
                                     auxL3 = 0.0
                                     for j3 in range(lenj3):
                                         # position 3 to evaluate rhs
-                                        if (startj3+j3 < shape(rhs1)[2]):
-                                            pos3 = startj3+j3
+                                        if (startj3+j3 < original_pts_sizey[2]):
+                                            pos3 = index_translationy2[startj3+j3]
                                         else:
-                                            pos3 = int(
-                                                startj3+j3 - 2*npts[0][2])
+                                            pos3 = index_translationy2[int(
+                                                startj3+j3 - 2*npts[0][2])]
                                         auxL3 += wij2[i2][j3] * \
                                             rhs1[pos1, pos2, pos3]
                                     auxL2 += whij1[i1][j2]*auxL3
@@ -1125,6 +1198,13 @@ def solve_local_1_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int
             lenj2 = 2*p2-1
             lenj3 = 2*p3
 
+            # We compute the amout by which we must shift the indices to loop around the quasi-points.
+            # We do it only for histopolation for it is the only case in which we might have two different values dependign on the situation.
+            if (p3 == 1 and npts[0][2] != 1):
+                shift3 = - 2*npts[0][2] + 1
+            else:
+                shift3 = - 2*npts[0][2]
+
             # We iterate over all the entries that belong to the current rank
             counteri0 = 0
             for i0 in range(starts[h][0], ends[h][0]+1):
@@ -1142,24 +1222,27 @@ def solve_local_1_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int
                             i2, p3, npts[0][2], periodic[0][2])
                         for j1 in range(lenj1):
                             # position 1 to evaluate rhs
-                            if (startj1+j1 < shape(rhs2)[0]):
-                                pos1 = startj1+j1
+                            if (startj1+j1 < original_pts_sizez[0]):
+                                pos1 = index_translationz0[startj1+j1]
                             else:
-                                pos1 = int(startj1+j1 - 2*npts[1][0])
+                                pos1 = index_translationz0[int(
+                                    startj1+j1 - 2*npts[1][0])]
                             auxL2 = 0.0
                             for j2 in range(lenj2):
                                 # position 2 to evaluate rhs
-                                if (startj2+j2 < shape(rhs2)[1]):
-                                    pos2 = startj2+j2
+                                if (startj2+j2 < original_pts_sizez[1]):
+                                    pos2 = index_translationz1[startj2+j2]
                                 else:
-                                    pos2 = int(startj2+j2 - 2*npts[0][1])
+                                    pos2 = index_translationz1[int(
+                                        startj2+j2 - 2*npts[0][1])]
                                 auxL3 = 0.0
                                 for j3 in range(lenj3):
                                     # position 3 to evaluate rhs
-                                    if (startj3+j3 < shape(rhs2)[2]):
-                                        pos3 = startj3+j3
+                                    if (startj3+j3 < original_pts_sizez[2]):
+                                        pos3 = index_translationz2[startj3+j3]
                                     else:
-                                        pos3 = int(startj3+j3 - 2*npts[0][2])
+                                        pos3 = index_translationz2[int(
+                                            startj3+j3 + shift3)]
                                     if (whij2[i2][j3] != 0.0):
                                         auxL3 += whij2[i2][j3] * \
                                             rhs2[pos1, pos2, pos3]
@@ -1172,12 +1255,48 @@ def solve_local_1_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int
                 counteri0 += 1
 
 
-def solve_local_2_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int[:,:]', npts: 'int[:,:]', periodic: 'bool[:,:]',
+def solve_local_2_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]', original_pts_sizez: 'int[:]', index_translationx0: 'int[:]', index_translationx1: 'int[:]', index_translationx2: 'int[:]', index_translationy0: 'int[:]', index_translationy1: 'int[:]', index_translationy2: 'int[:]', index_translationz0: 'int[:]', index_translationz1: 'int[:]', index_translationz2: 'int[:]', nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int[:,:]', npts: 'int[:,:]', periodic: 'bool[:,:]',
                        p1: int, p2: int, p3: int, wij0: 'float[:,:]', wij1: 'float[:,:]', wij2: 'float[:,:]',  whij0: 'float[:,:]', whij1: 'float[:,:]', whij2: 'float[:,:]', rhs0: 'float[:,:,:]', rhs1: 'float[:,:,:]', rhs2: 'float[:,:,:]', out0: 'float[:,:,:]', out1: 'float[:,:,:]', out2: 'float[:,:,:]'):
     '''Kernel for obtaining the FEEC coefficients of 2-forms with local projectors.
 
     Parameters
     ----------
+        original_pts_sizex: 1d int array
+            Number of total quasi-interpolation points (or quasi-histopolation intervals) in the e1,e2 and e3 direction for the x-component of the BlockVector
+
+        original_pts_sizey: 1d int array
+            Number of total quasi-interpolation points (or quasi-histopolation intervals) in the e1,e2 and e3 direction for the y-component of the BlockVector
+
+        original_pts_sizez: 1d int array
+            Number of total quasi-interpolation points (or quasi-histopolation intervals) in the e1,e2 and e3 direction for the z-component of the BlockVector
+
+        index_translationx0: 1d int array
+            For the x component of the BlockVector this array translates for the e1 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationx0[index_global]
+
+        index_translationx1: 1d int array
+            For the x component of the BlockVector this array translates for the e2 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationx1[index_global]
+
+        index_translationx2: 1d int array
+            For the x component of the BlockVector this array translates for the e3 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationx2[index_global]
+
+        index_translationy0: 1d int array
+            For the y component of the BlockVector this array translates for the e1 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationy0[index_global]
+
+        index_translationy1: 1d int array
+            For the y component of the BlockVector this array translates for the e2 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationy1[index_global]
+
+        index_translationy2: 1d int array
+            For the y component of the BlockVector this array translates for the e3 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationy2[index_global]
+
+        index_translationz0: 1d int array
+            For the z component of the BlockVector this array translates for the e1 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationz0[index_global]
+
+        index_translationz1: 1d int array
+            For the z component of the BlockVector this array translates for the e2 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationz1[index_global]
+
+        index_translationz2: 1d int array
+            For the z component of the BlockVector this array translates for the e3 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationz2[index_global]
+
         nsp: int
             Number of spaces.
 
@@ -1250,6 +1369,18 @@ def solve_local_2_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int
             lenj1 = 2*p1-1
             lenj2 = 2*p2
             lenj3 = 2*p3
+
+            # We compute the amout by which we must shift the indices to loop around the quasi-points.
+            # We do it only for histopolation for it is the only case in which we might have two different values dependign on the situation.
+            if (p2 == 1 and npts[1][1] != 1):
+                shift2 = - 2*npts[1][1] + 1
+            else:
+                shift2 = - 2*npts[1][1]
+
+            if (p3 == 1 and npts[2][2] != 1):
+                shift3 = - 2*npts[2][2] + 1
+            else:
+                shift3 = - 2*npts[2][2]
             # We iterate over all the entries that belong to the current rank
             counteri0 = 0
             for i0 in range(starts[h][0], ends[h][0]+1):
@@ -1268,26 +1399,28 @@ def solve_local_2_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int
 
                         for j1 in range(lenj1):
                             # position 1 to evaluate rhs
-                            if (startj1+j1 < shape(rhs0)[0]):
-                                pos1 = startj1+j1
+                            if (startj1+j1 < original_pts_sizex[0]):
+                                pos1 = index_translationx0[startj1+j1]
                             else:
-                                pos1 = int(startj1+j1 - 2*npts[0][0])
+                                pos1 = index_translationx0[int(
+                                    startj1+j1 - 2*npts[0][0])]
                             auxL2 = 0.0
                             for j2 in range(lenj2):
                                 # position 2 to evaluate rhs
-                                if (startj2+j2 < shape(rhs0)[1]):
-                                    pos2 = startj2+j2
+                                if (startj2+j2 < original_pts_sizex[1]):
+                                    pos2 = index_translationx1[startj2+j2]
                                 else:
-                                    pos2 = int(startj2+j2 - 2*npts[1][1])
+                                    pos2 = index_translationx1[int(
+                                        startj2+j2 + shift2)]
                                 if (whij1[i1][j2] != 0.0):
                                     auxL3 = 0.0
                                     for j3 in range(lenj3):
                                         # position 3 to evaluate rhs
-                                        if (startj3+j3 < shape(rhs0)[2]):
-                                            pos3 = startj3+j3
+                                        if (startj3+j3 < original_pts_sizex[2]):
+                                            pos3 = index_translationx2[startj3+j3]
                                         else:
-                                            pos3 = int(
-                                                startj3+j3 - 2*npts[2][2])
+                                            pos3 = index_translationx2[int(
+                                                startj3+j3 + shift3)]
                                         if (whij2[i2][j3] != 0.0):
                                             auxL3 += whij2[i2][j3] * \
                                                 rhs0[pos1, pos2, pos3]
@@ -1303,6 +1436,19 @@ def solve_local_2_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int
             lenj1 = 2*p1
             lenj2 = 2*p2-1
             lenj3 = 2*p3
+
+            # We compute the amout by which we must shift the indices to loop around the quasi-points.
+            # We do it only for histopolation for it is the only case in which we might have two different values dependign on the situation.
+            if (p1 == 1 and npts[0][0] != 1):
+                shift1 = - 2*npts[0][0] + 1
+            else:
+                shift1 = - 2*npts[0][0]
+
+            if (p3 == 1 and npts[2][2] != 1):
+                shift3 = - 2*npts[2][2] + 1
+            else:
+                shift3 = - 2*npts[2][2]
+
             # We iterate over all the entries that belong to the current rank
             counteri0 = 0
             for i0 in range(starts[h][0], ends[h][0]+1):
@@ -1320,26 +1466,28 @@ def solve_local_2_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int
                             i2, p3, npts[2][2], periodic[0][2])
                         for j1 in range(lenj1):
                             # position 1 to evaluate rhs
-                            if (startj1+j1 < shape(rhs1)[0]):
-                                pos1 = startj1+j1
+                            if (startj1+j1 < original_pts_sizey[0]):
+                                pos1 = index_translationy0[startj1+j1]
                             else:
-                                pos1 = int(startj1+j1 - 2*npts[0][0])
+                                pos1 = index_translationy0[int(
+                                    startj1+j1 + shift1)]
                             if (whij0[i0][j1] != 0.0):
                                 auxL2 = 0.0
                                 for j2 in range(lenj2):
                                     # position 2 to evaluate rhs
-                                    if (startj2+j2 < shape(rhs1)[1]):
-                                        pos2 = startj2+j2
+                                    if (startj2+j2 < original_pts_sizey[1]):
+                                        pos2 = index_translationy1[startj2+j2]
                                     else:
-                                        pos2 = int(startj2+j2 - 2*npts[1][1])
+                                        pos2 = index_translationy1[int(
+                                            startj2+j2 - 2*npts[1][1])]
                                     auxL3 = 0.0
                                     for j3 in range(lenj3):
                                         # position 3 to evaluate rhs
-                                        if (startj3+j3 < shape(rhs1)[2]):
-                                            pos3 = startj3+j3
+                                        if (startj3+j3 < original_pts_sizey[2]):
+                                            pos3 = index_translationy2[startj3+j3]
                                         else:
-                                            pos3 = int(
-                                                startj3+j3 - 2*npts[2][2])
+                                            pos3 = index_translationy2[int(
+                                                startj3+j3 + shift3)]
                                         if (whij2[i2][j3] != 0.0):
                                             auxL3 += whij2[i2][j3] * \
                                                 rhs1[pos1, pos2, pos3]
@@ -1356,6 +1504,18 @@ def solve_local_2_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int
             lenj2 = 2*p2
             lenj3 = 2*p3-1
 
+            # We compute the amout by which we must shift the indices to loop around the quasi-points.
+            # We do it only for histopolation for it is the only case in which we might have two different values dependign on the situation.
+            if (p1 == 1 and npts[0][0] != 1):
+                shift1 = - 2*npts[0][0] + 1
+            else:
+                shift1 = - 2*npts[0][0]
+
+            if (p2 == 1 and npts[1][1] != 1):
+                shift2 = - 2*npts[1][1] + 1
+            else:
+                shift2 = - 2*npts[1][1]
+
             # We iterate over all the entries that belong to the current rank
             counteri0 = 0
             for i0 in range(starts[h][0], ends[h][0]+1):
@@ -1373,27 +1533,29 @@ def solve_local_2_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int
                             i2, p3, npts[2][2], periodic[0][2])
                         for j1 in range(lenj1):
                             # position 1 to evaluate rhs
-                            if (startj1+j1 < shape(rhs2)[0]):
-                                pos1 = startj1+j1
+                            if (startj1+j1 < original_pts_sizez[0]):
+                                pos1 = index_translationz0[startj1+j1]
                             else:
-                                pos1 = int(startj1+j1 - 2*npts[0][0])
+                                pos1 = index_translationz0[int(
+                                    startj1+j1 + shift1)]
                             if (whij0[i0][j1] != 0.0):
                                 auxL2 = 0.0
                                 for j2 in range(lenj2):
                                     # position 2 to evaluate rhs
-                                    if (startj2+j2 < shape(rhs2)[1]):
-                                        pos2 = startj2+j2
+                                    if (startj2+j2 < original_pts_sizez[1]):
+                                        pos2 = index_translationz1[startj2+j2]
                                     else:
-                                        pos2 = int(startj2+j2 - 2*npts[1][1])
+                                        pos2 = index_translationz1[int(
+                                            startj2+j2 + shift2)]
                                     if (whij1[i1][j2] != 0.0):
                                         auxL3 = 0.0
                                         for j3 in range(lenj3):
                                             # position 3 to evaluate rhs
-                                            if (startj3+j3 < shape(rhs2)[2]):
-                                                pos3 = startj3+j3
+                                            if (startj3+j3 < original_pts_sizez[2]):
+                                                pos3 = index_translationz2[startj3+j3]
                                             else:
-                                                pos3 = int(
-                                                    startj3+j3 - 2*npts[2][2])
+                                                pos3 = index_translationz2[int(
+                                                    startj3+j3 - 2*npts[2][2])]
                                             auxL3 += wij2[i2][j3] * \
                                                 rhs2[pos1, pos2, pos3]
                                         auxL2 += whij1[i1][j2]*auxL3
@@ -1406,13 +1568,31 @@ def solve_local_2_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int
 
 
 def solve_local_3_form(
-    starts: 'int[:]', ends: 'int[:]', pds: 'int[:]', npts: 'int[:]', periodic: 'bool[:]',
+    original_size1: int, original_size2: int, original_size3: int, index_translation1: 'int[:]', index_translation2: 'int[:]', index_translation3: 'int[:]', starts: 'int[:]', ends: 'int[:]', pds: 'int[:]', npts: 'int[:]', periodic: 'bool[:]',
     p1: int, p2: int, p3: int, whij0: 'float[:,:]', whij1: 'float[:,:]', whij2: 'float[:,:]', rhs: 'float[:,:,:]', out: 'float[:,:,:]'
 ):
     '''Kernel for obtaining the FEEC coefficients of three forms with local projectors.
 
     Parameters
     ----------
+        original_size1: int
+            Number of total quasi-interpolation points (or quasi-histopolation intervals) in the e1 direction
+
+        original_size2: int
+            Number of total quasi-interpolation points (or quasi-histopolation intervals) in the e2 direction
+
+        original_size3: int
+            Number of total quasi-interpolation points (or quasi-histopolation intervals) in the e3 direction
+
+        index_translation1: 1d int array
+            Array which translates for the e1 direction from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translation1[index_global]
+
+        index_translation2: 1d int array
+            Array which translates for the e2 direction from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translation2[index_global]
+
+        index_translation3: 1d int array
+            Array which translates for the e3 direction from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translation3[index_global]
+
         starts: 1d int array
             Array with the StencilVector start indices for each MPI rank.
 
@@ -1453,20 +1633,37 @@ def solve_local_3_form(
             Array of FEEC coefficients for the 3-form function.
     '''
     from numpy import shape
-    #We get the number of B-Splines
-    if(periodic[0]):
+    # We get the number of B-Splines
+    if (periodic[0]):
         NB0 = npts[0]
     else:
         NB0 = npts[0]+1
-    if(periodic[1]):
+    if (periodic[1]):
         NB1 = npts[1]
     else:
         NB1 = npts[1]+1
-    if(periodic[2]):
+    if (periodic[2]):
         NB2 = npts[2]
     else:
         NB2 = npts[2]+1
-    
+
+    # We compute the amout by which we must shift the indices to loop around the quasi-points.
+    # We do it only for histopolation for it is the only case in which we might have two different values dependign on the situation.
+    if (p1 == 1 and NB0 != 1):
+        shift1 = - 2*NB0 + 1
+    else:
+        shift1 = - 2*NB0
+
+    if (p2 == 1 and NB1 != 1):
+        shift2 = - 2*NB1 + 1
+    else:
+        shift2 = - 2*NB1
+
+    if (p3 == 1 and NB2 != 1):
+        shift3 = - 2*NB2 + 1
+    else:
+        shift3 = - 2*NB2
+
     # We iterate over all the entries that belong to the current rank
     counteri0 = 0
     for i0 in range(starts[0], ends[0]+1):
@@ -1483,26 +1680,28 @@ def solve_local_3_form(
                     i2, p3, npts[2]+1, periodic[2])
                 for j1 in range(2*p1):
                     # position 1 to evaluate rhs
-                    if (startj1+j1 < shape(rhs)[0]):
-                        pos1 = startj1+j1
+                    if (startj1+j1 < original_size1):
+                        pos1 = index_translation1[startj1+j1]
                     else:
-                        pos1 = int(startj1+j1 - 2*NB0)
+                        pos1 = index_translation1[int(startj1+j1 + shift1)]
                     if (whij0[i0][j1] != 0.0):
                         auxL2 = 0.0
                         for j2 in range(2*p2):
                             # position 2 to evaluate rhs
-                            if (startj2+j2 < shape(rhs)[1]):
-                                pos2 = startj2+j2
+                            if (startj2+j2 < original_size2):
+                                pos2 = index_translation2[startj2+j2]
                             else:
-                                pos2 = int(startj2+j2 - 2*NB1)
+                                pos2 = index_translation2[int(
+                                    startj2+j2 + shift2)]
                             if (whij1[i1][j2] != 0.0):
                                 auxL3 = 0.0
                                 for j3 in range(2*p3):
                                     # position 3 to evaluate rhs
-                                    if (startj3+j3 < shape(rhs)[2]):
-                                        pos3 = startj3+j3
+                                    if (startj3+j3 < original_size3):
+                                        pos3 = index_translation3[startj3+j3]
                                     else:
-                                        pos3 = int(startj3+j3 - 2*NB2)
+                                        pos3 = index_translation3[int(
+                                            startj3+j3 + shift3)]
                                     if (whij2[i2][j3] != 0.0):
                                         auxL3 += whij2[i2][j3] * \
                                             rhs[pos1, pos2, pos3]
@@ -1514,12 +1713,48 @@ def solve_local_3_form(
         counteri0 += 1
 
 
-def solve_local_0V_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int[:,:]', npts: 'int[:,:]', periodic: 'bool[:,:]',
+def solve_local_0V_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]', original_pts_sizez: 'int[:]', index_translationx0: 'int[:]', index_translationx1: 'int[:]', index_translationx2: 'int[:]', index_translationy0: 'int[:]', index_translationy1: 'int[:]', index_translationy2: 'int[:]', index_translationz0: 'int[:]', index_translationz1: 'int[:]', index_translationz2: 'int[:]', nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int[:,:]', npts: 'int[:,:]', periodic: 'bool[:,:]',
                         p1: int, p2: int, p3: int, wij0: 'float[:,:]', wij1: 'float[:,:]', wij2: 'float[:,:]',  rhs0: 'float[:,:,:]', rhs1: 'float[:,:,:]', rhs2: 'float[:,:,:]', out0: 'float[:,:,:]', out1: 'float[:,:,:]', out2: 'float[:,:,:]'):
     '''Kernel for obtaining the FEEC coefficients of vector 0-forms with local projectors.
 
     Parameters
     ----------
+        original_pts_sizex: 1d int array
+            Number of total quasi-interpolation points (or quasi-histopolation intervals) in the e1,e2 and e3 direction for the x-component of the BlockVector
+
+        original_pts_sizey: 1d int array
+            Number of total quasi-interpolation points (or quasi-histopolation intervals) in the e1,e2 and e3 direction for the y-component of the BlockVector
+
+        original_pts_sizez: 1d int array
+            Number of total quasi-interpolation points (or quasi-histopolation intervals) in the e1,e2 and e3 direction for the z-component of the BlockVector
+
+        index_translationx0: 1d int array
+            For the x component of the BlockVector this array translates for the e1 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationx0[index_global]
+
+        index_translationx1: 1d int array
+            For the x component of the BlockVector this array translates for the e2 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationx1[index_global]
+
+        index_translationx2: 1d int array
+            For the x component of the BlockVector this array translates for the e3 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationx2[index_global]
+
+        index_translationy0: 1d int array
+            For the y component of the BlockVector this array translates for the e1 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationy0[index_global]
+
+        index_translationy1: 1d int array
+            For the y component of the BlockVector this array translates for the e2 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationy1[index_global]
+
+        index_translationy2: 1d int array
+            For the y component of the BlockVector this array translates for the e3 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationy2[index_global]
+
+        index_translationz0: 1d int array
+            For the z component of the BlockVector this array translates for the e1 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationz0[index_global]
+
+        index_translationz1: 1d int array
+            For the z component of the BlockVector this array translates for the e2 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationz1[index_global]
+
+        index_translationz2: 1d int array
+            For the z component of the BlockVector this array translates for the e3 directions from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translationz2[index_global]
+
         nsp: int
             Number of spaces.
 
@@ -1574,7 +1809,6 @@ def solve_local_0V_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'in
         out2 : 3d float array
             Array of FEEC coefficients for the third component of the 0-form vector function.
     '''
-    from numpy import shape
 
     lenj1 = 2*p1-1
     lenj2 = 2*p2-1
@@ -1601,24 +1835,27 @@ def solve_local_0V_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'in
 
                         for j1 in range(lenj1):
                             # position 1 to evaluate rhs
-                            if (startj1+j1 < shape(rhs0)[0]):
-                                pos1 = startj1+j1
+                            if (startj1+j1 < original_pts_sizex[0]):
+                                pos1 = index_translationx0[startj1+j1]
                             else:
-                                pos1 = int(startj1+j1 - 2*npts[0][0])
+                                pos1 = index_translationx0[int(
+                                    startj1+j1 - 2*npts[0][0])]
                             auxL2 = 0.0
                             for j2 in range(lenj2):
                                 # position 2 to evaluate rhs
-                                if (startj2+j2 < shape(rhs0)[1]):
-                                    pos2 = startj2+j2
+                                if (startj2+j2 < original_pts_sizex[1]):
+                                    pos2 = index_translationx1[startj2+j2]
                                 else:
-                                    pos2 = int(startj2+j2 - 2*npts[0][1])
+                                    pos2 = index_translationx1[int(
+                                        startj2+j2 - 2*npts[0][1])]
                                 auxL3 = 0.0
                                 for j3 in range(lenj3):
                                     # position 3 to evaluate rhs
-                                    if (startj3+j3 < shape(rhs0)[2]):
-                                        pos3 = startj3+j3
+                                    if (startj3+j3 < original_pts_sizex[2]):
+                                        pos3 = index_translationx2[startj3+j3]
                                     else:
-                                        pos3 = int(startj3+j3 - 2*npts[0][2])
+                                        pos3 = index_translationx2[int(
+                                            startj3+j3 - 2*npts[0][2])]
                                     auxL3 += wij2[i2][j3] * \
                                         rhs0[pos1, pos2, pos3]
                                 auxL2 += wij1[i1][j2]*auxL3
@@ -1648,24 +1885,27 @@ def solve_local_0V_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'in
 
                         for j1 in range(lenj1):
                             # position 1 to evaluate rhs
-                            if (startj1+j1 < shape(rhs1)[0]):
-                                pos1 = startj1+j1
+                            if (startj1+j1 < original_pts_sizey[0]):
+                                pos1 = index_translationy0[startj1+j1]
                             else:
-                                pos1 = int(startj1+j1 - 2*npts[0][0])
+                                pos1 = index_translationy0[int(
+                                    startj1+j1 - 2*npts[0][0])]
                             auxL2 = 0.0
                             for j2 in range(lenj2):
                                 # position 2 to evaluate rhs
-                                if (startj2+j2 < shape(rhs1)[1]):
-                                    pos2 = startj2+j2
+                                if (startj2+j2 < original_pts_sizey[1]):
+                                    pos2 = index_translationy1[startj2+j2]
                                 else:
-                                    pos2 = int(startj2+j2 - 2*npts[0][1])
+                                    pos2 = index_translationy1[int(
+                                        startj2+j2 - 2*npts[0][1])]
                                 auxL3 = 0.0
                                 for j3 in range(lenj3):
                                     # position 3 to evaluate rhs
-                                    if (startj3+j3 < shape(rhs1)[2]):
-                                        pos3 = startj3+j3
+                                    if (startj3+j3 < original_pts_sizey[2]):
+                                        pos3 = index_translationy2[startj3+j3]
                                     else:
-                                        pos3 = int(startj3+j3 - 2*npts[0][2])
+                                        pos3 = index_translationy2[int(
+                                            startj3+j3 - 2*npts[0][2])]
                                     auxL3 += wij2[i2][j3] * \
                                         rhs1[pos1, pos2, pos3]
                                 auxL2 += wij1[i1][j2]*auxL3
@@ -1695,24 +1935,27 @@ def solve_local_0V_form(nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'in
 
                         for j1 in range(lenj1):
                             # position 1 to evaluate rhs
-                            if (startj1+j1 < shape(rhs2)[0]):
-                                pos1 = startj1+j1
+                            if (startj1+j1 < original_pts_sizez[0]):
+                                pos1 = index_translationz0[startj1+j1]
                             else:
-                                pos1 = int(startj1+j1 - 2*npts[0][0])
+                                pos1 = index_translationz0[int(
+                                    startj1+j1 - 2*npts[0][0])]
                             auxL2 = 0.0
                             for j2 in range(lenj2):
                                 # position 2 to evaluate rhs
-                                if (startj2+j2 < shape(rhs2)[1]):
-                                    pos2 = startj2+j2
+                                if (startj2+j2 < original_pts_sizez[1]):
+                                    pos2 = index_translationz1[startj2+j2]
                                 else:
-                                    pos2 = int(startj2+j2 - 2*npts[0][1])
+                                    pos2 = index_translationz1[int(
+                                        startj2+j2 - 2*npts[0][1])]
                                 auxL3 = 0.0
                                 for j3 in range(lenj3):
                                     # position 3 to evaluate rhs
-                                    if (startj3+j3 < shape(rhs2)[2]):
-                                        pos3 = startj3+j3
+                                    if (startj3+j3 < original_pts_sizez[2]):
+                                        pos3 = index_translationz2[startj3+j3]
                                     else:
-                                        pos3 = int(startj3+j3 - 2*npts[0][2])
+                                        pos3 = index_translationz2[int(
+                                            startj3+j3 - 2*npts[0][2])]
                                     auxL3 += wij2[i2][j3] * \
                                         rhs2[pos1, pos2, pos3]
                                 auxL2 += wij1[i1][j2]*auxL3

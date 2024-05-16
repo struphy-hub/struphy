@@ -505,7 +505,11 @@ class CommutingProjectorLocal:
         self._whij = whij
 
         self._domain = self._fem_space.vector_space
+
         if (self._space_key == "0" or self._space_key == "3"):
+            comm = self._domain.cart.comm
+            rank = comm.Get_rank()
+            size = comm.Get_size()
             # We get the start and endpoint for each sublist in out
             self._starts = np.array(self._domain.starts)
             self._ends = np.array(self._domain.ends)
@@ -516,6 +520,9 @@ class CommutingProjectorLocal:
             # We get the number of spaces we have
             self._nsp = 1
         elif (self._space_key == "1" or self._space_key == "2" or self._space_key == "v"):
+            comm = self._domain.spaces[0].cart.comm
+            rank = comm.Get_rank()
+            size = comm.Get_size()
             # we collect all starts and ends in two big lists
             self._starts = np.array([vi.starts for vi in self._domain.spaces])
             self._ends = np.array([vi.ends for vi in self._domain.spaces])
@@ -536,30 +543,193 @@ class CommutingProjectorLocal:
         if space_id == 'H1':
             for space in fem_space.spaces:
                 self._p.append(space.degree)
+            # We want to build the meshgrid for the evaluation of the degrees of freedom so it only contains the evaluation points that each specific MPI rank is actually going to use.
+
+            self._localpts = []
+            self._index_translation = []
+            self._original_pts_size = []
+
+            lenj1 = 2*self._p[0]-1
+            lenj2 = 2*self._p[1]-1
+            lenj3 = 2*self._p[2]-1
+
+            lenj = [lenj1, lenj2, lenj3]
+
+            shift1 = - 2*self._npts[0]
+            shift2 = - 2*self._npts[1]
+            shift3 = - 2*self._npts[2]
+
+            shift = [shift1, shift2, shift3]
+
+            npts_split = [self._npts[0], self._npts[1], self._npts[2]]
+
+            BoS = "S"
+            IoH = ["I", "I", "I"]
+            split_points(BoS, IoH, 0, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
+                         self._periodic, [], self._localpts, self._original_pts_size, self._index_translation)
+
             self._meshgrid = np.meshgrid(
-                *[pt for pt in self._pts], indexing='ij')
+                *[pt for pt in self._localpts], indexing='ij')
+
         elif space_id == 'H1vec':
             for n, space in enumerate(fem_space.spaces):
                 if n == 0:
                     self._p = space.degree
 
-            self._meshgrid = np.meshgrid(
-                *[pt for pt in self._pts[0]], indexing='ij')
+            lenj1 = 2*self._p[0]-1
+            lenj2 = 2*self._p[1]-1
+            lenj3 = 2*self._p[2]-1
+
+            lenj = [lenj1, lenj2, lenj3]
+
+            shift1 = - 2*self._npts[0][0]
+            shift2 = - 2*self._npts[0][1]
+            shift3 = - 2*self._npts[0][2]
+
+            shift = [shift1, shift2, shift3]
+
+            npts_split = [self._npts[0][0], self._npts[0][1], self._npts[0][2]]
+
+            BoS = "B"
+            IoH = ["I", "I", "I"]
+
+            for h in range(self._nsp):
+                if (h == 0):
+
+                    self._localptsx = []
+                    self._index_translationx = []
+                    self._original_pts_sizex = np.zeros((3), dtype=int)
+
+                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split, self._periodic, [
+                    ], self._localptsx, self._original_pts_sizex, self._index_translationx)
+                    # meshgrid for x component
+                    self._meshgridx = np.meshgrid(
+                        *[pt for pt in self._localptsx], indexing='ij')
+
+                elif (h == 1):
+                    self._localptsy = []
+                    self._index_translationy = []
+                    self._original_pts_sizey = np.zeros((3), dtype=int)
+
+                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split, self._periodic, [
+                    ], self._localptsy, self._original_pts_sizey, self._index_translationy)
+
+                    # meshgrid for y component
+                    self._meshgridy = np.meshgrid(
+                        *[pt for pt in self._localptsy], indexing='ij')
+
+                elif (h == 2):
+                    self._localptsz = []
+                    self._index_translationz = []
+                    self._original_pts_sizez = np.zeros((3), dtype=int)
+
+                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split, self._periodic, [
+                    ], self._localptsz, self._original_pts_sizez, self._index_translationz)
+
+                    # meshgrid for z component
+                    self._meshgridz = np.meshgrid(
+                        *[pt for pt in self._localptsz], indexing='ij')
+
         elif space_id == 'Hcurl':
             for n, space in enumerate(fem_space.spaces):
                 if n == 0:
                     self._p = space.degree
             # We need the degree of the B-Splines, since for the x direction Hcurl has a D-Spline on the x direction we need to add 1 to the degree we read from it.
             self._p[0] += 1
-            # meshgrid for x component
-            self._meshgridx = np.meshgrid(
-                *[pt for pt in self._pts[0]], indexing='ij')
-            # meshgrid for y component
-            self._meshgridy = np.meshgrid(
-                *[pt for pt in self._pts[1]], indexing='ij')
-            # meshgrid for z component
-            self._meshgridz = np.meshgrid(
-                *[pt for pt in self._pts[2]], indexing='ij')
+            BoS = "B"
+            npts_split = [self._npts[1][0], self._npts[0][1], self._npts[0][2]]
+            for h in range(self._nsp):
+                if (h == 0):
+
+                    self._localptsx = []
+                    self._index_translationx = []
+                    self._original_pts_sizex = np.zeros((3), dtype=int)
+
+                    lenj1 = 2*self._p[0]
+                    lenj2 = 2*self._p[1]-1
+                    lenj3 = 2*self._p[2]-1
+
+                    lenj = [lenj1, lenj2, lenj3]
+
+                    # We compute the amout by which we must shift the indices to loop around the quasi-points.
+                    if (self._p[0] == 1 and self._npts[1][0] != 1):
+                        shift1 = - 2*self._npts[1][0] + 1
+                    else:
+                        shift1 = - 2*self._npts[1][0]
+
+                    shift2 = - 2*self._npts[0][1]
+                    shift3 = - 2*self._npts[0][2]
+
+                    shift = [shift1, shift2, shift3]
+
+                    IoH = ["H", "I", "I"]
+                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
+                                 self._periodic, self._whij, self._localptsx, self._original_pts_sizex, self._index_translationx)
+
+                    # meshgrid for x component
+                    self._meshgridx = np.meshgrid(
+                        *[pt for pt in self._localptsx], indexing='ij')
+
+                elif (h == 1):
+                    self._localptsy = []
+                    self._index_translationy = []
+                    self._original_pts_sizey = np.zeros((3), dtype=int)
+
+                    lenj1 = 2*self._p[0]-1
+                    lenj2 = 2*self._p[1]
+                    lenj3 = 2*self._p[2]-1
+
+                    lenj = [lenj1, lenj2, lenj3]
+
+                    # We compute the amout by which we must shift the indices to loop around the quasi-points.
+                    if (self._p[1] == 1 and self._npts[0][1] != 1):
+                        shift2 = - 2*self._npts[0][1] + 1
+                    else:
+                        shift2 = - 2*self._npts[0][1]
+
+                    shift1 = - 2 * self._npts[1][0]
+                    shift3 = - 2*self._npts[0][2]
+
+                    shift = [shift1, shift2, shift3]
+
+                    IoH = ["I", "H", "I"]
+                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
+                                 self._periodic, self._whij, self._localptsy, self._original_pts_sizey, self._index_translationy)
+
+                    # meshgrid for y component
+                    self._meshgridy = np.meshgrid(
+                        *[pt for pt in self._localptsy], indexing='ij')
+
+                elif (h == 2):
+                    self._localptsz = []
+                    self._index_translationz = []
+                    self._original_pts_sizez = np.zeros((3), dtype=int)
+
+                    lenj1 = 2*self._p[0]-1
+                    lenj2 = 2*self._p[1]-1
+                    lenj3 = 2*self._p[2]
+
+                    lenj = [lenj1, lenj2, lenj3]
+
+                    # We compute the amout by which we must shift the indices to loop around the quasi-points.
+                    if (self._p[2] == 1 and self._npts[0][2] != 1):
+                        shift3 = - 2*self._npts[0][2] + 1
+                    else:
+                        shift3 = - 2*self._npts[0][2]
+
+                    shift1 = - 2 * self._npts[1][0]
+                    shift2 = - 2*self._npts[0][1]
+
+                    shift = [shift1, shift2, shift3]
+
+                    IoH = ["I", "I", "H"]
+                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
+                                 self._periodic, self._whij, self._localptsz, self._original_pts_sizez, self._index_translationz)
+
+                    # meshgrid for z component
+                    self._meshgridz = np.meshgrid(
+                        *[pt for pt in self._localptsz], indexing='ij')
+
         elif space_id == 'Hdiv':
             for n, space in enumerate(fem_space.spaces):
                 if n == 0:
@@ -567,24 +737,120 @@ class CommutingProjectorLocal:
             # We need the degree of the B-Splines, since for the x direction Hdiv has a D-Spline for the y and z directions we need to add 1 to the degrees we read from it.
             self._p[1] += 1
             self._p[2] += 1
+            BoS = "B"
+            npts_split = [self._npts[0][0], self._npts[1][1], self._npts[2][2]]
 
-            # meshgrid for x component
-            self._meshgridx = np.meshgrid(
-                *[pt for pt in self._pts[0]], indexing='ij')
+            for h in range(self._nsp):
+                if (h == 0):
+
+                    self._localptsx = []
+                    self._index_translationx = []
+                    self._original_pts_sizex = np.zeros((3), dtype=int)
+
+                    lenj1 = 2*self._p[0]-1
+                    lenj2 = 2*self._p[1]
+                    lenj3 = 2*self._p[2]
+
+                    lenj = [lenj1, lenj2, lenj3]
+
+                    # We compute the amout by which we must shift the indices to loop around the quasi-points.
+                    shift1 = - 2*self._npts[0][0]
+                    if (self._p[1] == 1 and self._npts[1][1] != 1):
+                        shift2 = - 2*self._npts[1][1] + 1
+                    else:
+                        shift2 = - 2*self._npts[1][1]
+
+                    if (self._p[2] == 1 and self._npts[2][2] != 1):
+                        shift3 = - 2*self._npts[2][2] + 1
+                    else:
+                        shift3 = - 2*self._npts[2][2]
+
+                    shift = [shift1, shift2, shift3]
+
+                    IoH = ["I", "H", "H"]
+                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
+                                 self._periodic, self._whij, self._localptsx, self._original_pts_sizex, self._index_translationx)
+
+                    # meshgrid for x component
+                    self._meshgridx = np.meshgrid(
+                        *[pt for pt in self._localptsx], indexing='ij')
+
+                elif (h == 1):
+                    self._localptsy = []
+                    self._index_translationy = []
+                    self._original_pts_sizey = np.zeros((3), dtype=int)
+
+                    lenj1 = 2*self._p[0]
+                    lenj2 = 2*self._p[1]-1
+                    lenj3 = 2*self._p[2]
+
+                    lenj = [lenj1, lenj2, lenj3]
+
+                    # We compute the amout by which we must shift the indices to loop around the quasi-points.
+
+                    if (self._p[0] == 1 and self._npts[0][0] != 1):
+                        shift1 = - 2*self._npts[0][0] + 1
+                    else:
+                        shift1 = - 2*self._npts[0][0]
+
+                    shift2 = - 2*self._npts[1][1]
+
+                    if (self._p[2] == 1 and self._npts[2][2] != 1):
+                        shift3 = - 2*self._npts[2][2] + 1
+                    else:
+                        shift3 = - 2*self._npts[2][2]
+
+                    shift = [shift1, shift2, shift3]
+
+                    IoH = ["H", "I", "H"]
+                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
+                                 self._periodic, self._whij, self._localptsy, self._original_pts_sizey, self._index_translationy)
+
+                    # meshgrid for y component
+                    self._meshgridy = np.meshgrid(
+                        *[pt for pt in self._localptsy], indexing='ij')
+
+                elif (h == 2):
+                    self._localptsz = []
+                    self._index_translationz = []
+                    self._original_pts_sizez = np.zeros((3), dtype=int)
+
+                    lenj1 = 2*self._p[0]
+                    lenj2 = 2*self._p[1]
+                    lenj3 = 2*self._p[2]-1
+
+                    lenj = [lenj1, lenj2, lenj3]
+
+                    # We compute the amout by which we must shift the indices to loop around the quasi-points.
+                    if (self._p[0] == 1 and self._npts[0][0] != 1):
+                        shift1 = - 2*self._npts[0][0] + 1
+                    else:
+                        shift1 = - 2*self._npts[0][0]
+
+                    if (self._p[1] == 1 and self._npts[1][1] != 1):
+                        shift2 = - 2*self._npts[1][1] + 1
+                    else:
+                        shift2 = - 2*self._npts[1][1]
+
+                    shift3 = - 2*self._npts[2][2]
+
+                    shift = [shift1, shift2, shift3]
+
+                    IoH = ["H", "H", "I"]
+                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
+                                 self._periodic, self._whij, self._localptsz, self._original_pts_sizez, self._index_translationz)
+
+                    # meshgrid for z component
+                    self._meshgridz = np.meshgrid(
+                        *[pt for pt in self._localptsz], indexing='ij')
+
             # Tensor product matrix of the Gauss-Legendre quadrature weigths to evaluate the x component of the vector function
             self._GLweightsx = np.tensordot(wts[0][1][0], wts[0][2][0], axes=0)
-
-            # meshgrid for y component
-            self._meshgridy = np.meshgrid(
-                *[pt for pt in self._pts[1]], indexing='ij')
             # Tensor product matrix of the Gauss-Legendre quadrature weigths to evaluate the y component of the vector function
             self._GLweightsy = np.tensordot(wts[1][0][0], wts[1][2][0], axes=0)
-
-            # meshgrid for z component
-            self._meshgridz = np.meshgrid(
-                *[pt for pt in self._pts[2]], indexing='ij')
             # Tensor product matrix of the Gauss-Legendre quadrature weigths to evaluate the z component of the vector function
             self._GLweightsz = np.tensordot(wts[2][0][0], wts[2][1][0], axes=0)
+
         elif space_id == 'L2':
             for space in fem_space.spaces:
                 self._p.append(space.degree)
@@ -593,8 +859,54 @@ class CommutingProjectorLocal:
             self._p[1] += 1
             self._p[2] += 1
 
+            self._localpts = []
+            self._index_translation = []
+            self._original_pts_size = []
+
+            # We get the number of B-Splines
+            if (self._periodic[0]):
+                NB0 = self._npts[0]
+            else:
+                NB0 = self._npts[0]+1
+            if (self._periodic[1]):
+                NB1 = self._npts[1]
+            else:
+                NB1 = self._npts[1]+1
+            if (self._periodic[2]):
+                NB2 = self._npts[2]
+            else:
+                NB2 = self._npts[2]+1
+
+            # We compute the amout by which we must shift the indices to loop around the quasi-points.
+            if (self._p[0] == 1 and NB0 != 1):
+                shift1 = - 2*NB0 + 1
+            else:
+                shift1 = - 2*NB0
+
+            if (self._p[1] == 1 and NB1 != 1):
+                shift2 = - 2*NB1 + 1
+            else:
+                shift2 = - 2*NB1
+
+            if (self._p[2] == 1 and NB2 != 1):
+                shift3 = - 2*NB2 + 1
+            else:
+                shift3 = - 2*NB2
+
+            shift = [shift1, shift2, shift3]
+
+            lenj = [2*self._p[0], 2*self._p[1], 2*self._p[2]]
+            BoS = "S"
+            IoH = ["H", "H", "H"]
+
+            npts_split = [self._npts[0]+1, self._npts[1]+1, self._npts[2]+1]
+
+            split_points(BoS, IoH, 0, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
+                         self._periodic, self._whij, self._localpts, self._original_pts_size, self._index_translation)
+
             self._meshgrid = np.meshgrid(
-                *[pt for pt in self._pts], indexing='ij')
+                *[pt for pt in self._localpts], indexing='ij')
+
             # Tensor product matrix of the Gauss-Legendre quadrature weigths to evaluate the function
             self._GLweights = np.tensordot(np.tensordot(
                 wts[0][0], wts[1][0], axes=0), wts[2][0], axes=0)
@@ -661,7 +973,7 @@ class CommutingProjectorLocal:
             else:
                 assert isinstance(out, StencilVector)
 
-            solve_local_0_form(self._starts, self._ends, self._pds, self._npts,
+            solve_local_0_form(self._original_pts_size[0], self._original_pts_size[1], self._original_pts_size[2], self._index_translation[0], self._index_translation[1], self._index_translation[2], self._starts, self._ends, self._pds, self._npts,
                                self._periodic, p1, p2, p3, self._wij[0], self._wij[1], self._wij[2], rhs, out._data)
         elif (self._space_key == "1"):
             if out is None:
@@ -669,7 +981,7 @@ class CommutingProjectorLocal:
             else:
                 assert isinstance(out, BlockVector)
 
-            solve_local_1_form(self._nsp, self._starts, self._ends, self._pds, self._npts, self._periodic, p1, p2, p3, self._wij[0],
+            solve_local_1_form(self._original_pts_sizex, self._original_pts_sizey, self._original_pts_sizez, self._index_translationx[0], self._index_translationx[1], self._index_translationx[2], self._index_translationy[0], self._index_translationy[1], self._index_translationy[2], self._index_translationz[0], self._index_translationz[1], self._index_translationz[2], self._nsp, self._starts, self._ends, self._pds, self._npts, self._periodic, p1, p2, p3, self._wij[0],
                                self._wij[1], self._wij[2], self._whij[0], self._whij[1], self._whij[2], rhs[0], rhs[1], rhs[2], out[0]._data, out[1]._data, out[2]._data)
 
         elif (self._space_key == "2"):
@@ -678,7 +990,7 @@ class CommutingProjectorLocal:
             else:
                 assert isinstance(out, BlockVector)
 
-            solve_local_2_form(self._nsp, self._starts, self._ends, self._pds, self._npts, self._periodic, p1, p2, p3, self._wij[0],
+            solve_local_2_form(self._original_pts_sizex, self._original_pts_sizey, self._original_pts_sizez, self._index_translationx[0], self._index_translationx[1], self._index_translationx[2], self._index_translationy[0], self._index_translationy[1], self._index_translationy[2], self._index_translationz[0], self._index_translationz[1], self._index_translationz[2], self._nsp, self._starts, self._ends, self._pds, self._npts, self._periodic, p1, p2, p3, self._wij[0],
                                self._wij[1], self._wij[2], self._whij[0], self._whij[1], self._whij[2], rhs[0], rhs[1], rhs[2], out[0]._data, out[1]._data, out[2]._data)
 
         elif (self._space_key == "3"):
@@ -687,7 +999,7 @@ class CommutingProjectorLocal:
             else:
                 assert isinstance(out, StencilVector)
 
-            solve_local_3_form(self._starts, self._ends, self._pds, self._npts,
+            solve_local_3_form(self._original_pts_size[0], self._original_pts_size[1], self._original_pts_size[2], self._index_translation[0], self._index_translation[1], self._index_translation[2], self._starts, self._ends, self._pds, self._npts,
                                self._periodic, p1, p2, p3, self._whij[0], self._whij[1], self._whij[2], rhs, out._data)
 
         elif (self._space_key == "v"):
@@ -697,12 +1009,19 @@ class CommutingProjectorLocal:
             else:
                 assert isinstance(out, BlockVector)
 
-            solve_local_0V_form(self._nsp, self._starts, self._ends, self._pds, self._npts, self._periodic, p1, p2, p3,
+            solve_local_0V_form(self._original_pts_sizex, self._original_pts_sizey, self._original_pts_sizez, self._index_translationx[0], self._index_translationx[1], self._index_translationx[2], self._index_translationy[0], self._index_translationy[1], self._index_translationy[2], self._index_translationz[0], self._index_translationz[1], self._index_translationz[2], self._nsp, self._starts, self._ends, self._pds, self._npts, self._periodic, p1, p2, p3,
                                 self._wij[0], self._wij[1], self._wij[2], rhs[0], rhs[1], rhs[2], out[0]._data, out[1]._data, out[2]._data)
 
         else:
             raise Exception(
                 "Uknown space. It must be either H1, Hcurl, Hdiv, L2 or H1vec.")
+
+        # Finally we update the ghost regions
+        if isinstance(out, StencilVector):
+            out.update_ghost_regions()
+        elif isinstance(out, BlockVector):
+            for h in range(self._nsp):
+                out[h].update_ghost_regions()
 
         return out
 
@@ -725,8 +1044,8 @@ class CommutingProjectorLocal:
                 # Evaluation of the function to compute the x component
                 f0, f1, f2 = fun(*self._meshgridx)
 
-                f_eval_aux = np.zeros((np.shape(self._pts[0][0])[0], np.shape(
-                    self._pts[0][1])[0], np.shape(self._pts[0][2])[0]))
+                f_eval_aux = np.zeros((np.shape(self._localptsx[0])[0], np.shape(
+                    self._localptsx[1])[0], np.shape(self._localptsx[2])[0]))
 
                 get_dofs_local_1_form_e1_component(
                     f0, self._p[0], self._wts[0][0][0], f_eval_aux)
@@ -740,8 +1059,8 @@ class CommutingProjectorLocal:
                 # Evaluation of the function to compute the y component
                 f0, f1, f2 = fun(*self._meshgridy)
 
-                f_eval_aux = np.zeros((np.shape(self._pts[1][0])[0], np.shape(
-                    self._pts[1][1])[0], np.shape(self._pts[1][2])[0]))
+                f_eval_aux = np.zeros((np.shape(self._localptsy[0])[0], np.shape(
+                    self._localptsy[1])[0], np.shape(self._localptsy[2])[0]))
 
                 get_dofs_local_1_form_e2_component(
                     f1, self._p[1], self._wts[1][1][0], f_eval_aux)
@@ -755,8 +1074,8 @@ class CommutingProjectorLocal:
                 # Evaluation of the function to compute the z component
                 f0, f1, f2 = fun(*self._meshgridz)
 
-                f_eval_aux = np.zeros((np.shape(self._pts[2][0])[0], np.shape(
-                    self._pts[2][1])[0], np.shape(self._pts[2][2])[0]))
+                f_eval_aux = np.zeros((np.shape(self._localptsz[0])[0], np.shape(
+                    self._localptsz[1])[0], np.shape(self._localptsz[2])[0]))
 
                 get_dofs_local_1_form_e3_component(
                     f2, self._p[2], self._wts[2][2][0], f_eval_aux)
@@ -774,8 +1093,8 @@ class CommutingProjectorLocal:
                 # Evaluation of the function to compute the x component
                 f0 = fun[0](*self._meshgridx)
 
-                f_eval_aux = np.zeros((np.shape(self._pts[0][0])[0], np.shape(
-                    self._pts[0][1])[0], np.shape(self._pts[0][2])[0]))
+                f_eval_aux = np.zeros((np.shape(self._localptsx[0])[0], np.shape(
+                    self._localptsx[1])[0], np.shape(self._localptsx[2])[0]))
 
                 get_dofs_local_1_form_e1_component(
                     f0, self._p[0], self._wts[0][0][0], f_eval_aux)
@@ -789,8 +1108,8 @@ class CommutingProjectorLocal:
                 # Evaluation of the function to compute the y component
                 f1 = fun[1](*self._meshgridy)
 
-                f_eval_aux = np.zeros((np.shape(self._pts[1][0])[0], np.shape(
-                    self._pts[1][1])[0], np.shape(self._pts[1][2])[0]))
+                f_eval_aux = np.zeros((np.shape(self._localptsy[0])[0], np.shape(
+                    self._localptsy[1])[0], np.shape(self._localptsy[2])[0]))
 
                 get_dofs_local_1_form_e2_component(
                     f1, self._p[1], self._wts[1][1][0], f_eval_aux)
@@ -803,9 +1122,8 @@ class CommutingProjectorLocal:
 
                 # Evaluation of the function to compute the z component
                 f2 = fun[2](*self._meshgridz)
-
-                f_eval_aux = np.zeros((np.shape(self._pts[2][0])[0], np.shape(
-                    self._pts[2][1])[0], np.shape(self._pts[2][2])[0]))
+                f_eval_aux = np.zeros((np.shape(self._localptsz[0])[0], np.shape(
+                    self._localptsz[1])[0], np.shape(self._localptsz[2])[0]))
 
                 get_dofs_local_1_form_e3_component(
                     f2, self._p[2], self._wts[2][2][0], f_eval_aux)
@@ -823,8 +1141,8 @@ class CommutingProjectorLocal:
                 # Evaluation of the function to compute the x component
                 f0, f1, f2 = fun(*self._meshgridx)
 
-                f_eval_aux = np.zeros((np.shape(self._pts[0][0])[0], np.shape(
-                    self._pts[0][1])[0], np.shape(self._pts[0][2])[0]))
+                f_eval_aux = np.zeros((np.shape(self._localptsx[0])[0], np.shape(
+                    self._localptsx[1])[0], np.shape(self._localptsx[2])[0]))
 
                 get_dofs_local_2_form_e1_component(
                     f0, self._p[1], self._p[2], self._GLweightsx, f_eval_aux)
@@ -837,8 +1155,8 @@ class CommutingProjectorLocal:
                 # Evaluation of the function to compute the y component
                 f0, f1, f2 = fun(*self._meshgridy)
 
-                f_eval_aux = np.zeros((np.shape(self._pts[1][0])[0], np.shape(
-                    self._pts[1][1])[0], np.shape(self._pts[1][2])[0]))
+                f_eval_aux = np.zeros((np.shape(self._localptsy[0])[0], np.shape(
+                    self._localptsy[1])[0], np.shape(self._localptsy[2])[0]))
 
                 get_dofs_local_2_form_e2_component(
                     f1, self._p[0], self._p[2], self._GLweightsy, f_eval_aux)
@@ -851,8 +1169,8 @@ class CommutingProjectorLocal:
                 # Evaluation of the function to compute the z component
                 f0, f1, f2 = fun(*self._meshgridz)
 
-                f_eval_aux = np.zeros((np.shape(self._pts[2][0])[0], np.shape(
-                    self._pts[2][1])[0], np.shape(self._pts[2][2])[0]))
+                f_eval_aux = np.zeros((np.shape(self._localptsz[0])[0], np.shape(
+                    self._localptsz[1])[0], np.shape(self._localptsz[2])[0]))
 
                 get_dofs_local_2_form_e3_component(
                     f2, self._p[0], self._p[1], self._GLweightsz, f_eval_aux)
@@ -869,9 +1187,8 @@ class CommutingProjectorLocal:
 
                 # Evaluation of the function to compute the x component
                 f0 = fun[0](*self._meshgridx)
-
-                f_eval_aux = np.zeros((np.shape(self._pts[0][0])[0], np.shape(
-                    self._pts[0][1])[0], np.shape(self._pts[0][2])[0]))
+                f_eval_aux = np.zeros((np.shape(self._localptsx[0])[0], np.shape(
+                    self._localptsx[1])[0], np.shape(self._localptsx[2])[0]))
 
                 get_dofs_local_2_form_e1_component(
                     f0, self._p[1], self._p[2], self._GLweightsx, f_eval_aux)
@@ -884,8 +1201,8 @@ class CommutingProjectorLocal:
                 # Evaluation of the function to compute the y component
                 f1 = fun[1](*self._meshgridy)
 
-                f_eval_aux = np.zeros((np.shape(self._pts[1][0])[0], np.shape(
-                    self._pts[1][1])[0], np.shape(self._pts[1][2])[0]))
+                f_eval_aux = np.zeros((np.shape(self._localptsy[0])[0], np.shape(
+                    self._localptsy[1])[0], np.shape(self._localptsy[2])[0]))
 
                 get_dofs_local_2_form_e2_component(
                     f1, self._p[0], self._p[2], self._GLweightsy, f_eval_aux)
@@ -898,8 +1215,8 @@ class CommutingProjectorLocal:
                 # Evaluation of the function to compute the z component
                 f2 = fun[2](*self._meshgridz)
 
-                f_eval_aux = np.zeros((np.shape(self._pts[2][0])[0], np.shape(
-                    self._pts[2][1])[0], np.shape(self._pts[2][2])[0]))
+                f_eval_aux = np.zeros((np.shape(self._localptsz[0])[0], np.shape(
+                    self._localptsz[1])[0], np.shape(self._localptsz[2])[0]))
 
                 get_dofs_local_2_form_e3_component(
                     f2, self._p[0], self._p[1], self._GLweightsz, f_eval_aux)
@@ -908,8 +1225,8 @@ class CommutingProjectorLocal:
 
         # Erase. I have verified by hand the correct functioning of get_dofs for "3"
         elif (self._space_key == "3"):
-            f_eval = np.zeros((np.shape(self._pts[0])[0], np.shape(
-                self._pts[1])[0], np.shape(self._pts[2])[0]))
+            f_eval = np.zeros((np.shape(self._localpts[0])[0], np.shape(
+                self._localpts[1])[0], np.shape(self._localpts[2])[0]))
             # Evaluation of the function at all Gauss-Legendre quadrature points
             faux = fun(*self._meshgrid)
 
@@ -919,18 +1236,20 @@ class CommutingProjectorLocal:
         elif (self._space_key == "v"):
             if callable(fun):
                 f_eval = []
-                f0, f1, f2 = fun(*self._meshgrid)
+                f0, f1, f2 = fun(*self._meshgridx)
                 f_eval.append(f0)
+                f0, f1, f2 = fun(*self._meshgridy)
                 f_eval.append(f1)
+                f0, f1, f2 = fun(*self._meshgridz)
                 f_eval.append(f2)
             else:
                 assert len(
                     fun) == 3, f'List input only for vector-valued spaces of size 3, but {len(fun) = }.'
 
                 f_eval = []
-                f_eval.append(fun[0](*self._meshgrid))
-                f_eval.append(fun[1](*self._meshgrid))
-                f_eval.append(fun[2](*self._meshgrid))
+                f_eval.append(fun[0](*self._meshgridx))
+                f_eval.append(fun[1](*self._meshgridy))
+                f_eval.append(fun[2](*self._meshgridz))
 
         else:
             raise Exception(
@@ -1319,3 +1638,143 @@ def select_quasi_points(i, p, Nbasis, periodic):
             raise Exception("index i must be between 0 and n+p-1")
 
         return offset, int(2*p)-1+offset
+
+# This function splits the interpolation points and quadrature points between the MPI ranks, in such a way that every rank only gets the points it will need to compute the FE coefficients assigned to it by the
+# starts and ends splitting.
+
+
+def split_points(BoS, IoH, h, lenj, shift, pts, starts, ends, p, npts, periodic, whij, localptsout, original_pts_size, index_translation):
+    '''Splits the interpolaton points and quadrature points between the MPI ranks. Making sure that each rank only gets the points it needs to compute the FE coefficients assignes to it.
+
+    Parameters
+    ----------
+    BoS : string
+        Determines if we are working with BlockVectors (B) or StencilVectors (S).
+
+    IoH : list of strings
+        Determines if we have Interpolation (I) or Histopolation (H) for each one of the three spatial dimentions.
+
+    h : int
+        Only useful for BlockVectors, determines in which one of the three entries we are working on.
+
+    lenj : list of int
+        Determines the number of inner itterations we need to run over all values of j for each one of the three spatial directions.
+
+    shifts : list of ints
+        For each one of the three spatial directions it determines by which amount to shift the position index (pos) in case we have to loop over the evaluation points.
+
+    pts : list of np.array
+        3D (4D for BlockVectors) list of 2D array with the quasi-interpolation points 
+        (or Gauss-Legendre quadrature points for histopolation). 
+        In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces 
+        or (nv,ns, nb, np) = (vector entry,spatial direction, B-spline index, point) for BlockVector spaces.
+
+    starts : 2d (or 1D) int array
+        Array with the BlockVector start indices for each MPI rank. Or 1d array with the StencilVector start indices for each MPI rank.
+
+    ends : 2d (or 1D) int array
+        2d Array with the BlockVector end indices for each MPI rank. Or 1d array with the StencilVector end indices for each MPI rank.
+
+    p : list of ints
+        Contains the B-splines degrees for each one of the three spatial directions.
+
+    npts : list of ints
+        Contains the number of B-splines for each one of the three spatial directions.
+
+    periodic : 1D bool np.array
+        For each one of the three spatial directions contains the information of whether the B-splines are periodic or not.
+
+    whij: 3d float array
+        Array with the histopolation geometric weights for all three directions. In format (spatial directions, i index, j index)
+
+    localptsout : empty list
+        Here this function shall write the interpolation or quadrature points that are relevant for the MPI rank.
+
+    original_pts_size : empty list
+        Here this function shall write the total number of interpolation points or histopolation integrals for all three spatial diections.
+
+    index_translation1 : empty list
+        This function makes sure that this list translates for all three spatial direction from the global indices to the local indices to evaluate the right-hand-side. index_local = index_translation[spatial-direction][index_global]
+
+
+
+    '''
+    if (BoS == "S"):
+        # For this case h is not necessary so we ignore it
+        for n, pt in enumerate(pts):
+            original_pts_size.append(np.shape(pt)[0])
+            if IoH[n] == "I":
+                localpts = np.full(
+                    (np.shape(pt)[0]), fill_value=-1, dtype=float)
+            elif IoH[n] == "H":
+                localpts = np.full((np.shape(pt)), fill_value=-1, dtype=float)
+            for i in range(starts[n], ends[n]+1):
+
+                startj1, endj1 = select_quasi_points(
+                    i, p[n], npts[n], periodic[n])
+
+                for j1 in range(lenj[n]):
+                    if (startj1+j1 < np.shape(pt)[0]):
+                        pos = startj1+j1
+                    else:
+                        pos = int(startj1+j1 + shift[n])
+                    if IoH[n] == "I":
+                        localpts[pos] = pt[pos]
+                    elif IoH[n] == "H":
+                        if (whij[n][i][j1] != 0.0):
+                            localpts[pos] = pt[pos]
+
+            if IoH[n] == "I":
+                localpos = np.where(localpts != -1)[0]
+            elif IoH[n] == "H":
+                localpos = np.where(localpts[:, 0] != -1)[0]
+            localpts = localpts[localpos]
+            localptsout.append(np.array(localpts))
+
+            mini_indextranslation = np.full(
+                (np.shape(pt)[0]), fill_value=-1, dtype=int)
+            for i, j in enumerate(localpos):
+                mini_indextranslation[j] = i
+
+            index_translation.append(np.array(mini_indextranslation))
+
+    elif (BoS == "B"):
+        for n, pt in enumerate(pts[h]):
+            original_pts_size[n] = np.shape(pt)[0]
+            if IoH[n] == "I":
+                localpts = np.full(
+                    (np.shape(pt)[0]), fill_value=-1, dtype=float)
+            elif IoH[n] == "H":
+                localpts = np.full((np.shape(pt)), fill_value=-1, dtype=float)
+
+            for i in range(starts[h][n], ends[h][n]+1):
+
+                startj1, endj1 = select_quasi_points(
+                    i, p[n], npts[n], periodic[0][n])
+
+                for j1 in range(lenj[n]):
+                    if (startj1+j1 < np.shape(pt)[0]):
+                        pos = startj1+j1
+                    else:
+                        pos = int(startj1+j1 + shift[n])
+                    if IoH[n] == "I":
+                        localpts[pos] = pt[pos]
+                    elif IoH[n] == "H":
+                        if (whij[n][i][j1] != 0.0):
+                            localpts[pos] = pt[pos]
+
+            if IoH[n] == "I":
+                localpos = np.where(localpts != -1)[0]
+            elif IoH[n] == "H":
+                localpos = np.where(localpts[:, 0] != -1)[0]
+
+            localpts = localpts[localpos]
+            localptsout.append(np.array(localpts))
+
+            mini_indextranslation = np.full(
+                (np.shape(pt)[0]), fill_value=-1, dtype=int)
+            for i, j in enumerate(localpos):
+                mini_indextranslation[j] = i
+
+            index_translation.append(
+                np.array(mini_indextranslation))
