@@ -49,6 +49,14 @@ def test_tutorial_04():
     if rank == 0:
         pproc_struphy.main(os.path.join(o_path, 'tutorial_04b'))
 
+    main('VariationalMHD', 
+         os.path.join(i_path, 'tutorials', 'params_04c.yml'), 
+         os.path.join(o_path, 'tutorial_04c'))
+
+    comm.Barrier()
+    if rank == 0:
+        pproc_struphy.main(os.path.join(o_path, 'tutorial_04c'))
+
 @pytest.mark.mpi(min_size=2)
 def test_tutorial_05():
     main('Vlasov', 
