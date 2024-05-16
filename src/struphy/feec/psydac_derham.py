@@ -2243,7 +2243,10 @@ def get_pts_and_wts_quasi(space_1d, polar_shift=False):
         # interpolation
         if space_1d.basis == 'B':
             # x_grid = np.arange(-(p-1.0)*h, 1.0-h+(h/2.0), h/2.0)
-            x_grid = np.linspace(-(p-1)*h, 1.0 - h, (N + p-1)*2 - 1)
+            if(p == 1 and h!= 1.0):
+                x_grid = np.linspace(-(p-1)*h, 1.0 - h + (h/2.0), (N + p-1)*2)
+            else:
+                x_grid = np.linspace(-(p-1)*h, 1.0 - h, (N + p-1)*2 - 1)
 
             pts = x_grid[:, None] % 1.0
             wts = np.ones(pts.shape, dtype=float)
@@ -2258,6 +2261,8 @@ def get_pts_and_wts_quasi(space_1d, polar_shift=False):
             # We need to build the histopolation points by hand in this scenario.
             if (p == 0 and h == 1.0):
                 x_grid = np.array([0.0, 0.5, 1.0])
+            elif (p == 0 and h!= 1.0):
+                x_grid = np.linspace(-p*h, 1.0 - h + (h/2.0), (N + p)*2 )
             else:
                 #x_grid = np.arange(-p*h, 1.0-h+(h/2.0), h/2.0)
                 x_grid = np.linspace(-p*h, 1.0 - h, (N + p)*2 - 1)
