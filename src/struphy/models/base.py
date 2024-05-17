@@ -56,12 +56,13 @@ class StruphyModel(metaclass=ABCMeta):
         # create domain, MHD equilibrium
         self._domain, self._mhd_equil = setup_domain_mhd(
             params, units=self.units)
-        
+
         # Braginskii equilibrium
         if 'braginskii_equilibrium' in params:
             br_eq_type = params['braginskii_equilibrium']['type']
             br_eq_class = getattr(braginskii_equils, br_eq_type)
-            self._braginskii_equil = br_eq_class(**params['braginskii_equilibrium'][br_eq_type])
+            self._braginskii_equil = br_eq_class(
+                **params['braginskii_equilibrium'][br_eq_type])
 
         if comm.Get_rank() == 0:
             print('\nDOMAIN:')
@@ -75,7 +76,7 @@ class StruphyModel(metaclass=ABCMeta):
                 print('type:'.ljust(25), self.mhd_equil.__class__.__name__)
                 for key, val in self.mhd_equil.params.items():
                     print((key + ':').ljust(25), val)
-                    
+
             if 'braginskii_equilibrium' in params:
                 print('\nBRAGINSKII EQUILIBRIUM:')
                 print('type:'.ljust(25), self.braginskii_equil.__class__.__name__)
@@ -266,7 +267,7 @@ class StruphyModel(metaclass=ABCMeta):
     def mhd_equil(self):
         '''MHD equilibrium object, see :ref:`mhd_equil`.'''
         return self._mhd_equil
-    
+
     @property
     def braginskii_equil(self):
         '''Braginskii equilibrium object, see :ref:`braginskii_equil`.'''
@@ -614,10 +615,12 @@ class StruphyModel(metaclass=ABCMeta):
                     assert typ in ['full_f', 'delta_f', 'control_variate'], \
                         f'Type {typ} for distribution function is not known!'
 
-                    val['obj'].initialize_weights()
+                    if val['obj'].f_backgr.coords == 'constants_of_motion':
 
-                    if val['space'] == 'Particles5D':
-                        val['obj'].save_magnetic_moment()
+                        val['obj'].save_constants_of_motion(
+                            epsilon=self.equation_params[species]['epsilon'], initial=True)
+
+                    val['obj'].initialize_weights()
 
     def initialize_from_restart(self, data):
         """
@@ -892,7 +895,7 @@ class StruphyModel(metaclass=ABCMeta):
                 print(f'Unit of pressure:'.ljust(25),
                       '{:4.3e}'.format(units['p'] * 1e-5) + ' bar')
                 print(f'Unit of current density:'.ljust(25),
-                  '{:4.3e}'.format(units['j']) + ' A/m²')
+                      '{:4.3e}'.format(units['j']) + ' A/m²')
 
         # compute equation parameters for each species
         e = 1.602176634e-19  # elementary charge (C)
@@ -1215,10 +1218,10 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 parameters['kinetic'][name]['background'] = {'type': 'Maxwellian' + dim,
                                                              'Maxwellian' + dim: {'n': 0.05}}
                 parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
-                
+
                 for keys, vals in pert_params_scalar.items():
-                    parameters['kinetic'][name]['perturbation'][pert_type][keys]['n'] = vals   
-                    
+                    parameters['kinetic'][name]['perturbation'][pert_type][keys]['n'] = vals
+
         else:
             parameters.pop('kinetic')
 
@@ -1579,7 +1582,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 # create temp kinetic object for (default) parameter extraction
                 tmp_type = val['params']['background']['type']
                 tmp_params = val['params']['background']
-                
+
                 if not isinstance(tmp_type, list):
                     tmp_type = [tmp_type]
 
@@ -1610,37 +1613,59 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                             mhd_equil=pass_mhd_equil
                         )
 
-                # density (m⁻³)
-                # pparams[species]['density'] = np.mean(tmp.n(
-                #     eta1mg, eta2mg, eta3mg) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
-                pparams[species]['density'] = -99.
-                # thermal speeds (m/s)
-                vth = []
-                # vths = tmp.vth(eta1mg, eta2mg, eta3mg)
-                vths = [-99.]
-                for k in range(len(vths)):
-                    vth += [
-                        vths[k] * np.abs(det_tmp) *
-                        units['x']**3 / plasma_volume * units['v']
-                    ]
-                thermal_speed = 0.
-                for dir in range(val['obj'].vdim):
-                    # pparams[species]['vth' + str(dir + 1)] = np.mean(vth[dir])
-                    pparams[species]['vth' + str(dir + 1)] = -99.
-                    thermal_speed += pparams[species]['vth' + str(dir + 1)]
-                # TODO: here it is assumed that background density parameter is called "n",
-                # and that background thermal speeds are called "vthn"; make this a convention?
-                # pparams[species]['v_th'] = thermal_speed / \
-                #     val['obj'].vdim
-                pparams[species]['v_th'] = -99.
-                # thermal energy (keV)
-                # pparams[species]['kBT'] = pparams[species]['mass'] * \
-                #     pparams[species]['v_th']**2 / e * 1e-3
-                pparams[species]['kBT'] = -99.
-                # pressure (bar)
-                # pparams[species]['pressure'] = pparams[species]['kBT'] * \
-                #     e * 1e3 * pparams[species]['density'] * 1e-5
-                pparams[species]['pressure'] = -99.
+                if tmp.coords == 'constants_of_motion':
+
+                    # call parameters
+                    a1 = self.domain.params_map['a1']
+                    r = eta1mg*(1 - a1) + a1
+                    psi = self.mhd_equil.psi_r(r)
+
+                    # density (m⁻³)
+                    pparams[species]['density'] = np.mean(tmp.n(
+                        psi) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
+                    # thermal speed (m/s)
+                    pparams[species]['v_th'] = np.mean(tmp.vth(
+                        psi) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['v']
+                    # thermal energy (keV)
+                    pparams[species]['kBT'] = pparams[species]['mass'] * \
+                        pparams[species]['v_th']**2 / e * 1e-3
+                    # pressure (bar)
+                    pparams[species]['pressure'] = pparams[species]['kBT'] * \
+                        e * 1e3 * pparams[species]['density'] * 1e-5
+
+                else: 
+
+                    # density (m⁻³)
+                    # pparams[species]['density'] = np.mean(tmp.n(
+                    #     eta1mg, eta2mg, eta3mg) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
+                    pparams[species]['density'] = -99.
+                    # thermal speeds (m/s)
+                    vth = []
+                    # vths = tmp.vth(eta1mg, eta2mg, eta3mg)
+                    vths = [-99.]
+                    for k in range(len(vths)):
+                        vth += [
+                            vths[k] * np.abs(det_tmp) *
+                            units['x']**3 / plasma_volume * units['v']
+                        ]
+                    thermal_speed = 0.
+                    for dir in range(val['obj'].vdim):
+                        # pparams[species]['vth' + str(dir + 1)] = np.mean(vth[dir])
+                        pparams[species]['vth' + str(dir + 1)] = -99.
+                        thermal_speed += pparams[species]['vth' + str(dir + 1)]
+                    # TODO: here it is assumed that background density parameter is called "n",
+                    # and that background thermal speeds are called "vthn"; make this a convention?
+                    # pparams[species]['v_th'] = thermal_speed / \
+                    #     val['obj'].vdim
+                    pparams[species]['v_th'] = -99.
+                    # thermal energy (keV)
+                    # pparams[species]['kBT'] = pparams[species]['mass'] * \
+                    #     pparams[species]['v_th']**2 / e * 1e-3
+                    pparams[species]['kBT'] = -99.
+                    # pressure (bar)
+                    # pparams[species]['pressure'] = pparams[species]['kBT'] * \
+                    #     e * 1e3 * pparams[species]['density'] * 1e-5
+                    pparams[species]['pressure'] = -99.
 
         for species in pparams:
             # alfvén speed (m/s)

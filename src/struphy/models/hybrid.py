@@ -703,6 +703,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             epsilon=epsilon,
             b=self.pointer['b2'],
             b_eq=self._b_eq,
+            absB0=self._absB0,
             unit_b1=self._unit_b1,
             curl_unit_b2=self._curl_unit_b2,
             u_space='Hdiv',

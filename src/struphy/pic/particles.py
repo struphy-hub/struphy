@@ -1,6 +1,6 @@
 import numpy as np
 from struphy.pic.base import Particles
-from struphy.pic.utilities_kernels import eval_magnetic_energy, eval_magnetic_moment_5d
+from struphy.pic import utilities_kernels
 from struphy.kinetic_background import maxwellians
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
@@ -57,32 +57,11 @@ class Particles6D(Particles):
         """
         return 9
 
-    def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        """ Jacobian determinant of the velocity coordinate transformation.
-
-        Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords.T)
-
-        Parameters
-        ----------
-        eta1, eta2, eta3 : array_like
-            Logical evaluation points.
-
-        *v : array_like
-            Velocity evaluation points.
-
-        Returns
-        -------
-        out : array-like
-            The Jacobian determinant evaluated at given logical coordinates.
-        -------
+    @property
+    def coords(self):
+        """ Coordinates of the Particles6D, :math:`(v_1, v_2, v_3)`.
         """
-
-        assert eta1.ndim == 1
-        assert eta2.ndim == 1
-        assert eta3.ndim == 1
-        assert len(v) == self.vdim
-
-        return 1. + 0*eta1
+        return 'cartesian'
 
     def svol(self, eta1, eta2, eta3, *v):
         """ Sampling density function as volume form.
@@ -157,7 +136,7 @@ class Particles5D(Particles):
     ===== ============== ========== ====== ======= ====== ====== ====== ============ ================ ===========
     index  | 0 | 1 | 2 |     3        4       5      6      7      8          9             10            >=11
     ===== ============== ========== ====== ======= ====== ====== ====== ============ ================= ==========
-    value position (eta) v_parallel v_perp  weight   s0     w0   E_perp magn. moment toro. can. moment additional
+    value position (eta) v_parallel v_perp  weight   s0     w0   energy magn. moment toro. can. moment additional
     ===== ============== ========== ====== ======= ====== ====== ====== ============ ================= ==========   
 
     Parameters
@@ -200,41 +179,11 @@ class Particles5D(Particles):
         """
         return 11
 
-    def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
+    @property
+    def coords(self):
+        """ Coordinates of the Particles5D, :math:`(v_\parallel, \mu)`.
         """
-        Jacobian determinant of the velocity coordinate transformation.
-
-        Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords.T)
-
-        Parameters
-        ----------
-        eta1, eta2, eta3 : array_like
-            Logical evaluation points.
-
-        *v : array_like
-            Velocity evaluation points.
-
-        Returns
-        -------
-        out : array-like
-            The Jacobian determinant evaluated at given logical coordinates.
-        -------
-        """
-
-        assert eta1.ndim == 1
-        assert eta2.ndim == 1
-        assert eta3.ndim == 1
-        assert len(v) == self.vdim
-
-        # call equilibrium arrays
-        etas = (np.vstack((eta1, eta2, eta3)).T).copy()
-        bv = self.mhd_equil.bv(etas)
-        unit_b1 = self.mhd_equil.unit_b1(etas)
-
-        # B*_parallel = b0 . B*
-        jacobian_det = np.einsum('ij,ij->j', unit_b1, bv)/np.abs(v[1])
-
-        return jacobian_det
+        return 'vpara_mu'
 
     def svol(self, eta1, eta2, eta3, *v):
         """ 
@@ -263,13 +212,14 @@ class Particles5D(Particles):
                        'vth_para': self.marker_params['loading']['moments'][2],
                        'vth_perp': self.marker_params['loading']['moments'][3]}
 
-        fun = maxwellian5D(maxw_params=maxw_params)
+        self._svol = maxwellian5D(maxw_params=maxw_params,
+                                  mhd_equil=self.mhd_equil)
 
         if self.spatial == 'uniform':
-            return fun(eta1, eta2, eta3, *v)
+            return self._svol(eta1, eta2, eta3, *v)
 
         elif self.spatial == 'disc':
-            return fun(eta1, eta2, eta3, *v)*2*eta1
+            return self._svol(eta1, eta2, eta3, *v)*2*eta1
 
         else:
             raise NotImplementedError(
@@ -294,7 +244,7 @@ class Particles5D(Particles):
         -------
         """
 
-        return self.svol(eta1, eta2, eta3, *v)/self.velocity_jacobian_det(eta1, eta2, eta3, *v)
+        return self.svol(eta1, eta2, eta3, *v)/self._svol.velocity_jacobian_det(eta1, eta2, eta3, *v)
 
     def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
         """ 
@@ -320,34 +270,80 @@ class Particles5D(Particles):
 
         return self.domain.transform(self.s3(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
 
-    def save_magnetic_moment(self):
-        r"""
-        Calculate magnetic moment of each particles :math:`\mu = \frac{m v_\perp^2}{2B}` and asign it into markers[:,9].
+    def save_constants_of_motion(self, epsilon, abs_B0=None, initial=False):
         """
-        T1, T2, T3 = self.derham.Vh_fem['0'].knots
+        Calculate each markers' constants of motion and assign them into markers[:,8:11].
+        Only equilibrium magnetic field is considered.
 
-        absB = self.derham.P['0'](self._mhd_equil.absB0)
+        Parameters
+        ----------
+        epsilon : float
+            Guiding center scaling factor.
+
+        abs_B0 : BlockVector
+            FE coeffs of equilibrium magnetic field magnitude.
+
+        initial : bool
+            If True, magnetic moment is also calculated and saved.
+        """
+        # fixed FEM arguments for the accumulator kernel
+        args_fem = (np.array(self.derham.p),
+                    self.derham.Vh_fem['0'].knots[0],
+                    self.derham.Vh_fem['0'].knots[1],
+                    self.derham.Vh_fem['0'].knots[2],
+                    np.array(self.derham.Vh['0'].starts))
+
+        if abs_B0 is None:
+            abs_B0 = self.derham.P['0'](self.mhd_equil.absB0)
 
         E0T = self.derham.extraction_ops['0'].transpose()
+        abs_B0 = E0T.dot(abs_B0)
 
-        absB = E0T.dot(absB)
+        if initial:
+            utilities_kernels.eval_magnetic_moment_5d(self.markers,
+                                                      *args_fem,
+                                                      abs_B0._data)
 
-        eval_magnetic_moment_5d(self.markers,
-                                np.array(self.derham.p), T1, T2, T3,
-                                np.array(self.derham.Vh['0'].starts),
-                                absB._data)
+        utilities_kernels.eval_energy_5d(self.markers,
+                                         *args_fem,
+                                         abs_B0._data)
+
+        # eval psi at etas
+        a1 = self.mhd_equil.domain.params_map['a1']
+        R0 = self.mhd_equil.params['R0']
+        B0 = self.mhd_equil.params['B0']
+
+        r = self.markers[~self.holes, 0]*(1 - a1) + a1
+        self.markers[~self.holes, 10] = self.mhd_equil.psi_r(r)
+
+        utilities_kernels.eval_canonical_toroidal_moment_5d(self.markers,
+                                                            *args_fem,
+                                                            epsilon, B0, R0,
+                                                            abs_B0._data)
 
     def save_magnetic_energy(self, abs_B0, unit_b1, b):
-        r"""
-        Calculate magnetic field energy at each particles' position and asign it into markers[:,8].
+        """
+        Calculate magnetic field energy at each particles' position and assign it into markers[:,8].
+        Non-equilibrium magnetic field can be included.
+
+        Parameters
+        ----------
+        abs_B0 : BlockVector
+            FE coeffs of equilibrium magnetic field magnitude.
+
+        unit_b1 : BlockVector
+            FE coeffs of 1-form unit equilibrium magnetic field.
+
+        b : BlockVector
+            FE coeffs of perturbed magnetic field.
         """
 
         # fixed FEM arguments for the accumulator kernel
-        self._args_fem = (np.array(self.derham.p),
-                          self.derham.Vh_fem['0'].knots[0],
-                          self.derham.Vh_fem['0'].knots[1],
-                          self.derham.Vh_fem['0'].knots[2],
-                          np.array(self.derham.Vh['0'].starts))
+        args_fem = (np.array(self.derham.p),
+                    self.derham.Vh_fem['0'].knots[0],
+                    self.derham.Vh_fem['0'].knots[1],
+                    self.derham.Vh_fem['0'].knots[2],
+                    np.array(self.derham.Vh['0'].starts))
 
         E0T = self.derham.extraction_ops['0'].transpose()
         E1T = self.derham.extraction_ops['1'].transpose()
@@ -357,8 +353,8 @@ class Particles5D(Particles):
         unit_b1 = E1T.dot(unit_b1)
         b = E2T.dot(b)
 
-        eval_magnetic_energy(self.markers,
-                             *self._args_fem, *self._domain.args_map,
-                             abs_B0._data,
-                             unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
-                             b[0]._data, b[1]._data, b[2]._data)
+        utilities_kernels.eval_magnetic_energy(self.markers,
+                                               *args_fem, *self._domain.args_map,
+                                               abs_B0._data,
+                                               unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
+                                               b[0]._data, b[1]._data, b[2]._data)

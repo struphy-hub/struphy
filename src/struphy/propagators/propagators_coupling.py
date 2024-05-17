@@ -166,6 +166,11 @@ class VlasovAmpere(Propagator):
 
         # update_weights
         if self.particles[0].control_variate:
+
+            if self.particles[0].f_backgr.coords == 'constants_of_motion':
+                self.particles[0].save_constants_of_motion(
+                    epsilon=self._epsilon, abs_B0=self._abs_b)
+
             self.particles[0].update_weights()
 
         # write new coeffs into self.variables
@@ -1474,6 +1479,7 @@ class CurrentCoupling5DCurlb(Propagator):
         params_default = {'u_space': 'Hdiv',
                           'b': None,
                           'b_eq': None,
+                          'absB0': None,
                           'unit_b1': None,
                           'curl_unit_b2': None,
                           'type': ('pcg', 'MassMatrixPreconditioner'),
@@ -1500,6 +1506,7 @@ class CurrentCoupling5DCurlb(Propagator):
         self._b_eq = params['b_eq']
         self._unit_b1 = params['unit_b1']
         self._curl_norm_b = params['curl_unit_b2']
+        self._absB0 = params['absB0']
 
         self._info = params['info']
         self._rank = self.derham.comm.Get_rank()
@@ -1517,6 +1524,7 @@ class CurrentCoupling5DCurlb(Propagator):
         self._unit_b1 = self._E1T.dot(self._unit_b1)
         self._curl_norm_b = self._E2T.dot(self._curl_norm_b)
         self._curl_norm_b.update_ghost_regions()
+        self._absB0 = self._E0T.dot(self._absB0)
 
         # define system [[A B], [C I]] [u_new, v_new] = [[A -B], [-C I]] [u_old, v_old] (without time step size dt)
         _A = getattr(self.mass_ops, 'M' + u_id + 'n')
@@ -1534,74 +1542,74 @@ class CurrentCoupling5DCurlb(Propagator):
         self._pusher = Pusher(self.derham, self.domain,
                               'push_gc_cc_J1_' + params['u_space'])
 
-        if self.particles[0].control_variate:
+        # if self.particles[0].control_variate:
 
-            # control variate method is only valid with Maxwellian distributions
-            assert isinstance(self.particles[0].f_backgr, Maxwellian)
-            assert params['u_space'] == 'Hdiv'
+        #     # control variate method is only valid with Maxwellian distributions
+        #     assert isinstance(self.particles[0].f_backgr, Maxwellian)
+        #     assert params['u_space'] == 'Hdiv'
 
-            self._ACC.init_control_variate(self.mass_ops)
+        #     self._ACC.init_control_variate(self.mass_ops)
 
-            # evaluate and save f_backgr.n at quadrature points
-            quad_pts = [quad_grid[nquad].points.flatten()
-                        for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
+        #     # evaluate and save f_backgr.n at quadrature points
+        #     quad_pts = [quad_grid[nquad].points.flatten()
+        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
 
-            self._n0_at_quad = self.domain.push(
-                self.particles[0].f_backgr.n, *quad_pts, kind='3', squeeze_out=False)
+        #     self._n0_at_quad = self.domain.push(
+        #         self.particles[0].f_backgr.n, *quad_pts, kind='3', squeeze_out=False)
 
-            # evaluate unit_b1 (1form) dot epsilon * u0_parallel * curl_norm_b (2form) / |det(DF)| at quadrature points
-            quad_pts_array = self.domain.prepare_eval_pts(*quad_pts)[:3]
+        #     # evaluate unit_b1 (1form) dot epsilon * u0_parallel * curl_norm_b (2form) / |det(DF)| at quadrature points
+        #     quad_pts_array = self.domain.prepare_eval_pts(*quad_pts)[:3]
 
-            u0_parallel_at_quad = self.particles[0].f_backgr.u(
-                *quad_pts_array)[0]
+        #     u0_parallel_at_quad = self.particles[0].f_backgr.u(
+        #         *quad_pts_array)[0]
 
-            self._det_df_at_quad = self.domain.jacobian_det(
-                *quad_pts, squeeze_out=False)
+        #     self._det_df_at_quad = self.domain.jacobian_det(
+        #         *quad_pts, squeeze_out=False)
 
-            self._unit_b1_at_quad = WeightedMassOperator.eval_quad(
-                self.derham.Vh_fem['1'], self._unit_b1)
+        #     self._unit_b1_at_quad = WeightedMassOperator.eval_quad(
+        #         self.derham.Vh_fem['1'], self._unit_b1)
 
-            self._curl_norm_b_at_quad = WeightedMassOperator.eval_quad(
-                self.derham.Vh_fem['2'], self._curl_norm_b)
+        #     self._curl_norm_b_at_quad = WeightedMassOperator.eval_quad(
+        #         self.derham.Vh_fem['2'], self._curl_norm_b)
 
-            self._unit_b1_dot_curl_norm_b_at_quad = np.sum(
-                p * q for p, q in zip(self._unit_b1_at_quad, self._curl_norm_b_at_quad))
+        #     self._unit_b1_dot_curl_norm_b_at_quad = np.sum(
+        #         p * q for p, q in zip(self._unit_b1_at_quad, self._curl_norm_b_at_quad))
 
-            self._unit_b1_dot_curl_norm_b_at_quad /= self._det_df_at_quad
-            self._unit_b1_dot_curl_norm_b_at_quad *= self._epsilon
-            self._unit_b1_dot_curl_norm_b_at_quad *= u0_parallel_at_quad
+        #     self._unit_b1_dot_curl_norm_b_at_quad /= self._det_df_at_quad
+        #     self._unit_b1_dot_curl_norm_b_at_quad *= self._epsilon
+        #     self._unit_b1_dot_curl_norm_b_at_quad *= u0_parallel_at_quad
 
-            # calculate constant (f_backgr.u_para² + f_backgr.vth_para²) * f_backgr.n for control MAT and VEC
-            vth0_parallel_at_quad = self.particles[0].f_backgr.vth(
-                *quad_pts_array)[0]
+        #     # calculate constant (f_backgr.u_para² + f_backgr.vth_para²) * f_backgr.n for control MAT and VEC
+        #     vth0_parallel_at_quad = self.particles[0].f_backgr.vth(
+        #         *quad_pts_array)[0]
 
-            self._control_const = (
-                u0_parallel_at_quad**2 + vth0_parallel_at_quad**2) * self._n0_at_quad
+        #     self._control_const = (
+        #         u0_parallel_at_quad**2 + vth0_parallel_at_quad**2) * self._n0_at_quad
 
-            # memory allocation of magnetic field at quadrature points
-            self._b_at_quad = (np.zeros_like(self._n0_at_quad),
-                               np.zeros_like(self._n0_at_quad),
-                               np.zeros_like(self._n0_at_quad))
+        #     # memory allocation of magnetic field at quadrature points
+        #     self._b_at_quad = (np.zeros_like(self._n0_at_quad),
+        #                        np.zeros_like(self._n0_at_quad),
+        #                        np.zeros_like(self._n0_at_quad))
 
-            # memory allocation of parallel magnetic field at quadrature points
-            self._B_para_at_quad = np.zeros_like(self._n0_at_quad)
+        #     # memory allocation of parallel magnetic field at quadrature points
+        #     self._B_para_at_quad = np.zeros_like(self._n0_at_quad)
 
-            # memory allocation for control MAT
-            self._mat11 = np.zeros_like(self._n0_at_quad)
-            self._mat12 = np.zeros_like(self._n0_at_quad)
-            self._mat13 = np.zeros_like(self._n0_at_quad)
-            self._mat22 = np.zeros_like(self._n0_at_quad)
-            self._mat23 = np.zeros_like(self._n0_at_quad)
-            self._mat33 = np.zeros_like(self._n0_at_quad)
+        #     # memory allocation for control MAT
+        #     self._mat11 = np.zeros_like(self._n0_at_quad)
+        #     self._mat12 = np.zeros_like(self._n0_at_quad)
+        #     self._mat13 = np.zeros_like(self._n0_at_quad)
+        #     self._mat22 = np.zeros_like(self._n0_at_quad)
+        #     self._mat23 = np.zeros_like(self._n0_at_quad)
+        #     self._mat33 = np.zeros_like(self._n0_at_quad)
 
-            self._mat21 = np.zeros_like(self._n0_at_quad)
-            self._mat31 = np.zeros_like(self._n0_at_quad)
-            self._mat32 = np.zeros_like(self._n0_at_quad)
+        #     self._mat21 = np.zeros_like(self._n0_at_quad)
+        #     self._mat31 = np.zeros_like(self._n0_at_quad)
+        #     self._mat32 = np.zeros_like(self._n0_at_quad)
 
-            # memory allocation for control VEC
-            self._vec1 = np.zeros_like(self._n0_at_quad)
-            self._vec2 = np.zeros_like(self._n0_at_quad)
-            self._vec3 = np.zeros_like(self._n0_at_quad)
+        #     # memory allocation for control VEC
+        #     self._vec1 = np.zeros_like(self._n0_at_quad)
+        #     self._vec2 = np.zeros_like(self._n0_at_quad)
+        #     self._vec3 = np.zeros_like(self._n0_at_quad)
 
         # define BC and B dot V of the Schur block matrix [[A, B], [C, I]]
         _BC = -1/4 * self._ACC.operators[0]
@@ -1638,83 +1646,89 @@ class CurrentCoupling5DCurlb(Propagator):
         Eb_full.update_ghost_regions()
 
         # perform accumulation (either with or without control variate)
-        if self.particles[0].control_variate:
+        # if self.particles[0].control_variate:
 
-            # evaluate magnetic field at quadrature points (in-place)
-            WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
-                                           out=[self._b_at_quad[0], self._b_at_quad[1], self._b_at_quad[2]])
+        #     # evaluate magnetic field at quadrature points (in-place)
+        #     WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
+        #                                    out=[self._b_at_quad[0], self._b_at_quad[1], self._b_at_quad[2]])
 
-            # evaluate B_parallel
-            self._B_para_at_quad = np.sum(
-                p * q for p, q in zip(self._unit_b1_at_quad, self._b_at_quad))
-            self._B_para_at_quad += self._unit_b1_dot_curl_norm_b_at_quad
+        #     # evaluate B_parallel
+        #     self._B_para_at_quad = np.sum(
+        #         p * q for p, q in zip(self._unit_b1_at_quad, self._b_at_quad))
+        #     self._B_para_at_quad += self._unit_b1_dot_curl_norm_b_at_quad
 
-            # assemble (B x)(curl norm_b)(curl norm_b)(B x) / B_star_para² / det_df³ * (f_backgr.u_para² + f_backgr.vth_para²) * f_backgr.n
-            self._mat11[:, :, :] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] -
-                                    self._b_at_quad[2]*self._curl_norm_b_at_quad[1])**2 * \
-                self._control_const * self._coupling_mat / \
-                self._det_df_at_quad**3 / self._B_para_at_quad**2
-            self._mat12[:, :, :] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] -
-                                    self._b_at_quad[2]*self._curl_norm_b_at_quad[1]) * \
-                (self._b_at_quad[2]*self._curl_norm_b_at_quad[0] -
-                 self._b_at_quad[0]*self._curl_norm_b_at_quad[2]) * \
-                self._control_const * self._coupling_mat / \
-                self._det_df_at_quad**3 / self._B_para_at_quad**2
-            self._mat13[:, :, :] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] -
-                                    self._b_at_quad[2]*self._curl_norm_b_at_quad[1]) * \
-                (self._b_at_quad[0]*self._curl_norm_b_at_quad[1] -
-                 self._b_at_quad[1]*self._curl_norm_b_at_quad[0]) * \
-                self._control_const * self._coupling_mat / \
-                self._det_df_at_quad**3 / self._B_para_at_quad**2
-            self._mat22[:, :, :] = (self._b_at_quad[2]*self._curl_norm_b_at_quad[0] -
-                                    self._b_at_quad[0]*self._curl_norm_b_at_quad[2])**2 * \
-                self._control_const * self._coupling_mat / \
-                self._det_df_at_quad**3 / self._B_para_at_quad**2
-            self._mat23[:, :, :] = (self._b_at_quad[2]*self._curl_norm_b_at_quad[0] -
-                                    self._b_at_quad[0]*self._curl_norm_b_at_quad[2]) * \
-                (self._b_at_quad[0]*self._curl_norm_b_at_quad[1] -
-                 self._b_at_quad[1]*self._curl_norm_b_at_quad[0]) * \
-                self._control_const * self._coupling_mat / \
-                self._det_df_at_quad**3 / self._B_para_at_quad**2
-            self._mat33[:, :, :] = (self._b_at_quad[0]*self._curl_norm_b_at_quad[1] -
-                                    self._b_at_quad[1]*self._curl_norm_b_at_quad[0])**2 * \
-                self._control_const * self._coupling_mat / \
-                self._det_df_at_quad**3 / self._B_para_at_quad**2
+        #     # assemble (B x)(curl norm_b)(curl norm_b)(B x) / B_star_para² / det_df³ * (f_backgr.u_para² + f_backgr.vth_para²) * f_backgr.n
+        #     self._mat11[:, :, :] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] -
+        #                             self._b_at_quad[2]*self._curl_norm_b_at_quad[1])**2 * \
+        #         self._control_const * self._coupling_mat / \
+        #         self._det_df_at_quad**3 / self._B_para_at_quad**2
+        #     self._mat12[:, :, :] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] -
+        #                             self._b_at_quad[2]*self._curl_norm_b_at_quad[1]) * \
+        #         (self._b_at_quad[2]*self._curl_norm_b_at_quad[0] -
+        #          self._b_at_quad[0]*self._curl_norm_b_at_quad[2]) * \
+        #         self._control_const * self._coupling_mat / \
+        #         self._det_df_at_quad**3 / self._B_para_at_quad**2
+        #     self._mat13[:, :, :] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] -
+        #                             self._b_at_quad[2]*self._curl_norm_b_at_quad[1]) * \
+        #         (self._b_at_quad[0]*self._curl_norm_b_at_quad[1] -
+        #          self._b_at_quad[1]*self._curl_norm_b_at_quad[0]) * \
+        #         self._control_const * self._coupling_mat / \
+        #         self._det_df_at_quad**3 / self._B_para_at_quad**2
+        #     self._mat22[:, :, :] = (self._b_at_quad[2]*self._curl_norm_b_at_quad[0] -
+        #                             self._b_at_quad[0]*self._curl_norm_b_at_quad[2])**2 * \
+        #         self._control_const * self._coupling_mat / \
+        #         self._det_df_at_quad**3 / self._B_para_at_quad**2
+        #     self._mat23[:, :, :] = (self._b_at_quad[2]*self._curl_norm_b_at_quad[0] -
+        #                             self._b_at_quad[0]*self._curl_norm_b_at_quad[2]) * \
+        #         (self._b_at_quad[0]*self._curl_norm_b_at_quad[1] -
+        #          self._b_at_quad[1]*self._curl_norm_b_at_quad[0]) * \
+        #         self._control_const * self._coupling_mat / \
+        #         self._det_df_at_quad**3 / self._B_para_at_quad**2
+        #     self._mat33[:, :, :] = (self._b_at_quad[0]*self._curl_norm_b_at_quad[1] -
+        #                             self._b_at_quad[1]*self._curl_norm_b_at_quad[0])**2 * \
+        #         self._control_const * self._coupling_mat / \
+        #         self._det_df_at_quad**3 / self._B_para_at_quad**2
 
-            self._mat21[:, :, :] = -self._mat12
-            self._mat31[:, :, :] = -self._mat13
-            self._mat32[:, :, :] = -self._mat23
+        #     self._mat21[:, :, :] = -self._mat12
+        #     self._mat31[:, :, :] = -self._mat13
+        #     self._mat32[:, :, :] = -self._mat23
 
-            # assemble (B x)(curl norm_b) / B_star_para / det_df * (f_backgr.u_para² + f_backgr.vth_para²) * f_backgr.n
-            self._vec1[:, :, :] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] -
-                                   self._b_at_quad[2]*self._curl_norm_b_at_quad[1]) * \
-                self._control_const * self._coupling_vec / \
-                self._det_df_at_quad / self._B_para_at_quad
-            self._vec2[:, :, :] = (self._b_at_quad[2]*self._curl_norm_b_at_quad[0] -
-                                   self._b_at_quad[0]*self._curl_norm_b_at_quad[2]) * \
-                self._control_const * self._coupling_vec / \
-                self._det_df_at_quad / self._B_para_at_quad
-            self._vec3[:, :, :] = (self._b_at_quad[0]*self._curl_norm_b_at_quad[1] -
-                                   self._b_at_quad[1]*self._curl_norm_b_at_quad[0]) * \
-                self._control_const * self._coupling_vec / \
-                self._det_df_at_quad / self._B_para_at_quad
+        #     # assemble (B x)(curl norm_b) / B_star_para / det_df * (f_backgr.u_para² + f_backgr.vth_para²) * f_backgr.n
+        #     self._vec1[:, :, :] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] -
+        #                            self._b_at_quad[2]*self._curl_norm_b_at_quad[1]) * \
+        #         self._control_const * self._coupling_vec / \
+        #         self._det_df_at_quad / self._B_para_at_quad
+        #     self._vec2[:, :, :] = (self._b_at_quad[2]*self._curl_norm_b_at_quad[0] -
+        #                            self._b_at_quad[0]*self._curl_norm_b_at_quad[2]) * \
+        #         self._control_const * self._coupling_vec / \
+        #         self._det_df_at_quad / self._B_para_at_quad
+        #     self._vec3[:, :, :] = (self._b_at_quad[0]*self._curl_norm_b_at_quad[1] -
+        #                            self._b_at_quad[1]*self._curl_norm_b_at_quad[0]) * \
+        #         self._control_const * self._coupling_vec / \
+        #         self._det_df_at_quad / self._B_para_at_quad
 
-            self._ACC.accumulate(self.particles[0], self._epsilon,
-                                 Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
-                                 self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                 self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                 self._space_key_int, self._coupling_mat, self._coupling_vec, 0.1,
-                                 control_mat=[[None, self._mat12, self._mat13],
-                                              [self._mat21, None, self._mat23],
-                                              [self._mat31, self._mat32, None]],
-                                 control_vec=[self._vec1, self._vec2, self._vec3])
-        else:
-            self._ACC.accumulate(self.particles[0], self._epsilon,
-                                 Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
-                                 self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                 self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                 self._space_key_int, self._coupling_mat, self._coupling_vec, 0.1)
+        #     self._ACC.accumulate(self.particles[0], self._epsilon,
+        #                          Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
+        #                          self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+        #                          self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+        #                          self._space_key_int, self._coupling_mat, self._coupling_vec, 0.1,
+        #                          control_mat=[[None, self._mat12, self._mat13],
+        #                                       [self._mat21, None, self._mat23],
+        #                                       [self._mat31, self._mat32, None]],
+        #                          control_vec=[self._vec1, self._vec2, self._vec3])
+        # else:
+        #     self._ACC.accumulate(self.particles[0], self._epsilon,
+        #                          Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
+        #                          self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+        #                          self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+        #                          self._space_key_int, self._coupling_mat, self._coupling_vec, 0.1)
 
+        self._ACC.accumulate(self.particles[0], self._epsilon,
+                                Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
+                                self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                                self._space_key_int, self._coupling_mat, self._coupling_vec, 0.)
+        
         # update u coefficients
         un1, info = self._schur_solver(
             un, -self._ACC.vectors[0]/2, dt, out=self._u_new)
@@ -1733,13 +1747,15 @@ class CurrentCoupling5DCurlb(Propagator):
                      Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
                      self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                      self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                     _Eu[0]._data, _Eu[1]._data, _Eu[2]._data, 0.1)
+                     _Eu[0]._data, _Eu[1]._data, _Eu[2]._data, 0.)
 
         # write new coeffs into Propagator.variables
         max_du, = self.feec_vars_update(un1)
 
-        # update weights in case of control variate
+        # update_weights
         if self.particles[0].control_variate:
+            self.particles[0].save_constants_of_motion(
+                epsilon=self._epsilon, abs_B0=self._absB0)
             self.particles[0].update_weights()
 
         if self._info and self._rank == 0:
@@ -1875,6 +1891,7 @@ class CurrentCoupling5DGradB(Propagator):
         self._unit_b1 = self._E1T.dot(self._unit_b1)
         self._unit_b2 = self._E2T.dot(self._unit_b2)
         self._curl_norm_b = self._E2T.dot(self._curl_norm_b)
+        self._absB0 = self._E0T.dot(self._absB0)
 
         _A = getattr(self.mass_ops, 'M' + u_id + 'n')
 
@@ -1896,92 +1913,92 @@ class CurrentCoupling5DGradB(Propagator):
         self._ACC = Accumulator(
             self.derham, self.domain,  params['u_space'], 'cc_lin_mhd_5d_J2', add_vector=True, symmetry='symm')
 
-        if self.particles[0].control_variate:
+        # if self.particles[0].control_variate:
 
-            # control variate method is only valid with Maxwellian distributions
-            assert isinstance(self.particles[0].f_backgr, Maxwellian)
-            assert params['u_space'] == 'Hdiv'
+        #     # control variate method is only valid with Maxwellian distributions
+        #     assert isinstance(self.particles[0].f_backgr, Maxwellian)
+        #     assert params['u_space'] == 'Hdiv'
 
-            self._ACC.init_control_variate(self.mass_ops)
+        #     self._ACC.init_control_variate(self.mass_ops)
 
-            # evaluate and save n0 at quadrature points
-            quad_pts = [quad_grid[nquad].points.flatten()
-                        for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
+        #     # evaluate and save n0 at quadrature points
+        #     quad_pts = [quad_grid[nquad].points.flatten()
+        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
 
-            self._n0_at_quad = self.domain.push(
-                self.particles[0].f_backgr.n, *quad_pts, kind='0', squeeze_out=False)
+        #     self._n0_at_quad = self.domain.push(
+        #         self.particles[0].f_backgr.n, *quad_pts, kind='0', squeeze_out=False)
 
-            # evaluate unit_b1 (1form) dot epsilon * u0_parallel * curl_norm_b/|det(DF)| at quadrature points
-            quad_pts_array = self.domain.prepare_eval_pts(*quad_pts)[:3]
+        #     # evaluate unit_b1 (1form) dot epsilon * u0_parallel * curl_norm_b/|det(DF)| at quadrature points
+        #     quad_pts_array = self.domain.prepare_eval_pts(*quad_pts)[:3]
 
-            u0_parallel_at_quad = self.particles[0].f_backgr.u(
-                *quad_pts_array)[0]
+        #     u0_parallel_at_quad = self.particles[0].f_backgr.u(
+        #         *quad_pts_array)[0]
 
-            vth_perp = self.particles[0].f_backgr.vth(*quad_pts_array)[1]
+        #     vth_perp = self.particles[0].f_backgr.vth(*quad_pts_array)[1]
 
-            absB0_at_quad = WeightedMassOperator.eval_quad(
-                self.derham.Vh_fem['0'], self._absB0)
+        #     absB0_at_quad = WeightedMassOperator.eval_quad(
+        #         self.derham.Vh_fem['0'], self._absB0)
 
-            self._det_df_at_quad = self.domain.jacobian_det(
-                *quad_pts, squeeze_out=False)
+        #     self._det_df_at_quad = self.domain.jacobian_det(
+        #         *quad_pts, squeeze_out=False)
 
-            self._unit_b1_at_quad = WeightedMassOperator.eval_quad(
-                self.derham.Vh_fem['1'], self._unit_b1)
+        #     self._unit_b1_at_quad = WeightedMassOperator.eval_quad(
+        #         self.derham.Vh_fem['1'], self._unit_b1)
 
-            curl_norm_b_at_quad = WeightedMassOperator.eval_quad(
-                self.derham.Vh_fem['2'], self._curl_norm_b)
+        #     curl_norm_b_at_quad = WeightedMassOperator.eval_quad(
+        #         self.derham.Vh_fem['2'], self._curl_norm_b)
 
-            self._unit_b1_dot_curl_norm_b_at_quad = np.sum(
-                p * q for p, q in zip(self._unit_b1_at_quad, curl_norm_b_at_quad))
+        #     self._unit_b1_dot_curl_norm_b_at_quad = np.sum(
+        #         p * q for p, q in zip(self._unit_b1_at_quad, curl_norm_b_at_quad))
 
-            self._unit_b1_dot_curl_norm_b_at_quad /= self._det_df_at_quad
-            self._unit_b1_dot_curl_norm_b_at_quad *= self._epsilon
-            self._unit_b1_dot_curl_norm_b_at_quad *= u0_parallel_at_quad
+        #     self._unit_b1_dot_curl_norm_b_at_quad /= self._det_df_at_quad
+        #     self._unit_b1_dot_curl_norm_b_at_quad *= self._epsilon
+        #     self._unit_b1_dot_curl_norm_b_at_quad *= u0_parallel_at_quad
 
-            # precalculate constant 2 * f_backgr.vth_perp² / B0 * f_backgr.n for control MAT and VEC
-            self._control_const = vth_perp**2 / absB0_at_quad * self._n0_at_quad
+        #     # precalculate constant 2 * f_backgr.vth_perp² / B0 * f_backgr.n for control MAT and VEC
+        #     self._control_const = vth_perp**2 / absB0_at_quad * self._n0_at_quad
 
-            # assemble the matrix (G_inv)(unit_b1 x)(G_inv)
-            G_inv_at_quad = self.domain.metric_inv(
-                *quad_pts, squeeze_out=False)
+        #     # assemble the matrix (G_inv)(unit_b1 x)(G_inv)
+        #     G_inv_at_quad = self.domain.metric_inv(
+        #         *quad_pts, squeeze_out=False)
 
-            self._G_inv_bx_G_inv_at_quad = [[np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad)],
-                                            [np.zeros_like(self._n0_at_quad), np.zeros_like(
-                                                self._n0_at_quad), np.zeros_like(self._n0_at_quad)],
-                                            [np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad)]]
+        #     self._G_inv_bx_G_inv_at_quad = [[np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad)],
+        #                                     [np.zeros_like(self._n0_at_quad), np.zeros_like(
+        #                                         self._n0_at_quad), np.zeros_like(self._n0_at_quad)],
+        #                                     [np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad)]]
 
-            for j in range(3):
-                temp = (-self._unit_b1_at_quad[2]*G_inv_at_quad[1, j] + self._unit_b1_at_quad[1]*G_inv_at_quad[2, j],
-                        self._unit_b1_at_quad[2]*G_inv_at_quad[0, j] -
-                        self._unit_b1_at_quad[0]*G_inv_at_quad[2, j],
-                        -self._unit_b1_at_quad[1]*G_inv_at_quad[0, j] + self._unit_b1_at_quad[0]*G_inv_at_quad[1, j])
+        #     for j in range(3):
+        #         temp = (-self._unit_b1_at_quad[2]*G_inv_at_quad[1, j] + self._unit_b1_at_quad[1]*G_inv_at_quad[2, j],
+        #                 self._unit_b1_at_quad[2]*G_inv_at_quad[0, j] -
+        #                 self._unit_b1_at_quad[0]*G_inv_at_quad[2, j],
+        #                 -self._unit_b1_at_quad[1]*G_inv_at_quad[0, j] + self._unit_b1_at_quad[0]*G_inv_at_quad[1, j])
 
-                for i in range(3):
-                    self._G_inv_bx_G_inv_at_quad[i][j] = np.sum(
-                        p * q for p, q in zip(G_inv_at_quad[i], temp[:]))
+        #         for i in range(3):
+        #             self._G_inv_bx_G_inv_at_quad[i][j] = np.sum(
+        #                 p * q for p, q in zip(G_inv_at_quad[i], temp[:]))
 
-            # memory allocation of magnetic field at quadrature points
-            self._b_at_quad = [np.zeros_like(self._n0_at_quad),
-                               np.zeros_like(self._n0_at_quad),
-                               np.zeros_like(self._n0_at_quad)]
+        #     # memory allocation of magnetic field at quadrature points
+        #     self._b_at_quad = [np.zeros_like(self._n0_at_quad),
+        #                        np.zeros_like(self._n0_at_quad),
+        #                        np.zeros_like(self._n0_at_quad)]
 
-            # memory allocation of parallel magnetic field at quadrature points
-            self._B_para_at_quad = np.zeros_like(self._n0_at_quad)
+        #     # memory allocation of parallel magnetic field at quadrature points
+        #     self._B_para_at_quad = np.zeros_like(self._n0_at_quad)
 
-            # memory allocation of gradient of parallel magnetic field at quadrature points
-            self._grad_PBb_at_quad = (np.zeros_like(self._n0_at_quad),
-                                      np.zeros_like(self._n0_at_quad),
-                                      np.zeros_like(self._n0_at_quad))
-            # memory allocation for temporary matrix
-            self._temp = [[np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad)],
-                          [np.zeros_like(self._n0_at_quad), np.zeros_like(
-                              self._n0_at_quad), np.zeros_like(self._n0_at_quad)],
-                          [np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad)]]
+        #     # memory allocation of gradient of parallel magnetic field at quadrature points
+        #     self._grad_PBb_at_quad = (np.zeros_like(self._n0_at_quad),
+        #                               np.zeros_like(self._n0_at_quad),
+        #                               np.zeros_like(self._n0_at_quad))
+        #     # memory allocation for temporary matrix
+        #     self._temp = [[np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad)],
+        #                   [np.zeros_like(self._n0_at_quad), np.zeros_like(
+        #                       self._n0_at_quad), np.zeros_like(self._n0_at_quad)],
+        #                   [np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad)]]
 
-            # memory allocation for control VEC
-            self._vec1 = np.zeros_like(self._n0_at_quad)
-            self._vec2 = np.zeros_like(self._n0_at_quad)
-            self._vec3 = np.zeros_like(self._n0_at_quad)
+        #     # memory allocation for control VEC
+        #     self._vec1 = np.zeros_like(self._n0_at_quad)
+        #     self._vec2 = np.zeros_like(self._n0_at_quad)
+        #     self._vec3 = np.zeros_like(self._n0_at_quad)
 
         # choose algorithm
         if params['method'] == 'forward_euler':
@@ -2044,37 +2061,37 @@ class CurrentCoupling5DGradB(Propagator):
         Egrad_PBb.update_ghost_regions()
 
         # perform accumulation (either with or without control variate)
-        if self.particles[0].control_variate:
+        # if self.particles[0].control_variate:
 
-            # evaluate magnetic field at quadrature points (in-place)
-            WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
-                                           out=[self._b_at_quad[0], self._b_at_quad[1], self._b_at_quad[2]])
+        #     # evaluate magnetic field at quadrature points (in-place)
+        #     WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
+        #                                    out=[self._b_at_quad[0], self._b_at_quad[1], self._b_at_quad[2]])
 
-            # evaluate B_parallel
-            self._B_para_at_quad = np.sum(
-                p * q for p, q in zip(self._unit_b1_at_quad, self._b_at_quad))
-            self._B_para_at_quad += self._unit_b1_dot_curl_norm_b_at_quad
+        #     # evaluate B_parallel
+        #     self._B_para_at_quad = np.sum(
+        #         p * q for p, q in zip(self._unit_b1_at_quad, self._b_at_quad))
+        #     self._B_para_at_quad += self._unit_b1_dot_curl_norm_b_at_quad
 
-            # evaluate grad B_parallel
-            WeightedMassOperator.eval_quad(self.derham.Vh_fem['1'], self._tmp3,
-                                           out=[self._grad_PBb_at_quad[0], self._grad_PBb_at_quad[1], self._grad_PBb_at_quad[2]])
+        #     # evaluate grad B_parallel
+        #     WeightedMassOperator.eval_quad(self.derham.Vh_fem['1'], self._tmp3,
+        #                                    out=[self._grad_PBb_at_quad[0], self._grad_PBb_at_quad[1], self._grad_PBb_at_quad[2]])
 
-            # assemble temp = (B x)(G_inv)(unit_b1 x)(G_inv)
-            for i in range(3):
-                self._temp[0][i] = -self._b_at_quad[2]*self._G_inv_bx_G_inv_at_quad[1][i] + \
-                    self._b_at_quad[1]*self._G_inv_bx_G_inv_at_quad[2][i]
-                self._temp[1][i] = +self._b_at_quad[2]*self._G_inv_bx_G_inv_at_quad[0][i] - \
-                    self._b_at_quad[0]*self._G_inv_bx_G_inv_at_quad[2][i]
-                self._temp[2][i] = -self._b_at_quad[1]*self._G_inv_bx_G_inv_at_quad[0][i] + \
-                    self._b_at_quad[0]*self._G_inv_bx_G_inv_at_quad[1][i]
+        #     # assemble temp = (B x)(G_inv)(unit_b1 x)(G_inv)
+        #     for i in range(3):
+        #         self._temp[0][i] = -self._b_at_quad[2]*self._G_inv_bx_G_inv_at_quad[1][i] + \
+        #             self._b_at_quad[1]*self._G_inv_bx_G_inv_at_quad[2][i]
+        #         self._temp[1][i] = +self._b_at_quad[2]*self._G_inv_bx_G_inv_at_quad[0][i] - \
+        #             self._b_at_quad[0]*self._G_inv_bx_G_inv_at_quad[2][i]
+        #         self._temp[2][i] = -self._b_at_quad[1]*self._G_inv_bx_G_inv_at_quad[0][i] + \
+        #             self._b_at_quad[0]*self._G_inv_bx_G_inv_at_quad[1][i]
 
-            # assemble (temp)(grad B_parallel) / B_star_para * 2 * f_backgr.vth_perp² / B0 * f_backgr.n
-            self._vec1[:, :, :] = np.sum(p * q for p, q in zip(self._temp[0][:], self._grad_PBb_at_quad)) * \
-                self._control_const * self._coupling_vec / self._B_para_at_quad
-            self._vec2[:, :, :] = np.sum(p * q for p, q in zip(self._temp[1][:], self._grad_PBb_at_quad)) * \
-                self._control_const * self._coupling_vec / self._B_para_at_quad
-            self._vec3[:, :, :] = np.sum(p * q for p, q in zip(self._temp[2][:], self._grad_PBb_at_quad)) * \
-                self._control_const * self._coupling_vec / self._B_para_at_quad
+        #     # assemble (temp)(grad B_parallel) / B_star_para * 2 * f_backgr.vth_perp² / B0 * f_backgr.n
+        #     self._vec1[:, :, :] = np.sum(p * q for p, q in zip(self._temp[0][:], self._grad_PBb_at_quad)) * \
+        #         self._control_const * self._coupling_vec / self._B_para_at_quad
+        #     self._vec2[:, :, :] = np.sum(p * q for p, q in zip(self._temp[1][:], self._grad_PBb_at_quad)) * \
+        #         self._control_const * self._coupling_vec / self._B_para_at_quad
+        #     self._vec3[:, :, :] = np.sum(p * q for p, q in zip(self._temp[2][:], self._grad_PBb_at_quad)) * \
+        #         self._control_const * self._coupling_vec / self._B_para_at_quad
 
         # save old u
         _u_new = un.copy(out=self._u_new)
@@ -2082,28 +2099,36 @@ class CurrentCoupling5DGradB(Propagator):
 
         # save old marker positions
         self.particles[0].markers[~self.particles[0].holes,
-                                  9:12] = self.particles[0].markers[~self.particles[0].holes, 0:3]
+                                  11:14] = self.particles[0].markers[~self.particles[0].holes, 0:3]
 
         for stage in range(self._butcher.n_stages):
 
             # accumulate RHS
-            if self.particles[0].control_variate:
-                self._ACC.accumulate(self.particles[0], self._epsilon,
-                                     Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
-                                     self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                     self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
-                                     self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                     Egrad_PBb[0]._data, Egrad_PBb[1]._data, Egrad_PBb[2]._data,
-                                     self._space_key_int, self._coupling_mat, self._coupling_vec, 0.,
-                                     control_vec=[self._vec1, self._vec2, self._vec3])
-            else:
-                self._ACC.accumulate(self.particles[0], self._epsilon,
-                                     Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
-                                     self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                     self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
-                                     self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                     Egrad_PBb[0]._data, Egrad_PBb[1]._data, Egrad_PBb[2]._data,
-                                     self._space_key_int, self._coupling_mat, self._coupling_vec, 0.)
+            # if self.particles[0].control_variate:
+            #     self._ACC.accumulate(self.particles[0], self._epsilon,
+            #                          Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
+            #                          self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+            #                          self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
+            #                          self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+            #                          Egrad_PBb[0]._data, Egrad_PBb[1]._data, Egrad_PBb[2]._data,
+            #                          self._space_key_int, self._coupling_mat, self._coupling_vec, 0.,
+            #                          control_vec=[self._vec1, self._vec2, self._vec3])
+            # else:
+            #     self._ACC.accumulate(self.particles[0], self._epsilon,
+            #                          Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
+            #                          self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+            #                          self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
+            #                          self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+            #                          Egrad_PBb[0]._data, Egrad_PBb[1]._data, Egrad_PBb[2]._data,
+            #                          self._space_key_int, self._coupling_mat, self._coupling_vec, 0.)
+
+            self._ACC.accumulate(self.particles[0], self._epsilon,
+                                    Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
+                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
+                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                                    Egrad_PBb[0]._data, Egrad_PBb[1]._data, Egrad_PBb[2]._data,
+                                    self._space_key_int, self._coupling_mat, self._coupling_vec, 0.)
 
             # push particles
             Eu = self._EuT.dot(_u_temp, out=self._Eu_temp)
@@ -2143,6 +2168,12 @@ class CurrentCoupling5DGradB(Propagator):
 
         # write new coeffs into Propagator.variables
         max_du, = self.feec_vars_update(_u_new)
+
+        # update_weights
+        if self.particles[0].control_variate:
+            self.particles[0].save_constants_of_motion(
+                epsilon=self._epsilon, abs_B0=self._absB0)
+            self.particles[0].update_weights()
 
         if self._info and self._rank == 0:
             print('Maxdiff up for CurrentCoupling5DGradB:', max_du)

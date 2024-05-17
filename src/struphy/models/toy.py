@@ -317,6 +317,7 @@ class GuidingCenter(StruphyModel):
         self._mpi_in_place = IN_PLACE
         self._en_fv = np.empty(1, dtype=float)
         self._en_fB = np.empty(1, dtype=float)
+        self._en_tot = np.empty(1, dtype=float)
         self._n_lost_particles = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
@@ -326,17 +327,18 @@ class GuidingCenter(StruphyModel):
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._en_fv, op=self._mpi_sum)
 
-        # particles' magnetic energy
-        self.pointer['ions'].save_magnetic_energy(self._abs_b, self._unit_b1, self._b_eq.space.zeros())
-
-        self._en_fB[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
+        self._en_tot[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
             self.pointer['ions'].markers[~self.pointer['ions'].holes, 8]) / self.pointer['ions'].n_mks
+        self.derham.comm.Allreduce(
+            self._mpi_in_place, self._en_tot, op=self._mpi_sum)
+        
+        self._en_fB[0] = self._en_tot[0] - self._en_fv[0]
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._en_fB, op=self._mpi_sum)
 
         self.update_scalar('en_fv', self._en_fv[0])
         self.update_scalar('en_fB', self._en_fB[0])
-        self.update_scalar('en_tot', self._en_fv[0] + self._en_fB[0])
+        self.update_scalar('en_tot', self._en_tot[0])
 
         self._n_lost_particles[0] = self.pointer['ions'].n_lost_markers
         self.derham.comm.Allreduce(
