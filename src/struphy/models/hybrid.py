@@ -729,17 +729,17 @@ class LinearMHDDriftkineticCC(StruphyModel):
             u_space='Hdiv',
             **params_shear_alfven,
             **self._coupling_params))
-        self.add_propagator(self.prop_fields.MagnetosonicCurrentCoupling5D(
-            self.pointer['mhd_n3'],
-            self.pointer['mhd_u2'],
-            self.pointer['mhd_p3'],
-            b=self.pointer['b2'],
-            particles=self.pointer['energetic_ions'],
-            unit_b1=self._unit_b1,
-            absB0=self._absB0,
-            u_space='Hdiv',
-            **params_magnetosonic,
-            **self._coupling_params))
+        # self.add_propagator(self.prop_fields.MagnetosonicCurrentCoupling5D(
+        #     self.pointer['mhd_n3'],
+        #     self.pointer['mhd_u2'],
+        #     self.pointer['mhd_p3'],
+        #     b=self.pointer['b2'],
+        #     particles=self.pointer['energetic_ions'],
+        #     unit_b1=self._unit_b1,
+        #     absB0=self._absB0,
+        #     u_space='Hdiv',
+        #     **params_magnetosonic,
+        #     **self._coupling_params))
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U')
