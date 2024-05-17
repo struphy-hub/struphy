@@ -649,7 +649,7 @@ class ITPA_density:
         self._n0 = n0
         self._c = c
 
-    def __call__(self, eta1, eta2, eta3):
+    def __call__(self, eta1, eta2=None, eta3=None):
 
         val = 0.
 

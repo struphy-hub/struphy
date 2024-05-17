@@ -505,11 +505,11 @@ class PushGuidingCenterbxEstar(Propagator):
 
         self._mpi_sort = params['mpi_sort']
         self._verbose = params['verbose']
-        epsilon = params['epsilon']
+        self._epsilon = params['epsilon']
         b_eq = params['b_eq']
         unit_b1 = params['unit_b1']
         unit_b2 = params['unit_b2']
-        abs_b = params['abs_b']
+        self._abs_b = params['abs_b']
         grad_abs_b = params['gradB1']
         curl_norm_b = params['curl_unit_b2']
 
@@ -521,7 +521,7 @@ class PushGuidingCenterbxEstar(Propagator):
         b_eq = E2T.dot(b_eq)
         unit_b1 = E1T.dot(unit_b1)
         unit_b2 = E2T.dot(unit_b2)
-        abs_b = E0T.dot(abs_b)
+        self._abs_b = E0T.dot(self._abs_b)
         curl_norm_b = E2T.dot(curl_norm_b)
         grad_abs_b = E1T.dot(grad_abs_b)
 
@@ -585,7 +585,7 @@ class PushGuidingCenterbxEstar(Propagator):
                                   'push_gc_bxEstar_explicit_multistage',
                                   n_stages=butcher.n_stages)
 
-            self._pusher_inputs = (epsilon, b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
+            self._pusher_inputs = (self._epsilon, b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
                                    unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
                                    unit_b2[0]._data, unit_b2[1]._data, unit_b2[2]._data,
                                    curl_norm_b[0]._data, curl_norm_b[1]._data, curl_norm_b[2]._data,
@@ -600,7 +600,7 @@ class PushGuidingCenterbxEstar(Propagator):
                                   maxiter=params['maxiter'],
                                   tol=params['tol'])
 
-            self._pusher_inputs = (epsilon, abs_b._data,
+            self._pusher_inputs = (self._epsilon, self._abs_b._data,
                                    b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
                                    unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
                                    unit_b2[0]._data, unit_b2[1]._data, unit_b2[2]._data,
@@ -614,6 +614,15 @@ class PushGuidingCenterbxEstar(Propagator):
         """
         self._pusher(self.particles[0], dt,
                      *self._pusher_inputs, mpi_sort=self._mpi_sort, verbose=self._verbose)
+        
+        # update_weights
+        if self.particles[0].control_variate:
+
+            if self.particles[0].f_backgr.coords == 'constants_of_motion':
+                self.particles[0].save_constants_of_motion(
+                    epsilon=self._epsilon, abs_B0=self._abs_b)
+
+            self.particles[0].update_weights()
 
     @classmethod
     def options(cls):
@@ -703,11 +712,11 @@ class PushGuidingCenterBstar(Propagator):
 
         self._mpi_sort = params['mpi_sort']
         self._verbose = params['verbose']
-        epsilon = params['epsilon']
+        self._epsilon = params['epsilon']
         b_eq = params['b_eq']
         unit_b1 = params['unit_b1']
         unit_b2 = params['unit_b2']
-        abs_b = params['abs_b']
+        self._abs_b = params['abs_b']
         grad_abs_b = params['gradB1']
         curl_norm_b = params['curl_unit_b2']
 
@@ -719,7 +728,7 @@ class PushGuidingCenterBstar(Propagator):
         b_eq = E2T.dot(b_eq)
         unit_b1 = E1T.dot(unit_b1)
         unit_b2 = E2T.dot(unit_b2)
-        abs_b = E0T.dot(abs_b)
+        self._abs_b = E0T.dot(self._abs_b)
         curl_norm_b = E2T.dot(curl_norm_b)
         grad_abs_b = E1T.dot(grad_abs_b)
 
@@ -784,7 +793,7 @@ class PushGuidingCenterBstar(Propagator):
                                   'push_gc_Bstar_explicit_multistage',
                                   n_stages=butcher.n_stages)
 
-            self._pusher_inputs = (epsilon, b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
+            self._pusher_inputs = (self._epsilon, b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
                                    unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
                                    unit_b2[0]._data, unit_b2[1]._data, unit_b2[2]._data,
                                    curl_norm_b[0]._data, curl_norm_b[1]._data, curl_norm_b[2]._data,
@@ -799,7 +808,7 @@ class PushGuidingCenterBstar(Propagator):
                                   maxiter=params['maxiter'],
                                   tol=params['tol'])
 
-            self._pusher_inputs = (epsilon, abs_b._data,
+            self._pusher_inputs = (self._epsilon, self._abs_b._data,
                                    b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
                                    unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
                                    unit_b2[0]._data, unit_b2[1]._data, unit_b2[2]._data,
@@ -813,6 +822,15 @@ class PushGuidingCenterBstar(Propagator):
         """
         self._pusher(self.particles[0], dt,
                      *self._pusher_inputs, mpi_sort=self._mpi_sort, verbose=self._verbose)
+        
+        # update_weights
+        if self.particles[0].control_variate:
+
+            if self.particles[0].f_backgr.coords == 'constants_of_motion':
+                self.particles[0].save_constants_of_motion(
+                    epsilon=self._epsilon, abs_B0=self._abs_b)
+
+            self.particles[0].update_weights()
 
     @classmethod
     def options(cls):
@@ -1070,6 +1088,7 @@ class PushDriftKineticbxGradB(Propagator):
         self._unit_b1 = self._E1T.dot(self._unit_b1)
         self._unit_b2 = self._E2T.dot(self._unit_b2)
         self._curl_norm_b = self._E2T.dot(self._curl_norm_b)
+        self._abs_b = self._E0T.dot(self._abs_b)
 
         self._curl_norm_b.update_ghost_regions()
 
@@ -1183,6 +1202,8 @@ class PushDriftKineticbxGradB(Propagator):
 
         # update_weights
         if self.particles[0].control_variate:
+            self.particles[0].save_constants_of_motion(
+                epsilon=self._epsilon, abs_B0=self._abs_b)
             self.particles[0].update_weights()
 
     @classmethod
@@ -1299,6 +1320,7 @@ class PushDriftKineticBstar(Propagator):
         self._unit_b1 = self._E1T.dot(self._unit_b1)
         self._unit_b2 = self._E2T.dot(self._unit_b2)
         self._curl_norm_b = self._E2T.dot(self._curl_norm_b)
+        self._abs_b = self._E0T.dot(self._abs_b)
 
         self._curl_norm_b.update_ghost_regions()
 
@@ -1413,6 +1435,8 @@ class PushDriftKineticBstar(Propagator):
 
         # update_weights
         if self.particles[0].control_variate:
+            self.particles[0].save_constants_of_motion(
+                epsilon=self._epsilon, abs_B0=self._abs_b)
             self.particles[0].update_weights()
 
     @classmethod

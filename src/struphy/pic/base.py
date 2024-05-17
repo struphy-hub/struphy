@@ -137,19 +137,19 @@ class Particles(metaclass=ABCMeta):
                     mhd_equil=pass_mhd_equil
                 )
 
+        # set coordinates of the background distribution
+        if self.f_backgr.coords == 'constants_of_motion':
+            self._f_coords_index = self.index['com']
+
+        else:
+            self._f_coords_index = self.index['coords']
+
     @classmethod
     @abstractmethod
     def default_bckgr_params(cls):
         """ Dictionary holding the minimal information of the default background.
 
         Must contain at least a keyword 'type' with corresponding value a valid choice of background.
-        """
-        pass
-
-    @abstractmethod
-    def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        """ Jacobian determinant of the velocity coordinate transformation 
-        (e.g. :math:`B^*_\parallel` in gyrokinetics).
         """
         pass
 
@@ -347,6 +347,7 @@ class Particles(metaclass=ABCMeta):
         out['pos'] = slice(0, 3)  # positions
         out['vel'] = slice(3, 3 + self.vdim)  # velocities
         out['coords'] = slice(0, 3 + self.vdim)  # phasespace_coords
+        out['com'] = slice(8, 11)  # constants of motion
         out['weights'] = 3 + self.vdim  # weights
         out['s0'] = 4 + self.vdim  # sampling_density
         out['w0'] = 5 + self.vdim  # weights0
@@ -388,6 +389,18 @@ class Particles(metaclass=ABCMeta):
         assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc, 3 + self.vdim)
         self._markers[~self.holes, self.index['coords']] = new
+
+    @property
+    def constants_of_motion(self):
+        """ Array holding the constants of motion of marker, excluding holes. The i-th row holds the i-th marker info.
+        """
+        return self.markers[~self.holes, self.index['com']]
+
+    @constants_of_motion.setter
+    def constants_of_motion(self, new):
+        assert isinstance(new, np.ndarray)
+        assert new.shape == (self.n_mks_loc, 3)
+        self._markers[~self.holes, self.index['com']] = new
 
     @property
     def weights(self):
@@ -449,6 +462,23 @@ class Particles(metaclass=ABCMeta):
         """ Drawing particles uniformly on the unit cube('uniform') or on the disc('disc')
         """
         return self._spatial
+
+    @property
+    def f_coords_index(self):
+        """Dict holding the column indices referring to coords of the distribution fuction.
+        """
+        return self._f_coords_index
+
+    @property
+    def f_coords(self):
+        """ Coordinates of the distribution function.
+        """
+        return self.markers[~self.holes, self.f_coords_index]
+
+    @f_coords.setter
+    def f_coords(self, new):
+        assert isinstance(new, np.ndarray)
+        self.markers[~self.holes, self.f_coords_index] = new
 
     def create_marker_array(self):
         """ Create marker array :attr:`~struphy.pic.base.Particles.markers`.
@@ -836,14 +866,16 @@ class Particles(metaclass=ABCMeta):
                 )
         # TODO: allow for different perturbations for different backgrounds
 
-        f_init = self.f_init(*self.phasespace_coords.T)
+        # evaluate initial distribution function
+        f_init = self.f_init(*self.f_coords.T)
 
         # if f_init is vol-form, transform to 0-form
         if self.pforms[0] == 'vol':
             f_init /= self.domain.jacobian_det(self.markers_wo_holes)
 
         if self.pforms[1] == 'vol':
-            f_init /= self.velocity_jacobian_det(*self.phasespace_coords.T)
+            f_init /= self.f_init.velocity_jacobian_det(
+                *self.phasespace_coords.T)
 
         # compute w0 and save at vdim + 5
         self.weights0 = f_init / self.sampling_density
@@ -861,14 +893,14 @@ class Particles(metaclass=ABCMeta):
         The background :attr:`~struphy.pic.base.Particles.f_backgr` is used for this.
         """
 
-        f_backgr = self.f_backgr(*self.phasespace_coords.T)
+        f_backgr = self.f_backgr(*self.f_coords.T)
 
         # if f_init is vol-form, transform to 0-form
         if self.pforms[0] == 'vol':
             f_backgr /= self.domain.jacobian_det(self.markers_wo_holes)
 
         if self.pforms[1] == 'vol':
-            f_backgr /= self.velocity_jacobian_det(
+            f_backgr /= self.f_backgr.velocity_jacobian_det(
                 *self.phasespace_coords.T)
 
         self.weights = self.weights0 - f_backgr/self.sampling_density
@@ -914,7 +946,7 @@ class Particles(metaclass=ABCMeta):
             _weights /= self.domain.jacobian_det(self.markers_wo_holes)
 
         if pforms[1] == '0':
-            _weights /= self.velocity_jacobian_det(*self.phasespace_coords.T)
+            _weights /= self.f_backgr.velocity_jacobian_det(*self.f_coords.T)
 
         f_slice = np.histogramdd(self.markers_wo_holes[:, slicing],
                                  bins=bin_edges,

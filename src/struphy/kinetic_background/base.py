@@ -22,6 +22,13 @@ class KineticBackground(metaclass=ABCMeta):
 
     @property
     @abstractmethod
+    def coords(self):
+        """ Coordinates of the distribution.
+        """
+        pass
+
+    @property
+    @abstractmethod
     def vdim(self):
         """ Dimension of the velocity space (vdim = n).
         """
@@ -31,6 +38,12 @@ class KineticBackground(metaclass=ABCMeta):
     @abstractmethod
     def is_polar(self):
         """ List of booleans. True if the velocity coordinates are polar coordinates.
+        """
+        pass
+
+    @abstractmethod
+    def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
+        """ Jacobian determinant of the velocity coordinate transformation.
         """
         pass
 
@@ -128,6 +141,12 @@ class SumKineticBackground(KineticBackground):
         self._f2 = f2
 
     @property
+    def coords(self):
+        """ Coordinates of the distribution.
+        """
+        return self._f1.coords
+
+    @property
     def vdim(self):
         """ Dimension of the velocity space (vdim = n).
         """
@@ -138,6 +157,11 @@ class SumKineticBackground(KineticBackground):
         """ List of booleans. True if the velocity coordinates are polar coordinates.
         """
         return self._f1.is_polar
+
+    def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
+        """ Jacobian determinant of the velocity coordinate transformation.
+        """
+        return self._f1.velocity_jacobian_det(eta1, eta2, eta3, *v)
 
     def n(self, *etas):
         """ Number density (0-form). 
@@ -209,6 +233,12 @@ class ScalarMultiplyKineticBackground(KineticBackground):
         self._a = a
 
     @property
+    def coords(self):
+        """ Coordinates of the distribution.
+        """
+        return self._f.coords
+
+    @property
     def vdim(self):
         """ Dimension of the velocity space (vdim = n).
         """
@@ -219,6 +249,11 @@ class ScalarMultiplyKineticBackground(KineticBackground):
         """ List of booleans. True if the velocity coordinates are polar coordinates.
         """
         return self._f.is_polar
+
+    def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
+        """ Jacobian determinant of the velocity coordinate transformation.
+        """
+        return self._f.velocity_jacobian_det(eta1, eta2, eta3, *v)
 
     def n(self, *etas):
         """ Number density (0-form). 
@@ -405,5 +440,155 @@ class Maxwellian(KineticBackground):
 
             res *= self.gaussian(v, u=u, vth=vth,
                                  is_polar=self.is_polar[i])
+
+        return res
+
+
+class CanonicalMaxwellian(metaclass=ABCMeta):
+    r""" Base class for a canonical Maxwellian distribution function.
+    It is defined by three constants of motion in the axissymmetric toroidal system:
+
+    - Shifted canonical toroidal momentum :math:`\psi_c = \psi + \frac{m_s F}{q_s B}v_\parallel - \text{sign}(v_\parallel)\sqrt{2(\epsilon - \mu B)}\frac{m_sF}{q_sB} \mathcal{H}(\epsilon - \mu B)`,
+
+    - Energy :math:`\epsilon = \frac{1}{2}m_sv_\parallel² + \mu B`,
+
+    - Magnetic moment :math: `\mu = \frac{m_s v_\perp²}{2B}`,
+
+    where :math:`\psi` is the poloidal magnetic flux function, :math:`F=F(\psi)` is the poloidal current function and :math:`\mathcal{H}` is the Heaviside function.
+
+    With the three constants of motion, a canonical Maxwellian distribution function is defined as
+
+    .. math::
+
+        F(\psi_c, \epsilon, \mu) = \frac{n(\psi_c)}{(2\pi)^{3/2}v_\text{th}³(\psi_c)} \text{exp}\left[ - \frac{\epsilon}{v_\text{th}²(\psi_c)}\right].
+
+    """
+
+    @property
+    @abstractmethod
+    def coords(self):
+        """ Coordinates of the distribution.
+        """
+        pass
+
+    @abstractmethod
+    def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
+        """ Jacobian determinant of the velocity coordinate transformation.
+        """
+        pass
+
+    @abstractmethod
+    def n(self, psic):
+        """ Number density (0-form). 
+
+        Parameters
+        ----------
+        psic : numpy.arrays
+            Shifted canonical toroidal momentum.
+
+        Returns
+        -------
+        A numpy.array with the density evaluated at evaluation points (same shape as etas).
+        """
+        pass
+
+    @abstractmethod
+    def vth(self, psic):
+        """ Thermal velocities (0-forms).
+
+        Parameters
+        ----------
+        psic : numpy.arrays
+            Shifted canonical toroidal momentum.
+
+        Returns
+        -------
+        A numpy.array with the thermal velocity evaluated at evaluation points (one dimension more than etas).
+        The additional dimension is in the first index.
+        """
+        pass
+
+    def gaussian(self, e, vth=1.):
+        """3-dim. normal distribution, to which array-valued thermal velocities can be passed.
+
+        Parameters
+        ----------
+        e : float | array-like
+            Energy.
+
+        vth : float | array-like
+            Thermal velocity evaluated at psic.
+
+        Returns
+        -------
+        An array of size(e).
+        """
+
+        if isinstance(vth, np.ndarray):
+            assert e.shape == vth.shape, f'{e.shape = } but {vth.shape = }'
+
+        return 1./((2.*np.pi)**(1/2) * vth**3) * np.exp(-e/vth**2)
+
+    def __call__(self, *args):
+        """ Evaluates the canonical Maxwellian distribution function.
+
+        There are two use-cases for this function in the code:
+
+        1. Evaluating for particles ("flat evaluation", inputs are all 1D of length N_p)
+        2. Evaluating the function on a meshgrid (in phase space).
+
+        Hence all arguments must always have 
+
+        1. the same shape
+        2. either ndim = 1 or ndim = 3.
+
+        Parameters
+        ----------
+        *args : array_like
+            Position-velocity arguments in the order energy, magnetic moment, canonical toroidal momentum.
+
+        Returns
+        -------
+        f : np.ndarray
+            The evaluated Maxwellian.
+        """
+
+        # Check that all args have the same shape
+        shape0 = np.shape(args[0])
+        for i, arg in enumerate(args):
+            assert np.shape(
+                arg) == shape0, f'Argument {i} has {np.shape(arg) = }, but must be {shape0 = }.'
+            assert np.ndim(arg) == 1 or np.ndim(
+                arg) == 3, f'{np.ndim(arg) = } not allowed for canonical Maxwellian evaluation.'  # flat or meshgrid evaluation
+
+        # Get result evaluated with each particles' psic
+        res = self.n(args[2])
+        vths = self.vth(args[2])
+
+        # take care of correct broadcasting, assuming args come from phase space meshgrid
+        if np.ndim(args[0]) == 3:
+            # move eta axes to the back
+            arg_t = np.moveaxis(args[0], 0, -1)
+            arg_t = np.moveaxis(arg_t, 0, -1)
+            arg_t = np.moveaxis(arg_t, 0, -1)
+
+            # broadcast
+            res_broad = res + 0.*arg_t
+
+            # move eta axes to the front
+            res = np.moveaxis(res_broad, -1, 0)
+            res = np.moveaxis(res, -1, 0)
+            res = np.moveaxis(res, -1, 0)
+
+        # Multiply result with gaussian in energy
+        if np.ndim(args[0]) == 3:
+            vth_broad = vths + 0.*arg_t
+            vth = np.moveaxis(vth_broad, -1, 0)
+            vth = np.moveaxis(vth, -1, 0)
+            vth = np.moveaxis(vth, -1, 0)
+        else:
+            vth = vths
+
+        res *= self.gaussian(args[0], vth=vth)
 
         return res
