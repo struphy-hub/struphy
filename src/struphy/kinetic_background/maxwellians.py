@@ -930,7 +930,7 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         assert len(v) == 2
 
         # J = 1/v_parallel
-        jacobian_det = 1/v[0]
+        jacobian_det = 1/np.abs(v[0])
 
         return jacobian_det
 
