@@ -146,8 +146,9 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
             poisson_solver = ImplicitDiffusion(_phi.vector,
                                                sigma_1=1e-12,
                                                sigma_2=0.,
-                                               sigma_3='dt',
-                                               A2_mat='M1perp',
+                                               sigma_3=1.,
+                                               divide_by_dt=True,
+                                               diffusion_mat='M1perp',
                                                rho=rho_vec,
                                                **solver_params)
 
@@ -332,7 +333,7 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
                                         sigma_1=1e-8,
                                         sigma_2=0.,
                                         sigma_3=1.,
-                                        A2_mat='M1perp',
+                                        diffusion_mat='M1perp',
                                         rho=rho_vec1,
                                         **solver_params)
 
@@ -341,7 +342,7 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
                                         sigma_1=1e-8,
                                         sigma_2=0.,
                                         sigma_3=1.,
-                                        A2_mat='M1perp',
+                                        diffusion_mat='M1perp',
                                         rho=rho_vec2,
                                         **solver_params)
 
@@ -467,7 +468,7 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
                                           sigma_1=1e-8,
                                           sigma_2=0.,
                                           sigma_3=1.,
-                                          A2_mat='M1perp',
+                                          diffusion_mat='M1perp',
                                           rho=rho_vec,
                                           **solver_params)
     
@@ -492,7 +493,7 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
                                             sigma_1=1e-8,
                                             sigma_2=0.,
                                             sigma_3=1.,
-                                            A2_mat='M1perp',
+                                            diffusion_mat='M1perp',
                                             rho=rhs.vector,
                                             **solver_params)
 

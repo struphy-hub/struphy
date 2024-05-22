@@ -21,7 +21,7 @@ def test_pproc_codes(model=None):
     list_kinetic = []
     for name, obj in inspect.getmembers(kinetic):
         if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
+            if name not in {'StruphyModel', 'KineticBackground'}:
                 list_kinetic += [name]
 
     list_hybrid = []

@@ -1,7 +1,13 @@
 import numpy as np
 
 
-def derive_units(Z_bulk=None, A_bulk=None, x=1., B=1., n=1., velocity_scale='alfvén'):
+def derive_units(Z_bulk: int = None, 
+                 A_bulk: int = None, 
+                 x: float = 1., 
+                 B: float = 1., 
+                 n: float = 1., 
+                 kBT: float = None, 
+                 velocity_scale: str = 'alfvén'):
     """ Computes units used in Struphy model's :ref:`normalization`.
 
     Input units from parameter file:
@@ -37,6 +43,9 @@ def derive_units(Z_bulk=None, A_bulk=None, x=1., B=1., n=1., velocity_scale='alf
 
     n : float
         Unit of particle number density (in 1e20 per cubic meter).
+
+    kBT : float 
+        Unit of internal energy (in keV). Only in effect if the velocity scale is set to 'thermal'.
 
     velocity_scale : str
         Velocity scale to be used ("alfvén", "cyclotron" or "light").
@@ -88,6 +97,10 @@ def derive_units(Z_bulk=None, A_bulk=None, x=1., B=1., n=1., velocity_scale='alf
         units['v'] = Z_bulk * e * units['B'] / \
             (A_bulk * mH) / (2*np.pi) * units['x']
 
+    elif velocity_scale == 'thermal':
+        assert A_bulk is not None, 'Need bulk species to choose velocity scale "thermal".'
+        units['v'] = np.sqrt(kBT*1000*e/(mH*A_bulk))
+        
     # time (s)
     units['t'] = units['x'] / units['v']
     if A_bulk is None:
@@ -166,7 +179,7 @@ def setup_domain_mhd(params, units=None):
         domain = dom_class(**params['geometry'][dom_type])
 
         mhd = None
-
+        
     return domain, mhd
 
 

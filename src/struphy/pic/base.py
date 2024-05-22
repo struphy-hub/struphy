@@ -36,6 +36,9 @@ class Particles(metaclass=ABCMeta):
     mhd_equil : MHDequilibrium
         Struphy MHD equilibrium object
 
+    braginskii_equil : BraginskiiEquilibrium
+        Struphy Braginskii equilibrium object
+
     bckgr_params : dict
         Kinetic background parameters.
 
@@ -51,12 +54,13 @@ class Particles(metaclass=ABCMeta):
                  derham=None,
                  domain=None,
                  mhd_equil=None,
+                 braginskii_equil=None,
                  bckgr_params=None,
                  pert_params=None,
                  **marker_params):
 
         if bckgr_params is None:
-            bckgr_params = {'type': 'Maxwellian6D'}
+            bckgr_params = {'type': 'Maxwellian3D'}
 
         self._bckgr_params = bckgr_params
         self._pert_params = pert_params
@@ -80,15 +84,17 @@ class Particles(metaclass=ABCMeta):
         self._derham = derham
         self._domain = domain
         self._mhd_equil = mhd_equil
+        self._braginskii_equil = braginskii_equil
 
         self._domain_decomp = derham.domain_array
 
+        # background p-form description (default: None, which means 0-form)
         if 'pforms' in bckgr_params:
             assert len(bckgr_params['pforms']) == 2, \
                 'Only two form degrees can be given!'
             self._pforms = bckgr_params['pforms']
         else:
-            self._pforms = [None, None]
+            self._pforms = [None, None] 
 
         if derham is not None:
             self._mpi_comm = derham.comm
@@ -104,13 +110,13 @@ class Particles(metaclass=ABCMeta):
         self._control_variate = (
             self.marker_params['type'] == 'control_variate')
 
-        # set background function
+        # set background function 
         bckgr_type = bckgr_params['type']
 
         if not isinstance(bckgr_type, list):
             bckgr_type = [bckgr_type]
 
-        self._f_backgr = None
+        self._f0 = None
         for fi in bckgr_type:
             if fi[-2] == '_':
                 fi_type = fi[:-2]
@@ -119,26 +125,30 @@ class Particles(metaclass=ABCMeta):
             if fi in bckgr_params:
                 maxw_params = bckgr_params[fi]
                 pass_mhd_equil = mhd_equil
+                pass_braginskii_equil = braginskii_equil
             else:
                 maxw_params = None
                 pass_mhd_equil = None
+                pass_braginskii_equil = None
 
                 print(
                     f'\n{fi} is not in bckgr_params; default background parameters are used.')
 
-            if self._f_backgr is None:
-                self._f_backgr = getattr(maxwellians, fi_type)(
+            if self._f0 is None:
+                self._f0 = getattr(maxwellians, fi_type)(
                     maxw_params=maxw_params,
-                    mhd_equil=pass_mhd_equil
+                    mhd_equil=pass_mhd_equil,
+                    braginskii_equil=pass_braginskii_equil
                 )
             else:
-                self._f_backgr = self._f_backgr + getattr(maxwellians, fi_type)(
+                self._f0 = self._f0 + getattr(maxwellians, fi_type)(
                     maxw_params=maxw_params,
-                    mhd_equil=pass_mhd_equil
+                    mhd_equil=pass_mhd_equil,
+                    braginskii_equil=pass_braginskii_equil
                 )
 
         # set coordinates of the background distribution
-        if self.f_backgr.coords == 'constants_of_motion':
+        if self.f0.coords == 'constants_of_motion':
             self._f_coords_index = self.index['com']
 
         else:
@@ -223,10 +233,10 @@ class Particles(metaclass=ABCMeta):
         return self._f_init
 
     @property
-    def f_backgr(self):
-        assert hasattr(self, '_f_backgr'), AttributeError(
+    def f0(self):
+        assert hasattr(self, '_f0'), AttributeError(
             'No background distribution available, maybe this is a full-f model?')
-        return self._f_backgr
+        return self._f0
 
     @property
     def control_variate(self):
@@ -326,6 +336,12 @@ class Particles(metaclass=ABCMeta):
         """ From :mod:`struphy.fields_background.mhd_equil.equils`.
         """
         return self._mhd_equil
+
+    @property
+    def braginskii_equil(self):
+        """ From :mod:`struphy.fields_background.braginskii_equil.equils`.
+        """
+        return self._braginskii_equil
 
     @property
     def lost_markers(self):
@@ -572,7 +588,8 @@ class Particles(metaclass=ABCMeta):
 
             v_i = \text{erfinv}(2r_i - 1)\sqrt{2}v_{\mathrm{th},i} + u_i \,.
 
-        In case of Particles5D, parallel velocity is sampled as a Maxwellian and perpendicular particle speed :math:`v_\perp = \sqrt{v_1^2 + v_2^2}` is sampled as a 2D Maxweillian in polar coordinates,
+        In case of Particles5D, parallel velocity is sampled as a Maxwellian and perpendicular particle speed :math:`v_\perp = \sqrt{v_1^2 + v_2^2}` 
+        is sampled as a 2D Maxwellian in polar coordinates,
 
         .. math::
 
@@ -718,14 +735,13 @@ class Particles(metaclass=ABCMeta):
             if self.vdim == 3:
                 self.velocities = sp.erfinv(
                     2*self.velocities - 1)*np.sqrt(2)*v_th + u_mean
-
-            # Particles5D: (1d Maxwellian, 2d Maxwellian)
+            # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form)
             elif self.vdim == 2:
                 self.markers[:n_mks_load_loc, 3] = sp.erfinv(
                     2*self.velocities[:, 0] - 1)*np.sqrt(2)*v_th[0] + u_mean[0]
+                
                 self.markers[:n_mks_load_loc, 4] = np.sqrt(
                     -1*np.log(1-self.velocities[:, 1]))*np.sqrt(2)*v_th[1] + u_mean[1]
-
             else:
                 raise NotImplementedError(
                     'Inverse transform sampling of given vdim is not implemented!')
@@ -819,7 +835,7 @@ class Particles(metaclass=ABCMeta):
         from the initial distribution function :math:`f^0_{\textnormal{in}}` specified in the parmeter file
         and from the initial volume density :math:`s^n_{\textnormal{vol}}` specified in :meth:`~struphy.pic.base.Particles.draw_markers`.
         Moreover, it sets the corresponding columns for "w0", "s0" and "weights" in the markers array.
-        If :attr:`~struphy.pic.base.Particles.control_variate` is True, the background :attr:`~struphy.pic.base.Particles.f_backgr` is subtracted.
+        If :attr:`~struphy.pic.base.Particles.control_variate` is True, the background :attr:`~struphy.pic.base.Particles.f0` is subtracted.
         """
 
         assert self.domain is not None, 'A domain is needed to initialize weights.'
@@ -856,13 +872,15 @@ class Particles(metaclass=ABCMeta):
                 self._f_init = getattr(maxwellians, fi_type)(
                     maxw_params=bp_copy[fi],
                     pert_params=pp_copy,
-                    mhd_equil=self.mhd_equil
+                    mhd_equil=self.mhd_equil,
+                    braginskii_equil=self.braginskii_equil
                 )
             else:
                 self._f_init = self._f_init + getattr(maxwellians, fi_type)(
                     maxw_params=bp_copy[fi],
                     pert_params=pp_copy,
-                    mhd_equil=self.mhd_equil
+                    mhd_equil=self.mhd_equil,
+                    braginskii_equil=self.braginskii_equil
                 )
         # TODO: allow for different perturbations for different backgrounds
 
@@ -890,71 +908,71 @@ class Particles(metaclass=ABCMeta):
         """
         Applies the control variate method, i.e. updates the time-dependent marker weights 
         according to the algorithm in :ref:`control_var`.
-        The background :attr:`~struphy.pic.base.Particles.f_backgr` is used for this.
+        The background :attr:`~struphy.pic.base.Particles.f0` is used for this.
         """
 
-        f_backgr = self.f_backgr(*self.f_coords.T)
+        f0 = self.f0(*self.f_coords.T)
 
         # if f_init is vol-form, transform to 0-form
         if self.pforms[0] == 'vol':
-            f_backgr /= self.domain.jacobian_det(self.markers_wo_holes)
+            f0 /= self.domain.jacobian_det(self.markers_wo_holes)
 
         if self.pforms[1] == 'vol':
-            f_backgr /= self.f_backgr.velocity_jacobian_det(
+            f0 /= self.f0.velocity_jacobian_det(
                 *self.phasespace_coords.T)
 
-        self.weights = self.weights0 - f_backgr/self.sampling_density
+        self.weights = self.weights0 - f0/self.sampling_density
 
-    def binning(self, components, bin_edges, pforms=['0', '0']):
-        r""" Computes the distribution function via marker binning in logical space.
-        For this, numpy's histogramdd is used, following the algorithm outlined in :ref:`binning`.
-        If pforms=['vol','vol'], approximations of the volume density :math:`f^n(t)` are computed (of :math:`f^0(t)` by default). 
+    def binning(self, components, bin_edges):
+        r""" Computes full-f and delta-f distribution functions via marker binning in logical space.
+        Numpy's histogramdd is used, following the algorithm outlined in :ref:`binning`. 
 
         Parameters
         ----------
         components : list[bool]
-            List of length n (dim. of phase space) giving the directions in phase space in which to bin.
+            List of length 3 + vdim; an entry is True if the direction in phase space is to be binned.
 
         bin_edges : list[array]
             List of bin edges (resolution) having the length of True entries in components.
 
-        pforms : list
-            List differential forms ('0' or 'vol') of the distribution function in [domain-space, velocity-space] in which to bin.
-
         Returns
         -------
-        f_sclice : array-like
-            The reconstructed distribution function.
+        f_slice : array-like
+            The reconstructed full-f distribution function.
+            
+        df_slice : array-like
+            The reconstructed delta-f distribution function.
         """
 
         assert np.count_nonzero(components) == len(bin_edges)
 
         # volume of a bin
         bin_vol = 1.
-
-        for bin_edges_i in bin_edges:
-            bin_vol *= bin_edges_i[1] - bin_edges_i[0]
+        for be in bin_edges:
+            bin_vol *= be[1] - be[0]
 
         # extend components list to number of columns of markers array
         _n = len(components)
         slicing = components + [False] * (self.markers.shape[1] - _n)
 
         # compute weights of histogram:
-        _weights = self.markers_wo_holes[:, _n]
-
-        if pforms[0] == '0':
-            _weights /= self.domain.jacobian_det(self.markers_wo_holes)
-
-        if pforms[1] == '0':
-            _weights /= self.f_backgr.velocity_jacobian_det(*self.f_coords.T)
+        _weights0 = self.weights0
+        _weights = self.weights
 
         f_slice = np.histogramdd(self.markers_wo_holes[:, slicing],
                                  bins=bin_edges,
+                                 weights=_weights0)[0]
+        
+        df_slice = np.histogramdd(self.markers_wo_holes[:, slicing],
+                                 bins=bin_edges,
                                  weights=_weights)[0]
+        
+        f_slice /= self.n_mks * bin_vol
+        df_slice /= self.n_mks * bin_vol
 
-        return f_slice / (self.n_mks * bin_vol)
+        return f_slice, df_slice 
 
-    def show_distribution_function(self, components, bin_edges, pforms=['0', '0']):
+    def show_distribution_function(self, components, bin_edges):
         """
         1D and 2D plots of slices of the distribution function via marker binning.
         This routine is mainly for de-bugging.
@@ -966,9 +984,6 @@ class Particles(metaclass=ABCMeta):
 
         bin_edges : list[array]
             List of bin edges (resolution) having the length of True entries in components.
-
-        pforms : list
-            List differential forms ('0' or 'vol') of the distribution function in [domain-space, velocity-space] in which to bin.
         """
 
         import matplotlib.pyplot as plt
@@ -977,7 +992,7 @@ class Particles(metaclass=ABCMeta):
 
         assert n_dim == 1 or n_dim == 2, f'Distribution function can only be shown in 1D or 2D slices, not {n_dim}.'
 
-        f_slice = self.binning(components, bin_edges, pforms)
+        f_slice, df_slice = self.binning(components, bin_edges)
 
         bin_centers = [bi[:-1] + (bi[1] - bi[0])/2 for bi in bin_edges]
 
@@ -991,9 +1006,9 @@ class Particles(metaclass=ABCMeta):
             plt.plot(bin_centers[0], f_slice)
             plt.xlabel(labels[indices[0]])
         else:
-            plt.contourf(bin_centers[0], bin_centers[1], f_slice, levels=20)
+            plt.contourf(bin_centers[0], bin_centers[1], df_slice.T, levels=20)
             plt.colorbar()
-            plt.axis('square')
+            #plt.axis('square')
             plt.xlabel(labels[indices[0]])
             plt.ylabel(labels[indices[1]])
 

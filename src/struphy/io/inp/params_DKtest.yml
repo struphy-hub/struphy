@@ -1,0 +1,88 @@
+grid:
+    Nel: [32, 1, 1]
+    p: [1, 1, 1]
+    spl_kind: [true, true, true]
+    dirichlet_bc: null
+    dims_mask: [true, true, true]
+    nq_el: [2, 2, 1]
+    nq_pr: [2, 2, 1]
+    polar_ck: -1
+
+time: {dt: 0.05, Tend: 5., split_algo: LieTrotter}
+
+units: {x: 1.0, B: 1.0, n: 1.0, kBT: 1.0}
+
+geometry:
+    type: Cuboid
+    Cuboid:
+        l1: 0. 
+        r1: 12.56
+        l2: 0.
+        r2: 1.
+        l3: 0.
+        r3: 1.
+
+mhd_equilibrium:
+    type: HomogenSlab
+    HomogenSlab: {B0x: 1., B0z: 0.}
+
+em_fields:
+    options:
+        phi: ImplicitDiffusion
+        ImplicitDiffusion:
+            solver:
+                type: [pcg, MassMatrixPreconditioner]
+                tol: 1.0e-08
+                maxiter: 3000
+                info: false
+                verbose: false
+
+kinetic:
+    ions:
+        phys_params: {A: 1, Z: 1}
+        markers:
+            type: control_variate
+            ppc: 10000
+            Np: 99
+            eps: 0.25
+            bc:
+                type: [periodic, periodic, periodic]
+            loading:
+                type: pseudo_random
+                seed: 1234
+                spatial: uniform
+                dir_particles: path_to_particles
+                moments: [0.0, 0.0, 1.0, 1.0]
+        save_data:
+            n_markers: 3
+            f:
+                slices: [e1, e1_v1]
+                n_bins:
+                - [32]
+                - [128, 128]
+                ranges:
+                -   - [0.0, 1.0]
+                -   - [0.0, 1.0]
+                    - [-4.0, 4.0]
+        background:
+            type: GyroMaxwellian2D
+            GyroMaxwellian2D: 
+                n: 1.0
+                u_para: 0.
+                u_perp: 0.
+                vth_para: 1.0
+                vth_perp: 1.0
+        perturbation:
+            type: ModesCos
+            ModesCos:
+                comps: {n: '0'}
+                ls:
+                    n: [1]
+                amps: 
+                    n: [0.001]
+        options:
+            push_bxEstarWithPhi: {method: rk4, maxiter: 20, tol: 1.0e-07, mpi_sort: each,
+                verbose: false}
+            push_BstarWithPhi: {method: rk4, maxiter: 20, tol: 1.0e-07, mpi_sort: each,
+                verbose: false}
+            verification: {use: true, epsilon: 1.0}

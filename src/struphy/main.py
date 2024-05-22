@@ -98,7 +98,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     # compute initial scalars and kinetic data, pass time state to all propagators
     model.update_scalar_quantities()
     model.update_markers_to_be_saved()
-    model.update_distr_function()
+    model.update_distr_functions()
     model.add_time_state(time_state['value'])
 
     # add all variables to be saved to data object
@@ -152,7 +152,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
             # compute scalars and kinetic data
             model.update_scalar_quantities()
             model.update_markers_to_be_saved()
-            model.update_distr_function()
+            model.update_distr_functions()
 
             # extract FEM coefficients
             for key, val in model.em_fields.items():

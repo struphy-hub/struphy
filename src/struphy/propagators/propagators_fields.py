@@ -10,7 +10,7 @@ from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorV
 from struphy.pic.base import Particles
 from struphy.polar.basic import PolarVector
 from struphy.kinetic_background.base import Maxwellian
-from struphy.kinetic_background.maxwellians import Maxwellian6D, Maxwellian5D
+from struphy.kinetic_background.maxwellians import Maxwellian3D, GyroMaxwellian2D
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.feec import preconditioner
 from struphy.feec.mass import WeightedMassOperator
@@ -1383,7 +1383,7 @@ class CurrentCoupling6DDensity(Propagator):
         if self._particles.control_variate:
 
             # control variate method is only valid with Maxwellian distributions
-            assert isinstance(self._particles.f_backgr, Maxwellian)
+            assert isinstance(self._particles.f0, Maxwellian)
             assert params['u_space'] == 'Hdiv'
 
             # evaluate and save nh0/|det(DF)| (push-forward) at quadrature points for control variate
@@ -1391,7 +1391,7 @@ class CurrentCoupling6DDensity(Propagator):
                         for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
 
             self._nh0_at_quad = self.domain.push(
-                self._particles.f_backgr.n, *quad_pts, kind='3', squeeze_out=False)
+                self._particles.f0.n, *quad_pts, kind='3', squeeze_out=False)
 
             # memory allocation of magnetic field at quadrature points
             self._b_quad1 = np.zeros_like(self._nh0_at_quad)
@@ -1620,21 +1620,21 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
         # if self._particles.control_variate:
 
         #     # control variate method is only valid with Maxwellian distributions with "zero perp mean velocity".
-        #     assert isinstance(self._particles.f_backgr, Maxwellian)
+        #     assert isinstance(self._particles.f0, Maxwellian)
             
         #     self._ACC.init_control_variate(self.mass_ops)
 
-        #     # evaluate and save f_backgr.n at quadrature points
+        #     # evaluate and save f0.n at quadrature points
         #     quad_pts = [quad_grid[nquad].points.flatten()
         #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
 
         #     n0_at_quad = self.domain.push(
-        #         self._particles.f_backgr.n, *quad_pts, kind='0', squeeze_out=False)
+        #         self._particles.f0.n, *quad_pts, kind='0', squeeze_out=False)
 
         #     # evaluate M0 = unit_b1 (1form) / absB0 (0form) * 2 * vth_perp² at quadrature points
         #     quad_pts_array = self.domain.prepare_eval_pts(*quad_pts)[:3]
 
-        #     vth_perp = self.particles.f_backgr.vth(*quad_pts_array)[1]
+        #     vth_perp = self.particles.f0.vth(*quad_pts_array)[1]
 
         #     absB0_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['0'], self._absB0)
             
@@ -1854,21 +1854,21 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         # if self._particles.control_variate:
 
         #     # control variate method is only valid with Maxwellian distributions with "zero perp mean velocity".
-        #     assert isinstance(self._particles.f_backgr, Maxwellian)
+        #     assert isinstance(self._particles.f0, Maxwellian)
             
         #     self._ACC.init_control_variate(self.mass_ops)
 
-        #     # evaluate and save f_backgr.n at quadrature points
+        #     # evaluate and save f0.n at quadrature points
         #     quad_pts = [quad_grid[nquad].points.flatten()
         #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
 
         #     n0_at_quad = self.domain.push(
-        #         self._particles.f_backgr.n, *quad_pts, kind='0', squeeze_out=False)
+        #         self._particles.f0.n, *quad_pts, kind='0', squeeze_out=False)
 
         #     # evaluate M0 = unit_b1 (1form) / absB0 (0form) * 2 * vth_perp² at quadrature points
         #     quad_pts_array = self.domain.prepare_eval_pts(*quad_pts)[:3]
 
-        #     vth_perp = self.particles.f_backgr.vth(*quad_pts_array)[1]
+        #     vth_perp = self.particles.f0.vth(*quad_pts_array)[1]
 
         #     absB0_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['0'], self._absB0)
             
@@ -2158,20 +2158,20 @@ class CurrentCoupling5DDensity(Propagator):
         # if self._particles.control_variate:
 
         #     # control variate method is only valid with Maxwellian distributions
-        #     assert isinstance(self._particles.f_backgr, Maxwellian)
+        #     assert isinstance(self._particles.f0, Maxwellian)
         #     assert params['u_space'] == 'Hdiv'
 
-        #     # evaluate and save f_backgr.n / |det(DF)| at quadrature points
+        #     # evaluate and save f0.n / |det(DF)| at quadrature points
         #     quad_pts = [quad_grid[nquad].points.flatten()
         #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
 
         #     self._n0_at_quad = self.domain.push(
-        #         self._particles.f_backgr.n, *quad_pts, kind='3', squeeze_out=False)
+        #         self._particles.f0.n, *quad_pts, kind='3', squeeze_out=False)
 
         #     # prepare field evaluation
         #     quad_pts_array = self.domain.prepare_eval_pts(*quad_pts)[:3]
 
-        #     u0_parallel = self._particles.f_backgr.u(*quad_pts_array)[0]
+        #     u0_parallel = self._particles.f0.u(*quad_pts_array)[0]
 
         #     det_df_at_quad = self.domain.jacobian_det(*quad_pts, squeeze_out=False)
 
@@ -2179,7 +2179,7 @@ class CurrentCoupling5DDensity(Propagator):
         #     self._unit_b1_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['1'], self._unit_b1)
         #     self._unit_b1_at_quad /= det_df_at_quad
 
-        #     # evaluate unit_b1 (1form) dot epsilon * f_backgr.u * curl_norm_b (2form) / |det(DF)| at quadrature points
+        #     # evaluate unit_b1 (1form) dot epsilon * f0.u * curl_norm_b (2form) / |det(DF)| at quadrature points
         #     curl_norm_b_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._curl_norm_b)
 
         #     self._unit_b1_dot_curl_norm_b_at_quad = np.sum(p * q for p, q in zip(self._unit_b1_at_quad, curl_norm_b_at_quad))
@@ -2372,9 +2372,17 @@ class ImplicitDiffusion(Propagator):
     phi : StencilVector
         FE coefficients of the solution as a discrete 0-form.
 
-    sigma_1, sigma_2, sigma_3 : float/int/str
-        Equation parameters. If set to "dt" the parameter will be set to the current time step 
-        :math:`\Delta t` dring ``__call__``.
+    sigma_1, sigma_2, sigma_3 : float | int
+        Equation parameters.
+
+    divide_by_dt : bool
+        Whether to divide the sigmas by dt during __call__.
+
+    stab_mat : str
+        Name of the matrix :math:`M^0_{n_0}`.
+        
+    diffusion_mat : str
+        Name of the matrix :math:`M^1_{D_0}`.
 
     rho : StencilVector or tuple or list 
         (List of) right-hand side FE coefficients of a 0-form (optional, can be set with a setter later).
@@ -2389,11 +2397,17 @@ class ImplicitDiffusion(Propagator):
         Parameters for the iterative solver (see ``__init__`` for details).
     """
 
-    def __init__(self, phi: StencilVector,
-                 sigma_1=0., sigma_2=0., sigma_3='dt',
-                 A1_mat='M0', A2_mat='M1',
-                 rho=None,
-                 x0=None,
+    def __init__(self, 
+                 phi: StencilVector,
+                 *,
+                 sigma_1: float | int = 1., 
+                 sigma_2: float | int = 0., 
+                 sigma_3: float | int = 1.,
+                 divide_by_dt: bool = False,
+                 stab_mat: str = 'M0', 
+                 diffusion_mat: str = 'M1',
+                 rho: StencilVector | tuple | list = None,
+                 x0: StencilVector = None,
                  **params):
 
         assert phi.space == self.derham.Vh['0']
@@ -2401,13 +2415,15 @@ class ImplicitDiffusion(Propagator):
         super().__init__(phi)
 
         # always stabilize
-        if not isinstance(sigma_1, str) and np.abs(sigma_1) < 1e-14:
+        if np.abs(sigma_1) < 1e-14:
             sigma_1 = 1e-14
+            print(f'Stabilizing Poisson solve with {sigma_1 = }')
 
         # model parameters
         self._sigma_1 = sigma_1
         self._sigma_2 = sigma_2
         self._sigma_3 = sigma_3
+        self._divide_by_dt = divide_by_dt
 
         # solver parameters
         params_default = {'type': ('pcg', 'MassMatrixPreconditioner'),
@@ -2444,21 +2460,22 @@ class ImplicitDiffusion(Propagator):
         # initial guess and solver params
         self._x0 = x0
         self._params = params
-        A1_mat = getattr(self.mass_ops, A1_mat)
-        A2_mat = getattr(self.mass_ops, A2_mat)
+        stab_mat = getattr(self.mass_ops, stab_mat)
+        diffusion_mat = getattr(self.mass_ops, diffusion_mat)
+        
         # Set lhs matrices (without dt)
-        self._A1 = A1_mat
-        self._A2 = self.derham.grad.T @ A2_mat @ self.derham.grad
+        self._stab_mat = stab_mat
+        self._diffusion_op = self.derham.grad.T @ diffusion_mat @ self.derham.grad
 
         # preconditioner and solver for Ax=b
         if params['type'][1] is None:
             pc = None
         else:
             pc_class = getattr(preconditioner, params['type'][1])
-            pc = pc_class(A1_mat)
+            pc = pc_class(stab_mat)
 
         # solver just with A_2, but will be set during call with dt
-        self._solver = inverse(self._A2,
+        self._solver = inverse(self._diffusion_op,
                                params['type'][0],
                                pc=pc,
                                x0=self.x0,
@@ -2532,34 +2549,33 @@ class ImplicitDiffusion(Propagator):
 
     def __call__(self, dt):
 
-        # current variables
-        phin = self.feec_vars[0]
-
         # set parameters
-        if self._sigma_1 == 'dt':
-            self._sigma_1 = dt
-        if self._sigma_2 == 'dt':
-            self._sigma_2 = dt
-        if self._sigma_3 == 'dt':
-            self._sigma_3 = dt
+        if self._divide_by_dt:
+            sig_1 = self._sigma_1 / dt
+            sig_2 = self._sigma_2 / dt
+            sig_3 = self._sigma_3 / dt
+        else:
+            sig_1 = self._sigma_1
+            sig_2 = self._sigma_2
+            sig_3 = self._sigma_3
 
         # compute rhs
-        rhs = self._A1.dot(phin, out=self._rhs)
-        rhs *= self._sigma_2 / dt
+        phin = self.feec_vars[0]
+        rhs = self._stab_mat.dot(phin, out=self._rhs)
+        rhs *= sig_2
 
         self._rhs2 *= 0.
-
         for rho in self._rho:
             if isinstance(rho, tuple):
                 rho[0].accumulate(rho[1])
-                self._rhs2 += self._sigma_3 / dt * rho[0].vectors[0]
+                self._rhs2 += sig_3  * rho[0].vectors[0]
             else:
-                self._rhs2 += self._sigma_3 / dt * rho
+                self._rhs2 += sig_3 * rho
 
         rhs += self._rhs2
 
         # compute lhs
-        self._solver.linop = self._sigma_1/dt * self._A1 + self._A2
+        self._solver.linop = sig_1 * self._stab_mat + self._diffusion_op  
 
         # solve
         out = self._solver.solve(rhs, out=self._tmp)
@@ -2576,8 +2592,8 @@ class ImplicitDiffusion(Propagator):
         dct['model'] = {'sigma_1': 0.,
                         'sigma_2': 0.,
                         'sigma_3': 1.,
-                        'A1_mat': ['M0', 'M0ad'],
-                        'A2_mat': ['M1', 'M1perp']}
+                        'stab_mat': ['M0', 'M0ad'],
+                        'diffusion_mat': ['M1', 'M1perp']}
         dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
                                   ('cg', None)],
                          'tol': 1.e-8,
@@ -5080,4 +5096,190 @@ class TimeDependentSource(Propagator):
         dct = {}
         dct['omega'] = 1.
         dct['hfun'] = ['cos', 'sin']
+        return dct
+
+
+class AdiabaticPhi(Propagator):
+    r"""
+    Electrostatic potential for adiabatic electrons, computed from
+    
+    .. math::
+    
+        n_e = n_{e0}\,\exp \left( \frac{e \phi}{k_B T_e} \right) \approx n_{e0} \left( 1 + \frac{e \phi}{k_B T_{e0}} \right)\,,
+        
+    where :math:`n_{e0}` and :math:`T_{e0}` denote electron equilibrium density and temperature, respectively.
+
+    This is solved in weak form: find :math:`\phi \in H^1` such that
+
+    .. math::
+
+        \int_\Omega \psi\, \frac{n_{e0}(\mathbf x)}{T_{e0}(\mathbf x)}\phi \,\textrm d \mathbf x  = \int_\Omega \psi\, (n_{e}(\mathbf x) - n_{e0}(\mathbf x))\,\textrm d \mathbf x \qquad \forall \ \psi \in H^1\,.
+
+    The equation is discretized as
+
+    .. math::
+
+        \sigma_1 \mathbb M^0_{n/T} \boldsymbol \phi = (\Lambda^0, n_{e} - n_{e0} )_{L^2}\,,
+
+    where :math:`M^0_{n/T}` is a :class:`~struphy.feec.mass.WeightedMassOperator` and :math:`\sigma_1`
+    is a normalization parameter. 
+
+    Parameters
+    ----------
+    phi : StencilVector
+        FE coefficients of the solution as a discrete 0-form.
+
+    A_mat : WeightedMassOperator
+        The matrix to invert.
+
+    rho : StencilVector or tuple
+        Right-hand side FE coefficients of a 0-form (optional, can be set with a setter later).
+        Can be either a) StencilVector or b) 2-tuple.
+        In case b) the first tuple entry must be :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector`,
+        and the second entry must be :class:`~struphy.pic.base.Particles`.
+
+    sigma_1 : float
+        Normalization parameter.
+
+    x0 : StencilVector
+        Initial guess for the iterative solver (optional, can be set with a setter later).
+
+    **params : dict
+        Parameters for the iterative solver (see ``__init__`` for details).
+    """
+
+    def __init__(self, 
+                 phi: StencilVector,
+                 *,
+                 A_mat: WeightedMassOperator = 'M0', 
+                 rho: StencilVector | tuple = None,
+                 sigma_1: float = 1.,
+                 x0: StencilVector = None,
+                 **params):
+
+        assert phi.space == self.derham.Vh['0']
+
+        super().__init__(phi)
+
+        # solver parameters
+        params_default = {'type': ('pcg', 'MassMatrixPreconditioner'),
+                          'tol': 1e-8,
+                          'maxiter': 3000,
+                          'info': False,
+                          'verbose': False,
+                          'recycle': False}
+
+        params = set_defaults(params, params_default)
+
+        # collect rhs
+        if rho is None:
+            rho = phi.space.zeros()
+        else:
+            if isinstance(rho, tuple):
+                assert isinstance(rho[0], AccumulatorVector)
+                assert isinstance(rho[1], Particles)
+                # assert rho[0].space_id == 'H1'
+            else:
+                assert rho.space == phi.space      
+        self._rho = rho
+
+        # initial guess and solver params
+        self._x0 = x0
+        self._params = params
+        A_mat = getattr(self.mass_ops, A_mat)
+       
+        # Set lhs matrices 
+        self._A = sigma_1 * A_mat
+
+        # preconditioner and solver for Ax=b
+        if params['type'][1] is None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, params['type'][1])
+            pc = pc_class(A_mat)
+
+        # solver just with A_2, but will be set during call with dt
+        self._solver = inverse(self._A,
+                               params['type'][0],
+                               pc=pc,
+                               x0=self.x0,
+                               tol=params['tol'],
+                               maxiter=params['maxiter'],
+                               verbose=params['verbose'],
+                               recycle=params['recycle'])
+
+        # allocate memory for solution
+        self._tmp = phi.space.zeros()
+        self._tmp2 = phi.space.zeros()
+        self._rhs = phi.space.zeros()
+        self._rhs2 = phi.space.zeros()
+
+    @property
+    def rho(self):
+        """
+        Right-hand side FE coefficients of a 0-form.
+        Can be either a) StencilVector or b) 2-tuple.
+        In the latter case, the first tuple entry must be :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector`,
+        and the second entry must be :class:`~struphy.pic.base.Particles`.
+        """
+        return self._rho
+
+    @rho.setter
+    def rho(self, value):
+        """ In-place setter for StencilVector/PolarVector.
+        """
+        if isinstance(value, tuple):
+            assert isinstance(value[0], AccumulatorVector)
+            assert isinstance(value[1], Particles)
+            self._rho = value
+        else:
+            assert value.space == self.derham.Vh['0']
+            self._rho[:] = value[:]
+
+    @property
+    def x0(self):
+        """
+        psydac.linalg.stencil.StencilVector or struphy.polar.basic.PolarVector. First guess of the iterative solver.
+        """
+        return self._x0
+
+    @x0.setter
+    def x0(self, value):
+        """ In-place setter for StencilVector/PolarVector. First guess of the iterative solver.
+        """
+        assert value.space == self.derham.Vh['0']
+        assert value.space.symbolic_space == 'H1', f'Right-hand side must be in H1, but is in {value.space.symbolic_space}.'
+
+        if self._x0 is None:
+            self._x0 = value
+        else:
+            self._x0[:] = value[:]
+
+    def __call__(self, dt):
+
+        self._rhs *= 0.
+        if isinstance(self._rho, tuple):
+            self._rho[0].accumulate(self._rho[1])
+            self._rhs += self._rho[0].vectors[0]
+        else:
+            self._rhs += self._rho
+
+        # solve
+        out = self._solver.solve(self._rhs, out=self._tmp)
+        info = self._solver._info
+
+        if self._params['info']:
+            print(info)
+
+        dphi = self.feec_vars_update(out)
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
+                            'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False}
         return dct

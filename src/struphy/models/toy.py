@@ -240,13 +240,13 @@ class GuidingCenter(StruphyModel):
     @classmethod
     def options(cls):
         # import propagator options
-        from struphy.propagators.propagators_markers import PushGuidingCenterbxEstar, PushGuidingCenterBstar
+        from struphy.propagators.propagators_markers import PushGuidingCenterBxEstar, PushGuidingCenterParallel
 
         dct = {}
         cls.add_option(species=['kinetic', 'ions'], key='push_bxEstar',
-                       option=PushGuidingCenterbxEstar.options()['algo'], dct=dct)
+                       option=PushGuidingCenterBxEstar.options()['algo'], dct=dct)
         cls.add_option(species=['kinetic', 'ions'], key='push_Bstar',
-                       option=PushGuidingCenterBstar.options()['algo'], dct=dct)
+                       option=PushGuidingCenterParallel.options()['algo'], dct=dct)
 
         return dct
 
@@ -259,52 +259,26 @@ class GuidingCenter(StruphyModel):
         # prelim
         ions_params = self.kinetic['ions']['params']
 
-        # project magnetic background
-        self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
-                                         self.mhd_equil.b2_2,
-                                         self.mhd_equil.b2_3])
-
-        self._abs_b = self.derham.P['0'](self.mhd_equil.absB0)
-
-        self._unit_b1 = self.derham.P['1']([self.mhd_equil.unit_b1_1,
-                                            self.mhd_equil.unit_b1_2,
-                                            self.mhd_equil.unit_b1_3])
-
-        self._unit_b2 = self.derham.P['2']([self.mhd_equil.unit_b2_1,
-                                            self.mhd_equil.unit_b2_2,
-                                            self.mhd_equil.unit_b2_3])
-
-        self._gradB1 = self.derham.P['1']([self.mhd_equil.gradB1_1,
-                                           self.mhd_equil.gradB1_2,
-                                           self.mhd_equil.gradB1_3])
-
-        self._curl_unit_b2 = self.derham.P['2']([self.mhd_equil.curl_unit_b2_1,
-                                                 self.mhd_equil.curl_unit_b2_2,
-                                                 self.mhd_equil.curl_unit_b2_3])
-
+        # polar spline extraction operators
         self._E0T = self.derham.extraction_ops['0'].transpose()
         self._EvT = self.derham.extraction_ops['v'].transpose()
+        
+        # magnetic background
+        if self.mhd_equil is not None:
+            magn_bckgr = self.mhd_equil
+        else:
+            magn_bckgr = self.braginskii_equil
 
         # Initialize propagators/integrators used in splitting substeps
-        self.add_propagator(self.prop_markers.PushGuidingCenterbxEstar(
+        self.add_propagator(self.prop_markers.PushGuidingCenterBxEstar(
             self.pointer['ions'],
+            magn_bckgr=magn_bckgr,
             epsilon=self.equation_params['ions']['epsilon'],
-            b_eq=self._b_eq,
-            unit_b1=self._unit_b1,
-            unit_b2=self._unit_b2,
-            abs_b=self._abs_b,
-            gradB1=self._gradB1,
-            curl_unit_b2=self._curl_unit_b2,
             **ions_params['options']['push_bxEstar']))
-        self.add_propagator(self.prop_markers.PushGuidingCenterBstar(
+        self.add_propagator(self.prop_markers.PushGuidingCenterParallel(
             self.pointer['ions'],
+            magn_bckgr=magn_bckgr,
             epsilon=self.equation_params['ions']['epsilon'],
-            b_eq=self._b_eq,
-            unit_b1=self._unit_b1,
-            unit_b2=self._unit_b2,
-            abs_b=self._abs_b,
-            gradB1=self._gradB1,
-            curl_unit_b2=self._curl_unit_b2,
             **ions_params['options']['push_Bstar']))
 
         # Scalar variables to be saved during simulation
@@ -460,6 +434,7 @@ class ShearAlfven(StruphyModel):
         en_Btot = self._tmp_b1.dot(self._tmp_b2)/2
 
         self.update_scalar('en_B_tot', en_Btot)
+
 
 class VariationalPressurelessFluid(StruphyModel):
     r'''Pressure-less fluid equations discretized with a variational method.
@@ -908,8 +883,8 @@ class Poisson(StruphyModel):
         self.add_propagator(self.prop_fields.ImplicitDiffusion(
             self.pointer['phi'],
             sigma_1=model_params['sigma_1'],
-            A1_mat=model_params['A1_mat'],
-            A2_mat=model_params['A2_mat'],
+            stab_mat=model_params['stab_mat'],
+            diffusion_mat=model_params['diffusion_mat'],
             rho=self.pointer['source'],
             **solver_params))
 

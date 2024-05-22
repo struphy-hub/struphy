@@ -414,17 +414,17 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
 
 if __name__ == '__main__':
     
-    # direction = 0
+    direction = 0
+    bc_type = 'dirichlet'
+    mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}]
+    # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 3.}]
+    test_poisson_1d(direction, bc_type, mapping, show_plot=True)  
+      
+    # Nel = [64, 64, 1]
+    # p = [2, 2, 1]
     # bc_type = 'neumann'
     # #mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}]
-    # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 3.}]
-    # test_poisson_1d(direction, bc_type, mapping, show_plot=True)  
-      
-    Nel = [64, 64, 1]
-    p = [2, 2, 1]
-    bc_type = 'neumann'
-    #mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}]
-    #mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
-    mapping = ['Colella', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
-    test_poisson_2d(Nel, p, bc_type, mapping, show_plot=True)
+    # #mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
+    # mapping = ['Colella', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
+    # test_poisson_2d(Nel, p, bc_type, mapping, show_plot=True)
 
