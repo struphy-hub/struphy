@@ -37,7 +37,14 @@ class KineticBackground(metaclass=ABCMeta):
     @property
     @abstractmethod
     def is_polar(self):
-        """ List of booleans. True if the velocity coordinates are polar coordinates.
+        """ List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp).
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def volume_form(self):
+        """ Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian).
         """
         pass
 
@@ -136,6 +143,7 @@ class SumKineticBackground(KineticBackground):
         assert isinstance(f2, KineticBackground)
         assert f1.vdim == f2.vdim
         assert f1.is_polar == f2.is_polar
+        assert f1.volume_form == f2.volume_form
 
         self._f1 = f1
         self._f2 = f2
@@ -157,6 +165,12 @@ class SumKineticBackground(KineticBackground):
         """ List of booleans. True if the velocity coordinates are polar coordinates.
         """
         return self._f1.is_polar
+    
+    @property
+    def volume_form(self):
+        """ Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian).
+        """
+        return self._f1.volume_form
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
         """ Jacobian determinant of the velocity coordinate transformation.
@@ -249,6 +263,12 @@ class ScalarMultiplyKineticBackground(KineticBackground):
         """ List of booleans. True if the velocity coordinates are polar coordinates.
         """
         return self._f.is_polar
+    
+    @property
+    def volume_form(self):
+        """ Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian).
+        """
+        return self._f.volume_form
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
         """ Jacobian determinant of the velocity coordinate transformation.
@@ -339,7 +359,8 @@ class Maxwellian(KineticBackground):
         """
         pass
 
-    def gaussian(self, v, u=0., vth=1., is_polar=False):
+    @classmethod
+    def gaussian(self, v, u=0., vth=1., polar=False, volume_form=False):
         """1-dim. normal distribution, to which array-valued mean- and thermal velocities can be passed.
 
         Parameters
@@ -353,21 +374,28 @@ class Maxwellian(KineticBackground):
         vth : float | array-like
             Thermal velocity evaluated at position array, same shape as u.
 
-        is_polar : boolean
-            True if the velocity coordinate is the radial of polar coordinates.
+        polar : bool
+            True if the velocity coordinate is the radial one of polar coordinates (v >= 0).
+            
+        volume_form : bool
+            If True, the polar Gaussian is multiplied by the polar velocity Jacobian |v|.
 
         Returns
         -------
-        An array of size(u).
+        An array of size(v).
         """
 
         if isinstance(v, np.ndarray) and isinstance(u, np.ndarray):
             assert v.shape == u.shape, f'{v.shape = } but {u.shape = }'
 
-        if not is_polar:
-            return 1./(np.sqrt(2.*np.pi) * vth) * np.exp(-(v - u)**2/(2.*vth**2))
+        if not polar:
+            out = 1./vth * 1./np.sqrt(2.*np.pi) * np.exp(-(v - u)**2/(2.*vth**2))
         else:
-            return 1./vth**2 * v * np.exp(-(v - u)**2/(2.*vth**2))
+            assert np.all(v >= 0.)
+            out = 1./vth**2 * np.exp(-(v - u)**2/(2.*vth**2))
+            if volume_form: out *= v
+            
+        return out
 
     def __call__(self, *args):
         """ Evaluates the Maxwellian distribution function M(etas, v1, ..., vn).
@@ -438,8 +466,11 @@ class Maxwellian(KineticBackground):
                 u = us[i]
                 vth = vths[i]
 
-            res *= self.gaussian(v, u=u, vth=vth,
-                                 is_polar=self.is_polar[i])
+            res *= self.gaussian(v, 
+                                 u=u, 
+                                 vth=vth,
+                                 polar=self.is_polar[i],
+                                 volume_form=self.volume_form)
 
         return res
 

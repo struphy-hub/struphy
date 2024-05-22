@@ -2,8 +2,8 @@ import pytest
 
 
 @pytest.mark.parametrize('Nel', [[64, 1, 1]])
-def test_maxwellian_6d_uniform(Nel, show_plot=False):
-    """ Tests the Maxwellian6D class as a uniform Maxwellian.
+def test_maxwellian_3d_uniform(Nel, show_plot=False):
+    """ Tests the Maxwellian3D class as a uniform Maxwellian.
 
     Asserts that the results over the domain and velocity space correspond to the
     analytical computation.
@@ -11,7 +11,7 @@ def test_maxwellian_6d_uniform(Nel, show_plot=False):
     import numpy as np
     import matplotlib.pyplot as plt
 
-    from struphy.kinetic_background.maxwellians import Maxwellian6D
+    from struphy.kinetic_background.maxwellians import Maxwellian3D
 
     e1 = np.linspace(0., 1., Nel[0])
     e2 = np.linspace(0., 1., Nel[1])
@@ -22,7 +22,7 @@ def test_maxwellian_6d_uniform(Nel, show_plot=False):
     # ==========================================================
     maxw_params = {'n': 2.}
 
-    maxwellian = Maxwellian6D(maxw_params=maxw_params)
+    maxwellian = Maxwellian3D(maxw_params=maxw_params)
 
     meshgrids = np.meshgrid(
         e1, e2, e3,
@@ -69,7 +69,7 @@ def test_maxwellian_6d_uniform(Nel, show_plot=False):
                    'vth2': vth2,
                    'vth3': vth3}
 
-    maxwellian = Maxwellian6D(maxw_params=maxw_params)
+    maxwellian = Maxwellian3D(maxw_params=maxw_params)
 
     # test Maxwellian profile in v
     for i in range(3):
@@ -103,13 +103,13 @@ def test_maxwellian_6d_uniform(Nel, show_plot=False):
 
 
 @pytest.mark.parametrize('Nel', [[64, 1, 1]])
-def test_maxwellian_6d_perturbed(Nel, show_plot=False):
-    '''Tests the Maxwellian6D class for perturbations.'''
+def test_maxwellian_3d_perturbed(Nel, show_plot=False):
+    '''Tests the Maxwellian3D class for perturbations.'''
 
     import numpy as np
     import matplotlib.pyplot as plt
 
-    from struphy.kinetic_background.maxwellians import Maxwellian6D
+    from struphy.kinetic_background.maxwellians import Maxwellian3D
 
     e1 = np.linspace(0., 1., Nel[0])
     v1 = np.linspace(-5., 5., 128)
@@ -129,7 +129,7 @@ def test_maxwellian_6d_perturbed(Nel, show_plot=False):
                    }
                    }
 
-    maxwellian = Maxwellian6D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = Maxwellian3D(maxw_params=maxw_params, pert_params=pert_params)
 
     meshgrids = np.meshgrid(
         e1, [0.], [0.],
@@ -171,7 +171,7 @@ def test_maxwellian_6d_perturbed(Nel, show_plot=False):
                        'amps': {'u1': [amp]}
                    }}
 
-    maxwellian = Maxwellian6D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = Maxwellian3D(maxw_params=maxw_params, pert_params=pert_params)
 
     meshgrids = np.meshgrid(
         e1, [0.], [0.],
@@ -225,7 +225,7 @@ def test_maxwellian_6d_perturbed(Nel, show_plot=False):
                        'amps': {'vth1': [amp]}
                    }}
 
-    maxwellian = Maxwellian6D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = Maxwellian3D(maxw_params=maxw_params, pert_params=pert_params)
 
     meshgrids = np.meshgrid(
         e1, [0.], [0.],
@@ -276,7 +276,7 @@ def test_maxwellian_6d_perturbed(Nel, show_plot=False):
                        'c': {'n': c}
                    }}
 
-    maxwellian = Maxwellian6D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = Maxwellian3D(maxw_params=maxw_params, pert_params=pert_params)
 
     meshgrids = np.meshgrid(
         e1, [0.], [0.],
@@ -305,14 +305,14 @@ def test_maxwellian_6d_perturbed(Nel, show_plot=False):
 
 
 @pytest.mark.parametrize('Nel', [[8, 11, 12]])
-def test_maxwellian_6d_mhd(Nel, show_plot=False):
-    '''Tests the Maxwellian6D class for mhd equilibrium moments.'''
+def test_maxwellian_3d_mhd(Nel, show_plot=False):
+    '''Tests the Maxwellian3D class for mhd equilibrium moments.'''
 
     import numpy as np
     import matplotlib.pyplot as plt
     import inspect
 
-    from struphy.kinetic_background.maxwellians import Maxwellian6D
+    from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.fields_background.mhd_equil import equils
     from struphy.geometry import domains
     from struphy.initial import perturbations
@@ -376,10 +376,10 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
                                                           a2=mhd_equil.params['a'],
                                                           Lz=mhd_equil.params['R0']*2*np.pi)
 
-            maxwellian = Maxwellian6D(
+            maxwellian = Maxwellian3D(
                 maxw_params=maxw_params_mhd, mhd_equil=mhd_equil)
 
-            maxwellian_1 = Maxwellian6D(
+            maxwellian_1 = Maxwellian3D(
                 maxw_params=maxw_params_1, mhd_equil=mhd_equil)
 
             # test meshgrid evaluation
@@ -557,7 +557,7 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
                                        }}
 
                         # background + perturbation
-                        maxwellian_perturbed = Maxwellian6D(
+                        maxwellian_perturbed = Maxwellian3D(
                             maxw_params=maxw_params_mhd,
                             pert_params=pert_params,
                             mhd_equil=mhd_equil)
@@ -571,7 +571,7 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
                             *args_fl).shape == args_fl[0].shape
 
                         # pure perturbation
-                        maxwellian_zero_bckgr = Maxwellian6D(
+                        maxwellian_zero_bckgr = Maxwellian3D(
                             maxw_params=maxw_params_zero,
                             pert_params=pert_params,
                             mhd_equil=mhd_equil)
@@ -727,8 +727,8 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
 
 
 @pytest.mark.parametrize('Nel', [[64, 1, 1]])
-def test_maxwellian_5d_uniform(Nel, show_plot=False):
-    """ Tests the Maxwellian5D class as a uniform Maxwellian.
+def test_maxwellian_2d_uniform(Nel, show_plot=False):
+    """ Tests the GyroMaxwellian2D class as a uniform Maxwellian.
 
     Asserts that the results over the domain and velocity space correspond to the
     analytical computation.
@@ -736,7 +736,7 @@ def test_maxwellian_5d_uniform(Nel, show_plot=False):
     import numpy as np
     import matplotlib.pyplot as plt
 
-    from struphy.kinetic_background.maxwellians import Maxwellian5D
+    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
 
     e1 = np.linspace(0., 1., Nel[0])
     e2 = np.linspace(0., 1., Nel[1])
@@ -747,7 +747,7 @@ def test_maxwellian_5d_uniform(Nel, show_plot=False):
     # ===========================================================
     maxw_params = {'n': 2.}
 
-    maxwellian = Maxwellian5D(maxw_params=maxw_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params)
 
     meshgrids = np.meshgrid(
         e1, e2, e3,
@@ -758,7 +758,7 @@ def test_maxwellian_5d_uniform(Nel, show_plot=False):
     res = maxwellian(*meshgrids).squeeze()
     assert np.allclose(
         res,
-        2. / (2 * np.pi)**(1/2) * 0.01 * np.exp(- 0.01**2) + 0*e1,
+        2. / (2 * np.pi)**(1/2) * np.exp(- 0.01**2) + 0*e1,
         atol=10e-10
     ), f"{res=},\n {2. / (2 * np.pi)**(3/2)}"
 
@@ -773,7 +773,7 @@ def test_maxwellian_5d_uniform(Nel, show_plot=False):
     )
     res = maxwellian(*meshgrids).squeeze()
 
-    res_ana = 2. / (2 * np.pi)**(1/2) * v_perp * \
+    res_ana = 2. / (2 * np.pi)**(1/2) * \
         np.exp(- vpara.T**2 / 2. - vperp.T**2 / 2.)
     assert np.allclose(
         res,
@@ -795,7 +795,7 @@ def test_maxwellian_5d_uniform(Nel, show_plot=False):
                    'vth_para': vth_para,
                    'vth_perp': vth_perp}
 
-    maxwellian = Maxwellian5D(maxw_params=maxw_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params)
 
     # test Maxwellian profile in v
     v_para = np.linspace(-5, 5, 64)
@@ -810,7 +810,7 @@ def test_maxwellian_5d_uniform(Nel, show_plot=False):
 
     res_ana = np.exp(- (vpara.T - u_para)**2 / (2*vth_para**2))
     res_ana *= np.exp(- (vperp.T - u_perp)**2 / (2*vth_perp**2))
-    res_ana *= n / ((2 * np.pi)**(1/2) * vth_para * vth_perp**2) * vperp.T
+    res_ana *= n / ((2 * np.pi)**(1/2) * vth_para * vth_perp**2)
 
     if show_plot:
         plt.plot(v_para, res_ana[:, 32], label='analytical')
@@ -837,13 +837,13 @@ def test_maxwellian_5d_uniform(Nel, show_plot=False):
 
 
 @pytest.mark.parametrize('Nel', [[6, 1, 1]])
-def test_maxwellian_5d_perturbed(Nel, show_plot=False):
-    '''Tests the Maxwellian5D class for perturbations.'''
+def test_maxwellian_2d_perturbed(Nel, show_plot=False):
+    '''Tests the GyroMaxwellian2D class for perturbations.'''
 
     import numpy as np
     import matplotlib.pyplot as plt
 
-    from struphy.kinetic_background.maxwellians import Maxwellian5D
+    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
 
     e1 = np.linspace(0., 1., Nel[0])
     v1 = np.linspace(-5., 5., 128)
@@ -861,7 +861,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
                        'ls': {'n': [mode]},
                        'amps': {'n': [amp]}}}
 
-    maxwellian = Maxwellian5D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params)
 
     v_perp = 0.1
     meshgrids = np.meshgrid(
@@ -871,7 +871,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
 
     res = maxwellian(*meshgrids).squeeze()
     ana_res = (2. + amp * np.cos(2 * np.pi * mode * e1)) / (2 * np.pi)**(1/2)
-    ana_res *= v_perp * np.exp(- v_perp**2/2)
+    ana_res *= np.exp(- v_perp**2/2)
 
     if show_plot:
         plt.plot(e1, ana_res, label='analytical')
@@ -904,7 +904,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
                        'amps': {'u_para': [amp]}
                    }}
 
-    maxwellian = Maxwellian5D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params)
 
     v_perp = 0.1
     meshgrids = np.meshgrid(
@@ -915,7 +915,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
     res = maxwellian(*meshgrids).squeeze()
     shift = u_para + amp * np.cos(2 * np.pi * mode * e1)
     ana_res = np.exp(- (v1 - shift[:, None])**2 / 2.)
-    ana_res *= n / (2 * np.pi)**(1/2) * v_perp * np.exp(- v_perp**2 / 2.)
+    ana_res *= n / (2 * np.pi)**(1/2) * np.exp(- v_perp**2 / 2.)
 
     if show_plot:
         plt.figure(1)
@@ -958,7 +958,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
                        'amps': {'u_perp': [amp]}
                    }}
 
-    maxwellian = Maxwellian5D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params)
 
     meshgrids = np.meshgrid(
         e1, [0.], [0.],
@@ -968,7 +968,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
     res = maxwellian(*meshgrids).squeeze()
     shift = u_perp + amp * np.cos(2 * np.pi * mode * e1)
     ana_res = np.exp(- (v2 - shift[:, None])**2 / 2.)
-    ana_res *= n / (2 * np.pi)**(1/2) * v2
+    ana_res *= n / (2 * np.pi)**(1/2)
 
     if show_plot:
         plt.figure(1)
@@ -1011,7 +1011,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
                        'amps': {'vth_para': [amp]}
                    }}
 
-    maxwellian = Maxwellian5D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params)
 
     v_perp = 0.1
     meshgrids = np.meshgrid(
@@ -1023,7 +1023,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
     thermal = vth_para + amp * np.cos(2 * np.pi * mode * e1)
     ana_res = np.exp(- v1**2 / (2. * thermal[:, None]**2))
     ana_res *= n / ((2 * np.pi)**(1/2) * thermal[:, None])
-    ana_res *= v_perp * np.exp(- v_perp**2 / 2.)
+    ana_res *= np.exp(- v_perp**2 / 2.)
 
     if show_plot:
         plt.figure(1)
@@ -1066,7 +1066,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
                        'amps': {'vth_perp': [amp]}
                    }}
 
-    maxwellian = Maxwellian5D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params)
 
     meshgrids = np.meshgrid(
         e1, [0.], [0.],
@@ -1076,7 +1076,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
     res = maxwellian(*meshgrids).squeeze()
     thermal = vth_perp + amp * np.cos(2 * np.pi * mode * e1)
     ana_res = np.exp(- v2**2 / (2. * thermal[:, None]**2))
-    ana_res *= n / ((2 * np.pi)**(1/2) * thermal[:, None]**2) * v2
+    ana_res *= n / ((2 * np.pi)**(1/2) * thermal[:, None]**2)
 
     if show_plot:
         plt.figure(1)
@@ -1116,7 +1116,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
                        'c': {'n': c}
                    }}
 
-    maxwellian = Maxwellian5D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params)
 
     v_perp = 0.1
     meshgrids = np.meshgrid(
@@ -1127,7 +1127,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
     res = maxwellian(*meshgrids).squeeze()
     ana_res = n0*c[3]*np.exp(-c[2]/c[1] *
                              np.tanh((e1 - c[0])/c[2])) / (2 * np.pi)**(1/2)
-    ana_res *= v_perp * np.exp(- v_perp**2 / 2.)
+    ana_res *= np.exp(- v_perp**2 / 2.)
 
     if show_plot:
         plt.plot(e1, ana_res, label='analytical')
@@ -1146,14 +1146,14 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
 
 
 @pytest.mark.parametrize('Nel', [[8, 12, 12]])
-def test_maxwellian_5d_mhd(Nel, show_plot=False):
-    '''Tests the Maxwellian5D class for mhd equilibrium moments.'''
+def test_maxwellian_2d_mhd(Nel, show_plot=False):
+    '''Tests the GyroMaxwellian2D class for mhd equilibrium moments.'''
 
     import numpy as np
     import matplotlib.pyplot as plt
     import inspect
 
-    from struphy.kinetic_background.maxwellians import Maxwellian5D
+    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
     from struphy.fields_background.mhd_equil import equils
     from struphy.geometry import domains
     from struphy.initial import perturbations
@@ -1182,7 +1182,7 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
     e2_fl = np.random.rand(n_mks)
     e3_fl = np.random.rand(n_mks)
     v1_fl = np.random.randn(n_mks)
-    v2_fl = np.random.randn(n_mks)
+    v2_fl = np.random.rand(n_mks)
     args_fl = [e1_fl, e2_fl, e3_fl, v1_fl, v2_fl]
     e_args_fl = np.concatenate(
         (e1_fl[:, None], e2_fl[:, None], e3_fl[:, None]), axis=1)
@@ -1209,10 +1209,10 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
                                                           a2=mhd_equil.params['a'],
                                                           Lz=mhd_equil.params['R0']*2*np.pi)
 
-            maxwellian = Maxwellian5D(
+            maxwellian = GyroMaxwellian2D(
                 maxw_params=maxw_params_mhd, mhd_equil=mhd_equil)
 
-            maxwellian_1 = Maxwellian5D(
+            maxwellian_1 = GyroMaxwellian2D(
                 maxw_params=maxw_params_1, mhd_equil=mhd_equil)
 
             # test meshgrid evaluation
@@ -1389,7 +1389,7 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
                                        }}
 
                         # background + perturbation
-                        maxwellian_perturbed = Maxwellian5D(
+                        maxwellian_perturbed = GyroMaxwellian2D(
                             maxw_params=maxw_params_mhd,
                             pert_params=pert_params,
                             mhd_equil=mhd_equil)
@@ -1403,7 +1403,7 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
                             *args_fl).shape == args_fl[0].shape
 
                         # pure perturbation
-                        maxwellian_zero_bckgr = Maxwellian5D(
+                        maxwellian_zero_bckgr = GyroMaxwellian2D(
                             maxw_params=maxw_params_zero,
                             pert_params=pert_params,
                             mhd_equil=mhd_equil)

@@ -47,6 +47,13 @@ class WeightedMassOperators:
         self._weights = weights
         self._matrix_free = matrix_free
 
+        if 'eq_mhd' in weights:
+            self._selected_weight = 'eq_mhd' # default is to use mhd_equil for weights
+        elif len(weights) > 0:
+            self._selected_weight = list(weights.keys())[0]
+        else:
+            self._selected_weight = None
+
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
 
@@ -66,6 +73,16 @@ class WeightedMassOperators:
     def weights(self):
         '''Dictionary of objects that provide access to callables that can serve as weight functions.'''
         return self._weights
+    
+    @property
+    def selected_weight(self):
+        '''String identifying one key of "weigths". This key is used when selecting weight functions.'''
+        return self._selected_weight
+    
+    @selected_weight.setter
+    def selected_weight(self, new):
+        assert new in self.weights
+        self._selected_weight = new
 
     # Wrapper functions for evaluating metric coefficients in right order (3x3 entries are last two axes!!)
     def G(self, e1, e2, e3):
@@ -204,13 +221,12 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, '_M1n'):
-            assert 'eq_mhd' in self.weights
             fun = []
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.Ginv(e1, e2, e3)[:, :, :, m, n] * self.sqrt_g(
-                        e1, e2, e3) * self.weights['eq_mhd'].n0(e1, e2, e3)]
+                        e1, e2, e3) * self.weights[self.selected_weight].n0(e1, e2, e3)]
 
             self._M1n = self.assemble_weighted_mass(
                 fun, 'Hcurl', 'Hcurl', name='M1n')
@@ -230,13 +246,12 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, '_M2n'):
-            assert 'eq_mhd' in self.weights
             fun = []
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.G(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(
-                        e1, e2, e3) * self.weights['eq_mhd'].n0(e1, e2, e3)]
+                        e1, e2, e3) * self.weights[self.selected_weight].n0(e1, e2, e3)]
 
             self._M2n = self.assemble_weighted_mass(
                 fun, 'Hdiv', 'Hdiv', name='M2n')
@@ -256,13 +271,12 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, '_Mvn'):
-            assert 'eq_mhd' in self.weights
             fun = []
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.G(e1, e2, e3)[:, :, :, m, n] * self.sqrt_g(
-                        e1, e2, e3) * self.weights['eq_mhd'].n0(e1, e2, e3)]
+                        e1, e2, e3) * self.weights[self.selected_weight].n0(e1, e2, e3)]
 
             self._Mvn = self.assemble_weighted_mass(
                 fun, 'H1vec', 'H1vec', name='Mvn')
@@ -282,13 +296,12 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, '_M1ninv'):
-            assert 'eq_mhd' in self.weights
             fun = []
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.Ginv(e1, e2, e3)[:, :, :, m, n] * self.sqrt_g(
-                        e1, e2, e3) / self.weights['eq_mhd'].n0(e1, e2, e3)]
+                        e1, e2, e3) / self.weights[self.selected_weight].n0(e1, e2, e3)]
 
             self._M1ninv = self.assemble_weighted_mass(
                 fun, 'Hcurl', 'Hcurl', name='M1ninv')
@@ -316,7 +329,7 @@ class WeightedMassOperators:
         if not hasattr(self, '_M1J'):
 
             rot_J = RotationMatrix(
-                self.weights['eq_mhd'].j2_1, self.weights['eq_mhd'].j2_2, self.weights['eq_mhd'].j2_3)
+                self.weights[self.selected_weight].j2_1, self.weights[self.selected_weight].j2_2, self.weights[self.selected_weight].j2_3)
 
             fun = []
             for m in range(3):
@@ -351,7 +364,7 @@ class WeightedMassOperators:
         if not hasattr(self, '_M2J'):
 
             rot_J = RotationMatrix(
-                self.weights['eq_mhd'].j2_1, self.weights['eq_mhd'].j2_2, self.weights['eq_mhd'].j2_3)
+                self.weights[self.selected_weight].j2_1, self.weights[self.selected_weight].j2_2, self.weights[self.selected_weight].j2_3)
 
             fun = []
             for m in range(3):
@@ -386,7 +399,7 @@ class WeightedMassOperators:
         if not hasattr(self, '_MvJ'):
 
             rot_J = RotationMatrix(
-                self.weights['eq_mhd'].j2_1, self.weights['eq_mhd'].j2_2, self.weights['eq_mhd'].j2_3)
+                self.weights[self.selected_weight].j2_1, self.weights[self.selected_weight].j2_2, self.weights[self.selected_weight].j2_3)
 
             fun = []
             for m in range(3):
@@ -420,9 +433,9 @@ class WeightedMassOperators:
 
         if not hasattr(self, '_M2B'):
 
-            a_eq = self.derham.P['1']([self.weights['eq_mhd'].a1_1,
-                                       self.weights['eq_mhd'].a1_2,
-                                       self.weights['eq_mhd'].a1_3])
+            a_eq = self.derham.P['1']([self.weights[self.selected_weight].a1_1,
+                                       self.weights[self.selected_weight].a1_2,
+                                       self.weights[self.selected_weight].a1_3])
 
             tmp_a2 = self.derham.curl.dot(a_eq)
             b02fun = self.derham.create_field('b02', 'Hdiv')
@@ -436,7 +449,7 @@ class WeightedMassOperators:
             def b02funz(x, y, z): return b02fun(
                 x, y, z, squeeze_output=True, local=True)[2]
             # rot_B = RotationMatrix(
-            # self.weights['eq_mhd'].b2_1, self.weights['eq_mhd'].b2_2, self.weights['eq_mhd'].b2_3)
+            # self.weights[self.selected_weight].b2_1, self.weights[self.selected_weight].b2_2, self.weights[self.selected_weight].b2_3)
             rot_B = RotationMatrix(
                 b02funx, b02funy, b02funz)
 
@@ -472,9 +485,9 @@ class WeightedMassOperators:
 
         if not hasattr(self, '_M2BN'):
 
-            a_eq = self.derham.P['1']([self.weights['eq_mhd'].a1_1,
-                                       self.weights['eq_mhd'].a1_2,
-                                       self.weights['eq_mhd'].a1_3])
+            a_eq = self.derham.P['1']([self.weights[self.selected_weight].a1_1,
+                                       self.weights[self.selected_weight].a1_2,
+                                       self.weights[self.selected_weight].a1_3])
 
             tmp_a2 = self.derham.Vh['2'].zeros()
             self.derham.curl.dot(a_eq, out=tmp_a2)
@@ -489,7 +502,7 @@ class WeightedMassOperators:
             def b02funz(x, y, z): return b02fun(
                 x, y, z, squeeze_output=True, local=True)[2]
             # rot_B = RotationMatrix(
-            # self.weights['eq_mhd'].b2_1, self.weights['eq_mhd'].b2_2, self.weights['eq_mhd'].b2_3)
+            # self.weights[self.selected_weight].b2_1, self.weights[self.selected_weight].b2_2, self.weights[self.selected_weight].b2_3)
             rot_B = RotationMatrix(
                 b02funx, b02funy, b02funz)
             fun = []
@@ -497,7 +510,7 @@ class WeightedMassOperators:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: rot_B(e1, e2, e3)[:, :, :, m, n] / (self.sqrt_g(e1, e2, e3) * self.weights['eq_mhd'].n0(e1, e2, e3))]
+                                n=n: rot_B(e1, e2, e3)[:, :, :, m, n] / (self.sqrt_g(e1, e2, e3) * self.weights[self.selected_weight].n0(e1, e2, e3))]
 
             self._M2BN = self.assemble_weighted_mass(
                 fun, 'Hdiv', 'Hdiv', name='M2Bn')
@@ -525,14 +538,14 @@ class WeightedMassOperators:
         if not hasattr(self, '_M1Bninv'):
 
             rot_B = RotationMatrix(
-                self.weights['eq_mhd'].b2_1, self.weights['eq_mhd'].b2_2, self.weights['eq_mhd'].b2_3)
+                self.weights[self.selected_weight].b2_1, self.weights[self.selected_weight].b2_2, self.weights[self.selected_weight].b2_3)
 
             fun = []
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: (self.Ginv(e1, e2, e3) @ rot_B(e1, e2, e3) @ self.Ginv(e1, e2, e3))[:, :, :, m, n] * (self.sqrt_g(e1, e2, e3) / self.weights['eq_mhd'].n0(e1, e2, e3))]
+                                n=n: (self.Ginv(e1, e2, e3) @ rot_B(e1, e2, e3) @ self.Ginv(e1, e2, e3))[:, :, :, m, n] * (self.sqrt_g(e1, e2, e3) / self.weights[self.selected_weight].n0(e1, e2, e3))]
 
             self._M1Bninv = self.assemble_weighted_mass(
                 fun, 'Hcurl', 'Hcurl', name='M1Bninv')
@@ -575,14 +588,13 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, '_M0ad'):
-            assert 'eq_mhd' in self.weights
-            fun = [[lambda e1, e2, e3: self.weights['eq_mhd'].n0(
-                e1, e2, e3)**2 / self.weights['eq_mhd'].p0(e1, e2, e3) * self.sqrt_g(e1, e2, e3)]]
+            fun = [[lambda e1, e2, e3: self.weights[self.selected_weight].n0(
+                e1, e2, e3)  * self.sqrt_g(e1, e2, e3)]]
             self._M0ad = self.assemble_weighted_mass(
                 fun, 'H1', 'H1', name='M0ad')
 
         return self._M0ad
-
+    
     @property
     def M1gyro(self):
         r"""
@@ -596,13 +608,12 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, '_M1gyro'):
-            assert 'eq_mhd' in self.weights
             self.D = [[1, 0, 0], [0, 1, 0], [0, 0, 0]]
             fun = []
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.weights['eq_mhd'].n0(e1, e2, e3) / self.weights['eq_mhd'].absB0(e1, e2, e3) * self.D[m][n] * self.Ginv(e1, e2, e3)[:, :, :, m, n] * self.D[m][n] * self.sqrt_g(
+                    fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.weights[self.selected_weight].n0(e1, e2, e3) / self.weights[self.selected_weight].absB0(e1, e2, e3)**2 * self.D[m][n] * self.Ginv(e1, e2, e3)[:, :, :, m, n] * self.D[m][n] * self.sqrt_g(
                         e1, e2, e3)]
 
             self._M1gyro = self.assemble_weighted_mass(

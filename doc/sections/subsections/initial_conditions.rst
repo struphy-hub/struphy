@@ -81,11 +81,11 @@ Kinetic initialization
 A typical example of a ``kinetic`` initialization looks as as follows::
 
     background : # background is mandatory for kinetic species
-        type : [Maxwellian6D_1, Maxwellian6D_2]
-        Maxwellian6D_1 :
+        type : [Maxwellian3D_1, Maxwellian3D_2]
+        Maxwellian3D_1 :
             n  : 0.5
             u1 : 3.0
-        Maxwellian6D_2 :
+        Maxwellian3D_2 :
             n  : 0.5
             u1 : -3.0
     perturbation :
@@ -105,8 +105,8 @@ can be initialized with MHD equilibrium quantities. For this, the value
 of the respective moment must be set to ``mhd``. For example::
 
     background : # background is mandatory for kinetic species
-        type : Maxwellian6D
-        Maxwellian6D :
+        type : Maxwellian3D
+        Maxwellian3D :
             n  : 0.05
             u1 : mhd
             u2 : 2.5
@@ -118,7 +118,7 @@ in the parameter file in this case.
 
 Multiple ``background`` and ``perturbation`` types can be given as in the above fluid case.
 
-Check out the `Maxwellian6D source code <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/kinetic_background/maxwellians.py?ref_type=heads#L119>`_ for more details.
+Check out the `Maxwellian3D source code <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/kinetic_background/maxwellians.py?ref_type=heads#L119>`_ for more details.
 
 Check out `this unit test <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/kinetic_background/tests/test_maxwellians.py?ref_type=heads>`_ for more information.
 

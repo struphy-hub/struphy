@@ -28,8 +28,8 @@ class Particles6D(Particles):
 
     @classmethod
     def default_bckgr_params(cls):
-        return {'type': 'Maxwellian6D',
-                'Maxwellian6D': {}}
+        return {'type': 'Maxwellian3D',
+                'Maxwellian3D': {}}
 
     def __init__(self, name, **params):
 
@@ -81,8 +81,6 @@ class Particles6D(Particles):
         -------
         """
         # load sampling density svol (normalized to 1 in logical space)
-        maxwellian6D = getattr(maxwellians, 'Maxwellian6D')
-
         maxw_params = {'n': 1.,
                        'u1': self.marker_params['loading']['moments'][0],
                        'u2': self.marker_params['loading']['moments'][1],
@@ -91,7 +89,7 @@ class Particles6D(Particles):
                        'vth2': self.marker_params['loading']['moments'][4],
                        'vth3': self.marker_params['loading']['moments'][5]}
 
-        fun = maxwellian6D(maxw_params=maxw_params)
+        fun = maxwellians.Maxwellian3D(maxw_params=maxw_params)
 
         if self.spatial == 'uniform':
             return fun(eta1, eta2, eta3, *v)
@@ -149,9 +147,9 @@ class Particles5D(Particles):
     """
 
     @classmethod
-    def default_bckgr_params():
-        return {'type': 'Maxwellian5D',
-                'Maxwellian5D': {}}
+    def default_bckgr_params(cls):
+        return {'type': 'GyroMaxwellian2D',
+                'GyroMaxwellian2D': {}}
 
     def __init__(self, name, **params):
 
@@ -160,6 +158,25 @@ class Particles5D(Particles):
             params['bckgr_params'] = self.default_bckgr_params()
 
         super().__init__(name, **params)
+
+        # magnetic background
+        if self.mhd_equil is not None:
+            self._magn_bckgr = self.mhd_equil
+        else:
+            self._magn_bckgr = self.braginskii_equil
+
+        self._absB0_h = self.derham.P['0'](self.magn_bckgr.absB0)
+
+        self._unit_b1_h = self.derham.P['1']([self.magn_bckgr.unit_b1_1,
+                                              self.magn_bckgr.unit_b1_2,
+                                              self.magn_bckgr.unit_b1_3])
+
+        E0T = self.derham.extraction_ops['0'].transpose()
+        E1T = self.derham.extraction_ops['1'].transpose()
+        self._absB0_h = E0T.dot(self._absB0_h)
+        self._unit_b1_h = E1T.dot(self._unit_b1_h)
+
+        self._tmp2 = self.derham.Vh['2'].zeros()
 
     @property
     def n_cols(self):
@@ -180,6 +197,21 @@ class Particles5D(Particles):
         return 11
 
     @property
+    def magn_bckgr(self):
+        """ Either mhd_equil or braginskii_equil.
+        """
+        return self._magn_bckgr
+
+    @property
+    def absB0_h(self):
+        '''Discrete 0-form coefficients of |B_0|.'''
+        return self._absB0_h
+
+    @property
+    def unit_b1_h(self):
+        '''Discrete 1-form coefficients of B/|B|.'''
+        return self._unit_b1_h
+
     def coords(self):
         """ Coordinates of the Particles5D, :math:`(v_\parallel, \mu)`.
         """
@@ -204,26 +236,26 @@ class Particles5D(Particles):
         -------
         """
         # load sampling density svol (normalized to 1 in logical space)
-        maxwellian5D = getattr(maxwellians, 'Maxwellian5D')
-
         maxw_params = {'n': 1.,
                        'u_para': self.marker_params['loading']['moments'][0],
                        'u_perp': self.marker_params['loading']['moments'][1],
                        'vth_para': self.marker_params['loading']['moments'][2],
                        'vth_perp': self.marker_params['loading']['moments'][3]}
 
-        self._svol = maxwellian5D(maxw_params=maxw_params,
-                                  mhd_equil=self.mhd_equil)
+        self._svol = maxwellians.GyroMaxwellian2D(
+            maxw_params=maxw_params, volume_form=True, mhd_equil=self._magn_bckgr)
 
         if self.spatial == 'uniform':
-            return self._svol(eta1, eta2, eta3, *v)
+            out = self._svol(eta1, eta2, eta3, *v)
 
         elif self.spatial == 'disc':
-            return self._svol(eta1, eta2, eta3, *v)*2*eta1
+            out = 2 * eta1 * self._svol(eta1, eta2, eta3, *v)
 
         else:
             raise NotImplementedError(
                 f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.')
+
+        return out
 
     def s3(self, eta1, eta2, eta3, *v):
         """
@@ -321,21 +353,38 @@ class Particles5D(Particles):
                                                             epsilon, B0, R0,
                                                             abs_B0._data)
 
-    def save_magnetic_energy(self, abs_B0, unit_b1, b):
-        """
+    def save_magnetic_energy(self, b2):
+        r"""
         Calculate magnetic field energy at each particles' position and assign it into markers[:,8].
-        Non-equilibrium magnetic field can be included.
 
         Parameters
         ----------
-        abs_B0 : BlockVector
-            FE coeffs of equilibrium magnetic field magnitude.
 
-        unit_b1 : BlockVector
-            FE coeffs of 1-form unit equilibrium magnetic field.
+        b2 : BlockVector
+            Finite element coefficients of the time-dependent magnetic field.
+        """
 
-        b : BlockVector
-            FE coeffs of perturbed magnetic field.
+        # fixed FEM arguments for the accumulator kernel
+        args_fem = (np.array(self.derham.p),
+                    self.derham.Vh_fem['0'].knots[0],
+                    self.derham.Vh_fem['0'].knots[1],
+                    self.derham.Vh_fem['0'].knots[2],
+                    np.array(self.derham.Vh['0'].starts))
+
+        E2T = self.derham.extraction_ops['2'].transpose()
+        b2t = E2T.dot(b2, out=self._tmp2)
+        b2t.update_ghost_regions()
+
+        utilities_kernels.eval_magnetic_energy(self.markers,
+                                               *args_fem, *self.domain.args_map,
+                                               self.absB0_h._data,
+                                               self._unit_b1_h[0]._data, self.unit_b1_h[1]._data, self.unit_b1_h[2]._data,
+                                               b2t[0]._data, b2t[1]._data, b2t[2]._data)
+
+    def save_magnetic_background_energy(self):
+        r"""
+        Evaluate :math:`mu_p |B_0(\boldsymbol \eta_p)|` for each marker.
+        The result is stored at markers[:, 8].
         """
 
         # fixed FEM arguments for the accumulator kernel
@@ -346,15 +395,10 @@ class Particles5D(Particles):
                     np.array(self.derham.Vh['0'].starts))
 
         E0T = self.derham.extraction_ops['0'].transpose()
-        E1T = self.derham.extraction_ops['1'].transpose()
-        E2T = self.derham.extraction_ops['2'].transpose()
 
-        abs_B0 = E0T.dot(abs_B0)
-        unit_b1 = E1T.dot(unit_b1)
-        b = E2T.dot(b)
+        abs_B0 = E0T.dot(self.absB0_h)
+        abs_B0.update_ghost_regions()
 
-        utilities_kernels.eval_magnetic_energy(self.markers,
-                                               *args_fem, *self._domain.args_map,
-                                               abs_B0._data,
-                                               unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
-                                               b[0]._data, b[1]._data, b[2]._data)
+        utilities_kernels.eval_magnetic_background_energy(self.markers,
+                                                          *args_fem, *self.domain.args_map,
+                                                          abs_B0._data)

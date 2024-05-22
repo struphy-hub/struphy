@@ -166,9 +166,14 @@ def main(path, step=1, celldivide=1):
                     marker_type = params['kinetic'][species]['markers']['type']
                 except:
                     marker_type = 'full_f'
+                    
+                if marker_type == 'delta_f':
+                    compute_bckgr = True
+                else:
+                    compute_bckgr = False
 
                 pproc.post_process_f(path, path_kinetics_species,
-                                    species, step, marker_type)
+                                    species, step, compute_bckgr=compute_bckgr)
 
 
 if __name__ == '__main__':

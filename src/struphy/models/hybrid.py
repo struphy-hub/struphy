@@ -129,7 +129,7 @@ class LinearMHDVlasovCC(StruphyModel):
 
         # add control variate to mass_ops object
         if self.pointer['energetic_ions'].control_variate:
-            self.mass_ops.weights['f0'] = self.pointer['energetic_ions'].f_backgr
+            self.mass_ops.weights['f0'] = self.pointer['energetic_ions'].f0
 
         # project background magnetic field (2-form) and background pressure (3-form)
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
@@ -372,7 +372,7 @@ class LinearMHDVlasovPC(StruphyModel):
 
         # add control variate to mass_ops object
         if self.pointer['energetic_ions'].control_variate:
-            self.mass_ops.weights['f0'] = self.pointer['energetic_ions'].f_backgr
+            self.mass_ops.weights['f0'] = self.pointer['energetic_ions'].f0
 
         # Project magnetic field
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
@@ -574,7 +574,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
     def options(cls):
         # import propagator options
         from struphy.propagators.propagators_fields import ShearAlfvénCurrentCoupling5D, MagnetosonicCurrentCoupling5D, CurrentCoupling5DDensity
-        from struphy.propagators.propagators_markers import PushDriftKineticbxGradB, PushDriftKineticBstar
+        from struphy.propagators.propagators_markers import PushDriftKineticbxGradB, PushDriftKineticParallelZeroEfield
         from struphy.propagators.propagators_coupling import CurrentCoupling5DCurlb, CurrentCoupling5DGradB
 
         dct = {}
@@ -587,7 +587,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         cls.add_option(species=['kinetic', 'energetic_ions'], key=['algos', 'push_bxgradb'],
                        option=PushDriftKineticbxGradB.options()['algo'], dct=dct)
         cls.add_option(species=['kinetic', 'energetic_ions'], key=['algos', 'push_bstar'],
-                       option=PushDriftKineticBstar.options()['algo'], dct=dct)
+                       option=PushDriftKineticParallelZeroEfield.options()['algo'], dct=dct)
         cls.add_option(species=['kinetic', 'energetic_ions'], key=['solvers', 'cc1'],
                        option=CurrentCoupling5DCurlb.options()['solver'], dct=dct)
         cls.add_option(species=['kinetic', 'energetic_ions'], key=['solvers', 'cc2'],
@@ -616,7 +616,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         # add control variate to mass_ops object
         if self.pointer['energetic_ions'].control_variate:
-            self.mass_ops.weights['f0'] = self.pointer['energetic_ions'].f_backgr
+            self.mass_ops.weights['f0'] = self.pointer['energetic_ions'].f0
 
         # Project magnetic field
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
@@ -671,7 +671,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             gradB1=self._gradB1,
             curl_unit_b2=self._curl_unit_b2,
             **algo_bxgradb))
-        self.add_propagator(self.prop_markers.PushDriftKineticBstar(
+        self.add_propagator(self.prop_markers.PushDriftKineticParallelZeroEfield(
             self.pointer['energetic_ions'],
             epsilon=epsilon,
             b=self.pointer['b2'],
@@ -802,9 +802,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self.update_scalar('en_fv_lost', self._en_fv_lost[0])
 
         # calculate particle magnetic energy
-        self.pointer['energetic_ions'].save_magnetic_energy(self._absB0, 
-                                                            self._unit_b1, 
-                                                            self.pointer['b2'])
+        self.pointer['energetic_ions'].save_magnetic_energy(self.pointer['b2'])
 
         self._en_fB[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
             self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 8])/self.pointer['energetic_ions'].n_mks*self._coupling_params['Ah']/self._coupling_params['Ab']

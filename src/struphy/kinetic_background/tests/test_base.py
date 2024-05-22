@@ -4,7 +4,7 @@ def test_kinetic_background_magics(show_plot=False):
     import numpy as np
     import matplotlib.pyplot as plt
 
-    from struphy.kinetic_background.maxwellians import Maxwellian6D
+    from struphy.kinetic_background.maxwellians import Maxwellian3D
 
     Nel = [32, 1, 1]
     e1 = np.linspace(0., 1., Nel[0])
@@ -15,8 +15,8 @@ def test_kinetic_background_magics(show_plot=False):
     m1_params = {'n': .5, 'u1': 3.}
     m2_params = {'n': .5, 'u1': -3.}
 
-    m1 = Maxwellian6D(maxw_params=m1_params)
-    m2 = Maxwellian6D(maxw_params=m2_params)
+    m1 = Maxwellian3D(maxw_params=m1_params)
+    m2 = Maxwellian3D(maxw_params=m2_params)
 
     m_add = m1 + m2
     m_rmul_int = 2 * m1

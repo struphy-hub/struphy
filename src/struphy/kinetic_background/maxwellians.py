@@ -7,11 +7,11 @@ from struphy.kinetic_background.base import Maxwellian, CanonicalMaxwellian
 from struphy.fields_background.mhd_equil.equils import set_defaults, AdhocTorus
 from struphy.initial import perturbations
 from struphy.fields_background.mhd_equil.base import MHDequilibrium
-from struphy.geometry.domains import HollowTorus
+from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
 
 
-class Maxwellian6D(Maxwellian):
-    r""" A :class:`~struphy.kinetic_background.base.Maxwellian` with velocity dimension :math:`n=3`.
+class Maxwellian3D(Maxwellian):
+    r""" A :class:`~struphy.kinetic_background.base.Maxwellian` depending on three (:math:`n=3`) Cartesian velocities.
 
     Parameters
     ----------
@@ -23,6 +23,9 @@ class Maxwellian6D(Maxwellian):
 
     mhd_equil : MHDequilibrium
         One of :mod:`~struphy.fields_background.mhd_equil.equils`.
+
+    braginskii_equil : BraginskiiEquilibrium
+        One of :mod:`~struphy.fields_background.braginskii_equil.equils`.
     """
 
     @classmethod
@@ -39,7 +42,17 @@ class Maxwellian6D(Maxwellian):
             'vth3': 1.
         }
 
-    def __init__(self, maxw_params=None, pert_params=None, mhd_equil=None):
+    def __init__(self,
+                 maxw_params: dict = {'n': 1.,
+                                      'u1': 0.,
+                                      'u2': 0.,
+                                      'u3': 0.,
+                                      'vth1': 1.,
+                                      'vth2': 1.,
+                                      'vth3': 1.},
+                 pert_params: dict = None,
+                 mhd_equil: MHDequilibrium = None,
+                 braginskii_equil: BraginskiiEquilibrium = None):
 
         # Set background parameters
         self._maxw_params = self.default_maxw_params()
@@ -49,11 +62,15 @@ class Maxwellian6D(Maxwellian):
             self._maxw_params = set_defaults(
                 maxw_params, self.default_maxw_params())
 
-        # check if mhd is needed
+        # check if mhd or braginskii is needed
         for key, val in self.maxw_params.items():
             if val == 'mhd':
                 assert isinstance(
                     mhd_equil, MHDequilibrium), f'MHD equilibrium must be passed to compute {key}.'
+
+            if val == 'braginskii':
+                assert isinstance(
+                    braginskii_equil, BraginskiiEquilibrium), f'Braginskii equilibrium must be passed to compute {key}.'
 
         # Set parameters for perturbation
         self._pert_params = pert_params
@@ -65,8 +82,9 @@ class Maxwellian6D(Maxwellian):
             assert ptype in self.pert_params, f'{ptype} is mandatory in perturbation dictionary.'
             self._pert_type = ptype
 
-        # MHD equilibrium
+        # MHD and Braginskii equilibrium
         self._mhd_equil = mhd_equil
+        self._braginskii_equil = braginskii_equil
 
         # factors multiplied onto the defined moments n, u and vth (can be set via setter)
         self._moment_factors = {'n': 1.,
@@ -87,7 +105,7 @@ class Maxwellian6D(Maxwellian):
 
     @property
     def pert_params(self):
-        """ Parameters dictionary defining the perturbations of the :meth:`~Maxwellian6D.maxw_params`.
+        """ Parameters dictionary defining the perturbations of the :meth:`~Maxwellian3D.maxw_params`.
         """
         return self._pert_params
 
@@ -99,6 +117,13 @@ class Maxwellian6D(Maxwellian):
         return self._mhd_equil
 
     @property
+    def braginskii_equil(self):
+        """ One of :mod:`~struphy.fields_background.braginskii_equil.equils` 
+        in case that moments are to be set in that way, None otherwise.
+        """
+        return self._braginskii_equil
+
+    @property
     def vdim(self):
         """Dimension of the velocity space.
         """
@@ -106,7 +131,7 @@ class Maxwellian6D(Maxwellian):
 
     @property
     def is_polar(self):
-        """List of booleans. True if the velocity coordinates are polar coordinates.
+        """List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp).
         """
         return [False, False, False]
 
@@ -136,6 +161,12 @@ class Maxwellian6D(Maxwellian):
         assert len(v) == 3
 
         return 1. + 0*eta1
+
+    @property
+    def volume_form(self):
+        """ Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian).
+        """
+        return False
 
     @property
     def moment_factors(self):
@@ -184,6 +215,11 @@ class Maxwellian6D(Maxwellian):
         # set background density
         if self.maxw_params['n'] == 'mhd':
             res = self.mhd_equil.n0(*etas)
+
+            assert np.all(res > 0.), 'Number density must be positive!'
+
+        elif self.maxw_params['n'] == 'braginskii':
+            res = self.braginskii_equil.n0(*etas)
 
             assert np.all(res > 0.), 'Number density must be positive!'
 
@@ -261,10 +297,19 @@ class Maxwellian6D(Maxwellian):
 
             tmp = self.mhd_equil.j_cart(*etas)[0] / self.mhd_equil.n0(*etas)
 
+        if (self.maxw_params['u1'] == 'braginskii' or
+            self.maxw_params['u2'] == 'braginskii' or
+                self.maxw_params['u3'] == 'braginskii'):
+
+            tmp2 = self.braginskii_equil.u_cart(*etas)
+
         res = [None, None, None]
 
         if self.maxw_params['u1'] == 'mhd':
             res[0] = tmp[0]
+
+        elif self.maxw_params['u1'] == 'braginskii':
+            res[0] = tmp2[0]
 
         else:
             if eta1.ndim == 1:
@@ -275,6 +320,9 @@ class Maxwellian6D(Maxwellian):
         if self.maxw_params['u2'] == 'mhd':
             res[1] = tmp[1]
 
+        elif self.maxw_params['u2'] == 'braginskii':
+            res[1] = tmp2[1]
+
         else:
             if eta1.ndim == 1:
                 res[1] = self.maxw_params['u2'] + 0.*eta1
@@ -283,6 +331,9 @@ class Maxwellian6D(Maxwellian):
 
         if self.maxw_params['u3'] == 'mhd':
             res[2] = tmp[2]
+
+        elif self.maxw_params['u3'] == 'braginskii':
+            res[2] = tmp2[2]
 
         else:
             if eta1.ndim == 1:
@@ -353,10 +404,21 @@ class Maxwellian6D(Maxwellian):
             tmp = np.sqrt(self.mhd_equil.p0(*etas) / self.mhd_equil.n0(*etas))
             assert np.all(tmp > 0.), 'Thermal velocity must be positive!'
 
+        if (self.maxw_params['vth1'] == 'brginskii' or
+            self.maxw_params['vth2'] == 'braginskii' or
+                self.maxw_params['vth3'] == 'braginskii'):
+
+            tmp2 = np.sqrt(self.braginskii_equil.p0(*etas) /
+                           self.braginskii_equil.n0(*etas))
+            assert np.all(tmp2 > 0.), 'Thermal velocity must be positive!'
+
         res = [None, None, None]
 
         if self.maxw_params['vth1'] == 'mhd':
             res[0] = tmp
+
+        elif self.maxw_params['vth1'] == 'braginskii':
+            res[0] = tmp2
 
         else:
             if eta1.ndim == 1:
@@ -367,6 +429,9 @@ class Maxwellian6D(Maxwellian):
         if self.maxw_params['vth2'] == 'mhd':
             res[1] = tmp
 
+        elif self.maxw_params['vth2'] == 'braginskii':
+            res[1] = tmp2
+
         else:
             if eta1.ndim == 1:
                 res[1] = self.maxw_params['vth2'] + 0.*eta1
@@ -375,6 +440,9 @@ class Maxwellian6D(Maxwellian):
 
         if self.maxw_params['vth3'] == 'mhd':
             res[2] = tmp
+
+        elif self.maxw_params['vth3'] == 'braginskii':
+            res[2] = tmp2
 
         else:
             if eta1.ndim == 1:
@@ -407,19 +475,31 @@ class Maxwellian6D(Maxwellian):
         return [re * mom_fac for re, mom_fac in zip(res, self.moment_factors['vth'])]
 
 
-class Maxwellian5D(Maxwellian):
-    r""" A :class:`~struphy.kinetic_background.base.Maxwellian` with velocity dimension :math:`n=2`.
+class GyroMaxwellian2D(Maxwellian):
+    r""" A gyrotropic :class:`~struphy.kinetic_background.base.Maxwellian` depending on
+    two velocities :math:`(v_\parallel, v_\perp)`, :math:`n=2`, 
+    where :math:`v_\parallel = \matbf v \cdot \mathbf b_0` and :math:`v_\perp`
+    is the radial component of a polar coordinate system perpendicular
+    to the magentic direction :math:`\mathbf b_0`.
 
     Parameters
-    ----------
+    ----------    
     maxw_params : dict
         Parameters for the kinetic background.
 
     pert_params : dict
         Parameters for the kinetic perturbation added to the background.
 
+    volume_form : bool
+        Whether to represent the Maxwellian as a volume form; 
+        if True it is multiplied by the Jacobian determinant |v_perp|
+        of the polar coordinate transofrmation (default = False).
+
     mhd_equil : MHDequilibrium
         One of :mod:`~struphy.fields_background.mhd_equil.equils`.
+
+    braginskii_equil : BraginskiiEquilibrium
+        One of :mod:`~struphy.fields_background.braginskii_equil.equils`.
     """
 
     @classmethod
@@ -434,7 +514,16 @@ class Maxwellian5D(Maxwellian):
             'vth_perp': 1.,
         }
 
-    def __init__(self, maxw_params=None, pert_params=None, mhd_equil=None):
+    def __init__(self,
+                 maxw_params: dict = {'n': 1.,
+                                      'u_para': 0.,
+                                      'u_perp': 0.,
+                                      'vth_para': 1.,
+                                      'vth_perp': 1.},
+                 pert_params: dict = None,
+                 volume_form: bool = False,
+                 mhd_equil: MHDequilibrium = None,
+                 braginskii_equil: BraginskiiEquilibrium = None):
 
         # Set background parameters
         self._maxw_params = self.default_maxw_params()
@@ -450,6 +539,10 @@ class Maxwellian5D(Maxwellian):
                 assert isinstance(
                     mhd_equil, MHDequilibrium), f'MHD equilibrium must be passed to compute {key}.'
 
+            if val == 'braginskii':
+                assert isinstance(
+                    braginskii_equil, BraginskiiEquilibrium), f'Braginskii equilibrium must be passed to compute {key}.'
+
         # Set parameters for perturbation
         self._pert_params = pert_params
 
@@ -460,8 +553,12 @@ class Maxwellian5D(Maxwellian):
             assert ptype in self.pert_params, f'{ptype} is mandatory in perturbation dictionary.'
             self._pert_type = ptype
 
-        # MHD equilibrium
+        # volume form represenation
+        self._volume_form = volume_form
+
+        # MHD and Braginskii equilibrium
         self._mhd_equil = mhd_equil
+        self._braginskii_equil = braginskii_equil
 
         # factors multiplied onto the defined moments n, u and vth (can be set via setter)
         self._moment_factors = {'n': 1.,
@@ -482,7 +579,7 @@ class Maxwellian5D(Maxwellian):
 
     @property
     def pert_params(self):
-        """ Parameters dictionary defining the perturbations of the :meth:`~Maxwellian5D.maxw_params`.
+        """ Parameters dictionary defining the perturbations of the :meth:`~GyroMaxwellian2D.maxw_params`.
         """
         return self._pert_params
 
@@ -494,6 +591,13 @@ class Maxwellian5D(Maxwellian):
         return self._mhd_equil
 
     @property
+    def braginskii_equil(self):
+        """ One of :mod:`~struphy.fields_background.braginskii_equil.equils` 
+        in case that moments are to be set in that way, None otherwise.
+        """
+        return self._braginskii_equil
+
+    @property
     def vdim(self):
         """Dimension of the velocity space.
         """
@@ -501,7 +605,7 @@ class Maxwellian5D(Maxwellian):
 
     @property
     def is_polar(self):
-        """List of booleans. True if the velocity coordinates are polar coordinates.
+        """List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp).
         """
         return [False, True]
 
@@ -555,6 +659,12 @@ class Maxwellian5D(Maxwellian):
         return jacobian_det
 
     @property
+    def volume_form(self):
+        """ Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian |v_perp|).
+        """
+        return self._volume_form
+
+    @property
     def moment_factors(self):
         """Collection of factors multiplied onto the defined moments n, u, and vth.
         """
@@ -601,6 +711,11 @@ class Maxwellian5D(Maxwellian):
         # set background density
         if self.maxw_params['n'] == 'mhd':
             res = self.mhd_equil.n0(*etas)
+
+            assert np.all(res > 0.), 'Number density must be positive!'
+
+        elif self.maxw_params['n'] == 'braginskii':
+            res = self.braginskii_equil.n0(*etas)
 
             assert np.all(res > 0.), 'Number density must be positive!'
 
@@ -682,26 +797,36 @@ class Maxwellian5D(Maxwellian):
             # j_parallel = jv.b1
             j_para = sum([ji * bi for ji, bi in zip(tmp_jv, tmp_unit_b1)])
 
+        if (self.maxw_params['u_para'] == 'braginskii' or
+                self.maxw_params['u_perp'] == 'braginskii'):
+
+            tmp_uv = self.braginskii_equil.uv(
+                *etas) / self.braginskii_equil.n0(*etas)
+            tmp_unit_b1 = self.braginskii_equil.unit_b1(*etas)
+            # u_parallel = uv.b1
+            u_para = sum([ji * bi for ji, bi in zip(tmp_uv, tmp_unit_b1)])
+
         res = [None, None]
 
         if self.maxw_params['u_para'] == 'mhd':
             res[0] = j_para
-
+        elif self.maxw_params['u_para'] == 'braginskii':
+            res[0] = u_para
         else:
             if eta1.ndim == 1:
                 res[0] = self.maxw_params['u_para'] + 0.*eta1
-
             else:
                 res[0] = self.maxw_params['u_para'] + 0.*etas[0]
 
         if self.maxw_params['u_perp'] == 'mhd':
             raise NotImplementedError(
                 'A shift in v_perp is not yet implemented.')
-
+        elif self.maxw_params['u_perp'] == 'braginskii':
+            raise NotImplementedError(
+                'A shift in v_perp is not yet implemented.')
         else:
             if eta1.ndim == 1:
                 res[1] = self.maxw_params['u_perp'] + 0.*eta1
-
             else:
                 res[1] = self.maxw_params['u_perp'] + 0.*etas[0]
 
@@ -767,25 +892,32 @@ class Maxwellian5D(Maxwellian):
             tmp = np.sqrt(self.mhd_equil.p0(*etas) / self.mhd_equil.n0(*etas))
             assert np.all(tmp > 0.), 'Thermal velocity must be positive!'
 
+        if (self.maxw_params['vth_para'] == 'braginskii' or
+                self.maxw_params['vth_perp'] == 'braginskii'):
+
+            tmp2 = np.sqrt(self.braginskii_equil.p0(*etas) /
+                           self.braginskii_equil.n0(*etas))
+            assert np.all(tmp2 > 0.), 'Thermal velocity must be positive!'
+
         res = [None, None]
 
         if self.maxw_params['vth_para'] == 'mhd':
             res[0] = tmp
-
+        elif self.maxw_params['vth_para'] == 'braginskii':
+            res[0] = tmp2
         else:
             if eta1.ndim == 1:
                 res[0] = self.maxw_params['vth_para'] + 0.*eta1
-
             else:
                 res[0] = self.maxw_params['vth_para'] + 0.*etas[0]
 
         if self.maxw_params['vth_perp'] == 'mhd':
             res[1] = tmp
-
+        elif self.maxw_params['vth_perp'] == 'braginskii':
+            res[1] = tmp2
         else:
             if eta1.ndim == 1:
                 res[1] = self.maxw_params['vth_perp'] + 0.*eta1
-
             else:
                 res[1] = self.maxw_params['vth_perp'] + 0.*etas[0]
 
@@ -837,8 +969,13 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
             'n': 1.,
             'vth': 1.,
         }
-
-    def __init__(self, maxw_params=None, pert_params=None, mhd_equil=None):
+    def __init__(self,
+                 maxw_params: dict = {'n': 1.,
+                                      'vth': 1.,},
+                 pert_params: dict = None,
+                 volume_form: bool = False,
+                 mhd_equil: MHDequilibrium = None,
+                 braginskii_equil: BraginskiiEquilibrium = None):
 
         # Set background parameters
         self._maxw_params = self.default_maxw_params()
@@ -859,6 +996,9 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
             self._pert_type = ptype
 
         self._mhd_equil = mhd_equil
+
+        # volume form represenation
+        self._volume_form = volume_form
 
         # factors multiplied onto the defined moments n and vth (can be set via setter)
         self._moment_factors = {'n': 1.,
@@ -888,6 +1028,13 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         in case that moments are to be set in that way, None otherwise.
         """
         return self._mhd_equil
+
+    @property
+    def braginskii_equil(self):
+        """ One of :mod:`~struphy.fields_background.braginskii_equil.equils` 
+        in case that moments are to be set in that way, None otherwise.
+        """
+        return self._braginskii_equil
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
         """
@@ -930,9 +1077,15 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         assert len(v) == 2
 
         # J = 1/v_parallel
-        jacobian_det = 1/v[0]
+        jacobian_det = 1/np.abs(v[0])
 
         return jacobian_det
+
+    @property
+    def volume_form(self):
+        """ Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian |v_perp|).
+        """
+        return self._volume_form
 
     @property
     def moment_factors(self):

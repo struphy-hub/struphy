@@ -127,33 +127,6 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
         out = np.array([b[0]/absB, b[1]/absB, b[2]/absB], dtype=float)
         return out, xyz
 
-    def curl_unit_b1(self, *etas, squeeze_out=False):
-        """ 1-form components of curl of unit equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
-        """
-        return self.domain.pull(self.curl_unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='1', squeeze_out=squeeze_out)
-
-    def curl_unit_b2(self, *etas, squeeze_out=False):
-        """ 2-form components of curl of unit equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
-        """
-        return self.domain.pull(self.curl_unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='2', squeeze_out=squeeze_out)
-    
-    def curl_unit_bv(self, *etas, squeeze_out=False):
-        """ Contra-variant components of curl of unit equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
-        """
-        return self.domain.pull(self.curl_unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='v', squeeze_out=squeeze_out)
-
-    def curl_unit_b_cart(self, *etas, squeeze_out=False):
-        """ Cartesian components of curl of unit equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
-        """
-        b, xyz = self.b_cart(*etas, squeeze_out=squeeze_out)
-        j, xyz = self.j_cart(*etas, squeeze_out=squeeze_out)
-        gradB, xyz = self.gradB_cart(*etas, squeeze_out=squeeze_out)
-        absB = self.absB0(*etas, squeeze_out=squeeze_out)
-        out = np.array([j[0]/absB + (b[1]*gradB[2] - b[2]*gradB[1])/absB**2, 
-                        j[1]/absB + (b[2]*gradB[0] - b[0]*gradB[2])/absB**2, 
-                        j[2]/absB + (b[0]*gradB[1] - b[1]*gradB[0])/absB**2], dtype=float)
-        return out, xyz
-
     def u1(self, *etas, squeeze_out=False):
         """ 1-form components of equilibrium ion velocity on logical cube [0, 1]^3.
         """
@@ -323,15 +296,6 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
 
     def gradB1_3(self, *etas, squeeze_out=False):
         return self.gradB1(*etas, squeeze_out=squeeze_out)[2]
-
-    def curl_unit_b2_1(self, *etas, squeeze_out=False):
-        return self.curl_unit_b2(*etas, squeeze_out=squeeze_out)[0]
-
-    def curl_unit_b2_2(self, *etas, squeeze_out=False):
-        return self.curl_unit_b2(*etas, squeeze_out=squeeze_out)[1]
-
-    def curl_unit_b2_3(self, *etas, squeeze_out=False):
-        return self.curl_unit_b2(*etas, squeeze_out=squeeze_out)[2]
     
     ##########
     # Plotting

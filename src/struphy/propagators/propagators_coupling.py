@@ -12,7 +12,7 @@ from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorV
 from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.kinetic_background.base import Maxwellian
-from struphy.kinetic_background.maxwellians import Maxwellian6D, Maxwellian5D
+from struphy.kinetic_background.maxwellians import Maxwellian3D, GyroMaxwellian2D
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
 from struphy.feec import preconditioner
@@ -167,7 +167,7 @@ class VlasovAmpere(Propagator):
         # update_weights
         if self.particles[0].control_variate:
 
-            if self.particles[0].f_backgr.coords == 'constants_of_motion':
+            if self.particles[0].f0.coords == 'constants_of_motion':
                 self.particles[0].save_constants_of_motion(
                     epsilon=self._epsilon, abs_B0=self._abs_b)
 
@@ -244,14 +244,14 @@ class EfieldWeights(Propagator):
 
     def __init__(self, e, particles, **params):
 
-        from struphy.kinetic_background.maxwellians import Maxwellian6D
+        from struphy.kinetic_background.maxwellians import Maxwellian3D
         super().__init__(e, particles)
 
         # parameters
         params_default = {
             'alpha': 1.,
             'kappa': 1.,
-            'f0': Maxwellian6D(),
+            'f0': Maxwellian3D(),
             'type': ('pcg', 'MassMatrixPreconditioner'),
             'tol': 1e-8,
             'maxiter': 3000,
@@ -261,7 +261,7 @@ class EfieldWeights(Propagator):
 
         params = set_defaults(params, params_default)
 
-        assert isinstance(params['f0'], Maxwellian6D)
+        assert isinstance(params['f0'], Maxwellian3D)
 
         self._alpha = params['alpha']
         self._kappa = params['kappa']
@@ -438,14 +438,14 @@ class EfieldWeightsImplicit(Propagator):
 
     def __init__(self, e, particles, **params):
 
-        from struphy.kinetic_background.maxwellians import Maxwellian6D
+        from struphy.kinetic_background.maxwellians import Maxwellian3D
         super().__init__(e, particles)
 
         # parameters
         params_default = {
             'alpha': 1.,
             'kappa': 1.,
-            'f0': Maxwellian6D(),
+            'f0': Maxwellian3D(),
             'model': 'linear_vlasov_maxwell',
             'type': ('pcg', 'MassMatrixPreconditioner'),
             'tol': 1e-8,
@@ -456,7 +456,7 @@ class EfieldWeightsImplicit(Propagator):
 
         params = set_defaults(params, params_default)
 
-        assert isinstance(params['f0'], Maxwellian6D)
+        assert isinstance(params['f0'], Maxwellian3D)
         assert params['model'] in (
             'linear_vlasov_maxwell', 'delta_f_vlasov_maxwell')
 
@@ -632,7 +632,7 @@ class EfieldWeightsDiscreteGradient(Propagator):
 
     def __init__(self, e, particles, **params):
 
-        from struphy.kinetic_background.maxwellians import Maxwellian6D
+        from struphy.kinetic_background.maxwellians import Maxwellian3D
 
         super().__init__(e, particles)
 
@@ -640,7 +640,7 @@ class EfieldWeightsDiscreteGradient(Propagator):
         params_default = {
             'alpha': 1e2,
             'kappa': 1.,
-            'f0': Maxwellian6D(),
+            'f0': Maxwellian3D(),
             'type': 'pcg',
             'pc': 'MassMatrixPreconditioner',
             'tol': 1e-8,
@@ -653,7 +653,7 @@ class EfieldWeightsDiscreteGradient(Propagator):
 
         self._params = params
 
-        assert isinstance(params['f0'], Maxwellian6D)
+        assert isinstance(params['f0'], Maxwellian3D)
 
         self._alpha = params['alpha']
         self._kappa = params['kappa']
@@ -780,14 +780,14 @@ class EfieldWeightsAnalytic(Propagator):
 
     def __init__(self, e, particles, **params):
 
-        from struphy.kinetic_background.maxwellians import Maxwellian6D
+        from struphy.kinetic_background.maxwellians import Maxwellian3D
 
         super().__init__(e, particles)
 
         # parameters
         params_default = {'alpha': 1e2,
                           'kappa': 1.,
-                          'f0': Maxwellian6D(),
+                          'f0': Maxwellian3D(),
                           'type': ('pcg', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
@@ -798,7 +798,7 @@ class EfieldWeightsAnalytic(Propagator):
 
         self._params = params
 
-        assert isinstance(params['f0'], Maxwellian6D)
+        assert isinstance(params['f0'], Maxwellian3D)
 
         self._alpha = params['alpha']
         self._kappa = params['kappa']
@@ -953,7 +953,7 @@ class PressureCoupling6D(Propagator):
         # parameters
         params_default = {'u_space': 'Hdiv',
                           'use_perp_model': True,
-                          'f0': Maxwellian6D(),
+                          'f0': Maxwellian3D(),
                           'type': ('pcg', 'MassMatrixPreconditioner'),
                           'tol': 1e-8,
                           'maxiter': 3000,
@@ -1265,7 +1265,7 @@ class CurrentCoupling6DCurrent(Propagator):
         if self.particles[0].control_variate:
 
             # control variate method is only valid with Maxwellian distributions
-            assert isinstance(self.particles[0].f_backgr, Maxwellian)
+            assert isinstance(self.particles[0].f0, Maxwellian)
 
             self._accumulator.init_control_variate(self.mass_ops)
 
@@ -1273,17 +1273,17 @@ class CurrentCoupling6DCurrent(Propagator):
             quad_pts = [quad_grid[nquad].points.flatten()
                         for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
 
-            uh0_cart = self.particles[0].f_backgr.u
+            uh0_cart = self.particles[0].f0.u
 
             self._nuh0_at_quad = self.domain.pull(
                 uh0_cart, *quad_pts, kind='v', squeeze_out=False, coordinates='logical')
 
             self._nuh0_at_quad[0] *= self.domain.pull(
-                self.particles[0].f_backgr.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
+                self.particles[0].f0.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
             self._nuh0_at_quad[1] *= self.domain.pull(
-                self.particles[0].f_backgr.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
+                self.particles[0].f0.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
             self._nuh0_at_quad[2] *= self.domain.pull(
-                self.particles[0].f_backgr.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
+                self.particles[0].f0.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
 
             # memory allocation for magnetic field at quadrature points
             self._b_quad1 = np.zeros_like(self._nuh0_at_quad[0])
@@ -1545,22 +1545,22 @@ class CurrentCoupling5DCurlb(Propagator):
         # if self.particles[0].control_variate:
 
         #     # control variate method is only valid with Maxwellian distributions
-        #     assert isinstance(self.particles[0].f_backgr, Maxwellian)
+        #     assert isinstance(self.particles[0].f0, Maxwellian)
         #     assert params['u_space'] == 'Hdiv'
 
         #     self._ACC.init_control_variate(self.mass_ops)
 
-        #     # evaluate and save f_backgr.n at quadrature points
+        #     # evaluate and save f0.n at quadrature points
         #     quad_pts = [quad_grid[nquad].points.flatten()
         #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
 
         #     self._n0_at_quad = self.domain.push(
-        #         self.particles[0].f_backgr.n, *quad_pts, kind='3', squeeze_out=False)
+        #         self.particles[0].f0.n, *quad_pts, kind='3', squeeze_out=False)
 
         #     # evaluate unit_b1 (1form) dot epsilon * u0_parallel * curl_norm_b (2form) / |det(DF)| at quadrature points
         #     quad_pts_array = self.domain.prepare_eval_pts(*quad_pts)[:3]
 
-        #     u0_parallel_at_quad = self.particles[0].f_backgr.u(
+        #     u0_parallel_at_quad = self.particles[0].f0.u(
         #         *quad_pts_array)[0]
 
         #     self._det_df_at_quad = self.domain.jacobian_det(
@@ -1579,8 +1579,8 @@ class CurrentCoupling5DCurlb(Propagator):
         #     self._unit_b1_dot_curl_norm_b_at_quad *= self._epsilon
         #     self._unit_b1_dot_curl_norm_b_at_quad *= u0_parallel_at_quad
 
-        #     # calculate constant (f_backgr.u_para² + f_backgr.vth_para²) * f_backgr.n for control MAT and VEC
-        #     vth0_parallel_at_quad = self.particles[0].f_backgr.vth(
+        #     # calculate constant (f0.u_para² + f0.vth_para²) * f0.n for control MAT and VEC
+        #     vth0_parallel_at_quad = self.particles[0].f0.vth(
         #         *quad_pts_array)[0]
 
         #     self._control_const = (
@@ -1657,7 +1657,7 @@ class CurrentCoupling5DCurlb(Propagator):
         #         p * q for p, q in zip(self._unit_b1_at_quad, self._b_at_quad))
         #     self._B_para_at_quad += self._unit_b1_dot_curl_norm_b_at_quad
 
-        #     # assemble (B x)(curl norm_b)(curl norm_b)(B x) / B_star_para² / det_df³ * (f_backgr.u_para² + f_backgr.vth_para²) * f_backgr.n
+        #     # assemble (B x)(curl norm_b)(curl norm_b)(B x) / B_star_para² / det_df³ * (f0.u_para² + f0.vth_para²) * f0.n
         #     self._mat11[:, :, :] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] -
         #                             self._b_at_quad[2]*self._curl_norm_b_at_quad[1])**2 * \
         #         self._control_const * self._coupling_mat / \
@@ -1693,7 +1693,7 @@ class CurrentCoupling5DCurlb(Propagator):
         #     self._mat31[:, :, :] = -self._mat13
         #     self._mat32[:, :, :] = -self._mat23
 
-        #     # assemble (B x)(curl norm_b) / B_star_para / det_df * (f_backgr.u_para² + f_backgr.vth_para²) * f_backgr.n
+        #     # assemble (B x)(curl norm_b) / B_star_para / det_df * (f0.u_para² + f0.vth_para²) * f0.n
         #     self._vec1[:, :, :] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] -
         #                            self._b_at_quad[2]*self._curl_norm_b_at_quad[1]) * \
         #         self._control_const * self._coupling_vec / \
@@ -1916,7 +1916,7 @@ class CurrentCoupling5DGradB(Propagator):
         # if self.particles[0].control_variate:
 
         #     # control variate method is only valid with Maxwellian distributions
-        #     assert isinstance(self.particles[0].f_backgr, Maxwellian)
+        #     assert isinstance(self.particles[0].f0, Maxwellian)
         #     assert params['u_space'] == 'Hdiv'
 
         #     self._ACC.init_control_variate(self.mass_ops)
@@ -1926,15 +1926,15 @@ class CurrentCoupling5DGradB(Propagator):
         #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
 
         #     self._n0_at_quad = self.domain.push(
-        #         self.particles[0].f_backgr.n, *quad_pts, kind='0', squeeze_out=False)
+        #         self.particles[0].f0.n, *quad_pts, kind='0', squeeze_out=False)
 
         #     # evaluate unit_b1 (1form) dot epsilon * u0_parallel * curl_norm_b/|det(DF)| at quadrature points
         #     quad_pts_array = self.domain.prepare_eval_pts(*quad_pts)[:3]
 
-        #     u0_parallel_at_quad = self.particles[0].f_backgr.u(
+        #     u0_parallel_at_quad = self.particles[0].f0.u(
         #         *quad_pts_array)[0]
 
-        #     vth_perp = self.particles[0].f_backgr.vth(*quad_pts_array)[1]
+        #     vth_perp = self.particles[0].f0.vth(*quad_pts_array)[1]
 
         #     absB0_at_quad = WeightedMassOperator.eval_quad(
         #         self.derham.Vh_fem['0'], self._absB0)
@@ -1955,7 +1955,7 @@ class CurrentCoupling5DGradB(Propagator):
         #     self._unit_b1_dot_curl_norm_b_at_quad *= self._epsilon
         #     self._unit_b1_dot_curl_norm_b_at_quad *= u0_parallel_at_quad
 
-        #     # precalculate constant 2 * f_backgr.vth_perp² / B0 * f_backgr.n for control MAT and VEC
+        #     # precalculate constant 2 * f0.vth_perp² / B0 * f0.n for control MAT and VEC
         #     self._control_const = vth_perp**2 / absB0_at_quad * self._n0_at_quad
 
         #     # assemble the matrix (G_inv)(unit_b1 x)(G_inv)
@@ -2085,7 +2085,7 @@ class CurrentCoupling5DGradB(Propagator):
         #         self._temp[2][i] = -self._b_at_quad[1]*self._G_inv_bx_G_inv_at_quad[0][i] + \
         #             self._b_at_quad[0]*self._G_inv_bx_G_inv_at_quad[1][i]
 
-        #     # assemble (temp)(grad B_parallel) / B_star_para * 2 * f_backgr.vth_perp² / B0 * f_backgr.n
+        #     # assemble (temp)(grad B_parallel) / B_star_para * 2 * f0.vth_perp² / B0 * f0.n
         #     self._vec1[:, :, :] = np.sum(p * q for p, q in zip(self._temp[0][:], self._grad_PBb_at_quad)) * \
         #         self._control_const * self._coupling_vec / self._B_para_at_quad
         #     self._vec2[:, :, :] = np.sum(p * q for p, q in zip(self._temp[1][:], self._grad_PBb_at_quad)) * \

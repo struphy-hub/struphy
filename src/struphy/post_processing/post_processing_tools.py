@@ -414,10 +414,9 @@ def post_process_markers(path_in, path_out, species, step=1):
         file.close()
 
 
-def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
+def post_process_f(path_in, path_out, species, step=1, compute_bckgr=False):
     """
-    Computes and saves distribution function of saved binning data during a simulation
-    (saved as f_<slice>.npy in a directory "kinetic_data/<name_of_species>/distribution_function/").
+    Computes and saves distribution functions of saved binning data during a simulation.
 
     Parameters
     ----------
@@ -433,8 +432,9 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
     step : int, optional
         Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
 
-    marker_type : str
-        Which type of markers were simulated.
+    compute_bckgr : bool
+        Whehter to compute the kinetic background values and add them to the binning data.
+        This is used if non-standard weights are binned.
     """
 
     # get model name and # of MPI processes from meta.txt file
@@ -463,7 +463,7 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
     print('Evaluation of distribution functions for ' + str(species))
 
     # Create grids
-    for slice_name, dset in tqdm(files[0]['kinetic/' + species + '/f'].items()):
+    for slice_name in tqdm(files[0]['kinetic/' + species + '/f']):
 
         # create a new folder for each slice
         path_slice = os.path.join(path_distr, slice_name)
@@ -478,8 +478,8 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
                 path_slice, 'grid_' + slice_names[n_gr] + '.npy')
             np.save(grid_path, grid[:])
 
-    # compute distribution function (and delta f)
-    for _, (slice_name, dset) in enumerate(tqdm(files[0]['kinetic/' + species + '/f'].items())):
+    # compute distribution function
+    for slice_name in tqdm(files[0]['kinetic/' + species + '/f']):
 
         # path to folder of slice
         path_slice = os.path.join(path_distr, slice_name)
@@ -487,20 +487,25 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
         # Find out all names of slices
         slice_names = slice_name.split('_')
 
-        # load data
-        data = dset[::step].copy()
+        # load full-f data
+        data = files[0]['kinetic/' + species +
+                        '/f/' + slice_name][::step].copy()
         for rank in range(1, int(nproc)):
             data += files[rank]['kinetic/' +
                                 species + '/f/' + slice_name][::step]
 
-        assert marker_type in ['full_f', 'control_variate', 'delta_f'], \
-            f'Got unexpected marker type: {marker_type}'
+        # load delta-f data
+        data_df = files[0]['kinetic/' + species +
+                           '/df/' + slice_name][::step].copy()
+        for rank in range(1, int(nproc)):
+            data_df += files[rank]['kinetic/' +
+                                   species + '/df/' + slice_name][::step]
 
-        if marker_type == 'full_f':
-            # save distribution function
-            np.save(os.path.join(path_slice, 'f_binned.npy'), data)
+        # save distribution functions
+        np.save(os.path.join(path_slice, 'f_binned.npy'), data)
+        np.save(os.path.join(path_slice, 'delta_f_binned.npy'), data_df)
 
-        else:
+        if compute_bckgr:
             bckgr_type = params['kinetic'][species]['background']['type']
             bckgr_params = params['kinetic'][species]['background']
 
@@ -515,9 +520,6 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
                     fi_type = fi[:-2]
                 else:
                     fi_type = fi
-
-                assert fi_type == 'Maxwellian6D', \
-                    f'Post-processing is not yet implemented for a background distribution function of type {bckgr_type}'
 
                 if fi in bckgr_params:
                     maxw_params = bckgr_params[fi]
@@ -544,33 +546,46 @@ def post_process_f(path_in, path_out, species, step=1, marker_type='full_f'):
             # load all grids of the variables of f
             grid_tot = []
             factor = 1.
-            for coord in ['e', 'v']:
-                for comp in range(1, 4):
-                    current_slice = coord + str(comp)
-                    filename = os.path.join(
-                        path_slice, 'grid_' + current_slice + '.npy')
 
-                    # check if file exists and is in slice_name
-                    if os.path.exists(filename) and current_slice in slice_names:
-                        grid_tot += [np.load(filename)]
+            # eta-grid
+            for comp in range(1, 4):
+                current_slice = 'e' + str(comp)
+                filename = os.path.join(
+                    path_slice, 'grid_' + current_slice + '.npy')
 
-                    # otherwise evaluate at zero
-                    else:
-                        if coord == 'e':
-                            grid_tot += [np.zeros(1)]
-                        elif coord == 'v':
-                            grid_tot += [np.zeros(1)]
-                            # correct integrating out in v-direction
-                            factor *= np.sqrt(2*np.pi)
+                # check if file exists and is in slice_name
+                if os.path.exists(filename) and current_slice in slice_names:
+                    grid_tot += [np.load(filename)]
+
+                # otherwise evaluate at zero
+                else:
+                    grid_tot += [np.zeros(1)]
+
+             # v-grid
+            for comp in range(1, f_bckgr.vdim + 1):
+                current_slice = 'v' + str(comp)
+                filename = os.path.join(
+                    path_slice, 'grid_' + current_slice + '.npy')
+
+                # check if file exists and is in slice_name
+                if os.path.exists(filename) and current_slice in slice_names:
+                    grid_tot += [np.load(filename)]
+
+                # otherwise evaluate at zero
+                else:
+                    grid_tot += [np.zeros(1)]
+                    # correct integrating out in v-direction, TODO: check for 5D Maxwellians
+                    factor *= np.sqrt(2*np.pi)
 
             grid_eval = np.meshgrid(*grid_tot, indexing='ij')
 
             data_bckgr = f_bckgr(*grid_eval).squeeze()
+
             # correct integrating out in v-direction
             data_bckgr *= factor
 
             # Now all data is just the data for delta_f
-            data_delta_f = data
+            data_delta_f = data_df
 
             # save distribution function
             np.save(os.path.join(path_slice, 'delta_f_binned.npy'), data_delta_f)

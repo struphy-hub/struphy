@@ -12,6 +12,7 @@ units : # units not stated here can be viewed via "struphy units -h"
     x  : 1. # length scale unit in m
     B  : 1. # magnetic field unit in T
     n  : 1. # number density unit in 10^20 m^(-3)
+    kBT: 1. # thermal energy unit in keV
 
 time :
     dt         : 0.1  # time step
@@ -66,13 +67,13 @@ kinetic :
                 seed    : 1608 # seed for random number generator
                 moments : [0., 0., 1., 1.] # moments of Gaussian s3, see background/moms_spec
                 spatial : uniform # uniform or disc
-                initial : [[.501, 0.001, 0.001, -1.935 , -1.72], # co-passing particle
-                           [.501, 0.001, 0.001,  1.935 , -1.72], # couner-passing particle
-                           [.501, 0.001, 0.001, -0.6665, -1.72], # co-trapped particle
-                           [.501, 0.001, 0.001,  0.4515, -1.72]] # counter-trapped particle
+                initial : [[.501, 0.001, 0.001, -1.935 , 1.72], # co-passing particle
+                           [.501, 0.001, 0.001,  1.935 , 1.72], # couner-passing particle
+                           [.501, 0.001, 0.001, -0.6665, 1.72], # co-trapped particle
+                           [.501, 0.001, 0.001,  0.4515, 1.72]] # counter-trapped particle
         background :
-            type : Maxwellian5D
-            Maxwellian5D:
+            type : GyroMaxwellian2D
+            GyroMaxwellian2D:
                 n : 0.05
         save_data :
             n_markers : 4 # number of markers to be save during simulation

@@ -81,8 +81,8 @@ kinetic :
                 seed    : 4247 # seed for random number generator
                 moments : [0., 0., 0., 0.1, 0.1, 0.1] # moments of Gaussian s3, see background/moms_spec
         background :
-            type : Maxwellian6D
-            Maxwellian6D :
+            type : Maxwellian3D
+            Maxwellian3D :
                 n  : 1.
                 u1 : 0.
                 u2 : 0.

@@ -224,8 +224,8 @@ Check out :ref:`kinetic_backgrounds` and :ref:`avail_inits` for available ``type
                     n_bins : [[32], [32, 32]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
                     ranges : [[[-3., 3.]], [[0., 1.], [-5., 5.]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
             background : # background is mandatory for kinetic species
-                type : Maxwellian6D
-                Maxwellian6D :
+                type : Maxwellian3D
+                Maxwellian3D :
                     n  : 0.05
                     u2 : 2.5
             perturbation :
