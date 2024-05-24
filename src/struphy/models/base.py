@@ -1428,6 +1428,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                         for i, sli in enumerate(slices):
 
                             assert ((len(sli) - 2)/3).is_integer()
+                            assert len(slices[i].split('_')) == len(ranges[i]) == len(n_bins[i]), \
+                                f"Number of slices names ({len(slices[i].split('_'))}), number of bins ({len(n_bins[i])}), and number of ranges ({len(ranges[i])}) are inconsistent with each other!\n\n"
                             val['bin_edges'][sli] = []
                             dims = (len(sli) - 2)//3 + 1
                             for j in range(dims):
@@ -1635,7 +1637,6 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                         )
 
                 if tmp.coords == 'constants_of_motion':
-
                     # call parameters
                     a1 = self.domain.params_map['a1']
                     r = eta1mg*(1 - a1) + a1
@@ -1654,8 +1655,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     pparams[species]['pressure'] = pparams[species]['kBT'] * \
                         e * 1e3 * pparams[species]['density'] * 1e-5
 
-                else: 
-
+                else:
                     # density (m⁻³)
                     # pparams[species]['density'] = np.mean(tmp.n(
                     #     eta1mg, eta2mg, eta3mg) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']

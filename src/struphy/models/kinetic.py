@@ -142,6 +142,9 @@ class VlasovAmpereOneSpecies(StruphyModel):
         else:
             self.kappa = self.equation_params['species1']['kappa']
 
+        # Check if it is control-variate method
+        self._control_variate = (spec_params['markers']['type'] == 'control_variate')
+
         # set background density factor
         Z0 = spec_params['options']['Z0']
         Z = spec_params['phys_params']['Z']
@@ -198,7 +201,8 @@ class VlasovAmpereOneSpecies(StruphyModel):
             print('\nINITIAL POISSON SOLVE:')
 
         # use control variate method
-        self.pointer['species1'].update_weights()
+        if self._control_variate:
+            self.pointer['species1'].update_weights()
 
         # sanity check
         # self.pointer['species1'].show_distribution_function(
