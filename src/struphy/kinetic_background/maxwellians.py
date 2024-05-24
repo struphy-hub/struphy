@@ -4,7 +4,7 @@
 import numpy as np
 
 from struphy.kinetic_background.base import Maxwellian, CanonicalMaxwellian
-from struphy.fields_background.mhd_equil.equils import set_defaults, AdhocTorus
+from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.initial import perturbations
 from struphy.fields_background.mhd_equil.base import MHDequilibrium
 from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium

@@ -86,7 +86,7 @@ def main(path, step=1, celldivide=1):
 
         # save data dicts for each field
         for name, val in point_data_log.items():
-            
+
             aux = name.split('_')
             # is em field
             if len(aux) == 1:
@@ -96,7 +96,7 @@ def main(path, step=1, celldivide=1):
                     os.mkdir(os.path.join(path_fields, subfolder))
                 except:
                     pass
-                
+
             # is fluid species
             elif len(aux) == 2:
                 subfolder = aux[0]
@@ -106,7 +106,8 @@ def main(path, step=1, celldivide=1):
                 except:
                     pass
             else:
-                raise ValueError(f'Naming {name} of feec unknown is not permitted (can only have one underscore).')
+                raise ValueError(
+                    f'Naming {name} of feec unknown is not permitted (can only have one underscore).')
 
             with open(os.path.join(path_fields, subfolder, new_name + '_log.bin'), 'wb') as handle:
                 pickle.dump(val, handle,
@@ -154,7 +155,8 @@ def main(path, step=1, celldivide=1):
 
             # markers
             if exist_kinetic['markers']:
-                pproc.post_process_markers(path, path_kinetics_species, species, step)
+                pproc.post_process_markers(
+                    path, path_kinetics_species, species, step)
 
             # distribution function
             if exist_kinetic['f']:
@@ -166,14 +168,14 @@ def main(path, step=1, celldivide=1):
                     marker_type = params['kinetic'][species]['markers']['type']
                 except:
                     marker_type = 'full_f'
-                    
+
                 if marker_type == 'delta_f':
                     compute_bckgr = True
                 else:
                     compute_bckgr = False
 
                 pproc.post_process_f(path, path_kinetics_species,
-                                    species, step, compute_bckgr=compute_bckgr)
+                                     species, step, compute_bckgr=compute_bckgr)
 
 
 if __name__ == '__main__':

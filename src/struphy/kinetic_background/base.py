@@ -424,8 +424,8 @@ class Maxwellian(KineticBackground):
         # Check that all args have the same shape
         shape0 = np.shape(args[0])
         for i, arg in enumerate(args):
-            assert np.shape(
-                arg) == shape0, f'Argument {i} has {np.shape(arg) = }, but must be {shape0 = }.'
+            assert np.shape(arg) == shape0, \
+                    f'Argument {i} has {np.shape(arg) = }, but must be {shape0 = }.'
             assert np.ndim(arg) == 1 or np.ndim(
                 arg) == 3 + self.vdim, f'{np.ndim(arg) = } not allowed for Maxwellian evaluation.'  # flat or meshgrid evaluation
 
