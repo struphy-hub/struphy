@@ -1076,8 +1076,8 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         assert eta3.ndim == 1
         assert len(v) == 2
 
-        # J = 1/v_parallel
-        jacobian_det = 1/np.abs(v[0])
+        # J = -3/2/v_parallel
+        jacobian_det = -3/2/v[0]
 
         return jacobian_det
 
