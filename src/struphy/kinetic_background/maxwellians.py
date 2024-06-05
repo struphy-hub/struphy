@@ -1077,7 +1077,14 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         assert len(v) == 2
 
         # J = |1/v_parallel|
-        jacobian_det = np.abs(1/v[0])
+        #jacobian_det = np.abs(1/v[0])
+
+        # call equilibrium
+        etas = (np.vstack((eta1, eta2, eta3)).T).copy()
+        absB0 = self.mhd_equil.absB0(etas)
+
+        # J = v_perp/B
+        jacobian_det = 1./absB0
 
         return jacobian_det
 
