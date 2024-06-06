@@ -659,6 +659,13 @@ class LinearMHDDriftkineticCC(StruphyModel):
         params_cc2 = params['kinetic']['energetic_ions']['options']['solvers']['cc2']
         algo_cc2 = params['kinetic']['energetic_ions']['options']['algos']['push_cc2']
 
+        # default setting params['off']
+        params_list = [params_shear_alfven, params_magnetosonic, params_density, params_cc1, params_cc2]
+
+        for p in params_list:
+            if 'turn_off' not in p:
+                p['turn_off'] = False
+
         # Initialize propagators/integrators used in splitting substeps
         self.add_propagator(self.prop_markers.PushDriftKineticbxGradB(
             self.pointer['energetic_ions'],
@@ -682,64 +689,74 @@ class LinearMHDDriftkineticCC(StruphyModel):
             gradB1=self._gradB1,
             curl_unit_b2=self._curl_unit_b2,
             **algo_bstar))
-        self.add_propagator(self.prop_coupling.CurrentCoupling5DGradB(
-            self.pointer['energetic_ions'],
-            self.pointer['mhd_u2'],
-            epsilon=epsilon,
-            b=self.pointer['b2'],
-            b_eq=self._b_eq,
-            unit_b1=self._unit_b1,
-            unit_b2=self._unit_b2,
-            absB0=self._absB0,
-            gradB1=self._gradB1,
-            curl_unit_b2=self._curl_unit_b2,
-            u_space='Hdiv',
-            **params_cc2,
-            **self._coupling_params,
-            method=algo_cc2))
-        self.add_propagator(self.prop_coupling.CurrentCoupling5DCurlb(
-            self.pointer['energetic_ions'],
-            self.pointer['mhd_u2'],
-            epsilon=epsilon,
-            b=self.pointer['b2'],
-            b_eq=self._b_eq,
-            absB0=self._absB0,
-            unit_b1=self._unit_b1,
-            curl_unit_b2=self._curl_unit_b2,
-            u_space='Hdiv',
-            **params_cc1,
-            **self._coupling_params))
-        self.add_propagator(self.prop_fields.CurrentCoupling5DDensity(
-            self.pointer['mhd_u2'],
-            particles=self.pointer['energetic_ions'],
-            epsilon=epsilon,
-            u_space='Hdiv',
-            b_eq=self._b_eq,
-            b_tilde=self.pointer['b2'],
-            unit_b1=self._unit_b1,
-            curl_unit_b2=self._curl_unit_b2,
-            **params_density,
-            **self._coupling_params))
-        self.add_propagator(self.prop_fields.ShearAlfvénCurrentCoupling5D(
-            self.pointer['mhd_u2'],
-            self.pointer['b2'],
-            particles=self.pointer['energetic_ions'],
-            unit_b1=self._unit_b1,
-            absB0=self._absB0,
-            u_space='Hdiv',
-            **params_shear_alfven,
-            **self._coupling_params))
-        # self.add_propagator(self.prop_fields.MagnetosonicCurrentCoupling5D(
-        #     self.pointer['mhd_n3'],
-        #     self.pointer['mhd_u2'],
-        #     self.pointer['mhd_p3'],
-        #     b=self.pointer['b2'],
-        #     particles=self.pointer['energetic_ions'],
-        #     unit_b1=self._unit_b1,
-        #     absB0=self._absB0,
-        #     u_space='Hdiv',
-        #     **params_magnetosonic,
-        #     **self._coupling_params))
+        if not params_cc2['turn_off']:
+            params_cc2.pop('turn_off')
+            self.add_propagator(self.prop_coupling.CurrentCoupling5DGradB(
+                self.pointer['energetic_ions'],
+                self.pointer['mhd_u2'],
+                epsilon=epsilon,
+                b=self.pointer['b2'],
+                b_eq=self._b_eq,
+                unit_b1=self._unit_b1,
+                unit_b2=self._unit_b2,
+                absB0=self._absB0,
+                gradB1=self._gradB1,
+                curl_unit_b2=self._curl_unit_b2,
+                u_space='Hdiv',
+                **params_cc2,
+                **self._coupling_params,
+                method=algo_cc2))
+        if not params_cc1['turn_off']:
+            params_cc1.pop('turn_off')
+            self.add_propagator(self.prop_coupling.CurrentCoupling5DCurlb(
+                self.pointer['energetic_ions'],
+                self.pointer['mhd_u2'],
+                epsilon=epsilon,
+                b=self.pointer['b2'],
+                b_eq=self._b_eq,
+                absB0=self._absB0,
+                unit_b1=self._unit_b1,
+                curl_unit_b2=self._curl_unit_b2,
+                u_space='Hdiv',
+                **params_cc1,
+                **self._coupling_params))
+        if not params_density['turn_off']:
+            params_density.pop('turn_off') 
+            self.add_propagator(self.prop_fields.CurrentCoupling5DDensity(
+                self.pointer['mhd_u2'],
+                particles=self.pointer['energetic_ions'],
+                epsilon=epsilon,
+                u_space='Hdiv',
+                b_eq=self._b_eq,
+                b_tilde=self.pointer['b2'],
+                unit_b1=self._unit_b1,
+                curl_unit_b2=self._curl_unit_b2,
+                **params_density,
+                **self._coupling_params))
+        if not params_shear_alfven['turn_off']:
+            params_shear_alfven.pop('turn_off')
+            self.add_propagator(self.prop_fields.ShearAlfvénCurrentCoupling5D(
+                self.pointer['mhd_u2'],
+                self.pointer['b2'],
+                particles=self.pointer['energetic_ions'],
+                unit_b1=self._unit_b1,
+                absB0=self._absB0,
+                u_space='Hdiv',
+                **params_shear_alfven,
+                **self._coupling_params))
+        if not params_magnetosonic['turn_off']: 
+            params_magnetosonic.pop('turn_off')
+            self.add_propagator(self.prop_fields.MagnetosonicCurrentCoupling5D(
+                self.pointer['mhd_n3'],
+                self.pointer['mhd_u2'],
+                self.pointer['mhd_p3'],
+                b=self.pointer['b2'],
+                particles=self.pointer['energetic_ions'],
+                unit_b1=self._unit_b1,
+                absB0=self._absB0,
+                u_space='Hdiv',
+                **params_magnetosonic,
+                **self._coupling_params))
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U')
