@@ -1084,7 +1084,7 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         absB0 = self.mhd_equil.absB0(etas)
 
         # J = v_perp/B
-        jacobian_det = 1./absB0
+        jacobian_det = 2.*np.pi/absB0
 
         return jacobian_det
 
