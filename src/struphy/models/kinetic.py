@@ -1245,8 +1245,6 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
                        ImplicitDiffusion.options()['solver'], dct)
         cls.add_option(['kinetic', 'species1'], ['algos', 'push_eta'],
                        PushEta.options()['algo'], dct)
-        cls.add_option(['kinetic', 'species1'], ['coupling_solver'],
-                       EfieldWeights.options()['solver'], dct)
         cls.add_option(species=['kinetic', 'species1'], key='verification',
                        option={'use': False, 'kappa': 1., 'alpha': 1.}, dct=dct)
 
@@ -1325,17 +1323,17 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
             f0=self._f0,
             **params_coupling))
         if self._rank == 0:
-            print("\nAdded Step EfieldWeights Explicit\n")
+            print("\nAdded Step EfieldWeights Analytic\n")
 
-        # self.add_propagator(self.prop_coupling.EfieldWeightsDiscreteGradient(
-        #     self.pointer['e_field'],
-        #     self.pointer['species1'],
-        #     alpha=self.alpha,
-        #     kappa=self.kappa,
-        #     f0=self._f0,
-        #     **params['solvers']['solver_ew']))
-        # if self._rank == 0:
-        #     print("\nAdded Step EfieldWeights Discrete Gradient\n")
+        self.add_propagator(self.prop_coupling.EfieldWeightsDiscreteGradient(
+            self.pointer['e_field'],
+            self.pointer['species1'],
+            alpha=self.alpha,
+            kappa=self.kappa,
+            f0=self._f0,
+            **params_coupling))
+        if self._rank == 0:
+            print("\nAdded Step EfieldWeights Discrete Gradient\n")
 
         # self.add_propagator(self.prop_coupling.EfieldWeightsImplicit(
         #     self.pointer['e_field'],
@@ -1364,8 +1362,6 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
     def initialize_from_params(self):
         ''':meta private:'''
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-        from struphy.pic.particles import Particles
-        from psydac.linalg.stencil import StencilVector
 
         # Initialize fields and particles
         super().initialize_from_params()
@@ -1394,29 +1390,46 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
             )
             ln_f0_values = np.log(f0_values)
 
-            # convert weights from h to f1
-            # w_p^f = f_{0,p} / s_{0,p} * (1 / ln(f_{0,p}) - 1) - w_p^h / ln(f_{0,p})
-            self.markers[~self.holes, 6] -= f0_values * \
-                (1 - ln_f0_values) / self.markers[~self.holes, 7]
-            self.markers[~self.holes, 6] /= (-1) * ln_f0_values
+            assert np.count_nonzero(components) == len(bin_edges)
 
-            # do the particle binning
-            res, res_df = Particles.binning(
-                self, components, bin_edges
-            )
+            # volume of a bin
+            bin_vol = 1.
+            for be in bin_edges:
+                bin_vol *= be[1] - be[0]
 
-            # convert weights from f1 to h
-            # w_p^h = f_0 * (1 - ln(f_0)) / s_0 - w_p^f * ln(f_0)
-            self.markers[~self.holes, 6] *= (-1) * ln_f0_values
-            self.markers[~self.holes, 6] += f0_values * \
-                (1 - ln_f0_values) / self.markers[~self.holes, 7]
+            # extend components list to number of columns of markers array
+            _n = len(components)
+            slicing = components + [False] * (self.markers.shape[1] - _n)
 
-            return res, res_df
+            # compute weights of histogram:
+            _weights0 = self.weights0
+            _weights = (
+                f0_values / self.markers_wo_holes[:, 7] * (1 / ln_f0_values - 1)
+                - self.weights / ln_f0_values
+                )
+
+            f_slice = np.histogramdd(
+                self.markers_wo_holes[:, slicing],
+                bins=bin_edges,
+                weights=_weights0
+            )[0]
+
+            df_slice = np.histogramdd(
+                self.markers_wo_holes[:, slicing],
+                bins=bin_edges,
+                weights=_weights
+            )[0]
+
+            f_slice /= self.n_mks * bin_vol
+            df_slice /= self.n_mks * bin_vol
+
+            return f_slice, df_slice
 
         func_type = type(self.pointer['species1'].binning)
 
         self.pointer['species1'].binning = func_type(
-            new_binning, self.pointer['species1'])
+            new_binning, self.pointer['species1']
+        )
 
         # Accumulate charge density before converting f1 to h
         charge_accum = AccumulatorVector(
@@ -1444,7 +1457,7 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         if self._rank == 0:
             print('Done.')
 
-        # Correct initialization of weights fomr f1 to h
+        # Correct initialization of weights from f1 to h
         # w_p^h = f_0 * (1 - ln(f_0)) / s_0 - w_p^f * ln(f_0)
         self.pointer['species1'].markers[~self.pointer['species1'].holes, 6] *= \
             (-1) * ln_f0_values
@@ -1458,7 +1471,7 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         en_E = self.pointer['e_field'].dot(self._en_e_tmp) / 2.
         self.update_scalar('en_e', en_E)
 
-        # alpha^2 * v_th_1^2 * v_th_2^2 * v_th_3^2 * sum_p w_p
+        # alpha^2 * v_th^2 / N * sum_p w_p
         self._tmp[0] = \
             self.alpha**2 * self.vth**2 * \
             np.sum(self.pointer['species1'].markers_wo_holes[:, 6]) / \

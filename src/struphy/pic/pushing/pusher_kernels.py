@@ -2748,15 +2748,15 @@ def push_weights_with_efield_delta_f_vm(markers: 'float[:,:]', dt: float, stage:
         e_vec_3 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3,
                                                  span1, span2, span3, e1_3, starts)
 
-        update = kappa * (df_inv_v[0] * e_vec_1 + df_inv_v[1] * e_vec_2 + df_inv_v[2] * e_vec_3)
+        update = dt * kappa / vth**2 * (df_inv_v[0] * e_vec_1 + df_inv_v[1] * e_vec_2 + df_inv_v[2] * e_vec_3)
         if substep == 0:
             # w_p += dt * kappa / s_0 * (DL^{-1} v_p) * e_vec
             # with e_vec = e(0) - dt / 2 * M_1^{-1} accum_vec
-            update *= dt * kappa * (f0 / log(f0) - f0) / (vth**2 * markers[ip, 7])
+            update *= (f0 / log(f0) - f0) / markers[ip, 7]
         elif substep == 1:
             # w_p -= dt * kappa * w_p / (vth^2 * ln(f_0)) * (DL^{-1} v_p) * e_vec
             # with e_vec = (e^{n+1} + e^n) / 2
-            update *= (-1) * dt * markers[ip, 6] / (vth**2 * log(f0))
+            update *= (-1) * markers[ip, 6] / log(f0)
 
         markers[ip, 6] += update
 

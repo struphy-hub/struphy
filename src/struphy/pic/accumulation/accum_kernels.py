@@ -924,11 +924,11 @@ def delta_f_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
         # invert Jacobian matrix
         linalg_kernels.matrix_inv(dfm, df_inv)
 
-        # compute DF^{-1} v
+        # compute DF^{-1} * v_p
         linalg_kernels.matrix_vector(df_inv, v, filling_v)
 
         if substep == 0:
-            # filling_v = alpha^2 / (N * s_0) * (f_0 / ln(f_0) - f_0) * DL^{-1} * v_p
+            # filling_v = alpha^2 * kappa / (N * s_0) * (f_0 / ln(f_0) - f_0) * DL^{-1} * v_p
             filling_v[:] *= (f0 / log(f0) - f0) / (n_markers_tot * markers[ip, 7])
         elif substep == 1:
             # filling_v = alpha^2 * kappa * w_p / (N * ln(f_0)) * DL^{-1} * v_p

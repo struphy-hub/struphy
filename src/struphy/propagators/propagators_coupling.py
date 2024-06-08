@@ -611,10 +611,10 @@ class EfieldWeightsDiscreteGradient(Propagator):
     .. math::
 
         \begin{align}
-            \frac{\text{d}}{\text{d} t} w_p & = \frac{1}{N \, s_{0, p}} \frac{\kappa}{v_{\text{th}}^2} \left[ DF^{-T} (\mathbb{\Lambda}^1)^T \mathbf{e} \right]
-            \cdot \mathbf{v}_p \left( \frac{f_0}{\ln(f_0)} - f_0 \right) \\[2mm]
-            \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} & = - \alpha^2 \kappa \sum_p \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right)
-            \frac{1}{N \, s_{0, p}} \left( \frac{f_0}{\ln(f_0)} - f_0 \right)
+            \frac{\text{d}}{\text{d} t} w_p & = - \frac{\kappa}{v_{\text{th}}^2} \left[ (\mathbb{\Lambda}^1)^T \mathbf{e} \right]
+                \cdot \left( DF^{-1} \mathbf{v}_p \right) \, \frac{w_p}{\ln(f_{0,p})} \\[2mm]
+            \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} & = \frac{\alpha^2 \kappa}{N} \sum_p \mathbb{\Lambda}^1 \cdot
+                \left( DF^{-1} \mathbf{v}_p \right) \, \frac{w_p}{\ln(f_{0,p})}
         \end{align}
 
     using the symplectic Euler method.
@@ -639,11 +639,10 @@ class EfieldWeightsDiscreteGradient(Propagator):
 
         # parameters
         params_default = {
-            'alpha': 1e2,
+            'alpha': 1,
             'kappa': 1.,
             'f0': Maxwellian3D(),
-            'type': 'pcg',
-            'pc': 'MassMatrixPreconditioner',
+            'type': ('pcg', 'MassMatrixPreconditioner'),
             'tol': 1e-8,
             'maxiter': 3000,
             'info': False,
@@ -659,25 +658,20 @@ class EfieldWeightsDiscreteGradient(Propagator):
         self._alpha = params['alpha']
         self._kappa = params['kappa']
         self._f0 = params['f0']
-        self._f0_params = np.array(
-            [self._f0.maxw_params['n'],
-             self._f0.maxw_params['u1'],
-             self._f0.maxw_params['u2'],
-             self._f0.maxw_params['u3'],
-             self._f0.maxw_params['vth1'],
-             self._f0.maxw_params['vth2'],
-             self._f0.maxw_params['vth3']]
-        )
+        assert self._f0.maxw_params['vth1'] == self._f0.maxw_params['vth2'] == self._f0.maxw_params['vth3']
+        self._vth = self._f0.maxw_params['vth1']
 
         self._info = params['info']
 
         # Initialize Accumulator object
         self._accum = AccumulatorVector(
-            self.derham, self.domain, 'Hcurl', 'delta_f_vlasov_maxwell')
+            self.derham, self.domain, 'Hcurl', 'delta_f_vlasov_maxwell'
+        )
 
-        # Create buffers to temporarily store _e and its sum with old e
-        self._m1_acc_vec = e.space.zeros()
-        self._e_sum = e.space.zeros()
+        # Create buffers to temporarily \Delta e, the new e, and the field needed for the weight update
+        self._e_tmp = e.space.zeros()
+        self._delta_e = e.space.zeros()
+        self._e_weights = e.space.zeros()
 
         # store old weights to compute difference
         self._old_weights = np.empty(particles.markers.shape[0], dtype=float)
@@ -690,59 +684,69 @@ class EfieldWeightsDiscreteGradient(Propagator):
             pc = pc_class(self.mass_ops.M1)
 
         # solver
-        self.solver = inverse(self.mass_ops.M1,
-                              params['type'][0],
-                              pc=pc,
-                              x0=self.feec_vars[0],
-                              tol=self._params['tol'],
-                              maxiter=self._params['maxiter'],
-                              verbose=self._params['verbose'])
+        self.solver = inverse(
+            self.mass_ops.M1,
+            params['type'][0],
+            pc=pc,
+            x0=self.feec_vars[0],
+            tol=self._params['tol'],
+            maxiter=self._params['maxiter'],
+            verbose=self._params['verbose']
+        )
 
-        self._pusher = Pusher(self.derham, self.domain,
-                              'push_weights_with_efield_delta_f_vm')
+        self._pusher = Pusher(
+            self.derham, self.domain,
+            'push_weights_with_efield_delta_f_vm'
+        )
 
     def __call__(self, dt):
-        # current e-field
-        en = self.feec_vars[0]
-
         # evaluate f0 and accumulate
-        f0_values = self._f0(self.particles[0].markers[:, 0],
-                             self.particles[0].markers[:, 1],
-                             self.particles[0].markers[:, 2],
-                             self.particles[0].markers[:, 3],
-                             self.particles[0].markers[:, 4],
-                             self.particles[0].markers[:, 5])
+        f0_values = self._f0(
+            self.particles[0].markers_wo_holes[:, 0],
+            self.particles[0].markers_wo_holes[:, 1],
+            self.particles[0].markers_wo_holes[:, 2],
+            self.particles[0].markers_wo_holes[:, 3],
+            self.particles[0].markers_wo_holes[:, 4],
+            self.particles[0].markers_wo_holes[:, 5]
+        )
 
         self._accum.accumulate(
-            self.particles[0], f0_values, self._alpha, self._kappa, int(1))
+            self.particles[0], f0_values, int(1)
+        )
 
-        en1 = self.solver.solve(self._accum.vectors[0], out=self._m1_acc_vec)
+        # Compute \Delta e
+        self._delta_e = self.solver.solve(
+            self._accum.vectors[0], out=self._delta_e
+        )
+        self._delta_e *= (dt * self._alpha**2 * self._kappa)
         info = self.solver._info
+
+        # Compute new e-field
+        self._e_tmp *= 0.
+        self._e_tmp += self.feec_vars[0]
+        self._e_tmp += self._delta_e
 
         if self._info:
             # Store old weights
             self._old_weights[~self.particles[0].holes] = self.particles[0].markers[~self.particles[0].holes, 6]
 
-        # Compute (e^{n+1} + e^n) / 2 = e^n + dt / 2 * accum_vec
-        _e = en.copy(out=self._e_sum)
-        en1 *= dt*0.5
-        _e += en1
+        # Compute vector for particle pushing
+        self._e_weights *= 0.
+        self._e_weights += self._e_tmp
+        self._e_weights += self.feec_vars[0]
+        self._e_weights *= 0.5
 
         # Update weights
         self._pusher(self.particles[0], dt,
-                     _e.blocks[0]._data,
-                     _e.blocks[1]._data,
-                     _e.blocks[2]._data,
-                     f0_values,
-                     float(self._f0_params[4]),
-                     self._kappa,
+                     self._e_weights.blocks[0]._data,
+                     self._e_weights.blocks[1]._data,
+                     self._e_weights.blocks[2]._data,
+                     f0_values, self._kappa, self._vth,
                      int(1)  # since we want to use the last substep
                      )
 
-        # Update e-field and compute max difference
-        en1 *= 2.
-        max_de = np.max(np.abs(en1.toarray()))
-        self.feec_vars[0] += en1
+        # write new coeffs into self.variables
+        max_de, = self.feec_vars_update(self._e_tmp)
 
         # Print out max differences for weights and e-field
         if self._info:
@@ -753,6 +757,17 @@ class EfieldWeightsDiscreteGradient(Propagator):
                                      - self.particles[0].markers[~self.particles[0].holes, 6]))
             print('Maxdiff weights for StepEfieldWeights:', max_diff)
             print()
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False}
+        return dct
 
 
 class EfieldWeightsAnalytic(Propagator):
@@ -786,14 +801,16 @@ class EfieldWeightsAnalytic(Propagator):
         super().__init__(e, particles)
 
         # parameters
-        params_default = {'alpha': 1.,
-                          'kappa': 1.,
-                          'f0': Maxwellian3D(),
-                          'type': ('pcg', 'MassMatrixPreconditioner'),
-                          'tol': 1e-8,
-                          'maxiter': 3000,
-                          'info': False,
-                          'verbose': False}
+        params_default = {
+            'alpha': 1.,
+            'kappa': 1.,
+            'f0': Maxwellian3D(),
+            'type': ('pcg', 'MassMatrixPreconditioner'),
+            'tol': 1e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False
+        }
 
         params = set_defaults(params, params_default)
 
@@ -847,20 +864,23 @@ class EfieldWeightsAnalytic(Propagator):
 
     def __call__(self, dt):
         # evaluate f0 and accumulate
-        f0_values = self._f0(self.particles[0].markers[:, 0],
-                             self.particles[0].markers[:, 1],
-                             self.particles[0].markers[:, 2],
-                             self.particles[0].markers[:, 3],
-                             self.particles[0].markers[:, 4],
-                             self.particles[0].markers[:, 5]
-                             )
+        f0_values = self._f0(
+            self.particles[0].markers_wo_holes[:, 0],
+            self.particles[0].markers_wo_holes[:, 1],
+            self.particles[0].markers_wo_holes[:, 2],
+            self.particles[0].markers_wo_holes[:, 3],
+            self.particles[0].markers_wo_holes[:, 4],
+            self.particles[0].markers_wo_holes[:, 5]
+        )
 
         self._accum.accumulate(
             self.particles[0], f0_values, int(0)
         )
 
         # Compute \Delta e
-        self._delta_e = self.solver.solve(self._accum.vectors[0], out=self._delta_e)
+        self._delta_e = self.solver.solve(
+            self._accum.vectors[0], out=self._delta_e
+        )
         self._delta_e *= (dt * self._alpha**2 * self._kappa)
         info = self.solver._info
 

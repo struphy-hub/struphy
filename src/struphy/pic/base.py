@@ -94,7 +94,7 @@ class Particles(metaclass=ABCMeta):
                 'Only two form degrees can be given!'
             self._pforms = bckgr_params['pforms']
         else:
-            self._pforms = [None, None] 
+            self._pforms = [None, None]
 
         if derham is not None:
             self._mpi_comm = derham.comm
@@ -110,7 +110,7 @@ class Particles(metaclass=ABCMeta):
         self._control_variate = (
             self.marker_params['type'] == 'control_variate')
 
-        # set background function 
+        # set background function
         bckgr_type = bckgr_params['type']
 
         if not isinstance(bckgr_type, list):
@@ -739,7 +739,7 @@ class Particles(metaclass=ABCMeta):
             elif self.vdim == 2:
                 self.markers[:n_mks_load_loc, 3] = sp.erfinv(
                     2*self.velocities[:, 0] - 1)*np.sqrt(2)*v_th[0] + u_mean[0]
-                
+
                 self.markers[:n_mks_load_loc, 4] = np.sqrt(
                     -1*np.log(1-self.velocities[:, 1]))*np.sqrt(2)*v_th[1] + u_mean[1]
             else:
@@ -939,7 +939,7 @@ class Particles(metaclass=ABCMeta):
         -------
         f_slice : array-like
             The reconstructed full-f distribution function.
-            
+
         df_slice : array-like
             The reconstructed delta-f distribution function.
         """
@@ -962,15 +962,15 @@ class Particles(metaclass=ABCMeta):
         f_slice = np.histogramdd(self.markers_wo_holes[:, slicing],
                                  bins=bin_edges,
                                  weights=_weights0)[0]
-        
+
         df_slice = np.histogramdd(self.markers_wo_holes[:, slicing],
-                                 bins=bin_edges,
-                                 weights=_weights)[0]
-        
+                                  bins=bin_edges,
+                                  weights=_weights)[0]
+
         f_slice /= self.n_mks * bin_vol
         df_slice /= self.n_mks * bin_vol
 
-        return f_slice, df_slice 
+        return f_slice, df_slice
 
     def show_distribution_function(self, components, bin_edges):
         """
@@ -1008,7 +1008,7 @@ class Particles(metaclass=ABCMeta):
         else:
             plt.contourf(bin_centers[0], bin_centers[1], df_slice.T, levels=20)
             plt.colorbar()
-            #plt.axis('square')
+            # plt.axis('square')
             plt.xlabel(labels[indices[0]])
             plt.ylabel(labels[indices[1]])
 
