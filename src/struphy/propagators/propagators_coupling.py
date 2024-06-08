@@ -200,12 +200,12 @@ class VlasovAmpere(Propagator):
 
 class EfieldWeights(Propagator):
     r"""Solves the following substep
-    
+
     .. math::
 
         \frac{\text{d}}{\text{d} t} w_p = \frac{f_{0,p}}{s_{0, p}} \frac{\kappa}{v_{\text{th}}^2} \left[ DF^{-T} (\mathbb{\Lambda}^1)^T \mathbf{e} \right] \cdot \mathbf{v}_p \\
         \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} = - \frac{\alpha^2 \kappa}{N} \sum_p w_p \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right)
-    
+
     using the Crank-Nicolson method
 
     .. math::
@@ -330,9 +330,10 @@ class EfieldWeights(Propagator):
 
         # Update Schur solver
         self._schur_solver.BC = self._accum.operators[0].matrix
-        self._schur_solver.BC *= (-1) * self._alpha**2 * self._kappa**2 / (4 * self._vth**2)
+        self._schur_solver.BC *= (-1) * self._alpha**2 * \
+            self._kappa**2 / (4 * self._vth**2)
 
-        # new e-field (no tmps created here)
+        # new e-field
         self._e_tmp, info = self._schur_solver(
             xn=self.feec_vars[0],
             Byn=self._alpha**2 * self._kappa * self._accum.vectors[0] / 2.,
@@ -343,7 +344,7 @@ class EfieldWeights(Propagator):
         # Store old weights
         self._old_weights[~self.particles[0].holes] = self.particles[0].markers_wo_holes[:, 6]
 
-        # Compute (e^{n+1} + e^n) (no tmps created here)
+        # Compute (e^{n+1} + e^n)
         self._e_sum *= 0.
         self._e_sum += self.feec_vars[0]
         self._e_sum += self._e_tmp
@@ -760,10 +761,10 @@ class EfieldWeightsAnalytic(Propagator):
     .. math::
 
         \begin{align}
-            \frac{\text{d}}{\text{d} t} w_p & = \frac{1}{N \, s_{0, p}} \frac{\kappa}{v_{\text{th}}^2} \left[ DF^{-T} (\mathbb{\Lambda}^1)^T \mathbf{e} \right]
+            \frac{\text{d}}{\text{d} t} w_p & = \frac{1}{s_{0, p}} \frac{\kappa}{v_{\text{th}}^2} \left[ DF^{-T} (\mathbb{\Lambda}^1)^T \mathbf{e} \right]
             \cdot \mathbf{v}_p \left( \frac{f_0}{\ln(f_0)} - f_0 \right) \\[2mm]
-            \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} & = - \alpha^2 \kappa \sum_p \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right)
-            \frac{1}{N \, s_{0, p}} \left( \frac{f_0}{\ln(f_0)} - f_0 \right)
+            \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} & = - \frac{\alpha^2 \kappa}{N} \sum_p \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right)
+            \frac{1}{s_{0, p}} \left( \frac{f_0}{\ln(f_0)} - f_0 \right)
         \end{align}
 
     Parameters
@@ -785,7 +786,7 @@ class EfieldWeightsAnalytic(Propagator):
         super().__init__(e, particles)
 
         # parameters
-        params_default = {'alpha': 1e2,
+        params_default = {'alpha': 1.,
                           'kappa': 1.,
                           'f0': Maxwellian3D(),
                           'type': ('pcg', 'MassMatrixPreconditioner'),
@@ -803,25 +804,20 @@ class EfieldWeightsAnalytic(Propagator):
         self._alpha = params['alpha']
         self._kappa = params['kappa']
         self._f0 = params['f0']
-        self._f0_params = np.array(
-            [self._f0.maxw_params['n'],
-             self._f0.maxw_params['u1'],
-             self._f0.maxw_params['u2'],
-             self._f0.maxw_params['u3'],
-             self._f0.maxw_params['vth1'],
-             self._f0.maxw_params['vth2'],
-             self._f0.maxw_params['vth3']]
-        )
+        assert self._f0.maxw_params['vth1'] == self._f0.maxw_params['vth2'] == self._f0.maxw_params['vth3']
+        self._vth = self._f0.maxw_params['vth1']
 
         self._info = params['info']
 
         # Initialize Accumulator object
         self._accum = AccumulatorVector(
-            self.derham, self.domain, 'Hcurl', 'delta_f_vlasov_maxwell')
+            self.derham, self.domain, 'Hcurl', 'delta_f_vlasov_maxwell'
+        )
 
-        # Create buffers to temporarily store _e and its sum with old e
-        self._m1_acc_vec = e.space.zeros()
-        self._e_dt2 = e.space.zeros()
+        # Create buffers to temporarily \Delta e, the new e, and the field needed for the weight update
+        self._e_tmp = e.space.zeros()
+        self._delta_e = e.space.zeros()
+        self._e_weights = e.space.zeros()
 
         # store old weights to compute difference
         self._old_weights = np.empty(particles.markers.shape[0], dtype=float)
@@ -844,8 +840,10 @@ class EfieldWeightsAnalytic(Propagator):
             verbose=self._params['verbose']
         )
 
-        self._pusher = Pusher(self.derham, self.domain,
-                              'push_weights_with_efield_delta_f_vm')
+        self._pusher = Pusher(
+            self.derham, self.domain,
+            'push_weights_with_efield_delta_f_vm'
+        )
 
     def __call__(self, dt):
         # evaluate f0 and accumulate
@@ -854,38 +852,43 @@ class EfieldWeightsAnalytic(Propagator):
                              self.particles[0].markers[:, 2],
                              self.particles[0].markers[:, 3],
                              self.particles[0].markers[:, 4],
-                             self.particles[0].markers[:, 5])
+                             self.particles[0].markers[:, 5]
+                             )
 
         self._accum.accumulate(
-            self.particles[0], f0_values, self._alpha, self._kappa, int(0))
+            self.particles[0], f0_values, int(0)
+        )
 
-        en1 = self.solver.solve(self._accum.vectors[0], out=self._m1_acc_vec)
+        # Compute \Delta e
+        self._delta_e = self.solver.solve(self._accum.vectors[0], out=self._delta_e)
+        self._delta_e *= (dt * self._alpha**2 * self._kappa)
         info = self.solver._info
+
+        # Compute new e-field
+        self._e_tmp *= 0.
+        self._e_tmp += self.feec_vars[0]
+        self._e_tmp -= self._delta_e
 
         # Store old weights
         self._old_weights[~self.particles[0].holes] = self.particles[0].markers[~self.particles[0].holes, 6]
 
         # Compute vector for particle pushing
-        self._e_dt2 *= 0.
-        self._e_dt2 -= en1
-        self._e_dt2 *= dt / 2
-        self._e_dt2 += self.feec_vars[0]
+        self._e_weights *= 0.
+        self._e_weights += self._delta_e
+        self._e_weights *= 0.5
+        self._e_weights += self._e_tmp
 
         # Update weights
         self._pusher(self.particles[0], dt,
-                     self._e_dt2.blocks[0]._data,
-                     self._e_dt2.blocks[1]._data,
-                     self._e_dt2.blocks[2]._data,
-                     f0_values,
-                     float(self._f0_params[4]),
-                     self._kappa,
-                     int(0)  # since we want to use the explicit substep
+                     self._e_weights.blocks[0]._data,
+                     self._e_weights.blocks[1]._data,
+                     self._e_weights.blocks[2]._data,
+                     f0_values, self._kappa, self._vth,
+                     int(0)  # since we want to use the analytic substep
                      )
 
-        # Update e-field and compute max difference
-        en1 *= dt
-        max_de = np.max(np.abs(en1.toarray()))
-        self.feec_vars[0] -= en1
+        # write new coeffs into self.variables
+        max_de, = self.feec_vars_update(self._e_tmp)
 
         # Print out max differences for weights and e-field
         if self._info:
@@ -1724,11 +1727,11 @@ class CurrentCoupling5DCurlb(Propagator):
         #                          self._space_key_int, self._coupling_mat, self._coupling_vec, 0.1)
 
         self._ACC.accumulate(self.particles[0], self._epsilon,
-                                Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
-                                self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                self._space_key_int, self._coupling_mat, self._coupling_vec, 0.)
-        
+                             Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
+                             self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                             self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                             self._space_key_int, self._coupling_mat, self._coupling_vec, 0.)
+
         # update u coefficients
         un1, info = self._schur_solver(
             un, -self._ACC.vectors[0]/2, dt, out=self._u_new)
@@ -2123,12 +2126,12 @@ class CurrentCoupling5DGradB(Propagator):
             #                          self._space_key_int, self._coupling_mat, self._coupling_vec, 0.)
 
             self._ACC.accumulate(self.particles[0], self._epsilon,
-                                    Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
-                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
-                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                    Egrad_PBb[0]._data, Egrad_PBb[1]._data, Egrad_PBb[2]._data,
-                                    self._space_key_int, self._coupling_mat, self._coupling_vec, 0.)
+                                 Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
+                                 self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                                 self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
+                                 self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                                 Egrad_PBb[0]._data, Egrad_PBb[1]._data, Egrad_PBb[2]._data,
+                                 self._space_key_int, self._coupling_mat, self._coupling_vec, 0.)
 
             # push particles
             Eu = self._EuT.dot(_u_temp, out=self._Eu_temp)
@@ -2159,12 +2162,15 @@ class CurrentCoupling5DGradB(Propagator):
 
             if self._info and self._rank == 0:
                 print('Stage:', stage)
-                print('Status     for CurrentCoupling5DGradB:', self._solver._info['success'])
-                print('Iterations for CurrentCoupling5DGradB:', self._solver._info['niter'])
+                print('Status     for CurrentCoupling5DGradB:',
+                      self._solver._info['success'])
+                print('Iterations for CurrentCoupling5DGradB:',
+                      self._solver._info['niter'])
 
             # clear the buffer
             if stage == self._butcher.n_stages - 1:
-                self.particles[0].markers[~self.particles[0].holes,  11:-1] = 0.
+                self.particles[0].markers[~self.particles[0].holes,  11:-
+                                          1] = 0.
 
         # write new coeffs into Propagator.variables
         max_du, = self.feec_vars_update(_u_new)
