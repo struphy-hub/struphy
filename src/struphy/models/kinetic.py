@@ -1238,13 +1238,18 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         # import propagator options
         from struphy.propagators.propagators_fields import ImplicitDiffusion
         from struphy.propagators.propagators_markers import PushEta
-        from struphy.propagators.propagators_coupling import EfieldWeights
+        from struphy.propagators.propagators_coupling import EfieldWeightsAnalytic
+        from struphy.propagators.propagators_coupling import EfieldWeightsDiscreteGradient
 
         dct = {}
         cls.add_option(['em_fields'], ['solvers', 'poisson'],
                        ImplicitDiffusion.options()['solver'], dct)
         cls.add_option(['kinetic', 'species1'], ['algos', 'push_eta'],
                        PushEta.options()['algo'], dct)
+        cls.add_option(['kinetic', 'species1'], ['coupling_solver_ana'],
+                       EfieldWeightsAnalytic.options()['solver'], dct)
+        cls.add_option(['kinetic', 'species1'], ['coupling_solver_dg'],
+                       EfieldWeightsDiscreteGradient.options()['solver'], dct)
         cls.add_option(species=['kinetic', 'species1'], key='verification',
                        option={'use': False, 'kappa': 1., 'alpha': 1.}, dct=dct)
 

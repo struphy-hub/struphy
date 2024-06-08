@@ -9,7 +9,7 @@ import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d 
 import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels 
 
-from numpy import zeros, empty, shape, sqrt, cos, sin, floor, log
+from numpy import zeros, empty, shape, sqrt, cos, sin, floor, log, isnan
 
 
 def a_documentation():
@@ -2757,6 +2757,13 @@ def push_weights_with_efield_delta_f_vm(markers: 'float[:,:]', dt: float, stage:
             # w_p -= dt * kappa * w_p / (vth^2 * ln(f_0)) * (DL^{-1} v_p) * e_vec
             # with e_vec = (e^{n+1} + e^n) / 2
             update *= (-1) * markers[ip, 6] / log(f0)
+
+        if isnan(update):
+            print(ip)
+            print(markers[ip, 6])
+            print(f0)
+            print(log(f0))
+            print(1 / log(f0))
 
         markers[ip, 6] += update
 

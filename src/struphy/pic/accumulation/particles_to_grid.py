@@ -71,7 +71,7 @@ class Accumulator:
         if symmetry == 'pressure':
             for _ in range(6):
                 self._operators += [WeightedMassOperator(
-                    derham.Vh_fem[self.form], 
+                    derham.Vh_fem[self.form],
                     derham.Vh_fem[self.form],
                     V_extraction_op=derham.extraction_ops[self.form],
                     W_extraction_op=derham.extraction_ops[self.form],
@@ -82,7 +82,7 @@ class Accumulator:
         # "normal" treatment (just one matrix)
         else:
             self._operators += [WeightedMassOperator(
-                derham.Vh_fem[self.form], 
+                derham.Vh_fem[self.form],
                 derham.Vh_fem[self.form],
                 V_extraction_op=derham.extraction_ops[self.form],
                 W_extraction_op=derham.extraction_ops[self.form],
@@ -210,9 +210,9 @@ class Accumulator:
 
     def init_control_variate(self, mass_ops):
         '''Set up the use of noise reduction by control variate.'''
-        
+
         from struphy.feec.projectors import L2Projector
-        
+
         # L2 projector for dofs
         self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
 
@@ -250,7 +250,8 @@ class Accumulator:
 
         # add analytical contribution (control variate) to vector
         if 'control_vec' in args_control and len(self._vectors) > 0:
-            self._get_L2dofs(args_control['control_vec'], dofs=self._vectors[0], clear=False)
+            self._get_L2dofs(
+                args_control['control_vec'], dofs=self._vectors[0], clear=False)
             vec_finished = True
 
         # add analytical contribution (control variate) to matrix and finish
@@ -362,11 +363,13 @@ class AccumulatorVector:
                     self._args_data += (bl._data,)
 
         # fixed FEM arguments for the accumulator kernel
-        self._args_fem = (np.array(derham.p),
-                          derham.Vh_fem['0'].knots[0],
-                          derham.Vh_fem['0'].knots[1],
-                          derham.Vh_fem['0'].knots[2],
-                          np.array(derham.Vh['0'].starts))
+        self._args_fem = (
+            np.array(derham.p),
+            derham.Vh_fem['0'].knots[0],
+            derham.Vh_fem['0'].knots[1],
+            derham.Vh_fem['0'].knots[2],
+            np.array(derham.Vh['0'].starts)
+        )
 
         # load the appropriate accumulation kernel (pyccelized, fast)
         self._kernel_name = kernel_name
@@ -426,12 +429,12 @@ class AccumulatorVector:
         """ The accumulation kernel.
         """
         return self._kernel
-    
+
     def init_control_variate(self, mass_ops):
         '''Set up the use of noise reduction by control variate.'''
-        
+
         from struphy.feec.projectors import L2Projector
-        
+
         # L2 projector for dofs
         self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
 
@@ -465,9 +468,11 @@ class AccumulatorVector:
             dat[:] = 0.
 
         # accumulate into matrix (and vector) with markers
-        self.kernel(particles.markers, particles.n_mks,
-                    *self._args_fem, *self._domain.args_map,
-                    *self._args_data, *args_add)
+        self.kernel(
+            particles.markers, particles.n_mks,
+            *self._args_fem, *self._domain.args_map,
+            *self._args_data, *args_add
+        )
 
         # add analytical contribution (control variate) to matrix
         if 'control_mat' in args_control:
@@ -475,7 +480,9 @@ class AccumulatorVector:
 
         # add analytical contribution (control variate) to vector
         if 'control_vec' in args_control and len(self._vectors) > 0:
-            self._get_L2dofs(args_control['control_vec'], dofs=self._vectors[0], clear=False)
+            self._get_L2dofs(
+                args_control['control_vec'], dofs=self._vectors[0], clear=False
+            )
             vec_finished = True
 
         # finish vector: accumulate ghost regions and update ghost regions
@@ -487,24 +494,24 @@ class AccumulatorVector:
     def show_accumulated_spline_field(self, mass_ops, eta_direction=0):
         r'''1D plot of the spline field corresponding to the accumulated vector.
         The latter can be viewed as the rhs of an L2-projection:
-        
+
         .. math::
-        
+
             \mathbb M \mathbf a = \sum_p \boldsymbol \Lambda(\boldsymbol \eta_p) * B_p\,.
-            
+
         The FE coefficients :math:`\mathbf a` determine a FE :class:`~struphy.feec.psydac_derham.Derham.Field`.
         '''
         from struphy.feec.projectors import L2Projector
         from matplotlib import pyplot as plt
-        
+
         # L2 projection
         proj = L2Projector(self.space_id, mass_ops)
         a = proj.solve(self.vectors[0])
-        
+
         # create field and assign coeffs
         field = self.derham.create_field('accum_field', self.space_id)
         field.vector = a
-        
+
         # plot field
         eta = np.linspace(0, 1, 100)
         if eta_direction == 0:
@@ -513,10 +520,10 @@ class AccumulatorVector:
             args = (.5, eta, .5)
         else:
             args = (.5, .5, eta)
-            
+
         plt.plot(eta, field(*args, squeeze_output=True))
-        plt.title(f'Spline field accumulated with the kernel "{self.kernel_name}"')
+        plt.title(
+            f'Spline field accumulated with the kernel "{self.kernel_name}"')
         plt.xlabel(f'$\eta_{eta_direction + 1}$')
         plt.ylabel('field amplitude')
         plt.show()
-        

@@ -702,12 +702,12 @@ class EfieldWeightsDiscreteGradient(Propagator):
     def __call__(self, dt):
         # evaluate f0 and accumulate
         f0_values = self._f0(
-            self.particles[0].markers_wo_holes[:, 0],
-            self.particles[0].markers_wo_holes[:, 1],
-            self.particles[0].markers_wo_holes[:, 2],
-            self.particles[0].markers_wo_holes[:, 3],
-            self.particles[0].markers_wo_holes[:, 4],
-            self.particles[0].markers_wo_holes[:, 5]
+            self.particles[0].markers[:, 0],
+            self.particles[0].markers[:, 1],
+            self.particles[0].markers[:, 2],
+            self.particles[0].markers[:, 3],
+            self.particles[0].markers[:, 4],
+            self.particles[0].markers[:, 5]
         )
 
         self._accum.accumulate(
@@ -737,13 +737,14 @@ class EfieldWeightsDiscreteGradient(Propagator):
         self._e_weights *= 0.5
 
         # Update weights
-        self._pusher(self.particles[0], dt,
-                     self._e_weights.blocks[0]._data,
-                     self._e_weights.blocks[1]._data,
-                     self._e_weights.blocks[2]._data,
-                     f0_values, self._kappa, self._vth,
-                     int(1)  # since we want to use the last substep
-                     )
+        self._pusher(
+            self.particles[0], dt,
+            self._e_weights.blocks[0]._data,
+            self._e_weights.blocks[1]._data,
+            self._e_weights.blocks[2]._data,
+            f0_values, self._kappa, self._vth,
+            int(1)  # since we want to use the last substep
+        )
 
         # write new coeffs into self.variables
         max_de, = self.feec_vars_update(self._e_tmp)
@@ -865,12 +866,12 @@ class EfieldWeightsAnalytic(Propagator):
     def __call__(self, dt):
         # evaluate f0 and accumulate
         f0_values = self._f0(
-            self.particles[0].markers_wo_holes[:, 0],
-            self.particles[0].markers_wo_holes[:, 1],
-            self.particles[0].markers_wo_holes[:, 2],
-            self.particles[0].markers_wo_holes[:, 3],
-            self.particles[0].markers_wo_holes[:, 4],
-            self.particles[0].markers_wo_holes[:, 5]
+            self.particles[0].markers[:, 0],
+            self.particles[0].markers[:, 1],
+            self.particles[0].markers[:, 2],
+            self.particles[0].markers[:, 3],
+            self.particles[0].markers[:, 4],
+            self.particles[0].markers[:, 5]
         )
 
         self._accum.accumulate(
@@ -899,13 +900,14 @@ class EfieldWeightsAnalytic(Propagator):
         self._e_weights += self._e_tmp
 
         # Update weights
-        self._pusher(self.particles[0], dt,
-                     self._e_weights.blocks[0]._data,
-                     self._e_weights.blocks[1]._data,
-                     self._e_weights.blocks[2]._data,
-                     f0_values, self._kappa, self._vth,
-                     int(0)  # since we want to use the analytic substep
-                     )
+        self._pusher(
+            self.particles[0], dt,
+            self._e_weights.blocks[0]._data,
+            self._e_weights.blocks[1]._data,
+            self._e_weights.blocks[2]._data,
+            f0_values, self._kappa, self._vth,
+            int(0)  # since we want to use the analytic substep
+        )
 
         # write new coeffs into self.variables
         max_de, = self.feec_vars_update(self._e_tmp)
