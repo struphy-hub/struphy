@@ -45,6 +45,7 @@ dependencies = [
     'pytest-monitor',
     'pyccel>=1.11.1',
     'gvec-to-python',
+    'desc-opt',
 ]
 
 [project.urls]

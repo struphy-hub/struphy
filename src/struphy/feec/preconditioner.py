@@ -554,7 +554,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         self._logM_srqt_diag = log_M.matrix.diagonal(sqrt = True)
         self._M_invsrqt_diag = self._mass_operator.matrix.diagonal(inverse = True, sqrt = True)
 
-        self._tmp_vector_no_bc = [self._M.codomain.zeros() for i in range(2)]
+        self._tmp_vector_no_bc = [self._mass_operator.matrix.codomain.zeros() for i in range(2)]
 
     @property
     def space(self):
@@ -599,6 +599,13 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         assert mass_operator.domain == mass_operator.codomain, 'Only square mass matrices can be inverted!'
         assert mass_operator.domain == self.domain, 'Update needs to have the same domain and codomain'
 
+        if self._is_composed :
+            if self._apply_bc:
+                assert isinstance(mass_operator.M0, ComposedLinearOperator)
+            else :
+                assert isinstance(mass_operator.M,  ComposedLinearOperator)
+
+
         self._mass_operator = mass_operator
 
         if self._apply_bc:
@@ -640,7 +647,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         """
 
         assert isinstance(rhs, Vector)
-        assert rhs.space == self._space
+        assert rhs.space == self._mass_operator.matrix.domain
 
         # M^-1 ~ D^{-1/2} \hat D^{1/2} \hat M ^{-1} \hat D^{1/2} D^{-1/2}
         Dmr   = self._M_invsrqt_diag.dot(rhs, out=self._tmp_vector_no_bc[0])

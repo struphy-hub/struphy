@@ -12,7 +12,6 @@ from psydac.linalg.basic import IdentityOperator
 
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.projectors import CommutingProjector
-from struphy.feec.basis_projection_ops import get_pts_and_wts
 from struphy.polar.basic import PolarDerhamSpace
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
@@ -23,6 +22,8 @@ from struphy.initial import utilities
 from struphy.geometry.base import Domain
 from struphy.bsplines import evaluation_kernels_3d as eval_3d
 from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
+from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.feec.projectors import CommutingProjectorLocal, select_quasi_points
 from struphy.fields_background.mhd_equil.base import MHDequilibrium
 
 import numpy as np
@@ -38,7 +39,7 @@ class Derham:
     The tensor-product discrete deRham complex is loaded using the `Psydac API <https://github.com/pyccel/psydac>`_ 
     and then augmented with polar sub-spaces (indicated by a bar) and boundary operators.
 
-    .. image:: ../pics/polar_derham.png
+    .. image:: ../../pics/polar_derham.png
 
     Parameters
     ----------
@@ -73,6 +74,9 @@ class Derham:
     polar_ck : int
         Smoothness at a polar singularity at eta_1=0 (default -1 : standard tensor product splines, OR 1 : C1 polar splines)
 
+    local_projectors : bool
+        Whether to build the local commuting projectors based on quasi-inter-/histopolation.
+
     domain : struphy.geometry.domains
         Mapping from logical unit cube to physical domain (only needed in case of polar splines polar_ck=1).
     """
@@ -88,6 +92,7 @@ class Derham:
                  mpi_dims_mask=None,
                  with_projectors=True,
                  polar_ck=-1,
+                 local_projectors=False,
                  domain=None):
 
         # number of elements, spline degrees and kind of splines in each direction (periodic vs. clamped)
@@ -151,8 +156,6 @@ class Derham:
 
         self._grad, self._curl, self._div = _derham.derivatives_as_matrices
 
-        _projectors = _derham.projectors(nquads=self.nq_pr)
-
         # expose name-to-form dict
         self._space_to_form = {'H1': '0',
                                'Hcurl': '1',
@@ -160,23 +163,37 @@ class Derham:
                                'L2': '3',
                                'H1vec': 'v'}
 
+        _projectors = _derham.projectors(nquads=self.nq_pr)
+
         # Attributes for vector spaces, FE spline spaces and projectors
         self._Vh = {}
         self._Vh_fem = {}
+        # Global projectors
         self._P = {}
+        # Local projectors
+        if local_projectors:
+            self._Ploc = {}
 
         # info for 1d spline spaces grids
         self._nbasis = {}
         self._spline_types = {}
         self._spline_types_pyccel = {}
+
         self._proj_grid_pts = {}
         self._proj_grid_wts = {}
+        # We only need the subs for the global projector operators, not for the local projectors.
         self._proj_grid_subs = {}
+
+        if local_projectors:
+            self._proj_loc_grid_pts = {}
+            self._proj_loc_grid_wts = {}
+
         self._quad_grid_pts = {}
         self._quad_grid_wts = {}
         self._quad_grid_spans = {}
         self._quad_grid_bases = {}
 
+        # i is an int that represents the id of the p-form space. For instance, for V_0, i = 0.
         for i, sp_form in enumerate(self.space_to_form.values()):
 
             # FEM space and projector
@@ -195,17 +212,24 @@ class Derham:
             self._nbasis[sp_form] = []
             self._spline_types[sp_form] = []
             self._spline_types_pyccel[sp_form] = []
+
             self._proj_grid_pts[sp_form] = []
             self._proj_grid_wts[sp_form] = []
             self._proj_grid_subs[sp_form] = []
+
+            if local_projectors:
+                self._proj_loc_grid_pts[sp_form] = []
+                self._proj_loc_grid_wts[sp_form] = []
+
             self._quad_grid_pts[sp_form] = []
             self._quad_grid_wts[sp_form] = []
             self._quad_grid_spans[sp_form] = []
             self._quad_grid_bases[sp_form] = []
 
             fem_space = self.Vh_fem[sp_form]
+            # Here we check if we are working with a vector valued space
             if isinstance(fem_space, VectorFemSpace):
-
+                # We iterate over each component of the vector
                 for comp_space in fem_space.spaces:
 
                     self._nbasis[sp_form] += [[]]
@@ -213,12 +237,15 @@ class Derham:
                     self._spline_types_pyccel[sp_form] += [[]]
                     self._proj_grid_pts[sp_form] += [[]]
                     self._proj_grid_wts[sp_form] += [[]]
+                    if local_projectors:
+                        self._proj_loc_grid_pts[sp_form] += [[]]
+                        self._proj_loc_grid_wts[sp_form] += [[]]
                     self._proj_grid_subs[sp_form] += [[]]
                     self._quad_grid_pts[sp_form] += [[]]
                     self._quad_grid_wts[sp_form] += [[]]
                     self._quad_grid_spans[sp_form] += [[]]
                     self._quad_grid_bases[sp_form] += [[]]
-
+                    # space iterates over each of the spatial coordinates.
                     for d, (space, s, e, quad_grid, nquad) in enumerate(zip(comp_space.spaces,
                                                                             comp_space.vector_space.starts,
                                                                             comp_space.vector_space.ends,
@@ -230,12 +257,18 @@ class Derham:
                         self._spline_types_pyccel[sp_form][-1] += [
                             int(space.basis == 'M')]
 
+                        if local_projectors:
+                            ptsloc, wtsloc = get_pts_and_wts_quasi(
+                                space, polar_shift=d == 0 and self.polar_ck == 1)
+                            self._proj_loc_grid_pts[sp_form][-1] += [ptsloc]
+                            self._proj_loc_grid_wts[sp_form][-1] += [wtsloc]
+
                         pts, wts, subs = get_pts_and_wts(
-                            space, s, e, n_quad=self.nq_pr[d], polar_shift=d == 0 and self.polar_ck == 1)
-                        self._proj_grid_pts[sp_form][-1] += [pts]
-                        self._proj_grid_wts[sp_form][-1] += [wts]
+                            space, s, e, n_quad = self.nq_pr[d], polar_shift=d == 0 and self.polar_ck == 1)
                         self._proj_grid_subs[sp_form][-1] += [subs]
 
+                        self._proj_grid_pts[sp_form][-1] += [pts]
+                        self._proj_grid_wts[sp_form][-1] += [wts]
                         self._quad_grid_pts[sp_form][-1] += [quad_grid[nquad].points]
                         self._quad_grid_wts[sp_form][-1] += [quad_grid[nquad].weights]
                         self._quad_grid_spans[sp_form][-1] += [
@@ -245,9 +278,9 @@ class Derham:
 
                     self._spline_types_pyccel[sp_form][-1] = np.array(
                         self._spline_types_pyccel[sp_form][-1])
-
+            # In this case we are working with a scalar valued space
             else:
-
+                # space iterates over each of the spatial coordinates.
                 for d, (space, s, e, quad_grid, nquad) in enumerate(zip(fem_space.spaces,
                                                                         fem_space.vector_space.starts,
                                                                         fem_space.vector_space.ends,
@@ -259,11 +292,17 @@ class Derham:
                     self._spline_types_pyccel[sp_form] += [
                         int(space.basis == 'M')]
 
+                    if local_projectors:
+                        ptsloc, wtsloc = get_pts_and_wts_quasi(
+                            space, polar_shift=d == 0 and self.polar_ck == 1)
+                        self._proj_loc_grid_pts[sp_form] += [ptsloc]
+                        self._proj_loc_grid_wts[sp_form] += [wtsloc]
+
                     pts, wts, subs = get_pts_and_wts(
                         space, s, e, n_quad=self.nq_pr[d], polar_shift=d == 0 and self.polar_ck == 1)
+                    self._proj_grid_subs[sp_form] += [subs]
                     self._proj_grid_pts[sp_form] += [pts]
                     self._proj_grid_wts[sp_form] += [wts]
-                    self._proj_grid_subs[sp_form] += [subs]
 
                     self._quad_grid_pts[sp_form] += [quad_grid[nquad].points]
                     self._quad_grid_wts[sp_form] += [quad_grid[nquad].weights]
@@ -272,19 +311,6 @@ class Derham:
 
                 self._spline_types_pyccel[sp_form] = np.array(
                     self._spline_types_pyccel[sp_form])
-
-            # print('#'*30)
-            # print(f'{sp_form = }')
-            # print(f'{self._nbasis[sp_form] = }')
-            # print(f'{self._spline_types[sp_form] = }')
-            # print(f'{self._spline_types_pyccel[sp_form] = }')
-            # print(f'{self._proj_grid_pts[sp_form] = }')
-            # print(f'{self._proj_grid_wts[sp_form] = }')
-            # print(f'{self._proj_grid_subs[sp_form] = }')
-            # print(f'{self._quad_grid_pts[sp_form] = }')
-            # print(f'{self._quad_grid_wts[sp_form] = }')
-            # print(f'{self._quad_grid_spans[sp_form] = }')
-            # print(f'{self._quad_grid_bases[sp_form] = }')
 
         # break points
         self._breaks = [space.breaks for space in _derham.spaces[0].spaces]
@@ -321,10 +347,16 @@ class Derham:
         self._extraction_ops = {}
         self._dofs_extraction_ops = {}
 
+        # If we are dealing with local projection operators we must compute the weight w^i_j for interpolation, and from them the weights
+        # wh^i_j for histopolation. They can be computed using the quasi-interpolation points for all spatial directions.
+        # Fortunately we already have access to them in the form of self._proj_loc_grid_pts[0].
+        if local_projectors:
+            # Allways call get_weights_local_projector with the grid points and discrete vector space of 0-forms
+            self._wij, self._whij = get_weights_local_projector(
+                self._proj_loc_grid_pts['0'], self.Vh_fem['0'])
+
         for i, (sp_id, sp_form) in enumerate(self.space_to_form.items()):
-
             vec_space = self._Vh[sp_form]
-
             # ------ Extraction operators ------
             # tensor product case
             if self.polar_ck == -1:
@@ -357,6 +389,10 @@ class Derham:
 
             # ------ Assemble projectors ------
             if with_projectors:
+                if local_projectors:
+                    fem_space = self.Vh_fem[sp_form]
+                    self._Ploc[sp_form] = CommutingProjectorLocal(
+                        sp_id, sp_form, fem_space, self._proj_loc_grid_pts[sp_form], self._proj_loc_grid_wts[sp_form], self._wij, self._whij)
                 self._P[sp_form] = CommutingProjector(
                     self._P[sp_form], self._dofs_extraction_ops[sp_form], self._extraction_ops[sp_form], self._boundary_ops[sp_form])
 
@@ -1284,6 +1320,7 @@ class Derham:
 
                     if self.space_id in {'H1', 'L2'}:
                         assert isinstance(_val, float) or isinstance(_val, int)
+
                         def f_tmp(e1, e2, e3):
                             return _val + 0.*e1
                         fun = f_tmp
@@ -1294,17 +1331,17 @@ class Derham:
                         for i, _v in enumerate(_val):
                             assert isinstance(_v, float) or isinstance(
                                 _v, int) or _v is None
-                            
+
                         if _val[0] is not None:
                             fun += [lambda e1, e2, e3: _val[0] + 0.*e1]
                         else:
                             fun += [lambda e1, e2, e3: 0.*e1]
-                            
+
                         if _val[1] is not None:
                             fun += [lambda e1, e2, e3: _val[1] + 0.*e1]
                         else:
                             fun += [lambda e1, e2, e3: 0.*e1]
-                            
+
                         if _val[2] is not None:
                             fun += [lambda e1, e2, e3: _val[2] + 0.*e1]
                         else:
@@ -1371,7 +1408,7 @@ class Derham:
 
                     # set white noise FE coefficients
                     _params.pop('comps')
-                    
+
                     if self.space_id in {'H1', 'L2'}:
                         if comps[0]:
                             self._add_noise(**_params)
@@ -1520,51 +1557,56 @@ class Derham:
                 3d array of spline values S_ijk corresponding to the sizes of spans.
             '''
 
-            if isinstance(self.vector, StencilVector):
-
-                assert [span.size for span in spans] == [base.shape[0]
-                                                         for base in bases]
-
-                if out is None:
-                    out = np.empty([span.size for span in spans], dtype=float)
-                else:
-                    assert out.shape == tuple([span.size for span in spans])
-
-                eval_spline_mpi_tensor_product_fixed(*spans,
-                                                     *bases,
-                                                     self.vector._data,
-                                                     self.derham.spline_types_pyccel[self.space_key],
-                                                     np.array(self.derham.p),
-                                                     np.array(self.starts),
-                                                     out)
-
+            if isinstance(self.vector, PolarVector):
+                vec = self.vector.tp
             else:
-                out_is_none = False
-                if out is None:
-                    out = []
-                    out_is_none = True
+                vec = self.vector
 
-                for i in range(3):
+                if isinstance(vec, StencilVector):
 
                     assert [span.size for span in spans] == [base.shape[0]
-                                                             for base in bases[i]]
+                                                            for base in bases]
 
-                    if out_is_none:
-                        out += np.empty([span.size for span in spans],
-                                        dtype=float)
+                    if out is None:
+                        out = np.empty([span.size for span in spans], dtype=float)
                     else:
-                        assert out[i].shape == tuple(
-                            [span.size for span in spans])
+                        assert out.shape == tuple([span.size for span in spans])
 
                     eval_spline_mpi_tensor_product_fixed(*spans,
-                                                         *bases[i],
-                                                         self.vector[i]._data,
-                                                         self.derham.spline_types_pyccel[self.space_key][i],
-                                                         np.array(
-                                                             self.derham.p),
-                                                         np.array(
-                                                             self.starts[i]),
-                                                         out[i])
+                                                        *bases,
+                                                        vec._data,
+                                                        self.derham.spline_types_pyccel[self.space_key],
+                                                        np.array(self.derham.p),
+                                                        np.array(self.starts),
+                                                        out)
+                
+                else:
+                    out_is_none = False
+                    if out is None:
+                        out = []
+                        out_is_none = True
+
+                    for i in range(3):
+
+                        assert [span.size for span in spans] == [base.shape[0]
+                                                                for base in bases[i]]
+
+                        if out_is_none:
+                            out += np.empty([span.size for span in spans],
+                                            dtype=float)
+                        else:
+                            assert out[i].shape == tuple(
+                                [span.size for span in spans])
+
+                        eval_spline_mpi_tensor_product_fixed(*spans,
+                                                            *bases[i],
+                                                            vec[i]._data,
+                                                            self.derham.spline_types_pyccel[self.space_key][i],
+                                                            np.array(
+                                                                self.derham.p),
+                                                            np.array(
+                                                                self.starts[i]),
+                                                            out[i])
 
             return out
 
@@ -2056,3 +2098,448 @@ class TransformedPformComponent:
                     self._fun, eta1, eta2, eta3, kind=dict_tran)[self._comp]
 
         return out
+
+
+def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
+    '''Obtain local (to MPI process) projection point sets and weights in one grid direction.
+
+    Parameters
+    ----------
+    space_1d : SplineSpace
+        Psydac object for uni-variate spline space.
+
+    start : int
+        Start index on current process.
+
+    end : int
+        End index on current process.
+
+    n_quad : int
+        Number of quadrature points for Gauss-Legendre histopolation.
+        If None, is set to p + 1 where p is the space_1d degree (products of basis functions are integrated exactly).
+
+    polar_shift : bool
+        Whether to shift the first interpolation point away from 0.0 by 1e-5 (needed only in eta_1 and for polar domains).
+
+    Returns
+    -------
+    pts : 2D float array
+        Quadrature points (or Greville points for interpolation) in format (ii, iq) = (interval, quadrature point).
+
+    wts : 2D float array
+        Quadrature weights (or 1's for interpolation) in format (ii, iq) = (interval, quadrature point).
+
+    subs : 1D int array
+        One entry for each interval ii; usually has value 0. 
+        A value of 1 indicates that the cell ii is the second subinterval of a split Greville cell (for histopolation with even degree).'''
+
+    import psydac.core.bsplines as bsp
+
+    greville_loc = space_1d.greville[start: end + 1].copy()
+    histopol_loc = space_1d.histopolation_grid[start: end + 2].copy()
+
+    # make sure that greville points used for interpolation are in [0, 1]
+    assert np.all(np.logical_and(greville_loc >= 0., greville_loc <= 1.))
+
+    # interpolation
+    if space_1d.basis == 'B':
+        x_grid = greville_loc
+        pts = greville_loc[:, None]
+        wts = np.ones(pts.shape, dtype=float)
+
+        # sub-interval index is always 0 for interpolation.
+        subs = np.zeros(pts.shape[0], dtype=int)
+
+        # !! shift away first interpolation point in eta_1 direction for polar domains !!
+        if pts[0] == 0. and polar_shift:
+            pts[0] += 0.00001
+
+    # histopolation
+    elif space_1d.basis == 'M':
+
+        if space_1d.degree % 2 == 0:
+            union_breaks = space_1d.breaks
+        else:
+            union_breaks = space_1d.breaks[:-1]
+
+        # Make union of Greville and break points
+        tmp = set(np.round_(space_1d.histopolation_grid, decimals=14)).union(
+            np.round_(union_breaks, decimals=14))
+
+        tmp = list(tmp)
+        tmp.sort()
+        tmp_a = np.array(tmp)
+
+        x_grid = tmp_a[np.logical_and(tmp_a >= np.min(
+            histopol_loc) - 1e-14, tmp_a <= np.max(histopol_loc) + 1e-14)]
+
+        # determine subinterval index (= 0 or 1):
+        subs = np.zeros(x_grid[:-1].size, dtype=int)
+        for n, x_h in enumerate(x_grid[:-1]):
+            add = 1
+            for x_g in histopol_loc:
+                if abs(x_h - x_g) < 1e-14:
+                    add = 0
+            subs[n] += add
+
+        # Gauss - Legendre quadrature points and weights
+        if n_quad is None:
+            # products of basis functions are integrated exactly
+            n_quad = space_1d.degree + 1
+
+        pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
+
+        x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
+
+        pts = x % 1.
+
+    return pts, wts, subs
+
+
+def get_pts_and_wts_quasi(space_1d, polar_shift=False):
+    r'''Obtain local projection point sets and weights in one grid direction for the quasi-interpolation method.
+    The quasi-interpolation points are :math:`2p - 1` equidistant points :math:`\{ x^i_j \}_{0 \leq j < 2p -1}` in the sub-interval :math:`Q = [\eta_\mu , \eta_\nu]` given by:
+
+    \begin{itemize}
+        \item Clamped: 
+        .. math:: 
+            Q = \left\{\begin{array}{lr}
+            [\eta_p, \eta_{2p -1}], & i < p-1\\
+            {[\eta_{i+1}, \eta_{i+p}]}, & p-1 \leq i \leq \hat{n}_N - p\\
+            {[\eta_{\hat{n}_N - p +1}, \eta_{\hat{n}_N}]}, &  i > \hat{n}_N - p
+            \end{array} \; \right .
+        \item Periodic: 
+        .. math::
+            Q = [\eta_{i + 1}, \eta_{i + p}] \:\:\:\:\: \forall \:\: i.
+    \end{itemize}
+
+    Which are allways a subset of  :math:`\{-(p-1)h,-(p-1)h + \frac{h}{2}, ..., 1-h - \frac{h}{2},1-h \}` for the periodic case or of 
+    :math:`\{0, \frac{h}{2}, h, ..., 1-\frac{h}{2}, 1 \}` for the clamped case.
+
+    Parameters
+    ----------
+    space_1d : SplineSpace
+        Psydac object for uni-variate spline space.
+
+    polar_shift : bool
+        Whether to shift the first interpolation point away from 0.0 by 1e-5 (needed only in eta_1 and for polar domains).
+
+    Returns
+    -------
+    pts : 2D float array
+        Quadrature points (or quasi-interpolation points for interpolation) in format (ii, iq) = (interval, quadrature point).
+
+    wts : 2D float array
+        Quadrature weights (or 1's for interpolation) in format (ii, iq) = (interval, quadrature point).'''
+
+    import psydac.core.bsplines as bsp
+    p = space_1d.degree
+    # h = space_1d.knots[p+1]
+    h = space_1d.breaks[1]
+    N = len(space_1d.breaks) - 1  # number of cells
+    
+    # We have two different behaviours depending on whether the spline space is periodic or not
+    if space_1d.periodic:
+        # interpolation
+        if space_1d.basis == 'B':
+            # x_grid = np.arange(-(p-1.0)*h, 1.0-h+(h/2.0), h/2.0)
+            if(p == 1 and h!= 1.0):
+                x_grid = np.linspace(-(p-1)*h, 1.0 - h + (h/2.0), (N + p-1)*2)
+            else:
+                x_grid = np.linspace(-(p-1)*h, 1.0 - h, (N + p-1)*2 - 1)
+
+            pts = x_grid[:, None] % 1.0
+            wts = np.ones(pts.shape, dtype=float)
+
+            # !! shift away first interpolation point in eta_1 direction for polar domains !!
+            if pts[0] == 0. and polar_shift:
+                pts[0] += 0.00001
+
+        # histopolation
+        elif space_1d.basis == 'M':
+            # The computation of histopolation points breaks in case we have Nel=1 and periodic boundary conditions since we end up with only one x_grid point.
+            # We need to build the histopolation points by hand in this scenario.
+            if (p == 0 and h == 1.0):
+                x_grid = np.array([0.0, 0.5, 1.0])
+            elif (p == 0 and h!= 1.0):
+                x_grid = np.linspace(-p*h, 1.0 - h + (h/2.0), (N + p)*2 )
+            else:
+                #x_grid = np.arange(-p*h, 1.0-h+(h/2.0), h/2.0)
+                x_grid = np.linspace(-p*h, 1.0 - h, (N + p)*2 - 1)
+            # Gauss - Legendre quadrature points and weights
+            # products of basis functions are integrated exactly
+            n_quad = p + 1
+
+            pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
+
+            x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
+            pts = x % 1.
+            # pts = x
+    else:
+        # interpolation
+        if space_1d.basis == 'B':
+            # x_grid = np.arange(0.0, 1.0+(h/2.0), h/2.0)
+            x_grid = np.linspace(0.0, 1.0, 2*N + 1)
+
+            pts = x_grid[:, None]
+            wts = np.ones(pts.shape, dtype=float)
+
+            # !! shift away first interpolation point in eta_1 direction for polar domains !!
+            if pts[0] == 0. and polar_shift:
+                pts[0] += 0.00001
+
+        # histopolation
+        elif space_1d.basis == 'M':
+            # x_grid = np.arange(0.0, 1.0+(h/2.0), h/2.0)
+            x_grid = np.linspace(0.0, 1.0, 2*N + 1)
+            # Gauss - Legendre quadrature points and weights
+            # products of basis functions are integrated exactly
+            n_quad = p + 1
+
+            pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
+
+            x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
+            # pts = x % 1.
+            pts = x
+
+    return pts, wts
+
+
+def get_span_and_basis(pts, space):
+    '''Compute the knot span index and the values of p + 1 basis function at each point in pts.
+
+    Parameters
+    ----------
+    pts : np.array
+        2d array of points (ii, iq) = (interval, quadrature point).
+
+    space : SplineSpace
+        Psydac object, the 1d spline space to be projected.
+
+    Returns
+    -------
+    span : np.array
+        2d array indexed by (n, nq), where n is the interval and nq is the quadrature point in the interval.
+
+    basis : np.array
+        3d array of values of basis functions indexed by (n, nq, basis function). 
+    '''
+
+    import psydac.core.bsplines as bsp
+
+    # Extract knot vectors, degree and kind of basis
+    T = space.knots
+    p = space.degree
+
+    span = np.zeros(pts.shape, dtype=int)
+    basis = np.zeros((*pts.shape, p + 1), dtype=float)
+
+    for n in range(pts.shape[0]):
+        for nq in range(pts.shape[1]):
+            # avoid 1. --> 0. for clamped interpolation
+            x = pts[n, nq] % (1. + 1e-14)
+            span_tmp = bsp.find_span(T, p, x)
+            basis[n, nq, :] = bsp.basis_funs_all_ders(
+                T, p, x, span_tmp, 0, normalization=space.basis)
+            span[n, nq] = span_tmp  # % space.nbasis
+
+    return span, basis
+
+
+def get_weights_local_projector(pts, fem_space):
+    '''Compute the geometric weights for interpolation and histopolation. 
+    Should be called only with the grid points for 0-forms.
+
+    Parameters
+    ----------
+    pts : np.array
+        3d array of points. Contains the quasi-interpolation points in each direction.
+
+    fem_space : SplineSpace
+        Psydac object, the 1d spline space to be projected. Should be the 0-form space.
+
+    Returns
+    -------
+    wij : List of np.array
+        List of 2d array indexed by (space_direction, i, j), where i determines for which FEEC coefficient this weights are needed. Used for interpolation.
+
+    whij : List of np.array
+        List of 2d array indexed by (space_direction, i, j), where i determines for which FEEC coefficient this weights are needed. Used for histopolation.
+    '''
+    import psydac.core.bsplines as bsp
+    # wij[space_direction][i][j]
+    wij = []
+    # whij[space_direction][i][j]
+    whij = []
+
+    # We iterate over each one of the spatial dimension of the 0 fem_space
+    for d, space in enumerate(fem_space.spaces):
+        # Extract knot vectors, degree and kind of basis
+        T = space.knots
+        p = space.degree
+        periodic = space.periodic
+        x = pts[d].flatten()
+        colmatrix = bsp.collocation_matrix(T, p, periodic, 'B', x)
+
+        # Number of B-splines
+        Nbasis = colmatrix.shape[1]
+        wijaux = []
+        whijaux = []
+        # If we have periodic boundary conditions the minicolocationmatrix will be the same for all i.
+        # So we can compute it just once .
+        if periodic:
+            i = 0
+            # We get the indices that tell us which entries of x to get
+            xstart, xend = select_quasi_points(i, p, Nbasis, periodic)
+            # Now we get the indices that tell us which basis functions to consider
+            bstart, bend = select_basis_local(i, p, Nbasis, periodic)
+            # We can finally build the minicollocation matrix necessary to obtain the weights wij
+            counter = 1
+            minicol = colmatrix[xstart:xend, bstart]
+            while (counter < 2*p-1):
+                minicol = np.column_stack(
+                    (minicol, colmatrix[xstart:xend, (bstart+counter) % Nbasis]))
+                counter += 1
+
+            # We need to consider the case in which our minicollocation matrix ends up being just one number
+            if np.shape(minicol)[0] == 1:
+                # There seems to be a bug with the bsp.collocation_matrix function for the case Nel = 1, p = 1 and periodic, when evaluating the only B-spline at 0 the answer should be 1 not 0.
+                if (p == 1 and Nbasis == 1):
+                    minicol[0] = 1.0
+                invmini = 1.0/minicol[0]
+                for i in range(Nbasis):
+                    wijaux.append(np.array([invmini]))
+            else:
+                invmini = np.linalg.inv(minicol)
+                for i in range(Nbasis):
+                    wijaux.append(invmini[p-1, :])
+        else:
+            for i in range(p-1):
+                # We get the indices that tell us which entries of x to get
+                xstart, xend = select_quasi_points(i, p, Nbasis, periodic)
+                # Now we get the indices that tell us which basis functions to consider
+                bstart, bend = select_basis_local(i, p, Nbasis, periodic)
+                # We can finally build the minicollocation matrix necessary to obtain the weights wij
+                minicol = colmatrix[xstart:xend, bstart:bend]
+                # Now we get its inverse
+                invmini = np.linalg.inv(minicol)
+                # Now we need to extract the row of invmini that corresponds to the ith histopolation coefficient.
+                wijaux.append(invmini[i, :])
+            i = p-1
+            # We get the indices that tell us which entries of x to get
+            xstart, xend = select_quasi_points(i, p, Nbasis, periodic)
+            # Now we get the indices that tell us which basis functions to consider
+            bstart, bend = select_basis_local(i, p, Nbasis, periodic)
+            # We can finally build the minicollocation matrix necessary to obtain the weights wij
+            minicol = colmatrix[xstart:xend, bstart:bend]
+            # Now we get its inverse
+            invmini = np.linalg.inv(minicol)
+            for i in range(p-1, Nbasis-p+1):
+                wijaux.append(invmini[p-1, :])
+            for i in range(Nbasis-p+1, Nbasis):
+                # We get the indices that tell us which entries of x to get
+                xstart, xend = select_quasi_points(i, p, Nbasis, periodic)
+                # Now we get the indices that tell us which basis functions to consider
+                bstart, bend = select_basis_local(i, p, Nbasis, periodic)
+                # We can finally build the minicollocation matrix necessary to obtain the weights wij
+                minicol = colmatrix[xstart:xend, bstart:bend]
+                # Now we get its inverse
+                invmini = np.linalg.inv(minicol)
+                wijaux.append(invmini[p-1+i+p-Nbasis, :])
+        wij.append(np.array(wijaux))
+        # Now that we know the wij we must use them to compute the whij
+        # We begin by adressing the special case p=1
+        # This is a special case since some of the integrals in the definition of the histopolation operator vanish.
+        if p == 1:
+            if periodic:
+                # Number of D-splines
+                nD = Nbasis
+            else:
+                # Number of D-splines
+                nD = Nbasis - 1
+            for i in range(nD):
+                whijaux.append(np.array([wijaux[i][0], wijaux[i][0]]))
+        else:
+            if periodic:
+                # Number of D-splines
+                nD = Nbasis
+                whats = [wijaux[0][0], wijaux[0][0]+wijaux[0][1]]
+                for j in range(2, 2*p-1):
+                    whats.append(wijaux[0][j-1]+wijaux[0][j])
+                whats.append(wijaux[0][2*p-2])
+                for i in range(nD):
+                    whijaux.append(np.array(whats))
+            else:
+                # Number of D-splines
+                nD = Nbasis - 1
+                for i in range(p-1):
+                    whats = [wijaux[i][0]-wijaux[i+1][0]]
+                    for j in range(1, 2*p-2):
+                        whats.append(whats[j-1]+wijaux[i][j]-wijaux[i+1][j])
+                    whats.append(0.0)
+                    whats.append(0.0)
+                    whijaux.append(np.array(whats))
+
+                i = p-1
+                whats = [wijaux[i][0], wijaux[i][0]+wijaux[i][1]]
+                whats.append(wijaux[i][0]+wijaux[i][1] +
+                             wijaux[i][2]-wijaux[i+1][0])
+                for j in range(3, 2*p-1):
+                    whats.append(whats[j-1]+wijaux[i][j]-wijaux[i+1][j-2])
+                whats.append(whats[2*p-2]-wijaux[i+1][2*p-3])
+                for i in range(p-1, nD-p+1):
+                    whijaux.append(np.array(whats))
+
+                for i in range(nD-p+1, nD):
+                    whats = [wijaux[i][0]-wijaux[i+1][0]]
+                    for j in range(1, 2*p-2):
+                        whats.append(whats[j-1]+wijaux[i][j]-wijaux[i+1][j])
+                    whats.append(0.0)
+                    whats.append(0.0)
+                    whijaux.append(np.array(whats))
+
+        whij.append(np.array(whijaux))
+
+    return wij, whij
+
+
+# We need a function that tell us which of the basis functions to take for the computation of the wij, for any i
+def select_basis_local(i, p, Nbasis, periodic):
+    '''Determines the start and end indices of the basis functions that must be taken from the collocation matrix to compute the geometric weights wij, for any given i.
+
+    Parameters
+    ----------
+    i : int
+        Index of the wij weights that must be computed.
+
+    p : int
+        B-spline degree.
+
+    Nbasis: int
+        Number of B-spline.
+
+    periodic: bool
+        Whether we have periodic boundary conditions.
+
+    Returns
+    -------
+    start : int
+        Start index of the B-splines that must be consider in the collocation matrix to obtain the wij weights.
+
+    end : int
+        End index of the B-splines that must be consider in the collocation matrix to obtain the wij weights.
+    '''
+    if periodic:
+        start = (i+1-p) % Nbasis
+        end = (i+p) % Nbasis
+    else:
+        if i < p-1:
+            start = 0
+            end = 2*p-1
+        elif i <= Nbasis-p:
+            start = i+1-p
+            end = i+p
+        else:
+            start = Nbasis-2*p+1
+            end = Nbasis
+    return start, end

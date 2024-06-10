@@ -21,15 +21,10 @@
 # 4) deploy to PyPI
 # 5) release on GitLab
 #
-# If commit message is "run-pages-job":
-# 1) build .whl
-# 2) install from .whl in default 
-# 3) update pages
-#
 # At "scheduled" pipeline:
 # 1) install from PyPI in all available docker images and in default
 # 2) compile in C and Fortran
-# 3) run all tests (including models) in all available images and in default
+# 3) run all tests (including models --fast) in all available images and in default
 #
 # A "scheduled" pipeline can be tested by calling the commit "test-schedule"
 
@@ -70,6 +65,11 @@ stages:
 # python virtual environments into cache
 default_venv:
   stage: startup 
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "push"
   before_script:
     - uname -s # get system info
     - uname -v
@@ -94,6 +94,14 @@ default_venv:
 # Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
 ci_vars:
   stage: startup
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "push"
   cache: []
   before_script:
     - module purge
@@ -107,6 +115,8 @@ ci_vars:
 default_build:
   stage: build
   rules:
+    - if: $CI_COMMIT_TAG
+      when: never
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
@@ -129,6 +139,8 @@ default_build:
 default_install:
   stage: install
   rules:
+    - if: $CI_COMMIT_TAG
+      when: never
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
@@ -172,18 +184,22 @@ Ubuntu_latest:
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
-    - if: $CI_COMMIT_MESSAGE =~ /run-pages-job/
-      when: never
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   needs: ['default_build']
   before_script:
     - apt update -y && apt clean 
+    - export DEBIAN_FRONTEND=noninteractive
+    - apt install -y software-properties-common
+    - add-apt-repository -y ppa:deadsnakes/ppa
+    - apt update -y
+    - apt install -y python3.11
+    - apt install -y python3.11-dev
     - apt install -y python3-pip 
-    - apt install -y python3.10-venv 
+    - apt install -y python3.11-venv 
     - apt install -y gfortran gcc 
-    - DEBIAN_FRONTEND=noninteractive TZ="Europe/Berlin" apt-get install -y liblapack-dev libopenmpi-dev 
+    - apt install -y liblapack-dev libopenmpi-dev 
     - apt install -y libblas-dev openmpi-bin 
     - apt install -y libomp-dev libomp5 
     - apt install -y git
@@ -192,7 +208,9 @@ Ubuntu_latest:
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
-    - pip list
+    - python3.11 -m pip list
+    - python3.11 -m venv env
+    - source env/bin/activate
     - pip install dist/struphy*.whl
     - struphy compile --status
     - make -v
@@ -206,8 +224,6 @@ c_unit_tests:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_COMMIT_MESSAGE =~ /run-pages-job/
       when: never
     - if: $CI_COMMIT_TAG
       when: never
@@ -225,8 +241,6 @@ c_model_tests:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_COMMIT_MESSAGE =~ /run-pages-job/
       when: never
     - if: $CI_COMMIT_TAG
       when: never
@@ -247,7 +261,7 @@ c_model_cronjob_tests:
     - pwd
     - ls -1
     - struphy compile --status
-    - struphy test models 
+    - struphy test models --fast
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
 
 c_tutorial_tests:
@@ -256,8 +270,6 @@ c_tutorial_tests:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_COMMIT_MESSAGE =~ /run-pages-job/
       when: never
     - if: $CI_COMMIT_TAG
       when: never
@@ -307,7 +319,7 @@ fortran_model_tests:
     - pwd
     - ls -1
     - struphy compile --status
-    - struphy test models
+    - struphy test models --fast
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
 
 fortran_tutorial_tests:
@@ -350,7 +362,7 @@ Ubuntu_23_04_tests:
     - python -m pip install --upgrade pip
     - python -m pip install struphy
     - struphy compile
-    - struphy test models 
+    - struphy test models --fast
 
 Fedora_latest_tests:
   stage: test
@@ -364,7 +376,7 @@ Fedora_latest_tests:
     - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy" 
   script:
     - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy compile && struphy test models --fast"
-    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy compile --language=fortran -y && struphy test models"
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy compile --language=fortran -y && struphy test models --fast"
 
 Fedora_37_tests:
   stage: test
@@ -391,7 +403,7 @@ Fedora_37_tests:
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
     - pip list
-    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy && struphy compile --status && make -v && struphy compile -y && struphy test models" 
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && module list && pip install struphy && struphy compile --status && make -v && struphy compile -y && struphy test models --fast" 
 
 Fedora_38_tests:
   stage: test
@@ -421,7 +433,7 @@ Fedora_38_tests:
   script:
     - pip list
     - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy compile && struphy test models --fast"
-    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy compile --language=fortran -y && struphy test models"
+    - bash -c ". /etc/profile.d/modules.sh && module load mpi/openmpi-$(arch) && struphy compile --language=fortran -y && struphy test models --fast"
 
 OpenSuse_tests:
   stage: test
@@ -433,10 +445,8 @@ OpenSuse_tests:
   needs: []
   before_script:
     - zypper refresh
-    - zypper install -y python39 python39-devel
-    - zypper install -y python39-pip python3-virtualenv
-    - zypper install -y python3-pip
-    - zypper install -y python3-virtualenv 
+    - zypper install -y python311 python311-devel
+    - zypper install -y python311-pip python3-virtualenv
     - zypper install -y gcc-fortran gcc 
     - zypper install -y lapack-devel openmpi-devel 
     - zypper install -y blas-devel openmpi 
@@ -446,7 +456,7 @@ OpenSuse_tests:
     - zypper install -y sqlite3 
     - zypper install -y vim 
     - zypper install -y make
-    - python3.9 -m venv /opensuse_latest/venv
+    - python3 -m venv /opensuse_latest/venv
     - export PATH="/opensuse_latest/venv/bin:$PATH"
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
@@ -458,7 +468,7 @@ OpenSuse_tests:
     - pip list
     - pip install struphy
     - struphy compile 
-    - struphy test models
+    - struphy test models --fast
 
 AlmaLinux_tests:
   stage: test
@@ -489,7 +499,7 @@ AlmaLinux_tests:
     - pip list
     - pip install struphy
     - struphy compile 
-    - struphy test models
+    - struphy test models --fast
 
 ###################
 ### PAGES STAGE ###
@@ -500,8 +510,9 @@ pages:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
     - if: $CI_COMMIT_REF_PROTECTED == "true"
-    - if: $CI_COMMIT_MESSAGE =~ /run-pages-job/ 
   script:
     - struphy -h
     - struphy compile --status

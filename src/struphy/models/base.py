@@ -33,6 +33,7 @@ class StruphyModel(metaclass=ABCMeta):
         from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
         from struphy.feec.basis_projection_ops import BasisProjectionOperators
         from struphy.feec.mass import WeightedMassOperators
+        from struphy.fields_background.braginskii_equil import equils as braginskii_equils
 
         assert 'em_fields' in self.species()
         assert 'fluid' in self.species()
@@ -52,9 +53,19 @@ class StruphyModel(metaclass=ABCMeta):
         self._units, self._equation_params = self.model_units(
             self.params, verbose=True, comm=self._comm)
 
-        # create domain, MHD equilibrium, background electric field
+        # create domain, MHD equilibrium
         self._domain, self._mhd_equil = setup_domain_mhd(
             params, units=self.units)
+
+        # Braginskii equilibrium
+        if 'braginskii_equilibrium' in params:
+            br_eq_type = params['braginskii_equilibrium']['type']
+            br_eq_class = getattr(braginskii_equils, br_eq_type)
+            self._braginskii_equil = br_eq_class(
+                **params['braginskii_equilibrium'][br_eq_type])
+            self.braginskii_equil.domain = self.domain
+        else:
+            self._braginskii_equil = None
 
         if comm.Get_rank() == 0:
             print('\nDOMAIN:')
@@ -69,6 +80,12 @@ class StruphyModel(metaclass=ABCMeta):
                 for key, val in self.mhd_equil.params.items():
                     print((key + ':').ljust(25), val)
 
+            if 'braginskii_equilibrium' in params:
+                print('\nBRAGINSKII EQUILIBRIUM:')
+                print('type:'.ljust(25), self.braginskii_equil.__class__.__name__)
+                for key, val in self.braginskii_equil.params.items():
+                    print((key + ':').ljust(25), val)
+
         # create discrete derham sequence
         dims_mask = params['grid']['dims_mask']
         if dims_mask is None:
@@ -79,7 +96,10 @@ class StruphyModel(metaclass=ABCMeta):
 
         # create weighted mass operators
         self._mass_ops = WeightedMassOperators(
-            self.derham, self.domain, eq_mhd=self.mhd_equil)
+            self.derham,
+            self.domain,
+            eq_mhd=self.mhd_equil,
+            eq_braginskii=self.braginskii_equil)
 
         # allocate memory for variables
         self._pointer = {}
@@ -255,6 +275,11 @@ class StruphyModel(metaclass=ABCMeta):
         return self._mhd_equil
 
     @property
+    def braginskii_equil(self):
+        '''Braginskii equilibrium object, see :ref:`braginskii_equil`.'''
+        return self._braginskii_equil
+
+    @property
     def derham(self):
         '''3d Derham sequence, see :ref:`derham`.'''
         return self._derham
@@ -405,9 +430,9 @@ class StruphyModel(metaclass=ABCMeta):
                 val['kinetic_data']['markers'][:] = -1.
                 val['kinetic_data']['markers'][:n_markers_on_proc] = val['obj'].markers[markers_on_proc]
 
-    def update_distr_function(self):
+    def update_distr_functions(self):
         '''
-        Writes distribution function slices that are supposed to be saved into corresponding array.
+        Writes distribution functions slices that are supposed to be saved into corresponding array.
         '''
 
         dim_to_int = {'e1': 0, 'e2': 1, 'e3': 2, 'v1': 3, 'v2': 4, 'v3': 5}
@@ -416,29 +441,18 @@ class StruphyModel(metaclass=ABCMeta):
 
             if 'f' in val['params']['save_data']:
 
-                # if diffential forms is not specified, bin the initialized forms
-                if 'pforms' not in val['params']['save_data']['f']:
-
-                    if 'pforms' in val['params']['background']:
-                        pforms = val['params']['background']['pforms']
-
-                    else:
-                        pforms = ['0', '0']
-
-                else:
-                    pforms = val['params']['save_data']['f']['pforms']
-
                 for slice_i, edges in val['bin_edges'].items():
 
-                    dims = (len(slice_i) - 2)//3 + 1
-                    comps = [slice_i[3*i:3*i + 2] for i in range(dims)]
-                    components = [False]*(val['obj'].vdim + 3)
+                    comps = slice_i.split('_')
+                    components = [False]*(3 + val['obj'].vdim)
 
                     for comp in comps:
                         components[dim_to_int[comp]] = True
 
-                    val['kinetic_data']['f'][slice_i][:] = val['obj'].binning(
-                        components, edges, pforms)
+                    f_slice, df_slice = val['obj'].binning(components, edges)
+
+                    val['kinetic_data']['f'][slice_i][:] = f_slice
+                    val['kinetic_data']['df'][slice_i][:] = df_slice
 
     def print_scalar_quantities(self):
         '''
@@ -581,8 +595,11 @@ class StruphyModel(metaclass=ABCMeta):
                     print(f'Kinetic species "{species}" was initialized with:')
                     print('type:'.ljust(25), _type)
                     if _type is not None:
-                        for key, par in val['params']['background'][_type].items():
-                            print((key + ':').ljust(25), par)
+                        if not isinstance(_type, list):
+                            _type = [_type]
+                        for _t in _type:
+                            for key, par in val['params']['background'][_t].items():
+                                print((key + ':').ljust(25), par)
 
                 val['obj'].draw_markers()
                 val['obj'].mpi_sort_markers(do_test=True)
@@ -593,10 +610,12 @@ class StruphyModel(metaclass=ABCMeta):
                     assert typ in ['full_f', 'delta_f', 'control_variate'], \
                         f'Type {typ} for distribution function is not known!'
 
-                    val['obj'].initialize_weights()
+                    if val['obj'].f0.coords == 'constants_of_motion':
 
-                    if val['space'] == 'Particles5D':
-                        val['obj'].save_magnetic_moment()
+                        val['obj'].save_constants_of_motion(
+                            epsilon=self.equation_params[species]['epsilon'], initial=True)
+
+                    val['obj'].initialize_weights()
 
     def initialize_from_restart(self, data):
         """
@@ -847,8 +866,18 @@ class StruphyModel(metaclass=ABCMeta):
                                            ]['phys_params']['A']
 
         # compute model units
-        units = derive_units(
-            Z_bulk, A_bulk, params['units']['x'], params['units']['B'], params['units']['n'], cls.velocity_scale())
+        if 'kBT' in params['units']:
+            kBT = params['units']['kBT']
+        else:
+            kBT = None
+
+        units = derive_units(Z_bulk=Z_bulk,
+                             A_bulk=A_bulk,
+                             x=params['units']['x'],
+                             B=params['units']['B'],
+                             n=params['units']['n'],
+                             kBT=kBT,
+                             velocity_scale=cls.velocity_scale())
 
         # print to screen
         if verbose and rank == 0:
@@ -870,6 +899,8 @@ class StruphyModel(metaclass=ABCMeta):
                       '{:4.3e}'.format(units['rho']) + ' kg/m³')
                 print(f'Unit of pressure:'.ljust(25),
                       '{:4.3e}'.format(units['p'] * 1e-5) + ' bar')
+                print(f'Unit of current density:'.ljust(25),
+                      '{:4.3e}'.format(units['j']) + ' A/m²')
 
         # compute equation parameters for each species
         e = 1.602176634e-19  # elementary charge (C)
@@ -1091,9 +1122,14 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 keys)
             parameters['kinetic']['species_name']['perturbation'][pert_type][keys] = {}
 
-        # standard moments of Maxwellians
+        # standard Maxwellians
+        maxw_name = {'6D': 'Maxwellian3D',
+                   '5D': 'GyroMaxwellian2D',
+                   '4D': 'Maxwellian1D'}
+
         moms = {'6D': [0., 0., 0., 1., 1., 1.],
-                '5D': [0., 0., 1., 1.]}
+                '5D': [0., 0., 1., 1.],
+                '4D': [0., 1.]}
 
         # init options dicts
         d_opts = {'em_fields': [], 'fluid': {}, 'kinetic': {}}
@@ -1189,13 +1225,13 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
                 # set the correct names in the parameter file
                 dim = space[-2:]
-                parameters['kinetic'][name]['background'] = {'type': 'Maxwellian' + dim,
-                                                             'Maxwellian' + dim: {'n': 0.05}}
+                parameters['kinetic'][name]['background'] = {'type': maxw_name[dim],
+                                                             maxw_name[dim]: {'n': 0.05}}
                 parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
-                
+
                 for keys, vals in pert_params_scalar.items():
-                    parameters['kinetic'][name]['perturbation'][pert_type][keys]['n'] = vals   
-                    
+                    parameters['kinetic'][name]['perturbation'][pert_type][keys]['n'] = vals
+
         else:
             parameters.pop('kinetic')
 
@@ -1363,6 +1399,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     derham=self.derham,
                     domain=self.domain,
                     mhd_equil=self.mhd_equil,
+                    braginskii_equil=self.braginskii_equil,
                     bckgr_params=bckgr_params,
                     pert_params=pert_params
                 )
@@ -1371,7 +1408,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
                 # for storing markers
                 n_markers = val['params']['save_data']['n_markers']
-                assert n_markers <= val['obj'].n_mks
+                assert n_markers <= val['obj'].n_mks, \
+                    f"The number of markers for which data should be stored (={n_markers}) murst be <= than the total number of markers (={val['obj'].n_mks})"
                 if n_markers > 0:
                     val['kinetic_data'] = {}
                     val['kinetic_data']['markers'] = np.zeros(
@@ -1384,17 +1422,22 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     ranges = val['params']['save_data']['f']['ranges']
 
                     val['kinetic_data']['f'] = {}
+                    val['kinetic_data']['df'] = {}
                     val['bin_edges'] = {}
                     if len(slices) > 0:
                         for i, sli in enumerate(slices):
 
                             assert ((len(sli) - 2)/3).is_integer()
+                            assert len(slices[i].split('_')) == len(ranges[i]) == len(n_bins[i]), \
+                                f"Number of slices names ({len(slices[i].split('_'))}), number of bins ({len(n_bins[i])}), and number of ranges ({len(ranges[i])}) are inconsistent with each other!\n\n"
                             val['bin_edges'][sli] = []
                             dims = (len(sli) - 2)//3 + 1
                             for j in range(dims):
                                 val['bin_edges'][sli] += [np.linspace(
                                     ranges[i][j][0], ranges[i][j][1], n_bins[i][j] + 1)]
                             val['kinetic_data']['f'][sli] = np.zeros(
+                                n_bins[i], dtype=float)
+                            val['kinetic_data']['df'][sli] = np.zeros(
                                 n_bins[i], dtype=float)
 
                 # other data (wave-particle power exchange, etc.)
@@ -1491,7 +1534,10 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         # transit length (m)
         transit_length = plasma_volume**(1/3)
         # magnetic field (T)
-        B_tmp = self.mhd_equil.absB0(eta1, eta2, eta3)
+        if self.mhd_equil is not None:
+            B_tmp = self.mhd_equil.absB0(eta1, eta2, eta3)
+        else:
+            B_tmp = self.braginskii_equil.absB0(eta1, eta2, eta3)
         magnetic_field = np.mean(B_tmp * np.abs(det_tmp)) \
             / vol1 * units['B']
         B_max = np.max(B_tmp) * units['B']
@@ -1554,34 +1600,93 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
                 # create temp kinetic object for (default) parameter extraction
                 tmp_type = val['params']['background']['type']
-                tmp_params = val['params']['background'][tmp_type]
-                tmp = getattr(maxwellians, tmp_type)(maxw_params=tmp_params)
+                tmp_params = val['params']['background']
 
-                # density (m⁻³)
-                pparams[species]['density'] = np.mean(tmp.n(
-                    eta1mg, eta2mg, eta3mg) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
-                # thermal speeds (m/s)
-                vth = []
-                vths = tmp.vth(eta1mg, eta2mg, eta3mg)
-                for k in range(len(vths)):
-                    vth += [
-                        vths[k] * np.abs(det_tmp) *
-                        units['x']**3 / plasma_volume * units['v']
-                    ]
-                thermal_speed = 0.
-                for dir in range(val['obj'].vdim):
-                    pparams[species]['vth' + str(dir + 1)] = np.mean(vth[dir])
-                    thermal_speed += pparams[species]['vth' + str(dir + 1)]
-                # TODO: here it is assumed that background density parameter is called "n",
-                # and that background thermal speeds are called "vthn"; make this a convention?
-                pparams[species]['v_th'] = thermal_speed / \
-                    val['obj'].vdim
-                # thermal energy (keV)
-                pparams[species]['kBT'] = pparams[species]['mass'] * \
-                    pparams[species]['v_th']**2 / e * 1e-3
-                # pressure (bar)
-                pparams[species]['pressure'] = pparams[species]['kBT'] * \
-                    e * 1e3 * pparams[species]['density'] * 1e-5
+                if not isinstance(tmp_type, list):
+                    tmp_type = [tmp_type]
+
+                tmp = None
+                for fi in tmp_type:
+                    if fi[-2] == '_':
+                        fi_type = fi[:-2]
+                    else:
+                        fi_type = fi
+                    if fi in tmp_params:
+                        maxw_params = tmp_params[fi]
+                        pass_mhd_equil = self.mhd_equil
+                        pass_braginskii_equil = self.braginskii_equil
+                    else:
+                        maxw_params = None
+                        pass_mhd_equil = None
+                        pass_braginskii_equil = None
+
+                        print(
+                            f'\n{fi} is not in tmp_params; default background parameters are used.')
+
+                    if tmp is None:
+                        tmp = getattr(maxwellians, fi_type)(
+                            maxw_params=maxw_params,
+                            mhd_equil=pass_mhd_equil,
+                            braginskii_equil=pass_braginskii_equil
+                        )
+                    else:
+                        tmp = tmp + getattr(maxwellians, fi_type)(
+                            maxw_params=maxw_params,
+                            mhd_equil=pass_mhd_equil,
+                            braginskii_equil=pass_braginskii_equil
+                        )
+
+                if tmp.coords == 'constants_of_motion':
+                    # call parameters
+                    a1 = self.domain.params_map['a1']
+                    r = eta1mg*(1 - a1) + a1
+                    psi = self.mhd_equil.psi_r(r)
+
+                    # density (m⁻³)
+                    pparams[species]['density'] = np.mean(tmp.n(
+                        psi) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
+                    # thermal speed (m/s)
+                    pparams[species]['v_th'] = np.mean(tmp.vth(
+                        psi) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['v']
+                    # thermal energy (keV)
+                    pparams[species]['kBT'] = pparams[species]['mass'] * \
+                        pparams[species]['v_th']**2 / e * 1e-3
+                    # pressure (bar)
+                    pparams[species]['pressure'] = pparams[species]['kBT'] * \
+                        e * 1e3 * pparams[species]['density'] * 1e-5
+
+                else:
+                    # density (m⁻³)
+                    # pparams[species]['density'] = np.mean(tmp.n(
+                    #     eta1mg, eta2mg, eta3mg) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
+                    pparams[species]['density'] = 99.
+                    # thermal speeds (m/s)
+                    vth = []
+                    # vths = tmp.vth(eta1mg, eta2mg, eta3mg)
+                    vths = [99.]
+                    for k in range(len(vths)):
+                        vth += [
+                            vths[k] * np.abs(det_tmp) *
+                            units['x']**3 / plasma_volume * units['v']
+                        ]
+                    thermal_speed = 0.
+                    for dir in range(val['obj'].vdim):
+                        # pparams[species]['vth' + str(dir + 1)] = np.mean(vth[dir])
+                        pparams[species]['vth' + str(dir + 1)] = 99.
+                        thermal_speed += pparams[species]['vth' + str(dir + 1)]
+                    # TODO: here it is assumed that background density parameter is called "n",
+                    # and that background thermal speeds are called "vthn"; make this a convention?
+                    # pparams[species]['v_th'] = thermal_speed / \
+                    #     val['obj'].vdim
+                    pparams[species]['v_th'] = 99.
+                    # thermal energy (keV)
+                    # pparams[species]['kBT'] = pparams[species]['mass'] * \
+                    #     pparams[species]['v_th']**2 / e * 1e-3
+                    pparams[species]['kBT'] = 99.
+                    # pressure (bar)
+                    # pparams[species]['pressure'] = pparams[species]['kBT'] * \
+                    #     e * 1e3 * pparams[species]['density'] * 1e-5
+                    pparams[species]['pressure'] = 99.
 
         for species in pparams:
             # alfvén speed (m/s)

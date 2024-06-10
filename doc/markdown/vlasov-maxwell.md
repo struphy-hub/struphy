@@ -53,13 +53,19 @@ $$
 \end{align}
 $$ (eq:norm)
 
-In Struphy, the three basic units $\hat x$, $\hat B$ and $\hat n$ are defined by the user through the {ref}`parameter file <units>`. Moreover, the time unit is always defined as 
+In Struphy, the three basic units $\hat x$, $\hat B$ and $\hat n$ are defined by the user through the {ref}`parameter file <units>`. Moreover, several other units are fixed, as described in {ref}`normalization`, namely:
 
 $$
-\hat t = \frac{\hat x}{\hat v}\,.
+\hat t, \, \hat p,\, \hat \rho,\,\hat \jmath \quad \textrm{are fixed}\,.
 $$
 
-For the present model, it remains thus to define $\hat v$, $\hat E$ and $\hat \phi$ to complete the normalization process.
+Therefore, in the present model, 
+
+$$
+\hat v,\,\hat f,\,\hat E,\,\hat \phi
+$$
+
+must be defined in order to complete the normalization process.
 Let us introduce the unit of the electron cyclotron frequency and its product with the time unit,
 
 $$

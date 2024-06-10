@@ -80,6 +80,42 @@ def a_documentation():
 
     print('This is just the docstring function.')
 
+def gc_density_0form(markers: 'float[:,:]', n_markers_tot: 'int',
+            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+            starts: 'int[:]',
+            kind_map: 'int', params_map: 'float[:]',
+            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+            vec: 'float[:,:,:]'):  
+    r"""
+    Kernel for :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` into V0 with the filling 
+
+    .. math::
+
+        B_p^\mu = \frac{w_p}{N} \,.
+    """
+
+    #$ omp parallel private (ip, eta1, eta2, eta3, f0, filling)
+    #$ omp for reduction ( + :vec)
+    for ip in range(shape(markers)[0]):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # filling = w_p/N
+        filling = markers[ip, 5] / n_markers_tot
+
+        particle_to_mat_kernels.vec_fill_b_v0(pn, tn1, tn2, tn3, starts, eta1, eta2, eta3, vec, filling)
+
+    #$ omp end parallel
+
 
 @stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'tmp1', 'tmp2', 'b', 'b_prod', 'bstar', 'norm_b1', 'curl_norm_b','bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def cc_lin_mhd_5d_D(markers: 'float[:,:]', n_markers_tot: 'int',
@@ -647,7 +683,7 @@ def cc_lin_mhd_5d_M(markers: 'float[:,:]', n_markers_tot: 'int',
 
         # marker weight and velocity
         weight = markers[ip, 5]
-        mu = markers[ip, 4]
+        mu = markers[ip, 9]
 
         if eta1 < boundary_cut or eta1 > 1. - boundary_cut:
             continue
@@ -816,7 +852,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
         # marker weight and velocity
         weight = markers[ip, 5]
         v = markers[ip, 3]
-        mu = markers[ip, 4]
+        mu = markers[ip, 9]
 
         # b-field evaluation
         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
@@ -1055,7 +1091,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
 #         # marker weight and velocity
 #         weight = markers[ip, 5]
-#         mu = markers[ip, 4]
+#         mu = markers[ip, 9]
 
 #         # b-field evaluation
 #         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
@@ -1186,7 +1222,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
 #         # marker weight and velocity
 #         weight = markers[ip, 5]
-#         mu = markers[ip, 4]
+#         mu = markers[ip, 9]
 
 #         # b-field evaluation
 #         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
@@ -1299,7 +1335,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 #         # marker weight and velocity
 #         weight = markers[ip, 5]
 #         v = markers[ip, 3]
-#         mu = markers[ip, 4]
+#         mu = markers[ip, 9]
 
 #         # b-field evaluation
 #         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
@@ -1544,7 +1580,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 #         # marker weight and velocity
 #         weight = markers[ip, 5]
 #         v = markers[ip, 3]
-#         mu = markers[ip, 4]
+#         mu = markers[ip, 9]
 
 #         # b-field evaluation
 #         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
@@ -1769,7 +1805,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
 #         # marker weight and velocity
 #         weight = markers[ip, 5]
-#         mu = markers[ip, 4]
+#         mu = markers[ip, 9]
 
 #         # b-field evaluation
 #         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)
@@ -1943,7 +1979,7 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 #         # marker weight and velocity
 #         weight = markers[ip, 5]
 #         v = markers[ip, 3]
-#         mu = markers[ip, 4]
+#         mu = markers[ip, 9]
 
 #         # b-field evaluation
 #         span1 = bsplines_kernels.find_span(tn1, int(pn[0]), eta1)

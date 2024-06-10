@@ -1,3 +1,5 @@
+.. _polar_splines:
+
 Polar splines
 -------------
 
@@ -8,6 +10,8 @@ Basic modules
     :members: 
     :undoc-members:
     :show-inheritance:
+
+.. _extraction_ops:
 
 Extraction operators
 ^^^^^^^^^^^^^^^^^^^^

@@ -2542,6 +2542,112 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
 
 
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'dfm', 'df_inv', 'v', 'df_inv_v')
+def push_weights_with_efield_lin_va(markers: 'float[:,:]', dt: float, stage: int,
+                                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                    starts: 'int[:]',
+                                    kind_map: int, params_map: 'float[:]',
+                                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                                    cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                                    e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
+                                    f0_values: 'float[:]', kappa: 'float', vth: 'float'):
+    r'''
+    updates the single weights in the e_W substep of the linear Vlasov Ampère system with delta-f;
+    c.f. :class:`~struphy.propagators.propagators_coupling.EfieldWeights`.
+
+    Parameters :
+    ------------
+    e1_1, e1_2, e1_3: array[float]
+        3d array of FE coeffs of E-field as 1-form.
+
+    f0_values ; array[float]
+        Value of f0 for each particle.
+
+    kappa : float
+        = 2 * pi * Omega_c / omega ; Parameter determining the coupling strength between particles and fields
+    '''
+
+    # total number of basis functions : B-splines (pn) and D-splines (pn-1)
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pn3 = pn[2]
+
+    # non-vanishing N-splines at particle position
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    # non-vanishing D-splines at particle position
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    dfm = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    v = empty(3, dtype=float)
+    df_inv_v = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, e_vec_1, e_vec_2, e_vec_3, update)
+    #$ omp for
+    for ip in range(n_markers):
+        if markers[ip, 0] == -1:
+            continue
+
+        # position
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # get velocity
+        v[0] = markers[ip, 3]
+        v[1] = markers[ip, 4]
+        v[2] = markers[ip, 5]
+
+        # spans (i.e. index for non-vanishing basis functions)
+        span1 = bsplines_kernels.find_span(tn1, pn1, eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn2, eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn3, eta3)
+
+        # compute bn, bd, i.e. values for non-vanishing B-/D-splines at position eta
+        bsplines_kernels.b_d_splines_slim(tn1, pn1, eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn2, eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn3, eta3, span3, bn3, bd3)
+
+        # Compute Jacobian matrix
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map,
+                              p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
+
+        # invert Jacobian matrix
+        linalg_kernels.matrix_inv(dfm, df_inv)
+
+        # compute DF^{-1} v
+        linalg_kernels.matrix_vector(df_inv, v, df_inv_v)
+
+        # E-field (1-form)
+        e_vec_1 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3,
+                                                 span1, span2, span3, e1_1, starts)
+        e_vec_2 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3,
+                                                 span1, span2, span3, e1_2, starts)
+        e_vec_3 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3,
+                                                 span1, span2, span3, e1_3, starts)
+
+        # w_{n+1} = w_n + dt / (2 * s_0) * sqrt(f_0) * ( DF^{-1} \V_th * v_p ) \cdot ( e_{n+1} + e_n )
+        update = (df_inv_v[0] * e_vec_1 + df_inv_v[1] * e_vec_2 + df_inv_v[2] * e_vec_3) * \
+            f0_values[ip] * kappa * dt / (2 * markers[ip, 7] * vth**2)
+        markers[ip, 6] += update
+
+    #$ omp end parallel
+
+
+@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'dfm', 'df_inv', 'v', 'df_inv_v')
 def push_weights_with_efield_lin_vm(markers: 'float[:,:]', dt: float, stage: int,
                                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                     starts: 'int[:]',

@@ -40,6 +40,7 @@ class PolarDerhamSpace(VectorSpace):
         self._d = [space.nbasis for space in derham.Vh_fem['3'].spaces]
 
         self._parent_space = derham.Vh[derham.space_to_form[space_id]]
+        self._parallel = self._parent_space.parallel
 
         self._starts = self.parent_space.starts
         self._ends = self._parent_space.ends
@@ -203,6 +204,10 @@ class PolarDerhamSpace(VectorSpace):
         """ Tuple holding type of spline basis (B-splines or M-splines), for each component.
         """
         return self._type_of_basis_3
+    
+    @property
+    def parallel( self ):
+        return self._parallel
 
     def zeros(self):
         """ 
@@ -495,7 +500,8 @@ class PolarVector(Vector):
                 self._tp[n] -= v.tp[n]
         return self
 
-    def update_ghost_regions(self, *, direction=None):
+    # def update_ghost_regions(self, *, direction=None):
+    def update_ghost_regions(self):
         """
         Update ghost regions before performing non-local access to vector
         elements (e.g. in matrix-vector product).
@@ -506,7 +512,23 @@ class PolarVector(Vector):
             Single direction along which to operate (if not specified, all of them).
 
         """
-        self._tp.update_ghost_regions(direction=direction)
+        #self._tp.update_ghost_regions(direction=direction)
+        self._tp.update_ghost_regions()
+
+            # def update_ghost_regions(self, *, direction=None):
+    def exchange_assembly_data(self):
+        """
+        Exchange assembly data before performing non-local access to vector
+        elements (e.g. in matrix-vector product).
+
+        Parameters
+        ----------
+        direction : int
+            Single direction along which to operate (if not specified, all of them).
+
+        """
+        #self._tp.update_ghost_regions(direction=direction)
+        self._tp.exchange_assembly_data()
 
     def conjugate(self):
         '''No need for complex conjugate'''

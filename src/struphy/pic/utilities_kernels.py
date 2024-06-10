@@ -5,7 +5,7 @@ import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
 import struphy.geometry.evaluation_kernels as evaluation_kernels
 
-from numpy import empty, shape, zeros, sqrt, log, abs
+from numpy import empty, shape, zeros, sqrt, log, abs, sign
 
 
 @stack_array('bn1', 'bn2', 'bn3')
@@ -348,27 +348,27 @@ def eval_magnetic_moment_6d(markers: 'float[:,:]',
                             b_cart_2: 'float[:,:,:]',
                             b_cart_3: 'float[:,:,:]'):
     """
-    Evaluate parallel velocity and magnetic moment of each particles and asign it into markers[ip,3] and markers[ip,4] respectively.
+    Evaluate parallel velocity and magnetic moment of each particles and assign it into markers[ip,3] and markers[ip,4] respectively.
 
     Parameters
     ----------
-        markers : array[float]
-            .markers attribute of a struphy.pic.particles.Particles object
+    markers : array[float]
+        .markers attribute of a struphy.pic.particles.Particles object
 
-        kappa : array[float]
-            omega_c/omega_unit
+    kappa : array[float]
+        omega_c/omega_unit
 
-        pn : array[int]
-            spline degrees
+    pn : array[int]
+        spline degrees
 
-        tn1, tn2, tn3 : array[float]
-            knot vectors
+    tn1, tn2, tn3 : array[float]
+        knot vectors
 
-        starts : array[int]
-            starts of the stencil objects (0-form)
+    starts : array[int]
+        starts of the stencil objects (0-form)
 
-        unit_b_cart_x : array[float]
-            3d array of FE coeffs of the x component of unit cartesian equilibrium magnetic field 
+    unit_b_cart_x : array[float]
+        3d array of FE coeffs of the x component of unit cartesian equilibrium magnetic field 
     """
     bn1 = empty(pn[0] + 1, dtype=float)
     bn2 = empty(pn[1] + 1, dtype=float)
@@ -443,27 +443,24 @@ def eval_magnetic_moment_5d(markers: 'float[:,:]',
                             starts: 'int[:]',
                             absB: 'float[:,:,:]'):
     """
-    Evaluate parallel velocity and magnetic moment of each particles and asign it into markers[ip,3] and markers[ip,4] respectively.
+    Evaluate parallel velocity and magnetic moment of each particles and assign it into markers[ip,3] and markers[ip,4] respectively.
 
     Parameters
     ----------
-        markers : array[float]
-            .markers attribute of a struphy.pic.particles.Particles object
+    markers : array[float]
+        .markers attribute of a struphy.pic.particles.Particles object
 
-        kappa : array[float]
-            omega_c/omega_unit
+    pn : array[int]
+        spline degrees
 
-        pn : array[int]
-            spline degrees
+    tn1, tn2, tn3 : array[float]
+        knot vectors
 
-        tn1, tn2, tn3 : array[float]
-            knot vectors
+    starts : array[int]
+        starts of the stencil objects (0-form)
 
-        starts : array[int]
-            starts of the stencil objects (0-form)
-
-        unit_b_cart_x : array[float]
-            3d array of FE coeffs of the x component of unit cartesian equilibrium magnetic field 
+    absB : array[float]
+        3d array of FE coeffs of equilibrium magnetic field magnitude.
     """
     bn1 = empty(pn[0] + 1, dtype=float)
     bn2 = empty(pn[1] + 1, dtype=float)
@@ -492,11 +489,215 @@ def eval_magnetic_moment_5d(markers: 'float[:,:]',
         bsplines_kernels.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
         bsplines_kernels.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
 
-        B0 = evaluation_kernels_3d.eval_spline_mpi_kernel(
+        abs_B = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, absB, starts)
 
         # magnetic moment
-        markers[ip, 4] = 1/2 * v_perp**2 / abs(B0)
+        markers[ip, 9] = 1/2 * v_perp**2 / abs_B
+
+
+@stack_array('bn1', 'bn2', 'bn3')
+def eval_energy_5d(markers: 'float[:,:]',
+                   pn: 'int[:]',
+                   tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                   starts: 'int[:]',
+                   absB: 'float[:,:,:]'):
+    """
+    Evaluate total energy of each particles and assign it into markers[ip,10].
+    Only equilibrium magnetic field is considered.
+
+    Parameters
+    ----------
+    markers : array[float]
+        .markers attribute of a struphy.pic.particles.Particles object
+
+    pn : array[int]
+        spline degrees
+
+    tn1, tn2, tn3 : array[float]
+        knot vectors
+
+    starts : array[int]
+        starts of the stencil objects (0-form)
+
+    absB : array[float]
+        3d array of FE coeffs of equilibrium magnetic field magnitude.
+    """
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        v_parallel = markers[ip, 3]
+        mu = markers[ip, 9]
+
+        # spline evaluation
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
+
+        bsplines_kernels.b_splines_slim(tn1, pn[0], eta1, span1, bn1)
+        bsplines_kernels.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
+        bsplines_kernels.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
+
+        abs_B = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, absB, starts)
+
+        # total energy
+        markers[ip, 8] = 1/2*v_parallel**2 + mu*abs_B
+
+
+@stack_array('bn1', 'bn2', 'bn3')
+def eval_canonical_toroidal_moment_5d(markers: 'float[:,:]',
+                                      pn: 'int[:]',
+                                      tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                      starts: 'int[:]',
+                                      epsilon: float, B0: float, R0: float,
+                                      absB: 'float[:,:,:]'):
+    """
+    Evaluate canonical toroidal momentum of each particles and assign it into markers[ip,11].
+    Only equilibrium magnetic field is considered.
+
+    Parameters
+    ----------
+    markers : array[float]
+        .markers attribute of a struphy.pic.particles.Particles object
+
+    pn : array[int]
+        spline degrees
+
+    tn1, tn2, tn3 : array[float]
+        knot vectors
+
+    starts : array[int]
+        starts of the stencil objects (0-form)
+
+    epsilon : float
+        Guiding center scaling factor.
+
+    B0 : float
+        Magnitude of magnetic field at the axis.
+
+    R0 : float
+        Major radius.
+
+    abs_B0 : BlockVector
+        FE coeffs of equilibrium magnetic field magnitude.    
+    """
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        v_para = markers[ip, 3]
+        mu = markers[ip, 9]
+        energy = markers[ip, 8]
+        psi = markers[ip, 10]
+
+        # spline evaluation
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
+
+        bsplines_kernels.b_splines_slim(tn1, pn[0], eta1, span1, bn1)
+        bsplines_kernels.b_splines_slim(tn2, pn[1], eta2, span2, bn2)
+        bsplines_kernels.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
+
+        abs_B = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, absB, starts)
+
+        # shifted canonical toroidal momentum
+        markers[ip, 10] = psi - epsilon*B0*R0/abs_B*v_para
+
+        if energy-mu*B0 >0:
+            markers[ip, 10] += epsilon*sign(v_para)*sqrt(2*(energy-mu*B0))*R0
+
+
+@stack_array('dfm', 'norm_b1', 'b', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+def eval_magnetic_background_energy(markers: 'float[:,:]',
+                                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                    starts: 'int[:]',
+                                    kind_map: 'int', params_map: 'float[:]',
+                                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                                    cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                                    abs_B0: 'float[:,:,:]'):
+    r"""
+    Evaluate :math:`mu_p |B_0(\boldsymbol \eta_p)|` for each marker.
+    The result is stored at markers[:, 8].
+
+    Parameters
+    ----------
+        markers : array[float]
+            .markers attribute of a struphy.pic.particles.Particles object
+
+        abs_B0 : array[float]
+            3d array of FE coeffs of the absolute value of static magnetic field (0-form).
+    """
+    bn1 = empty(int(pn[0]) + 1, dtype=float)
+    bn2 = empty(int(pn[1]) + 1, dtype=float)
+    bn3 = empty(int(pn[2]) + 1, dtype=float)
+
+    bd1 = empty(int(pn[0]), dtype=float)
+    bd2 = empty(int(pn[1]), dtype=float)
+    bd3 = empty(int(pn[2]), dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    #$ omp parallel private(ip, eta1, eta2, eta3, mu, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, abs_B)
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        mu = markers[ip, 4]
+
+        # spline evaluation
+        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
+
+        bsplines_kernels.b_d_splines_slim(
+            tn1, int(pn[0]), eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(
+            tn2, int(pn[1]), eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(
+            tn3, int(pn[2]), eta3, span3, bn3, bd3)
+
+        # abs_B0; 0form
+        abs_B = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_B0, starts)
+
+        markers[ip, 8] = mu*abs_B
+
+    #$ omp end parallel
 
 
 @stack_array('dfm', 'norm_b1', 'b', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
@@ -517,22 +718,24 @@ def eval_magnetic_energy(markers: 'float[:,:]',
     """
     Evaluate magnetic field energy of each particles
 
+    TODO: explain what is calculated here!!!
+
     Parameters
     ----------
-        markers : array[float]
-            .markers attribute of a struphy.pic.particles.Particles object
+    markers : array[float]
+        .markers attribute of a struphy.pic.particles.Particles object
 
-        pn : array[int]
-            spline degrees
+    pn : array[int]
+        spline degrees
 
-        tn1, tn2, tn3 : array[float]
-            knot vectors
+    tn1, tn2, tn3 : array[float]
+        knot vectors
 
-        starts : array[int]
-            starts of the stencil objects (0-form)
+    starts : array[int]
+        starts of the stencil objects (0-form)
 
-        b0 : array[float]
-            3d array of FE coeffs of the absolute value of static magnetic field (0-form).
+    b0 : array[float]
+        3d array of FE coeffs of the absolute value of static magnetic field (0-form).
     """
     norm_b1 = empty(3, dtype=float)
     b = empty(3, dtype=float)
@@ -560,16 +763,19 @@ def eval_magnetic_energy(markers: 'float[:,:]',
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        mu = markers[ip, 4]
+        mu = markers[ip, 9]
 
         # spline evaluation
         span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
         span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
         span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
 
-        bsplines_kernels.b_d_splines_slim(tn1, int(pn[0]), eta1, span1, bn1, bd1)
-        bsplines_kernels.b_d_splines_slim(tn2, int(pn[1]), eta2, span2, bn2, bd2)
-        bsplines_kernels.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
+        bsplines_kernels.b_d_splines_slim(
+            tn1, int(pn[0]), eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(
+            tn2, int(pn[1]), eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(
+            tn3, int(pn[2]), eta3, span3, bn3, bd3)
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(eta1, eta2, eta3,
@@ -648,7 +854,7 @@ def accum_gradI_const(markers: 'float[:,:]', n_markers_tot: 'int',
 
         # marker weight and velocity
         weight = markers[ip, 5]
-        mu = markers[ip, 4]
+        mu = markers[ip, 9]
 
         # b-field evaluation
         span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
@@ -703,7 +909,7 @@ def accum_en_fB(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # marker weight and velocity
-        mu = markers[ip, 4]
+        mu = markers[ip, 9]
         weight = markers[ip, 5]
 
         # b-field evaluation
