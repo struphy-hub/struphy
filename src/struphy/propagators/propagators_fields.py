@@ -2400,14 +2400,6 @@ class ImplicitDiffusion(Propagator):
         Parameters for the iterative solver (see ``__init__`` for details).
     """
 
-<<<<<<< HEAD
-    def __init__(self, phi: StencilVector,
-                 sigma_1=0., sigma_2=0., sigma_3='dt',
-                 A1_mat='M0', A2_mat='M1',
-                 rho=None,
-                 x0=None,
-                 e_field=None,
-=======
     def __init__(self, 
                  phi: StencilVector,
                  *,
@@ -2419,7 +2411,6 @@ class ImplicitDiffusion(Propagator):
                  diffusion_mat: str = 'M1',
                  rho: StencilVector | tuple | list = None,
                  x0: StencilVector = None,
->>>>>>> devel
                  **params):
 
         assert phi.space == self.derham.Vh['0']
