@@ -929,7 +929,7 @@ def delta_f_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
             f0 = f0_values[ip]
 
             # filling_v = alpha^2 * kappa / (N * s_0) * f_0 / ln(f_0) * DL^{-1} * v_p
-            filling_v[:] *= f0 / (log(f0) * n_markers_tot * markers[ip, 7])
+            filling_v[:] *= f0 * log(f0) / (n_markers_tot * markers[ip, 7])
 
         elif substep == 1:
             # filling_v = alpha^2 * kappa * w_p / N * DL^{-1} * v_p

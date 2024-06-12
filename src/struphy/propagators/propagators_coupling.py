@@ -777,9 +777,9 @@ class EfieldWeightsAnalytic(Propagator):
     .. math::
 
         \begin{align}
-            \frac{\text{d}}{\text{d} t} w_p & = \frac{f0_p}{s_{0, p}} \frac{\kappa}{v_{\text{th}}^2} \left[ DF^{-T} (\mathbb{\Lambda}^1)^T \mathbf{e} \right]
+            \frac{\text{d}}{\text{d} t} w_p & = \frac{\kappa}{v_{\text{th}}^2} \frac{f0_p}{s_{0, p}} \left[ DF^{-T} (\mathbb{\Lambda}^1)^T \mathbf{e} \right]
             \cdot \mathbf{v}_p \\[2mm]
-            \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} & = - \frac{\alpha^2 \kappa}{N} \sum_p \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right)
+            \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} & = \frac{\alpha^2 \kappa}{N} \sum_p \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right)
             \frac{f0_p \ln(f0_p)}{s_{0, p}}
         \end{align}
 
@@ -897,7 +897,7 @@ class EfieldWeightsAnalytic(Propagator):
         self._e_weights *= 0.
         self._e_weights += self._delta_e
         self._e_weights *= 0.5
-        self._e_weights += self._e_tmp
+        self._e_weights -= self._e_tmp
 
         # Update weights
         self._pusher(

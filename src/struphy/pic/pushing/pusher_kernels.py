@@ -2752,6 +2752,7 @@ def push_weights_with_efield_delta_f_vm(markers: 'float[:,:]', dt: float, stage:
             # w_p += dt * kappa f_0 / s_0 * (DL^{-1} v_p) * e_vec
             # with e_vec = e(0) + dt / 2 * M_1^{-1} accum_vec
             update *= f0 / markers[ip, 7]
+
         elif substep == 1:
             # w_p -= dt * kappa * w_p / (vth^2 * ln(f_0)) * (DL^{-1} v_p) * e_vec
             # with e_vec = (e^{n+1} + e^n) / 2
