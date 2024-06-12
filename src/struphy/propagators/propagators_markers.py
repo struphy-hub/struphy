@@ -12,6 +12,7 @@ from struphy.pic.pushing.pusher import ButcherTableau
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
 from struphy.pic.particles import Particles5D
+from struphy.kinetic_background.maxwellians import Maxwellian3D
 
 
 class PushEta(Propagator):
@@ -975,8 +976,7 @@ class StepWeightsVelocities(Propagator):
         params_default = {
             'e_field': BlockVector(self.derham.Vh_fem['1'].vector_space),
             'kappa': 1.,
-            'vth': 1.,
-            'n0': 1.,
+            'f0': Maxwellian3D(),
         }
 
         params = set_defaults(params, params_default)
@@ -984,7 +984,7 @@ class StepWeightsVelocities(Propagator):
         self._f0 = params['f0']
         assert self._f0.maxw_params['vth1'] == self._f0.maxw_params['vth2'] == self._f0.maxw_params['vth3']
         self.vth = self._f0.maxw_params['vth1']
-        self.n0 = self._f0.maxw_params['n0']
+        self.n0 = self._f0.maxw_params['n']
 
         assert isinstance(params['e_field'], (BlockVector, PolarVector))
         self._e_field = params['e_field']
@@ -1001,6 +1001,11 @@ class StepWeightsVelocities(Propagator):
             self._e_field.blocks[0]._data, self._e_field.blocks[1]._data, self._e_field.blocks[2]._data,
             self.n0, self.vth, self.kappa
         )
+
+    @classmethod
+    def options(cls):
+        pass
+
 
 
 class PushDriftKineticbxGradB(Propagator):
