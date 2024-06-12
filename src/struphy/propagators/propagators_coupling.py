@@ -732,8 +732,8 @@ class EfieldWeightsDiscreteGradient(Propagator):
 
         # Compute vector for particle pushing
         self._e_weights *= 0.
-        self._e_weights += self._e_tmp
         self._e_weights += self.feec_vars[0]
+        self._e_weights += self._e_tmp
         self._e_weights *= 0.5
 
         # Update weights

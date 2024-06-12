@@ -857,9 +857,7 @@ def delta_f_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                           vec1: 'float[:,:,:]',
-                           vec2: 'float[:,:,:]',
-                           vec3: 'float[:,:,:]',
+                           vec1: 'float[:,:,:]', vec2: 'float[:,:,:]', vec3: 'float[:,:,:]',
                            f0_values: 'float[:]',  # model specific argument
                            substep: 'int'):  # model specific argument
     r"""
