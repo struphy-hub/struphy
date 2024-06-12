@@ -7,9 +7,8 @@ import struphy.linear_algebra.linalg_kernels as linalg_kernels
 import struphy.geometry.evaluation_kernels as evaluation_kernels 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels 
 import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d 
-import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels 
 
-from numpy import zeros, empty, shape, sqrt, cos, sin, floor, log, isnan
+from numpy import zeros, empty, shape, sqrt, cos, sin, floor, log, pi
 
 
 def a_documentation():
@@ -2741,83 +2740,46 @@ def push_weights_with_efield_delta_f_vm(markers: 'float[:,:]', dt: float, stage:
         linalg_kernels.matrix_vector(df_inv, v, df_inv_v)
 
         # E-field (1-form)
-        e_vec_1 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3,
-                                                 span1, span2, span3, e1_1, starts)
-        e_vec_2 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3,
-                                                 span1, span2, span3, e1_2, starts)
-        e_vec_3 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3,
-                                                 span1, span2, span3, e1_3, starts)
+        e_vec_1 = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, e1_1, starts)
+        e_vec_2 = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, e1_2, starts)
+        e_vec_3 = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, e1_3, starts)
 
         update = dt * kappa / vth**2 * (df_inv_v[0] * e_vec_1 + df_inv_v[1] * e_vec_2 + df_inv_v[2] * e_vec_3)
         if substep == 0:
-            # w_p += dt * kappa / s_0 * (DL^{-1} v_p) * e_vec
-            # with e_vec = e(0) - dt / 2 * M_1^{-1} accum_vec
-            update *= (f0 / log(f0) - f0) / markers[ip, 7]
+            # w_p += dt * kappa f_0 / s_0 * (DL^{-1} v_p) * e_vec
+            # with e_vec = e(0) + dt / 2 * M_1^{-1} accum_vec
+            update *= f0 / markers[ip, 7]
         elif substep == 1:
             # w_p -= dt * kappa * w_p / (vth^2 * ln(f_0)) * (DL^{-1} v_p) * e_vec
             # with e_vec = (e^{n+1} + e^n) / 2
             update *= (-1) * markers[ip, 6] / log(f0)
-
-        if isnan(update):
-            print(ip)
-            print(markers[ip, 6])
-            print(f0)
-            print(log(f0))
-            print(1 / log(f0))
 
         markers[ip, 6] += update
 
     #$ omp end parallel
 
 
-@stack_array('particle', 'dfm', 'df_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'taus')
-def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
-                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                           starts: 'int[:]',
-                           kind_map: int, params_map: 'float[:]',
-                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                           loc1: 'float[:]', loc2: 'float[:]', loc3: 'float[:]',
-                           weight1: 'float[:]', weight2: 'float[:]', weight3: 'float[:]',
-                           e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
-                           kappa: 'float',
-                           eps: 'float[:]', maxiter: int):
-    r"""
-    particle pusher for ODE
+@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'dfm', 'df_inv', 'e_vec', 'df_inv_v')
+def push_weight_velocities_delta_f_vm(markers: 'float[:,:]', dt: float, stage: int,
+                                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                                      starts: 'int[:]',
+                                      kind_map: int, params_map: 'float[:]',
+                                      p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                                      ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                                      cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                                      e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
+                                      n0: 'float', vth: 'float', kappa: 'float',
+                                      ):
+    
+    # total number of basis functions : B-splines (pn) and D-splines (pn-1)
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pn3 = pn[2]
 
-    .. math::
-        \frac{\text{d} \mathbf{\eta}}{\text{d} t} & = DL^{-1} \mathbf{v} \,
-
-        \frac{\text{d} \mathbf{v}}{\text{d} t} & = \kappa \, DL^{-T} \mathbf{E}_0(\mathbf{\eta})
-
-    Parameters 
-    ----------
-    loc1, loc2, loc3 : array
-        contain the positions of the Legendre-Gauss quadrature points of necessary order to integrate basis splines exactly in each direction
-
-    weight1, weight2, weight3 : array
-        contain the values of the weights for the Legendre-Gauss quadrature in each direction
-
-    e1_1, e1_2, e1_3: array[float]
-        3d array of FE coeffs of the background E-field as 1-form.
-
-    kappa : float
-        = 2 * pi * Omega_c / omega ; Parameter determining the coupling strength between particles and fields
-
-    eps: array
-        determines the accuracy for the position (0th element) and velocity (1st element) with which the implicit scheme is executed
-
-    maxiter : integer
-        sets the maximum number of iterations for the iterative scheme
-    """
-
-    particle = zeros(9, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    # non-vanishing B-splines at particle position
+    # non-vanishing N-splines at particle position
     bn1 = empty(pn[0] + 1, dtype=float)
     bn2 = empty(pn[1] + 1, dtype=float)
     bn3 = empty(pn[2] + 1, dtype=float)
@@ -2827,64 +2789,77 @@ def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
     bd2 = empty(pn[1], dtype=float)
     bd3 = empty(pn[2], dtype=float)
 
+    # jacobian matrix and its inverse
     dfm = empty((3, 3), dtype=float)
     df_inv = empty((3, 3), dtype=float)
+    df_inv_t = empty((3, 3), dtype=float)
 
-    # number of quadrature points in direction 1
-    n_quad1 = int(floor((pn[0] - 1) * pn[1] * pn[2] / 2 + 1))
-    # number of quadrature points in direction 2
-    n_quad2 = int(floor(pn[0] * (pn[1] - 1) * pn[2] / 2 + 1))
-    # number of quadrature points in direction 3
-    n_quad3 = int(floor(pn[0] * pn[1] * (pn[2] - 1) / 2 + 1))
+    # electric field
+    e_vec = empty(3, dtype=float)
 
-    # Create array for storing the tau values
-    taus = empty(20, dtype=float)
+    # update for velocities
+    update_v = empty(3, dtype=float)
 
-    #$ omp parallel private(ip, run, bn1, bn2, bn3, bd1, bd2, bd3, dfm, df_inv, taus, temp, k, particle, dt2)
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, df_inv_t, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, e_vec_1, e_vec_2, e_vec_3, e_vec, update_w, update_v, b, c, d, e)
     #$ omp for
     for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
+        if markers[ip, 0] == -1:
             continue
 
-        particle[:] = markers[ip, :]
+        # position
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
 
-        run = 1
-        k = 0
+        # spans (i.e. index for non-vanishing basis functions)
+        span1 = bsplines_kernels.find_span(tn1, pn1, eta1)
+        span2 = bsplines_kernels.find_span(tn2, pn2, eta2)
+        span3 = bsplines_kernels.find_span(tn3, pn3, eta3)
 
-        while run != 0:
-            k += 1
-            if k == 5:
-                print(
-                    'Splitting the time steps into 4 has not been enough, aborting the iteration.')
-                print()
-                break
+        # compute bn, bd, i.e. values for non-vanishing B-/D-splines at position eta
+        bsplines_kernels.b_d_splines_slim(tn1, pn1, eta1, span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn2, eta2, span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn3, eta3, span3, bn3, bd3)
 
-            run = 0
+        # Compute Jacobian matrix
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map,
+                              p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
 
-            dt2 = dt/k
+        # invert Jacobian matrix and transpose
+        linalg_kernels.matrix_inv(dfm, df_inv)
+        linalg_kernels.transpose(df_inv, df_inv_t)
 
-            for _ in range(k):
-                temp = pusher_utilities_kernels.aux_fun_x_v_stat_e(particle,
-                                          pn, tn1, tn2, tn3,
-                                          starts, starts, starts,
-                                          kind_map, params_map,
-                                          p_map, t1_map, t2_map, t3_map,
-                                          ind1_map, ind2_map, ind3_map,
-                                          cx, cy, cz,
-                                          n_quad1, n_quad2, n_quad3,
-                                          dfm, df_inv,
-                                          bn1, bn2, bn3, bd1, bd2, bd3,
-                                          taus,
-                                          dt2,
-                                          loc1, loc2, loc3, weight1, weight2, weight3,
-                                          e1_1, e1_2, e1_3,
-                                          kappa,
-                                          eps, maxiter)
-                run = run + temp
+        # E-field (1-form)
+        e_vec_1 = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, e1_1, starts)
+        e_vec_2 = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, e1_2, starts)
+        e_vec_3 = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, e1_3, starts)
 
-        # write the results in the particles array
-        markers[ip, :] = particle[:]
+        e_vec[0] = e_vec_1
+        e_vec[1] = e_vec_2
+        e_vec[2] = e_vec_3
+
+        linalg_kernels.matrix_vector(df_inv_t, e_vec, update_v)
+
+        b = log(n0 / sqrt(2 * pi)**3)
+        c = kappa**2 * linalg_kernels.scalar_dot(update_v, update_v)
+        d = kappa * linalg_kernels.scalar_dot(update_v, markers[ip, 3:6])
+        e = b - linalg_kernels.scalar_dot(markers[ip, 3:6], markers[ip, 3:6]) / 3
+        update_w = (c * dt**2 / 2 + d * dt - e) ** (-1/vth**2) - (-e)** (-1/vth**2)
+
+        # update the markers
+        markers[ip, 3:6] += dt * kappa * update_v[:]
+        markers[ip, 6] += update_w
 
     #$ omp end parallel
+

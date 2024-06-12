@@ -1298,6 +1298,8 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         # Create pointers to background electric potential and field
         self._phi_background = self.derham.Vh['0'].zeros()
         self._e_background = self.derham.grad.dot(self._phi_background)
+        assert np.all(self._e_background[0]._data < 1e-14) and np.all(self._e_background[1]._data < 1e-14) and np.all(self._e_background[2]._data < 1e-14), \
+            "Electric background field must be zero!"
         # ====================================================================================
 
         # propagator params
@@ -1312,13 +1314,6 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
             bc_type=self._species_params['markers']['bc']['type']))
         if self._rank == 0:
             print("Added Step PushEta\n")
-
-        self.add_propagator(self.prop_markers.StepVinEfield(
-            self.pointer['species1'],
-            e_field=self._e_background + self.pointer['e_field'],
-            kappa=self.kappa))
-        if self._rank == 0:
-            print("Added Step VinEfield\n")
 
         self.add_propagator(self.prop_coupling.EfieldWeightsAnalytic(
             self.pointer['e_field'],
@@ -1340,16 +1335,12 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         if self._rank == 0:
             print("\nAdded Step EfieldWeights Discrete Gradient\n")
 
-        # self.add_propagator(self.prop_coupling.EfieldWeightsImplicit(
-        #     self.pointer['e_field'],
-        #     self.pointer['species1'],
-        #     alpha=self.alpha,
-        #     kappa=self.kappa,
-        #     f0=self._f0,
-        #     model='delta_f_vlasov_maxwell',
-        #     **params_implicit))
-        # if self._rank == 0:
-        #     print("\nAdded Step EfieldWeights Semi-Crank-Nicolson\n")
+        self.add_propagator(self.prop_markers.StepWeightsVelocities(
+            self.pointer['species1'],
+            e_field=(self._e_background + self.pointer['e_field']),
+            kappa=self.kappa,
+            f0=self._f0,
+        ))
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_e')
@@ -1370,71 +1361,6 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
 
         # Initialize fields and particles
         super().initialize_from_params()
-
-        # evaluate f0
-        f0_values = self._f0(
-            *self.pointer['species1'].markers_wo_holes[:, :6].T
-        )
-
-        ln_f0_values = np.log(f0_values)
-
-        # overwrite binning function to always bin marker data for f_1, not h
-        def new_binning(self, components, bin_edges):
-            """
-            Overwrite the binning method of the parent class to correctly bin data from f_1
-            and not from f_0 - (f_0 - f_1) ln(f_0).
-
-            Parameters & Info
-            -----------------
-            see struphy.pic.particles.base.Particles.binning
-            """
-
-            # values of f0 and their logarithm
-            f0_values = self._f0(
-                *self.markers_wo_holes[:, :6].T
-            )
-            ln_f0_values = np.log(f0_values)
-
-            assert np.count_nonzero(components) == len(bin_edges)
-
-            # volume of a bin
-            bin_vol = 1.
-            for be in bin_edges:
-                bin_vol *= be[1] - be[0]
-
-            # extend components list to number of columns of markers array
-            _n = len(components)
-            slicing = components + [False] * (self.markers.shape[1] - _n)
-
-            # compute weights of histogram:
-            _weights0 = self.weights0
-            _weights = (
-                f0_values / self.markers_wo_holes[:, 7] * (1 / ln_f0_values - 1)
-                - self.weights / ln_f0_values
-                )
-
-            f_slice = np.histogramdd(
-                self.markers_wo_holes[:, slicing],
-                bins=bin_edges,
-                weights=_weights0
-            )[0]
-
-            df_slice = np.histogramdd(
-                self.markers_wo_holes[:, slicing],
-                bins=bin_edges,
-                weights=_weights
-            )[0]
-
-            f_slice /= self.n_mks * bin_vol
-            df_slice /= self.n_mks * bin_vol
-
-            return f_slice, df_slice
-
-        func_type = type(self.pointer['species1'].binning)
-
-        self.pointer['species1'].binning = func_type(
-            new_binning, self.pointer['species1']
-        )
 
         # Accumulate charge density before converting f1 to h
         charge_accum = AccumulatorVector(
@@ -1462,25 +1388,25 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         if self._rank == 0:
             print('Done.')
 
-        # Correct initialization of weights from f1 to h
-        # w_p^h = f_0 * (1 - ln(f_0)) / s_0 - w_p^f * ln(f_0)
-        self.pointer['species1'].markers[~self.pointer['species1'].holes, 6] *= \
-            (-1) * ln_f0_values
-        self.pointer['species1'].markers[~self.pointer['species1'].holes, 6] += \
-            f0_values * (1 - ln_f0_values) / \
-            self.pointer['species1'].markers_wo_holes[:, 7]
-
     def update_scalar_quantities(self):
         # 0.5 * e^T * M_1 * e
         self._mass_ops.M1.dot(self.pointer['e_field'], out=self._en_e_tmp)
         en_E = self.pointer['e_field'].dot(self._en_e_tmp) / 2.
         self.update_scalar('en_e', en_E)
 
-        # alpha^2 * v_th^2 / N * sum_p w_p
+        # evaluate f0
+        f0_values = self._f0(
+            *self.pointer['species1'].markers_wo_holes[:, :6].T
+        )
+        ln_f0_values = np.log(f0_values)
+
+        # - alpha^2 * v_th^2 / N * sum_p w_p * ln(f0_p)
         self._tmp[0] = \
-            self.alpha**2 * self.vth**2 * \
-            np.sum(self.pointer['species1'].markers_wo_holes[:, 6]) / \
-            self.pointer['species1'].n_mks
+            self.alpha**2 * self.vth**2 / self.pointer['species1'].n_mks * \
+            np.dot(
+                self.pointer['species1'].markers_wo_holes[:, 6],
+                ln_f0_values
+        )
 
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._tmp, op=self._mpi_sum

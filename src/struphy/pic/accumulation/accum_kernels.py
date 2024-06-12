@@ -906,8 +906,6 @@ def delta_f_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        f0 = f0_values[ip]
-
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(eta1, eta2, eta3,
                               kind_map, params_map,
@@ -928,11 +926,14 @@ def delta_f_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
         linalg_kernels.matrix_vector(df_inv, v, filling_v)
 
         if substep == 0:
-            # filling_v = alpha^2 * kappa / (N * s_0) * (f_0 / ln(f_0) - f_0) * DL^{-1} * v_p
-            filling_v[:] *= (f0 / log(f0) - f0) / (n_markers_tot * markers[ip, 7])
+            f0 = f0_values[ip]
+
+            # filling_v = alpha^2 * kappa / (N * s_0) * f_0 / ln(f_0) * DL^{-1} * v_p
+            filling_v[:] *= f0 / (log(f0) * n_markers_tot * markers[ip, 7])
+
         elif substep == 1:
-            # filling_v = alpha^2 * kappa * w_p / (N * ln(f_0)) * DL^{-1} * v_p
-            filling_v[:] *= markers[ip, 6] / (n_markers_tot * log(f0))
+            # filling_v = alpha^2 * kappa * w_p / N * DL^{-1} * v_p
+            filling_v[:] *= markers[ip, 6] / n_markers_tot
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.vec_fill_b_v1(

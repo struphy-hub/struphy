@@ -613,14 +613,14 @@ class EfieldWeightsDiscreteGradient(Propagator):
         \begin{align}
             \frac{\text{d}}{\text{d} t} w_p & = - \frac{\kappa}{v_{\text{th}}^2} \left[ (\mathbb{\Lambda}^1)^T \mathbf{e} \right]
                 \cdot \left( DF^{-1} \mathbf{v}_p \right) \, \frac{w_p}{\ln(f_{0,p})} \\[2mm]
-            \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} & = \frac{\alpha^2 \kappa}{N} \sum_p \mathbb{\Lambda}^1 \cdot
-                \left( DF^{-1} \mathbf{v}_p \right) \, \frac{w_p}{\ln(f_{0,p})}
+            \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} & = - \frac{\alpha^2 \kappa}{N} \sum_p \mathbb{\Lambda}^1 \cdot
+                \left( DF^{-1} \mathbf{v}_p \right) \, w_p
         \end{align}
 
     using the symplectic Euler method.
 
     Parameters
-    ---------- 
+    ----------
     e : psydac.linalg.block.BlockVector
         FE coefficients of a 1-form.
 
@@ -724,7 +724,7 @@ class EfieldWeightsDiscreteGradient(Propagator):
         # Compute new e-field
         self._e_tmp *= 0.
         self._e_tmp += self.feec_vars[0]
-        self._e_tmp += self._delta_e
+        self._e_tmp -= self._delta_e
 
         if self._info:
             # Store old weights
@@ -777,10 +777,10 @@ class EfieldWeightsAnalytic(Propagator):
     .. math::
 
         \begin{align}
-            \frac{\text{d}}{\text{d} t} w_p & = \frac{1}{s_{0, p}} \frac{\kappa}{v_{\text{th}}^2} \left[ DF^{-T} (\mathbb{\Lambda}^1)^T \mathbf{e} \right]
-            \cdot \mathbf{v}_p \left( \frac{f_0}{\ln(f_0)} - f_0 \right) \\[2mm]
+            \frac{\text{d}}{\text{d} t} w_p & = \frac{f0_p}{s_{0, p}} \frac{\kappa}{v_{\text{th}}^2} \left[ DF^{-T} (\mathbb{\Lambda}^1)^T \mathbf{e} \right]
+            \cdot \mathbf{v}_p \\[2mm]
             \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} & = - \frac{\alpha^2 \kappa}{N} \sum_p \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right)
-            \frac{1}{s_{0, p}} \left( \frac{f_0}{\ln(f_0)} - f_0 \right)
+            \frac{f0_p \ln(f0_p)}{s_{0, p}}
         \end{align}
 
     Parameters
@@ -888,7 +888,7 @@ class EfieldWeightsAnalytic(Propagator):
         # Compute new e-field
         self._e_tmp *= 0.
         self._e_tmp += self.feec_vars[0]
-        self._e_tmp -= self._delta_e
+        self._e_tmp += self._delta_e
 
         # Store old weights
         self._old_weights[~self.particles[0].holes] = self.particles[0].markers[~self.particles[0].holes, 6]

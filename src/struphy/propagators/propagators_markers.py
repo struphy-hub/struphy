@@ -11,7 +11,7 @@ from struphy.pic.pushing.pusher import Pusher
 from struphy.pic.pushing.pusher import ButcherTableau
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
-from struphy.pic.particles import Particles6D, Particles5D
+from struphy.pic.particles import Particles5D
 
 
 class PushEta(Propagator):
@@ -635,7 +635,7 @@ class PushGuidingCenterBxEstar(Propagator):
         """
         self._pusher(self.particles[0], dt,
                      *self._pusher_inputs, mpi_sort=self._mpi_sort, verbose=self._verbose)
-        
+
         # update_weights
         if self.particles[0].control_variate:
 
@@ -860,7 +860,7 @@ class PushGuidingCenterParallel(Propagator):
         """
         self._pusher(self.particles[0], dt,
                      *self._pusher_inputs, mpi_sort=self._mpi_sort, verbose=self._verbose)
-        
+
         # update_weights
         if self.particles[0].control_variate:
 
@@ -947,25 +947,16 @@ class StepVinEfield(Propagator):
         pass
 
 
-class StepStaticEfield(Propagator):
+class StepWeightsVelocities(Propagator):
     r'''Solve the following system
 
     .. math::
 
-        \frac{\text{d} \mathbf{\eta}_p}{\text{d} t} & = DL^{-1} \mathbf{v}_p \,,
+        \frac{\text{d} w_p}{\text{d} t} & = \frac{\kappa}{v_\text{th}^2} \frac{1}{\ln(f0_p)} \mathbf{E} \cdot DL^{-1} \mathbf{v}_p \,,
 
         \frac{\text{d} \mathbf{v}_p}{\text{d} t} & = \kappa \, DL^{-T} \mathbf{E}
 
-    which is solved by an average discrete gradient method, implicitly iterating
-    over :math:`k` (for every particle :math:`p`):
-
-    .. math::
-
-        \mathbf{\eta}^{n+1}_{k+1} = \mathbf{\eta}^n + \frac{\Delta t}{2} DL^{-1}
-        \left( \frac{\mathbf{\eta}^{n+1}_k + \mathbf{\eta}^n }{2} \right) \left( \mathbf{v}^{n+1}_k + \mathbf{v}^n \right) \,,
-
-        \mathbf{v}^{n+1}_{k+1} = \mathbf{v}^n + \Delta t \, \kappa \, DL^{-1}\left(\mathbf{\eta}^n\right)
-        \int_0^1 \left[ \mathbb{\Lambda}\left( \eta^n + \tau (\mathbf{\eta}^{n+1}_k - \mathbf{\eta}^n) \right) \right]^T \mathbf{e} \, \text{d} \tau
+    which is analytically.
 
     Parameters
     ----------
@@ -978,53 +969,38 @@ class StepStaticEfield(Propagator):
 
     def __init__(self, particles, **params):
 
-        from numpy import polynomial, floor
-
         super().__init__(particles)
 
         # parameters
         params_default = {
             'e_field': BlockVector(self.derham.Vh_fem['1'].vector_space),
-            'kappa': 1e2
+            'kappa': 1.,
+            'vth': 1.,
+            'n0': 1.,
         }
 
         params = set_defaults(params, params_default)
         self.kappa = params['kappa']
+        self._f0 = params['f0']
+        assert self._f0.maxw_params['vth1'] == self._f0.maxw_params['vth2'] == self._f0.maxw_params['vth3']
+        self.vth = self._f0.maxw_params['vth1']
+        self.n0 = self._f0.maxw_params['n0']
 
         assert isinstance(params['e_field'], (BlockVector, PolarVector))
         self._e_field = params['e_field']
 
-        pn1 = self.derham.p[0]
-        pd1 = pn1 - 1
-        pn2 = self.derham.p[1]
-        pd2 = pn2 - 1
-        pn3 = self.derham.p[2]
-        pd3 = pn3 - 1
-
-        # number of quadrature points in direction 1
-        n_quad1 = int(floor(pd1 * pn2 * pn3 / 2 + 1))
-        # number of quadrature points in direction 2
-        n_quad2 = int(floor(pn1 * pd2 * pn3 / 2 + 1))
-        # number of quadrature points in direction 3
-        n_quad3 = int(floor(pn1 * pn2 * pd3 / 2 + 1))
-
-        # get quadrature weights and locations
-        self._loc1, self._weight1 = polynomial.legendre.leggauss(n_quad1)
-        self._loc2, self._weight2 = polynomial.legendre.leggauss(n_quad2)
-        self._loc3, self._weight3 = polynomial.legendre.leggauss(n_quad3)
-
         self._pusher = Pusher(self.derham, self.domain,
-                              'push_x_v_static_efield')
+                              'push_weight_velocities_delta_f_vm')
 
     def __call__(self, dt):
         """
         TODO
         """
-        self._pusher(self.particles[0], dt,
-                     self._loc1, self._loc2, self._loc3, self._weight1, self._weight2, self._weight3,
-                     self._e_field.blocks[0]._data, self._e_field.blocks[1]._data, self._e_field.blocks[2]._data,
-                     self.kappa,
-                     array([1e-10, 1e-10]), 100)
+        self._pusher(
+            self.particles[0], dt,
+            self._e_field.blocks[0]._data, self._e_field.blocks[1]._data, self._e_field.blocks[2]._data,
+            self.n0, self.vth, self.kappa
+        )
 
 
 class PushDriftKineticbxGradB(Propagator):
@@ -1686,7 +1662,7 @@ class PushDriftKineticBxEstar(Propagator):
         # efield=self._grad_phi0
         e1 = self._e1 = self.derham.grad.dot(-self._phi0, out=self._e1)
         e1.update_ghost_regions()
-         
+
         self._pusher(self.particles[0], dt,
                      e1[0]._data, e1[1]._data, e1[2]._data,
                      *self._pusher_inputs,
@@ -1709,7 +1685,7 @@ class PushDriftKineticBxEstar(Propagator):
 
 class PushDriftKineticParallel(Propagator):
     r"""Particle pushing step for the :math:`\mathbf B^*`acceleration:
-    
+
     .. math::
 
         \left\{ 
@@ -1773,7 +1749,7 @@ class PushDriftKineticParallel(Propagator):
         super().__init__(particles)
 
         # types
-        #assert isinstance(magn_bckgr, BraginskiiEquilibrium)
+        # assert isinstance(magn_bckgr, BraginskiiEquilibrium)
 
         # parameters
         algo_params_default = {
@@ -1806,7 +1782,7 @@ class PushDriftKineticParallel(Propagator):
 
         # grad phi and grad absB0
         grad_absB0 = self.derham.grad.dot(absB0)
-        grad_absB0.update_ghost_regions() 
+        grad_absB0.update_ghost_regions()
 
         _eval_ker_names = []
 
@@ -1903,7 +1879,7 @@ class PushDriftKineticParallel(Propagator):
         self._pusher(self.particles[0], dt,
                      e1[0]._data, e1[1]._data, e1[2]._data,
                      *self._pusher_inputs, mpi_sort=self._mpi_sort, verbose=self._verbose)
-        
+
         # update_weights
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
