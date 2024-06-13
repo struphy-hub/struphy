@@ -351,6 +351,210 @@ class ShearedSlab(CartesianMHDequilibrium):
                 self.q_x(x, der=1)/self.q_x(x)**3
 
         return gradBx, gradBy, gradBz
+    
+
+class ShearFluid(CartesianMHDequilibrium):
+    r"""
+    Sheared fluid equilibrium in a cube with side lengths :math:`L_x=a,\,L_y=b,\,L_z=c`. Profiles depend on :math:`z` solely: 
+
+    .. math::
+
+        p(z) &= p_a + T(z)p_b \,,
+
+        n(z) &= n_a + T(z)n_b \,.
+
+        T(z) &= (\tanh(z - z_1)/\delta)-\tanh(z - z_2)/\delta)) \,.
+
+        \mathbf B &= B_{0x}\,\mathbf e_x + B_{0y}\,\mathbf e_y + B_{0z}\,\mathbf e_z = const.\,,
+
+    Units are those defned in the parameter file (:code:`struphy units -h`).
+
+    Parameters
+    ---------- 
+    a : float 
+        Dimension of the slab in x (default: 1.).
+    b : float 
+        Dimension of the slab in y (default: 1.).
+    c : float
+        Dimension of the slab in z (default: 1.).
+    z1 : float
+        Location of the first swap in density (default 0.25).
+    z2 : float
+        Location of the second swap in density (default 0.75).
+    delta : float 
+        Characteristic size of the swap region (default 1/15).
+    na : float
+        Exterior value for the density (default: 1.).
+    nb : float
+        Deviation of the density (default 0.25).
+    pa : float 
+        Exterior value for the pressure (default: 1.).
+    pb : float 
+        Deviation of the pressure (default 0.).
+    B0x : float  
+        x-component of magnetic field (default: 0.).
+    B0y : float  
+        y-component of magnetic field (default: 0.).
+    B0z : float  
+        z-component of magnetic field (default: 1.).
+    Note
+    ----
+    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+
+        mhd_equilibrium :
+            type : ShearFluid
+            ShearFluid :
+                a    : 1.   # dimension in x 
+                b    : 1.   # dimension in y
+                c    : 2.   # dimension in z    
+                z1   : 0.5  # first swap location
+                z2   : 1.5  # second swap location
+                delta: 0.06666666   # characteristic size of the swap
+                na   : 1.25 # exterior density
+                nb   : 0.75 # deviation from the average
+                pa   : 1.   # constant pressure
+                pb   : 0.   # deviation pressure
+                B0x  : 1. # magnetic field in x
+                B0y  : 0. # magnetic field in y
+                B0z  : 0. # magnetic field in z
+    """
+
+    def __init__(self, **params):
+
+        params_default = {'a': 1.,
+                          'b': 1.,
+                          'c': 1.,
+                          'z1': 0.25,
+                          'z2': 0.75,
+                          'delta': 0.06666666,
+                          'na': 1.,
+                          'nb': 0.25,
+                          'pa': 1.,
+                          'pb': 0.,
+                          'B0x': 1.,
+                          'B0y': 0.,
+                          'B0z': 0.,}
+
+        self._params = set_defaults(params, params_default)
+
+    @property
+    def params(self):
+        """ Parameters dictionary.
+        """
+        return self._params
+
+    # ===============================================================
+    #             profiles for a sheared slab geometry
+    # ===============================================================
+
+    def T_z(self, z):
+        """Swap function T(z) = \tanh(z - z_1)/\delta) - \tanh(z - z_2)/\delta)"""
+        Tout = (np.tanh((z-self.params['z1'])/self.params['delta']) - np.tanh((z-self.params['z2'])/self.params['delta']))/2.
+        return Tout
+
+    def p_z(self, z):
+        """ Pressure profile p = p(z).
+        """
+
+        pout = self.params['pa'] + self.params['pb']*self.T_z(z)
+        
+        return pout
+
+    def n_z(self, z):
+        """ Ion number density profile n = n(z).
+        """
+        nout = self.params['na'] + self.params['nb']*self.T_z(z)
+
+        return nout
+
+    def plot_profiles(self, n_pts=501):
+        """ Plots radial profiles.
+        """
+
+        import matplotlib.pyplot as plt
+
+        z = np.linspace(0., self.params['c'], n_pts)
+
+        fig, ax = plt.subplots(1, 3)
+
+        fig.set_figheight(3)
+        fig.set_figwidth(12)
+
+        ax[1].plot(z, self.p_z(z))
+        ax[1].set_xlabel('z')
+        ax[1].set_ylabel('p')
+
+        ax[2].plot(z, self.n_z(z))
+        ax[2].set_xlabel('z')
+        ax[2].set_ylabel('n')
+
+        plt.subplots_adjust(wspace=0.4)
+
+        plt.show()
+
+    # ===============================================================
+    #                  profiles on physical domain
+    # ===============================================================
+
+    # equilibrium magnetic field (curl of equilibrium vector potential)
+    def b_xyz(self, x, y, z):
+        """ Magnetic field.
+        """
+        bx = self.params['B0x'] - 0*x
+        by = self.params['B0y'] - 0*x
+        bz = self.params['B0z'] - 0*x
+
+        return bx, by, bz
+
+    # equilibrium vector potential
+    def a_xyz(self, x, y, z):
+        """ Vector potential.
+        """
+        bx = self.params['B0x'] - 0*x
+        by = self.params['B0y'] - 0*x
+        bz = self.params['B0z'] - 0*x
+
+        ax = by*z
+        ay = bz*x
+        az = bx*y
+
+        return ax, ay, az
+
+    # equilibrium current (curl of equilibrium magnetic field)
+    def j_xyz(self, x, y, z):
+        """ Current density.
+        """
+        jx = 0*x
+        jy = 0*x
+        jz = 0*x
+
+        return jx, jy, jz
+
+    # equilibrium pressure
+    def p_xyz(self, x, y, z):
+        """ Pressure.
+        """
+        pp = self.p_z(z)
+
+        return pp
+
+    # equilibrium number density
+    def n_xyz(self, x, y, z):
+        """ Number density.
+        """
+        nn = self.n_z(z)
+
+        return nn
+
+    # gradient of equilibrium magnetic field (grad of equilibrium magnetic field)
+    def gradB_xyz(self, x, y, z):
+        """ Gradient of magnetic field.
+        """
+        gradBy = 0*x
+        gradBz = 0*x
+        gradBx = 0*x
+
+        return gradBx, gradBy, gradBz
 
 
 class ScrewPinch(CartesianMHDequilibrium):
@@ -373,7 +577,7 @@ class ScrewPinch(CartesianMHDequilibrium):
 
         \mathbf B(r) &= B_{0}\left( \mathbf e_z + \frac{r}{q(r) R_0}\mathbf e_\theta \right)\,,\qquad q(r) = q_0 + ( q_1 - q_0 )\frac{r^2}{a^2}\,,
 
-        p(r) &= \left\{\begin{aligned}
+        p(r) &= p0 + \left\{\begin{aligned}
         &\frac{B_{0}^2 a^2 q_0}{ 2 R_0^2(q_1 - q_0) } \left( \frac{1}{q(r)^2} - \frac{1}{q_1^2} \right) \quad &&\textnormal{if}\quad q_1\neq q_0\neq\infty\,, 
 
         &\frac{B_{0}^2 a^2}{R_0^2q_0^2} \left(1 - \frac{r^2}{a^2} \right) \quad &&\textnormal{if}\quad q_1= q_0\neq\infty\,, 
@@ -403,6 +607,8 @@ class ScrewPinch(CartesianMHDequilibrium):
         2nd shape factor for ion number density profile (default: 0.). 
     na : float
         Ion nnumber density at r=a (default: 1.).
+    p0 : float
+        Pressure offset to avoid numerical issues (default: 1e-8)
     beta : float
         Plasma beta for :math:`q_0=q_1=\infty` (ratio of kinematic pressure to B^2/(2*mu0), default: 0.1).
 
@@ -421,6 +627,7 @@ class ScrewPinch(CartesianMHDequilibrium):
                 n1   : 0.   # 1st shape factor for ion number density profile 
                 n2   : 0.   # 2nd shape factor for ion number density profile 
                 na   : 1.   # ion number density at r=a
+                p0   : 1.   # pressure offset
                 beta : 0.1  # plasma beta = p*(2*mu_0)/B^2 for q0=q1=inf (pure axial field).
     """
 
@@ -434,6 +641,7 @@ class ScrewPinch(CartesianMHDequilibrium):
                           'n1': 0.,
                           'n2': 0.,
                           'na': 1.,
+                          'p0': 1.e-8,
                           'beta': .1}
 
         self._params = set_defaults(params, params_default)
@@ -496,7 +704,7 @@ class ScrewPinch(CartesianMHDequilibrium):
                     (1/self.q_r(r)**2 - 1/q1**2)
 
         # add offset to avoid zero pressure
-        return pout + 1e-8
+        return pout + self.params['p0']
 
     def n_r(self, r):
         """ Radial ion number density profile n = n(r).

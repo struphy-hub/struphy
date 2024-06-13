@@ -371,6 +371,10 @@ def test_maxwellian_3d_mhd(Nel, show_plot=False):
                                                   r2=mhd_equil.params['a'] *
                                                   2*np.pi,
                                                   r3=mhd_equil.params['R0']*2*np.pi)
+            elif 'ShearFluid' in key:
+                mhd_equil.domain = domains.Cuboid(r1=mhd_equil.params['a'],
+                                                  r2=mhd_equil.params['b'],
+                                                  r3=mhd_equil.params['c'])
             elif 'ScrewPinch' in key:
                 mhd_equil.domain = domains.HollowCylinder(a1=1e-3,
                                                           a2=mhd_equil.params['a'],
@@ -1204,6 +1208,10 @@ def test_maxwellian_2d_mhd(Nel, show_plot=False):
                                                   r2=mhd_equil.params['a'] *
                                                   2*np.pi,
                                                   r3=mhd_equil.params['R0']*2*np.pi)
+            elif 'ShearFluid' in key:
+                mhd_equil.domain = domains.Cuboid(r1=mhd_equil.params['a'],
+                                                  r2=mhd_equil.params['b'],
+                                                  r3=mhd_equil.params['c'])
             elif 'ScrewPinch' in key:
                 mhd_equil.domain = domains.HollowCylinder(a1=1e-3,
                                                           a2=mhd_equil.params['a'],
@@ -1799,6 +1807,7 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
 
 
 if __name__ == '__main__':
+    test_maxwellian_3d_mhd([8, 11, 12])
     # test_maxwellian_6d_uniform(Nel=[64, 1, 1], show_plot=False)
     # test_maxwellian_6d_perturbed(Nel=[64, 1, 1], show_plot=False)
     # test_maxwellian_6d_mhd(Nel=[8, 11, 12], show_plot=True)

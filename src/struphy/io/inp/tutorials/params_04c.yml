@@ -59,7 +59,7 @@ fluid :
             MHD :
                 comps :
                     rho3 : n3
-                    s3   : s3
+                    s3   : s3_monoatomic
         perturbation :
             type : noise # initialization
             noise :
