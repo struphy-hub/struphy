@@ -195,7 +195,7 @@ class MHDequilibrium(metaclass=ABCMeta):
         """
         return self.domain.transform(self.n0(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out': False}, squeeze_out=squeeze_out)
 
-    def s0(self, *etas, squeeze_out=False):
+    def s0_monoatomic(self, *etas, squeeze_out=False):
         """ 0-form equilibrium entropy density on logical cube [0, 1]^3.
             Hard coded assumption : gamma = 5/3 (monoatomic perfect gaz)
         """
@@ -205,11 +205,28 @@ class MHDequilibrium(metaclass=ABCMeta):
         s = n * np.log(p/(2/3*np.power(n, 5/3)))
         return self.domain.pull(s, *etas, kind='0', squeeze_out=squeeze_out)
     
-    def s3(self, *etas, squeeze_out=False):
+    def s3_monoatomic(self, *etas, squeeze_out=False):
         """ 3-form equilibrium entropy density on logical cube [0, 1]^3.
             Hard coded assumption : gamma = 5/3 (monoatomic perfect gaz)
         """
-        return self.domain.transform(self.s0(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out': False}, squeeze_out=squeeze_out)
+        return self.domain.transform(self.s0_monoatomic(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+
+    def s0_diatomic(self, *etas, squeeze_out=False):
+        """ 0-form equilibrium entropy density on logical cube [0, 1]^3.
+            Hard coded assumption : gamma = 7/5 (diatomic perfect gaz)
+        """
+        xyz = self.domain(*etas, squeeze_out=False)
+        p = self.p_xyz(xyz[0], xyz[1], xyz[2])
+        n = self.n_xyz(xyz[0], xyz[1], xyz[2])
+        s = n * np.log(p/(2/5*np.power(n, 7/5)))
+        return self.domain.pull(s, *etas, kind='0', squeeze_out=squeeze_out)
+    
+    def s3_diatomic(self, *etas, squeeze_out=False):
+        """ 3-form equilibrium entropy density on logical cube [0, 1]^3.
+            Hard coded assumption : gamma = 5/3 (monoatomic perfect gaz)
+        """
+        return self.domain.transform(self.s0_diatomic(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+
 
     ###################
     # Single components
