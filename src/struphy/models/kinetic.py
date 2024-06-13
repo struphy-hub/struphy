@@ -1307,23 +1307,23 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         algo_eta = params['kinetic']['species1']['options']['algos']['push_eta']
         params_coupling = params['kinetic']['species1']['options']['coupling_solver']
 
-        # # Initialize propagators/integrators used in splitting substeps
-        # self.add_propagator(self.prop_markers.PushEta(
-        #     self.pointer['species1'],
-        #     algo=algo_eta,
-        #     bc_type=self._species_params['markers']['bc']['type']))
-        # if self._rank == 0:
-        #     print("Added Step PushEta\n")
+        # Initialize propagators/integrators used in splitting substeps
+        self.add_propagator(self.prop_markers.PushEta(
+            self.pointer['species1'],
+            algo=algo_eta,
+            bc_type=self._species_params['markers']['bc']['type']))
+        if self._rank == 0:
+            print("Added Step PushEta\n")
 
-        # self.add_propagator(self.prop_coupling.EfieldWeightsAnalytic(
-        #     self.pointer['e_field'],
-        #     self.pointer['species1'],
-        #     alpha=self.alpha,
-        #     kappa=self.kappa,
-        #     f0=self._f0,
-        #     **params_coupling))
-        # if self._rank == 0:
-        #     print("\nAdded Step EfieldWeights Analytic\n")
+        self.add_propagator(self.prop_coupling.EfieldWeightsAnalytic(
+            self.pointer['e_field'],
+            self.pointer['species1'],
+            alpha=self.alpha,
+            kappa=self.kappa,
+            f0=self._f0,
+            **params_coupling))
+        if self._rank == 0:
+            print("\nAdded Step EfieldWeights Analytic\n")
 
         self.add_propagator(self.prop_coupling.EfieldWeightsDiscreteGradient(
             self.pointer['e_field'],
@@ -1335,12 +1335,12 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         if self._rank == 0:
             print("\nAdded Step EfieldWeights Discrete Gradient\n")
 
-        # self.add_propagator(self.prop_markers.StepWeightsVelocities(
-        #     self.pointer['species1'],
-        #     e_field=(self._e_background + self.pointer['e_field']),
-        #     kappa=self.kappa,
-        #     f0=self._f0,
-        # ))
+        self.add_propagator(self.prop_markers.StepWeightsVelocities(
+            self.pointer['species1'],
+            e_field=(self._e_background + self.pointer['e_field']),
+            kappa=self.kappa,
+            f0=self._f0,
+        ))
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_e')
@@ -1402,7 +1402,7 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
 
         # - alpha^2 * v_th^2 / N * sum_p w_p * ln(f0_p)
         self._tmp[0] = \
-            self.alpha**2 * self.vth**2 / self.pointer['species1'].n_mks * \
+            - self.alpha**2 * self.vth**2 / self.pointer['species1'].n_mks * \
             np.dot(
                 self.pointer['species1'].markers_wo_holes[:, 6],
                 ln_f0_values

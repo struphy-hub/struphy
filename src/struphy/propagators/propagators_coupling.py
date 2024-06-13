@@ -702,12 +702,7 @@ class EfieldWeightsDiscreteGradient(Propagator):
     def __call__(self, dt):
         # evaluate f0 and accumulate
         f0_values = self._f0(
-            self.particles[0].markers[:, 0],
-            self.particles[0].markers[:, 1],
-            self.particles[0].markers[:, 2],
-            self.particles[0].markers[:, 3],
-            self.particles[0].markers[:, 4],
-            self.particles[0].markers[:, 5]
+            *self.particles[0].markers[:, :6].T
         )
 
         self._accum.accumulate(
@@ -734,7 +729,7 @@ class EfieldWeightsDiscreteGradient(Propagator):
         self._e_weights *= 0.
         self._e_weights += self.feec_vars[0]
         self._e_weights += self._e_tmp
-        self._e_weights *= 0.5
+        self._e_weights /= 2.
 
         # Update weights
         self._pusher(
@@ -747,13 +742,13 @@ class EfieldWeightsDiscreteGradient(Propagator):
         )
 
         # write new coeffs into self.variables
-        max_de, = self.feec_vars_update(self._e_tmp)
+        max_de = self.feec_vars_update(self._e_tmp)
 
         # Print out max differences for weights and e-field
         if self._info:
             print('Status          for StepEfieldWeights:', info['success'])
             print('Iterations      for StepEfieldWeights:', info['niter'])
-            print('Maxdiff    e1   for StepEfieldWeights:', max_de)
+            print('Maxdiff    e1   for StepEfieldWeights:', max_de[0])
             max_diff = np.max(np.abs(self._old_weights[~self.particles[0].holes]
                                      - self.particles[0].markers[~self.particles[0].holes, 6]))
             print('Maxdiff weights for StepEfieldWeights:', max_diff)
@@ -866,12 +861,7 @@ class EfieldWeightsAnalytic(Propagator):
     def __call__(self, dt):
         # evaluate f0 and accumulate
         f0_values = self._f0(
-            self.particles[0].markers[:, 0],
-            self.particles[0].markers[:, 1],
-            self.particles[0].markers[:, 2],
-            self.particles[0].markers[:, 3],
-            self.particles[0].markers[:, 4],
-            self.particles[0].markers[:, 5]
+            *self.particles[0].markers[:, :6].T
         )
 
         self._accum.accumulate(
@@ -895,9 +885,9 @@ class EfieldWeightsAnalytic(Propagator):
 
         # Compute vector for particle pushing
         self._e_weights *= 0.
-        self._e_weights += self._delta_e
+        self._e_weights -= self._delta_e
         self._e_weights *= 0.5
-        self._e_weights -= self._e_tmp
+        self._e_weights += self._e_tmp
 
         # Update weights
         self._pusher(

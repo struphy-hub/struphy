@@ -891,8 +891,8 @@ def delta_f_vlasov_maxwell(markers: 'float[:,:]', n_markers_tot: 'int',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, f0, dfm, df_inv, v, df_inv_times_v, filling_v)
-    #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
+    #$ omp parallel private (ip, eta1, eta2, eta3, f0, dfm, df_inv, v, filling_v, update)
+    #$ omp for reduction ( + : vec1, vec2, vec3)
     for ip in range(n_markers):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
