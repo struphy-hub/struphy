@@ -74,3 +74,26 @@ def test_tutorial_05():
     comm.Barrier()
     if rank == 0:
         pproc_struphy.main(os.path.join(o_path, 'tutorial_05b'))
+        
+def test_tutorial_12():
+    main('Vlasov', 
+         os.path.join(i_path, 'tutorials', 'params_12a.yml'), 
+         os.path.join(o_path, 'tutorial_12a'),
+         save_step=100)
+
+    comm.Barrier()
+    if rank == 0:
+        pproc_struphy.main(os.path.join(o_path, 'tutorial_12a'))
+        
+    main('GuidingCenter', 
+         os.path.join(i_path, 'tutorials', 'params_12b.yml'), 
+         os.path.join(o_path, 'tutorial_12b'),
+         save_step=10)
+
+    comm.Barrier()
+    if rank == 0:
+        pproc_struphy.main(os.path.join(o_path, 'tutorial_12b'))
+        
+        
+if __name__ == '__main__':
+    test_tutorial_12()
