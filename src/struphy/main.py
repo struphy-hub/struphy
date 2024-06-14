@@ -1,4 +1,9 @@
-def main(model_name, parameters, path_out, restart=False, runtime=300, save_step=1):
+def main(model_name: str, 
+         parameters: dict | str, 
+         path_out: str, 
+         restart: bool=False, 
+         runtime: int=300, 
+         save_step: int=1):
     """
     Run a Struphy model.
 
@@ -28,9 +33,11 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     from struphy.models import fluid, kinetic, hybrid, toy
     from struphy.io.setup import pre_processing
     from struphy.io.output_handling import DataContainer
+    from pyevtk.hl import gridToVTK
 
     import numpy as np
     import time
+    import os
 
     from mpi4py import MPI
 
@@ -48,6 +55,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
                             path_out,
                             restart,
                             runtime,
+                            save_step,
                             rank,
                             size)
 
@@ -62,12 +70,42 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
     model = model_class(params, comm)
     assert isinstance(model, StruphyModel)
 
+    # store geometry vtk
+    if rank == 0:
+        grids_log = [np.linspace(1e-6, 1., 32),
+                     np.linspace(0., 1., 32),
+                     np.linspace(0., 1., 32)]
+        
+        tmp = model.domain(*grids_log)
+        grids_phy = [tmp[0],
+                     tmp[1],
+                     tmp[2]]
+
+        pointData = {}
+        det_df = model.domain.jacobian_det(*grids_log)
+        pointData['det_df'] = det_df
+        
+        if model.mhd_equil is not None:
+            absB0 = model.mhd_equil.absB0(*grids_log)
+            p0 = model.mhd_equil.p0(*grids_log)
+            pointData['absB0'] = absB0
+            pointData['p0'] = p0
+        elif model.braginskii_equil is not None:
+            absB0 = model.braginskii_equil.absB0(*grids_log)
+            p0 = model.braginskii_equil.p0(*grids_log)
+            pointData['absB0'] = absB0
+            pointData['p0'] = p0
+
+        gridToVTK(os.path.join(path_out, 'geometry'),
+                  *grids_phy, pointData=pointData)
+
     # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
     data = DataContainer(path_out, comm=comm)
 
-    # time quantities (current time value and current time index)
+    # time quantities (current time value, value in seconds and index)
     time_state = {}
     time_state['value'] = np.zeros(1, dtype=float)
+    time_state['value_sec'] = np.zeros(1, dtype=float)
     time_state['index'] = np.zeros(1, dtype=int)
 
     # add time quantities to data object for saving
@@ -90,6 +128,7 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
         model.initialize_from_restart(data)
 
         time_state['value'][0] = data.file['restart/time/value'][-1]
+        time_state['value_sec'][0] = data.file['restart/time/value_sec'][-1]
         time_state['index'][0] = data.file['restart/time/index'][-1]
 
         total_steps = str(
@@ -142,8 +181,10 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
         # update time and index (round time to 10 decimals for a clean time grid!)
         time_state['value'][0] = round(
             time_state['value'][0] + time_params['dt'], 10)
+        time_state['value_sec'][0] = round(
+            time_state['value_sec'][0] + time_params['dt']*model.units['t'], 10)
         time_state['index'][0] += 1
-        
+
         run_time_now = (time.time() - start_simulation)/60
 
         # update diagnostics data and save data
@@ -181,6 +222,8 @@ def main(model_name, parameters, path_out, restart=False, runtime=300, save_step
                 message = 'time step: ' + step + '/' + str(total_steps)
                 message += ' | ' + 'time: {0:10.5f}/{1:10.5f}'.format(
                     time_state['value'][0], time_params['Tend'])
+                message += ' | ' + 'phys. time [s]: {0:12.10f}/{1:12.10f}'.format(
+                    time_state['value_sec'][0], time_params['Tend']*model.units['t'])
                 message += ' | ' + \
                     'wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}'.format(
                         run_time_now*60, t1 - t0)

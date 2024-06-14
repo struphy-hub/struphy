@@ -2398,8 +2398,8 @@ class DESCequilibrium(LogicalMHDequilibrium):
         mhd_equilibrium :
             type : DESCequilibrium
             DESCequilibrium : 
-                eq_name : None # name of DESC equilibrium; if None, the example "DSHAPE" is chosen
-                rel_path : True # whether to add "<struphy_path>/fields_background/mhd_equil/desc/" before eq_name.
+                eq_name : null # name of DESC equilibrium; if None, the example "DSHAPE" is chosen
+                rel_path : False # whether to add "<struphy_path>/fields_background/mhd_equil/desc/" before eq_name.
                 use_pest : False # whether to use straight-field line coordinates (PEST)
                 use_nfp : True # whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
                 rmin : 0.0 # radius of domain hole around magnetic axis.
@@ -2437,7 +2437,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
                           'use_pest': False,
                           'use_nfp': True,
                           'rmin': 0.01,
-                          'Nel': (18, 19, 20),
+                          'Nel': (16, 16, 50),
                           'p': (3, 3, 3), }
 
         self._params = set_defaults(params, params_default)
@@ -2456,7 +2456,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
         self._rmin = params['rmin']
         self._use_nfp = params['use_nfp']
-
+        
         # straight field line coords
         if self._params['use_pest']:
             raise ValueError(
@@ -2470,7 +2470,8 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
         # create cache
         self._cache = {'bv': {'grids': [], 'outs': []},
-                       'jv': {'grids': [], 'outs': []}}
+                       'jv': {'grids': [], 'outs': []},
+                       'gradB1': {'grids': [], 'outs': []}}
 
     @property
     def domain(self):
@@ -2556,13 +2557,24 @@ class DESCequilibrium(LogicalMHDequilibrium):
             eta2 = etas[1]
             eta3 = etas[2]
             flat_eval = False
+            
+        nfp = self.eq.NFP
+        if not self.use_nfp:
+            nfp = 1
 
         out = []
         for var in ["B^rho", "B^theta", "B^zeta"]:
-            tmp1 = self.desc_eval(var, eta1, eta2, eta3, flat_eval=flat_eval)
+            tmp1 = self.desc_eval(var, eta1, eta2, eta3, flat_eval=flat_eval, nfp=nfp)
             # copy to set writebale
             tmp = tmp1.copy()
             tmp.flags['WRITEABLE'] = True
+            # pull back to eta-coordinates
+            if var == "B^rho":
+                tmp /= 1. - self.rmin
+            elif var == "B^theta":
+                tmp /= 2.*np.pi
+            elif var == "B^zeta":
+                tmp /= 2.*np.pi/nfp
             # adjust for Struphy units
             tmp /= self.units['B'] / self.units['x']
             out += [tmp]
@@ -2619,12 +2631,23 @@ class DESCequilibrium(LogicalMHDequilibrium):
             eta3 = etas[2]
             flat_eval = False
 
+        nfp = self.eq.NFP
+        if not self.use_nfp:
+            nfp = 1
+
         out = []
         for var in ["J^rho", "J^theta", "J^zeta"]:
-            tmp1 = self.desc_eval(var, eta1, eta2, eta3, flat_eval=flat_eval)
+            tmp1 = self.desc_eval(var, eta1, eta2, eta3, flat_eval=flat_eval, nfp=nfp)
             # copy to set writebale
             tmp = tmp1.copy()
             tmp.flags['WRITEABLE'] = True
+            # pull back to eta-coordinates
+            if var == "J^rho":
+                tmp /= 1. - self.rmin
+            elif var == "J^theta":
+                tmp /= 2.*np.pi
+            elif var == "J^zeta":
+                tmp /= 2.*np.pi/nfp
             # adjust for Struphy units
             tmp /= self.units['j'] / self.units['x']
             out += [tmp]
@@ -2684,12 +2707,77 @@ class DESCequilibrium(LogicalMHDequilibrium):
         return 0.2 * self.p0(*etas, squeeze_out=squeeze_out)
 
     def gradB1(self, *etas, squeeze_out=False):
-        """1-form gradient of magnetic field on logical cube [0, 1]^3.
+        """1-form gradient of magnetic field strength on logical cube [0, 1]^3.
         """
-        raise NotImplementedError(
-            '1-form gradient of magnetic field of GVECequilibrium is not implemented')
+        # check if already cached
+        cached = False
+        if len(self._cache['gradB1']['grids']) > 0:
+            for i, grid in enumerate(self._cache['gradB1']['grids']):
+                if len(grid) == len(etas):
+                    li = []
+                    for gi, ei in zip(grid, etas):
+                        if gi.shape == ei.shape:
+                            li += [np.allclose(gi, ei)]
+                        else:
+                            li += [False]
+                    if all(li):
+                        cached = True
+                        break
 
-    def desc_eval(self, var, e1, e2, e3, flat_eval=False, verbose=False):
+            if cached:
+                out = self._cache['gradB1']['outs'][i]
+            else:
+                out = self._eval_gradB1(*etas, squeeze_out=squeeze_out)
+                self._cache['gradB1']['grids'] += [etas]
+                self._cache['gradB1']['outs'] += [out]
+        else:
+            # print('No bv grids yet.')
+            out = self._eval_gradB1(*etas, squeeze_out=squeeze_out)
+            self._cache['gradB1']['grids'] += [etas]
+            self._cache['gradB1']['outs'] += [out] 
+
+        return out
+    
+    def _eval_gradB1(self, *etas, squeeze_out=False):
+        # flat (marker) evaluation
+        if len(etas) == 1:
+            assert etas[0].ndim == 2
+            eta1 = etas[0][:, 0]
+            eta2 = etas[0][:, 1]
+            eta3 = etas[0][:, 2]
+            flat_eval = True
+        # meshgrid evaluation
+        else:
+            assert len(etas) == 3
+            eta1 = etas[0]
+            eta2 = etas[1]
+            eta3 = etas[2]
+            flat_eval = False
+            
+        nfp = self.eq.NFP
+        if not self.use_nfp:
+            nfp = 1
+
+        out = []
+        for var in ["|B|_r", "|B|_t", "|B|_z"]:
+            tmp1 = self.desc_eval(var, eta1, eta2, eta3, flat_eval=flat_eval, nfp=nfp)
+            # copy to set writebale
+            tmp = tmp1.copy()
+            tmp.flags['WRITEABLE'] = True
+            # pull back to eta-coordinates
+            if var == "|B|_r":
+                tmp *= 1. - self.rmin
+            elif var == "|B|_t":
+                tmp *= 2.*np.pi
+            elif var == "|B|_z":
+                tmp *= 2.*np.pi/nfp
+            # adjust for Struphy units
+            tmp /= self.units['B'] 
+            out += [tmp]
+
+        return out
+
+    def desc_eval(self, var: str, e1: np.ndarray, e2: np.ndarray, e3: np.ndarray, flat_eval: bool=False, nfp: int=1, verbose: bool=False):
         '''Transform the input grids to conform to desc's .compute method
         and evaluate var.
 
@@ -2704,6 +2792,9 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
         flat_eval : bool
             Whether to do flat (marker) evaluation.
+            
+        nfp : int
+            Number of stellarator field periods to be used in the mapping (nfp=1 uses the whole stellarator).
 
         verbose : bool
             Print grid check to screen.'''
@@ -2712,10 +2803,6 @@ class DESCequilibrium(LogicalMHDequilibrium):
         import warnings
 
         warnings.filterwarnings("ignore")
-
-        nfp = self.eq.NFP
-        if not self.use_nfp:
-            nfp = 1
 
         # transform input grids
         if e1.ndim == 3:
@@ -2784,11 +2871,11 @@ class DESCequilibrium(LogicalMHDequilibrium):
             # print(f'\n{grid_3d.nodes[:, 1] = }')
             # print(f'\n{grid_3d.nodes[:, 2] = }')
             print(f'\n{rho = }')
-            print(f'{rho1[:, 0, 0] = }')
+            print(f'{rho1 = }')
             print(f'\n{theta = }')
-            print(f'{theta1[0, :, 0] = }')
+            print(f'{theta1 = }')
             print(f'\n{zeta = }')
-            print(f'{zeta1[0, 0, :] = }')
+            print(f'{zeta1 = }')
 
         # make c-contiguous
         out = np.ascontiguousarray(out)

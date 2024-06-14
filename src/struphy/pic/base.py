@@ -821,6 +821,7 @@ class Particles(metaclass=ABCMeta):
                 self.positions < self.domain_decomp[self.mpi_rank, 1::3]))
 
             assert all_on_right_proc
+            #assert self.phasespace_coords.size > 0, f'No particles on process {self.mpi_rank}, please rebalance, aborting ...'
 
         self.comm.Barrier()
 
@@ -1165,7 +1166,7 @@ def sendrecv_determine_mtbs(markers, holes, domain_decomp, mpi_rank):
             Indices of empty columns in markers after send.
     """
 
-    # check which particles are in a certain interval (e.g. the process domain)
+    # check which particles are on the current process domain
     is_on_proc_domain = np.logical_and(
         markers[:, :3] > domain_decomp[mpi_rank, 0::3],
         markers[:, :3] < domain_decomp[mpi_rank, 1::3])
