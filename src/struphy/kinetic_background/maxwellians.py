@@ -650,13 +650,14 @@ class GyroMaxwellian2D(Maxwellian):
         assert len(v) == 2
 
         # call equilibrium
-        etas = (np.vstack((eta1, eta2, eta3)).T).copy()
-        absB0 = self.mhd_equil.absB0(etas)
+        #etas = (np.vstack((eta1, eta2, eta3)).T).copy()
+        #absB0 = self.mhd_equil.absB0(etas)
 
         # J = v_perp/B
-        jacobian_det = v[1]/absB0
+        #jacobian_det = v[1]/absB0
 
-        return jacobian_det
+        #return jacobian_det
+        return 1.
 
     @property
     def volume_form(self):
@@ -1080,13 +1081,14 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         #jacobian_det = np.abs(1/v[0])
 
         # call equilibrium
-        etas = (np.vstack((eta1, eta2, eta3)).T).copy()
-        absB0 = self.mhd_equil.absB0(etas)
+        #etas = (np.vstack((eta1, eta2, eta3)).T).copy()
+        #absB0 = self.mhd_equil.absB0(etas)
 
         # J = v_perp/B
-        jacobian_det = 2.*np.pi/absB0
+        #jacobian_det = 2.*np.pi/absB0
 
-        return jacobian_det
+        #return jacobian_det
+        return 1.
 
     @property
     def volume_form(self):
