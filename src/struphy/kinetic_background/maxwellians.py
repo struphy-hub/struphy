@@ -1088,7 +1088,7 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         #jacobian_det = 2.*np.pi/absB0
 
         #return jacobian_det
-        return 1.
+        return 2.
 
     @property
     def volume_form(self):
