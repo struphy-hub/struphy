@@ -2411,6 +2411,7 @@ class ImplicitDiffusion(Propagator):
                  diffusion_mat: str = 'M1',
                  rho: StencilVector | tuple | list = None,
                  x0: StencilVector = None,
+                 e_field=None,
                  **params):
 
         assert phi.space == self.derham.Vh['0']

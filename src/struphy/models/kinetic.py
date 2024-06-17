@@ -293,6 +293,7 @@ class VlasovPoissonSimple(StruphyModel):
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
         dct['em_fields']['phi'] = 'H1'
+        dct['em_fields']['e1'] = 'Hcurl'
         dct['kinetic']['species1'] = 'Particles6D'
         return dct
 
@@ -362,11 +363,6 @@ class VlasovPoissonSimple(StruphyModel):
         Z = spec_params['phys_params']['Z']
         assert Z0 * \
             Z < 0, f'Neutralizing background has wrong polarity {Z0 = } to {Z = }.'
-        
-        # check mean velocity
-        assert self.pointer['species1'].f_backgr.maxw_params['u1'] == 0.
-        assert self.pointer['species1'].f_backgr.maxw_params['u2'] == 0.
-        assert self.pointer['species1'].f_backgr.maxw_params['u3'] == 0.
 
         # propagator parameters
         self._poisson_params = params['em_fields']['options']['solvers']['poisson']
@@ -376,21 +372,36 @@ class VlasovPoissonSimple(StruphyModel):
             self.derham, self.domain, "H1", "charge_density_0form")
         charge_accum.accumulate(self.pointer['species1'])
         
-        self._e_field = self.derham.Vh['1'].zeros()
-
-        self.add_propagator(self.prop_fields.ImplicitDiffusion(
+        # self._e_field = self.derham.Vh['1'].zeros()
+        
+        # Instantiate Poisson solver
+        poisson_solver = self.prop_fields.ImplicitDiffusion(
             self.pointer['phi'],
-            sigma_1=0., 
-            sigma_2=1., 
-            sigma_3=0., 
-            A1_mat='M0',
-            A2_mat='M1',
-            rho=[(charge_accum, self.pointer['species1'])],
-            e_field = self._e_field))
+            sigma_1=0.,
+            sigma_2=0.,
+            sigma_3=self._kappa**2,
+            rho=(charge_accum, self.pointer['species1']),
+            e_field = self.pointer['e1'],
+            **self._poisson_params)
+
+        # Solve with dt=1. and compute electric field
+        if self._rank == 0:
+            print('\nSolving initial Poisson problem...')
+        poisson_solver(1.)
+        if self._rank == 0:
+            print('Done.')
+
+        self.derham.grad.dot(-self.pointer['phi'], out=self.pointer['e1'])
+        print(self.pointer['phi'])
+        e_field = self.pointer['e1']
+        phi = self.pointer['phi']
+
+#         np.all(e_field.toarray() == flat_data)
+# print(f'{x0.toarray()[:4]  = }')
         
         self.add_propagator(self.prop_markers.PushVinEfield(
             self.pointer['species1'],
-            e_field = self._e_field,
+            e_field = self.pointer['e1'],
             kappa=self._kappa))
         
         self.add_propagator(self.prop_markers.PushEta(
@@ -412,6 +423,11 @@ class VlasovPoissonSimple(StruphyModel):
         self._tmp = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
+
+        # e*M1*e/2
+        self.mass_ops.M1.dot(self.pointer['e1'], out=self._tmp1)
+        en_E = self.pointer['e1'].dot(self._tmp1) / 2.
+        self.update_scalar('en_E', en_E)
 
         # kappa^2 / 2 / N * sum_p w_p v_p^2
         self._tmp[0] = self._kappa**2 / (2 * self.pointer['species1'].n_mks) * \
