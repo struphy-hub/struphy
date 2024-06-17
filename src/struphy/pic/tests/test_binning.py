@@ -96,7 +96,7 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
 
     v1_plot = v1_bins[:-1] + dv/2
 
-    ana_res = 1. / np.sqrt(2.*np.pi) * np.exp(- v1_plot**2 / 2.) * domain.jacobian_det(.5, .5, .5)[0, 0, 0]
+    ana_res = 1. / np.sqrt(2.*np.pi) * np.exp(- v1_plot**2 / 2.) 
 
     if show_plot:
         plt.plot(v1_plot, ana_res)
@@ -150,7 +150,7 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de/2
 
-    ana_res = (1. + amp_n * np.cos(2*np.pi * l_n * e1_plot)) * domain.jacobian_det(.5, .5, .5)[0, 0, 0]
+    ana_res = (1. + amp_n * np.cos(2*np.pi * l_n * e1_plot)) 
 
     if show_plot:
         plt.plot(e1_plot, ana_res)
@@ -268,7 +268,7 @@ def test_binning_6D_delta_f(Nel, p, spl_kind, mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de/2
 
-    ana_res = (amp_n * np.cos(2*np.pi * l_n * e1_plot)) * domain.jacobian_det(.5, .5, .5)[0, 0, 0]
+    ana_res = (amp_n * np.cos(2*np.pi * l_n * e1_plot)) 
 
     if show_plot:
         plt.plot(e1_plot, ana_res)
@@ -381,7 +381,7 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
 
     v1_plot = v1_bins[:-1] + dv/2
 
-    ana_res = (1. / np.sqrt(2.*np.pi) * np.exp(- v1_plot**2 / 2.)) * domain.jacobian_det(.5, .5, .5)[0, 0, 0]
+    ana_res = (1. / np.sqrt(2.*np.pi) * np.exp(- v1_plot**2 / 2.)) 
 
     if show_plot:
         plt.plot(v1_plot, ana_res)
@@ -440,7 +440,7 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de/2
 
-    ana_res = (1. + amp_n * np.cos(2*np.pi * l_n * e1_plot)) * domain.jacobian_det(.5, .5, .5)[0, 0, 0]
+    ana_res = (1. + amp_n * np.cos(2*np.pi * l_n * e1_plot)) 
 
     if show_plot:
         plt.plot(e1_plot, ana_res)
@@ -563,7 +563,7 @@ def test_binning_6D_delta_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de/2
 
-    ana_res = (amp_n * np.cos(2*np.pi * l_n * e1_plot)) * domain.jacobian_det(.5, .5, .5)[0, 0, 0]
+    ana_res = (amp_n * np.cos(2*np.pi * l_n * e1_plot)) 
 
     if show_plot:
         plt.plot(e1_plot, ana_res)

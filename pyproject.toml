@@ -82,5 +82,5 @@ struphy = "struphy.console.main:struphy"
                     ]
                     
 struphy = ['compile_struphy.mk',
-           'psydac-0.1.12-py3-none-any.whl',
+           'psydac-0.1.13-py3-none-any.whl',
            ]

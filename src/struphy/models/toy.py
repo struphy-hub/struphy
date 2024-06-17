@@ -262,7 +262,7 @@ class GuidingCenter(StruphyModel):
         # polar spline extraction operators
         self._E0T = self.derham.extraction_ops['0'].transpose()
         self._EvT = self.derham.extraction_ops['v'].transpose()
-        
+
         # magnetic background
         if self.mhd_equil is not None:
             magn_bckgr = self.mhd_equil
@@ -305,7 +305,7 @@ class GuidingCenter(StruphyModel):
             self.pointer['ions'].markers[~self.pointer['ions'].holes, 8]) / self.pointer['ions'].n_mks
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._en_tot, op=self._mpi_sum)
-        
+
         self._en_fB[0] = self._en_tot[0] - self._en_fv[0]
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._en_fB, op=self._mpi_sum)
@@ -499,7 +499,7 @@ class VariationalPressurelessFluid(StruphyModel):
 
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], 
+            self.derham.Vh_fem['v'],
             self.derham.Vh_fem['v'],
             V_extraction_op=self.derham.extraction_ops['v'],
             W_extraction_op=self.derham.extraction_ops['v'],
@@ -605,7 +605,7 @@ class VariationalBarotropicFluid(StruphyModel):
 
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], 
+            self.derham.Vh_fem['v'],
             self.derham.Vh_fem['v'],
             V_extraction_op=self.derham.extraction_ops['v'],
             W_extraction_op=self.derham.extraction_ops['v'],
@@ -727,7 +727,7 @@ class VariationalCompressibleFluid(StruphyModel):
         super().__init__(params, comm)
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], 
+            self.derham.Vh_fem['v'],
             self.derham.Vh_fem['v'],
             V_extraction_op=self.derham.extraction_ops['v'],
             W_extraction_op=self.derham.extraction_ops['v'],
@@ -803,7 +803,7 @@ class VariationalCompressibleFluid(StruphyModel):
         en_thermo = self._integrator.dot(en_prop._linear_form_dl_ds)
         self.update_scalar('en_thermo', en_thermo)
         return en_thermo
-    
+
     def __ener(self, rho, s):
         """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
         E(rho, s) = rho^gamma*exp(s/rho)"""
@@ -877,8 +877,8 @@ class Poisson(StruphyModel):
 
         # Initialize propagator
         self.add_propagator(self.prop_fields.TimeDependentSource(
-            self.pointer['source'], 
-            omega=omega, 
+            self.pointer['source'],
+            omega=omega,
             hfun=hfun))
         self.add_propagator(self.prop_fields.ImplicitDiffusion(
             self.pointer['phi'],
@@ -893,7 +893,7 @@ class Poisson(StruphyModel):
         #     'dt'] == 1., f"Time step must be 1.0 in the Poisson model, but is {params['time']['dt']}"
 
         # Scalar variables to be saved during simulation
-        #self.add_scalar('en_E')
+        # self.add_scalar('en_E')
 
     def update_scalar_quantities(self):
         pass
@@ -911,3 +911,179 @@ class Poisson(StruphyModel):
     #         parameters=params, file=file, save=save, prompt=prompt)
 
     #     return params
+
+
+class DeterministicParticleDiffusion(StruphyModel):
+    r'''Diffusion equation discretized with a deterministic particle method; 
+    the solution is :math:`L^2`-projected onto :math:`V^0 \subset H^1` to compute the flux.
+
+    :ref:`normalization`:
+
+    .. math::
+
+        \hat D := \frac{\hat x^2}{\hat t } \,.
+
+    Implemented equations: Find :math:`u:\mathbb R\times \Omega\to \mathbb R^+` such that
+
+    .. math::
+
+        \frac{\partial u}{\partial t} +  \nabla \cdot\left(\mathbf F(u) u\right) = 0\,, \qquad \mathbf F(u) = -\mathbb D\,\frac{\nabla u}{u}\,, 
+
+    where :math:`\mathbb D: \Omega\to \mathbb R^{3\times 3 }` is a positive diffusion matrix. 
+    At the moment only matrices of the form :math:`D*Id` are implemented, where :math:`D > 0` is a positive diffusion coefficient.
+    
+    Parameters
+    ----------
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
+
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
+    '''
+
+    @classmethod
+    def species(cls):
+        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
+
+        dct['kinetic']['species1'] = 'Particles3D'
+        return dct
+
+    @classmethod
+    def bulk_species(cls):
+        return 'species1'
+
+    @classmethod
+    def velocity_scale(cls):
+        return None
+
+    @classmethod
+    def options(cls):
+        # import propagator options
+        from struphy.propagators.propagators_markers import PushDeterministicDiffusion
+
+        dct = {}
+        cls.add_option(species=['kinetic', 'species1'], key='push_diffusion',
+                       option=PushDeterministicDiffusion.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'species1'], key='diffusion_coefficient',
+                       option=PushDeterministicDiffusion.options()['diffusion_coefficient'], dct=dct)
+        return dct
+
+    def __init__(self, params, comm):
+
+        super().__init__(params, comm)
+
+        from mpi4py.MPI import SUM, IN_PLACE
+
+        # prelim
+        species1_params = self.kinetic['species1']['params']
+
+        # # project magnetic background
+        # self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
+        #                                  self.mhd_equil.b2_2,
+        #                                  self.mhd_equil.b2_3])
+
+        # Initialize propagators/integrators used in splitting substeps
+        self.add_propagator(self.prop_markers.PushDeterministicDiffusion(
+            self.pointer['species1'],
+            algo=species1_params['options']['push_diffusion'],
+            bc_type=species1_params['markers']['bc']['type'],
+            diffusion_coefficient=species1_params['options']['diffusion_coefficient']))
+
+        # Scalar variables to be saved during simulation
+        self.add_scalar('en_f')
+
+        # MPI operations needed for scalar variables
+        self._mpi_sum = SUM
+        self._mpi_in_place = IN_PLACE
+        self._tmp = np.empty(1, dtype=float)
+
+    def update_scalar_quantities(self):
+        pass
+
+
+class RandomParticleDiffusion(StruphyModel):
+    r'''Diffusion equation discretized with a (random) particle method;
+    the diffusion is computed through a Wiener process.
+
+    :ref:`normalization`:
+
+    .. math::
+
+        \hat D := \frac{\hat x^2}{\hat t } \,.
+
+    Implemented equations: Find :math:`u:\mathbb R\times \Omega\to \mathbb R^+` such that
+
+    .. math::
+
+        \frac{\partial u}{\partial t} -  D \, \Delta u = 0\,,
+
+    where :math:`D > 0` is a positive diffusion coefficient. 
+    
+    Parameters
+    ----------
+    params : dict
+        Simulation parameters, see from :ref:`params_yml`.
+
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator used for parallelization.
+    '''
+
+    @classmethod
+    def species(cls):
+        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
+
+        dct['kinetic']['species1'] = 'Particles3D'
+        return dct
+
+    @classmethod
+    def bulk_species(cls):
+        return 'species1'
+
+    @classmethod
+    def velocity_scale(cls):
+        return None
+
+    @classmethod
+    def options(cls):
+        # import propagator options
+        from struphy.propagators.propagators_markers import PushRandomDiffusion
+
+        dct = {}
+        cls.add_option(species=['kinetic', 'species1'], key='push_random_diffusion_stage',
+                       option=PushRandomDiffusion.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'species1'], key='diffusion_coefficient',
+                       option=PushRandomDiffusion.options()['diffusion_coefficient'], dct=dct)
+        return dct
+
+    def __init__(self, params, comm):
+
+        super().__init__(params, comm)
+
+        from mpi4py.MPI import SUM, IN_PLACE
+
+        # prelim
+        species1_params = self.kinetic['species1']['params']
+
+        # # project magnetic background
+        # self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
+        #                                  self.mhd_equil.b2_2,
+        #                                  self.mhd_equil.b2_3])
+
+        # Initialize propagators/integrators used in splitting substeps
+        self.add_propagator(self.prop_markers.PushRandomDiffusion(
+            self.pointer['species1'],
+            algo=species1_params['options']['push_random_diffusion_stage'],
+            bc_type=species1_params['markers']['bc']['type'],
+            diffusion_coefficient=species1_params['options']['diffusion_coefficient'])
+        )
+
+        # Scalar variables to be saved during simulation
+        self.add_scalar('en_f')
+
+        # MPI operations needed for scalar variables
+        self._mpi_sum = SUM
+        self._mpi_in_place = IN_PLACE
+        self._tmp = np.empty(1, dtype=float)
+
+    def update_scalar_quantities(self):
+        pass

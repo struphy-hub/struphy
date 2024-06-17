@@ -402,3 +402,107 @@ class Particles5D(Particles):
         utilities_kernels.eval_magnetic_background_energy(self.markers,
                                                           *args_fem, *self.domain.args_map,
                                                           abs_B0._data)
+
+
+class Particles3D(Particles):
+    """
+    A class for initializing particles in 3D configuration space.
+
+    The numpy marker array is as follows:
+
+    ===== ============== ====== ====== ====== ======  
+    index  | 0 | 1 | 2 |   3       4     5      >=6       
+    ===== ============== ====== ====== ====== ======  
+    value position (eta) weight   s0     w0   other    
+    ===== ============== ====== ====== ====== ======   
+
+    Parameters
+    ----------
+    name : str
+        Name of the particle species.
+
+    **params : dict
+        Parameters for markers, see :class:`~struphy.pic.base.Particles`.
+    """
+
+
+    @classmethod
+    def default_bckgr_params(cls):
+        return {'type': 'Constant',
+                'Constant': {}}
+
+    def __init__(self, name, **params):
+
+        assert 'bckgr_params' in params
+        if params['bckgr_params'] is None:
+            params['bckgr_params'] = self.default_bckgr_params()
+
+        super().__init__(name, **params)
+
+    @property
+    def n_cols(self):
+        """ Number of the columns at each markers.
+        """
+        return 16
+
+    @property
+    def vdim(self):
+        """ Dimension of the velocity space.
+        """
+        return 0
+
+    @property
+    def bufferindex(self):
+        """Starting buffer marker index number
+        """
+        return 6
+
+    def svol(self, eta1, eta2, eta3):
+        """ Sampling density function as volume form.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+
+        *v : array_like
+            Velocity evaluation points.
+
+        Returns
+        -------
+        out : array-like
+            The volume-form sampling density.
+        -------
+        """
+
+        if self.spatial == 'uniform':
+            return 1. + 0.*eta1
+
+        elif self.spatial == 'disc':
+            return 2.*eta1
+
+        else:
+            raise NotImplementedError(
+                f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.')
+
+    def s0(self, eta1, eta2, eta3, remove_holes=True):
+        """ Sampling density function as 0 form.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+
+        *v : array_like
+            Velocity evaluation points.
+
+        remove_holes : bool
+            If True, holes are removed from the returned array. If False, holes are evaluated to -1.
+
+        Returns
+        -------
+        out : array-like
+            The 0-form sampling density.
+        -------
+        """
+        return self.domain.transform(self.svol(eta1, eta2, eta3), self.markers, kind='3_to_0', remove_outside=remove_holes)
