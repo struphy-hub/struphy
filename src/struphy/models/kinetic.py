@@ -143,7 +143,8 @@ class VlasovAmpereOneSpecies(StruphyModel):
             self.kappa = self.equation_params['species1']['kappa']
 
         # Check if it is control-variate method
-        self._control_variate = (spec_params['markers']['type'] == 'control_variate')
+        self._control_variate = (
+            spec_params['markers']['type'] == 'control_variate')
 
         # set background density factor
         Z0 = spec_params['options']['Z0']
@@ -211,7 +212,8 @@ class VlasovAmpereOneSpecies(StruphyModel):
         # accumulate charge density
         charge_accum = AccumulatorVector(
             self.derham, self.domain, "H1", "charge_density_0form")
-        charge_accum.accumulate(self.pointer['species1'])
+        charge_accum.accumulate(
+            self.pointer['species1'], self.pointer['species1'].vdim)
 
         # another sanity check: compute FE coeffs of density
         # charge_accum.show_accumulated_spline_field(self.mass_ops)
@@ -497,7 +499,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # accumulate charge density
         charge_accum = AccumulatorVector(
             self.derham, self.domain, "H1", "charge_density_0form")
-        charge_accum.accumulate(self.pointer['species1'])
+        charge_accum.accumulate(
+            self.pointer['species1'], self.pointer['species1'].vdim)
 
         # another sanity check: compute FE coeffs of density
         # charge_accum.show_accumulated_spline_field(self.mass_ops)
@@ -756,7 +759,8 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             self.derham, self.domain,
             "H1", "charge_density_0form"
         )
-        charge_accum.accumulate(self.pointer['species1'])
+        charge_accum.accumulate(
+            self.pointer['species1'], self.pointer['species1'].vdim)
 
         # Instantiate Poisson solver
         _phi = self.derham.Vh['0'].zeros()
@@ -1682,7 +1686,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     :ref:`normalization`:
 
     .. math::
-    
+
        \hat v = \hat v_\textrm{i} = \sqrt{\frac{k_B \hat T_\textrm{i}}{m_\textrm{i}}}\,,\qquad  \hat E = \hat v_\textrm{i}\hat B\,,\qquad \hat \phi = \hat E \hat x \,.
 
     Implemented equations:
@@ -1699,9 +1703,9 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         \mathbf{E}^* = - \nabla \phi - \varepsilon \mu \nabla |B_0| \,,  \qquad \mathbf{B}^* = \mathbf{B}_0 + \varepsilon v_\parallel \nabla \times \mathbf{b}_0 \,,\qquad B^*_\parallel = \mathbf B^* \cdot \mathbf b_0  \,,
 
     and with the normalization parameters
-    
+
     .. math::
-    
+
         \varepsilon := \frac{\hat v_\textrm{i}}{\hat \Omega_\textrm{i} \hat x}\,,\qquad \hat \Omega_\textrm{i} = \frac{Ze \hat B}{m_\textrm{i}} \,.
 
     Notes
@@ -1784,19 +1788,19 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         spec_params = params['kinetic']['ions']
 
         Z = spec_params['phys_params']['Z']
-        assert Z > 0 # must be ions
+        assert Z > 0  # must be ions
 
         # magnetic background
         if 'braginskii_equilibrium' in params:
             magn_bckgr = self.braginskii_equil
             self.mass_ops.selected_weight = 'eq_braginskii'
         else:
-            magn_bckgr = self.mhd_equil      
+            magn_bckgr = self.mhd_equil
 
-        # Poisson right-hand side  
+        # Poisson right-hand side
         charge_accum = AccumulatorVector(
             self.derham, self.domain, "H1", "gc_density_0form")
- 
+
         rho = (charge_accum, self.pointer['ions'])
 
         if 'full_f' in ions_params['markers']['type']:
@@ -1804,14 +1808,15 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             try:
                 assert phi_method == 'ImplicitDiffusion'
             except:
-                exit(f'full_f requires phi_method to be "ImplicitDiffusion", but it is "{phi_method}". Exiting ...')
+                exit(
+                    f'full_f requires phi_method to be "ImplicitDiffusion", but it is "{phi_method}". Exiting ...')
             l2_proj = L2Projector('H1', self.mass_ops)
             f0e = Z * self.pointer['ions'].f0
             assert isinstance(f0e, KineticBackground)
             rho_eh = l2_proj.get_dofs(f0e.n)
             rho = [rho]
             rho += [rho_eh]
-            
+
         # Get coupling strength
         if spec_params['options']['verification']['use']:
             self.epsilon = spec_params['options']['verification']['epsilon']
@@ -1824,9 +1829,9 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         if phi_method == 'ImplicitDiffusion':
             self.add_propagator(self.prop_fields.ImplicitDiffusion(
                 self.pointer['phi'],
-                sigma_1=1. / self.epsilon**2 / Z, #  set to zero for Landau damping test
+                sigma_1=1. / self.epsilon**2 / Z,  # set to zero for Landau damping test
                 sigma_2=0.,
-                sigma_3=1. / self.epsilon ,
+                sigma_3=1. / self.epsilon,
                 stab_mat='M0ad',
                 diffusion_mat='M1gyro',
                 rho=rho,
@@ -1840,8 +1845,8 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
                 **solver_params
             ))
         else:
-            raise ValueError(f'{phi_method = } not allowed.') 
-        
+            raise ValueError(f'{phi_method = } not allowed.')
+
         self.add_propagator(self.prop_markers.PushDriftKineticBxEstar(
             self.pointer['ions'],
             phi0=self.pointer['phi'],
@@ -1849,17 +1854,17 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             epsilon=self.equation_params['ions']['epsilon'],
             Z=Z,
             **ions_params['options']['push_bxEstarWithPhi']))
-        
+
         self.add_propagator(self.prop_markers.PushDriftKineticParallel(
             self.pointer['ions'],
             phi0=self.pointer['phi'],
             magn_bckgr=magn_bckgr,
             epsilon=self.epsilon,
             Z=Z,
-            **ions_params['options']['push_BstarWithPhi']))      
-        
+            **ions_params['options']['push_BstarWithPhi']))
+
         self._phi_method = phi_method
-    
+
         self.add_scalar('en_phi')
         self.add_scalar('en_particles')
         self.add_scalar('en_tot')
@@ -1885,12 +1890,12 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         # energy from adiabatic electrons
         self.mass_ops.M0ad.dot(self.pointer['phi'], out=self._tmp2)
         en_phi0 = self.pointer['phi'].dot(
-            self._tmp2) / (2. * self.epsilon**2 )
-        
+            self._tmp2) / (2. * self.epsilon**2)
+
         # for Landau damping test
-        #en_phi0 = 0.
-        
-         # mu_p * |B0(eta_p)|
+        # en_phi0 = 0.
+
+        # mu_p * |B0(eta_p)|
         self.pointer['ions'].save_magnetic_background_energy()
 
         # 1/N sum_p (w_p v_p^2/2 + mu_p |B0|_p)

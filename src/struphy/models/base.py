@@ -69,10 +69,12 @@ class StruphyModel(metaclass=ABCMeta):
 
         if comm.Get_rank() == 0:
             print('\nTIME:')
-            print(f'time step:'.ljust(25), "{0} ({1:4.2e} s)".format(params['time']['dt'], params['time']['dt'] * self.units['t']))
-            print(f'final time:'.ljust(25), "{0} ({1:4.2e} s)".format(params['time']['Tend'], params['time']['Tend'] * self.units['t']))
+            print(f'time step:'.ljust(25), "{0} ({1:4.2e} s)".format(
+                params['time']['dt'], params['time']['dt'] * self.units['t']))
+            print(f'final time:'.ljust(25), "{0} ({1:4.2e} s)".format(
+                params['time']['Tend'], params['time']['Tend'] * self.units['t']))
             print(f'splitting algo:'.ljust(25), params['time']['split_algo'])
-            
+
             print('\nDOMAIN:')
             print(f'type:'.ljust(25), self.domain.__class__.__name__)
             for key, val in self.domain.params_map.items():
@@ -428,7 +430,7 @@ class StruphyModel(metaclass=ABCMeta):
         from struphy.pic.base import Particles
 
         for val in self.kinetic.values():
-            
+
             obj = val['obj']
             assert isinstance(obj, Particles)
 
@@ -450,7 +452,7 @@ class StruphyModel(metaclass=ABCMeta):
         dim_to_int = {'e1': 0, 'e2': 1, 'e3': 2, 'v1': 3, 'v2': 4, 'v3': 5}
 
         for val in self.kinetic.values():
-            
+
             obj = val['obj']
             assert isinstance(obj, Particles)
 
@@ -486,7 +488,7 @@ class StruphyModel(metaclass=ABCMeta):
         """
 
         from struphy.feec.psydac_derham import Derham
-        from struphy.pic.base import Particles        
+        from struphy.pic.base import Particles
 
         if self.comm.Get_rank() == 0:
             print('\nINITIAL CONDITIONS:')
@@ -495,14 +497,14 @@ class StruphyModel(metaclass=ABCMeta):
         if len(self.em_fields) > 0:
 
             for key, val in self.em_fields.items():
-                
+
                 if 'params' in key:
                     continue
                 else:
-                    
+
                     obj = val['obj']
                     assert isinstance(obj, Derham.Field)
-                    
+
                     obj.initialize_coeffs(
                         domain=self.domain, mhd_equil=self.mhd_equil)
 
@@ -559,7 +561,7 @@ class StruphyModel(metaclass=ABCMeta):
             for species, val in self.fluid.items():
 
                 for variable, subval in val.items():
-                    
+
                     if 'params' in variable:
                         continue
                     else:
@@ -680,7 +682,7 @@ class StruphyModel(metaclass=ABCMeta):
             for species, val in self.fluid.items():
 
                 for variable, subval in val.items():
-                    
+
                     if 'params' in variable:
                         continue
                     else:
@@ -745,11 +747,11 @@ class StruphyModel(metaclass=ABCMeta):
 
         # save electromagentic fields/potentials data in group 'feec/'
         for key, val in self.em_fields.items():
-            
+
             if 'params' in key:
                 continue
             else:
-                
+
                 obj = val['obj']
                 assert isinstance(obj, Derham.Field)
 
@@ -843,10 +845,10 @@ class StruphyModel(metaclass=ABCMeta):
 
         # save kinetic data in group 'kinetic/'
         for key, val in self.kinetic.items():
-            
+
             obj = val['obj']
             assert isinstance(obj, Particles)
-            
+
             key_spec = 'kinetic/' + key
             key_spec_restart = 'restart/' + key
 
@@ -1191,12 +1193,14 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         # standard Maxwellians
         maxw_name = {'6D': 'Maxwellian3D',
-                   '5D': 'GyroMaxwellian2D',
-                   '4D': 'Maxwellian1D'}
+                     '5D': 'GyroMaxwellian2D',
+                     '4D': 'Maxwellian1D',
+                     '3D': 'Constant'}
 
         moms = {'6D': [0., 0., 0., 1., 1., 1.],
                 '5D': [0., 0., 1., 1.],
-                '4D': [0., 1.]}
+                '4D': [0., 1.],
+                '3D': []}
 
         # init options dicts
         d_opts = {'em_fields': [], 'fluid': {}, 'kinetic': {}}
@@ -1367,7 +1371,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             self._fluid[var_name]['params'] = self.params['fluid'][var_name]
 
         for var_name, space in self.species()['kinetic'].items():
-            assert space in {'Particles6D', 'Particles5D'}
+            assert 'Particles' in space
             assert 'kinetic' in self.params, 'Top-level key "kinetic" is missing in parameter file.'
             assert var_name in self.params['kinetic'], \
                 f'Kinetic species {var_name} is missing in parameter file.'
@@ -1476,7 +1480,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     bckgr_params=bckgr_params,
                     pert_params=pert_params
                 )
-                
+
                 obj = val['obj']
                 assert isinstance(obj, Particles)
 

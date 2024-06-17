@@ -3004,3 +3004,150 @@ def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
         markers[ip, :] = particle[:]
 
     #$ omp end parallel
+
+
+@stack_array('ginv', 'k', 'tmp', 'etas', 'pi_du_value', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+def push_deterministic_diffusion_stage(markers: 'float[:,:]', dt: float, stage: int,
+                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                   starts: 'int[:]',
+                   kind_map: int, params_map: 'float[:]',
+                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                   cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                   pi_u: 'float[:,:,:]',
+                   pi_grad_u1: 'float[:,:,:]', pi_grad_u2: 'float[:,:,:]', pi_grad_u3: 'float[:,:,:]',
+                   diffusion_coeff: float,
+                   a: 'float[:]', b: 'float[:]', c: 'float[:]'):
+    r'''Single stage of a s-stage Runge-Kutta solve of
+
+    .. math::
+
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = - D \,G^{-1}(\boldsymbol \eta_p(t)) \frac{\nabla \hat u^0}{\hat u^0}(\boldsymbol \eta_p(t))
+
+    for each marker :math:`p` in markers array, where :math:`\frac{\nabla \hat u^0}{\hat u^0}` is constant in time. :math:`D>0` is a positive, constant diffusion coefficient.
+    '''
+
+    # allocate metric coeffs
+    ginv = zeros((3, 3), dtype=float)
+
+    # intermediate k-vector
+    k = empty(3, dtype=float)
+    tmp=empty(3, dtype=float)
+    etas = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    # get number of stages
+    n_stages = shape(b)[0]
+
+    if stage == n_stages - 1:
+        last = 1.
+    else:
+        last = 0.
+
+    pi_du_value = empty(3, dtype=float)
+
+    # allocate spline values
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    #$ omp parallel private(ip, etas, span1, span2, span3, pi_u_value, pi_du_value, k, tmp, ginv)
+    #$ omp for
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+        
+        etas[:] = markers[ip, 0:3]
+
+        # spline evaluation
+        span1 = bsplines_kernels.find_span(tn1, pn[0], etas[0])
+        span2 = bsplines_kernels.find_span(tn2, pn[1], etas[1])
+        span3 = bsplines_kernels.find_span(tn3, pn[2], etas[2])
+
+        bsplines_kernels.b_d_splines_slim(tn1, pn[0], etas[0], span1, bn1, bd1)
+        bsplines_kernels.b_d_splines_slim(tn2, pn[1], etas[1], span2, bn2, bd2)
+        bsplines_kernels.b_d_splines_slim(tn3, pn[2], etas[2], span3, bn3, bd3)
+
+        # density function: 0-form components
+        pi_u_value = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, pi_u, starts)
+
+        # gradient of the density function: 1-form components
+        pi_du_value[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, pi_grad_u1, starts)
+        pi_du_value[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, pi_grad_u2, starts)
+        pi_du_value[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, pi_grad_u3, starts)
+
+    #    evaluate Metric tensor, result in gm
+        evaluation_kernels.g_inv(etas[0], etas[1], etas[2],
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              ginv)
+
+        # updating k
+        tmp = - diffusion_coeff * pi_du_value / pi_u_value
+        linalg_kernels.matrix_vector(ginv, tmp, k)
+
+        # accumulation for last stage
+        markers[ip, 12:15] += dt*b[stage]*k
+
+        # update positions for intermediate stages or last stage
+        markers[ip, 0:3] = markers[ip, 9:12] + \
+            dt*a[stage]*k + last*markers[ip, 12:15]
+
+    #$ omp end parallel
+
+
+def push_random_diffusion_stage(markers: 'float[:,:]', dt: float, stage: int,
+                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                   starts: 'int[:]',
+                   kind_map: int, params_map: 'float[:]',
+                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                   cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                   noise: 'float[:,:]', diffusion_coeff: float,
+                   a: 'float[:]', b: 'float[:]', c: 'float[:]'):
+    r'''Single stage of a s-stage Runge-Kutta solve of
+
+    .. math::
+
+        {\textnormal d \boldsymbol \eta_p(t)} = \sqrt{2 \, D}\, \textnormal d \boldsymbol B_t\,,
+
+    for each marker :math:`p` in markers array, where :math:`\textnormal d \boldsymbol B_t` is a Brownian Motion and $D$ is a positive diffusion coefficient.
+    '''
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    # get number of stages. +
+    # TODO: Multistage to be added later.
+    n_stages = shape(b)[0]
+
+    if stage == n_stages - 1:
+        last = 1.
+    else:
+        last = 0.
+
+    #$ omp parallel private(ip)
+    #$ omp for
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        markers[ip, 0:3] += sqrt(2 * dt * diffusion_coeff) * noise[ip,:]
+        
+    #$ omp end parallel
