@@ -18,7 +18,7 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
 
     from struphy.feec.utilities import create_equal_random_arrays as cera
     import struphy.bsplines.bsplines_kernels as bsp
-    import psydac.core.bsplines_pyccel as bsp_psy
+    import psydac.core.bsplines_kernels as bsp_psy
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2

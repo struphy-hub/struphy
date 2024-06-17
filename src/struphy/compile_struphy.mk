@@ -20,7 +20,7 @@ FLAGS_openmp_mhd := $(flags_openmp_mhd)
 
 PSY0  := $(psydac_path)/core/arrays
 PSY1  := $(psydac_path)/core/kernels
-PSY2  := $(psydac_path)/core/bsplines_pyccel
+PSY2  := $(psydac_path)/core/bsplines_kernels
 PSY3  := $(psydac_path)/linalg/kernels
 PSY4  := $(psydac_path)/feec/dof_kernels
 

@@ -28,8 +28,8 @@ def get_dependencies(pymod_abs=None):
     
     # handle psydac modules (TODO: remove)
     if 'psydac/' in pymod_abs:
-        if 'bsplines_pyccel' in pymod_abs:
-            return pymod_abs.replace('bsplines_pyccel', 'arrays')
+        if 'bsplines_kernels' in pymod_abs:
+            return pymod_abs.replace('bsplines_kernels', 'arrays')
         else:
             return ''
     
