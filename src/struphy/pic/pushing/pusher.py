@@ -264,7 +264,7 @@ class ButcherTableau:
 
     The Butcher tableau has the form
 
-    .. image:: ../pics/butcher_tableau.png
+    .. image:: ../../pics/butcher_tableau.png
         :align: center
         :scale: 70%
 

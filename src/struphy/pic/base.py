@@ -742,6 +742,8 @@ class Particles(metaclass=ABCMeta):
                 
                 self.markers[:n_mks_load_loc, 4] = np.sqrt(
                     -1*np.log(1-self.velocities[:, 1]))*np.sqrt(2)*v_th[1] + u_mean[1]
+            elif self.vdim == 0:
+                pass
             else:
                 raise NotImplementedError(
                     'Inverse transform sampling of given vdim is not implemented!')
@@ -821,6 +823,7 @@ class Particles(metaclass=ABCMeta):
                 self.positions < self.domain_decomp[self.mpi_rank, 1::3]))
 
             assert all_on_right_proc
+            #assert self.phasespace_coords.size > 0, f'No particles on process {self.mpi_rank}, please rebalance, aborting ...'
 
         self.comm.Barrier()
 
@@ -958,6 +961,12 @@ class Particles(metaclass=ABCMeta):
         # compute weights of histogram:
         _weights0 = self.weights0
         _weights = self.weights
+
+        _weights /= self.domain.jacobian_det(self.markers_wo_holes)
+        # _weights /= self.velocity_jacobian_det(*self.phasespace_coords.T)
+
+        _weights0 /= self.domain.jacobian_det(self.markers_wo_holes)
+        # _weights0 /= self.velocity_jacobian_det(*self.phasespace_coords.T)
 
         f_slice = np.histogramdd(self.markers_wo_holes[:, slicing],
                                  bins=bin_edges,
@@ -1165,7 +1174,7 @@ def sendrecv_determine_mtbs(markers, holes, domain_decomp, mpi_rank):
             Indices of empty columns in markers after send.
     """
 
-    # check which particles are in a certain interval (e.g. the process domain)
+    # check which particles are on the current process domain
     is_on_proc_domain = np.logical_and(
         markers[:, :3] > domain_decomp[mpi_rank, 0::3],
         markers[:, :3] < domain_decomp[mpi_rank, 1::3])

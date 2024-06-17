@@ -149,7 +149,7 @@ def setup_domain_mhd(params, units=None):
         mhd_type = params['mhd_equilibrium']['type']
         mhd_class = getattr(equils, mhd_type)
 
-        if mhd_type == 'EQDSKequilibrium':
+        if mhd_type in ('EQDSKequilibrium', 'GVECequilibrium', 'DESCequilibrium'):
             mhd = mhd_class(units=units, **params['mhd_equilibrium'][mhd_type])
         else:
             mhd = mhd_class(**params['mhd_equilibrium'][mhd_type])
@@ -253,7 +253,14 @@ def setup_derham(params_grid, comm, domain=None, mpi_dims_mask=None):
     return derham
 
 
-def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_rank, mpi_size):
+def pre_processing(model_name: str, 
+                   parameters: dict | str, 
+                   path_out: str, 
+                   restart: bool, 
+                   max_sim_time: int, 
+                   save_step: int,
+                   mpi_rank: int, 
+                   mpi_size: int):
     """
     Prepares simulation parameters, output folder and prints some information of the run to the screen. 
 
@@ -274,6 +281,9 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
     max_sim_time : int
         Maximum run time of simulation in minutes. Will finish the time integration once this limit is reached.
 
+    save_step : int
+        When to save data output: every time step (save_step=1), every second time step (save_step=2).
+        
     mpi_rank : int
         The rank of the calling process.
 
@@ -379,12 +389,7 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
         print('output folder:'.ljust(25), path_out)
         print('restart:'.ljust(25), restart)
         print('max wall-clock [min]:'.ljust(25), max_sim_time)
-
-        # print time info
-        print('\nTIME:')
-        print(f'time step:'.ljust(25), params['time']['dt'])
-        print(f'final time:'.ljust(25), params['time']['Tend'])
-        print(f'splitting algo:'.ljust(25), params['time']['split_algo'])
+        print('save interval [steps]:'.ljust(25), save_step)
 
         # write meta data to output folder
         with open(path_out + '/meta.txt', 'w') as f:
@@ -399,6 +404,8 @@ def pre_processing(model_name, parameters, path_out, restart, max_sim_time, mpi_
             f.write('restart:'.ljust(30) + str(restart) + '\n')
             f.write(
                 'max wall-clock time [min]:'.ljust(30) + str(max_sim_time) + '\n')
+            f.write(
+                'save interval (steps):'.ljust(30) + str(save_step) + '\n')
 
     return params
 

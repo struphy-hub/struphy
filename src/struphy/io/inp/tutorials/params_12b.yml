@@ -1,0 +1,65 @@
+grid :
+    Nel      : [32, 72, 1] # number of grid cells, >p
+    p        : [3, 3, 1]  # spline degree
+    spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
+    dirichlet_bc : null # [[False, False], [False, False], [False, False]], hom. Dirichlet boundary conditions for N-splines (spl_kind must be False)
+    dims_mask : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
+    nq_el    : [6, 6, 1] # quadrature points per grid cell
+    nq_pr    : [4, 4, 1] # quadrature points per histopolation cell (for commuting projectors)
+    polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
+
+units : # units not stated here can be viewed via "struphy units -h"
+    x  : 1. # length scale unit in m
+    B  : 1. # magnetic field unit in T
+    n  : 1. # number density unit in 10^20 m^(-3)
+
+time :
+    dt         : 0.02861  # time step
+    Tend       : 428.18 # simulation time interval is [0, Tend]
+    split_algo : LieTrotter # LieTrotter | Strang
+
+mhd_equilibrium :
+    type : DESCequilibrium
+    DESCequilibrium :
+        eq_name : null # name of DESC equilibrium; if None, the example "DSHAPE" is chosen
+        rel_path : False # whether to add "<struphy_path>/fields_background/mhd_equil/desc/" before eq_name.
+        use_pest : False # whether to use straight-field line coordinates (PEST)
+        use_nfp : True # whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
+        rmin : 0.01 # radius of domain hole around magnetic axis.
+        Nel : [32, 32, 32] # number of cells in each direction used for interpolation of the mapping.
+        p : [3, 3, 3] # spline degree in each direction used for interpolation of the mapping.
+
+kinetic :
+    ions :
+        phys_params:
+            A : 1 # mass number in units of proton mass
+            Z : 1 # signed charge number in units of elementary charge
+        markers :
+            type    : full_f # full_f, control_variate, or delta_f
+            ppc     : null
+            Np      : 4 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
+            eps     : 2.0 # MPI send/receive buffer (0.1 <= eps <= 1.0)
+            bc : 
+                type    : [reflect, periodic, periodic] # marker boundary conditions: remove, reflect or periodic           
+            loading :
+                type    : pseudo_random # particle loading mechanism 
+                seed    : 1608 # seed for random number generator
+                moments : [0., 0., 1., 1.] # moments of Gaussian s3, see background/moms_spec
+                spatial : disc # uniform or disc
+                initial : [[.501, 0.001, 0.001,  0.1, .1], # co-passing particle
+                           [.501, 0.001, 0.001, -0.1, .1], # counter passing particle
+                           [.501, 0.999, 0.001,  0.025, .1], # co-trapped particle
+                           [.501, 0.999, 0.001, -0.025, .1]] # counter-trapped particle
+                # initial : [[.501, 0.001, 0.001, -1.935 , -1.72], # co-passing particle
+                #            [.501, 0.001, 0.001,  1.935 , -1.72], # couner-passing particle
+                #            [.501, 0.001, 0.001, -0.6665, -1.72], # co-trapped particle
+                #            [.501, 0.001, 0.001,  0.4515, -1.72]] # counter-trapped particle
+        background :
+            type : GyroMaxwellian2D
+            GyroMaxwellian2D:
+                n : 0.05
+        save_data :
+            n_markers : 4 # number of markers to be save during simulation
+        options:
+            push_bxEstar: {method: discrete_gradient, maxiter: 20, tol: 1.0e-05}
+            push_Bstar: {method: discrete_gradient, maxiter: 20, tol: 1.0e-05}

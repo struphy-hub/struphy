@@ -73,7 +73,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000):
 
     # instance of the accumulator
     acc = AccumulatorVector(derham, domain, 'H1', 'charge_density_0form')
-    acc.accumulate(particles)
+    acc.accumulate(particles, particles.vdim)
 
     # sum all MC integrals
     _sum = np.empty(1, dtype=float)

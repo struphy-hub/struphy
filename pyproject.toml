@@ -46,6 +46,7 @@ dependencies = [
     'pyccel>=1.11.1',
     'gvec-to-python',
     'desc-opt',
+    'netcdf4<1.7.0'
 ]
 
 [project.urls]
@@ -81,5 +82,5 @@ struphy = "struphy.console.main:struphy"
                     ]
                     
 struphy = ['compile_struphy.mk',
-           'psydac-0.1.13-py3-none-any.whl',
+           'psydac-0.1.14-py3-none-any.whl',
            ]

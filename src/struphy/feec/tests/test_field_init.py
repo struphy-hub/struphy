@@ -133,6 +133,10 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, show_plot=False):
                                                   r2=mhd_equil.params['a'] *
                                                   2*np.pi,
                                                   r3=mhd_equil.params['R0']*2*np.pi)
+            elif 'ShearFluid' in key:
+                mhd_equil.domain = domains.Cuboid(r1=mhd_equil.params['a'],
+                                                  r2=mhd_equil.params['b'],
+                                                  r3=mhd_equil.params['c'])
             elif 'ScrewPinch' in key:
                 mhd_equil.domain = domains.HollowCylinder(a1=1e-3,
                                                           a2=mhd_equil.params['a'],
