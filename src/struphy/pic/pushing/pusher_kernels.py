@@ -2851,15 +2851,16 @@ def push_weight_velocities_delta_f_vm(markers: 'float[:,:]', dt: float, stage: i
         e_vec[2] = e_vec_3
 
         linalg_kernels.matrix_vector(df_inv_t, e_vec, update_v)
+        update_v *= kappa
 
         b = log(n0 / sqrt(2 * pi)**3)
-        c = kappa**2 * linalg_kernels.scalar_dot(update_v, update_v)
-        d = kappa * linalg_kernels.scalar_dot(update_v, markers[ip, 3:6])
-        e = b - linalg_kernels.scalar_dot(markers[ip, 3:6], markers[ip, 3:6]) / 3
-        update_w = (c * dt**2 / 2 + d * dt - e) ** (-1/vth**2) - (-e)** (-1/vth**2)
+        c = linalg_kernels.scalar_dot(update_v, update_v)
+        d = linalg_kernels.scalar_dot(update_v, markers[ip, 3:6])
+        e = b - linalg_kernels.scalar_dot(markers[ip, 3:6], markers[ip, 3:6]) / 2
+        update_w = (c * dt**2 / 2 + d * dt - e) ** (-1/vth**2) - (-e) ** (-1/vth**2)
 
         # update the markers
-        markers[ip, 3:6] += dt * kappa * update_v[:]
+        markers[ip, 3:6] += dt * update_v[:]
         markers[ip, 6] += update_w
 
     #$ omp end parallel
