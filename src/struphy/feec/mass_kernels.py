@@ -7,7 +7,7 @@ from numpy import shape
 # ================= 1d =================================
 
 
-def kernel_1d_mat(spans1: 'int[:]', pi1: int, pj1: int, starts1: int, pads1: int, shift1: int, w1: 'float[:,:]', bi1: 'float[:,:,:,:]', bj1: 'float[:,:,:,:]', mat_fun: 'float[:]', data: 'float[:,:]'):
+def kernel_1d_mat(spans1: 'int[:]', pi1: int, pj1: int, starts1: int, shift1: int, pads1: int, w1: 'float[:,:]', bi1: 'float[:,:,:,:]', bj1: 'float[:,:,:,:]', mat_fun: 'float[:]', data: 'float[:,:]'):
     """
     Performs the integration of Lambda_i * mat_fun(eta1) * Lambda_l for the basis functions (i, l) available on the calling process.
 

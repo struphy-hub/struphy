@@ -1337,7 +1337,7 @@ class WeightedMassOperator(LinOpWithTransp):
                             mat = self._mat[a, b]
 
                         self._assembly_kernel(*codomain_spans, *codomain_space.degree, *domain_space.degree, *codomain_starts,
-                                              *codomain_pads, *codomain_shifts, *wts, *codomain_basis, *domain_basis, mat_w, mat._data)                    
+                                              *codomain_shifts, *codomain_pads, *wts, *codomain_basis, *domain_basis, mat_w, mat._data)                    
                     else:
                         if clear:
                             self._mat[a, b] = None
