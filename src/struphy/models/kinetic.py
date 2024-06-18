@@ -372,7 +372,7 @@ class VlasovPoissonSimple(StruphyModel):
         
         charge_accum = AccumulatorVector(
             self.derham, self.domain, "H1", "charge_density_0form")
-        charge_accum.accumulate(self.pointer['species1'])
+        charge_accum.accumulate(self.pointer['species1'], self.pointer['species1'].vdim)
         
         # self._e_field = self.derham.Vh['1'].zeros()
         
@@ -382,7 +382,8 @@ class VlasovPoissonSimple(StruphyModel):
             sigma_1=0.,
             sigma_2=0.,
             sigma_3=self._kappa**2,
-            rho=(charge_accum, self.pointer['species1']),
+            # rho=(charge_accum, self.pointer['species1']),
+            rho=self._kappa**2 * charge_accum.vectors[0],
             e_field = self.pointer['e1'],
             **self._poisson_params)
 
@@ -394,7 +395,7 @@ class VlasovPoissonSimple(StruphyModel):
             print('Done.')
 
         self.derham.grad.dot(-self.pointer['phi'], out=self.pointer['e1'])
-        print(self.pointer['phi'])
+        # print(self.pointer['phi'])
         e_field = self.pointer['e1']
         phi = self.pointer['phi']
 
@@ -410,6 +411,15 @@ class VlasovPoissonSimple(StruphyModel):
             self.pointer['species1'],
             algo=algo_eta,
             bc_type=spec_params['markers']['bc']['type']))
+        self.add_propagator(self.prop_fields.ImplicitDiffusion(
+            self.pointer['phi'],
+            sigma_1=0.,
+            sigma_2=0.,
+            sigma_3=self._kappa**2,
+            # rho=(charge_accum, self.pointer['species1']),
+            rho=self._kappa**2 * charge_accum.vectors[0],
+            e_field = self.pointer['e1'],
+            **self._poisson_params))
     
         # Scalar variables to be saved during the simulation
         self.add_scalar('en_E')

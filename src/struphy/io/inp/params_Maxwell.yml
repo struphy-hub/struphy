@@ -1,0 +1,51 @@
+grid:
+    Nel: [12, 14, 1]
+    p: [2, 3, 1]
+    spl_kind: [false, true, true]
+    dirichlet_bc: null
+    dims_mask: [true, true, true]
+    nq_el: [2, 2, 1]
+    nq_pr: [2, 2, 1]
+    polar_ck: -1
+
+time: {dt: 0.005, Tend: 0.015, split_algo: LieTrotter}
+
+units: {x: 1.0, B: 1.0, n: 1.0}
+
+geometry:
+    type: Cuboid
+    Cuboid: {}
+
+mhd_equilibrium:
+    type: HomogenSlab
+    HomogenSlab: {}
+
+em_fields:
+    background:
+        type: LogicalConst
+        LogicalConst:
+            comps:
+                e1: [0.3, 0.15, null]
+                b2: [0.3, 0.15, null]
+    perturbation:
+        type: TorusModesCos
+        TorusModesCos:
+            comps:
+                e1: [null, v, null]
+                b2: [null, v, null]
+            ms:
+                e1:
+                - null
+                - [1, 3]
+                - null
+                b2:
+                - null
+                - [1, 3]
+                - null
+    options:
+        solver:
+            type: [pcg, MassMatrixPreconditioner]
+            tol: 1.0e-08
+            maxiter: 3000
+            info: false
+            verbose: false

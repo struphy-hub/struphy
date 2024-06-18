@@ -2590,11 +2590,16 @@ class ImplicitDiffusion(Propagator):
             print(info)
 
         self.feec_vars_update(out)
+
+        print("HERE! e_field =")
         
         if self._e_field is not None:
+
             # assert e field is 1 form
             e_field = self.derham.grad.dot(out, out=self._e_field)
             e_field *= -1.
+            # print("self.derham =" + self.derham)
+            print("e_field =" + e_field)
             
     @classmethod
     def options(cls):

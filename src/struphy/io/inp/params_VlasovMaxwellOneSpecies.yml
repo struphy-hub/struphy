@@ -1,0 +1,109 @@
+grid:
+    Nel: [12, 14, 1]
+    p: [2, 3, 1]
+    spl_kind: [false, true, true]
+    dirichlet_bc: null
+    dims_mask: [true, true, true]
+    nq_el: [2, 2, 1]
+    nq_pr: [2, 2, 1]
+    polar_ck: -1
+
+time: {dt: 0.005, Tend: 0.015, split_algo: LieTrotter}
+
+units: {x: 1.0, B: 1.0, n: 1.0, kBT: 1.0}
+
+geometry:
+    type: Cuboid
+    Cuboid: {}
+
+mhd_equilibrium:
+    type: HomogenSlab
+    HomogenSlab: {}
+
+braginskii_equilibrium:
+    type: HomogenSlabITG
+    HomogenSlabITG: {}
+
+em_fields:
+    background:
+        type: LogicalConst
+        LogicalConst:
+            comps:
+                e1: [0.3, 0.15, null]
+                b2: [0.3, 0.15, null]
+    perturbation:
+        type: TorusModesCos
+        TorusModesCos:
+            comps:
+                e1: [null, v, null]
+                b2: [null, v, null]
+            ms:
+                e1:
+                - null
+                - [1, 3]
+                - null
+                b2:
+                - null
+                - [1, 3]
+                - null
+    options:
+        solvers:
+            maxwell:
+                type: [pcg, MassMatrixPreconditioner]
+                tol: 1.0e-08
+                maxiter: 3000
+                info: false
+                verbose: false
+            poisson:
+                type: [pcg, MassMatrixPreconditioner]
+                tol: 1.0e-08
+                maxiter: 3000
+                info: false
+                verbose: false
+
+kinetic:
+    species1:
+        phys_params: {A: 1, Z: 1}
+        markers:
+            type: full_f
+            ppc: null
+            Np: 1000
+            eps: 0.25
+            bc:
+                type: [periodic, periodic, periodic]
+            loading:
+                type: pseudo_random
+                seed: 1234
+                spatial: uniform
+                dir_particles: path_to_particles
+                moments: [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+        save_data:
+            n_markers: 3
+            f:
+                slices: [v1, e1_v1]
+                n_bins:
+                - [32]
+                - [32, 32]
+                ranges:
+                -   - [-3.0, 3.0]
+                -   - [0.0, 1.0]
+                    - [-5.0, 5.0]
+        perturbation:
+            type: TorusModesCos
+            TorusModesCos:
+                comps: {n: '0'}
+                ms:
+                    n: [1]
+        options:
+            algos: {push_eta: rk4, push_vxb: analytic}
+            coupling_solver:
+                type: [pcg, MassMatrixPreconditioner]
+                tol: 1.0e-08
+                maxiter: 3000
+                info: false
+                verbose: false
+            verification: false
+            Z0: -1.0
+        background:
+            type: Maxwellian3D
+            Maxwellian3D: {n: 0.05}
