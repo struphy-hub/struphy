@@ -7,7 +7,7 @@ from numpy import shape
 # ================= 1d =================================
 
 
-def kernel_1d_mat(spans1: 'int[:]', pi1: int, pj1: int, starts1: int, pads1: int, w1: 'float[:,:]', bi1: 'float[:,:,:,:]', bj1: 'float[:,:,:,:]', mat_fun: 'float[:]', data: 'float[:,:]'):
+def kernel_1d_mat(spans1: 'int[:]', pi1: int, pj1: int, starts1: int, pads1: int, shift1: int, w1: 'float[:,:]', bi1: 'float[:,:,:,:]', bj1: 'float[:,:,:,:]', mat_fun: 'float[:]', data: 'float[:,:]'):
     """
     Performs the integration of Lambda_i * mat_fun(eta1) * Lambda_l for the basis functions (i, l) available on the calling process.
 
@@ -37,7 +37,7 @@ def kernel_1d_mat(spans1: 'int[:]', pi1: int, pj1: int, starts1: int, pads1: int
                     value += w1[iel1, q1] * bi1[iel1, il1, 0, q1] * \
                         bj1[iel1, jl1, 0, q1] * mat_fun[iel1*nq1 + q1]
 
-                data[pads1 + i_local1, pads1 + jl1 - il1] += value
+                data[pads1*shift1 + i_local1, pads1 + jl1 - il1] += value
 
 
 def kernel_1d_vec(spans1: 'int[:]', pi1: int, starts1: int, pads1: int, w1: 'float[:,:]', bi1: 'float[:,:,:,:]', mat_fun: 'float[:]', data: 'float[:]'):
@@ -101,7 +101,7 @@ def kernel_1d_eval(spans1: 'int[:]', pi1: int, starts1: int, pads1: int, bi1: 'f
 # ================= 2d =================================
 
 
-def kernel_2d_mat(spans1: 'int[:]', spans2: 'int[:]', pi1: int, pi2: int, pj1: int, pj2: int, starts1: int, starts2: int, pads1: int, pads2: int, w1: 'float[:,:]', w2: 'float[:,:]', bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', bj1: 'float[:,:,:,:]', bj2: 'float[:,:,:,:]', mat_fun: 'float[:,:]', data: 'float[:,:,:,:]'):
+def kernel_2d_mat(spans1: 'int[:]', spans2: 'int[:]', pi1: int, pi2: int, pj1: int, pj2: int, starts1: int, starts2: int, shift1: int, shift2: int, pads1: int, pads2: int, w1: 'float[:,:]', w2: 'float[:,:]', bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', bj1: 'float[:,:,:,:]', bj2: 'float[:,:,:,:]', mat_fun: 'float[:,:]', data: 'float[:,:,:,:]'):
     """
     Performs the integration of Lambda_ij * mat_fun(eta1, eta2) * Lambda_lm for the basis functions (ij, lm) available on the calling process.
 
@@ -145,7 +145,7 @@ def kernel_2d_mat(spans1: 'int[:]', spans2: 'int[:]', pi1: int, pi2: int, pj1: i
 
                                     value += wvol * bi * bj
 
-                            data[pads1 + i_local1, pads2 + i_local2,
+                            data[pads1 * shift1 + i_local1, pads2 * shift2 + i_local2,
                                  pads1 + jl1 - il1, pads2 + jl2 - il2] += value
 
 
@@ -229,7 +229,7 @@ def kernel_2d_eval(spans1: 'int[:]', spans2: 'int[:]', pi1: int, pi2: int, start
 # ================= 3d =================================
 
 
-def kernel_3d_mat(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3: int, starts1: int, starts2: int, starts3: int, pads1: int, pads2: int, pads3: int, w1: 'float[:,:]', w2: 'float[:,:]', w3: 'float[:,:]', bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', bi3: 'float[:,:,:,:]', bj1: 'float[:,:,:,:]', bj2: 'float[:,:,:,:]', bj3: 'float[:,:,:,:]', mat_fun: 'float[:,:,:]', data: 'float[:,:,:,:,:,:]'):
+def kernel_3d_mat(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3: int, starts1: int, starts2: int, starts3: int, shift1: int, shift2: int, shift3: int, pads1: int, pads2: int, pads3: int, w1: 'float[:,:]', w2: 'float[:,:]', w3: 'float[:,:]', bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', bi3: 'float[:,:,:,:]', bj1: 'float[:,:,:,:]', bj2: 'float[:,:,:,:]', bj3: 'float[:,:,:,:]', mat_fun: 'float[:,:,:]', data: 'float[:,:,:,:,:,:]'):
     """
     Performs the integration of Lambda_ijk * mat_fun(eta1, eta2, eta3) * Lambda_lmn for the basis functions (ijk, lmn) available on the calling process.
 
@@ -316,7 +316,7 @@ def kernel_3d_mat(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int
 
                                                     value += wvol * bi * bj
 
-                                        data[pads1 + i_local1, pads2 + i_local2, pads3 + i_local3,
+                                        data[pads1 * shift1 + i_local1, pads2 * shift2 + i_local2, pads3 * shift3 + i_local3,
                                              pads1 + jl1 - il1, pads2 + jl2 - il2, pads3 + jl3 - il3] += value
 
 

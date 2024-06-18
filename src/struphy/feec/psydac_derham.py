@@ -79,6 +79,9 @@ class Derham:
 
     domain : struphy.geometry.domains
         Mapping from logical unit cube to physical domain (only needed in case of polar splines polar_ck=1).
+
+    multiplicity : list[int]
+        Multiplicity of the knots for the spline sequence in all direction
     """
 
     def __init__(self,
@@ -93,7 +96,8 @@ class Derham:
                  with_projectors=True,
                  polar_ck=-1,
                  local_projectors=False,
-                 domain=None):
+                 domain=None,
+                 multiplicity=None):
 
         # number of elements, spline degrees and kind of splines in each direction (periodic vs. clamped)
         assert len(Nel) == 3
@@ -152,7 +156,7 @@ class Derham:
 
         # Psydac discrete de Rham, projectors and derivatives
         _derham = discretize(self._derham_symb, self._domain_log_h,
-                             degree=self.p, nquads=self.nquads)
+                             degree=self.p, nquads=self.nquads, multiplicity=multiplicity)
 
         self._grad, self._curl, self._div = _derham.derivatives_as_matrices
 
@@ -264,7 +268,7 @@ class Derham:
                             self._proj_loc_grid_wts[sp_form][-1] += [wtsloc]
 
                         pts, wts, subs = get_pts_and_wts(
-                            space, s, e, n_quad = self.nq_pr[d], polar_shift=d == 0 and self.polar_ck == 1)
+                            space, s, e, n_quad=self.nq_pr[d], polar_shift=d == 0 and self.polar_ck == 1)
                         self._proj_grid_subs[sp_form][-1] += [subs]
 
                         self._proj_grid_pts[sp_form][-1] += [pts]
@@ -1565,7 +1569,7 @@ class Derham:
             if isinstance(vec, StencilVector):
 
                 assert [span.size for span in spans] == [base.shape[0]
-                                                        for base in bases]
+                                                         for base in bases]
 
                 if out is None:
                     out = np.empty([span.size for span in spans], dtype=float)
@@ -1573,13 +1577,13 @@ class Derham:
                     assert out.shape == tuple([span.size for span in spans])
 
                 eval_spline_mpi_tensor_product_fixed(*spans,
-                                                    *bases,
-                                                    vec._data,
-                                                    self.derham.spline_types_pyccel[self.space_key],
-                                                    np.array(self.derham.p),
-                                                    np.array(self.starts),
-                                                    out)
-                
+                                                     *bases,
+                                                     vec._data,
+                                                     self.derham.spline_types_pyccel[self.space_key],
+                                                     np.array(self.derham.p),
+                                                     np.array(self.starts),
+                                                     out)
+
             else:
                 out_is_none = False
                 if out is None:
@@ -1589,7 +1593,7 @@ class Derham:
                 for i in range(3):
 
                     assert [span.size for span in spans] == [base.shape[0]
-                                                            for base in bases[i]]
+                                                             for base in bases[i]]
 
                     if out_is_none:
                         out += np.empty([span.size for span in spans],
@@ -1599,14 +1603,14 @@ class Derham:
                             [span.size for span in spans])
 
                     eval_spline_mpi_tensor_product_fixed(*spans,
-                                                        *bases[i],
-                                                        vec[i]._data,
-                                                        self.derham.spline_types_pyccel[self.space_key][i],
-                                                        np.array(
-                                                            self.derham.p),
-                                                        np.array(
-                                                            self.starts[i]),
-                                                        out[i])
+                                                         *bases[i],
+                                                         vec[i]._data,
+                                                         self.derham.spline_types_pyccel[self.space_key][i],
+                                                         np.array(
+                                                             self.derham.p),
+                                                         np.array(
+                                                             self.starts[i]),
+                                                         out[i])
 
             return out
 
@@ -2237,13 +2241,13 @@ def get_pts_and_wts_quasi(space_1d, polar_shift=False):
     # h = space_1d.knots[p+1]
     h = space_1d.breaks[1]
     N = len(space_1d.breaks) - 1  # number of cells
-    
+
     # We have two different behaviours depending on whether the spline space is periodic or not
     if space_1d.periodic:
         # interpolation
         if space_1d.basis == 'B':
             # x_grid = np.arange(-(p-1.0)*h, 1.0-h+(h/2.0), h/2.0)
-            if(p == 1 and h!= 1.0):
+            if (p == 1 and h != 1.0):
                 x_grid = np.linspace(-(p-1)*h, 1.0 - h + (h/2.0), (N + p-1)*2)
             else:
                 x_grid = np.linspace(-(p-1)*h, 1.0 - h, (N + p-1)*2 - 1)
@@ -2261,10 +2265,10 @@ def get_pts_and_wts_quasi(space_1d, polar_shift=False):
             # We need to build the histopolation points by hand in this scenario.
             if (p == 0 and h == 1.0):
                 x_grid = np.array([0.0, 0.5, 1.0])
-            elif (p == 0 and h!= 1.0):
-                x_grid = np.linspace(-p*h, 1.0 - h + (h/2.0), (N + p)*2 )
+            elif (p == 0 and h != 1.0):
+                x_grid = np.linspace(-p*h, 1.0 - h + (h/2.0), (N + p)*2)
             else:
-                #x_grid = np.arange(-p*h, 1.0-h+(h/2.0), h/2.0)
+                # x_grid = np.arange(-p*h, 1.0-h+(h/2.0), h/2.0)
                 x_grid = np.linspace(-p*h, 1.0 - h, (N + p)*2 - 1)
             # Gauss - Legendre quadrature points and weights
             # products of basis functions are integrated exactly

@@ -1269,6 +1269,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
                 # pads (ghost regions)
                 codomain_pads = codomain_space.vector_space.pads
+                codomain_shifts = [int(k) for k in codomain_space.vector_space.shifts]
 
                 # global quadrature points (flattened) and weights in format (local element, local weight)
                 pts = [quad_grid[nquad].points.flatten()
@@ -1336,8 +1337,7 @@ class WeightedMassOperator(LinOpWithTransp):
                             mat = self._mat[a, b]
 
                         self._assembly_kernel(*codomain_spans, *codomain_space.degree, *domain_space.degree, *codomain_starts,
-                                              *codomain_pads, *wts, *codomain_basis, *domain_basis, mat_w, mat._data)
-
+                                              *codomain_pads, *codomain_shifts, *wts, *codomain_basis, *domain_basis, mat_w, mat._data)                    
                     else:
                         if clear:
                             self._mat[a, b] = None

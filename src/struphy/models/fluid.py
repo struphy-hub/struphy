@@ -642,7 +642,7 @@ class VariationalMHD(StruphyModel):
         self.update_scalar('entr_tot', entr_tot)
 
     def update_thermo_energy(self):
-        '''Reuse tmp used in VariationalEntropyEvolve to compute the thermodynamical energy.
+        '''Reuse tmp used in VariationalDensityEvolve to compute the thermodynamical energy.
 
         :meta private:
         '''

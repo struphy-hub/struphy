@@ -224,6 +224,13 @@ def setup_derham(params_grid, comm, domain=None, mpi_dims_mask=None):
     nq_el = params_grid['nq_el']
     # C^k smoothness at eta_1=0 for polar domains
     polar_ck = params_grid['polar_ck']
+    if 'spline_ck' in params_grid :
+        # C^k smoothness of the splines
+        spline_ck = params_grid['spline_ck']
+        # Multiplicity of the knots for the splines sequence (= degree - regularity)
+        multiplicity = [p_i-spline_ck_i for p_i, spline_ck_i in zip(p, spline_ck)]
+    else :
+        multiplicity = None
 
     derham = Derham(Nel,
                     p,
@@ -235,7 +242,8 @@ def setup_derham(params_grid, comm, domain=None, mpi_dims_mask=None):
                     mpi_dims_mask=mpi_dims_mask,
                     with_projectors=True,
                     polar_ck=polar_ck,
-                    domain=domain)
+                    domain=domain,
+                    multiplicity = multiplicity)
 
     if comm.Get_rank() == 0:
         print('\nDERHAM:')
@@ -248,6 +256,7 @@ def setup_derham(params_grid, comm, domain=None, mpi_dims_mask=None):
         print('MPI proc. per dir.:'.ljust(25),
               derham.domain_decomposition.nprocs)
         print('use polar splines:'.ljust(25), derham.polar_ck == 1)
+        print(f'multiplicity of the knots:', multiplicity)
         print('domain on process 0:'.ljust(25), derham.domain_array[0])
 
     return derham

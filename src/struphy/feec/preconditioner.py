@@ -164,9 +164,10 @@ class MassMatrixPreconditioner(LinearOperator):
                 p = femspaces[c].vector_space.pads[d]
                 s = femspaces[c].vector_space.starts[d]
                 e = femspaces[c].vector_space.ends[d]
+                sh = femspaces[c].vector_space.shifts[d]
 
                 cart_decomp_1d = CartDecomposition(
-                    domain_decompos_1d, [n], [[s]], [[e]], [p], [1])
+                    domain_decompos_1d, [n], [[s]], [[e]], [p], [sh])
 
                 V_local = StencilVectorSpace(cart_decomp_1d)
 
@@ -180,7 +181,7 @@ class MassMatrixPreconditioner(LinearOperator):
                     if row_i in range(V_local.starts[0], V_local.ends[0] + 1):
                         row_i_loc = row_i - s
 
-                        M_local._data[row_i_loc + p, (col_i + p - row_i) %
+                        M_local._data[row_i_loc + p * sh, (col_i + p - row_i) %
                                       M_arr.shape[1]] = M_arr[row_i, col_i]
 
                 # check if stencil matrix was built correctly
@@ -477,9 +478,10 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                 p = femspaces[c].vector_space.pads[d]
                 s = femspaces[c].vector_space.starts[d]
                 e = femspaces[c].vector_space.ends[d]
+                sh = femspaces[c].vector_space.shifts[d]
 
                 cart_decomp_1d = CartDecomposition(
-                    domain_decompos_1d, [n], [[s]], [[e]], [p], [1])
+                    domain_decompos_1d, [n], [[s]], [[e]], [p], [sh])
 
                 V_local = StencilVectorSpace(cart_decomp_1d)
 
@@ -493,7 +495,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                     if row_i in range(V_local.starts[0], V_local.ends[0] + 1):
                         row_i_loc = row_i - s
 
-                        M_local._data[row_i_loc + p, (col_i + p - row_i) %
+                        M_local._data[row_i_loc + p*sh, (col_i + p - row_i) %
                                       M_arr.shape[1]] = M_arr[row_i, col_i]
 
                 # check if stencil matrix was built correctly
