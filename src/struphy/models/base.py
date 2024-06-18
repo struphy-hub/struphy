@@ -68,6 +68,13 @@ class StruphyModel(metaclass=ABCMeta):
             self._braginskii_equil = None
 
         if comm.Get_rank() == 0:
+            print('\nTIME:')
+            print(f'time step:'.ljust(25), "{0} ({1:4.2e} s)".format(
+                params['time']['dt'], params['time']['dt'] * self.units['t']))
+            print(f'final time:'.ljust(25), "{0} ({1:4.2e} s)".format(
+                params['time']['Tend'], params['time']['Tend'] * self.units['t']))
+            print(f'splitting algo:'.ljust(25), params['time']['split_algo'])
+
             print('\nDOMAIN:')
             print(f'type:'.ljust(25), self.domain.__class__.__name__)
             for key, val in self.domain.params_map.items():
@@ -420,36 +427,46 @@ class StruphyModel(metaclass=ABCMeta):
         Writes markers with IDs that are supposed to be saved into corresponding array.
         '''
 
+        from struphy.pic.base import Particles
+
         for val in self.kinetic.values():
+
+            obj = val['obj']
+            assert isinstance(obj, Particles)
 
             n_mks_save = val['params']['save_data']['n_markers']
             if n_mks_save > 0:
                 markers_on_proc = np.logical_and(
-                    val['obj'].markers[:, -1] >= 0., val['obj'].markers[:, -1] < n_mks_save)
+                    obj.markers[:, -1] >= 0., obj.markers[:, -1] < n_mks_save)
                 n_markers_on_proc = np.count_nonzero(markers_on_proc)
                 val['kinetic_data']['markers'][:] = -1.
-                val['kinetic_data']['markers'][:n_markers_on_proc] = val['obj'].markers[markers_on_proc]
+                val['kinetic_data']['markers'][:n_markers_on_proc] = obj.markers[markers_on_proc]
 
     def update_distr_functions(self):
         '''
         Writes distribution functions slices that are supposed to be saved into corresponding array.
         '''
 
+        from struphy.pic.base import Particles
+
         dim_to_int = {'e1': 0, 'e2': 1, 'e3': 2, 'v1': 3, 'v2': 4, 'v3': 5}
 
         for val in self.kinetic.values():
+
+            obj = val['obj']
+            assert isinstance(obj, Particles)
 
             if 'f' in val['params']['save_data']:
 
                 for slice_i, edges in val['bin_edges'].items():
 
                     comps = slice_i.split('_')
-                    components = [False]*(3 + val['obj'].vdim)
+                    components = [False]*(3 + obj.vdim)
 
                     for comp in comps:
                         components[dim_to_int[comp]] = True
 
-                    f_slice, df_slice = val['obj'].binning(components, edges)
+                    f_slice, df_slice = obj.binning(components, edges)
 
                     val['kinetic_data']['f'][slice_i][:] = f_slice
                     val['kinetic_data']['df'][slice_i][:] = df_slice
@@ -470,6 +487,9 @@ class StruphyModel(metaclass=ABCMeta):
         and markers according to parameter file.
         """
 
+        from struphy.feec.psydac_derham import Derham
+        from struphy.pic.base import Particles
+
         if self.comm.Get_rank() == 0:
             print('\nINITIAL CONDITIONS:')
 
@@ -477,8 +497,15 @@ class StruphyModel(metaclass=ABCMeta):
         if len(self.em_fields) > 0:
 
             for key, val in self.em_fields.items():
-                if 'params' not in key:
-                    val['obj'].initialize_coeffs(
+
+                if 'params' in key:
+                    continue
+                else:
+
+                    obj = val['obj']
+                    assert isinstance(obj, Derham.Field)
+
+                    obj.initialize_coeffs(
                         domain=self.domain, mhd_equil=self.mhd_equil)
 
                     if self.comm.Get_rank() == 0:
@@ -534,8 +561,13 @@ class StruphyModel(metaclass=ABCMeta):
             for species, val in self.fluid.items():
 
                 for variable, subval in val.items():
-                    if 'params' not in variable:
-                        subval['obj'].initialize_coeffs(
+
+                    if 'params' in variable:
+                        continue
+                    else:
+                        obj = subval['obj']
+                        assert isinstance(obj, Derham.Field)
+                        obj.initialize_coeffs(
                             domain=self.domain, mhd_equil=self.mhd_equil, species=species)
 
                 if self.comm.Get_rank() == 0:
@@ -590,6 +622,9 @@ class StruphyModel(metaclass=ABCMeta):
 
             for species, val in self.kinetic.items():
 
+                obj = val['obj']
+                assert isinstance(obj, Particles)
+
                 if self.comm.Get_rank() == 0:
                     _type = val['params']['background']['type']
                     print(f'Kinetic species "{species}" was initialized with:')
@@ -601,8 +636,8 @@ class StruphyModel(metaclass=ABCMeta):
                             for key, par in val['params']['background'][_t].items():
                                 print((key + ':').ljust(25), par)
 
-                val['obj'].draw_markers()
-                val['obj'].mpi_sort_markers(do_test=True)
+                obj.draw_markers()
+                obj.mpi_sort_markers(do_test=True)
 
                 if not val['params']['markers']['loading']['type'] == 'restart':
 
@@ -610,12 +645,12 @@ class StruphyModel(metaclass=ABCMeta):
                     assert typ in ['full_f', 'delta_f', 'control_variate'], \
                         f'Type {typ} for distribution function is not known!'
 
-                    if val['obj'].f0.coords == 'constants_of_motion':
+                    if obj.f0.coords == 'constants_of_motion':
 
-                        val['obj'].save_constants_of_motion(
+                        obj.save_constants_of_motion(
                             epsilon=self.equation_params[species]['epsilon'], initial=True)
 
-                    val['obj'].initialize_weights()
+                    obj.initialize_weights()
 
     def initialize_from_restart(self, data):
         """
@@ -627,12 +662,19 @@ class StruphyModel(metaclass=ABCMeta):
             The data object that links to the hdf5 files.
         """
 
+        from struphy.feec.psydac_derham import Derham
+        from struphy.pic.base import Particles
+
         # initialize em fields
         if len(self.em_fields) > 0:
 
             for key, val in self.em_fields.items():
-                if 'params' not in key:
-                    val['obj'].initialize_coeffs_from_restart_file(data.file)
+                if 'params' in key:
+                    continue
+                else:
+                    obj = val['obj']
+                    assert isinstance(obj, Derham.Field)
+                    obj.initialize_coeffs_from_restart_file(data.file)
 
         # initialize fields
         if len(self.fluid) > 0:
@@ -640,19 +682,26 @@ class StruphyModel(metaclass=ABCMeta):
             for species, val in self.fluid.items():
 
                 for variable, subval in val.items():
-                    if 'params' not in variable:
-                        subval['obj'].initialize_coeffs_from_restart_file(
+
+                    if 'params' in variable:
+                        continue
+                    else:
+                        obj = subval['obj']
+                        assert isinstance(obj, Derham.Field)
+                        obj.initialize_coeffs_from_restart_file(
                             data.file, species)
 
         # initialize particles
         if len(self.kinetic) > 0:
 
             for key, val in self.kinetic.items():
-                val['obj'].draw_markers()
-                val['obj']._markers[:, :] = data.file['restart/' + key][-1, :, :]
+                obj = val['obj']
+                assert isinstance(obj, Particles)
+                obj.draw_markers()
+                obj._markers[:, :] = data.file['restart/' + key][-1, :, :]
 
                 # important: sets holes attribute of markers!
-                val['obj'].mpi_sort_markers(do_test=True)
+                obj.mpi_sort_markers(do_test=True)
 
     def initialize_data_output(self, data, size):
         """
@@ -676,6 +725,11 @@ class StruphyModel(metaclass=ABCMeta):
         """
 
         from psydac.linalg.stencil import StencilVector
+        from struphy.io.output_handling import DataContainer
+        from struphy.feec.psydac_derham import Derham
+        from struphy.pic.base import Particles
+
+        assert isinstance(data, DataContainer)
 
         # save scalar quantities in group 'scalar/'
         for key, val in self.scalar_quantities.items():
@@ -693,44 +747,50 @@ class StruphyModel(metaclass=ABCMeta):
 
         # save electromagentic fields/potentials data in group 'feec/'
         for key, val in self.em_fields.items():
-            if 'params' not in key:
+
+            if 'params' in key:
+                continue
+            else:
+
+                obj = val['obj']
+                assert isinstance(obj, Derham.Field)
 
                 # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
-                val['obj'].extract_coeffs(update_ghost_regions=False)
+                obj.extract_coeffs(update_ghost_regions=False)
 
                 # save numpy array to be updated each time step.
                 if val['save_data']:
 
                     key_field = 'feec/' + key
 
-                    if isinstance(val['obj'].vector_stencil, StencilVector):
+                    if isinstance(obj.vector_stencil, StencilVector):
                         data.add_data(
-                            {key_field: val['obj'].vector_stencil._data})
+                            {key_field: obj.vector_stencil._data})
 
                     else:
                         for n in range(3):
                             key_component = key_field + '/' + str(n + 1)
                             data.add_data(
-                                {key_component: val['obj'].vector_stencil[n]._data})
+                                {key_component: obj.vector_stencil[n]._data})
 
                     # save field meta data
-                    data.file[key_field].attrs['space_id'] = val['obj'].space_id
-                    data.file[key_field].attrs['starts'] = val['obj'].starts
-                    data.file[key_field].attrs['ends'] = val['obj'].ends
-                    data.file[key_field].attrs['pads'] = val['obj'].pads
+                    data.file[key_field].attrs['space_id'] = obj.space_id
+                    data.file[key_field].attrs['starts'] = obj.starts
+                    data.file[key_field].attrs['ends'] = obj.ends
+                    data.file[key_field].attrs['pads'] = obj.pads
 
                 # save numpy array to be updated only at the end of the simulation for restart.
                 key_field_restart = 'restart/' + key
 
-                if isinstance(val['obj'].vector_stencil, StencilVector):
+                if isinstance(obj.vector_stencil, StencilVector):
                     data.add_data(
-                        {key_field_restart: val['obj'].vector_stencil._data})
+                        {key_field_restart: obj.vector_stencil._data})
                 else:
                     for n in range(3):
                         key_component_restart = key_field_restart + \
                             '/' + str(n + 1)
                         data.add_data(
-                            {key_component_restart: val['obj'].vector_stencil[n]._data})
+                            {key_component_restart: obj.vector_stencil[n]._data})
 
         # save fluid data in group 'feec/'
         for species, val in self.fluid.items():
@@ -739,51 +799,60 @@ class StruphyModel(metaclass=ABCMeta):
             species_path_restart = 'restart/' + species + '_'
 
             for variable, subval in val.items():
-                if 'params' not in variable:
+                if 'params' in variable:
+                    continue
+                else:
+
+                    obj = subval['obj']
+                    assert isinstance(obj, Derham.Field)
 
                     # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
-                    subval['obj'].extract_coeffs(update_ghost_regions=False)
+                    obj.extract_coeffs(update_ghost_regions=False)
 
                     # save numpy array to be updated each time step.
                     if subval['save_data']:
 
                         key_field = species_path + variable
 
-                        if isinstance(subval['obj'].vector_stencil, StencilVector):
+                        if isinstance(obj.vector_stencil, StencilVector):
                             data.add_data(
-                                {key_field: subval['obj'].vector_stencil._data})
+                                {key_field: obj.vector_stencil._data})
 
                         else:
                             for n in range(3):
                                 key_component = key_field + '/' + str(n + 1)
                                 data.add_data(
-                                    {key_component: subval['obj'].vector_stencil[n]._data})
+                                    {key_component: obj.vector_stencil[n]._data})
 
                         # save field meta data
-                        data.file[key_field].attrs['space_id'] = subval['obj'].space_id
-                        data.file[key_field].attrs['starts'] = subval['obj'].starts
-                        data.file[key_field].attrs['ends'] = subval['obj'].ends
-                        data.file[key_field].attrs['pads'] = subval['obj'].pads
+                        data.file[key_field].attrs['space_id'] = obj.space_id
+                        data.file[key_field].attrs['starts'] = obj.starts
+                        data.file[key_field].attrs['ends'] = obj.ends
+                        data.file[key_field].attrs['pads'] = obj.pads
 
                     # save numpy array to be updated only at the end of the simulation for restart.
                     key_field_restart = species_path_restart + variable
 
-                    if isinstance(subval['obj'].vector_stencil, StencilVector):
+                    if isinstance(obj.vector_stencil, StencilVector):
                         data.add_data(
-                            {key_field_restart: subval['obj'].vector_stencil._data})
+                            {key_field_restart: obj.vector_stencil._data})
                     else:
                         for n in range(3):
                             key_component_restart = key_field_restart + \
                                 '/' + str(n + 1)
                             data.add_data(
-                                {key_component_restart: subval['obj'].vector_stencil[n]._data})
+                                {key_component_restart: obj.vector_stencil[n]._data})
 
         # save kinetic data in group 'kinetic/'
         for key, val in self.kinetic.items():
+
+            obj = val['obj']
+            assert isinstance(obj, Particles)
+
             key_spec = 'kinetic/' + key
             key_spec_restart = 'restart/' + key
 
-            data.add_data({key_spec_restart: val['obj']._markers})
+            data.add_data({key_spec_restart: obj._markers})
 
             for key1, val1 in val['kinetic_data'].items():
                 key_dat = key_spec + '/' + key1
@@ -1124,12 +1193,14 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         # standard Maxwellians
         maxw_name = {'6D': 'Maxwellian3D',
-                   '5D': 'GyroMaxwellian2D',
-                   '4D': 'Maxwellian1D'}
+                     '5D': 'GyroMaxwellian2D',
+                     '4D': 'Maxwellian1D',
+                     '3D': 'Constant'}
 
         moms = {'6D': [0., 0., 0., 1., 1., 1.],
                 '5D': [0., 0., 1., 1.],
-                '4D': [0., 1.]}
+                '4D': [0., 1.],
+                '3D': []}
 
         # init options dicts
         d_opts = {'em_fields': [], 'fluid': {}, 'kinetic': {}}
@@ -1263,7 +1334,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             assert 'em_fields' in self.params, 'Top-level key "em_fields" is missing in parameter file.'
 
             if self.comm.Get_rank() == 0:
-                print('em_field:'.ljust(25), var_name, ',', space)
+                print('em_field:'.ljust(25), f'"{var_name}" ({space})')
 
             self._em_fields[var_name] = {}
             self._em_fields[var_name]['space'] = space
@@ -1283,7 +1354,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 'fluid'], f'Fluid species {var_name} is missing in parameter file.'
 
             if self.comm.Get_rank() == 0:
-                print('fluid:'.ljust(25), var_name, ',', space)
+                print('fluid:'.ljust(25), f'"{var_name}" ({space})')
 
             self._fluid[var_name] = {}
             for sub_var_name, sub_space in space.items():
@@ -1300,13 +1371,13 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             self._fluid[var_name]['params'] = self.params['fluid'][var_name]
 
         for var_name, space in self.species()['kinetic'].items():
-            assert space in {'Particles6D', 'Particles5D'}
+            assert 'Particles' in space
             assert 'kinetic' in self.params, 'Top-level key "kinetic" is missing in parameter file.'
             assert var_name in self.params['kinetic'], \
                 f'Kinetic species {var_name} is missing in parameter file.'
 
             if self.comm.Get_rank() == 0:
-                print('kinetic:'.ljust(25), var_name, ',', space)
+                print('kinetic:'.ljust(25), f'"{var_name}" ({space})')
 
             self._kinetic[var_name] = {}
             self._kinetic[var_name]['space'] = space
@@ -1319,6 +1390,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         """
 
         from struphy.pic import particles
+        from struphy.feec.psydac_derham import Derham
+        from struphy.pic.base import Particles
 
         # allocate memory for FE coeffs of electromagnetic fields/potentials
         if 'em_fields' in self.params:
@@ -1337,7 +1410,9 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
             for key, val in self.em_fields.items():
 
-                if 'params' not in key:
+                if 'params' in key:
+                    continue
+                else:
                     val['obj'] = self.derham.create_field(key,
                                                           val['space'],
                                                           bckgr_params=bckgr_params,
@@ -1364,7 +1439,9 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
                 for variable, subval in val.items():
 
-                    if 'params' not in variable:
+                    if 'params' in variable:
+                        continue
+                    else:
                         subval['obj'] = self.derham.create_field(
                             variable,
                             subval['space'],
@@ -1404,16 +1481,19 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     pert_params=pert_params
                 )
 
-                self._pointer[species] = val['obj']
+                obj = val['obj']
+                assert isinstance(obj, Particles)
+
+                self._pointer[species] = obj
 
                 # for storing markers
                 n_markers = val['params']['save_data']['n_markers']
-                assert n_markers <= val['obj'].n_mks, \
-                    f"The number of markers for which data should be stored (={n_markers}) murst be <= than the total number of markers (={val['obj'].n_mks})"
+                assert n_markers <= obj.n_mks, \
+                    f"The number of markers for which data should be stored (={n_markers}) murst be <= than the total number of markers (={obj.n_mks})"
                 if n_markers > 0:
                     val['kinetic_data'] = {}
                     val['kinetic_data']['markers'] = np.zeros(
-                        (n_markers, val['obj'].markers.shape[1]), dtype=float)
+                        (n_markers, obj.markers.shape[1]), dtype=float)
 
                 # for storing the distribution function
                 if 'f' in val['params']['save_data']:

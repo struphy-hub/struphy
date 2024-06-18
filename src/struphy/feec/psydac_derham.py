@@ -1562,51 +1562,51 @@ class Derham:
             else:
                 vec = self.vector
 
-                if isinstance(vec, StencilVector):
+            if isinstance(vec, StencilVector):
+
+                assert [span.size for span in spans] == [base.shape[0]
+                                                        for base in bases]
+
+                if out is None:
+                    out = np.empty([span.size for span in spans], dtype=float)
+                else:
+                    assert out.shape == tuple([span.size for span in spans])
+
+                eval_spline_mpi_tensor_product_fixed(*spans,
+                                                    *bases,
+                                                    vec._data,
+                                                    self.derham.spline_types_pyccel[self.space_key],
+                                                    np.array(self.derham.p),
+                                                    np.array(self.starts),
+                                                    out)
+                
+            else:
+                out_is_none = False
+                if out is None:
+                    out = []
+                    out_is_none = True
+
+                for i in range(3):
 
                     assert [span.size for span in spans] == [base.shape[0]
-                                                            for base in bases]
+                                                            for base in bases[i]]
 
-                    if out is None:
-                        out = np.empty([span.size for span in spans], dtype=float)
+                    if out_is_none:
+                        out += np.empty([span.size for span in spans],
+                                        dtype=float)
                     else:
-                        assert out.shape == tuple([span.size for span in spans])
+                        assert out[i].shape == tuple(
+                            [span.size for span in spans])
 
                     eval_spline_mpi_tensor_product_fixed(*spans,
-                                                        *bases,
-                                                        vec._data,
-                                                        self.derham.spline_types_pyccel[self.space_key],
-                                                        np.array(self.derham.p),
-                                                        np.array(self.starts),
-                                                        out)
-                
-                else:
-                    out_is_none = False
-                    if out is None:
-                        out = []
-                        out_is_none = True
-
-                    for i in range(3):
-
-                        assert [span.size for span in spans] == [base.shape[0]
-                                                                for base in bases[i]]
-
-                        if out_is_none:
-                            out += np.empty([span.size for span in spans],
-                                            dtype=float)
-                        else:
-                            assert out[i].shape == tuple(
-                                [span.size for span in spans])
-
-                        eval_spline_mpi_tensor_product_fixed(*spans,
-                                                            *bases[i],
-                                                            vec[i]._data,
-                                                            self.derham.spline_types_pyccel[self.space_key][i],
-                                                            np.array(
-                                                                self.derham.p),
-                                                            np.array(
-                                                                self.starts[i]),
-                                                            out[i])
+                                                        *bases[i],
+                                                        vec[i]._data,
+                                                        self.derham.spline_types_pyccel[self.space_key][i],
+                                                        np.array(
+                                                            self.derham.p),
+                                                        np.array(
+                                                            self.starts[i]),
+                                                        out[i])
 
             return out
 

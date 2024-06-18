@@ -2612,6 +2612,7 @@ class ImplicitDiffusion(Propagator):
                          'verbose': False}
         return dct
 
+
 class VariationalMomentumAdvection(Propagator):
     r'''Crank-Nicolson step for self-advection term in fluids model,
 
@@ -5047,6 +5048,890 @@ class VariationalMagFieldEvolve(Propagator):
     def _get_jacobian(self, dt):
         self._mdt2_pc_curlPibT_M._scalar = -dt/2
         self._dt2_curlPib._scalar = dt/2
+
+
+class VariationalViscosity(Propagator):
+    r'''Crank-Nicolson step for the viscous term in Navier-Stokes or VRMHD equation,
+
+    .. math::
+
+        \begin{align}
+        &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta  
+        - \mu \int_{\hat{\Omega}} \nabla (DF \hat{\mathbf{u}}) : \nabla (DF \hat{\mathbf{v}}) \,\frac{1}{\sqrt g}\, \textrm d \boldsymbol \eta = 0 ~ ,
+        \\[2mm]
+        &\int_{\hat{\Omega}} \partial_t (\hat{\rho} \hat{e}(\hat{\rho}, \hat{s})) \hat{w} \,\frac{1}{\sqrt g}\, \textrm d \boldsymbol \eta - \mu \int_{\hat{\Omega}} \nabla (DF \hat{\mathbf{u}}) : \nabla (DF \hat{\mathbf{u}}) \hat{w} \, \textrm d \boldsymbol \eta = 0 ~ .
+        \end{align}
+
+    It is discretized as
+
+    .. math::
+
+        \begin{align}
+        &\mathbb M^v[\hat{\rho}_h^{n}] \frac{ \mathbf u^{n+1}-\mathbf u^n}{\Delta t}
+        - \mu \sum_\nu (\mathbb G \mathcal{X}^v_\nu)^T \mathbb M_0 \mathbb G \mathcal{X}^v_\nu \frac{ \mathbf u^{n+1}+\mathbf u^n}{2} = 0 ~ ,
+        \\[2mm]
+        &\frac{P^{3}(\hat{\rho}_h^{n}\hat{e}(\hat{\rho}_h^{n},\hat{s}_h^{n}))- P^{3}(\hat{\rho}_h^{n}\hat{e}(\hat{\rho}_h^{n},\hat{s}_h^{n+1}))}{\Delta t} - \mu P^3(\sum_\nu |DF \mathcal{X}^v_\nu \frac{ \mathbf u^{n+1}+\mathbf u^n}{2}|^2) = 0 ~ ,
+        \end{align}
+
+    where $P^3$ denotes the $L^2$ projection in the last space of the de Rham sequence.
+
+    Parameters
+    ----------
+    s : psydac.linalg.stencil.Vector
+        FE coefficients of a discrete field, entropy of the solution.
+
+    u : psydac.linalg.stencil.BlockVector
+        FE coefficients of a discrete vector field, velocity of the solution.
+
+    **params : dict
+        Parameters for the iterative solver, the linear solver and the model.
+
+    '''
+
+    def __init__(self, s, u, **params):
+
+        super().__init__(s, u)
+
+        # parameters
+        params_default = {'linear_tol': 1e-12,
+                          'non_linear_tol': 1e-8,
+                          'linear_maxiter': 500,
+                          'non_linear_maxiter': 100,
+                          'type_linear_solver': ('pcg', 'MassMatrixDiagonalPreconditioner'),
+                          'non_linear_solver': 'Newton',
+                          'info': False,
+                          'verbose': False,
+                          'model': None,
+                          'rho': None,
+                          'gamma': 5/3,
+                          'mu': None,
+                          'mua':None,
+                          'mass_ops': None,
+                          'implicit_transport': False}
+
+        assert 'mu' in params
+        assert 'mua' in params
+        assert 'rho' in params
+        assert 'mass_ops' in params
+        assert 'model' in params, 'model must be provided for VariationalDensityEvolve'
+        assert params['model'] in ['full']
+        
+        params = set_defaults(params, params_default)
+
+        self._params = params
+
+        if self.derham.comm is not None:
+            rank = self.derham.comm.Get_rank()
+        else:
+            rank = 0
+
+        self._info = self._params['info'] and (rank == 0)
+
+        self._Mrho = params['mass_ops']
+
+        # Femfields for the projector
+        self.rhof = self.derham.create_field("rhof", "L2")
+        self.sf = self.derham.create_field("sf", "L2")
+        self.sf1 = self.derham.create_field("sf1", "L2")
+        self.uf = self.derham.create_field("uf", "H1vec")
+        self.uf1 = self.derham.create_field("uf1", "H1vec")
+        self.gu0f = self.derham.create_field("gu0", "Hcurl")
+        self.gu1f = self.derham.create_field("gu1", "Hcurl")
+        self.gu2f = self.derham.create_field("gu2", "Hcurl")
+        self.gu120f = self.derham.create_field("gu120", "Hcurl")
+        self.gu121f = self.derham.create_field("gu121", "Hcurl")
+        self.gu122f = self.derham.create_field("gu122", "Hcurl")
+
+        # Projector
+        self._initialize_projectors_and_mass()
+
+        # bunch of temporaries to avoid allocating in the loop
+        self._tmp_un1 = u.space.zeros()
+        self._tmp_un12 = u.space.zeros()
+        self._tmp_sn1 = s.space.zeros()
+        self._tmp_sn_incr = s.space.zeros()
+        self._tmp_sn_weak_diff = s.space.zeros()
+        self._tmp_gu0 = self.derham.Vh['1'].zeros()
+        self._tmp_gu1 = self.derham.Vh['1'].zeros()
+        self._tmp_gu2 = self.derham.Vh['1'].zeros()
+        self._tmp_gu120 = self.derham.Vh['1'].zeros()
+        self._tmp_gu121 = self.derham.Vh['1'].zeros()
+        self._tmp_gu122 = self.derham.Vh['1'].zeros()
+        self._linear_form_tot_e = s.space.zeros()
+        self._linear_form_e_sn1 = s.space.zeros()
+        self.tot_rhs = s.space.zeros()
+
+    def __call__(self, dt):
+        if self._params['non_linear_solver'] == 'Newton':
+            self.__call_newton(dt)
+        else :
+            raise ValueError('wrong value for solver type in VariationalViscosity')
+
+    def __call_newton(self, dt):
+        """Solve the non linear system for updating the variables using Newton iteration method"""
+        # Compute dissipation implicitely
+        self.pc.update_mass_operator(self._Mrho)
+        sn = self.feec_vars[0]
+        un = self.feec_vars[1]
+        if self._params['mu']<1.e-15 and self._params['mua']<1.e-15:
+            self.feec_vars_update(sn, un)
+            return
+        
+        if self._info:
+            print()
+            print("Computing the dissipation in VariationalViscosity")
+
+        # Update artificial viscosity weighted mass matrix
+        gu0 = self.grad_0.dot(un, out = self._tmp_gu0)
+        gu1 = self.grad_1.dot(un, out = self._tmp_gu1)
+        gu2 = self.grad_2.dot(un, out = self._tmp_gu2)
+
+        self.gu0f.vector = gu0
+        self.gu1f.vector = gu1
+        self.gu2f.vector = gu2
+
+        gu0_v = self.gu0f.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_gradient, out=self._guf0_values)
+        gu1_v = self.gu1f.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_gradient, out=self._guf1_values)
+        gu2_v = self.gu2f.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_gradient, out=self._guf2_values)
+
+        gu_sq_v = self._gu_init_values
+        gu_sq_v *= 0.
+        for i in range(3):
+            gu0_v[i] **= 2
+            gu1_v[i] **= 2
+            gu2_v[i] **= 2
+            gu_sq_v += gu0_v[i]
+            gu_sq_v += gu1_v[i]
+            gu_sq_v += gu2_v[i]
+        
+        np.sqrt(gu_sq_v, out= gu_sq_v)
+
+        gu_sq_v *= self._sq_term_metric
+        gu_sq_v *= dt*self._params['mua'] #/2
+
+        self.M1_du.assemble([[gu_sq_v, None, None],
+                             [None, gu_sq_v, None],
+                             [None, None, gu_sq_v]], verbose=False)
+
+        gu_sq_v /= self._sq_term_metric
+        #gu_sq_v *= 2.
+        gu_sq_v += dt*self._params['mu']
+    
+        self._scaled_stiffness._scalar = dt*self._params['mu'] #/2.
+        #self.evol_op._multiplicants[1]._addends[0]._scalar = - dt*self._params['mu']/2.
+        un1 = self.evol_op.dot(un, out = self._tmp_un1)
+        if self._info:
+            print("information on the linear solver : ", self.inv_lop._info)
+
+        # Energy balance term
+        # 1) Pointwize energy change
+        un12 = un.copy(out=self._tmp_un12)
+        un12 += un1
+        un12 /= 2.
+        gu0 = self.grad_0.dot(un1, out = self._tmp_gu0)
+        gu1 = self.grad_1.dot(un1, out = self._tmp_gu1)
+        gu2 = self.grad_2.dot(un1, out = self._tmp_gu2)
+
+        gu012 = self.grad_0.dot(un12, out = self._tmp_gu120)
+        gu112 = self.grad_1.dot(un12, out = self._tmp_gu121)
+        gu212 = self.grad_2.dot(un12, out = self._tmp_gu122)
+
+        self.gu0f.vector = gu0
+        self.gu1f.vector = gu1
+        self.gu2f.vector = gu2
+
+        self.gu120f.vector = gu012
+        self.gu121f.vector = gu112
+        self.gu122f.vector = gu212
+
+        gu0_v = self.gu0f.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_gradient, out=self._guf0_values)
+        gu1_v = self.gu1f.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_gradient, out=self._guf1_values)
+        gu2_v = self.gu2f.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_gradient, out=self._guf2_values)
+        
+        gu120_v = self.gu120f.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_gradient, out=self._guf120_values)
+        gu121_v = self.gu121f.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_gradient, out=self._guf121_values)
+        gu122_v = self.gu122f.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_gradient, out=self._guf122_values)
+
+        gu_sq_v = self._gu_sq_values
+        gu_sq_v *= 0.
+        for i in range(3):
+            gu0_v[i] *= gu120_v[i]
+            gu1_v[i] *= gu121_v[i]
+            gu2_v[i] *= gu122_v[i]
+            gu_sq_v += gu0_v[i]
+            gu_sq_v += gu1_v[i]
+            gu_sq_v += gu2_v[i]
+        
+        gu_sq_v *= self._gu_init_values
+        gu_sq_v *= self._sq_term_metric
+        # 2) Initial energy and linear form
+        rho = self._params['rho']
+        self.rhof.vector = rho
+        self.sf.vector = sn
+
+        sf_values = self.sf.eval_tp_fixed_loc(
+                self.integration_grid_spans, self.integration_grid_bd, out=self._sf_values)
+
+        rhof_values = self.rhof.eval_tp_fixed_loc(
+            self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values)
+
+        e_rho_s = self.__ener(rhof_values, sf_values,
+                                  out=self._e_rho_s_values)
+        
+        e_rho_s *= self._energy_metric
+
+        gu_sq_v += e_rho_s
+
+        self._get_L2dofs_V3(gu_sq_v, dofs=self._linear_form_tot_e)
+
+        # 3) Newton iteration
+        sn1 = sn.copy(out = self._tmp_sn1)
+
+        tol = self._params['non_linear_tol']
+        err = tol+1
+
+        for it in range(self._params['non_linear_maxiter']):
+
+            self.sf1.vector = sn1
+
+            sf1_values = self.sf1.eval_tp_fixed_loc(
+            self.integration_grid_spans, self.integration_grid_bd, out=self._sf1_values)
+
+            e_rho_s1 = self.__ener(
+                    rhof_values, sf1_values, out=self._e_rho_s1_values)
+            
+            e_rho_s1 *= self._energy_metric
+
+            self._get_L2dofs_V3(e_rho_s1, dofs=self._linear_form_e_sn1)
+
+        
+            self.tot_rhs *= 0.
+            self.tot_rhs -= self._linear_form_e_sn1
+            self.tot_rhs += self._linear_form_tot_e
+
+            err = self._get_error_newton(self.tot_rhs)
+
+            if self._info:
+                print("iteration : ", it, " error : ", err)
+
+            if err < tol**2 or np.isnan(err):
+                break
+
+            deds = self.__dener_ds(rhof_values, sf1_values, out=self._de_rho_s1_values)
+            deds *= self._mass_metric_term
+
+            self.M_de_ds.assemble([[deds]], verbose=False)
+            self.pc_jac.update_mass_operator(self.M_de_ds)
+
+            incr = self.inv_jac.dot(self.tot_rhs, out = self._tmp_sn_incr)
+
+            if self._info:
+                print("information on the linear solver : ", self.inv_jac._info)
+
+            sn1 += incr
+
+        if it == self._params['non_linear_maxiter']-1 or np.isnan(err):
+            print(
+                f'!!!Warning: Maximum iteration in VariationalViscosity reached - not converged:\n {err = } \n {tol**2 = }')
+
+        self.feec_vars_update(sn1, un1)
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['solver'] = {'linear_tol': 1e-12,
+                         'non_linear_tol': 1e-8,
+                         'linear_maxiter': 500,
+                         'non_linear_maxiter': 100,
+                         'type_linear_solver': [('pcg', 'MassMatrixDiagonalPreconditioner'),
+                                                ('cg', None)],
+                         'non_linear_solver': ['Newton'],
+                         'info': False,
+                         'verbose': False, 
+                         'implicit_transport': False}
+        dct['physics'] = {'gamma': 1.66666666667,
+                          'mu': 0., 'mua': 0.}
+        return dct
+
+    def _initialize_projectors_and_mass(self):
+        """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
+        
+        from struphy.feec.projectors import L2Projector
+        
+        Xv = getattr(self.basis_ops, 'Xv')
+        Pcoord0 = CoordinateProjector(
+            0, self.derham.Vh_pol['v'], self.derham.Vh_pol['0'])
+        Pcoord1 = CoordinateProjector(
+            1, self.derham.Vh_pol['v'], self.derham.Vh_pol['0'])
+        Pcoord2 = CoordinateProjector(
+            2, self.derham.Vh_pol['v'], self.derham.Vh_pol['0'])
+        
+        g = self.mass_ops.sqrt_g
+        
+        M1 = WeightedMassOperator(
+            self.derham.Vh_fem['1'], 
+            self.derham.Vh_fem['1'],
+            V_extraction_op=self.derham.extraction_ops['1'],
+            W_extraction_op=self.derham.extraction_ops['1'],
+            weights_info = [[g, None, None],
+                            [None, g, None],
+                            [None, None, g]])
+        
+        self.M1_du = WeightedMassOperator(
+            self.derham.Vh_fem['1'], 
+            self.derham.Vh_fem['1'],
+            V_extraction_op=self.derham.extraction_ops['1'],
+            W_extraction_op=self.derham.extraction_ops['1'],
+            weights_info = [[g, None, None],
+                            [None, g, None],
+                            [None, None, g]])
+        
+        self.pc_M3 = preconditioner.MassMatrixDiagonalPreconditioner(self.mass_ops.M3)
+        self._inv_M3 = inverse(self.mass_ops.M3,
+                                'pcg',
+                                pc=self.pc_M3,
+                                tol=1e-16,
+                                maxiter=1000,
+                                verbose=False)
+
+        M1.assemble()
+
+        self.M_de_ds = WeightedMassOperator(
+            self.derham.Vh_fem['3'], 
+            self.derham.Vh_fem['3'],
+            V_extraction_op=self.derham.extraction_ops['3'],
+            W_extraction_op=self.derham.extraction_ops['3'])
+
+        if self._params['type_linear_solver'][1] is None:
+            self.pc = None
+        else:
+            pc_class = getattr(
+                preconditioner, self._params['type_linear_solver'][1])
+            self.pc_jac = pc_class(self.M_de_ds)
+        
+        self.inv_jac = inverse(self.M_de_ds,
+                               'pcg',
+                                pc = self.pc_jac,
+                                tol=self._params['linear_tol'],
+                                maxiter=self._params['linear_maxiter'],
+                                verbose=False,
+                                recycle=True)
+        
+        grad = self.derham.grad
+        self.scalar_stiffness = grad.T@M1@grad
+        self.log_stiffness = Pcoord0.T@self.scalar_stiffness@Pcoord0 \
+                           + Pcoord1.T@self.scalar_stiffness@Pcoord1 \
+                           + Pcoord2.T@self.scalar_stiffness@Pcoord2
+        
+        self.phy_stiffness = Xv.T@self.log_stiffness@Xv
+
+        self._scaled_stiffness = .00001 * self.phy_stiffness
+
+        self.du_stiffness = grad.T@self.M1_du@grad
+        self.du_log_stiffness = Pcoord0.T@self.du_stiffness@Pcoord0 \
+                           + Pcoord1.T@self.du_stiffness@Pcoord1 \
+                           + Pcoord2.T@self.du_stiffness@Pcoord2
+        
+        self.du_phy_stiffness = Xv.T@self.du_log_stiffness@Xv
+
+        self._scaled_stiffness = .00001 * self.phy_stiffness
+
+        self.r_op = self._Mrho #- self._scaled_stiffness - self.du_phy_stiffness
+        self.l_op = self._Mrho + self._scaled_stiffness + self.du_phy_stiffness
+
+        self.grad_0 = grad@Pcoord0@Xv
+        self.grad_1 = grad@Pcoord1@Xv
+        self.grad_2 = grad@Pcoord2@Xv
+        
+
+        if self._params['type_linear_solver'][1] is None:
+            self.pc = None
+        else:
+            pc_class = getattr(
+                preconditioner, self._params['type_linear_solver'][1])
+            self.pc = pc_class(self._Mrho)
+
+        self.inv_lop = inverse(self.l_op,
+                                'pcg',
+                                pc = self.pc,
+                                tol=self._params['linear_tol'],
+                                maxiter=self._params['linear_maxiter'],
+                                verbose=False,
+                                recycle=True)
+        
+        self.evol_op = self.inv_lop @self.r_op
+        #self.evol_op = IdentityOperator(self.derham.Vh_pol['v'])
+        integration_grid = [grid_1d.flatten()
+                            for grid_1d in self.derham.quad_grid_pts['3']]
+        self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = self.derham.prepare_eval_tp_fixed(
+            integration_grid)
+        
+        self.integration_grid_gradient = [[self.integration_grid_bd[0], self.integration_grid_bn[1], self.integration_grid_bn[2]],
+                                            [self.integration_grid_bn[0], self.integration_grid_bd[1],
+                                                self.integration_grid_bn[2]],
+                                            [self.integration_grid_bn[0], self.integration_grid_bn[1], self.integration_grid_bd[2]]]
+        
+        grid_shape = tuple([len(loc_grid)
+                                for loc_grid in integration_grid])
+        
+        self._guf0_values = [np.zeros(grid_shape, dtype=float)for i in range(3)]
+        self._guf1_values = [np.zeros(grid_shape, dtype=float)for i in range(3)]
+        self._guf2_values = [np.zeros(grid_shape, dtype=float)for i in range(3)]
+
+        self._guf120_values = [np.zeros(grid_shape, dtype=float)for i in range(3)]
+        self._guf121_values = [np.zeros(grid_shape, dtype=float)for i in range(3)]
+        self._guf122_values = [np.zeros(grid_shape, dtype=float)for i in range(3)]
+
+        self._gu_sq_values = np.zeros(grid_shape, dtype=float)
+        self._gu_init_values = np.zeros(grid_shape, dtype=float)
+
+        self._sf_values = np.zeros(grid_shape, dtype=float)
+        self._sf1_values = np.zeros(grid_shape, dtype=float)
+        self._rhof_values = np.zeros(grid_shape, dtype=float)
+
+        self._e_rho_s1_values = np.zeros(grid_shape, dtype=float)
+        self._e_rho_s_values = np.zeros(grid_shape, dtype=float)
+
+        self._de_rho_s1_values = np.zeros(grid_shape, dtype=float)
+
+
+        self._tmp_int_grid = np.zeros(grid_shape, dtype=float)
+        
+        gam = self._params['gamma']
+
+        metric = np.power(self.domain.jacobian_det(
+                *integration_grid), -gam)
+        self._mass_metric_term = deepcopy(metric)
+
+        metric = np.power(self.domain.jacobian_det(
+                *integration_grid), 1-gam)
+        self._energy_metric = deepcopy(metric)
+
+        metric = np.power(self.domain.jacobian_det(
+                *integration_grid), 1)
+        self._sq_term_metric = deepcopy(metric)
+
+        self._get_L2dofs_V3 = L2Projector('L2', self.mass_ops).get_dofs
+
+    def __ener(self, rho, s, out=None):
+        """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
+        E(rho, s) = rho^gamma*exp(s/rho)"""
+        gam = self._params['gamma']
+        if out is None:
+            out = np.power(rho, gam)*np.exp(s/rho)
+        else:
+            out *= 0.
+            out += s
+            out /= rho
+            np.exp(out, out=out)
+            np.power(rho, gam, out=self._tmp_int_grid)
+            out *= self._tmp_int_grid
+        return out
+    
+    def __dener_ds(self, rho, s, out=None):
+        """Derivative with respect to s of the thermodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
+        dE(rho, s)/ds = (rho^{gamma-1})*exp(s/rho)"""
+        gam = self._params['gamma']
+        if out is None:
+            out = np.power(rho, gam-1)*np.exp(s/rho)
+        else:
+            out *= 0.
+            out += s
+            out /= rho
+            np.exp(out, out=out)
+            np.power(rho, gam-1, out=self._tmp_int_grid)
+            out *= self._tmp_int_grid
+        return out
+    
+    def _get_error_newton(self, sn_diff):
+        weak_sn_diff = self._inv_M3.dot(sn_diff, out=self._tmp_sn_weak_diff)
+        err_s = weak_sn_diff.dot(sn_diff)
+        return err_s
+    
+
+class VariationalResistivity(Propagator):
+    r'''Crank-Nicolson step for the resistive term in VRMHD equation,
+
+    .. math::
+
+        \begin{align}
+        &\partial_t \hat{\boldsymbol B} - \eta \Delta \hat{\boldsymbol B} = 0 ~ ,
+        \\[2mm]
+        &\int_{\hat{\Omega}} \partial_t (\hat{\rho} \hat{e}(\hat{\rho}, \hat{s})) \hat{w} \,\frac{1}{\sqrt g}\, \textrm d \boldsymbol \eta - \eta \int_{\hat{\Omega}} |DF^{-T}\tilde{\nabla} \times \hat{\boldsymbol B}|^2  \hat{w} \, \textrm d \boldsymbol \eta = 0 ~ .
+        \end{align}
+
+    It is discretized as
+
+    .. math::
+
+        \begin{align}
+        &\frac{\mathbf B^{n+1}-\mathbf B^n}{\Delta t} 
+        + \eta\, \mathbb C \mathbb M_1^{-1} \mathbb C^T \mathbb M_2  \frac{ \mathbf B^{n+1}+\mathbf B^n}{2} = 0 ~ ,
+        \\[2mm]
+        &\frac{P^{3}(\rho e(s^{n+1})- P^{3}(\rho e(s^{n}))}{\Delta t} - \eta P^3(|DF^{-T} \tilde{\mathbb C} \frac{ \mathbf B^{n+1}+\mathbf B^n}{2}|^2) = 0 ~ ,
+        \end{align}
+
+    where $P^3$ denotes the $L^2$ projection in the last space of the de Rham sequence.
+
+    Parameters
+    ----------
+    s : psydac.linalg.stencil.Vector
+        FE coefficients of a discrete field, entropy of the solution.
+
+    B : psydac.linalg.stencil.BlockVector
+        FE coefficients of a discrete vector field, magnetic field of the solution.
+
+    **params : dict
+        Parameters for the iterative solver, the linear solver and the model.
+
+    '''
+
+    def __init__(self, s, b, **params):
+
+        super().__init__(s, b)
+
+        # parameters
+        params_default = {'linear_tol': 1e-12,
+                          'non_linear_tol': 1e-8,
+                          'linear_maxiter': 500,
+                          'non_linear_maxiter': 100,
+                          'type_linear_solver': ('pcg', 'MassMatrixDiagonalPreconditioner'),
+                          'non_linear_solver': 'Newton',
+                          'info': False,
+                          'verbose': False,
+                          'model': None,
+                          'rho': None,
+                          'gamma': 5/3,
+                          'eta': None,
+                          'implicit_transport': False}
+
+        assert 'eta' in params
+        assert 'rho' in params
+        assert 'model' in params, 'model must be provided for VariationalDensityEvolve'
+        assert params['model'] in ['full']
+        
+        params = set_defaults(params, params_default)
+
+        self._params = params
+
+        if self.derham.comm is not None:
+            rank = self.derham.comm.Get_rank()
+        else:
+            rank = 0
+
+        self._info = self._params['info'] and (rank == 0)
+
+        # Femfields for the projector
+        self.rhof = self.derham.create_field("rhof", "L2")
+        self.sf = self.derham.create_field("sf", "L2")
+        self.sf1 = self.derham.create_field("sf1", "L2")
+        self.bf = self.derham.create_field("Bf", "Hdiv")
+        self.bf1 = self.derham.create_field("Bf1", "Hdiv")
+        self.cbf1 = self.derham.create_field("cBf", "Hcurl")
+        self.cbf12 = self.derham.create_field("cBf", "Hcurl")
+
+        # Projector
+        self._initialize_projectors_and_mass()
+
+        # bunch of temporaries to avoid allocating in the loop
+        self._tmp_bn1 = b.space.zeros()
+        self._tmp_bn12 = b.space.zeros()
+        self._tmp_sn1 = s.space.zeros()
+        self._tmp_sn_incr = s.space.zeros()
+        self._tmp_sn_weak_diff = s.space.zeros()
+        self._tmp_cb12 = self.derham.Vh['1'].zeros()
+        self._tmp_cb1 = self.derham.Vh['1'].zeros()
+        self._linear_form_tot_e = s.space.zeros()
+        self._linear_form_e_sn1 = s.space.zeros()
+        self.tot_rhs = s.space.zeros()
+
+    def __call__(self, dt):
+        if self._params['non_linear_solver'] == 'Newton':
+            self.__call_newton(dt)
+        else :
+            raise ValueError('wrong value for solver type in VariationalResistivity')
+
+    def __call_newton(self, dt):
+        """Solve the non linear system for updating the variables using Newton iteration method"""
+        # Compute dissipation implicitely
+        sn = self.feec_vars[0]
+        bn = self.feec_vars[1]
+        if self._params['eta']<1.e-15:
+            self.feec_vars_update(sn, bn)
+            return
+        
+        if self._info:
+            print()
+            print("Computing the dissipation in VariationalResistivity")
+    
+        self._scaled_stiffness._scalar = dt*self._params['eta']
+        #self.evol_op._multiplicants[1]._addends[0]._scalar = -dt*self._params['eta']/2.
+        bn1 = self.evol_op.dot(bn, out = self._tmp_bn1)
+        if self._info:
+            print("information on the linear solver : ", self.inv_lop._info)
+
+        # Energy balance term
+        # 1) Pointwize energy change
+        bn12 = bn.copy(out=self._tmp_bn12)
+        bn12 += bn1
+        bn12 /= 2.
+        cb12  = self.Tcurl.dot(bn12, out = self._tmp_cb12)
+        cb1  = self.Tcurl.dot(bn1, out = self._tmp_cb1)
+
+        self.cbf12.vector = cb12
+        self.cbf1.vector  = cb1
+
+        cb12_v = self.cbf12.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_curl, out=self._cb12_values)
+        cb1_v = self.cbf1.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_curl, out=self._cb1_values)
+
+        gu_sq_v = self._cb_sq_values
+        gu_sq_v *= 0.
+        for i in range(3):
+            for j in range(3):
+                gu_sq_v += cb12_v[i]*self._sq_term_metric[i,j]*cb1_v[j]
+        
+        gu_sq_v *= dt*self._params['eta']
+        # 2) Initial energy and linear form
+        rho = self._params['rho']
+        self.rhof.vector = rho
+        self.sf.vector = sn
+
+        sf_values = self.sf.eval_tp_fixed_loc(
+                self.integration_grid_spans, self.integration_grid_bd, out=self._sf_values)
+
+        rhof_values = self.rhof.eval_tp_fixed_loc(
+            self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values)
+
+        e_rho_s = self.__ener(rhof_values, sf_values,
+                                  out=self._e_rho_s_values)
+        
+        e_rho_s *= self._energy_metric
+
+        gu_sq_v += e_rho_s
+
+        self._get_L2dofs_V3(gu_sq_v, dofs=self._linear_form_tot_e)
+
+        # 3) Newton iteration
+        sn1 = sn.copy(out = self._tmp_sn1)
+
+        tol = self._params['non_linear_tol']
+        err = tol+1
+
+        for it in range(self._params['non_linear_maxiter']):
+
+            self.sf1.vector = sn1
+
+            sf1_values = self.sf1.eval_tp_fixed_loc(
+            self.integration_grid_spans, self.integration_grid_bd, out=self._sf1_values)
+
+            e_rho_s1 = self.__ener(
+                    rhof_values, sf1_values, out=self._e_rho_s1_values)
+            
+            e_rho_s1 *= self._energy_metric
+
+            self._get_L2dofs_V3(e_rho_s1, dofs=self._linear_form_e_sn1)
+
+        
+            self.tot_rhs *= 0.
+            self.tot_rhs -= self._linear_form_e_sn1
+            self.tot_rhs += self._linear_form_tot_e
+
+            err = self._get_error_newton(self.tot_rhs)
+
+            if self._info:
+                print("iteration : ", it, " error : ", err)
+
+            if err < tol**2 or np.isnan(err):
+                break
+
+            deds = self.__dener_ds(rhof_values, sf1_values, out=self._de_rho_s1_values)
+            deds *= self._mass_metric_term
+
+            self.M_de_ds.assemble([[deds]], verbose=False)
+            self.pc_jac.update_mass_operator(self.M_de_ds)
+
+            incr = self.inv_jac.dot(self.tot_rhs, out = self._tmp_sn_incr)
+
+            if self._info:
+                print("information on the linear solver : ", self.inv_jac._info)
+
+            sn1 += incr
+
+        if it == self._params['non_linear_maxiter']-1 or np.isnan(err):
+            print(
+                f'!!!Warning: Maximum iteration in VariationalViscosity reached - not converged:\n {err = } \n {tol**2 = }')
+
+        self.feec_vars_update(sn1, bn1)
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['solver'] = {'linear_tol': 1e-12,
+                         'non_linear_tol': 1e-8,
+                         'linear_maxiter': 500,
+                         'non_linear_maxiter': 100,
+                         'type_linear_solver': [('pcg', 'MassMatrixDiagonalPreconditioner'),
+                                                ('cg', None)],
+                         'non_linear_solver': ['Newton'],
+                         'info': False,
+                         'verbose': False, 
+                         'implicit_transport': False}
+        dct['physics'] = {'eta': 0.,
+                          'gamma': 5/3,
+                          'mu': 0.,
+                          'mua': 0.}
+        return dct
+
+    def _initialize_projectors_and_mass(self):
+        """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
+        
+        from struphy.feec.projectors import L2Projector
+        
+        pc_M1 = preconditioner.MassMatrixDiagonalPreconditioner(self.mass_ops.M1)
+        inv_M1 = inverse(self.mass_ops.M1,
+                                'pcg',
+                                pc=pc_M1,
+                                tol=1e-16,
+                                maxiter=1000,
+                                verbose=False)
+
+        pc_M3 = preconditioner.MassMatrixDiagonalPreconditioner(self.mass_ops.M3)
+        self._inv_M3 = inverse(self.mass_ops.M3,
+                                'pcg',
+                                pc=pc_M3,
+                                tol=1e-16,
+                                maxiter=1000,
+                                verbose=False)
+        
+        M2 = self.mass_ops.M2
+
+        self.M_de_ds = WeightedMassOperator(
+            self.derham.Vh_fem['3'], 
+            self.derham.Vh_fem['3'],
+            V_extraction_op=self.derham.extraction_ops['3'],
+            W_extraction_op=self.derham.extraction_ops['3'])
+
+        if self._params['type_linear_solver'][1] is None:
+            self.pc = None
+        else:
+            pc_class = getattr(
+                preconditioner, self._params['type_linear_solver'][1])
+            self.pc_jac = pc_class(self.M_de_ds)
+        
+        self.inv_jac = inverse(self.M_de_ds,
+                               'pcg',
+                                pc = self.pc_jac,
+                                tol=self._params['linear_tol'],
+                                maxiter=self._params['linear_maxiter'],
+                                verbose=False,
+                                recycle=True)
+        
+        curl = self.derham.curl
+        self.Tcurl = inv_M1@curl.T@M2
+        
+        self.phy_stiffness = M2@curl@inv_M1@curl.T@M2
+
+        self._scaled_stiffness = .00001 * self.phy_stiffness
+
+        self.r_op = M2 #- self._scaled_stiffness
+        self.l_op = M2 + self._scaled_stiffness
+        
+
+        if self._params['type_linear_solver'][1] is None:
+            self.pc = None
+        else:
+            pc_class = getattr(
+                preconditioner, self._params['type_linear_solver'][1])
+            self.pc = pc_class(M2)
+
+        self.inv_lop = inverse(self.l_op,
+                                'pcg',
+                                pc = self.pc,
+                                tol=self._params['linear_tol'],
+                                maxiter=self._params['linear_maxiter'],
+                                verbose=False,
+                                recycle=True)
+        
+        self.evol_op = self.inv_lop@self.r_op
+        #self.evol_op = IdentityOperator(self.derham.Vh_pol['v'])
+        integration_grid = [grid_1d.flatten()
+                            for grid_1d in self.derham.quad_grid_pts['3']]
+        self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = self.derham.prepare_eval_tp_fixed(
+            integration_grid)
+        
+        self.integration_grid_curl = [[self.integration_grid_bd[0], self.integration_grid_bn[1], self.integration_grid_bn[2]],
+                                            [self.integration_grid_bn[0], self.integration_grid_bd[1],
+                                                self.integration_grid_bn[2]],
+                                            [self.integration_grid_bn[0], self.integration_grid_bn[1], self.integration_grid_bd[2]]]
+        
+        grid_shape = tuple([len(loc_grid)
+                                for loc_grid in integration_grid])
+        
+        self._cb12_values = [np.zeros(grid_shape, dtype=float)for i in range(3)]
+        self._cb1_values = [np.zeros(grid_shape, dtype=float)for i in range(3)]
+        
+        self._cb_sq_values = np.zeros(grid_shape, dtype=float)
+
+        self._sf_values = np.zeros(grid_shape, dtype=float)
+        self._sf1_values = np.zeros(grid_shape, dtype=float)
+        self._rhof_values = np.zeros(grid_shape, dtype=float)
+
+        self._e_rho_s1_values = np.zeros(grid_shape, dtype=float)
+        self._e_rho_s_values = np.zeros(grid_shape, dtype=float)
+
+        self._de_rho_s1_values = np.zeros(grid_shape, dtype=float)
+
+        self._tmp_int_grid = np.zeros(grid_shape, dtype=float)
+        
+        gam = self._params['gamma']
+
+        metric = np.power(self.domain.jacobian_det(
+                *integration_grid), -gam)
+        self._mass_metric_term = deepcopy(metric)
+
+        metric = np.power(self.domain.jacobian_det(
+                *integration_grid), 1-gam)
+        self._energy_metric = deepcopy(metric)
+
+        metric = self.domain.metric_inv(*integration_grid)*self.domain.jacobian_det(*integration_grid)
+        self._sq_term_metric = deepcopy(metric)
+
+        self._get_L2dofs_V3 = L2Projector('L2', self.mass_ops).get_dofs
+
+    def __ener(self, rho, s, out=None):
+        """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
+        E(rho, s) = rho^gamma*exp(s/rho)"""
+        gam = self._params['gamma']
+        if out is None:
+            out = np.power(rho, gam)*np.exp(s/rho)
+        else:
+            out *= 0.
+            out += s
+            out /= rho
+            np.exp(out, out=out)
+            np.power(rho, gam, out=self._tmp_int_grid)
+            out *= self._tmp_int_grid
+        return out
+    
+    def __dener_ds(self, rho, s, out=None):
+        """Derivative with respect to s of the thermodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
+        dE(rho, s)/ds = (rho^{gamma-1})*exp(s/rho)"""
+        gam = self._params['gamma']
+        if out is None:
+            out = np.power(rho, gam-1)*np.exp(s/rho)
+        else:
+            out *= 0.
+            out += s
+            out /= rho
+            np.exp(out, out=out)
+            np.power(rho, gam-1, out=self._tmp_int_grid)
+            out *= self._tmp_int_grid
+        return out
+    
+    def _get_error_newton(self, sn_diff):
+        weak_sn_diff = self._inv_M3.dot(sn_diff, out=self._tmp_sn_weak_diff)
+        err_s = weak_sn_diff.dot(sn_diff)
+        return err_s
 
 
 class TimeDependentSource(Propagator):

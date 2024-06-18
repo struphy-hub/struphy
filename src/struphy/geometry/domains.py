@@ -240,15 +240,19 @@ class DESCunit(Spline):
 
         _rmin = desc_equil.params['rmin']
 
+        nfp = desc_equil.eq.NFP
+        if not desc_equil.use_nfp:
+            nfp = 1
+
         # project mapping to splines
         def X(e1, e2, e3):
-            return desc_equil.desc_eval('X', e1, e2, e3)
+            return desc_equil.desc_eval('X', e1, e2, e3, nfp=nfp)
 
         def Y(e1, e2, e3):
-            return desc_equil.desc_eval('Y', e1, e2, e3)
+            return desc_equil.desc_eval('Y', e1, e2, e3, nfp=nfp)
 
         def Z(e1, e2, e3):
-            return desc_equil.desc_eval('Z', e1, e2, e3)
+            return desc_equil.desc_eval('Z', e1, e2, e3, nfp=nfp)
 
         cx, cy, cz = interp_mapping(
             params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y, Z)

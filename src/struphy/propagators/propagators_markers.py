@@ -1,7 +1,7 @@
 'Only particle variables are updated.'
 
 
-from numpy import array, polynomial
+from numpy import array, polynomial, random
 
 from psydac.linalg.block import BlockVector
 
@@ -635,7 +635,7 @@ class PushGuidingCenterBxEstar(Propagator):
         """
         self._pusher(self.particles[0], dt,
                      *self._pusher_inputs, mpi_sort=self._mpi_sort, verbose=self._verbose)
-        
+
         # update_weights
         if self.particles[0].control_variate:
 
@@ -860,7 +860,7 @@ class PushGuidingCenterParallel(Propagator):
         """
         self._pusher(self.particles[0], dt,
                      *self._pusher_inputs, mpi_sort=self._mpi_sort, verbose=self._verbose)
-        
+
         # update_weights
         if self.particles[0].control_variate:
 
@@ -1685,10 +1685,11 @@ class PushDriftKineticBxEstar(Propagator):
         """
         TODO
         """
+
         # efield=self._grad_phi0
         e1 = self._e1 = self.derham.grad.dot(-self._phi0, out=self._e1)
         e1.update_ghost_regions()
-         
+
         self._pusher(self.particles[0], dt,
                      e1[0]._data, e1[1]._data, e1[2]._data,
                      *self._pusher_inputs,
@@ -1710,8 +1711,8 @@ class PushDriftKineticBxEstar(Propagator):
 
 
 class PushDriftKineticParallel(Propagator):
-    r"""Particle pushing step for the :math:`\mathbf B^*`acceleration:
-    
+    r"""Particle pushing step for the :math:`\mathbf B^*`-acceleration,
+
     .. math::
 
         \left\{ 
@@ -1775,7 +1776,7 @@ class PushDriftKineticParallel(Propagator):
         super().__init__(particles)
 
         # types
-        #assert isinstance(magn_bckgr, BraginskiiEquilibrium)
+        # assert isinstance(magn_bckgr, BraginskiiEquilibrium)
 
         # parameters
         algo_params_default = {
@@ -1808,7 +1809,7 @@ class PushDriftKineticParallel(Propagator):
 
         # grad phi and grad absB0
         grad_absB0 = self.derham.grad.dot(absB0)
-        grad_absB0.update_ghost_regions() 
+        grad_absB0.update_ghost_regions()
 
         _eval_ker_names = []
 
@@ -1905,7 +1906,7 @@ class PushDriftKineticParallel(Propagator):
         self._pusher(self.particles[0], dt,
                      e1[0]._data, e1[1]._data, e1[2]._data,
                      *self._pusher_inputs, mpi_sort=self._mpi_sort, verbose=self._verbose)
-        
+
         # update_weights
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
@@ -1913,6 +1914,7 @@ class PushDriftKineticParallel(Propagator):
     @classmethod
     def options(cls):
         dct = {}
+
         dct['algo'] = {'method': ['rk4',
                                   'forward_euler',
                                   'heun2',
@@ -1922,4 +1924,197 @@ class PushDriftKineticParallel(Propagator):
                        'tol': 1e-7,
                        'mpi_sort': 'each',
                        'verbose': False}
+        return dct
+
+
+class PushDeterministicDiffusion(Propagator):
+    r"""Solves with explicit time stepping
+
+    .. math::
+
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = - D \, \frac{\nabla \Pi^0_{L^2}u_h}{\Pi^0_{L^2} u_h}\mathbf (\boldsymbol \eta_p(t))\,, 
+        \qquad [\Pi^0_{L^2, ijk} u_h](\boldsymbol \eta_p) = \frac 1N \sum_{p} w_p \boldsymbol \Lambda^0_{ijk}(\boldsymbol \eta_p)\,,
+
+    for each marker :math:`p` in markers array, wher :math:`D>0` is a positive diffusion coefficient. 
+    Available algorithms:
+
+    * forward_euler (1st order)
+    * heun2 (2nd order)
+    * rk2 (2nd order)
+    * heun3 (3rd order)
+    * rk4 (4th order)
+
+    Parameters
+    ----------
+    particles : struphy.pic.particles.Particles3D
+        Holdes the markers to push.
+
+    **params : dict
+        Solver- and/or other parameters for this splitting step.
+    """
+
+    def __init__(self, particles, **params):
+
+        from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+
+        super().__init__(particles)
+
+        # parameters
+        params_default = {'algo': 'push_deterministic_diffusion_stage',
+                          'bc_type': ['periodic', 'periodic', 'periodic'],
+                          'diffusion_coefficient': 1.
+                          }
+
+        params = set_defaults(params, params_default)
+
+        self._bc_type = params['bc_type']
+
+        # choose algorithm
+        if params['algo'] == 'forward_euler':
+            a = []
+            b = [1.]
+            c = [0.]
+        elif params['algo'] == 'heun2':
+            a = [1.]
+            b = [1/2, 1/2]
+            c = [0., 1.]
+        elif params['algo'] == 'rk2':
+            a = [1/2]
+            b = [0., 1.]
+            c = [0., 1/2]
+        elif params['algo'] == 'heun3':
+            a = [1/3, 2/3]
+            b = [1/4, 0., 3/4]
+            c = [0., 1/3, 2/3]
+        elif params['algo'] == 'rk4':
+            a = [1/2, 1/2, 1.]
+            b = [1/6, 1/3, 1/3, 1/6]
+            c = [0., 1/2, 1/2, 1.]
+        else:
+            raise NotImplementedError('Chosen algorithm is not implemented.')
+
+        self._u_on_grid = AccumulatorVector(
+            self.derham, self.domain, "H1", "charge_density_0form")
+
+        self._butcher = ButcherTableau(a, b, c)
+        self._pusher = Pusher(self.derham, self.domain,
+                              'push_deterministic_diffusion_stage', n_stages=self._butcher.n_stages)
+
+        self._tmp = self.derham.Vh['1'].zeros()
+
+        self._diffusion = params['diffusion_coefficient']
+
+    def __call__(self, dt):
+        """
+        TODO
+        """
+
+        self._u_on_grid.accumulate(self.particles[0], self.particles[0].vdim)
+
+        pi_u = self._u_on_grid.vectors[0]
+        grad_pi_u = self.derham.grad.dot(pi_u, out=self._tmp)
+        grad_pi_u.update_ghost_regions()
+
+        # push markers
+        self._pusher(self.particles[0], dt,
+                     pi_u._data,
+                     grad_pi_u[0]._data, grad_pi_u[1]._data, grad_pi_u[2]._data,
+                     self._diffusion,
+                     self._butcher.a, self._butcher.b, self._butcher.c,
+                     mpi_sort='last')
+
+        # update_weights
+        if self.particles[0].control_variate:
+            self.particles[0].update_weights()
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['algo'] = ['rk4', 'forward_euler', 'heun2', 'rk2', 'heun3']
+        dct['diffusion_coefficient'] = 1.
+        return dct
+
+
+class PushRandomDiffusion(Propagator):
+    r"""Solves for each marker :math:`p` in markers array
+
+    .. math::
+
+        \textnormal d \boldsymbol \eta_p(t) = \sqrt{2 D} \, \textnormal d \mathbf B_{t}\,,
+
+    where :math:`D>0` is a positive diffusion coefficient and :math:`\textnormal d \mathbf B_{t}` is a Wiener process,
+    
+    .. math::
+    
+        \mathbf B_{t + \Delta t} - \mathbf B_{t} = \sqrt{\Delta t} \,\mathcal N(0;1)\,,
+        
+    with :math:`\mathcal N(0;1)` denoting the standard normal distribution with mean zero and variance one.
+    
+    Available algorithms:
+
+        * forward_euler (1st order)
+
+    Parameters
+    ----------
+    particles : struphy.pic.particles.Particles3D
+        Holdes the markers to push.
+        """
+
+    def __init__(self, particles, **params):
+
+        super().__init__(particles)
+
+        # parameters
+        params_default = {'algo': 'forward_euler',
+                          'bc_type': ['periodic', 'periodic', 'periodic'],
+                          'diffusion_coefficient': 1.
+                          }
+
+        params = set_defaults(params, params_default)
+
+        self._bc_type = params['bc_type']
+
+        # choose algorithm
+        if params['algo'] == 'forward_euler':
+            a = []
+            b = [1.]
+            c = [0.]
+        else:
+            raise NotImplementedError('Chosen algorithm is not implemented.')
+
+        self._butcher = ButcherTableau(a, b, c)
+        self._pusher = Pusher(self.derham, self.domain,
+                              'push_random_diffusion_stage', n_stages=self._butcher.n_stages)
+
+        # self._tmp = self.derham.Vh['1'].zeros()
+
+        self._noise = array(self.particles[0].markers[0:3])
+
+        self._mean = [0, 0, 0]
+        self._cov = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+        self._diffusion = params['diffusion_coefficient']
+
+    def __call__(self, dt):
+        """
+        TODO
+        """
+
+        self._noise = random.multivariate_normal(
+            self._mean, self._cov, len(self.particles[0].markers))
+
+        # push markers
+        self._pusher(self.particles[0], dt,
+                     self._noise, self._diffusion,
+                     self._butcher.a, self._butcher.b, self._butcher.c,
+                     mpi_sort='last')
+
+        # update_weights
+        if self.particles[0].control_variate:
+            self.particles[0].update_weights()
+
+    @classmethod
+    def options(cls):
+        dct = {}
+        dct['algo'] = ['forward_euler']
+        dct['diffusion_coefficient'] = 1.
         return dct
