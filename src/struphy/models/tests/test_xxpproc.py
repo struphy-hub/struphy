@@ -15,25 +15,25 @@ def test_pproc_codes(model=None):
     list_fluid = []
     for name, obj in inspect.getmembers(fluid):
         if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
+            if name not in {'StruphyModel', 'Propagator'}:
                 list_fluid += [name]
 
     list_kinetic = []
     for name, obj in inspect.getmembers(kinetic):
         if inspect.isclass(obj):
-            if name not in {'StruphyModel', 'KineticBackground'}:
+            if name not in {'StruphyModel', 'KineticBackground', 'Propagator'}:
                 list_kinetic += [name]
 
     list_hybrid = []
     for name, obj in inspect.getmembers(hybrid):
         if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
+            if name not in {'StruphyModel', 'Propagator'}:
                 list_hybrid += [name]
 
     list_toy = []
     for name, obj in inspect.getmembers(toy):
         if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
+            if name not in {'StruphyModel', 'Propagator'}:
                 list_toy += [name]
 
     list_models = list_fluid + list_kinetic + list_hybrid + list_toy

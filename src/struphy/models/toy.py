@@ -1,6 +1,9 @@
 import numpy as np
 from struphy.models.base import StruphyModel
 
+from struphy.propagators.base import Propagator
+from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
+
 
 class Maxwell(StruphyModel):
     r'''Maxwell's equations in vacuum.
@@ -95,53 +98,62 @@ class Vlasov(StruphyModel):
 
     .. math::
 
-        \hat \omega = \hat \Omega_\textnormal{c} := \frac{Ze \hat B}{A m_\textnormal{H}}\,,\qquad \frac{\hat \omega}{\hat k} = \hat v\,,
+        \hat v = \hat \Omega_\textnormal{c} \hat x\,.
 
-    Implemented equations:
+    :ref:`Equations <gempic>`:
 
     .. math::
 
         \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \left(\mathbf{v}\times\mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0\,,
 
-    Parameters
-    ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
-
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
+    :ref:`propagators` (called in sequence):
+    
+    1. :class:`~struphy.propagators.propagators_markers.PushVxB`
+    2. :class:`~struphy.propagators.propagators_markers.PushEta`
+    
+    **Model info:**
     '''
 
-    @classmethod
-    def species(cls):
+    @staticmethod
+    def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
         dct['kinetic']['ions'] = 'Particles6D'
         return dct
 
-    @classmethod
-    def bulk_species(cls):
+    @staticmethod
+    def bulk_species():
         return 'ions'
 
-    @classmethod
-    def velocity_scale(cls):
+    @staticmethod
+    def velocity_scale():
         return 'cyclotron'
+
+    @staticmethod
+    def propagators_cls():
+        return [propagators_markers.PushVxB.__name__,
+                propagators_markers.PushEta.__name__]
+
+    _electromagnetic_fields = species()['em_fields']
+    _fluid_species = species()['fluid']
+    _kinetic_species = species()['kinetic']
+    _bulk_species = bulk_species()
+    _velocity_scale = velocity_scale()
+    _propagators_cls = propagators_cls()
 
     @classmethod
     def options(cls):
-        # import propagator options
-        from struphy.propagators.propagators_markers import PushEta, PushVxB
-
         dct = {}
         cls.add_option(species=['kinetic', 'ions'], key='push_eta',
-                       option=PushEta.options()['algo'], dct=dct)
+                       option=propagators_markers.PushEta.options()['algo'], dct=dct)
         cls.add_option(species=['kinetic', 'ions'], key='push_vxb',
-                       option=PushVxB.options()['algo'], dct=dct)
+                       option=propagators_markers.PushVxB.options()['algo'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
 
-        super().__init__(params, comm)
+        super().__init__(params, comm,
+                         prop=Propagator)
 
         from mpi4py.MPI import SUM, IN_PLACE
 
@@ -154,16 +166,20 @@ class Vlasov(StruphyModel):
                                          self.mhd_equil.b2_3])
 
         # Initialize propagators/integrators used in splitting substeps
-        self.add_propagator(self.prop_markers.PushVxB(
+        self.add_propagator(propagators_markers.PushVxB(
             self.pointer['ions'],
             algo=ions_params['options']['push_vxb'],
             scale_fac=1.,
             b_eq=self._b_eq,
             b_tilde=None))
-        self.add_propagator(self.prop_markers.PushEta(
+        self.add_propagator(propagators_markers.PushEta(
             self.pointer['ions'],
             algo=ions_params['options']['push_eta'],
             bc_type=ions_params['markers']['bc']['type']))
+        
+        # check consistency of propagators objects with specified classes
+        for prop, prop_cls in zip(self.propagators, self.propagators_cls()):
+            assert prop.__class__.__name__ == prop_cls
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_f')
@@ -195,7 +211,7 @@ class GuidingCenter(StruphyModel):
 
         \frac{\hat B}{\sqrt{A_\textnormal{b} m_\textnormal{H} \hat n \mu_0}} =: \hat v_\textnormal{A} = \frac{\hat \omega}{\hat k}
 
-    Implemented equations:
+    :ref:`Equations <gempic>`:
 
     .. math::
 
@@ -213,46 +229,54 @@ class GuidingCenter(StruphyModel):
 
         \epsilon = \frac{\hat \omega }{2\pi \hat \Omega_{\textnormal{c}}}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{c}} = \frac{Ze \hat B}{A m_\textnormal{H}}\,.
 
-    Parameters
-    ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
-
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
+    :ref:`propagators` (called in sequence):
+    
+    1. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
+    2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
+    
+    **Model info:**
     '''
 
-    @classmethod
-    def species(cls):
+    @staticmethod
+    def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
         dct['kinetic']['ions'] = 'Particles5D'
         return dct
 
-    @classmethod
-    def bulk_species(cls):
+    @staticmethod
+    def bulk_species():
         return 'ions'
 
-    @classmethod
-    def velocity_scale(cls):
+    @staticmethod
+    def velocity_scale():
         return 'alfvén'
+    
+    @staticmethod
+    def propagators_cls():
+        return [propagators_markers.PushGuidingCenterBxEstar.__name__,
+                propagators_markers.PushGuidingCenterParallel.__name__]
+
+    _electromagnetic_fields = species()['em_fields']
+    _fluid_species = species()['fluid']
+    _kinetic_species = species()['kinetic']
+    _bulk_species = bulk_species()
+    _velocity_scale = velocity_scale()
+    _propagators_cls = propagators_cls()
 
     @classmethod
     def options(cls):
-        # import propagator options
-        from struphy.propagators.propagators_markers import PushGuidingCenterBxEstar, PushGuidingCenterParallel
-
         dct = {}
         cls.add_option(species=['kinetic', 'ions'], key='push_bxEstar',
-                       option=PushGuidingCenterBxEstar.options()['algo'], dct=dct)
+                       option=propagators_markers.PushGuidingCenterBxEstar.options()['algo'], dct=dct)
         cls.add_option(species=['kinetic', 'ions'], key='push_Bstar',
-                       option=PushGuidingCenterParallel.options()['algo'], dct=dct)
-
+                       option=propagators_markers.PushGuidingCenterParallel.options()['algo'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
 
-        super().__init__(params, comm)
+        super().__init__(params, comm,
+                         prop=Propagator)
 
         from mpi4py.MPI import SUM, IN_PLACE
 
@@ -270,16 +294,21 @@ class GuidingCenter(StruphyModel):
             magn_bckgr = self.braginskii_equil
 
         # Initialize propagators/integrators used in splitting substeps
-        self.add_propagator(self.prop_markers.PushGuidingCenterBxEstar(
+        self.add_propagator(propagators_markers.PushGuidingCenterBxEstar(
             self.pointer['ions'],
             magn_bckgr=magn_bckgr,
             epsilon=self.equation_params['ions']['epsilon'],
             **ions_params['options']['push_bxEstar']))
-        self.add_propagator(self.prop_markers.PushGuidingCenterParallel(
+        
+        self.add_propagator(propagators_markers.PushGuidingCenterParallel(
             self.pointer['ions'],
             magn_bckgr=magn_bckgr,
             epsilon=self.equation_params['ions']['epsilon'],
             **ions_params['options']['push_Bstar']))
+
+        # check consistency of propagators objects with specified classes
+        for prop, prop_cls in zip(self.propagators, self.propagators_cls()):
+            assert prop.__class__.__name__ == prop_cls
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_fv')
@@ -931,7 +960,7 @@ class DeterministicParticleDiffusion(StruphyModel):
 
     where :math:`\mathbb D: \Omega\to \mathbb R^{3\times 3 }` is a positive diffusion matrix. 
     At the moment only matrices of the form :math:`D*Id` are implemented, where :math:`D > 0` is a positive diffusion coefficient.
-    
+
     Parameters
     ----------
     params : dict
@@ -1018,7 +1047,7 @@ class RandomParticleDiffusion(StruphyModel):
         \frac{\partial u}{\partial t} -  D \, \Delta u = 0\,,
 
     where :math:`D > 0` is a positive diffusion coefficient. 
-    
+
     Parameters
     ----------
     params : dict

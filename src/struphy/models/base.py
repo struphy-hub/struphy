@@ -23,14 +23,13 @@ class StruphyModel(metaclass=ABCMeta):
     in one of the modules ``fluid.py``, ``kinetic.py``, ``hybrid.py`` or ``toy.py``.  
     """
 
-    def __init__(self, params, comm=None):
+    def __init__(self, params, comm=None,
+                 prop=None):
 
         # TODO: comm=None does not work yet.
 
         from struphy.io.setup import setup_domain_mhd, setup_derham
 
-        from struphy.propagators.base import Propagator
-        from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
         from struphy.feec.basis_projection_ops import BasisProjectionOperators
         from struphy.feec.mass import WeightedMassOperators
         from struphy.fields_background.braginskii_equil import equils as braginskii_equils
@@ -122,19 +121,17 @@ class StruphyModel(metaclass=ABCMeta):
         if comm.Get_rank() == 0:
             self._show_chosen_options()
 
-        # expose propagator modules
-        self._prop = Propagator
-        self._prop_fields = propagators_fields
-        self._prop_coupling = propagators_coupling
-        self._prop_markers = propagators_markers
-
         # set propagators base class attributes (available to all propagators)
-        self.prop.derham = self.derham
-        self.prop.domain = self.domain
-        self.prop.mass_ops = self.mass_ops
-        self.prop.basis_ops = BasisProjectionOperators(
+        prop.derham = self.derham
+        prop.domain = self.domain
+        prop.mass_ops = self.mass_ops
+        prop.basis_ops = BasisProjectionOperators(
             self.derham, self.domain, eq_mhd=self.mhd_equil)
 
+        # expose propagator 
+        self._prop = prop
+        
+        # create dummy lists
         self._propagators = []
         self._scalar_quantities = {}
 
@@ -158,9 +155,9 @@ class StruphyModel(metaclass=ABCMeta):
         c) the type of particles ("Particles6D", "Particles5D", ...).'''
         pass
 
-    @classmethod
+    @staticmethod
     @abstractmethod
-    def bulk_species(cls):
+    def bulk_species():
         '''Name of the bulk species of the plasma. Must be a key of self.fluid or self.kinetic, or None.'''
         pass
 
@@ -306,21 +303,6 @@ class StruphyModel(metaclass=ABCMeta):
     def prop(self):
         '''Class :class:`struphy.propagators.base.Propagator`.'''
         return self._prop
-
-    @property
-    def prop_fields(self):
-        '''Module :mod:`struphy.propagators.propagators_fields`.'''
-        return self._prop_fields
-
-    @property
-    def prop_coupling(self):
-        '''Module :mod:`struphy.propagators.propagators_coupling`.'''
-        return self._prop_coupling
-
-    @property
-    def prop_markers(self):
-        '''Module :mod:`struphy.propagators.propagators_markers`.'''
-        return self._prop_markers
 
     @property
     def propagators(self):

@@ -11,5 +11,6 @@ Simple toy models for testing.
 .. automodule:: struphy.models.toy
     :members:
     :undoc-members:
-    :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, velocity_scale, species, options
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, velocity_scale, species, options, propagators_cls, _abc_impl
     :show-inheritance:
+    :private-members:

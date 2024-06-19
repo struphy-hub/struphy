@@ -13,7 +13,6 @@ libpath = struphy.__path__[0]
 i_path = os.path.join(libpath, 'io', 'inp')
 o_path = os.path.join(libpath, 'io', 'out')
 
-# These tests must be run without MPI (is called in subprocess) !!
 
 @pytest.mark.mpi(min_size=2)
 def test_tutorial_02():
