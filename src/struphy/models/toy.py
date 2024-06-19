@@ -111,7 +111,7 @@ class Vlasov(StruphyModel):
     1. :class:`~struphy.propagators.propagators_markers.PushVxB`
     2. :class:`~struphy.propagators.propagators_markers.PushEta`
     
-    **Model info:**
+    :ref:`Model info <add_model>`:
     '''
 
     @staticmethod
@@ -134,12 +134,12 @@ class Vlasov(StruphyModel):
         return [propagators_markers.PushVxB.__name__,
                 propagators_markers.PushEta.__name__]
 
-    _electromagnetic_fields = species()['em_fields']
-    _fluid_species = species()['fluid']
-    _kinetic_species = species()['kinetic']
-    _bulk_species = bulk_species()
-    _velocity_scale = velocity_scale()
-    _propagators_cls = propagators_cls()
+    __em_fields__ = species()['em_fields']
+    __fluid_species__ = species()['fluid']
+    __kinetic_species__ = species()['kinetic']
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = propagators_cls()
 
     @classmethod
     def options(cls):
@@ -234,7 +234,7 @@ class GuidingCenter(StruphyModel):
     1. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
     2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
     
-    **Model info:**
+    :ref:`Model info <add_model>`:
     '''
 
     @staticmethod
@@ -257,12 +257,12 @@ class GuidingCenter(StruphyModel):
         return [propagators_markers.PushGuidingCenterBxEstar.__name__,
                 propagators_markers.PushGuidingCenterParallel.__name__]
 
-    _electromagnetic_fields = species()['em_fields']
-    _fluid_species = species()['fluid']
-    _kinetic_species = species()['kinetic']
-    _bulk_species = bulk_species()
-    _velocity_scale = velocity_scale()
-    _propagators_cls = propagators_cls()
+    __em_fields__ = species()['em_fields']
+    __fluid_species__ = species()['fluid']
+    __kinetic_species__ = species()['kinetic']
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = propagators_cls()
 
     @classmethod
     def options(cls):

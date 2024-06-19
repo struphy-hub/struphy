@@ -271,7 +271,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         fluid_string = ''
         for name, obj in inspect.getmembers(fluid):
             if inspect.isclass(obj):
-                if name not in {'StruphyModel', }:
+                if name not in {'StruphyModel', 'Propagator'}:
                     list_fluid += [name]
                     fluid_string += '"' + name + '"\n'
 
@@ -279,7 +279,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         kinetic_string = ''
         for name, obj in inspect.getmembers(kinetic):
             if inspect.isclass(obj):
-                if name not in {'StruphyModel', }:
+                if name not in {'StruphyModel', 'Propagator'}:
                     list_kinetic += [name]
                     kinetic_string += '"' + name + '"\n'
 
@@ -287,7 +287,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         hybrid_string = ''
         for name, obj in inspect.getmembers(hybrid):
             if inspect.isclass(obj):
-                if name not in {'StruphyModel', }:
+                if name not in {'StruphyModel', 'Propagator'}:
                     list_hybrid += [name]
                     hybrid_string += '"' + name + '"\n'
 
@@ -295,7 +295,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         toy_string = ''
         for name, obj in inspect.getmembers(toy):
             if inspect.isclass(obj):
-                if name not in {'StruphyModel', }:
+                if name not in {'StruphyModel', 'Propagator'}:
                     list_toy += [name]
                     toy_string += '"' + name + '"\n'
 

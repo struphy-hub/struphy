@@ -13,4 +13,4 @@ Simple toy models for testing.
     :undoc-members:
     :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, velocity_scale, species, options, propagators_cls, _abc_impl
     :show-inheritance:
-    :private-members:
+    :special-members: __em_fields__, __fluid_species__, __kinetic_species__, __bulk_species__, __velocity_scale__, __propagators__
