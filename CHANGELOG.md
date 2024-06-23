@@ -1,80 +1,76 @@
-## Version 2.3.0
+## Version 2.3.1
+
 
 ### Core changes
 
-* Refactor FEEC initialization; FEEC variables are initialized as `background + perturbation`. Details can be found in a [new section of the documentation](https://struphy.pages.mpcdf.de/struphy/sections/subsections/initial_conditions.html). !490
+* Addition of `Particles3D` class. !517
 
-* Added `bckgr_params` and `pert_params` to `Field.create_field()`; new types `LogicalConst` and `MHD` for background params keyword. !490
+* Addition of `Constant` background function. !517
 
-* Remove `electric_equilibrium`. !490
+* New psydac v0.1.13: removed `igakit` from `pyproject.toml` (will not be installed anymore). !517
 
-* Moments of `Maxwellians` can be set from `MHDequilibrium`. In the background parameters for `Maxwellians`, there is the new option `mhd` (instead of a constant value) for the moments. The perturbation is added on top of the `MHDequilibrium`. The broadcasting has been taken care of in the `Maxwellian` base class. Unit test have been added for `Maxwellian6D` and `Maxwellian5D` !486
+* New kinetic_background base class `CanonicalMaxwellian` and its test were added. !512
 
-* `self.f_backgr` is now always (!) defined in the `Particles` base class. !486
+* Parallelized the DOFs evaluation for the local projection operators. !509
 
-* The signature of `Maxwellians` has been changed to look like `def __init__(self, maxw_params=None, pert_params=None, mhd_equil=None)`. Added attribute `moment_factors` too. !486
+* Added new base class `KineticBackground` with the magic methods `__add__`, `__mul__`, `__rmul__` and `__sub__`.
+The Maxwellians now inherit this base class, class `Maxwellian(KineticBackground)`. In the parameter file, this enables to specify multiple backgrounds of the same type by appending _1, _2 etc. to the type name. !510
 
-* Initialization of distribution function in the `paramaters.yml` file is now done using the keywords `background` and `perturbation` for each particles species. All functions that were possible in the `fluid` and `em_fields` initialization (can be found under `struphy.initial.perturbations`) are available here. !478
+* Modification at Particles5D marker array indexing. New property (abstractmethod) `bufferindex` is added at `Particles` class. !507
 
-* Update psydac to version 0.1.12 : add the possibility to use `recycle` flag in linear solvers and use it in Newton algorithm. !482
+* Added dispersion relation `FluidSlabITG`, Tutorial 11 on dispersion relations, `BraginskiiEquilibrium` in new folder and `self.braginskii_equil` to `StruphyModel`. !506
 
-* `Maxwellain5DUniform` is renamed to `Maxwellian5D` and fixed to be analogous to `Maxwellian6D`. New perturbation function `ITPA_density` is implemented so then `Maxwellian6DITPA` and `Maxwellian5DITPA` are removed. !484
+* Several changes to streamline `PolarSplines`. !501
 
-* Add `time_state` to `StruphyModel` and `Propagator`. !477
+* Implementation of local commuting projection operators bsed on quasi-inter/histopolation. Added the `CommutingProjectorLocal` class to projectors.py !494
 
-* Add a new preconditioner `MassMatrixDiagonalPreconditioner` which relies on the methodoloy described [here](https://www.sciencedirect.com/science/article/abs/pii/S0898122120304715?via%3Dihub). !475
+* Implemented Particle refilling: So far, it only transfers the particle to the opposite poloidal angle θ\thetaθ but now it also considers the toroidal angle ϕ\phiϕ in order to put the particle at the same magnetic flux surface (`particle_refilling`). !499
 
-* Add `StencilDiagonalMatrix` and the method `diagonal` to `StencilMatrix` and `BlockLinearOperator` to our psydac. !474
+* Add a new `SchurSolver` to for the variational propagators. !498
 
-* Add a `diagonal` method to `StencilMatrixFreeMassOperator` using a kernel to compute efficiently the diagonal. Add a `matrix_free` option to `WeightedMassOperators` and test it in test_mass_matrices.py !472
+* Changed the abstract methods for `LogicalMHDequilibrium` from `b2`, `j2` to covariant `b1` and `j1`. !495
+
+* Added the new classes `DESCunit` and `DESCequilibrium` to interface to the [DESC equilibirum code](https://github.com/PlasmaControl/DESC). !495
+
+* Add the entropy interfaces `s0` and `s3` to `MHDequilibrium`. !497
+
+* Re-factored `ImplicitDiffusion` propagator; the right-hand side can now be a list of `StencilVector` or (`Auccumulator`, `Particles`)-tuple. !496
+
+* New propagator `propagators_fields.AdiabaticPhi`. !479
+
+* `WeightedMassOperators` has the new attribute `selected_weight` which can be set to change the object from which the weights are taken (usually `eq_mhd` or `eq_braginskii`, but more in the future). !479
+
+* New method `MHDequilibrium.curl_unit_b_dot_b0` for the curvature as a 0-form. !479
+
+* Renaming of kinetic backgrounds: `Maxwellian6D` -> `Maxwellian3D` and `Maxwellian5D` -> `GyroMaxwellian2D` !479
+
+* New key `kBT` in the parameter `units`; this is used only if the velocity scale is set to `thermal`, which is a new option. !479
+
+* `StruphyModel.update_distribution_functions()` now always calculates full-f and delta-f binnings from the weights `w0` and `w`, repsectively. The function `Particles.binning()` has been adapted accordingly. !479
+
+* Renamed `Particles.f_backgr` -> `Particles.f0`. !479
 
 
 ### Model specific changes 
 
-* Remove temporaries from Variational Propagators. !488
+* Addition of `DeterministicParticleDiffusion` and `RandomParticleDiffusion` models, along with corresponding propagators. !517
 
-* Use a "hand made" preconditioning for the solvers of the system in the Newton iteration of `Variational` models by taking advantage that the Jacobian is mostly a mass matrix for which we already have good preconditioners. This simple change allow for roughly 80% speedup as most of the time (90%) was spent on GMRES solve. !487
+* Add viscous and resistive terms to fluid and MHD models resulting in the two new models `ViscousFluid` and `ViscoresistiveMHD`. !513
 
-* Rename toy model `DriftKinetic` to `GuidingCenter`. !486
+* Implemented implicit forms in the transport operators of `Variational` models. !503
 
-* Added newton solver for both `VariationalEntropyEvolve` and `VariationalMagFieldEvolve`. The default solver is Newton but Picard can still be use by passing `'non_linear_solver' = 'Picard'` in the parameters of the propagator. !485
+* New model `LinearVlasovAmpereOneSpecies` based Hamiltonian delta-f approach. !504
 
-* The propagator `MagnetosonicCurruntCoupling5D` has been fixed. A new strategy based on accumulation instead of projection is used. !465
+* Several updates to `Variational` models to run itpa test cases. !501
 
-* Updated the `VariationalDensityAdvection` propagator to use a Newton algorithm to solve the non-linear system instead of the previous Picard iteration. !482
+* Implemented control variate calculation for 5D hybrid model `LinearMHDDriftkineticCC`. !489
 
-* Add new model `VlasovAmpereOneSpecies`. It consists of the two propagators `PushEta` and `VlasovAmpere`. The latter propagator was formally called `VlasovMaxwell`, but was now renamed. Added parameters and diagnostics for linear Landau damping with VlasovAmpereOneSpecies to [struphy-simulations](https://gitlab.mpcdf.mpg.de/struphy/struphy-simulations/-/tree/main/VlasovAmpere?ref_type=heads). !480
-
-* Renamed kinetic model `VlasovMaxwell` to `VlasovMaxwellOneSpecies`. !480
-
-* Commented model `VlasovMasslessElectrons` (not working). !480
-
-* Rename `epsilon_unit` to `epsilon` (same for `alpha`). !480
-
-* Divided `ImplicitDiffusion` equation by $\Delta t$ to avoid needing 'dt=1'. in parameters. !477
-
-* Added new field propagator `TimeDependentSource`. Added a time dependent source to the toy model `Poisson`. !477
-
-* Fixed and enhanced Poisson tests; 1D convergence is proved for Cuboid and Orthogonal mappings with all three possible boundary conditions. !477
-
-* Implement a newton algorithm for the nonlinear solve in `VariationalMomentumAdvection`. This would probably help improving the stability of the algorithm. The new `BracketOperator` was needed for this. !476
-
-* In variational models, parameters can now be passed separately for each solver. !473
-
-* The signature of `ImplicitDiffusion` now includes two matrices `A1_mat` and `A2_mat` and three parameters `sigma_1`, `sigma_2` and `sigma_3`, the rhs is called rho. !467
+* The model `DriftKineticElectrostaticAdiabatic` has been added. !479
 
 
 ### Documentation, tutorials, testing, etc.
 
-* New section "Userguide: Boundary conditions". !491
-
-* New sections "Userguide: Initial conditions" and "Python modules: Fluid backgrounds". !490
-
-* Updated all docstrings in `WeightedMassOperators` to the correct Struphy notation. !476
-
-* Changed the section name "Inventory" to "Python modules" and included all available modules in the doc (many were not included until now). !476
-
-* Speed-up CI pipeline. Run only `Ubuntu:latest` and `default`, both only with C-compilation. More thorough testing is done on the week-end with a cron-job ("scheduled" pipeline). !471
+* Add a `VariationalMHD` test to Tutorial 04. !511
 
 
 
