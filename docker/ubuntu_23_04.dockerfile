@@ -23,6 +23,8 @@ RUN apt update -y && apt clean \
 # create new working dir
 WORKDIR /ubuntu_23_04
 
+COPY . .
+
 # allow mpirun as root
 ENV OMPI_ALLOW_RUN_AS_ROOT=1
 ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
