@@ -2,8 +2,8 @@ import pytest
 
 
 @pytest.mark.parametrize('Nel', [[64, 1, 1]])
-def test_maxwellian_6d_uniform(Nel, show_plot=False):
-    """ Tests the Maxwellian6D class as a uniform Maxwellian.
+def test_maxwellian_3d_uniform(Nel, show_plot=False):
+    """ Tests the Maxwellian3D class as a uniform Maxwellian.
 
     Asserts that the results over the domain and velocity space correspond to the
     analytical computation.
@@ -11,7 +11,7 @@ def test_maxwellian_6d_uniform(Nel, show_plot=False):
     import numpy as np
     import matplotlib.pyplot as plt
 
-    from struphy.kinetic_background.maxwellians import Maxwellian6D
+    from struphy.kinetic_background.maxwellians import Maxwellian3D
 
     e1 = np.linspace(0., 1., Nel[0])
     e2 = np.linspace(0., 1., Nel[1])
@@ -22,7 +22,7 @@ def test_maxwellian_6d_uniform(Nel, show_plot=False):
     # ==========================================================
     maxw_params = {'n': 2.}
 
-    maxwellian = Maxwellian6D(maxw_params=maxw_params)
+    maxwellian = Maxwellian3D(maxw_params=maxw_params)
 
     meshgrids = np.meshgrid(
         e1, e2, e3,
@@ -69,7 +69,7 @@ def test_maxwellian_6d_uniform(Nel, show_plot=False):
                    'vth2': vth2,
                    'vth3': vth3}
 
-    maxwellian = Maxwellian6D(maxw_params=maxw_params)
+    maxwellian = Maxwellian3D(maxw_params=maxw_params)
 
     # test Maxwellian profile in v
     for i in range(3):
@@ -103,13 +103,13 @@ def test_maxwellian_6d_uniform(Nel, show_plot=False):
 
 
 @pytest.mark.parametrize('Nel', [[64, 1, 1]])
-def test_maxwellian_6d_perturbed(Nel, show_plot=False):
-    '''Tests the Maxwellian6D class for perturbations.'''
+def test_maxwellian_3d_perturbed(Nel, show_plot=False):
+    '''Tests the Maxwellian3D class for perturbations.'''
 
     import numpy as np
     import matplotlib.pyplot as plt
 
-    from struphy.kinetic_background.maxwellians import Maxwellian6D
+    from struphy.kinetic_background.maxwellians import Maxwellian3D
 
     e1 = np.linspace(0., 1., Nel[0])
     v1 = np.linspace(-5., 5., 128)
@@ -129,7 +129,7 @@ def test_maxwellian_6d_perturbed(Nel, show_plot=False):
                    }
                    }
 
-    maxwellian = Maxwellian6D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = Maxwellian3D(maxw_params=maxw_params, pert_params=pert_params)
 
     meshgrids = np.meshgrid(
         e1, [0.], [0.],
@@ -171,7 +171,7 @@ def test_maxwellian_6d_perturbed(Nel, show_plot=False):
                        'amps': {'u1': [amp]}
                    }}
 
-    maxwellian = Maxwellian6D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = Maxwellian3D(maxw_params=maxw_params, pert_params=pert_params)
 
     meshgrids = np.meshgrid(
         e1, [0.], [0.],
@@ -225,7 +225,7 @@ def test_maxwellian_6d_perturbed(Nel, show_plot=False):
                        'amps': {'vth1': [amp]}
                    }}
 
-    maxwellian = Maxwellian6D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = Maxwellian3D(maxw_params=maxw_params, pert_params=pert_params)
 
     meshgrids = np.meshgrid(
         e1, [0.], [0.],
@@ -276,7 +276,7 @@ def test_maxwellian_6d_perturbed(Nel, show_plot=False):
                        'c': {'n': c}
                    }}
 
-    maxwellian = Maxwellian6D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = Maxwellian3D(maxw_params=maxw_params, pert_params=pert_params)
 
     meshgrids = np.meshgrid(
         e1, [0.], [0.],
@@ -305,14 +305,14 @@ def test_maxwellian_6d_perturbed(Nel, show_plot=False):
 
 
 @pytest.mark.parametrize('Nel', [[8, 11, 12]])
-def test_maxwellian_6d_mhd(Nel, show_plot=False):
-    '''Tests the Maxwellian6D class for mhd equilibrium moments.'''
+def test_maxwellian_3d_mhd(Nel, show_plot=False):
+    '''Tests the Maxwellian3D class for mhd equilibrium moments.'''
 
     import numpy as np
     import matplotlib.pyplot as plt
     import inspect
 
-    from struphy.kinetic_background.maxwellians import Maxwellian6D
+    from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.fields_background.mhd_equil import equils
     from struphy.geometry import domains
     from struphy.initial import perturbations
@@ -371,15 +371,19 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
                                                   r2=mhd_equil.params['a'] *
                                                   2*np.pi,
                                                   r3=mhd_equil.params['R0']*2*np.pi)
+            elif 'ShearFluid' in key:
+                mhd_equil.domain = domains.Cuboid(r1=mhd_equil.params['a'],
+                                                  r2=mhd_equil.params['b'],
+                                                  r3=mhd_equil.params['c'])
             elif 'ScrewPinch' in key:
                 mhd_equil.domain = domains.HollowCylinder(a1=1e-3,
                                                           a2=mhd_equil.params['a'],
                                                           Lz=mhd_equil.params['R0']*2*np.pi)
 
-            maxwellian = Maxwellian6D(
+            maxwellian = Maxwellian3D(
                 maxw_params=maxw_params_mhd, mhd_equil=mhd_equil)
 
-            maxwellian_1 = Maxwellian6D(
+            maxwellian_1 = Maxwellian3D(
                 maxw_params=maxw_params_1, mhd_equil=mhd_equil)
 
             # test meshgrid evaluation
@@ -413,7 +417,8 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
                 # density plots
                 n_cart = mhd_equil.domain.push(maxwellian.n, *e_meshgrids)
 
-                levels = np.linspace(np.min(n_cart) - 1e-10, np.max(n_cart), 20)
+                levels = np.linspace(
+                    np.min(n_cart) - 1e-10, np.max(n_cart), 20)
 
                 plt.subplot(2, 5, 1)
                 if 'Slab' in key or 'Pinch' in key:
@@ -451,9 +456,9 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
                 # velocity plots
                 us = maxwellian.u(*e_meshgrids)
                 for i, u in enumerate(us):
-                    
+
                     levels = np.linspace(np.min(u) - 1e-10, np.max(u), 20)
-                    
+
                     plt.subplot(2, 5, 2 + i)
                     if 'Slab' in key or 'Pinch' in key:
                         plt.contourf(x[:, 0, :], z[:, 0, :],
@@ -492,9 +497,10 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
                 # thermal velocity plots
                 vth = maxwellian.vth(*e_meshgrids)[0]
                 vth_cart = mhd_equil.domain.push(vth, *e_meshgrids)
-                
-                levels = np.linspace(np.min(vth_cart) - 1e-10, np.max(vth_cart), 20)
-                
+
+                levels = np.linspace(np.min(vth_cart) -
+                                     1e-10, np.max(vth_cart), 20)
+
                 plt.subplot(2, 5, 5)
                 if 'Slab' in key or 'Pinch' in key:
                     plt.contourf(x[:, 0, :], z[:, 0, :],
@@ -526,7 +532,8 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
                     plt.ylabel('z')
                 plt.axis('equal')
                 plt.colorbar()
-                plt.title(f'Maxwellian thermal velocity $v_t$, poloidal view (e1-e2)')
+                plt.title(
+                    f'Maxwellian thermal velocity $v_t$, poloidal view (e1-e2)')
 
                 plt.show()
 
@@ -543,18 +550,18 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
                         pert = val_2()
                         print(f'{pert = }')
                         pert_params = {'type': key_2,
-                                    key_2: {
-                                        'comps': {'n': '0',
-                                                    'u1': '0',
-                                                    'u2': '0',
-                                                    'u3': '0',
-                                                    'vth1': '0',
-                                                    'vth2': '0',
-                                                    'vth3': '0'},
-                                    }}
+                                       key_2: {
+                                           'comps': {'n': '0',
+                                                     'u1': '0',
+                                                     'u2': '0',
+                                                     'u3': '0',
+                                                     'vth1': '0',
+                                                     'vth2': '0',
+                                                     'vth3': '0'},
+                                       }}
 
                         # background + perturbation
-                        maxwellian_perturbed = Maxwellian6D(
+                        maxwellian_perturbed = Maxwellian3D(
                             maxw_params=maxw_params_mhd,
                             pert_params=pert_params,
                             mhd_equil=mhd_equil)
@@ -568,7 +575,7 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
                             *args_fl).shape == args_fl[0].shape
 
                         # pure perturbation
-                        maxwellian_zero_bckgr = Maxwellian6D(
+                        maxwellian_zero_bckgr = Maxwellian3D(
                             maxw_params=maxw_params_zero,
                             pert_params=pert_params,
                             mhd_equil=mhd_equil)
@@ -590,26 +597,28 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
 
                         # plotting perturbations
                         if show_plot:  # and 'Torus' in key_2:
-                            plt.figure(f'perturbation = {key_2}', figsize=(24, 16))
+                            plt.figure(
+                                f'perturbation = {key_2}', figsize=(24, 16))
                             x, y, z = mhd_equil.domain(*e_meshgrids)
 
                             # density plots
                             n_cart = mhd_equil.domain.push(
                                 maxwellian_zero_bckgr.n, *e_meshgrids)
-                            
-                            levels = np.linspace(np.min(n_cart) - 1e-10, np.max(n_cart), 20)
-                            
+
+                            levels = np.linspace(
+                                np.min(n_cart) - 1e-10, np.max(n_cart), 20)
+
                             plt.subplot(2, 5, 1)
                             if 'Slab' in key or 'Pinch' in key:
                                 plt.contourf(x[:, 0, :], z[:, 0, :],
-                                            n_cart[:, 0, :], levels=levels)
+                                             n_cart[:, 0, :], levels=levels)
                                 plt.contourf(
                                     x[:, Nel[1]//2, :], z[:, Nel[1]//2, :], n_cart[:, Nel[1]//2, :], levels=levels)
                                 plt.xlabel('x')
                                 plt.ylabel('z')
                             else:
                                 plt.contourf(x[:, 0, :], y[:, 0, :],
-                                            n_cart[:, 0, :], levels=levels)
+                                             n_cart[:, 0, :], levels=levels)
                                 plt.contourf(
                                     x[:, Nel[1]//2, :], y[:, Nel[1]//2, :], n_cart[:, Nel[1]//2, :], levels=levels)
                                 plt.xlabel('x')
@@ -621,12 +630,12 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
                             plt.subplot(2, 5, 5 + 1)
                             if 'Slab' in key or 'Pinch' in key:
                                 plt.contourf(x[:, :, 0], y[:, :, 0],
-                                            n_cart[:, :, 0], levels=levels)
+                                             n_cart[:, :, 0], levels=levels)
                                 plt.xlabel('x')
                                 plt.ylabel('y')
                             else:
                                 plt.contourf(x[:, :, 0], z[:, :, 0],
-                                            n_cart[:, :, 0], levels=levels)
+                                             n_cart[:, :, 0], levels=levels)
                                 plt.xlabel('x')
                                 plt.ylabel('z')
                             plt.axis('equal')
@@ -637,9 +646,10 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
                             # velocity plots
                             us = maxwellian_zero_bckgr.u(*e_meshgrids)
                             for i, u in enumerate(us):
-                                
-                                levels = np.linspace(np.min(u) - 1e-10, np.max(u), 20)
-                                
+
+                                levels = np.linspace(
+                                    np.min(u) - 1e-10, np.max(u), 20)
+
                                 plt.subplot(2, 5, 2 + i)
                                 if 'Slab' in key or 'Pinch' in key:
                                     plt.contourf(
@@ -678,20 +688,21 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
                             # thermal velocity plots
                             vth = maxwellian_zero_bckgr.vth(*e_meshgrids)[0]
                             vth_cart = mhd_equil.domain.push(vth, *e_meshgrids)
-                            
-                            levels = np.linspace(np.min(vth_cart) - 1e-10, np.max(vth_cart), 20)
-                            
+
+                            levels = np.linspace(
+                                np.min(vth_cart) - 1e-10, np.max(vth_cart), 20)
+
                             plt.subplot(2, 5, 5)
                             if 'Slab' in key or 'Pinch' in key:
                                 plt.contourf(x[:, 0, :], z[:, 0, :],
-                                            vth_cart[:, 0, :], levels=levels)
+                                             vth_cart[:, 0, :], levels=levels)
                                 plt.contourf(
                                     x[:, Nel[1]//2, :], z[:, Nel[1]//2, :], vth_cart[:, Nel[1]//2, :], levels=levels)
                                 plt.xlabel('x')
                                 plt.ylabel('z')
                             else:
                                 plt.contourf(x[:, 0, :], y[:, 0, :],
-                                            vth_cart[:, 0, :], levels=levels)
+                                             vth_cart[:, 0, :], levels=levels)
                                 plt.contourf(
                                     x[:, Nel[1]//2, :], y[:, Nel[1]//2, :], vth_cart[:, Nel[1]//2, :], levels=levels)
                                 plt.xlabel('x')
@@ -703,12 +714,12 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
                             plt.subplot(2, 5, 10)
                             if 'Slab' in key or 'Pinch' in key:
                                 plt.contourf(x[:, :, 0], y[:, :, 0],
-                                            vth_cart[:, :, 0], levels=levels)
+                                             vth_cart[:, :, 0], levels=levels)
                                 plt.xlabel('x')
                                 plt.ylabel('y')
                             else:
                                 plt.contourf(x[:, :, 0], z[:, :, 0],
-                                            vth_cart[:, :, 0], levels=levels)
+                                             vth_cart[:, :, 0], levels=levels)
                                 plt.xlabel('x')
                                 plt.ylabel('z')
                             plt.axis('equal')
@@ -720,8 +731,8 @@ def test_maxwellian_6d_mhd(Nel, show_plot=False):
 
 
 @pytest.mark.parametrize('Nel', [[64, 1, 1]])
-def test_maxwellian_5d_uniform(Nel, show_plot=False):
-    """ Tests the Maxwellian5D class as a uniform Maxwellian.
+def test_maxwellian_2d_uniform(Nel, show_plot=False):
+    """ Tests the GyroMaxwellian2D class as a uniform Maxwellian.
 
     Asserts that the results over the domain and velocity space correspond to the
     analytical computation.
@@ -729,7 +740,7 @@ def test_maxwellian_5d_uniform(Nel, show_plot=False):
     import numpy as np
     import matplotlib.pyplot as plt
 
-    from struphy.kinetic_background.maxwellians import Maxwellian5D
+    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
 
     e1 = np.linspace(0., 1., Nel[0])
     e2 = np.linspace(0., 1., Nel[1])
@@ -740,7 +751,7 @@ def test_maxwellian_5d_uniform(Nel, show_plot=False):
     # ===========================================================
     maxw_params = {'n': 2.}
 
-    maxwellian = Maxwellian5D(maxw_params=maxw_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params)
 
     meshgrids = np.meshgrid(
         e1, e2, e3,
@@ -751,7 +762,7 @@ def test_maxwellian_5d_uniform(Nel, show_plot=False):
     res = maxwellian(*meshgrids).squeeze()
     assert np.allclose(
         res,
-        2. / (2 * np.pi)**(1/2) * 0.01 * np.exp(- 0.01**2) + 0*e1,
+        2. / (2 * np.pi)**(1/2) * np.exp(- 0.01**2) + 0*e1,
         atol=10e-10
     ), f"{res=},\n {2. / (2 * np.pi)**(3/2)}"
 
@@ -766,7 +777,7 @@ def test_maxwellian_5d_uniform(Nel, show_plot=False):
     )
     res = maxwellian(*meshgrids).squeeze()
 
-    res_ana = 2. / (2 * np.pi)**(1/2) * v_perp * \
+    res_ana = 2. / (2 * np.pi)**(1/2) * \
         np.exp(- vpara.T**2 / 2. - vperp.T**2 / 2.)
     assert np.allclose(
         res,
@@ -788,7 +799,7 @@ def test_maxwellian_5d_uniform(Nel, show_plot=False):
                    'vth_para': vth_para,
                    'vth_perp': vth_perp}
 
-    maxwellian = Maxwellian5D(maxw_params=maxw_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params)
 
     # test Maxwellian profile in v
     v_para = np.linspace(-5, 5, 64)
@@ -803,7 +814,7 @@ def test_maxwellian_5d_uniform(Nel, show_plot=False):
 
     res_ana = np.exp(- (vpara.T - u_para)**2 / (2*vth_para**2))
     res_ana *= np.exp(- (vperp.T - u_perp)**2 / (2*vth_perp**2))
-    res_ana *= n / ((2 * np.pi)**(1/2) * vth_para * vth_perp**2) * vperp.T
+    res_ana *= n / ((2 * np.pi)**(1/2) * vth_para * vth_perp**2)
 
     if show_plot:
         plt.plot(v_para, res_ana[:, 32], label='analytical')
@@ -830,13 +841,13 @@ def test_maxwellian_5d_uniform(Nel, show_plot=False):
 
 
 @pytest.mark.parametrize('Nel', [[6, 1, 1]])
-def test_maxwellian_5d_perturbed(Nel, show_plot=False):
-    '''Tests the Maxwellian5D class for perturbations.'''
+def test_maxwellian_2d_perturbed(Nel, show_plot=False):
+    '''Tests the GyroMaxwellian2D class for perturbations.'''
 
     import numpy as np
     import matplotlib.pyplot as plt
 
-    from struphy.kinetic_background.maxwellians import Maxwellian5D
+    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
 
     e1 = np.linspace(0., 1., Nel[0])
     v1 = np.linspace(-5., 5., 128)
@@ -854,7 +865,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
                        'ls': {'n': [mode]},
                        'amps': {'n': [amp]}}}
 
-    maxwellian = Maxwellian5D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params)
 
     v_perp = 0.1
     meshgrids = np.meshgrid(
@@ -864,7 +875,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
 
     res = maxwellian(*meshgrids).squeeze()
     ana_res = (2. + amp * np.cos(2 * np.pi * mode * e1)) / (2 * np.pi)**(1/2)
-    ana_res *= v_perp * np.exp(- v_perp**2/2)
+    ana_res *= np.exp(- v_perp**2/2)
 
     if show_plot:
         plt.plot(e1, ana_res, label='analytical')
@@ -897,7 +908,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
                        'amps': {'u_para': [amp]}
                    }}
 
-    maxwellian = Maxwellian5D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params)
 
     v_perp = 0.1
     meshgrids = np.meshgrid(
@@ -908,7 +919,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
     res = maxwellian(*meshgrids).squeeze()
     shift = u_para + amp * np.cos(2 * np.pi * mode * e1)
     ana_res = np.exp(- (v1 - shift[:, None])**2 / 2.)
-    ana_res *= n / (2 * np.pi)**(1/2) * v_perp * np.exp(- v_perp**2 / 2.)
+    ana_res *= n / (2 * np.pi)**(1/2) * np.exp(- v_perp**2 / 2.)
 
     if show_plot:
         plt.figure(1)
@@ -951,7 +962,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
                        'amps': {'u_perp': [amp]}
                    }}
 
-    maxwellian = Maxwellian5D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params)
 
     meshgrids = np.meshgrid(
         e1, [0.], [0.],
@@ -961,7 +972,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
     res = maxwellian(*meshgrids).squeeze()
     shift = u_perp + amp * np.cos(2 * np.pi * mode * e1)
     ana_res = np.exp(- (v2 - shift[:, None])**2 / 2.)
-    ana_res *= n / (2 * np.pi)**(1/2) * v2
+    ana_res *= n / (2 * np.pi)**(1/2)
 
     if show_plot:
         plt.figure(1)
@@ -1004,7 +1015,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
                        'amps': {'vth_para': [amp]}
                    }}
 
-    maxwellian = Maxwellian5D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params)
 
     v_perp = 0.1
     meshgrids = np.meshgrid(
@@ -1016,7 +1027,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
     thermal = vth_para + amp * np.cos(2 * np.pi * mode * e1)
     ana_res = np.exp(- v1**2 / (2. * thermal[:, None]**2))
     ana_res *= n / ((2 * np.pi)**(1/2) * thermal[:, None])
-    ana_res *= v_perp * np.exp(- v_perp**2 / 2.)
+    ana_res *= np.exp(- v_perp**2 / 2.)
 
     if show_plot:
         plt.figure(1)
@@ -1059,7 +1070,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
                        'amps': {'vth_perp': [amp]}
                    }}
 
-    maxwellian = Maxwellian5D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params)
 
     meshgrids = np.meshgrid(
         e1, [0.], [0.],
@@ -1069,7 +1080,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
     res = maxwellian(*meshgrids).squeeze()
     thermal = vth_perp + amp * np.cos(2 * np.pi * mode * e1)
     ana_res = np.exp(- v2**2 / (2. * thermal[:, None]**2))
-    ana_res *= n / ((2 * np.pi)**(1/2) * thermal[:, None]**2) * v2
+    ana_res *= n / ((2 * np.pi)**(1/2) * thermal[:, None]**2)
 
     if show_plot:
         plt.figure(1)
@@ -1109,7 +1120,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
                        'c': {'n': c}
                    }}
 
-    maxwellian = Maxwellian5D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params)
 
     v_perp = 0.1
     meshgrids = np.meshgrid(
@@ -1120,7 +1131,7 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
     res = maxwellian(*meshgrids).squeeze()
     ana_res = n0*c[3]*np.exp(-c[2]/c[1] *
                              np.tanh((e1 - c[0])/c[2])) / (2 * np.pi)**(1/2)
-    ana_res *= v_perp * np.exp(- v_perp**2 / 2.)
+    ana_res *= np.exp(- v_perp**2 / 2.)
 
     if show_plot:
         plt.plot(e1, ana_res, label='analytical')
@@ -1139,14 +1150,14 @@ def test_maxwellian_5d_perturbed(Nel, show_plot=False):
 
 
 @pytest.mark.parametrize('Nel', [[8, 12, 12]])
-def test_maxwellian_5d_mhd(Nel, show_plot=False):
-    '''Tests the Maxwellian5D class for mhd equilibrium moments.'''
+def test_maxwellian_2d_mhd(Nel, show_plot=False):
+    '''Tests the GyroMaxwellian2D class for mhd equilibrium moments.'''
 
     import numpy as np
     import matplotlib.pyplot as plt
     import inspect
 
-    from struphy.kinetic_background.maxwellians import Maxwellian5D
+    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
     from struphy.fields_background.mhd_equil import equils
     from struphy.geometry import domains
     from struphy.initial import perturbations
@@ -1175,7 +1186,7 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
     e2_fl = np.random.rand(n_mks)
     e3_fl = np.random.rand(n_mks)
     v1_fl = np.random.randn(n_mks)
-    v2_fl = np.random.randn(n_mks)
+    v2_fl = np.random.rand(n_mks)
     args_fl = [e1_fl, e2_fl, e3_fl, v1_fl, v2_fl]
     e_args_fl = np.concatenate(
         (e1_fl[:, None], e2_fl[:, None], e3_fl[:, None]), axis=1)
@@ -1197,15 +1208,19 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
                                                   r2=mhd_equil.params['a'] *
                                                   2*np.pi,
                                                   r3=mhd_equil.params['R0']*2*np.pi)
+            elif 'ShearFluid' in key:
+                mhd_equil.domain = domains.Cuboid(r1=mhd_equil.params['a'],
+                                                  r2=mhd_equil.params['b'],
+                                                  r3=mhd_equil.params['c'])
             elif 'ScrewPinch' in key:
                 mhd_equil.domain = domains.HollowCylinder(a1=1e-3,
                                                           a2=mhd_equil.params['a'],
                                                           Lz=mhd_equil.params['R0']*2*np.pi)
 
-            maxwellian = Maxwellian5D(
+            maxwellian = GyroMaxwellian2D(
                 maxw_params=maxw_params_mhd, mhd_equil=mhd_equil)
 
-            maxwellian_1 = Maxwellian5D(
+            maxwellian_1 = GyroMaxwellian2D(
                 maxw_params=maxw_params_1, mhd_equil=mhd_equil)
 
             # test meshgrid evaluation
@@ -1241,9 +1256,10 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
 
                 # density plots
                 n_cart = mhd_equil.domain.push(maxwellian.n, *e_meshgrids)
-                
-                levels = np.linspace(np.min(n_cart) - 1e-10, np.max(n_cart), 20)
-                
+
+                levels = np.linspace(
+                    np.min(n_cart) - 1e-10, np.max(n_cart), 20)
+
                 plt.subplot(2, 4, 1)
                 if 'Slab' in key or 'Pinch' in key:
                     plt.contourf(x[:, 0, :], z[:, 0, :],
@@ -1280,9 +1296,9 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
                 # velocity plots
                 us = maxwellian.u(*e_meshgrids)
                 for i, u in enumerate(us[:1]):
-                    
+
                     levels = np.linspace(np.min(u) - 1e-10, np.max(u), 20)
-                    
+
                     plt.subplot(2, 4, 2 + i)
                     if 'Slab' in key or 'Pinch' in key:
                         plt.contourf(x[:, 0, :], z[:, 0, :],
@@ -1321,9 +1337,10 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
                 # thermal velocity plots
                 vth = maxwellian.vth(*e_meshgrids)[0]
                 vth_cart = mhd_equil.domain.push(vth, *e_meshgrids)
-                
-                levels = np.linspace(np.min(vth_cart) - 1e-10, np.max(vth_cart), 20)
-                
+
+                levels = np.linspace(np.min(vth_cart) -
+                                     1e-10, np.max(vth_cart), 20)
+
                 plt.subplot(2, 4, 4)
                 if 'Slab' in key or 'Pinch' in key:
                     plt.contourf(x[:, 0, :], z[:, 0, :],
@@ -1371,16 +1388,16 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
                         pert = val_2()
                         print(f'{pert = }')
                         pert_params = {'type': key_2,
-                                    key_2: {
-                                        'comps': {'n': '0',
-                                                    'u_para': '0',
-                                                    'u_perp': '0',
-                                                    'vth_para': '0',
-                                                    'vth_perp': '0'},
-                                    }}
+                                       key_2: {
+                                           'comps': {'n': '0',
+                                                     'u_para': '0',
+                                                     'u_perp': '0',
+                                                     'vth_para': '0',
+                                                     'vth_perp': '0'},
+                                       }}
 
                         # background + perturbation
-                        maxwellian_perturbed = Maxwellian5D(
+                        maxwellian_perturbed = GyroMaxwellian2D(
                             maxw_params=maxw_params_mhd,
                             pert_params=pert_params,
                             mhd_equil=mhd_equil)
@@ -1394,7 +1411,7 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
                             *args_fl).shape == args_fl[0].shape
 
                         # pure perturbation
-                        maxwellian_zero_bckgr = Maxwellian5D(
+                        maxwellian_zero_bckgr = GyroMaxwellian2D(
                             maxw_params=maxw_params_zero,
                             pert_params=pert_params,
                             mhd_equil=mhd_equil)
@@ -1412,26 +1429,28 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
 
                         # plotting perturbations
                         if show_plot and 'EQDSKequilibrium' in key:  # and 'Torus' in key_2:
-                            plt.figure(f'perturbation = {key_2}', figsize=(24, 16))
+                            plt.figure(
+                                f'perturbation = {key_2}', figsize=(24, 16))
                             x, y, z = mhd_equil.domain(*e_meshgrids)
 
                             # density plots
                             n_cart = mhd_equil.domain.push(
                                 maxwellian_zero_bckgr.n, *e_meshgrids)
-                            
-                            levels = np.linspace(np.min(n_cart) - 1e-10, np.max(n_cart), 20)
-                            
+
+                            levels = np.linspace(
+                                np.min(n_cart) - 1e-10, np.max(n_cart), 20)
+
                             plt.subplot(2, 4, 1)
                             if 'Slab' in key or 'Pinch' in key:
                                 plt.contourf(x[:, 0, :], z[:, 0, :],
-                                            n_cart[:, 0, :], levels=levels)
+                                             n_cart[:, 0, :], levels=levels)
                                 plt.contourf(
                                     x[:, Nel[1]//2, :], z[:, Nel[1]//2, :], n_cart[:, Nel[1]//2, :], levels=levels)
                                 plt.xlabel('x')
                                 plt.ylabel('z')
                             else:
                                 plt.contourf(x[:, 0, :], y[:, 0, :],
-                                            n_cart[:, 0, :], levels=levels)
+                                             n_cart[:, 0, :], levels=levels)
                                 plt.contourf(
                                     x[:, Nel[1]//2, :], y[:, Nel[1]//2, :], n_cart[:, Nel[1]//2, :], levels=levels)
                                 plt.xlabel('x')
@@ -1443,12 +1462,12 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
                             plt.subplot(2, 4, 4 + 1)
                             if 'Slab' in key or 'Pinch' in key:
                                 plt.contourf(x[:, :, 0], y[:, :, 0],
-                                            n_cart[:, :, 0], levels=levels)
+                                             n_cart[:, :, 0], levels=levels)
                                 plt.xlabel('x')
                                 plt.ylabel('y')
                             else:
                                 plt.contourf(x[:, :, 0], z[:, :, 0],
-                                            n_cart[:, :, 0], levels=levels)
+                                             n_cart[:, :, 0], levels=levels)
                                 plt.xlabel('x')
                                 plt.ylabel('z')
                             plt.axis('equal')
@@ -1459,9 +1478,10 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
                             # velocity plots
                             us = maxwellian_zero_bckgr.u(*e_meshgrids)
                             for i, u in enumerate(us):
-                                
-                                levels = np.linspace(np.min(u) - 1e-10, np.max(u), 20)
-                                
+
+                                levels = np.linspace(
+                                    np.min(u) - 1e-10, np.max(u), 20)
+
                                 plt.subplot(2, 4, 2 + i)
                                 if 'Slab' in key or 'Pinch' in key:
                                     plt.contourf(
@@ -1500,20 +1520,21 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
                             # thermal velocity plots
                             vth = maxwellian_zero_bckgr.vth(*e_meshgrids)[0]
                             vth_cart = mhd_equil.domain.push(vth, *e_meshgrids)
-                            
-                            levels = np.linspace(np.min(vth_cart) - 1e-10, np.max(vth_cart), 20)
-                            
+
+                            levels = np.linspace(
+                                np.min(vth_cart) - 1e-10, np.max(vth_cart), 20)
+
                             plt.subplot(2, 4, 4)
                             if 'Slab' in key or 'Pinch' in key:
                                 plt.contourf(x[:, 0, :], z[:, 0, :],
-                                            vth_cart[:, 0, :], levels=levels)
+                                             vth_cart[:, 0, :], levels=levels)
                                 plt.contourf(
                                     x[:, Nel[1]//2, :], z[:, Nel[1]//2, :], vth_cart[:, Nel[1]//2, :], levels=levels)
                                 plt.xlabel('x')
                                 plt.ylabel('z')
                             else:
                                 plt.contourf(x[:, 0, :], y[:, 0, :],
-                                            vth_cart[:, 0, :], levels=levels)
+                                             vth_cart[:, 0, :], levels=levels)
                                 plt.contourf(
                                     x[:, Nel[1]//2, :], y[:, Nel[1]//2, :], vth_cart[:, Nel[1]//2, :], levels=levels)
                                 plt.xlabel('x')
@@ -1525,12 +1546,12 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
                             plt.subplot(2, 4, 8)
                             if 'Slab' in key or 'Pinch' in key:
                                 plt.contourf(x[:, :, 0], y[:, :, 0],
-                                            vth_cart[:, :, 0], levels=levels)
+                                             vth_cart[:, :, 0], levels=levels)
                                 plt.xlabel('x')
                                 plt.ylabel('y')
                             else:
                                 plt.contourf(x[:, :, 0], z[:, :, 0],
-                                            vth_cart[:, :, 0], levels=levels)
+                                             vth_cart[:, :, 0], levels=levels)
                                 plt.xlabel('x')
                                 plt.ylabel('z')
                             plt.axis('equal')
@@ -1541,10 +1562,256 @@ def test_maxwellian_5d_mhd(Nel, show_plot=False):
                             plt.show()
 
 
+@pytest.mark.parametrize('Nel', [[64, 1, 1]])
+def test_canonical_maxwellian_uniform(Nel, show_plot=False):
+    """ Tests the CanonicalMaxwellian class as a uniform canonical Maxwellian.
+
+    Asserts that the results over the domain and velocity space correspond to the
+    analytical computation.
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    from struphy.kinetic_background.maxwellians import CanonicalMaxwellian
+    from struphy.fields_background.mhd_equil import equils
+    from struphy.geometry import domains
+
+    e1 = np.linspace(0., 1., Nel[0])
+    e2 = np.linspace(0., 1., Nel[1])
+    e3 = np.linspace(0., 1., Nel[2])
+
+    eta_meshgrid = np.meshgrid(e1, e2, e3)
+
+    v_para = 0.01
+    v_perp = 0.01
+
+    epsilon = 1.
+
+    # evaluate three constants of motions at AdhocTorus equilibrium
+    AdhocTorus_params = {'a': 1.,
+                         'R0': 10.,
+                         'B0': 3.,
+                         'q_kind': 0.,
+                         'q0': 1.71,
+                         'q1': 1.87,
+                         'n1': 0.,
+                         'n2': 0.,
+                         'na': 1.,
+                         'p_kind': 1.,
+                         'p1': 0.95,
+                         'p2': 0.05,
+                         'beta': .0018}
+
+    HollowTorus_params = {'a1': 0.1,
+                          'a2': 1.,
+                          'R0': 10.,
+                          'sfl': False,
+                          'tor_period': 6}
+
+    mhd_equil = equils.AdhocTorus(**AdhocTorus_params)
+    mhd_equil.domain = domains.HollowTorus(**HollowTorus_params)
+
+    absB = mhd_equil.absB0(*eta_meshgrid)
+
+    # magnetic moment
+    mu = v_perp**2/2./absB
+
+    # total energy
+    energy = 1/2*v_para**2 + mu*absB
+
+    # shifted canonical toroidal momentum
+    a1 = mhd_equil.domain.params_map['a1']
+    R0 = mhd_equil.params['R0']
+    B0 = mhd_equil.params['B0']
+
+    r = eta_meshgrid[0]*(1 - a1) + a1
+
+    psi = mhd_equil.psi_r(r)
+
+    psic = psi - epsilon*B0*R0/absB*v_para
+    psic += epsilon*np.sign(v_para)*np.sqrt(2*(energy-mu*B0)) * \
+        R0*np.heaviside(energy-mu*B0, 0)
+
+    # ===========================================================
+    # ===== Test uniform, isothermal canonical Maxwellian =====
+    # ===========================================================
+    maxw_params = {'n': 2.,
+                   'vth': 1.}
+
+    maxwellian = CanonicalMaxwellian(maxw_params=maxw_params)
+
+    # Test constant value at v_para = v_perp = 0.01
+    res = maxwellian(energy, mu, psic).squeeze()
+    assert np.allclose(
+        res,
+        maxw_params['n']/((2.*np.pi)**(1/2) * maxw_params['vth']
+                          ** 3) * np.exp(-energy/maxw_params['vth']**2),
+        atol=10e-10
+    ), f"{res=},\n {2. / (2 * np.pi)**(3/2)* np.exp(-1e-04)}"
+
+    # test canonical Maxwellian profile in v_para
+    v_para = np.linspace(-5, 5, 64)
+    v_perp = 0.1
+
+    absB = mhd_equil.absB0(0., 0., 0.)[0, 0, 0]
+
+    # magnetic moment
+    mu = v_perp**2/2./absB
+
+    # total energy
+    energy = 1/2*v_para**2 + mu*absB
+
+    # shifted canonical toroidal momentum
+    r = a1
+
+    psi = mhd_equil.psi_r(r)
+
+    psic = psi - epsilon*B0*R0/absB*v_para
+    psic += epsilon*np.sign(v_para)*np.sqrt(2*(energy-mu*B0)) * \
+        R0*np.heaviside(energy-mu*B0, 0)
+
+    com_meshgrids = np.meshgrid(
+        energy, mu, psic
+    )
+
+    res = maxwellian(*com_meshgrids).squeeze()
+
+    res_ana = maxw_params['n']/((2.*np.pi)**(1/2) * maxw_params['vth']**3) * \
+        np.exp(-com_meshgrids[0]/maxw_params['vth']**2)
+
+    if show_plot:
+        plt.plot(v_para, res_ana[0, :, 0], label='analytical')
+        plt.plot(v_para, res[:, 0], 'r*', label='CanonicalMaxwellian class')
+        plt.legend()
+        plt.title("Profile in v_para (v_perp = 0.1)")
+        plt.ylabel('f(v_para)')
+        plt.xlabel('v_para')
+        plt.show()
+
+    assert np.allclose(
+        res,
+        res_ana,
+        atol=10e-10
+    ), f"{res=},\n {res_ana}"
+
+    # test canonical Maxwellian profile in v_perp
+    v_para = 0.1
+    v_perp = np.linspace(0, 2.5, 64)
+
+    absB = mhd_equil.absB0(0.5, 0.5, 0.5)[0, 0, 0]
+
+    # magnetic moment
+    mu = v_perp**2/2./absB
+
+    # total energy
+    energy = 1/2*v_para**2 + mu*absB
+
+    # shifted canonical toroidal momentum
+    r = a1
+
+    psi = mhd_equil.psi_r(r)
+
+    psic = psi - epsilon*B0*R0/absB*v_para
+    psic += epsilon*np.sign(v_para)*np.sqrt(2*(energy-mu*B0)) * \
+        R0*np.heaviside(energy-mu*B0, 0)
+
+    com_meshgrids = np.meshgrid(
+        energy, mu, psic
+    )
+
+    res = maxwellian(*com_meshgrids).squeeze()
+
+    res_ana = maxw_params['n']/((2.*np.pi)**(1/2) * maxw_params['vth']**3) * \
+        np.exp(-com_meshgrids[0]/maxw_params['vth']**2)
+
+    if show_plot:
+        plt.plot(v_perp, res_ana[0, :, 0], label='analytical')
+        plt.plot(v_perp, res[0, :, 0], 'r*', label='CanonicalMaxwellian class')
+        plt.legend()
+        plt.title("Profile in v_perp (v_para = 0.1)")
+        plt.ylabel('f(v_perp)')
+        plt.xlabel('v_perp')
+        plt.show()
+
+    assert np.allclose(
+        res,
+        res_ana,
+        atol=10e-10
+    ), f"{res=},\n {res_ana}"
+
+    # =============================================
+    # ===== Test ITPA perturbation in density =====
+    # =============================================
+    n0 = 0.00720655
+    c = [0.46623, 0.17042, 0.11357, 0.521298]
+    maxw_params = {'n': {'type': 'ITPA_density',
+                         'ITPA_density': {'n0': n0,
+                                          'c': c}},
+                   'vth': 1.}
+
+    maxwellian = CanonicalMaxwellian(
+        maxw_params=maxw_params, mhd_equil=mhd_equil)
+
+    e1 = np.linspace(0., 1., Nel[0])
+    e2 = np.linspace(0., 1., Nel[1])
+    e3 = np.linspace(0., 1., Nel[2])
+
+    eta_meshgrid = np.meshgrid(e1, e2, e3)
+
+    v_para = 0.01
+    v_perp = 0.01
+
+    absB = mhd_equil.absB0(*eta_meshgrid)[0, :, 0]
+
+    # magnetic moment
+    mu = v_perp**2/2./absB
+
+    # total energy
+    energy = 1/2*v_para**2 + mu*absB
+
+    # shifted canonical toroidal momentum
+    r = eta_meshgrid[0]*(1 - a1) + a1
+
+    psi = mhd_equil.psi_r(r[0, :, 0])
+
+    psic = psi - epsilon*B0*R0/absB*v_para
+    psic += epsilon*np.sign(v_para)*np.sqrt(2*(energy-mu*B0)) * \
+        R0*np.heaviside(energy-mu*B0, 0)
+
+    com_meshgrids = np.meshgrid(
+        energy, mu, psic
+    )
+    res = maxwellian(energy, mu, psic).squeeze()
+
+    # calculate rc
+    rc = maxwellian.rc(psic)
+
+    ana_res = n0*c[3]*np.exp(-c[2]/c[1] *
+                             np.tanh((rc - c[0])/c[2]))
+    ana_res *= 1/((2.*np.pi)**(1/2) *
+                  maxw_params['vth']**3) * np.exp(-energy/maxw_params['vth']**2)
+
+    plt.plot(e1, ana_res, label='analytical')
+    plt.plot(e1, res, 'r*', label='CanonicalMaxwellian Class')
+    plt.legend()
+    plt.title("Test ITPA perturbation in density")
+    plt.xlabel('eta_1')
+    plt.ylabel('f(eta_1)')
+    plt.show()
+
+    assert np.allclose(
+        res,
+        ana_res,
+        atol=10e-10
+    ), f"{res=},\n {ana_res}"
+
+
 if __name__ == '__main__':
+    test_maxwellian_3d_mhd([8, 11, 12])
     # test_maxwellian_6d_uniform(Nel=[64, 1, 1], show_plot=False)
     # test_maxwellian_6d_perturbed(Nel=[64, 1, 1], show_plot=False)
     # test_maxwellian_6d_mhd(Nel=[8, 11, 12], show_plot=True)
     # test_maxwellian_5d_uniform(Nel=[64, 1, 1], show_plot=True)
     # test_maxwellian_5d_perturbed(Nel=[64, 1, 1], show_plot=True)
-    test_maxwellian_5d_mhd(Nel=[8, 11, 12], show_plot=True)
+    # test_maxwellian_5d_mhd(Nel=[8, 12, 12], show_plot=False)
+    test_canonical_maxwellian_uniform(Nel=[64, 1, 1], show_plot=True)

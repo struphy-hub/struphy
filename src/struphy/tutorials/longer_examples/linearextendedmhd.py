@@ -118,7 +118,7 @@ def diagnostics():
                component=0,
                slice_at=[0, 0, None],
                do_plot=True, 
-               disp_name='ExtendedMhd1D', 
+               disp_name='ExtendedMHDhomogenSlab', 
                disp_params=disp_params)
 
     # load data dicts for u_field
@@ -135,7 +135,7 @@ def diagnostics():
                component=0,
                slice_at=[0, 0, None],
                do_plot=True, 
-               disp_name='ExtendedMhd1D', 
+               disp_name='ExtendedMHDhomogenSlab', 
                disp_params=disp_params)
     
     # load data dicts for u_field
@@ -152,7 +152,7 @@ def diagnostics():
                component=0,
                slice_at=[0, 0, None],
                do_plot=True, 
-               disp_name='ExtendedMhd1D', 
+               disp_name='ExtendedMHDhomogenSlab', 
                disp_params=disp_params)
     
     # load data dicts for u_field
@@ -169,7 +169,7 @@ def diagnostics():
                component=0,
                slice_at=[0, 0, None],
                do_plot=True, 
-               disp_name='ExtendedMhd1D', 
+               disp_name='ExtendedMHDhomogenSlab', 
                disp_params=disp_params)
     
     # load data dicts for u_field
@@ -186,7 +186,7 @@ def diagnostics():
                component=0,
                slice_at=[0, 0, None],
                do_plot=True, 
-               disp_name='ExtendedMhd1D', 
+               disp_name='ExtendedMHDhomogenSlab', 
                disp_params=disp_params)
     
     

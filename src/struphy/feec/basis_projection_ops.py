@@ -8,10 +8,13 @@ from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
+from struphy.feec.psydac_derham import get_pts_and_wts
+from struphy.feec.psydac_derham import get_span_and_basis
 from struphy.feec.projectors import CommutingProjector
 from struphy.feec.linear_operators import LinOpWithTransp, BoundaryOperator
 from struphy.feec import basis_projection_kernels
 from struphy.feec.utilities import RotationMatrix
+from struphy.polar.basic import PolarDerhamSpace
 
 
 class BasisProjectionOperators:
@@ -744,7 +747,13 @@ class BasisProjectionOperator(LinOpWithTransp):
         Extraction operator to polar sub-space of V.
 
     V_boundary_op : BoundaryOperator | IdentityOperator
-        Boundary operator that sets essential boundary conditions.
+        Boundary operator that sets essential boundary conditions on V.
+
+    P_extraction_op : PolarExtractionOperator | IdentityOperator
+        Extraction operator to polar sub-space of the domain of P.
+
+    P_boundary_op : BoundaryOperator | IdentityOperator
+        Boundary operator that sets essential boundary conditions on the domain of P.
 
     transposed : bool
         Whether to assemble the transposed operator.
@@ -756,7 +765,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         Whether to store some information computed in _assemble_mat for reuse. Set it to true if planned to update the weights later.
     """
 
-    def __init__(self, P, V, weights, V_extraction_op=None, V_boundary_op=None, transposed=False, polar_shift=False, use_cache=False):
+    def __init__(self, P, V, weights, V_extraction_op=None, V_boundary_op=None, P_extraction_op=None, P_boundary_op=None, transposed=False, polar_shift=False, use_cache=False):
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
@@ -768,7 +777,10 @@ class BasisProjectionOperator(LinOpWithTransp):
         self._V = V
 
         # set extraction operators
-        self._P_extraction_op = P.dofs_extraction_op
+        if P_extraction_op is not None:
+            self._P_extraction_op = P_extraction_op
+        else:
+            self._P_extraction_op = P.dofs_extraction_op
 
         if V_extraction_op is not None:
             self._V_extraction_op = V_extraction_op
@@ -776,12 +788,16 @@ class BasisProjectionOperator(LinOpWithTransp):
             self._V_extraction_op = IdentityOperator(V.vector_space)
 
         # set boundary operators
-        self._P_boundary_op = P.boundary_op
+        if P_boundary_op is not None:
+            self._P_boundary_op = P_boundary_op
+        else:
+            self._P_boundary_op = P.boundary_op
 
         if V_boundary_op is not None:
             self._V_boundary_op = V_boundary_op
         else:
-            self._V_boundary_op = IdentityOperator(V.vector_space)
+            self._V_boundary_op = IdentityOperator(
+                self._V_extraction_op.domain)
 
         self._weights = weights
         self._transposed = transposed
@@ -816,7 +832,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         if not isinstance(V, TensorFemSpace):
             self._is_scalar = False
             self._mpi_comm = V.vector_space.spaces[0].cart.comm
-        else :
+        else:
             self._mpi_comm = V.vector_space.cart.comm
 
         if not isinstance(P.space, TensorFemSpace):
@@ -947,7 +963,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         Returns the transposed operator.
         """
         return BasisProjectionOperator(self._P, self._V, self._weights,
-                                       self._V_extraction_op, self._V_boundary_op,
+                                       self._V_extraction_op, self._V_boundary_op, self._P_extraction_op, self._P_boundary_op,
                                        not self.transposed, self._polar_shift, self._use_cache)
 
     def update_weights(self, weights):
@@ -1046,13 +1062,16 @@ class BasisProjectionOperator(LinOpWithTransp):
                 elif isinstance(loc_weight, np.ndarray):
                     mat_w = loc_weight
                 elif loc_weight is not None:
-                    raise TypeError("weights must be np.ndarray, callable or None")
+                    raise TypeError(
+                        "weights must be np.ndarray, callable or None")
 
                 # Call the kernel if weight function is not zero or in the scalar case
                 # to avoid calling _block of a StencilMatrix in the else
 
-                not_weight_zero = np.array(int(loc_weight is not None and np.any(np.abs(mat_w) > 1e-14)))
-                self._mpi_comm.Allreduce(MPI.IN_PLACE, not_weight_zero, op=MPI.LOR)
+                not_weight_zero = np.array(
+                    int(loc_weight is not None and np.any(np.abs(mat_w) > 1e-14)))
+                self._mpi_comm.Allreduce(
+                    MPI.IN_PLACE, not_weight_zero, op=MPI.LOR)
                 if not_weight_zero or self._is_scalar:
 
                     # get cell of block matrix (don't instantiate if all zeros)
@@ -1075,12 +1094,12 @@ class BasisProjectionOperator(LinOpWithTransp):
 
                     dofs_mat.set_backend(
                         backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
-                    
-                    dofs_mat.update_ghost_regions()                 
+
+                    dofs_mat.update_ghost_regions()
 
                 else:
                     self._dof_mat[i, j] = None
-   
+
         return self._dof_mat
 
 
@@ -1117,13 +1136,13 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
 
     bases : 3-tuple of 3d float arrays
         Values of p + 1 non-zero eta basis functions at quadrature points in format (n, nq, basis).
-        
+
     subs : 3-tuple of 1f int arrays
         Sub-interval indices (either 0 or 1). This index is 1 if an element has to be split for exact integration (even spline degree).
     '''
 
     pts, wts, subs, spans, bases = [], [], [], [], []
-    
+
     if n_quad is None:
         n_quad = [None]*3
 
@@ -1131,7 +1150,8 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
     for d, (space_in, space_out, s, e) in enumerate(zip(V1d, W1d, starts_out, ends_out)):
 
         # point sets and weights for inter-/histopolation
-        pts_i, wts_i, subs_i = get_pts_and_wts(space_out, s, e, n_quad=n_quad[d], polar_shift= d == 0 and polar_shift)
+        pts_i, wts_i, subs_i = get_pts_and_wts(
+            space_out, s, e, n_quad=n_quad[d], polar_shift=d == 0 and polar_shift)
 
         pts += [pts_i]
         wts += [wts_i]
@@ -1143,144 +1163,21 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
         spans += [s_i]
         bases += [b_i]
 
-    return tuple(pts), tuple(wts), tuple(spans), tuple(bases), tuple(subs)
-
-
-def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
-    '''Obtain local projection point sets and weights in one grid direction.
+    #print("#################################################")
+    #print("#################################################")
+    #print("W1d[0]:")
+    #print(W1d[0])
+    #print("W1d[1]:")
+    #print(W1d[1])
+    #print("W1d[2]:")
+    #print(W1d[2])
+    #print("pts :")
+    #print(pts)
+    #print("#################################################")
+    #print("#################################################")
     
-    Parameters
-    ----------
-    space_1d : SplineSpace
-        Psydac object for uni-variate spline space.
-        
-    start : int
-        Start index on current process.
-        
-    end : int
-        End index on current process.
-        
-    n_quad : int
-        Number of quadrature points for Gauss-Legendre histopolation.
-        If None, is set to p + 1 where p is the space_1d degree (products of basis functions are integrated exactly).
-        
-    polar_shift : bool
-        Whether to shift the first interpolation point away from 0.0 by 1e-5 (needed only in eta_1 and for polar domains).
-        
-    Returns
-    -------
-    pts : 2D float array
-        Quadrature points (or Greville points for interpolation) in format (ii, iq) = (interval, quadrature point).
-
-    wts : 2D float array
-        Quadrature weights (or 1's for interpolation) in format (ii, iq) = (interval, quadrature point).
-        
-    subs : 1D int array
-        One entry for each interval ii; usually has value 0. 
-        A value of 1 indicates that the cell ii is the second subinterval of a split Greville cell (for histopolation with even degree).'''
-        
-    import psydac.core.bsplines as bsp
-        
-    greville_loc = space_1d.greville[start: end + 1].copy()
-    histopol_loc = space_1d.histopolation_grid[start: end + 2].copy()
-
-    # make sure that greville points used for interpolation are in [0, 1]
-    assert np.all(np.logical_and(greville_loc >= 0., greville_loc <= 1.))
-
-    # interpolation
-    if space_1d.basis == 'B':
-        x_grid = greville_loc
-        pts = greville_loc[:, None]
-        wts = np.ones(pts.shape, dtype=float)
-
-        # sub-interval index is always 0 for interpolation.
-        subs = np.zeros(pts.shape[0], dtype=int)
-
-        # !! shift away first interpolation point in eta_1 direction for polar domains !!
-        if pts[0] == 0. and polar_shift:
-            pts[0] += 0.00001
-
-    # histopolation
-    elif space_1d.basis == 'M':
-
-        if space_1d.degree % 2 == 0:
-            union_breaks = space_1d.breaks
-        else:
-            union_breaks = space_1d.breaks[:-1]
-
-        # Make union of Greville and break points
-        tmp = set(np.round_(space_1d.histopolation_grid, decimals=14)).union(
-            np.round_(union_breaks, decimals=14))
-
-        tmp = list(tmp)
-        tmp.sort()
-        tmp_a = np.array(tmp)
-
-        x_grid = tmp_a[np.logical_and(tmp_a >= np.min(
-            histopol_loc) - 1e-14, tmp_a <= np.max(histopol_loc) + 1e-14)]
-
-        # determine subinterval index (= 0 or 1):
-        subs = np.zeros(x_grid[:-1].size, dtype=int)
-        for n, x_h in enumerate(x_grid[:-1]):
-            add = 1
-            for x_g in histopol_loc:
-                if abs(x_h - x_g) < 1e-14:
-                    add = 0
-            subs[n] += add
-
-        # Gauss - Legendre quadrature points and weights
-        if n_quad is None:
-            # products of basis functions are integrated exactly
-            n_quad = space_1d.degree + 1
-
-        pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
-
-        x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
-
-        pts = x % 1.
-        
-    return pts, wts, subs
-
-
-def get_span_and_basis(pts, space):
-    '''Compute the knot span index and the values of p + 1 basis function at each point in pts.
-
-    Parameters
-    ----------
-    pts : np.array
-        2d array of points (ii, iq) = (interval, quadrature point).
-
-    space : SplineSpace
-        Psydac object, the 1d spline space to be projected.
-
-    Returns
-    -------
-    span : np.array
-        2d array indexed by (n, nq), where n is the interval and nq is the quadrature point in the interval.
-
-    basis : np.array
-        3d array of values of basis functions indexed by (n, nq, basis function). 
-    '''
-
-    import psydac.core.bsplines as bsp
-
-    # Extract knot vectors, degree and kind of basis
-    T = space.knots
-    p = space.degree
-
-    span = np.zeros(pts.shape, dtype=int)
-    basis = np.zeros((*pts.shape, p + 1), dtype=float)
-
-    for n in range(pts.shape[0]):
-        for nq in range(pts.shape[1]):
-            # avoid 1. --> 0. for clamped interpolation
-            x = pts[n, nq] % (1. + 1e-14)
-            span_tmp = bsp.find_span(T, p, x)
-            basis[n, nq, :] = bsp.basis_funs_all_ders(
-                T, p, x, span_tmp, 0, normalization=space.basis)
-            span[n, nq] = span_tmp  # % space.nbasis
-
-    return span, basis
+    
+    return tuple(pts), tuple(wts), tuple(spans), tuple(bases), tuple(subs)
 
 
 class CoordinateProjector(LinearOperator):
@@ -1289,7 +1186,7 @@ class CoordinateProjector(LinearOperator):
     Represent the projection on the :math:`\mu`-th component :
 
     .. math::
-    
+
         \begin{align}
         P_\mu : \ & V_1 \times \ldots \times V_\mu \times \ldots \times V_n \longrightarrow V_\mu \,,
         \\[2mm]    
@@ -1309,16 +1206,16 @@ class CoordinateProjector(LinearOperator):
     """
 
     def __init__(self, mu, V, Vmu):
-        assert isinstance(V, FemSpace)
         assert isinstance(mu, int)
-        assert V.spaces[mu] == Vmu
+        if isinstance(V, PolarDerhamSpace):
+            assert V.parent_space.spaces[mu] == Vmu.parent_space
+        else:
+            assert V.spaces[mu] == Vmu
 
-        self.full_space = V
-        self.sub_space = Vmu
         self.dir = mu
-        self._domain = V.vector_space
-        self._codomain = Vmu.vector_space
-        self._dtype = V.vector_space.dtype
+        self._domain = V
+        self._codomain = Vmu
+        self._dtype = Vmu.dtype
 
     @property
     def domain(self):
@@ -1347,23 +1244,34 @@ class CoordinateProjector(LinearOperator):
         raise NotImplementedError()
 
     def transpose(self, conjugate=False):
-        return CoordinateInclusion(self.dir, self.full_space, self.sub_space)
+        return CoordinateInclusion(self.dir, self._domain, self._codomain)
 
     def dot(self, v, out=None):
         assert (v.space == self._domain)
-        if out is not None:
-            assert out.space == self._codomain
-            out *= 0.
-            out += v.blocks[self.dir]
+        if isinstance(self.domain, PolarDerhamSpace):
+            if out is not None:
+                assert out.space == self._codomain
+                out *= 0.
+            else:
+                out = self.codomain.zeros()
+            out._tp += v.tp.blocks[self.dir]
         else:
-            out = v.blocks[self.dir].copy()
+            if out is not None:
+                assert out.space == self._codomain
+                out *= 0.
+                out += v.blocks[self.dir]
+            else:
+                out = v.blocks[self.dir].copy()
         out.update_ghost_regions()
         return out
 
     def idot(self, v, out):
         assert (v.space == self._domain)
         assert (out.space == self._codomain)
-        out += v.blocks[self.dir]
+        if isinstance(self.domain, PolarDerhamSpace):
+            out += v.tp.blocks[self.dir]
+        else:
+            out += v.blocks[self.dir]
 
 
 class CoordinateInclusion(LinearOperator):
@@ -1393,16 +1301,16 @@ class CoordinateInclusion(LinearOperator):
     """
 
     def __init__(self, mu, V, Vmu):
-        assert isinstance(V, FemSpace)
         assert isinstance(mu, int)
-        assert V.spaces[mu] == Vmu
+        if isinstance(V, PolarDerhamSpace):
+            assert V.parent_space.spaces[mu] == Vmu.parent_space
+        else:
+            assert V.spaces[mu] == Vmu
 
-        self.full_space = V
-        self.sub_space = Vmu
         self.dir = mu
-        self._domain = Vmu.vector_space
-        self._codomain = V.vector_space
-        self._dtype = V.vector_space.dtype
+        self._domain = Vmu
+        self._codomain = V
+        self._dtype = V.dtype
 
     @property
     def domain(self):
@@ -1431,18 +1339,28 @@ class CoordinateInclusion(LinearOperator):
         raise NotImplementedError()
 
     def transpose(self, conjugate=False):
-        return CoordinateProjector(self.dir, self.full_space, self.sub_space)
+        return CoordinateProjector(self.dir, self._codomain, self._domain)
 
     def dot(self, v, out=None):
         assert (v.space == self._domain)
-        if out is not None:
-            assert out.space == self._codomain
-            out *= 0.
-            out._blocks[self.dir] += v
+
+        if isinstance(self.domain, PolarDerhamSpace):
+            if out is not None:
+                assert out.space == self._codomain
+                out *= 0.
+            else:
+                out = self._codomain.zeros()
+            out._tp._blocks[self.dir] += v.tp
+
         else:
-            blocks = [sspace.zeros() for sspace in self.codomain.spaces]
-            blocks[self.dir] = v.copy()
-            out = BlockVector(self._codomain, blocks)
+            if out is not None:
+                assert out.space == self._codomain
+                out *= 0.
+                out._blocks[self.dir] += v
+            else:
+                blocks = [sspace.zeros() for sspace in self.codomain.spaces]
+                blocks[self.dir] = v.copy()
+                out = BlockVector(self._codomain, blocks)
 
         out.update_ghost_regions()
         return out

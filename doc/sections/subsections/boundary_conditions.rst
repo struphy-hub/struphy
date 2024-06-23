@@ -120,8 +120,8 @@ In summary, on each of the six boundary surfaces of the unit cube :math:`(0, 1)^
 one has the following possibilities to set boundary conditions:
 
 * ``spl_kind = True``: periodic bcs.
-* ``spl_kind = False`` and ``spl_kind = True``: homogeneous Dirichlet bcs.
-* ``spl_kind = False`` and ``spl_kind = False``: free bcs, possible "natural" Neumann boundary conditions through the equation.
+* ``spl_kind = False`` and ``dirichlet_bc = True``: homogeneous Dirichlet bcs.
+* ``spl_kind = False`` and ``dirichlet_bc = False``: free bcs, possible "natural" Neumann boundary conditions through the equation.
 
 Check out `the Poisson unit test <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/propagators/tests/test_poisson.py?ref_type=heads>`_ for an example.
 

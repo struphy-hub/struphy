@@ -31,8 +31,6 @@ def struphy_test(group, mpi=2, fast=False, verbose=False, monitor=False, n=None,
         If group is a model name, simulation end time in units of the model (default=0.015 with dt=0.005). Data is only saved at Tend if set.
     """
 
-    assert mpi >= 2, 'Tests require at least 2 MPI processes.'
-
     libpath = struphy.__path__[0]
 
     pymon_abs = os.path.join(libpath, '_pymon/')

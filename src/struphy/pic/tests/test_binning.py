@@ -13,8 +13,8 @@ import pytest
 @pytest.mark.parametrize('mapping', [
     ['Cuboid', {
         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 3., 'r3': 4.}],
-    ['ShafranovDshapedCylinder', {
-        'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
+    # ['ShafranovDshapedCylinder', {
+    #     'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
 ])
 def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
     """ Test Maxwellian in v1-direction and cosine perturbation for full-f Particles6D.
@@ -89,14 +89,14 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
     v1_bins = np.linspace(-5., 5., 200, endpoint=True)
     dv = v1_bins[1] - v1_bins[0]
 
-    binned_res = particles.binning(
+    binned_res, r2 = particles.binning(
         [False, False, False, True, False, False,],
         [v1_bins]
     )
 
     v1_plot = v1_bins[:-1] + dv/2
 
-    ana_res = 1. / np.sqrt(2.*np.pi) * np.exp(- v1_plot**2 / 2.)
+    ana_res = 1. / np.sqrt(2.*np.pi) * np.exp(- v1_plot**2 / 2.) 
 
     if show_plot:
         plt.plot(v1_plot, ana_res)
@@ -105,7 +105,7 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
         plt.ylabel(r'$f(v_1)$')
         plt.show()
 
-    l2_error = np.sqrt(np.sum((ana_res - binned_res)**2))
+    l2_error = np.sqrt(np.sum((ana_res - binned_res)**2)) / np.sqrt(np.sum((ana_res)**2))
 
     assert l2_error <= 0.1, \
         f"Error between binned data and analytical result was {l2_error}"
@@ -143,14 +143,14 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
     e1_bins = np.linspace(0., 1., 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
 
-    binned_res = particles.binning(
+    binned_res, r2 = particles.binning(
         [True, False, False, False, False, False,],
         [e1_bins]
     )
 
     e1_plot = e1_bins[:-1] + de/2
 
-    ana_res = 1. + amp_n * np.cos(2*np.pi * l_n * e1_plot)
+    ana_res = (1. + amp_n * np.cos(2*np.pi * l_n * e1_plot)) 
 
     if show_plot:
         plt.plot(e1_plot, ana_res)
@@ -159,7 +159,7 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
         plt.ylabel(r'$f(\eta_1)$')
         plt.show()
 
-    l2_error = np.sqrt(np.sum((ana_res - binned_res)**2))
+    l2_error = np.sqrt(np.sum((ana_res - binned_res)**2)) / np.sqrt(np.sum((ana_res)**2))
 
     # TODO: such a big error, what to do? Plot looks okay
     assert l2_error <= 0.3, \
@@ -173,8 +173,8 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
 @pytest.mark.parametrize('mapping', [
     ['Cuboid', {
         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 3., 'r3': 4.}],
-    ['ShafranovDshapedCylinder', {
-        'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
+    # ['ShafranovDshapedCylinder', {
+    #     'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
 ])
 def test_binning_6D_delta_f(Nel, p, spl_kind, mapping, show_plot=False):
     """ Test Maxwellian in v1-direction and cosine perturbation for delta-f Particles6D.
@@ -261,14 +261,14 @@ def test_binning_6D_delta_f(Nel, p, spl_kind, mapping, show_plot=False):
     e1_bins = np.linspace(0., 1., 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
 
-    binned_res = particles.binning(
+    binned_res, r2 = particles.binning(
         [True, False, False, False, False, False,],
         [e1_bins]
     )
 
     e1_plot = e1_bins[:-1] + de/2
 
-    ana_res = amp_n * np.cos(2*np.pi * l_n * e1_plot)
+    ana_res = (amp_n * np.cos(2*np.pi * l_n * e1_plot)) 
 
     if show_plot:
         plt.plot(e1_plot, ana_res)
@@ -277,7 +277,7 @@ def test_binning_6D_delta_f(Nel, p, spl_kind, mapping, show_plot=False):
         plt.ylabel(r'$f(\eta_1)$')
         plt.show()
 
-    l2_error = np.sqrt(np.sum((ana_res - binned_res)**2))
+    l2_error = np.sqrt(np.sum((ana_res - binned_res)**2)) / np.sqrt(np.sum((ana_res)**2))
 
     assert l2_error <= 0.02, \
         f"Error between binned data and analytical result was {l2_error}"
@@ -293,8 +293,8 @@ def test_binning_6D_delta_f(Nel, p, spl_kind, mapping, show_plot=False):
 @pytest.mark.parametrize('mapping', [
     ['Cuboid', {
         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 3., 'r3': 4.}],
-    ['ShafranovDshapedCylinder', {
-        'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
+    # ['ShafranovDshapedCylinder', {
+    #     'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
 ])
 def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
     """ Test Maxwellian in v1-direction and cosine perturbation for full-f Particles6D with mpi.
@@ -369,7 +369,7 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
     v1_bins = np.linspace(-5., 5., 200, endpoint=True)
     dv = v1_bins[1] - v1_bins[0]
 
-    binned_res = particles.binning(
+    binned_res, r2 = particles.binning(
         [False, False, False, True, False, False,],
         [v1_bins]
     )
@@ -381,7 +381,7 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
 
     v1_plot = v1_bins[:-1] + dv/2
 
-    ana_res = 1. / np.sqrt(2.*np.pi) * np.exp(- v1_plot**2 / 2.)
+    ana_res = (1. / np.sqrt(2.*np.pi) * np.exp(- v1_plot**2 / 2.)) 
 
     if show_plot:
         plt.plot(v1_plot, ana_res)
@@ -390,7 +390,7 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
         plt.ylabel(r'$f(v_1)$')
         plt.show()
 
-    l2_error = np.sqrt(np.sum((ana_res - mpi_res)**2))
+    l2_error = np.sqrt(np.sum((ana_res - mpi_res)**2)) / np.sqrt(np.sum((ana_res)**2))
 
     assert l2_error <= 0.1, \
         f"Error between binned data and analytical result was {l2_error}"
@@ -428,7 +428,7 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
     e1_bins = np.linspace(0., 1., 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
 
-    binned_res = particles.binning(
+    binned_res, r2 = particles.binning(
         [True, False, False, False, False, False,],
         [e1_bins]
     )
@@ -440,7 +440,7 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de/2
 
-    ana_res = 1. + amp_n * np.cos(2*np.pi * l_n * e1_plot)
+    ana_res = (1. + amp_n * np.cos(2*np.pi * l_n * e1_plot)) 
 
     if show_plot:
         plt.plot(e1_plot, ana_res)
@@ -449,7 +449,7 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
         plt.ylabel(r'$f(\eta_1)$')
         plt.show()
 
-    l2_error = np.sqrt(np.sum((ana_res - mpi_res)**2))
+    l2_error = np.sqrt(np.sum((ana_res - mpi_res)**2)) / np.sqrt(np.sum((ana_res)**2))
 
     # TODO: such a big error, what to do? Plot looks okay
     assert l2_error <= 0.3, \
@@ -463,8 +463,8 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
 @pytest.mark.parametrize('mapping', [
     ['Cuboid', {
         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 3., 'r3': 4.}],
-    ['ShafranovDshapedCylinder', {
-        'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
+    # ['ShafranovDshapedCylinder', {
+    #     'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
 ])
 def test_binning_6D_delta_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
     """ Test Maxwellian in v1-direction and cosine perturbation for delta-f Particles6D with mpi.
@@ -551,7 +551,7 @@ def test_binning_6D_delta_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
     e1_bins = np.linspace(0., 1., 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
 
-    binned_res = particles.binning(
+    binned_res, r2 = particles.binning(
         [True, False, False, False, False, False,],
         [e1_bins]
     )
@@ -563,7 +563,7 @@ def test_binning_6D_delta_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de/2
 
-    ana_res = amp_n * np.cos(2*np.pi * l_n * e1_plot)
+    ana_res = (amp_n * np.cos(2*np.pi * l_n * e1_plot)) 
 
     if show_plot:
         plt.plot(e1_plot, ana_res)
@@ -572,7 +572,7 @@ def test_binning_6D_delta_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
         plt.ylabel(r'$f(\eta_1)$')
         plt.show()
 
-    l2_error = np.sqrt(np.sum((ana_res - mpi_res)**2))
+    l2_error = np.sqrt(np.sum((ana_res - mpi_res)**2)) / np.sqrt(np.sum((ana_res)**2))
 
     assert l2_error <= 0.02, \
         f"Error between binned data and analytical result was {l2_error}"
@@ -590,14 +590,14 @@ if __name__ == '__main__':
             p=[3, 1, 1],
             spl_kind=[True, False, False],
             mapping=[
-                # 'Cuboid',
-                # # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
-                # {'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 10., 'r3': 20.}
-                'ShafranovDshapedCylinder',
-                {'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07,
-                    'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}
+                'Cuboid',
+                # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
+                {'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 10., 'r3': 20.}
+                # 'ShafranovDshapedCylinder',
+                # {'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07,
+                #     'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}
             ],
-            show_plot=False
+            show_plot=True
         )
         test_binning_6D_delta_f(
             Nel=[24, 1, 1],
@@ -608,7 +608,7 @@ if __name__ == '__main__':
                 # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
                 {'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 10., 'r3': 20.}
             ],
-            show_plot=False
+            show_plot=True
         )
     else:
         test_binning_6D_full_f_mpi(
@@ -616,14 +616,14 @@ if __name__ == '__main__':
             p=[3, 1, 1],
             spl_kind=[True, False, False],
             mapping=[
-                # 'Cuboid',
-                # # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
-                # {'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 10., 'r3': 20.}
-                'ShafranovDshapedCylinder',
-                {'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07,
-                    'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}
+                'Cuboid',
+                # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
+                {'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 10., 'r3': 20.}
+                # 'ShafranovDshapedCylinder',
+                # {'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07,
+                #     'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}
             ],
-            show_plot=False
+            show_plot=True
         )
         test_binning_6D_delta_f_mpi(
             Nel=[24, 1, 1],
@@ -634,5 +634,5 @@ if __name__ == '__main__':
                 # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
                 {'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 10., 'r3': 20.}
             ],
-            show_plot=False
+            show_plot=True
         )

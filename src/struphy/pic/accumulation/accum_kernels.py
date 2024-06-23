@@ -82,13 +82,14 @@ def a_documentation():
 
 
 def charge_density_0form(markers: 'float[:,:]', n_markers_tot: 'int',
-            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-            starts: 'int[:]',
-            kind_map: 'int', params_map: 'float[:]',
-            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-            vec: 'float[:,:,:]'):  
+                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                         starts: 'int[:]',
+                         kind_map: 'int', params_map: 'float[:]',
+                         p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                         ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                         cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                         vec: 'float[:,:,:]', 
+                         vdim: 'int'):
     r"""
     Kernel for :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` into V0 with the filling 
 
@@ -111,9 +112,10 @@ def charge_density_0form(markers: 'float[:,:]', n_markers_tot: 'int',
         eta3 = markers[ip, 2]
 
         # filling = w_p/N
-        filling = markers[ip, 6] / n_markers_tot
+        filling = markers[ip, 3 + vdim] / n_markers_tot
 
-        particle_to_mat_kernels.vec_fill_b_v0(pn, tn1, tn2, tn3, starts, eta1, eta2, eta3, vec, filling)
+        particle_to_mat_kernels.vec_fill_b_v0(
+            pn, tn1, tn2, tn3, starts, eta1, eta2, eta3, vec, filling)
 
     #$ omp end parallel
 
@@ -406,7 +408,115 @@ def linear_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
         # filling = alpha^2 * kappa * w_p * sqrt{f_0} / N
         filling = alpha**2 * kappa * markers[ip, 6] * sqrt(f0) / n_markers_tot
 
-        particle_to_mat_kernels.vec_fill_b_v0(pn, tn1, tn2, tn3, starts, eta1, eta2, eta3, vec, filling)
+        particle_to_mat_kernels.vec_fill_b_v0(
+            pn, tn1, tn2, tn3, starts, eta1, eta2, eta3, vec, filling)
+
+    #$ omp end parallel
+
+
+@stack_array('dfm', 'df_inv', 'v', 'df_inv_times_v', 'filling_m', 'filling_v')
+def linear_vlasov_ampere(
+    markers: 'float[:,:]', n_markers_tot: 'int',
+    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+    starts: 'int[:]',
+    kind_map: 'int', params_map: 'float[:]',
+    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+    cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+    mat11: 'float[:,:,:,:,:,:]',
+    mat12: 'float[:,:,:,:,:,:]',
+    mat13: 'float[:,:,:,:,:,:]',
+    mat22: 'float[:,:,:,:,:,:]',
+    mat23: 'float[:,:,:,:,:,:]',
+    mat33: 'float[:,:,:,:,:,:]',
+    vec1: 'float[:,:,:]',
+    vec2: 'float[:,:,:]',
+    vec3: 'float[:,:,:]',
+    f0_values: 'float[:]',
+):
+    r""" Accumulates into V1 with the filling functions
+
+    .. math::
+
+        A_p^{\mu, \nu} &= \frac{\alpha^2 \kappa^2}{v_{\text{th}}^2} \frac{1}{N\, s_0} f_0(\mathbf{\eta}_p, \mathbf{v}_p)
+            [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\mu [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\nu \,,
+
+        B_p^\mu &= \alpha^2 \kappa \sqrt{f_0(\mathbf{\eta}_p, \mathbf{v}_p)} w_p [ DF^{-1}(\mathbf{\eta}_p) \mathbf{v}_p ]_\mu \,.
+
+    Parameters
+    ----------
+    f0_values ; array[float]
+        Value of f0 for each particle.
+
+    Note
+    ----
+    The above parameter list contains only the model specific input arguments.
+    """
+
+    # allocate for metric coeffs
+    dfm = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+
+    # allocate for filling
+    v = empty(3, dtype=float)
+    df_inv_v = empty(3, dtype=float)
+    filling_m = empty((3, 3), dtype=float)
+    filling_v = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_times_v, filling_m, filling_v)
+    #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # get velocity
+        v[0] = markers[ip, 3]
+        v[1] = markers[ip, 4]
+        v[2] = markers[ip, 5]
+
+        # evaluate Jacobian, result in dfm
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              kind_map, params_map,
+                              t1_map, t2_map, t3_map, p_map,
+                              ind1_map, ind2_map, ind3_map,
+                              cx, cy, cz,
+                              dfm)
+
+        # invert Jacobian matrix
+        linalg_kernels.matrix_inv(dfm, df_inv)
+
+        # compute DF^{-1} v
+        linalg_kernels.matrix_vector(df_inv, v, df_inv_v)
+
+        # filling_m = alpha^2 * kappa^2 * f0 / (N * s_0 * v_th^2) * (DF^{-1} v_p)_mu * (DF^{-1} v_p)_nu
+        linalg_kernels.outer(df_inv_v, df_inv_v, filling_m)
+        filling_m[:, :] *= f0_values[ip] / (n_markers_tot * markers[ip, 7])
+
+        # filling_v = alpha^2 * kappa / N * w_p * DL^{-1} * v_p
+        filling_v[:] = markers[ip, 6] * df_inv_v / n_markers_tot
+
+        # call the appropriate matvec filler
+        particle_to_mat_kernels.m_v_fill_b_v1_symm(
+            pn,
+            tn1, tn2, tn3,
+            starts,
+            eta1, eta2, eta3,
+            mat11, mat12, mat13, mat22, mat23, mat33,
+            filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
+            filling_m[1, 1], filling_m[1, 2], filling_m[2, 2],
+            vec1, vec2, vec3,
+            filling_v[0], filling_v[1], filling_v[2]
+        )
 
     #$ omp end parallel
 
@@ -572,8 +682,9 @@ def vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
 
         # filling = w_p
         filling = markers[ip, 6] / n_markers_tot
-        
-        particle_to_mat_kernels.vec_fill_b_v0(pn, tn1, tn2, tn3, starts, eta1, eta2, eta3, vec, filling)
+
+        particle_to_mat_kernels.vec_fill_b_v0(
+            pn, tn1, tn2, tn3, starts, eta1, eta2, eta3, vec, filling)
 
     #$ omp end parallel
 
@@ -739,8 +850,8 @@ def delta_f_vlasov_maxwell_poisson(markers: 'float[:,:]', n_markers_tot: 'int',
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.vec_fill_b_v0(pn, tn1, tn2, tn3,
-                                                 starts, eta1, eta2, eta3,
-                                                 vec, filling)
+                                              starts, eta1, eta2, eta3,
+                                              vec, filling)
 
     #$ omp end parallel
 

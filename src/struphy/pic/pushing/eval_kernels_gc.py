@@ -72,7 +72,7 @@ def init_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float,
 
         e[:] = markers[ip, 0:3]
         v = markers[ip, 3]
-        mu = markers[ip, 4]
+        mu = markers[ip, 9]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(e[0], e[1], e[2],
@@ -105,7 +105,7 @@ def init_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float,
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
 
         # save for later steps
-        markers[ip, 19] = abs_b0*mu
+        markers[ip, 21] = abs_b0*mu
 
         # norm_b1; 1form
         norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
@@ -175,8 +175,8 @@ def init_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float,
         # save at the markers
         markers[ip, 0:3] = markers[ip, 0:3] + dt*temp[:]*mu
 
-        markers[ip, 16:19] = markers[ip, 0:3]
-        markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 9:12])/2.
+        markers[ip, 18:21] = markers[ip, 0:3]
+        markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 11:14])/2.
 
 
 @stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'b', 'grad_abs_b', 'curl_norm_b', 'b_star', 'norm_b1')
@@ -230,11 +230,11 @@ def init_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float,
             continue
 
         # save initial parallel velocity
-        markers[ip, 12] = markers[ip, 3]
+        markers[ip, 14] = markers[ip, 3]
 
         e[:] = markers[ip, 0:3]
         v = markers[ip, 3]
-        mu = markers[ip, 4]
+        mu = markers[ip, 9]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(e[0], e[1], e[2],
@@ -262,7 +262,7 @@ def init_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float,
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
 
         # save for later steps
-        markers[ip, 16] = mu*abs_b0
+        markers[ip, 18] = mu*abs_b0
 
         # norm_b1; 1form
         norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
@@ -309,11 +309,11 @@ def init_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float,
 
         # save at the markers
         markers[ip, 0:3] = markers[ip, 0:3] + dt*b_star[:]/abs_b_star_para*v
-        markers[ip, 3] = markers[ip, 12] - dt * \
+        markers[ip, 3] = markers[ip, 14] - dt * \
             b_star_dot_grad_abs_b/abs_b_star_para
 
-        markers[ip, 17:21] = markers[ip, 0:4]
-        markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 9:13])/2.
+        markers[ip, 19:23] = markers[ip, 0:4]
+        markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 11:15])/2.
 
 
 @stack_array('dfm', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'S', 'b', 'b_star', 'bcross', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'temp', 'temp1', 'temp2')
@@ -377,7 +377,7 @@ def init_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
 
         e[:] = markers[ip, 0:3]
         v = markers[ip, 3]
-        mu = markers[ip, 4]
+        mu = markers[ip, 9]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(e[0], e[1], e[2],
@@ -472,9 +472,9 @@ def init_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
         S[:, :] = (epsilon*temp2)/abs_b_star_para
 
         # save at the markers
-        markers[ip, 13:15] = S[0, 1:3]
-        markers[ip, 15] = S[1, 2]
-        markers[ip, 19] = abs_b0*mu
+        markers[ip, 15:17] = S[0, 1:3]
+        markers[ip, 17] = S[1, 2]
+        markers[ip, 21] = abs_b0*mu
 
         # calculate S1 * grad I1
         linalg_kernels.matrix_vector(S, grad_abs_b, temp)
@@ -482,8 +482,8 @@ def init_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
         # save at the markers
         markers[ip, 0:3] = markers[ip, 0:3] + dt*temp[:]*mu
 
-        markers[ip, 16:19] = markers[ip, 0:3]
-        markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 9:12])/2.
+        markers[ip, 18:21] = markers[ip, 0:3]
+        markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 11:14])/2.
 
 
 @stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'b', 'grad_abs_b', 'curl_norm_b', 'b_star', 'norm_b1')
@@ -537,11 +537,11 @@ def init_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
             continue
 
         # save initial parallel velocity
-        markers[ip, 12] = markers[ip, 3]
+        markers[ip, 14] = markers[ip, 3]
 
         e[:] = markers[ip, 0:3]
         v = markers[ip, 3]
-        mu = markers[ip, 4]
+        mu = markers[ip, 9]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(e[0], e[1], e[2],
@@ -608,8 +608,8 @@ def init_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # save at the markers
-        markers[ip, 13:16] = b_star[:]/abs_b_star_para
-        markers[ip, 16] = mu*abs_b0
+        markers[ip, 15:18] = b_star[:]/abs_b_star_para
+        markers[ip, 18] = mu*abs_b0
 
         # calculate b_star . grad_abs_b
         b_star_dot_grad_abs_b = linalg_kernels.scalar_dot(
@@ -617,11 +617,11 @@ def init_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
 
         # save at the markers
         markers[ip, 0:3] = markers[ip, 0:3] + dt*b_star[:]/abs_b_star_para*v
-        markers[ip, 3] = markers[ip, 12] - dt * \
+        markers[ip, 3] = markers[ip, 14] - dt * \
             b_star_dot_grad_abs_b/abs_b_star_para
 
-        markers[ip, 17:21] = markers[ip, 0:4]
-        markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 9:13])/2.
+        markers[ip, 19:23] = markers[ip, 0:4]
+        markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 11:15])/2.
 
 
 @stack_array('dfm', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'S', 'b', 'b_star', 'bcross', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'temp', 'temp1', 'temp2')
@@ -685,7 +685,7 @@ def init_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
 
         e[:] = markers[ip, 0:3]
         v = markers[ip, 3]
-        mu = markers[ip, 4]
+        mu = markers[ip, 9]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(e[0], e[1], e[2],
@@ -780,18 +780,18 @@ def init_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: flo
         S[:, :] = (epsilon*temp2)/abs_b_star_para
 
         # save at the markers
-        markers[ip, 13:15] = S[0, 1:3]
-        markers[ip, 15] = S[1, 2]
-        markers[ip, 19] = abs_b0
+        markers[ip, 15:17] = S[0, 1:3]
+        markers[ip, 17] = S[1, 2]
+        markers[ip, 21] = abs_b0
 
         # calculate S1 * grad I1
         linalg_kernels.matrix_vector(S, grad_abs_b, temp)
 
         # save at the markers
-        markers[ip, 16:19] = markers[ip, 0:3] + dt*temp[:]*mu
+        markers[ip, 18:21] = markers[ip, 0:3] + dt*temp[:]*mu
 
         # send particles to the (eta^0_n+1, eta_n, eta_n)
-        markers[ip, 0] = markers[ip, 16]
+        markers[ip, 0] = markers[ip, 18]
 
 
 @stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'b', 'grad_abs_b', 'curl_norm_b', 'b_star', 'norm_b1')
@@ -845,11 +845,11 @@ def init_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
             continue
 
         # save initial parallel velocity
-        markers[ip, 12] = markers[ip, 3]
+        markers[ip, 14] = markers[ip, 3]
 
         e[:] = markers[ip, 0:3]
         v = markers[ip, 3]
-        mu = markers[ip, 4]
+        mu = markers[ip, 9]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(e[0], e[1], e[2],
@@ -916,20 +916,20 @@ def init_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # save at the markers
-        markers[ip, 13:16] = b_star[:]/abs_b_star_para
-        markers[ip, 19] = abs_b0
+        markers[ip, 15:18] = b_star[:]/abs_b_star_para
+        markers[ip, 21] = abs_b0
 
         # calculate b_star . grad_abs_b
         b_star_dot_grad_abs_b = linalg_kernels.scalar_dot(
             b_star, grad_abs_b)*mu
 
         # save at the markers
-        markers[ip, 16:19] = markers[ip, 0:3] + dt*b_star[:]/abs_b_star_para*v
-        markers[ip, 3] = markers[ip, 12] - dt * \
+        markers[ip, 18:21] = markers[ip, 0:3] + dt*b_star[:]/abs_b_star_para*v
+        markers[ip, 3] = markers[ip, 14] - dt * \
             b_star_dot_grad_abs_b/abs_b_star_para
 
         # send particles to the (eta^0_n+1,eta_n, eta_n)
-        markers[ip, 0] = markers[ip, 16]
+        markers[ip, 0] = markers[ip, 18]
 
 
 @stack_array('dfm', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'S', 'b', 'b_star', 'bcross', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'temp1', 'temp2')
@@ -990,13 +990,13 @@ def gc_bxEstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 9] == -1.:
+        if markers[ip, 11] == -1.:
             continue
 
         e_mid[:] = markers[ip, 0:3]
         v = markers[ip, 3]
-        markers[ip, 0:3] = markers[ip, 16:19]
-        mu = markers[ip, 4]
+        markers[ip, 0:3] = markers[ip, 18:21]
+        mu = markers[ip, 9]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(e_mid[0], e_mid[1], e_mid[2],
@@ -1090,10 +1090,10 @@ def gc_bxEstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
         S[:, :] = (epsilon*temp2)/abs_b_star_para
 
         # save at the markers
-        markers[ip, 13:15] = S[0, 1:3]
-        markers[ip, 15] = S[1, 2]
+        markers[ip, 15:17] = S[0, 1:3]
+        markers[ip, 17] = S[1, 2]
 
-        markers[ip, 16:19] = mu*grad_abs_b[:]
+        markers[ip, 18:21] = mu*grad_abs_b[:]
 
 
 @stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e_mid', 'b', 'grad_abs_b', 'curl_norm_b', 'b_star', 'norm_b1')
@@ -1146,13 +1146,13 @@ def gc_Bstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 9] == -1.:
+        if markers[ip, 11] == -1.:
             continue
 
         e_mid[:] = markers[ip, 0:3]
         v_mid = markers[ip, 3]
-        markers[ip, 0:4] = markers[ip, 17:21]
-        mu = markers[ip, 4]
+        markers[ip, 0:4] = markers[ip, 19:23]
+        mu = markers[ip, 9]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(e_mid[0], e_mid[1], e_mid[2],
@@ -1218,8 +1218,8 @@ def gc_Bstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # save at the markers
-        markers[ip, 13:16] = b_star[:]/abs_b_star_para
-        markers[ip, 17:20] = mu*grad_abs_b[:]
+        markers[ip, 15:18] = b_star[:]/abs_b_star_para
+        markers[ip, 19:22] = mu*grad_abs_b[:]
 
 
 @stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e_mid', 'grad_abs_b')
@@ -1265,12 +1265,12 @@ def gc_bxEstar_discrete_gradient_faster_eval_gradI(markers: 'float[:,:]', dt: fl
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 9] == -1.:
+        if markers[ip, 11] == -1.:
             continue
 
         e_mid[:] = markers[ip, 0:3]
-        markers[ip, 0:3] = markers[ip, 16:19]
-        mu = markers[ip, 4]
+        markers[ip, 0:3] = markers[ip, 18:21]
+        mu = markers[ip, 9]
 
         # spline evaluation
         span1 = bsplines_kernels.find_span(tn1, pn[0], e_mid[0])
@@ -1293,7 +1293,7 @@ def gc_bxEstar_discrete_gradient_faster_eval_gradI(markers: 'float[:,:]', dt: fl
         grad_abs_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts)
 
-        markers[ip, 16:19] = mu*grad_abs_b[:]
+        markers[ip, 18:21] = mu*grad_abs_b[:]
 
 
 @stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e_mid', 'grad_abs_b')
@@ -1339,12 +1339,12 @@ def gc_Bstar_discrete_gradient_faster_eval_gradI(markers: 'float[:,:]', dt: floa
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 9] == -1.:
+        if markers[ip, 11] == -1.:
             continue
 
         e_mid[:] = markers[ip, 0:3]
-        markers[ip, 0:4] = markers[ip, 17:21]
-        mu = markers[ip, 4]
+        markers[ip, 0:4] = markers[ip, 19:23]
+        mu = markers[ip, 9]
 
         # spline evaluation
         span1 = bsplines_kernels.find_span(tn1, pn[0], e_mid[0])
@@ -1367,7 +1367,7 @@ def gc_Bstar_discrete_gradient_faster_eval_gradI(markers: 'float[:,:]', dt: floa
         grad_abs_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts)
 
-        markers[ip, 17:20] = mu*grad_abs_b[:]
+        markers[ip, 19:22] = mu*grad_abs_b[:]
 
 
 @stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
@@ -1414,7 +1414,7 @@ def gc_bxEstar_discrete_gradient_Itoh_Newton_eval1(markers: 'float[:,:]', dt: fl
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 9] == -1.:
+        if markers[ip, 11] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
@@ -1438,15 +1438,15 @@ def gc_bxEstar_discrete_gradient_Itoh_Newton_eval1(markers: 'float[:,:]', dt: fl
 
         # eval all the needed field
         # abs_b; 0form
-        markers[ip, 20] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+        markers[ip, 22] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
 
         # grad_abs_b; 1form
-        markers[ip, 21] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+        markers[ip, 23] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
 
         # send particles to the (eta^0_n+1, eta^0_n+1, eta_n)
-        markers[ip, 1] = markers[ip, 17]
+        markers[ip, 1] = markers[ip, 19]
 
 
 @stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
@@ -1493,13 +1493,13 @@ def gc_bxEstar_discrete_gradient_Itoh_Newton_eval2(markers: 'float[:,:]', dt: fl
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 9] == -1.:
+        if markers[ip, 11] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
 
         # send particles to the (eta^0_n+1, eta^0_n+1, eta^0_n+1)
-        markers[ip, 2] = markers[ip, 18]
+        markers[ip, 2] = markers[ip, 20]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(e[0], e[1], e[2],
@@ -1520,13 +1520,13 @@ def gc_bxEstar_discrete_gradient_Itoh_Newton_eval2(markers: 'float[:,:]', dt: fl
 
         # eval all the needed field
         # abs_b; 0form
-        markers[ip, 16] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+        markers[ip, 18] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
 
         # grad_abs_b; 1form
-        markers[ip, 17] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+        markers[ip, 19] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
-        markers[ip, 18] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+        markers[ip, 20] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts)
 
 
@@ -1573,7 +1573,7 @@ def gc_Bstar_discrete_gradient_Itoh_Newton_eval1(markers: 'float[:,:]', dt: floa
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 9] == -1.:
+        if markers[ip, 11] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
@@ -1597,15 +1597,15 @@ def gc_Bstar_discrete_gradient_Itoh_Newton_eval1(markers: 'float[:,:]', dt: floa
 
         # eval all the needed field
         # abs_b; 0form
-        markers[ip, 20] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+        markers[ip, 22] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
 
         # grad_abs_b; 1form
-        markers[ip, 21] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+        markers[ip, 23] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
 
         # send particles to the (eta^0_n+1,eta^0_n+1, eta_n)
-        markers[ip, 1] = markers[ip, 17]
+        markers[ip, 1] = markers[ip, 19]
 
 
 @stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
@@ -1651,13 +1651,13 @@ def gc_Bstar_discrete_gradient_Itoh_Newton_eval2(markers: 'float[:,:]', dt: floa
         if markers[ip, 0] == -1.:
             continue
 
-        if markers[ip, 9] == -1.:
+        if markers[ip, 11] == -1.:
             continue
 
         e[:] = markers[ip, 0:3]
 
         # send particles to the (eta^0_n+1,eta^0_n+1, eta^0_n+1)
-        markers[ip, 2] = markers[ip, 18]
+        markers[ip, 2] = markers[ip, 20]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(e[0], e[1], e[2],
@@ -1678,11 +1678,11 @@ def gc_Bstar_discrete_gradient_Itoh_Newton_eval2(markers: 'float[:,:]', dt: floa
 
         # eval all the needed field
         # abs_b; 0form
-        markers[ip, 16] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+        markers[ip, 18] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
 
         # grad_abs_b; 1form
-        markers[ip, 17] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+        markers[ip, 19] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
-        markers[ip, 18] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+        markers[ip, 20] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts)

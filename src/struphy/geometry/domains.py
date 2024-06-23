@@ -155,16 +155,16 @@ class GVECunit(Spline):
 
         from struphy.fields_background.mhd_equil.equils import GVECequilibrium
         from struphy.geometry.base import interp_mapping
-        
+
         if gvec_equil is None:
             gvec_equil = GVECequilibrium()
         else:
             assert isinstance(gvec_equil, GVECequilibrium)
-        
+
         params_map = {'Nel': gvec_equil.params['Nel'],
                       'p': gvec_equil.params['p'],
                       }
-        
+
         if gvec_equil.params['use_nfp']:
             params_map['spl_kind'] = (False, True, False)
         else:
@@ -172,11 +172,18 @@ class GVECunit(Spline):
 
         # project mapping to splines
         _rmin = gvec_equil.params['rmin']
-        def X(e1, e2, e3): return gvec_equil.gvec.f(_rmin + e1*(1. - _rmin), e2, e3)[0]
-        def Y(e1, e2, e3): return gvec_equil.gvec.f(_rmin + e1*(1. - _rmin), e2, e3)[1]
-        def Z(e1, e2, e3): return gvec_equil.gvec.f(_rmin + e1*(1. - _rmin), e2, e3)[2]
 
-        cx, cy, cz = interp_mapping(params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y, Z)
+        def X(e1, e2, e3):
+            return gvec_equil.gvec.f(_rmin + e1*(1. - _rmin), e2, e3)[0]
+
+        def Y(e1, e2, e3):
+            return gvec_equil.gvec.f(_rmin + e1*(1. - _rmin), e2, e3)[1]
+
+        def Z(e1, e2, e3):
+            return gvec_equil.gvec.f(_rmin + e1*(1. - _rmin), e2, e3)[2]
+
+        cx, cy, cz = interp_mapping(
+            params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y, Z)
 
         params_map['cx'] = cx
         params_map['cy'] = cy
@@ -188,10 +195,82 @@ class GVECunit(Spline):
         self._params_map['equilibrium'] = gvec_equil
 
 
+class DESCunit(Spline):
+    r"""
+    The mapping :math:`(\rho, \theta,\zeta) \mapsto (X, Y, Z)` to 
+    Cartesian coordinates computed by the 
+    `DESC MHD equilibrium code <https://desc-docs.readthedocs.io/en/latest/theory_general.html#flux-coordinates>`_.
+
+    .. image:: ../../pics/mappings/desc.png
+
+    Parameters
+    ----------
+    desc_equil : struphy.fields_background.mhd_equil.equils.DESCequilibrium
+        DESC MHD equilibrium object.
+
+    Note
+    ----
+    In the parameter .yml file, use the following::
+
+        geometry :
+            type : DESCunit
+    """
+
+    def __init__(self, desc_equil=None):
+
+        from struphy.fields_background.mhd_equil.equils import DESCequilibrium
+        from struphy.geometry.base import interp_mapping
+
+        if desc_equil is None:
+            desc_equil = DESCequilibrium()
+        else:
+            assert isinstance(desc_equil, DESCequilibrium)
+
+        # expose to methods
+        self._desc_equil = desc_equil
+
+        params_map = {'Nel': desc_equil.params['Nel'],
+                      'p': desc_equil.params['p'],
+                      }
+
+        if desc_equil.eq.NFP > 1 and desc_equil.use_nfp:
+            params_map['spl_kind'] = (False, True, False)
+        else:
+            params_map['spl_kind'] = (False, True, True)
+
+        _rmin = desc_equil.params['rmin']
+
+        nfp = desc_equil.eq.NFP
+        if not desc_equil.use_nfp:
+            nfp = 1
+
+        # project mapping to splines
+        def X(e1, e2, e3):
+            return desc_equil.desc_eval('X', e1, e2, e3, nfp=nfp)
+
+        def Y(e1, e2, e3):
+            return desc_equil.desc_eval('Y', e1, e2, e3, nfp=nfp)
+
+        def Z(e1, e2, e3):
+            return desc_equil.desc_eval('Z', e1, e2, e3, nfp=nfp)
+
+        cx, cy, cz = interp_mapping(
+            params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y, Z)
+
+        params_map['cx'] = cx
+        params_map['cy'] = cy
+        params_map['cz'] = cz
+
+        super().__init__(**params_map)
+
+        self._params_map['rmin'] = _rmin
+        self._params_map['equilibrium'] = desc_equil
+
+
 class IGAPolarCylinder(PoloidalSplineStraight):
     r"""
     A cylinder with the cross section approximated by a spline mapping.
-    
+
     .. math:: 
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
@@ -268,7 +347,7 @@ class IGAPolarCylinder(PoloidalSplineStraight):
 class IGAPolarTorus(PoloidalSplineTorus):
     r"""
     A torus with the poloidal cross-section approximated by a spline mapping.
-    
+
     .. math::
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
@@ -368,7 +447,7 @@ class IGAPolarTorus(PoloidalSplineTorus):
 class Cuboid(Domain):
     r"""
     Slab geometry (Cartesian coordinates).
-    
+
     .. math::
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
@@ -449,7 +528,7 @@ class Cuboid(Domain):
 class Orthogonal(Domain):
     r"""
     Slab geometry with orthogonal mesh distortion.
-    
+
     .. math:: 
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
@@ -523,7 +602,7 @@ class Orthogonal(Domain):
 class Colella(Domain):
     r'''
     Slab geometry with Colella mesh distortion.
-    
+
     .. math::
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
@@ -597,7 +676,7 @@ class Colella(Domain):
 class HollowCylinder(Domain):
     r"""
     Cylinder with possible hole around the axis.
-    
+
     .. math::
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
@@ -672,7 +751,7 @@ class HollowCylinder(Domain):
 class PoweredEllipticCylinder(Domain):
     r"""
     Cylinder with elliptic cross section and radial power law.
-    
+
     .. math::
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
@@ -746,7 +825,7 @@ class PoweredEllipticCylinder(Domain):
 class HollowTorus(Domain):
     r"""
     Torus with possible hole around the magnetic axis (center of the smaller circle).
-    
+
     .. math::
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
@@ -841,7 +920,7 @@ class HollowTorus(Domain):
 class ShafranovShiftCylinder(Domain):
     r"""
     Cylinder with quadratic Shafranov shift.
-    
+
     .. math:: 
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
@@ -915,7 +994,7 @@ class ShafranovShiftCylinder(Domain):
 class ShafranovSqrtCylinder(Domain):
     r"""
     Cylinder with square-root Shafranov shift.
-    
+
     .. math:: 
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}

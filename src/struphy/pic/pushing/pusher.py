@@ -8,6 +8,7 @@ from struphy.pic.pushing import eval_kernels_gc
 import numpy as np
 from mpi4py.MPI import SUM, IN_PLACE
 
+
 class Pusher:
     """
     Syntactic sugar for particle pusher kernels. 
@@ -54,8 +55,8 @@ class Pusher:
 
         # get FEM information
         self._args_fem = (np.array(derham.p),
-                          derham.Vh_fem['0'].knots[0], 
-                          derham.Vh_fem['0'].knots[1], 
+                          derham.Vh_fem['0'].knots[0],
+                          derham.Vh_fem['0'].knots[1],
                           derham.Vh_fem['0'].knots[2],
                           np.array(derham.Vh['0'].starts))
 
@@ -109,7 +110,7 @@ class Pusher:
 
         Parameters
         ----------
-        particles : struphy.pic.particles.Particles6D
+        particles : struphy.pic.particles.Particles6D or struphy.pic.particles.Particles5D
             Particles object holding the markers to push.
 
         dt : float
@@ -127,10 +128,10 @@ class Pusher:
         verbose : bool
             Whether to print some info or not.
         """
-        
+
         # save initial phase space coordinates
         particles.markers[~particles.holes,
-                          9:12] = particles.markers[~particles.holes, 0:3]
+                          particles.bufferindex:particles.bufferindex+3] = particles.markers[~particles.holes, 0:3]
 
         # prepare the iteration:
         if self.init_kernel is not None:
@@ -145,7 +146,7 @@ class Pusher:
             n_not_converged = np.empty(1, dtype=int)
             n_not_converged[0] = particles.n_mks
             k = 0
-            
+
             while n_not_converged[0] > 0:
                 k += 1
 
@@ -166,7 +167,8 @@ class Pusher:
                     particles.apply_kinetic_bc()
 
                 # compute number of non coverged particles
-                not_converged_loc = np.logical_not(particles.markers[:, 9] == -1.)
+                not_converged_loc = np.logical_not(
+                    particles.markers[:, particles.bufferindex] == -1.)
                 n_not_converged[0] = np.count_nonzero(not_converged_loc)
 
                 self.derham.comm.Allreduce(
@@ -187,7 +189,7 @@ class Pusher:
             particles.mpi_sort_markers(do_test=True)
 
         # clear buffer columns
-        particles.markers[~particles.holes, 9:-1] = 0.
+        particles.markers[~particles.holes,  particles.bufferindex:-1] = 0.
 
     @property
     def derham(self):
@@ -262,7 +264,7 @@ class ButcherTableau:
 
     The Butcher tableau has the form
 
-    .. image:: ../pics/butcher_tableau.png
+    .. image:: ../../pics/butcher_tableau.png
         :align: center
         :scale: 70%
 

@@ -34,6 +34,6 @@ def test_toy(map_and_equil, fast, model=None, Tend=None):
         
 if __name__ == '__main__':
     
-    test_toy(('Cuboid', 'HomogenSlab'), True, model='VariationalCompressibleFluid')
-    test_toy(('HollowTorus', 'AdhocTorus'), True, model='VariationalCompressibleFluid')
-    test_toy(('Tokamak', 'EQDSKequilibrium'), True, model='VariationalCompressibleFluid')
+    test_toy(('Cuboid', 'HomogenSlab'), True)
+    test_toy(('HollowTorus', 'AdhocTorus'), True)
+    test_toy(('Tokamak', 'EQDSKequilibrium'), True)

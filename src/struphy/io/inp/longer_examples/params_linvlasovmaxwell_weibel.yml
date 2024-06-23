@@ -81,8 +81,8 @@ kinetic :
                 moments : [0., 0., 0., 0.014, 0.049, 0.014] # sample after f1
                 spatial : uniform # uniform or disc
         background :
-            type : Maxwellian6D
-            Maxwellian6D :
+            type : Maxwellian3D
+            Maxwellian3D :
                 n  : 1.
                 u1 : 0.
                 u2 : 0.
