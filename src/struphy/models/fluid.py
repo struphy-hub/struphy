@@ -1,9 +1,19 @@
-from struphy.models.base import StruphyModel
 import numpy as np
+
+from struphy.models.base import StruphyModel
+from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
 
 
 class LinearMHD(StruphyModel):
     r'''Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
+
+    :ref:`normalization`:
+
+    .. math::
+
+        \hat U = \hat v_\textnormal{A, bulk} \,, \qquad \hat p = \frac{\hat B^2}{\mu_0}\,.
+
+    :ref:`Equations <gempic>`:
 
     Find :math:`(\tilde n, \tilde{\mathbf{U}}, \tilde p, \tilde{\mathbf{B}}) \in L^2 \times H(\textrm{div}) \times L^2 \times H(\textrm{div})` such that
 
@@ -20,47 +30,49 @@ class LinearMHD(StruphyModel):
         &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
         = 0\,.
 
-    :ref:`normalization`:
+    :ref:`propagators` (called in sequence):
 
-    .. math::
+    1. :class:`~struphy.propagators.propagators_fields.ShearAlfvén`
+    2. :class:`~struphy.propagators.propagators_fields.Magnetosonic`
 
-        \hat U = \hat v_\textnormal{A, bulk} \,, \qquad \hat p = \frac{\hat B^2}{\mu_0}\,.
-
-    Parameters
-    ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
-
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
+    :ref:`Model info <add_model>`:
     '''
 
-    @classmethod
-    def species(cls):
+    @staticmethod
+    def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
         dct['em_fields']['b2'] = 'Hdiv'
         dct['fluid']['mhd'] = {'n3': 'L2', 'u2': 'Hdiv', 'p3': 'L2'}
         return dct
 
-    @classmethod
-    def bulk_species(cls):
+    @staticmethod
+    def bulk_species():
         return 'mhd'
 
-    @classmethod
-    def velocity_scale(cls):
+    @staticmethod
+    def velocity_scale():
         return 'alfvén'
+
+    @staticmethod
+    def propagators_dct():
+        return {propagators_fields.ShearAlfvén: ['mhd_u2', 'b2'],
+                propagators_fields.Magnetosonic: ['mhd_n3', 'mhd_u2', 'mhd_p3']}
+
+    __em_fields__ = species()['em_fields']
+    __fluid_species__ = species()['fluid']
+    __kinetic_species__ = species()['kinetic']
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     @classmethod
     def options(cls):
-        # import propagator options
-        from struphy.propagators.propagators_fields import ShearAlfvén, Magnetosonic
-
         dct = {}
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'shear_alfven'],
-                       option=ShearAlfvén.options()['solver'], dct=dct)
+                       option=propagators_fields.ShearAlfvén.options()['solver'], dct=dct)
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'magnetosonic'],
-                       option=Magnetosonic.options()['solver'], dct=dct)
+                       option=propagators_fields.Magnetosonic.options()['solver'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -86,17 +98,14 @@ class LinearMHD(StruphyModel):
         else:
             self._ones[:] = 1.
 
-        # Initialize propagators/integrators used in splitting substeps
-        self.add_propagator(self.prop_fields.ShearAlfvén(
-            self.pointer['mhd_u2'],
-            self.pointer['b2'],
-            **alfven_solver))
-        self.add_propagator(self.prop_fields.Magnetosonic(
-            self.pointer['mhd_n3'],
-            self.pointer['mhd_u2'],
-            self.pointer['mhd_p3'],
-            b=self.pointer['b2'],
-            **sonic_solver))
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.ShearAlfvén] = {**alfven_solver}
+
+        self._kwargs[propagators_fields.Magnetosonic] = {'b': self.pointer['b2'],
+                                                         **sonic_solver}
+
+        # Initialize propagators used in splitting substeps
+        self._init_propagators()
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U')
@@ -552,7 +561,7 @@ class VariationalMHD(StruphyModel):
         super().__init__(params, comm)
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], 
+            self.derham.Vh_fem['v'],
             self.derham.Vh_fem['v'],
             V_extraction_op=self.derham.extraction_ops['v'],
             W_extraction_op=self.derham.extraction_ops['v'],
@@ -659,13 +668,13 @@ class VariationalMHD(StruphyModel):
         en_thermo = self._integrator.dot(en_prop._linear_form_dl_drho)
         self.update_scalar('en_thermo', en_thermo)
         return en_thermo
-    
+
     def __ener(self, rho, s):
         """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
         E(rho, s) = rho^gamma*exp(s/rho)"""
         gam = self._params['fluid']['mhd']['options']['physics']['gamma']
         return np.power(rho, gam)*np.exp(s/rho)
-    
+
 
 class ViscoresistiveMHD(StruphyModel):
     r'''Full (non-linear) MHD systen discretized with a variational method.
@@ -731,7 +740,7 @@ class ViscoresistiveMHD(StruphyModel):
     def options(cls):
         # import propagator options
         from struphy.propagators.propagators_fields import VariationalMomentumAdvection, VariationalDensityEvolve, \
-                VariationalEntropyEvolve, VariationalMagFieldEvolve, VariationalViscosity, VariationalResistivity
+            VariationalEntropyEvolve, VariationalMagFieldEvolve, VariationalViscosity, VariationalResistivity
         dct = {}
 
         cls.add_option(species=['fluid', 'mhd'], key=['solver_momentum'],
@@ -766,7 +775,7 @@ class ViscoresistiveMHD(StruphyModel):
         super().__init__(params, comm)
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], 
+            self.derham.Vh_fem['v'],
             self.derham.Vh_fem['v'],
             V_extraction_op=self.derham.extraction_ops['v'],
             W_extraction_op=self.derham.extraction_ops['v'],
@@ -894,7 +903,7 @@ class ViscoresistiveMHD(StruphyModel):
         en_thermo = self._integrator.dot(en_prop._linear_form_dl_drho)
         self.update_scalar('en_thermo', en_thermo)
         return en_thermo
-    
+
     def __ener(self, rho, s):
         """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
         E(rho, s) = rho^gamma*exp(s/rho)"""
@@ -990,7 +999,7 @@ class ViscousFluid(StruphyModel):
         super().__init__(params, comm)
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'], 
+            self.derham.Vh_fem['v'],
             self.derham.Vh_fem['v'],
             V_extraction_op=self.derham.extraction_ops['v'],
             W_extraction_op=self.derham.extraction_ops['v'],
@@ -1073,7 +1082,7 @@ class ViscousFluid(StruphyModel):
 
         en_thermo = self.update_thermo_energy()
 
-        en_tot = en_U + en_thermo 
+        en_tot = en_U + en_thermo
         self.update_scalar('en_tot', en_tot)
 
         dens_tot = self._ones.dot(self.pointer['fluid_rho3'])
@@ -1099,7 +1108,7 @@ class ViscousFluid(StruphyModel):
         en_thermo = self._integrator.dot(en_prop._linear_form_dl_drho)
         self.update_scalar('en_thermo', en_thermo)
         return en_thermo
-    
+
     def __ener(self, rho, s):
         """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
         E(rho, s) = rho^gamma*exp(s/rho)"""

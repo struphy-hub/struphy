@@ -1,6 +1,6 @@
 import numpy as np
-from struphy.models.base import StruphyModel
 
+from struphy.models.base import StruphyModel
 from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
 
 
