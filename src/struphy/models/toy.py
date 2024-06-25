@@ -1,7 +1,6 @@
 import numpy as np
 from struphy.models.base import StruphyModel
 
-from struphy.propagators.base import Propagator
 from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
 
 
@@ -107,10 +106,10 @@ class Vlasov(StruphyModel):
         \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \left(\mathbf{v}\times\mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0\,,
 
     :ref:`propagators` (called in sequence):
-    
+
     1. :class:`~struphy.propagators.propagators_markers.PushVxB`
     2. :class:`~struphy.propagators.propagators_markers.PushEta`
-    
+
     :ref:`Model info <add_model>`:
     '''
 
@@ -130,16 +129,16 @@ class Vlasov(StruphyModel):
         return 'cyclotron'
 
     @staticmethod
-    def propagators_cls():
-        return [propagators_markers.PushVxB.__name__,
-                propagators_markers.PushEta.__name__]
+    def propagators_dct():
+        return {propagators_markers.PushVxB: ['ions'],
+                propagators_markers.PushEta: ['ions']}
 
     __em_fields__ = species()['em_fields']
     __fluid_species__ = species()['fluid']
     __kinetic_species__ = species()['kinetic']
     __bulk_species__ = bulk_species()
     __velocity_scale__ = velocity_scale()
-    __propagators__ = propagators_cls()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     @classmethod
     def options(cls):
@@ -152,8 +151,7 @@ class Vlasov(StruphyModel):
 
     def __init__(self, params, comm):
 
-        super().__init__(params, comm,
-                         prop=Propagator)
+        super().__init__(params, comm)
 
         from mpi4py.MPI import SUM, IN_PLACE
 
@@ -165,21 +163,17 @@ class Vlasov(StruphyModel):
                                          self.mhd_equil.b2_2,
                                          self.mhd_equil.b2_3])
 
-        # Initialize propagators/integrators used in splitting substeps
-        self.add_propagator(propagators_markers.PushVxB(
-            self.pointer['ions'],
-            algo=ions_params['options']['push_vxb'],
-            scale_fac=1.,
-            b_eq=self._b_eq,
-            b_tilde=None))
-        self.add_propagator(propagators_markers.PushEta(
-            self.pointer['ions'],
-            algo=ions_params['options']['push_eta'],
-            bc_type=ions_params['markers']['bc']['type']))
-        
-        # check consistency of propagators objects with specified classes
-        for prop, prop_cls in zip(self.propagators, self.propagators_cls()):
-            assert prop.__class__.__name__ == prop_cls
+        # set keyword arguments for propagators
+        self._kwargs[propagators_markers.PushVxB] = {'algo': ions_params['options']['push_vxb'],
+                                                     'scale_fac': 1.,
+                                                     'b_eq': self._b_eq,
+                                                     'b_tilde': None}
+
+        self._kwargs[propagators_markers.PushEta] = {'algo': ions_params['options']['push_eta'],
+                                                     'bc_type': ions_params['markers']['bc']['type']}
+
+        # Initialize propagators used in splitting substeps
+        self._init_propagators()
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_f')
@@ -230,10 +224,10 @@ class GuidingCenter(StruphyModel):
         \epsilon = \frac{\hat \omega }{2\pi \hat \Omega_{\textnormal{c}}}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{c}} = \frac{Ze \hat B}{A m_\textnormal{H}}\,.
 
     :ref:`propagators` (called in sequence):
-    
+
     1. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
     2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
-    
+
     :ref:`Model info <add_model>`:
     '''
 
@@ -251,7 +245,7 @@ class GuidingCenter(StruphyModel):
     @staticmethod
     def velocity_scale():
         return 'alfvén'
-    
+
     @staticmethod
     def propagators_cls():
         return [propagators_markers.PushGuidingCenterBxEstar.__name__,
@@ -275,8 +269,7 @@ class GuidingCenter(StruphyModel):
 
     def __init__(self, params, comm):
 
-        super().__init__(params, comm,
-                         prop=Propagator)
+        super().__init__(params, comm)
 
         from mpi4py.MPI import SUM, IN_PLACE
 
@@ -299,7 +292,7 @@ class GuidingCenter(StruphyModel):
             magn_bckgr=magn_bckgr,
             epsilon=self.equation_params['ions']['epsilon'],
             **ions_params['options']['push_bxEstar']))
-        
+
         self.add_propagator(propagators_markers.PushGuidingCenterParallel(
             self.pointer['ions'],
             magn_bckgr=magn_bckgr,
