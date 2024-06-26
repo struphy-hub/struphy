@@ -11,49 +11,55 @@ class Maxwell(StruphyModel):
 
     .. math::
 
-        c = \frac{\hat \omega}{\hat k} = \frac{\hat E}{\hat B}\,,
+        \hat E = c \hat B\,.
 
-    where :math:`c` is the vacuum speed of light. Implemented equations:
+    :ref:`Equations <gempic>`:
 
     .. math::
 
-        &\frac{\partial \mathbf E}{\partial t} - \nabla\times\mathbf B = 0\,, 
+        &\frac{\partial \mathbf E}{\partial t} - \nabla\times\mathbf B = 0\,,
 
         &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,.
 
-    Parameters
-    ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
+    :ref:`propagators` (called in sequence):
 
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
+    1. :class:`~struphy.propagators.propagators_fields.Maxwell`
+
+    :ref:`Model info <add_model>`:
     '''
 
-    @classmethod
-    def species(cls):
+    @staticmethod
+    def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
-        dct['em_fields']['e1'] = 'Hcurl'
-        dct['em_fields']['b2'] = 'Hdiv'
+        dct['em_fields']['e_field'] = 'Hcurl'
+        dct['em_fields']['b_field'] = 'Hdiv'
         return dct
 
-    @classmethod
-    def bulk_species(cls):
+    @staticmethod
+    def bulk_species():
         return None
 
-    @classmethod
-    def velocity_scale(cls):
+    @staticmethod
+    def velocity_scale():
         return 'light'
+
+    @staticmethod
+    def propagators_dct():
+        return {propagators_fields.Maxwell: ['e_field', 'b_field']}
+
+    __em_fields__ = species()['em_fields']
+    __fluid_species__ = species()['fluid']
+    __kinetic_species__ = species()['kinetic']
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     @classmethod
     def options(cls):
-        # import propagator options
-        from struphy.propagators.propagators_fields import Maxwell
-
         dct = {}
         cls.add_option(species='em_fields', key='solver',
-                       option=Maxwell.options()['solver'], dct=dct)
+                       option=propagators_fields.Maxwell.options()['solver'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -61,33 +67,33 @@ class Maxwell(StruphyModel):
         super().__init__(params, comm)
 
         # extract necessary parameters
-        solver_params = params['em_fields']['options']['solver']
+        solver = params['em_fields']['options']['solver']
 
-        # Initialize propagators/integrators used in splitting substeps
-        self.add_propagator(self.prop_fields.Maxwell(
-            self.pointer['e1'],
-            self.pointer['b2'],
-            **solver_params))
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.Maxwell] = {'solver': solver}
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
 
         # Scalar variables to be saved during simulation
-        self.add_scalar('en_E')
-        self.add_scalar('en_B')
-        self.add_scalar('en_tot')
+        self.add_scalar('electric energy')
+        self.add_scalar('magnetic energy')
+        self.add_scalar('total energy')
 
         # temporary vectors for scalar quantities
         self._tmp_e = self.derham.Vh['1'].zeros()
         self._tmp_b = self.derham.Vh['2'].zeros()
 
     def update_scalar_quantities(self):
-        self._mass_ops.M1.dot(self.pointer['e1'], out=self._tmp_e)
-        self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp_b)
+        self._mass_ops.M1.dot(self.pointer['e_field'], out=self._tmp_e)
+        self._mass_ops.M2.dot(self.pointer['b_field'], out=self._tmp_b)
 
-        en_E = self.pointer['e1'].dot(self._tmp_e)/2
-        en_B = self.pointer['b2'].dot(self._tmp_b)/2
+        en_E = self.pointer['e_field'].dot(self._tmp_e)/2
+        en_B = self.pointer['b_field'].dot(self._tmp_b)/2
 
-        self.update_scalar('en_E', en_E)
-        self.update_scalar('en_B', en_B)
-        self.update_scalar('en_tot', en_E + en_B)
+        self.update_scalar('electric energy', en_E)
+        self.update_scalar('magnetic energy', en_B)
+        self.update_scalar('total energy', en_E + en_B)
 
 
 class Vlasov(StruphyModel):
@@ -103,7 +109,7 @@ class Vlasov(StruphyModel):
 
     .. math::
 
-        \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \left(\mathbf{v}\times\mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0\,,
+        \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \left(\mathbf{v}\times\mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0\,.
 
     :ref:`propagators` (called in sequence):
 
@@ -173,7 +179,7 @@ class Vlasov(StruphyModel):
                                                      'bc_type': ions_params['markers']['bc']['type']}
 
         # Initialize propagators used in splitting substeps
-        self._init_propagators()
+        self.init_propagators()
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_f')
@@ -197,13 +203,13 @@ class Vlasov(StruphyModel):
 
 
 class GuidingCenter(StruphyModel):
-    r'''Guiding center equation in static background magnetic field. 
+    r'''Guiding-center equation in static background magnetic field.
 
     :ref:`normalization`:
 
     .. math::
 
-        \frac{\hat B}{\sqrt{A_\textnormal{b} m_\textnormal{H} \hat n \mu_0}} =: \hat v_\textnormal{A} = \frac{\hat \omega}{\hat k}
+        \hat v = \hat v_\textnormal{A} \,.
 
     :ref:`Equations <gempic>`:
 
@@ -211,17 +217,17 @@ class GuidingCenter(StruphyModel):
 
         \frac{\partial f}{\partial t} + \left[ v_\parallel \frac{\mathbf{B}^*}{B^*_\parallel} + \frac{\mathbf{E}^* \times \mathbf{b}_0}{B^*_\parallel}\right] \cdot \frac{\partial f}{\partial \mathbf{X}} + \left[\frac{1}{\epsilon} \frac{\mathbf{B}^*}{B^*_\parallel} \cdot \mathbf{E}^*\right] \cdot \frac{\partial f}{\partial v_\parallel} = 0\,.
 
-    where :math:`f(\mathbf{X}, v_\parallel, \mu, t)` is the guiding center distribution and 
+    where :math:`f(\mathbf{X}, v_\parallel, \mu, t)` is the guiding center distribution and
 
     .. math::
 
-        \mathbf{E}^* = - -\epsilon \mu \nabla |B_0| \,,  \qquad \mathbf{B}^* = \mathbf{B}_0 + \epsilon v_\parallel \nabla \times \mathbf{b}_0 \,,\qquad B^*_\parallel = \mathbf B^* \cdot \mathbf b_0  \,.
+        \mathbf{E}^* = -\epsilon \mu \nabla |B_0| \,,  \qquad \mathbf{B}^* = \mathbf{B}_0 + \epsilon v_\parallel \nabla \times \mathbf{b}_0 \,,\qquad B^*_\parallel = \mathbf B^* \cdot \mathbf b_0  \,.
 
-    Moreover, 
+    Moreover,
 
     .. math::
 
-        \epsilon = \frac{\hat \omega }{2\pi \hat \Omega_{\textnormal{c}}}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{c}} = \frac{Ze \hat B}{A m_\textnormal{H}}\,.
+        \epsilon = \frac{1 }{ \hat \Omega_{\textnormal{c}} \hat t}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{c}} = \frac{Ze \hat B}{A m_\textnormal{H}}\,.
 
     :ref:`propagators` (called in sequence):
 
@@ -247,16 +253,16 @@ class GuidingCenter(StruphyModel):
         return 'alfvén'
 
     @staticmethod
-    def propagators_cls():
-        return [propagators_markers.PushGuidingCenterBxEstar.__name__,
-                propagators_markers.PushGuidingCenterParallel.__name__]
+    def propagators_dct():
+        return {propagators_markers.PushGuidingCenterBxEstar: ['ions'],
+                propagators_markers.PushGuidingCenterParallel: ['ions']}
 
     __em_fields__ = species()['em_fields']
     __fluid_species__ = species()['fluid']
     __kinetic_species__ = species()['kinetic']
     __bulk_species__ = bulk_species()
     __velocity_scale__ = velocity_scale()
-    __propagators__ = propagators_cls()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     @classmethod
     def options(cls):
@@ -275,6 +281,7 @@ class GuidingCenter(StruphyModel):
 
         # prelim
         ions_params = self.kinetic['ions']['params']
+        epsilon = self.equation_params['ions']['epsilon']
 
         # polar spline extraction operators
         self._E0T = self.derham.extraction_ops['0'].transpose()
@@ -286,22 +293,17 @@ class GuidingCenter(StruphyModel):
         else:
             magn_bckgr = self.braginskii_equil
 
-        # Initialize propagators/integrators used in splitting substeps
-        self.add_propagator(propagators_markers.PushGuidingCenterBxEstar(
-            self.pointer['ions'],
-            magn_bckgr=magn_bckgr,
-            epsilon=self.equation_params['ions']['epsilon'],
-            **ions_params['options']['push_bxEstar']))
+        # set keyword arguments for propagators
+        self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {'magn_bckgr': magn_bckgr,
+                                                                      'epsilon': epsilon,
+                                                                      **ions_params['options']['push_bxEstar']}
 
-        self.add_propagator(propagators_markers.PushGuidingCenterParallel(
-            self.pointer['ions'],
-            magn_bckgr=magn_bckgr,
-            epsilon=self.equation_params['ions']['epsilon'],
-            **ions_params['options']['push_Bstar']))
+        self._kwargs[propagators_markers.PushGuidingCenterParallel] = {'magn_bckgr': magn_bckgr,
+                                                                       'epsilon': epsilon,
+                                                                       **ions_params['options']['push_Bstar']}
 
-        # check consistency of propagators objects with specified classes
-        for prop, prop_cls in zip(self.propagators, self.propagators_cls()):
-            assert prop.__class__.__name__ == prop_cls
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_fv')
@@ -342,15 +344,15 @@ class GuidingCenter(StruphyModel):
 
 
 class ShearAlfven(StruphyModel):
-    r'''Taking only the ShearAlfven propagator from Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
+    r'''ShearAlfven propagator from :class:`~struphy.models.fluid.LinearMHD` with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
 
     :ref:`normalization`:
 
     .. math::
 
-        \frac{\hat B}{\sqrt{A_\textnormal{b} m_\textnormal{H} \hat n \mu_0}} =: \hat v_\textnormal{A} = \frac{\hat \omega}{\hat k} = \hat U \,, \qquad \hat p = \frac{\hat B^2}{\mu_0}\,.
+        \hat U =  \hat v_\textnormal{A} \,.
 
-    Implemented equations:
+    :ref:`Equations <gempic>`:
 
     .. math::
 
@@ -360,39 +362,45 @@ class ShearAlfven(StruphyModel):
         &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
         = 0\,.
 
-    Parameters
-    ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
+    :ref:`propagators` (called in sequence):
 
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
+    1. :class:`~struphy.propagators.propagators_fields.ShearAlfvén`
+
+    :ref:`Model info <add_model>`:
     '''
 
-    @classmethod
-    def species(cls):
+    @staticmethod
+    def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
         dct['em_fields']['b2'] = 'Hdiv'
         dct['fluid']['mhd'] = {'u2': 'Hdiv'}
         return dct
 
-    @classmethod
-    def bulk_species(cls):
+    @staticmethod
+    def bulk_species():
         return 'mhd'
 
-    @classmethod
-    def velocity_scale(cls):
+    @staticmethod
+    def velocity_scale():
         return 'alfvén'
+
+    @staticmethod
+    def propagators_dct():
+        return {propagators_fields.ShearAlfvén: ['mhd_u2', 'b2']}
+
+    __em_fields__ = species()['em_fields']
+    __fluid_species__ = species()['fluid']
+    __kinetic_species__ = species()['kinetic']
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     @classmethod
     def options(cls):
-        # import propagator options
-        from struphy.propagators.propagators_fields import ShearAlfvén
-
         dct = {}
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'shear_alfven'],
-                       option=ShearAlfvén.options()['solver'], dct=dct)
+                       option=propagators_fields.ShearAlfvén.options()['solver'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -410,11 +418,11 @@ class ShearAlfven(StruphyModel):
                                          self.mhd_equil.b2_2,
                                          self.mhd_equil.b2_3])
 
-        # Initialize propagators/integrators used in splitting substeps
-        self.add_propagator(self.prop_fields.ShearAlfvén(
-            self.pointer['mhd_u2'],
-            self.pointer['b2'],
-            **alfven_solver))
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.ShearAlfvén] = {**alfven_solver}
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U')
@@ -461,55 +469,63 @@ class ShearAlfven(StruphyModel):
 class VariationalPressurelessFluid(StruphyModel):
     r'''Pressure-less fluid equations discretized with a variational method.
 
-    Implemented equations:
+    :ref:`normalization`:
 
     .. math::
 
-        \int_{\Omega} \partial_t (\rho \mathbf u) \cdot \mathbf v \, \textnormal d^3 \mathbf x 
-        - \int_{\Omega} \rho \mathbf u \cdot [\mathbf u, \mathbf v] \, \textnormal d^3 \mathbf x 
-        + \int_{\Omega} \frac{| \mathbf u |^2}{2} \nabla \cdot (\rho \mathbf v) \, \textnormal d^3 \mathbf x = 0 ~ ,
+        \hat u =  \hat v_\textnormal{A} \,.
 
-        \partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 ~ ,
-
-    where :
+    :ref:`Equations <gempic>`:
 
     .. math::
-        [\mathbf u,\mathbf v] = \mathbf u \cdot \nabla \mathbf v - \mathbf v \cdot \nabla \mathbf u ~ .
 
-    Parameters
-    ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
+        &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
+        \\[4mm]
+        &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) = 0 \,.
 
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
+    :ref:`propagators` (called in sequence):
+
+    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
+    2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
+
+    :ref:`Model info <add_model>`:
     '''
-    @classmethod
-    def species(cls):
+    @staticmethod
+    def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
         dct['fluid']['fluid'] = {'rho3': 'L2', 'uv': 'H1vec'}
         return dct
 
-    @classmethod
-    def bulk_species(cls):
+    @staticmethod
+    def bulk_species():
         return 'fluid'
 
-    @classmethod
-    def velocity_scale(cls):
+    @staticmethod
+    def velocity_scale():
         return 'alfvén'
+
+    @staticmethod
+    def propagators_dct():
+        return {propagators_fields.VariationalDensityEvolve: ['fluid_rho3', 'fluid_uv'],
+                propagators_fields.VariationalMomentumAdvection: ['fluid_uv']}
+
+    __em_fields__ = species()['em_fields']
+    __fluid_species__ = species()['fluid']
+    __kinetic_species__ = species()['kinetic']
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     @classmethod
     def options(cls):
-        # import propagator options
-        from struphy.propagators.propagators_fields import VariationalMomentumAdvection, VariationalDensityEvolve
         dct = {}
 
         cls.add_option(species=['fluid', 'fluid'], key=['solver_momentum'],
-                       option=VariationalMomentumAdvection.options()['solver'], dct=dct)
+                       option=propagators_fields.VariationalMomentumAdvection.options()['solver'], dct=dct)
         cls.add_option(species=['fluid', 'fluid'], key=['solver_density'],
-                       option=VariationalDensityEvolve.options()['solver'], dct=dct)
+                       option=propagators_fields.VariationalDensityEvolve.options()['solver'], dct=dct)
         cls.add_option(species=['fluid', 'fluid'], key=['physics'],
-                       option=VariationalDensityEvolve.options()['physics'], dct=dct)
+                       option=propagators_fields.VariationalDensityEvolve.options()['physics'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -534,16 +550,17 @@ class VariationalPressurelessFluid(StruphyModel):
 
         gamma = params['fluid']['fluid']['options']['physics']['gamma']
 
-        self.add_propagator(self.prop_fields.VariationalDensityEvolve(
-            self.pointer['fluid_rho3'], self.pointer['fluid_uv'],
-            model='pressureless',
-            gamma=gamma,
-            mass_ops=self.WMM,
-            **solver_density))
-        self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
-            self.pointer['fluid_uv'],
-            mass_ops=self.WMM,
-            **solver_momentum))
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.VariationalDensityEvolve] = {'model': 'pressureless',
+                                                                     'gamma': gamma,
+                                                                     'mass_ops': self.WMM,
+                                                                     **solver_density}
+
+        self._kwargs[propagators_fields.VariationalMomentumAdvection] = {'mass_ops': self.WMM,
+                                                                         **solver_momentum}
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U')
@@ -562,7 +579,13 @@ class VariationalPressurelessFluid(StruphyModel):
 class VariationalBarotropicFluid(StruphyModel):
     r'''Barotropic fluid equations discretized with a variational method.
 
-    Implemented equations:
+    :ref:`normalization`:
+
+    .. math::
+
+        \hat U =  \hat v_\textnormal{A} \,.
+
+    :ref:`Equations <gempic>`:
 
     .. math::
 
@@ -582,40 +605,48 @@ class VariationalBarotropicFluid(StruphyModel):
     .. math::
         e = \frac{\rho}{2} ~ .
 
-    Parameters
-    ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
+    :ref:`propagators` (called in sequence):
 
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
+    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
+    2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
+
+    :ref:`Model info <add_model>`:
     '''
-    @classmethod
-    def species(cls):
+    @staticmethod
+    def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
         dct['fluid']['fluid'] = {'rho3': 'L2', 'uv': 'H1vec'}
         return dct
 
-    @classmethod
-    def bulk_species(cls):
+    @staticmethod
+    def bulk_species():
         return 'fluid'
 
-    @classmethod
-    def velocity_scale(cls):
+    @staticmethod
+    def velocity_scale():
         return 'alfvén'
+
+    @staticmethod
+    def propagators_dct():
+        return {propagators_fields.VariationalDensityEvolve: ['fluid_rho3', 'fluid_uv'],
+                propagators_fields.VariationalMomentumAdvection: ['fluid_uv']}
+
+    __em_fields__ = species()['em_fields']
+    __fluid_species__ = species()['fluid']
+    __kinetic_species__ = species()['kinetic']
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     @classmethod
     def options(cls):
-        # import propagator options
-        from struphy.propagators.propagators_fields import VariationalMomentumAdvection, VariationalDensityEvolve
         dct = {}
-
         cls.add_option(species=['fluid', 'fluid'], key=['solver_momentum'],
-                       option=VariationalMomentumAdvection.options()['solver'], dct=dct)
+                       option=propagators_fields.VariationalMomentumAdvection.options()['solver'], dct=dct)
         cls.add_option(species=['fluid', 'fluid'], key=['solver_density'],
-                       option=VariationalDensityEvolve.options()['solver'], dct=dct)
+                       option=propagators_fields.VariationalDensityEvolve.options()['solver'], dct=dct)
         cls.add_option(species=['fluid', 'fluid'], key=['physics'],
-                       option=VariationalDensityEvolve.options()['physics'], dct=dct)
+                       option=propagators_fields.VariationalDensityEvolve.options()['physics'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -640,16 +671,17 @@ class VariationalBarotropicFluid(StruphyModel):
 
         gamma = params['fluid']['fluid']['options']['physics']['gamma']
 
-        self.add_propagator(self.prop_fields.VariationalDensityEvolve(
-            self.pointer['fluid_rho3'], self.pointer['fluid_uv'],
-            model='barotropic',
-            gamma=gamma,
-            mass_ops=self.WMM,
-            **solver_density))
-        self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
-            self.pointer['fluid_uv'],
-            mass_ops=self.WMM,
-            **solver_momentum))
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.VariationalDensityEvolve] = {'model': 'barotropic',
+                                                                     'gamma': gamma,
+                                                                     'mass_ops': self.WMM,
+                                                                     **solver_density}
+
+        self._kwargs[propagators_fields.VariationalMomentumAdvection] = {'mass_ops': self.WMM,
+                                                                         **solver_momentum}
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U')
@@ -679,7 +711,13 @@ class VariationalBarotropicFluid(StruphyModel):
 class VariationalCompressibleFluid(StruphyModel):
     r'''Fully compressible fluid equations discretized with a variational method.
 
-    Implemented equations:
+    :ref:`normalization`:
+
+    .. math::
+
+        \hat U =  \hat v_\textnormal{A} \,.
+
+    :ref:`Equations <gempic>`:
 
     .. math::
 
@@ -702,42 +740,51 @@ class VariationalCompressibleFluid(StruphyModel):
     .. math::
         e = \rho^{\gamma-1} \exp(s / \rho) ~ .
 
-    Parameters
-    ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
+    :ref:`propagators` (called in sequence):
 
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
+    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
+    2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
+
+    :ref:`Model info <add_model>`:
     '''
-    @classmethod
-    def species(cls):
+    @staticmethod
+    def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
         dct['fluid']['fluid'] = {'rho3': 'L2', 's3': 'L2', 'uv': 'H1vec'}
         return dct
 
-    @classmethod
-    def bulk_species(cls):
+    @staticmethod
+    def bulk_species():
         return 'fluid'
 
-    @classmethod
-    def velocity_scale(cls):
+    @staticmethod
+    def velocity_scale():
         return 'alfvén'
+
+    @staticmethod
+    def propagators_dct():
+        return {propagators_fields.VariationalDensityEvolve: ['fluid_rho3', 'fluid_uv'],
+                propagators_fields.VariationalMomentumAdvection: ['fluid_uv'],
+                propagators_fields.VariationalEntropyEvolve: ['fluid_s3', 'fluid_uv']}
+
+    __em_fields__ = species()['em_fields']
+    __fluid_species__ = species()['fluid']
+    __kinetic_species__ = species()['kinetic']
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     @classmethod
     def options(cls):
-        # import propagator options
-        from struphy.propagators.propagators_fields import VariationalMomentumAdvection, VariationalDensityEvolve, VariationalEntropyEvolve
         dct = {}
-
         cls.add_option(species=['fluid', 'fluid'], key=['solver_momentum'],
-                       option=VariationalMomentumAdvection.options()['solver'], dct=dct)
+                       option=propagators_fields.VariationalMomentumAdvection.options()['solver'], dct=dct)
         cls.add_option(species=['fluid', 'fluid'], key=['solver_density'],
-                       option=VariationalDensityEvolve.options()['solver'], dct=dct)
+                       option=propagators_fields.VariationalDensityEvolve.options()['solver'], dct=dct)
         cls.add_option(species=['fluid', 'fluid'], key=['solver_entropy'],
-                       option=VariationalEntropyEvolve.options()['solver'], dct=dct)
+                       option=propagators_fields.VariationalEntropyEvolve.options()['solver'], dct=dct)
         cls.add_option(species=['fluid', 'fluid'], key=['physics'],
-                       option=VariationalDensityEvolve.options()['physics'], dct=dct)
+                       option=propagators_fields.VariationalDensityEvolve.options()['physics'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -762,25 +809,26 @@ class VariationalCompressibleFluid(StruphyModel):
         solver_entropy = params['fluid']['fluid']['options']['solver_entropy']
 
         gamma = params['fluid']['fluid']['options']['physics']['gamma']
+        model = 'full'
 
-        self.add_propagator(self.prop_fields.VariationalDensityEvolve(
-            self.pointer['fluid_rho3'], self.pointer['fluid_uv'],
-            model='full',
-            s=self.pointer['fluid_s3'],
-            gamma=gamma,
-            mass_ops=self.WMM,
-            **solver_density))
-        self.add_propagator(self.prop_fields.VariationalMomentumAdvection(
-            self.pointer['fluid_uv'],
-            mass_ops=self.WMM,
-            **solver_momentum))
-        self.add_propagator(self.prop_fields.VariationalEntropyEvolve(
-            self.pointer['fluid_s3'], self.pointer['fluid_uv'],
-            model='full',
-            rho=self.pointer['fluid_rho3'],
-            gamma=gamma,
-            mass_ops=self.WMM,
-            **solver_entropy))
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.VariationalDensityEvolve] = {'model': model,
+                                                                     's': self.pointer['fluid_s3'],
+                                                                     'gamma': gamma,
+                                                                     'mass_ops': self.WMM,
+                                                                     **solver_density}
+
+        self._kwargs[propagators_fields.VariationalMomentumAdvection] = {'mass_ops': self.WMM,
+                                                                         **solver_momentum}
+
+        self._kwargs[propagators_fields.VariationalEntropyEvolve] = {'model': model,
+                                                                     'rho': self.pointer['fluid_rho3'],
+                                                                     'gamma': gamma,
+                                                                     'mass_ops': self.WMM,
+                                                                     **solver_entropy}
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U')
@@ -836,8 +884,14 @@ class VariationalCompressibleFluid(StruphyModel):
 class Poisson(StruphyModel):
     r'''Weak discretization of Poisson's equation with diffusion matrix, stabilization 
     and time-depedent right-hand side.
+    
+    :ref:`normalization`:
 
-    Find :math:`\phi \in H^1` such that
+    .. math::
+
+        \hat U =  \hat v_\textnormal{A} \,.
+
+    :ref:`Equations <gempic>`: Find :math:`\phi \in H^1` such that
 
     .. math::
 
@@ -847,44 +901,53 @@ class Poisson(StruphyModel):
     and :math:`D_0:\Omega \to \mathbb R^{3\times 3}` is a positive diffusion matrix. 
     Boundary terms from integration by parts are assumed to vanish.
 
-    Parameters
-    ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_Poisson.yml`.
+    :ref:`propagators` (called in sequence):
 
-    comm : mpi4py.MPI.Intracomm
+    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
+    2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
+
+    :ref:`Model info <add_model>`:
     '''
 
-    @classmethod
-    def species(cls):
+    @staticmethod
+    def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
         dct['em_fields']['phi'] = 'H1'
         dct['em_fields']['source'] = 'H1'
         return dct
 
-    @classmethod
-    def bulk_species(cls):
+    @staticmethod
+    def bulk_species():
         return None
 
-    @classmethod
-    def velocity_scale(cls):
+    @staticmethod
+    def velocity_scale():
         return None
+
+    @staticmethod
+    def propagators_dct():
+        return {propagators_fields.TimeDependentSource: ['source'],
+                propagators_fields.ImplicitDiffusion: ['phi']}
+
+    __em_fields__ = species()['em_fields']
+    __fluid_species__ = species()['fluid']
+    __kinetic_species__ = species()['kinetic']
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     @classmethod
     def options(cls):
-        # import propagator options
-        from struphy.propagators.propagators_fields import ImplicitDiffusion, TimeDependentSource
-
         dct = {}
         cls.add_option(species=['em_fields'], key=['source', 'omega'],
-                       option=TimeDependentSource.options()['omega'], dct=dct)
+                       option=propagators_fields.TimeDependentSource.options()['omega'], dct=dct)
         cls.add_option(species=['em_fields'], key=['source', 'hfun'],
-                       option=TimeDependentSource.options()['hfun'], dct=dct)
+                       option=propagators_fields.TimeDependentSource.options()['hfun'], dct=dct)
         cls.add_option(species=['em_fields'], key=['poisson', 'model'],
-                       option=ImplicitDiffusion.options()['model'], dct=dct)
+                       option=propagators_fields.ImplicitDiffusion.options()['model'], dct=dct)
         cls.add_option(species=['em_fields'], key=['poisson', 'solver'],
-                       option=ImplicitDiffusion.options()['solver'], dct=dct)
+                       option=propagators_fields.ImplicitDiffusion.options()['solver'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -897,42 +960,21 @@ class Poisson(StruphyModel):
         omega = params['em_fields']['options']['source']['omega']
         hfun = params['em_fields']['options']['source']['hfun']
 
-        # Initialize propagator
-        self.add_propagator(self.prop_fields.TimeDependentSource(
-            self.pointer['source'],
-            omega=omega,
-            hfun=hfun))
-        self.add_propagator(self.prop_fields.ImplicitDiffusion(
-            self.pointer['phi'],
-            sigma_1=model_params['sigma_1'],
-            stab_mat=model_params['stab_mat'],
-            diffusion_mat=model_params['diffusion_mat'],
-            rho=self.pointer['source'],
-            **solver_params))
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.TimeDependentSource] = {'omega': omega,
+                                                                'hfun': hfun}
 
-        # assert dt=1 for implicit diffusion to solve Poisson.
-        # assert params['time'][
-        #     'dt'] == 1., f"Time step must be 1.0 in the Poisson model, but is {params['time']['dt']}"
+        self._kwargs[propagators_fields.ImplicitDiffusion] = {'sigma_1': model_params['sigma_1'],
+                                                              'stab_mat': model_params['stab_mat'],
+                                                              'diffusion_mat': model_params['diffusion_mat'],
+                                                              'rho': self.pointer['source'],
+                                                              **solver_params}
 
-        # Scalar variables to be saved during simulation
-        # self.add_scalar('en_E')
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
 
     def update_scalar_quantities(self):
         pass
-
-    # # make dt=1 in parameter file
-    # @classmethod
-    # def generate_default_parameter_file(cls, file=None, save=True, prompt=True):
-    #     ''':meta private:'''
-
-    #     params = super(Poisson, cls).generate_default_parameter_file(
-    #         file=file, save=False, prompt=False)
-    #     params['time']['dt'] = 1.0
-
-    #     Poisson.write_parameters_to_file(
-    #         parameters=params, file=file, save=save, prompt=prompt)
-
-    #     return params
 
 
 class DeterministicParticleDiffusion(StruphyModel):
@@ -945,7 +987,7 @@ class DeterministicParticleDiffusion(StruphyModel):
 
         \hat D := \frac{\hat x^2}{\hat t } \,.
 
-    Implemented equations: Find :math:`u:\mathbb R\times \Omega\to \mathbb R^+` such that
+    :ref:`Equations <gempic>`: Find :math:`u:\mathbb R\times \Omega\to \mathbb R^+` such that
 
     .. math::
 
@@ -954,40 +996,47 @@ class DeterministicParticleDiffusion(StruphyModel):
     where :math:`\mathbb D: \Omega\to \mathbb R^{3\times 3 }` is a positive diffusion matrix. 
     At the moment only matrices of the form :math:`D*Id` are implemented, where :math:`D > 0` is a positive diffusion coefficient.
 
-    Parameters
-    ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
+    :ref:`propagators` (called in sequence):
 
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
+    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
+    2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
+
+    :ref:`Model info <add_model>`:
     '''
 
-    @classmethod
-    def species(cls):
+    @staticmethod
+    def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
         dct['kinetic']['species1'] = 'Particles3D'
         return dct
 
-    @classmethod
-    def bulk_species(cls):
+    @staticmethod
+    def bulk_species():
         return 'species1'
 
-    @classmethod
-    def velocity_scale(cls):
+    @staticmethod
+    def velocity_scale():
         return None
+
+    @staticmethod
+    def propagators_dct():
+        return {propagators_markers.PushDeterministicDiffusion: ['species1']}
+
+    __em_fields__ = species()['em_fields']
+    __fluid_species__ = species()['fluid']
+    __kinetic_species__ = species()['kinetic']
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     @classmethod
     def options(cls):
-        # import propagator options
-        from struphy.propagators.propagators_markers import PushDeterministicDiffusion
-
         dct = {}
         cls.add_option(species=['kinetic', 'species1'], key='push_diffusion',
-                       option=PushDeterministicDiffusion.options()['algo'], dct=dct)
+                       option=propagators_markers.PushDeterministicDiffusion.options()['algo'], dct=dct)
         cls.add_option(species=['kinetic', 'species1'], key='diffusion_coefficient',
-                       option=PushDeterministicDiffusion.options()['diffusion_coefficient'], dct=dct)
+                       option=propagators_markers.PushDeterministicDiffusion.options()['diffusion_coefficient'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -1004,12 +1053,13 @@ class DeterministicParticleDiffusion(StruphyModel):
         #                                  self.mhd_equil.b2_2,
         #                                  self.mhd_equil.b2_3])
 
-        # Initialize propagators/integrators used in splitting substeps
-        self.add_propagator(self.prop_markers.PushDeterministicDiffusion(
-            self.pointer['species1'],
-            algo=species1_params['options']['push_diffusion'],
-            bc_type=species1_params['markers']['bc']['type'],
-            diffusion_coefficient=species1_params['options']['diffusion_coefficient']))
+        # set keyword arguments for propagators
+        self._kwargs[propagators_markers.PushDeterministicDiffusion] = {'algo': species1_params['options']['push_diffusion'],
+                                                                        'bc_type': species1_params['markers']['bc']['type'],
+                                                                        'diffusion_coefficient': species1_params['options']['diffusion_coefficient']}
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_f')
@@ -1033,7 +1083,7 @@ class RandomParticleDiffusion(StruphyModel):
 
         \hat D := \frac{\hat x^2}{\hat t } \,.
 
-    Implemented equations: Find :math:`u:\mathbb R\times \Omega\to \mathbb R^+` such that
+    :ref:`Equations <gempic>`: Find :math:`u:\mathbb R\times \Omega\to \mathbb R^+` such that
 
     .. math::
 
@@ -1041,40 +1091,47 @@ class RandomParticleDiffusion(StruphyModel):
 
     where :math:`D > 0` is a positive diffusion coefficient. 
 
-    Parameters
-    ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
+    :ref:`propagators` (called in sequence):
 
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
+    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
+    2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
+
+    :ref:`Model info <add_model>`:
     '''
 
-    @classmethod
-    def species(cls):
+    @staticmethod
+    def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
         dct['kinetic']['species1'] = 'Particles3D'
         return dct
 
-    @classmethod
-    def bulk_species(cls):
+    @staticmethod
+    def bulk_species():
         return 'species1'
 
-    @classmethod
-    def velocity_scale(cls):
+    @staticmethod
+    def velocity_scale():
         return None
+
+    @staticmethod
+    def propagators_dct():
+        return {propagators_markers.PushRandomDiffusion: ['species1']}
+
+    __em_fields__ = species()['em_fields']
+    __fluid_species__ = species()['fluid']
+    __kinetic_species__ = species()['kinetic']
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     @classmethod
     def options(cls):
-        # import propagator options
-        from struphy.propagators.propagators_markers import PushRandomDiffusion
-
         dct = {}
         cls.add_option(species=['kinetic', 'species1'], key='push_random_diffusion_stage',
-                       option=PushRandomDiffusion.options()['algo'], dct=dct)
+                       option=propagators_markers.PushRandomDiffusion.options()['algo'], dct=dct)
         cls.add_option(species=['kinetic', 'species1'], key='diffusion_coefficient',
-                       option=PushRandomDiffusion.options()['diffusion_coefficient'], dct=dct)
+                       option=propagators_markers.PushRandomDiffusion.options()['diffusion_coefficient'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -1091,13 +1148,13 @@ class RandomParticleDiffusion(StruphyModel):
         #                                  self.mhd_equil.b2_2,
         #                                  self.mhd_equil.b2_3])
 
-        # Initialize propagators/integrators used in splitting substeps
-        self.add_propagator(self.prop_markers.PushRandomDiffusion(
-            self.pointer['species1'],
-            algo=species1_params['options']['push_random_diffusion_stage'],
-            bc_type=species1_params['markers']['bc']['type'],
-            diffusion_coefficient=species1_params['options']['diffusion_coefficient'])
-        )
+        # set keyword arguments for propagators
+        self._kwargs[propagators_markers.PushRandomDiffusion] = {'algo': species1_params['options']['push_random_diffusion_stage'],
+                                                                 'bc_type': species1_params['markers']['bc']['type'],
+                                                                 'diffusion_coefficient': species1_params['options']['diffusion_coefficient']}
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_f')

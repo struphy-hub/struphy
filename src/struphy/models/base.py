@@ -362,7 +362,7 @@ class StruphyModel(metaclass=ABCMeta):
         for prop in self.propagators:
             prop.add_time_state(time_state)
         
-    def _init_propagators(self):
+    def init_propagators(self):
         '''Initialize the propagator objects specified in :attr:`~propagators_cls`.'''
         if self.comm.Get_rank() == 0:
             print('\nPROPAGATORS:')

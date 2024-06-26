@@ -105,7 +105,7 @@ class LinearMHD(StruphyModel):
                                                          **sonic_solver}
 
         # Initialize propagators used in splitting substeps
-        self._init_propagators()
+        self.init_propagators()
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U')
