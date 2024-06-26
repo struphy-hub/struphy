@@ -610,22 +610,22 @@ class GyroMaxwellian2D(Maxwellian):
         return [False, True]
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        """
-        Jacobian determinant of the velocity coordinate transformation from Maxwellian5D('vpara_vperp') to Particles5D('vpara_mu').
+        r"""Jacobian determinant of the velocity coordinate transformation from Maxwellian5D('vpara_vperp') to Particles5D('vpara_mu').
 
         .. math::
 
-            F : (v_\parallel, v_\perp) \rightarrow (v_\parallel, \mu) \,,
-
-            DF = \begin{bmatrix} \frac{v_\parallel}{v_\parallel} & \frac{v_\parallel}{v_\perp} \\
-                 \frac{\mu}{v_\parallel} & \frac{\mu}{v_\perp}  \end{bmatrix} = 
+            \begin{aligned}
+            F &: (v_\parallel, v_\perp) \to (v_\parallel, \mu) \,,
+            \\[3mm]
+            DF &= \begin{bmatrix} \frac{\partial v_\parallel}{\partial v_\parallel} & \frac{\partial v_\parallel}{\partial v_\perp} \\
+                 \frac{\partial \mu}{\partial v_\parallel} & \frac{\partial \mu}{\partial v_\perp}  \end{bmatrix} =
                  \begin{bmatrix} 1 & 0 \\
                  0 & \frac{v_\perp}{B}  \end{bmatrix} \,,
+            \\[3mm]
+            J_F &= \frac{v_\perp}{B} \,,
+            \end{aligned}
 
-            J_F = \begin{bmatrix} \frac{v_\perp}{B}  \end{bmatrix} \,,
-
-        where :math:`\mu = \frac{v_\perp²}{2B}`.
-
+        where :math:`\mu = \frac{v_\perp^2}{2B}`.
 
         Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords.T)
 
@@ -1038,21 +1038,22 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         return self._braginskii_equil
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        """
-        Jacobian determinant of the velocity coordinate transformation from CanonicalMaxwellian('constants_of_motion') to Particles5D('vpara_mu').
+        r"""Jacobian determinant of the velocity coordinate transformation from CanonicalMaxwellian('constants_of_motion') to Particles5D('vpara_mu').
 
         .. math::
 
-            F : (\epsilon, \mu) \rightarrow (v_\parallel, \mu) \,,
-
-            DF = \begin{bmatrix} \frac{v_\parallel}{\epsilon} & \frac{v_\parallel}{\mu} \\
+            \begin{aligned}
+            F &: (\epsilon, \mu) \to (v_\parallel, \mu) \,,
+            \\[3mm]
+            DF &= \begin{bmatrix} \frac{v_\parallel}{\epsilon} & \frac{v_\parallel}{\mu} \\
                  \frac{\mu}{\epsilon} & \frac{\mu}{\mu}  \end{bmatrix} = 
                  \begin{bmatrix} \frac{1}{v_\parallel} & 0 \\
                  \frac{1}{B} & 1  \end{bmatrix} \,,
+            \\[3mm]
+            J_F &= \frac{1}{v_\parallel} \,,
+            \end{aligned}
 
-            J_F = \begin{bmatrix} \frac{1}{v_\parallel}  \end{bmatrix} \,,
-
-        where :math:`\mu = \frac{v_\perp²}{2B}` and :math:`\epsilon = \frac{1}{2}v²_\parallel + \mu B`.
+        where :math:`\mu = \frac{v_\perp^2}{2B}` and :math:`\epsilon = \frac{1}{2}v^2_\parallel + \mu B`.
 
 
         Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords.T)
@@ -1069,7 +1070,6 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         -------
         out : array-like
             The Jacobian determinant evaluated at given logical coordinates.
-        -------
         """
 
         assert eta1.ndim == 1
@@ -1077,8 +1077,15 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         assert eta3.ndim == 1
         assert len(v) == 2
 
-        # J = 1/v_parallel
-        jacobian_det = 1/np.abs(v[0])
+        # J = |1/v_parallel|
+        jacobian_det = np.abs(1/v[0])
+
+        # call equilibrium
+        etas = (np.vstack((eta1, eta2, eta3)).T).copy()
+        absB0 = self.mhd_equil.absB0(etas)
+
+        # J = v_perp/B
+        jacobian_det = 2.*np.pi/absB0
 
         return jacobian_det
 
@@ -1101,17 +1108,17 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
             self._moment_factors[kw] = arg
 
     def rc(self, psic):
-        """ Square root of radially normalized canonical toroidal momentum.
+        r""" Square root of radially normalized canonical toroidal momentum.
 
         .. math::
-
-            r_c² = /frac{\psi_c - \psi_\text{axis}}{\psi_\text{edge} - \psi_\text{axis}} \,,
-
-            r_c = \left\{\begin{aligned}
-            & \sqrt{/frac{\psi_c - \psi_\text{axis}}{\psi_\text{edge} - \psi_\text{axis}}} \quad &&\textnormal{if} \quad /frac{\psi_c - \psi_\text{axis}}{\psi_\text{edge} - \psi_\text{axis}} \geq 0 \,,
-
-            & -\sqrt{-/frac{\psi_c - \psi_\text{axis}}{\psi_\text{edge} - \psi_\text{axis}}} \quad &&\textnormal{if} \quad /frac{\psi_c - \psi_\text{axis}}{\psi_\text{edge} - \psi_\text{axis}} < 0 \,,
-            \end{aligned}\right.
+            \begin{aligned}
+            r_c^2 &= \frac{\psi_c - \psi_\text{axis}}{\psi_\text{edge} - \psi_\text{axis}} \,,
+            \\[3mm]
+            r_c &= \begin{cases}
+            \sqrt{\frac{\psi_c - \psi_\text{axis}}{\psi_\text{edge} - \psi_\text{axis}}} & \text{if} \quad \frac{\psi_c - \psi_\text{axis}}{\psi_\text{edge} - \psi_\text{axis}} \geq 0 \,, \\
+            -\sqrt{\frac{\psi_c - \psi_\text{axis}}{\psi_\text{edge} - \psi_\text{axis}}} & \text{if} \quad \frac{\psi_c - \psi_\text{axis}}{\psi_\text{edge} - \psi_\text{axis}} < 0 \,,
+            \end{cases}
+            \end{aligned}
 
         where :math:`\psi_\text{axis}` and :math:`\psi_\text{edge}` are poloidal magnetic flux function at the center and edge of poloidal plane respectively.
 

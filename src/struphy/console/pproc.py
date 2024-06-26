@@ -1,4 +1,4 @@
-def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1):
+def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1, physical=False):
     """
     Post process data from finished Struphy runs.
 
@@ -15,6 +15,9 @@ def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1):
 
     celldivide : int, optional
         Number of grid point in each cell used to create vtk files (default=1).
+
+    physical : bool
+        Wether to do post-processing into push-forwarded physical (xyz) components of fields.
     """
     import subprocess
     import os
@@ -34,13 +37,18 @@ def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1):
 
     print(f'Post processing data in {dir_abs}')
 
+    command = ['python3',
+               'post_processing/pproc_struphy.py',
+               dir_abs,
+               '-s',
+               str(step),
+               '--celldivide',
+               str(celldivide)]
+    
+    if physical:
+        command += ['--physical']
+
     # loop over output folders and call post-processing .py file
-    subprocess.run(['python3',
-                    'post_processing/pproc_struphy.py',
-                    dir_abs,
-                    '-s',
-                    str(step),
-                    '--celldivide',
-                    str(celldivide)],
+    subprocess.run(command,
                    cwd=libpath,
                    check=True)
