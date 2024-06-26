@@ -132,7 +132,7 @@ def create_femfields(path, step=1):
     return fields, space_ids, model
 
 
-def eval_femfields(path, fields, space_ids, celldivide=[1, 1, 1]):
+def eval_femfields(path, fields, space_ids, celldivide=[1, 1, 1], physical=False):
     """
     Evaluate FEM fields obtained from create_femfields. 
 
@@ -150,14 +150,17 @@ def eval_femfields(path, fields, space_ids, celldivide=[1, 1, 1]):
     celldivide : list of ints, optional
         Grid refinement in each eta direction.
 
+    physical : bool
+        Wether to do post-processing into push-forwarded physical (xyz) components of fields.
+
     Returns
     -------
-    point_data_log : dict
+    point_data : dict
         Nested dictionary holding values of FemFields on the grid as list of 3d np.arrays:
-        point_data_log[name][t] contains the values of the field with name "name" in fields[t].keys() at time t.
+        point_data[name][t] contains the values of the field with name "name" in fields[t].keys() at time t.
 
-    point_data_phy : dict
-        Pushed-forward point_data_log obtained by domain.push().
+        If physical is True, physical components of fields are saved. 
+        Otherwise, logical components (differential n-forms) are saved.
 
     grids_log : 3-list
         1d logical grids in each eta-direction with Nel[i]*cell_divide[i] + 1 entries in each direction.  
@@ -188,13 +191,11 @@ def eval_femfields(path, fields, space_ids, celldivide=[1, 1, 1]):
                  domain(*grids_log)[2]]
 
     # evaluate fields at evaluation grid and push-forward
-    point_data_log = {}
-    point_data_phy = {}
+    point_data = {}
 
     # one dict for each field
     for name in space_ids:
-        point_data_log[name] = {}
-        point_data_phy[name] = {}
+        point_data[name] = {}
 
     # time loop
     print('Evaluating fields ...')
@@ -209,44 +210,47 @@ def eval_femfields(path, fields, space_ids, celldivide=[1, 1, 1]):
             # field evaluation
             temp_val = field(*grids_log)
 
-            point_data_log[name][t] = []
-            point_data_phy[name][t] = []
+            point_data[name][t] = []
 
             # scalar spaces
             if isinstance(temp_val, np.ndarray):
 
-                point_data_log[name][t].append(temp_val)
+                if physical:
+                    # push-forward
+                    if space_id == 'H1':
+                        point_data[name][t].append(domain.push(
+                            temp_val, *grids_log, kind='0'))
+                    elif space_id == 'L2':
+                        point_data[name][t].append(domain.push(
+                            temp_val, *grids_log, kind='3'))
 
-                # push-forward
-                if space_id == 'H1':
-                    point_data_phy[name][t].append(domain.push(
-                        temp_val, *grids_log, kind='0'))
-                elif space_id == 'L2':
-                    point_data_phy[name][t].append(domain.push(
-                        temp_val, *grids_log, kind='3'))
+                else:
+                    point_data[name][t].append(temp_val)
 
             # vector-valued spaces
             else:
 
                 for j in range(3):
 
-                    point_data_log[name][t].append(temp_val[j])
+                    if physical:
+                        # push-forward
+                        if space_id == 'Hcurl':
+                            point_data[name][t].append(domain.push(
+                                temp_val, *grids_log, kind='1')[j])
+                        elif space_id == 'Hdiv':
+                            point_data[name][t].append(domain.push(
+                                temp_val, *grids_log, kind='2')[j])
+                        elif space_id == 'H1vec':
+                            point_data[name][t].append(domain.push(
+                                temp_val, *grids_log, kind='v')[j])
 
-                    # push-forward
-                    if space_id == 'Hcurl':
-                        point_data_phy[name][t].append(domain.push(
-                            temp_val, *grids_log, kind='1')[j])
-                    elif space_id == 'Hdiv':
-                        point_data_phy[name][t].append(domain.push(
-                            temp_val, *grids_log, kind='2')[j])
-                    elif space_id == 'H1vec':
-                        point_data_phy[name][t].append(domain.push(
-                            temp_val, *grids_log, kind='v')[j])
+                    else:
+                        point_data[name][t].append(temp_val[j])
 
-    return point_data_log, point_data_phy, grids_log, grids_phy
+    return point_data, grids_log, grids_phy
 
 
-def create_vtk(path, grids_phy, point_data_phy):
+def create_vtk(path, grids_phy, point_data):
     """
     Creates structured virtual toolkit files (.vts) for Paraview from evaluated field data.
 
@@ -258,8 +262,8 @@ def create_vtk(path, grids_phy, point_data_phy):
     grids_phy : 3-list
         Mapped (physical) grids obtained from struphy.diagnostics.post_processing.eval_femfields.
 
-    point_data_phy : dict
-        Pushed-forward field data obtained from struphy.diagnostics.post_processing.eval_femfields.
+    point_data : dict
+        Field data obtained from struphy.diagnostics.post_processing.eval_femfields.
     """
 
     from pyevtk.hl import gridToVTK
@@ -274,10 +278,10 @@ def create_vtk(path, grids_phy, point_data_phy):
         os.mkdir(path_vtk)
 
     # field names
-    names = list(point_data_phy.keys())
+    names = list(point_data.keys())
 
     # time loop
-    tgrid = list(point_data_phy[names[0]].keys())
+    tgrid = list(point_data[names[0]].keys())
 
     nt = len(tgrid) - 1
     log_nt = int(np.log10(nt)) + 1
@@ -289,7 +293,7 @@ def create_vtk(path, grids_phy, point_data_phy):
 
         for name in names:
 
-            points_list = point_data_phy[name][t]
+            points_list = point_data[name][t]
 
             # scalar
             if len(points_list) == 1:
