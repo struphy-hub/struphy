@@ -32,6 +32,8 @@ which can be solved on a variety of :ref:`mapped domains <avail_mappings>`.
    sections/tutorials
    sections/userguide
    sections/developers
+   sections/propagators
+   sections/pic_classes
    sections/modules
    sections/examples
 

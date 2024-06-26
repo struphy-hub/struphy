@@ -1,7 +1,7 @@
 .. _struphy_model:
 
-Struphy model base module
--------------------------
+Struphy model base class
+------------------------
 
 .. automodule:: struphy.models.base
     :members:

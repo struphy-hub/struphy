@@ -8,7 +8,7 @@ Python modules
     :caption: Contents:
 
     subsections/model_base_class
-    subsections/propagators
+    subsections/propagator_base_class
     subsections/pic_classes
     subsections/feec_classes
     subsections/domains
