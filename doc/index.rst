@@ -28,13 +28,15 @@ which can be solved on a variety of :ref:`mapped domains <avail_mappings>`.
    sections/install
    sections/quickstart
    sections/models
+   sections/domains
    sections/numerics
    sections/tutorials
    sections/userguide
    sections/developers
    sections/propagators
    sections/pic_classes
-   sections/modules
+   sections/feec_classes
+   sections/physics
    sections/examples
 
 

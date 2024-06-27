@@ -13,28 +13,11 @@ The following inheritance diagram shows the MHD equilibria available in Struphy:
 .. inheritance-diagram:: struphy.fields_background.mhd_equil.equils
     :parts: 1
 
-    
-.. _mhd_base:
+.. toctree::
+    :maxdepth: 2
+    :caption: Contents:
 
-Base classes
-^^^^^^^^^^^^
-
-.. automodule:: struphy.fields_background.mhd_equil.base
-    :members:
-    :undoc-members: 
-    :exclude-members: 
-    :show-inheritance:
-
-
-.. _mhd_equil_avail:
-
-Available MHD equilibria
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. automodule:: struphy.fields_background.mhd_equil.equils
-    :members:
-    :undoc-members:
-    :show-inheritance:
+    mhd_equils_sub
 
 
 
