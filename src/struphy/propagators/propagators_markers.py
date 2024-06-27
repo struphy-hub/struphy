@@ -12,63 +12,60 @@ from struphy.pic.pushing.pusher import ButcherTableau
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
 from struphy.pic.particles import Particles6D, Particles5D
+from struphy.pic.base import Particles
+from struphy.fields_background.mhd_equil.base import MHDequilibrium
 
 
 class PushEta(Propagator):
-    r"""Solves
+    r"""For each marker :math:`p`, solves
 
     .. math::
 
-        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v
+        \frac{\textnormal d \mathbf x_p(t)}{\textnormal d t} = \mathbf v_p\,,
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant. Available algorithms:
+    for constant :math:`\mathbf v_p` in logical space given by :math:`\mathbf x = F(\boldsymbol \eta)`:
 
-        * forward_euler (1st order)
-        * heun2 (2nd order)
-        * rk2 (2nd order)
-        * heun3 (3rd order)
-        * rk4 (4th order)
+    .. math::
 
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles6D
-        Holdes the markers to push.
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \,\mathbf v_p\,. 
 
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
+    Available algorithms:
+
+    * ``forward_euler`` (1st order)
+    * ``heun2`` (2nd order)
+    * ``rk2`` (2nd order)
+    * ``heun3`` (3rd order)
+    * ``rk4`` (4th order, default)
     """
 
-    def __init__(self, particles, **params):
+    def __init__(self,
+                 particles: Particles,
+                 *,
+                 algo: str = 'rk4',
+                 bc_type: list = ['reflect', 'periodic', 'periodic']):
 
         super().__init__(particles)
 
-        # parameters
-        params_default = {'algo': 'rk4',
-                          'bc_type': ['reflect', 'periodic', 'periodic'],
-                          }
-
-        params = set_defaults(params, params_default)
-
-        self._bc_type = params['bc_type']
+        self._bc_type = bc_type
 
         # choose algorithm
-        if params['algo'] == 'forward_euler':
+        if algo == 'forward_euler':
             a = []
             b = [1.]
             c = [0.]
-        elif params['algo'] == 'heun2':
+        elif algo == 'heun2':
             a = [1.]
             b = [1/2, 1/2]
             c = [0., 1.]
-        elif params['algo'] == 'rk2':
+        elif algo == 'rk2':
             a = [1/2]
             b = [0., 1.]
             c = [0., 1/2]
-        elif params['algo'] == 'heun3':
+        elif algo == 'heun3':
             a = [1/3, 2/3]
             b = [1/4, 0., 3/4]
             c = [0., 1/3, 2/3]
-        elif params['algo'] == 'rk4':
+        elif algo == 'rk4':
             a = [1/2, 1/2, 1.]
             b = [1/6, 1/3, 1/3, 1/6]
             c = [0., 1/2, 1/2, 1.]
@@ -80,10 +77,6 @@ class PushEta(Propagator):
                               'push_eta_stage', n_stages=self._butcher.n_stages)
 
     def __call__(self, dt):
-        """
-        TODO
-        """
-
         # push markers
         self._pusher(self.particles[0], dt,
                      self._butcher.a, self._butcher.b, self._butcher.c,
@@ -101,59 +94,42 @@ class PushEta(Propagator):
 
 
 class PushVxB(Propagator):
-    r"""Solves
+    r"""For each marker :math:`p`, solves
 
     .. math::
 
-        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \mathbf v_p(t) \times \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \mathbf v_p(t) \times \mathbf B\,,
 
-    for each marker :math:`p` in markers array, with fixed rotation vector. Available algorithms:
+    for fixed rotation vector :math:`\mathbf B`, given as a 2-form:
 
-        * analytic
-        * implicit
+    .. math::
 
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles6D
-        Holdes the markers to push.
+        \mathbf B =  \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}\,.
 
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
+    Available algorithms: ``analytic``, ``implicit``.
     """
 
-    def __init__(self, particles, **params):
+    def __init__(self,
+                 particles: Particles6D,
+                 *,
+                 algo: str = 'analytic',
+                 scale_fac: float = 1.,
+                 b_eq: BlockVector | PolarVector = None,
+                 b_tilde: BlockVector | PolarVector = None):
 
         super().__init__(particles)
 
-        # parameters
-        params_default = {'algo': 'analytic',
-                          'scale_fac': 1.,
-                          'b_eq': None,
-                          'b_tilde': None, }
-
-        params = set_defaults(params, params_default)
-
-        assert isinstance(params['b_eq'], (BlockVector, PolarVector))
-
-        if params['b_tilde'] is not None:
-            assert isinstance(params['b_tilde'], (BlockVector, PolarVector))
-
-        self._scale_fac = params['scale_fac']
-        self._b_eq = params['b_eq']
-        self._b_tilde = params['b_tilde']
+        self._scale_fac = scale_fac
+        self._b_eq = b_eq
+        self._b_tilde = b_tilde
 
         # load pusher
-        kernel_name = 'push_vxb_' + params['algo']
-        self._pusher = Pusher(self.derham, self.domain, kernel_name)
+        self._pusher = Pusher(self.derham, self.domain, 'push_vxb_' + algo)
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         self._E2T = self.derham.extraction_ops['2'].transpose()
 
     def __call__(self, dt):
-        """
-        TODO
-        """
-
         # sum up total magnetic field
         b_full = self._b_eq.copy()
         if self._b_tilde is not None:
@@ -438,73 +414,52 @@ class PushEtaPC(Propagator):
 
 
 class PushGuidingCenterBxEstar(Propagator):
-    r"""Particle pushing step for the :math:`\mathbf b_ \times \mathbf E^*` guiding center drift part in :class:`~struphy.models.toy.DriftKinetic`,
-
-    Equation:
+    r"""For each marker :math:`p`, solves
 
     .. math::
 
-        \left\{ 
-            \begin{aligned} 
-                \dot{\mathbf X} &= - \frac{1}{B_\parallel^*} \mathbf b_0 \times \mathbf E^* \,,
-                \\
-                \dot v_\parallel &= 0 \,.
-            \end{aligned}
-        \right.
+        \frac{\textnormal d \mathbf X_p(t)}{\textnormal d t} = \frac{\mathbf E^* \times \mathbf b_0}{B_\parallel^*} (\mathbf X_p(t))   \,,
 
-    where :math:`\mathbf E^* = - \varepsilon \mu \nabla B_0`.
-
-    Marker update:
+    where 
 
     .. math::
 
-        \begin{aligned}
-            \dot{\boldsymbol \eta}_p &= \varepsilon \mu_p \frac{1}{ B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})}  G^{-1}(\boldsymbol \eta_p) \hat{\mathbf b}^2_0(\boldsymbol \eta_p) \times G^{-1}(\boldsymbol \eta_p) \hat \nabla \hat{B}^0_0 (\boldsymbol \eta_p) \,,
-            \\
-            \dot v_{\parallel,\,p} &= 0 \,.
-        \end{aligned}
+        \mathbf E^* = - \varepsilon \mu_p \nabla B_0\,,\qquad B^*_\parallel = B_0 + \varepsilon v_{\parallel,p} (\nabla \times \mathbf b_0) \cdot \mathbf b_0\,,
 
-    for each marker :math:`p` in markers array. Available algorithms:
+    in logical space given by :math:`\mathbf X = F(\boldsymbol \eta)`:
 
-        * forward_euler (1st order, explicit)
-        * heun2 (2nd order, explicit)
-        * rk2 (2nd order, explicit)
-        * heun3 (3rd order, explicit)
-        * rk4 (4th order, explicit)
-        * discrete_gradient (2nd order, implicit)
-        * discrete_gradient_faster (1st order, implicit)
-        * discrete_gradient_Itoh_Newton (2nd order, implicit)
+    .. math::
 
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles6D
-        Particles object.
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = \frac{\hat{\mathbf E}^{*1} \times \hat{\mathbf b}^1_0}{\hat B_\parallel^{*3}} (\boldsymbol \eta_p(t)) \,.
 
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
+    Available algorithms:
+
+    * ``forward_euler`` (1st order, explicit)
+    * ``heun2`` (2nd order, explicit)
+    * ``rk2`` (2nd order, explicit)
+    * ``heun3`` (3rd order, explicit)
+    * ``rk4`` (4th order, explicit)
+    * ``discrete_gradient`` (2nd order, implicit, default)
+    * ``discrete_gradient_faster`` (1st order, implicit)
+    * ``discrete_gradient_Itoh_Newton`` (2nd order, implicit)
     """
 
     def __init__(self,
-                 particles,
+                 particles: Particles5D,
                  *,
-                 magn_bckgr=None,
-                 epsilon=1.,
-                 **algo_params):
+                 magn_bckgr: MHDequilibrium,
+                 epsilon: float = 1.,
+                 algo_params: dict = {
+                     'method': 'discrete_gradient',
+                     'maxiter': 20,
+                     'tol': 1e-07,
+                     'mpi_sort': 'each',
+                     'verbose': False}):
 
         super().__init__(particles)
 
-        # parameters
-        algo_params_default = {
-            'method': 'discrete_gradient',
-            'maxiter': 20,
-            'tol': 1e-07,
-            'mpi_sort': 'each',
-            'verbose': False}
-
-        params = set_defaults(algo_params, algo_params_default)
-
-        self._mpi_sort = params['mpi_sort']
-        self._verbose = params['verbose']
+        self._mpi_sort = algo_params['mpi_sort']
+        self._verbose = algo_params['verbose']
         self._epsilon = epsilon
 
         # magnetic field
@@ -551,52 +506,52 @@ class PushGuidingCenterBxEstar(Propagator):
 
         _eval_ker_names = []
 
-        if params['method'] == 'forward_euler':
+        if algo_params['method'] == 'forward_euler':
             _method = 'explicit'
             a = []
             b = [1.]
             c = [0.]
-        elif params['method'] == 'heun2':
+        elif algo_params['method'] == 'heun2':
             _method = 'explicit'
             a = [1.]
             b = [1/2, 1/2]
             c = [0., 1.]
-        elif params['method'] == 'rk2':
+        elif algo_params['method'] == 'rk2':
             _method = 'explicit'
             a = [1/2]
             b = [0., 1.]
             c = [0., 1/2]
-        elif params['method'] == 'heun3':
+        elif algo_params['method'] == 'heun3':
             _method = 'explicit'
             a = [1/3, 2/3]
             b = [1/4, 0., 3/4]
             c = [0., 1/3, 2/3]
-        elif params['method'] == 'rk4':
+        elif algo_params['method'] == 'rk4':
             _method = 'explicit'
             a = [1/2, 1/2, 1.]
             b = [1/6, 1/3, 1/3, 1/6]
             c = [0., 1/2, 1/2, 1.]
-        elif params['method'] == 'discrete_gradient':
+        elif algo_params['method'] == 'discrete_gradient':
             _method = 'implicit'
-            _kernel_name = 'push_gc_bxEstar_' + params['method']
+            _kernel_name = 'push_gc_bxEstar_' + algo_params['method']
             _eval_ker_names += ['gc_bxEstar_' +
-                                params['method'] + '_eval_gradI']
-        elif params['method'] == 'discrete_gradient_faster':
+                                algo_params['method'] + '_eval_gradI']
+        elif algo_params['method'] == 'discrete_gradient_faster':
             _method = 'implicit'
-            _kernel_name = 'push_gc_bxEstar_' + params['method']
+            _kernel_name = 'push_gc_bxEstar_' + algo_params['method']
             _eval_ker_names += ['gc_bxEstar_' +
-                                params['method'] + '_eval_gradI']
+                                algo_params['method'] + '_eval_gradI']
 
-        elif params['method'] == 'discrete_gradient_Itoh_Newton':
+        elif algo_params['method'] == 'discrete_gradient_Itoh_Newton':
             _method = 'implicit'
-            _kernel_name = 'push_gc_bxEstar_' + params['method']
+            _kernel_name = 'push_gc_bxEstar_' + algo_params['method']
             _eval_ker_names += ['gc_bxEstar_' +
-                                params['method'] + '_eval1',
+                                algo_params['method'] + '_eval1',
                                 'gc_bxEstar_' +
-                                params['method'] + '_eval2']
+                                algo_params['method'] + '_eval2']
         else:
             raise NotImplementedError(
-                f'Chosen method {params["method"]} is not implemented.')
+                f'Chosen method {algo_params["method"]} is not implemented.')
 
         if _method == 'explicit':
             butcher = ButcherTableau(a, b, c)
@@ -618,8 +573,8 @@ class PushGuidingCenterBxEstar(Propagator):
                                   _kernel_name,
                                   init_kernel=True,
                                   eval_kernels_names=_eval_ker_names,
-                                  maxiter=params['maxiter'],
-                                  tol=params['tol'])
+                                  maxiter=algo_params['maxiter'],
+                                  tol=algo_params['tol'])
 
             self._pusher_inputs = (self._epsilon, self._abs_b._data,
                                    b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
@@ -627,7 +582,7 @@ class PushGuidingCenterBxEstar(Propagator):
                                    unit_b2[0]._data, unit_b2[1]._data, unit_b2[2]._data,
                                    curl_norm_b[0]._data, curl_norm_b[1]._data, curl_norm_b[2]._data,
                                    grad_abs_b[0]._data, grad_abs_b[1]._data, grad_abs_b[2]._data,
-                                   params['maxiter'], params['tol'])
+                                   algo_params['maxiter'], algo_params['tol'])
 
     def __call__(self, dt):
         """
@@ -664,73 +619,64 @@ class PushGuidingCenterBxEstar(Propagator):
 
 
 class PushGuidingCenterParallel(Propagator):
-    r"""Particle pushing step for the :math:`\mathbf B^*` guiding center drift part in :class:`~struphy.models.toy.DriftKinetic`,
-
-    Equation:
+    r"""For each marker :math:`p`, solves
 
     .. math::
 
         \left\{ 
             \begin{aligned} 
-                \dot{\mathbf X} &= v_\parallel \frac{\mathbf B^*}{B^*_\parallel} \,,
+                \frac{\textnormal d \mathbf X_p(t)}{\textnormal d t} &= v_{\parallel,p}(t) \frac{\mathbf B^*}{B^*_\parallel}(\mathbf X_p(t)) \,,
                 \\
-                \dot v_\parallel &= \frac{1}{\varepsilon} \frac{\mathbf B^*}{B^*_\parallel} \cdot \mathbf E^* \,,
+                \frac{\textnormal d v_{\parallel,p}(t)}{\textnormal d t} &= \frac{1}{\varepsilon} \frac{\mathbf B^*}{B^*_\parallel} \cdot \mathbf E^* (\mathbf X_p(t)) \,,
             \end{aligned}
         \right.
 
-    where :math:`\mathbf B^* = \mathbf B_0 + \varepsilon v_\parallel \nabla \times \mathbf b_0`, :math:`B^*_\parallel = \mathbf b_0 \cdot \mathbf B^*` and :math:`\mathbf E^* = - \varepsilon \mu \nabla B_0`.
-
-    Marker update:
+    where
 
     .. math::
 
-        \begin{aligned}
-            \dot{\boldsymbol \eta}_p &= \frac{1}{B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})} \frac{1}{\sqrt{g(\boldsymbol \eta_p)}} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \, v_{\parallel,p} \,,
-            \\
-            \dot v_{\parallel,\,p} &= - \frac{1}{B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})}  \frac{1}{\sqrt{g(\boldsymbol \eta_p)}} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \cdot \mu_p  \hat \nabla \hat{B}^0_0(\boldsymbol \eta_p) \,.
-        \end{aligned}
+        \mathbf E^* = - \varepsilon \mu_p \nabla B_0\,,\qquad \mathbf B^* = \mathbf B_0 + \varepsilon v_\parallel \nabla \times \mathbf b_0\,,\qquad  B^*_\parallel = \mathbf B^* \cdot \mathbf b_0\,,
 
-    for each marker :math:`p` in markers array. Available algorithms:
+    in logical space given by :math:`\mathbf X = F(\boldsymbol \eta)`:
 
-        * forward_euler (1st order, explicit)
-        * heun2 (2nd order, explicit)
-        * rk2 (2nd order, explicit)
-        * heun3 (3rd order, explicit)
-        * rk4 (4th order, explicit)
-        * discrete_gradient (2nd order, implicit)
-        * discrete_gradient_faster (2nd order, implicit)
-        * discrete_gradient_Itoh_Newton (2nd order, implicit)
+    .. math::
 
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles6D
-        Particles object.
+        \left\{ 
+            \begin{aligned} 
+                \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} &= v_{\parallel,p}(t) \frac{\hat{\mathbf B}^{*2}}{\hat B^{*3}_\parallel}(\boldsymbol \eta_p(t)) \,,
+                \\
+                \frac{\textnormal d v_{\parallel,p}(t)}{\textnormal d t} &= \frac{1}{\varepsilon} \frac{\hat{\mathbf B}^{*2}}{\hat B^{*3}_\parallel} \cdot \hat{\mathbf E}^{*1} (\boldsymbol \eta_p(t)) \,.
+            \end{aligned}
+        \right.
 
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
+    Available algorithms:
+
+    * ``forward_euler`` (1st order, explicit)
+    * ``heun2`` (2nd order, explicit)
+    * ``rk2`` (2nd order, explicit)
+    * ``heun3`` (3rd order, explicit)
+    * ``rk4`` (4th order, explicit)
+    * ``discrete_gradient`` (2nd order, implicit)
+    * ``discrete_gradient_faster`` (2nd order, implicit, default)
+    * ``discrete_gradient_Itoh_Newton`` (2nd order, implicit)
     """
 
     def __init__(self,
-                 particles,
+                 particles: Particles5D,
                  *,
-                 magn_bckgr=None,
-                 epsilon=1.,
-                 **algo_params):
+                 magn_bckgr: MHDequilibrium,
+                 epsilon: float = 1.,
+                 algo_params: dict = {
+                     'method': 'discrete_gradient_faster',
+                     'maxiter': 20,
+                     'tol': 1e-07,
+                     'mpi_sort': 'each',
+                     'verbose': False}):
 
         super().__init__(particles)
 
-        # parameters
-        algo_params_default = {'method': 'discrete_gradient_faster',
-                               'maxiter': 20,
-                               'tol': 1e-07,
-                               'mpi_sort': 'each',
-                               'verbose': False
-                               }
-
-        params = set_defaults(algo_params, algo_params_default)
-
-        self._mpi_sort = params['mpi_sort']
-        self._verbose = params['verbose']
+        self._mpi_sort = algo_params['mpi_sort']
+        self._verbose = algo_params['verbose']
         self._epsilon = epsilon
 
         b_eq = self.derham.P['2']([magn_bckgr.b2_1,
@@ -775,53 +721,53 @@ class PushGuidingCenterParallel(Propagator):
 
         _eval_ker_names = []
 
-        if params['method'] == 'forward_euler':
+        if algo_params['method'] == 'forward_euler':
             _method = 'explicit'
             a = []
             b = [1.]
             c = [0.]
-        elif params['method'] == 'heun2':
+        elif algo_params['method'] == 'heun2':
             _method = 'explicit'
             a = [1.]
             b = [1/2, 1/2]
             c = [0., 1.]
-        elif params['method'] == 'rk2':
+        elif algo_params['method'] == 'rk2':
             _method = 'explicit'
             a = [1/2]
             b = [0., 1.]
             c = [0., 1/2]
-        elif params['method'] == 'heun3':
+        elif algo_params['method'] == 'heun3':
             _method = 'explicit'
             a = [1/3, 2/3]
             b = [1/4, 0., 3/4]
             c = [0., 1/3, 2/3]
-        elif params['method'] == 'rk4':
+        elif algo_params['method'] == 'rk4':
             _method = 'explicit'
             a = [1/2, 1/2, 1.]
             b = [1/6, 1/3, 1/3, 1/6]
             c = [0., 1/2, 1/2, 1.]
-        elif params['method'] == 'discrete_gradient':
+        elif algo_params['method'] == 'discrete_gradient':
             _method = 'implicit'
-            _kernel_name = 'push_gc_Bstar_' + params['method']
+            _kernel_name = 'push_gc_Bstar_' + algo_params['method']
             _eval_ker_names += ['gc_Bstar_' +
-                                params['method'] + '_eval_gradI']
+                                algo_params['method'] + '_eval_gradI']
 
-        elif params['method'] == 'discrete_gradient_faster':
+        elif algo_params['method'] == 'discrete_gradient_faster':
             _method = 'implicit'
-            _kernel_name = 'push_gc_Bstar_' + params['method']
+            _kernel_name = 'push_gc_Bstar_' + algo_params['method']
             _eval_ker_names += ['gc_Bstar_' +
-                                params['method'] + '_eval_gradI']
+                                algo_params['method'] + '_eval_gradI']
 
-        elif params['method'] == 'discrete_gradient_Itoh_Newton':
+        elif algo_params['method'] == 'discrete_gradient_Itoh_Newton':
             _method = 'implicit'
-            _kernel_name = 'push_gc_Bstar_' + params['method']
+            _kernel_name = 'push_gc_Bstar_' + algo_params['method']
             _eval_ker_names += ['gc_Bstar_' +
-                                params['method'] + '_eval1',
+                                algo_params['method'] + '_eval1',
                                 'gc_Bstar_' +
-                                params['method'] + '_eval2']
+                                algo_params['method'] + '_eval2']
         else:
             raise NotImplementedError(
-                f'Chosen method {params["method"]} is not implemented.')
+                f'Chosen method {algo_params["method"]} is not implemented.')
 
         if _method == 'explicit':
             butcher = ButcherTableau(a, b, c)
@@ -843,8 +789,8 @@ class PushGuidingCenterParallel(Propagator):
                                   _kernel_name,
                                   init_kernel=True,
                                   eval_kernels_names=_eval_ker_names,
-                                  maxiter=params['maxiter'],
-                                  tol=params['tol'])
+                                  maxiter=algo_params['maxiter'],
+                                  tol=algo_params['tol'])
 
             self._pusher_inputs = (self._epsilon, self._abs_b._data,
                                    b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
@@ -852,7 +798,7 @@ class PushGuidingCenterParallel(Propagator):
                                    unit_b2[0]._data, unit_b2[1]._data, unit_b2[2]._data,
                                    curl_norm_b[0]._data, curl_norm_b[1]._data, curl_norm_b[2]._data,
                                    grad_abs_b[0]._data, grad_abs_b[1]._data, grad_abs_b[2]._data,
-                                   params['maxiter'], params['tol'])
+                                   algo_params['maxiter'], algo_params['tol'])
 
     def __call__(self, dt):
         """
@@ -2041,13 +1987,13 @@ class PushRandomDiffusion(Propagator):
         \textnormal d \boldsymbol \eta_p(t) = \sqrt{2 D} \, \textnormal d \mathbf B_{t}\,,
 
     where :math:`D>0` is a positive diffusion coefficient and :math:`\textnormal d \mathbf B_{t}` is a Wiener process,
-    
+
     .. math::
-    
+
         \mathbf B_{t + \Delta t} - \mathbf B_{t} = \sqrt{\Delta t} \,\mathcal N(0;1)\,,
-        
+
     with :math:`\mathcal N(0;1)` denoting the standard normal distribution with mean zero and variance one.
-    
+
     Available algorithms:
 
         * forward_euler (1st order)

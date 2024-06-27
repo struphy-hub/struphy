@@ -4,6 +4,6 @@ Struphy model base class
 ------------------------
 
 .. automodule:: struphy.models.base
-    :members:
+    :members: StruphyModel
     :undoc-members:
     :show-inheritance:
