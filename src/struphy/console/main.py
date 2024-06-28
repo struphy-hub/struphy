@@ -177,6 +177,10 @@ def struphy():
     parser_compile.add_argument('--dependencies',
                                 help='print Struphy kernels to be compiled (.py) and their dependencies (.so) on screen',
                                 action='store_true')
+    
+    parser_compile.add_argument('--collect',
+                                help='collect Struphy models and save in .bin',
+                                action='store_true')
 
     parser_compile.add_argument('-y', '--yes',
                                 help='say yes to prompt when changing the language',
