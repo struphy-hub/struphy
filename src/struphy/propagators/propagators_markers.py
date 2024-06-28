@@ -11,7 +11,7 @@ from struphy.pic.pushing.pusher import Pusher
 from struphy.pic.pushing.pusher import ButcherTableau
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
-from struphy.pic.particles import Particles6D, Particles5D
+from struphy.pic.particles import Particles6D, Particles5D, Particles3D
 from struphy.pic.base import Particles
 from struphy.fields_background.mhd_equil.base import MHDequilibrium
 
@@ -114,8 +114,8 @@ class PushVxB(Propagator):
                  *,
                  algo: str = 'analytic',
                  scale_fac: float = 1.,
-                 b_eq: BlockVector | PolarVector = None,
-                 b_tilde: BlockVector | PolarVector = None):
+                 b_eq: BlockVector | PolarVector,
+                 b_tilde: BlockVector | PolarVector):
 
         super().__init__(particles)
 
@@ -1872,65 +1872,61 @@ class PushDriftKineticParallel(Propagator):
 
 
 class PushDeterministicDiffusion(Propagator):
-    r"""Solves with explicit time stepping
+    r"""For each marker :math:`p`, solves
 
     .. math::
 
-        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = - D \, \frac{\nabla \Pi^0_{L^2}u_h}{\Pi^0_{L^2} u_h}\mathbf (\boldsymbol \eta_p(t))\,, 
+        \frac{\textnormal d \mathbf x_p(t)}{\textnormal d t} = - D \, \frac{\nabla u}{ u}\mathbf (\mathbf x_p(t))\,,
+
+    in logical space given by :math:`\mathbf x = F(\boldsymbol \eta)`:
+
+    .. math::
+
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = - G\, D \, \frac{\nabla \Pi^0_{L^2}u_h}{\Pi^0_{L^2} u_h}\mathbf (\boldsymbol \eta_p(t))\,, 
         \qquad [\Pi^0_{L^2, ijk} u_h](\boldsymbol \eta_p) = \frac 1N \sum_{p} w_p \boldsymbol \Lambda^0_{ijk}(\boldsymbol \eta_p)\,,
 
-    for each marker :math:`p` in markers array, wher :math:`D>0` is a positive diffusion coefficient. 
+    where :math:`D>0` is a positive diffusion coefficient. 
     Available algorithms:
 
-    * forward_euler (1st order)
-    * heun2 (2nd order)
-    * rk2 (2nd order)
-    * heun3 (3rd order)
-    * rk4 (4th order)
-
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles3D
-        Holdes the markers to push.
-
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
+    * ``forward_euler`` (1st order)
+    * ``heun2`` (2nd order)
+    * ``rk2`` (2nd order)
+    * ``heun3`` (3rd order)
+    * ``rk4`` (4th order)
     """
 
-    def __init__(self, particles, **params):
+    def __init__(self,
+                 particles: Particles3D,
+                 *,
+                 algo: str = 'rk4',
+                 bc_type: list = ['periodic', 'periodic', 'periodic'],
+                 diffusion_coefficient: float = 1.):
 
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 
         super().__init__(particles)
 
-        # parameters
-        params_default = {'algo': 'push_deterministic_diffusion_stage',
-                          'bc_type': ['periodic', 'periodic', 'periodic'],
-                          'diffusion_coefficient': 1.
-                          }
-
-        params = set_defaults(params, params_default)
-
-        self._bc_type = params['bc_type']
+        self._bc_type = bc_type
+        self._diffusion = diffusion_coefficient
 
         # choose algorithm
-        if params['algo'] == 'forward_euler':
+        if algo == 'forward_euler':
             a = []
             b = [1.]
             c = [0.]
-        elif params['algo'] == 'heun2':
+        elif algo == 'heun2':
             a = [1.]
             b = [1/2, 1/2]
             c = [0., 1.]
-        elif params['algo'] == 'rk2':
+        elif algo == 'rk2':
             a = [1/2]
             b = [0., 1.]
             c = [0., 1/2]
-        elif params['algo'] == 'heun3':
+        elif algo == 'heun3':
             a = [1/3, 2/3]
             b = [1/4, 0., 3/4]
             c = [0., 1/3, 2/3]
-        elif params['algo'] == 'rk4':
+        elif algo == 'rk4':
             a = [1/2, 1/2, 1.]
             b = [1/6, 1/3, 1/3, 1/6]
             c = [0., 1/2, 1/2, 1.]
@@ -1945,8 +1941,6 @@ class PushDeterministicDiffusion(Propagator):
                               'push_deterministic_diffusion_stage', n_stages=self._butcher.n_stages)
 
         self._tmp = self.derham.Vh['1'].zeros()
-
-        self._diffusion = params['diffusion_coefficient']
 
     def __call__(self, dt):
         """
@@ -1980,11 +1974,11 @@ class PushDeterministicDiffusion(Propagator):
 
 
 class PushRandomDiffusion(Propagator):
-    r"""Solves for each marker :math:`p` in markers array
+    r"""For each marker :math:`p`, solves
 
     .. math::
 
-        \textnormal d \boldsymbol \eta_p(t) = \sqrt{2 D} \, \textnormal d \mathbf B_{t}\,,
+        \textnormal d \mathbf x_p(t) = \sqrt{2 D} \, \textnormal d \mathbf B_{t}\,,
 
     where :math:`D>0` is a positive diffusion coefficient and :math:`\textnormal d \mathbf B_{t}` is a Wiener process,
 
@@ -1996,30 +1990,22 @@ class PushRandomDiffusion(Propagator):
 
     Available algorithms:
 
-        * forward_euler (1st order)
+    * ``forward_euler`` (1st order)
+    """
 
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles3D
-        Holdes the markers to push.
-        """
-
-    def __init__(self, particles, **params):
+    def __init__(self,
+                 particles: Particles3D,
+                 algo: str = 'forward_euler',
+                 bc_type: list = ['periodic', 'periodic', 'periodic'],
+                 diffusion_coefficient: float = 1.):
 
         super().__init__(particles)
 
-        # parameters
-        params_default = {'algo': 'forward_euler',
-                          'bc_type': ['periodic', 'periodic', 'periodic'],
-                          'diffusion_coefficient': 1.
-                          }
-
-        params = set_defaults(params, params_default)
-
-        self._bc_type = params['bc_type']
+        self._bc_type = bc_type
+        self._diffusion = diffusion_coefficient
 
         # choose algorithm
-        if params['algo'] == 'forward_euler':
+        if algo == 'forward_euler':
             a = []
             b = [1.]
             c = [0.]
@@ -2036,7 +2022,6 @@ class PushRandomDiffusion(Propagator):
 
         self._mean = [0, 0, 0]
         self._cov = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-        self._diffusion = params['diffusion_coefficient']
 
     def __call__(self, dt):
         """

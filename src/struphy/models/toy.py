@@ -356,7 +356,7 @@ class ShearAlfven(StruphyModel):
 
     .. math::
 
-        n_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t}
+        \rho_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t}
         =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0\,,
 
         &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
@@ -583,27 +583,17 @@ class VariationalBarotropicFluid(StruphyModel):
 
     .. math::
 
-        \hat U =  \hat v_\textnormal{A} \,.
+        \hat u =  \hat v_\textnormal{A} \qquad \hat{\mathcal U} = ? \,.
 
     :ref:`Equations <gempic>`:
-
+    
     .. math::
 
-        \int_{\Omega} \partial_t (\rho \mathbf u) \cdot \mathbf v \, \textnormal d^3 \mathbf x 
-        - \int_{\Omega}\rho \mathbf u \cdot [\mathbf u, \mathbf v] \, \textnormal d^3 \mathbf x 
-        + \int_{\Omega} \big( \frac{| \mathbf u |^2}{2} - \frac{\partial \rho e}{\partial \rho} \big) \nabla \cdot (\rho \mathbf v) \, \textnormal d^3 \mathbf x = 0 ~ ,
+        &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
+        \\[4mm]
+        &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) + \rho \nabla \frac{(\rho \mathcal U (\rho))}{\partial \rho} = 0 \,.
 
-        \partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 ~ ,
-
-    where
-
-    .. math::
-        [\mathbf u,\mathbf v] = \mathbf u \cdot \nabla \mathbf v - \mathbf v \cdot \nabla \mathbf u ~ .
-
-    and
-
-    .. math::
-        e = \frac{\rho}{2} ~ .
+    where the energy per unit mass is :math:`\mathcal U(\rho) = \rho/2`.
 
     :ref:`propagators` (called in sequence):
 
@@ -715,35 +705,25 @@ class VariationalCompressibleFluid(StruphyModel):
 
     .. math::
 
-        \hat U =  \hat v_\textnormal{A} \,.
+        \hat u =  \hat v_\textnormal{A}\,, \qquad \hat{\mathcal U} = ?\,,\qquad \hat s = ? \,.
 
     :ref:`Equations <gempic>`:
-
+    
     .. math::
 
-        \int_{\Omega} \partial_t (\rho \mathbf u) \cdot \mathbf v \, \textnormal d^3 \mathbf x 
-        - \int_{\Omega}\rho \mathbf u \cdot [\mathbf u, \mathbf v] \, \textnormal d^3 \mathbf x 
-        + \int_{\Omega} \big( \frac{| \mathbf u |^2}{2} - \frac{\partial \rho e}{\partial \rho} \big) \nabla \cdot (\rho \mathbf v) \, \textnormal d^3 \mathbf x
-        + \int_{\Omega} \big( - \frac{\partial \rho e}{\partial s} \big) \nabla \cdot (s \mathbf v) \, \textnormal d^3 \mathbf x = 0 ~ ,
+        &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
+        \\[4mm]
+        &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) + \rho \nabla \frac{(\rho \mathcal U (\rho))}{\partial \rho} + s \nabla \frac{(\rho \mathcal U (\rho))}{\partial s} = 0 \,,
+        \\[4mm]
+        &\partial_t s + \nabla \cdot ( s \mathbf u ) = 0 \,,
 
-        \partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 ~ ,
-
-        \partial_t s + \nabla \cdot ( s \mathbf u ) = 0 ~ ,
-
-    where
-
-    .. math::
-        [\mathbf u,\mathbf v] = \mathbf u \cdot \nabla \mathbf v - \mathbf v \cdot \nabla \mathbf u ~ .
-
-    and
-
-    .. math::
-        e = \rho^{\gamma-1} \exp(s / \rho) ~ .
+    where the energy per unit mass is :math:`\mathcal U(\rho) = \rho^{\gamma-1} \exp(s / \rho)`.
 
     :ref:`propagators` (called in sequence):
 
     1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
     2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
+    3. :class:`~struphy.propagators.propagators_fields.VariationalEntropyEvolve`
 
     :ref:`Model info <add_model>`:
     '''
@@ -889,22 +869,22 @@ class Poisson(StruphyModel):
 
     .. math::
 
-        \hat U =  \hat v_\textnormal{A} \,.
+        \hat D = \frac{\hat n}{\hat x^2}\,,\qquad \hat \rho = \hat n \,.
 
     :ref:`Equations <gempic>`: Find :math:`\phi \in H^1` such that
 
     .. math::
 
-        \int_\Omega \psi\, n_0(\mathbf x) \phi\,\textrm d \mathbf x + \int_\Omega \nabla \psi^\top D_0(\mathbf x) \nabla \phi \,\textrm d \mathbf x = \int_\Omega \psi\, \rho(t, \mathbf x)\,\textrm d \mathbf x\qquad \forall \ \psi \in H^1\,,
+        - \nabla \cdot D_0(\mathbf x) \nabla \phi + n_0(\mathbf x) \phi =  \rho(t, \mathbf x)\,,
 
     where :math:`n_0, \rho(t):\Omega \to \mathbb R` are real-valued functions, :math:`\rho(t)` parametrized with time :math:`t`,
-    and :math:`D_0:\Omega \to \mathbb R^{3\times 3}` is a positive diffusion matrix. 
+    and :math:`D_0:\Omega \to \mathbb R^{3\times 3}` is a positive matrix. 
     Boundary terms from integration by parts are assumed to vanish.
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
-    2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
+    1. :class:`~struphy.propagators.propagators_fields.TimeDependentSource`
+    2. :class:`~struphy.propagators.propagators_fields.ImplicitDiffusion`
 
     :ref:`Model info <add_model>`:
     '''
@@ -998,8 +978,7 @@ class DeterministicParticleDiffusion(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
-    2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
+    1. :class:`~struphy.propagators.propagators_markers.PushDeterministicDiffusion`
 
     :ref:`Model info <add_model>`:
     '''
@@ -1093,8 +1072,7 @@ class RandomParticleDiffusion(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
-    2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
+    1. :class:`~struphy.propagators.propagators_markers.PushRandomDiffusion`
 
     :ref:`Model info <add_model>`:
     '''
