@@ -4085,15 +4085,16 @@ class VariationalEntropyEvolve(Propagator):
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'linear_tol': 1e-12,
-                         'non_linear_tol': 1e-8,
-                         'linear_maxiter': 500,
-                         'non_linear_maxiter': 100,
-                         'type_linear_solver': [('pcg', 'MassMatrixDiagonalPreconditioner'),
+        dct['lin_solver'] = {'tol': 1e-12,
+                         'maxiter': 500,
+                         'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
                                                 ('cg', None)],
-                         'non_linear_solver': ['Newton', 'Picard'],
                          'info': False,
                          'verbose': False,
+                         'implicit_transport': False}
+        dct['nonlin_solver'] = {'tol': 1e-8,
+                         'maxiter': 100,
+                         'type': ['Newton', 'Picard'],
                          'implicit_transport': False}
         dct['physics'] = {'gamma': 5/3}
         return dct
