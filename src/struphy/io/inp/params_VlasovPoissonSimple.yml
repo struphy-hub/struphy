@@ -1,7 +1,7 @@
 grid:
-    Nel: [12, 14, 1]
-    p: [2, 3, 1]
-    spl_kind: [false, true, true]
+    Nel: [32, 1, 1]
+    p: [1, 1, 1]
+    spl_kind: [true, true, true]
     dirichlet_bc: null
     dims_mask: [true, true, true]
     nq_el: [2, 2, 1]
@@ -44,7 +44,7 @@ kinetic:
     species1:
         phys_params: {A: 1, Z: 1}
         markers:
-            type: control_variate
+            type: full
             ppc: null
             Np: 1000
             eps: 0.25

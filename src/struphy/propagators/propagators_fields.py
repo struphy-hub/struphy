@@ -2579,14 +2579,8 @@ class ImplicitDiffusion(Propagator):
                 self._rhs2 += sig_3 * rho
 
         rhs += self._rhs2
-        CrhoStrings = [str(num) for num in rho.toarray(order='C')]
-        FrhoStrings = [str(num) for num in rho.toarray(order='F')]
 
         print("rho =" , rho.toarray())
-
-        print("CrhoStrings =" , CrhoStrings, '\n')
-        print("FrhoStrings =" , FrhoStrings, '\n')
-
 
         # compute lhs
         self._solver.linop = sig_1 * self._stab_mat + self._diffusion_op  
