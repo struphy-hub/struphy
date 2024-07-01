@@ -2461,6 +2461,7 @@ class ImplicitDiffusion(Propagator):
                 rho = [rho]
             self._rho = rho
 
+        # print("rho[0] =" , rho[0].toarray())
         # initial guess and solver params
         self._x0 = x0
         self._params = params
@@ -2578,6 +2579,14 @@ class ImplicitDiffusion(Propagator):
                 self._rhs2 += sig_3 * rho
 
         rhs += self._rhs2
+        CrhoStrings = [str(num) for num in rho.toarray(order='C')]
+        FrhoStrings = [str(num) for num in rho.toarray(order='F')]
+
+        print("rho =" , rho.toarray())
+
+        print("CrhoStrings =" , CrhoStrings, '\n')
+        print("FrhoStrings =" , FrhoStrings, '\n')
+
 
         # compute lhs
         self._solver.linop = sig_1 * self._stab_mat + self._diffusion_op  
@@ -2591,15 +2600,14 @@ class ImplicitDiffusion(Propagator):
 
         self.feec_vars_update(out)
 
-        print("HERE! e_field =")
+        # print("HERE!")
         
-        if self._e_field is not None:
-
-            # assert e field is 1 form
-            e_field = self.derham.grad.dot(out, out=self._e_field)
-            e_field *= -1.
-            # print("self.derham =" + self.derham)
-            print("e_field =" + e_field)
+        # if self._e_field is not None:
+        # assert e field is 1 form
+        e_field = self.derham.grad.dot(out, out=self._e_field)
+        e_field *= -1.
+        # print("out =" , out.toarray())
+        # print("e_field =" , e_field.toarray())
             
     @classmethod
     def options(cls):
