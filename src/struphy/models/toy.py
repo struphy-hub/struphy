@@ -58,8 +58,9 @@ class Maxwell(StruphyModel):
     @classmethod
     def options(cls):
         dct = {}
-        cls.add_option(species='em_fields', key='solver',
-                       option=propagators_fields.Maxwell.options()['solver'], dct=dct)
+        cls.add_option(species='em_fields', 
+                       option=propagators_fields.Maxwell, 
+                       dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -149,10 +150,12 @@ class Vlasov(StruphyModel):
     @classmethod
     def options(cls):
         dct = {}
-        cls.add_option(species=['kinetic', 'ions'], key='push_eta',
-                       option=propagators_markers.PushEta.options()['algo'], dct=dct)
-        cls.add_option(species=['kinetic', 'ions'], key='push_vxb',
-                       option=propagators_markers.PushVxB.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'ions'],
+                       option=propagators_markers.PushEta, 
+                       dct=dct)
+        cls.add_option(species=['kinetic', 'ions'],
+                       option=propagators_markers.PushVxB, 
+                       dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -267,10 +270,12 @@ class GuidingCenter(StruphyModel):
     @classmethod
     def options(cls):
         dct = {}
-        cls.add_option(species=['kinetic', 'ions'], key='push_bxEstar',
-                       option=propagators_markers.PushGuidingCenterBxEstar.options()['algo'], dct=dct)
-        cls.add_option(species=['kinetic', 'ions'], key='push_Bstar',
-                       option=propagators_markers.PushGuidingCenterParallel.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'ions'],
+                       option=propagators_markers.PushGuidingCenterBxEstar, 
+                       dct=dct)
+        cls.add_option(species=['kinetic', 'ions'], 
+                       option=propagators_markers.PushGuidingCenterParallel, 
+                       dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -296,11 +301,11 @@ class GuidingCenter(StruphyModel):
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {'magn_bckgr': magn_bckgr,
                                                                       'epsilon': epsilon,
-                                                                      **ions_params['options']['push_bxEstar']}
+                                                                      'algo': ions_params['options']['push_bxEstar']}
 
         self._kwargs[propagators_markers.PushGuidingCenterParallel] = {'magn_bckgr': magn_bckgr,
                                                                        'epsilon': epsilon,
-                                                                       **ions_params['options']['push_Bstar']}
+                                                                       'algo': ions_params['options']['push_Bstar']}
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
@@ -399,8 +404,9 @@ class ShearAlfven(StruphyModel):
     @classmethod
     def options(cls):
         dct = {}
-        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'shear_alfven'],
-                       option=propagators_fields.ShearAlfvén.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'mhd'], 
+                       option=propagators_fields.ShearAlfvén,
+                       dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -419,7 +425,8 @@ class ShearAlfven(StruphyModel):
                                          self.mhd_equil.b2_3])
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_fields.ShearAlfvén] = {**alfven_solver}
+        self._kwargs[propagators_fields.ShearAlfvén] = {'u_space': 'Hdiv',
+                                                        'solver': alfven_solver}
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
@@ -519,13 +526,12 @@ class VariationalPressurelessFluid(StruphyModel):
     @classmethod
     def options(cls):
         dct = {}
-
-        cls.add_option(species=['fluid', 'fluid'], key=['solver_momentum'],
-                       option=propagators_fields.VariationalMomentumAdvection.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'fluid'], key=['solver_density'],
-                       option=propagators_fields.VariationalDensityEvolve.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'fluid'], key=['physics'],
-                       option=propagators_fields.VariationalDensityEvolve.options()['physics'], dct=dct)
+        cls.add_option(species=['fluid', 'fluid'], 
+                       option=propagators_fields.VariationalMomentumAdvection, 
+                       dct=dct)
+        cls.add_option(species=['fluid', 'fluid'], 
+                       option=propagators_fields.VariationalDensityEvolve, 
+                       dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -545,8 +551,8 @@ class VariationalPressurelessFluid(StruphyModel):
             W_boundary_op=self.derham.boundary_ops['v'])
 
         # Initialize propagators/integrators used in splitting substeps
-        solver_momentum = params['fluid']['fluid']['options']['solver_momentum']
-        solver_density = params['fluid']['fluid']['options']['solver_density']
+        lin_solver_momentum = params['fluid']['fluid']['options']['solver_momentum']
+        lin_solver_density = params['fluid']['fluid']['options']['solver_density']
 
         gamma = params['fluid']['fluid']['options']['physics']['gamma']
 
@@ -554,7 +560,7 @@ class VariationalPressurelessFluid(StruphyModel):
         self._kwargs[propagators_fields.VariationalDensityEvolve] = {'model': 'pressureless',
                                                                      'gamma': gamma,
                                                                      'mass_ops': self.WMM,
-                                                                     **solver_density}
+                                                                     'lin_solver': lin_solver_density}
 
         self._kwargs[propagators_fields.VariationalMomentumAdvection] = {'mass_ops': self.WMM,
                                                                          **solver_momentum}
@@ -586,7 +592,7 @@ class VariationalBarotropicFluid(StruphyModel):
         \hat u =  \hat v_\textnormal{A} \qquad \hat{\mathcal U} = ? \,.
 
     :ref:`Equations <gempic>`:
-    
+
     .. math::
 
         &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
@@ -631,12 +637,12 @@ class VariationalBarotropicFluid(StruphyModel):
     @classmethod
     def options(cls):
         dct = {}
-        cls.add_option(species=['fluid', 'fluid'], key=['solver_momentum'],
-                       option=propagators_fields.VariationalMomentumAdvection.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'fluid'], key=['solver_density'],
-                       option=propagators_fields.VariationalDensityEvolve.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'fluid'], key=['physics'],
-                       option=propagators_fields.VariationalDensityEvolve.options()['physics'], dct=dct)
+        cls.add_option(species=['fluid', 'fluid'], 
+                       option=propagators_fields.VariationalMomentumAdvection,
+                       dct=dct)
+        cls.add_option(species=['fluid', 'fluid'], 
+                       option=propagators_fields.VariationalDensityEvolve,
+                       dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -708,7 +714,7 @@ class VariationalCompressibleFluid(StruphyModel):
         \hat u =  \hat v_\textnormal{A}\,, \qquad \hat{\mathcal U} = ?\,,\qquad \hat s = ? \,.
 
     :ref:`Equations <gempic>`:
-    
+
     .. math::
 
         &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
@@ -757,14 +763,15 @@ class VariationalCompressibleFluid(StruphyModel):
     @classmethod
     def options(cls):
         dct = {}
-        cls.add_option(species=['fluid', 'fluid'], key=['solver_momentum'],
-                       option=propagators_fields.VariationalMomentumAdvection.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'fluid'], key=['solver_density'],
-                       option=propagators_fields.VariationalDensityEvolve.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'fluid'], key=['solver_entropy'],
-                       option=propagators_fields.VariationalEntropyEvolve.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'fluid'], key=['physics'],
-                       option=propagators_fields.VariationalDensityEvolve.options()['physics'], dct=dct)
+        cls.add_option(species=['fluid', 'fluid'],
+                       option=propagators_fields.VariationalMomentumAdvection, 
+                       dct=dct)
+        cls.add_option(species=['fluid', 'fluid'], 
+                       option=propagators_fields.VariationalDensityEvolve, 
+                       dct=dct)
+        cls.add_option(species=['fluid', 'fluid'], 
+                       option=propagators_fields.VariationalEntropyEvolve, 
+                       dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -864,7 +871,7 @@ class VariationalCompressibleFluid(StruphyModel):
 class Poisson(StruphyModel):
     r'''Weak discretization of Poisson's equation with diffusion matrix, stabilization 
     and time-depedent right-hand side.
-    
+
     :ref:`normalization`:
 
     .. math::
@@ -920,14 +927,12 @@ class Poisson(StruphyModel):
     @classmethod
     def options(cls):
         dct = {}
-        cls.add_option(species=['em_fields'], key=['source', 'omega'],
-                       option=propagators_fields.TimeDependentSource.options()['omega'], dct=dct)
-        cls.add_option(species=['em_fields'], key=['source', 'hfun'],
-                       option=propagators_fields.TimeDependentSource.options()['hfun'], dct=dct)
-        cls.add_option(species=['em_fields'], key=['poisson', 'model'],
-                       option=propagators_fields.ImplicitDiffusion.options()['model'], dct=dct)
-        cls.add_option(species=['em_fields'], key=['poisson', 'solver'],
-                       option=propagators_fields.ImplicitDiffusion.options()['solver'], dct=dct)
+        cls.add_option(species=['em_fields'], 
+                       option=propagators_fields.TimeDependentSource, 
+                       dct=dct)
+        cls.add_option(species=['em_fields'], 
+                       option=propagators_fields.ImplicitDiffusion, 
+                       dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -1012,10 +1017,9 @@ class DeterministicParticleDiffusion(StruphyModel):
     @classmethod
     def options(cls):
         dct = {}
-        cls.add_option(species=['kinetic', 'species1'], key='push_diffusion',
-                       option=propagators_markers.PushDeterministicDiffusion.options()['algo'], dct=dct)
-        cls.add_option(species=['kinetic', 'species1'], key='diffusion_coefficient',
-                       option=propagators_markers.PushDeterministicDiffusion.options()['diffusion_coefficient'], dct=dct)
+        cls.add_option(species=['kinetic', 'species1'],
+                       option=propagators_markers.PushDeterministicDiffusion, 
+                       dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -1106,10 +1110,9 @@ class RandomParticleDiffusion(StruphyModel):
     @classmethod
     def options(cls):
         dct = {}
-        cls.add_option(species=['kinetic', 'species1'], key='push_random_diffusion_stage',
-                       option=propagators_markers.PushRandomDiffusion.options()['algo'], dct=dct)
-        cls.add_option(species=['kinetic', 'species1'], key='diffusion_coefficient',
-                       option=propagators_markers.PushRandomDiffusion.options()['diffusion_coefficient'], dct=dct)
+        cls.add_option(species=['kinetic', 'species1'], 
+                       option=propagators_markers.PushRandomDiffusion, 
+                       dct=dct)
         return dct
 
     def __init__(self, params, comm):

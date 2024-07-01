@@ -449,7 +449,7 @@ class PushGuidingCenterBxEstar(Propagator):
                  *,
                  magn_bckgr: MHDequilibrium,
                  epsilon: float = 1.,
-                 algo_params: dict = {
+                 algo: dict = {
                      'method': 'discrete_gradient',
                      'maxiter': 20,
                      'tol': 1e-07,
@@ -458,8 +458,8 @@ class PushGuidingCenterBxEstar(Propagator):
 
         super().__init__(particles)
 
-        self._mpi_sort = algo_params['mpi_sort']
-        self._verbose = algo_params['verbose']
+        self._mpi_sort = algo['mpi_sort']
+        self._verbose = algo['verbose']
         self._epsilon = epsilon
 
         # magnetic field
@@ -506,52 +506,52 @@ class PushGuidingCenterBxEstar(Propagator):
 
         _eval_ker_names = []
 
-        if algo_params['method'] == 'forward_euler':
+        if algo['method'] == 'forward_euler':
             _method = 'explicit'
             a = []
             b = [1.]
             c = [0.]
-        elif algo_params['method'] == 'heun2':
+        elif algo['method'] == 'heun2':
             _method = 'explicit'
             a = [1.]
             b = [1/2, 1/2]
             c = [0., 1.]
-        elif algo_params['method'] == 'rk2':
+        elif algo['method'] == 'rk2':
             _method = 'explicit'
             a = [1/2]
             b = [0., 1.]
             c = [0., 1/2]
-        elif algo_params['method'] == 'heun3':
+        elif algo['method'] == 'heun3':
             _method = 'explicit'
             a = [1/3, 2/3]
             b = [1/4, 0., 3/4]
             c = [0., 1/3, 2/3]
-        elif algo_params['method'] == 'rk4':
+        elif algo['method'] == 'rk4':
             _method = 'explicit'
             a = [1/2, 1/2, 1.]
             b = [1/6, 1/3, 1/3, 1/6]
             c = [0., 1/2, 1/2, 1.]
-        elif algo_params['method'] == 'discrete_gradient':
+        elif algo['method'] == 'discrete_gradient':
             _method = 'implicit'
-            _kernel_name = 'push_gc_bxEstar_' + algo_params['method']
+            _kernel_name = 'push_gc_bxEstar_' + algo['method']
             _eval_ker_names += ['gc_bxEstar_' +
-                                algo_params['method'] + '_eval_gradI']
-        elif algo_params['method'] == 'discrete_gradient_faster':
+                                algo['method'] + '_eval_gradI']
+        elif algo['method'] == 'discrete_gradient_faster':
             _method = 'implicit'
-            _kernel_name = 'push_gc_bxEstar_' + algo_params['method']
+            _kernel_name = 'push_gc_bxEstar_' + algo['method']
             _eval_ker_names += ['gc_bxEstar_' +
-                                algo_params['method'] + '_eval_gradI']
+                                algo['method'] + '_eval_gradI']
 
-        elif algo_params['method'] == 'discrete_gradient_Itoh_Newton':
+        elif algo['method'] == 'discrete_gradient_Itoh_Newton':
             _method = 'implicit'
-            _kernel_name = 'push_gc_bxEstar_' + algo_params['method']
+            _kernel_name = 'push_gc_bxEstar_' + algo['method']
             _eval_ker_names += ['gc_bxEstar_' +
-                                algo_params['method'] + '_eval1',
+                                algo['method'] + '_eval1',
                                 'gc_bxEstar_' +
-                                algo_params['method'] + '_eval2']
+                                algo['method'] + '_eval2']
         else:
             raise NotImplementedError(
-                f'Chosen method {algo_params["method"]} is not implemented.')
+                f'Chosen method {algo["method"]} is not implemented.')
 
         if _method == 'explicit':
             butcher = ButcherTableau(a, b, c)
@@ -573,8 +573,8 @@ class PushGuidingCenterBxEstar(Propagator):
                                   _kernel_name,
                                   init_kernel=True,
                                   eval_kernels_names=_eval_ker_names,
-                                  maxiter=algo_params['maxiter'],
-                                  tol=algo_params['tol'])
+                                  maxiter=algo['maxiter'],
+                                  tol=algo['tol'])
 
             self._pusher_inputs = (self._epsilon, self._abs_b._data,
                                    b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
@@ -582,7 +582,7 @@ class PushGuidingCenterBxEstar(Propagator):
                                    unit_b2[0]._data, unit_b2[1]._data, unit_b2[2]._data,
                                    curl_norm_b[0]._data, curl_norm_b[1]._data, curl_norm_b[2]._data,
                                    grad_abs_b[0]._data, grad_abs_b[1]._data, grad_abs_b[2]._data,
-                                   algo_params['maxiter'], algo_params['tol'])
+                                   algo['maxiter'], algo['tol'])
 
     def __call__(self, dt):
         """
@@ -666,7 +666,7 @@ class PushGuidingCenterParallel(Propagator):
                  *,
                  magn_bckgr: MHDequilibrium,
                  epsilon: float = 1.,
-                 algo_params: dict = {
+                 algo: dict = {
                      'method': 'discrete_gradient_faster',
                      'maxiter': 20,
                      'tol': 1e-07,
@@ -675,8 +675,8 @@ class PushGuidingCenterParallel(Propagator):
 
         super().__init__(particles)
 
-        self._mpi_sort = algo_params['mpi_sort']
-        self._verbose = algo_params['verbose']
+        self._mpi_sort = algo['mpi_sort']
+        self._verbose = algo['verbose']
         self._epsilon = epsilon
 
         b_eq = self.derham.P['2']([magn_bckgr.b2_1,
@@ -721,53 +721,53 @@ class PushGuidingCenterParallel(Propagator):
 
         _eval_ker_names = []
 
-        if algo_params['method'] == 'forward_euler':
+        if algo['method'] == 'forward_euler':
             _method = 'explicit'
             a = []
             b = [1.]
             c = [0.]
-        elif algo_params['method'] == 'heun2':
+        elif algo['method'] == 'heun2':
             _method = 'explicit'
             a = [1.]
             b = [1/2, 1/2]
             c = [0., 1.]
-        elif algo_params['method'] == 'rk2':
+        elif algo['method'] == 'rk2':
             _method = 'explicit'
             a = [1/2]
             b = [0., 1.]
             c = [0., 1/2]
-        elif algo_params['method'] == 'heun3':
+        elif algo['method'] == 'heun3':
             _method = 'explicit'
             a = [1/3, 2/3]
             b = [1/4, 0., 3/4]
             c = [0., 1/3, 2/3]
-        elif algo_params['method'] == 'rk4':
+        elif algo['method'] == 'rk4':
             _method = 'explicit'
             a = [1/2, 1/2, 1.]
             b = [1/6, 1/3, 1/3, 1/6]
             c = [0., 1/2, 1/2, 1.]
-        elif algo_params['method'] == 'discrete_gradient':
+        elif algo['method'] == 'discrete_gradient':
             _method = 'implicit'
-            _kernel_name = 'push_gc_Bstar_' + algo_params['method']
+            _kernel_name = 'push_gc_Bstar_' + algo['method']
             _eval_ker_names += ['gc_Bstar_' +
-                                algo_params['method'] + '_eval_gradI']
+                                algo['method'] + '_eval_gradI']
 
-        elif algo_params['method'] == 'discrete_gradient_faster':
+        elif algo['method'] == 'discrete_gradient_faster':
             _method = 'implicit'
-            _kernel_name = 'push_gc_Bstar_' + algo_params['method']
+            _kernel_name = 'push_gc_Bstar_' + algo['method']
             _eval_ker_names += ['gc_Bstar_' +
-                                algo_params['method'] + '_eval_gradI']
+                                algo['method'] + '_eval_gradI']
 
-        elif algo_params['method'] == 'discrete_gradient_Itoh_Newton':
+        elif algo['method'] == 'discrete_gradient_Itoh_Newton':
             _method = 'implicit'
-            _kernel_name = 'push_gc_Bstar_' + algo_params['method']
+            _kernel_name = 'push_gc_Bstar_' + algo['method']
             _eval_ker_names += ['gc_Bstar_' +
-                                algo_params['method'] + '_eval1',
+                                algo['method'] + '_eval1',
                                 'gc_Bstar_' +
-                                algo_params['method'] + '_eval2']
+                                algo['method'] + '_eval2']
         else:
             raise NotImplementedError(
-                f'Chosen method {algo_params["method"]} is not implemented.')
+                f'Chosen method {algo["method"]} is not implemented.')
 
         if _method == 'explicit':
             butcher = ButcherTableau(a, b, c)
@@ -789,8 +789,8 @@ class PushGuidingCenterParallel(Propagator):
                                   _kernel_name,
                                   init_kernel=True,
                                   eval_kernels_names=_eval_ker_names,
-                                  maxiter=algo_params['maxiter'],
-                                  tol=algo_params['tol'])
+                                  maxiter=algo['maxiter'],
+                                  tol=algo['tol'])
 
             self._pusher_inputs = (self._epsilon, self._abs_b._data,
                                    b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
@@ -798,7 +798,7 @@ class PushGuidingCenterParallel(Propagator):
                                    unit_b2[0]._data, unit_b2[1]._data, unit_b2[2]._data,
                                    curl_norm_b[0]._data, curl_norm_b[1]._data, curl_norm_b[2]._data,
                                    grad_abs_b[0]._data, grad_abs_b[1]._data, grad_abs_b[2]._data,
-                                   algo_params['maxiter'], algo_params['tol'])
+                                   algo['maxiter'], algo['tol'])
 
     def __call__(self, dt):
         """

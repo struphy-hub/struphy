@@ -194,7 +194,8 @@ class VlasovAmpere(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct
 
 
@@ -378,7 +379,8 @@ class EfieldWeights(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct
 
 
@@ -600,7 +602,8 @@ class EfieldWeightsImplicit(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct
 
 
@@ -905,7 +908,8 @@ class EfieldWeightsAnalytic(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct
 
 
@@ -1112,7 +1116,8 @@ class PressureCoupling6D(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct
 
     class GT_MAT_G(LinOpWithTransp):
@@ -1415,7 +1420,8 @@ class CurrentCoupling6DCurrent(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct
 
 
@@ -1773,7 +1779,8 @@ class CurrentCoupling5DCurlb(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct
 
 
@@ -2188,6 +2195,7 @@ class CurrentCoupling5DGradB(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         dct['algo'] = ['rk4', 'forward_euler', 'heun2', 'rk2', 'heun3']
         return dct

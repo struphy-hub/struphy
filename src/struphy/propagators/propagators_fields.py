@@ -122,7 +122,8 @@ class Maxwell(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct
 
 
@@ -239,7 +240,8 @@ class OhmCold(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct
 
 
@@ -339,7 +341,8 @@ class JxBCold(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct
 
 
@@ -456,7 +459,8 @@ class ShearAlfvén(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct
 
 
@@ -585,13 +589,15 @@ class ShearAlfvénB1(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         dct['M1_inv'] = {'type_M1': [('pcg', 'MassMatrixPreconditioner'),
                                      ('cg', None)],
                          'tol_M1': 1.e-8,
                          'maxiter_M1': 3000,
                          'info_M1': False,
-                         'verbose_M1': False}
+                         'verbose_M1': False,
+                         'recycle_M1': True}
         return dct
 
 
@@ -697,7 +703,8 @@ class Hall(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct
 
 
@@ -862,7 +869,8 @@ class Magnetosonic(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct
 
 
@@ -1002,7 +1010,8 @@ class SonicIon(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct
 
 
@@ -1144,7 +1153,8 @@ class SonicElectron(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct
 
 
@@ -1311,7 +1321,8 @@ class FaradayExtended(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct
 
 
@@ -1512,7 +1523,8 @@ class CurrentCoupling6DDensity(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct
 
 
@@ -1720,7 +1732,8 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct
 
 
@@ -1994,7 +2007,8 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct
 
     def _initialize_projection_operator_TB(self):
@@ -2319,7 +2333,8 @@ class CurrentCoupling5DDensity(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct
 
 
@@ -2380,7 +2395,7 @@ class ImplicitDiffusion(Propagator):
     x0 : StencilVector
         Initial guess for the iterative solver (optional, can be set with a setter later).
 
-    **params : dict
+    solver : dict
         Parameters for the iterative solver (see ``__init__`` for details).
     """
 
@@ -2395,7 +2410,7 @@ class ImplicitDiffusion(Propagator):
                  diffusion_mat: str = 'M1',
                  rho: StencilVector | tuple | list = None,
                  x0: StencilVector = None,
-                 params: dict = {'type': ('pcg', 'MassMatrixPreconditioner'),
+                 solver: dict = {'type': ('pcg', 'MassMatrixPreconditioner'),
                                  'tol': 1e-8,
                                  'maxiter': 3000,
                                  'info': False,
@@ -2441,7 +2456,7 @@ class ImplicitDiffusion(Propagator):
 
         # initial guess and solver params
         self._x0 = x0
-        self._params = params
+        self._info = solver['info']
         stab_mat = getattr(self.mass_ops, stab_mat)
         diffusion_mat = getattr(self.mass_ops, diffusion_mat)
 
@@ -2450,21 +2465,21 @@ class ImplicitDiffusion(Propagator):
         self._diffusion_op = self.derham.grad.T @ diffusion_mat @ self.derham.grad
 
         # preconditioner and solver for Ax=b
-        if params['type'][1] is None:
+        if solver['type'][1] is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, params['type'][1])
+            pc_class = getattr(preconditioner, solver['type'][1])
             pc = pc_class(stab_mat)
 
         # solver just with A_2, but will be set during call with dt
         self._solver = inverse(self._diffusion_op,
-                               params['type'][0],
+                               solver['type'][0],
                                pc=pc,
                                x0=self.x0,
-                               tol=params['tol'],
-                               maxiter=params['maxiter'],
-                               verbose=params['verbose'],
-                               recycle=params['recycle'])
+                               tol=solver['tol'],
+                               maxiter=solver['maxiter'],
+                               verbose=solver['verbose'],
+                               recycle=solver['recycle'])
 
         # allocate memory for solution
         self._tmp = phi.space.zeros()
@@ -2563,7 +2578,7 @@ class ImplicitDiffusion(Propagator):
         out = self._solver.solve(rhs, out=self._tmp)
         info = self._solver._info
 
-        if self._lin_solver['info']:
+        if self._info:
             print(info)
 
         self.feec_vars_update(out)
@@ -2581,7 +2596,9 @@ class ImplicitDiffusion(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': False,
+                         'recycle': True}
         return dct
 
 
@@ -2782,15 +2799,15 @@ class VariationalMomentumAdvection(Propagator):
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'linear_tol': 1e-12,
-                         'non_linear_tol': 1e-8,
-                         'linear_maxiter': 500,
-                         'non_linear_maxiter': 100,
-                         'type_linear_solver': [('pcg', 'MassMatrixDiagonalPreconditioner'),
-                                                ('cg', None)],
-                         'non_linear_solver': ['Newton', 'Picard'],
-                         'info': False,
-                         'verbose': False}
+        dct['lin_solver'] = {'tol': 1e-12,
+                             'maxiter': 500,
+                             'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
+                                      ('cg', None)],
+                             'info': False,
+                             'verbose': False}
+        dct['nonlin_solver'] = {'tol': 1e-8,
+                                'maxiter': 100,
+                                'type': ['Newton', 'Picard']}
         return dct
 
     def _initialize_mass(self):
@@ -2885,16 +2902,17 @@ class VariationalDensityEvolve(Propagator):
                  rho: StencilVector,
                  u: BlockVector,
                  *,
-                 model: str = 'full',
+                 model: str = 'barotropic',
                  gamma: float = 5/3,
-                 s: StencilVector,
+                 s: StencilVector = None,
                  mass_ops: WeightedMassOperator,
                  implicit_transport: bool = False,
                  lin_solver: dict = {'tol': 1e-12,
                                      'maxiter': 500,
                                      'type': ('pcg', 'MassMatrixDiagonalPreconditioner'),
                                      'info': False,
-                                     'verbose': False},
+                                     'verbose': False,
+                                     'recycle': True},
                  nonlin_solver: dict = {'tol': 1e-8,
                                         'maxiter': 100,
                                         'type': 'Newton'}):
@@ -3166,7 +3184,8 @@ class VariationalDensityEvolve(Propagator):
                              'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
                                       ('cg', None)],
                              'info': False,
-                             'verbose': False}
+                             'verbose': False,
+                             'recycle': True}
         dct['nonlin_solver'] = {'tol': 1e-8,
                                 'maxiter': 100,
                                 'type': ['Newton', 'Picard'], }
@@ -3792,18 +3811,6 @@ class VariationalEntropyEvolve(Propagator):
     .. math::
 
         \hat{\mathbf{u}}_h^{k} = (\mathbf{u}^{k})^\top \vec{\boldsymbol \Lambda}^v \in (V_h^0)^3 \, \text{for k in} \{n, n+1/2, n+1\}, \qquad \hat{s}_h^{k} = (s^{k})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \, \text{for k in} \{n, n+1/2, n+1\} \qquad \hat{\rho}_h^{n} = (\rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \.
-
-    Parameters
-    ----------
-    s : psydac.linalg.stencil.Vector
-        FE coefficients of a discrete field, entropy of the solution.
-
-    u : psydac.linalg.stencil.BlockVector
-        FE coefficients of a discrete vector field,velocity of the solution.
-
-    **params : dict
-        Parameters for the iterative solver, the linear solver and the model.
-
     '''
 
     def __init__(self,
@@ -5968,17 +5975,13 @@ class TimeDependentSource(Propagator):
 
     * :math:`h(\omega t) = \cos(\omega t)` (default)
     * :math:`h(\omega t) = \sin(\omega t)` 
-
-    Parameters
-    ----------
-    c : psydac.linalg.stencil.StencilVector or psydac.linalg.block.BlockVector
-        FE coefficients at t=0.
-
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
     '''
 
-    def __init__(self, c, omega=1., hfun='cos'):
+    def __init__(self,
+                 c: StencilVector,
+                 *,
+                 omega: float = 1.,
+                 hfun: str = 'cos'):
 
         super().__init__(c)
 
@@ -6196,5 +6199,6 @@ class AdiabaticPhi(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False}
+                         'verbose': False,
+                         'recycle': True}
         return dct

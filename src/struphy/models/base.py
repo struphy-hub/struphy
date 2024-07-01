@@ -3,6 +3,7 @@ import numpy as np
 import yaml
 from functools import reduce
 import operator
+import inspect
 
 from struphy.propagators.base import Propagator
 
@@ -279,26 +280,29 @@ class StruphyModel(metaclass=ABCMeta):
         return self._time_state
 
     @classmethod
-    def add_option(cls, species, key, option, dct):
-        """ Add an option to the dictionary of parameters.
-
-        The value (what) is added in the dictionary at the point
-            dct[who]['options'][key] = what
-        If the path (or a part of it) does not exist it will be created as an empty dictionary.
+    def add_option(cls, 
+                   species: str | list, 
+                   option, 
+                   dct: dict,
+                   *,
+                   key=None):
+        """ Add an option to the dictionary of parameters under [species][options].
+        
+        Test with "struphy params MODEL".
 
         Parameters
         ----------
         species : str or list
             path in the dict before the 'options' key
 
-        key : str or list
-            path in the dict after the 'options' key
-
         option : any
             value which should be added in the dict
 
         dct : dict
             dictionary to which the value should be added at the corresponding position
+            
+        key : str or list
+            path in the dict after the 'options' key
         """
         def getFromDict(dataDict, mapList):
             return reduce(operator.getitem, mapList, dataDict)
@@ -320,7 +324,11 @@ class StruphyModel(metaclass=ABCMeta):
         if isinstance(key, str):
             key = [key]
 
-        setInDict(dct, species + ['options'] + key, option)
+        if inspect.isclass(option):
+            setInDict(dct, species + ['options'] + [option.__name__], option.options())
+        else:
+            assert key is not None, 'Must provide key if option is not a class.'
+            setInDict(dct, species + ['options'] + key, option)
 
     def add_scalar(self, name):
         '''Add a scalar that should be saved during the simulation.
