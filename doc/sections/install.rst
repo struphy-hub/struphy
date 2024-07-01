@@ -3,89 +3,22 @@
 Install
 =======
 
-Struphy can be installed in the following ways:
-
-1. From :ref:`PyPI <pypi_install>`, for running the latest release
-2. From :ref:`source <source_install>`, for running or adding code 
-3. Using :ref:`Docker images <docker_install>`, also suited :ref:`for developers <docker_devs>`
-
-The use of a :ref:`virtualenv` and :ref:`args` is recommended.
-
-
 .. _require:
 
 Requirements
 ------------
 
-The basic requirements are **Python3**, a **C or Fortran compiler** and a **working MPI environment**.
-
-- Python >3.7 and <3.12 and pip3
+- Python >=3.10 and <3.12 
 - C or Fortran compiler like gcc, gfortran
 - Linear algebra packages BLAS and LAPACK
 - An MPI library like open-mpi, mpich
 - OpenMP
-- Git version control system
-- Pandoc (optional)
-- **Struphy does not support** `Anaconda <https://www.anaconda.com/>`_, please use Python directly.
+- **Struphy is not currently supported** with `Anaconda <https://www.anaconda.com/>`_, please use Python directly.
 
-Sample environment on **Debian-Ubuntu-Mint**::
+In order not to interfere with existing Python packages, 
+it is highly recommended to install Struphy in a `Virtual Python environment <https://pypi.org/project/virtualenv/>`_::
 
-    sudo apt update
-    sudo apt install -y python3-pip
-    sudo apt install -y python3.11-venv
-    sudo apt install -y gcc
-    sudo apt install -y gfortran
-    sudo apt install -y libblas-dev liblapack-dev
-    sudo apt install -y libopenmpi-dev openmpi-bin
-    sudo apt install -y libomp-dev libomp5
-    sudo apt install -y git
-    sudo apt install -y pandoc
-    sudo apt install -y sqlite3 
-
-Sample environment on **Fedora-CentOS-RHEL**::
-
-    sudo dnf check-update
-    sudo dnf install -y python3-pip
-    sudo dnf install -y gcc
-    sudo dnf install -y gfortran
-    sudo dnf install -y blas-devel lapack-devel
-    sudo dnf install -y openmpi openmpi-devel
-    sudo dnf install -y libgomp
-    sudo dnf install -y git
-    sudo dnf install -y environment-modules
-    sudo dnf install -y python3-mpi4py-openmpi
-    sudo dnf install -y python3-devel
-    sudo dnf install -y pandoc
-    sudo dnf install -y sqlite
-
-Sample environment on **Mac OS**::
-
-    brew update
-    brew install python3
-    brew install gcc
-    brew install openblas
-    brew install lapack
-    brew install open-mpi
-    brew install libomp
-    brew install git
-    brew install pandoc
-
-In case you see problems with the `mpi4py` build on **Mac OS**, you can try to install the Xcode command line tools (160 MB)::
-
-    xcode-select --install
-
-On **Windows systems** we recommend the use of a virtual machine, for instance the :ref:`multipass`.
-
-
-.. _virtualenv:
-
-Virtual Python environment
---------------------------
-
-In order for the Struphy installation not to interfere with the custom Python environment you have set up on your machine, 
-we recommend the use of a `Virtual Python environment <https://pypi.org/project/virtualenv/>`_::
-
-    pip install -U virtualenv
+    python3 -m pip install -U virtualenv
 
 Create virtual environment::
 
@@ -100,11 +33,71 @@ Check the pre-installed packages and upgrade ``pip``::
     pip list
     pip install --upgrade pip
 
-Continue with the Struphy installation. When finished, you can deactivate the virtual environment::
+Continue with the Struphy installation; the quickest install is via :ref:`PyPI <pypi_install>`::
+    
+    pip install struphy
+    struphy compile
+
+When finished, you can deactivate the virtual environment::
 
     deactivate
 
 The environment is stored in the folder ``<name>`` and can be re-activated any time for working with Struphy.
+
+
+.. _install_modes:
+
+Install modes
+-------------
+
+Struphy can be installed in the following ways:
+
+1. From :ref:`PyPI <pypi_install>`, for running the latest release
+2. From :ref:`source <source_install>`, for running or adding code 
+3. Using :ref:`Docker images <docker_install>`, also suited :ref:`for developers <docker_devs>`
+
+In case you encounter problems during install, check out :ref:`trouble_shoot`.
+
+
+.. _sample_envs:
+
+Sample environments
+-------------------
+
+Some Linux environments on which Struphy is continuously tested can be seen here:
+
+* `Docker's ubuntu:latest <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/.gitlab-ci.yml?ref_type=heads#L183>`_
+* `Docker's fedora:latest <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/.gitlab-ci.yml?ref_type=heads#L400>`_
+* `Docker's opensuse/tumbleweed:latest <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/.gitlab-ci.yml?ref_type=heads#L478>`_
+* `Docker's almalinux:latest <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/.gitlab-ci.yml?ref_type=heads#L548>`_
+
+Sample environment on **Mac OS**::
+
+    brew update
+    brew install python3
+    brew install gcc
+    brew install openblas
+    brew install lapack
+    brew install open-mpi
+    brew install libomp
+    brew install git
+    brew install pandoc
+
+On **Windows systems** we recommend the use of a virtual machine, for instance the :ref:`multipass`.
+
+
+.. _trouble_shoot:
+
+Trouble shooting
+----------------
+
+* Make sure that you can ``pip install mpi4py``.
+* In many cases installing ``apt install openmpi-devel`` solves a problem with missing headers.
+* On Mac OS, you can try to install the command line tools (160 MB) ``xcode-select --install``.
+* Struphy is not supported with Conda; however, in case you insist you might try::
+
+    conda install mpich
+    conda install gxx_linux-64
 
 
 .. _pypi_install:
@@ -178,6 +171,15 @@ encapsulated from your host machine.
 The container is launched from an `image <https://docs.docker.com/get-started/overview/#docker-objects>`_ 
 which you can download and run immediately, irrespective of your architecture and OS.
 
+Availabe Struphy images:
+
+* `struphy_ubuntu_python_3_11 <https://gitlab.mpcdf.mpg.de/struphy/struphy/container_registry>`_
+* `struphy_fedora_python_3_10 <https://gitlab.mpcdf.mpg.de/struphy/struphy/container_registry>`_
+* `struphy_opensuse_python_3_11 <https://gitlab.mpcdf.mpg.de/struphy/struphy/container_registry>`_
+* `struphy_almalinux_python_3_10 <https://gitlab.mpcdf.mpg.de/struphy/struphy/container_registry>`_
+
+Each of these images comes with a recent build of the ``devel`` branch under ``/struphy_install/struphy*.whl``.
+Check out the `corresponding docker files <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/tree/devel/docker?ref_type=heads>`_.
 
 .. _user_install:
 
@@ -202,14 +204,13 @@ If you are uncomfortable with running `sudo`, you can `run docker in "rootless" 
 
     docker login gitlab-registry.mpcdf.mpg.de -u docker_api -p glpat--z6kJtobeG-xM_LdL6k6
 
-3. Pull one of the following environment images (< 1 GB in size)::
+3. Pull one of the availabale images listed above (< 1 GB in size), for instance::
 
-    docker pull gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu:latest
-    docker pull gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora:latest
+    docker pull gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
 
 4. Run the container::
 
-    docker run -it gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu:latest
+    docker run -it gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
 
 The option ``-i`` stands for interactive while ``-t`` gives you a terminal.
 
