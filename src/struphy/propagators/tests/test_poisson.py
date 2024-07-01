@@ -31,7 +31,8 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
                      'tol': 1.e-13,
                      'maxiter': 3000,
                      'info': True,
-                     'verbose': False}
+                     'verbose': False,
+                     'recycle': False}
 
     # create domain object
     dom_type = mapping[0]
@@ -168,7 +169,7 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
                                                sigma_2=0.,
                                                sigma_3=1.,
                                                rho=rho_vec,
-                                               **solver_params)
+                                               solver=solver_params)
             
             # Solve Poisson (call propagator with dt=1.)
             dt = 1.
@@ -243,7 +244,8 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
         'tol': 1.e-13,
         'maxiter': 3000,
         'info': True,
-        'verbose': False}
+        'verbose': False,
+        'recycle': False}
 
     # create domain object
     dom_type = mapping[0]
@@ -349,7 +351,7 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
                                         sigma_2=0.,
                                         sigma_3=1.,
                                         rho=rho_vec1,
-                                        **solver_params)
+                                        solver=solver_params)
 
     _phi2 = derham.create_field('test2', 'H1')
     poisson_solver2 = ImplicitDiffusion(_phi2.vector,
@@ -357,7 +359,7 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
                                         sigma_2=0.,
                                         sigma_3=1.,
                                         rho=rho_vec2,
-                                        **solver_params)
+                                        solver=solver_params)
 
     # Solve Poisson equation (call propagator with dt=1.)
     dt = 1.
