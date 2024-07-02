@@ -64,17 +64,6 @@ class LinearMHD(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    @classmethod
-    def options(cls):
-        dct = {}
-        cls.add_option(species=['fluid', 'mhd'], 
-                       option=propagators_fields.ShearAlfven,
-                       dct=dct)
-        cls.add_option(species=['fluid', 'mhd'],
-                       option=propagators_fields.Magnetosonic, 
-                       dct=dct)
-        return dct
-
     def __init__(self, params=None, comm=None):
 
         # initialize base class

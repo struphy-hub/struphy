@@ -139,17 +139,6 @@ class Vlasov(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    @classmethod
-    def options(cls):
-        dct = {}
-        cls.add_option(species=['kinetic', 'ions'],
-                       option=propagators_markers.PushEta,
-                       dct=dct)
-        cls.add_option(species=['kinetic', 'ions'],
-                       option=propagators_markers.PushVxB,
-                       dct=dct)
-        return dct
-
     def __init__(self, params, comm):
 
         super().__init__(params, comm)
@@ -258,17 +247,6 @@ class GuidingCenter(StruphyModel):
     __bulk_species__ = bulk_species()
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        cls.add_option(species=['kinetic', 'ions'],
-                       option=propagators_markers.PushGuidingCenterBxEstar,
-                       dct=dct)
-        cls.add_option(species=['kinetic', 'ions'],
-                       option=propagators_markers.PushGuidingCenterParallel,
-                       dct=dct)
-        return dct
 
     def __init__(self, params, comm):
 
@@ -393,14 +371,6 @@ class ShearAlfven(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    @classmethod
-    def options(cls):
-        dct = {}
-        cls.add_option(species=['fluid', 'mhd'],
-                       option=propagators_fields.ShearAlfven,
-                       dct=dct)
-        return dct
-
     def __init__(self, params, comm):
 
         # initialize base class
@@ -515,17 +485,6 @@ class VariationalPressurelessFluid(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    @classmethod
-    def options(cls):
-        dct = {}
-        cls.add_option(species=['fluid', 'fluid'],
-                       option=propagators_fields.VariationalMomentumAdvection,
-                       dct=dct)
-        cls.add_option(species=['fluid', 'fluid'],
-                       option=propagators_fields.VariationalDensityEvolve,
-                       dct=dct)
-        return dct
-
     def __init__(self, params, comm):
 
         from struphy.feec.mass import WeightedMassOperator
@@ -629,17 +588,6 @@ class VariationalBarotropicFluid(StruphyModel):
     __bulk_species__ = bulk_species()
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        cls.add_option(species=['fluid', 'fluid'],
-                       option=propagators_fields.VariationalMomentumAdvection,
-                       dct=dct)
-        cls.add_option(species=['fluid', 'fluid'],
-                       option=propagators_fields.VariationalDensityEvolve,
-                       dct=dct)
-        return dct
 
     def __init__(self, params, comm):
 
@@ -759,20 +707,6 @@ class VariationalCompressibleFluid(StruphyModel):
     __bulk_species__ = bulk_species()
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        cls.add_option(species=['fluid', 'fluid'],
-                       option=propagators_fields.VariationalMomentumAdvection,
-                       dct=dct)
-        cls.add_option(species=['fluid', 'fluid'],
-                       option=propagators_fields.VariationalDensityEvolve,
-                       dct=dct)
-        cls.add_option(species=['fluid', 'fluid'],
-                       option=propagators_fields.VariationalEntropyEvolve,
-                       dct=dct)
-        return dct
 
     def __init__(self, params, comm):
 
@@ -929,17 +863,6 @@ class Poisson(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    @classmethod
-    def options(cls):
-        dct = {}
-        cls.add_option(species=['em_fields'],
-                       option=propagators_fields.TimeDependentSource,
-                       dct=dct)
-        cls.add_option(species=['em_fields'],
-                       option=propagators_fields.ImplicitDiffusion,
-                       dct=dct)
-        return dct
-
     def __init__(self, params, comm):
 
         super().__init__(params, comm)
@@ -1018,14 +941,6 @@ class DeterministicParticleDiffusion(StruphyModel):
     __bulk_species__ = bulk_species()
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        cls.add_option(species=['kinetic', 'species1'],
-                       option=propagators_markers.PushDeterministicDiffusion,
-                       dct=dct)
-        return dct
 
     def __init__(self, params, comm):
 
@@ -1113,14 +1028,6 @@ class RandomParticleDiffusion(StruphyModel):
     __bulk_species__ = bulk_species()
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        cls.add_option(species=['kinetic', 'species1'],
-                       option=propagators_markers.PushRandomDiffusion,
-                       dct=dct)
-        return dct
 
     def __init__(self, params, comm):
 

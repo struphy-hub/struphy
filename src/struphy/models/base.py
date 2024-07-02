@@ -185,8 +185,8 @@ class StruphyModel(metaclass=ABCMeta):
         Must be one of "alfvén", "cyclotron" or "light".'''
         pass
 
-    @classmethod
-    # @abstractmethod # remove
+    @staticmethod
+    # @abstractmethod # remove comment
     def propagators_dct(cls):
         '''Dictionary holding the propagators of the model in the sequence they should be called.
         Keys are the propagator classes and values are lists holding variable names (str) updated by the propagator.'''
@@ -338,23 +338,24 @@ class StruphyModel(metaclass=ABCMeta):
             if var in cls.species()['em_fields']:
                 species = 'em_fields'
             elif var in cls.species()['kinetic']:
-                species = 'kinetic'
+                species = ['kinetic', var]
             else:
-                species = 'fluid'
-
-        cls._add_option(species=species,
+                var_stem = var.split('_')[0]
+                species = ['fluid', var_stem]
+              
+            cls.add_option(species=species,
                         option=prop,
                         dct=dct)
 
         return dct
 
     @classmethod
-    def _add_option(cls,
-                    species: str | list,
-                    option,
-                    dct: dict,
-                    *,
-                    key=None):
+    def add_option(cls,
+                   species: str | list,
+                   option,
+                   dct: dict,
+                   *,
+                   key=None):
         """ Add an option to the dictionary of parameters under [species][options].
 
         Test with "struphy params MODEL".
