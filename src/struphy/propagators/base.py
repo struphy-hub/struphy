@@ -64,9 +64,9 @@ class Propagator(metaclass=ABCMeta):
         """
         pass
 
-    @classmethod
+    @staticmethod
     @abstractmethod
-    def options(cls):
+    def options():
         '''Dictionary of available propagator options, as appearing under species/options in the parameter file.'''
         pass
 

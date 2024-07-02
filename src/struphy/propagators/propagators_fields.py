@@ -16,14 +16,13 @@ from struphy.feec import preconditioner
 from struphy.feec.mass import WeightedMassOperator
 from struphy.feec.basis_projection_ops import BasisProjectionOperator, CoordinateProjector
 from struphy.feec.variational_utilities import BracketOperator
-
+from struphy.io.setup import descend_options_dict
 
 from psydac.linalg.solvers import inverse
 from psydac.linalg.basic import IdentityOperator
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector, BlockLinearOperator, BlockVectorSpace
 import struphy.feec.utilities as util
-from mpi4py import MPI
 
 from copy import deepcopy
 
@@ -41,14 +40,25 @@ class Maxwell(Propagator):
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
     '''
 
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False,
+                         'recycle': True}
+        if default:
+            dct = descend_options_dict(dct, [])
+        
+        return dct
+
     def __init__(self, e: BlockVector,
                  b: BlockVector,
                  *,
-                 solver: dict = {'type': ('pcg', 'MassMatrixPreconditioner'),
-                                 'tol': 1e-8,
-                                 'maxiter': 3000,
-                                 'info': False,
-                                 'verbose': False}):
+                 solver: dict = options(default=True)['solver']):
 
         super().__init__(e, b)
 
@@ -113,18 +123,6 @@ class Maxwell(Propagator):
             print('Maxdiff e1 for Maxwell:', max_de)
             print('Maxdiff b2 for Maxwell:', max_db)
             print()
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
-                                  ('cg', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
-        return dct
 
 
 class OhmCold(Propagator):

@@ -154,7 +154,7 @@ class StruphyModel(metaclass=ABCMeta):
 
     @staticmethod
     @abstractmethod
-    def species(cls):
+    def species():
         '''Species dictionary of the form {'em_fields': {}, 'fluid': {}, 'kinetic': {}}.
 
         The dynamical fields and kinetic species of the model. 
@@ -333,6 +333,7 @@ class StruphyModel(metaclass=ABCMeta):
     def options(cls):
         '''Dictionary for available species options of the form {'em_fields': {}, 'fluid': {}, 'kinetic': {}}.'''
         dct = {}
+        
         for prop, vars in cls.propagators_dct().items():
             var = vars[0]
             if var in cls.species()['em_fields']:
