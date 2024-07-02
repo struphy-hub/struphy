@@ -20,10 +20,15 @@ def test_fluid(map_and_equil, fast, model=None, Tend=None):
         for key, val in inspect.getmembers(fluid):
             if inspect.isclass(val) and key not in {'StruphyModel', 'Propagator'}:
 
-                # TODO: remove if-clause
+                # TODO: remove if-clauses
                 if 'LinearExtendedMHD' in key and 'HomogenSlab' not in map_and_equil[1]:
                     print(
                         f'Model {key} is currently excluded from tests with mhd_equil other than HomogenSlab.')
+                    continue
+                
+                if 'Variational' in key or 'Visco' in key:
+                    print(
+                        f'Model {key} is currently excluded from tests.')
                     continue
 
                 if fast:

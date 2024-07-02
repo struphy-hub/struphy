@@ -392,7 +392,7 @@ class ShearAlfven(StruphyModel):
 
     @staticmethod
     def propagators_dct():
-        return {propagators_fields.ShearAlfvén: ['mhd_u2', 'b2']}
+        return {propagators_fields.ShearAlfven: ['mhd_u2', 'b2']}
 
     __em_fields__ = species()['em_fields']
     __fluid_species__ = species()['fluid']
@@ -405,7 +405,7 @@ class ShearAlfven(StruphyModel):
     def options(cls):
         dct = {}
         cls.add_option(species=['fluid', 'mhd'],
-                       option=propagators_fields.ShearAlfvén,
+                       option=propagators_fields.ShearAlfven,
                        dct=dct)
         return dct
 
@@ -417,7 +417,7 @@ class ShearAlfven(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # extract necessary parameters
-        alfven_solver = params['fluid']['mhd']['options']['ShearAlfvén']['solver']
+        alfven_solver = params['fluid']['mhd']['options']['ShearAlfven']['solver']
 
         # project background magnetic field (2-form) and pressure (3-form)
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
@@ -425,7 +425,7 @@ class ShearAlfven(StruphyModel):
                                          self.mhd_equil.b2_3])
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_fields.ShearAlfvén] = {'u_space': 'Hdiv',
+        self._kwargs[propagators_fields.ShearAlfven] = {'u_space': 'Hdiv',
                                                         'solver': alfven_solver}
 
         # Initialize propagators used in splitting substeps

@@ -169,6 +169,7 @@ class OhmCold(Propagator):
                           'maxiter': 3000,
                           'info': False,
                           'verbose': False,
+                          'recycle': True,
                           'alpha': 1.0,
                           'epsilon': 1.0}
 
@@ -272,7 +273,8 @@ class JxBCold(Propagator):
                           'info': False,
                           'verbose': False,
                           'alpha': 1.0,
-                          'epsilon': 1.0}
+                          'epsilon': 1.0,
+                          'recycle': True}
 
         params = set_defaults(params, params_default)
 
@@ -346,7 +348,7 @@ class JxBCold(Propagator):
         return dct
 
 
-class ShearAlfvén(Propagator):
+class ShearAlfven(Propagator):
     r''':ref:`FEEC <gempic>` discretization of the following equations: 
     find :math:`\mathbf U \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` and  :math:`\mathbf B \in H(\textnormal{div})` such that
 
@@ -464,7 +466,7 @@ class ShearAlfvén(Propagator):
         return dct
 
 
-class ShearAlfvénB1(Propagator):
+class ShearAlfvenB1(Propagator):
     r'''Crank-Nicolson step for shear Alfvén part in Extended MHD equations,
 
     .. math::
@@ -498,11 +500,13 @@ class ShearAlfvénB1(Propagator):
                           'maxiter': 3000,
                           'info': False,
                           'verbose': False,
+                          'recycle': True,
                           'type_M1': ('pcg', 'MassMatrixPreconditioner'),
                           'tol_M1': 1e-8,
                           'maxiter_M1': 3000,
                           'info_M1': False,
-                          'verbose_M1': False}
+                          'verbose_M1': False,
+                          'recycle_M1': True,}
 
         params = set_defaults(params, params_default)
 
@@ -632,6 +636,7 @@ class Hall(Propagator):
                           'maxiter': 3000,
                           'info': False,
                           'verbose': False,
+                          'recycle': True,
                           'kappa': 1.0}
 
         params = set_defaults(params, params_default)
@@ -755,7 +760,8 @@ class Magnetosonic(Propagator):
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
-                          'verbose': False}
+                          'verbose': False,
+                          'recycle': True}
 
         params = set_defaults(params, params_default)
 
@@ -869,8 +875,7 @@ class Magnetosonic(Propagator):
                          'tol': 1.e-8,
                          'maxiter': 3000,
                          'info': False,
-                         'verbose': False,
-                         'recycle': True}
+                         'verbose': False}
         return dct
 
 
@@ -921,7 +926,8 @@ class SonicIon(Propagator):
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
-                          'verbose': False}
+                          'verbose': False,
+                          'recycle': True}
 
         params = set_defaults(params, params_default)
 
@@ -1062,7 +1068,8 @@ class SonicElectron(Propagator):
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
-                          'verbose': False}
+                          'verbose': False,
+                          'recycle': True}
 
         params = set_defaults(params, params_default)
 
@@ -1353,6 +1360,7 @@ class CurrentCoupling6DDensity(Propagator):
                           'maxiter': 3000,
                           'info': False,
                           'verbose': False,
+                          'recycle': True,
                           'Ab': 1,
                           'Ah': 1,
                           'kappa': 1.}
@@ -1528,7 +1536,7 @@ class CurrentCoupling6DDensity(Propagator):
         return dct
 
 
-class ShearAlfvénCurrentCoupling5D(Propagator):
+class ShearAlfvenCurrentCoupling5D(Propagator):
     r'''Crank-Nicolson scheme for the shear Alfvén step in :class:`~struphy.models.hybrid.LinearMHDDriftkineticCC`,
 
     Equation:
@@ -1593,6 +1601,7 @@ class ShearAlfvénCurrentCoupling5D(Propagator):
                           'maxiter': 3000,
                           'info': False,
                           'verbose': False,
+                          'recycle': True,
                           'Ab': 1,
                           'Ah': 1}
 
@@ -1821,6 +1830,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                           'maxiter': 3000,
                           'info': False,
                           'verbose': False,
+                          'recycle': True,
                           'Ab': 1,
                           'Ah': 1}
 
@@ -2122,6 +2132,7 @@ class CurrentCoupling5DDensity(Propagator):
                           'maxiter': 3000,
                           'info': False,
                           'verbose': False,
+                          'recycle': True,
                           'Ab': 1,
                           'Ah': 1,
                           'epsilon': 1.}
@@ -4586,6 +4597,7 @@ class VariationalMagFieldEvolve(Propagator):
                           'non_linear_solver': 'Newton',
                           'info': False,
                           'verbose': False,
+                          'recycle': True,
                           'mass_ops': None,
                           'implicit_transport': False}
 
@@ -5108,6 +5120,7 @@ class VariationalViscosity(Propagator):
                           'non_linear_solver': 'Newton',
                           'info': False,
                           'verbose': False,
+                          'recycle': True,
                           'model': None,
                           'rho': None,
                           'gamma': 5/3,
@@ -5621,6 +5634,7 @@ class VariationalResistivity(Propagator):
                           'non_linear_solver': 'Newton',
                           'info': False,
                           'verbose': False,
+                          'recycle': True,
                           'model': None,
                           'rho': None,
                           'gamma': 5/3,

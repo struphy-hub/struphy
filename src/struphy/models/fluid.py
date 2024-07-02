@@ -56,7 +56,7 @@ class LinearMHD(StruphyModel):
 
     @staticmethod
     def propagators_dct():
-        return {propagators_fields.ShearAlfvén: ['mhd_u2', 'b2'],
+        return {propagators_fields.ShearAlfven: ['mhd_u2', 'b2'],
                 propagators_fields.Magnetosonic: ['mhd_n3', 'mhd_u2', 'mhd_p3']}
 
     __em_fields__ = species()['em_fields']
@@ -70,15 +70,15 @@ class LinearMHD(StruphyModel):
     def options(cls):
         dct = {}
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'shear_alfven'],
-                       option=propagators_fields.ShearAlfvén.options()['solver'], dct=dct)
+                       option=propagators_fields.ShearAlfven.options()['solver'], dct=dct)
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'magnetosonic'],
                        option=propagators_fields.Magnetosonic.options()['solver'], dct=dct)
         return dct
 
-    def __init__(self, params, comm):
+    def __init__(self, params=None, comm=None):
 
         # initialize base class
-        super().__init__(params, comm)
+        params = super().__init__(params, comm)
 
         from struphy.polar.basic import PolarVector
 
@@ -99,7 +99,7 @@ class LinearMHD(StruphyModel):
             self._ones[:] = 1.
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_fields.ShearAlfvén] = {**alfven_solver}
+        self._kwargs[propagators_fields.ShearAlfven] = {'solver': alfven_solver}
 
         self._kwargs[propagators_fields.Magnetosonic] = {'b': self.pointer['b2'],
                                                          **sonic_solver}
@@ -216,13 +216,13 @@ class LinearExtendedMHD(StruphyModel):
     @classmethod
     def options(cls):
         # import propagator options
-        from struphy.propagators.propagators_fields import ShearAlfvénB1, Hall, SonicIon, SonicElectron
+        from struphy.propagators.propagators_fields import ShearAlfvenB1, Hall, SonicIon, SonicElectron
 
         dct = {}
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'shear_alfven'],
-                       option=ShearAlfvénB1.options()['solver'], dct=dct)
+                       option=ShearAlfvenB1.options()['solver'], dct=dct)
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'M1_inv'],
-                       option=ShearAlfvénB1.options()['M1_inv'], dct=dct)
+                       option=ShearAlfvenB1.options()['M1_inv'], dct=dct)
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'hall'],
                        option=Hall.options()['solver'], dct=dct)
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'sonic_ion'],
@@ -272,7 +272,7 @@ class LinearExtendedMHD(StruphyModel):
         self._coupling_params['kappa'] = kappa
 
         # Initialize propagators/integrators used in splitting substeps
-        self.add_propagator(self.prop_fields.ShearAlfvénB1(
+        self.add_propagator(self.prop_fields.ShearAlfvenB1(
             self.pointer['mhd_u2'],
             self.pointer['b1'],
             **alfven_solver,
@@ -432,7 +432,7 @@ class ColdPlasma(StruphyModel):
         self.add_propagator(self.prop_fields.Maxwell(
             self.pointer['e1'],
             self.pointer['b2'],
-            **params_maxwell))
+            solver=params_maxwell))
         self.add_propagator(self.prop_fields.OhmCold(
             self.pointer['electrons_j1'],
             self.pointer['e1'],

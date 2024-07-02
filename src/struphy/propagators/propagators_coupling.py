@@ -79,6 +79,7 @@ class VlasovAmpere(Propagator):
             'maxiter': 3000,
             'info': False,
             'verbose': False,
+            'recycle': True
         }
 
         params = set_defaults(params, params_default)
@@ -257,7 +258,8 @@ class EfieldWeights(Propagator):
             'tol': 1e-8,
             'maxiter': 3000,
             'info': False,
-            'verbose': False
+            'verbose': False,
+            'recycle': True
         }
 
         params = set_defaults(params, params_default)
@@ -453,7 +455,8 @@ class EfieldWeightsImplicit(Propagator):
             'tol': 1e-8,
             'maxiter': 3000,
             'info': False,
-            'verbose': False
+            'verbose': False,
+            'recycle': True
         }
 
         params = set_defaults(params, params_default)
@@ -649,7 +652,8 @@ class EfieldWeightsDiscreteGradient(Propagator):
             'tol': 1e-8,
             'maxiter': 3000,
             'info': False,
-            'verbose': False
+            'verbose': False,
+            'recycle': True
         }
 
         params = set_defaults(params, params_default)
@@ -795,7 +799,8 @@ class EfieldWeightsAnalytic(Propagator):
                           'tol': 1e-8,
                           'maxiter': 3000,
                           'info': False,
-                          'verbose': False}
+                          'verbose': False,
+                          'recycle': True}
 
         params = set_defaults(params, params_default)
 
@@ -963,6 +968,7 @@ class PressureCoupling6D(Propagator):
                           'maxiter': 3000,
                           'info': False,
                           'verbose': False,
+                          'recycle': True,
                           'nuh': 5.,
                           'Ab': 1,
                           'Ah': 1,
@@ -1234,6 +1240,7 @@ class CurrentCoupling6DCurrent(Propagator):
                           'maxiter': 3000,
                           'info': False,
                           'verbose': False,
+                          'recycle': True,
                           'Ab': 1,
                           'Ah': 1,
                           'kappa': 1.}
@@ -1493,6 +1500,7 @@ class CurrentCoupling5DCurlb(Propagator):
                           'maxiter': 3000,
                           'info': False,
                           'verbose': False,
+                          'recycle': True,
                           'Ab': 1,
                           'Ah': 1,
                           'epsilon': 1.}
@@ -1857,6 +1865,7 @@ class CurrentCoupling5DGradB(Propagator):
                           'maxiter': 3000,
                           'info': False,
                           'verbose': False,
+                          'recycle': True,
                           'Ab': 1,
                           'Ah': 1,
                           'epsilon': 1.,

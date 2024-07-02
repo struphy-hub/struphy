@@ -73,5 +73,7 @@ kinetic :
         save_data :
             n_markers : 2 # number of markers to be save during simulation
         options:
-            push_bxEstar: {method: rk4}
-            push_Bstar: {method: rk4}
+            PushGuidingCenterBxEstar:
+                algo: {method: rk4, maxiter: 20, tol: 1.0e-07, mpi_sort: each, verbose: false}
+            PushGuidingCenterParallel:
+                algo: {method: rk4, maxiter: 20, tol: 1.0e-07, mpi_sort: each, verbose: false}

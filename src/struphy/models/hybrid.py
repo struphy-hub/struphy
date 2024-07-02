@@ -80,7 +80,7 @@ class LinearMHDVlasovCC(StruphyModel):
     @staticmethod
     def propagators_dct():
         return {propagators_fields.CurrentCoupling6DDensity: ['mhd_u2'],
-                propagators_fields.ShearAlfvén: ['mhd_u2', 'b2'],
+                propagators_fields.ShearAlfven: ['mhd_u2', 'b2'],
                 propagators_coupling.CurrentCoupling6DCurrent: ['energetic_ions', 'mhd_u2'],
                 propagators_markers.PushEta: ['energetic_ions'],
                 propagators_markers.PushVxB: ['energetic_ions'],
@@ -97,7 +97,7 @@ class LinearMHDVlasovCC(StruphyModel):
     def options(cls):
         dct = {}
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'shear_alfven'],
-                       option=propagators_fields.ShearAlfvén.options()['solver'], dct=dct)
+                       option=propagators_fields.ShearAlfven.options()['solver'], dct=dct)
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'magnetosonic'],
                        option=propagators_fields.Magnetosonic.options()['solver'], dct=dct)
         cls.add_option(species=['kinetic', 'energetic_ions'], key=['algos', 'push_eta'],
@@ -167,8 +167,8 @@ class LinearMHDVlasovCC(StruphyModel):
                                                                      **params_density,
                                                                      **self._coupling_params}
 
-        self._kwargs[propagators_fields.ShearAlfvén] = {'u_space': u_space,
-                                                        **params_shear_alfven}
+        self._kwargs[propagators_fields.ShearAlfven] = {'u_space': u_space,
+                                                        'solver': params_shear_alfven}
 
         self._kwargs[propagators_coupling.CurrentCoupling6DCurrent] = {'u_space': u_space,
                                                                        'b_eq': self._b_eq,
@@ -329,13 +329,13 @@ class LinearMHDVlasovPC(StruphyModel):
     @classmethod
     def options(cls):
         # import propagator options
-        from struphy.propagators.propagators_fields import ShearAlfvén, Magnetosonic
+        from struphy.propagators.propagators_fields import ShearAlfven, Magnetosonic
         from struphy.propagators.propagators_markers import PushEtaPC, PushVxB
         from struphy.propagators.propagators_coupling import PressureCoupling6D
 
         dct = {}
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'shear_alfven'],
-                       option=ShearAlfvén.options()['solver'], dct=dct)
+                       option=ShearAlfven.options()['solver'], dct=dct)
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'magnetosonic'],
                        option=Magnetosonic.options()['solver'], dct=dct)
         cls.add_option(species=['kinetic', 'energetic_ions'], key=['use_perp_model'],
@@ -395,11 +395,11 @@ class LinearMHDVlasovPC(StruphyModel):
             self._ones[:] = 1.
 
         # Initialize propagators/integrators used in splitting substeps
-        self.add_propagator(self.prop_fields.ShearAlfvén(
+        self.add_propagator(self.prop_fields.ShearAlfven(
             self.pointer['mhd_u2'],
             self.pointer['b2'],
             u_space='Hdiv',
-            **params_shear_alfven,))
+            solver=params_shear_alfven,))
         self.add_propagator(self.prop_coupling.PressureCoupling6D(
             self.pointer['energetic_ions'],
             self.pointer['mhd_u2'],
@@ -581,13 +581,13 @@ class LinearMHDDriftkineticCC(StruphyModel):
     @classmethod
     def options(cls):
         # import propagator options
-        from struphy.propagators.propagators_fields import ShearAlfvénCurrentCoupling5D, MagnetosonicCurrentCoupling5D, CurrentCoupling5DDensity
+        from struphy.propagators.propagators_fields import ShearAlfvenCurrentCoupling5D, MagnetosonicCurrentCoupling5D, CurrentCoupling5DDensity
         from struphy.propagators.propagators_markers import PushDriftKineticbxGradB, PushDriftKineticParallelZeroEfield
         from struphy.propagators.propagators_coupling import CurrentCoupling5DCurlb, CurrentCoupling5DGradB
 
         dct = {}
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'shear_alfven'],
-                       option=ShearAlfvénCurrentCoupling5D.options()['solver'], dct=dct)
+                       option=ShearAlfvenCurrentCoupling5D.options()['solver'], dct=dct)
         cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'magnetosonic'],
                        option=MagnetosonicCurrentCoupling5D.options()['solver'], dct=dct)
         cls.add_option(species=['kinetic', 'energetic_ions'], key=['solvers', 'density'],
@@ -728,7 +728,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             curl_unit_b2=self._curl_unit_b2,
             **params_density,
             **self._coupling_params))
-        self.add_propagator(self.prop_fields.ShearAlfvénCurrentCoupling5D(
+        self.add_propagator(self.prop_fields.ShearAlfvenCurrentCoupling5D(
             self.pointer['mhd_u2'],
             self.pointer['b2'],
             particles=self.pointer['energetic_ions'],
@@ -972,7 +972,7 @@ class ColdPlasmaVlasov(StruphyModel):
         self.add_propagator(self.prop_fields.Maxwell(
             self.pointer['e1'],
             self.pointer['b2'],
-            **params_maxwell))
+            solver=params_maxwell))
         self.add_propagator(self.prop_fields.OhmCold(
             self.pointer['coldelectrons_j1'],
             self.pointer['e1'],
@@ -1044,7 +1044,7 @@ class ColdPlasmaVlasov(StruphyModel):
             self._epsilon_cold * charge_accum.vectors[0],
             x0=self._nu * self._alpha**2 /
             self._epsilon_cold * charge_accum.vectors[0],
-            **self._poisson_params)
+            solver=self._poisson_params)
 
         # Solve with dt=1. and compute electric field
         poisson_solver(1.)

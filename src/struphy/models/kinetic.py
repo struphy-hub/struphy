@@ -226,7 +226,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
             sigma_2=0.,
             sigma_3=1.,
             rho=self.kappa**2 * charge_accum.vectors[0],
-            **self._poisson_params)
+            solver=self._poisson_params)
 
         # Solve with dt=1. and compute electric field
         if self._rank == 0:
@@ -442,7 +442,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.add_propagator(self.prop_fields.Maxwell(
             self.pointer['e1'],
             self.pointer['b2'],
-            **params_maxwell))
+            solver=params_maxwell))
 
         self.add_propagator(self.prop_markers.PushEta(
             self.pointer['species1'],
@@ -513,7 +513,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             sigma_2=0.,
             sigma_3=1.,
             rho=self._alpha**2 / self._epsilon * charge_accum.vectors[0],
-            **self._poisson_params)
+            solver=self._poisson_params)
 
         # Solve with dt=1. and compute electric field
         if self._rank == 0:
@@ -646,12 +646,12 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         from struphy.propagators.propagators_markers import PushEta
         from struphy.propagators.propagators_coupling import EfieldWeights
         dct = {}
-        cls.add_option(['em_fields'], ['solvers', 'poisson'],
-                       ImplicitDiffusion.options()['solver'], dct)
-        cls.add_option(['kinetic', 'species1'], ['algos', 'push_eta'],
-                       PushEta.options()['algo'], dct)
-        cls.add_option(['kinetic', 'species1'], ['coupling_solver'],
-                       EfieldWeights.options()['solver'], dct)
+        cls.add_option(species=['em_fields'], key=['solvers', 'poisson'],
+                       option=ImplicitDiffusion.options()['solver'], dct=dct)
+        cls.add_option(species=['kinetic', 'species1'], key=['algos', 'push_eta'],
+                       option=PushEta.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'species1'], key=['coupling_solver'],
+                       option=EfieldWeights.options()['solver'], dct=dct)
         cls.add_option(species=['kinetic', 'species1'], key='verification',
                        option={'use': False, 'kappa': 1., 'alpha': 1.}, dct=dct)
         return dct
@@ -770,7 +770,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             sigma_2=0.,
             sigma_3=1.,
             rho=self.kappa * charge_accum.vectors[0],
-            **self._poisson_params)
+            solver=self._poisson_params)
 
         # Solve with dt=1. and compute electric field
         if self._rank == 0:
@@ -891,16 +891,16 @@ class LinearVlasovMaxwell(StruphyModel):
         from struphy.propagators.propagators_markers import PushEta, PushVxB
         from struphy.propagators.propagators_coupling import EfieldWeightsImplicit
         dct = {}
-        cls.add_option(['em_fields'], ['solvers', 'maxwell'],
-                       Maxwell.options()['solver'], dct)
-        cls.add_option(['em_fields'], ['solvers', 'poisson'],
-                       ImplicitDiffusion.options()['solver'], dct)
-        cls.add_option(['kinetic', 'electrons'], ['algos', 'push_eta'],
-                       PushEta.options()['algo'], dct)
-        cls.add_option(['kinetic', 'electrons'], ['algos', 'push_vxb'],
-                       PushVxB.options()['algo'], dct)
-        cls.add_option(['kinetic', 'electrons'], ['solver'],
-                       EfieldWeightsImplicit.options()['solver'], dct)
+        cls.add_option(species=['em_fields'], key=['solvers', 'maxwell'],
+                       option=Maxwell.options()['solver'], dct=dct)
+        cls.add_option(species=['em_fields'], key=['solvers', 'poisson'],
+                       option=ImplicitDiffusion.options()['solver'], dct=dct)
+        cls.add_option(species=['kinetic', 'electrons'], key=['algos', 'push_eta'],
+                       option=PushEta.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'electrons'], key=['algos', 'push_vxb'],
+                       option=PushVxB.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'electrons'], key=['solver'],
+                       option=EfieldWeightsImplicit.options()['solver'], dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -1000,7 +1000,7 @@ class LinearVlasovMaxwell(StruphyModel):
         self.add_propagator(self.prop_fields.Maxwell(
             self.pointer['e_field'],
             self.pointer['b_field'],
-            **params_maxwell))
+            solver=params_maxwell))
         if self._rank == 0:
             print("\nAdded Step Maxwell\n")
 
@@ -1109,7 +1109,7 @@ class LinearVlasovMaxwell(StruphyModel):
             sigma_1=0.,
             rho=charge_accum.vectors[0],
             x0=charge_accum.vectors[0],
-            **self._poisson_params)
+            solver=self._poisson_params)
 
         # Solve with dt=1. and compute electric field
         poisson_solver(1.)
@@ -1242,18 +1242,18 @@ class DeltaFVlasovMaxwell(StruphyModel):
         from struphy.propagators.propagators_coupling import EfieldWeightsImplicit, EfieldWeightsAnalytic
 
         dct = {}
-        cls.add_option(['em_fields'], ['solvers', 'maxwell'],
-                       Maxwell.options()['solver'], dct)
-        cls.add_option(['em_fields'], ['solvers', 'poisson'],
-                       ImplicitDiffusion.options()['solver'], dct)
-        cls.add_option(['kinetic', 'electrons'], ['algos', 'push_eta'],
-                       PushEta.options()['algo'], dct)
-        cls.add_option(['kinetic', 'electrons'], ['algos', 'push_vxb'],
-                       PushVxB.options()['algo'], dct)
-        cls.add_option(['kinetic', 'electrons'], ['solvers', 'implicit'],
-                       EfieldWeightsImplicit.options()['solver'], dct)
-        cls.add_option(['kinetic', 'electrons'], ['solvers', 'analytic'],
-                       EfieldWeightsAnalytic.options()['solver'], dct)
+        cls.add_option(species=['em_fields'], key=['solvers', 'maxwell'],
+                       option=Maxwell.options()['solver'], dct=dct)
+        cls.add_option(species=['em_fields'], key=['solvers', 'poisson'],
+                       option=ImplicitDiffusion.options()['solver'], dct=dct)
+        cls.add_option(species=['kinetic', 'electrons'], key=['algos', 'push_eta'],
+                       option=PushEta.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'electrons'], key=['algos', 'push_vxb'],
+                       option=PushVxB.options()['algo'], dct=dct)
+        cls.add_option(species=['kinetic', 'electrons'], key=['solvers', 'implicit'],
+                       option=EfieldWeightsImplicit.options()['solver'], dct=dct)
+        cls.add_option(species=['kinetic', 'electrons'], key=['solvers', 'analytic'],
+                       option=EfieldWeightsAnalytic.options()['solver'], dct=dct)
 
         return dct
 
@@ -1368,7 +1368,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
         self.add_propagator(self.prop_fields.Maxwell(
             self.pointer['e_field'],
             self.pointer['b_field'],
-            **params_maxwell))
+            solver=params_maxwell))
         if self._rank == 0:
             print("\nAdded Step Maxwell\n")
 
@@ -1487,7 +1487,7 @@ class DeltaFVlasovMaxwell(StruphyModel):
             sigma_1=1e-11,
             rho=charge_accum.vectors[0],
             x0=charge_accum.vectors[0],
-            **self._poisson_params)
+            solver=self._poisson_params)
 
         # Solve with dt=1. and compute electric field
         poisson_solver(1.)
@@ -1835,7 +1835,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
                 stab_mat='M0ad',
                 diffusion_mat='M1gyro',
                 rho=rho,
-                **solver_params
+                solver=solver_params
             ))
         elif phi_method == 'AdiabaticPhi':
             self.add_propagator(self.prop_fields.AdiabaticPhi(

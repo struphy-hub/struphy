@@ -39,9 +39,11 @@ em_fields :
             amp : 0.1 # noise amplitude
             seed : 1234    # seed for random number generator
     options:
-        solver:
-            type: [pcg, MassMatrixPreconditioner]
-            tol: 1.0e-08
-            maxiter: 3000
-            info: false
-            verbose: false
+        Maxwell:
+            solver:
+                type: [pcg, MassMatrixPreconditioner]
+                tol: 1.0e-08
+                maxiter: 3000
+                info: false
+                verbose: false
+                recycle: true
