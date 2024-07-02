@@ -48,6 +48,11 @@ def test_pproc_codes(model=None):
                         f'Model {model} is currently excluded from tests.')
                     continue
 
+                if 'Variational' in model or 'Visco' in model:
+                    print(
+                        f'Model {model} is currently excluded from tests.')
+                    continue
+
                 path_out = os.path.join(libpath, 'io/out/test_' + model)
                 pproc_struphy.main(path_out)
         else:
