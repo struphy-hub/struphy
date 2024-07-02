@@ -32,7 +32,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         from struphy.io.setup import setup_domain_mhd, setup_derham
 
-        from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers # remove
+        from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers  # remove
         from struphy.feec.basis_projection_ops import BasisProjectionOperators
         from struphy.feec.mass import WeightedMassOperators
         from struphy.fields_background.braginskii_equil import equils as braginskii_equils
@@ -46,7 +46,8 @@ class StruphyModel(metaclass=ABCMeta):
         assert 'kinetic' in self.options()
 
         if params is None:
-            params = self.generate_default_parameter_file(save=False, prompt=False)
+            params = self.generate_default_parameter_file(
+                save=False, prompt=False)
 
         self._params = params
         self._comm = comm
@@ -134,7 +135,8 @@ class StruphyModel(metaclass=ABCMeta):
         self.prop.derham = self.derham
         self.prop.domain = self.domain
         self.prop.mass_ops = self.mass_ops
-        self.prop.basis_ops = BasisProjectionOperators(self.derham, self.domain, eq_mhd=self.mhd_equil)
+        self.prop.basis_ops = BasisProjectionOperators(
+            self.derham, self.domain, eq_mhd=self.mhd_equil)
 
         # set propagators base class attributes (then available to all propagators)
         Propagator.derham = self.derham
@@ -142,12 +144,12 @@ class StruphyModel(metaclass=ABCMeta):
         Propagator.mass_ops = self.mass_ops
         Propagator.basis_ops = BasisProjectionOperators(
             self.derham, self.domain, eq_mhd=self.mhd_equil)
-        
+
         # create dummy lists/dicts to be filled by the sub-class
         self._propagators = []
         self._kwargs = {}
         self._scalar_quantities = {}
-        
+
         return params
 
     @staticmethod
@@ -182,18 +184,12 @@ class StruphyModel(metaclass=ABCMeta):
         '''String that sets the velocity scale unit of the model. 
         Must be one of "alfvén", "cyclotron" or "light".'''
         pass
-    
-    @staticmethod
-    #@abstractmethod # remove
-    def propagators_dct():
-        '''Dictionary holding the propagators of the model in the sequence they should be called.
-        Keys are the propagator classes and values are lists holding variable names (str) updated by the propagator.'''
-        pass
 
     @classmethod
-    @abstractmethod
-    def options(cls):
-        '''Dictionary for available species options of the form {'em_fields': {}, 'fluid': {}, 'kinetic': {}}.'''
+    # @abstractmethod # remove
+    def propagators_dct(cls):
+        '''Dictionary holding the propagators of the model in the sequence they should be called.
+        Keys are the propagator classes and values are lists holding variable names (str) updated by the propagator.'''
         pass
 
     # remove
@@ -312,12 +308,11 @@ class StruphyModel(metaclass=ABCMeta):
         '''Module :mod:`struphy.propagators.propagators_markers`.'''
         return self._prop_markers
 
-
     @property
     def propagators(self):
         '''A list of propagator instances for the model.'''
         return self._propagators
-    
+
     @property
     def kwargs(self):
         '''Dictionary holding the keyword arguments for each propagator specified in :attr:`~propagators_cls`.
@@ -335,14 +330,33 @@ class StruphyModel(metaclass=ABCMeta):
         return self._time_state
 
     @classmethod
-    def add_option(cls, 
-                   species: str | list, 
-                   option, 
-                   dct: dict,
-                   *,
-                   key=None):
+    def options(cls):
+        '''Dictionary for available species options of the form {'em_fields': {}, 'fluid': {}, 'kinetic': {}}.'''
+        dct = {}
+        for prop, vars in cls.propagators_dct().items():
+            var = vars[0]
+            if var in cls.species()['em_fields']:
+                species = 'em_fields'
+            elif var in cls.species()['kinetic']:
+                species = 'kinetic'
+            else:
+                species = 'fluid'
+
+        cls._add_option(species=species,
+                        option=prop,
+                        dct=dct)
+
+        return dct
+
+    @classmethod
+    def _add_option(cls,
+                    species: str | list,
+                    option,
+                    dct: dict,
+                    *,
+                    key=None):
         """ Add an option to the dictionary of parameters under [species][options].
-        
+
         Test with "struphy params MODEL".
 
         Parameters
@@ -355,7 +369,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         dct : dict
             dictionary to which the value should be added at the corresponding position
-            
+
         key : str or list
             path in the dict after the 'options' key
         """
@@ -380,7 +394,8 @@ class StruphyModel(metaclass=ABCMeta):
             key = [key]
 
         if inspect.isclass(option):
-            setInDict(dct, species + ['options'] + [option.__name__], option.options())
+            setInDict(dct, species + ['options'] +
+                      [option.__name__], option.options())
         else:
             assert key is not None, 'Must provide key if option is not a class.'
             setInDict(dct, species + ['options'] + key, option)
@@ -410,7 +425,7 @@ class StruphyModel(metaclass=ABCMeta):
         assert isinstance(name, str)
         assert isinstance(value, float)
         self._scalar_quantities[name][0] = value
-       
+
     def add_time_state(self, time_state):
         '''Add a pointer to the time variable of the dynamics ('t')
         to the model and to all propagators of the model.
@@ -424,30 +439,31 @@ class StruphyModel(metaclass=ABCMeta):
         self._time_state = time_state
         for prop in self.propagators:
             prop.add_time_state(time_state)
-        
+
     def init_propagators(self):
         '''Initialize the propagator objects specified in :attr:`~propagators_cls`.'''
         if self.comm.Get_rank() == 0:
             print('\nPROPAGATORS:')
         for (prop, variables), (prop2, kwargs_i) in zip(self.propagators_dct().items(), self.kwargs.items()):
-            
-            assert prop == prop2
-            
+
+            assert prop == prop2, f'Propagators {prop} from "self.propagators_dct()" and {prop2} from "self.kwargs" must be identical !!'
+
             if self.comm.Get_rank() == 0:
                 print(f'\n-> Initializing propagator "{prop.__name__}"')
                 print(f'-> for variables {variables}')
                 print(f'-> with the following parameters:')
                 for k, v in kwargs_i.items():
                     print(f'{k}: {v}')
-                    
-            prop_instance = prop(*[self.pointer[var] for var in variables], **kwargs_i)
+
+            prop_instance = prop(*[self.pointer[var]
+                                 for var in variables], **kwargs_i)
             assert isinstance(prop_instance, Propagator)
             self._propagators += [prop_instance]
-        
+
         if self.comm.Get_rank() == 0:
             print('\n---------------------------------------')
-            print('Initialization of propagators complete.')   
-            print('---------------------------------------') 
+            print('Initialization of propagators complete.')
+            print('---------------------------------------')
 
     def integrate(self, dt, split_algo='LieTrotter'):
         """
@@ -1178,9 +1194,9 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 pass
 
     @classmethod
-    def generate_default_parameter_file(cls, 
-                                        file: str = None, 
-                                        save: bool = True, 
+    def generate_default_parameter_file(cls,
+                                        file: str = None,
+                                        save: bool = True,
                                         prompt: bool = True):
         '''Generate a parameter file with default options for each species,
         and save it to the current input path.

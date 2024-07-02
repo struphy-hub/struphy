@@ -55,14 +55,6 @@ class Maxwell(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    @classmethod
-    def options(cls):
-        dct = {}
-        cls.add_option(species='em_fields',
-                       option=propagators_fields.Maxwell,
-                       dct=dct)
-        return dct
-
     def __init__(self, params, comm):
 
         super().__init__(params, comm)
