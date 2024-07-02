@@ -55,16 +55,21 @@ fluid :
                 amp : 0.1 # noise amplitude
                 seed : 1234    # seed for random number generator
         options:
-            solvers:
-                shear_alfven:
+            ShearAlfven:
+                u_space: Hdiv
+                solver:
                     type: [pcg, MassMatrixPreconditioner]
                     tol: 1.0e-08
                     maxiter: 3000
                     info: false
                     verbose: false
-                magnetosonic:
+                    recycle: true
+            Magnetosonic:
+                u_space: Hdiv
+                solver:
                     type: [pbicgstab, MassMatrixPreconditioner]
                     tol: 1.0e-08
                     maxiter: 3000
                     info: false
                     verbose: false
+                    recycle: true

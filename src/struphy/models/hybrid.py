@@ -51,7 +51,7 @@ class LinearMHDVlasovCC(StruphyModel):
     :ref:`propagators` (called in sequence):
 
     1. :class:`~struphy.propagators.propagators_fields.CurrentCoupling6DDensity`
-    2. :class:`~struphy.propagators.propagators_fields.ShearAlfvén`
+    2. :class:`~struphy.propagators.propagators_fields.ShearAlfven`
     3. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling6DCurrent`
     4. :class:`~struphy.propagators.propagators_markers.PushEta`
     5. :class:`~struphy.propagators.propagators_markers.PushVxB`
@@ -186,7 +186,7 @@ class LinearMHDVlasovCC(StruphyModel):
 
         self._kwargs[propagators_fields.Magnetosonic] = {'u_space': u_space,
                                                          'b': self.pointer['b2'],
-                                                         **params_magnetosonic}
+                                                         'solver': params_magnetosonic}
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
@@ -425,7 +425,7 @@ class LinearMHDVlasovPC(StruphyModel):
             self.pointer['mhd_p3'],
             u_space='Hdiv',
             b=self.pointer['b2'],
-            **params_magnetosonic))
+            solver=params_magnetosonic))
 
         # Scalar variables to be saved during simulation:
         self.add_scalar('en_U')

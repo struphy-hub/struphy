@@ -11,28 +11,26 @@ class LinearMHD(StruphyModel):
 
     .. math::
 
-        \hat U = \hat v_\textnormal{A, bulk} \,, \qquad \hat p = \frac{\hat B^2}{\mu_0}\,.
+        \hat U = \hat v_\textnormal{A} \,, \qquad \hat p = \frac{\hat B^2}{\mu_0}\,.
 
     :ref:`Equations <gempic>`:
 
-    Find :math:`(\tilde n, \tilde{\mathbf{U}}, \tilde p, \tilde{\mathbf{B}}) \in L^2 \times H(\textrm{div}) \times L^2 \times H(\textrm{div})` such that
-
     .. math::
-        &\frac{\partial \tilde n}{\partial t}+\nabla\cdot(n_0 \tilde{\mathbf{U}})=0\,, 
-
-        \int n_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \tilde{\mathbf{V}}\,\textrm d \mathbf x  - \int \tilde p\, \nabla \cdot \tilde{\mathbf{V}} \,\textrm d \mathbf x
-        =\int \tilde{\mathbf{B}}\cdot \nabla \times (\mathbf{B}_0 \times \tilde{\mathbf{V}})\,\textrm d \mathbf x + \int (\nabla\times\mathbf{B}_0)\times \tilde{\mathbf{B}} \cdot \tilde{\mathbf{V}}\,\textrm d \mathbf x
-        \qquad \forall \ \tilde{\mathbf{V}} \in H(\textrm{div})\,,
-
+    
+        &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
+        \\[2mm]
+        \rho_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p
+        = (\nabla \times \tilde{\mathbf{B}})\cdot \mathbf{B}_0 + (\nabla\times\mathbf{B}_0)\times \tilde{\mathbf{B}} \,,
+        \\[2mm]
         &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
         + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,,
-
+        \\[2mm]
         &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
         = 0\,.
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.ShearAlfvén`
+    1. :class:`~struphy.propagators.propagators_fields.ShearAlfven`
     2. :class:`~struphy.propagators.propagators_fields.Magnetosonic`
 
     :ref:`Model info <add_model>`:
@@ -42,8 +40,8 @@ class LinearMHD(StruphyModel):
     def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
-        dct['em_fields']['b2'] = 'Hdiv'
-        dct['fluid']['mhd'] = {'n3': 'L2', 'u2': 'Hdiv', 'p3': 'L2'}
+        dct['em_fields']['b_field'] = 'Hdiv'
+        dct['fluid']['mhd'] = {'density': 'L2', 'velocity': 'Hdiv', 'pressure': 'L2'}
         return dct
 
     @staticmethod
@@ -56,8 +54,8 @@ class LinearMHD(StruphyModel):
 
     @staticmethod
     def propagators_dct():
-        return {propagators_fields.ShearAlfven: ['mhd_u2', 'b2'],
-                propagators_fields.Magnetosonic: ['mhd_n3', 'mhd_u2', 'mhd_p3']}
+        return {propagators_fields.ShearAlfven: ['mhd_velocity', 'b_field'],
+                propagators_fields.Magnetosonic: ['mhd_density', 'mhd_velocity', 'mhd_pressure']}
 
     __em_fields__ = species()['em_fields']
     __fluid_species__ = species()['fluid']
@@ -69,10 +67,12 @@ class LinearMHD(StruphyModel):
     @classmethod
     def options(cls):
         dct = {}
-        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'shear_alfven'],
-                       option=propagators_fields.ShearAlfven.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'magnetosonic'],
-                       option=propagators_fields.Magnetosonic.options()['solver'], dct=dct)
+        cls.add_option(species=['fluid', 'mhd'], 
+                       option=propagators_fields.ShearAlfven,
+                       dct=dct)
+        cls.add_option(species=['fluid', 'mhd'],
+                       option=propagators_fields.Magnetosonic, 
+                       dct=dct)
         return dct
 
     def __init__(self, params=None, comm=None):
@@ -83,8 +83,8 @@ class LinearMHD(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # extract necessary parameters
-        alfven_solver = params['fluid']['mhd']['options']['solvers']['shear_alfven']
-        sonic_solver = params['fluid']['mhd']['options']['solvers']['magnetosonic']
+        alfven_solver = params['fluid']['mhd']['options']['ShearAlfven']['solver']
+        sonic_solver = params['fluid']['mhd']['options']['Magnetosonic']['solver']
 
         # project background magnetic field (2-form) and pressure (3-form)
         self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
@@ -101,8 +101,8 @@ class LinearMHD(StruphyModel):
         # set keyword arguments for propagators
         self._kwargs[propagators_fields.ShearAlfven] = {'solver': alfven_solver}
 
-        self._kwargs[propagators_fields.Magnetosonic] = {'b': self.pointer['b2'],
-                                                         **sonic_solver}
+        self._kwargs[propagators_fields.Magnetosonic] = {'b': self.pointer['b_field'],
+                                                         'solver': sonic_solver}
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
@@ -123,12 +123,12 @@ class LinearMHD(StruphyModel):
 
     def update_scalar_quantities(self):
         # perturbed fields
-        self._mass_ops.M2n.dot(self.pointer['mhd_u2'], out=self._tmp_u1)
-        self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp_b1)
+        self._mass_ops.M2n.dot(self.pointer['mhd_velocity'], out=self._tmp_u1)
+        self._mass_ops.M2.dot(self.pointer['b_field'], out=self._tmp_b1)
 
-        en_U = self.pointer['mhd_u2'] .dot(self._tmp_u1)/2
-        en_B = self.pointer['b2'] .dot(self._tmp_b1)/2
-        en_p = self.pointer['mhd_p3'] .dot(self._ones)/(5/3 - 1)
+        en_U = self.pointer['mhd_velocity'] .dot(self._tmp_u1)/2
+        en_B = self.pointer['b_field'] .dot(self._tmp_b1)/2
+        en_p = self.pointer['mhd_pressure'] .dot(self._ones)/(5/3 - 1)
 
         self.update_scalar('en_U', en_U)
         self.update_scalar('en_B', en_B)
@@ -146,7 +146,7 @@ class LinearMHD(StruphyModel):
 
         # total magnetic field
         self._b_eq.copy(out=self._tmp_b1)
-        self._tmp_b1 += self.pointer['b2']
+        self._tmp_b1 += self.pointer['b_field']
 
         self._mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
 

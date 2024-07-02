@@ -446,16 +446,16 @@ class ShearAlfven(Propagator):
         max_du, max_db = self.feec_vars_update(un1, bn1)
 
         if self._info and self._rank == 0:
-            print('Status     for ShearAlfvén:', info['success'])
-            print('Iterations for ShearAlfvén:', info['niter'])
-            print('Maxdiff up for ShearAlfvén:', max_du)
-            print('Maxdiff b2 for ShearAlfvén:', max_db)
+            print('Status     for ShearAlfven:', info['success'])
+            print('Iterations for ShearAlfven:', info['niter'])
+            print('Maxdiff up for ShearAlfven:', max_du)
+            print('Maxdiff b2 for ShearAlfven:', max_db)
             print()
 
     @classmethod
     def options(cls):
         dct = {}
-        dct['u_space'] = ['Hcurl', 'Hdiv', 'H1vec']
+        dct['u_space'] = ['Hdiv', 'H1vec', 'Hcurl']
         dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
                                   ('cg', None)],
                          'tol': 1.e-8,
@@ -579,10 +579,10 @@ class ShearAlfvenB1(Propagator):
         max_du, max_db = self.feec_vars_update(un1, bn1)
 
         if self._info and self._rank == 0:
-            print('Status     for ShearAlfvénB1:', info['success'])
-            print('Iterations for ShearAlfvénB1:', info['niter'])
-            print('Maxdiff up for ShearAlfvénB1:', max_du)
-            print('Maxdiff b2 for ShearAlfvénB1:', max_db)
+            print('Status     for ShearAlfvenB1:', info['success'])
+            print('Iterations for ShearAlfvenB1:', info['niter'])
+            print('Maxdiff up for ShearAlfvenB1:', max_du)
+            print('Maxdiff b2 for ShearAlfvenB1:', max_db)
             print()
 
     @classmethod
@@ -714,7 +714,21 @@ class Hall(Propagator):
 
 
 class Magnetosonic(Propagator):
-    r'''Crank-Nicolson step for magnetosonic part in MHD equations:
+    r'''
+    :ref:`FEEC <gempic>` discretization of the following equations: 
+    find :math:`\tilde \rho \in L^2, \tilde{\mathbf U} \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}, \tilde p \in L^2` such that
+
+    .. math::
+        &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
+
+        \int \rho_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V\,\textrm d \mathbf x  - \int \tilde p\, \nabla \cdot \mathbf V \,\textrm d \mathbf x
+        =\int (\nabla\times\mathbf{B}_0)\times \tilde{\mathbf{B}} \cdot \mathbf V\,\textrm d \mathbf x
+        \qquad \forall \ \mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
+
+        &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
+        + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,.
+
+    :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`:
 
     .. math::
 
@@ -726,60 +740,43 @@ class Magnetosonic(Propagator):
     :math:`\mathbb M^J_\alpha` are weighted mass matrices in :math:`\alpha`-space, 
     the weights being the MHD equilibirum density :math:`\rho_0`
     and the curl of the MHD equilibrium current density :math:`\mathbf J_0 = \nabla \times \mathbf B_0`. 
-    The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
-
-    Decoupled density update:
+    Density update is decoupled:
 
     .. math::
 
         \boldsymbol{\rho}^{n+1} = \boldsymbol{\rho}^n - \frac{\Delta t}{2} \mathbb D \mathcal Q^\alpha (\mathbf u^{n+1} + \mathbf u^n) \,.
-
-    Parameters
-    ---------- 
-    n : psydac.linalg.stencil.StencilVector
-        FE coefficients of a discrete 3-form.
-
-    u : psydac.linalg.block.BlockVector
-        FE coefficients of MHD velocity.
-
-    p : psydac.linalg.stencil.StencilVector
-        FE coefficients of a discrete 3-form.
-
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
     '''
 
-    def __init__(self, n, u, p, **params):
+    def __init__(self,
+                 n: StencilVector,
+                 u: BlockVector,
+                 p: StencilVector,
+                 *,
+                 u_space: str = 'Hdiv',
+                 b: BlockVector,
+                 solver: dict = {'type': ('pbicgstab', 'MassMatrixPreconditioner'),
+                                 'tol': 1e-8,
+                                 'maxiter': 3000,
+                                 'info': False,
+                                 'verbose': False}):
 
         super().__init__(n, u, p)
 
-        # parameters
-        params_default = {'u_space': 'Hdiv',
-                          'b': self.derham.Vh['2'].zeros(),
-                          'type': ('pbicgstab', 'MassMatrixPreconditioner'),
-                          'tol': 1e-8,
-                          'maxiter': 3000,
-                          'info': False,
-                          'verbose': False,
-                          'recycle': True}
+        assert u_space in {'Hcurl', 'Hdiv', 'H1vec'}
 
-        params = set_defaults(params, params_default)
-
-        assert params['u_space'] in {'Hcurl', 'Hdiv', 'H1vec'}
-
-        self._info = params['info']
+        self._info = solver['info']
         self._bc = self.derham.dirichlet_bc
         self._rank = self.derham.comm.Get_rank()
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        id_Mn = 'M' + self.derham.space_to_form[params['u_space']] + 'n'
-        id_MJ = 'M' + self.derham.space_to_form[params['u_space']] + 'J'
+        id_Mn = 'M' + self.derham.space_to_form[u_space] + 'n'
+        id_MJ = 'M' + self.derham.space_to_form[u_space] + 'J'
 
-        if params['u_space'] == 'Hcurl':
+        if u_space == 'Hcurl':
             id_S, id_U, id_K, id_Q = 'S1', 'U1', 'K3', 'Q1'
-        elif params['u_space'] == 'Hdiv':
+        elif u_space == 'Hdiv':
             id_S, id_U, id_K, id_Q = 'S2', None, 'K3', 'Q2'
-        elif params['u_space'] == 'H1vec':
+        elif u_space == 'H1vec':
             id_S, id_U, id_K, id_Q = 'Sv', 'Uv', 'K3', 'Qv'
 
         _A = getattr(self.mass_ops, id_Mn)
@@ -798,24 +795,24 @@ class Magnetosonic(Propagator):
         self._MJ = getattr(self.mass_ops, id_MJ)
         self._DQ = self.derham.div @ getattr(self.basis_ops, id_Q)
 
-        self._b = params['b']
+        self._b = b
 
         # preconditioner
-        if params['type'][1] is None:
+        if solver['type'][1] is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, params['type'][1])
+            pc_class = getattr(preconditioner, solver['type'][1])
             pc = pc_class(getattr(self.mass_ops, id_Mn))
 
         # instantiate Schur solver (constant in this case)
         _BC = self._B @ self._C
 
         self._schur_solver = SchurSolver(_A, _BC,
-                                         params['type'][0],
+                                         solver['type'][0],
                                          pc=pc,
-                                         tol=params['tol'],
-                                         maxiter=params['maxiter'],
-                                         verbose=params['verbose'])
+                                         tol=solver['tol'],
+                                         maxiter=solver['maxiter'],
+                                         verbose=solver['verbose'])
 
         # allocate dummy vectors to avoid temporary array allocations
         self._u_tmp1 = u.space.zeros()
@@ -869,7 +866,7 @@ class Magnetosonic(Propagator):
     @classmethod
     def options(cls):
         dct = {}
-        dct['u_space'] = ['Hcurl', 'Hdiv', 'H1vec']
+        dct['u_space'] = ['Hdiv', 'H1vec', 'Hcurl']
         dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
                                   ('bicgstab', None)],
                          'tol': 1.e-8,
@@ -1726,10 +1723,10 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         max_du, max_db = self.feec_vars_update(un1, bn1)
 
         if self._info and self._rank == 0:
-            print('Status     for ShearAlfvén:', info['success'])
-            print('Iterations for ShearAlfvén:', info['niter'])
-            print('Maxdiff up for ShearAlfvén:', max_du)
-            print('Maxdiff b2 for ShearAlfvén:', max_db)
+            print('Status     for ShearAlfven:', info['success'])
+            print('Iterations for ShearAlfven:', info['niter'])
+            print('Maxdiff up for ShearAlfven:', max_du)
+            print('Maxdiff b2 for ShearAlfven:', max_db)
             print()
 
     @classmethod
@@ -4097,16 +4094,16 @@ class VariationalEntropyEvolve(Propagator):
     def options(cls):
         dct = {}
         dct['lin_solver'] = {'tol': 1e-12,
-                         'maxiter': 500,
-                         'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
-                                                ('cg', None)],
-                         'info': False,
-                         'verbose': False,
-                         'implicit_transport': False}
+                             'maxiter': 500,
+                             'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
+                                      ('cg', None)],
+                             'info': False,
+                             'verbose': False,
+                             'implicit_transport': False}
         dct['nonlin_solver'] = {'tol': 1e-8,
-                         'maxiter': 100,
-                         'type': ['Newton', 'Picard'],
-                         'implicit_transport': False}
+                                'maxiter': 100,
+                                'type': ['Newton', 'Picard'],
+                                'implicit_transport': False}
         dct['physics'] = {'gamma': 5/3}
         return dct
 

@@ -628,7 +628,7 @@ def cc_lin_mhd_5d_M(markers: 'float[:,:]', n_markers_tot: 'int',
                     scale_vec: 'float',        # model specific argument
                     boundary_cut: 'float'):    # model specific argument
 
-    r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_fields.ShearAlfvénCurrentCoupling5D` and :class:`~struphy.propagators.propagators_fields.MagnetosonicCurrentCoupling5D`.
+    r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_fields.ShearAlfvenCurrentCoupling5D` and :class:`~struphy.propagators.propagators_fields.MagnetosonicCurrentCoupling5D`.
 
     Accumulates 2-form vector with the filling functions:
 

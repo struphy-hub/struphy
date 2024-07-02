@@ -369,7 +369,7 @@ class ShearAlfven(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.ShearAlfvén`
+    1. :class:`~struphy.propagators.propagators_fields.ShearAlfven`
 
     :ref:`Model info <add_model>`:
     '''
