@@ -1076,6 +1076,8 @@ def delta_f_vlasov_maxwell_scn(markers: 'float[:,:]', n_markers_tot: 'int',
 def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                     starts: 'int[:]',
+                    pads: 'int[:]',
+                    shifts: 'int[:]',
                     kind_map: 'int', params_map: 'float[:]',
                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1156,11 +1158,11 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
             tn3, int(pn[2]), eta3, span3, bn3, bd3)
 
         b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts)
+            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts, pads, shifts)
         b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts)
+            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts, pads, shifts)
         b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b2_3, starts)
+            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b2_3, starts, pads, shifts)
 
         # operator bx() as matrix
         b_prod[0, 1] = -b[2]
@@ -1244,6 +1246,8 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers_tot: 'int',
 def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                     starts: 'int[:]',
+                    pads: 'int[:]',
+                    shifts: 'int[:]',
                     kind_map: 'int', params_map: 'float[:]',
                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1341,11 +1345,11 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers_tot: 'int',
             tn3, int(pn[2]), eta3, span3, bn3, bd3)
 
         b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts)
+            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts, pads, shifts)
         b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts)
+            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts, pads, shifts)
         b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b2_3, starts)
+            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b2_3, starts, pads, shifts)
 
         # operator bx() as matrix
         b_prod[0, 1] = -b[2]

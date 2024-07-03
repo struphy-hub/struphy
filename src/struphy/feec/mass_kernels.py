@@ -40,7 +40,7 @@ def kernel_1d_mat(spans1: 'int[:]', pi1: int, pj1: int, starts1: int, shift1: in
                 data[pads1*shift1 + i_local1, pads1 + jl1 - il1] += value
 
 
-def kernel_1d_vec(spans1: 'int[:]', pi1: int, starts1: int, pads1: int, w1: 'float[:,:]', bi1: 'float[:,:,:,:]', mat_fun: 'float[:]', data: 'float[:]'):
+def kernel_1d_vec(spans1: 'int[:]', pi1: int, starts1: int, shift1: int, pads1: int, w1: 'float[:,:]', bi1: 'float[:,:,:,:]', mat_fun: 'float[:]', data: 'float[:]'):
     """
     Performs the integration of Lambda_i * mat_fun(eta1) for the basis functions (i) available on the calling process.
 
@@ -68,10 +68,10 @@ def kernel_1d_vec(spans1: 'int[:]', pi1: int, starts1: int, pads1: int, w1: 'flo
                 value += w1[iel1, q1] * bi1[iel1, il1, 0, q1] \
                     * mat_fun[iel1*nq1 + q1]
 
-            data[pads1 + i_local1] += value
+            data[pads1*shift1 + i_local1] += value
 
 
-def kernel_1d_eval(spans1: 'int[:]', pi1: int, starts1: int, pads1: int, bi1: 'float[:,:,:,:]', coeffs_data: 'float[:]', values: 'float[:]'):
+def kernel_1d_eval(spans1: 'int[:]', pi1: int, starts1: int, shift1: int, pads1: int, bi1: 'float[:,:,:,:]', coeffs_data: 'float[:]', values: 'float[:]'):
     """
     Evaluates sum_i [ coeffs_i * Lambda_i(quad_eta1) ] for all quadrature points on the calling process.
 
@@ -95,7 +95,7 @@ def kernel_1d_eval(spans1: 'int[:]', pi1: int, starts1: int, pads1: int, bi1: 'f
             i_local1 = i_global1 - starts1
 
             for q1 in range(nq1):
-                values[iel1*nq1 + q1] += coeffs_data[pads1 + i_local1] \
+                values[iel1*nq1 + q1] += coeffs_data[pads1*shift1 + i_local1] \
                     * bi1[iel1, il1, 0, q1]
 
 # ================= 2d =================================
@@ -149,7 +149,7 @@ def kernel_2d_mat(spans1: 'int[:]', spans2: 'int[:]', pi1: int, pi2: int, pj1: i
                                  pads1 + jl1 - il1, pads2 + jl2 - il2] += value
 
 
-def kernel_2d_vec(spans1: 'int[:]', spans2: 'int[:]', pi1: int, pi2: int, starts1: int, starts2: int, pads1: int, pads2: int, w1: 'float[:,:]', w2: 'float[:,:]', bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', mat_fun: 'float[:,:]', data: 'float[:,:]'):
+def kernel_2d_vec(spans1: 'int[:]', spans2: 'int[:]', pi1: int, pi2: int, starts1: int, starts2: int, shift1: int, shift2: int, pads1: int, pads2: int, w1: 'float[:,:]', w2: 'float[:,:]', bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', mat_fun: 'float[:,:]', data: 'float[:,:]'):
     """
     Performs the integration of Lambda_ij * mat_fun(eta1, eta2) for the basis functions (ij) available on the calling process.
 
@@ -187,10 +187,10 @@ def kernel_2d_vec(spans1: 'int[:]', spans2: 'int[:]', pi1: int, pi2: int, starts
                             value += wvol * bi1[iel1, il1, 0, q1] \
                                 * bi2[iel2, il2, 0, q2]
 
-                    data[pads1 + i_local1, pads2 + i_local2] += value
+                    data[pads1*shift1 + i_local1, pads2*shift2 + i_local2] += value
 
 
-def kernel_2d_eval(spans1: 'int[:]', spans2: 'int[:]', pi1: int, pi2: int, starts1: int, starts2: int, pads1: int, pads2: int, bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', coeffs_data: 'float[:,:]', values: 'float[:,:]'):
+def kernel_2d_eval(spans1: 'int[:]', spans2: 'int[:]', pi1: int, pi2: int, starts1: int, starts2: int, shift1: int, shift2: int, pads1: int, pads2: int, bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', coeffs_data: 'float[:,:]', values: 'float[:,:]'):
     """
     Evaluates sum_ij [ coeffs_ij * Lambda_ij(quad_eta1, quad_eta2) ] for all quadrature points on the calling process.
 
@@ -222,7 +222,7 @@ def kernel_2d_eval(spans1: 'int[:]', spans2: 'int[:]', pi1: int, pi2: int, start
                     for q1 in range(nq1):
                         for q2 in range(nq2):
                             values[iel1*nq1 + q1, iel2*nq2 + q2] += \
-                                coeffs_data[pads1 + i_local1, pads2 + i_local2] \
+                                coeffs_data[pads1*shift1 + i_local1, pads2*shift2 + i_local2] \
                                 * bi1[iel1, il1, 0, q1] \
                                 * bi2[iel2, il2, 0, q2]
 
@@ -320,7 +320,7 @@ def kernel_3d_mat(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int
                                              pads1 + jl1 - il1, pads2 + jl2 - il2, pads3 + jl3 - il3] += value
 
 
-def kernel_3d_vec(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int, pi2: int, pi3: int, starts1: int, starts2: int, starts3: int, pads1: int, pads2: int, pads3: int, w1: 'float[:,:]', w2: 'float[:,:]', w3: 'float[:,:]', bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', bi3: 'float[:,:,:,:]', mat_fun: 'float[:,:,:]', data: 'float[:,:,:]'):
+def kernel_3d_vec(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int, pi2: int, pi3: int, starts1: int, starts2: int, starts3: int, shift1: int, shift2: int, shift3: int, pads1: int, pads2: int, pads3: int, w1: 'float[:,:]', w2: 'float[:,:]', w3: 'float[:,:]', bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', bi3: 'float[:,:,:,:]', mat_fun: 'float[:,:,:]', data: 'float[:,:,:]'):
     """
     Performs the integration of Lambda_ijk * mat_fun(eta1, eta2, eta3) for the basis functions (ijk) available on the calling process.
 
@@ -369,11 +369,11 @@ def kernel_3d_vec(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int
                                             * bi2[iel2, il2, 0, q2] \
                                             * bi3[iel3, il3, 0, q3]
 
-                            data[pads1 + i_local1, pads2 +
-                                 i_local2, pads3 + i_local3] += value
+                            data[pads1*shift1 + i_local1, pads2*shift2 +
+                                 i_local2, pads3*shift3 + i_local3] += value
 
 
-def kernel_3d_eval(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int, pi2: int, pi3: int, starts1: int, starts2: int, starts3: int, pads1: int, pads2: int, pads3: int, bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', bi3: 'float[:,:,:,:]', coeffs_data: 'float[:,:,:]', values: 'float[:,:,:]'):
+def kernel_3d_eval(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int, pi2: int, pi3: int, starts1: int, starts2: int, starts3: int, shift1: int, shift2: int, shift3: int, pads1: int, pads2: int, pads3: int, bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', bi3: 'float[:,:,:,:]', coeffs_data: 'float[:,:,:]', values: 'float[:,:,:]'):
     """
     Evaluates sum_ijk [ coeffs_ijk * Lambda_ijk(quad_eta1, quad_eta2, quad_eta3) ] for all quadrature points on the calling process.
 
@@ -412,11 +412,11 @@ def kernel_3d_eval(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: in
                                 for q2 in range(nq2):
                                     for q3 in range(nq3):
                                         values[iel1*nq1 + q1, iel2*nq2 + q2, iel3*nq3 + q3] += \
-                                            coeffs_data[pads1 + i_local1, pads2 + i_local2, pads3 + i_local3] \
+                                            coeffs_data[pads1*shift1 + i_local1, pads2*shift2 + i_local2, pads3*shift3 + i_local3] \
                                             * bi1[iel1, il1, 0, q1] * bi2[iel2, il2, 0, q2] * bi3[iel3, il3, 0, q3]
 
 
-def kernel_3d_matrixfree(spansi1: 'int[:]', spansi2: 'int[:]', spansi3: 'int[:]', spansj1: 'int[:]', spansj2: 'int[:]', spansj3: 'int[:]', pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3: int, startsi1: int, startsi2: int, startsi3: int, startsj1: int, startsj2: int, startsj3: int, padsi1: int, padsi2: int, padsi3: int, padsj1: int, padsj2: int, padsj3: int, w1: 'float[:,:]', w2: 'float[:,:]', w3: 'float[:,:]', bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', bi3: 'float[:,:,:,:]', bj1: 'float[:,:,:,:]', bj2: 'float[:,:,:,:]', bj3: 'float[:,:,:,:]', mat_fun: 'float[:,:,:]', data_out: 'float[:,:,:]', data_in: 'float[:,:,:]'):
+def kernel_3d_matrixfree(spansi1: 'int[:]', spansi2: 'int[:]', spansi3: 'int[:]', spansj1: 'int[:]', spansj2: 'int[:]', spansj3: 'int[:]', pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3: int, startsi1: int, startsi2: int, startsi3: int, startsj1: int, startsj2: int, startsj3: int, shifti1: int, shifti2: int, shifti3: int, shiftj1: int, shiftj2: int, shiftj3: int, padsi1: int, padsi2: int, padsi3: int, padsj1: int, padsj2: int, padsj3: int, w1: 'float[:,:]', w2: 'float[:,:]', w3: 'float[:,:]', bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', bi3: 'float[:,:,:,:]', bj1: 'float[:,:,:,:]', bj2: 'float[:,:,:,:]', bj3: 'float[:,:,:,:]', mat_fun: 'float[:,:,:]', data_out: 'float[:,:,:]', data_in: 'float[:,:,:]'):
     """
     Performs the integration of Lambda_ijk * mat_fun(eta1, eta2, eta3) * f(eta1, eta2, eta3) for the basis functions (ijk) available on the calling process,
     where f is the spline function represented by the coefficients in data_in. 
@@ -483,9 +483,9 @@ def kernel_3d_matrixfree(spansi1: 'int[:]', spansi2: 'int[:]', spansi3: 'int[:]'
                                         j_global3 = spansj3[iel3] - pj3 + jl3
 
                                         # local spline indices (- starts --> can be negative, will therefore be written to ghost regions)
-                                        j_local1 = j_global1 - startsj1 + padsj1
-                                        j_local2 = j_global2 - startsj2 + padsj2
-                                        j_local3 = j_global3 - startsj3 + padsj3
+                                        j_local1 = j_global1 - startsj1 + padsj1*shiftj1
+                                        j_local2 = j_global2 - startsj2 + padsj2*shiftj2
+                                        j_local3 = j_global3 - startsj3 + padsj3*shiftj3
 
                                         bj += tmp_bj1[jl1] * \
                                             tmp_bj2[jl2] * \
@@ -503,9 +503,9 @@ def kernel_3d_matrixfree(spansi1: 'int[:]', spansi2: 'int[:]', spansi3: 'int[:]'
                                         i_global3 = spansi3[iel3] - pi3 + il3
 
                                         # local spline indices (- starts --> can be negative, will therefore be written to ghost regions)
-                                        i_local1 = i_global1 - startsi1 + padsi1
-                                        i_local2 = i_global2 - startsi2 + padsi2
-                                        i_local3 = i_global3 - startsi3 + padsi3
+                                        i_local1 = i_global1 - startsi1 + padsi1*shifti1
+                                        i_local2 = i_global2 - startsi2 + padsi2*shifti2
+                                        i_local3 = i_global3 - startsi3 + padsi3*shifti3
 
 
                                         wvol = tmp_w1[q1] * tmp_w2[q2] * tmp_w3[q3] * \

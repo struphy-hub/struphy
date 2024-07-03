@@ -48,9 +48,19 @@ def create_femfields(path, step=1):
     with open(os.path.join(path, 'parameters.yml'), 'r') as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
 
+    if 'spline_ck' in params['grid'] :
+        # C^k smoothness of the splines
+        spline_ck = params['grid']['spline_ck']
+        p = params['grid']['p']
+        # Multiplicity of the knots for the splines sequence (= degree - regularity)
+        multiplicity = [p_i-spline_ck_i for p_i, spline_ck_i in zip(p, spline_ck)]
+    else :
+        multiplicity = None
+
     derham = Derham(params['grid']['Nel'],
                     params['grid']['p'],
-                    params['grid']['spl_kind'])
+                    params['grid']['spl_kind'],
+                    multiplicity=multiplicity)
 
     # get fields names, space IDs and time grid from 0-th rank hdf5 file
     file = h5py.File(os.path.join(path, 'data/', 'data_proc0.hdf5'), 'r')
@@ -84,6 +94,7 @@ def create_femfields(path, step=1):
             gl_s = dset.attrs['starts']
             gl_e = dset.attrs['ends']
             pads = dset.attrs['pads']
+            shifts = dset.attrs['shifts']
 
             assert gl_s.shape == (3,) or gl_s.shape == (3, 3)
             assert gl_e.shape == (3,) or gl_e.shape == (3, 3)
@@ -98,8 +109,9 @@ def create_femfields(path, step=1):
                     s1, s2, s3 = gl_s
                     e1, e2, e3 = gl_e
                     p1, p2, p3 = pads
+                    sh1, sh2, sh3 = shifts
 
-                    data = dset[n*step, p1:-p1, p2:-p2, p3:-p3].copy()
+                    data = dset[n*step, p1*sh1:-p1*sh1, p2*sh2:-p2*sh2, p3*sh3:-p3*sh3].copy()
 
                     fields[t][field_name].vector[s1:e1 +
                                                  1, s2:e2 + 1, s3:e3 + 1] = data
@@ -113,11 +125,12 @@ def create_femfields(path, step=1):
                         s1, s2, s3 = gl_s[comp]
                         e1, e2, e3 = gl_e[comp]
                         p1, p2, p3 = pads[comp]
+                        sh1, sh2, sh3 = shifts[comp]
 
                         data = dset[str(comp + 1)][n * step,
-                                                   p1:-p1,
-                                                   p2:-p2,
-                                                   p3:-p3].copy()
+                                                   p1*sh1:-p1*sh1,
+                                                   p2*sh2:-p2*sh2,
+                                                   p3*sh3:-p3*sh3].copy()
 
                         fields[t][field_name].vector[comp][s1:e1 + 1,
                                                            s2:e2 + 1,

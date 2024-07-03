@@ -28,6 +28,10 @@ def eval_field_at_particles(fe_coeffs, derham, space_id, particles):
                                              derham.V0.knots[0], derham.V0.knots[1], derham.V0.knots[2],
                                              np.array(
                                                  derham.V0.vector_space.starts),
+                                             np.array(
+                                                 derham.V0.vector_space.pads),
+                                             np.array(
+                                                 derham.V0.vector_space.shifts),
                                              fe_coeffs._data)
 
     elif space_id == 'Hcurl':
@@ -37,6 +41,10 @@ def eval_field_at_particles(fe_coeffs, derham, space_id, particles):
                                        derham.V1.knots[0], derham.V1.knots[1], derham.V1.knots[2],
                                        np.array(
                                                  derham.V0.vector_space.starts),
+                                       np.array(
+                                                 derham.V0.vector_space.pads),
+                                       np.array(
+                                                 derham.V0.vector_space.shifts),
                                        fe_coeffs.blocks[0]._data, fe_coeffs.blocks[1]._data, fe_coeffs.blocks[2]._data,
                                        res)
 
@@ -47,6 +55,10 @@ def eval_field_at_particles(fe_coeffs, derham, space_id, particles):
                                        derham.V2.knots[0], derham.V2.knots[1], derham.V2.knots[2],
                                        np.array(
                                                  derham.V0.vector_space.starts),
+                                       np.array(
+                                                 derham.V0.vector_space.pads),
+                                       np.array(
+                                                 derham.V0.vector_space.shifts),
                                        fe_coeffs.blocks[0]._data, fe_coeffs.blocks[1]._data, fe_coeffs.blocks[2]._data,
                                        res)
 
@@ -56,6 +68,10 @@ def eval_field_at_particles(fe_coeffs, derham, space_id, particles):
                                              derham.V3.knots[0], derham.V3.knots[1], derham.V3.knots[2],
                                              np.array(
                                                  derham.V0.vector_space.starts),
+                                             np.array(
+                                                 derham.V0.vector_space.pads),
+                                             np.array(
+                                                 derham.V0.vector_space.shifts),
                                              fe_coeffs)
     elif space_id == 'H1vec':
         res = np.empty(3, dtype=float)
@@ -64,6 +80,10 @@ def eval_field_at_particles(fe_coeffs, derham, space_id, particles):
                                        derham.V0.knots[0], derham.V0.knots[1], derham.V0.knots[2],
                                        np.array(
                                                  derham.V0.vector_space.starts),
+                                       np.array(
+                                                 derham.V0.vector_space.pads),
+                                       np.array(
+                                                 derham.V0.vector_space.shifts),
                                        fe_coeffs.blocks[0]._data, fe_coeffs.blocks[1]._data, fe_coeffs.blocks[2]._data,
                                        res)
 

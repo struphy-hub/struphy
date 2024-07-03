@@ -323,7 +323,9 @@ class Particles5D(Particles):
                     self.derham.Vh_fem['0'].knots[0],
                     self.derham.Vh_fem['0'].knots[1],
                     self.derham.Vh_fem['0'].knots[2],
-                    np.array(self.derham.Vh['0'].starts))
+                    np.array(self.derham.Vh['0'].starts),
+                    np.array(self.derham.Vh['0'].pads),
+                    np.array(self.derham.Vh['0'].shifts))
 
         if abs_B0 is None:
             abs_B0 = self.derham.P['0'](self.mhd_equil.absB0)
@@ -369,7 +371,9 @@ class Particles5D(Particles):
                     self.derham.Vh_fem['0'].knots[0],
                     self.derham.Vh_fem['0'].knots[1],
                     self.derham.Vh_fem['0'].knots[2],
-                    np.array(self.derham.Vh['0'].starts))
+                    np.array(self.derham.Vh['0'].starts),
+                    np.array(self.derham.Vh['0'].pads),
+                    np.array(self.derham.Vh['0'].shifts))
 
         E2T = self.derham.extraction_ops['2'].transpose()
         b2t = E2T.dot(b2, out=self._tmp2)

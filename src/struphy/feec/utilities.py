@@ -429,9 +429,10 @@ def create_weight_weightedmatrix_hybrid(b, weight_pre, derham, accum_density, do
                    nquad in zip(wspace._quad_grids, wspace.nquads)]
 
         pads_out = wspace.vector_space.pads
+        shifts_out = wspace.vector_space.pads
 
         kernels.hybrid_curlA(
             *starts_out, *spans_out, p[0], p[1], p[2], nqs[0], nqs[1], nqs[2], *basis_o, weight_pre[aa], b[aa]._data)
     # generate the weight for generating the matrix
-    kernels.hybrid_weight(*pads_out, *pts, *spans_out, nqs[0], nqs[1], nqs[2], wts[0], wts[1], wts[2],
+    kernels.hybrid_weight(pads_out, shifts_out, *pts, *spans_out, nqs[0], nqs[1], nqs[2], wts[0], wts[1], wts[2],
                           weight_pre[0], weight_pre[1], weight_pre[2], accum_density._operators[0].matrix._data, *domain.args_map)

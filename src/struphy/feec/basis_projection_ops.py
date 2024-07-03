@@ -1029,10 +1029,12 @@ class BasisProjectionOperator(LinOpWithTransp):
                 _starts_in = np.array(Vspace.starts)
                 _ends_in = np.array(Vspace.ends)
                 _pads_in = np.array(Vspace.pads)
+                _shifts_in = np.array(Vspace.shifts)
 
                 _starts_out = np.array(Wspace.starts)
                 _ends_out = np.array(Wspace.ends)
                 _pads_out = np.array(Wspace.pads)
+                _shifts_out = np.array(Wspace.shifts)
 
                 # use cached information if asked
                 if self._use_cache:
@@ -1089,8 +1091,9 @@ class BasisProjectionOperator(LinOpWithTransp):
                     kernel = getattr(basis_projection_kernels,
                                      'assemble_dofs_for_weighted_basisfuns_' + str(V.ldim) + 'd')
 
-                    kernel(dofs_mat._data, _starts_in, _ends_in, _pads_in, _starts_out, _ends_out,
-                           _pads_out, mat_w, *_wtsG, *_spans, *_bases, *_subs, *_Vnbases, *_Wdegrees)
+                    kernel(dofs_mat._data, _starts_in, _ends_in, _pads_in, _shifts_in, _starts_out, _ends_out,
+                           _pads_out, _shifts_out, mat_w, *_wtsG, *_spans, *_bases, *_subs, *_Vnbases, *_Wdegrees)
+
 
                     dofs_mat.set_backend(
                         backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)

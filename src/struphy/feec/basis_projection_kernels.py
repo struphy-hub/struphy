@@ -312,8 +312,8 @@ def assemble_dofs_for_weighted_basisfuns_2d(
 
 def assemble_dofs_for_weighted_basisfuns_3d(
     mat: 'float[:,:,:,:,:,:]',
-    starts_in: 'int[:]', ends_in: 'int[:]', pads_in: 'int[:]',
-    starts_out: 'int[:]', ends_out: 'int[:]', pads_out: 'int[:]',
+    starts_in: 'int[:]', ends_in: 'int[:]', pads_in: 'int[:]', shifts_in: 'int[:]',
+    starts_out: 'int[:]', ends_out: 'int[:]', pads_out: 'int[:]', shifts_out: 'int[:]',
     fun_q: 'float[:,:,:]',
     wts1: 'float[:,:]', wts2: 'float[:,:]', wts3: 'float[:,:]',
     span1: 'int[:,:]', span2: 'int[:,:]', span3: 'int[:,:]',
@@ -344,6 +344,9 @@ def assemble_dofs_for_weighted_basisfuns_3d(
         pads_in : 1d int array
             Paddings of the input space (domain) of a distributed StencilMatrix.
 
+        shifts_in : 1d int array
+            Shifts (corresponding to knot multiplicity) of the input space (domain) of a distributed StencilMatrix.
+            
         starts_out : 1d int array
             Starting indices of the output space (codomain) of a distributed StencilMatrix.
 
@@ -353,6 +356,9 @@ def assemble_dofs_for_weighted_basisfuns_3d(
         pads_out : 1d int array
             Paddings of the output space (codomain) of a distributed StencilMatrix.
 
+        shifts_out : 1d int array
+            Shifts (corresponding to knot multiplicity) of the output space (codomain) of a distributed StencilMatrix.
+        
         fun_q : 3d float array
             The function evaluated at the points (nq_i*ii + iq, nq_j*jj + jq, nq_k*kk + kq), where iq a local quadrature point of interval ii.
 
@@ -423,6 +429,9 @@ def assemble_dofs_for_weighted_basisfuns_3d(
     pi1 = pads_in[0]
     pi2 = pads_in[1]
     pi3 = pads_in[2]
+    shi1= shifts_in[0]
+    shi2= shifts_in[1]
+    shi3= shifts_in[2]
 
     # Start/end indices for distributed stencil matrix of output space
     so1 = starts_out[0]
@@ -434,6 +443,9 @@ def assemble_dofs_for_weighted_basisfuns_3d(
     po1 = pads_out[0]
     po2 = pads_out[1]
     po3 = pads_out[2]
+    sho1= shifts_out[0]
+    sho2= shifts_out[1]
+    sho3= shifts_out[2]
 
     # Spline degrees of input space
     p1 = basis1.shape[2] - 1
@@ -553,7 +565,7 @@ def assemble_dofs_for_weighted_basisfuns_3d(
                                         col3 = pi3 + o - (k + so3)
 
                                         # Row index: padding + local index.
-                                        mat[po1 + i, po2 + j, po3 + k,
+                                        mat[po1*sho1 + i, po2*sho2 + j, po3*sho3 + k,
                                             col1, col2, col3] += value
 
 

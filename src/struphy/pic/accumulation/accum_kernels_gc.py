@@ -121,6 +121,8 @@ def gc_density_0form(markers: 'float[:,:]', n_markers_tot: 'int',
 def cc_lin_mhd_5d_D(markers: 'float[:,:]', n_markers_tot: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                     starts: 'int[:]',
+                    pads: 'int[:]',
+                    shifts: 'int[:]',
                     kind_map: 'int', params_map: 'float[:]',
                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -220,27 +222,27 @@ def cc_lin_mhd_5d_D(markers: 'float[:,:]', n_markers_tot: 'int',
         bsplines_kernels.b_d_splines_slim(tn3, int(pn[2]), eta3, span3, bn3, bd3)
 
         b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts)
+            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts, pads, shifts)
         b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts)
+            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts, pads, shifts)
         b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b2_3, starts)
+            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b2_3, starts, pads, shifts)
 
         # norm_b1; 1form
         norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts, pads, shifts)
         norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts, pads, shifts)
         norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts, pads, shifts)
 
         # curl_norm_b; 2form
         curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts, pads, shifts)
         curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts, pads, shifts)
         curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts, pads, shifts)
 
         # operator bx() as matrix
         b_prod[0, 1] = -b[2]
@@ -337,6 +339,8 @@ def cc_lin_mhd_5d_D(markers: 'float[:,:]', n_markers_tot: 'int',
 def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                      starts: 'int[:]',
+                     pads: 'int[:]',
+                     shifts: 'int[:]',
                      kind_map: 'int', params_map: 'float[:]',
                      p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                      ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -469,27 +473,27 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
 
         # b; 2form
         b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
+            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts, pads, shifts)
         b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
+            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts, pads, shifts)
         b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b3, starts)
+            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b3, starts, pads, shifts)
 
         # norm_b1; 1form
         norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]), int(pn[2]), bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
+            int(pn[0]) - 1, int(pn[1]), int(pn[2]), bd1, bn2, bn3, span1, span2, span3, norm_b11, starts, pads, shifts)
         norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]) - 1, int(pn[2]), bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
+            int(pn[0]), int(pn[1]) - 1, int(pn[2]), bn1, bd2, bn3, span1, span2, span3, norm_b12, starts, pads, shifts)
         norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
+            int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts, pads, shifts)
 
         # curl_norm_b; 2form
         curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
+            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts, pads, shifts)
         curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
+            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts, pads, shifts)
         curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
+            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts, pads, shifts)
 
         # b_star; 2form in H1vec
         b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
@@ -609,6 +613,8 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]', n_markers_tot: 'int',
 def cc_lin_mhd_5d_M(markers: 'float[:,:]', n_markers_tot: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                     starts: 'int[:]',
+                    pads: 'int[:]',
+                    shifts: 'int[:]',
                     kind_map: 'int', params_map: 'float[:]',
                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -709,11 +715,11 @@ def cc_lin_mhd_5d_M(markers: 'float[:,:]', n_markers_tot: 'int',
 
         # norm_b1; 1form
         norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]), int(pn[2]), bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
+            int(pn[0]) - 1, int(pn[1]), int(pn[2]), bd1, bn2, bn3, span1, span2, span3, norm_b11, starts, pads, shifts)
         norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]) - 1, int(pn[2]), bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
+            int(pn[0]), int(pn[1]) - 1, int(pn[2]), bn1, bd2, bn3, span1, span2, span3, norm_b12, starts, pads, shifts)
         norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
+            int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts, pads, shifts)
 
         filling_v[:] = weight * mu / det_df * scale_vec * norm_b1
 
@@ -735,6 +741,8 @@ def cc_lin_mhd_5d_M(markers: 'float[:,:]', n_markers_tot: 'int',
 def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                      starts: 'int[:]',
+                     pads: 'int[:]',
+                     shifts: 'int[:]',
                      kind_map: 'int', params_map: 'float[:]',
                      p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                      ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -880,43 +888,43 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]', n_markers_tot: 'int',
 
         # b; 2form
         b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
+            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts, pads, shifts)
         b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
+            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts, pads, shifts)
         b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b3, starts)
+            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, b3, starts, pads, shifts)
 
         # norm_b1; 1form
         norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]), int(pn[2]), bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
+            int(pn[0]) - 1, int(pn[1]), int(pn[2]), bd1, bn2, bn3, span1, span2, span3, norm_b11, starts, pads, shifts)
         norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]) - 1, int(pn[2]), bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
+            int(pn[0]), int(pn[1]) - 1, int(pn[2]), bn1, bd2, bn3, span1, span2, span3, norm_b12, starts, pads, shifts)
         norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
+            int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts, pads, shifts)
 
         # norm_b2; 2form
         norm_b2[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts)
+            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts, pads, shifts)
         norm_b2[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts)
+            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts, pads, shifts)
         norm_b2[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, norm_b23, starts)
+            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, norm_b23, starts, pads, shifts)
 
         # curl_norm_b; 2form
         curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
+            int(pn[0]), int(pn[1]) - 1, int(pn[2]) - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts, pads, shifts)
         curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
+            int(pn[0]) - 1, int(pn[1]), int(pn[2]) - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts, pads, shifts)
         curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
+            int(pn[0]) - 1, int(pn[1]) - 1, int(pn[2]), bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts, pads, shifts)
 
         # grad_PB; 1form
         grad_PB[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]) - 1, int(pn[1]), int(pn[2]), bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts)
+            int(pn[0]) - 1, int(pn[1]), int(pn[2]), bd1, bn2, bn3, span1, span2, span3, grad_PB1, starts, pads, shifts)
         grad_PB[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]) - 1, int(pn[2]), bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts)
+            int(pn[0]), int(pn[1]) - 1, int(pn[2]), bn1, bd2, bn3, span1, span2, span3, grad_PB2, starts, pads, shifts)
         grad_PB[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts)
+            int(pn[0]), int(pn[1]), int(pn[2]) - 1, bn1, bn2, bd3, span1, span2, span3, grad_PB3, starts, pads, shifts)
 
         # b_star; 2form transformed into H1vec
         b_star[:] = (b + curl_norm_b*v*epsilon)/det_df

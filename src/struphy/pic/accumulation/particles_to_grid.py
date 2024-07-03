@@ -135,7 +135,9 @@ class Accumulator:
                           derham.Vh_fem['0'].knots[0],
                           derham.Vh_fem['0'].knots[1],
                           derham.Vh_fem['0'].knots[2],
-                          np.array(derham.Vh['0'].starts))
+                          np.array(derham.Vh['0'].starts),
+                          np.array(derham.Vh['0'].pads),
+                          np.array(derham.Vh['0'].shifts))
 
         # load the appropriate accumulation kernel (pyccelized, fast)
         self._kernel_name = kernel_name
@@ -366,7 +368,9 @@ class AccumulatorVector:
                           derham.Vh_fem['0'].knots[0],
                           derham.Vh_fem['0'].knots[1],
                           derham.Vh_fem['0'].knots[2],
-                          np.array(derham.Vh['0'].starts))
+                          np.array(derham.Vh['0'].starts),
+                          np.array(derham.Vh['0'].pads),
+                          np.array(derham.Vh['0'].shifts))
 
         # load the appropriate accumulation kernel (pyccelized, fast)
         self._kernel_name = kernel_name

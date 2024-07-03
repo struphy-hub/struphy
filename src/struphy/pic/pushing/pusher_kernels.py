@@ -71,7 +71,7 @@ def a_documentation():
 @stack_array('dfm', 'dfinv', 'dfinvt', 'e_form', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', 
-                       starts: 'int[:]',
+                       starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                        kind_map: int, params_map: 'float[:]',
                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -153,11 +153,11 @@ def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
 
         # electric field: 1-form components
         e_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, e1_1, starts)
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, e1_1, starts, pads, shifts)
         e_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, e1_2, starts)
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, e1_2, starts, pads, shifts)
         e_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, e1_3, starts)
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, e1_3, starts, pads, shifts)
 
         # electric field: Cartesian components
         linalg_kernels.matrix_vector(dfinvt, e_form, e_cart)
@@ -171,7 +171,7 @@ def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
 @stack_array('dfm', 'b_form', 'b_cart', 'b_norm', 'e', 'v', 'vperp', 'vxb_norm', 'b_normxvperp', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_vxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                      starts: 'int[:]',
+                      starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                       kind_map: int, params_map: 'float[:]',
                       p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                       ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -253,11 +253,11 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
 
         # magnetic field: 2-form components
         b_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts)
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts, pads, shifts)
         b_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts)
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts, pads, shifts)
         b_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts)
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts, pads, shifts)
 
         # magnetic field: Cartesian components
         linalg_kernels.matrix_vector(dfm, b_form, b_cart)
@@ -291,7 +291,7 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
 @stack_array('dfm', 'b_form', 'b_cart', 'b_prod', 'e', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'identity', 'rhs', 'lhs', 'lhs_inv', 'vec', 'res')
 def push_vxb_implicit(markers: 'float[:,:]', dt: float, stage: int,
                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                      starts: 'int[:]',
+                      starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                       kind_map: int, params_map: 'float[:]',
                       p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                       ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -384,11 +384,11 @@ def push_vxb_implicit(markers: 'float[:,:]', dt: float, stage: int,
 
         # magnetic field: 2-form components
         b_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts)
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts, pads, shifts)
         b_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts)
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts, pads, shifts)
         b_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts)
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts, pads, shifts)
 
         # magnetic field: Cartesian components
         linalg_kernels.matrix_vector(dfm, b_form, b_cart)
@@ -421,7 +421,7 @@ def push_vxb_implicit(markers: 'float[:,:]', dt: float, stage: int,
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'rot_temp', 'b_form', 'b_cart', 'b_norm', 'e', 'v', 'vperp', 'vxb_norm', 'b_normxvperp', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                      starts: 'int[:]',
+                      starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                       kind_map: int, params_map: 'float[:]',
                       p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                       ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -512,19 +512,19 @@ def push_pxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
 
         # magnetic field: 2-form components
         b_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts)
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts, pads, shifts)
         b_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts)
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts, pads, shifts)
         b_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts)
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts, pads, shifts)
 
         # magnetic field: 2-form components
         a_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, a1_1, starts)
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, a1_1, starts, pads, shifts)
         a_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, a1_2, starts)
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, a1_2, starts, pads, shifts)
         a_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, a1_3, starts)
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, a1_3, starts, pads, shifts)
 
         rot_temp[0] = dfinv_t[0, 0] * a_form[0] + \
             dfinv_t[0, 1] * a_form[1] + dfinv_t[0, 2] * a_form[2]
@@ -749,7 +749,7 @@ def push_hybrid_xp_lnn(markers: 'float[:,:]', dt: float, stage: int,
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_hybrid_xp_ap(markers: 'float[:,:]', dt: float, stage: int,
                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                      starts: 'int[:]',
+                      starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                       kind_map: int, params_map: 'float[:]',
                       p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                       ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -880,32 +880,32 @@ def push_hybrid_xp_ap(markers: 'float[:,:]', dt: float, stage: int,
 
         # vector potential: 1-form components
         a_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, a1_1, starts)
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, a1_1, starts, pads, shifts)
         a_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, a1_2, starts)
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, a1_2, starts, pads, shifts)
         a_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, a1_3, starts)
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, a1_3, starts, pads, shifts)
 
         a_xx[0, 0] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
-            pn[0] - 2, pn[1], pn[2], bdd1, bn2, bn3, span1, span2, span3, a1_1, starts, int(1))
+            pn[0] - 2, pn[1], pn[2], bdd1, bn2, bn3, span1, span2, span3, a1_1, starts, pads, shifts, int(1))
         a_xx[0, 1] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, a1_1, starts, int(2))
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, a1_1, starts, pads, shifts, int(2))
         a_xx[0, 2] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, a1_1, starts, int(3))
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, a1_1, starts, pads, shifts, int(3))
 
         a_xx[1, 0] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, a1_2, starts, int(1))
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, a1_2, starts, pads, shifts, int(1))
         a_xx[1, 1] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
-            pn[0], pn[1] - 2, pn[2], bn1, bdd2, bn3, span1, span2, span3, a1_2, starts, int(2))
+            pn[0], pn[1] - 2, pn[2], bn1, bdd2, bn3, span1, span2, span3, a1_2, starts, pads, shifts, int(2))
         a_xx[1, 2] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, a1_2, starts, int(3))
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, a1_2, starts, pads, shifts, int(3))
 
         a_xx[2, 0] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, a1_3, starts, int(1))
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, a1_3, starts, pads, shifts, int(1))
         a_xx[2, 1] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, a1_3, starts, int(2))
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, a1_3, starts, pads, shifts, int(2))
         a_xx[2, 2] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
-            pn[0], pn[1], pn[2] - 2, bn1, bn2, bdd3, span1, span2, span3, a1_3, starts, int(3))
+            pn[0], pn[1], pn[2] - 2, bn1, bn2, bdd3, span1, span2, span3, a1_3, starts, pads, shifts, int(3))
 
         linalg_kernels.transpose(a_xx, a_xxtrans)
         linalg_kernels.matrix_matrix(a_xxtrans, dfinv, matrixp)
@@ -957,7 +957,7 @@ def push_hybrid_xp_ap(markers: 'float[:,:]', dt: float, stage: int,
 @stack_array('dfm', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                  starts: 'int[:]',
+                  starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                   kind_map: int, params_map: 'float[:]',
                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1040,11 +1040,11 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 
         # magnetic field: 2-form components
         b_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts)
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts, pads, shifts)
         b_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts)
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts, pads, shifts)
         b_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts)
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts, pads, shifts)
 
         # magnetic field: Cartesian components
         linalg_kernels.matrix_vector(dfm, b_form, b_cart)
@@ -1052,11 +1052,11 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 
         # velocity field: 2-form components
         u_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u2_1, starts)
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u2_1, starts, pads, shifts)
         u_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u2_2, starts)
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u2_2, starts, pads, shifts)
         u_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u2_3, starts)
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u2_3, starts, pads, shifts)
 
         linalg_kernels.matrix_vector(dfm, u_form, u_cart)
         u_cart[:] = u_cart/det_df
@@ -1073,7 +1073,7 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_bxu_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                   starts: 'int[:]',
+                   starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                    kind_map: int, params_map: 'float[:]',
                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1160,11 +1160,11 @@ def push_bxu_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
 
         # magnetic field: 2-form components
         b_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts)
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts, pads, shifts)
         b_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts)
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts, pads, shifts)
         b_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts)
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts, pads, shifts)
 
         # magnetic field: Cartesian components
         linalg_kernels.matrix_vector(dfm, b_form, b_cart)
@@ -1172,11 +1172,11 @@ def push_bxu_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
 
         # velocity field: 1-form components
         u_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u1_1, starts)
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u1_1, starts, pads, shifts)
         u_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u1_2, starts)
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u1_2, starts, pads, shifts)
         u_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u1_3, starts)
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u1_3, starts, pads, shifts)
 
         # velocity field: Cartesian components
         linalg_kernels.matrix_vector(dfinv_t, u_form, u_cart)
@@ -1193,7 +1193,7 @@ def push_bxu_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
 @stack_array('dfm', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                   starts: 'int[:]',
+                   starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                    kind_map: int, params_map: 'float[:]',
                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1276,11 +1276,11 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
 
         # magnetic field: 2-form components
         b_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts)
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts, pads, shifts)
         b_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts)
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts, pads, shifts)
         b_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts)
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts, pads, shifts)
 
         # magnetic field: Cartesian components
         linalg_kernels.matrix_vector(dfm, b_form, b_cart)
@@ -1288,11 +1288,11 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
 
         # velocity field: vector field components
         u_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, uv_1, starts)
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, uv_1, starts, pads, shifts)
         u_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, uv_2, starts)
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, uv_2, starts, pads, shifts)
         u_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, uv_3, starts)
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, uv_3, starts, pads, shifts)
 
         # velocity field: Cartesian components
         linalg_kernels.matrix_vector(dfm, u_form, u_cart)
@@ -1309,7 +1309,7 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_diff', 'b_cart', 'u_cart', 'b_grad', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'der1', 'der2', 'der3')
 def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                        starts: 'int[:]',
+                        starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                         kind_map: int, params_map: 'float[:]',
                         p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                         ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1414,11 +1414,11 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
 
         # magnetic field: 2-form components
         b_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts)
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts, pads, shifts)
         b_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts)
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts, pads, shifts)
         b_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts)
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts, pads, shifts)
 
         # magnetic field: Cartesian components
         linalg_kernels.matrix_vector(dfm, b_form, b_cart)
@@ -1426,22 +1426,22 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
 
         # magnetic field: evaluation of gradient (1-form)
         b_diff[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], der1, bn2, bn3, span1, span2, span3, b0, starts)
+            pn[0], pn[1], pn[2], der1, bn2, bn3, span1, span2, span3, b0, starts, pads, shifts)
         b_diff[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, der2, bn3, span1, span2, span3, b0, starts)
+            pn[0], pn[1], pn[2], bn1, der2, bn3, span1, span2, span3, b0, starts, pads, shifts)
         b_diff[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, der3, span1, span2, span3, b0, starts)
+            pn[0], pn[1], pn[2], bn1, bn2, der3, span1, span2, span3, b0, starts, pads, shifts)
 
         # magnetic field: evaluation of gradient (Cartesian components)
         linalg_kernels.matrix_vector(dfinv_t, b_diff, b_grad)
 
         # velocity field: 2-form components
         u_form[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u2_1, starts)
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u2_1, starts, pads, shifts)
         u_form[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u2_2, starts)
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u2_2, starts, pads, shifts)
         u_form[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u2_3, starts)
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u2_3, starts, pads, shifts)
 
         linalg_kernels.matrix_vector(dfm, u_form, u_cart)
         u_cart[:] = u_cart/det_df
@@ -1460,7 +1460,7 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
 
 def push_pc_GXu_full(markers: 'float[:,:]', dt: float, stage: int,
                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                     starts: 'int[:]',
+                     starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                      kind_map: int, params_map: 'float[:]',
                      p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                      ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1542,23 +1542,23 @@ def push_pc_GXu_full(markers: 'float[:,:]', dt: float, stage: int,
 
         # Evaluate grad(X(u, v)) at the particle positions
         GXu[0, 0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_11, starts)
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_11, starts, pads, shifts)
         GXu[1, 0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_21, starts)
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_21, starts, pads, shifts)
         GXu[2, 0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_31, starts)
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_31, starts, pads, shifts)
         GXu[0, 1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_12, starts)
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_12, starts, pads, shifts)
         GXu[1, 1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_22, starts)
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_22, starts, pads, shifts)
         GXu[2, 1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_32, starts)
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_32, starts, pads, shifts)
         GXu[0, 2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_13, starts)
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_13, starts, pads, shifts)
         GXu[1, 2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_23, starts)
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_23, starts, pads, shifts)
         GXu[2, 2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_33, starts)
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_33, starts, pads, shifts)
 
         e[0] = GXu[0, 0] * v[0] + GXu[1, 0] * v[1] + GXu[2, 0] * v[2]
         e[1] = GXu[0, 1] * v[0] + GXu[1, 1] * v[1] + GXu[2, 1] * v[2]
@@ -1572,7 +1572,7 @@ def push_pc_GXu_full(markers: 'float[:,:]', dt: float, stage: int,
 
 def push_pc_GXu(markers: 'float[:,:]', dt: float, stage: int,
                 pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                starts: 'int[:]',
+                starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                 kind_map: int, params_map: 'float[:]',
                 p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                 ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1655,17 +1655,17 @@ def push_pc_GXu(markers: 'float[:,:]', dt: float, stage: int,
 
         # Evaluate grad(X(u, v)) at the particle positions
         GXu[0, 0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_11, starts)
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_11, starts, pads, shifts)
         GXu[1, 0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_21, starts)
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_21, starts, pads, shifts)
         GXu[0, 1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_12, starts)
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_12, starts, pads, shifts)
         GXu[1, 1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_22, starts)
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_22, starts, pads, shifts)
         GXu[0, 2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_13, starts)
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_13, starts, pads, shifts)
         GXu[1, 2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_23, starts)
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_23, starts, pads, shifts)
 
         e[0] = GXu[0, 0] * v[0] + GXu[1, 0] * v[1]
         e[1] = GXu[0, 1] * v[0] + GXu[1, 1] * v[1]
@@ -1755,7 +1755,7 @@ def push_eta_stage(markers: 'float[:,:]', dt: float, stage: int,
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: float, stage: int,
                                pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                               starts: 'int[:]',
+                               starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                                kind_map: int, params_map: 'float[:]',
                                p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1866,11 +1866,11 @@ def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: float, stage: int,
 
         # U-field
         u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts)
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts, pads, shifts)
         u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts)
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts, pads, shifts)
         u[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u_3, starts)
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u_3, starts, pads, shifts)
 
         # transform to vector field
         linalg_kernels.matrix_vector(ginv, u, k_u)
@@ -1889,7 +1889,7 @@ def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: float, stage: int,
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: float, stage: int,
                               pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                              starts: 'int[:]',
+                              starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                               kind_map: int, params_map: 'float[:]',
                               p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                               ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -1998,11 +1998,11 @@ def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: float, stage: int,
 
         # U-field
         u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts)
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts, pads, shifts)
         u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts)
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts, pads, shifts)
         u[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u_3, starts)
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u_3, starts, pads, shifts)
 
         # transform to vector field
         k_u[:] = u/det_df
@@ -2021,7 +2021,7 @@ def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: float, stage: int,
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: float, stage: int,
                                pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                               starts: 'int[:]',
+                               starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                                kind_map: int, params_map: 'float[:]',
                                p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -2131,11 +2131,11 @@ def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: float, stage: int,
 
         # U-field
         u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_1, starts)
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_1, starts, pads, shifts)
         u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_2, starts)
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_2, starts, pads, shifts)
         u[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_3, starts)
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_3, starts, pads, shifts)
 
         # sum contribs
         k[:] = k_v + u
@@ -2151,7 +2151,7 @@ def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: float, stage: int,
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                          starts: 'int[:]',
+                          starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                           kind_map: int, params_map: 'float[:]',
                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -2262,9 +2262,9 @@ def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
 
         # U-field
         u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts)
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts, pads, shifts)
         u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts)
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts, pads, shifts)
         u[2] = 0.
 
         # transform to vector field
@@ -2284,7 +2284,7 @@ def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                          pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                         starts: 'int[:]',
+                         starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                          kind_map: int, params_map: 'float[:]',
                          p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                          ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -2393,9 +2393,9 @@ def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 
         # U-field
         u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts)
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts, pads, shifts)
         u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts)
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts, pads, shifts)
         u[2] = 0.
 
         # transform to vector field
@@ -2415,7 +2415,7 @@ def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                          starts: 'int[:]',
+                          starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                           kind_map: int, params_map: 'float[:]',
                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -2525,9 +2525,9 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
 
         # U-field
         u[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_1, starts)
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_1, starts, pads, shifts)
         u[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_2, starts)
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_2, starts, pads, shifts)
         u[2] = 0.
 
         # sum contribs
@@ -2544,7 +2544,7 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'dfm', 'df_inv', 'v', 'df_inv_v')
 def push_weights_with_efield_lin_va(markers: 'float[:,:]', dt: float, stage: int,
                                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                    starts: 'int[:]',
+                                    starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                                     kind_map: int, params_map: 'float[:]',
                                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -2633,11 +2633,11 @@ def push_weights_with_efield_lin_va(markers: 'float[:,:]', dt: float, stage: int
 
         # E-field (1-form)
         e_vec_1 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3,
-                                                 span1, span2, span3, e1_1, starts)
+                                                 span1, span2, span3, e1_1, starts, pads, shifts)
         e_vec_2 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3,
-                                                 span1, span2, span3, e1_2, starts)
+                                                 span1, span2, span3, e1_2, starts, pads, shifts)
         e_vec_3 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3,
-                                                 span1, span2, span3, e1_3, starts)
+                                                 span1, span2, span3, e1_3, starts, pads, shifts)
 
         # w_{n+1} = w_n + dt / (2 * s_0) * sqrt(f_0) * ( DF^{-1} \V_th * v_p ) \cdot ( e_{n+1} + e_n )
         update = (df_inv_v[0] * e_vec_1 + df_inv_v[1] * e_vec_2 + df_inv_v[2] * e_vec_3) * \
@@ -2650,7 +2650,7 @@ def push_weights_with_efield_lin_va(markers: 'float[:,:]', dt: float, stage: int
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'dfm', 'df_inv', 'v', 'df_inv_v')
 def push_weights_with_efield_lin_vm(markers: 'float[:,:]', dt: float, stage: int,
                                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                    starts: 'int[:]',
+                                    starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                                     kind_map: int, params_map: 'float[:]',
                                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -2748,11 +2748,11 @@ def push_weights_with_efield_lin_vm(markers: 'float[:,:]', dt: float, stage: int
 
         # E-field (1-form)
         e_vec_1 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3,
-                                                 span1, span2, span3, e1_1, starts)
+                                                 span1, span2, span3, e1_1, starts, pads, shifts)
         e_vec_2 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3,
-                                                 span1, span2, span3, e1_2, starts)
+                                                 span1, span2, span3, e1_2, starts, pads, shifts)
         e_vec_3 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3,
-                                                 span1, span2, span3, e1_3, starts)
+                                                 span1, span2, span3, e1_3, starts, pads, shifts)
 
         # w_{n+1} = w_n + dt * kappa / (2 * s_0) * sqrt(f_0) * ( DF^{-1} \V_th * v_p ) \cdot ( e_{n+1} + e_n )
         update = (df_inv_v[0] * e_vec_1 + df_inv_v[1] * e_vec_2 + df_inv_v[2] * e_vec_3) * \
@@ -2765,7 +2765,7 @@ def push_weights_with_efield_lin_vm(markers: 'float[:,:]', dt: float, stage: int
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'dfm', 'df_inv', 'v', 'df_inv_v')
 def push_weights_with_efield_delta_f_vm(markers: 'float[:,:]', dt: float, stage: int,
                                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                        starts: 'int[:]',
+                                        starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                                         kind_map: int, params_map: 'float[:]',
                                         p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                         ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -2864,11 +2864,11 @@ def push_weights_with_efield_delta_f_vm(markers: 'float[:,:]', dt: float, stage:
 
         # E-field (1-form)
         e_vec_1 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3,
-                                                 span1, span2, span3, e1_1, starts)
+                                                 span1, span2, span3, e1_1, starts, pads, shifts)
         e_vec_2 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3,
-                                                 span1, span2, span3, e1_2, starts)
+                                                 span1, span2, span3, e1_2, starts, pads, shifts)
         e_vec_3 = evaluation_kernels_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3,
-                                                 span1, span2, span3, e1_3, starts)
+                                                 span1, span2, span3, e1_3, starts, pads, shifts)
 
         update = kappa * (df_inv_v[0] * e_vec_1 +
                           df_inv_v[1] * e_vec_2 + df_inv_v[2] * e_vec_3)
@@ -3009,7 +3009,7 @@ def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
 @stack_array('ginv', 'k', 'tmp', 'etas', 'pi_du_value', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_deterministic_diffusion_stage(markers: 'float[:,:]', dt: float, stage: int,
                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                   starts: 'int[:]',
+                   starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]',
                    kind_map: int, params_map: 'float[:]',
                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
@@ -3078,15 +3078,15 @@ def push_deterministic_diffusion_stage(markers: 'float[:,:]', dt: float, stage: 
 
         # density function: 0-form components
         pi_u_value = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, pi_u, starts)
+            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, pi_u, starts, pads, shifts)
 
         # gradient of the density function: 1-form components
         pi_du_value[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, pi_grad_u1, starts)
+            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, pi_grad_u1, starts, pads, shifts)
         pi_du_value[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, pi_grad_u2, starts)
+            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, pi_grad_u2, starts, pads, shifts)
         pi_du_value[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, pi_grad_u3, starts)
+            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, pi_grad_u3, starts, pads, shifts)
 
     #    evaluate Metric tensor, result in gm
         evaluation_kernels.g_inv(etas[0], etas[1], etas[2],

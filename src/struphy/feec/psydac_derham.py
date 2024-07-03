@@ -1074,6 +1074,7 @@ class Derham:
                 self._gl_s = self._space.vector_space.starts
                 self._gl_e = self._space.vector_space.ends
                 self._pads = self._space.vector_space.pads
+                self._shifts = self._space.vector_space.shifts
             else:
                 self._gl_s = [
                     comp.starts for comp in self._space.vector_space.spaces]
@@ -1081,6 +1082,8 @@ class Derham:
                     comp.ends for comp in self._space.vector_space.spaces]
                 self._pads = [
                     comp.pads for comp in self._space.vector_space.spaces]
+                self._shifts = [
+                    comp.shifts for comp in self._space.vector_space.spaces]
 
             # dimensions in each direction
             # self._nbasis = derham.nbasis[self._space_key]
@@ -1216,6 +1219,12 @@ class Derham:
             """ Paddings for ghost regions, in each direction.
             """
             return self._pads
+        
+        @property
+        def shifts(self):
+            """ Paddings for ghost regions, in each direction.
+            """
+            return self._shifts
 
         @property
         def nbasis(self):
@@ -1582,7 +1591,9 @@ class Derham:
                                                      self.derham.spline_types_pyccel[self.space_key],
                                                      np.array(self.derham.p),
                                                      np.array(self.starts),
-                                                     out)
+                                                     out,
+                                                     np.array(self.pads),
+                                                     np.array(self.shifts))
 
             else:
                 out_is_none = False
@@ -1610,7 +1621,9 @@ class Derham:
                                                              self.derham.p),
                                                          np.array(
                                                              self.starts[i]),
-                                                         out[i])
+                                                         out[i],
+                                                         np.array(self.pads[i]),
+                                                         np.array(self.shifts[i]))
 
             return out
 
@@ -1706,11 +1719,13 @@ class Derham:
                 if is_sparse_meshgrid:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
                     eval_3d.eval_spline_mpi_sparse_meshgrid(E1, E2, E3, self._vector_stencil._data, kind,
-                                                            np.array(self.derham.p), T1, T2, T3, np.array(self.starts), tmp)
+                                                            np.array(self.derham.p), T1, T2, T3, np.array(self.starts),
+                                                            tmp, np.array(self.pads), np.array(self.shifts))
                 else:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
                     eval_3d.eval_spline_mpi_matrix(E1, E2, E3, self._vector_stencil._data, kind,
-                                                   np.array(self.derham.p), T1, T2, T3, np.array(self.starts), tmp)
+                                                   np.array(self.derham.p), T1, T2, T3, np.array(self.starts), 
+                                                   tmp, np.array(self.pads), np.array(self.shifts))
 
                 if self.derham.comm is not None:
                     if local == False:
@@ -1739,10 +1754,12 @@ class Derham:
 
                     if is_sparse_meshgrid:
                         eval_3d.eval_spline_mpi_sparse_meshgrid(E1, E2, E3, self._vector_stencil[n]._data, kind,
-                                                                np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp)
+                                                                np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp,
+                                                                np.array(self.pads[n]), np.array(self.shifts[n]))
                     else:
                         eval_3d.eval_spline_mpi_matrix(E1, E2, E3, self._vector_stencil[n]._data, kind,
-                                                       np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp)
+                                                       np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp,
+                                                       np.array(self.pads[n]), np.array(self.shifts[n]))
 
                     if self.derham.comm is not None:
                         if local == False:
@@ -2169,7 +2186,7 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
         # Make union of Greville and break points
         tmp = set(np.round_(space_1d.histopolation_grid, decimals=14)).union(
             np.round_(union_breaks, decimals=14))
-
+        tmp = set(np.round_(space_1d.histopolation_grid, decimals=14))
         tmp = list(tmp)
         tmp.sort()
         tmp_a = np.array(tmp)

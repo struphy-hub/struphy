@@ -76,7 +76,8 @@ def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
 @pytest.mark.parametrize('Nel', [[18, 24, 12]])
 @pytest.mark.parametrize('p', [[1, 2, 1]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True]])
-def test_bckgr_init_mhd(Nel, p, spl_kind, show_plot=False):
+@pytest.mark.parametrize('mutliplicity', [None, [1, 2, 1]])
+def test_bckgr_init_mhd(Nel, p, spl_kind, show_plot=False, multiplicity = None):
     '''Test field background initialization of "MHD" with multiple fields in params.'''
 
     from mpi4py import MPI
@@ -92,7 +93,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, show_plot=False):
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence and field of space
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    derham = Derham(Nel, p, spl_kind, comm=comm, multiplicity=multiplicity)
 
     # background parameters
     bckgr_params = {'type': 'MHD',
@@ -924,7 +925,9 @@ def test_noise_init(Nel, p, spl_kind, space, direction):
 if __name__ == '__main__':
     # test_bckgr_init_const([8, 10, 12], [1, 2, 3], [False, False, True], [
     #     'H1', 'Hcurl', 'Hdiv'], [True, True, False])
-    test_bckgr_init_mhd([18, 24, 12], [1, 2, 1], [
-                        False, True, True], show_plot=False)
+    test_bckgr_init_mhd([18, 24, 12], [3, 3, 3], [
+                        False, True, True], show_plot=False, multiplicity=[2,2,2])
+    # test_bckgr_init_mhd([32, 48, 24], [3, 3, 3], [
+    #                     False, True, True], show_plot=False, multiplicity=[2,2,2])
     # test_sincos_init_const([1, 32, 32], [1, 3, 3], [True]*3, show_plot=True)
     # test_noise_init([4, 8, 6], [1, 1, 1], [True, True, True], 'Hcurl', 'e1')

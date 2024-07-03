@@ -778,6 +778,7 @@ class StruphyModel(metaclass=ABCMeta):
                     data.file[key_field].attrs['starts'] = obj.starts
                     data.file[key_field].attrs['ends'] = obj.ends
                     data.file[key_field].attrs['pads'] = obj.pads
+                    data.file[key_field].attrs['shifts'] = obj.shifts
 
                 # save numpy array to be updated only at the end of the simulation for restart.
                 key_field_restart = 'restart/' + key
@@ -829,6 +830,7 @@ class StruphyModel(metaclass=ABCMeta):
                         data.file[key_field].attrs['starts'] = obj.starts
                         data.file[key_field].attrs['ends'] = obj.ends
                         data.file[key_field].attrs['pads'] = obj.pads
+                        data.file[key_field].attrs['shifts'] = obj.shifts
 
                     # save numpy array to be updated only at the end of the simulation for restart.
                     key_field_restart = species_path_restart + variable

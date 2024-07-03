@@ -404,7 +404,7 @@ def evaluate_sparse(t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p1: int, p2:
 ##############################
 ### Distributed evaluation ###
 ##############################
-def eval_spline_mpi_kernel(p1: 'int', p2: 'int', p3: 'int', basis1: 'float[:]', basis2: 'float[:]', basis3: 'float[:]', span1: 'int', span2: 'int', span3: 'int', _data: 'float[:,:,:]', starts: 'int[:]') -> float:
+def eval_spline_mpi_kernel(p1: 'int', p2: 'int', p3: 'int', basis1: 'float[:]', basis2: 'float[:]', basis3: 'float[:]', span1: 'int', span2: 'int', span3: 'int', _data: 'float[:,:,:]', starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]') -> float:
     """
     Summing non-zero contributions of a spline function with distributed memory (domain decomposition).
 
@@ -434,11 +434,11 @@ def eval_spline_mpi_kernel(p1: 'int', p2: 'int', p3: 'int', basis1: 'float[:]', 
     spline_value = 0.
 
     for il1 in range(p1 + 1):
-        i1 = span1 + il1 - starts[0]
+        i1 = span1 - p1 + il1 - starts[0] + pads[0]*shifts[0]
         for il2 in range(p2 + 1):
-            i2 = span2 + il2 - starts[1]
+            i2 = span2 - p2 + il2 - starts[1] + pads[1]*shifts[1]
             for il3 in range(p3 + 1):
-                i3 = span3 + il3 - starts[2]
+                i3 = span3 - p3 + il3 - starts[2] + pads[2]*shifts[2]
 
                 spline_value += _data[i1, i2, i3] * \
                     basis1[il1] * basis2[il2] * basis3[il3]
@@ -446,7 +446,7 @@ def eval_spline_mpi_kernel(p1: 'int', p2: 'int', p3: 'int', basis1: 'float[:]', 
     return spline_value
 
 
-def eval_spline_derivative_mpi_kernel(p1: 'int', p2: 'int', p3: 'int', basis1: 'float[:]', basis2: 'float[:]', basis3: 'float[:]', span1: 'int', span2: 'int', span3: 'int', _data: 'float[:,:,:]', starts: 'int[:]', direction: 'int') -> float:
+def eval_spline_derivative_mpi_kernel(p1: 'int', p2: 'int', p3: 'int', basis1: 'float[:]', basis2: 'float[:]', basis3: 'float[:]', span1: 'int', span2: 'int', span3: 'int', _data: 'float[:,:,:]', starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]', direction: 'int') -> float:
     """
     Kernel for the derivative of a spline in one direction (distributed, domain decomp.).
 
@@ -477,33 +477,33 @@ def eval_spline_derivative_mpi_kernel(p1: 'int', p2: 'int', p3: 'int', basis1: '
 
     if direction == int(1):
         for il1 in range(p1 + 1):
-            i1 = span1 + il1 - starts[0]
+            i1 = span1 - p1 + il1 - starts[0] + pads[0] * shifts[0]
             for il2 in range(p2 + 1):
-                i2 = span2 + il2 - starts[1]
+                i2 = span2 - p2 + il2 - starts[1] + pads[1] * shifts[1]
                 for il3 in range(p3 + 1):
-                    i3 = span3 + il3 - starts[2]
+                    i3 = span3 - p3 + il3 - starts[2] + pads[2] * shifts[2]
 
                     spline_value += (_data[i1+1, i2, i3] - _data[i1, i2, i3]) * \
                         basis1[il1] * basis2[il2] * basis3[il3]
 
     if direction == int(2):
         for il1 in range(p1 + 1):
-            i1 = span1 + il1 - starts[0]
+            i1 = span1 - p1 + il1 - starts[0] + pads[0] * shifts[0]
             for il2 in range(p2 + 1):
-                i2 = span2 + il2 - starts[1]
+                i2 = span2 - p2 + il2 - starts[1] + pads[1] * shifts[1]
                 for il3 in range(p3 + 1):
-                    i3 = span3 + il3 - starts[2]
+                    i3 = span3 - p3 + il3 - starts[2] + pads[2] * shifts[2]
 
                     spline_value += (_data[i1, i2+1, i3] - _data[i1, i2, i3]) * \
                         basis1[il1] * basis2[il2] * basis3[il3]
 
     if direction == int(3):
         for il1 in range(p1 + 1):
-            i1 = span1 + il1 - starts[0]
+            i1 = span1 - p1 + il1 - starts[0] + pads[0] * shifts[0]
             for il2 in range(p2 + 1):
-                i2 = span2 + il2 - starts[1]
+                i2 = span2 - p2 + il2 - starts[1] + pads[1] * shifts[1]
                 for il3 in range(p3 + 1):
-                    i3 = span3 + il3 - starts[2]
+                    i3 = span3 - p3 + il3 - starts[2] + pads[2] * shifts[2]
 
                     spline_value += (_data[i1, i2, i3+1] - _data[i1, i2, i3]) * \
                         basis1[il1] * basis2[il2] * basis3[il3]
@@ -515,7 +515,7 @@ def eval_spline_derivative_mpi_kernel(p1: 'int', p2: 'int', p3: 'int', basis1: '
 def eval_spline_mpi(eta1: float, eta2: float, eta3: float,
                     _data: 'float[:,:,:]', kind: 'int[:]',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                    starts: 'int[:]') -> float:
+                    starts: 'int[:]', pads: 'int[:]', shifts: 'int[:]') -> float:
     """
     Point-wise evaluation of a tensor-product spline, distributed. 
 
@@ -579,7 +579,9 @@ def eval_spline_mpi(eta1: float, eta2: float, eta3: float,
         b3 = bd3
 
     value = eval_spline_mpi_kernel(pn[0] - kind[0], pn[1] - kind[1],
-                                   pn[2] - kind[2], b1, b2, b3, span1, span2, span3, _data, starts)
+                                   pn[2] - kind[2], b1, b2, b3, 
+                                   span1 - kind[0], span2 - kind[1], span3 - kind[2],
+                                   _data, starts, pads, shifts)
 
     return value
 
@@ -587,7 +589,7 @@ def eval_spline_mpi(eta1: float, eta2: float, eta3: float,
 def eval_spline_mpi_tensor_product(eta1: 'float[:]', eta2: 'float[:]', eta3: 'float[:]',
                                    _data: 'float[:,:,:]', kind: 'int[:]',
                                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                   starts: 'int[:]', values: 'float[:,:,:]'):
+                                   starts: 'int[:]', values: 'float[:,:,:]', pads: 'int[:]', shifts: 'int[:]'):
     """
     Tensor-product evaluation of a tensor-product spline, distributed. 
 
@@ -627,14 +629,14 @@ def eval_spline_mpi_tensor_product(eta1: 'float[:]', eta2: 'float[:]', eta3: 'fl
                     continue  # point not in process domain
 
                 values[i, j, k] = eval_spline_mpi(
-                    eta1[i], eta2[j], eta3[k], _data, kind, pn, tn1, tn2, tn3, starts)
+                    eta1[i], eta2[j], eta3[k], _data, kind, pn, tn1, tn2, tn3, starts, pads, shifts)
 
 
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def eval_spline_mpi_tensor_product_fast(eta1: 'float[:]', eta2: 'float[:]', eta3: 'float[:]',
                                         _data: 'float[:,:,:]', kind: 'int[:]',
                                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                        starts: 'int[:]', values: 'float[:,:,:]'):
+                                        starts: 'int[:]', values: 'float[:,:,:]', pads: 'int[:]', shifts: 'int[:]'):
     """
     Tensor-product evaluation of a tensor-product spline, distributed, 
     and optimized by computing spans and spline values only once. 
@@ -711,16 +713,21 @@ def eval_spline_mpi_tensor_product_fast(eta1: 'float[:]', eta2: 'float[:]', eta3
                                                          pn[1] - kind[1],
                                                          pn[2] - kind[2],
                                                          b1, b2, b3,
-                                                         span1, span2, span3,
+                                                         span1 - kind[0],
+                                                         span2 - kind[1], 
+                                                         span3 - kind[2],
                                                          _data,
-                                                         starts)
+                                                         starts,
+                                                         pads,
+                                                         shifts)
 
 
 @stack_array('b1', 'b2', 'b3')
 def eval_spline_mpi_tensor_product_fixed(span1s: 'int[:]', span2s: 'int[:]', span3s: 'int[:]',
                                          b1s: 'float[:,:]', b2s: 'float[:,:]', b3s: 'float[:,:]',
                                          _data: 'float[:,:,:]', kind: 'int[:]', pn: 'int[:]',
-                                         starts: 'int[:]', values: 'float[:,:,:]'):
+                                         starts: 'int[:]', values: 'float[:,:,:]', 
+                                         pads: 'int[:]', shifts: 'int[:]'):
     """
     Tensor-product evaluation of a tensor-product spline, distributed, 
     and optimized for a fixed grid (spans and spline values have been pre-evaluated). 
@@ -772,15 +779,17 @@ def eval_spline_mpi_tensor_product_fixed(span1s: 'int[:]', span2s: 'int[:]', spa
                                                          pn[1] - kind[1],
                                                          pn[2] - kind[2],
                                                          b1, b2, b3,
-                                                         span1, span2, span3,
+                                                         span1- kind[0], span2- kind[1], span3- kind[2],
                                                          _data,
-                                                         starts)
+                                                         starts,
+                                                         pads,
+                                                         shifts)
 
 
 def eval_spline_mpi_matrix(eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]',
                            _data: 'float[:,:,:]', kind: 'int[:]',
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                           starts: 'int[:]', values: 'float[:,:,:]'):
+                           starts: 'int[:]', values: 'float[:,:,:]', pads: 'int[:]', shifts: 'int[:]'):
     """
     3d array evaluation of a tensor-product spline, distributed. 
 
@@ -824,13 +833,13 @@ def eval_spline_mpi_matrix(eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'fl
                     continue  # point not in process domain
 
                 values[i, j, k] = eval_spline_mpi(
-                    eta1[i, j, k], eta2[i, j, k], eta3[i, j, k], _data, kind, pn, tn1, tn2, tn3, starts)
+                    eta1[i, j, k], eta2[i, j, k], eta3[i, j, k], _data, kind, pn, tn1, tn2, tn3, starts, pads, shifts)
 
 
 def eval_spline_mpi_sparse_meshgrid(eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]',
                                     _data: 'float[:,:,:]', kind: 'int[:]',
                                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                    starts: 'int[:]', values: 'float[:,:,:]'):
+                                    starts: 'int[:]', values: 'float[:,:,:]', pads: 'int[:]', shifts: 'int[:]'):
     """
     Sparse meshgrid evaluation of a tensor-product spline, distributed. 
 
@@ -876,4 +885,4 @@ def eval_spline_mpi_sparse_meshgrid(eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', 
                     continue  # point not in process domain
 
                 values[i, j, k] = eval_spline_mpi(
-                    eta1[i, 0, 0], eta2[0, j, 0], eta3[0, 0, k], _data, kind, pn, tn1, tn2, tn3, starts)
+                    eta1[i, 0, 0], eta2[0, j, 0], eta3[0, 0, k], _data, kind, pn, tn1, tn2, tn3, starts, pads, shifts)

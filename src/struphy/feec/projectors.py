@@ -1373,13 +1373,15 @@ class L2Projector:
             pc_class = getattr(preconditioner, self.params['type'][1])
             pc = pc_class(self.Mmat)
 
+        #print(self.Mmat._mat._data[8,8,:,3,3,:])
+
         # solver
         self._solver = inverse(self.Mmat,
                                self.params['type'][0],
                                pc=pc,
                                tol=self.params['tol'],
                                maxiter=self.params['maxiter'],
-                               verbose=self.params['verbose'])
+                               verbose=False)
 
     @property
     def mass_ops(self):
@@ -1550,15 +1552,16 @@ class L2Projector:
             # indices
             starts = [int(start) for start in fem_space.vector_space.starts]
             pads = fem_space.vector_space.pads
+            shifts = [int(shift) for shift in fem_space.vector_space.shifts]
 
             if isinstance(dofs, StencilVector):
-                mass_kernels.kernel_3d_vec(*spans, *fem_space.degree, *starts, *pads,
+                mass_kernels.kernel_3d_vec(*spans, *fem_space.degree, *starts, *shifts, *pads,
                                            *wts, *basis, mat_w, dofs._data)
             elif isinstance(dofs, PolarVector):
-                mass_kernels.kernel_3d_vec(*spans, *fem_space.degree, *starts, *pads,
+                mass_kernels.kernel_3d_vec(*spans, *fem_space.degree, *starts, *shifts, *pads,
                                            *wts, *basis, mat_w, dofs.tp._data)
             else:
-                mass_kernels.kernel_3d_vec(*spans, *fem_space.degree, *starts, *pads,
+                mass_kernels.kernel_3d_vec(*spans, *fem_space.degree, *starts, *shifts, *pads,
                                            *wts, *basis, mat_w, dofs[a]._data)
 
         # exchange assembly data (accumulate ghost regions) and update ghost regions
