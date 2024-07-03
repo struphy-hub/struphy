@@ -13,7 +13,9 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 
-def create_femfields(path, step=1):
+def create_femfields(path: str, 
+                     *,
+                     step: int = 1):
     """
     Creates instances of struphy.feec.Derham.Field from distributed Struphy data.
 
@@ -22,7 +24,7 @@ def create_femfields(path, step=1):
     path : str
         Absolute path of simulation output folder.
 
-    step : int, optional
+    step : int
         Whether to create FEM fields at every time step (step=1, default), every second time step (step=2), etc. 
 
     Returns
@@ -132,7 +134,12 @@ def create_femfields(path, step=1):
     return fields, space_ids, model
 
 
-def eval_femfields(path, fields, space_ids, celldivide=[1, 1, 1], physical=False):
+def eval_femfields(path: str,
+                   fields: dict,
+                   space_ids: dict,
+                   *,
+                   celldivide: list = [1, 1, 1], 
+                   physical: bool = False):
     """
     Evaluate FEM fields obtained from create_femfields. 
 
@@ -147,7 +154,7 @@ def eval_femfields(path, fields, space_ids, celldivide=[1, 1, 1], physical=False
     space_ids : dict
         Obtained from struphy.diagnostics.post_processing.create_femfields.
 
-    celldivide : list of ints, optional
+    celldivide : list of ints
         Grid refinement in each eta direction.
 
     physical : bool
@@ -250,7 +257,11 @@ def eval_femfields(path, fields, space_ids, celldivide=[1, 1, 1], physical=False
     return point_data, grids_log, grids_phy
 
 
-def create_vtk(path, grids_phy, point_data):
+def create_vtk(path: str, 
+               grids_phy: list, 
+               point_data: dict,
+               *,
+               physical: bool = False):
     """
     Creates structured virtual toolkit files (.vts) for Paraview from evaluated field data.
 
@@ -264,12 +275,15 @@ def create_vtk(path, grids_phy, point_data):
 
     point_data : dict
         Field data obtained from struphy.diagnostics.post_processing.eval_femfields.
+        
+    physical : bool
+        Wether to create vtk for push-forwarded physical (xyz) components of fields.
     """
 
     from pyevtk.hl import gridToVTK
 
     # directory for vtk files
-    path_vtk = os.path.join(path, 'vtk')
+    path_vtk = os.path.join(path, 'vtk' + physical*'_phy')
 
     try:
         os.mkdir(path_vtk)

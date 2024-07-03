@@ -1,4 +1,8 @@
-def main(path, step=1, celldivide=1, physical=False):
+def main(path: str,
+         *,
+         step: int = 1,
+         celldivide: int = 1,
+         physical: bool = False):
     """
     Post-processing of finished Struphy runs.
 
@@ -7,10 +11,10 @@ def main(path, step=1, celldivide=1, physical=False):
     path : str
         Absolute path of simulation output folder to post-process.
 
-    step : int, optional
+    step : int
         Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
 
-    celldivide : int, optional
+    celldivide : int
         Grid refinement in evaluation of FEM fields. E.g. celldivide=2 evaluates two points per grid cell.
 
     physical : bool
@@ -73,10 +77,17 @@ def main(path, step=1, celldivide=1, physical=False):
     # field post-processing
     if exist_fields:
 
-        fields, space_ids, _ = pproc.create_femfields(path, step)
+        fields, space_ids, _ = pproc.create_femfields(path, step=step)
 
         point_data, grids_log, grids_phy = pproc.eval_femfields(
-            path, fields, space_ids, [celldivide, celldivide, celldivide], physical)
+            path, fields, space_ids,
+            celldivide=[celldivide, celldivide, celldivide])
+        
+        if physical:
+            point_data_phy, grids_log, grids_phy = pproc.eval_femfields(
+            path, fields, space_ids,
+            celldivide=[celldivide, celldivide, celldivide],
+            physical=True)
 
         # directory for field data
         path_fields = os.path.join(path_pproc, 'fields_data')
@@ -112,14 +123,13 @@ def main(path, step=1, celldivide=1, physical=False):
                 raise ValueError(
                     f'Naming {name} of feec unknown is not permitted (can only have one underscore).')
 
+            with open(os.path.join(path_fields, subfolder, new_name + '_log.bin'), 'wb') as handle:
+                pickle.dump(val, handle,
+                            protocol=pickle.HIGHEST_PROTOCOL)
+
             if physical:
                 with open(os.path.join(path_fields, subfolder, new_name + '_phy.bin'), 'wb') as handle:
-                    pickle.dump(val, handle,
-                                protocol=pickle.HIGHEST_PROTOCOL)
-
-            else:
-                with open(os.path.join(path_fields, subfolder, new_name + '_log.bin'), 'wb') as handle:
-                    pickle.dump(val, handle,
+                    pickle.dump(point_data_phy[name], handle,
                                 protocol=pickle.HIGHEST_PROTOCOL)
 
         # save grids
@@ -133,6 +143,8 @@ def main(path, step=1, celldivide=1, physical=False):
 
         # create vtk files
         pproc.create_vtk(path_fields, grids_phy, point_data)
+        if physical:
+            pproc.create_vtk(path_fields, grids_phy, point_data_phy, physical=True)
 
     # kinetic post-processing
     if exist_kinetic is not None:
@@ -218,6 +230,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     main(args.dir,
-         args.step,
-         args.celldivide,
-         args.physical)
+         step=args.step,
+         celldivide=args.celldivide,
+         physical=args.physical)

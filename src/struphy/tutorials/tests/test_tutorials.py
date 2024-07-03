@@ -31,7 +31,7 @@ def test_tutorial_03():
 
     comm.Barrier()
     if rank == 0:
-        pproc_struphy.main(os.path.join(o_path, 'tutorial_03'))
+        pproc_struphy.main(os.path.join(o_path, 'tutorial_03'), physical=True)
 
 @pytest.mark.mpi(min_size=2)
 def test_tutorial_04():

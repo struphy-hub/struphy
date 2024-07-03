@@ -433,7 +433,7 @@ def struphy():
                               default=1)
 
     parser_pproc.add_argument('--physical',
-                              help='do post-processing into push-forwarded physical (xyz) components',
+                              help='in addition to logical components, evaluates push-forwarded physical (xyz) components',
                               action='store_true')
 
     # 7. "test" sub-command
