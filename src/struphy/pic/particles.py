@@ -212,6 +212,7 @@ class Particles5D(Particles):
         '''Discrete 1-form coefficients of B/|B|.'''
         return self._unit_b1_h
 
+    @property
     def coords(self):
         """ Coordinates of the Particles5D, :math:`(v_\parallel, \mu)`.
         """
@@ -302,7 +303,7 @@ class Particles5D(Particles):
 
         return self.domain.transform(self.s3(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
 
-    def save_constants_of_motion(self, epsilon, abs_B0=None, initial=False):
+    def save_constants_of_motion(self, epsilon, abs_B0=None, f_coords='constants_of_motion', initial=False):
         """
         Calculate each markers' constants of motion and assign them into markers[:,8:11].
         Only equilibrium magnetic field is considered.
@@ -314,6 +315,9 @@ class Particles5D(Particles):
 
         abs_B0 : BlockVector
             FE coeffs of equilibrium magnetic field magnitude.
+
+        f_coords : str
+            Coordinates of the distribution function f0.
 
         initial : bool
             If True, magnetic moment is also calculated and saved.
@@ -336,22 +340,24 @@ class Particles5D(Particles):
                                                       *args_fem,
                                                       abs_B0._data)
 
+        if f_coords == 'constants_of_motion':
+
+            # eval psi at etas
+            a1 = self.mhd_equil.domain.params_map['a1']
+            R0 = self.mhd_equil.params['R0']
+            B0 = self.mhd_equil.params['B0']
+
+            r = self.markers[~self.holes, 0]*(1 - a1) + a1
+            self.markers[~self.holes, 10] = self.mhd_equil.psi_r(r)
+
+            utilities_kernels.eval_canonical_toroidal_moment_5d(self.markers,
+                                                                *args_fem,
+                                                                epsilon, B0, R0,
+                                                                abs_B0._data)
+
         utilities_kernels.eval_energy_5d(self.markers,
                                          *args_fem,
                                          abs_B0._data)
-
-        # eval psi at etas
-        a1 = self.mhd_equil.domain.params_map['a1']
-        R0 = self.mhd_equil.params['R0']
-        B0 = self.mhd_equil.params['B0']
-
-        r = self.markers[~self.holes, 0]*(1 - a1) + a1
-        self.markers[~self.holes, 10] = self.mhd_equil.psi_r(r)
-
-        utilities_kernels.eval_canonical_toroidal_moment_5d(self.markers,
-                                                            *args_fem,
-                                                            epsilon, B0, R0,
-                                                            abs_B0._data)
 
     def save_magnetic_energy(self, b2):
         r"""
@@ -456,6 +462,12 @@ class Particles3D(Particles):
         """Starting buffer marker index number
         """
         return 6
+
+    @property
+    def coords(self):
+        """ Coordinates of the Particles3D.
+        """
+        return 'cartesian'
 
     def svol(self, eta1, eta2, eta3):
         """ Sampling density function as volume form.
